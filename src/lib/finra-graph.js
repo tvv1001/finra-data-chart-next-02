@@ -166,6 +166,157 @@ function loadSession() {
   }
 }
 
+let currentProfileName = null;
+let currentProfileEnabled = true;
+
+function isProfileEnabled(profile) {
+  return profile == null || profile.enabled !== false;
+}
+
+async function loadProfile(profileName) {
+  let prof = null;
+  try {
+    const res = await fetch(
+      makeApiUrl(`/api/finra/profile/${encodeURIComponent(profileName)}`).toString(),
+      { cache: "no-store" },
+    );
+    if (res.ok) prof = await res.json();
+  } catch {
+    /* ignore */
+  }
+
+  if (
+    !prof ||
+    (typeof prof === "object" &&
+      !Array.isArray(prof) &&
+      !prof.seeds &&
+      !Array.isArray(prof.individuals) &&
+      !Array.isArray(prof.firms))
+  ) {
+    try {
+      const seedsRes = await fetch(makeApiUrl("/api/finra/seeds").toString(), {
+        cache: "no-store",
+      });
+      if (seedsRes.ok) {
+        const seeds = await seedsRes.json();
+        if (Array.isArray(seeds)) prof = seeds;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return prof;
+}
+
+async function restoreSavedSession(session) {
+  if (!session) return;
+  const renderedIds = new Set(layoutNodes.map((n) => n.id));
+  const missingServerIds = (session.renderedServerIds || []).filter(
+    (id) => !renderedIds.has(id),
+  );
+  if (missingServerIds.length) {
+    await injectNodesById(missingServerIds);
+  }
+
+  if (session.extraNodes?.length || session.extraLinks?.length) {
+    mergeIntoGraphData(session.extraNodes || [], session.extraLinks || []);
+    appendFetched(session.extraNodes || [], session.extraLinks || []);
+  }
+
+  try {
+    applySavedNodePositions(session.nodePositions || []);
+  } catch {
+    // non-critical
+  }
+
+  try {
+    const parsed = parseZoomTransformString(session.zoomTransform);
+    if (
+      parsed &&
+      zoomBehavior &&
+      svgSel &&
+      typeof svgSel.call === "function"
+    ) {
+      svgSel
+        .transition()
+        .duration(0)
+        .call(
+          zoomBehavior.transform,
+          d3.zoomIdentity.translate(parsed.x, parsed.y).scale(parsed.k),
+        );
+    }
+  } catch {
+    // non-critical
+  }
+}
+
+function clearGraphData() {
+  graphData = { nodes: [], links: [], meta: {} };
+  initialServerNodeIds = new Set();
+  initialServerLinkKeys = new Set();
+  isSubsetMode = false;
+  clearSubsetInfo();
+  renderGraph(graphData);
+  updateMeta({ totalIndividuals: 0, totalFirms: 0, totalLinks: 0 });
+  showEmpty(true);
+}
+
+async function loadBaselineGraph(profileName) {
+  const url = makeApiUrl("/api/finra/graph");
+  if (profileName) {
+    url.searchParams.set("profile", profileName);
+  }
+  const res = await fetch(url.toString(), { cache: "no-store" });
+  if (!res.ok) {
+    if (res.status === 404) {
+      showEmpty(true);
+      return null;
+    }
+    throw new Error(`HTTP ${res.status}`);
+  }
+  graphData = await res.json();
+  initialServerNodeIds = new Set(graphData.nodes.map((n) => n.id));
+  initialServerLinkKeys = new Set(
+    graphData.links.map((l) => {
+      const s = l.source?.id ?? l.source;
+      const t = l.target?.id ?? l.target;
+      return `${s}|${t}`;
+    }),
+  );
+  showEmpty(false);
+  updateMeta(graphData.meta);
+  const totalNodes = graphData.meta?.totalNodes ?? graphData.nodes.length;
+  if (totalNodes > graphData.nodes.length) {
+    isSubsetMode = true;
+    updateSubsetInfo(graphData.nodes.length, totalNodes);
+    const sel = document.getElementById("fg-subset-select");
+    if (sel) sel.value = String(INITIAL_SEED_COUNT);
+    renderGraph(graphData);
+  } else {
+    isSubsetMode = false;
+    clearSubsetInfo();
+    const sel = document.getElementById("fg-subset-select");
+    if (sel) sel.value = "all";
+    renderGraph(graphData);
+  }
+  return graphData;
+}
+
+async function resetSessionView() {
+  clearSession();
+  if (currentProfileEnabled) {
+    try {
+      await loadBaselineGraph(currentProfileName);
+    } catch (err) {
+      console.error("resetSessionView:", err);
+      clearGraphData();
+    }
+  } else {
+    clearGraphData();
+  }
+}
+
 // Normalize saved zoom transform from either object form or SVG transform string.
 function parseZoomTransformString(t) {
   if (t && typeof t === "object") {
@@ -272,14 +423,21 @@ export function init(_d3) { d3 = _d3;
 
   const clearSessionBtn = document.getElementById("fg-clear-session");
   if (clearSessionBtn) {
-    clearSessionBtn.addEventListener("click", () => {
-      clearSession();
-      clearSessionBtn.textContent = "Cleared!";
+    clearSessionBtn.addEventListener("click", async () => {
       clearSessionBtn.disabled = true;
-      setTimeout(() => {
-        clearSessionBtn.textContent = "Clear session";
-        clearSessionBtn.disabled = false;
-      }, 1500);
+      clearSessionBtn.textContent = "Clearing…";
+      try {
+        await resetSessionView();
+        clearSessionBtn.textContent = "Cleared!";
+      } catch (err) {
+        console.error("clearSession failed:", err);
+        clearSessionBtn.textContent = "Error";
+      } finally {
+        setTimeout(() => {
+          clearSessionBtn.textContent = "Clear session";
+          clearSessionBtn.disabled = false;
+        }, 1500);
+      }
     });
   }
 
@@ -411,7 +569,7 @@ export function init(_d3) { d3 = _d3;
   const fetchBtn = document.getElementById("fg-fetch-remote");
   const fetchInput = document.getElementById("fg-fetch-input");
   if (fetchBtn && fetchInput) {
-    fetchBtn.addEventListener("click", async () => {
+    const runRemoteFetch = async () => {
       const q = String(fetchInput.value || "").trim();
       if (!q) return;
       fetchBtn.disabled = true;
@@ -641,6 +799,7 @@ export function init(_d3) { d3 = _d3;
                   );
                   if (!r.ok) throw new Error(`${r.status}`);
                   const detail = await r.json();
+                  if (detail?.found === false) return;
                   addIndividualFromSource(detail);
                 } catch {
                   // Ignore the synthetic direct-id fallback when the lookup fails.
@@ -657,6 +816,7 @@ export function init(_d3) { d3 = _d3;
                   );
                   if (!r.ok) throw new Error(`${r.status}`);
                   const detail = await r.json();
+                  if (detail?.found === false) return;
                   const firmNodeId = `firm:${firmId}`;
                   const bi = detail?.basicInformation || {};
                   const firmLabel =
@@ -785,6 +945,14 @@ export function init(_d3) { d3 = _d3;
       } finally {
         fetchBtn.disabled = false;
         fetchBtn.textContent = origText;
+      }
+    };
+
+    fetchBtn.addEventListener("click", runRemoteFetch);
+    fetchInput.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        runRemoteFetch();
       }
     });
   }
@@ -961,8 +1129,17 @@ export function init(_d3) { d3 = _d3;
     );
   }
 
+  function normalizeProfileIds(items) {
+    return (Array.isArray(items) ? items : [])
+      .map((item) => String(item ?? "").trim())
+      .filter((value) => /^[0-9]+$/.test(value));
+  }
+
   // Batch helper: fetch individual detail and return nodes/links without injecting.
   async function fetchIndividualBatch(crd, queryLabel) {
+    if (!/^[0-9]+$/.test(String(crd))) {
+      throw new Error(`invalid individual id ${crd}`);
+    }
     const nodes = [];
     const links = [];
     try {
@@ -971,6 +1148,7 @@ export function init(_d3) { d3 = _d3;
       );
       if (!r.ok) throw new Error(`individual HTTP ${r.status}`);
       const detail = await r.json();
+      if (detail?.found === false) throw new Error(`individual ${crd} not found`);
 
       const personId = `person:${crd}`;
       const personLabel =
@@ -1039,6 +1217,9 @@ export function init(_d3) { d3 = _d3;
 
   // Batch helper: fetch firm detail and return nodes/links without injecting.
   async function fetchFirmBatch(firmId, queryLabel) {
+    if (!/^[0-9]+$/.test(String(firmId))) {
+      throw new Error(`invalid firm id ${firmId}`);
+    }
     const nodes = [];
     const links = [];
     try {
@@ -1047,6 +1228,7 @@ export function init(_d3) { d3 = _d3;
       );
       if (!r.ok) throw new Error(`firm HTTP ${r.status}`);
       const detail = await r.json();
+      if (detail?.found === false) throw new Error(`firm ${firmId} not found`);
       const firmNodeId = `firm:${firmId}`;
       const firmLabel =
         detail?.firmName || detail?.name || queryLabel || `Firm ${firmId}`;
@@ -1199,6 +1381,7 @@ export function init(_d3) { d3 = _d3;
       );
       if (!r.ok) throw new Error(`firm HTTP ${r.status}`);
       const detail = await r.json();
+      if (detail?.found === false) throw new Error(`firm ${firmId} not found`);
       const existingFirmNode = findExistingFirmNode(firmId);
       const firmNodeId = existingFirmNode?.id || `firm:${firmId}`;
       const firmLabel =
@@ -1298,6 +1481,7 @@ export function init(_d3) { d3 = _d3;
     // Rebuild neighbor cache and update info
     neighborMap = buildNeighborMap(layoutNodes, layoutLinks);
     if (graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
+    updateMeta();
 
     // Persist session so reload restores these nodes
     saveSession();
@@ -1414,6 +1598,18 @@ export function init(_d3) { d3 = _d3;
     simulation.nodes(layoutNodes);
     simulation.force("link").links(layoutLinks);
     simulation.alpha(0.45).restart();
+    updateMeta();
+
+    // Reveal any connected neighbors for nodes that were just added.
+    if (uniqNodes.length && typeof revealNeighbors === "function") {
+      uniqNodes.forEach((node) => {
+        try {
+          revealNeighbors(node, 1);
+        } catch (e) {
+          console.warn("Failed to reveal neighbors for loaded node:", node.id, e);
+        }
+      });
+    }
   };
 
   // Add-person UI removed per user request
@@ -1448,6 +1644,7 @@ export function init(_d3) { d3 = _d3;
             );
             if (!r.ok) return;
             const detail = await r.json();
+            if (detail?.found === false) return;
             const personId = `person:${crd}`;
             const personLabel =
               detail?.basicInformation?.name || src?.name || `CRD ${crd}`;
@@ -1503,6 +1700,7 @@ export function init(_d3) { d3 = _d3;
             );
             if (!r.ok) return;
             const detail = await r.json();
+            if (detail?.found === false) return;
             const firmNodeId = `firm:${firmId}`;
             if (!batchNodes.some((n) => n.id === firmNodeId))
               batchNodes.push({
@@ -1674,14 +1872,15 @@ export function init(_d3) { d3 = _d3;
 
   // Fetch counts of cached JSON files from server-side cache-stats endpoint
   async function fetchCacheStatsOnce() {
+    const el = document.getElementById('fg-cache-stats');
+    if (!el) return;
     try {
       const url = makeApiUrl('/api/finra/cache-stats');
       const r = await fetch(url.toString(), { cache: 'no-store' });
       if (!r.ok) return;
       const j = await r.json();
       if (j && j.counts) {
-        const el = document.getElementById('fg-cache-stats');
-        if (el) el.textContent = `${j.counts.external} external · ${j.counts.national} national`;
+        el.textContent = `${j.counts.external} external · ${j.counts.national} national`;
       }
     } catch {
       /* ignore */
@@ -1704,71 +1903,6 @@ export function init(_d3) { d3 = _d3;
       clearInterval(_metaPollId);
       _metaPollId = null;
     }
-  }
-
-  // Wire up manual refresh button
-  const refreshBtn = document.getElementById("fg-refresh");
-  if (refreshBtn) {
-    refreshBtn.addEventListener("click", async () => {
-      const orig = refreshBtn.textContent;
-      try {
-        refreshBtn.disabled = true;
-        refreshBtn.textContent = "Refreshing…";
-        await fetchMetaOnce();
-      } finally {
-        refreshBtn.disabled = false;
-        refreshBtn.textContent = orig;
-      }
-    });
-  }
-
-  // Wire up Show All button — fetch the entire graph file and render it.
-  const showAllBtn = document.getElementById("fg-show-all");
-  async function fetchFullGraph() {
-    try {
-      const url = makeApiUrl("/api/finra/graph");
-      // Request the full file (no limit param)
-      const r = await fetch(url.toString(), { cache: "no-store" });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const j = await r.json();
-      if (!j || !Array.isArray(j.nodes)) throw new Error("Invalid graph data");
-      // Warn user if graph is very large
-      const total = j.meta?.totalNodes ?? j.nodes.length;
-      if (total > 5000) {
-        const ok = confirm(`This will load ${total.toLocaleString()} nodes into your browser and may be slow. Continue?`);
-        if (!ok) return;
-      }
-      graphData = j;
-      // Reset baseline snapshot for this newly loaded server dataset
-      initialServerNodeIds = new Set(graphData.nodes.map((n) => n.id));
-      initialServerLinkKeys = new Set(
-        graphData.links.map((l) => {
-          const s = l.source?.id ?? l.source;
-          const t = l.target?.id ?? l.target;
-          return `${s}|${t}`;
-        }),
-      );
-      updateMeta(graphData.meta);
-      isSubsetMode = false;
-      clearSubsetInfo();
-      renderGraph(graphData);
-    } catch (e) {
-      console.error('Failed to load full graph', e);
-      alert('Failed to load full graph: ' + (e && e.message));
-    }
-  }
-  if (showAllBtn) {
-    showAllBtn.addEventListener('click', async () => {
-      showAllBtn.disabled = true;
-      const orig = showAllBtn.textContent;
-      try {
-        showAllBtn.textContent = 'Loading…';
-        await fetchFullGraph();
-      } finally {
-        showAllBtn.disabled = false;
-        showAllBtn.textContent = orig;
-      }
-    });
   }
 
   // Kick off polling after initial load so UI shows updated counts automatically
@@ -2079,6 +2213,20 @@ async function fetchQueryBatch(q) {
   return { nodes: newNodes, links: newLinks };
 }
 
+function updateGraphMeta() {
+  if (!graphData) return;
+  const totalIndividuals = graphData.nodes.filter((n) => n.group === "individual").length;
+  const totalFirms = graphData.nodes.filter((n) => n.group === "firm").length;
+  const totalLinks = graphData.links.length;
+  graphData.meta = {
+    ...(graphData.meta || {}),
+    totalIndividuals,
+    totalFirms,
+    totalLinks,
+  };
+  updateMeta(graphData.meta);
+}
+
 function mergeIntoGraphData(newNodes, newLinks) {
   if (!graphData) return;
   const gIds = new Set(graphData.nodes.map((n) => n.id));
@@ -2113,11 +2261,14 @@ function mergeIntoGraphData(newNodes, newLinks) {
   } catch (e) {
     /* ignore */
   }
+
+  updateGraphMeta();
 }
 
 // Fire-and-forget persist of newly fetched nodes/links to the server graph file.
 function persistToServer(nodes, links) {
-  fetch(`${BASE}/api/finra/graph-append`, {
+  const url = makeApiUrl("/api/finra/graph-append");
+  fetch(url.toString(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ nodes, links }),
@@ -2128,254 +2279,139 @@ function persistToServer(nodes, links) {
 
 async function loadGraph() {
   try {
-    // Get the profile name for initial graph loading
     const hasProfileParam = new URLSearchParams(window.location.search).has("profile");
     const profileName = hasProfileParam
       ? new URLSearchParams(window.location.search).get("profile")
       : "custom";
+    currentProfileName = profileName;
 
-    // Request the full graph from the server
-    const url = makeApiUrl("/api/finra/graph");
-    if (profileName) {
-      url.searchParams.set("profile", profileName);
-    }
-    const res = await fetch(url.toString(), { cache: "no-store" });
-    if (!res.ok) {
-      if (res.status === 404) {
-        showEmpty(true);
+    const profileData = await loadProfile(profileName);
+    currentProfileEnabled = isProfileEnabled(profileData);
+    const session = loadSession();
+
+    if (!currentProfileEnabled) {
+      if (session) {
+        graphData = { nodes: [], links: [], meta: {} };
+        initialServerNodeIds = new Set();
+        initialServerLinkKeys = new Set();
+        isSubsetMode = false;
+        renderGraph(graphData);
+        showEmpty(false);
+        updateMeta({ totalIndividuals: 0, totalFirms: 0, totalLinks: 0 });
+        await restoreSavedSession(session);
         return;
       }
-      throw new Error(`HTTP ${res.status}`);
-    }
-    graphData = await res.json();
-    // Snapshot this initial server subset before any merge/expansion happens.
-    initialServerNodeIds = new Set(graphData.nodes.map((n) => n.id));
-    initialServerLinkKeys = new Set(
-      graphData.links.map((l) => {
-        const s = l.source?.id ?? l.source;
-        const t = l.target?.id ?? l.target;
-        return `${s}|${t}`;
-      }),
-    );
-    showEmpty(false);
-    updateMeta(graphData.meta);
-    // The server already returned the right subset — render it directly.
-    const totalNodes = graphData.meta?.totalNodes ?? graphData.nodes.length;
-    if (totalNodes > graphData.nodes.length) {
-      isSubsetMode = true;
-      updateSubsetInfo(graphData.nodes.length, totalNodes);
-      const sel = document.getElementById("fg-subset-select");
-      if (sel) sel.value = String(INITIAL_SEED_COUNT);
-      renderGraph(graphData);
-    } else {
-      isSubsetMode = false;
-      clearSubsetInfo();
-      const sel = document.getElementById("fg-subset-select");
-      if (sel) sel.value = "all";
-      renderGraph(graphData);
+      clearGraphData();
+      return;
     }
 
-    // ── Restore previous session ──────────────────────────────────────────
-    const session = loadSession();
+    await loadBaselineGraph(profileName);
+    if (!graphData) return;
+
     if (session) {
-      // 1. Inject server-graph nodes that were previously expanded but aren't
-      //    in the initial seed subset returned this load.
-      const renderedIds = new Set(layoutNodes.map((n) => n.id));
-      const missingServerIds = (session.renderedServerIds || []).filter(
-        (id) => !renderedIds.has(id),
-      );
-      if (missingServerIds.length) {
-        await injectNodesById(missingServerIds);
-      }
-      // 2. Re-append nodes that came from external fetch (not in server graph)
-      if (session.extraNodes?.length || session.extraLinks?.length) {
-        mergeIntoGraphData(session.extraNodes || [], session.extraLinks || []);
-        appendFetched(session.extraNodes || [], session.extraLinks || []);
-      }
-
-      // Restore exact node coordinates from the previous session.
-      try {
-        applySavedNodePositions(session.nodePositions || []);
-      } catch {
-        // non-critical
-      }
-
-      // Restore zoom transform for this session (without restoring selection/sidebar).
-      try {
-        const parsed = parseZoomTransformString(session.zoomTransform);
-        if (
-          parsed &&
-          zoomBehavior &&
-          svgSel &&
-          typeof svgSel.call === "function"
-        ) {
-          svgSel
-            .transition()
-            .duration(0)
-            .call(
-              zoomBehavior.transform,
-              d3.zoomIdentity.translate(parsed.x, parsed.y).scale(parsed.k),
-            );
-        }
-      } catch {
-        // non-critical
-      }
+      await restoreSavedSession(session);
+      return;
     }
 
     // Auto-load the profile specified in ?profile=<name>, or 'custom' by default.
     // The /api/finra/profile/:name endpoint returns either a profile object or a flat seeds array.
     // If not found, fall back to /api/finra/seeds (flat array).
-    try {
-      const hasProfileParam = new URLSearchParams(window.location.search).has(
-        "profile",
-      );
-      const profileName = hasProfileParam
-        ? new URLSearchParams(window.location.search).get("profile")
-        : "custom";
-      let prof = null;
-      let profileFetchFailed = false;
-      try {
-        const pr = await fetch(
-          makeApiUrl(
-            `/api/finra/profile/${encodeURIComponent(profileName)}`,
-          ).toString(),
-          { cache: "no-store" },
-        );
-        if (pr.ok) {
-          prof = await pr.json();
-        } else {
-          profileFetchFailed = true;
-        }
-      } catch {
-        profileFetchFailed = true;
-      }
+    const prof = profileData;
 
-      // If no profile found or not in expected format, fall back to /api/finra/seeds
-      if (
-        !prof ||
-        (typeof prof === "object" && !Array.isArray(prof) && !prof.seeds)
-      ) {
+    if (Array.isArray(prof)) {
+      for (const seed of prof.map(String).filter(Boolean)) {
         try {
-          const seedsRes = await fetch(
-            makeApiUrl("/api/finra/seeds").toString(),
-            { cache: "no-store" },
-          );
-          if (seedsRes.ok) {
-            const seeds = await seedsRes.json();
-            if (Array.isArray(seeds)) {
-              for (const seed of seeds.map(String).filter(Boolean)) {
-                try {
-                  await fetchAndInjectLocalQuery(seed);
-                } catch {
-                  /* ignore — non-critical */
-                }
-              }
-              await expandLoadedSeedNodes();
-              return;
-            }
-          }
-        } catch {}
+          await fetchAndInjectLocalQuery(seed);
+        } catch {
+          /* ignore — non-critical */
+        }
+      }
+      await expandLoadedSeedNodes();
+      return;
+    }
+
+    if (prof && typeof prof === "object") {
+      const indCrds = normalizeProfileIds(prof.individuals);
+      const firmIds = normalizeProfileIds(prof.firms);
+      const seedQueries = (prof.seeds || [])
+        .map(String)
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      const indivPromises = indCrds.map(async (c) => {
+        if (layoutNodes.some((n) => n.id === `person:${c}`))
+          return { nodes: [], links: [] };
+        try {
+          return await fetchIndividualBatch(c);
+        } catch {
+          return { nodes: [], links: [] };
+        }
+      });
+      const firmPromises = firmIds.map(async (f) => {
+        if (layoutNodes.some((n) => n.id === `firm:${f}`))
+          return { nodes: [], links: [] };
+        try {
+          return await fetchFirmBatch(f);
+        } catch {
+          return { nodes: [], links: [] };
+        }
+      });
+
+      const indivResults = await Promise.allSettled(indivPromises);
+      const firmResults = await Promise.allSettled(firmPromises);
+
+      const batchAllNodes = [];
+      const batchAllLinks = [];
+
+      for (const r of indivResults) {
+        if (r.status === "fulfilled" && r.value) {
+          batchAllNodes.push(...(r.value.nodes || []));
+          batchAllLinks.push(...(r.value.links || []));
+        }
+      }
+      for (const r of firmResults) {
+        if (r.status === "fulfilled" && r.value) {
+          batchAllNodes.push(...(r.value.nodes || []));
+          batchAllLinks.push(...(r.value.links || []));
+        }
       }
 
-      // If the loaded profile is a flat array, treat each entry as a query (flatfile mode)
-      if (Array.isArray(prof)) {
-        for (const seed of prof.map(String).filter(Boolean)) {
-          try {
-            await fetchAndInjectLocalQuery(seed);
-          } catch {
-            /* ignore — non-critical */
-          }
-        }
-      } else if (prof && typeof prof === "object") {
-        // Profile object mode (legacy and preferred for curated lists)
-        const indCrds = (prof.individuals || []).map(String).filter(Boolean);
-        const firmIds = (prof.firms || []).map(String).filter(Boolean);
-        const seedQueries = (prof.seeds || []).map(String).filter(Boolean);
+      if (batchAllNodes.length) {
+        appendFetched(batchAllNodes, batchAllLinks);
+        mergeIntoGraphData(batchAllNodes, batchAllLinks);
+        persistToServer(batchAllNodes, batchAllLinks);
+      }
 
-        // Inject individuals and firms in parallel (all of them — no cap since
-        // profile lists are explicitly curated by the user).
-        // Batch-load all individual/firm details first, then append once to
-        // avoid repeated incremental layout updates that cause node movement.
-        const indivPromises = indCrds.map(async (c) => {
-          if (layoutNodes.some((n) => n.id === `person:${c}`))
-            return { nodes: [], links: [] };
-          try {
-            return await fetchIndividualBatch(c);
-          } catch {
-            return { nodes: [], links: [] };
-          }
-        });
-        const firmPromises = firmIds.map(async (f) => {
-          if (layoutNodes.some((n) => n.id === `firm:${f}`))
-            return { nodes: [], links: [] };
-          try {
-            return await fetchFirmBatch(f);
-          } catch {
-            return { nodes: [], links: [] };
-          }
-        });
-
-        const indivResults = await Promise.allSettled(indivPromises);
-        const firmResults = await Promise.allSettled(firmPromises);
-
-        const batchAllNodes = [];
-        const batchAllLinks = [];
-
-        for (const r of indivResults) {
-          if (r.status === "fulfilled" && r.value) {
-            batchAllNodes.push(...(r.value.nodes || []));
-            batchAllLinks.push(...(r.value.links || []));
-          }
-        }
-        for (const r of firmResults) {
-          if (r.status === "fulfilled" && r.value) {
-            batchAllNodes.push(...(r.value.nodes || []));
-            batchAllLinks.push(...(r.value.links || []));
-          }
-        }
-
-        if (batchAllNodes.length) {
-          appendFetched(batchAllNodes, batchAllLinks);
-          mergeIntoGraphData(batchAllNodes, batchAllLinks);
-          persistToServer(batchAllNodes, batchAllLinks);
-        }
-
-        // Inject text-based seed queries (e.g. "Jennifer", "ice", "china").
-        // Batch-preload seeds (local first, then remote) and append once to
-        // avoid repeated layout restarts and visible movement.
-        if (seedQueries.length) {
-          const CONCURRENCY = 6;
-          const seedBatchNodes = [];
-          const seedBatchLinks = [];
-          for (let i = 0; i < seedQueries.length; i += CONCURRENCY) {
-            const chunk = seedQueries.slice(i, i + CONCURRENCY);
-            const promises = chunk.map(async (s) => {
-              try {
-                const local = await fetchLocalQueryBatch(s);
-                if (local.nodes && local.nodes.length) return local;
-                // Fallback to full text remote query
-                return await fetchQueryBatch(s);
-              } catch {
-                return { nodes: [], links: [] };
-              }
-            });
-            const results = await Promise.all(promises);
-            for (const r of results) {
-              if (r.nodes?.length) seedBatchNodes.push(...r.nodes);
-              if (r.links?.length) seedBatchLinks.push(...r.links);
+      if (seedQueries.length) {
+        const CONCURRENCY = 6;
+        const seedBatchNodes = [];
+        const seedBatchLinks = [];
+        for (let i = 0; i < seedQueries.length; i += CONCURRENCY) {
+          const chunk = seedQueries.slice(i, i + CONCURRENCY);
+          const promises = chunk.map(async (s) => {
+            try {
+              const local = await fetchLocalQueryBatch(s);
+              if (local.nodes && local.nodes.length) return local;
+              return await fetchQueryBatch(s);
+            } catch {
+              return { nodes: [], links: [] };
             }
-          }
-          if (seedBatchNodes.length) {
-            appendFetched(seedBatchNodes, seedBatchLinks);
-            mergeIntoGraphData(seedBatchNodes, seedBatchLinks);
-            persistToServer(seedBatchNodes, seedBatchLinks);
+          });
+          const results = await Promise.all(promises);
+          for (const r of results) {
+            if (r.nodes?.length) seedBatchNodes.push(...r.nodes);
+            if (r.links?.length) seedBatchLinks.push(...r.links);
           }
         }
+        if (seedBatchNodes.length) {
+          appendFetched(seedBatchNodes, seedBatchLinks);
+          mergeIntoGraphData(seedBatchNodes, seedBatchLinks);
+          persistToServer(seedBatchNodes, seedBatchLinks);
+        }
+      }
     }
+
     await expandLoadedSeedNodes();
-  } catch (e) {
-      // non-critical — profile may not exist
-    }
   } catch (err) {
     console.error("loadGraph:", err);
     showEmpty(true);
@@ -2731,18 +2767,26 @@ async function filterGraph(rawQuery) {
 }
 
 function updateMeta(meta = {}) {
-  if (!meta) return;
+  if (!meta && !layoutNodes) return;
   const el = document.getElementById("fg-meta-label");
+  if (!el) return;
+
+  const visibleIndividuals = Array.isArray(layoutNodes)
+    ? layoutNodes.filter((n) => n.group === "individual").length
+    : meta.totalIndividuals ?? 0;
+  const visibleFirms = Array.isArray(layoutNodes)
+    ? layoutNodes.filter((n) => n.group === "firm").length
+    : meta.totalFirms ?? 0;
+  const visibleLinks = Array.isArray(layoutLinks)
+    ? layoutLinks.length
+    : meta.totalLinks ?? 0;
+
   const parts = [];
-  if (meta.totalIndividuals != null)
-    parts.push(`${meta.totalIndividuals} people`);
-  if (meta.totalFirms != null) parts.push(`${meta.totalFirms} firms`);
-  if (meta.totalLinks != null) parts.push(`${meta.totalLinks} links`);
-  if (meta.generated) {
-    const d = new Date(meta.generated);
-    parts.push(`built ${d.toLocaleDateString()}`);
-  }
-  el.textContent = parts.join("  ·  ");
+  if (typeof visibleIndividuals === "number") parts.push(`${visibleIndividuals} people`);
+  if (typeof visibleFirms === "number") parts.push(`${visibleFirms} firms`);
+  if (typeof visibleLinks === "number") parts.push(`${visibleLinks} links`);
+
+  el.textContent = parts.join(" · ");
 }
 
 function showEmpty(show) {
@@ -3586,14 +3630,37 @@ function injectNodesById(ids) {
 
 // ── Selection & Sidebar ─────────────────────────────────────────────────────
 
+// Normalize a detail payload so top-level merged fields are available
+// under basicInformation and the UI can consume it consistently.
+function normalizeIndividualDetailPayload(detail, fallbackCrd) {
+  if (!detail || typeof detail !== "object") return detail;
+  if (!detail.basicInformation) {
+    const bi = {};
+    if (detail.individualId || detail.ind_source_id || detail.crd || fallbackCrd) {
+      bi.individualId = detail.individualId || detail.ind_source_id || detail.crd || fallbackCrd;
+    }
+    if (detail.firstName) bi.firstName = detail.firstName;
+    if (detail.middleName) bi.middleName = detail.middleName;
+    if (detail.lastName) bi.lastName = detail.lastName;
+    if (detail.name) bi.name = detail.name;
+    if (detail.bcScope) bi.bcScope = detail.bcScope;
+    if (detail.iaScope) bi.iaScope = detail.iaScope;
+    if (detail.otherNames) bi.otherNames = detail.otherNames;
+    if (Object.keys(bi).length) {
+      detail.basicInformation = bi;
+    }
+  }
+  return detail;
+}
+
 // Fetch individual detail from API and merge all data into the node.
 // Called when an individual node is selected to hydrate missing data.
 async function ensureIndividualDetail(personNode) {
   if (!personNode || personNode.group !== "individual") return;
 
-  // Extract CRD from node ID (supports both "person:6482604" and
-  // legacy "person_6482604" ids from cached graph files).
-  const match = personNode.id.match(/^person[:_](\d+)$/);
+  // Extract CRD from node ID.
+  // Supports "person:6482604", legacy "person_6482604", and bare numeric ids.
+  const match = personNode.id.match(/^(?:person[:_])?(\d+)$/);
   if (!match) return;
   const crd = match[1];
 
@@ -3606,16 +3673,22 @@ async function ensureIndividualDetail(personNode) {
       const localRes = await fetch(`${BASE}/api/finra/merged/individual/${encodeURIComponent(crd)}`);
       if (localRes.ok) {
         const merged = await localRes.json();
-        if (merged?.found && merged?.merged) {
-          // Use the merged data directly
-          detail = merged.merged;
+        const candidate = merged?.merged;
+        if (candidate) {
+          const normalized = normalizeIndividualDetailPayload(candidate, crd);
+          if (
+            normalized?.basicInformation &&
+            (normalized.basicInformation.individualId || normalized.basicInformation.firstName || normalized.basicInformation.lastName)
+          ) {
+            detail = normalized;
+          }
         }
       }
     } catch {
       // local lookup failed — fall through to live API
     }
 
-    // Fall back to live FINRA/SEC API if no local data
+    // Fall back to live FINRA/SEC API if no local data or if merged detail is incomplete
     if (!detail) {
       const url = `${BASE}/api/finra/individual/${encodeURIComponent(crd)}`;
       const response = await fetch(url);
@@ -3627,6 +3700,11 @@ async function ensureIndividualDetail(personNode) {
         return;
       }
       detail = await response.json();
+      if (detail?.found === false) {
+        console.warn(`Individual ${crd} not found`);
+        return;
+      }
+      detail = normalizeIndividualDetailPayload(detail, crd);
     }
 
     // Inline merge of individual detail into the person node (avoid external helper dependency)
@@ -3704,8 +3782,8 @@ async function ensureIndividualDetail(personNode) {
 async function ensureFirmDetail(firmNode) {
   if (!firmNode || firmNode.group !== "firm") return;
 
-  // Support both "firm:12345" and legacy "firm_12345" id formats
-  const match = firmNode.id.match(/^firm[:_](\d+)$/);
+  // Support both "firm:12345", legacy "firm_12345", and bare numeric ids
+  const match = firmNode.id.match(/^(?:firm[:_])?(\d+)$/);
   if (!match) return;
   const firmId = match[1];
 
@@ -3758,6 +3836,10 @@ async function ensureFirmDetail(firmNode) {
       return;
     }
     detail = await res.json();
+    if (detail?.found === false) {
+      console.warn(`Firm ${firmId} not found`);
+      return;
+    }
 
     const bi = detail?.basicInformation || {};
     if (bi.firmName && !firmNode.label?.trim()) firmNode.label = bi.firmName;
@@ -3844,9 +3926,10 @@ function selectNode(d) {
   renderSidebar(d);
 
   // Add the selected node to the seed profile
-  const crd = d.id.split(':')[1];
-  if (crd && !isNaN(crd)) {
-    const data = d.group === 'individual' ? { individuals: [parseInt(crd)] } : { firms: [parseInt(crd)] };
+  const rawId = d.id.split(':').pop();
+  const parsedId = rawId && !isNaN(rawId) ? parseInt(rawId, 10) : null;
+  if (parsedId) {
+    const data = d.group === 'individual' ? { individuals: [parsedId] } : { firms: [parsedId] };
     fetch(`${BASE}/api/finra/add-to-profile`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

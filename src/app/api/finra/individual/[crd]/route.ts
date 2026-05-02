@@ -94,7 +94,7 @@ export async function GET(
 
     const finraDetail = parseDetailPayload(finraData, "content");
     if (!finraDetail) {
-      return NextResponse.json({ error: "CRD not found." }, { status: 404 });
+      return NextResponse.json({ found: false }, { status: 200 });
     }
 
     const secDetail = parseDetailPayload(secData, "iacontent");

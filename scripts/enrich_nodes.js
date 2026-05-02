@@ -34,6 +34,7 @@ async function enrich() {
         const res = await axios.get(url, { timeout: 20000 });
         if (res.status === 200 && res.data) {
           const detail = res.data;
+          if (detail?.found === false) continue;
           const bi = detail?.basicInformation || {};
           const fullName = [bi.firstName, bi.middleName, bi.lastName].filter(Boolean).join(' ');
           if (fullName) node.label = fullName;
@@ -49,6 +50,7 @@ async function enrich() {
         const res = await axios.get(url, { timeout: 20000 });
         if (res.status === 200 && res.data) {
           const detail = res.data;
+          if (detail?.found === false) continue;
           const bi = detail?.basicInformation || {};
           if (bi.firmName) node.label = bi.firmName;
           node.basicInformation = bi;

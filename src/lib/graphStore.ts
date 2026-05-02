@@ -9,6 +9,10 @@ export let _graphCache: any = null;
 
 export async function getFullGraph() {
   if (_graphCache) return _graphCache;
+  if (!(await graphFileExists())) {
+    _graphCache = { nodes: [], links: [], meta: {} };
+    return _graphCache;
+  }
   const raw = await readFile(GRAPH_FILE, "utf-8");
   _graphCache = JSON.parse(raw);
   return _graphCache;

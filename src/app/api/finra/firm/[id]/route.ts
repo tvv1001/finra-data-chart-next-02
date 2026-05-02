@@ -66,7 +66,7 @@ export async function GET(
     }
 
     if (!bcDetail && !secDetail) {
-      return NextResponse.json({ error: "Firm not found." }, { status: 404 });
+      return NextResponse.json({ found: false }, { status: 200 });
     }
 
     let detail: any = bcDetail || secDetail;

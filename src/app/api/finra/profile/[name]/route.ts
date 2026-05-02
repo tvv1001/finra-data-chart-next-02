@@ -34,6 +34,7 @@ export async function GET(
   return NextResponse.json({
     name: prof.name,
     description: prof.description || "",
+    enabled: typeof prof.enabled === "boolean" ? prof.enabled : true,
     seeds: Array.isArray(prof.seeds) ? prof.seeds : [],
     individuals: Array.isArray(prof.individuals)
       ? prof.individuals.map(Number).filter(Boolean)

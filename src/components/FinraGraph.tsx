@@ -25,7 +25,6 @@ export default function FinraGraph() {
           <h1 className="fg-title">FINRA Network</h1>
           <div className="fg-toolbar">
             <span id="fg-meta-label" className="fg-meta"></span>
-            <span id="fg-cache-stats" className="fg-cache-stats"></span>
             <span id="fg-subset-info" className="fg-subset-info"></span>
 
             <div className="fg-search">
@@ -58,20 +57,6 @@ export default function FinraGraph() {
                 title="Clear saved session and reload fresh"
               >
                 Clear session
-              </button>
-              <button
-                id="fg-refresh"
-                className="fg-refresh"
-                title="Refresh graph metadata"
-              >
-                Refresh
-              </button>
-              <button
-                id="fg-show-all"
-                className="fg-show-all"
-                title="Load full graph (may be large)"
-              >
-                Show All
               </button>
             </div>
           </div>

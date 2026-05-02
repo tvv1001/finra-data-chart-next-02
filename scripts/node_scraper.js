@@ -39,7 +39,7 @@ async function run(seeds = [], maxDepth = 2) {
     if (id.startsWith('person:')) {
       const crd = id.split(':')[1];
       const detail = await fetchJson(`${BASE_API}/api/finra/individual/${encodeURIComponent(crd)}`);
-      if (!detail) continue;
+      if (!detail || detail?.found === false) continue;
       const name = detail?.basicInformation && [detail.basicInformation.firstName, detail.basicInformation.lastName].filter(Boolean).join(' ');
       nodeMap.set(id, { id, label: name || id, group: 'individual', basicInformation: detail.basicInformation });
       const emps = [...(detail.currentEmployments||[]), ...(detail.previousEmployments||[]), ...(detail.currentIAEmployments||[]), ...(detail.previousIAEmployments||[])];
@@ -55,6 +55,7 @@ async function run(seeds = [], maxDepth = 2) {
     } else if (id.startsWith('firm:')) {
       const fid = id.split(':')[1];
       const detail = await fetchJson(`${BASE_API}/api/finra/firm/${encodeURIComponent(fid)}`);
+      if (!detail || detail?.found === false) continue;
       const name = detail?.basicInformation?.firmName || id;
       nodeMap.set(id, { id, label: name, group: 'firm', basicInformation: detail?.basicInformation });
       // direct owners

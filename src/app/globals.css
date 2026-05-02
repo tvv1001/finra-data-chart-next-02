@@ -601,7 +601,7 @@ body {
   display: block;
   font-size: 11px;
   color: var(--text-m);
-  font-family: var(--mono);
+  font-family: var(--sans);
 }
 
 .fg-tl-loc {
@@ -670,7 +670,7 @@ body {
 .fg-dis-dockets {
   font-size: 11px;
   color: var(--text-m);
-  font-family: var(--mono);
+  font-family: var(--sans);
   margin-top: 4px;
 }
 
@@ -738,7 +738,7 @@ body {
 .fg-owner-crd {
   display: inline-block;
   font-size: 11px;
-  font-family: var(--mono);
+  font-family: var(--sans);
   background: var(--accent-bg);
   color: var(--accent);
   border-radius: 4px;
@@ -857,7 +857,7 @@ body {
   overflow-x: auto;
   margin: 0;
   padding: 10px 14px;
-  font: 12px/1.6 var(--mono);
+  font: 12px/1.6 var(--sans);
   color: #a3e635;
   white-space: pre-wrap;
   word-break: break-all;

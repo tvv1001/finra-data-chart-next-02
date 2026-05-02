@@ -13,7 +13,7 @@ export async function GET(
   try {
     const data = await mergedFirm(id);
     if (!data.found) {
-      return NextResponse.json({ error: "Merged firm not found" }, { status: 404 });
+      return NextResponse.json({ found: false });
     }
     return NextResponse.json(data);
   } catch (err: any) {
