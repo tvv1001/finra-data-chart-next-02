@@ -3653,6 +3653,25 @@ function normalizeIndividualDetailPayload(detail, fallbackCrd) {
   return detail;
 }
 
+function hasRichIndividualDetail(detail) {
+  if (!detail || typeof detail !== "object") return false;
+  const listFields = [
+    "currentEmployments",
+    "previousEmployments",
+    "currentIAEmployments",
+    "previousIAEmployments",
+    "disclosures",
+    "iaDisclosures",
+    "registeredStates",
+    "registeredSROs",
+  ];
+  for (const key of listFields) {
+    if (Array.isArray(detail[key]) && detail[key].length) return true;
+  }
+  if (detail.registrationCount || detail.examsCount || detail.brokerDetails) return true;
+  return false;
+}
+
 // Fetch individual detail from API and merge all data into the node.
 // Called when an individual node is selected to hydrate missing data.
 async function ensureIndividualDetail(personNode) {
@@ -3669,6 +3688,7 @@ async function ensureIndividualDetail(personNode) {
   try {
     // First try the local merged record (fast, no external call)
     let detail = null;
+    let localDetail = null;
     try {
       const localRes = await fetch(`${BASE}/api/finra/merged/individual/${encodeURIComponent(crd)}`);
       if (localRes.ok) {
@@ -3680,7 +3700,10 @@ async function ensureIndividualDetail(personNode) {
             normalized?.basicInformation &&
             (normalized.basicInformation.individualId || normalized.basicInformation.firstName || normalized.basicInformation.lastName)
           ) {
-            detail = normalized;
+            localDetail = normalized;
+            if (hasRichIndividualDetail(normalized)) {
+              detail = normalized;
+            }
           }
         }
       }
@@ -3688,7 +3711,7 @@ async function ensureIndividualDetail(personNode) {
       // local lookup failed — fall through to live API
     }
 
-    // Fall back to live FINRA/SEC API if no local data or if merged detail is incomplete
+    // Fall back to live FINRA/SEC API if no local rich data available.
     if (!detail) {
       const url = `${BASE}/api/finra/individual/${encodeURIComponent(crd)}`;
       const response = await fetch(url);
@@ -3697,14 +3720,23 @@ async function ensureIndividualDetail(personNode) {
           `Failed to fetch individual detail for ${crd}:`,
           response.status,
         );
-        return;
+        detail = localDetail;
+      } else {
+        detail = await response.json();
+        if (detail?.found === false) {
+          console.warn(`Individual ${crd} not found`);
+          detail = localDetail;
+        } else {
+          detail = normalizeIndividualDetailPayload(detail, crd);
+          if (localDetail && hasRichIndividualDetail(localDetail) && !hasRichIndividualDetail(detail)) {
+            detail = localDetail;
+          }
+        }
       }
-      detail = await response.json();
-      if (detail?.found === false) {
-        console.warn(`Individual ${crd} not found`);
-        return;
-      }
-      detail = normalizeIndividualDetailPayload(detail, crd);
+    }
+
+    if (!detail && localDetail) {
+      detail = localDetail;
     }
 
     // Inline merge of individual detail into the person node (avoid external helper dependency)
@@ -4808,6 +4840,14 @@ function renderPersonDetail(d) {
       </div>`;
   }
 
+  const crd = bi.individualId || d.crd || String(d.id).replace(/^person[:_]/, "");
+  const bcRawUrl = bi.individualId
+    ? `https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?hl=true&includePrevious=true&nrows=12&r=25&sort=bc_lastname_sort+asc,bc_firstname_sort+asc,bc_middlename_sort+asc,score+desc&wt=json`
+    : null;
+  const secRawUrl = bi.individualId
+    ? `https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?hl=true&includePrevious=true&nrows=12&r=25&sort=bc_lastname_sort+asc,bc_firstname_sort+asc,bc_middlename_sort+asc,score+desc&wt=json`
+    : null;
+
   return `
     <div class="fg-sb-header individual">
       <div class="fg-sb-title">${esc(d.label || [bi.firstName, bi.middleName, bi.lastName].filter(Boolean).join(" "))}</div>
@@ -4819,8 +4859,10 @@ function renderPersonDetail(d) {
     </div>
     <div class="fg-sb-body">
       <div class="fg-ext-links">
-        ${bi.individualId ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/individual/summary/${encodeURIComponent(bi.individualId)}" target="_blank" rel="noopener noreferrer">&#x2197; BrokerCheck</a>` : ""}
-        ${(d.hasSecData && bi.individualId) ? `<a class="fg-ext-link sec" href="https://adviserinfo.sec.gov/Individual/${encodeURIComponent(bi.individualId)}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo</a>` : ""}
+        ${bi.individualId ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/individual/summary/${encodeURIComponent(bi.individualId)}" target="_blank" rel="noopener noreferrer">&#x2197; BrokerCheck Summary</a>` : ""}
+        ${bi.individualId && d.hasSecData ? `<a class="fg-ext-link sec" href="https://adviserinfo.sec.gov/Individual/${encodeURIComponent(bi.individualId)}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo Summary</a>` : ""}
+        ${bcRawUrl ? `<a class="fg-ext-link raw" href="${bcRawUrl}" target="_blank" rel="noopener noreferrer">JSON Source (BrokerCheck)</a>` : ""}
+        ${secRawUrl ? `<a class="fg-ext-link raw" href="${secRawUrl}" target="_blank" rel="noopener noreferrer">JSON Source (AdvisorInfo)</a>` : ""}
       </div>
 
       ${bi.individualId ? row("CRD", `<code>${bi.individualId}</code>`) : ""}
@@ -5039,6 +5081,14 @@ function renderFirmDetail(d) {
       ? d.activeStates.join(", ")
       : "N/A";
 
+  const firmId = d.firmId || String(d.id).replace(/^firm[:_]/, "");
+  const bcRawUrl = firmId
+    ? `https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(firmId)}?hl=true&nrows=12&query=&start=0&wt=json`
+    : null;
+  const secRawUrl = firmId
+    ? `https://api.adviserinfo.sec.gov/search/firm/${encodeURIComponent(firmId)}?hl=true&nrows=12&query=smith&r=25&sort=score+desc&wt=json`
+    : null;
+
   return `
     <div class="fg-sb-header firm">
       <div class="fg-sb-title">${esc(d.label)}</div>
@@ -5057,8 +5107,10 @@ function renderFirmDetail(d) {
     </div>
     <div class="fg-sb-body">
       <div class="fg-ext-links">
-        ${d.firmId && (d.bcScope != null || d.bdSecNumber || (d.id && d.id.startsWith("firm_"))) ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/firm/summary/${encodeURIComponent(d.firmId)}" target="_blank" rel="noopener noreferrer">&#x2197; BrokerCheck</a>` : ""}
-        ${d.firmId && (d.iaSecNumber || /^active$/i.test(d.bcScope || "")) ? `<a class="fg-ext-link sec" href="https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(d.firmId)}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo</a>` : ""}
+        ${firmId ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/firm/summary/${encodeURIComponent(firmId)}" target="_blank" rel="noopener noreferrer">&#x2197; BrokerCheck Summary</a>` : ""}
+        ${firmId ? `<a class="fg-ext-link sec" href="https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(firmId)}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo Summary</a>` : ""}
+        ${bcRawUrl ? `<a class="fg-ext-link raw" href="${bcRawUrl}" target="_blank" rel="noopener noreferrer">JSON Source (BrokerCheck)</a>` : ""}
+        ${secRawUrl ? `<a class="fg-ext-link raw" href="${secRawUrl}" target="_blank" rel="noopener noreferrer">JSON Source (AdvisorInfo)</a>` : ""}
       </div>
       ${d.isLegacy === "Y" ? `<p class="fg-sb-note">Not currently registered as broker. BrokerCheck contains only limited information about this firm.</p>` : ""}
       ${d.iaSecNumber ? `<a class="fg-adv-btn" href="https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(d.iaSecNumber)}/PDF/${encodeURIComponent(d.iaSecNumber)}.pdf" target="_blank" rel="noopener noreferrer">View latest Form ADV filed</a>` : ""}

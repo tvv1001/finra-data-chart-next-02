@@ -7,10 +7,37 @@ function parseDetailPayload(data: any, contentKey = "content") {
   if (!data) return null;
   if (data?.hits?.hits?.length) {
     const raw = data.hits.hits[0]?._source?.[contentKey];
-    return typeof raw === "string" ? JSON.parse(raw) : raw || null;
+    try {
+      return typeof raw === "string" ? JSON.parse(raw) : raw || null;
+    } catch {
+      return null;
+    }
   }
+
   const raw = data?.[contentKey];
-  return typeof raw === "string" ? JSON.parse(raw) : raw || null;
+  if (raw != null) {
+    try {
+      return typeof raw === "string" ? JSON.parse(raw) : raw || null;
+    } catch {
+      return null;
+    }
+  }
+
+  if (isPlainObject(data)) {
+    const looksLikeDetail =
+      data.basicInformation ||
+      data.individualId ||
+      data.firstName ||
+      data.lastName ||
+      data.bcScope ||
+      data.iaScope ||
+      data.disclosures ||
+      data.currentEmployments ||
+      data.previousEmployments;
+    if (looksLikeDetail) return data;
+  }
+
+  return null;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

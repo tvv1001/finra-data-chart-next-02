@@ -15,6 +15,41 @@ function buildFirmQueryParams(searchParams: URLSearchParams) {
   return params;
 }
 
+function parseDetailPayload(data: any, contentKey = "content") {
+  if (!data) return null;
+  if (data?.hits?.hits?.length) {
+    const raw = data.hits.hits[0]?._source?.[contentKey];
+    try {
+      return typeof raw === "string" ? JSON.parse(raw) : raw || null;
+    } catch {
+      return null;
+    }
+  }
+
+  const raw = data?.[contentKey];
+  if (raw != null) {
+    try {
+      return typeof raw === "string" ? JSON.parse(raw) : raw || null;
+    } catch {
+      return null;
+    }
+  }
+
+  if (data && typeof data === "object" && !Array.isArray(data)) {
+    const looksLikeDetail =
+      data.basicInformation ||
+      data.firmId ||
+      data.bdSECNumber ||
+      data.firmName ||
+      data.firmStatus ||
+      data.disclosures ||
+      data.directOwners;
+    if (looksLikeDetail) return data;
+  }
+
+  return null;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -47,22 +82,12 @@ export async function GET(
 
     let bcDetail: any = null;
     if (bcData.status === "fulfilled") {
-      const data = bcData.value;
-      if (data?.hits?.hits?.length) {
-        const raw = data.hits.hits[0]?._source?.content;
-        bcDetail = typeof raw === "string" ? JSON.parse(raw) : raw;
-      } else if (data?.content) {
-        bcDetail = typeof data.content === "string" ? JSON.parse(data.content) : data.content;
-      }
+      bcDetail = parseDetailPayload(bcData.value, "content");
     }
 
     let secDetail: any = null;
     if (secData.status === "fulfilled") {
-      const data = secData.value;
-      if (data?.hits?.hits?.length) {
-        const raw = data.hits.hits[0]?._source?.iacontent;
-        secDetail = typeof raw === "string" ? JSON.parse(raw) : raw;
-      }
+      secDetail = parseDetailPayload(secData.value, "iacontent");
     }
 
     if (!bcDetail && !secDetail) {
