@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 4689080, \"firstName\": \"DIANE\", \"lastName\": \"STAFUTTI\", \"otherNames\": [\"DIANA  FERNANDEZ\", \"DIANE  FERNANDEZ\", \"DIANA  STAFUTTI\"], \"bcScope\": \"Active\", \"iaScope\": \"NotInScope\", \"daysInIndustryCalculatedDate\": \"5/18/2006\"}, \"currentEmployments\": [{\"firmId\": 6413, \"firmName\": \"LPL FINANCIAL LLC\", \"iaOnly\": \"N\", \"registrationBeginDate\": \"5/19/2006\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\", \"iaSECNumber\": \"10970\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"17668\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"Y\", \"supervisedFromFlag\": \"N\", \"privateResidenceFlag\": \"N\", \"branchOfficeId\": \"161238\", \"street1\": \"30 COLUMBIA TURNPIKE STE 101\", \"city\": \"FLORHAM PARK\", \"cityAlias\": [\"FLORHAM PARK\"], \"state\": \"NJ\", \"country\": \"United States\", \"zipCode\": \"07932\", \"latitude\": \"40.774552\", \"longitude\": \"-74.401\", \"geoLocation\": \"40.774552,-74.401\", \"nonRegisteredOfficeFlag\": \"N\", \"elaBeginDate\": \"07/21/2003\"}]}], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 0, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"5/18/2006\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 1, \"approvedFinraRegistrationCount\": 1, \"approvedStateRegistrationCount\": 1, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [{\"state\": \"New Jersey\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"5/19/2006\"}], \"registeredSROs\": [{\"sro\": \"FINRA\", \"status\": \"APPROVED\", \"CategoriesList\": [\"Investment Company and Variable Contracts Products Rep.\"]}], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

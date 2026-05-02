@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 2704606, \"firstName\": \"MICHAEL\", \"middleName\": \"PATRICK\", \"lastName\": \"LAWSON\", \"otherNames\": [\"MICHAEL P LAWSON\", \"Mike  Lawson\"], \"bcScope\": \"InActive\", \"iaScope\": \"NotInScope\"}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 0, \"principalExamCount\": 1, \"productExamCount\": 0}, \"stateExamCategory\": [], \"principalExamCategory\": [{\"examCategory\": \"Series 27\", \"examName\": \"Financial and Operations Principal Examination\", \"examTakenDate\": \"7/2/2019\", \"examScope\": \"BC\"}], \"productExamCategory\": [], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

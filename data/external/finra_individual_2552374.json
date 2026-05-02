@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 2552374, \"firstName\": \"Phil\", \"lastName\": \"Kain\", \"otherNames\": [\"PHIL  KAIN\", \"PHILLIP M KAIN\", \"PHILLIP MATTHEW KAIN\"], \"bcScope\": \"InActive\", \"iaScope\": \"InActive\", \"daysInIndustry\": 695}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"bdSECNumber\": \"41173\", \"firmId\": 24142, \"firmName\": \"MARCH CAPITAL CORP.\", \"city\": \"CHICAGO\", \"state\": \"IL\", \"country\": \"UNITED STATES\", \"registrationBeginDate\": \"8/20/2019\", \"registrationEndDate\": \"11/10/2020\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}, {\"iaOnly\": \"N\", \"bdSECNumber\": \"45728\", \"firmId\": 32625, \"firmName\": \"WMA SECURITIES, INC.\", \"city\": \"DULUTH\", \"state\": \"GA\", \"country\": \"UNITED STATES\", \"registrationBeginDate\": \"10/3/1996\", \"registrationEndDate\": \"6/5/1997\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 2, \"principalExamCount\": 0, \"productExamCount\": 3}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"9/27/2019\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 65\", \"examName\": \"Uniform Investment Adviser Law Examination\", \"examTakenDate\": \"8/22/1998\", \"examScope\": \"IA\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 82TO\", \"examName\": \"Limited Representative-Private Securities Offerings\", \"examTakenDate\": \"8/19/2019\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"8/19/2019\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"10/2/1996\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

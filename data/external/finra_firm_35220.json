@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 35220, \"firmName\": \"JOSEPH DILLON & COMPANY INC.\", \"otherNames\": [\"JOSEPH DILLON & COMPANY INC.\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"N\", \"districtName\": \"Long Island\", \"firmType\": \"Corporation\", \"formedState\": \"New York\", \"firmStatus\": \"Terminated\", \"regulator\": \"SEC\", \"firmStatusDate\": \"10/20/2000\", \"formedDate\": \"09/15/1993\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Not Requested\", \"sanctions\": {\"sanctionDetails\": {\"messages\": [\"FINRA cancelled this firm's license in November 2000.\"]}}, \"bdSECNumber\": \"46589\"}, \"bdDisclosureFlag\": \"Y\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [{\"disclosureType\": \"Regulatory Event\", \"disclosureCount\": 3}, {\"disclosureType\": \"Arbitration\", \"disclosureCount\": 11}], \"registrations\": {\"approvedFinraRegistrationCount\": 0, \"approvedSECRegistrationCount\": 0, \"approvedSRORegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"stateList\": [], \"businessTypeCount\": 0}, \"directOwners\": [{\"legalName\": \"FRADELLA, SALVATORE ANTHONY\", \"position\": \"EXECUTIVE VICE PRESIDENT - SALES\", \"bcScope\": \"Active\", \"crdNumber\": \"1482494\"}, {\"legalName\": \"JALOZA, STEVEN RICHARD\", \"position\": \"CEO\", \"bcScope\": \"Expanded\", \"crdNumber\": \"1320831\"}, {\"legalName\": \"KAUFMAN, WAYNE SETH\", \"position\": \"MANAGING DIRECTOR\", \"bcScope\": \"Active\", \"crdNumber\": \"2490476\"}, {\"legalName\": \"STOLTZ, MARC HAROLD\", \"position\": \"FINOP\", \"bcScope\": \"InActive\", \"crdNumber\": \"1008943\"}]}"
+        }
+      }
+    ]
+  }
+}

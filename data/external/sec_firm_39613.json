@@ -1,0 +1,38 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "22208",
+          "firm_bd_sec_number": "39613",
+          "firm_bd_full_sec_number": "8-39613",
+          "firm_name": "CITIZENS JMP SECURITIES, LLC",
+          "firm_other_names": [
+            "CITIZENS",
+            "TRINITY CAPITAL",
+            "MITCHUM, JONES & TEMPLETON, INC.",
+            "MATRIX CAPITAL MARKETS GROUP",
+            "JOLSON MERCHANT PARTNERS",
+            "JMP SECURITIES LLC",
+            "JMP SECURITIES",
+            "DH CAPITAL",
+            "CITIZENS M&A ADVISORY",
+            "CITIZENS JMP SECURITIES, LLC",
+            "CITIZENS JMP",
+            "CITIZENS CAPITAL MARKETS & ADVISORY",
+            "CITIZENS CAPITAL MARKETS"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 23,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"101 CALIFORNIA STREET\", \"street2\": \"STE 1700\", \"city\": \"SAN FRANCISCO\", \"state\": \"CA\", \"country\": \"UNITED STATES\", \"postalCode\": \"94111\"}, \"mailingAddress\": {\"street1\": \"101 CALIFORNIA STREET\", \"street2\": \"STE 1700\", \"city\": \"SAN FRANCISCO\", \"state\": \"CA\", \"country\": \"UNITED STATES\", \"postalCode\": \"94111\"}, \"businessPhoneNumber\": \"415-835-8900\", \"finraLastApprovalDate\": \"1988-05-18T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

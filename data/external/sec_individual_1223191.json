@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 1223191, \"firstName\": \"KELLY\", \"middleName\": \"ANN\", \"lastName\": \"MASON\", \"otherNames\": [\"K MASON LUIZ\", \"KELLY A MASON\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"InActive\", \"daysInIndustryIAPD\": 1005}, \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"iaSECNumber\": \"57796\", \"iaSECNumberType\": \"801\", \"firmId\": 108407, \"firmName\": \"WATERMARK ASSET MANAGEMENT, INC.\", \"city\": \"SAN RAMON\", \"state\": \"CA\", \"country\": \"United States\", \"registrationBeginDate\": \"4/28/2015\", \"registrationEndDate\": \"1/26/2018\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"INACTIVE\"}], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"10/22/1991\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"3/24/2015\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"8/16/1986\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"currentEmployments\": []}"
+        }
+      }
+    ]
+  }
+}

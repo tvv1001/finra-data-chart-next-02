@@ -1,0 +1,56 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "120222",
+          "firm_bd_sec_number": "68183",
+          "firm_bd_full_sec_number": "8-68183",
+          "firm_ia_sec_number": "71475",
+          "firm_ia_full_sec_number": "801-71475",
+          "firm_name": "PRIVATE CLIENT SERVICES, LLC",
+          "ia_firm_name": "PRIVATE CLIENT SERVICES, LLC",
+          "firm_other_names": [
+            "AFFIANCE FINANCIAL",
+            "WEALTHHYVE ADVISORS",
+            "US PLANNING GROUP",
+            "UDELL ASSOCIATES, LLC",
+            "SILVERLEAF WEALTH ADVISORY",
+            "PRIVATE CLIENT SERVICES, LLC",
+            "PCS ADVISORS",
+            "MCGILL FINANCIAL ENSEMBLE",
+            "MARION INVESTMENT ADVISORS",
+            "LINDLE HENNESSEY GROUP",
+            "KFG PRIVATE CLIENT SERVICES, LLC",
+            "KENTUCKY FINANCIAL GROUP",
+            "J&G FINANCIAL",
+            "IMPACT WEALTH GROUP",
+            "IARANN WEALTH",
+            "HERITAGE WEALTH GROUP",
+            "HAFELE INVESTMENTS",
+            "FIORI FINANCIAL",
+            "FINANCIAL CONSULTANTS GROUP",
+            "EVERGREEN STRATEGIC WEALTH",
+            "ENTHEOS FINANCIAL",
+            "DUNCAN AND HARDIN FINANCIAL",
+            "DUGAN FINANCIAL SERVICES",
+            "BURKE FINANCIAL SERVICES",
+            "BRIGHTLINE FINANCIAL",
+            "BLUE OCEAN GLOBAL WEALTH"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 269,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"2225 LEXINGTON RD.\", \"city\": \"LOUISVILLE\", \"state\": \"KY\", \"postalCode\": \"40206\"}, \"mailingAddress\": {\"street1\": \"2225 LEXINGTON RD.\", \"city\": \"LOUISVILLE\", \"state\": \"KY\", \"postalCode\": \"40206\"}, \"businessPhoneNumber\": \"502 451-0600\", \"finraLastApprovalDate\": \"2009-11-05T00:00:00\", \"iaFirmName\": \"PRIVATE CLIENT SERVICES, LLC\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"2225 LEXINGTON ROAD\", \"city\": \"LOUISVILLE\", \"state\": \"KY\", \"country\": \"United States\", \"postalCode\": \"40206\"}}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

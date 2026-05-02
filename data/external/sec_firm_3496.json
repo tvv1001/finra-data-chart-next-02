@@ -1,0 +1,62 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "3496",
+          "firm_bd_sec_number": "1927",
+          "firm_bd_full_sec_number": "8-1927",
+          "firm_ia_sec_number": "15510",
+          "firm_ia_full_sec_number": "801-15510",
+          "firm_name": "STEPHENS",
+          "ia_firm_name": "STEPHENS",
+          "firm_other_names": [
+            "PROFESSIONAL WEALTH MANAGEMENT PROGRAM",
+            "STEPHENSCHOICE",
+            "STEPHENS, INC.",
+            "STEPHENS UNIFIED MANAGED ACCOUNT",
+            "STEPHENS SPECTRUM PROGRAM",
+            "STEPHENS SPECTRUM 401K",
+            "STEPHENS SMALL-MID CAP GROWTH PROGRAM",
+            "STEPHENS SMALL CAP GROWTH PROGRAM",
+            "STEPHENS RETIREMENT SOLUTIONS PROGRAM",
+            "STEPHENS RETIREMENT ACCESS",
+            "STEPHENS REAL RETURN STRATEGY",
+            "STEPHENS MANAGED ASSETS PROGRAM",
+            "STEPHENS INC. EQUITY RESEARCH SERVICES PROGRAM",
+            "STEPHENS INC.",
+            "STEPHENS FIXED INCOME MANAGEMENT",
+            "STEPHENS ETF SPECTRUM 401K",
+            "STEPHENS EQUITY FOCUSED STRATEGY",
+            "STEPHENS CAPITAL MANGEMENT - HEALTH MANAGEMENT TRUST",
+            "STEPHENS CAPITAL MANAGEMENT NON-DISCRETIONARY",
+            "STEPHENS CAPITAL MANAGEMENT FIXED INCOME STRATEGY",
+            "STEPHENS CAPITAL MANAGEMENT CASH MANAGEMENT TRUST PROGRAM",
+            "STEPHENS CAPITAL MANAGEMENT - PENSION MANAGEMENT TRUST PROGRAM",
+            "STEPHENS CAPITAL MANAGEMENT",
+            "STEPHENS BROKERAGE SERVICES INC.",
+            "STEPHENS ASSET MAXIMIZER PROGRAM",
+            "STEPHENS ALLOCATION STRATIGIES PROGRAM",
+            "STEPHENS ADVISOR NON-DISCRETIONARY PROGRAM",
+            "STEPHENS"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 64,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"111 CENTER STREET\", \"city\": \"LITTLE ROCK\", \"state\": \"AR\", \"country\": \"UNITED STATES\", \"postalCode\": \"72201-3507\"}, \"mailingAddress\": {\"street1\": \"111 CENTER STREET\", \"city\": \"LITTLE ROCK\", \"state\": \"AR\", \"country\": \"UNITED STATES\", \"postalCode\": \"72201-3507\"}, \"businessPhoneNumber\": \"(501) 377-2000\", \"finraLastApprovalDate\": \"1950-07-06T00:00:00\", \"iaFirmName\": \"STEPHENS\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"111 CENTER ST\", \"city\": \"LITTLE ROCK\", \"state\": \"AR\", \"country\": \"United States\", \"postalCode\": \"72201\"}}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>3496</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

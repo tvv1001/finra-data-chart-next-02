@@ -1,0 +1,40 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "13572",
+          "firm_bd_sec_number": "29577",
+          "firm_bd_full_sec_number": "8-29577",
+          "firm_ia_sec_number": "47342",
+          "firm_ia_full_sec_number": "801-47342",
+          "firm_name": "CETERA WEALTH SERVICES, LLC",
+          "ia_firm_name": "CETERA ADVISOR NETWORKS LLC",
+          "firm_other_names": [
+            "CETERA ADVISOR NETWORKS LLC",
+            "GORDON SIMMERS SECURITY CORPORATION",
+            "FIRST ASSET MANAGEMENT CORPORATION",
+            "FINANCIAL NETWORK INVESTMENT CORPORATION",
+            "CETERA WEALTH SERVICES, LLC",
+            "CETERA NETWORKS"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "INACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 4110,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"2301 ROSECRANS AVE #5100\", \"city\": \"EL SEGUNDO\", \"state\": \"CA\", \"country\": \"UNITED STATES\", \"postalCode\": \"90245\"}, \"mailingAddress\": {\"street1\": \"PO BOX 983\", \"city\": \"SAINT CLOUD\", \"state\": \"MN\", \"country\": \"UNITED STATES\", \"postalCode\": \"56302\"}, \"businessPhoneNumber\": \"800-879-8100\", \"finraLastApprovalDate\": \"1983-06-08T00:00:00\", \"iaFirmName\": \"CETERA ADVISOR NETWORKS LLC\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"2301 ROSECRANS AVENUE\", \"street2\": \"SUITE 5100\", \"city\": \"EL SEGUNDO\", \"state\": \"CA\", \"country\": \"United States\", \"postalCode\": \"90245-5672\"}}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>13572</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

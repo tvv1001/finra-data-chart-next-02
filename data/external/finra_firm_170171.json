@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 170171, \"firmName\": \"GPWA, LLC\", \"iaFirmName\": \"GRAMERCY PARK WEALTH ADVISORS, LLC\", \"otherNames\": [\"GPWA, LLC\", \"GRAMERCY PARK WEALTH ADVISORS, LLC\"], \"bcScope\": \"ACTIVE\", \"iaScope\": \"ACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"Y\", \"districtName\": \"New Orleans\", \"firmType\": \"Limited Liability Company\", \"formedState\": \"Tennessee\", \"firmSize\": \"Small\", \"firmStatus\": \"Approved\", \"regulator\": \"SEC\", \"finraLastApprovalDate\": \"11/18/2014\", \"firmStatusDate\": \"11/18/2014\", \"formedDate\": \"01/29/2013\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"69413\", \"crs\": {\"crsType\": \"BD\", \"fileId\": \"486e144b-9c7b-4c2a-b9f1-bd118c865a9d\"}}, \"firmAddressDetails\": {\"officeAddress\": {\"street1\": \"2400 BARTON AVE.\", \"city\": \"NASHVILLE\", \"state\": \"TN\", \"postalCode\": \"37212\"}, \"mailingAddress\": {\"street1\": \"2400 BARTON AVE.\", \"city\": \"NASHVILLE\", \"state\": \"TN\", \"postalCode\": \"37212\"}, \"businessPhoneNumber\": \"615-424-2118\", \"finraLastApprovalDate\": \"2014-11-18T00:00:00\", \"iaFirmName\": \"GRAMERCY PARK WEALTH ADVISORS, LLC\"}, \"iaFirmAddressDetails\": {\"officeAddress\": {\"city\": \"NASHVILLE\", \"state\": \"TN\", \"country\": \"United States\"}}, \"bdDisclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"registrations\": {\"approvedFinraRegistrationCount\": 1, \"approvedSECRegistrationCount\": 1, \"approvedSRORegistrationCount\": 1, \"approvedStateRegistrationCount\": 12, \"stateList\": [{\"state\": \"Florida\"}, {\"state\": \"Georgia\"}, {\"state\": \"Illinois\"}, {\"state\": \"Indiana\"}, {\"state\": \"Kentucky\"}, {\"state\": \"Minnesota\"}, {\"state\": \"Mississippi\"}, {\"state\": \"Missouri\"}, {\"state\": \"Nevada\"}, {\"state\": \"North Carolina\"}, {\"state\": \"Tennessee\"}, {\"state\": \"Virginia\"}], \"businessTypeCount\": 4, \"hasAffliation\": \"N\", \"referOtherBd\": \"N\"}, \"directOwners\": [{\"legalName\": \"COTE, BRIAN JOSEPH\", \"position\": \"CEO/ CCO\", \"bcScope\": \"Active\", \"crdNumber\": \"4218494\"}, {\"legalName\": \"BEATON, DANIEL STEWART\", \"position\": \"FINOP\", \"bcScope\": \"Active\", \"crdNumber\": \"4240769\"}]}"
+        }
+      }
+    ]
+  }
+}

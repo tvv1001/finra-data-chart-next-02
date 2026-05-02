@@ -1,0 +1,51 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "10111",
+          "firm_bd_sec_number": "26486",
+          "firm_bd_full_sec_number": "8-26486",
+          "firm_ia_sec_number": "72263",
+          "firm_ia_full_sec_number": "801-72263",
+          "firm_name": "PFS INVESTMENTS INC.",
+          "ia_firm_name": "PRIMERICA ADVISORS",
+          "firm_other_names": [
+            "BLUE MOUNTAIN FINANCIAL GROUP",
+            "TORCHLIGHT FINANCIAL GROUP",
+            "SWOPE FINANCIAL PARTNERS",
+            "SHEPPARD FINANCIAL GROUP",
+            "PRIMEVISION FINANCIAL GROUP",
+            "PRIMERICA ADVISORS",
+            "PFS INVESTMENTS INC.",
+            "NEWMAN FINANCIAL GROUP",
+            "LOE FINANICAL GROUP",
+            "LASHNER FINANCIAL GROUP",
+            "LANDMARK FINANCIAL GROUP",
+            "KELLER FINANCIAL ASSOCIATES",
+            "FIRST AMERICAN NATIONAL SECURITIES, INC.",
+            "E.H.R. FINANCIAL GROUP",
+            "DRAKE FINANCIAL GROUP",
+            "DIGI FINANCIAL",
+            "DIEHL FINANCIAL GROUP",
+            "DEEVERS AND  SONS",
+            "CMJ FINANCIAL GROUP",
+            "CASTLEROCK FINANCIAL GROUP",
+            "BOHANNAN FINANCIAL"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 5576,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"1 PRIMERICA PARKWAY\", \"city\": \"DULUTH\", \"state\": \"GA\", \"country\": \"UNITED STATES\", \"postalCode\": \"30099-0001\"}, \"mailingAddress\": {\"street1\": \"1 PRIMERICA PARKWAY\", \"city\": \"DULUTH\", \"state\": \"GA\", \"country\": \"UNITED STATES\", \"postalCode\": \"30099-0001\"}, \"businessPhoneNumber\": \"770-381-1000\", \"finraLastApprovalDate\": \"1981-09-15T00:00:00\", \"iaFirmName\": \"PRIMERICA ADVISORS\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"1 PRIMERICA PARKWAY\", \"city\": \"DULUTH\", \"state\": \"GA\", \"country\": \"United States\", \"postalCode\": \"30099-0001\"}}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 1537743, \"firstName\": \"WILLIAM\", \"middleName\": \"VAN\", \"lastName\": \"FERDINAND\", \"otherNames\": [\"WILLIAM V FERDINAND\", \"WILLIAM  FERDINAND\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"Active\", \"daysInIndustryCalculatedDateIAPD\": \"4/14/2013\"}, \"currentIAEmployments\": [{\"firmId\": 166626, \"firmName\": \"THE WF GROUP, LLC\", \"iaOnly\": \"Y\", \"registrationBeginDate\": \"4/15/2013\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"ACTIVE\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"Y\", \"supervisedFromFlag\": \"N\", \"privateResidenceFlag\": \"Y\", \"city\": \"GREENWICH\", \"state\": \"CT\", \"country\": \"United States\", \"nonRegisteredOfficeFlag\": \"Y\", \"elaBeginDate\": \"02/20/2013\"}]}], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"9/18/1989\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"7/26/1989\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 3\", \"examName\": \"National Commodity Futures Examination\", \"examTakenDate\": \"7/11/1986\", \"examScope\": \"BC\"}], \"registrationCount\": {\"hasInactiveRegistration\": \"N\", \"hasSuspendedRegistration\": \"N\", \"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 1}, \"registeredStates\": [{\"state\": \"Connecticut\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"4/15/2013\"}], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}, \"currentEmployments\": []}"
+        }
+      }
+    ]
+  }
+}

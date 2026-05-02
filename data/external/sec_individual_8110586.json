@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 8110586, \"firstName\": \"JOSHUA\", \"lastName\": \"BEACHLER\", \"otherNames\": [], \"bcScope\": \"Active\", \"iaScope\": \"NotInScope\"}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"7/30/2025\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 6TO\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"7/11/2025\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"2/7/2025\", \"examScope\": \"BC\"}], \"registrationCount\": {\"hasInactiveRegistration\": \"N\", \"hasSuspendedRegistration\": \"N\", \"approvedSRORegistrationCount\": 1, \"approvedFinraRegistrationCount\": 1, \"approvedStateRegistrationCount\": 1, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [{\"state\": \"Oregon\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"8/1/2025\"}], \"registeredSROs\": [{\"sro\": \"FINRA\", \"status\": \"APPROVED\", \"CategoriesList\": [\"Investment Company and Variable Contracts Products Rep.\"]}], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

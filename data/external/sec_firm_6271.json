@@ -1,0 +1,38 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "6271",
+          "firm_bd_sec_number": "17212",
+          "firm_bd_full_sec_number": "8-17212",
+          "firm_name": "TRUIST SECURITIES, INC.",
+          "firm_other_names": [
+            "ALEXANDER KEY INVESTMENTS",
+            "TRUIST SECURITIES, INC.",
+            "SUNTRUST ROBINSON HUMPHREY, INC.",
+            "SUNTRUST ROBINSON HUMPHREY",
+            "SUNTRUST EQUITABLE SECURITIES CORPORATION",
+            "SUNTRUST EQUITABLE SECURITIES",
+            "SUNTRUST CAPITAL MARKETS, INC.",
+            "SUNTRUST CAPITAL MANAGEMENT, INC.",
+            "EQUITABLE SECURITIES CORPORATION"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 25,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"740 BATTERY AVE\", \"city\": \"ATLANTA\", \"state\": \"GA\", \"country\": \"UNITED STATES\", \"postalCode\": \"30339\"}, \"mailingAddress\": {\"street1\": \"740 BATTERY AVE\", \"city\": \"ATLANTA\", \"state\": \"GA\", \"country\": \"UNITED STATES\", \"postalCode\": \"30339\"}, \"businessPhoneNumber\": \"404-926-5600\", \"finraLastApprovalDate\": \"1972-07-19T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>6271</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

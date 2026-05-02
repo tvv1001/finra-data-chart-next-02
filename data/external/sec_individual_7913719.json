@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 7913719, \"firstName\": \"Cory\", \"middleName\": \"D\", \"lastName\": \"Trump\", \"otherNames\": [\"Cory  Trump\"], \"bcScope\": \"Active\", \"iaScope\": \"NotInScope\"}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"10/22/2024\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 6TO\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"10/9/2024\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"9/23/2024\", \"examScope\": \"BC\"}], \"registrationCount\": {\"hasInactiveRegistration\": \"N\", \"hasSuspendedRegistration\": \"N\", \"approvedSRORegistrationCount\": 1, \"approvedFinraRegistrationCount\": 1, \"approvedStateRegistrationCount\": 3, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [{\"state\": \"Colorado\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"11/18/2024\"}, {\"state\": \"Ohio\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"10/24/2024\"}, {\"state\": \"South Carolina\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"11/18/2024\"}], \"registeredSROs\": [{\"sro\": \"FINRA\", \"status\": \"APPROVED\", \"CategoriesList\": [\"Investment Company and Variable Contracts Products Rep.\"]}], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

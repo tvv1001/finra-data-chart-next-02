@@ -1,0 +1,27 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "135195",
+          "firm_bd_sec_number": "66906",
+          "firm_bd_full_sec_number": "8-66906",
+          "firm_name": "ULLICO INVESTMENT COMPANY, LLC",
+          "firm_other_names": [
+            "ULLICO INVESTMENT COMPANY, INC.",
+            "ULLICO INVESTMENT COMPANY, LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 5,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"8403 COLESVILLE RD.\", \"street2\": \"13 FLOOR\", \"city\": \"SILVER SPRING\", \"state\": \"MD\", \"country\": \"USA\", \"postalCode\": \"20910\"}, \"mailingAddress\": {\"street1\": \"8403 COLESVILLE RD.\", \"street2\": \"13 FLOOR\", \"city\": \"SILVER SPRING\", \"state\": \"MD\", \"country\": \"USA\", \"postalCode\": \"20910\"}, \"businessPhoneNumber\": \"202 682-0900\", \"finraLastApprovalDate\": \"2005-11-01T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

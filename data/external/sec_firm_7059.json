@@ -1,0 +1,70 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "7059",
+          "firm_bd_sec_number": "8177",
+          "firm_bd_full_sec_number": "8-8177",
+          "firm_ia_sec_number": "3387",
+          "firm_ia_full_sec_number": "801-3387",
+          "firm_name": "CITIGROUP GLOBAL MARKETS INC.",
+          "ia_firm_name": "CITIGROUP GLOBAL MARKETS INC.",
+          "firm_other_names": [
+            "CAPITAL MANAGEMENT DIVISION",
+            "TRAK FOR MUTUAL FUND AT NET ASSET VALUE",
+            "TRAK FOR CONSULTING GROUP CAPITAL MARKETS FUNDS",
+            "SSB COLLECTIVE FUNDS ASSET ALLOCATION SERVICE",
+            "SMITH BARNEY, HARRIS UPHAM & CO., INCORPORATED",
+            "SMITH BARNEY SHEARSON INC.",
+            "SMITH BARNEY INC.",
+            "SMITH BARNEY ASSET MANAGEMENT",
+            "SMITH BARNEY",
+            "SB ADVISOR",
+            "SALOMON SMITH BARNEY INC.",
+            "SALOMON SMITH BARNEY 401(K) ADVISOR PROGRAM",
+            "PORTFOLIO MANAGEMENT GROUP",
+            "PEACHTREE ASSET MANAGEMENT",
+            "OFFSHORE TRAK",
+            "MYFI FINANCIAL WELLNESS PROGRAM",
+            "LINK ADVISORS FOR UPS EMPLOYEES AND RETIREES",
+            "INVESTMENT MANAGEMENT SERVICES",
+            "INVESTMENT ADVISORY SERVICES",
+            "INVESTMENT ADVISORS",
+            "INSTITUTIONAL SERVICES",
+            "GUIDED PORTFOLIO MANAGEMENT PROGRAM",
+            "FIRST MADISON ADVISORS",
+            "FIDUCIARY SERVICES - UNAFFILIATED MANAGER PROGRAM",
+            "FIDUCIARY SERVICES - AFFILIATED MANAGER PROGRAM",
+            "DIVERSIFIED STRATEGIC PORTFOLIOS",
+            "DAVIS SKAGGS INVESTMENT MANAGEMENT",
+            "CONSULTING AND EVALUATION SERVICES",
+            "CITIGROUP GLOBAL MARKETS INC.",
+            "CITIGROUP ASSET MANAGEMENT",
+            "CITI PRIVATE BANK",
+            "CITI PERSONAL WEALTH MANAGEMENT",
+            "CITI PERSONAL INVESTMENTS  INTERNATIONAL",
+            "CITI INVESTMENT MANAGEMENT",
+            "CITI INSTITUTIONAL CONSULTING",
+            "CITI GLOBAL WEALTH AT WORK"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 2875,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"388 GREENWICH STREET\", \"street2\": \"TOWER BUILDING\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10013\"}, \"mailingAddress\": {\"street1\": \"REGISTRATION DEPARTMENT\", \"street2\": \"540 CROSSPOINT PARKWAY\", \"city\": \"GETZVILLE\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"14068\"}, \"businessPhoneNumber\": \"212-816-6000\", \"finraLastApprovalDate\": \"1936-10-16T00:00:00\", \"iaFirmName\": \"CITIGROUP GLOBAL MARKETS INC.\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"388 GREENWICH STREET\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"United States\", \"postalCode\": \"10013\"}}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>7059</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

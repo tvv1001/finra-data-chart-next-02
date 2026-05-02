@@ -1,0 +1,30 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "6082",
+          "firm_bd_sec_number": "218",
+          "firm_bd_full_sec_number": "8-218",
+          "firm_ia_sec_number": "10299",
+          "firm_ia_full_sec_number": "801-10299",
+          "firm_name": "PROTECTED INVESTORS OF AMERICA",
+          "ia_firm_name": "PROTECTED INVESTORS OF AMERICA",
+          "firm_other_names": [
+            "PROTECTED INVESTORS OF AMERICA"
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_scope": "INACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 0,
+          "firm_branches_count": 0,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"235 MONTGOMERY STREET\", \"street2\": \"SUITE 1050\", \"city\": \"SAN FRANCISCO\", \"state\": \"CA\", \"country\": \"United States\", \"postalCode\": \"94104\"}}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

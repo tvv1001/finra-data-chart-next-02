@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 2198753, \"firstName\": \"BENNO\", \"middleName\": \"JOHN\", \"lastName\": \"FISCHER\", \"otherNames\": [\"BEN  FISCHER\", \"BENNO  FISCHER\"], \"bcScope\": \"InActive\", \"iaScope\": \"InActive\", \"daysInIndustryIAPD\": 1513}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"firmId\": 297184, \"firmName\": \"FISCHER CAPITAL MANAGEMENT LLC\", \"city\": \"DALLAS\", \"state\": \"TX\", \"country\": \"United States\", \"registrationBeginDate\": \"7/2/2021\", \"registrationEndDate\": \"8/22/2025\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"INACTIVE\"}], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 2, \"principalExamCount\": 1, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"4/22/1996\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 65\", \"examName\": \"Uniform Investment Adviser Law Examination\", \"examTakenDate\": \"11/27/1991\", \"examScope\": \"IA\"}], \"principalExamCategory\": [{\"examCategory\": \"Series 26\", \"examName\": \"Investment Company Products/Variable Contracts Principal Examination\", \"examTakenDate\": \"7/15/2008\", \"examScope\": \"BC\"}], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"4/26/1996\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

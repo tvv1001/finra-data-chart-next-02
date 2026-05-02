@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 5482271, \"firstName\": \"Francis\", \"middleName\": \"C\", \"lastName\": \"Esposito\", \"otherNames\": [\"FRANCIS C ESPOSITO\", \"FRANCIS C. ESPOSITO\"], \"bcScope\": \"Active\", \"iaScope\": \"NotInScope\", \"daysInIndustryCalculatedDate\": \"10/12/2011\"}, \"currentEmployments\": [{\"firmId\": 79, \"firmName\": \"J.P. MORGAN SECURITIES LLC\", \"iaOnly\": \"N\", \"registrationBeginDate\": \"6/5/2012\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\", \"iaSECNumber\": \"3702\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"35008\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"N\", \"supervisedFromFlag\": \"Y\", \"privateResidenceFlag\": \"N\", \"branchOfficeId\": \"200878\", \"street1\": \"383 MADISON AVENUE\", \"city\": \"NEW YORK\", \"cityAlias\": [\"BEAR STEARNS\", \"NEW YORK\"], \"state\": \"NY\", \"country\": \"United States\", \"zipCode\": \"10179\", \"latitude\": \"40.755783\", \"longitude\": \"-73.97622\", \"geoLocation\": \"40.755783,-73.97622\", \"nonRegisteredOfficeFlag\": \"N\", \"elaBeginDate\": \"10/17/2011\"}]}], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"iaSECNumber\": \"3702\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"35008\", \"firmId\": 79, \"firmName\": \"BEAR, STEARNS & CO. INC.\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"registrationBeginDate\": \"1/25/2008\", \"registrationEndDate\": \"9/16/2008\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 0, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 99\", \"examName\": \"Operations Professional Examination\", \"examTakenDate\": \"6/4/2012\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 1, \"approvedFinraRegistrationCount\": 1, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [{\"sro\": \"FINRA\", \"status\": \"APPROVED\", \"CategoriesList\": [\"Operations Professional\"]}], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

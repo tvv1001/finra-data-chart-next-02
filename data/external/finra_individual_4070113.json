@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 4070113, \"firstName\": \"ALBERT\", \"lastName\": \"CHINAPPI\", \"nameSuffix\": \"III\", \"otherNames\": [\"ALBERT SALVATORE CHINAPPI III\", \"ALBERT  CHINAPPI\"], \"bcScope\": \"InActive\", \"iaScope\": \"NotInScope\", \"daysInIndustry\": 6655}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"bdSECNumber\": \"15869\", \"firmId\": 8209, \"firmName\": \"MORGAN STANLEY & CO. LLC\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"registrationBeginDate\": \"9/9/2009\", \"registrationEndDate\": \"4/10/2018\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}, {\"iaOnly\": \"N\", \"bdSECNumber\": \"22651\", \"firmId\": 7654, \"firmName\": \"UBS SECURITIES LLC\", \"city\": \"STAMFORD\", \"state\": \"CT\", \"registrationBeginDate\": \"12/9/1999\", \"registrationEndDate\": \"7/27/2009\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 1, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"2/18/2000\", \"examScope\": \"BC\"}], \"principalExamCategory\": [{\"examCategory\": \"Series 24\", \"examName\": \"General Securities Principal Examination\", \"examTakenDate\": \"10/2/2006\", \"examScope\": \"BC\"}], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"4/10/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"12/8/1999\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

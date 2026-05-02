@@ -1,0 +1,28 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "137873",
+          "firm_bd_sec_number": "67121",
+          "firm_bd_full_sec_number": "8-67121",
+          "firm_name": "RAINE SECURITIES LLC",
+          "firm_other_names": [
+            "MILLBRAE CAPITAL LLC",
+            "RAINE SECURITIES LLC",
+            "OPHIR CAPITAL LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 4,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"65 EAST 55TH STREET\", \"street2\": \"24TH FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10022\"}, \"mailingAddress\": {\"street1\": \"65 EAST 55TH STREET\", \"street2\": \"24TH FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10022\"}, \"businessPhoneNumber\": \"212-603-5500\", \"finraLastApprovalDate\": \"2006-05-03T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

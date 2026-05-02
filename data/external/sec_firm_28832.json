@@ -1,0 +1,49 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "28832",
+          "firm_bd_sec_number": "43810",
+          "firm_bd_full_sec_number": "8-43810",
+          "firm_name": "JANUS HENDERSON DISTRIBUTORS US LLC",
+          "firm_other_names": [
+            "JANUS DISTRIBUTORS LLC",
+            "JANUS HENDERSON DISTRIBUTORS US LLC",
+            "JANUS HENDERSON DISTRIBUTORS",
+            "JANUS DISTRIBUTORS, INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 4,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"151 DETROIT STREET\", \"city\": \"DENVER\", \"state\": \"CO\", \"country\": \"UNITED STATES\", \"postalCode\": \"80206-4923\"}, \"mailingAddress\": {\"street1\": \"151 DETROIT STREET\", \"city\": \"DENVER\", \"state\": \"CO\", \"country\": \"UNITED STATES\", \"postalCode\": \"80206-4923\"}, \"businessPhoneNumber\": \"303-333-3863\", \"finraLastApprovalDate\": \"1992-12-23T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>28832</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "13211",
+          "firm_bd_sec_number": "28832",
+          "firm_bd_full_sec_number": "8-28832",
+          "firm_name": "R.S. AYRES SECURITIES CORPORATION",
+          "firm_other_names": [
+            "R.S. AYRES SECURITIES CORPORATION"
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

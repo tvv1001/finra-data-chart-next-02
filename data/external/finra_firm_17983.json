@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 17983, \"firmName\": \"WTC BROKERAGE SERVICES, INC.\", \"otherNames\": [\"WASHINGTON TRUST BROKERAGE SERVICES, INC.\", \"WTC BROKERAGE SERVICES, INC.\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"Y\", \"firmType\": \"Corporation\", \"formedState\": \"Rhode Island\", \"firmStatus\": \"Terminated\", \"regulator\": \"FINRA\", \"firmStatusDate\": \"03/16/1990\", \"formedDate\": \"11/19/1985\", \"fiscalMonthEndCode\": \"\", \"legacyReportStatus\": \"Generated\", \"bdSECNumber\": \"36295\"}, \"iaDisclosureFlag\": \"N\"}"
+        }
+      }
+    ]
+  }
+}

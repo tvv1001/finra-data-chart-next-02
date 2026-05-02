@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 6370806, \"firstName\": \"SEAN\", \"middleName\": \"J.\", \"lastName\": \"STURGIS\", \"otherNames\": [\"SEAN  STURGIS\"], \"bcScope\": \"InActive\", \"iaScope\": \"NotInScope\", \"daysInIndustry\": 1431}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"iaSECNumber\": \"44264\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"27250\", \"firmId\": 10409, \"firmName\": \"MML INVESTORS SERVICES, LLC\", \"city\": \"PLANTATION\", \"state\": \"FL\", \"registrationBeginDate\": \"3/25/2017\", \"registrationEndDate\": \"7/18/2018\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}, {\"iaOnly\": \"N\", \"iaSECNumber\": \"22306\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"30447\", \"firmId\": 14251, \"firmName\": \"MSI FINANCIAL SERVICES, INC.\", \"city\": \"PLANTATION\", \"state\": \"FL\", \"registrationBeginDate\": \"8/18/2014\", \"registrationEndDate\": \"3/25/2017\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"INACTIVE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 0, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"7/18/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"8/18/2014\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

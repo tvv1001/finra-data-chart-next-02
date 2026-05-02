@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 7147448, \"firstName\": \"Blake\", \"middleName\": \"Kenneth\", \"lastName\": \"Bartlett\", \"otherNames\": [\"Blake K Bartlett\", \"Blake  Bartlett\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"Active\", \"daysInIndustryCalculatedDateIAPD\": \"11/3/2019\"}, \"currentIAEmployments\": [{\"firmId\": 107630, \"firmName\": \"SCHAPER BENZ & WISE INVESTMENT COUNSEL INC\", \"iaOnly\": \"Y\", \"registrationBeginDate\": \"11/4/2019\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"ACTIVE\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"Y\", \"supervisedFromFlag\": \"N\", \"privateResidenceFlag\": \"N\", \"branchOfficeId\": \"61616\", \"street1\": \"40 JEWELERS PARK DR\", \"street2\": \"STE 200\", \"city\": \"NEENAH\", \"cityAlias\": [\"FOX CROSSING\", \"NEENAH\"], \"state\": \"WI\", \"country\": \"United States\", \"zipCode\": \"54956\", \"latitude\": \"44.178748\", \"longitude\": \"-88.510875\", \"geoLocation\": \"44.178748,-88.510875\", \"nonRegisteredOfficeFlag\": \"N\", \"elaBeginDate\": \"06/24/2019\"}]}], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 0}, \"stateExamCategory\": [{\"examCategory\": \"Series 65\", \"examName\": \"Uniform Investment Adviser Law Examination\", \"examTakenDate\": \"11/4/2019\", \"examScope\": \"IA\"}], \"principalExamCategory\": [], \"productExamCategory\": [], \"registrationCount\": {\"hasInactiveRegistration\": \"N\", \"hasSuspendedRegistration\": \"N\", \"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 1}, \"registeredStates\": [{\"state\": \"Wisconsin\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"11/4/2019\"}], \"registeredSROs\": [], \"currentEmployments\": []}"
+        }
+      }
+    ]
+  }
+}

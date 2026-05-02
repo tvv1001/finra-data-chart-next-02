@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 6230197, \"firstName\": \"MICHAEL\", \"middleName\": \"JOSEPH\", \"lastName\": \"DAMICO\", \"otherNames\": [\"MIKE J. D'AMICO\", \"MICHAEL J DAMICO\"], \"bcScope\": \"InActive\", \"iaScope\": \"NotInScope\"}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 3}, \"stateExamCategory\": [{\"examCategory\": \"Series 66\", \"examName\": \"Uniform Combined State Law Examination\", \"examTakenDate\": \"11/24/2015\", \"examScope\": \"BOTH\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"4/20/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 52\", \"examName\": \"Municipal Securities Representative Examination\", \"examTakenDate\": \"12/22/2015\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"10/5/2015\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

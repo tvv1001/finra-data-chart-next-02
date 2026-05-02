@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 45648, \"firmName\": \"GROWTH PARTNERS INVESTMENT BANKING\", \"otherNames\": [\"GROWTH PARTNERS INVESTMENT BANKING\", \"THE GROWTH GROUP\", \"GROWTH PARTNERS, INC.\"], \"bcScope\": \"ACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"Y\", \"districtName\": \"Los Angeles\", \"firmType\": \"Corporation\", \"formedState\": \"New Jersey\", \"firmSize\": \"Small\", \"firmStatus\": \"Approved\", \"regulator\": \"SEC\", \"finraLastApprovalDate\": \"01/20/1999\", \"firmStatusDate\": \"01/20/1999\", \"formedDate\": \"12/08/1994\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"51124\"}, \"firmAddressDetails\": {\"officeAddress\": {\"street1\": \"31 FLINTLOCK LANE\", \"city\": \"BELL CANYON\", \"state\": \"CA\", \"country\": \"UNITED STATES\", \"postalCode\": \"91307\"}, \"mailingAddress\": {\"street1\": \"31 FLINTLOCK LANE\", \"city\": \"BELL CANYON\", \"state\": \"CA\", \"country\": \"UNITED STATES\", \"postalCode\": \"91307\"}, \"businessPhoneNumber\": \"818-713-8000\", \"finraLastApprovalDate\": \"1999-01-20T00:00:00\"}, \"bdDisclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"registrations\": {\"approvedFinraRegistrationCount\": 1, \"approvedSECRegistrationCount\": 1, \"approvedSRORegistrationCount\": 1, \"approvedStateRegistrationCount\": 1, \"stateList\": [{\"state\": \"California\"}], \"businessTypeCount\": 2, \"hasAffliation\": \"N\", \"referOtherBd\": \"N\"}, \"directOwners\": [{\"legalName\": \"KNAKAL, JEFFREY R\", \"position\": \"PRESIDENT, MANAGING PARTNER\", \"bcScope\": \"Active\", \"crdNumber\": \"1434295\"}, {\"legalName\": \"KNAKAL, JEFFREY R\", \"position\": \"CHIEF COMPLIANCE OFFICER\", \"bcScope\": \"Active\", \"crdNumber\": \"1434295\"}, {\"legalName\": \"KNAKAL, JEFFREY R\", \"position\": \"CFO & FINOP\", \"bcScope\": \"Active\", \"crdNumber\": \"1434295\"}]}"
+        }
+      }
+    ]
+  }
+}

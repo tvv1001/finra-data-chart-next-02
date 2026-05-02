@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 375120, \"firstName\": \"MARIO\", \"middleName\": \"TELLES\", \"lastName\": \"RIBEIRO\", \"otherNames\": [], \"bcScope\": \"Expanded\", \"iaScope\": \"NotInScope\", \"daysInIndustry\": 12441}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"iaSECNumber\": \"10970\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"17668\", \"firmId\": 6413, \"firmName\": \"LINSCO/PRIVATE LEDGER CORP.\", \"city\": \"FORT MILL\", \"state\": \"SC\", \"country\": \"UNITED STATES\", \"registrationBeginDate\": \"11/30/1976\", \"registrationEndDate\": \"12/31/1999\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}, {\"iaOnly\": \"N\", \"bdSECNumber\": \"5759\", \"firmId\": 262, \"firmName\": \"INDEPENDENT SECURITIES CORPORATION\", \"registrationBeginDate\": \"12/9/1965\", \"registrationEndDate\": \"1/7/1977\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"Y\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [{\"eventDate\": \"4/28/1978\", \"disclosureType\": \"Regulatory\", \"disclosureResolution\": \"Final\", \"isIapdExcludedCCFlag\": \"N\", \"isBcExcludedCCFlag\": \"N\", \"bcCtgryType\": 20, \"disclosureDetail\": {\"DocketNumberFDA\": \"CA-598\", \"DocketNumberAAO\": \"598\", \"Initiated By\": \"NATIONAL ASSOCIATION OF SECURITIES DEALERS, INC.\", \"Resolution\": \"Decision\", \"SanctionDetails\": [{\"Sanctions\": \"Monetary/Fine\", \"SanctionDetails\": [{\"Amount\": \"$10,000.00\"}]}, {\"Sanctions\": \"Censure\"}]}}], \"examsCount\": {\"stateExamCount\": 0, \"principalExamCount\": 0, \"productExamCount\": 1}, \"stateExamCategory\": [], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 1\", \"examName\": \"Registered Representative Examination\", \"examTakenDate\": \"6/15/1964\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

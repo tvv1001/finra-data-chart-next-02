@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 3020592, \"firstName\": \"Anette\", \"middleName\": \"T.\", \"lastName\": \"Lyn\", \"otherNames\": [\"ANETTE THERESA LYN\", \"CHUNG SANG LYN\"], \"bcScope\": \"InActive\", \"iaScope\": \"NotInScope\"}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"iaSECNumber\": \"37967\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"37180\", \"firmId\": 19616, \"firmName\": \"WELLS FARGO ADVISORS, LLC\", \"city\": \"MIAMI\", \"state\": \"FL\", \"country\": \"United States\", \"registrationBeginDate\": \"10/1/2000\", \"registrationEndDate\": \"5/7/2009\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"4/1/1998\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"3/30/1998\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

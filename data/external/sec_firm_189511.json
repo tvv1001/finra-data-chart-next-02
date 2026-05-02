@@ -1,0 +1,30 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "189511",
+          "firm_bd_sec_number": "69612",
+          "firm_bd_full_sec_number": "8-69612",
+          "firm_name": "CASTLE PLACEMENT, LLC",
+          "firm_other_names": [
+            "CASTLE PLACEMENT, LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 13,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"527 SPLIT ROCK RD\", \"street2\": \"OYSTER BAY COVE\", \"city\": \"SYOSSET\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"11791\"}, \"mailingAddress\": {\"street1\": \"1460 BROADWAY\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10036\"}, \"businessPhoneNumber\": \"212-418-1180\", \"finraLastApprovalDate\": \"2015-10-02T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>189511</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

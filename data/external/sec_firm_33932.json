@@ -1,0 +1,46 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "33932",
+          "firm_bd_sec_number": "35341",
+          "firm_bd_full_sec_number": "8-35341",
+          "firm_name": "SCOTT, DIANA",
+          "firm_other_names": [
+            "LEVINE, DIANA",
+            "SCOTT, DIANA"
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 0,
+          "firm_branches_count": 0
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>33932</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "16514",
+          "firm_bd_sec_number": "33932",
+          "firm_bd_full_sec_number": "8-33932",
+          "firm_name": "EMERSON SECURITIES CORP.",
+          "firm_other_names": [
+            "EMERSON SECURITIES CORP."
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

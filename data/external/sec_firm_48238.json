@@ -1,0 +1,48 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "106693",
+          "firm_ia_sec_number": "48238",
+          "firm_ia_full_sec_number": "801-48238",
+          "firm_name": "GOLDMAN SACHS WEALTH SERVICES, L.P.",
+          "firm_other_names": [
+            "GOLDMAN SACHS AYCO",
+            "THE AYCO COMPANY,L.P.",
+            "THE AYCO COMPANY, L.P.",
+            "GOLDMAN SACHS WEALTH SERVICES, L.P.",
+            "GOLDMAN SACHS AYCO PERSONAL FINANCIAL MANAGEMENT"
+          ],
+          "firm_ia_scope": "ACTIVE",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_branches_count": 1150,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"100 COLISEUM DRIVE\", \"city\": \"COHOES\", \"state\": \"NY\", \"country\": \"United States\", \"postalCode\": \"12047\"}}"
+        },
+        "highlight": {}
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "38333",
+          "firm_bd_sec_number": "48238",
+          "firm_bd_full_sec_number": "8-48238",
+          "firm_name": "ARIEL DISTRIBUTORS, LLC",
+          "firm_other_names": [
+            "ARIEL DISTRIBUTORS, INC.",
+            "ARIEL DISTRIBUTORS, LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 4,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"200 EAST RANDOLPH STREET\", \"street2\": \"SUITE 2900\", \"city\": \"CHICAGO\", \"state\": \"IL\", \"country\": \"UNITED STATES\", \"postalCode\": \"60601\"}, \"mailingAddress\": {\"street1\": \"200 EAST RANDOLPH STREET\", \"street2\": \"SUITE 2900\", \"city\": \"CHICAGO\", \"state\": \"IL\", \"country\": \"UNITED STATES\", \"postalCode\": \"60601\"}, \"businessPhoneNumber\": \"(312) 726-0140\", \"finraLastApprovalDate\": \"1995-04-21T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

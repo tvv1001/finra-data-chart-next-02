@@ -1,0 +1,33 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "153034",
+          "firm_bd_sec_number": "68498",
+          "firm_bd_full_sec_number": "8-68498",
+          "firm_name": "HENNEPIN PARTNERS LLC",
+          "firm_other_names": [
+            "HENNEPIN PARTNERS",
+            "QUETICO PARTNERS LLC",
+            "ITASCA PARTNERS LLC",
+            "HENNEPIN PARTNERS LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 2,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"650 3RD AVE S.\", \"street2\": \"SUITE 1500\", \"city\": \"MINNEAPOLIS\", \"state\": \"MN\", \"country\": \"USA\", \"postalCode\": \"55402\"}, \"mailingAddress\": {\"street1\": \"650 3RD AVE S.\", \"street2\": \"SUITE 1500\", \"city\": \"MINNEAPOLIS\", \"state\": \"MN\", \"country\": \"USA\", \"postalCode\": \"55402\"}, \"businessPhoneNumber\": \"612-259-4990\", \"finraLastApprovalDate\": \"2010-11-17T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>153034</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

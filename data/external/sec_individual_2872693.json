@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 2872693, \"firstName\": \"Tracy\", \"lastName\": \"Lowery Whille\", \"otherNames\": [\"TRACY ANN LOWERY\", \"TRACY ANN LOWERY-WHILLE\", \"Tracy  LoweryWhille\", \"TRACEY  WHILLE\", \"Tracy  Whille\"], \"bcScope\": \"Active\", \"iaScope\": \"NotInScope\"}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 2, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"4/12/2001\", \"examScope\": \"BC\"}], \"principalExamCategory\": [{\"examCategory\": \"Series 14\", \"examName\": \"Compliance Officer Examination\", \"examTakenDate\": \"4/10/2024\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 24\", \"examName\": \"General Securities Principal Examination\", \"examTakenDate\": \"4/1/2024\", \"examScope\": \"BC\"}], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"2/10/2015\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"4/10/1997\", \"examScope\": \"BC\"}], \"registrationCount\": {\"hasInactiveRegistration\": \"N\", \"hasSuspendedRegistration\": \"N\", \"approvedSRORegistrationCount\": 3, \"approvedFinraRegistrationCount\": 1, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [{\"sro\": \"FINRA\", \"status\": \"APPROVED\", \"CategoriesList\": [\"Compliance Officer\", \"General Securities Principal\", \"Full Registration/General Securities Representative\"]}, {\"sro\": \"Investors' Exchange LLC\", \"status\": \"APPROVED\"}, {\"sro\": \"Nasdaq Stock Market\", \"status\": \"APPROVED\"}], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

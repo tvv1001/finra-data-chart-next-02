@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 2977886, \"firstName\": \"JANENE\", \"lastName\": \"WARREN\", \"otherNames\": [\"JAN E WARREN\", \"Warren\"], \"bcScope\": \"InActive\", \"iaScope\": \"Active\", \"daysInIndustry\": 6859}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"bdSECNumber\": \"23292\", \"firmId\": 7784, \"firmName\": \"FIDELITY BROKERAGE SERVICES LLC\", \"city\": \"WESTLAKE\", \"state\": \"TX\", \"registrationBeginDate\": \"4/12/2004\", \"registrationEndDate\": \"6/1/2018\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}, {\"iaOnly\": \"N\", \"bdSECNumber\": \"23292\", \"firmId\": 7784, \"firmName\": \"FIDELITY BROKERAGE SERVICES LLC\", \"city\": \"SMITHFIELD\", \"state\": \"RI\", \"country\": \"UNITED STATES\", \"registrationBeginDate\": \"3/11/1998\", \"registrationEndDate\": \"10/30/2002\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 2, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 66\", \"examName\": \"Uniform Combined State Law Examination\", \"examTakenDate\": \"8/5/2004\", \"examScope\": \"BOTH\"}, {\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"3/20/1998\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"6/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"2/12/1998\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [{\"state\": \"Idaho\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"6/20/2019\"}, {\"state\": \"Texas\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"6/20/2019\"}], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

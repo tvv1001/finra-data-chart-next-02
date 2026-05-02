@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 306775, \"firmName\": \"NORTH CAPITAL AGENCY BROKERAGE, LLC\", \"otherNames\": [\"NORTH CAPITAL AGENCY BROKERAGE, LLC\", \"TIMPANOGOS SECURITIES LLC\"], \"bcScope\": \"ACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"Y\", \"districtName\": \"Denver\", \"firmType\": \"Limited Liability Company\", \"formedState\": \"Delaware\", \"firmSize\": \"Small\", \"firmStatus\": \"Approved\", \"regulator\": \"SEC\", \"finraLastApprovalDate\": \"08/13/2025\", \"firmStatusDate\": \"08/13/2025\", \"formedDate\": \"10/11/2023\", \"fiscalMonthEndCode\": \"March\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"71176\", \"crs\": {\"crsType\": \"BD\", \"fileId\": \"66d63e81-f4d0-4138-a09e-b705e55a4bb5\"}}, \"firmAddressDetails\": {\"officeAddress\": {\"street1\": \"623 E FORT UNION BLVD.,\", \"street2\": \"SUITE 101\", \"city\": \"SALT LAKE CITY\", \"state\": \"UT\", \"country\": \"UNITED STATES\", \"postalCode\": \"84047\"}, \"mailingAddress\": {\"street1\": \"623 E FORT UNION BLVD.,\", \"street2\": \"SUITE 101\", \"city\": \"SALT LAKE CITY\", \"state\": \"UT\", \"country\": \"UNITED STATES\", \"postalCode\": \"84047\"}, \"businessPhoneNumber\": \"415-315-9916\", \"finraLastApprovalDate\": \"2025-08-13T00:00:00\"}, \"bdDisclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"registrations\": {\"approvedFinraRegistrationCount\": 1, \"approvedSECRegistrationCount\": 1, \"approvedSRORegistrationCount\": 1, \"approvedStateRegistrationCount\": 8, \"stateList\": [{\"state\": \"California\"}, {\"state\": \"Colorado\"}, {\"state\": \"Florida\"}, {\"state\": \"New York\"}, {\"state\": \"Ohio\"}, {\"state\": \"Texas\"}, {\"state\": \"Utah\"}, {\"state\": \"Wisconsin\"}], \"businessTypeCount\": 7, \"hasAffliation\": \"Y\", \"referOtherBd\": \"Y\"}, \"directOwners\": [{\"legalName\": \"KINGS PEAK SECURITIES LLC\", \"position\": \"OWNER\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"\"}, {\"legalName\": \"ANDERSON, JOSEPH CARL\", \"position\": \"CHIEF COMPLIANCE OFFICER\", \"bcScope\": \"Active\", \"crdNumber\": \"4644204\"}, {\"legalName\": \"BEATON, DANIEL STEWART\", \"position\": \"FIN OP\", \"bcScope\": \"Active\", \"crdNumber\": \"4240769\"}, {\"legalName\": \"DOWD, JAMES PATRICK\", \"position\": \"CEO, PRESIDENT\", \"bcScope\": \"Active\", \"crdNumber\": \"2109413\"}]}"
+        }
+      }
+    ]
+  }
+}

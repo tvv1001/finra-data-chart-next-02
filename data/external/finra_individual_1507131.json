@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 1507131, \"firstName\": \"MARTA\", \"middleName\": \"SUSANA\", \"lastName\": \"BEATON\", \"otherNames\": [], \"bcScope\": \"Active\", \"iaScope\": \"NotInScope\", \"daysInIndustryCalculatedDate\": \"2/20/2023\"}, \"currentEmployments\": [{\"firmId\": 2347, \"firmName\": \"JEFFERIES LLC\", \"iaOnly\": \"N\", \"registrationBeginDate\": \"2/21/2023\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"NOTINSCOPE\", \"bdSECNumber\": \"15074\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"N\", \"supervisedFromFlag\": \"Y\", \"privateResidenceFlag\": \"N\", \"branchOfficeId\": \"800953\", \"street1\": \"1450 Brickell Avenue\", \"street2\": \"Suite 1710\", \"city\": \"Miami\", \"cityAlias\": [\"MIAMI\"], \"state\": \"FL\", \"country\": \"United States\", \"zipCode\": \"33131\", \"latitude\": \"25.765482\", \"longitude\": \"-80.188406\", \"geoLocation\": \"25.765482,-80.188406\", \"nonRegisteredOfficeFlag\": \"N\", \"elaBeginDate\": \"11/28/2022\"}]}], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 0, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"2/21/2023\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 99TO\", \"examName\": \"Operations Professional Examination\", \"examTakenDate\": \"11/11/2022\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 1, \"approvedFinraRegistrationCount\": 1, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [{\"sro\": \"FINRA\", \"status\": \"APPROVED\", \"CategoriesList\": [\"Operations Professional\"]}], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "759",
+          "firm_bd_sec_number": "12745",
+          "firm_bd_full_sec_number": "8-12745",
+          "firm_name": "SECURITIES MANAGEMENT & RESEARCH, INC.",
+          "firm_other_names": [
+            "SECURITIES MANAGEMENT & RESEARCH, INC.",
+            "SOUTH SHORE ADVISORS, INC.",
+            "SM&R",
+            "SECURITIES MANAGEMENT AND RESEARCH, INC. (\"SM&R\")",
+            "SECURITIES MANAGEMENT AND RESEARCH, INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 57,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"4201 42ND STREET NE\", \"street2\": \"SUITE 100\", \"city\": \"CEDAR RAPIDS\", \"state\": \"IA\", \"country\": \"UNITED STATES\", \"postalCode\": \"52402\"}, \"mailingAddress\": {\"street1\": \"4201 42ND STREET NE\", \"street2\": \"SUITE 100\", \"city\": \"CEDAR RAPIDS\", \"state\": \"IA\", \"country\": \"UNITED STATES\", \"postalCode\": \"52402\"}, \"businessPhoneNumber\": \"855-767-5700\", \"finraLastApprovalDate\": \"1966-04-18T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

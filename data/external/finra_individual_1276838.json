@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 1276838, \"firstName\": \"CHARLES\", \"middleName\": \"EDWIN\", \"lastName\": \"PAUL\", \"nameSuffix\": \"JR\", \"otherNames\": [\"CHARLES E PAUL\", \"CHUCK  PAUL\"], \"bcScope\": \"LegacyNonArchived\", \"iaScope\": \"NotInScope\", \"daysInIndustry\": 1578}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"bdSECNumber\": \"34334\", \"firmId\": 16660, \"firmName\": \"HAMPTON SECURITIES, INC.\", \"registrationBeginDate\": \"8/31/1988\", \"registrationEndDate\": \"11/19/1988\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"NOTINSCOPE\", \"expelledDate\": \"6/8/1990\"}, {\"iaOnly\": \"N\", \"bdSECNumber\": \"15727\", \"firmId\": 5096, \"firmName\": \"BLINDER, ROBINSON & CO., INC.\", \"registrationBeginDate\": \"7/26/1984\", \"registrationEndDate\": \"11/3/1988\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"Y\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 1, \"productExamCount\": 1}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"6/27/1984\", \"examScope\": \"BC\"}], \"principalExamCategory\": [{\"examCategory\": \"Series 24\", \"examName\": \"General Securities Principal Examination\", \"examTakenDate\": \"10/15/1985\", \"examScope\": \"BC\"}], \"productExamCategory\": [{\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"7/21/1984\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Generated\"}}"
+        }
+      }
+    ]
+  }
+}

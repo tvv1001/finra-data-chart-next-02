@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 8121223, \"firstName\": \"Richard\", \"middleName\": \"Tidwell\", \"lastName\": \"Littrell\", \"otherNames\": [\"Richard Capital Littrell\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"Active\", \"daysInIndustryCalculatedDateIAPD\": \"7/16/2025\"}, \"currentIAEmployments\": [{\"firmId\": 107890, \"firmName\": \"LEAVELL INVESTMENT MANAGEMENT, INC.\", \"iaOnly\": \"Y\", \"registrationBeginDate\": \"3/4/2026\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"ACTIVE\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"Y\", \"supervisedFromFlag\": \"N\", \"privateResidenceFlag\": \"N\", \"street1\": \"2712 18th Place South\", \"city\": \"Birmingham\", \"cityAlias\": [\"BIRMINGHAM\", \"HOMEWOOD\", \"MOUNTAIN BRK\", \"MOUNTAIN BROOK\", \"VESTAVIA\"], \"state\": \"AL\", \"country\": \"United States\", \"zipCode\": \"35209\", \"latitude\": \"33.464529\", \"longitude\": \"-86.806566\", \"geoLocation\": \"33.464529,-86.806566\", \"nonRegisteredOfficeFlag\": \"Y\", \"elaBeginDate\": \"02/23/2026\"}]}], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"iaSECNumber\": \"132789\", \"iaSECNumberType\": \"801\", \"firmId\": 335388, \"firmName\": \"OAKWORTH ASSET MANAGEMENT, LLC\", \"city\": \"BIRMINGHAM\", \"state\": \"AL\", \"country\": \"United States\", \"registrationBeginDate\": \"7/11/2025\", \"registrationEndDate\": \"2/25/2026\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"ACTIVE\"}], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 0}, \"stateExamCategory\": [{\"examCategory\": \"Series 65\", \"examName\": \"Uniform Investment Adviser Law Examination\", \"examTakenDate\": \"7/3/2025\", \"examScope\": \"IA\"}], \"principalExamCategory\": [], \"productExamCategory\": [], \"registrationCount\": {\"hasInactiveRegistration\": \"N\", \"hasSuspendedRegistration\": \"N\", \"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 2}, \"registeredStates\": [{\"state\": \"Alabama\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"3/4/2026\"}, {\"state\": \"Texas\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"3/4/2026\"}], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}, \"currentEmployments\": []}"
+        }
+      }
+    ]
+  }
+}

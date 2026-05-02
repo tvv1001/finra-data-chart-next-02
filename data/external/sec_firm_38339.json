@@ -1,0 +1,31 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "38339",
+          "firm_bd_sec_number": "48197",
+          "firm_bd_full_sec_number": "8-48197",
+          "firm_name": "P.J. ROBB VARIABLE, LLC",
+          "firm_other_names": [
+            "P.J. ROBB VARIABLE CORPORATION",
+            "P.J. ROBB VARIABLE, LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 10,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"6075 POPLAR AVE\", \"street2\": \"SUITE 400\", \"city\": \"MEMPHIS\", \"state\": \"TN\", \"country\": \"USA\", \"postalCode\": \"38119\"}, \"mailingAddress\": {\"street1\": \"6075 POPLAR AVE\", \"street2\": \"SUITE 400\", \"city\": \"MEMPHIS\", \"state\": \"TN\", \"country\": \"USA\", \"postalCode\": \"38119\"}, \"businessPhoneNumber\": \"(901) 722-5433\", \"finraLastApprovalDate\": \"1995-05-23T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>38339</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

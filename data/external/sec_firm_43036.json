@@ -1,0 +1,46 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "43036",
+          "firm_bd_sec_number": "50128",
+          "firm_bd_full_sec_number": "8-50128",
+          "firm_name": "STATE FARM VP MANAGEMENT CORP.",
+          "firm_other_names": [
+            "STATE FARM VP MANAGEMENT CORP."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 2504,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"ONE STATE FARM PLAZA\", \"city\": \"BLOOMINGTON\", \"state\": \"IL\", \"country\": \"UNITED STATES\", \"postalCode\": \"61710-0001\"}, \"mailingAddress\": {\"street1\": \"ONE STATE FARM PLAZA\", \"city\": \"BLOOMINGTON\", \"state\": \"IL\", \"country\": \"UNITED STATES\", \"postalCode\": \"61710-0001\"}, \"businessPhoneNumber\": \"833-430-8518\", \"finraLastApprovalDate\": \"1997-11-19T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>43036</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "27354",
+          "firm_bd_sec_number": "43036",
+          "firm_bd_full_sec_number": "8-43036",
+          "firm_name": "ABACO INTERNATIONAL CORPORATION",
+          "firm_other_names": [
+            "ABACO INTERNATIONAL CORPORATION"
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

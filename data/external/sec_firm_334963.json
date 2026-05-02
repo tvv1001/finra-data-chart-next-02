@@ -1,0 +1,31 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "334963",
+          "firm_bd_sec_number": "71334",
+          "firm_bd_full_sec_number": "8-71334",
+          "firm_name": "REPUBLIC CAPITAL GROUP",
+          "firm_other_names": [
+            "REPUBLIC CAPITAL GROUP",
+            "REPUBLIC CAPITAL GROUP HOLDINGS LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 4,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"50 ROCKEFELLER PLAZA\", \"street2\": \"SUITE 1250\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10020\"}, \"mailingAddress\": {\"street1\": \"50 ROCKEFELLER PLAZA\", \"street2\": \"SUITE 1250\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10020\"}, \"businessPhoneNumber\": \"832-980-3500\", \"finraLastApprovalDate\": \"2025-08-01T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>334963</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

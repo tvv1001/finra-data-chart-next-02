@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 357751, \"firstName\": \"DONALD\", \"middleName\": \"NEAL\", \"lastName\": \"PATRICK\", \"otherNames\": [\"PAT  PATRICK\"], \"bcScope\": \"InActive\", \"iaScope\": \"NotInScope\"}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"iaSECNumber\": \"53014\", \"iaSECNumberType\": \"801\", \"firmId\": 110825, \"firmName\": \"PMG ASSET MANAGEMENT INC\", \"city\": \"CORONADO ISLAND \", \"state\": \"CA\", \"country\": \"United States\", \"registrationBeginDate\": \"1/24/2002\", \"registrationEndDate\": \"12/31/2003\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 0, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 1\", \"examName\": \"Registered Representative Examination\", \"examTakenDate\": \"5/1/1972\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

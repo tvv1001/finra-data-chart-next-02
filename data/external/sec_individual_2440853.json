@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 2440853, \"firstName\": \"BARTON\", \"middleName\": \"GEOFFREY\", \"lastName\": \"ICE\", \"otherNames\": [\"BARTON  ICE\"], \"bcScope\": \"InActive\", \"iaScope\": \"NotInScope\"}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"iaSECNumber\": \"52602\", \"iaSECNumberType\": \"801\", \"firmId\": 106474, \"firmName\": \"BKF ASSET MANAGEMENT, INC.\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"United States\", \"registrationBeginDate\": \"6/28/1996\", \"registrationEndDate\": \"3/23/2006\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 2, \"principalExamCount\": 0, \"productExamCount\": 3}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"4/12/1996\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 65\", \"examName\": \"Uniform Investment Adviser Law Examination\", \"examTakenDate\": \"2/14/1996\", \"examScope\": \"IA\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"4/12/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"10/6/1995\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 3\", \"examName\": \"National Commodity Futures Examination\", \"examTakenDate\": \"12/14/1993\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

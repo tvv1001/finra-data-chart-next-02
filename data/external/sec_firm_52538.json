@@ -1,0 +1,28 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "104065",
+          "firm_bd_sec_number": "52538",
+          "firm_bd_full_sec_number": "8-52538",
+          "firm_name": "NEWBRIDGE SECURITIES CORPORATION",
+          "firm_other_names": [
+            "LUDWIG INVESTMENTS, INC.",
+            "NEWBRIDGE SECURITIES CORPORATION",
+            "NEWBRIDGE SECURITIES CORP."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 35,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"1200 NORTH FEDERAL HIGHWAY\", \"street2\": \"SUITE 400\", \"city\": \"BOCA RATON\", \"state\": \"FL\", \"country\": \"UNITED STATES\", \"postalCode\": \"33432\"}, \"mailingAddress\": {\"street1\": \"1200 NORTH FEDERAL HIGHWAY\", \"street2\": \"SUITE 400\", \"city\": \"BOCA RATON\", \"state\": \"FL\", \"country\": \"UNITED STATES\", \"postalCode\": \"33432\"}, \"businessPhoneNumber\": \"(954) 334-3450\", \"finraLastApprovalDate\": \"2000-07-14T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

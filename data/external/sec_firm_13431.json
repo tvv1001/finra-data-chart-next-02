@@ -1,0 +1,51 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "13431",
+          "firm_bd_sec_number": "25686",
+          "firm_bd_full_sec_number": "8-25686",
+          "firm_name": "JOHN A. NEIDEL AND COMPANY",
+          "firm_other_names": [
+            "JOHN A. NEIDEL AND COMPANY",
+            "N W SECURITIES CORPORATION"
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>13431</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "145",
+          "firm_bd_sec_number": "13431",
+          "firm_bd_full_sec_number": "8-13431",
+          "firm_name": "LINCOLN FINANCIAL DISTRIBUTORS, INC.",
+          "firm_other_names": [
+            "CG EQUITY SALES COMPANY",
+            "SAGEMARK CONSULTING, INC.",
+            "LINCOLN FINANCIAL DISTRIBUTORS, INC.",
+            "CIGNA SECURITIES, INC.",
+            "CIGNA FINANCIAL ADVISORS,INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 13,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"130 N RADNOR-CHESTER RD\", \"city\": \"RADNOR\", \"state\": \"PA\", \"country\": \"UNITED STATES\", \"postalCode\": \"19087\"}, \"mailingAddress\": {\"street1\": \"130 N RADNOR-CHESTER RD\", \"city\": \"RADNOR\", \"state\": \"PA\", \"country\": \"UNITED STATES\", \"postalCode\": \"19087\"}, \"businessPhoneNumber\": \"484-583-6000\", \"finraLastApprovalDate\": \"1967-10-16T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

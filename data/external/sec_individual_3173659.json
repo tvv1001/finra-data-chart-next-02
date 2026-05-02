@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 3173659, \"firstName\": \"GEORGE\", \"middleName\": \"DON\", \"lastName\": \"LAWSON\", \"nameSuffix\": \"JR\", \"otherNames\": [\"DON  LAWSON\", \"GEORGE D LAWSON\"], \"bcScope\": \"InActive\", \"iaScope\": \"InActive\", \"daysInIndustryIAPD\": 7025}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"iaSECNumber\": \"63930\", \"iaSECNumberType\": \"801\", \"firmId\": 134139, \"firmName\": \"CAMBRIDGE INVESTMENT RESEARCH ADVISORS, INC.\", \"city\": \"PEWEE VALLEY\", \"state\": \"KY\", \"country\": \"United States\", \"registrationBeginDate\": \"3/28/2005\", \"registrationEndDate\": \"11/14/2022\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"ACTIVE\"}, {\"iaOnly\": \"Y\", \"bdSECNumber\": \"48740\", \"firmId\": 39543, \"firmName\": \"CAMBRIDGE INVESTMENT RESERARCH, INC.\", \"city\": \"LOUISVILLE\", \"state\": \"KY\", \"country\": \"United States\", \"registrationBeginDate\": \"8/22/2003\", \"registrationEndDate\": \"3/28/2005\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"6/23/1999\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"5/24/2000\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

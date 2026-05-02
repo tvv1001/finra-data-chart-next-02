@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 6681546, \"firstName\": \"JACK\", \"lastName\": \"PEARL\", \"otherNames\": [\"Jack L Pearl\", \"Jack  Pearl\"], \"bcScope\": \"InActive\", \"iaScope\": \"NotInScope\", \"daysInIndustry\": 804}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"iaSECNumber\": \"16048\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"129\", \"firmId\": 361, \"firmName\": \"GOLDMAN SACHS & CO. LLC\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"registrationBeginDate\": \"9/1/2017\", \"registrationEndDate\": \"11/13/2019\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 4}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"8/25/2017\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 86\", \"examName\": \"Research Analyst Exam - Part I Analysis Module\", \"examTakenDate\": \"9/15/2017\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 87\", \"examName\": \"Research Analyst Exam - Part II Regulations Module\", \"examTakenDate\": \"9/8/2017\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"9/1/2017\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

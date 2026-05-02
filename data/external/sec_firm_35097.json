@@ -1,0 +1,29 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "17507",
+          "firm_bd_sec_number": "35097",
+          "firm_bd_full_sec_number": "8-35097",
+          "firm_name": "FIDELITY DISTRIBUTORS COMPANY LLC",
+          "firm_other_names": [
+            "FIDELITY DISTRIBUTORS COMPANY LLC",
+            "INSTITUTIONAL COMPANY, INC.",
+            "FIDELITY INVESTMENTS INSTITUTIONAL SERVICES COMPANY, INC.",
+            "FIDELITY INSTITUTIONAL RETIREMENT SERVICES COMPANY"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 18,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"900 SALEM STREET\", \"city\": \"SMITHFIELD\", \"state\": \"RI\", \"country\": \"UNITED STATES\", \"postalCode\": \"02917\"}, \"mailingAddress\": {\"street1\": \"TWO DESTINY WAY\", \"street2\": \"MAIL ZONE WG3D\", \"city\": \"WESTLAKE\", \"state\": \"TX\", \"country\": \"UNITED STATES\", \"postalCode\": \"76262\"}, \"businessPhoneNumber\": \"800-237-8132\", \"finraLastApprovalDate\": \"1986-07-21T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

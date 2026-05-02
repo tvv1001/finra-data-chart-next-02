@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 1632226, \"firstName\": \"HERBERT\", \"middleName\": \"TYRONE\", \"lastName\": \"HUNT\", \"sanctions\": {\"permanentBar\": \"Y\", \"sanctionDetails\": [{\"category\": \"BAR\", \"regulator\": \"FINRA\", \"messages\": [\"FINRA_BAR_ALL_MESSAGE\"], \"detail\": [], \"capacity\": [\"ALL\"]}]}, \"otherNames\": [\"H TY HUNT\", \"H TYRONE HUNT\", \"TY  HUNT\"], \"bcScope\": \"Expanded\", \"iaScope\": \"NotInScope\"}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"Y\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 2, \"principalExamCount\": 2, \"productExamCount\": 1}, \"stateExamCategory\": [{\"examCategory\": \"Series 65\", \"examName\": \"Uniform Investment Adviser Law Examination\", \"examTakenDate\": \"2/17/1999\", \"examScope\": \"IA\"}, {\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"4/9/1987\", \"examScope\": \"BC\"}], \"principalExamCategory\": [{\"examCategory\": \"Series 10\", \"examName\": \"General Securities Sales Supervisor - General Module Examination\", \"examTakenDate\": \"2/25/2002\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 9\", \"examName\": \"General Securities Sales Supervisor - Options Module Examination\", \"examTakenDate\": \"2/16/2002\", \"examScope\": \"BC\"}], \"productExamCategory\": [{\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"3/21/1987\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "7110",
+          "firm_bd_sec_number": "20254",
+          "firm_bd_full_sec_number": "8-20254",
+          "firm_name": "NATIONWIDE INVESTMENT SERVICES CORPORATION",
+          "firm_other_names": [
+            "NATIONWIDE INVESTMENT ADVISORS, LLC",
+            "PEBSCO SECURITIES CORP.",
+            "NATIONWIDE RETIREMENT INSTITUTE, A DIVISION OF NISC",
+            "NATIONWIDE INVESTMENT SVCS. CORPORATION",
+            "NATIONWIDE INVESTMENT SERVICES CORPORATION"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 82,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"ONE NATIONWIDE PLAZA\", \"street2\": \"1-33-401\", \"city\": \"COLUMBUS\", \"state\": \"OH\", \"country\": \"UNITED STATES\", \"postalCode\": \"43215\"}, \"mailingAddress\": {\"street1\": \"ONE NATIONWIDE PLAZA\", \"street2\": \"1-33-401\", \"city\": \"COLUMBUS\", \"state\": \"OH\", \"country\": \"UNITED STATES\", \"postalCode\": \"43215\"}, \"businessPhoneNumber\": \"1-800-882-2822\", \"finraLastApprovalDate\": \"1976-04-15T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>7110</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

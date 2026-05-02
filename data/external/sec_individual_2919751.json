@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 2919751, \"firstName\": \"JENNIFER\", \"middleName\": \"LAUREN\", \"lastName\": \"BROWN\", \"otherNames\": [], \"bcScope\": \"NotInScope\", \"iaScope\": \"Active\", \"daysInIndustryCalculatedDateIAPD\": \"11/4/2017\"}, \"currentIAEmployments\": [{\"firmId\": 165258, \"firmName\": \"SUMMER CREEK WEALTH MANAGEMENT, LLC\", \"iaOnly\": \"Y\", \"registrationBeginDate\": \"7/15/2021\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"ACTIVE\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"Y\", \"supervisedFromFlag\": \"N\", \"privateResidenceFlag\": \"Y\", \"branchOfficeId\": \"511185\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"United States\", \"nonRegisteredOfficeFlag\": \"N\", \"elaBeginDate\": \"08/01/2012\"}]}], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"iaSECNumber\": \"63550\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"44454\", \"firmId\": 20472, \"firmName\": \"TIAA-CREF ADVICE AND PLANNING SERVICES\", \"city\": \"LATHAM\", \"state\": \"NY\", \"country\": \"United States\", \"registrationBeginDate\": \"9/15/2008\", \"registrationEndDate\": \"5/24/2012\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 3, \"principalExamCount\": 0, \"productExamCount\": 1}, \"stateExamCategory\": [{\"examCategory\": \"Series 66\", \"examName\": \"Uniform Combined State Law Examination\", \"examTakenDate\": \"12/1/2006\", \"examScope\": \"BOTH\"}, {\"examCategory\": \"Series 65\", \"examName\": \"Uniform Investment Adviser Law Examination\", \"examTakenDate\": \"9/26/1997\", \"examScope\": \"IA\"}, {\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"9/17/1997\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"11/6/2006\", \"examScope\": \"BC\"}], \"registrationCount\": {\"hasInactiveRegistration\": \"N\", \"hasSuspendedRegistration\": \"N\", \"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 1}, \"registeredStates\": [{\"state\": \"New York\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"7/15/2021\"}], \"registeredSROs\": [], \"currentEmployments\": []}"
+        }
+      }
+    ]
+  }
+}

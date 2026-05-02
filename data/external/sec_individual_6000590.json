@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 6000590, \"firstName\": \"JEFFREY\", \"middleName\": \"DAVIS\", \"lastName\": \"BARNETT\", \"otherNames\": [\"JEFFREY  BARNETT\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"InActive\", \"daysInIndustryIAPD\": 76}, \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"iaSECNumber\": \"127039\", \"iaSECNumberType\": \"801\", \"firmId\": 323035, \"firmName\": \"JESSUP WEALTH MANAGEMENT\", \"city\": \"DAYTON\", \"state\": \"OH\", \"country\": \"United States\", \"registrationBeginDate\": \"5/3/2024\", \"registrationEndDate\": \"7/17/2024\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"ACTIVE\"}], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 1}, \"stateExamCategory\": [{\"examCategory\": \"Series 65\", \"examName\": \"Uniform Investment Adviser Law Examination\", \"examTakenDate\": \"4/30/2024\", \"examScope\": \"IA\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 99\", \"examName\": \"Operations Professional Examination\", \"examTakenDate\": \"9/11/2012\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}, \"currentEmployments\": []}"
+        }
+      }
+    ]
+  }
+}

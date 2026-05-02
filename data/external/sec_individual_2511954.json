@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 2511954, \"firstName\": \"PEGGY\", \"middleName\": \"LYNN\", \"lastName\": \"JERGENSON\", \"otherNames\": [\"PEGGY LYNN HENRICHS\", \"PEGGY  HENRICHS\", \"PEG L JERGENSEN\"], \"bcScope\": \"InActive\", \"iaScope\": \"InActive\", \"daysInIndustryIAPD\": 1642}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"iaSECNumber\": \"69815\", \"iaSECNumberType\": \"801\", \"firmId\": 149018, \"firmName\": \"RAYMOND JAMES FINANCIAL SERVICES ADVISORS, INC\", \"city\": \"MORRIS\", \"state\": \"MN\", \"country\": \"United States\", \"registrationBeginDate\": \"9/30/2014\", \"registrationEndDate\": \"7/26/2018\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"ACTIVE\"}, {\"iaOnly\": \"Y\", \"iaSECNumber\": \"10970\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"17668\", \"firmId\": 6413, \"firmName\": \"LPL FINANCIAL LLC\", \"city\": \"MORRIS\", \"state\": \"MN\", \"country\": \"United States\", \"registrationBeginDate\": \"1/21/2014\", \"registrationEndDate\": \"9/23/2014\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"11/23/2002\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"7/26/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"7/26/2002\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

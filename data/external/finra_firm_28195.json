@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 28195, \"firmName\": \"INTERNATIONAL STRATEGY & INVESTMENT GROUP LLC\", \"otherNames\": [\"EVERCORE ISI\", \"ISI GROUP LLC\", \"INTERNATIONAL STRATEGY & INVESTMENT GROUP LLC\", \"INTERNATIONAL STRATEGY & INVESTMENT GROUP INC.\", \"INTERNATIONAL STRATEGY & INVESTMENT BOND GROUP INC.\", \"EVERCORE ISI INSTITUTIONAL EQUITIES\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"N\", \"districtName\": \"New York\", \"firmType\": \"Limited Liability Company\", \"formedState\": \"Delaware\", \"firmStatus\": \"Terminated\", \"regulator\": \"SEC\", \"firmStatusDate\": \"02/21/2016\", \"formedDate\": \"01/29/1991\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"43515\"}, \"bdDisclosureFlag\": \"Y\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [{\"disclosureType\": \"Regulatory Event\", \"disclosureCount\": 5}], \"registrations\": {\"approvedFinraRegistrationCount\": 0, \"approvedSECRegistrationCount\": 0, \"approvedSRORegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"stateList\": [], \"businessTypeCount\": 0}, \"directOwners\": [{\"legalName\": \"EVERCORE PARTNERS SERVICES EAST LLC\", \"position\": \"CORPORATION\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"\"}, {\"legalName\": \"CASEY, KEVIN MICHAEL\", \"position\": \"CHIEF COMPLIANCE OFFICER\", \"bcScope\": \"Active\", \"crdNumber\": \"4754440\"}, {\"legalName\": \"FORTUNA, TERRI HUNT\", \"position\": \"CHIEF OPERATING OFFICER\", \"bcScope\": \"InActive\", \"crdNumber\": \"3050362\"}, {\"legalName\": \"HYMAN, EDWARD S JR\", \"position\": \"EXECUTIVE\", \"bcScope\": \"Active\", \"crdNumber\": \"804864\"}, {\"legalName\": \"MYERS, CHARLES AUSTIN\", \"position\": \"EXECUTIVE\", \"bcScope\": \"InActive\", \"crdNumber\": \"2353275\"}, {\"legalName\": \"RUTITSKIY, DMITRIY\", \"position\": \"CHIEF FINANCIAL OFFICER/FINOP\", \"bcScope\": \"Active\", \"crdNumber\": \"6117665\"}, {\"legalName\": \"SINGH, VINAYAK\", \"position\": \"EXECUTIVE\", \"bcScope\": \"InActive\", \"crdNumber\": \"1969533\"}]}"
+        }
+      }
+    ]
+  }
+}

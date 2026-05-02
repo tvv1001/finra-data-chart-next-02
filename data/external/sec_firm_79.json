@@ -1,0 +1,130 @@
+{
+  "hits": {
+    "total": 4,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "79",
+          "firm_bd_sec_number": "35008",
+          "firm_bd_full_sec_number": "8-35008",
+          "firm_ia_sec_number": "3702",
+          "firm_ia_full_sec_number": "801-3702",
+          "firm_name": "J.P. MORGAN SECURITIES LLC",
+          "ia_firm_name": "J.P. MORGAN SECURITIES LLC",
+          "firm_other_names": [
+            "BEAR, STEARNS & CO.",
+            "JPMORGAN H&Q",
+            "JPMORGAN CHASE",
+            "J.P.MORGAN SECURITIES INC.",
+            "J.P. MORGAN WEALTH MANAGEMENT",
+            "J.P. MORGAN SECURITIES LLC",
+            "J.P. MORGAN SECURITIES INC.",
+            "J.P. MORGAN SECURITIES",
+            "J.P. MORGAN PRIVATE WEALTH MANAGEMENT",
+            "J.P. MORGAN PRIVATE WEALTH ADVISORS LLC",
+            "J.P. MORGAN PRIVATE CLIENT",
+            "J.P. MORGAN PRIVATE BANK",
+            "J.P. MORGAN",
+            "CHASE PRIVATE CLIENT",
+            "CHASE INVESTMENTS",
+            "BEAR, STEARNS & CO. INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 6889,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"270 PARK AVENUE\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10017\"}, \"mailingAddress\": {\"street1\": \"1111 POLARIS PKWY\", \"street2\": \"FLOOR 3F\", \"city\": \"COLUMBUS\", \"state\": \"OH\", \"country\": \"UNITED STATES\", \"postalCode\": \"43240\"}, \"businessPhoneNumber\": \"212-272-2000\", \"finraLastApprovalDate\": \"1936-12-17T00:00:00\", \"iaFirmName\": \"J.P. MORGAN SECURITIES LLC\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"270 PARK AVENUE\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"United States\", \"postalCode\": \"10017\"}}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>79</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "316208",
+          "firm_name": "79 FINANCIAL",
+          "firm_other_names": [
+            "79 FINANCIAL",
+            "79 FINANCIAL LLC"
+          ],
+          "firm_ia_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"2009 MACKENZIE WAY\", \"street2\": \"SUITE 100\", \"city\": \"CRANBERRY TOWNSHIP\", \"state\": \"PA\", \"country\": \"United States\", \"postalCode\": \"16066\"}}"
+        },
+        "highlight": {
+          "firm_name": [
+            "<em>79</em> FINANCIAL"
+          ],
+          "firm_other_names": [
+            "<em>79</em> FINANCIAL",
+            "<em>79</em> FINANCIAL LLC"
+          ],
+          "firm_name.syn": [
+            "<em>79</em> FINANCIAL"
+          ],
+          "firm_other_names.syn": [
+            "<em>79</em> FINANCIAL",
+            "<em>79</em> FINANCIAL LLC"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "331262",
+          "firm_name": "793 CAPITAL, LLC",
+          "firm_other_names": [
+            "793 CAPITAL, LLC"
+          ],
+          "firm_ia_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"4079 GOVERNOR DRIVE\", \"street2\": \"#354\", \"city\": \"SAN DIEGO\", \"state\": \"CA\", \"country\": \"United States\", \"postalCode\": \"92122\"}}"
+        },
+        "highlight": {
+          "firm_name": [
+            "<em>79</em>3 CAPITAL, LLC"
+          ],
+          "firm_other_names": [
+            "<em>79</em>3 CAPITAL, LLC"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "145511",
+          "firm_bd_sec_number": "67733",
+          "firm_bd_full_sec_number": "8-67733",
+          "firm_name": "DELTA SECURITIES COMPANY LLC",
+          "firm_other_names": [
+            "79 CAPITAL SECURITIES, LLC",
+            "DELTA SECURITIES COMPANY LLC",
+            "CAPITAL INNOVATIONS SECURITIES, LLC"
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 0,
+          "firm_branches_count": 0
+        },
+        "highlight": {
+          "firm_other_names": [
+            "<em>79</em> CAPITAL SECURITIES, LLC"
+          ],
+          "firm_other_names.syn": [
+            "<em>79</em> CAPITAL SECURITIES, LLC"
+          ]
+        }
+      }
+    ]
+  }
+}

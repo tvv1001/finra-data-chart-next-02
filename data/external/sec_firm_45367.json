@@ -1,0 +1,26 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "31793",
+          "firm_bd_sec_number": "45367",
+          "firm_bd_full_sec_number": "8-45367",
+          "firm_name": "FINANCORP GROUP INTERNATIONAL CORPORATION",
+          "firm_other_names": [
+            "FINANCORP GROUP INTERNATIONAL CORPORATION"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 2,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"800 BRICKELL AVE\", \"street2\": \"STE. 435\", \"city\": \"MIAMI\", \"state\": \"FL\", \"country\": \"UNITED STATES\", \"postalCode\": \"33131\"}, \"mailingAddress\": {\"street1\": \"800 BRICKELL AVE\", \"street2\": \"STE. 435\", \"city\": \"MIAMI\", \"state\": \"FL\", \"country\": \"UNITED STATES\", \"postalCode\": \"33131\"}, \"businessPhoneNumber\": \"954-334-0009\", \"finraLastApprovalDate\": \"1993-07-09T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

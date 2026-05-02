@@ -1,0 +1,51 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "16514",
+          "firm_bd_sec_number": "33932",
+          "firm_bd_full_sec_number": "8-33932",
+          "firm_name": "EMERSON SECURITIES CORP.",
+          "firm_other_names": [
+            "EMERSON SECURITIES CORP."
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>16514</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "5393",
+          "firm_bd_sec_number": "16514",
+          "firm_bd_full_sec_number": "8-16514",
+          "firm_ia_sec_number": "29938",
+          "firm_ia_full_sec_number": "801-29938",
+          "firm_name": "CHARLES SCHWAB & CO., INC.",
+          "ia_firm_name": "CHARLES SCHWAB & CO., INC.",
+          "firm_other_names": [
+            "CHARLES SCHWAB & CO., INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 1282,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"3000 SCHWAB WAY\", \"city\": \"WESTLAKE\", \"state\": \"TX\", \"country\": \"UNITED STATES\", \"postalCode\": \"76262-8104\"}, \"mailingAddress\": {\"street1\": \"3000 SCHWAB WAY\", \"street2\": \"SF211MN-08-330\", \"city\": \"WESTLAKE\", \"state\": \"TX\", \"country\": \"UNITED STATES\", \"postalCode\": \"76262-8104\"}, \"businessPhoneNumber\": \"817-859-5000\", \"finraLastApprovalDate\": \"1970-10-13T00:00:00\", \"iaFirmName\": \"CHARLES SCHWAB & CO., INC.\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"425 MARKET STREET\", \"street2\": \"17TH FLOOR\", \"city\": \"SAN FRANCISCO\", \"state\": \"CA\", \"country\": \"United States\", \"postalCode\": \"94105\"}}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

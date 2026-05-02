@@ -1,0 +1,54 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "128929",
+          "firm_bd_sec_number": "66185",
+          "firm_bd_full_sec_number": "8-66185",
+          "firm_ia_sec_number": "62547",
+          "firm_ia_full_sec_number": "801-62547",
+          "firm_name": "GWN SECURITIES INC.",
+          "ia_firm_name": "GWN SECURITIES INC.",
+          "firm_other_names": [
+            "GLOBAL WORLD NETWORK SECURITIES",
+            "GWN SECURITIES INC.",
+            "GLOBAL WORLD NETWORK SECURITIES INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 440,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"11440 NORTH JOG ROAD\", \"city\": \"PALM BEACH GARDENS\", \"state\": \"FL\", \"country\": \"USA\", \"postalCode\": \"33418-3764\"}, \"mailingAddress\": {\"street1\": \"11440 NORTH JOG ROAD\", \"city\": \"PALM BEACH GARDENS\", \"state\": \"FL\", \"country\": \"USA\", \"postalCode\": \"33418-3764\"}, \"businessPhoneNumber\": \"561-472-2700\", \"finraLastApprovalDate\": \"2004-01-20T00:00:00\", \"iaFirmName\": \"GWN SECURITIES INC.\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"11440 NORTH JOG ROAD\", \"city\": \"PALM BEACH GARDENS\", \"state\": \"FL\", \"country\": \"United States\", \"postalCode\": \"33418-3764\"}}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>128929</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "328113",
+          "firm_ia_sec_number": "128929",
+          "firm_ia_full_sec_number": "801-128929",
+          "firm_name": "LINGOTTO US LLC",
+          "firm_other_names": [
+            "LINGOTTO US LLC"
+          ],
+          "firm_ia_scope": "ACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 1,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"461 FIFTH AVENUE\", \"street2\": \"6TH FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"United States\", \"postalCode\": \"10017\"}}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

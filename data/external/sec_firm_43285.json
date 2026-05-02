@@ -1,0 +1,53 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "43285",
+          "firm_bd_sec_number": "50214",
+          "firm_bd_full_sec_number": "8-50214",
+          "firm_ia_sec_number": "57304",
+          "firm_ia_full_sec_number": "801-57304",
+          "firm_name": "M HOLDINGS SECURITIES, INC.",
+          "ia_firm_name": "M HOLDINGS SECURITIES, INC.",
+          "firm_other_names": [
+            "M HOLDINGS SECURITIES, INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 196,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"1125 N.W. COUCH STREET\", \"street2\": \"SUITE 900\", \"city\": \"PORTLAND\", \"state\": \"OR\", \"country\": \"UNITED STATES\", \"postalCode\": \"97209\"}, \"mailingAddress\": {\"street1\": \"P.O. BOX 2207\", \"city\": \"PORTLAND\", \"state\": \"OR\", \"country\": \"UNITED STATES\", \"postalCode\": \"97208-2207\"}, \"businessPhoneNumber\": \"888-520-6784\", \"finraLastApprovalDate\": \"1997-10-30T00:00:00\", \"iaFirmName\": \"M HOLDINGS SECURITIES, INC.\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"1125 N.W. COUCH STREET\", \"street2\": \"SUITE 900\", \"city\": \"PORTLAND\", \"state\": \"OR\", \"country\": \"United States\", \"postalCode\": \"97209\"}}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>43285</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "28251",
+          "firm_bd_sec_number": "43285",
+          "firm_bd_full_sec_number": "8-43285",
+          "firm_name": "MMG FINANCIAL SERVICES, LTD.",
+          "firm_other_names": [
+            "MMG FINANCIAL SERVICES, LTD."
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 0,
+          "firm_branches_count": 0
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

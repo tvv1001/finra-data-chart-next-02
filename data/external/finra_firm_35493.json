@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 35493, \"firmName\": \"WILLIAM TOLL & COMPANY\", \"otherNames\": [\"WILLIAM TOLL & COMPANY\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"N\", \"districtName\": \"Florida\", \"firmType\": \"Partnership\", \"formedState\": \"Illinois\", \"firmStatus\": \"Terminated\", \"regulator\": \"SEC\", \"firmStatusDate\": \"05/19/2001\", \"formedDate\": \"02/04/1983\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"28829\"}, \"bdDisclosureFlag\": \"Y\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [{\"disclosureType\": \"Regulatory Event\", \"disclosureCount\": 1}], \"registrations\": {\"approvedFinraRegistrationCount\": 0, \"approvedSECRegistrationCount\": 0, \"approvedSRORegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"stateList\": [], \"businessTypeCount\": 0}, \"directOwners\": [{\"legalName\": \"TOLL, WILLIAM MORRIS\", \"position\": \"GENERAL PARTNER\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"\"}]}"
+        }
+      }
+    ]
+  }
+}

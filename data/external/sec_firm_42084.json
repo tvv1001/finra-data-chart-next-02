@@ -1,0 +1,24 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "25845",
+          "firm_bd_sec_number": "42084",
+          "firm_bd_full_sec_number": "8-42084",
+          "firm_name": "SCOTT SHORES BROKER/DEALER",
+          "firm_other_names": [
+            "SCOTT SHORES BROKER/DEALER",
+            "SHORES, ROBERT SCOTT"
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

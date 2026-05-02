@@ -1,0 +1,40 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "110767",
+          "firm_ia_sec_number": "28092",
+          "firm_ia_full_sec_number": "801-28092",
+          "firm_name": "ADVANCE CAPITAL MANAGEMENT INC",
+          "firm_other_names": [
+            "ADVANCE CAPITAL MANAGEMENT INC"
+          ],
+          "firm_ia_scope": "ACTIVE",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_branches_count": 13,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"ONE TOWNE SQUARE\", \"street2\": \"SUITE 444\", \"city\": \"SOUTHFIELD\", \"state\": \"MI\", \"country\": \"United States\", \"postalCode\": \"48076\"}}"
+        },
+        "highlight": {}
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "10999",
+          "firm_bd_sec_number": "28092",
+          "firm_bd_full_sec_number": "8-28092",
+          "firm_name": "RSL SECURITIES, INC.",
+          "firm_other_names": [
+            "RSL SECURITIES, INC."
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

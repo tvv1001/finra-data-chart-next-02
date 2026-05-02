@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 5775477, \"firstName\": \"Robert\", \"middleName\": \"B\", \"lastName\": \"King\", \"otherNames\": [\"BEN  KING\", \"R. B KING\", \"R.  KING\", \"ROBERT B KING\", \"R B King\", \"Robert Benjamin King\", \"Robert  King\"], \"bcScope\": \"InActive\", \"iaScope\": \"InActive\", \"daysInIndustryIAPD\": 2380}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"iaSECNumber\": \"14235\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"7221\", \"firmId\": 7691, \"firmName\": \"MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED\", \"city\": \"CHARLOTTE\", \"state\": \"NC\", \"country\": \"United States\", \"registrationBeginDate\": \"12/22/2017\", \"registrationEndDate\": \"8/8/2019\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}, {\"iaOnly\": \"Y\", \"iaSECNumber\": \"14235\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"7221\", \"firmId\": 7691, \"firmName\": \"MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED\", \"city\": \"CHARLOTTE\", \"state\": \"NC\", \"country\": \"United States\", \"registrationBeginDate\": \"12/23/2011\", \"registrationEndDate\": \"11/10/2016\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 66\", \"examName\": \"Uniform Combined State Law Examination\", \"examTakenDate\": \"12/22/2011\", \"examScope\": \"BOTH\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"10/18/2011\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

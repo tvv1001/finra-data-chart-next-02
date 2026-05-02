@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 7453980, \"firstName\": \"JONATHAN\", \"middleName\": \"QUENTIN\", \"lastName\": \"WARREN\", \"otherNames\": [\"J-DUB  Warren\", \"JQ  Warren\"], \"bcScope\": \"Active\", \"iaScope\": \"NotInScope\", \"daysInIndustryCalculatedDate\": \"10/15/2023\"}, \"currentEmployments\": [{\"firmId\": 3496, \"firmName\": \"STEPHENS\", \"iaOnly\": \"N\", \"registrationBeginDate\": \"10/16/2023\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\", \"iaSECNumber\": \"15510\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"1927\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"Y\", \"supervisedFromFlag\": \"N\", \"privateResidenceFlag\": \"N\", \"branchOfficeId\": \"104331\", \"street1\": \"111 CENTER STREET\", \"city\": \"LITTLE ROCK\", \"cityAlias\": [\"LITTLE ROCK\"], \"state\": \"AR\", \"country\": \"UNITED STATES\", \"zipCode\": \"72201-3507\", \"latitude\": \"34.746722\", \"longitude\": \"-92.280058\", \"geoLocation\": \"34.746722,-92.280058\", \"nonRegisteredOfficeFlag\": \"N\", \"elaBeginDate\": \"10/11/2021\"}]}], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 0, \"principalExamCount\": 1, \"productExamCount\": 2}, \"stateExamCategory\": [], \"principalExamCategory\": [{\"examCategory\": \"Series 24\", \"examName\": \"General Securities Principal Examination\", \"examTakenDate\": \"10/21/2024\", \"examScope\": \"BC\"}], \"productExamCategory\": [{\"examCategory\": \"Series 7TO\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"10/16/2023\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"2/22/2022\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 4, \"approvedFinraRegistrationCount\": 1, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [{\"sro\": \"FINRA\", \"status\": \"APPROVED\", \"CategoriesList\": [\"General Securities Principal\", \"Full Registration/General Securities Representative\"]}, {\"sro\": \"NYSE American LLC\", \"status\": \"APPROVED\"}, {\"sro\": \"Nasdaq Stock Market\", \"status\": \"APPROVED\"}, {\"sro\": \"New York Stock Exchange\", \"status\": \"APPROVED\"}], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

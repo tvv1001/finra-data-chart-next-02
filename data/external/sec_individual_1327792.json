@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 1327792, \"firstName\": \"RICHARD\", \"middleName\": \"SHELOR\", \"lastName\": \"VERNON\", \"otherNames\": [\"RICHARD S VERNON\", \"RUSTY  VERNON\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"Active\", \"daysInIndustryCalculatedDateIAPD\": \"10/7/1996\"}, \"currentIAEmployments\": [{\"firmId\": 117666, \"firmName\": \"VERNON MANAGEMENT GROUP, INCORPORATED\", \"iaOnly\": \"Y\", \"registrationBeginDate\": \"10/8/1996\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"ACTIVE\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"Y\", \"supervisedFromFlag\": \"N\", \"privateResidenceFlag\": \"N\", \"street1\": \"2409 ASKER CT\", \"city\": \"RICHMOND\", \"cityAlias\": [\"HENRICO\", \"RICHMOND\", \"RIDGE\"], \"state\": \"VA\", \"country\": \"United States\", \"zipCode\": \"23233\", \"latitude\": \"37.651178\", \"longitude\": \"-77.61969\", \"geoLocation\": \"37.651178,-77.61969\", \"nonRegisteredOfficeFlag\": \"Y\", \"elaBeginDate\": \"07/02/2005\"}]}], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 2, \"principalExamCount\": 0, \"productExamCount\": 1}, \"stateExamCategory\": [{\"examCategory\": \"Series 65\", \"examName\": \"Uniform Investment Adviser Law Examination\", \"examTakenDate\": \"1/24/1996\", \"examScope\": \"IA\"}, {\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"4/15/1986\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"6/24/1985\", \"examScope\": \"BC\"}], \"registrationCount\": {\"hasInactiveRegistration\": \"N\", \"hasSuspendedRegistration\": \"N\", \"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 1}, \"registeredStates\": [{\"state\": \"Virginia\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"10/8/1996\"}], \"registeredSROs\": [], \"currentEmployments\": []}"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "665",
+          "firm_bd_sec_number": "15204",
+          "firm_bd_full_sec_number": "8-15204",
+          "firm_ia_sec_number": "108049",
+          "firm_ia_full_sec_number": "801-108049",
+          "firm_name": "PIPER SANDLER & CO.",
+          "ia_firm_name": "PIPER SANDLER & CO.",
+          "firm_other_names": [
+            "PIPER JAFFRAY & CO.",
+            "U.S. BANCORP PIPER JAFFRAY INC.",
+            "RESTRUCTURING GROUP | TRS ADVISORS (PART OF INVESTMENT BANKING)",
+            "PRIVATE CAPITAL ADVISORY GROUP, AVIDITI ADVISORS",
+            "PIPER, JAFFRAY & HOPWOOD INCORPORATED",
+            "PIPER SANDLER & CO.",
+            "PIPER JAFFRAY INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 81,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"350 N 5TH STREET\", \"street2\": \"SUITE 1000\", \"city\": \"MINNEAPOLIS\", \"state\": \"MN\", \"country\": \"UNITED STATES\", \"postalCode\": \"55401\"}, \"mailingAddress\": {\"street1\": \"350 N 5TH STREET\", \"street2\": \"SUITE 1000\", \"city\": \"MINNEAPOLIS\", \"state\": \"MN\", \"country\": \"UNITED STATES\", \"postalCode\": \"55401\"}, \"businessPhoneNumber\": \"612-303-6000\", \"finraLastApprovalDate\": \"1936-10-16T00:00:00\", \"iaFirmName\": \"PIPER SANDLER & CO.\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"350 NORTH 5TH STREET\", \"street2\": \"SUITE 1000\", \"city\": \"MINNEAPOLIS\", \"state\": \"MN\", \"country\": \"United States\", \"postalCode\": \"55401\"}}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>665</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

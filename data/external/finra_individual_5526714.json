@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 5526714, \"firstName\": \"JOSHUA\", \"middleName\": \"HASTINGS\", \"lastName\": \"WARREN\", \"otherNames\": [\"JOSH HASTINGS WARREN\", \"JOSH  WARREN\", \"JOSHUA  WARREN\"], \"bcScope\": \"InActive\", \"iaScope\": \"InActive\", \"daysInIndustry\": 3292}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"iaSECNumber\": \"107181\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"49192\", \"firmId\": 40794, \"firmName\": \"HORAN SECURITIES, INC.\", \"city\": \"CINCINNATI\", \"state\": \"OH\", \"country\": \"United States\", \"registrationBeginDate\": \"4/3/2018\", \"registrationEndDate\": \"7/17/2018\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"INACTIVE\"}, {\"iaOnly\": \"N\", \"bdSECNumber\": \"23292\", \"firmId\": 7784, \"firmName\": \"FIDELITY BROKERAGE SERVICES LLC\", \"city\": \"COVINGTON\", \"state\": \"KY\", \"registrationBeginDate\": \"12/6/2010\", \"registrationEndDate\": \"1/25/2018\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}, {\"iaOnly\": \"N\", \"bdSECNumber\": \"23292\", \"firmId\": 7784, \"firmName\": \"FIDELITY BROKERAGE SERVICES LLC\", \"city\": \"MERRIMACK\", \"state\": \"NH\", \"registrationBeginDate\": \"7/4/2008\", \"registrationEndDate\": \"2/1/2010\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 2, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 66\", \"examName\": \"Uniform Combined State Law Examination\", \"examTakenDate\": \"1/13/2009\", \"examScope\": \"BOTH\"}, {\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"7/10/2008\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"7/17/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"7/2/2008\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

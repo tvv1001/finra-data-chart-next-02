@@ -1,0 +1,49 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "130139",
+          "firm_bd_sec_number": "66305",
+          "firm_bd_full_sec_number": "8-66305",
+          "firm_name": "WEALTH ENHANCEMENT BROKERAGE SERVICES, LLC",
+          "firm_other_names": [
+            "WEALTH ENHANCEMENT",
+            "WEALTH ENHANCEMENT GROUP, LLC",
+            "WEALTH ENHANCEMENT BROKERAGE SERVICES, LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 141,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"505 N HIGHWAY 169\", \"street2\": \"SUITE 900\", \"city\": \"PLYMOUTH\", \"state\": \"MN\", \"country\": \"USA\", \"postalCode\": \"55441\"}, \"mailingAddress\": {\"street1\": \"505 N HIGHWAY 169\", \"street2\": \"SUITE 900\", \"city\": \"PLYMOUTH\", \"state\": \"MN\", \"country\": \"USA\", \"postalCode\": \"55441\"}, \"businessPhoneNumber\": \"763-417-1700\", \"finraLastApprovalDate\": \"2004-06-21T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>130139</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "147111",
+          "firm_ia_sec_number": "130139",
+          "firm_ia_full_sec_number": "801-130139",
+          "firm_name": "HIGH POINT WEALTH MANAGEMENT, LLC",
+          "firm_other_names": [
+            "HIGH POINT WEALTH MANAGEMENT, LLC"
+          ],
+          "firm_ia_scope": "ACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 2,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"31 FAIRMOUNT AVE.\", \"street2\": \"SUITE 105\", \"city\": \"CHESTER\", \"state\": \"NJ\", \"country\": \"United States\", \"postalCode\": \"07930\"}}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 1307665, \"firstName\": \"TERRI\", \"middleName\": \"S\", \"lastName\": \"DANN\", \"otherNames\": [\"TERRI S MUNSCH\"], \"bcScope\": \"InActive\", \"iaScope\": \"InActive\", \"daysInIndustryIAPD\": 11164}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"iaSECNumber\": \"9229\", \"iaSECNumberType\": \"801\", \"firmId\": 105656, \"firmName\": \"DAVID M. KING AND ASSOCIATES, LTD.\", \"city\": \"LAWRENCE\", \"state\": \"KS\", \"country\": \"United States\", \"registrationBeginDate\": \"4/7/1989\", \"registrationEndDate\": \"10/30/2019\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"INACTIVE\"}, {\"iaOnly\": \"Y\", \"iaSECNumber\": \"69815\", \"iaSECNumberType\": \"801\", \"firmId\": 149018, \"firmName\": \"RAYMOND JAMES FINANCIAL SERVICES ADVISORS, INC\", \"city\": \"LAWRENCE\", \"state\": \"KS\", \"country\": \"United States\", \"registrationBeginDate\": \"1/2/2009\", \"registrationEndDate\": \"12/11/2018\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"ACTIVE\"}, {\"iaOnly\": \"Y\", \"bdSECNumber\": \"17983\", \"firmId\": 6694, \"firmName\": \"RAYMOND JAMES FINANCIAL SERVICES\", \"city\": \"LAWRENCE\", \"state\": \"KS\", \"country\": \"United States\", \"registrationBeginDate\": \"3/2/2007\", \"registrationEndDate\": \"1/2/2009\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"9/5/1986\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"7/19/1986\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

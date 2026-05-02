@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 6934298, \"firstName\": \"Justin\", \"middleName\": \"David\", \"lastName\": \"Morton\", \"otherNames\": [\"MORTON  JUSTIN\", \"JUSTIN D MORTON\"], \"bcScope\": \"InActive\", \"iaScope\": \"NotInScope\", \"daysInIndustry\": 1408}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"iaSECNumber\": \"60469\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"23395\", \"firmId\": 7870, \"firmName\": \"TD AMERITRADE, INC.\", \"city\": \"Southlake\", \"state\": \"TX\", \"registrationBeginDate\": \"5/17/2018\", \"registrationEndDate\": \"3/24/2022\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"INACTIVE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 2, \"productExamCount\": 4}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"5/25/2018\", \"examScope\": \"BC\"}], \"principalExamCategory\": [{\"examCategory\": \"Series 10\", \"examName\": \"General Securities Sales Supervisor - General Module Examination\", \"examTakenDate\": \"12/29/2021\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 9\", \"examName\": \"General Securities Sales Supervisor - Options Module Examination\", \"examTakenDate\": \"6/21/2021\", \"examScope\": \"BC\"}], \"productExamCategory\": [{\"examCategory\": \"Series 34\", \"examName\": \"Retail Off-Exchange FOREX Examination\", \"examTakenDate\": \"1/22/2021\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 3\", \"examName\": \"National Commodity Futures Examination\", \"examTakenDate\": \"9/30/2020\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"5/17/2018\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

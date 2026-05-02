@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 47739, \"firmName\": \"THE KENSINGTON ADVISORY AND INVESTMENT GROUP LLC\", \"otherNames\": [\"THE KENSINGTON ADVISORY AND INVESTMENT GROUP LLC\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"N\", \"districtName\": \"New York\", \"firmType\": \"Limited Liability Company\", \"formedState\": \"Delaware\", \"firmStatus\": \"Terminated\", \"regulator\": \"SEC\", \"firmStatusDate\": \"02/18/2003\", \"formedDate\": \"07/31/1997\", \"fiscalMonthEndCode\": \"October\", \"legacyReportStatus\": \"Not Requested\", \"sanctions\": {\"sanctionDetails\": {\"messages\": [\"FINRA cancelled this firm's license in February 2003.\"]}}, \"bdSECNumber\": \"51888\"}, \"bdDisclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"registrations\": {\"approvedFinraRegistrationCount\": 0, \"approvedSECRegistrationCount\": 0, \"approvedSRORegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"stateList\": [], \"businessTypeCount\": 0}, \"directOwners\": [{\"legalName\": \"KERINS, WILLIAM FRANCIS\", \"position\": \"PARTNER\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"\"}, {\"legalName\": \"TURBEVILLE, WALLACE CLAY\", \"position\": \"PARTNER\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"1463638\"}, {\"legalName\": \"WEHTJE, ANNA RACHEL\", \"position\": \"EXECUTIVE DIRECTOR\", \"bcScope\": \"Active\", \"crdNumber\": \"1429661\"}]}"
+        }
+      }
+    ]
+  }
+}

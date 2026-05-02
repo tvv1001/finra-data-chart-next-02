@@ -1,0 +1,32 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "15794",
+          "firm_bd_sec_number": "32682",
+          "firm_bd_full_sec_number": "8-32682",
+          "firm_name": "BNP PARIBAS SECURITIES CORP.",
+          "firm_other_names": [
+            "BNP PARIBAS SECURITIES CORP.",
+            "PARIBAS CORPORATION",
+            "MST CORP."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 10,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"787 SEVENTH AVENUE\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10019\"}, \"mailingAddress\": {\"street1\": \"525 WASHINGTON BOULEVARD\", \"city\": \"JERSEY CITY\", \"state\": \"NJ\", \"country\": \"UNITED STATES\", \"postalCode\": \"07310\"}, \"businessPhoneNumber\": \"212.841.2000\", \"finraLastApprovalDate\": \"1984-12-27T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>15794</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

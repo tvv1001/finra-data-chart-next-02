@@ -1,0 +1,31 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "150965",
+          "firm_bd_sec_number": "68319",
+          "firm_bd_full_sec_number": "8-68319",
+          "firm_name": "SHEA & COMPANY",
+          "firm_other_names": [
+            "SHEA & COMPANY",
+            "SHEA & COMPANY, LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 2,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"111 HUNTINGTON AVENUE\", \"street2\": \"SUITE 2900\", \"city\": \"BOSTON\", \"state\": \"MA\", \"country\": \"USA\", \"postalCode\": \"02199\"}, \"mailingAddress\": {\"street1\": \"111 HUNTINGTON AVENUE\", \"street2\": \"SUITE 2900\", \"city\": \"BOSTON\", \"state\": \"MA\", \"country\": \"USA\", \"postalCode\": \"02199\"}, \"businessPhoneNumber\": \"617-896-2247\", \"finraLastApprovalDate\": \"2010-07-13T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>150965</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

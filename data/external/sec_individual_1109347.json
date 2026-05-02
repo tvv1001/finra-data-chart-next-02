@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 1109347, \"firstName\": \"ROBERT\", \"middleName\": \"BRUCE\", \"lastName\": \"FAGENSON\", \"otherNames\": [], \"bcScope\": \"Active\", \"iaScope\": \"NotInScope\"}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"Y\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 0, \"principalExamCount\": 2, \"productExamCount\": 4}, \"stateExamCategory\": [], \"principalExamCategory\": [{\"examCategory\": \"Series 24\", \"examName\": \"General Securities Principal Examination\", \"examTakenDate\": \"7/13/1994\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 27\", \"examName\": \"Financial and Operations Principal Examination\", \"examTakenDate\": \"5/21/1983\", \"examScope\": \"BC\"}], \"productExamCategory\": [{\"examCategory\": \"Series 99TO\", \"examName\": \"Operations Professional Examination\", \"examTakenDate\": \"1/2/2023\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 79TO\", \"examName\": \"Investment Banking Registered Representative Examination\", \"examTakenDate\": \"1/2/2023\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"5/11/1994\", \"examScope\": \"BC\"}], \"registrationCount\": {\"hasInactiveRegistration\": \"N\", \"hasSuspendedRegistration\": \"N\", \"approvedSRORegistrationCount\": 2, \"approvedFinraRegistrationCount\": 1, \"approvedStateRegistrationCount\": 2, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [{\"state\": \"New Jersey\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"5/29/2025\"}, {\"state\": \"New York\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"5/7/2025\"}], \"registeredSROs\": [{\"sro\": \"FINRA\", \"status\": \"APPROVED\", \"CategoriesList\": [\"Financial and Operations Principal\", \"General Securities Principal\", \"Full Registration/General Securities Representative\", \"Investment Banking Representative\", \"Operations Professional\"]}, {\"sro\": \"Nasdaq Stock Market\", \"status\": \"APPROVED\"}], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

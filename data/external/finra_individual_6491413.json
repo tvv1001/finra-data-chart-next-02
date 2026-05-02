@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 6491413, \"firstName\": \"Adam\", \"middleName\": \"John\", \"lastName\": \"Legg\", \"otherNames\": [\"Adam J Legg\"], \"bcScope\": \"InActive\", \"iaScope\": \"Active\", \"daysInIndustry\": 2069}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"iaSECNumber\": \"47342\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"29577\", \"firmId\": 13572, \"firmName\": \"CETERA ADVISOR NETWORKS LLC\", \"city\": \"BINGHAM FARMS\", \"state\": \"MI\", \"registrationBeginDate\": \"3/1/2019\", \"registrationEndDate\": \"7/29/2022\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"INACTIVE\"}, {\"iaOnly\": \"N\", \"iaSECNumber\": \"8095\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"14088\", \"firmId\": 2881, \"firmName\": \"NORTHWESTERN MUTUAL INVESTMENT SERVICES, LLC\", \"city\": \"Lapeer\", \"state\": \"MI\", \"registrationBeginDate\": \"11/28/2016\", \"registrationEndDate\": \"2/27/2019\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 3}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"1/9/2017\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 7TO\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"1/28/2022\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"11/28/2016\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [{\"state\": \"Illinois\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"8/2/2022\"}, {\"state\": \"Michigan\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"8/2/2022\"}], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

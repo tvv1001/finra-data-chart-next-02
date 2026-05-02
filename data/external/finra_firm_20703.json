@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 20703, \"firmName\": \"ALPHA VENTURE SECURITIES COMPANY\", \"otherNames\": [\"ALPHA VENTURE SECURITIES COMPANY\", \"DANIEL A. BLUMBERG COMPANY\", \"BLUMBERG, DANIEL ALVAH\", \"ALPHA VENTURES SECURITIES COMPANY\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"N\", \"districtName\": \"San Francisco\", \"firmType\": \"Sole Proprietorship\", \"firmStatus\": \"Terminated\", \"regulator\": \"SEC\", \"firmStatusDate\": \"12/31/2004\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"39066\"}, \"bdDisclosureFlag\": \"Y\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [{\"disclosureType\": \"Regulatory Event\", \"disclosureCount\": 2}], \"registrations\": {\"approvedFinraRegistrationCount\": 0, \"approvedSECRegistrationCount\": 0, \"approvedSRORegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"stateList\": [], \"businessTypeCount\": 0}, \"directOwners\": [{\"legalName\": \"BLUMBERG, DANIEL ALVAH\", \"position\": \"SOLE PROPRIETOR\", \"bcScope\": \"Expanded\", \"crdNumber\": \"24182\"}], \"affiliateDisclosures\": {\"nonRegisteredAffiliateDisclosureCount\": 1}}"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "19456",
+          "firm_bd_sec_number": "37469",
+          "firm_bd_full_sec_number": "8-37469",
+          "firm_ia_sec_number": "113965",
+          "firm_ia_full_sec_number": "801-113965",
+          "firm_name": "ROBERTS & RYAN, INC.",
+          "ia_firm_name": "ROBERTS & RYAN INVESTMENTS INC.",
+          "firm_other_names": [
+            "ROBERTS & RYAN INVESTMENTS INC.",
+            "ROBERTS SECURITIES, INC.",
+            "ROBERTS & RYAN, INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "INACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 6,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"39 BROADWAY\", \"street2\": \"STE 610\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10006-3003\"}, \"mailingAddress\": {\"street1\": \"39 BROADWAY\", \"street2\": \"STE 610\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10006-3003\"}, \"businessPhoneNumber\": \"866-884-9959\", \"finraLastApprovalDate\": \"1987-06-03T00:00:00\", \"iaFirmName\": \"ROBERTS & RYAN INVESTMENTS INC.\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"39 BROADWAY\", \"street2\": \"STE 1640\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"United States\", \"postalCode\": \"10006\"}}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

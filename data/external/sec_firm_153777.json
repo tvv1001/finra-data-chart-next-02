@@ -1,0 +1,34 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "153777",
+          "firm_bd_sec_number": "69789",
+          "firm_bd_full_sec_number": "8-69789",
+          "firm_name": "CITI PRIVATE ALTERNATIVES, LLC",
+          "firm_other_names": [
+            "CITI GLOBAL ADVISORY, LLC",
+            "CITI PRIVATE ALTERNATIVES, LLC",
+            "CITI PRIVATE ADVISORY,LLC",
+            "CITI PRIVATE ADVISORY, LLC",
+            "CITI GLOBAL ALTERNATIVES, LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 42,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"388 GREENWICH STREET\", \"street2\": \"29TH FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"postalCode\": \"10013\"}, \"mailingAddress\": {\"street1\": \"388 GREENWICH STREET\", \"street2\": \"29TH FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"postalCode\": \"10013\"}, \"businessPhoneNumber\": \"212-559-1000\", \"finraLastApprovalDate\": \"2017-01-20T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>153777</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

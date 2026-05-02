@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 5584977, \"firstName\": \"JEN\", \"middleName\": \"E\", \"lastName\": \"NOWITZKE\", \"otherNames\": [\"JEN E RUDY\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"Active\"}, \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"bdSECNumber\": \"41840\", \"firmId\": 25574, \"firmName\": \"CHASE INVESTMENT SERVICES CORP.\", \"city\": \"PENNINGTON\", \"state\": \"NJ\", \"registrationBeginDate\": \"9/15/2008\", \"registrationEndDate\": \"7/20/2011\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 2, \"principalExamCount\": 0, \"productExamCount\": 1}, \"stateExamCategory\": [{\"examCategory\": \"Series 65\", \"examName\": \"Uniform Investment Adviser Law Examination\", \"examTakenDate\": \"7/29/2025\", \"examScope\": \"IA\"}, {\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"9/30/2008\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"9/13/2008\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [{\"state\": \"Connecticut\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"7/29/2025\"}], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

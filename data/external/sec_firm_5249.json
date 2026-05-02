@@ -1,0 +1,32 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "5249",
+          "firm_bd_sec_number": "15826",
+          "firm_bd_full_sec_number": "8-15826",
+          "firm_name": "JOHN HANCOCK DISTRIBUTORS LLC",
+          "firm_other_names": [
+            "JOHN HANCOCK DISTRIBUTORS LLC",
+            "MANULIFE FINANCIAL SECURITIES LLC",
+            "MANEQUITY, INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 12,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"200 BERKELEY STREET\", \"city\": \"BOSTON\", \"state\": \"MA\", \"country\": \"USA\", \"postalCode\": \"02116\"}, \"mailingAddress\": {\"street1\": \"200 BERKELEY STREET\", \"city\": \"BOSTON\", \"state\": \"MA\", \"country\": \"USA\", \"postalCode\": \"02116\"}, \"businessPhoneNumber\": \"617-663-3021\", \"finraLastApprovalDate\": \"1970-07-06T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>5249</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

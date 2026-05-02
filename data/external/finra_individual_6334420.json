@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 6334420, \"firstName\": \"WILLIAM\", \"middleName\": \"JOHN\", \"lastName\": \"DAVID\", \"otherNames\": [\"BJ  David\", \"William J David\", \"William  David\"], \"bcScope\": \"InActive\", \"iaScope\": \"NotInScope\", \"daysInIndustry\": 719}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"iaSECNumber\": \"3702\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"35008\", \"firmId\": 79, \"firmName\": \"J.P. MORGAN SECURITIES LLC\", \"city\": \"OPELOUSAS\", \"state\": \"LA\", \"registrationBeginDate\": \"2/8/2016\", \"registrationEndDate\": \"1/26/2018\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"Y\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [{\"eventDate\": \"1/19/2018\", \"disclosureType\": \"Employment Separation After Allegations\", \"disclosureResolution\": \"\", \"isIapdExcludedCCFlag\": \"N\", \"isBcExcludedCCFlag\": \"N\", \"bcCtgryType\": 11, \"disclosureDetail\": {\"Firm Name\": \"JPMORGAN CHASE BANK, NA\", \"Termination Type\": \"Discharged\", \"Allegations\": \"TERMINATED BY AFFILIATE BANK - NON SECURITIES RELATED. REGISTERED REP, IN THE CAPACITY OF AN AFFILIATE BANK EMPLOYEE, ADMITTED TO OPENING TWO AFFILIATE BANK ACCOUNTS, SIGNING ON BEHALF OF THE CUSTOMER BY A \\\"CLICK TO SIGN\\\" METHOD, WITHOUT THE CUSTOMER'S KNOWLEDGE, IN VIOLATION OF AFFILIATE BANK PROCEDURES. REGISTERED REP INDICATED THIS WAS DONE AS A RESULT OF AN AFFILIATE BANK SYSTEM ERROR.\"}}], \"examsCount\": {\"stateExamCount\": 0, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"1/26/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"2/8/2016\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "119037",
+          "firm_bd_sec_number": "53731",
+          "firm_bd_full_sec_number": "8-53731",
+          "firm_name": "LAIDLAW & COMPANY (UK) LTD.",
+          "firm_other_names": [
+            "LAIDLAW & COMPANY (UK) LTD.",
+            "SANDS BROTHERS INTERNATIONAL  LTD."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 4,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"16 BERKELEY ST.\", \"street2\": \"SUITE 7.09\", \"city\": \"LONDON\", \"country\": \"UNITED KINGDOM\", \"postalCode\": \"W1J 8DZ\"}, \"mailingAddress\": {\"street1\": \"521 5TH AVENUE\", \"street2\": \"12TH FL\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10175\"}, \"businessPhoneNumber\": \"212-697-5200\", \"finraLastApprovalDate\": \"2002-07-26T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

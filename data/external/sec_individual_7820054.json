@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 7820054, \"firstName\": \"Alexander\", \"lastName\": \"Aaron\", \"otherNames\": [\"Alex  Aaron\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"Active\", \"daysInIndustryCalculatedDateIAPD\": \"12/6/2023\"}, \"currentIAEmployments\": [{\"firmId\": 107342, \"firmName\": \"FISHER INVESTMENTS\", \"iaOnly\": \"Y\", \"registrationBeginDate\": \"12/7/2023\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"ACTIVE\", \"branchOfficeLocations\": [{\"displayOrder\": 2, \"locatedAtFlag\": \"Y\", \"supervisedFromFlag\": \"N\", \"privateResidenceFlag\": \"N\", \"street1\": \"3109 W Dr. Martin Luther King Blvd\", \"street2\": \"Suite 600\", \"city\": \"Tampa\", \"cityAlias\": [\"ROCKY POINT\", \"TAMPA\"], \"state\": \"FL\", \"country\": \"United States\", \"zipCode\": \"33607\", \"latitude\": \"27.967091\", \"longitude\": \"-82.516025\", \"geoLocation\": \"27.967091,-82.516025\", \"nonRegisteredOfficeFlag\": \"Y\", \"elaBeginDate\": \"10/09/2023\"}]}], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 0}, \"stateExamCategory\": [{\"examCategory\": \"Series 65\", \"examName\": \"Uniform Investment Adviser Law Examination\", \"examTakenDate\": \"12/7/2023\", \"examScope\": \"IA\"}], \"principalExamCategory\": [], \"productExamCategory\": [], \"registrationCount\": {\"hasInactiveRegistration\": \"N\", \"hasSuspendedRegistration\": \"N\", \"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 2}, \"registeredStates\": [{\"state\": \"Florida\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"12/13/2023\"}, {\"state\": \"Texas\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"12/7/2023\"}], \"registeredSROs\": [], \"currentEmployments\": []}"
+        }
+      }
+    ]
+  }
+}

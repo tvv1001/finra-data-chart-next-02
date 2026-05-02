@@ -1,0 +1,29 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "122225",
+          "firm_bd_sec_number": "65473",
+          "firm_bd_full_sec_number": "8-65473",
+          "firm_name": "BTIG, LLC",
+          "firm_other_names": [
+            "BASS TRADING, LLC",
+            "BTIG, LLC",
+            "BTIG ELECTRONIC TRADING",
+            "BAYPOINT TRADING, LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 28,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"350 BUSH STREET\", \"street2\": \"9TH FLOOR\", \"city\": \"SAN FRANCISCO\", \"state\": \"CA\", \"country\": \"USA\", \"postalCode\": \"94104\"}, \"mailingAddress\": {\"street1\": \"350 BUSH STREET\", \"street2\": \"9TH FLOOR\", \"city\": \"SAN FRANCISCO\", \"state\": \"CA\", \"country\": \"USA\", \"postalCode\": \"94104\"}, \"businessPhoneNumber\": \"415-248-2200\", \"finraLastApprovalDate\": \"2002-12-06T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

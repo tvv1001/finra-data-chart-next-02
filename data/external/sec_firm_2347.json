@@ -1,0 +1,31 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "2347",
+          "firm_bd_sec_number": "15074",
+          "firm_bd_full_sec_number": "8-15074",
+          "firm_name": "JEFFERIES LLC",
+          "firm_other_names": [
+            "JEFFERIES & COMPANY, INC.",
+            "JEFFERIES LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 41,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"520 MADISON AVENUE\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10022\"}, \"mailingAddress\": {\"street1\": \"520 MADISON AVENUE\", \"street2\": \"16TH FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10022\"}, \"businessPhoneNumber\": \"(212) 284-2300\", \"finraLastApprovalDate\": \"1963-03-01T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>2347</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

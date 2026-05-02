@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 106124, \"firmName\": \"JUMP TRADING, LLC\", \"otherNames\": [\"AKAMAI TRADING LLC\", \"JUMP TRADING, LLC\"], \"bcScope\": \"ACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"Y\", \"districtName\": \"Chicago\", \"firmType\": \"Limited Liability Company\", \"formedState\": \"Delaware\", \"firmSize\": \"Medium\", \"firmStatus\": \"Approved\", \"regulator\": \"SEC\", \"finraLastApprovalDate\": \"07/29/2024\", \"firmStatusDate\": \"12/21/2000\", \"formedDate\": \"10/31/2008\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"52989\"}, \"firmAddressDetails\": {\"officeAddress\": {\"street1\": \"600 WEST CHICAGO AVENUE, SUITE 600\", \"city\": \"CHICAGO\", \"state\": \"IL\", \"country\": \"UNITED STATES\", \"postalCode\": \"60654\"}, \"mailingAddress\": {\"street1\": \"600 WEST CHICAGO AVENUE, SUITE 600\", \"city\": \"CHICAGO\", \"state\": \"IL\", \"country\": \"UNITED STATES\", \"postalCode\": \"60654\"}, \"businessPhoneNumber\": \"312-205-8900\", \"finraLastApprovalDate\": \"2024-07-29T00:00:00\"}, \"bdDisclosureFlag\": \"Y\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [{\"disclosureType\": \"Regulatory Event\", \"disclosureCount\": 15}], \"registrations\": {\"approvedFinraRegistrationCount\": 1, \"approvedSECRegistrationCount\": 1, \"approvedSRORegistrationCount\": 20, \"approvedStateRegistrationCount\": 0, \"stateList\": [], \"businessTypeCount\": 4, \"hasAffliation\": \"Y\", \"referOtherBd\": \"N\"}, \"directOwners\": [{\"legalName\": \"JUMP TRADING HOLDINGS, LLC\", \"position\": \"OWNER\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"\"}, {\"legalName\": \"BUTLER, AIDAN JOSEPH\", \"position\": \"CHIEF COMPLIANCE OFFICER\", \"bcScope\": \"Active\", \"crdNumber\": \"4417413\"}, {\"legalName\": \"HICKEY, COLLEEN P\", \"position\": \"CHIEF FINANCIAL OFFICER\", \"bcScope\": \"Active\", \"crdNumber\": \"4505773\"}, {\"legalName\": \"OLSEN, DAVID ALAN\", \"position\": \"PRESIDENT & CHIEF RISK OFFICER\", \"bcScope\": \"Active\", \"crdNumber\": \"2568392\"}, {\"legalName\": \"SCHRECENGOST, MATTHEW DAVID\", \"position\": \"CHIEF OPERATIONS OFFICER\", \"bcScope\": \"Active\", \"crdNumber\": \"5213932\"}], \"affiliateDisclosures\": {\"nonRegisteredAffiliateDisclosureCount\": 1}}"
+        }
+      }
+    ]
+  }
+}

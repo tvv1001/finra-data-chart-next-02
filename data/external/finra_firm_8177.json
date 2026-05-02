@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 8177, \"firmName\": \"GRAMERCY SECURITIES, INC.\", \"otherNames\": [\"GRAMERCY SECURITIES, INC.\"], \"bcScope\": \"ACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"Y\", \"districtName\": \"Boston\", \"firmType\": \"Corporation\", \"formedState\": \"New York\", \"firmSize\": \"Small\", \"firmStatus\": \"Approved\", \"regulator\": \"SEC\", \"finraLastApprovalDate\": \"06/12/1980\", \"firmStatusDate\": \"05/06/1980\", \"formedDate\": \"10/29/1979\", \"fiscalMonthEndCode\": \"March\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"24767\", \"crs\": {\"crsType\": \"BD\", \"fileId\": \"d31c5393-9652-432d-8f67-05825553733c\"}}, \"firmAddressDetails\": {\"officeAddress\": {\"street1\": \"3949 OLD POST ROAD\", \"city\": \"CHARLESTOWN\", \"state\": \"RI\", \"country\": \"UNITED STATES\", \"postalCode\": \"02813\"}, \"mailingAddress\": {\"street1\": \"P.O. BOX 1059\", \"city\": \"CHARLESTOWN\", \"state\": \"RI\", \"country\": \"UNITED STATES\", \"postalCode\": \"02813\"}, \"businessPhoneNumber\": \"401-364-7700\", \"finraLastApprovalDate\": \"1980-06-12T00:00:00\"}, \"bdDisclosureFlag\": \"Y\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [{\"disclosureType\": \"Regulatory Event\", \"disclosureCount\": 1}], \"registrations\": {\"approvedFinraRegistrationCount\": 1, \"approvedSECRegistrationCount\": 1, \"approvedSRORegistrationCount\": 1, \"approvedStateRegistrationCount\": 15, \"stateList\": [{\"state\": \"Arizona\"}, {\"state\": \"California\"}, {\"state\": \"Colorado\"}, {\"state\": \"Connecticut\"}, {\"state\": \"Florida\"}, {\"state\": \"Georgia\"}, {\"state\": \"Hawaii\"}, {\"state\": \"New York\"}, {\"state\": \"Rhode Island\"}, {\"state\": \"Tennessee\"}, {\"state\": \"Texas\"}, {\"state\": \"Utah\"}, {\"state\": \"Vermont\"}, {\"state\": \"Virginia\"}, {\"state\": \"Wyoming\"}], \"businessTypeCount\": 5, \"hasAffliation\": \"N\", \"referOtherBd\": \"N\"}, \"directOwners\": [{\"legalName\": \"SCRIBNER, RODERICK RICHARD\", \"position\": \"PRESIDENT, DIRECTOR, SECRETARY, TREASURER, CCO, CEO\", \"bcScope\": \"Active\", \"crdNumber\": \"1492417\"}, {\"legalName\": \"CALHOUN, LESLIE ANN\", \"position\": \"PRINCIPAL\", \"bcScope\": \"Active\", \"crdNumber\": \"2047866\"}]}"
+        }
+      }
+    ]
+  }
+}

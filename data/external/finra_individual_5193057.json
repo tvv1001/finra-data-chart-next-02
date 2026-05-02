@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 5193057, \"firstName\": \"Kyre\", \"middleName\": \"Tyre\", \"lastName\": \"Morton\", \"otherNames\": [\"KRYE T MORTON\", \"TY  Morton\"], \"bcScope\": \"InActive\", \"iaScope\": \"NotInScope\", \"daysInIndustry\": 739}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"iaSECNumber\": \"60469\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"23395\", \"firmId\": 7870, \"firmName\": \"TD AMERITRADE, INC.\", \"city\": \"OMAHA\", \"state\": \"NE\", \"registrationBeginDate\": \"4/13/2023\", \"registrationEndDate\": \"6/6/2023\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"INACTIVE\"}, {\"iaOnly\": \"N\", \"bdSECNumber\": \"15264\", \"firmId\": 4452, \"firmName\": \"PACIFIC SELECT DISTRIBUTORS, INC.\", \"city\": \"OMAHA\", \"state\": \"NE\", \"registrationBeginDate\": \"2/28/2013\", \"registrationEndDate\": \"1/12/2015\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 0, \"principalExamCount\": 0, \"productExamCount\": 3}, \"stateExamCategory\": [], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 7TO\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"4/13/2023\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"1/6/2023\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"1/4/2013\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

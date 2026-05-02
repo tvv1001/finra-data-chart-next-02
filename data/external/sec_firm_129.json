@@ -1,0 +1,107 @@
+{
+  "hits": {
+    "total": 4,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "361",
+          "firm_bd_sec_number": "129",
+          "firm_bd_full_sec_number": "8-129",
+          "firm_ia_sec_number": "16048",
+          "firm_ia_full_sec_number": "801-16048",
+          "firm_name": "GOLDMAN SACHS & CO. LLC",
+          "ia_firm_name": "GOLDMAN SACHS & CO. LLC",
+          "firm_other_names": [
+            "GOLDMAN SACHS & CO. LLC",
+            "MARCUS INVEST OFFERING OF GOLDMAN SACHS & CO. LLC",
+            "GOLDMAN, SACHS & CO.",
+            "GOLDMAN SACHS ASSET MANAGEMENT (\"GSAM\")"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 37,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"200 WEST STREET\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10282-2198\"}, \"mailingAddress\": {\"street1\": \"111 SOUTH MAIN STREET\", \"city\": \"SALT LAKE CITY\", \"state\": \"UT\", \"country\": \"UNITED STATES\", \"postalCode\": \"84111\"}, \"businessPhoneNumber\": \"212-902-1000\", \"finraLastApprovalDate\": \"1936-10-26T00:00:00\", \"iaFirmName\": \"GOLDMAN SACHS & CO. LLC\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"200 WEST STREET\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"United States\", \"postalCode\": \"10282\"}}"
+        },
+        "highlight": {}
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "174939",
+          "firm_ia_sec_number": "100397",
+          "firm_ia_full_sec_number": "801-100397",
+          "firm_name": "1291 GROUP OF THE AMERICAS",
+          "firm_other_names": [
+            "1291 GROUP FINANCIAL SERVICES AMERICAS LTD.",
+            "1291GROUP OF THE AMERICAS, LTD",
+            "1291 GROUP, FINANCIAL SERVICES OF THE AMERICAS, LTD.",
+            "1291 GROUP OF THE AMERICAS"
+          ],
+          "firm_ia_scope": "ACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"C/O RAWLINSON & HUNTER, R&H TRUST CO. (BERMUDA)\", \"street2\": \"3RD FLOOR, 5 REID STREET\", \"city\": \"HAMILTON\", \"country\": \"Bermuda\", \"postalCode\": \"HM 11\"}}"
+        },
+        "highlight": {
+          "firm_name": [
+            "<em>129</em>1 GROUP OF THE AMERICAS"
+          ],
+          "firm_other_names": [
+            "<em>129</em>1 GROUP OF THE AMERICAS",
+            "<em>129</em>1GROUP OF THE AMERICAS, LTD",
+            "<em>129</em>1 GROUP FINANCIAL SERVICES AMERICAS LTD.",
+            "<em>129</em>1 GROUP, FINANCIAL SERVICES OF THE AMERICAS, LTD."
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "301666",
+          "firm_name": "WESTWARD PLANNING GROUP",
+          "firm_other_names": [
+            "1294 MONTGOMERY, LLC",
+            "WESTWARD PLANNING GROUP"
+          ],
+          "firm_ia_scope": "ACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 2,
+          "firm_ia_address_details": "{\"officeAddress\": {\"city\": \"NARBERTH\", \"state\": \"PA\", \"country\": \"United States\"}}"
+        },
+        "highlight": {
+          "firm_other_names": [
+            "<em>129</em>4 MONTGOMERY, LLC"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "156933",
+          "firm_ia_sec_number": "72220",
+          "firm_ia_full_sec_number": "801-72220",
+          "firm_name": "EQUITABLE INVESTMENT MANAGEMENT GROUP, LLC",
+          "firm_other_names": [
+            "1290 ASSET MANAGERS",
+            "EQUITABLE INVESTMENT MANAGEMENT GROUP, LLC",
+            "AXA EQUITABLE FUNDS MANAGEMENT GROUP, LLC"
+          ],
+          "firm_ia_scope": "ACTIVE",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_branches_count": 1,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"1345  AVENUE OF THE AMERICAS\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"United States\", \"postalCode\": \"10105\"}}"
+        },
+        "highlight": {
+          "firm_other_names": [
+            "<em>129</em>0 ASSET MANAGERS"
+          ]
+        }
+      }
+    ]
+  }
+}

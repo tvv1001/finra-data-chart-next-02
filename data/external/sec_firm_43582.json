@@ -1,0 +1,29 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "28262",
+          "firm_bd_sec_number": "43582",
+          "firm_bd_full_sec_number": "8-43582",
+          "firm_name": "JOHN HANCOCK INVESTMENT MANAGEMENT DISTRIBUTORS LLC",
+          "firm_other_names": [
+            "JOHN HANCOCK BROKER DISTRIBUTION SERVICES, INC.",
+            "JOHN HANCOCK INVESTMENT MANAGEMENT DISTRIBUTORS LLC",
+            "JOHN HANCOCK FUNDS, LLC",
+            "JOHN HANCOCK FUNDS, INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 15,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"200 BERKELEY STREET\", \"city\": \"BOSTON\", \"state\": \"MA\", \"country\": \"UNITED STATES\", \"postalCode\": \"02116\"}, \"mailingAddress\": {\"street1\": \"200 BERKELEY STREET\", \"city\": \"BOSTON\", \"state\": \"MA\", \"country\": \"UNITED STATES\", \"postalCode\": \"02116\"}, \"businessPhoneNumber\": \"(617) 663-3000\", \"finraLastApprovalDate\": \"1991-05-20T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

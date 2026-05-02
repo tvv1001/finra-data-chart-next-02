@@ -1,0 +1,64 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "8478",
+          "firm_bd_sec_number": "25452",
+          "firm_bd_full_sec_number": "8-25452",
+          "firm_ia_sec_number": "63564",
+          "firm_ia_full_sec_number": "801-63564",
+          "firm_name": "THURSTON, SPRINGER, MILLER, HERD & TITAK, INC.",
+          "ia_firm_name": "THURSTON SPRINGER FINANCIAL",
+          "firm_other_names": [
+            "ADAMS COUNTY FINANCIAL RESOURCES",
+            "WESLEY BATES WEALTH MANAGEMENT",
+            "TRILOGY WEALTH MANAGEMENT",
+            "THURSTON, SPRINGER, MILLER, HERD & TITAK, INC. INSURANCE AGENCY",
+            "THURSTON, SPRINGER, MILLER, HERD & TITAK, INC.",
+            "THURSTON, SPRINGER, MILLER & HERD, INC.",
+            "THURSTON, SHUMAKER, MILLER & BURKE, INCORPORATED",
+            "THURSTON, MILLER & BURKE, INC.",
+            "THURSTON SPRINGER RETIREMENT SERVICES",
+            "THURSTON SPRINGER FINANCIAL",
+            "THE BARTHEL AGENCY",
+            "TARGETED RETIREMENT STRATEGIES",
+            "SPRAWLS FINANCIAL",
+            "SPENCER FINANCIAL STRATEGIES",
+            "RETIREMENT AND ESTATE PLANNING SERVICES",
+            "ONTRACK CAPITAL MANAGEMENT",
+            "LIBERTY CONSULTING",
+            "LAVELLE FINANCIAL",
+            "JKS INVESTMENT MANAGEMENT OF THURSTON SPRINGER",
+            "INVESTMENT STRATEGIES",
+            "INTEGRITY WEALTH SOLUTIONS",
+            "DAMER WEALTH MANAGEMENT",
+            "CRAVENS, LLC",
+            "COHEN CAPITAL MANAGEMENT",
+            "CHIDDISTER FINANCIAL ASSOCIATES",
+            "CERULEAN CAPITAL MANAGEMENT, LLC",
+            "BCT FINANCIAL",
+            "BAYLEY INVESTMENT GROUP",
+            "BALDASSARI ADVISORY",
+            "AMERICAN PENSION ADVISORS"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "INACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 36,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"9000 KEYSTONE CROSSING\", \"street2\": \"SUITE 700\", \"city\": \"INDIANAPOLIS\", \"state\": \"IN\", \"country\": \"UNITED STATES\", \"postalCode\": \"46240-2142\"}, \"mailingAddress\": {\"street1\": \"9000 KEYSTONE CROSSING\", \"street2\": \"SUITE 700\", \"city\": \"INDIANAPOLIS\", \"state\": \"IN\", \"country\": \"UNITED STATES\", \"postalCode\": \"46240-2142\"}, \"businessPhoneNumber\": \"(317) 581-4000\", \"finraLastApprovalDate\": \"1981-01-06T00:00:00\", \"iaFirmName\": \"THURSTON SPRINGER FINANCIAL\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"9000 KEYSTONE CROSSING\", \"street2\": \"SUITE 700\", \"city\": \"INDIANAPOLIS\", \"state\": \"IN\", \"country\": \"United States\", \"postalCode\": \"46240\"}}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>8478</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

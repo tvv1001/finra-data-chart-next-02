@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 1586486, \"firstName\": \"MARGARET\", \"middleName\": \"DAWN\", \"lastName\": \"BOLAND\", \"otherNames\": [\"MARGARET  BOLAND\", \"PEGGY  BOLAND\"], \"bcScope\": \"LegacyNonArchived\", \"iaScope\": \"NotInScope\"}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"Y\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 1, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"7/29/1992\", \"examScope\": \"BC\"}], \"principalExamCategory\": [{\"examCategory\": \"Series 24\", \"examName\": \"General Securities Principal Examination\", \"examTakenDate\": \"7/29/1992\", \"examScope\": \"BC\"}], \"productExamCategory\": [{\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"6/18/1992\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 22\", \"examName\": \"Direct Participation Programs Representative Examination\", \"examTakenDate\": \"10/21/1986\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Generated\"}}"
+        }
+      }
+    ]
+  }
+}

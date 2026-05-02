@@ -1,0 +1,50 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "129356",
+          "firm_bd_sec_number": "66218",
+          "firm_bd_full_sec_number": "8-66218",
+          "firm_name": "FTP SECURITIES LLC",
+          "firm_other_names": [
+            "FTP SECURITIES LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 3,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"100 CALIFORNIA STREET\", \"street2\": \"7TH FLOOR\", \"city\": \"SAN FRANCISCO\", \"state\": \"CA\", \"country\": \"USA\", \"postalCode\": \"94111\"}, \"mailingAddress\": {\"street1\": \"100 CALIFORNIA STREET\", \"street2\": \"7TH FLOOR\", \"city\": \"SAN FRANCISCO\", \"state\": \"CA\", \"country\": \"USA\", \"postalCode\": \"94111\"}, \"businessPhoneNumber\": \"415-512-8700\", \"finraLastApprovalDate\": \"2004-04-05T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>129356</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "329317",
+          "firm_ia_sec_number": "129356",
+          "firm_ia_full_sec_number": "801-129356",
+          "firm_name": "SOLIST FINANCIAL",
+          "firm_other_names": [
+            "SOLIST FINANCIAL",
+            "SOLIST WEALTH, LLC",
+            "SOLIST WEALTH MANAGEMENT LLC",
+            "SOLIST WEALTH MANAGEMENT"
+          ],
+          "firm_ia_scope": "ACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 1,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"442 W KENNEDY BLVD\", \"street2\": \"SUITE 290\", \"city\": \"TAMPA\", \"state\": \"FL\", \"country\": \"United States\", \"postalCode\": \"33606\"}}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

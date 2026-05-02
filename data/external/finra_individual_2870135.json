@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 2870135, \"firstName\": \"MICHAEL\", \"middleName\": \"ALBERT\", \"lastName\": \"CHINELLY\", \"otherNames\": [], \"bcScope\": \"Active\", \"iaScope\": \"NotInScope\", \"daysInIndustryCalculatedDate\": \"7/15/1997\"}, \"currentEmployments\": [{\"firmId\": 39733, \"firmName\": \"PAYCHEX SECURITIES CORPORATION\", \"iaOnly\": \"N\", \"registrationBeginDate\": \"7/16/1997\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"NOTINSCOPE\", \"bdSECNumber\": \"48942\", \"branchOfficeLocations\": [{\"displayOrder\": 2, \"locatedAtFlag\": \"N\", \"supervisedFromFlag\": \"Y\", \"privateResidenceFlag\": \"N\", \"branchOfficeId\": \"572201\", \"street1\": \"220 Kenneth Drive\", \"city\": \"Rochester\", \"cityAlias\": [\"ROCHESTER\"], \"state\": \"NY\", \"country\": \"United States\", \"zipCode\": \"14623\", \"latitude\": \"43.089216\", \"longitude\": \"-77.650817\", \"geoLocation\": \"43.089216,-77.650817\", \"nonRegisteredOfficeFlag\": \"N\", \"elaBeginDate\": \"01/06/2025\"}]}], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"6/17/1997\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"7/15/1997\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 1, \"approvedFinraRegistrationCount\": 1, \"approvedStateRegistrationCount\": 1, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [{\"state\": \"New York\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"7/16/1997\"}], \"registeredSROs\": [{\"sro\": \"FINRA\", \"status\": \"APPROVED\", \"CategoriesList\": [\"Investment Company and Variable Contracts Products Rep.\"]}], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 2044858, \"firstName\": \"STEPHEN\", \"middleName\": \"DEVLIN\", \"lastName\": \"BARRON\", \"nameSuffix\": \"MR.\", \"otherNames\": [\"DEV  BARRON\", \"STEPHEN  BARRON\"], \"bcScope\": \"Active\", \"iaScope\": \"NotInScope\"}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"6/14/1990\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"3/11/1991\", \"examScope\": \"BC\"}], \"registrationCount\": {\"hasInactiveRegistration\": \"N\", \"hasSuspendedRegistration\": \"N\", \"approvedSRORegistrationCount\": 1, \"approvedFinraRegistrationCount\": 1, \"approvedStateRegistrationCount\": 8, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [{\"state\": \"Connecticut\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"1/4/2006\"}, {\"state\": \"Maine\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"1/4/2006\"}, {\"state\": \"Massachusetts\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"1/4/2006\"}, {\"state\": \"New Hampshire\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"1/4/2006\"}, {\"state\": \"New York\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"1/4/2006\"}, {\"state\": \"Pennsylvania\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"1/4/2007\"}, {\"state\": \"Rhode Island\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"8/3/2022\"}, {\"state\": \"Vermont\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"1/4/2006\"}], \"registeredSROs\": [{\"sro\": \"FINRA\", \"status\": \"APPROVED\", \"CategoriesList\": [\"Investment Company and Variable Contracts Products Rep.\"]}], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

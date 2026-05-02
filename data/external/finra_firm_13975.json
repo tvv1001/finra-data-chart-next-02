@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 13975, \"firmName\": \"CORPORATE BENEFIT SECURITIES, INC.\", \"otherNames\": [\"CORPORATE BENEFIT SECURITIES, INC.\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"Y\", \"firmType\": \"Corporation\", \"formedState\": \"California\", \"firmStatus\": \"Cancelled\", \"regulator\": \"SEC\", \"firmStatusDate\": \"04/23/1996\", \"formedDate\": \"06/01/1983\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Generated\", \"bdSECNumber\": \"30100\"}, \"iaDisclosureFlag\": \"N\"}"
+        }
+      }
+    ]
+  }
+}

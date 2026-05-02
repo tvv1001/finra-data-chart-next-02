@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 30327, \"firmName\": \"PACIFIC CLIFFS CAPITAL, INC.\", \"otherNames\": [\"PACIFIC CLIFFS CAPITAL, INC.\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"Y\", \"firmType\": \"Corporation\", \"formedState\": \"California\", \"firmStatus\": \"Cancelled\", \"regulator\": \"SEC\", \"firmStatusDate\": \"01/28/1994\", \"formedDate\": \"05/06/1992\", \"fiscalMonthEndCode\": \"June\", \"legacyReportStatus\": \"Generated\", \"bdSECNumber\": \"44850\"}, \"iaDisclosureFlag\": \"N\"}"
+        }
+      }
+    ]
+  }
+}

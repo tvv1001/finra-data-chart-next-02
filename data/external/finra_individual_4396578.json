@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 4396578, \"firstName\": \"DENNIS\", \"middleName\": \"JOHN\", \"lastName\": \"HUNT\", \"otherNames\": [\"DENNIS J HUNT\", \"DJ  HUNT\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"Active\"}, \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"bdSECNumber\": \"34881\", \"firmId\": 16999, \"firmName\": \"BANC ONE SECURITIES CORPORATION\", \"city\": \"CHICAGO\", \"state\": \"IL\", \"country\": \"USA\", \"registrationBeginDate\": \"2/27/2004\", \"registrationEndDate\": \"8/16/2004\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}, {\"iaOnly\": \"N\", \"bdSECNumber\": \"14172\", \"firmId\": 7556, \"firmName\": \"MORGAN STANLEY DW INC.\", \"city\": \"PURCHASE\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"registrationBeginDate\": \"7/3/2001\", \"registrationEndDate\": \"2/6/2004\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 66\", \"examName\": \"Uniform Combined State Law Examination\", \"examTakenDate\": \"7/31/2001\", \"examScope\": \"BOTH\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 31\", \"examName\": \"Futures Managed Funds Examination\", \"examTakenDate\": \"8/7/2001\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"7/2/2001\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [{\"state\": \"Florida\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"3/2/2020\"}], \"registeredSROs\": []}"
+        }
+      }
+    ]
+  }
+}

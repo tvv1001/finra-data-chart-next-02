@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 168356, \"firmName\": \"CORPORATE PARTNERS & CO. LLC\", \"otherNames\": [\"CORPORATE PARTNERS & CO. LLC\", \"CORPORATE PARTNERS ADVISORS LLC\"], \"bcScope\": \"ACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"Y\", \"districtName\": \"New York\", \"firmType\": \"Limited Liability Company\", \"formedState\": \"Delaware\", \"firmSize\": \"Small\", \"firmStatus\": \"Approved\", \"regulator\": \"SEC\", \"finraLastApprovalDate\": \"07/15/2014\", \"firmStatusDate\": \"07/15/2014\", \"formedDate\": \"05/22/2013\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"69303\"}, \"firmAddressDetails\": {\"officeAddress\": {\"street1\": \"1270 AVE OF THE AMERICAS, SUITE 300\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10020\"}, \"mailingAddress\": {\"street1\": \"1270 AVE OF THE AMERICAS, SUITE 300\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10111\"}, \"businessPhoneNumber\": \"212-332-5820\", \"finraLastApprovalDate\": \"2014-07-15T00:00:00\"}, \"bdDisclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"registrations\": {\"approvedFinraRegistrationCount\": 1, \"approvedSECRegistrationCount\": 1, \"approvedSRORegistrationCount\": 1, \"approvedStateRegistrationCount\": 3, \"stateList\": [{\"state\": \"Florida\"}, {\"state\": \"Illinois\"}, {\"state\": \"New York\"}], \"businessTypeCount\": 2, \"hasAffliation\": \"Y\", \"referOtherBd\": \"N\"}, \"directOwners\": [{\"legalName\": \"CPXR, LLC\", \"position\": \"MANAGING MEMBER\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"\"}, {\"legalName\": \"CORPORATE PARTNERS INVESTMENT ALLIANCE LLC\", \"position\": \"MEMBER\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"\"}, {\"legalName\": \"BEATON, DANIEL STEWART\", \"position\": \"FINOP\", \"bcScope\": \"Active\", \"crdNumber\": \"4240769\"}, {\"legalName\": \"KAGAN, JONATHAN HIRAM\", \"position\": \"MANAGING MEMBER & CCO\", \"bcScope\": \"Active\", \"crdNumber\": \"1632109\"}, {\"legalName\": \"WAMBOLD, ALI EDWARD\", \"position\": \"MANAGING PRINCIPAL\", \"bcScope\": \"Active\", \"crdNumber\": \"822396\"}]}"
+        }
+      }
+    ]
+  }
+}

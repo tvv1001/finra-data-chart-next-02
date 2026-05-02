@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 706114, \"firstName\": \"JANICE\", \"middleName\": \"MARIE\", \"lastName\": \"KING\", \"otherNames\": [], \"bcScope\": \"NotInScope\", \"iaScope\": \"InActive\", \"daysInIndustryIAPD\": 289}, \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"firmId\": 135456, \"firmName\": \"KING, JANICE M.\", \"city\": \"IRVINE\", \"state\": \"CA\", \"country\": \"United States\", \"registrationBeginDate\": \"2/6/2024\", \"registrationEndDate\": \"11/20/2024\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"INACTIVE\"}], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 2, \"principalExamCount\": 1, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 65\", \"examName\": \"Uniform Investment Adviser Law Examination\", \"examTakenDate\": \"8/5/2004\", \"examScope\": \"IA\"}, {\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"11/17/1980\", \"examScope\": \"BC\"}], \"principalExamCategory\": [{\"examCategory\": \"Series 24\", \"examName\": \"General Securities Principal Examination\", \"examTakenDate\": \"2/6/1981\", \"examScope\": \"BC\"}], \"productExamCategory\": [{\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"10/18/1980\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 1\", \"examName\": \"Registered Representative Examination\", \"examTakenDate\": \"3/11/1980\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"currentEmployments\": []}"
+        }
+      }
+    ]
+  }
+}

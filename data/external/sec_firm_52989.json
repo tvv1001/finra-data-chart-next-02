@@ -1,0 +1,27 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "106124",
+          "firm_bd_sec_number": "52989",
+          "firm_bd_full_sec_number": "8-52989",
+          "firm_name": "JUMP TRADING, LLC",
+          "firm_other_names": [
+            "AKAMAI TRADING LLC",
+            "JUMP TRADING, LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 6,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"600 WEST CHICAGO AVENUE, SUITE 600\", \"city\": \"CHICAGO\", \"state\": \"IL\", \"country\": \"UNITED STATES\", \"postalCode\": \"60654\"}, \"mailingAddress\": {\"street1\": \"600 WEST CHICAGO AVENUE, SUITE 600\", \"city\": \"CHICAGO\", \"state\": \"IL\", \"country\": \"UNITED STATES\", \"postalCode\": \"60654\"}, \"businessPhoneNumber\": \"312-205-8900\", \"finraLastApprovalDate\": \"2024-07-29T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

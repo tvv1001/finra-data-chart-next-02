@@ -1,0 +1,36 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "13609",
+          "firm_bd_sec_number": "29426",
+          "firm_bd_full_sec_number": "8-29426",
+          "firm_ia_sec_number": "62277",
+          "firm_ia_full_sec_number": "801-62277",
+          "firm_name": "BERTHEL, FISHER & COMPANY FINANCIAL SERVICES, INC.",
+          "ia_firm_name": "BERTHEL FISHER & COMPANY FINANCIAL SERVICES, INC.",
+          "firm_other_names": [
+            "BERTHEL FISHER & COMPANY",
+            "MORAMERICA FINANCIAL SERVICES, INC.",
+            "BERTHEL, FISHER & FLEISCHMAN FINANCIAL SERVICES, INC.",
+            "BERTHEL, FISHER & COMPANY FINANCIAL SERVICES, INC.",
+            "BERTHEL FISHER & COMPANY INC.",
+            "BERTHEL FISHER & COMPANY FINANCIAL SERVICES, INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 190,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"4201 42ND STREET NE\", \"street2\": \"SUITE 100\", \"city\": \"CEDAR RAPIDS\", \"state\": \"IA\", \"country\": \"UNITED STATES\", \"postalCode\": \"52402\"}, \"mailingAddress\": {\"street1\": \"4201 42ND STREET NE\", \"street2\": \"SUITE 100\", \"city\": \"CEDAR RAPIDS\", \"state\": \"IA\", \"country\": \"UNITED STATES\", \"postalCode\": \"52402\"}, \"businessPhoneNumber\": \"319-447-5700\", \"finraLastApprovalDate\": \"1983-08-16T00:00:00\", \"iaFirmName\": \"BERTHEL FISHER & COMPANY FINANCIAL SERVICES, INC.\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"4201 42ND STREET NE\", \"street2\": \"SUITE 100\", \"city\": \"CEDAR RAPIDS\", \"state\": \"IA\", \"country\": \"United States\", \"postalCode\": \"52402\"}}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

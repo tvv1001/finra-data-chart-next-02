@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 7318320, \"firstName\": \"Ryan\", \"lastName\": \"Patrick\", \"otherNames\": [\"RYAN A. PATRICK\", \"RYAN  PATRICK\", \"Ryan Alan Patrick\"], \"bcScope\": \"InActive\", \"iaScope\": \"InActive\", \"daysInIndustryIAPD\": 134}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"iaSECNumber\": \"14235\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"7221\", \"firmId\": 7691, \"firmName\": \"MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED\", \"city\": \"KANNAPOLIS\", \"state\": \"NC\", \"country\": \"United States\", \"registrationBeginDate\": \"10/29/2025\", \"registrationEndDate\": \"3/11/2026\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 66\", \"examName\": \"Uniform Combined State Law Examination\", \"examTakenDate\": \"10/29/2025\", \"examScope\": \"BOTH\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 7TO\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"1/27/2023\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"1/20/2023\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

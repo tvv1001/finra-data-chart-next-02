@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 3214810, \"firstName\": \"JASON\", \"middleName\": \"THOMAS\", \"lastName\": \"ROSENER\", \"otherNames\": [\"JASON T ROSENER\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"Active\"}, \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"iaSECNumber\": \"29938\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"16514\", \"firmId\": 5393, \"firmName\": \"CHARLES SCHWAB & CO., INC.\", \"city\": \"WESTLAKE\", \"state\": \"TX\", \"country\": \"UNITED STATES\", \"registrationBeginDate\": \"10/21/1999\", \"registrationEndDate\": \"1/30/2004\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 2, \"principalExamCount\": 0, \"productExamCount\": 1}, \"stateExamCategory\": [{\"examCategory\": \"Series 66\", \"examName\": \"Uniform Combined State Law Examination\", \"examTakenDate\": \"10/16/2000\", \"examScope\": \"BOTH\"}, {\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"12/9/1999\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"10/20/1999\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [{\"state\": \"Colorado\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"9/22/2023\"}], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

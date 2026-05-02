@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 3098285, \"firstName\": \"GRADY\", \"middleName\": \"ROBERT\", \"lastName\": \"JONES\", \"otherNames\": [\"Grady  Jones\", \"Rob  Jones\", \"Robert  Jones\"], \"bcScope\": \"InActive\", \"iaScope\": \"NotInScope\"}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"bdSECNumber\": \"34881\", \"firmId\": 16999, \"firmName\": \"BANC ONE SECURITIES CORPORATION\", \"city\": \"CARROLLTON\", \"state\": \"TX\", \"country\": \"United States\", \"registrationBeginDate\": \"2/23/2004\", \"registrationEndDate\": \"4/8/2004\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}, {\"iaOnly\": \"Y\", \"iaSECNumber\": \"45628\", \"iaSECNumberType\": \"801\", \"firmId\": 110518, \"firmName\": \"SECURITIES AMERICA ADVISORS INC\", \"city\": \"PLANO\", \"state\": \"TX\", \"country\": \"United States\", \"registrationBeginDate\": \"4/29/2002\", \"registrationEndDate\": \"12/4/2003\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"INACTIVE\"}], \"disclosureFlag\": \"Y\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 2, \"principalExamCount\": 1, \"productExamCount\": 1}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"10/5/2021\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 65\", \"examName\": \"Uniform Investment Adviser Law Examination\", \"examTakenDate\": \"10/11/1999\", \"examScope\": \"IA\"}], \"principalExamCategory\": [{\"examCategory\": \"Series 24\", \"examName\": \"General Securities Principal Examination\", \"examTakenDate\": \"11/4/2021\", \"examScope\": \"BC\"}], \"productExamCategory\": [{\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"11/11/1998\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 5259988, \"firstName\": \"JOHN\", \"middleName\": \"T\", \"lastName\": \"BOLAND\", \"otherNames\": [\"JACK  BOLAND\"], \"bcScope\": \"InActive\", \"iaScope\": \"NotInScope\", \"daysInIndustry\": 3652}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"iaSECNumber\": \"22306\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"30447\", \"firmId\": 14251, \"firmName\": \"MSI FINANCIAL SERVICES, INC.\", \"city\": \"Milwaukee\", \"state\": \"WI\", \"registrationBeginDate\": \"1/2/2015\", \"registrationEndDate\": \"12/31/2016\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"INACTIVE\"}, {\"iaOnly\": \"N\", \"iaSECNumber\": \"47061\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"13910\", \"firmId\": 615, \"firmName\": \"NEW ENGLAND SECURITIES\", \"city\": \"BROOKFIELD\", \"state\": \"WI\", \"registrationBeginDate\": \"1/9/2012\", \"registrationEndDate\": \"1/2/2015\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"INACTIVE\"}, {\"iaOnly\": \"N\", \"bdSECNumber\": \"21641\", \"firmId\": 7405, \"firmName\": \"EQUABLE SECURITIES CORPORATION\", \"city\": \"MILWAUKEE\", \"state\": \"WI\", \"country\": \"UNITED STATES\", \"registrationBeginDate\": \"1/2/2007\", \"registrationEndDate\": \"1/26/2012\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"12/30/2006\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"12/31/2016\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"12/29/2006\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

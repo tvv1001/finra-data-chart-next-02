@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 5584977, \"firstName\": \"JEN\", \"middleName\": \"E\", \"lastName\": \"NOWITZKE\", \"otherNames\": [\"JEN E RUDY\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"Active\", \"daysInIndustryCalculatedDateIAPD\": \"7/28/2025\"}, \"currentIAEmployments\": [{\"firmId\": 105039, \"firmName\": \"HFM WEALTH MANAGEMENT\", \"iaOnly\": \"Y\", \"registrationBeginDate\": \"7/29/2025\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"ACTIVE\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"Y\", \"supervisedFromFlag\": \"N\", \"privateResidenceFlag\": \"N\", \"branchOfficeId\": \"54506\", \"street1\": \"65 LASALLE ROAD STE 307\", \"city\": \"WEST HARTFORD\", \"cityAlias\": [\"HARTFORD\", \"W HARTFORD\", \"W HTFD\", \"WEST HARTFORD\", \"WEST HARTFRD\"], \"state\": \"CT\", \"country\": \"United States\", \"zipCode\": \"06107\", \"latitude\": \"41.753138\", \"longitude\": \"-72.758694\", \"geoLocation\": \"41.753138,-72.758694\", \"nonRegisteredOfficeFlag\": \"N\", \"elaBeginDate\": \"09/11/2013\"}]}], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 2, \"principalExamCount\": 0, \"productExamCount\": 1}, \"stateExamCategory\": [{\"examCategory\": \"Series 65\", \"examName\": \"Uniform Investment Adviser Law Examination\", \"examTakenDate\": \"7/29/2025\", \"examScope\": \"IA\"}, {\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"9/30/2008\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"9/13/2008\", \"examScope\": \"BC\"}], \"registrationCount\": {\"hasInactiveRegistration\": \"N\", \"hasSuspendedRegistration\": \"N\", \"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 1}, \"registeredStates\": [{\"state\": \"Connecticut\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"7/29/2025\"}], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}, \"currentEmployments\": []}"
+        }
+      }
+    ]
+  }
+}

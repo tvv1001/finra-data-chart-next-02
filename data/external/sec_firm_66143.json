@@ -1,0 +1,27 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "128491",
+          "firm_bd_sec_number": "66143",
+          "firm_bd_full_sec_number": "8-66143",
+          "firm_name": "HRT EXECUTION SERVICES LLC",
+          "firm_other_names": [
+            "HRT EXECUTION SERVICES LLC",
+            "SUN TRADING LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 3,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"3 WORLD TRADE CENTER, 175 GREENWICH ST\", \"street2\": \"76TH FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10007\"}, \"mailingAddress\": {\"street1\": \"3 WORLD TRADE CENTER, 175 GREENWICH ST\", \"street2\": \"76TH FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10007\"}, \"businessPhoneNumber\": \"212-293-1444\", \"finraLastApprovalDate\": \"2017-09-05T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

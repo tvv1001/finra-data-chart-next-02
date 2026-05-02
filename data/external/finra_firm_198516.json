@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 198516, \"firmName\": \"INTREPID PARTNERS, LLC\", \"otherNames\": [\"INTREPID PARTNERS, LLC\"], \"bcScope\": \"ACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"Y\", \"districtName\": \"New York\", \"firmType\": \"Limited Liability Company\", \"formedState\": \"Delaware\", \"firmSize\": \"Small\", \"firmStatus\": \"Approved\", \"regulator\": \"SEC\", \"finraLastApprovalDate\": \"07/22/2015\", \"firmStatusDate\": \"07/22/2015\", \"formedDate\": \"02/19/2015\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"69615\"}, \"firmAddressDetails\": {\"officeAddress\": {\"street1\": \"712 FIFTH AVENUE, 31ST FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"US\", \"postalCode\": \"10019\"}, \"mailingAddress\": {\"street1\": \"712 FIFTH AVENUE, 31ST FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"US\", \"postalCode\": \"10019\"}, \"businessPhoneNumber\": \"212-388-5020\", \"finraLastApprovalDate\": \"2015-07-22T00:00:00\"}, \"bdDisclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"registrations\": {\"approvedFinraRegistrationCount\": 1, \"approvedSECRegistrationCount\": 1, \"approvedSRORegistrationCount\": 1, \"approvedStateRegistrationCount\": 6, \"stateList\": [{\"state\": \"California\"}, {\"state\": \"Colorado\"}, {\"state\": \"Louisiana\"}, {\"state\": \"New York\"}, {\"state\": \"Oklahoma\"}, {\"state\": \"Texas\"}], \"businessTypeCount\": 3, \"hasAffliation\": \"Y\", \"referOtherBd\": \"N\"}, \"directOwners\": [{\"legalName\": \"INTREPID FINANCIAL PARTNERS, L.L.C.\", \"position\": \"MANAGING MEMBER\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"\"}, {\"legalName\": \"CHUNG, MICHAEL\", \"position\": \"FINOP/CFO\", \"bcScope\": \"Active\", \"crdNumber\": \"5739877\"}, {\"legalName\": \"MCGEE, HUGH EDWARD III\", \"position\": \"CEO\", \"bcScope\": \"Active\", \"crdNumber\": \"1782899\"}, {\"legalName\": \"WINCHENBAUGH, CHRISTOPHER FRANCIS\", \"position\": \"PRESIDENT/CCO/COO\", \"bcScope\": \"Active\", \"crdNumber\": \"2790899\"}]}"
+        }
+      }
+    ]
+  }
+}

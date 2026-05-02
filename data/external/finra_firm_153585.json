@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 153585, \"firmName\": \"SIMPLEX TRADING, LLC\", \"otherNames\": [\"MULTIPLEX TRADING LLC\", \"SIMPLEX TRADING, LLC\", \"SET TRADING PARTNERS, LLC\"], \"bcScope\": \"ACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"Y\", \"districtName\": \"Chicago\", \"firmType\": \"Limited Liability Company\", \"formedState\": \"Delaware\", \"firmSize\": \"Small\", \"firmStatus\": \"Approved\", \"regulator\": \"SEC\", \"finraLastApprovalDate\": \"04/01/2024\", \"firmStatusDate\": \"08/12/2010\", \"formedDate\": \"02/22/2010\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"68556\"}, \"firmAddressDetails\": {\"officeAddress\": {\"street1\": \"230 S. LASALLE STREET\", \"street2\": \"SUITE 08-500\", \"city\": \"CHICAGO\", \"state\": \"IL\", \"postalCode\": \"60604\"}, \"mailingAddress\": {\"street1\": \"230 S. LASALLE STREET\", \"street2\": \"SUITE 08-500\", \"city\": \"CHICAGO\", \"state\": \"IL\", \"postalCode\": \"60604\"}, \"businessPhoneNumber\": \"312.360.2440\", \"finraLastApprovalDate\": \"2024-04-01T00:00:00\"}, \"bdDisclosureFlag\": \"Y\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [{\"disclosureType\": \"Regulatory Event\", \"disclosureCount\": 4}], \"registrations\": {\"approvedFinraRegistrationCount\": 1, \"approvedSECRegistrationCount\": 1, \"approvedSRORegistrationCount\": 19, \"approvedStateRegistrationCount\": 0, \"stateList\": [], \"businessTypeCount\": 4, \"hasAffliation\": \"Y\", \"referOtherBd\": \"N\"}, \"directOwners\": [{\"legalName\": \"SIMPLEX HOLDCO, LLC\", \"position\": \"MANAGING MEMBER, OWNER\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"\"}, {\"legalName\": \"HAUFE, DAVID HARMON\", \"position\": \"CHIEF TECHNOLOGY OFFICER\", \"bcScope\": \"Active\", \"crdNumber\": \"5939783\"}, {\"legalName\": \"KERLIN, DENNIS JOHN\", \"position\": \"CHIEF COMPLIANCE OFFICER\", \"bcScope\": \"Active\", \"crdNumber\": \"4757638\"}, {\"legalName\": \"ROCKEY, JOAN KATHRYN\", \"position\": \"CHIEF FINANCIAL OFFICER, FINOP\", \"bcScope\": \"Active\", \"crdNumber\": \"4562343\"}, {\"legalName\": \"SWANSON, ERIK THEODORE\", \"position\": \"CHIEF EXECUTIVE OFFICER\", \"bcScope\": \"Active\", \"crdNumber\": \"5941677\"}]}"
+        }
+      }
+    ]
+  }
+}

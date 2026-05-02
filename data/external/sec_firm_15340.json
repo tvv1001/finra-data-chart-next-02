@@ -1,0 +1,33 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "15340",
+          "firm_bd_sec_number": "31826",
+          "firm_bd_full_sec_number": "8-31826",
+          "firm_name": "CETERA INVESTMENT SERVICES LLC",
+          "firm_other_names": [
+            "BANKERS SYSTEMS BROKERAGE SERVICES, INC.",
+            "PRIMEVEST FINANCIAL SERVICES, INC.",
+            "CETERA INVESTMENT SERVICES LLC",
+            "CETERA FINANCIAL INSTITUTIONS"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 1614,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"400 FIRST ST. S. SUITE 300\", \"city\": \"ST. CLOUD\", \"state\": \"MN\", \"country\": \"UNITED STATES\", \"postalCode\": \"56301\"}, \"mailingAddress\": {\"street1\": \"P.O. BOX 283\", \"city\": \"ST. CLOUD\", \"state\": \"MN\", \"country\": \"UNITED STATES\", \"postalCode\": \"56302-0283\"}, \"businessPhoneNumber\": \"320-656-4300\", \"finraLastApprovalDate\": \"1984-11-15T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>15340</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

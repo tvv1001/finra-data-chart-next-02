@@ -1,0 +1,36 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "8733",
+          "firm_bd_sec_number": "26037",
+          "firm_bd_full_sec_number": "8-26037",
+          "firm_ia_sec_number": "130883",
+          "firm_ia_full_sec_number": "801-130883",
+          "firm_name": "LPL ENTERPRISE, LLC",
+          "ia_firm_name": "LPL ENTERPRISE, LLC",
+          "firm_other_names": [
+            "APPALACHIAN INVESTMENT CORPORATION",
+            "LPLE",
+            "LPL ENTERPRISE, LLC",
+            "LPL ENTERPRISE",
+            "HARVEST FINANCIAL CORPORATION WILL DO INVESTMENT ADVISORY BUSINESS ONLY IN CALIFORNIA AS HARVEST ADVISORS",
+            "HARVEST FINANCIAL CORPORATION"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 1499,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"1055 LPL WAY\", \"city\": \"FORT MILL\", \"state\": \"SC\", \"country\": \"UNITED STATES\", \"postalCode\": \"29715\"}, \"mailingAddress\": {\"street1\": \"1055 LPL WAY\", \"city\": \"FORT MILL\", \"state\": \"SC\", \"country\": \"UNITED STATES\", \"postalCode\": \"29715\"}, \"businessPhoneNumber\": \"704-733-3300\", \"finraLastApprovalDate\": \"1981-05-14T00:00:00\", \"iaFirmName\": \"LPL ENTERPRISE, LLC\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"1055 LPL WAY\", \"city\": \"FORT MILL\", \"state\": \"SC\", \"country\": \"United States\", \"postalCode\": \"29715\"}}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

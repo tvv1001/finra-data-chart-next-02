@@ -1,0 +1,30 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "154327",
+          "firm_bd_sec_number": "68627",
+          "firm_bd_full_sec_number": "8-68627",
+          "firm_name": "MSEC, LLC",
+          "firm_other_names": [
+            "MARINER",
+            "MSEC, LLC",
+            "MONTAGE SECURITIES, LLC",
+            "MARINER WEALTH ADVISORS",
+            "MARINER WEALTH"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 26,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"5700 W 112TH STREET\", \"street2\": \"SUITE 500\", \"city\": \"OVERLAND PARK\", \"state\": \"KS\", \"country\": \"USA\", \"postalCode\": \"66211\"}, \"mailingAddress\": {\"street1\": \"5700 W 112TH STREET\", \"street2\": \"SUITE 500\", \"city\": \"OVERLAND PARK\", \"state\": \"KS\", \"country\": \"USA\", \"postalCode\": \"66211\"}, \"businessPhoneNumber\": \"913-904-5700\", \"finraLastApprovalDate\": \"2011-05-19T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

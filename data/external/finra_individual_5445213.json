@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 5445213, \"firstName\": \"JAMES\", \"middleName\": \"RUSSELL\", \"lastName\": \"HUNT\", \"otherNames\": [\"J RUSSELL HUNT\", \"RUS  HUNT\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"InActive\"}, \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"bdSECNumber\": \"28980\", \"firmId\": 13318, \"firmName\": \"SECURITIES SERVICE NETWORK, INC.\", \"city\": \"KNOXVILLE\", \"state\": \"TN\", \"registrationBeginDate\": \"2/12/2008\", \"registrationEndDate\": \"2/7/2014\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 1}, \"stateExamCategory\": [{\"examCategory\": \"Series 66\", \"examName\": \"Uniform Combined State Law Examination\", \"examTakenDate\": \"2/26/2008\", \"examScope\": \"BOTH\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"2/11/2008\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": []}"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 7477864, \"firstName\": \"JORDAN\", \"middleName\": \"MIKHAIL\", \"lastName\": \"PATRICK\", \"otherNames\": [\"Jordan M Patrick\", \"Jordan  Patrick\"], \"bcScope\": \"Active\", \"iaScope\": \"NotInScope\", \"daysInIndustryCalculatedDate\": \"12/18/2022\"}, \"currentEmployments\": [{\"firmId\": 5393, \"firmName\": \"CHARLES SCHWAB & CO., INC.\", \"iaOnly\": \"N\", \"registrationBeginDate\": \"12/19/2022\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\", \"iaSECNumber\": \"29938\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"16514\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"Y\", \"supervisedFromFlag\": \"N\", \"privateResidenceFlag\": \"N\", \"branchOfficeId\": \"571934\", \"street1\": \"9800 Schwab Way\", \"city\": \"Lone Tree\", \"cityAlias\": [\"LITTLETON\", \"LONE TREE\", \"LONETREE\"], \"state\": \"CO\", \"country\": \"United States\", \"zipCode\": \"80124\", \"latitude\": \"39.527746\", \"longitude\": \"-104.896944\", \"geoLocation\": \"39.527746,-104.896944\", \"nonRegisteredOfficeFlag\": \"N\", \"elaBeginDate\": \"11/18/2024\"}]}], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 0, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 7TO\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"12/19/2022\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"5/5/2022\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 2, \"approvedFinraRegistrationCount\": 1, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [{\"sro\": \"FINRA\", \"status\": \"APPROVED\", \"CategoriesList\": [\"Full Registration/General Securities Representative\"]}, {\"sro\": \"Nasdaq Stock Market\", \"status\": \"APPROVED\"}], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

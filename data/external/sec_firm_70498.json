@@ -1,0 +1,47 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "150744",
+          "firm_ia_sec_number": "70498",
+          "firm_ia_full_sec_number": "801-70498",
+          "firm_name": "WILEY GROUP",
+          "firm_other_names": [
+            "DOGWOOD CAPITAL ADVISORS, LLC",
+            "WILEY GROUP",
+            "THE WILEY GROUP",
+            "LIVE YOUR VISION, LLC"
+          ],
+          "firm_ia_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"FIVE TOWER BRIDGE\", \"street2\": \"300 BARR HARBOR DR., SUITE 175\", \"city\": \"WEST CONSHOHOCKEN\", \"state\": \"PA\", \"country\": \"United States\", \"postalCode\": \"19428\"}}"
+        },
+        "highlight": {}
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "307454",
+          "firm_bd_sec_number": "70498",
+          "firm_bd_full_sec_number": "8-70498",
+          "firm_name": "HILLWORTH BANK PARTNERS",
+          "firm_other_names": [
+            "HILLWORTH BANK PARTNERS",
+            "HILLWORTH SECURITIES, LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 2,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"3307 NORTHLAND DRIVE,\", \"street2\": \"SUITE 300\", \"city\": \"AUSTIN\", \"state\": \"TX\", \"country\": \"UNITED STATES\", \"postalCode\": \"78731\"}, \"mailingAddress\": {\"street1\": \"3307 NORTHLAND DRIVE,\", \"street2\": \"SUITE 300\", \"city\": \"AUSTIN\", \"state\": \"TX\", \"country\": \"UNITED STATES\", \"postalCode\": \"78731\"}, \"businessPhoneNumber\": \"512-575-2266\", \"finraLastApprovalDate\": \"2022-01-04T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

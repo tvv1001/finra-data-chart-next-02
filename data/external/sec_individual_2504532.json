@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 2504532, \"firstName\": \"JOSEPH\", \"middleName\": \"NMN\", \"lastName\": \"RAVITCH\", \"otherNames\": [\"JOSEPH  RAVITCH\"], \"bcScope\": \"Active\", \"iaScope\": \"NotInScope\"}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 0, \"principalExamCount\": 1, \"productExamCount\": 4}, \"stateExamCategory\": [], \"principalExamCategory\": [{\"examCategory\": \"Series 24\", \"examName\": \"General Securities Principal Examination\", \"examTakenDate\": \"6/7/2005\", \"examScope\": \"BC\"}], \"productExamCategory\": [{\"examCategory\": \"Series 99TO\", \"examName\": \"Operations Professional Examination\", \"examTakenDate\": \"1/2/2023\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 79TO\", \"examName\": \"Investment Banking Registered Representative Examination\", \"examTakenDate\": \"1/2/2023\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"11/16/1994\", \"examScope\": \"BC\"}], \"registrationCount\": {\"hasInactiveRegistration\": \"N\", \"hasSuspendedRegistration\": \"N\", \"approvedSRORegistrationCount\": 1, \"approvedFinraRegistrationCount\": 1, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [{\"sro\": \"FINRA\", \"status\": \"APPROVED\", \"CategoriesList\": [\"General Securities Principal\", \"Full Registration/General Securities Representative\", \"Investment Banking Principal\", \"Investment Banking Representative\", \"Operations Professional\"]}], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

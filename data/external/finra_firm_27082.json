@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 27082, \"firmName\": \"DOME SECURITIES, INC.\", \"otherNames\": [\"DIVIDEND SECURITIES CORPORATION\", \"DOME SECURITIES, INC.\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"Y\", \"firmType\": \"Corporation\", \"formedState\": \"California\", \"firmStatus\": \"Cancelled\", \"regulator\": \"FINRA\", \"firmStatusDate\": \"11/12/1991\", \"formedDate\": \"07/05/1990\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Generated\", \"bdSECNumber\": \"42867\"}, \"iaDisclosureFlag\": \"N\"}"
+        }
+      }
+    ]
+  }
+}

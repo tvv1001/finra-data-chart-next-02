@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 17454, \"firstName\": \"NORMAN\", \"middleName\": \"EUGENE\", \"lastName\": \"BELL\", \"otherNames\": [\"SKIP  BELL\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"InActive\"}, \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"bdSECNumber\": \"13791\", \"firmId\": 5478, \"firmName\": \"CAPITAL ANALYSTS, INCORPORATED\", \"city\": \"CINCINNATI\", \"state\": \"OH\", \"country\": \"UNITED STATES\", \"registrationBeginDate\": \"4/11/1988\", \"registrationEndDate\": \"12/31/2004\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}, {\"iaOnly\": \"N\", \"bdSECNumber\": \"13431\", \"firmId\": 145, \"firmName\": \"CIGNA SECURITIES, INC.\", \"registrationBeginDate\": \"8/12/1974\", \"registrationEndDate\": \"4/19/1988\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 1, \"productExamCount\": 1}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"5/22/1980\", \"examScope\": \"BC\"}], \"principalExamCategory\": [{\"examCategory\": \"Series 24\", \"examName\": \"General Securities Principal Examination\", \"examTakenDate\": \"11/7/1988\", \"examScope\": \"BC\"}], \"productExamCategory\": [{\"examCategory\": \"Series 1\", \"examName\": \"Registered Representative Examination\", \"examTakenDate\": \"8/5/1974\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": []}"
+        }
+      }
+    ]
+  }
+}

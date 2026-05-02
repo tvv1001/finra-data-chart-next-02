@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 5045395, \"firstName\": \"TIMOTHY\", \"middleName\": \"D\", \"lastName\": \"HUSSAR\", \"otherNames\": [\"Tim  Hussar\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"Active\"}, \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"iaSECNumber\": \"10970\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"17668\", \"firmId\": 6413, \"firmName\": \"LPL FINANCIAL LLC\", \"city\": \"BETHLEHEM\", \"state\": \"PA\", \"registrationBeginDate\": \"2/18/2008\", \"registrationEndDate\": \"7/13/2011\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 1}, \"stateExamCategory\": [{\"examCategory\": \"Series 66\", \"examName\": \"Uniform Combined State Law Examination\", \"examTakenDate\": \"10/29/2008\", \"examScope\": \"BOTH\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"2/14/2008\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [{\"state\": \"Pennsylvania\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"8/2/2017\"}], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

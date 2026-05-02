@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 5245839, \"firstName\": \"CHARLES\", \"middleName\": \"EDWARD\", \"lastName\": \"MCCONNELL\", \"otherNames\": [\"CHARLES E MCCONNELL\", \"TODD  MCCONNELL\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"Active\", \"daysInIndustryCalculatedDateIAPD\": \"10/20/2021\"}, \"currentIAEmployments\": [{\"firmId\": 140195, \"firmName\": \"MARINER\", \"iaOnly\": \"Y\", \"registrationBeginDate\": \"10/21/2021\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"ACTIVE\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"Y\", \"supervisedFromFlag\": \"N\", \"privateResidenceFlag\": \"N\", \"street1\": \"ONE GIRALDA FARMS\", \"street2\": \"SUITE 130\", \"city\": \"MADISON\", \"cityAlias\": [\"MADISON\"], \"state\": \"NJ\", \"country\": \"United States\", \"zipCode\": \"07940\", \"latitude\": \"40.758346\", \"longitude\": \"-74.420134\", \"geoLocation\": \"40.758346,-74.420134\", \"nonRegisteredOfficeFlag\": \"Y\", \"elaBeginDate\": \"05/10/2021\"}]}], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 1}, \"stateExamCategory\": [{\"examCategory\": \"Series 65\", \"examName\": \"Uniform Investment Adviser Law Examination\", \"examTakenDate\": \"10/8/2021\", \"examScope\": \"IA\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"7/19/2013\", \"examScope\": \"BC\"}], \"registrationCount\": {\"hasInactiveRegistration\": \"N\", \"hasSuspendedRegistration\": \"N\", \"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 1}, \"registeredStates\": [{\"state\": \"New Jersey\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"10/21/2021\"}], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}, \"currentEmployments\": []}"
+        }
+      }
+    ]
+  }
+}

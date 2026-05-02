@@ -1,0 +1,53 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "103705",
+          "firm_bd_sec_number": "52265",
+          "firm_bd_full_sec_number": "8-52265",
+          "firm_ia_sec_number": "71181",
+          "firm_ia_full_sec_number": "801-71181",
+          "firm_name": "RBC SECURITIES, INC",
+          "ia_firm_name": "RBC SECURITIES, INC.",
+          "firm_other_names": [
+            "CITY NATIONAL SECURITIES, INC.",
+            "RBC SECURITIES, INC.",
+            "RBC SECURITIES, INC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 143,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"555 SOUTH FLOWER STREET\", \"street2\": \"11TH FLOOR\", \"city\": \"LOS ANGELES\", \"state\": \"CA\", \"country\": \"USA\", \"postalCode\": \"90071\"}, \"mailingAddress\": {\"street1\": \"555 SOUTH FLOWER STREET\", \"street2\": \"11TH FLOOR\", \"city\": \"LOS ANGELES\", \"state\": \"CA\", \"country\": \"USA\", \"postalCode\": \"90071\"}, \"businessPhoneNumber\": \"310-888-6400\", \"finraLastApprovalDate\": \"2000-03-16T00:00:00\", \"iaFirmName\": \"RBC SECURITIES, INC.\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"555 SOUTH FLOWER STREET\", \"street2\": \"11TH FLOOR\", \"city\": \"LOS ANGELES\", \"state\": \"CA\", \"country\": \"United States\", \"postalCode\": \"90071\"}}"
+        },
+        "highlight": {}
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "328777",
+          "firm_bd_sec_number": "71181",
+          "firm_bd_full_sec_number": "8-71181",
+          "firm_name": "GLOBACAP PRIVATE MARKETS INC.",
+          "firm_other_names": [
+            "CBOE PRIVATE MARKETS",
+            "GLOBACAP PRIVATE MARKETS INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 2,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"12 E 49TH ST.\", \"street2\": \"11TH FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10017\"}, \"mailingAddress\": {\"street1\": \"12 E 49TH ST.\", \"street2\": \"11TH FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10017\"}, \"businessPhoneNumber\": \"646-479-6743\", \"finraLastApprovalDate\": \"2024-07-01T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

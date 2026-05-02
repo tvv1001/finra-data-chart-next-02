@@ -1,0 +1,24 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "27082",
+          "firm_bd_sec_number": "42867",
+          "firm_bd_full_sec_number": "8-42867",
+          "firm_name": "DOME SECURITIES, INC.",
+          "firm_other_names": [
+            "DIVIDEND SECURITIES CORPORATION",
+            "DOME SECURITIES, INC."
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

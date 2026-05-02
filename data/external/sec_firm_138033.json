@@ -1,0 +1,31 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "138033",
+          "firm_bd_sec_number": "67143",
+          "firm_bd_full_sec_number": "8-67143",
+          "firm_name": "GAR WOOD SECURITIES, LLC",
+          "firm_other_names": [
+            "GAR WOOD SECURITIES, LLC",
+            "TOLEDOTRADE"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 16,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"1250 EAST DIEHL ROAD\", \"street2\": \"SUITE 115\", \"city\": \"NAPERVILLE\", \"state\": \"IL\", \"country\": \"USA\", \"postalCode\": \"60563\"}, \"mailingAddress\": {\"street1\": \"1250 EAST DIEHL ROAD\", \"street2\": \"SUITE 115\", \"city\": \"NAPERVILLE\", \"state\": \"IL\", \"country\": \"USA\", \"postalCode\": \"60563\"}, \"businessPhoneNumber\": \"312 566-0741\", \"finraLastApprovalDate\": \"2006-02-16T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>138033</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "15074",
+          "firm_bd_sec_number": "31649",
+          "firm_bd_full_sec_number": "8-31649",
+          "firm_name": "TECHNOLOGY FUNDING SECURITIES CORPORATION",
+          "firm_other_names": [
+            "TECHNOLOGY FUNDING SECURITIES CORPORATION"
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

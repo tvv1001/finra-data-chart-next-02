@@ -1,0 +1,35 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "6769",
+          "firm_bd_sec_number": "22990",
+          "firm_bd_full_sec_number": "8-22990",
+          "firm_name": "KEEL POINT CAPITAL, LLC",
+          "firm_other_names": [
+            "BLUE CREEK",
+            "KPC",
+            "KEEL POINT CAPITAL, LLC",
+            "INVESTMENT & FINANCIAL SERVICES, INC.",
+            "BLUE CREEK SECURITIES, LLC",
+            "BLUE CREEK SECURITIES, INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 12,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"100 CHURCH STREET\", \"street2\": \"SUITE 500\", \"city\": \"HUNTSVILLE\", \"state\": \"AL\", \"country\": \"UNITED STATES\", \"postalCode\": \"35801\"}, \"mailingAddress\": {\"street1\": \"100 CHURCH STREET\", \"street2\": \"SUITE 500\", \"city\": \"HUNTSVILLE\", \"state\": \"AL\", \"country\": \"UNITED STATES\", \"postalCode\": \"35801\"}, \"businessPhoneNumber\": \"256-704-5111\", \"finraLastApprovalDate\": \"1974-10-29T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>6769</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

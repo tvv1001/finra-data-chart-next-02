@@ -1,0 +1,77 @@
+{
+  "hits": {
+    "total": 3,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "10299",
+          "firm_bd_sec_number": "26892",
+          "firm_bd_full_sec_number": "8-26892",
+          "firm_ia_sec_number": "33020",
+          "firm_ia_full_sec_number": "801-33020",
+          "firm_name": "CETERA ADVISORS LLC",
+          "ia_firm_name": "CETERA ADVISORS LLC",
+          "firm_other_names": [
+            "CETERA ADVISORS LLC",
+            "MULTI-FINANCIAL SECURITIES CORPORATION",
+            "MAGIS FINANCIAL PARTNERS",
+            "FIRST ALLIED SECURITIES"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "INACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 926,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"5299 DTC BLVD #800\", \"city\": \"GREENWOOD VILLAGE\", \"state\": \"CO\", \"country\": \"UNITED STATES\", \"postalCode\": \"80111\"}, \"mailingAddress\": {\"street1\": \"400 FIRST STREET SOUTH\", \"street2\": \"SUITE 300\", \"city\": \"SAINT CLOUD\", \"state\": \"MN\", \"country\": \"UNITED STATES\", \"postalCode\": \"56301\"}, \"businessPhoneNumber\": \"800-929-3485\", \"finraLastApprovalDate\": \"1982-01-04T00:00:00\", \"iaFirmName\": \"CETERA ADVISORS LLC\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"5299 DTC BLVD\", \"street2\": \"SUITE 800\", \"city\": \"GREENWOOD VILLAGE\", \"state\": \"IL\", \"country\": \"United States\", \"postalCode\": \"80111\"}}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>10299</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "6082",
+          "firm_bd_sec_number": "218",
+          "firm_bd_full_sec_number": "8-218",
+          "firm_ia_sec_number": "10299",
+          "firm_ia_full_sec_number": "801-10299",
+          "firm_name": "PROTECTED INVESTORS OF AMERICA",
+          "ia_firm_name": "PROTECTED INVESTORS OF AMERICA",
+          "firm_other_names": [
+            "PROTECTED INVESTORS OF AMERICA"
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_scope": "INACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 0,
+          "firm_branches_count": 0,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"235 MONTGOMERY STREET\", \"street2\": \"SUITE 1050\", \"city\": \"SAN FRANCISCO\", \"state\": \"CA\", \"country\": \"United States\", \"postalCode\": \"94104\"}}"
+        },
+        "highlight": {}
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "3442",
+          "firm_bd_sec_number": "10299",
+          "firm_bd_full_sec_number": "8-10299",
+          "firm_name": "PIERRE R. SMITH & CO.",
+          "firm_other_names": [
+            "PIERRE R. SMITH & CO."
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

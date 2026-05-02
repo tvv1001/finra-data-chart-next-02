@@ -1,0 +1,46 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "149777",
+          "firm_bd_sec_number": "68191",
+          "firm_bd_full_sec_number": "8-68191",
+          "firm_ia_sec_number": "70103",
+          "firm_ia_full_sec_number": "801-70103",
+          "firm_name": "MORGAN STANLEY",
+          "ia_firm_name": "MORGAN STANLEY",
+          "firm_other_names": [
+            "CITIGROUP INSTITUTIONAL CONSULTING",
+            "SMITH BARNEY",
+            "PRIVATE PORTFOLIO GROUP",
+            "MORGAN STANLEY WEALTH MANAGEMENT",
+            "MORGAN STANLEY SMITH BARNEY LLC",
+            "MORGAN STANLEY SMITH BARNEY",
+            "MORGAN STANLEY PRIVATE WEALTH MANAGEMENT",
+            "MORGAN STANLEY CONSULTING GROUP",
+            "MORGAN STANLEY",
+            "GRAYSTONE CONSULTING",
+            "E*TRADE FROM MORGAN STANLEY",
+            "CONSULTING GROUP"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 3834,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"2000 WESTCHESTER AVENUE\", \"city\": \"PURCHASE\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10577-2530\"}, \"mailingAddress\": {\"street1\": \"1300 THAMES STREET\", \"street2\": \"C/O SHARED SERVICES COMPLIANCE - REGISTRATION\", \"city\": \"BALTIMORE\", \"state\": \"MD\", \"country\": \"USA\", \"postalCode\": \"21231\"}, \"businessPhoneNumber\": \"914-225-1000\", \"finraLastApprovalDate\": \"2009-05-19T00:00:00\", \"iaFirmName\": \"MORGAN STANLEY\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"2000 WESTCHESTER AVENUE\", \"city\": \"PURCHASE\", \"state\": \"NY\", \"country\": \"United States\", \"postalCode\": \"10577-2530\"}}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>149777</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

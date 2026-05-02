@@ -1,0 +1,56 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "17437",
+          "firm_bd_sec_number": "35220",
+          "firm_bd_full_sec_number": "8-35220",
+          "firm_name": "AMERICAN CENTURY INVESTMENT SERVICES INC.",
+          "firm_other_names": [
+            "AMERICAN CENTURY BROKERAGE",
+            "TWENTIETH CENTURY SECURITIES, INC.",
+            "PLAZA SECURITIES CORPORATION",
+            "AMERICAN CENTURY INVESTMENT SERVICES, INC.",
+            "AMERICAN CENTURY INVESTMENT SERVICES INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 15,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"4500 MAIN STREET\", \"city\": \"KANSAS CITY\", \"state\": \"MO\", \"country\": \"UNITED STATES\", \"postalCode\": \"64111\"}, \"mailingAddress\": {\"street1\": \"P.O. BOX 410141\", \"city\": \"KANSAS CITY\", \"state\": \"MO\", \"country\": \"UNITED STATES\", \"postalCode\": \"64141-0141\"}, \"businessPhoneNumber\": \"800-345-2021\", \"finraLastApprovalDate\": \"1986-09-17T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>17437</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "106979",
+          "firm_ia_sec_number": "17437",
+          "firm_ia_full_sec_number": "801-17437",
+          "firm_name": "RINET COMPANY, LLC",
+          "firm_other_names": [
+            "BOSTON PRIVATE FINANCIAL ADVISERS",
+            "RINET COMPANY, LLC",
+            "RINET COMPANY, INC.",
+            "RINET CO INC",
+            "KANON BLOCH CARRE",
+            "CORNERSTONE FUND ADVISORS"
+          ],
+          "firm_ia_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"101 FEDERAL STREET\", \"city\": \"BOSTON\", \"state\": \"MA\", \"country\": \"United States\", \"postalCode\": \"02110\"}}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

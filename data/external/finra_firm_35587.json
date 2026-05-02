@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 35587, \"firmName\": \"G. F. TATE & CO., INC.\", \"otherNames\": [\"G. F. TATE & CO., INC.\", \"SOUTHPACE SECURITIES, INC.\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"N\", \"districtName\": \"Woodbridge\", \"firmType\": \"Corporation\", \"formedState\": \"Alabama\", \"firmStatus\": \"Terminated\", \"regulator\": \"SEC\", \"firmStatusDate\": \"03/11/2003\", \"formedDate\": \"07/28/1993\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Not Requested\", \"sanctions\": {\"sanctionDetails\": {\"messages\": [\"FINRA cancelled this firm's license in February 2003.\"]}}, \"bdSECNumber\": \"46746\"}, \"bdDisclosureFlag\": \"Y\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [{\"disclosureType\": \"Regulatory Event\", \"disclosureCount\": 2}, {\"disclosureType\": \"Arbitration\", \"disclosureCount\": 2}], \"registrations\": {\"approvedFinraRegistrationCount\": 0, \"approvedSECRegistrationCount\": 0, \"approvedSRORegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"stateList\": [], \"businessTypeCount\": 0}, \"directOwners\": [{\"legalName\": \"GFRB, INC.\", \"position\": \"OWNER\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"\"}, {\"legalName\": \"AGUELI, ROBERT\", \"position\": \"VICE PRESIDENT, FINOP, SROP,CROP\", \"bcScope\": \"Expanded\", \"crdNumber\": \"1352954\"}, {\"legalName\": \"HANNEY, ROBERT JOHN\", \"position\": \"PRESIDENT\", \"bcScope\": \"Expanded\", \"crdNumber\": \"1796182\"}, {\"legalName\": \"RUFO, MICHAEL ANTHONY\", \"position\": \"PRINCIPAL\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"2606282\"}]}"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 5669231, \"firstName\": \"NICHOLAS\", \"middleName\": \"ROY\", \"lastName\": \"MORTON\", \"otherNames\": [\"NICHOLAS  MORTON\", \"NICK ROY MORTON\"], \"bcScope\": \"Active\", \"iaScope\": \"NotInScope\", \"daysInIndustryCalculatedDate\": \"6/21/2009\"}, \"currentEmployments\": [{\"firmId\": 18272, \"firmName\": \"ALLSTATE FINANCIAL SERVICES, LLC\", \"iaOnly\": \"N\", \"registrationBeginDate\": \"6/22/2009\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"NOTINSCOPE\", \"bdSECNumber\": \"36365\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"Y\", \"supervisedFromFlag\": \"N\", \"privateResidenceFlag\": \"N\", \"branchOfficeId\": \"196595\", \"street1\": \"125 BLUE HERON BAY DR STE A\", \"city\": \"MONTGOMERY\", \"cityAlias\": [\"MONTGOMERY\", \"TODD MISSION\"], \"state\": \"TX\", \"country\": \"United States\", \"zipCode\": \"77316\", \"latitude\": \"30.311772\", \"longitude\": \"-95.674548\", \"geoLocation\": \"30.311772,-95.674548\", \"nonRegisteredOfficeFlag\": \"N\", \"elaBeginDate\": \"05/12/2009\"}]}], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"6/27/2009\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"6/21/2009\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 1, \"approvedFinraRegistrationCount\": 1, \"approvedStateRegistrationCount\": 1, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [{\"state\": \"Texas\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"6/29/2009\"}], \"registeredSROs\": [{\"sro\": \"FINRA\", \"status\": \"APPROVED\", \"CategoriesList\": [\"Investment Company and Variable Contracts Products Rep.\"]}], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "154717",
+          "firm_bd_sec_number": "68671",
+          "firm_bd_full_sec_number": "8-68671",
+          "firm_ia_sec_number": "112815",
+          "firm_ia_full_sec_number": "801-112815",
+          "firm_name": "TIGRESS FINANCIAL PARTNERS, LLC",
+          "ia_firm_name": "TIGRESS FINANCIAL PARTNERS LLC",
+          "firm_other_names": [
+            "TIGRESS FINANCIAL PARTNERS LLC",
+            "TIGRESS FINANCIAL PARTNERS, LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 6,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"410 PARK AVENUE\", \"street2\": \"12TH FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10022\"}, \"mailingAddress\": {\"street1\": \"410 PARK AVENUE\", \"street2\": \"12TH FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10022\"}, \"businessPhoneNumber\": \"212-430-8750\", \"finraLastApprovalDate\": \"2011-10-05T00:00:00\", \"iaFirmName\": \"TIGRESS FINANCIAL PARTNERS LLC\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"410 PARK AVENUE\", \"street2\": \"12TH FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"United States\", \"postalCode\": \"10022\"}}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>154717</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

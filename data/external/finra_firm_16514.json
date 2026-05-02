@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 16514, \"firmName\": \"EMERSON SECURITIES CORP.\", \"otherNames\": [\"EMERSON SECURITIES CORP.\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"Y\", \"firmType\": \"Corporation\", \"formedState\": \"New Jersey\", \"firmStatus\": \"Terminated\", \"regulator\": \"FINRA\", \"firmStatusDate\": \"02/24/1989\", \"formedDate\": \"03/07/1985\", \"fiscalMonthEndCode\": \"\", \"legacyReportStatus\": \"Generated\", \"bdSECNumber\": \"33932\"}, \"iaDisclosureFlag\": \"N\"}"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "128351",
+          "firm_bd_sec_number": "66125",
+          "firm_bd_full_sec_number": "8-66125",
+          "firm_name": "SG AMERICAS SECURITIES, LLC",
+          "firm_other_names": [
+            "SG AMERICAS SECURITIES, LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 5,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"245 PARK AVENUE\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"postalCode\": \"10167\"}, \"mailingAddress\": {\"street1\": \"245 PARK AVENUE\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10167\"}, \"businessPhoneNumber\": \"212-278-6000\", \"finraLastApprovalDate\": \"2004-04-23T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

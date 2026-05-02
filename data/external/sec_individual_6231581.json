@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 6231581, \"firstName\": \"CATHERINE\", \"middleName\": \"CAMERON\", \"lastName\": \"STURGIS\", \"otherNames\": [\"KATE STURGIS BURNHAM\", \"KATE C. STURGIS\", \"KATE  STURGIS\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"InActive\", \"daysInIndustryIAPD\": 1193}, \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"iaSECNumber\": \"112941\", \"iaSECNumberType\": \"802\", \"firmId\": 166206, \"firmName\": \"C&S ADVISORS, INC.\", \"city\": \"DUXBURY\", \"state\": \"MA\", \"country\": \"United States\", \"registrationBeginDate\": \"11/12/2013\", \"registrationEndDate\": \"2/16/2017\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"ACTIVE\"}], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 0}, \"stateExamCategory\": [{\"examCategory\": \"Series 65\", \"examName\": \"Uniform Investment Adviser Law Examination\", \"examTakenDate\": \"11/8/2013\", \"examScope\": \"IA\"}], \"principalExamCategory\": [], \"productExamCategory\": [], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"currentEmployments\": []}"
+        }
+      }
+    ]
+  }
+}

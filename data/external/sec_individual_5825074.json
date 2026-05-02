@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 5825074, \"firstName\": \"DONALD\", \"middleName\": \"STEPHEN\", \"lastName\": \"MASON\", \"otherNames\": [\"DONALD  MASON\", \"STEVE  MASON\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"Active\", \"daysInIndustryCalculatedDateIAPD\": \"3/25/2015\"}, \"currentIAEmployments\": [{\"firmId\": 112608, \"firmName\": \"STADION MONEY MANAGEMENT, LLC\", \"iaOnly\": \"Y\", \"registrationBeginDate\": \"3/25/2015\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"ACTIVE\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"Y\", \"supervisedFromFlag\": \"N\", \"privateResidenceFlag\": \"N\", \"branchOfficeId\": \"63503\", \"street1\": \"1061 CLIFF DAWSON RD\", \"city\": \"WATKINSVILLE\", \"cityAlias\": [\"WATKINSVILLE\"], \"state\": \"GA\", \"country\": \"United States\", \"zipCode\": \"30677\", \"latitude\": \"33.797962\", \"longitude\": \"-83.431282\", \"geoLocation\": \"33.797962,-83.431282\", \"nonRegisteredOfficeFlag\": \"N\", \"elaBeginDate\": \"02/06/2014\"}]}], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 2, \"principalExamCount\": 0, \"productExamCount\": 1}, \"stateExamCategory\": [{\"examCategory\": \"Series 65\", \"examName\": \"Uniform Investment Adviser Law Examination\", \"examTakenDate\": \"2/13/2015\", \"examScope\": \"IA\"}, {\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"3/29/2011\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"1/25/2011\", \"examScope\": \"BC\"}], \"registrationCount\": {\"hasInactiveRegistration\": \"N\", \"hasSuspendedRegistration\": \"N\", \"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 1}, \"registeredStates\": [{\"state\": \"Georgia\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"3/25/2015\"}], \"registeredSROs\": [], \"currentEmployments\": []}"
+        }
+      }
+    ]
+  }
+}

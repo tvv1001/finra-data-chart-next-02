@@ -1,0 +1,56 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "36638",
+          "firm_bd_sec_number": "47419",
+          "firm_bd_full_sec_number": "8-47419",
+          "firm_name": "D.D.S.K. INVESTMENTS, A CALIFORNIA GENERAL PARTNERSHIP",
+          "firm_other_names": [
+            "D.D.S.K. INVESTMENTS, A CALIFORNIA GENERAL PARTNERSHIP"
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 0,
+          "firm_branches_count": 0
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>36638</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "18456",
+          "firm_bd_sec_number": "36638",
+          "firm_bd_full_sec_number": "8-36638",
+          "firm_name": "STONEX SECURITIES INC.",
+          "firm_other_names": [
+            "C G MATON FINANCIAL SERVICES , INC.",
+            "STONEX WEALTH MANAGEMENT",
+            "STONEX SECURITIES INC.",
+            "STERNE AGEE FINANCIAL SERVICES, INC.",
+            "SOUTHEAST NETWORK EQUITIES GROUP, INC.",
+            "SAL FINANCIAL SERVICES, INC.",
+            "SA STONE WEALTH MANAGEMENT INC.",
+            "INVESTECH CAPITAL CORPORATION",
+            "CAPITAL GROWTH MANAGEMENT INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 310,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"2 PERIMETER PARK SOUTH\", \"street2\": \"SUITE 500 WEST\", \"city\": \"BIRMINGHAM\", \"state\": \"AL\", \"country\": \"USA\", \"postalCode\": \"35243\"}, \"mailingAddress\": {\"street1\": \"2 PERIMETER PARK SOUTH\", \"street2\": \"SUITE 500 WEST\", \"city\": \"BIRMINGHAM\", \"state\": \"AL\", \"country\": \"USA\", \"postalCode\": \"35243\"}, \"businessPhoneNumber\": \"800-292-2411\", \"finraLastApprovalDate\": \"1986-12-10T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

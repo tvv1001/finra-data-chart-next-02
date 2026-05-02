@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 2243534, \"firstName\": \"JEFFREY\", \"middleName\": \"WILSON\", \"lastName\": \"PAUL\", \"otherNames\": [\"JEFF  PAUL\", \"JEFFREY W PAUL\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"InActive\", \"daysInIndustryIAPD\": 4562}, \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"firmId\": 144503, \"firmName\": \"J W PAUL ASSET MANAGEMENT INC.\", \"city\": \"SAFETY HARBOR\", \"state\": \"FL\", \"country\": \"United States\", \"registrationBeginDate\": \"8/23/2007\", \"registrationEndDate\": \"9/27/2016\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"INACTIVE\"}, {\"iaOnly\": \"Y\", \"iaSECNumber\": \"20406\", \"iaSECNumberType\": \"801\", \"firmId\": 105644, \"firmName\": \"GENWORTH FINANCIAL ADVISERS CORPORATION\", \"city\": \"SAFETY HARBOR\", \"state\": \"FL\", \"country\": \"United States\", \"registrationBeginDate\": \"10/25/2005\", \"registrationEndDate\": \"12/5/2005\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"ACTIVE\"}, {\"iaOnly\": \"Y\", \"iaSECNumber\": \"58091\", \"iaSECNumberType\": \"801\", \"firmId\": 111302, \"firmName\": \"C.J.M. ASSET MANAGEMENT, LLC\", \"city\": \"POMPTON LAKES\", \"state\": \"NJ\", \"country\": \"United States\", \"registrationBeginDate\": \"7/17/2002\", \"registrationEndDate\": \"11/1/2005\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 2, \"principalExamCount\": 1, \"productExamCount\": 1}, \"stateExamCategory\": [{\"examCategory\": \"Series 65\", \"examName\": \"Uniform Investment Adviser Law Examination\", \"examTakenDate\": \"5/24/1999\", \"examScope\": \"IA\"}, {\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"8/7/1992\", \"examScope\": \"BC\"}], \"principalExamCategory\": [{\"examCategory\": \"Series 24\", \"examName\": \"General Securities Principal Examination\", \"examTakenDate\": \"3/23/1999\", \"examScope\": \"BC\"}], \"productExamCategory\": [{\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"7/31/1992\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"currentEmployments\": []}"
+        }
+      }
+    ]
+  }
+}

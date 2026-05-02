@@ -1,0 +1,50 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "13464",
+          "firm_bd_sec_number": "29267",
+          "firm_bd_full_sec_number": "8-29267",
+          "firm_name": "Q SECURITIES,INC.",
+          "firm_other_names": [
+            "Q SECURITIES,INC."
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>13464</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "469",
+          "firm_bd_sec_number": "13464",
+          "firm_bd_full_sec_number": "8-13464",
+          "firm_name": "NUVEEN SECURITIES, LLC",
+          "firm_other_names": [
+            "JOHN NUVEEN & CO., INCORPORATED",
+            "NUVEEN SECURITIES, LLC",
+            "NUVEEN SECURITIES - USED ON SALES AND MARKETING LITERATURE",
+            "NUVEEN INVESTMENTS, LLC",
+            "NUVEEN INVESTMENTS"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 15,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"333 WEST WACKER DRIVE\", \"city\": \"CHICAGO\", \"state\": \"IL\", \"country\": \"UNITED STATES\", \"postalCode\": \"60606-1286\"}, \"mailingAddress\": {\"street1\": \"333 WEST WACKER DRIVE\", \"city\": \"CHICAGO\", \"state\": \"IL\", \"country\": \"UNITED STATES\", \"postalCode\": \"60606-1286\"}, \"businessPhoneNumber\": \"312-917-7700\", \"finraLastApprovalDate\": \"1961-02-17T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

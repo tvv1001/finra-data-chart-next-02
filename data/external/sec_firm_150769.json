@@ -1,0 +1,31 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "150769",
+          "firm_bd_sec_number": "68293",
+          "firm_bd_full_sec_number": "8-68293",
+          "firm_name": "DUNN RUSH & CO. LLC",
+          "firm_other_names": [
+            "DUNN & PARTNERS, LLC",
+            "DUNN RUSH & CO. LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 2,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"75 FEDERAL STREET, 21ST FLOOR\", \"city\": \"BOSTON\", \"state\": \"MA\", \"postalCode\": \"02110\"}, \"mailingAddress\": {\"street1\": \"75 FEDERAL STREET, 21ST FLOOR\", \"city\": \"BOSTON\", \"state\": \"MA\", \"postalCode\": \"02110\"}, \"businessPhoneNumber\": \"(617) 451-0001\", \"finraLastApprovalDate\": \"2010-01-25T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>150769</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

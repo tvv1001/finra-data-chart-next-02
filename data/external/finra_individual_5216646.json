@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 5216646, \"firstName\": \"RICHARD\", \"middleName\": \"ALEXANDER\", \"lastName\": \"CEBALLOS\", \"otherNames\": [\"RICHARD ALEXANDER CAPITAINE\", \"RICHARD  CAPITAINE\", \"Richard  Ceballos\"], \"bcScope\": \"InActive\", \"iaScope\": \"NotInScope\", \"daysInIndustry\": 1405}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"iaSECNumber\": \"56264\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"422\", \"firmId\": 816, \"firmName\": \"CREDIT SUISSE SECURITIES (USA) LLC\", \"city\": \"HOUSTON\", \"state\": \"TX\", \"registrationBeginDate\": \"3/16/2015\", \"registrationEndDate\": \"6/29/2017\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"INACTIVE\"}, {\"iaOnly\": \"N\", \"bdSECNumber\": \"42263\", \"firmId\": 26091, \"firmName\": \"BANC OF AMERICA SECURITIES LLC\", \"city\": \"CHARLOTTE\", \"state\": \"NC\", \"registrationBeginDate\": \"9/12/2007\", \"registrationEndDate\": \"4/1/2009\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 3}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"10/29/2007\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"4/8/2022\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 79\", \"examName\": \"Investment Banking Registered Representative Examination\", \"examTakenDate\": \"3/16/2015\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"9/10/2007\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

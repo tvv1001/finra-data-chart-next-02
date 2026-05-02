@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 6670783, \"firstName\": \"EMILY\", \"middleName\": \"L\", \"lastName\": \"KRUEGER\", \"otherNames\": [\"EMILY  KRUEGER\", \"Emily Louise Krueger\"], \"bcScope\": \"InActive\", \"iaScope\": \"NotInScope\", \"daysInIndustry\": 668}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"iaSECNumber\": \"10746\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"1447\", \"firmId\": 793, \"firmName\": \"STIFEL, NICOLAUS & COMPANY, INCORPORATED\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"registrationBeginDate\": \"3/20/2018\", \"registrationEndDate\": \"7/10/2019\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}, {\"iaOnly\": \"N\", \"bdSECNumber\": \"30177\", \"firmId\": 566, \"firmName\": \"KEYBANC CAPITAL MARKETS INC.\", \"city\": \"BOSTON\", \"state\": \"MA\", \"registrationBeginDate\": \"9/11/2017\", \"registrationEndDate\": \"3/23/2018\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"9/15/2017\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 79\", \"examName\": \"Investment Banking Registered Representative Examination\", \"examTakenDate\": \"9/11/2017\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

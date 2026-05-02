@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 47639, \"firmName\": \"MCGLADREY CAPITAL MARKETS, LLC\", \"otherNames\": [\"EQUICO CAPITAL MARKETS LLC\", \"RSM EQUICO CAPITAL MARKETS LLC\", \"MCGLADREY CAPITAL MARKETS, LLC\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"N\", \"districtName\": \"Los Angeles\", \"firmType\": \"Limited Liability Company\", \"formedState\": \"Delaware\", \"firmStatus\": \"Terminated\", \"regulator\": \"SEC\", \"firmStatusDate\": \"03/31/2012\", \"formedDate\": \"05/10/1999\", \"fiscalMonthEndCode\": \"April\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"51841\"}, \"bdDisclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"registrations\": {\"approvedFinraRegistrationCount\": 0, \"approvedSECRegistrationCount\": 0, \"approvedSRORegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"stateList\": [], \"businessTypeCount\": 0}, \"directOwners\": [{\"legalName\": \"RSM EQUICO, INC.\", \"position\": \"HOLDING CO.\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"\"}, {\"legalName\": \"CUELLAR, HECTOR JAVIER\", \"position\": \"PRESIDENT AND COMPLIANCE OFFICER\", \"bcScope\": \"Active\", \"crdNumber\": \"3067096\"}, {\"legalName\": \"RYDER, SCOTT MARVIN JR.\", \"position\": \"CHIEF COMPLIANCE OFFICER, CHIEF OPERATING OFFICER, FINOP\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"5238742\"}]}"
+        }
+      }
+    ]
+  }
+}

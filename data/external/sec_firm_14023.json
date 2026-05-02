@@ -1,0 +1,39 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "14023",
+          "firm_bd_sec_number": "34709",
+          "firm_bd_full_sec_number": "8-34709",
+          "firm_ia_sec_number": "19690",
+          "firm_ia_full_sec_number": "801-19690",
+          "firm_name": "SYNOVUS SECURITIES, INC.",
+          "ia_firm_name": "SYNOVUS SECURITIES, INC.",
+          "firm_other_names": [
+            "CALUMET FINANCIAL ASSOCIATES INC.",
+            "SYNOVUS SECURITIES, INC.",
+            "SYNOVUS FINANCIAL PLANNING SERVICES",
+            "CREATIVE FINANCIAL GROUP, A DIVISION OF SYNOVUS SECURITIES, INC.",
+            "CALUMET FINANCIAL ASSOCIATES, INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 100,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"33 W 14TH STREET\", \"street2\": \"3RD FLOOR\", \"city\": \"COLUMBUS\", \"state\": \"GA\", \"country\": \"UNITED STATES\", \"postalCode\": \"31901\"}, \"mailingAddress\": {\"street1\": \"P.O. BOX 2628\", \"city\": \"COLUMBUS\", \"state\": \"GA\", \"country\": \"UNITED STATES\", \"postalCode\": \"31902-2628\"}, \"businessPhoneNumber\": \"706-649-2327\", \"finraLastApprovalDate\": \"1983-10-12T00:00:00\", \"iaFirmName\": \"SYNOVUS SECURITIES, INC.\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"33 WEST 14TH STREET\", \"street2\": \"3RD FLOOR\", \"city\": \"COLUMBUS\", \"state\": \"GA\", \"country\": \"United States\", \"postalCode\": \"31901\"}}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>14023</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

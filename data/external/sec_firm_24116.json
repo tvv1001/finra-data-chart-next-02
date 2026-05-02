@@ -1,0 +1,26 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "11469",
+          "firm_bd_sec_number": "24116",
+          "firm_bd_full_sec_number": "8-24116",
+          "firm_name": "WESTMORELAND CAPITAL CORPORATION",
+          "firm_other_names": [
+            "WESTMORELAND CAPITAL CORPORATION"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 3,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"601 E. EXCHANGE AVENUE\", \"street2\": \"SUITE 100\", \"city\": \"FORT WORTH\", \"state\": \"TX\", \"country\": \"UNITED STATES\", \"postalCode\": \"76164\"}, \"mailingAddress\": {\"street1\": \"1521 N. COOPER STREET\", \"street2\": \"SUITE 400\", \"city\": \"ARLINGTON\", \"state\": \"TX\", \"country\": \"UNITED STATES\", \"postalCode\": \"76011\"}, \"businessPhoneNumber\": \"(682) 305-2868\", \"finraLastApprovalDate\": \"1983-12-05T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

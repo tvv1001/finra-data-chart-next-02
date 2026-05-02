@@ -1,0 +1,23 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "15517",
+          "firm_bd_sec_number": "32346",
+          "firm_bd_full_sec_number": "8-32346",
+          "firm_name": "SELECTIVE SECURITY TRUST FINANCIAL CORP.",
+          "firm_other_names": [
+            "SELECTIVE SECURITY TRUST FINANCIAL CORP."
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 1862451, \"firstName\": \"THEODORE\", \"lastName\": \"KING\", \"nameSuffix\": \"III\", \"otherNames\": [\"BUDDY  KING\", \"TED  KING\", \"TEDDY  KING\", \"THEODORE  KING\"], \"bcScope\": \"LegacyNonArchived\", \"iaScope\": \"NotInScope\", \"daysInIndustry\": 2101}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"iaSECNumber\": \"52208\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"16402\", \"firmId\": 5685, \"firmName\": \"PRUCO SECURITIES CORPORATION\", \"registrationBeginDate\": \"9/27/1988\", \"registrationEndDate\": \"6/28/1994\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}, {\"iaOnly\": \"N\", \"iaSECNumber\": \"12484\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"13881\", \"firmId\": 680, \"firmName\": \"THE PRUDENTIAL INSURANCE COMPANY OF AMERICA\", \"registrationBeginDate\": \"9/27/1988\", \"registrationEndDate\": \"12/10/1993\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"INACTIVE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"Y\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 0, \"principalExamCount\": 0, \"productExamCount\": 1}, \"stateExamCategory\": [], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"9/26/1988\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Generated\"}}"
+        }
+      }
+    ]
+  }
+}

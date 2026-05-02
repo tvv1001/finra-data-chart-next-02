@@ -1,0 +1,57 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "39473",
+          "firm_bd_sec_number": "48711",
+          "firm_bd_full_sec_number": "8-48711",
+          "firm_name": "TRADESTATION SECURITIES, INC.",
+          "firm_other_names": [
+            "ONLINE TRADING INC.COM",
+            "TRADESTATION SECURITIES, INC.",
+            "TRADESTATION SECURITIES",
+            "TRADESTATION",
+            "ONLINETRADNG.COM",
+            "ONLINETRADINGINC.COM CORP",
+            "ONLINETRADING.COM",
+            "ONLINETRADEINGINC.COM CORP.",
+            "ONLINE TRADING, INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 20,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"8050 SW 10TH STREET\", \"street2\": \"SUITE 2000\", \"city\": \"PLANTATION\", \"state\": \"FL\", \"country\": \"UNITED STATES\", \"postalCode\": \"33324\"}, \"mailingAddress\": {\"street1\": \"8050 SW 10TH STREET\", \"street2\": \"SUITE 2000\", \"city\": \"PLANTATION\", \"state\": \"FL\", \"country\": \"US\", \"postalCode\": \"33324\"}, \"businessPhoneNumber\": \"954-652-7900\", \"finraLastApprovalDate\": \"1996-01-31T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>39473</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "22019",
+          "firm_bd_sec_number": "39473",
+          "firm_bd_full_sec_number": "8-39473",
+          "firm_name": "CHARTERHOUSE NORTH AMERICA SECURITIES, INC.",
+          "firm_other_names": [
+            "CHARTERHOUSE INC.",
+            "CHARTERHOUSE NORTH AMERICA SECURITIES, INC."
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 0,
+          "firm_branches_count": 0
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 8007376, \"firstName\": \"Carolyn\", \"middleName\": \"Diane\", \"lastName\": \"Barnette\", \"otherNames\": [\"Carolyn  Burleson\", \"Carolyn  Torres\"], \"bcScope\": \"Active\", \"iaScope\": \"NotInScope\", \"daysInIndustryCalculatedDate\": \"1/31/2025\"}, \"currentEmployments\": [{\"firmId\": 17530, \"firmName\": \"BOK FINANCIAL SECURITIES, INC.\", \"iaOnly\": \"N\", \"registrationBeginDate\": \"2/1/2025\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\", \"iaSECNumber\": \"53600\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"35381\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"N\", \"supervisedFromFlag\": \"Y\", \"privateResidenceFlag\": \"N\", \"branchOfficeId\": \"680900\", \"street1\": \"499 West Sheridan Avenue\", \"street2\": \"25th, 26th and 27th Floors\", \"city\": \"Oklahoma City\", \"cityAlias\": [\"OKC\", \"OKLAHOMA CITY\"], \"state\": \"OK\", \"country\": \"United States\", \"zipCode\": \"73102\", \"latitude\": \"35.471526\", \"longitude\": \"-97.51889\", \"geoLocation\": \"35.471526,-97.51889\", \"nonRegisteredOfficeFlag\": \"N\", \"elaBeginDate\": \"11/13/2024\"}]}], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 0, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 99TO\", \"examName\": \"Operations Professional Examination\", \"examTakenDate\": \"1/31/2025\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"7/14/2023\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 1, \"approvedFinraRegistrationCount\": 1, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [{\"sro\": \"FINRA\", \"status\": \"APPROVED\", \"CategoriesList\": [\"Operations Professional\"]}], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

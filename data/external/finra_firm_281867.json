@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 281867, \"firmName\": \"OLD MISSION MARKETS LLC\", \"otherNames\": [\"OLD MISSION MARKETS LLC\"], \"bcScope\": \"ACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"Y\", \"districtName\": \"Chicago\", \"firmType\": \"Limited Liability Company\", \"formedState\": \"Delaware\", \"firmSize\": \"Small\", \"firmStatus\": \"Approved\", \"regulator\": \"SEC\", \"finraLastApprovalDate\": \"07/13/2016\", \"firmStatusDate\": \"07/13/2016\", \"formedDate\": \"08/03/2015\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"69691\"}, \"firmAddressDetails\": {\"officeAddress\": {\"street1\": \"1 N. DEARBORN ST.\", \"street2\": \"8TH FLOOR\", \"city\": \"CHICAGO\", \"state\": \"IL\", \"country\": \"UNITED STATES\", \"postalCode\": \"60602\"}, \"mailingAddress\": {\"street1\": \"1 N. DEARBORN ST.\", \"street2\": \"8TH FLOOR\", \"city\": \"CHICAGO\", \"state\": \"IL\", \"country\": \"UNITED STATES\", \"postalCode\": \"60602\"}, \"businessPhoneNumber\": \"312-260-3052\", \"finraLastApprovalDate\": \"2016-07-13T00:00:00\"}, \"bdDisclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"registrations\": {\"approvedFinraRegistrationCount\": 1, \"approvedSECRegistrationCount\": 1, \"approvedSRORegistrationCount\": 3, \"approvedStateRegistrationCount\": 3, \"stateList\": [{\"state\": \"Illinois\"}, {\"state\": \"New York\"}, {\"state\": \"Ohio\"}], \"businessTypeCount\": 2, \"hasAffliation\": \"Y\", \"referOtherBd\": \"N\"}, \"directOwners\": [{\"legalName\": \"OLD MISSION FINANCIAL SERVICES LLC\", \"position\": \"OWNER\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"\"}, {\"legalName\": \"GASTON, STEVEN JOHN\", \"position\": \"CHIEF COMPLIANCE OFFICER\", \"bcScope\": \"Active\", \"crdNumber\": \"3094187\"}, {\"legalName\": \"GUZOWSKI, JOSEF MICHAEL\", \"position\": \"MANAGER, CEO\", \"bcScope\": \"Active\", \"crdNumber\": \"2989719\"}, {\"legalName\": \"KEITH, ALLEN THOMAS\", \"position\": \"FINOP\", \"bcScope\": \"Active\", \"crdNumber\": \"4457493\"}, {\"legalName\": \"MARQUEZ AVITIA, ERICA NMN\", \"position\": \"CHIEF OPERATING OFFICER\", \"bcScope\": \"Active\", \"crdNumber\": \"5074353\"}, {\"legalName\": \"NICHOLS, PATRICK JAMES\", \"position\": \"MANAGER\", \"bcScope\": \"Active\", \"crdNumber\": \"4757503\"}, {\"legalName\": \"RUSSINA, BRYAN SCOTT\", \"position\": \"MANAGER\", \"bcScope\": \"Active\", \"crdNumber\": \"5031844\"}]}"
+        }
+      }
+    ]
+  }
+}

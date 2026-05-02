@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 4982243, \"firstName\": \"GARY\", \"middleName\": \"Russell\", \"lastName\": \"LAWSON\", \"nameSuffix\": \"II\", \"otherNames\": [\"GARY R LAWSON II\", \"GARY R LAWSON\", \"GARY RUSSELL LAWSON II\", \"GARY RUSSELL LAWSON\", \"GARY  LAWSON\"], \"bcScope\": \"Active\", \"iaScope\": \"NotInScope\"}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"Y\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 3}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"8/8/2025\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 79TO\", \"examName\": \"Investment Banking Registered Representative Examination\", \"examTakenDate\": \"8/5/2025\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"6/27/2025\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"9/9/2006\", \"examScope\": \"BC\"}], \"registrationCount\": {\"hasInactiveRegistration\": \"N\", \"hasSuspendedRegistration\": \"N\", \"approvedSRORegistrationCount\": 1, \"approvedFinraRegistrationCount\": 1, \"approvedStateRegistrationCount\": 2, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [{\"state\": \"New York\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"2/3/2026\"}, {\"state\": \"Tennessee\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"10/1/2025\"}], \"registeredSROs\": [{\"sro\": \"FINRA\", \"status\": \"APPROVED\", \"CategoriesList\": [\"Investment Banking Representative\"]}], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

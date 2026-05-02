@@ -1,0 +1,59 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "150810",
+          "firm_ia_sec_number": "71019",
+          "firm_ia_full_sec_number": "801-71019",
+          "firm_name": "ARTEMIS WEALTH ADVISORS, LLC",
+          "firm_other_names": [
+            "ARTEMIS WEALTH ADVISORS, LLC",
+            "SIRIUS II GP LLC",
+            "ORION CAPITAL MANAGEMENT II LLC"
+          ],
+          "firm_ia_scope": "ACTIVE",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_branches_count": 2,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"570 LEXINGTON AVENUE\", \"street2\": \"39TH FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"United States\", \"postalCode\": \"10022\"}}",
+          "firm_relying_advisors": [
+            {
+              "firmId": "293300",
+              "name": "ORION CAPITAL MANAGEMENT II LLC",
+              "status": "ACTIVE",
+              "nameStatus": "ACTIVE"
+            },
+            {
+              "firmId": "308172",
+              "name": "ARTEMIS FP LLC",
+              "status": "ACTIVE",
+              "nameStatus": "ACTIVE"
+            }
+          ]
+        },
+        "highlight": {}
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "324243",
+          "firm_bd_sec_number": "71019",
+          "firm_bd_full_sec_number": "8-71019",
+          "firm_name": "GCG SECURITIES, LLC",
+          "firm_other_names": [
+            "GCG SECURITIES, LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 4,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"189 TOWNSEND STREET, STE 200\", \"city\": \"BIRMINGHAM\", \"state\": \"MI\", \"country\": \"UNITED STATES\", \"postalCode\": \"48009\"}, \"mailingAddress\": {\"street1\": \"189 TOWNSEND STREET, STE 200\", \"city\": \"BIRMINGHAM\", \"state\": \"MI\", \"country\": \"UNITED STATES\", \"postalCode\": \"48009\"}, \"businessPhoneNumber\": \"248-480-2032\", \"finraLastApprovalDate\": \"2023-04-18T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

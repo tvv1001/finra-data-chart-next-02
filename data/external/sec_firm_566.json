@@ -1,0 +1,34 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "566",
+          "firm_bd_sec_number": "30177",
+          "firm_bd_full_sec_number": "8-30177",
+          "firm_name": "KEYBANC CAPITAL MARKETS INC.",
+          "firm_other_names": [
+            "GRADISON ASSET MANAGEMENT",
+            "MCDONALD INVESTMENTS INC.",
+            "MCDONALD & COMPANY SECURITIES, INC.",
+            "MCDONALD & COMPANY",
+            "KEYBANC CAPITAL MARKETS INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 44,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"127 PUBLIC SQUARE\", \"city\": \"CLEVELAND\", \"state\": \"OH\", \"country\": \"USA\", \"postalCode\": \"44114\"}, \"mailingAddress\": {\"street1\": \"127 PUBLIC SQUARE\", \"city\": \"CLEVELAND\", \"state\": \"OH\", \"country\": \"USA\", \"postalCode\": \"44114\"}, \"businessPhoneNumber\": \"216-689-0803\", \"finraLastApprovalDate\": \"1944-05-15T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>566</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

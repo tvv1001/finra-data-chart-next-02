@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 15204, \"firmName\": \"INDEPENDENT BROKERAGE CORPORATION OF AMERICA, INC.\", \"otherNames\": [\"INDEPENDENT BROKERAGE CORPORATION OF AMERICA, INC.\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"Y\", \"firmType\": \"Corporation\", \"formedState\": \"Texas\", \"firmStatus\": \"Terminated\", \"regulator\": \"FINRA\", \"firmStatusDate\": \"02/22/1991\", \"formedDate\": \"02/21/1984\", \"fiscalMonthEndCode\": \"\", \"legacyReportStatus\": \"Generated\", \"bdSECNumber\": \"31741\"}, \"iaDisclosureFlag\": \"N\"}"
+        }
+      }
+    ]
+  }
+}

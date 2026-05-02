@@ -1,0 +1,102 @@
+{
+  "hits": {
+    "total": 4,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "145",
+          "firm_bd_sec_number": "13431",
+          "firm_bd_full_sec_number": "8-13431",
+          "firm_name": "LINCOLN FINANCIAL DISTRIBUTORS, INC.",
+          "firm_other_names": [
+            "CG EQUITY SALES COMPANY",
+            "SAGEMARK CONSULTING, INC.",
+            "LINCOLN FINANCIAL DISTRIBUTORS, INC.",
+            "CIGNA SECURITIES, INC.",
+            "CIGNA FINANCIAL ADVISORS,INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 13,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"130 N RADNOR-CHESTER RD\", \"city\": \"RADNOR\", \"state\": \"PA\", \"country\": \"UNITED STATES\", \"postalCode\": \"19087\"}, \"mailingAddress\": {\"street1\": \"130 N RADNOR-CHESTER RD\", \"city\": \"RADNOR\", \"state\": \"PA\", \"country\": \"UNITED STATES\", \"postalCode\": \"19087\"}, \"businessPhoneNumber\": \"484-583-6000\", \"finraLastApprovalDate\": \"1967-10-16T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>145</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "823",
+          "firm_bd_sec_number": "145",
+          "firm_bd_full_sec_number": "8-145",
+          "firm_name": "THE MILWAUKEE COMPANY",
+          "firm_other_names": [
+            "THE MILWAUKEE COMPANY"
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {}
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "297561",
+          "firm_name": "1457 MANAGEMENT GROUP, LLC",
+          "firm_other_names": [
+            "1457 MANAGEMENT GROUP, LLC"
+          ],
+          "firm_ia_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"13428 MAXELLA AVE\", \"street2\": \"#226\", \"city\": \"MARINA DEL RAY\", \"state\": \"CA\", \"country\": \"United States\", \"postalCode\": \"90292\"}}"
+        },
+        "highlight": {
+          "firm_name": [
+            "<em>145</em>7 MANAGEMENT GROUP, LLC"
+          ],
+          "firm_other_names": [
+            "<em>145</em>7 MANAGEMENT GROUP, LLC"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "170092",
+          "firm_ia_sec_number": "79319",
+          "firm_ia_full_sec_number": "801-79319",
+          "firm_name": "MERCAP ADVISORS, INC.",
+          "firm_other_names": [
+            "CADENCE FINANCIAL DBA FOR DARRELL HARRISON CRD #4900465",
+            "WHITE KNIGHT CAPITAL FOR R. TODD VALLEAU CRD# 5491034",
+            "WATTS INVESTMENTS DBA FOR NORMAN WATTS CRD#460308",
+            "S&G, INC.",
+            "MICHAEL MALONE INVESTMENT ADVISORY DBA FOR MICHAEL MALONE CRD#817458",
+            "MERCAP ADVISORS, INC.",
+            "MARKET STREET FINANCIAL ADVISORS, LLC DBA FOR DANIEL NIGITO CRD#1251726 & DAVID WEIKERT CRD#3249992",
+            "LAWRENCE JAMES FINANCIAL GROUP DBA FOR JAMES KRAVITZ CRD#1453983",
+            "KING FINANCIAL ADVISORS DBA FOR EUGENE KING CRD #708117",
+            "FINANCIAL DESIGN PARTNERS FOR MORRIS KAUFMAN CRD #2764464"
+          ],
+          "firm_ia_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"2200 CENTURY PARKWAY\", \"street2\": \"SUITE 500\", \"city\": \"ATLANTA\", \"state\": \"GA\", \"country\": \"United States\", \"postalCode\": \"30345\"}}"
+        },
+        "highlight": {
+          "firm_other_names": [
+            "LAWRENCE JAMES FINANCIAL GROUP DBA FOR JAMES KRAVITZ CRD#<em>145</em>3983"
+          ]
+        }
+      }
+    ]
+  }
+}

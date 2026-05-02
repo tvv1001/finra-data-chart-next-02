@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 14100, \"firmName\": \"FIRST CASCADE SECURITIES, INC\", \"otherNames\": [\"FIRST CASCADE SECURITIES, INC\", \"SAN-PACIFIC SECURITIES, INC.\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"Y\", \"firmType\": \"Corporation\", \"formedState\": \"Washington\", \"firmStatus\": \"Cancelled\", \"regulator\": \"SEC\", \"firmStatusDate\": \"01/11/1996\", \"formedDate\": \"04/21/1983\", \"fiscalMonthEndCode\": \"September\", \"legacyReportStatus\": \"Generated\", \"bdSECNumber\": \"30366\"}, \"iaDisclosureFlag\": \"N\"}"
+        }
+      }
+    ]
+  }
+}

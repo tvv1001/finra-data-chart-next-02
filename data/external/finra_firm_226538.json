@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 226538, \"firmName\": \"MADISON PAIGE SECURITIES LLC\", \"otherNames\": [\"MADISON PAIGE SECURITIES LLC\"], \"bcScope\": \"ACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"Y\", \"districtName\": \"Woodbridge\", \"firmType\": \"Limited Liability Company\", \"formedState\": \"New York\", \"firmSize\": \"Small\", \"firmStatus\": \"Approved\", \"regulator\": \"SEC\", \"finraLastApprovalDate\": \"08/16/2016\", \"firmStatusDate\": \"08/16/2016\", \"formedDate\": \"07/15/2015\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"69621\"}, \"firmAddressDetails\": {\"officeAddress\": {\"street1\": \"50 MAIN STREET, SUITE 1000\", \"city\": \"WHITE PLAINS\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10606\"}, \"mailingAddress\": {\"street1\": \"50 MAIN STREET, SUITE 1000\", \"city\": \"WHITE PLAINS\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10606\"}, \"businessPhoneNumber\": \"267-908-1401\", \"finraLastApprovalDate\": \"2016-08-16T00:00:00\"}, \"bdDisclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"registrations\": {\"approvedFinraRegistrationCount\": 1, \"approvedSECRegistrationCount\": 1, \"approvedSRORegistrationCount\": 1, \"approvedStateRegistrationCount\": 1, \"stateList\": [{\"state\": \"New York\"}], \"businessTypeCount\": 4, \"hasAffliation\": \"N\", \"referOtherBd\": \"N\"}, \"directOwners\": [{\"legalName\": \"FONTANILLA, DAVID AARON\", \"position\": \"MEMBER\", \"bcScope\": \"Active\", \"crdNumber\": \"4237116\"}, {\"legalName\": \"PALMER, MICHAEL R.\", \"position\": \"MEMBER\", \"bcScope\": \"Active\", \"crdNumber\": \"4545584\"}, {\"legalName\": \"ROTHENBERG, SHARI P\", \"position\": \"CFO/FINOP\", \"bcScope\": \"Active\", \"crdNumber\": \"6590875\"}, {\"legalName\": \"RUSSIN, ROBERT J JR.\", \"position\": \"CEO/CCO\", \"bcScope\": \"Active\", \"crdNumber\": \"4875237\"}]}"
+        }
+      }
+    ]
+  }
+}

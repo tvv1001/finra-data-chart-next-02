@@ -1,0 +1,31 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "17708",
+          "firm_bd_sec_number": "35643",
+          "firm_bd_full_sec_number": "8-35643",
+          "firm_name": "HOULIHAN LOKEY CAPITAL, INC.",
+          "firm_other_names": [
+            "HLHZ CAPITAL, A CALIFORNIA LIMITED PARTNERSHIP",
+            "HOULIHAN, LOKEY, HOWARD & ZUKIN CAPITAL, INC.",
+            "HOULIHAN, LOKEY, HOWARD & ZUKIN CAPITAL",
+            "HOULIHAN LOKEY HOWARD & ZUKIN CAPITAL, L.P.",
+            "HOULIHAN LOKEY HOWARD & ZUKIN CAPITAL, INC.",
+            "HOULIHAN LOKEY CAPITAL, INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 14,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"10250 CONSTELLATION BOULEVARD\", \"street2\": \"5TH FLOOR\", \"city\": \"LOS ANGELES\", \"state\": \"CA\", \"country\": \"UNITED STATES\", \"postalCode\": \"90067\"}, \"mailingAddress\": {\"street1\": \"10250 CONSTELLATION BOULEVARD\", \"street2\": \"5TH FLOOR\", \"city\": \"LOS ANGELES\", \"state\": \"CA\", \"country\": \"UNITED STATES\", \"postalCode\": \"90067\"}, \"businessPhoneNumber\": \"310 553-8871\", \"finraLastApprovalDate\": \"1986-06-23T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

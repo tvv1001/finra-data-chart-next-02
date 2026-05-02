@@ -1,0 +1,65 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "27250",
+          "firm_bd_sec_number": "44880",
+          "firm_bd_full_sec_number": "8-44880",
+          "firm_name": "FIRST INSTITUTIONAL GROUP, INC.",
+          "firm_other_names": [
+            "FIRST INSTITUTIONAL GROUP, INC.",
+            "SCHWEDER SECURITIES, INC.",
+            "LKS GROUP SECURITIES, INC."
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>27250</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "10409",
+          "firm_bd_sec_number": "27250",
+          "firm_bd_full_sec_number": "8-27250",
+          "firm_ia_sec_number": "44264",
+          "firm_ia_full_sec_number": "801-44264",
+          "firm_name": "MML INVESTORS SERVICES, LLC",
+          "ia_firm_name": "MML INVESTORS SERVICES, LLC",
+          "firm_other_names": [
+            "CONCORDE FINANCIAL ADVISORS",
+            "THE ESTABLISHMENT BY MASSMUTUAL",
+            "THE ESTABLISHMENT BY BARNUM FINANCIAL GROUP",
+            "THE ESTABLISHMENT",
+            "MML PLAN SOLUTIONS",
+            "MML INVESTORS SERVICES, LLC",
+            "MML INVESTORS SERVICES, INC.",
+            "MML INVESTORS SERVICES",
+            "MASSMUTUAL WEALTH MANAGEMENT",
+            "MASSMUTUAL PRIVATE WEALTH",
+            "MASSMUTUAL FINANCIAL GROUP",
+            "IN GOOD COMPANY",
+            "HFG ADVISORS"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 3870,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"1295 STATE STREET\", \"city\": \"SPRINGFIELD\", \"state\": \"MA\", \"country\": \"UNITED STATES\", \"postalCode\": \"01111-0001\"}, \"mailingAddress\": {\"street1\": \"1295 STATE STREET\", \"city\": \"SPRINGFIELD\", \"state\": \"MA\", \"country\": \"UNITED STATES\", \"postalCode\": \"01111-0001\"}, \"businessPhoneNumber\": \"(413) 226-0000\", \"finraLastApprovalDate\": \"1982-03-30T00:00:00\", \"iaFirmName\": \"MML INVESTORS SERVICES, LLC\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"1295 STATE STREET\", \"city\": \"SPRINGFIELD\", \"state\": \"MA\", \"country\": \"United States\", \"postalCode\": \"01111-0001\"}}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

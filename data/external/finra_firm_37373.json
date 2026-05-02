@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 37373, \"firmName\": \"SMC FINANCIAL, INC.\", \"otherNames\": [\"SMC FINANCIAL, INC.\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"N\", \"districtName\": \"Kansas City\", \"firmType\": \"Corporation\", \"formedState\": \"Kansas\", \"firmStatus\": \"Terminated\", \"regulator\": \"SEC\", \"firmStatusDate\": \"03/14/2016\", \"formedDate\": \"09/26/1994\", \"fiscalMonthEndCode\": \"January\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"47719\"}, \"bdDisclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"registrations\": {\"approvedFinraRegistrationCount\": 0, \"approvedSECRegistrationCount\": 0, \"approvedSRORegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"stateList\": [], \"businessTypeCount\": 0}, \"directOwners\": [{\"legalName\": \"BOWER, BRUCE EDWARD\", \"position\": \"CEO/CCO\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"716475\"}, {\"legalName\": \"BOWER, BRUCE EDWARD\", \"position\": \"PRESIDENT\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"716475\"}]}"
+        }
+      }
+    ]
+  }
+}

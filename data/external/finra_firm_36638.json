@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 36638, \"firmName\": \"D.D.S.K. INVESTMENTS, A CALIFORNIA GENERAL PARTNERSHIP\", \"otherNames\": [\"D.D.S.K. INVESTMENTS, A CALIFORNIA GENERAL PARTNERSHIP\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"N\", \"districtName\": \"San Francisco\", \"firmType\": \"Partnership\", \"formedState\": \"California\", \"firmStatus\": \"Terminated\", \"regulator\": \"SEC\", \"firmStatusDate\": \"02/13/2005\", \"formedDate\": \"04/18/1994\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"47419\"}, \"bdDisclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"registrations\": {\"approvedFinraRegistrationCount\": 0, \"approvedSECRegistrationCount\": 0, \"approvedSRORegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"stateList\": [], \"businessTypeCount\": 0}, \"directOwners\": [{\"legalName\": \"CHEN, DAVID H\", \"position\": \"LIMITED PARTNER\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"\"}, {\"legalName\": \"CHEN, SCOTT DAVID\", \"position\": \"GENERAL PARTNER\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"2500034\"}]}"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "13975",
+          "firm_bd_sec_number": "30100",
+          "firm_bd_full_sec_number": "8-30100",
+          "firm_name": "CORPORATE BENEFIT SECURITIES, INC.",
+          "firm_other_names": [
+            "CORPORATE BENEFIT SECURITIES, INC."
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>13975</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "1137",
+          "firm_bd_sec_number": "13975",
+          "firm_bd_full_sec_number": "8-13975",
+          "firm_ia_sec_number": "54949",
+          "firm_ia_full_sec_number": "801-54949",
+          "firm_name": "PRINCIPAL SECURITIES, INC.",
+          "ia_firm_name": "PRINCIPAL SECURITIES, INC.",
+          "firm_other_names": [
+            "BLC EQUITY SERVICES CORPORATION",
+            "PRINCOR FINANCIAL/ SERVICES CORPORATION",
+            "PRINCOR FINANCIAL SERVICES CORPORATION",
+            "PRINCIPAL SECURITIES, INC.",
+            "PRINCIPAL FINANCIAL SERVICES CORPORATION"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 1061,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"711 HIGH STREET\", \"city\": \"DES MOINES\", \"state\": \"IA\", \"country\": \"UNITED STATES\", \"postalCode\": \"50392\"}, \"mailingAddress\": {\"street1\": \"PRINCIPAL FINANCIAL GROUP\", \"street2\": \"711 HIGH STREET\", \"city\": \"DES MOINES\", \"state\": \"IA\", \"country\": \"UNITED STATES\", \"postalCode\": \"50392-2080\"}, \"businessPhoneNumber\": \"888-774-6267\", \"finraLastApprovalDate\": \"1968-07-22T00:00:00\", \"iaFirmName\": \"PRINCIPAL SECURITIES, INC.\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"711 HIGH STREET\", \"city\": \"DES MOINES\", \"state\": \"IA\", \"country\": \"United States\", \"postalCode\": \"50392\"}}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

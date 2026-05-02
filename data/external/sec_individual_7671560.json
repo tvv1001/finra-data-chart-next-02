@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 7671560, \"firstName\": \"Robert\", \"middleName\": \"William\", \"lastName\": \"Lively\", \"otherNames\": [\"Bob  Lively\", \"Bobby  Lively\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"Active\", \"daysInIndustryCalculatedDateIAPD\": \"12/13/2022\"}, \"currentIAEmployments\": [{\"firmId\": 110302, \"firmName\": \"JMG FINANCIAL GROUP LTD\", \"iaOnly\": \"Y\", \"registrationBeginDate\": \"12/14/2022\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"ACTIVE\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"Y\", \"supervisedFromFlag\": \"N\", \"privateResidenceFlag\": \"N\", \"branchOfficeId\": \"66253\", \"street1\": \"2001 BUTTERFIELD ROAD, SUITE 1400\", \"city\": \"DOWNERS GROVE\", \"cityAlias\": [\"DOWNERS GROVE\"], \"state\": \"IL\", \"country\": \"United States\", \"zipCode\": \"60515\", \"latitude\": \"41.810973\", \"longitude\": \"-88.029863\", \"geoLocation\": \"41.810973,-88.029863\", \"nonRegisteredOfficeFlag\": \"N\", \"elaBeginDate\": \"07/26/2018\"}]}], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 0, \"principalExamCount\": 0, \"productExamCount\": 0}, \"stateExamCategory\": [], \"principalExamCategory\": [], \"productExamCategory\": [], \"registrationCount\": {\"hasInactiveRegistration\": \"N\", \"hasSuspendedRegistration\": \"N\", \"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 1}, \"registeredStates\": [{\"state\": \"Illinois\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"12/14/2022\"}], \"registeredSROs\": [], \"currentEmployments\": []}"
+        }
+      }
+    ]
+  }
+}

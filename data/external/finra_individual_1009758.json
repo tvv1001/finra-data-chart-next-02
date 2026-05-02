@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 1009758, \"firstName\": \"DOMINIC\", \"middleName\": \"MANUEL\", \"lastName\": \"ESPOSITO\", \"otherNames\": [\"DOM  ESPOSITO\"], \"bcScope\": \"LegacyNonArchived\", \"iaScope\": \"NotInScope\", \"daysInIndustry\": 1270}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"iaSECNumber\": \"54905\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"13846\", \"firmId\": 421, \"firmName\": \"FORTIS INVESTORS, INC.\", \"registrationBeginDate\": \"5/29/1991\", \"registrationEndDate\": \"8/10/1992\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"INACTIVE\"}, {\"iaOnly\": \"N\", \"iaSECNumber\": \"14065\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"17883\", \"firmId\": 6627, \"firmName\": \"EQUICO SECURITIES, INC.\", \"registrationBeginDate\": \"10/5/1989\", \"registrationEndDate\": \"10/31/1990\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}, {\"iaOnly\": \"N\", \"bdSECNumber\": \"14082\", \"firmId\": 4039, \"firmName\": \"THE EQUITABLE LIFE ASSURANCE SOCIETY OF THE UNITED STATES\", \"registrationBeginDate\": \"10/5/1989\", \"registrationEndDate\": \"10/31/1990\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}, {\"iaOnly\": \"N\", \"bdSECNumber\": \"28461\", \"firmId\": 14035, \"firmName\": \"CALVERT SECURITIES CORPORATION\", \"registrationBeginDate\": \"4/19/1988\", \"registrationEndDate\": \"6/30/1989\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"Y\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 0, \"principalExamCount\": 0, \"productExamCount\": 1}, \"stateExamCategory\": [], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"4/16/1988\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Generated\"}}"
+        }
+      }
+    ]
+  }
+}

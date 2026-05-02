@@ -1,0 +1,48 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "146220",
+          "firm_ia_sec_number": "68817",
+          "firm_ia_full_sec_number": "801-68817",
+          "firm_name": "TIMBER CREEK CAPITAL MANAGEMENT, LLC",
+          "firm_other_names": [
+            "TIMBER CREEK CAPITAL MANAGEMENT, LLC"
+          ],
+          "firm_ia_scope": "ACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 1,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"44 SCHOOL STREET\", \"street2\": \"SUITE 410\", \"city\": \"BOSTON\", \"state\": \"MA\", \"country\": \"United States\", \"postalCode\": \"02108\"}}"
+        },
+        "highlight": {}
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "156691",
+          "firm_bd_sec_number": "68817",
+          "firm_bd_full_sec_number": "8-68817",
+          "firm_name": "XP INVESTMENTS US, LLC",
+          "firm_other_names": [
+            "XP INTERNATIONAL",
+            "XP SECURITIES, LLC",
+            "XP PRIVATE INTERNATIONAL",
+            "XP PRIVATE",
+            "XP INVESTMENTS US, LLC",
+            "XP INVESTMENTS"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 3,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"55 WEST 46TH STREET\", \"street2\": \"30TH FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10036\"}, \"mailingAddress\": {\"street1\": \"701 BRICKELL AVENUE\", \"street2\": \"STE 1350\", \"city\": \"MIAMI\", \"state\": \"FL\", \"country\": \"UNITED STATES\", \"postalCode\": \"33131\"}, \"businessPhoneNumber\": \"7867321100\", \"finraLastApprovalDate\": \"2011-10-27T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

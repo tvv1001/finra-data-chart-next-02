@@ -1,0 +1,30 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "328082",
+          "firm_bd_sec_number": "71161",
+          "firm_bd_full_sec_number": "8-71161",
+          "firm_name": "CUATRO CAPITAL SECURITIES LLC",
+          "firm_other_names": [
+            "CUATRO CAPITAL SECURITIES LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 3,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"1959 CALLE LOIZA\", \"street2\": \"SUITE 203\", \"city\": \"SAN JUAN\", \"state\": \"PR\", \"country\": \"UNITED STATES\", \"postalCode\": \"00911\"}, \"mailingAddress\": {\"street1\": \"1959 CALLE LOIZA\", \"street2\": \"SUITE 203\", \"city\": \"SAN JUAN\", \"state\": \"PR\", \"country\": \"UNITED STATES\", \"postalCode\": \"00911\"}, \"businessPhoneNumber\": \"914-361-9343\", \"finraLastApprovalDate\": \"2024-07-24T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>328082</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

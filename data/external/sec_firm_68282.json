@@ -1,0 +1,33 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "150696",
+          "firm_bd_sec_number": "68282",
+          "firm_bd_full_sec_number": "8-68282",
+          "firm_name": "SANTANDER US CAPITAL MARKETS LLC",
+          "firm_other_names": [
+            "AMHERST PIERPONT",
+            "SANTANDER US CAPITAL MARKETS LLC",
+            "SANTANDER INVESTMENT SECURITIES",
+            "PIERPONT SECURITIES LLC",
+            "PIERPONT SECURITIES INC.",
+            "PIERPONT SECURITIES",
+            "AMHERST SECURITIES",
+            "AMHERST PIERPONT SECURITIES LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 13,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"437 MADISON AVENUE\", \"street2\": \"6TH - 10TH FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10022\"}, \"mailingAddress\": {\"street1\": \"437 MADISON AVENUE\", \"street2\": \"7TH FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10022\"}, \"businessPhoneNumber\": \"212-872-0100\", \"finraLastApprovalDate\": \"2009-12-17T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

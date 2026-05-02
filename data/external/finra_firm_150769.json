@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 150769, \"firmName\": \"DUNN RUSH & CO. LLC\", \"otherNames\": [\"DUNN & PARTNERS, LLC\", \"DUNN RUSH & CO. LLC\"], \"bcScope\": \"ACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"Y\", \"districtName\": \"Boston\", \"firmType\": \"Limited Liability Company\", \"formedState\": \"Massachusetts\", \"firmSize\": \"Small\", \"firmStatus\": \"Approved\", \"regulator\": \"SEC\", \"finraLastApprovalDate\": \"01/25/2010\", \"firmStatusDate\": \"01/25/2010\", \"formedDate\": \"03/30/2009\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"68293\"}, \"firmAddressDetails\": {\"officeAddress\": {\"street1\": \"75 FEDERAL STREET, 21ST FLOOR\", \"city\": \"BOSTON\", \"state\": \"MA\", \"postalCode\": \"02110\"}, \"mailingAddress\": {\"street1\": \"75 FEDERAL STREET, 21ST FLOOR\", \"city\": \"BOSTON\", \"state\": \"MA\", \"postalCode\": \"02110\"}, \"businessPhoneNumber\": \"(617) 451-0001\", \"finraLastApprovalDate\": \"2010-01-25T00:00:00\"}, \"bdDisclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"registrations\": {\"approvedFinraRegistrationCount\": 1, \"approvedSECRegistrationCount\": 1, \"approvedSRORegistrationCount\": 1, \"approvedStateRegistrationCount\": 2, \"stateList\": [{\"state\": \"Massachusetts\"}, {\"state\": \"New Hampshire\"}], \"businessTypeCount\": 2, \"hasAffliation\": \"N\", \"referOtherBd\": \"N\"}, \"directOwners\": [{\"legalName\": \"RUSH, GREGORY RONALD\", \"position\": \"SENIOR MANAGING DIRECTOR AND CHIEF COMPLIANCE OFFICER\", \"bcScope\": \"Active\", \"crdNumber\": \"2958418\"}, {\"legalName\": \"BEATON, DANIEL STEWART\", \"position\": \"FINANCIAL AND OPERATIONS PRINCIPAL (OUTSIDE) AND CHIEF FINANCIAL OFFICER\", \"bcScope\": \"Active\", \"crdNumber\": \"4240769\"}, {\"legalName\": \"DUNN, KEVIN JOSEPH\", \"position\": \"SENIOR MANAGING DIRECTOR\", \"bcScope\": \"Active\", \"crdNumber\": \"1920942\"}]}"
+        }
+      }
+    ]
+  }
+}

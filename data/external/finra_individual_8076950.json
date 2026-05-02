@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 8076950, \"firstName\": \"Ocean\", \"lastName\": \"Gross\", \"otherNames\": [], \"bcScope\": \"Active\", \"iaScope\": \"NotInScope\", \"daysInIndustryCalculatedDate\": \"5/12/2025\"}, \"currentEmployments\": [{\"firmId\": 305908, \"firmName\": \"FINALIS SECURITIES LLC\", \"iaOnly\": \"N\", \"registrationBeginDate\": \"5/13/2025\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"NOTINSCOPE\", \"bdSECNumber\": \"70425\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"N\", \"supervisedFromFlag\": \"Y\", \"privateResidenceFlag\": \"N\", \"branchOfficeId\": \"797421\", \"street1\": \"450 LEXINGTON AVE.\", \"city\": \"New York\", \"cityAlias\": [\"GRAND CENTRAL\", \"MANHATTAN\", \"NEW YORK\", \"NEW YORK CITY\", \"NY\", \"NY CITY\", \"NYC\"], \"state\": \"NY\", \"country\": \"United States\", \"zipCode\": \"10017\", \"latitude\": \"40.752516\", \"longitude\": \"-73.973072\", \"geoLocation\": \"40.752516,-73.973072\", \"nonRegisteredOfficeFlag\": \"N\", \"elaBeginDate\": \"04/28/2025\"}]}], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"5/8/2025\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 82TO\", \"examName\": \"Limited Representative-Private Securities Offerings\", \"examTakenDate\": \"5/13/2025\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"3/26/2025\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 1, \"approvedFinraRegistrationCount\": 1, \"approvedStateRegistrationCount\": 2, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [{\"state\": \"Florida\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"5/27/2025\"}, {\"state\": \"Kentucky\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"5/29/2025\"}], \"registeredSROs\": [{\"sro\": \"FINRA\", \"status\": \"APPROVED\", \"CategoriesList\": [\"Limited Representative - Private Securities Offerings\"]}], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

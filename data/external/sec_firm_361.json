@@ -1,0 +1,135 @@
+{
+  "hits": {
+    "total": 4,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "361",
+          "firm_bd_sec_number": "129",
+          "firm_bd_full_sec_number": "8-129",
+          "firm_ia_sec_number": "16048",
+          "firm_ia_full_sec_number": "801-16048",
+          "firm_name": "GOLDMAN SACHS & CO. LLC",
+          "ia_firm_name": "GOLDMAN SACHS & CO. LLC",
+          "firm_other_names": [
+            "GOLDMAN SACHS & CO. LLC",
+            "MARCUS INVEST OFFERING OF GOLDMAN SACHS & CO. LLC",
+            "GOLDMAN, SACHS & CO.",
+            "GOLDMAN SACHS ASSET MANAGEMENT (\"GSAM\")"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 37,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"200 WEST STREET\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10282-2198\"}, \"mailingAddress\": {\"street1\": \"111 SOUTH MAIN STREET\", \"city\": \"SALT LAKE CITY\", \"state\": \"UT\", \"country\": \"UNITED STATES\", \"postalCode\": \"84111\"}, \"businessPhoneNumber\": \"212-902-1000\", \"finraLastApprovalDate\": \"1936-10-26T00:00:00\", \"iaFirmName\": \"GOLDMAN SACHS & CO. LLC\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"200 WEST STREET\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"United States\", \"postalCode\": \"10282\"}}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>361</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "118203",
+          "firm_ia_sec_number": "60813",
+          "firm_ia_full_sec_number": "801-60813",
+          "firm_name": "361 CAPITAL LLC",
+          "firm_other_names": [
+            "361 CAPITAL LLC",
+            "TRUSTED FAMILY INVESTMENT ADVISORS SERIES",
+            "TRAIL RIDGE CAPITAL LLC",
+            "MUNROS ADVISORS",
+            "INNOVEST ALTERNATIVE SOLUTIONS, LLC",
+            "COLORADO FAMILY ADVISORS SERIES",
+            "BRITE MANAGEMENT, LLC (GENERAL PARTNER - SPV)"
+          ],
+          "firm_ia_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"4600 SOUTH SYRACUSE STREET\", \"street2\": \"SUITE 500\", \"city\": \"DENVER\", \"state\": \"CO\", \"country\": \"United States\", \"postalCode\": \"80237\"}}"
+        },
+        "highlight": {
+          "firm_name": [
+            "<em>361</em> CAPITAL LLC"
+          ],
+          "firm_other_names": [
+            "<em>361</em> CAPITAL LLC"
+          ],
+          "firm_name.syn": [
+            "<em>361</em> CAPITAL LLC"
+          ],
+          "firm_other_names.syn": [
+            "<em>361</em> CAPITAL LLC"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "283581",
+          "firm_ia_sec_number": "107739",
+          "firm_ia_full_sec_number": "801-107739",
+          "firm_name": "361 FINANCIAL PLANNING, INC.",
+          "firm_other_names": [
+            "361 FINANCIAL PLANNING, INC.",
+            "MJA WEALTH, LLC"
+          ],
+          "firm_ia_scope": "ACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 1,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"1255 TREAT BOULEVARD\", \"street2\": \"SUITE 300\", \"city\": \"WALNUT CREEK\", \"state\": \"CA\", \"country\": \"United States\", \"postalCode\": \"94597\"}}"
+        },
+        "highlight": {
+          "firm_name": [
+            "<em>361</em> FINANCIAL PLANNING, INC."
+          ],
+          "firm_other_names": [
+            "<em>361</em> FINANCIAL PLANNING, INC."
+          ],
+          "firm_name.syn": [
+            "<em>361</em> FINANCIAL PLANNING, INC."
+          ],
+          "firm_other_names.syn": [
+            "<em>361</em> FINANCIAL PLANNING, INC."
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "298743",
+          "firm_ia_sec_number": "114178",
+          "firm_ia_full_sec_number": "801-114178",
+          "firm_name": "361 INFRASTRUCTURE PARTNERS, LLC",
+          "firm_other_names": [
+            "361 INFRASTRUCTURE PARTNERS, LLC"
+          ],
+          "firm_ia_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"4600 SOUTH SYRACUSE STREET\", \"street2\": \"SUITE 500\", \"city\": \"DENVER\", \"state\": \"CO\", \"country\": \"United States\", \"postalCode\": \"80237\"}}"
+        },
+        "highlight": {
+          "firm_name": [
+            "<em>361</em> INFRASTRUCTURE PARTNERS, LLC"
+          ],
+          "firm_other_names": [
+            "<em>361</em> INFRASTRUCTURE PARTNERS, LLC"
+          ],
+          "firm_name.syn": [
+            "<em>361</em> INFRASTRUCTURE PARTNERS, LLC"
+          ],
+          "firm_other_names.syn": [
+            "<em>361</em> INFRASTRUCTURE PARTNERS, LLC"
+          ]
+        }
+      }
+    ]
+  }
+}

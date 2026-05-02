@@ -1,0 +1,41 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "6363",
+          "firm_bd_sec_number": "16791",
+          "firm_bd_full_sec_number": "8-16791",
+          "firm_ia_sec_number": "28543",
+          "firm_ia_full_sec_number": "801-28543",
+          "firm_name": "AMERIPRISE FINANCIAL SERVICES, LLC",
+          "ia_firm_name": "AMERIPRISE FINANCIAL SERVICES, LLC",
+          "firm_other_names": [
+            "AMERICAN EXPRESS FINANCIAL ADVISORS INC.",
+            "IDS MARKETING CORPORATION",
+            "COMERICA FINANCIAL ADVISORS",
+            "AMERIPRISE FINANCIAL SERVICES, LLC.",
+            "AMERIPRISE FINANCIAL SERVICES, LLC",
+            "AMERIPRISE FINANCIAL SERVICES, INC.",
+            "AMERICAN EXPRESS FINANCIAL ADVISORS, INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 15489,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"901 3RD AVENUE SOUTH\", \"city\": \"MINNEAPOLIS\", \"state\": \"MN\", \"country\": \"UNITED STATES\", \"postalCode\": \"55402\"}, \"mailingAddress\": {\"street1\": \"5221 AMERIPRISE FINANCIAL CENTER\", \"city\": \"MINNEAPOLIS\", \"state\": \"MN\", \"country\": \"UNITED STATES\", \"postalCode\": \"55474\"}, \"businessPhoneNumber\": \"612-671-3131\", \"finraLastApprovalDate\": \"1972-11-17T00:00:00\", \"iaFirmName\": \"AMERIPRISE FINANCIAL SERVICES, LLC\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"901 3RD AVENUE SOUTH\", \"city\": \"MINNEAPOLIS\", \"state\": \"MN\", \"country\": \"United States\", \"postalCode\": \"55402\"}}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>6363</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

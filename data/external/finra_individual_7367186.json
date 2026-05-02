@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 7367186, \"firstName\": \"SCOTT\", \"middleName\": \"MICHAEL\", \"lastName\": \"JONES\", \"otherNames\": [\"SCOTT M JONES\", \"Scott  Jones\", \"Skot M Jones\", \"Skot  Jones\"], \"bcScope\": \"InActive\", \"iaScope\": \"Active\", \"daysInIndustry\": 1471}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"iaSECNumber\": \"8095\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"14088\", \"firmId\": 2881, \"firmName\": \"NORTHWESTERN MUTUAL INVESTMENT SERVICES, LLC\", \"city\": \"PITTSBURGH\", \"state\": \"PA\", \"registrationBeginDate\": \"3/26/2024\", \"registrationEndDate\": \"9/19/2025\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}, {\"iaOnly\": \"N\", \"iaSECNumber\": \"52208\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"16402\", \"firmId\": 5685, \"firmName\": \"PRUCO SECURITIES, LLC.\", \"city\": \"Monroeville\", \"state\": \"PA\", \"registrationBeginDate\": \"7/23/2021\", \"registrationEndDate\": \"2/5/2024\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 66\", \"examName\": \"Uniform Combined State Law Examination\", \"examTakenDate\": \"9/3/2021\", \"examScope\": \"BOTH\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 7TO\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"7/23/2021\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"4/13/2021\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [{\"state\": \"Pennsylvania\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"11/21/2025\"}], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

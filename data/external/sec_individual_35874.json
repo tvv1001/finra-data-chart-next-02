@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 35874, \"firstName\": \"THOMAS\", \"middleName\": \"WILLIAM\", \"lastName\": \"BURKE\", \"nameSuffix\": \"SR\", \"otherNames\": [\"THOMAS WILLIAM BURKE\", \"TOM  BURKE\"], \"bcScope\": \"InActive\", \"iaScope\": \"InActive\", \"daysInIndustryIAPD\": 9465}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"iaSECNumber\": \"56126\", \"iaSECNumberType\": \"801\", \"firmId\": 283330, \"firmName\": \"KESTRA ADVISORY SERVICES, LLC\", \"city\": \"RICHARDSON\", \"state\": \"TX\", \"country\": \"United States\", \"registrationBeginDate\": \"4/21/2016\", \"registrationEndDate\": \"11/17/2025\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"ACTIVE\"}, {\"iaOnly\": \"Y\", \"bdSECNumber\": \"49672\", \"firmId\": 42046, \"firmName\": \"NFP ADVISOR SERVICES, LLC\", \"city\": \"Lewisville\", \"state\": \"TX\", \"country\": \"United States\", \"registrationBeginDate\": \"12/20/1999\", \"registrationEndDate\": \"9/22/2016\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"INACTIVE\"}], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 3}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"10/19/1990\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 7TO\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"1/2/2023\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 1\", \"examName\": \"Registered Representative Examination\", \"examTakenDate\": \"2/17/1971\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

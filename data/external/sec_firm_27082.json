@@ -1,0 +1,51 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "27082",
+          "firm_bd_sec_number": "42867",
+          "firm_bd_full_sec_number": "8-42867",
+          "firm_name": "DOME SECURITIES, INC.",
+          "firm_other_names": [
+            "DIVIDEND SECURITIES CORPORATION",
+            "DOME SECURITIES, INC."
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>27082</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "10358",
+          "firm_bd_sec_number": "27082",
+          "firm_bd_full_sec_number": "8-27082",
+          "firm_name": "CETERA FINANCIAL SPECIALISTS LLC",
+          "firm_other_names": [
+            "CETERA FINANCIAL BROKERAGE SERVICES",
+            "TERRA SECURITIES CORPORATION",
+            "GENWORTH FINANCIAL SECURITIES CORPORATION",
+            "GENWORTH FINANCIAL BROKERAGE SERVICES",
+            "CETERA FINANCIAL SPECIALISTS LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 724,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"1450 AMERICAN LANE\", \"street2\": \"6TH FLOOR, SUITE #650\", \"city\": \"SCHAUMBURG\", \"state\": \"IL\", \"country\": \"USA\", \"postalCode\": \"60173\"}, \"mailingAddress\": {\"street1\": \"1450 AMERICAN LANE\", \"street2\": \"6TH FLOOR, SUITE #650\", \"city\": \"SCHAUMBURG\", \"state\": \"IL\", \"country\": \"USA\", \"postalCode\": \"60173\"}, \"businessPhoneNumber\": \"888-528-2987\", \"finraLastApprovalDate\": \"1982-02-18T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

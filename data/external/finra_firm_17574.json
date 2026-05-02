@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 17574, \"firmName\": \"SOUTHWEST CAPITAL GROUP, INC.\", \"otherNames\": [\"CENTRE CAPITAL CORPORATION\", \"SOUTHWEST CAPITAL GROUP, INC.\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"Y\", \"firmType\": \"Corporation\", \"formedState\": \"Arizona\", \"firmStatus\": \"Terminated\", \"regulator\": \"FINRA\", \"firmStatusDate\": \"06/02/1989\", \"formedDate\": \"10/03/1985\", \"fiscalMonthEndCode\": \"\", \"legacyReportStatus\": \"Generated\", \"bdSECNumber\": \"35493\"}, \"iaDisclosureFlag\": \"N\"}"
+        }
+      }
+    ]
+  }
+}

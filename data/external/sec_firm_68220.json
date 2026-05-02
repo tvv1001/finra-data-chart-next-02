@@ -1,0 +1,44 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "144790",
+          "firm_ia_sec_number": "68220",
+          "firm_ia_full_sec_number": "801-68220",
+          "firm_name": "INDEXIQ ADVISORS LLC",
+          "firm_other_names": [
+            "INDEXIQ ADVISORS LLC",
+            "INDEXIQ ASSET MANAGEMENT LLC"
+          ],
+          "firm_ia_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_branches_count": 0,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"51 MADISON AVENUE\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"United States\", \"postalCode\": \"10010\"}}"
+        },
+        "highlight": {}
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "150134",
+          "firm_bd_sec_number": "68220",
+          "firm_bd_full_sec_number": "8-68220",
+          "firm_name": "TNCP, LLC",
+          "firm_other_names": [
+            "TNCP, LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 3,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"9 WEST BROAD STREET\", \"street2\": \"SUITE 510\", \"city\": \"STAMFORD\", \"state\": \"CT\", \"country\": \"USA\", \"postalCode\": \"06902\"}, \"mailingAddress\": {\"street1\": \"9 WEST BROAD STREET\", \"street2\": \"SUITE 510\", \"city\": \"STAMFORD\", \"state\": \"CT\", \"country\": \"USA\", \"postalCode\": \"06902\"}, \"businessPhoneNumber\": \"203-604-2007\", \"finraLastApprovalDate\": \"2009-10-01T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

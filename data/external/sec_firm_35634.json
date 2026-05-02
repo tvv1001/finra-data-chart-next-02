@@ -1,0 +1,23 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "17822",
+          "firm_bd_sec_number": "35634",
+          "firm_bd_full_sec_number": "8-35634",
+          "firm_name": "WASHINGTON BROKERAGE SERVICES, INC.",
+          "firm_other_names": [
+            "WASHINGTON BROKERAGE SERVICES, INC."
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

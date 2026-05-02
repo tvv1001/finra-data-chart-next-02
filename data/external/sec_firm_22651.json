@@ -1,0 +1,31 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "7654",
+          "firm_bd_sec_number": "22651",
+          "firm_bd_full_sec_number": "8-22651",
+          "firm_name": "UBS SECURITIES LLC",
+          "firm_other_names": [
+            "BRUNSWICK UBS WARBURG",
+            "WARBURG DILLON READ LLC",
+            "UBS WARBURG LLC",
+            "UBS SECURITIES LLC",
+            "UBS SECURITIES INC.",
+            "UBS INVESTMENT BANK"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 42,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"11 MADISON AVENUE\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10010\"}, \"mailingAddress\": {\"street1\": \"1000 HARBOR BOULEVARD\", \"city\": \"WEEHAWKEN\", \"state\": \"NJ\", \"country\": \"UNITED STATES\", \"postalCode\": \"07086\"}, \"businessPhoneNumber\": \"201-352-3000\", \"finraLastApprovalDate\": \"1978-08-17T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

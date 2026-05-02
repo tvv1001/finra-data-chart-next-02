@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 1008772, \"firstName\": \"SILAS\", \"middleName\": \"THERON\", \"lastName\": \"PATRICK\", \"otherNames\": [\"PAT  PATRICK\"], \"bcScope\": \"LegacyNonArchived\", \"iaScope\": \"NotInScope\", \"daysInIndustry\": 1611}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"bdSECNumber\": \"32330\", \"firmId\": 15528, \"firmName\": \"CAPITAL SUNBELT SECURITIES,INC.\", \"registrationBeginDate\": \"10/26/1984\", \"registrationEndDate\": \"8/20/1986\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}, {\"iaOnly\": \"N\", \"bdSECNumber\": \"14161\", \"firmId\": 2936, \"firmName\": \"THE O.N. EQUITY SALES COMPANY\", \"registrationBeginDate\": \"3/24/1982\", \"registrationEndDate\": \"3/27/1986\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"Y\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 1, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"10/12/1983\", \"examScope\": \"BC\"}], \"principalExamCategory\": [{\"examCategory\": \"Series 39\", \"examName\": \"Direct Participation Programs Principal Examination\", \"examTakenDate\": \"9/8/1983\", \"examScope\": \"BC\"}], \"productExamCategory\": [{\"examCategory\": \"Series 22\", \"examName\": \"Direct Participation Programs Representative Examination\", \"examTakenDate\": \"8/21/1983\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"12/1/1981\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Generated\"}}"
+        }
+      }
+    ]
+  }
+}

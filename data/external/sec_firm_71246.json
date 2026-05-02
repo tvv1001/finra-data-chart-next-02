@@ -1,0 +1,51 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "153062",
+          "firm_ia_sec_number": "71246",
+          "firm_ia_full_sec_number": "801-71246",
+          "firm_name": "GITTERMAN WEALTH MANAGEMENT, LLC",
+          "firm_other_names": [
+            "AJAX ADVISORS LLC",
+            "GITTERMAN WEALTH MANAGEMENT, LLC",
+            "GITTERMAN WEALTH MANAGEMENT",
+            "GITTERMAN MANAGEMENT",
+            "GITTERMAN ASSET MANAGEMENT",
+            "GITTERMAN & ASSOCIATES WEALTH MANAGEMENT, LLC",
+            "E-SQUARED FINANCIAL",
+            "ALPINE GLOBAL ADVISORS"
+          ],
+          "firm_ia_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"379 THORNALL STREET\", \"street2\": \"6TH FLOOR\", \"city\": \"EDISON\", \"state\": \"NJ\", \"country\": \"United States\", \"postalCode\": \"08837\"}}"
+        },
+        "highlight": {}
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "331540",
+          "firm_bd_sec_number": "71246",
+          "firm_bd_full_sec_number": "8-71246",
+          "firm_name": "ASTRABIT",
+          "firm_other_names": [
+            "ASTRABIT",
+            "CPT CAPITAL, LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 1,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"40203 BROWNS CREEK PLACE\", \"city\": \"LEESBURG\", \"state\": \"VA\", \"country\": \"UNITED STATES\", \"postalCode\": \"20175\"}, \"mailingAddress\": {\"street1\": \"40203 BROWNS CREEK PLACE\", \"city\": \"LEESBURG\", \"state\": \"VA\", \"country\": \"UNITED STATES\", \"postalCode\": \"20175\"}, \"businessPhoneNumber\": \"440-935-1607\", \"finraLastApprovalDate\": \"2025-12-23T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

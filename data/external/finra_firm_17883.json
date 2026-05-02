@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 17883, \"firmName\": \"SOUTHWEST BROKERAGE CONSULTANTS, INC.\", \"otherNames\": [\"SOUTHWEST BROKERAGE CONSULTANTS, INC.\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"Y\", \"firmType\": \"Corporation\", \"formedState\": \"California\", \"firmStatus\": \"Withdrawn\", \"regulator\": \"FINRA\", \"firmStatusDate\": \"06/03/1987\", \"formedDate\": \"01/31/1986\", \"fiscalMonthEndCode\": \"\", \"legacyReportStatus\": \"Generated\"}, \"iaDisclosureFlag\": \"N\"}"
+        }
+      }
+    ]
+  }
+}

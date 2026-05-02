@@ -1,0 +1,32 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "8348",
+          "firm_bd_sec_number": "25130",
+          "firm_bd_full_sec_number": "8-25130",
+          "firm_name": "T. ROWE PRICE INVESTMENT SERVICES, INC.",
+          "firm_other_names": [
+            "ROWE PRICE MARKETING, INC.",
+            "T. ROWE PRICE MARKETING, INC.",
+            "T. ROWE PRICE INVESTMENT SERVICES, INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 34,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"1307 POINT STREET\", \"city\": \"BALTIMORE\", \"state\": \"MD\", \"country\": \"UNITED STATES\", \"postalCode\": \"21231\"}, \"mailingAddress\": {\"street1\": \"1307 POINT STREET\", \"city\": \"BALTIMORE\", \"state\": \"MD\", \"country\": \"UNITED STATES\", \"postalCode\": \"21231\"}, \"businessPhoneNumber\": \"(410) 345-2000\", \"finraLastApprovalDate\": \"1980-12-30T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>8348</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

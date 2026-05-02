@@ -1,0 +1,48 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "31741",
+          "firm_bd_sec_number": "45529",
+          "firm_bd_full_sec_number": "8-45529",
+          "firm_name": "HALLIDAY FINANCIAL, LLC",
+          "firm_other_names": [
+            "HALLIDAY FINANCIAL, LLC",
+            "HRC SERVICES, INC.",
+            "HRC INVESTMENT SERVICES, INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 5,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"725 GLEN COVE AVENUE\", \"city\": \"GLEN HEAD\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"11545\"}, \"mailingAddress\": {\"street1\": \"725 GLEN COVE ANUENE\", \"city\": \"GLEN HEAD\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"11545\"}, \"businessPhoneNumber\": \"(516) 671-1099\", \"finraLastApprovalDate\": \"1993-05-21T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>31741</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "15204",
+          "firm_bd_sec_number": "31741",
+          "firm_bd_full_sec_number": "8-31741",
+          "firm_name": "INDEPENDENT BROKERAGE CORPORATION OF AMERICA, INC.",
+          "firm_other_names": [
+            "INDEPENDENT BROKERAGE CORPORATION OF AMERICA, INC."
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

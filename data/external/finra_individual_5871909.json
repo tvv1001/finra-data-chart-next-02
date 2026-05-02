@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 5871909, \"firstName\": \"Sherman\", \"middleName\": \"L\", \"lastName\": \"Ben\", \"otherNames\": [\"SHERMAN LAMAR BEN\"], \"bcScope\": \"Active\", \"iaScope\": \"NotInScope\", \"daysInIndustryCalculatedDate\": \"3/18/2018\"}, \"currentEmployments\": [{\"firmId\": 79, \"firmName\": \"J.P. MORGAN SECURITIES LLC\", \"iaOnly\": \"N\", \"registrationBeginDate\": \"3/19/2018\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\", \"iaSECNumber\": \"3702\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"35008\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"Y\", \"supervisedFromFlag\": \"N\", \"privateResidenceFlag\": \"N\", \"branchOfficeId\": \"866203\", \"street1\": \"10 S Dearborn St. Floor 13\", \"city\": \"Chicago\", \"cityAlias\": [\"CHICAGO\"], \"state\": \"IL\", \"country\": \"United States\", \"zipCode\": \"60603\", \"latitude\": \"41.8808\", \"longitude\": \"-87.625515\", \"geoLocation\": \"41.8808,-87.625515\", \"nonRegisteredOfficeFlag\": \"N\", \"elaBeginDate\": \"02/01/2026\"}]}], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 0, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 99\", \"examName\": \"Operations Professional Examination\", \"examTakenDate\": \"3/19/2018\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 1, \"approvedFinraRegistrationCount\": 1, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [{\"sro\": \"FINRA\", \"status\": \"APPROVED\", \"CategoriesList\": [\"Operations Professional\"]}], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

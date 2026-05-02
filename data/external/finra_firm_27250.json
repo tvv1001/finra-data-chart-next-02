@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 27250, \"firmName\": \"FIRST INSTITUTIONAL GROUP, INC.\", \"otherNames\": [\"FIRST INSTITUTIONAL GROUP, INC.\", \"SCHWEDER SECURITIES, INC.\", \"LKS GROUP SECURITIES, INC.\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"Y\", \"firmType\": \"Corporation\", \"formedState\": \"California\", \"firmStatus\": \"Terminated\", \"regulator\": \"FINRA\", \"firmStatusDate\": \"08/13/1991\", \"formedDate\": \"06/06/1989\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Generated\", \"bdSECNumber\": \"44880\"}, \"iaDisclosureFlag\": \"N\"}"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 33932, \"firmName\": \"SCOTT, DIANA\", \"otherNames\": [\"LEVINE, DIANA\", \"SCOTT, DIANA\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"N\", \"districtName\": \"Chicago\", \"firmType\": \"Sole Proprietorship\", \"formedState\": \"Illinois\", \"firmStatus\": \"Terminated\", \"regulator\": \"SEC\", \"firmStatusDate\": \"06/17/2002\", \"formedDate\": \"05/01/1979\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"35341\"}, \"bdDisclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"registrations\": {\"approvedFinraRegistrationCount\": 0, \"approvedSECRegistrationCount\": 0, \"approvedSRORegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"stateList\": [], \"businessTypeCount\": 0}, \"directOwners\": [{\"legalName\": \"SCOTT, DIANA\", \"position\": \"SOLE PROPRIETOR\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"2368210\"}]}"
+        }
+      }
+    ]
+  }
+}

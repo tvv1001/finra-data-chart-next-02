@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 141652, \"firmName\": \"SETTER CAPITAL INC.\", \"otherNames\": [\"SETTER CAPITAL INC.\"], \"bcScope\": \"ACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"Y\", \"districtName\": \"Boston\", \"firmType\": \"Corporation\", \"firmSize\": \"Small\", \"firmStatus\": \"Approved\", \"regulator\": \"SEC\", \"finraLastApprovalDate\": \"02/20/2007\", \"firmStatusDate\": \"02/20/2007\", \"formedDate\": \"01/31/2006\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"67403\", \"crs\": {\"crsType\": \"BD\", \"fileId\": \"26e1af7c-6016-4ccd-9744-8780e7252bed\"}}, \"firmAddressDetails\": {\"officeAddress\": {\"street1\": \"2 BLOOR STREET WEST SUITE 1700\", \"city\": \"TORONTO, ONTARIO\", \"country\": \"CANADA\", \"postalCode\": \"M4W 3E2\"}, \"mailingAddress\": {\"street1\": \"2 BLOOR STREET WEST SUITE 1700\", \"city\": \"TORONTO, ONTARIO\", \"country\": \"CANADA\", \"postalCode\": \"M4W 3E2\"}, \"businessPhoneNumber\": \"416-964-9555\", \"finraLastApprovalDate\": \"2007-02-20T00:00:00\"}, \"bdDisclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"registrations\": {\"approvedFinraRegistrationCount\": 1, \"approvedSECRegistrationCount\": 1, \"approvedSRORegistrationCount\": 1, \"approvedStateRegistrationCount\": 27, \"stateList\": [{\"state\": \"Alabama\"}, {\"state\": \"Arizona\"}, {\"state\": \"California\"}, {\"state\": \"Colorado\"}, {\"state\": \"Connecticut\"}, {\"state\": \"Delaware\"}, {\"state\": \"Florida\"}, {\"state\": \"Georgia\"}, {\"state\": \"Illinois\"}, {\"state\": \"Louisiana\"}, {\"state\": \"Maryland\"}, {\"state\": \"Massachusetts\"}, {\"state\": \"Michigan\"}, {\"state\": \"Minnesota\"}, {\"state\": \"Nevada\"}, {\"state\": \"New Hampshire\"}, {\"state\": \"New Jersey\"}, {\"state\": \"New York\"}, {\"state\": \"Ohio\"}, {\"state\": \"Oregon\"}, {\"state\": \"Pennsylvania\"}, {\"state\": \"Rhode Island\"}, {\"state\": \"South Carolina\"}, {\"state\": \"Texas\"}, {\"state\": \"Utah\"}, {\"state\": \"Virginia\"}, {\"state\": \"Wisconsin\"}], \"businessTypeCount\": 2, \"hasAffliation\": \"N\", \"referOtherBd\": \"N\"}, \"directOwners\": [{\"legalName\": \"MCGRATH, PETER THOMAS\", \"position\": \"PRESIDENT\", \"bcScope\": \"Active\", \"crdNumber\": \"5204547\"}, {\"legalName\": \"MCGRATH, PETER THOMAS\", \"position\": \"CHIEF COMPLIANCE OFFICER\", \"bcScope\": \"Active\", \"crdNumber\": \"5204547\"}]}"
+        }
+      }
+    ]
+  }
+}

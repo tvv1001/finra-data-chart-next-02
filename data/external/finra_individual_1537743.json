@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 1537743, \"firstName\": \"WILLIAM\", \"middleName\": \"VAN\", \"lastName\": \"FERDINAND\", \"otherNames\": [\"WILLIAM V FERDINAND\", \"WILLIAM  FERDINAND\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"Active\"}, \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"bdSECNumber\": \"47488\", \"firmId\": 36881, \"firmName\": \"UST FINANCIAL SERVICES CORP.\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"registrationBeginDate\": \"4/3/1997\", \"registrationEndDate\": \"8/31/2001\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}, {\"iaOnly\": \"N\", \"iaSECNumber\": \"56151\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"14715\", \"firmId\": 4031, \"firmName\": \"HORNOR, TOWNSEND & KENT, INC.\", \"city\": \"CONSHOHOCKEN\", \"state\": \"PA\", \"country\": \"US\", \"registrationBeginDate\": \"7/27/1989\", \"registrationEndDate\": \"7/10/1995\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"9/18/1989\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"7/26/1989\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 3\", \"examName\": \"National Commodity Futures Examination\", \"examTakenDate\": \"7/11/1986\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [{\"state\": \"Connecticut\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"4/15/2013\"}], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

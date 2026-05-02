@@ -1,0 +1,54 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "17530",
+          "firm_bd_sec_number": "35381",
+          "firm_bd_full_sec_number": "8-35381",
+          "firm_ia_sec_number": "53600",
+          "firm_ia_full_sec_number": "801-53600",
+          "firm_name": "BOK FINANCIAL SECURITIES, INC.",
+          "ia_firm_name": "BOK FINANCIAL ADVISORS",
+          "firm_other_names": [
+            "BANCALBUQUERQUE INVESTMENT CENTER",
+            "OPPENHEIM, DIVISION OF BOSC, INC.",
+            "MOBANK",
+            "E-SPECTRUM ADVISORS",
+            "CSBT INVESTMENT CENTER",
+            "COLORADO STATE BANK AND TRUST",
+            "BOSC, INC.",
+            "BOSC INC.",
+            "BOKFS",
+            "BOK FINANCIAL SECURITIES, INC.",
+            "BOK FINANCIAL SECURITIES",
+            "BOK FINANCIAL ADVISORS INVESTMENT CENTER",
+            "BOK FINANCIAL ADVISORS",
+            "BOK FINANCIAL",
+            "BANK OF TEXAS",
+            "BANK OF OKLAHOMA",
+            "BANK OF ARKANSAS",
+            "BANK OF ARIZONA",
+            "BANK OF ALBUQUERQUE",
+            "BANCTEXAS INVESTMENT CENTER",
+            "BANCOKLAHOMA INVESTMENT CENTER",
+            "BANCKANSAS CITY INVESTMENT CENTER",
+            "BANCARKANSAS INVESTMENT CENTER",
+            "BANCARIZONA INVESTMENT CENTER"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 126,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"ONE WILLIAMS CENTER\", \"street2\": \"PLAZA SOUTHEAST\", \"city\": \"TULSA\", \"state\": \"OK\", \"country\": \"UNITED STATES\", \"postalCode\": \"74172\"}, \"mailingAddress\": {\"street1\": \"P.O. BOX 2300\", \"city\": \"TULSA\", \"state\": \"OK\", \"country\": \"UNITED STATES\", \"postalCode\": \"74192\"}, \"businessPhoneNumber\": \"918-588-6000\", \"finraLastApprovalDate\": \"1987-03-20T00:00:00\", \"iaFirmName\": \"BOK FINANCIAL ADVISORS\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"ONE WILLIAMS CENTER\", \"street2\": \"PLAZA SOUTHEAST\", \"city\": \"TULSA\", \"state\": \"OK\", \"country\": \"United States\", \"postalCode\": \"74102\"}}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

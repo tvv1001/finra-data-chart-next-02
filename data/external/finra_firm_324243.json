@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 324243, \"firmName\": \"GCG SECURITIES, LLC\", \"otherNames\": [\"GCG SECURITIES, LLC\"], \"bcScope\": \"ACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"Y\", \"districtName\": \"Chicago\", \"firmType\": \"Limited Liability Company\", \"formedState\": \"Michigan\", \"firmSize\": \"Small\", \"firmStatus\": \"Approved\", \"regulator\": \"SEC\", \"finraLastApprovalDate\": \"04/18/2023\", \"firmStatusDate\": \"01/13/2023\", \"formedDate\": \"11/03/2022\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"71019\"}, \"firmAddressDetails\": {\"officeAddress\": {\"street1\": \"189 TOWNSEND STREET, STE 200\", \"city\": \"BIRMINGHAM\", \"state\": \"MI\", \"country\": \"UNITED STATES\", \"postalCode\": \"48009\"}, \"mailingAddress\": {\"street1\": \"189 TOWNSEND STREET, STE 200\", \"city\": \"BIRMINGHAM\", \"state\": \"MI\", \"country\": \"UNITED STATES\", \"postalCode\": \"48009\"}, \"businessPhoneNumber\": \"248-480-2032\", \"finraLastApprovalDate\": \"2023-04-18T00:00:00\"}, \"bdDisclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"registrations\": {\"approvedFinraRegistrationCount\": 1, \"approvedSECRegistrationCount\": 1, \"approvedSRORegistrationCount\": 1, \"approvedStateRegistrationCount\": 6, \"stateList\": [{\"state\": \"California\"}, {\"state\": \"Michigan\"}, {\"state\": \"New York\"}, {\"state\": \"Ohio\"}, {\"state\": \"South Carolina\"}, {\"state\": \"Tennessee\"}], \"businessTypeCount\": 2, \"hasAffliation\": \"Y\", \"referOtherBd\": \"N\"}, \"directOwners\": [{\"legalName\": \"GREENWICH CAPTIAL GROUP, LLC\", \"position\": \"OWNER\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"\"}, {\"legalName\": \"COURY, ROBERT SAMUEL\", \"position\": \"CEO, CCO, AMLCO\", \"bcScope\": \"Active\", \"crdNumber\": \"4373330\"}, {\"legalName\": \"SCHMITT, JOSEPH EUGENE IV\", \"position\": \"VICE PRESIDENT AND CFO\", \"bcScope\": \"Active\", \"crdNumber\": \"5478218\"}]}"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "47639",
+          "firm_bd_sec_number": "51841",
+          "firm_bd_full_sec_number": "8-51841",
+          "firm_name": "MCGLADREY CAPITAL MARKETS, LLC",
+          "firm_other_names": [
+            "EQUICO CAPITAL MARKETS LLC",
+            "RSM EQUICO CAPITAL MARKETS LLC",
+            "MCGLADREY CAPITAL MARKETS, LLC"
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 0,
+          "firm_branches_count": 0
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>47639</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "37157",
+          "firm_bd_sec_number": "47639",
+          "firm_bd_full_sec_number": "8-47639",
+          "firm_name": "THE LEADERS GROUP, INC.",
+          "firm_other_names": [
+            "SIMPLICITY INVESTMENTS",
+            "THE LEADERS GROUP, INC.",
+            "THE LEADERS GROUP"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 71,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"475 SPRINGFIELD AVE\", \"city\": \"SUMMIT\", \"state\": \"NJ\", \"country\": \"UNITED STATES\", \"postalCode\": \"07901\"}, \"mailingAddress\": {\"street1\": \"475 SPRINGFIELD AVE\", \"street2\": \"SUITE 1\", \"city\": \"SUMMIT\", \"state\": \"NJ\", \"country\": \"UNITED STATES\", \"postalCode\": \"07901\"}, \"businessPhoneNumber\": \"303-797-9080\", \"finraLastApprovalDate\": \"1995-08-30T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

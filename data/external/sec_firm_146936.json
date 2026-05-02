@@ -1,0 +1,41 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "146936",
+          "firm_bd_sec_number": "68023",
+          "firm_bd_full_sec_number": "8-68023",
+          "firm_ia_sec_number": "71421",
+          "firm_ia_full_sec_number": "801-71421",
+          "firm_name": "BENJAMIN F. EDWARDS & COMPANY, INC.",
+          "ia_firm_name": "BENJAMIN F. EDWARDS & COMPANY, INCORPORATED",
+          "firm_other_names": [
+            "BENJAMIN F. EDWARDS",
+            "MSHB, LLC",
+            "MSHB",
+            "BENJAMIN F. EDWARDS & COMPANY, LLC",
+            "BENJAMIN F. EDWARDS & COMPANY, INCORPORATED",
+            "BENJAMIN F. EDWARDS & COMPANY, INC.",
+            "BENJAMIN F. EDWARDS & COMPANY"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 253,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"ONE NORTH BRENTWOOD BLVD, SUITE 850\", \"city\": \"ST. LOUIS\", \"state\": \"MO\", \"country\": \"USA\", \"postalCode\": \"63105\"}, \"mailingAddress\": {\"street1\": \"ONE NORTH BRENTWOOD BLVD, SUITE 850\", \"city\": \"ST. LOUIS\", \"state\": \"MO\", \"country\": \"USA\", \"postalCode\": \"63105\"}, \"businessPhoneNumber\": \"314 726-1600\", \"finraLastApprovalDate\": \"2009-03-18T00:00:00\", \"iaFirmName\": \"BENJAMIN F. EDWARDS & COMPANY, INCORPORATED\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"ONE NORTH BRENTWOOD BOULEVARD\", \"street2\": \"SUITE 850\", \"city\": \"ST. LOUIS\", \"state\": \"MO\", \"country\": \"United States\", \"postalCode\": \"63105\"}}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>146936</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

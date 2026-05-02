@@ -1,0 +1,194 @@
+{
+  "hits": {
+    "total": 7,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "199",
+          "firm_bd_sec_number": "2399",
+          "firm_bd_full_sec_number": "8-2399",
+          "firm_ia_sec_number": "45761",
+          "firm_ia_full_sec_number": "801-45761",
+          "firm_name": "D.A. DAVIDSON & CO.",
+          "ia_firm_name": "D.A. DAVIDSON & CO.",
+          "firm_other_names": [
+            "CROWELL, WEEDON & CO., A DIVISION OF D.A. DAVIDSON & CO.",
+            "D.A. DAVIDSON & CO.",
+            "D. A. DAVIDSON & CO. INCORPORATED"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 328,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"8 THIRD STREET NORTH\", \"city\": \"GREAT FALLS\", \"state\": \"MT\", \"country\": \"UNITED STATES\", \"postalCode\": \"59401-3104\"}, \"mailingAddress\": {\"street1\": \"P.O. BOX 5015\", \"city\": \"GREAT FALLS\", \"state\": \"MT\", \"country\": \"UNITED STATES\", \"postalCode\": \"59403-5015\"}, \"businessPhoneNumber\": \"406-727-4200\", \"finraLastApprovalDate\": \"1952-09-22T00:00:00\", \"iaFirmName\": \"D.A. DAVIDSON & CO.\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"8 THIRD STREET NORTH\", \"city\": \"GREAT FALLS\", \"state\": \"MT\", \"country\": \"United States\", \"postalCode\": \"59401\"}}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>199</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "285253",
+          "firm_name": "1991 FINANCIAL",
+          "firm_other_names": [
+            "1991 FINANCIAL",
+            "1991 FINANCIAL, LLC"
+          ],
+          "firm_ia_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0,
+          "firm_ia_address_details": "{\"officeAddress\": {\"city\": \"PHOENIX\", \"state\": \"AZ\", \"country\": \"United States\"}}"
+        },
+        "highlight": {
+          "firm_name": [
+            "<em>199</em>1 FINANCIAL"
+          ],
+          "firm_other_names": [
+            "<em>199</em>1 FINANCIAL",
+            "<em>199</em>1 FINANCIAL, LLC"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "299038",
+          "firm_name": "1991 PARTNERS I GP LLC",
+          "firm_other_names": [
+            "1991 PARTNERS I GP LLC",
+            "PALINDROME LLP"
+          ],
+          "firm_ia_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"9 SOUTH WASHINGTON\", \"street2\": \"SUITE 515\", \"city\": \"SPOKANE\", \"state\": \"WA\", \"country\": \"United States\", \"postalCode\": \"99201\"}}"
+        },
+        "highlight": {
+          "firm_name": [
+            "<em>199</em>1 PARTNERS I GP LLC"
+          ],
+          "firm_other_names": [
+            "<em>199</em>1 PARTNERS I GP LLC"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "329482",
+          "firm_name": "199 CAPITAL MANAGEMENT LLC",
+          "firm_other_names": [
+            "199 CAPITAL MANAGEMENT LLC"
+          ],
+          "firm_ia_scope": "ACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 1,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"320 BOSTON POST RD\", \"street2\": \"STE 180-247\", \"city\": \"DARIEN\", \"state\": \"CT\", \"country\": \"United States\", \"postalCode\": \"06820\"}}"
+        },
+        "highlight": {
+          "firm_name": [
+            "<em>199</em> CAPITAL MANAGEMENT LLC"
+          ],
+          "firm_other_names": [
+            "<em>199</em> CAPITAL MANAGEMENT LLC"
+          ],
+          "firm_name.syn": [
+            "<em>199</em> CAPITAL MANAGEMENT LLC"
+          ],
+          "firm_other_names.syn": [
+            "<em>199</em> CAPITAL MANAGEMENT LLC"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "163228",
+          "firm_ia_sec_number": "118645",
+          "firm_ia_full_sec_number": "802-118645",
+          "firm_name": "GIZA VENTURE CAPITAL",
+          "firm_other_names": [
+            "GIZA INVESTMENT MANAGEMENT (1993) LTD.",
+            "GIZA VENTURE CAPITAL"
+          ],
+          "firm_ia_scope": "ACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"40 EINSTEIN ST.\", \"city\": \"TEL-AVIV\", \"country\": \"Israel\", \"postalCode\": \"6117502\"}}"
+        },
+        "highlight": {
+          "firm_other_names": [
+            "GIZA INVESTMENT MANAGEMENT (<em>199</em>3) LTD."
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "166441",
+          "firm_ia_sec_number": "77534",
+          "firm_ia_full_sec_number": "802-77534",
+          "firm_name": "STAR OF TEXAS CAPITAL",
+          "firm_other_names": [
+            "ENERGY PARTNERS 1998, INC. (\"RELYING ADVISER\")",
+            "STAR OF TEXAS CAPITAL, LLC",
+            "STAR OF TEXAS CAPITAL",
+            "ESPUELA RESOURCES, LLC (\"RELYING ADVISER\")",
+            "ESPUELA RESOURCES III, LLC (\"RELYING ADVISER\")"
+          ],
+          "firm_ia_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"16250 KNOLL TRAIL DRIVE\", \"street2\": \"SUITE 110\", \"city\": \"DALLAS\", \"state\": \"TX\", \"country\": \"United States\", \"postalCode\": \"75248\"}}"
+        },
+        "highlight": {
+          "firm_other_names": [
+            "ENERGY PARTNERS <em>199</em>8, INC. (\"RELYING ADVISER\")"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "157227",
+          "firm_ia_sec_number": "110870",
+          "firm_ia_full_sec_number": "802-110870",
+          "firm_name": "HICKS, MUSE & CO. PARTNERS, L.P.",
+          "firm_other_names": [
+            "HICKS, MUSE & CO. PARTNERS LP",
+            "STRATFORD CAPITAL MANAGEMENT INC.",
+            "HMLA2/GP LLC (RELYING ADVISER)",
+            "HM4 PARTNERS, LP (RELYING ADVISER)",
+            "HM3/GP PARTNERS, LP (RELYING ADVISER)",
+            "HM EQUITY FUND IV/GP PARTNERS (1999) CV (RELYING ADVISER)",
+            "HM CAPITAL PARTNERS I, L.P. (RELYING ADVISOR)",
+            "HM CAPITAL PARTNERS I LP",
+            "HICKS, MUSE LATIN AMERICA & CO. LP (RELYING ADVISER)",
+            "HICKS, MUSE GP PARTNERS L.A. LP (RELYING ADVISER)",
+            "HICKS, MUSE GP PARTNERS IV LP (RELYING ADVISER)",
+            "HICKS, MUSE GP PARTNERS III, LP (RELYING ADVISER)",
+            "HICKS, MUSE GP (1999) PARTNERS IV, LP (RELYING ADVISER)",
+            "HICKS, MUSE & CO. PARTNERS, L.P."
+          ],
+          "firm_ia_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_branches_count": 0,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"2100 MCKINNEY\", \"street2\": \"SUITE 1600\", \"city\": \"DALLAS\", \"state\": \"TX\", \"country\": \"United States\", \"postalCode\": \"75201\"}}"
+        },
+        "highlight": {
+          "firm_other_names": [
+            "HM EQUITY FUND IV/GP PARTNERS (<em>199</em>9) CV (RELYING ADVISER)",
+            "HICKS, MUSE GP (<em>199</em>9) PARTNERS IV, LP (RELYING ADVISER)"
+          ]
+        }
+      }
+    ]
+  }
+}

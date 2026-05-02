@@ -1,0 +1,48 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "17230",
+          "firm_bd_sec_number": "34928",
+          "firm_bd_full_sec_number": "8-34928",
+          "firm_name": "JEFFERSON INTERNATIONAL INVESTMENT COMPANY",
+          "firm_other_names": [
+            "JEBB CHARLESTON EQUITIES, INC.",
+            "JEFFERSON INTERNATIONAL INVESTMENT COMPANY"
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>17230</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "505",
+          "firm_bd_sec_number": "17230",
+          "firm_bd_full_sec_number": "8-17230",
+          "firm_name": "LADENBURG THALMANN & CO. INC.",
+          "firm_other_names": [
+            "LADENBURG THALMANN & CO. INC.",
+            "LADENBURG, THALMANN & CO., INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 7,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"640 5TH AVENUE\", \"street2\": \"4TH FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10019\"}, \"mailingAddress\": {\"street1\": \"640 5TH AVENUE\", \"street2\": \"4TH FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10019\"}, \"businessPhoneNumber\": \"212 409-2000\", \"finraLastApprovalDate\": \"1936-10-16T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

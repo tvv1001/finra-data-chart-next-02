@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 13470, \"firmName\": \"BANCROFT, O'CONNOR, CHILTON & LAVELL, INC.\", \"otherNames\": [\"BANCROFT, O'CONNOR, CHILTON & LAVELL, INC.\", \"BANCROFT,O'CONNOR & LAVELL, INC.\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"Y\", \"firmType\": \"Corporation\", \"formedState\": \"California\", \"firmStatus\": \"Terminated\", \"regulator\": \"FINRA\", \"firmStatusDate\": \"06/26/1986\", \"formedDate\": \"03/07/1983\", \"fiscalMonthEndCode\": \"\", \"legacyReportStatus\": \"Generated\", \"bdSECNumber\": \"29283\"}, \"iaDisclosureFlag\": \"N\"}"
+        }
+      }
+    ]
+  }
+}

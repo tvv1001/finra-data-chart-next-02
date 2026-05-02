@@ -1,0 +1,66 @@
+{
+  "hits": {
+    "total": 3,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "15517",
+          "firm_bd_sec_number": "32346",
+          "firm_bd_full_sec_number": "8-32346",
+          "firm_name": "SELECTIVE SECURITY TRUST FINANCIAL CORP.",
+          "firm_other_names": [
+            "SELECTIVE SECURITY TRUST FINANCIAL CORP."
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>15517</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "105427",
+          "firm_ia_sec_number": "15517",
+          "firm_ia_full_sec_number": "801-15517",
+          "firm_name": "CARROLL FINANCIAL ASSOCIATES INC",
+          "firm_other_names": [
+            "CARROLL FINANCIAL ASSOCIATES INC"
+          ],
+          "firm_ia_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"4521 SHARON ROAD, SUITE 400\", \"city\": \"CHARLOTTE\", \"state\": \"NC\", \"country\": \"United States\", \"postalCode\": \"28211\"}}"
+        },
+        "highlight": {}
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "5167",
+          "firm_bd_sec_number": "15517",
+          "firm_bd_full_sec_number": "8-15517",
+          "firm_name": "NYLIFE SECURITIES LLC",
+          "firm_other_names": [
+            "NEW YORK LIFE SECURITIES CORP.",
+            "NYLIFE SECURITIES LLC",
+            "NYLIFE SECURITIES INC.",
+            "NEW YORK LIFE VARIABLE CONTRACTS CORPORATION"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 2343,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"51 MADISON AVE.\", \"street2\": \"ROOM 713\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10010\"}, \"mailingAddress\": {\"street1\": \"51 MADISON AVENUE\", \"street2\": \"ROOM 713\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10010\"}, \"businessPhoneNumber\": \"212-576-7000\", \"finraLastApprovalDate\": \"1970-06-02T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

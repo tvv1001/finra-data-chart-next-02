@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 6503100, \"firstName\": \"ASHLEY\", \"middleName\": \"JORDAN\", \"lastName\": \"LEGG\", \"otherNames\": [\"Jordan  Legg\"], \"bcScope\": \"InActive\", \"iaScope\": \"Active\", \"daysInIndustry\": 839}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"iaSECNumber\": \"120835\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"66296\", \"firmId\": 130032, \"firmName\": \"EMERSON EQUITY LLC\", \"city\": \"SAN MATEO\", \"state\": \"CA\", \"country\": \"US\", \"registrationBeginDate\": \"12/27/2021\", \"registrationEndDate\": \"2/28/2022\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}, {\"iaOnly\": \"N\", \"bdSECNumber\": \"27006\", \"firmId\": 10292, \"firmName\": \"DFA SECURITIES LLC\", \"city\": \"AUSTIN\", \"state\": \"TX\", \"registrationBeginDate\": \"9/28/2018\", \"registrationEndDate\": \"11/10/2020\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 66\", \"examName\": \"Uniform Combined State Law Examination\", \"examTakenDate\": \"12/20/2018\", \"examScope\": \"BOTH\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"9/28/2018\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [{\"state\": \"California\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"3/9/2022\"}], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "141652",
+          "firm_bd_sec_number": "67403",
+          "firm_bd_full_sec_number": "8-67403",
+          "firm_name": "SETTER CAPITAL INC.",
+          "firm_other_names": [
+            "SETTER CAPITAL INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 0,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"2 BLOOR STREET WEST SUITE 1700\", \"city\": \"TORONTO, ONTARIO\", \"country\": \"CANADA\", \"postalCode\": \"M4W 3E2\"}, \"mailingAddress\": {\"street1\": \"2 BLOOR STREET WEST SUITE 1700\", \"city\": \"TORONTO, ONTARIO\", \"country\": \"CANADA\", \"postalCode\": \"M4W 3E2\"}, \"businessPhoneNumber\": \"416-964-9555\", \"finraLastApprovalDate\": \"2007-02-20T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

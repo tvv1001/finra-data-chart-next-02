@@ -1,0 +1,37 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "250",
+          "firm_bd_sec_number": "759",
+          "firm_bd_full_sec_number": "8-759",
+          "firm_ia_sec_number": "3297",
+          "firm_ia_full_sec_number": "801-3297",
+          "firm_name": "EDWARD JONES",
+          "ia_firm_name": "EDWARD JONES",
+          "firm_other_names": [
+            "EDWARD D. JONES & CO., L.P.",
+            "EDWARD JONES GENERATIONS",
+            "EDWARD JONES"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 18737,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"12555 MANCHESTER ROAD\", \"city\": \"ST. LOUIS\", \"state\": \"MO\", \"country\": \"UNITED STATES\", \"postalCode\": \"63131-3710\"}, \"mailingAddress\": {\"street1\": \"12555 MANCHESTER ROAD\", \"city\": \"ST. LOUIS\", \"state\": \"MO\", \"country\": \"UNITED STATES\", \"postalCode\": \"63131-3710\"}, \"businessPhoneNumber\": \"314-515-2000\", \"finraLastApprovalDate\": \"1939-10-16T00:00:00\", \"iaFirmName\": \"EDWARD JONES\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"12555 MANCHESTER RD\", \"city\": \"ST. LOUIS\", \"state\": \"MO\", \"country\": \"United States\", \"postalCode\": \"63131\"}}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>250</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

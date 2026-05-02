@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 29267, \"firmName\": \"PACIFIC COAST FINANCIAL SECURITIES, INC.\", \"otherNames\": [\"PACIFIC COAST FINANCIAL SECURITIES, INC.\"], \"bcScope\": \"INACTIVE\", \"isLegacy\": \"Y\", \"firmType\": \"Corporation\", \"formedState\": \"California\", \"firmStatus\": \"Terminated\", \"regulator\": \"SEC\", \"firmStatusDate\": \"03/21/1997\", \"formedDate\": \"09/19/1991\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Generated\", \"bdSECNumber\": \"44199\"}, \"iaDisclosureFlag\": \"N\"}"
+        }
+      }
+    ]
+  }
+}

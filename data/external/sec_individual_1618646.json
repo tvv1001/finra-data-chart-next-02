@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 1618646, \"firstName\": \"JAMES\", \"middleName\": \"DONALD\", \"lastName\": \"O'BRYAN\", \"otherNames\": [\"JAMES DONALD OBRYAN JR\", \"JAMES DONALD OBRYAN\", \"JIM  OBRYAN JR\"], \"bcScope\": \"InActive\", \"iaScope\": \"InActive\", \"daysInIndustryIAPD\": 6125}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"iaSECNumber\": \"29938\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"16514\", \"firmId\": 5393, \"firmName\": \"CHARLES SCHWAB & CO., INC.\", \"city\": \"Fairfield\", \"state\": \"CT\", \"country\": \"United States\", \"registrationBeginDate\": \"10/20/2004\", \"registrationEndDate\": \"7/27/2021\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 2, \"principalExamCount\": 3, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 66\", \"examName\": \"Uniform Combined State Law Examination\", \"examTakenDate\": \"10/15/2004\", \"examScope\": \"BOTH\"}, {\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"7/31/1987\", \"examScope\": \"BC\"}], \"principalExamCategory\": [{\"examCategory\": \"Series 10\", \"examName\": \"General Securities Sales Supervisor - General Module Examination\", \"examTakenDate\": \"1/2/2023\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 9\", \"examName\": \"General Securities Sales Supervisor - Options Module Examination\", \"examTakenDate\": \"1/2/2023\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 8\", \"examName\": \"General  Securities Sales Supervisor Examination (Options Module & General Module)\", \"examTakenDate\": \"5/12/1993\", \"examScope\": \"BC\"}], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"9/19/1987\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

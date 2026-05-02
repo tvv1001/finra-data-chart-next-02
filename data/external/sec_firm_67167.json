@@ -1,0 +1,40 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "138618",
+          "firm_bd_sec_number": "67167",
+          "firm_bd_full_sec_number": "8-67167",
+          "firm_name": "PERELLA WEINBERG PARTNERS LP",
+          "firm_other_names": [
+            "DEVON PARK",
+            "TUDOR, PICKERING, HOLT & CO. SECURITIES, LLC",
+            "TUDOR, PICKERING, HOLT & CO.",
+            "TUDOR PICKERING HOLT & CO ADVISORS LP",
+            "TPH&CO. THE ENERGY BUSINESS OF PERELLA WEINBERG",
+            "TPH&CO. - THE ENERGY BUSINESS OF PERELLA WEINBERG PARTNERS",
+            "TPH&CO.",
+            "TPH & CO. - THE ENERGY BUSINESS OF PERELLA WEINBERG PARTNERS",
+            "TPH & CO.",
+            "PWP SECURITIES",
+            "PERELLA WEINBERG PARTNERS LP",
+            "PERELLA WEINBERG",
+            "PADCO ADVISORS LLC",
+            "PADCO ADVISORS L.P.",
+            "DEVON PARK SECURITIES, LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 9,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"767 FIFTH AVENUE\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10153\"}, \"mailingAddress\": {\"street1\": \"767 FIFTH AVENUE\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10153\"}, \"businessPhoneNumber\": \"212-287-3200\", \"finraLastApprovalDate\": \"2006-05-12T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

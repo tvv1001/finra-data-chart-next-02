@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 2953507, \"firstName\": \"JAMES\", \"middleName\": \"KNOX\", \"lastName\": \"PATRICK\", \"nameSuffix\": \"IV\", \"otherNames\": [\"Jim  Patrick\"], \"bcScope\": \"InActive\", \"iaScope\": \"InActive\", \"daysInIndustryIAPD\": 5827}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"iaSECNumber\": \"57260\", \"iaSECNumberType\": \"801\", \"firmId\": 111694, \"firmName\": \"ENVESTNET PMC\", \"city\": \"CHICAGO\", \"state\": \"IL\", \"country\": \"United States\", \"registrationBeginDate\": \"10/26/2009\", \"registrationEndDate\": \"4/27/2021\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"ACTIVE\"}, {\"iaOnly\": \"Y\", \"iaSECNumber\": \"54740\", \"iaSECNumberType\": \"801\", \"firmId\": 108057, \"firmName\": \"ALLIANZ GLOBAL INVESTORS MANAGED ACCOUNTS LLC\", \"city\": \"STAMFORD\", \"state\": \"CT\", \"country\": \"United States\", \"registrationBeginDate\": \"3/7/2003\", \"registrationEndDate\": \"8/17/2007\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 2, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 66\", \"examName\": \"Uniform Combined State Law Examination\", \"examTakenDate\": \"10/24/1997\", \"examScope\": \"BOTH\"}], \"principalExamCategory\": [{\"examCategory\": \"Series 24\", \"examName\": \"General Securities Principal Examination\", \"examTakenDate\": \"6/20/2006\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 26\", \"examName\": \"Investment Company Products/Variable Contracts Principal Examination\", \"examTakenDate\": \"8/23/1999\", \"examScope\": \"BC\"}], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"10/1/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"10/7/1997\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

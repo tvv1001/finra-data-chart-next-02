@@ -1,0 +1,34 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "628",
+          "firm_bd_sec_number": "2428",
+          "firm_bd_full_sec_number": "8-2428",
+          "firm_ia_sec_number": "63623",
+          "firm_ia_full_sec_number": "801-63623",
+          "firm_name": "FIFTH THIRD SECURITIES, INC.",
+          "ia_firm_name": "FIFTH THIRD SECURITIES, INC.",
+          "firm_other_names": [
+            "FIFTH THIRD SECURITIES",
+            "THE OHIO COMPANY",
+            "FIFTH THIRD/THE OHIO COMPANY",
+            "FIFTH THIRD SECURITIES, INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 1276,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"34 FOUNTAIN SQUARE PLAZA\", \"street2\": \"MD 1090AM\", \"city\": \"CINCINNATI\", \"state\": \"OH\", \"country\": \"UNITED STATES\", \"postalCode\": \"45202\"}, \"mailingAddress\": {\"street1\": \"38 FOUNTAIN SQUARE PLAZA\", \"street2\": \"MD 1090AM\", \"city\": \"CINCINNATI\", \"state\": \"OH\", \"country\": \"UNITED STATES\", \"postalCode\": \"45263\"}, \"businessPhoneNumber\": \"888-889-1025\", \"finraLastApprovalDate\": \"1939-09-11T00:00:00\", \"iaFirmName\": \"FIFTH THIRD SECURITIES, INC.\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"34 FOUNTAIN SQUARE PLAZA\", \"street2\": \"MD 1090AM\", \"city\": \"CINCINNATI\", \"state\": \"OH\", \"country\": \"United States\", \"postalCode\": \"45263\"}}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

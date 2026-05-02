@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 8120736, \"firstName\": \"Elizabeth\", \"middleName\": \"Eileen\", \"lastName\": \"Paul\", \"otherNames\": [\"Elizabeth  Paul\", \"Liz  Paul\"], \"bcScope\": \"Active\", \"iaScope\": \"NotInScope\", \"daysInIndustryCalculatedDate\": \"9/1/2025\"}, \"currentEmployments\": [{\"firmId\": 21570, \"firmName\": \"PRUDENTIAL ANNUITIES DISTRIBUTORS, INC\", \"iaOnly\": \"N\", \"registrationBeginDate\": \"9/2/2025\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"NOTINSCOPE\", \"bdSECNumber\": \"39058\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"Y\", \"supervisedFromFlag\": \"N\", \"privateResidenceFlag\": \"N\", \"branchOfficeId\": \"736602\", \"street1\": \"280 Trumbull Street\", \"city\": \"Hartford\", \"cityAlias\": [\"CENTRAL\", \"HARTFORD\"], \"state\": \"CT\", \"country\": \"United States\", \"zipCode\": \"06103\", \"latitude\": \"41.76521\", \"longitude\": \"-72.67197\", \"geoLocation\": \"41.76521,-72.67197\", \"nonRegisteredOfficeFlag\": \"N\", \"elaBeginDate\": \"06/16/2025\"}]}], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 0, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 6TO\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"9/2/2025\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"8/12/2025\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 1, \"approvedFinraRegistrationCount\": 1, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [{\"sro\": \"FINRA\", \"status\": \"APPROVED\", \"CategoriesList\": [\"Investment Company and Variable Contracts Products Rep.\"]}], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

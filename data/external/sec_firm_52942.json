@@ -1,0 +1,34 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "104474",
+          "firm_bd_sec_number": "52942",
+          "firm_bd_full_sec_number": "8-52942",
+          "firm_ia_sec_number": "57937",
+          "firm_ia_full_sec_number": "801-57937",
+          "firm_name": "SANFORD C. BERNSTEIN & CO., LLC",
+          "ia_firm_name": "SANFORD C. BERNSTEIN & CO., LLC",
+          "firm_other_names": [
+            "AUTONOMOUS",
+            "SANFORD C. BERSTEIN & CO., LLC",
+            "SANFORD C. BERNSTEIN & CO., LLC",
+            "BERNSTEIN"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 27,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"501 COMMERCE STREET\", \"city\": \"NASHVILLE\", \"state\": \"TN\", \"country\": \"USA\", \"postalCode\": \"37203\"}, \"mailingAddress\": {\"street1\": \"501 COMMERCE STREET\", \"city\": \"NASHVILLE\", \"state\": \"TN\", \"country\": \"USA\", \"postalCode\": \"37203\"}, \"businessPhoneNumber\": \"800-251-0539\", \"finraLastApprovalDate\": \"2000-11-01T00:00:00\", \"iaFirmName\": \"SANFORD C. BERNSTEIN & CO., LLC\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"501 COMMERCE STREET\", \"city\": \"NASHVILLE\", \"state\": \"TN\", \"country\": \"United States\", \"postalCode\": \"37203\"}}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

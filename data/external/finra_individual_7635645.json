@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 7635645, \"firstName\": \"MAX\", \"middleName\": \"D\", \"lastName\": \"PATRICK\", \"nameSuffix\": \"Jr.\", \"otherNames\": [\"MAX D PATRICK JR\", \"MAX  PATRICK\"], \"bcScope\": \"Active\", \"iaScope\": \"NotInScope\", \"daysInIndustryCalculatedDate\": \"8/24/2025\"}, \"currentEmployments\": [{\"firmId\": 14023, \"firmName\": \"SYNOVUS SECURITIES, INC.\", \"iaOnly\": \"N\", \"registrationBeginDate\": \"8/25/2025\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\", \"iaSECNumber\": \"19690\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"34709\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"Y\", \"supervisedFromFlag\": \"N\", \"privateResidenceFlag\": \"N\", \"branchOfficeId\": \"855782\", \"street1\": \"33 W 14TH STREET\", \"street2\": \"3rd FLOOR\", \"city\": \"COLUMBUS\", \"cityAlias\": [\"COLS\", \"COLUMBUS\"], \"state\": \"GA\", \"country\": \"United States\", \"zipCode\": \"31901\", \"latitude\": \"32.464689\", \"longitude\": \"-84.980055\", \"geoLocation\": \"32.464689,-84.980055\", \"nonRegisteredOfficeFlag\": \"N\", \"elaBeginDate\": \"11/18/2024\"}]}], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 66\", \"examName\": \"Uniform Combined State Law Examination\", \"examTakenDate\": \"2/21/2025\", \"examScope\": \"BOTH\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 99TO\", \"examName\": \"Operations Professional Examination\", \"examTakenDate\": \"8/25/2025\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"1/20/2023\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 1, \"approvedFinraRegistrationCount\": 1, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [{\"sro\": \"FINRA\", \"status\": \"APPROVED\", \"CategoriesList\": [\"Operations Professional\"]}], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

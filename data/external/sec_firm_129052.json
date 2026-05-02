@@ -1,0 +1,55 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "129052",
+          "firm_bd_sec_number": "66195",
+          "firm_bd_full_sec_number": "8-66195",
+          "firm_ia_sec_number": "66195",
+          "firm_ia_full_sec_number": "801-66195",
+          "firm_name": "PNC WEALTH MANAGEMENT LLC",
+          "ia_firm_name": "PNC WEALTH MANAGEMENT",
+          "firm_other_names": [
+            "PNC INVESTMENTS",
+            "PNC WEALTH MANAGEMENT LLC",
+            "PNC WEALTH MANAGEMENT",
+            "PNC INVESTMENTS LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_ia_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 1641,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"300 FIFTH AVENUE\", \"street2\": \"26TH FLOOR\", \"city\": \"PITTSBURGH\", \"state\": \"PA\", \"postalCode\": \"15222\"}, \"mailingAddress\": {\"street1\": \"1900 E. 9TH STREET\", \"street2\": \"17TH FLOOR\", \"city\": \"CLEVELAND\", \"state\": \"OH\", \"postalCode\": \"44114\"}, \"businessPhoneNumber\": \"800-762-6111\", \"finraLastApprovalDate\": \"2003-12-18T00:00:00\", \"iaFirmName\": \"PNC WEALTH MANAGEMENT\"}",
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"300 FIFTH AVENUE\", \"street2\": \"26TH FLOOR\", \"city\": \"PITTSBURGH\", \"state\": \"PA\", \"country\": \"United States\", \"postalCode\": \"15222-2722\"}}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>129052</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "328684",
+          "firm_ia_sec_number": "129052",
+          "firm_ia_full_sec_number": "802-129052",
+          "firm_name": "TOP HAT FUND MANAGER, LLC",
+          "firm_other_names": [
+            "TOP HAT FUND MANAGER, LLC"
+          ],
+          "firm_ia_scope": "ACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 1,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"110 NORTH WACKER DRIVE,\", \"street2\": \"51ST FLOOR\", \"city\": \"CHICAGO\", \"state\": \"IL\", \"country\": \"United States\", \"postalCode\": \"60606\"}}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

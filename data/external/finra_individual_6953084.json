@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 6953084, \"firstName\": \"Nathan\", \"middleName\": \"Christopher\", \"lastName\": \"Ice\", \"otherNames\": [\"Nathan  Ice\"], \"bcScope\": \"InActive\", \"iaScope\": \"NotInScope\", \"daysInIndustry\": 1768}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"iaSECNumber\": \"8095\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"14088\", \"firmId\": 2881, \"firmName\": \"NORTHWESTERN MUTUAL INVESTMENT SERVICES, LLC\", \"city\": \"Pittsburgh\", \"state\": \"PA\", \"registrationBeginDate\": \"8/16/2019\", \"registrationEndDate\": \"6/17/2024\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"Y\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [{\"eventDate\": \"12/21/2023\", \"disclosureType\": \"Financial\", \"disclosureResolution\": \"Final\", \"isIapdExcludedCCFlag\": \"N\", \"isBcExcludedCCFlag\": \"N\", \"bcCtgryType\": 11, \"disclosureDetail\": {\"Type\": \"Bankruptcy\", \"Disposition\": \"Discharged\"}}], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"11/8/2019\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 6TO\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"8/16/2019\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"8/8/2019\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

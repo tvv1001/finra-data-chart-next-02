@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 7272401, \"firstName\": \"Arman\", \"lastName\": \"Azad\", \"otherNames\": [], \"bcScope\": \"InActive\", \"iaScope\": \"NotInScope\", \"daysInIndustry\": 1195}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"bdSECNumber\": \"30177\", \"firmId\": 566, \"firmName\": \"KEYBANC CAPITAL MARKETS INC.\", \"city\": \"New York\", \"state\": \"NY\", \"registrationBeginDate\": \"8/19/2021\", \"registrationEndDate\": \"11/25/2024\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 4}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"7/19/2021\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 79TO\", \"examName\": \"Investment Banking Registered Representative Examination\", \"examTakenDate\": \"8/23/2023\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 50\", \"examName\": \"Municipal Advisor Representative Qualification Exam\", \"examTakenDate\": \"3/4/2022\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 52TO\", \"examName\": \"Municipal Securities Representative Examination\", \"examTakenDate\": \"8/19/2021\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"3/22/2021\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "32205",
+          "firm_bd_sec_number": "45671",
+          "firm_bd_full_sec_number": "8-45671",
+          "firm_name": "TRANSAMERICA INVESTORS SECURITIES, LLC",
+          "firm_other_names": [
+            "DIVERSIFIED INVESTORS SECURITIES CORP.",
+            "TRANSAMERICA INVESTORS SECURITIES, LLC",
+            "TRANSAMERICA INVESTORS SECURITIES CORPORATION"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 29,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"440 MAMARONECK AVENUE\", \"city\": \"HARRISON\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10528\"}, \"mailingAddress\": {\"street1\": \"440 MAMARONECK AVENUE\", \"city\": \"HARRISON\", \"state\": \"NY\", \"country\": \"UNITED STATES\", \"postalCode\": \"10528\"}, \"businessPhoneNumber\": \"914-627-3000\", \"finraLastApprovalDate\": \"1993-05-20T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>32205</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "15504",
+          "firm_bd_sec_number": "32205",
+          "firm_bd_full_sec_number": "8-32205",
+          "firm_name": "DAILEY SECURITIES,INC.",
+          "firm_other_names": [
+            "DAILEY SECURITIES,INC."
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

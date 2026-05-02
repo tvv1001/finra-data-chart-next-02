@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 6446838, \"firstName\": \"JEFFREY\", \"middleName\": \"ALLEN\", \"lastName\": \"MASUCCI\", \"otherNames\": [\"JEFF  MASUCCI\"], \"bcScope\": \"NotInScope\", \"iaScope\": \"Active\"}, \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 0}, \"stateExamCategory\": [{\"examCategory\": \"Series 65\", \"examName\": \"Uniform Investment Adviser Law Examination\", \"examTakenDate\": \"11/11/2014\", \"examScope\": \"IA\"}], \"principalExamCategory\": [], \"productExamCategory\": [], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [{\"state\": \"New Hampshire\", \"regScope\": \"IA\", \"status\": \"APPROVED\", \"regDate\": \"7/29/2015\"}], \"registeredSROs\": []}"
+        }
+      }
+    ]
+  }
+}

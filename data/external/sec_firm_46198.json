@@ -1,0 +1,33 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "34040",
+          "firm_bd_sec_number": "46198",
+          "firm_bd_full_sec_number": "8-46198",
+          "firm_name": "HEXT CAPITAL PARTNERS LLC",
+          "firm_other_names": [
+            "CJS GROUP, INC.",
+            "WHITEROCK CAPITAL GROUP, INC",
+            "WHITE ROCK ASSOCIATES LLC",
+            "WHITE ROCK ADVISORS, LLC",
+            "SOUTHWEST MERCHANT GROUP, INC.",
+            "SOUTHWEST MERCHANT GROUP INVESTMENT ADVISORS",
+            "HEXT CAPITAL PARTNERS LLC",
+            "HEXT CAPITAL GROUP INC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 2,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"5001 SPRING VALLEY ROAD, SUITE 850W\", \"city\": \"DALLAS\", \"state\": \"TX\", \"country\": \"UNITED STATES\", \"postalCode\": \"75244\"}, \"mailingAddress\": {\"street1\": \"5001 SPRING VALLEY ROAD, SUITE 850W\", \"city\": \"DALLAS\", \"state\": \"TX\", \"country\": \"UNITED STATES\", \"postalCode\": \"75244\"}, \"businessPhoneNumber\": \"214-535-1573\", \"finraLastApprovalDate\": \"1994-04-15T00:00:00\"}"
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

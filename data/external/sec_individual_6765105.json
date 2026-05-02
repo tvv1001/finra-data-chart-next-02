@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "iacontent": "{\"basicInformation\": {\"individualId\": 6765105, \"firstName\": \"Yingxia\", \"lastName\": \"King\", \"otherNames\": [\"ANNA  KING\", \"YING  KING\"], \"bcScope\": \"InActive\", \"iaScope\": \"InActive\", \"daysInIndustryIAPD\": 314}, \"currentEmployments\": [], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [{\"iaOnly\": \"Y\", \"iaSECNumber\": \"106953\", \"iaSECNumberType\": \"801\", \"firmId\": 281285, \"firmName\": \"BANKERS LIFE ADVISORY SERVICES, INC.\", \"city\": \"Peoria Heights\", \"state\": \"IL\", \"country\": \"United States\", \"registrationBeginDate\": \"5/31/2019\", \"registrationEndDate\": \"9/9/2019\", \"firmBCScope\": \"NOTINSCOPE\", \"firmIAScope\": \"ACTIVE\"}, {\"iaOnly\": \"Y\", \"iaSECNumber\": \"60099\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"30027\", \"firmId\": 13941, \"firmName\": \"CUNA BROKERAGE SERVICES, INC.\", \"city\": \"PEORIA\", \"state\": \"IL\", \"country\": \"United States\", \"registrationBeginDate\": \"4/30/2018\", \"registrationEndDate\": \"7/3/2018\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"INACTIVE\"}, {\"iaOnly\": \"Y\", \"iaSECNumber\": \"77948\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"52074\", \"firmId\": 101080, \"firmName\": \"MIDWESTERN SECURITIES TRADING CO.,LLC\", \"city\": \"EAST PEORIA\", \"state\": \"IL\", \"country\": \"United States\", \"registrationBeginDate\": \"9/27/2017\", \"registrationEndDate\": \"2/20/2018\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\"}], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"iaDisclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 66\", \"examName\": \"Uniform Combined State Law Examination\", \"examTakenDate\": \"5/24/2017\", \"examScope\": \"BOTH\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"7/3/2018\", \"examScope\": \"BC\"}, {\"examCategory\": \"Series 7\", \"examName\": \"General Securities Representative Examination\", \"examTakenDate\": \"4/19/2017\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

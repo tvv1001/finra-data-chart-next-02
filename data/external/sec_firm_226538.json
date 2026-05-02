@@ -1,0 +1,30 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "226538",
+          "firm_bd_sec_number": "69621",
+          "firm_bd_full_sec_number": "8-69621",
+          "firm_name": "MADISON PAIGE SECURITIES LLC",
+          "firm_other_names": [
+            "MADISON PAIGE SECURITIES LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 2,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"50 MAIN STREET, SUITE 1000\", \"city\": \"WHITE PLAINS\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10606\"}, \"mailingAddress\": {\"street1\": \"50 MAIN STREET, SUITE 1000\", \"city\": \"WHITE PLAINS\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10606\"}, \"businessPhoneNumber\": \"267-908-1401\", \"finraLastApprovalDate\": \"2016-08-16T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>226538</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

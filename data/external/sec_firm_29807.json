@@ -1,0 +1,52 @@
+{
+  "hits": {
+    "total": 2,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "29807",
+          "firm_bd_sec_number": "44574",
+          "firm_bd_full_sec_number": "8-44574",
+          "firm_ia_sec_number": "61022",
+          "firm_ia_full_sec_number": "801-61022",
+          "firm_name": "COUNTRY CLUB FINANCIAL SERVICES, LLC",
+          "ia_firm_name": "COUNTRY CLUB FINANCIAL SERVICES, INC.",
+          "firm_other_names": [
+            "CC CAPITAL ADVISORS, INC.",
+            "COUNTRY CLUB FINANCIAL SERVICES, LLC",
+            "COUNTRY CLUB FINANCIAL SERVICES, INC."
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_scope": "INACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "Y",
+          "firm_approved_finra_registration_count": 0,
+          "firm_branches_count": 0,
+          "firm_ia_address_details": "{\"officeAddress\": {\"street1\": \"ONE WARD PARKWAY\", \"city\": \"KANSAS CITY\", \"state\": \"MO\", \"country\": \"United States\", \"postalCode\": \"64112\"}}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>29807</em>"
+          ]
+        }
+      },
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "13852",
+          "firm_bd_sec_number": "29807",
+          "firm_bd_full_sec_number": "8-29807",
+          "firm_name": "JENSEN SECURITIES CO.",
+          "firm_other_names": [
+            "JENSEN SECURITIES CO."
+          ],
+          "firm_scope": "INACTIVE",
+          "firm_ia_disclosure_fl": "N",
+          "firm_branches_count": 0
+        },
+        "highlight": {}
+      }
+    ]
+  }
+}

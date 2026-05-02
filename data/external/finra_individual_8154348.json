@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 8154348, \"firstName\": \"Diane\", \"middleName\": \"L\", \"lastName\": \"Jones\", \"otherNames\": [\"Diane L Adams\", \"Diane  Adams\", \"Diane  Jones\", \"Diane  Parkinson\", \"Diane L Skytta\", \"Diane  Skytta\"], \"bcScope\": \"Active\", \"iaScope\": \"NotInScope\", \"daysInIndustryCalculatedDate\": \"10/13/2025\"}, \"currentEmployments\": [{\"firmId\": 79, \"firmName\": \"J.P. MORGAN SECURITIES LLC\", \"iaOnly\": \"N\", \"registrationBeginDate\": \"10/14/2025\", \"firmBCScope\": \"ACTIVE\", \"firmIAScope\": \"ACTIVE\", \"iaSECNumber\": \"3702\", \"iaSECNumberType\": \"801\", \"bdSECNumber\": \"35008\", \"branchOfficeLocations\": [{\"displayOrder\": 1, \"locatedAtFlag\": \"Y\", \"supervisedFromFlag\": \"N\", \"privateResidenceFlag\": \"N\", \"branchOfficeId\": \"518759\", \"street1\": \"30 N. MAIN STREET\", \"city\": \"POLAND\", \"cityAlias\": [\"POLAND\", \"YOUNGSTOWN\"], \"state\": \"OH\", \"country\": \"United States\", \"zipCode\": \"44514\", \"latitude\": \"41.002184\", \"longitude\": \"-80.619386\", \"geoLocation\": \"41.002184,-80.619386\", \"nonRegisteredOfficeFlag\": \"N\", \"elaBeginDate\": \"08/18/2025\"}]}], \"currentIAEmployments\": [], \"previousEmployments\": [], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 0, \"productExamCount\": 2}, \"stateExamCategory\": [{\"examCategory\": \"Series 63\", \"examName\": \"Uniform Securities Agent State Law Examination\", \"examTakenDate\": \"11/5/2025\", \"examScope\": \"BC\"}], \"principalExamCategory\": [], \"productExamCategory\": [{\"examCategory\": \"Series 6TO\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"10/14/2025\", \"examScope\": \"BC\"}, {\"examCategory\": \"SIE\", \"examName\": \"Securities Industry Essentials Examination\", \"examTakenDate\": \"9/30/2025\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 1, \"approvedFinraRegistrationCount\": 1, \"approvedStateRegistrationCount\": 1, \"approvedIAStateRegistrationCount\": 0}, \"registeredStates\": [{\"state\": \"Ohio\", \"regScope\": \"BC\", \"status\": \"APPROVED\", \"regDate\": \"11/6/2025\"}], \"registeredSROs\": [{\"sro\": \"FINRA\", \"status\": \"APPROVED\", \"CategoriesList\": [\"Investment Company and Variable Contracts Products Rep.\"]}], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

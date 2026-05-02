@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"individualId\": 2693302, \"firstName\": \"RICK\", \"middleName\": \"SHANE\", \"lastName\": \"FERGERSON\", \"otherNames\": [], \"bcScope\": \"NotInScope\", \"iaScope\": \"InActive\"}, \"currentIAEmployments\": [], \"previousEmployments\": [{\"iaOnly\": \"N\", \"bdSECNumber\": \"5889\", \"firmId\": 332, \"firmName\": \"FRANKLIN/TEMPLETON DISTRIBUTORS, INC.\", \"city\": \"SAN MATEO\", \"state\": \"CA\", \"country\": \"UNITED STATES\", \"registrationBeginDate\": \"6/7/2000\", \"registrationEndDate\": \"3/7/2006\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}, {\"iaOnly\": \"N\", \"bdSECNumber\": \"43206\", \"firmId\": 27884, \"firmName\": \"TEMPLETON/FRANKLIN INVESTMENT SERVICES,INC.\", \"city\": \"SAN MATEO\", \"state\": \"CA\", \"country\": \"UNITED STATES\", \"registrationBeginDate\": \"1/22/1997\", \"registrationEndDate\": \"6/15/2000\", \"firmBCScope\": \"INACTIVE\", \"firmIAScope\": \"NOTINSCOPE\"}], \"previousIAEmployments\": [], \"disclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"examsCount\": {\"stateExamCount\": 1, \"principalExamCount\": 1, \"productExamCount\": 1}, \"stateExamCategory\": [{\"examCategory\": \"Series 65\", \"examName\": \"Uniform Investment Adviser Law Examination\", \"examTakenDate\": \"2/24/2006\", \"examScope\": \"IA\"}], \"principalExamCategory\": [{\"examCategory\": \"Series 26\", \"examName\": \"Investment Company Products/Variable Contracts Principal Examination\", \"examTakenDate\": \"10/27/2000\", \"examScope\": \"BC\"}], \"productExamCategory\": [{\"examCategory\": \"Series 6\", \"examName\": \"Investment Company Products/Variable Contracts Representative Examination\", \"examTakenDate\": \"12/17/1996\", \"examScope\": \"BC\"}], \"registrationCount\": {\"approvedSRORegistrationCount\": 0, \"approvedFinraRegistrationCount\": 0, \"approvedStateRegistrationCount\": 0}, \"registeredStates\": [], \"registeredSROs\": [], \"brokerDetails\": {\"hasBCComments\": \"N\", \"hasIAComments\": \"N\", \"legacyReportStatusDescription\": \"Not Requested\"}}"
+        }
+      }
+    ]
+  }
+}

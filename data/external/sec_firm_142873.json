@@ -1,0 +1,30 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "142873",
+          "firm_bd_sec_number": "67501",
+          "firm_bd_full_sec_number": "8-67501",
+          "firm_name": "CLEARVIEW TRADING ADVISORS, INC.",
+          "firm_other_names": [
+            "CLEARVIEW TRADING ADVISORS, INC."
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 2,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"10 GLENWOOD ROAD\", \"city\": \"TENAFLY\", \"state\": \"NJ\", \"country\": \"UNITED STATES\", \"postalCode\": \"07670\"}, \"mailingAddress\": {\"street1\": \"10 GLENWOOD ROAD\", \"city\": \"TENAFLY\", \"state\": \"NJ\", \"country\": \"UNITED STATES\", \"postalCode\": \"07670\"}, \"businessPhoneNumber\": \"201-803-3125\", \"finraLastApprovalDate\": \"2007-08-31T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>142873</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

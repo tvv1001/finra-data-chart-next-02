@@ -1,0 +1,33 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "40638",
+          "firm_bd_sec_number": "49107",
+          "firm_bd_full_sec_number": "8-49107",
+          "firm_name": "GUGGENHEIM SECURITIES, LLC",
+          "firm_other_names": [
+            "GUGGENHEIM CAPITAL MARKETS, LLC",
+            "LINKS SECURITIES LLC",
+            "LINKS SECURITIES INC.",
+            "GUGGENHEIM SECURITIES, LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "Y",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 19,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"330 MADISON AVENUE\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10017\"}, \"mailingAddress\": {\"street1\": \"330 MADISON AVENUE\", \"street2\": \"8TH FLOOR\", \"city\": \"NEW YORK\", \"state\": \"NY\", \"country\": \"USA\", \"postalCode\": \"10017\"}, \"businessPhoneNumber\": \"(212) 518-9200\", \"finraLastApprovalDate\": \"1997-01-09T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>40638</em>"
+          ]
+        }
+      }
+    ]
+  }
+}

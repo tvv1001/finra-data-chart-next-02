@@ -1,0 +1,13 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "content": "{\"basicInformation\": {\"firmId\": 143163, \"firmName\": \"LOCKEBRIDGE PARTNERS, INC\", \"otherNames\": [\"LOCKEBRIDGE PARTNERS, INC\", \"LOCKEBRIGE PARTNERS, INC.\", \"LOCKEBRIDGE PARTNERS, INC.\"], \"bcScope\": \"ACTIVE\", \"isLegacy\": \"N\", \"finraRegistered\": \"Y\", \"districtName\": \"Boston\", \"firmType\": \"Corporation\", \"formedState\": \"Massachusetts\", \"firmSize\": \"Small\", \"firmStatus\": \"Approved\", \"regulator\": \"SEC\", \"finraLastApprovalDate\": \"07/26/2007\", \"firmStatusDate\": \"07/26/2007\", \"formedDate\": \"04/05/2006\", \"fiscalMonthEndCode\": \"December\", \"legacyReportStatus\": \"Not Requested\", \"bdSECNumber\": \"67533\"}, \"firmAddressDetails\": {\"officeAddress\": {\"street1\": \"100 TRADECENTER, SUITE G-700\", \"city\": \"WOBURN\", \"state\": \"MA\", \"country\": \"USA\", \"postalCode\": \"01801\"}, \"mailingAddress\": {\"street1\": \"100 TRADECENTER, SUITE G-700\", \"street2\": \"100\", \"city\": \"WOBURN\", \"state\": \"MA\", \"country\": \"USA\", \"postalCode\": \"01801\"}, \"businessPhoneNumber\": \"(781) 676-2001\", \"finraLastApprovalDate\": \"2007-07-26T00:00:00\"}, \"bdDisclosureFlag\": \"N\", \"iaDisclosureFlag\": \"N\", \"disclosures\": [], \"registrations\": {\"approvedFinraRegistrationCount\": 1, \"approvedSECRegistrationCount\": 1, \"approvedSRORegistrationCount\": 1, \"approvedStateRegistrationCount\": 1, \"stateList\": [{\"state\": \"Massachusetts\"}], \"businessTypeCount\": 1, \"hasAffliation\": \"N\", \"referOtherBd\": \"N\"}, \"directOwners\": [{\"legalName\": \"WAXLER, SCOTT STEVEN\", \"position\": \"PRESIDENT, CCO, EXEC. REP.\", \"bcScope\": \"NotInScope\", \"crdNumber\": \"\"}, {\"legalName\": \"BEATON, DANIEL STEWART\", \"position\": \"CFO, FINOP\", \"bcScope\": \"Active\", \"crdNumber\": \"4240769\"}]}"
+        }
+      }
+    ]
+  }
+}

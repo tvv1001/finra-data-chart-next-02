@@ -1,0 +1,30 @@
+{
+  "hits": {
+    "total": 1,
+    "hits": [
+      {
+        "_type": "_doc",
+        "_source": {
+          "firm_source_id": "150134",
+          "firm_bd_sec_number": "68220",
+          "firm_bd_full_sec_number": "8-68220",
+          "firm_name": "TNCP, LLC",
+          "firm_other_names": [
+            "TNCP, LLC"
+          ],
+          "firm_scope": "ACTIVE",
+          "firm_disclosure_fl": "N",
+          "firm_ia_disclosure_fl": "N",
+          "firm_approved_finra_registration_count": 1,
+          "firm_branches_count": 3,
+          "firm_address_details": "{\"officeAddress\": {\"street1\": \"9 WEST BROAD STREET\", \"street2\": \"SUITE 510\", \"city\": \"STAMFORD\", \"state\": \"CT\", \"country\": \"USA\", \"postalCode\": \"06902\"}, \"mailingAddress\": {\"street1\": \"9 WEST BROAD STREET\", \"street2\": \"SUITE 510\", \"city\": \"STAMFORD\", \"state\": \"CT\", \"country\": \"USA\", \"postalCode\": \"06902\"}, \"businessPhoneNumber\": \"203-604-2007\", \"finraLastApprovalDate\": \"2009-10-01T00:00:00\"}"
+        },
+        "highlight": {
+          "firm_source_id": [
+            "<em>150134</em>"
+          ]
+        }
+      }
+    ]
+  }
+}
