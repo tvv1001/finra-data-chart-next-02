@@ -35,4 +35,5 @@ coverage/
 out/
 .next/cache/*
 data/national/*
+data/external/*
 .vercel
