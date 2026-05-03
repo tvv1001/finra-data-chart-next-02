@@ -3817,11 +3817,14 @@ async function ensureIndividualDetail(personNode) {
   const match = personNode.id.match(/^(?:person[:_])?(\d+)$/);
   const crd = String(personNode.crd || match?.[1] || "").trim();
   if (!crd) {
-    await mergeIndividualOwnerEvidence(personNode);
+    personNode._ownerEvidenceLoaded = await mergeIndividualOwnerEvidence(personNode);
     return;
   }
 
-  if (personNode._detailLoaded && hasRichIndividualDetail(personNode)) {
+  if (
+    personNode._detailLoaded &&
+    (hasRichIndividualDetail(personNode) || personNode._ownerEvidenceLoaded)
+  ) {
     return;
   }
 
@@ -3889,7 +3892,10 @@ async function ensureIndividualDetail(personNode) {
     }
 
     if (!detail || detail.found === false) {
-      await mergeIndividualOwnerEvidence(personNode);
+      personNode._ownerEvidenceLoaded = await mergeIndividualOwnerEvidence(personNode);
+      if (!detail || detail.found === false) {
+        return;
+      }
     }
 
     // Inline merge of individual detail into the person node (avoid external helper dependency)
