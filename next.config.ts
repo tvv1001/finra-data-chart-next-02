@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "export",
+  // output: "export",
   // Compress API + page responses with gzip/brotli
   compress: true,
   experimental: {
