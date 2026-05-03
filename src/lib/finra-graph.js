@@ -1601,6 +1601,7 @@ export function init(_d3) { d3 = _d3;
     linkSel = linkGroup.selectAll("line");
 
     refreshGraphColors();
+    reapplySelectionState();
 
     // Replace tick handler so it covers the full updated selections.
     simulation.on("tick", () => {
@@ -2950,6 +2951,12 @@ function getLinkMarker(d) {
   return `url(#arrow-${d.relationship})`;
 }
 
+function reapplySelectionState() {
+  if (!nodeSel) return;
+  nodeSel.classed("selected", (node) => selectedId != null && node.id === selectedId);
+  highlightLinks(selectedId);
+}
+
 // Refreshes colors for all nodes dynamically to ensure nodes and links correctly reflect state
 function refreshGraphColors() {
   if (!nodeSel || !layoutLinks || !linkSel) return;
@@ -3392,6 +3399,7 @@ function renderGraph(_data) {
   });
 
   refreshGraphColors();
+  reapplySelectionState();
 }
 
 // ── Fluid Drag (simulation-driven neighbor repulsion) ────────────────────
@@ -3630,6 +3638,7 @@ function injectNodesById(ids) {
   linkSel = linkGroup.selectAll("line");
 
   refreshGraphColors();
+  reapplySelectionState();
 
   simulation.on("tick", () => {
     linkSel
@@ -4679,6 +4688,7 @@ function revealNeighbors(clickedNode, hops = 1) {
   nodeSel = nodeGroup.selectAll("g.fg-node");
 
   refreshGraphColors();
+  reapplySelectionState();
 
   // Restart simulation with new nodes/links
   simulation.nodes(layoutNodes);
