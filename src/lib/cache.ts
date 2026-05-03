@@ -58,7 +58,7 @@ export async function cachedFetch<T>(
   if (redis) {
     try {
       const raw = await redis.get<string>(key);
-      if (raw !== null && raw !== undefined) return JSON.parse(raw) as T;
+      if (raw != null) return JSON.parse(raw) as T;
       const value = await fetcher();
       if (value !== undefined) {
         await redis.set(key, JSON.stringify(value), { ex: ttlSeconds });
