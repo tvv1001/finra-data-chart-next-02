@@ -4,6 +4,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'FINRA Network Graph',
   description: 'Interactive FINRA BrokerCheck network visualization',
+  icons: { icon: '/favicon.svg' },
 };
 
 export default function RootLayout({

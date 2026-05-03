@@ -798,7 +798,7 @@ export function init(_d3) { d3 = _d3;
                     `${BASE}/api/finra/individual/${encodeURIComponent(crd)}`,
                   );
                   if (!r.ok) throw new Error(`${r.status}`);
-                  const detail = await r.json();
+                  const detail = unwrapDetailPayload(await r.json());
                   if (detail?.found === false) return;
                   addIndividualFromSource(detail);
                 } catch {
@@ -1147,7 +1147,7 @@ export function init(_d3) { d3 = _d3;
         `${BASE}/api/finra/individual/${encodeURIComponent(crd)}`,
       );
       if (!r.ok) throw new Error(`individual HTTP ${r.status}`);
-      const detail = await r.json();
+      const detail = unwrapDetailPayload(await r.json());
       if (detail?.found === false) throw new Error(`individual ${crd} not found`);
 
       const personId = `person:${crd}`;
@@ -1227,7 +1227,7 @@ export function init(_d3) { d3 = _d3;
         `${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`,
       );
       if (!r.ok) throw new Error(`firm HTTP ${r.status}`);
-      const detail = await r.json();
+      const detail = unwrapDetailPayload(await r.json());
       if (detail?.found === false) throw new Error(`firm ${firmId} not found`);
       const firmNodeId = `firm:${firmId}`;
       const firmLabel =
@@ -1275,7 +1275,7 @@ export function init(_d3) { d3 = _d3;
         `${BASE}/api/finra/individual/${encodeURIComponent(crd)}`,
       );
       if (!r.ok) throw new Error(`individual HTTP ${r.status}`);
-      const detail = await r.json();
+      const detail = unwrapDetailPayload(await r.json());
 
       const existingNode = findExistingPersonNode(crd);
       const personId = existingNode?.id || `person:${crd}`;
@@ -1359,7 +1359,7 @@ export function init(_d3) { d3 = _d3;
             `${BASE}/api/finra/firm/${encodeURIComponent(fid)}`,
           );
           if (!fr.ok) continue;
-          const fdet = await fr.json();
+          const fdet = unwrapDetailPayload(await fr.json());
           const lbl = fdet?.firmName || fdet?.companyName || fn.label;
           // update in layoutNodes
           const ln = layoutNodes.find((x) => x.id === fn.id);
@@ -1380,7 +1380,7 @@ export function init(_d3) { d3 = _d3;
         `${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`,
       );
       if (!r.ok) throw new Error(`firm HTTP ${r.status}`);
-      const detail = await r.json();
+      const detail = unwrapDetailPayload(await r.json());
       if (detail?.found === false) throw new Error(`firm ${firmId} not found`);
       const existingFirmNode = findExistingFirmNode(firmId);
       const firmNodeId = existingFirmNode?.id || `firm:${firmId}`;
@@ -1643,7 +1643,7 @@ export function init(_d3) { d3 = _d3;
               `${BASE}/api/finra/individual/${encodeURIComponent(crd)}`,
             );
             if (!r.ok) return;
-            const detail = await r.json();
+            const detail = unwrapDetailPayload(await r.json());
             if (detail?.found === false) return;
             const personId = `person:${crd}`;
             const personLabel =
@@ -1870,31 +1870,12 @@ export function init(_d3) { d3 = _d3;
     }
   }
 
-  // Fetch counts of cached JSON files from server-side cache-stats endpoint
-  async function fetchCacheStatsOnce() {
-    const el = document.getElementById('fg-cache-stats');
-    if (!el) return;
-    try {
-      const url = makeApiUrl('/api/finra/cache-stats');
-      const r = await fetch(url.toString(), { cache: 'no-store' });
-      if (!r.ok) return;
-      const j = await r.json();
-      if (j && j.counts) {
-        el.textContent = `${j.counts.external} external · ${j.counts.national} national`;
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-
   function startMetaPolling() {
     if (_metaPollId) return;
-    // Poll both meta and cache stats
+    // Poll graph metadata, which reflects downloaded local data.
     fetchMetaOnce();
-    fetchCacheStatsOnce();
     _metaPollId = setInterval(() => {
       fetchMetaOnce();
-      fetchCacheStatsOnce();
     }, META_POLL_MS);
   }
 
@@ -2787,6 +2768,20 @@ function updateMeta(meta = {}) {
   if (typeof visibleLinks === "number") parts.push(`${visibleLinks} links`);
 
   el.textContent = parts.join(" · ");
+
+  const totalIndividuals = typeof meta.totalIndividuals === "number" ? meta.totalIndividuals : null;
+  const totalFirms = typeof meta.totalFirms === "number" ? meta.totalFirms : null;
+  const totalLinks = typeof meta.totalLinks === "number" ? meta.totalLinks : null;
+  if (totalIndividuals !== null || totalFirms !== null || totalLinks !== null) {
+    const bottomEl = document.getElementById("fg-bottom-status");
+    if (bottomEl) {
+      const totalParts = [];
+      if (totalIndividuals !== null) totalParts.push(`${totalIndividuals} people`);
+      if (totalFirms !== null) totalParts.push(`${totalFirms} firms`);
+      if (totalLinks !== null) totalParts.push(`${totalLinks} links`);
+      bottomEl.textContent = `Downloaded: ${totalParts.join(" · ")}`;
+    }
+  }
 }
 
 function showEmpty(show) {
@@ -3630,6 +3625,47 @@ function injectNodesById(ids) {
 
 // ── Selection & Sidebar ─────────────────────────────────────────────────────
 
+// Normalize wrapped detail payloads (e.g. from Elasticsearch/Solr hits)
+function unwrapDetailPayload(detail) {
+  if (!detail) return detail;
+  const hit = detail?.hits?.hits?.[0] || detail?.response?.docs?.[0];
+  if (hit) {
+    const src = hit._source || hit;
+    const rawContent = src.content || src.iacontent;
+    if (typeof rawContent === "string") {
+      try {
+        const parsed = JSON.parse(rawContent);
+        if (detail.found !== undefined) parsed.found = detail.found;
+        return parsed;
+      } catch {
+        return src;
+      }
+    }
+    return src;
+  }
+  return detail;
+}
+
+async function fetchFromExternalApi(id, isFirm) {
+  let url = isFirm
+    ? `https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(id)}?hl=true&nrows=12&query=&start=0&wt=json`
+    : `https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(id)}?hl=true&includePrevious=true&nrows=12&r=25&sort=bc_lastname_sort+asc,bc_firstname_sort+asc,bc_middlename_sort+asc,score+desc&wt=json`;
+  try {
+    let res = await fetch(url);
+    if (res.ok) return unwrapDetailPayload(await res.json());
+  } catch (e) { /* ignore */ }
+
+  url = isFirm
+    ? `https://api.adviserinfo.sec.gov/search/firm/${encodeURIComponent(id)}?hl=true&nrows=12&query=&r=25&sort=score+desc&wt=json`
+    : `https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(id)}?hl=true&includePrevious=true&nrows=12&r=25&sort=bc_lastname_sort+asc,bc_firstname_sort+asc,bc_middlename_sort+asc,score+desc&wt=json`;
+  try {
+    let res = await fetch(url);
+    if (res.ok) return unwrapDetailPayload(await res.json());
+  } catch (e) { /* ignore */ }
+
+  return null;
+}
+
 // Normalize a detail payload so top-level merged fields are available
 // under basicInformation and the UI can consume it consistently.
 function normalizeIndividualDetailPayload(detail, fallbackCrd) {
@@ -3714,23 +3750,32 @@ async function ensureIndividualDetail(personNode) {
     // Fall back to live FINRA/SEC API if no local rich data available.
     if (!detail) {
       const url = `${BASE}/api/finra/individual/${encodeURIComponent(crd)}`;
-      const response = await fetch(url);
-      if (!response.ok) {
-        console.warn(
-          `Failed to fetch individual detail for ${crd}:`,
-          response.status,
-        );
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          console.warn(`Failed to fetch individual detail for ${crd}:`, response.status);
+        } else {
+          detail = unwrapDetailPayload(await response.json());
+        }
+      } catch (err) {
+        console.warn(`Local API fetch failed for individual ${crd}:`, err);
+      }
+
+      if (!detail || detail.found === false || (!detail.basicInformation && !detail.hits)) {
+        console.log(`Local API missing data for ${crd}, fetching from external API...`);
+        const ext = await fetchFromExternalApi(crd, false);
+        if (ext && (ext.basicInformation || ext.firstName)) {
+          detail = ext;
+        }
+      }
+
+      if (!detail || (detail.found === false && !detail.basicInformation)) {
+        console.warn(`Individual ${crd} not found`);
         detail = localDetail;
       } else {
-        detail = await response.json();
-        if (detail?.found === false) {
-          console.warn(`Individual ${crd} not found`);
+        detail = normalizeIndividualDetailPayload(detail, crd);
+        if (localDetail && hasRichIndividualDetail(localDetail) && !hasRichIndividualDetail(detail)) {
           detail = localDetail;
-        } else {
-          detail = normalizeIndividualDetailPayload(detail, crd);
-          if (localDetail && hasRichIndividualDetail(localDetail) && !hasRichIndividualDetail(detail)) {
-            detail = localDetail;
-          }
         }
       }
     }
@@ -3849,12 +3894,8 @@ async function ensureFirmDetail(firmNode) {
           if (fn.iaSecNumber) firmNode.iaSecNumber = fn.iaSecNumber;
           if (fn.fiscalYearEnd) firmNode.fiscalYearEnd = fn.fiscalYearEnd;
           // For IA-only firms the merged node is sparse (no firmStatus, bcScope, activeStates).
-          // Don't return early — fall through to the live API to fill in those fields.
-          const isIAOnly = !fn.bcScope && !fn.firmStatus && fn.iaSecNumber;
-          if (!isIAOnly) {
-            firmNode._detailLoaded = true;
-            return;
-          }
+          // Do not assume local merged data is complete for all firms; continue to live FINRA fetch.
+          // If the live API fails, we'll still keep any fields merged from the local record.
         }
       }
     } catch {
@@ -3862,13 +3903,26 @@ async function ensureFirmDetail(firmNode) {
     }
 
     // Fall back to live FINRA API (server-side cached for 7 days)
-    const res = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`);
-    if (!res.ok) {
-      console.warn(`Failed to fetch firm detail for ${firmId}:`, res.status);
-      return;
+    try {
+      const res = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`);
+      if (!res.ok) {
+        console.warn(`Failed to fetch firm detail for ${firmId}:`, res.status);
+      } else {
+        detail = unwrapDetailPayload(await res.json());
+      }
+    } catch (err) {
+      console.warn(`Local API fetch failed for firm ${firmId}:`, err);
     }
-    detail = await res.json();
-    if (detail?.found === false) {
+
+    if (!detail || detail.found === false || (!detail.basicInformation && !detail.firmName && !detail.name)) {
+      console.log(`Local API missing data for firm ${firmId}, fetching from external API...`);
+      const ext = await fetchFromExternalApi(firmId, true);
+      if (ext && (ext.basicInformation || ext.firmName || ext.name)) {
+        detail = ext;
+      }
+    }
+
+    if (!detail || (detail.found === false && !detail.basicInformation && !detail.firmName)) {
       console.warn(`Firm ${firmId} not found`);
       return;
     }
@@ -4861,8 +4915,6 @@ function renderPersonDetail(d) {
       <div class="fg-ext-links">
         ${bi.individualId ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/individual/summary/${encodeURIComponent(bi.individualId)}" target="_blank" rel="noopener noreferrer">&#x2197; BrokerCheck Summary</a>` : ""}
         ${bi.individualId && d.hasSecData ? `<a class="fg-ext-link sec" href="https://adviserinfo.sec.gov/Individual/${encodeURIComponent(bi.individualId)}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo Summary</a>` : ""}
-        ${bcRawUrl ? `<a class="fg-ext-link raw" href="${bcRawUrl}" target="_blank" rel="noopener noreferrer">JSON Source (BrokerCheck)</a>` : ""}
-        ${secRawUrl ? `<a class="fg-ext-link raw" href="${secRawUrl}" target="_blank" rel="noopener noreferrer">JSON Source (AdvisorInfo)</a>` : ""}
       </div>
 
       ${bi.individualId ? row("CRD", `<code>${bi.individualId}</code>`) : ""}
@@ -5109,8 +5161,6 @@ function renderFirmDetail(d) {
       <div class="fg-ext-links">
         ${firmId ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/firm/summary/${encodeURIComponent(firmId)}" target="_blank" rel="noopener noreferrer">&#x2197; BrokerCheck Summary</a>` : ""}
         ${firmId ? `<a class="fg-ext-link sec" href="https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(firmId)}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo Summary</a>` : ""}
-        ${bcRawUrl ? `<a class="fg-ext-link raw" href="${bcRawUrl}" target="_blank" rel="noopener noreferrer">JSON Source (BrokerCheck)</a>` : ""}
-        ${secRawUrl ? `<a class="fg-ext-link raw" href="${secRawUrl}" target="_blank" rel="noopener noreferrer">JSON Source (AdvisorInfo)</a>` : ""}
       </div>
       ${d.isLegacy === "Y" ? `<p class="fg-sb-note">Not currently registered as broker. BrokerCheck contains only limited information about this firm.</p>` : ""}
       ${d.iaSecNumber ? `<a class="fg-adv-btn" href="https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(d.iaSecNumber)}/PDF/${encodeURIComponent(d.iaSecNumber)}.pdf" target="_blank" rel="noopener noreferrer">View latest Form ADV filed</a>` : ""}

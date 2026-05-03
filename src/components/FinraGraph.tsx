@@ -137,6 +137,10 @@ export default function FinraGraph() {
         </div>
         <pre id="fg-log-body" className="fg-log-body"></pre>
       </div>
+
+      <div id="fg-bottom-status" className="fg-bottom-status" aria-live="polite">
+        Loading status…
+      </div>
     </div>
   );
 }
