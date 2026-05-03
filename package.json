@@ -9,11 +9,11 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@upstash/redis": "^1.37.0",
     "axios": "^1.7.2",
     "bottleneck": "^2.19.5",
     "chokidar": "^5.0.0",
     "d3": "^7.9.0",
-    "ioredis": "^5.3.3",
     "minimist": "^1.2.8",
     "next": "^15.1.0",
     "react": "^19.0.0",

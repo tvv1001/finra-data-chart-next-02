@@ -1,27 +1,35 @@
 /**
- * cache.ts – Simple TTL cache: Redis when available, in-memory Map fallback.
- * Ported from server/services/finraCache.js
+ * cache.ts – Simple TTL cache: Upstash Redis (HTTP/REST) when env vars are
+ * present, in-memory Map fallback for local development.
+ *
+ * Required env vars (set in Vercel dashboard and .env.local for local dev):
+ *   UPSTASH_REDIS_REST_URL   – e.g. https://<db>.upstash.io
+ *   UPSTASH_REDIS_REST_TOKEN – from the Upstash console
  */
 import { setTimeout as delay } from "node:timers/promises";
+import { Redis } from "@upstash/redis";
 
-let client: any = null;
-let hasRedis = false;
+type MemStore = Map<string, { value: unknown; expiresAt: number }>;
 
-async function tryInitRedis() {
-  if (client !== null) return;
-  try {
-    const IORedis = (await import("ioredis")).default;
-    const url = process.env.REDIS_URL || "redis://127.0.0.1:6379";
-    client = new IORedis(url);
-    await client.ping();
-    hasRedis = true;
-  } catch {
-    hasRedis = false;
-    client = new Map<string, { value: unknown; expiresAt: number }>();
+let upstash: Redis | null = null;
+let memStore: MemStore | null = null;
+
+function getUpstash(): Redis | null {
+  if (upstash !== null) return upstash;
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (url && token) {
+    upstash = new Redis({ url, token });
   }
+  return upstash;
 }
 
-function memSet(map: Map<string, any>, key: string, value: unknown, ttlSeconds: number) {
+function getMem(): MemStore {
+  if (!memStore) memStore = new Map();
+  return memStore;
+}
+
+function memSet(map: MemStore, key: string, value: unknown, ttlSeconds: number) {
   const expiresAt = Date.now() + ttlSeconds * 1000;
   map.set(key, { value, expiresAt });
   void delay(ttlSeconds * 1000).then(() => {
@@ -30,10 +38,10 @@ function memSet(map: Map<string, any>, key: string, value: unknown, ttlSeconds: 
   });
 }
 
-function memGet(map: Map<string, any>, key: string) {
+function memGet(map: MemStore, key: string): unknown | null {
   const item = map.get(key);
   if (!item) return null;
-  if (item.expiresAt && item.expiresAt <= Date.now()) {
+  if (item.expiresAt <= Date.now()) {
     map.delete(key);
     return null;
   }
@@ -45,15 +53,15 @@ export async function cachedFetch<T>(
   ttlSeconds: number,
   fetcher: () => Promise<T>,
 ): Promise<T> {
-  await tryInitRedis();
+  const redis = getUpstash();
 
-  if (hasRedis) {
+  if (redis) {
     try {
-      const raw = await client.get(key);
-      if (raw) return JSON.parse(raw) as T;
+      const raw = await redis.get<string>(key);
+      if (raw != null) return JSON.parse(raw) as T;
       const value = await fetcher();
       if (value !== undefined) {
-        await client.set(key, JSON.stringify(value), "EX", ttlSeconds);
+        await redis.set(key, JSON.stringify(value), { ex: ttlSeconds });
       }
       return value;
     } catch {
@@ -61,16 +69,22 @@ export async function cachedFetch<T>(
     }
   }
 
-  const mem = client as Map<string, any>;
+  const mem = getMem();
   const hit = memGet(mem, key);
-  if (hit) return hit as T;
+  if (hit !== null) return hit as T;
   const value = await fetcher();
   if (value !== undefined) memSet(mem, key, value, ttlSeconds);
   return value;
 }
 
 export async function clearCache(key: string) {
-  await tryInitRedis();
-  if (hasRedis) return client.del(key);
-  return (client as Map<string, any>).delete(key);
+  const redis = getUpstash();
+  if (redis) {
+    try {
+      return await redis.del(key);
+    } catch {
+      // fall through to in-memory
+    }
+  }
+  return getMem().delete(key);
 }
