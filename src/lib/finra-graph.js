@@ -946,7 +946,10 @@ export function init(_d3) { d3 = _d3;
         // ── 4. Update in-memory graphData so filter/subset sees new nodes ──
         mergeIntoGraphData(batchAllNodes, batchAllLinks);
 
-        // ── 5. Persist to server so data survives page reload ──────────────
+        // ── 5. Reveal connected graph neighbors for fetched nodes ─────────
+        await expandFetchedNodes(batchAllNodes, 1);
+
+        // ── 6. Persist to server so data survives page reload ──────────────
         persistToServer(batchAllNodes, batchAllLinks);
 
         const newCount = batchAllNodes.length;
@@ -2085,6 +2088,7 @@ async function fetchAndInjectQuery(q) {
 
   if (typeof appendFetched === "function") appendFetched(newNodes, newLinks);
   mergeIntoGraphData(newNodes, newLinks);
+  await expandFetchedNodes(newNodes, 1);
   persistToServer(newNodes, newLinks);
 }
 
@@ -4128,6 +4132,25 @@ async function expandLoadedSeedNodes() {
   for (const node of layoutNodes) {
     if (!seedIds.has(node.id)) continue;
     await expandFromServer(node, 1);
+  }
+}
+
+async function expandFetchedNodes(nodes, hops = 1) {
+  if (!Array.isArray(nodes) || !nodes.length || !layoutNodes || !graphData) {
+    return;
+  }
+
+  const seen = new Set();
+  const candidates = nodes.filter(
+    (node) => node && (node.group === "individual" || node.group === "firm"),
+  );
+
+  for (const node of candidates) {
+    if (!node?.id || seen.has(node.id)) continue;
+    seen.add(node.id);
+    const liveNode = layoutNodes.find((entry) => entry.id === node.id);
+    if (!liveNode) continue;
+    await expandFromServer(liveNode, hops);
   }
 }
 
