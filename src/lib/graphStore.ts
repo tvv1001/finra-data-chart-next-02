@@ -15,7 +15,7 @@
 import { readFile, writeFile, access, mkdir, constants } from "node:fs/promises";
 import path from "node:path";
 import { Redis } from "@upstash/redis";
-import { GRAPH_FILE } from "./constants";
+import { GRAPH_FILE, SEED_PROFILES_FILE, SEEDS_FILE } from "./constants";
 
 const REDIS_GRAPH_KEY = "finra:graph";
 
@@ -135,4 +135,70 @@ export function setProfilesCache(v: any) {
 }
 export function invalidateProfilesCache() {
   _profilesCache = null;
+}
+
+// ── Redis-backed profiles / seeds store ─────────────────────────────────────
+const REDIS_PROFILES_KEY = "finra:seed-profiles";
+const REDIS_SEEDS_KEY = "finra:seeds";
+
+export async function getProfilesFromStore(): Promise<any> {
+  const redis = getRedis();
+  if (redis) {
+    const raw = await redis.get<string>(REDIS_PROFILES_KEY);
+    if (raw) return typeof raw === "string" ? JSON.parse(raw) : raw;
+    // Bootstrap from filesystem if Redis has nothing yet
+    try {
+      const data = JSON.parse(await readFile(SEED_PROFILES_FILE, "utf-8"));
+      await redis.set(REDIS_PROFILES_KEY, JSON.stringify(data));
+      return data;
+    } catch {
+      return { profiles: [] };
+    }
+  }
+  try {
+    return JSON.parse(await readFile(SEED_PROFILES_FILE, "utf-8"));
+  } catch {
+    return { profiles: [] };
+  }
+}
+
+export async function saveProfilesToStore(data: any): Promise<void> {
+  const redis = getRedis();
+  if (redis) {
+    await redis.set(REDIS_PROFILES_KEY, JSON.stringify(data));
+  } else {
+    await writeFile(SEED_PROFILES_FILE, JSON.stringify(data, null, 2), "utf-8");
+  }
+  invalidateProfilesCache();
+}
+
+export async function getSeedsFromStore(): Promise<string[]> {
+  const redis = getRedis();
+  if (redis) {
+    const raw = await redis.get<string>(REDIS_SEEDS_KEY);
+    if (raw) return typeof raw === "string" ? JSON.parse(raw) : (raw as string[]);
+    // Bootstrap from filesystem
+    try {
+      const data = JSON.parse(await readFile(SEEDS_FILE, "utf-8"));
+      await redis.set(REDIS_SEEDS_KEY, JSON.stringify(data));
+      return data;
+    } catch {
+      return [];
+    }
+  }
+  try {
+    return JSON.parse(await readFile(SEEDS_FILE, "utf-8"));
+  } catch {
+    return [];
+  }
+}
+
+export async function saveSeedsToStore(seeds: string[]): Promise<void> {
+  const redis = getRedis();
+  if (redis) {
+    await redis.set(REDIS_SEEDS_KEY, JSON.stringify(seeds));
+  } else {
+    await writeFile(SEEDS_FILE, JSON.stringify(seeds, null, 2), "utf-8");
+  }
+  invalidateSeedsCache();
 }

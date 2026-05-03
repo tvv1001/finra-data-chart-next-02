@@ -1,18 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFile, writeFile } from "node:fs/promises";
-import { SEED_PROFILES_FILE } from "@/lib/constants";
-import { getProfilesCache, setProfilesCache, invalidateProfilesCache } from "@/lib/graphStore";
+import { getProfilesFromStore } from "@/lib/graphStore";
 
 async function getProfilesData() {
-  const cached = getProfilesCache();
-  if (cached) return cached;
-  try {
-    const data = JSON.parse(await readFile(SEED_PROFILES_FILE, "utf-8"));
-    setProfilesCache(data);
-    return data;
-  } catch {
-    return { profiles: [] };
-  }
+  return getProfilesFromStore();
 }
 
 export async function GET(

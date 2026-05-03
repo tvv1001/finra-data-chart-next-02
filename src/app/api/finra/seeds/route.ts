@@ -1,33 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFile, writeFile } from "node:fs/promises";
-import { SEEDS_FILE, SEED_PROFILES_FILE } from "@/lib/constants";
-import {
-  getSeedsCache, setSeedsCache,
-  getProfilesCache, setProfilesCache,
-} from "@/lib/graphStore";
+import { getSeedsFromStore, saveSeedsToStore, getProfilesFromStore } from "@/lib/graphStore";
 
 async function getSeedsBase(): Promise<string[]> {
-  const cached = getSeedsCache();
-  if (cached) return cached;
-  try {
-    const data = JSON.parse(await readFile(SEEDS_FILE, "utf-8"));
-    setSeedsCache(data);
-    return data;
-  } catch {
-    return [];
-  }
+  return getSeedsFromStore();
 }
 
 async function getProfilesData() {
-  const cached = getProfilesCache();
-  if (cached) return cached;
-  try {
-    const data = JSON.parse(await readFile(SEED_PROFILES_FILE, "utf-8"));
-    setProfilesCache(data);
-    return data;
-  } catch {
-    return { profiles: [] };
-  }
+  return getProfilesFromStore();
 }
 
 export async function GET(request: NextRequest) {
@@ -60,7 +39,6 @@ export async function PUT(request: NextRequest) {
       { status: 400 },
     );
   }
-  await writeFile(SEEDS_FILE, JSON.stringify(seeds, null, 2), "utf-8");
-  setSeedsCache(null as any);
+  await saveSeedsToStore(seeds);
   return NextResponse.json({ ok: true, count: seeds.length });
 }

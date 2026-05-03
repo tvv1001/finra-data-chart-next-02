@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFile, writeFile } from "node:fs/promises";
-import { SEED_PROFILES_FILE } from "@/lib/constants";
-import { invalidateProfilesCache } from "@/lib/graphStore";
+import { getProfilesFromStore, saveProfilesToStore } from "@/lib/graphStore";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -17,13 +15,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "firms must be an array" }, { status: 400 });
   }
 
-  const profilesData = JSON.parse(await readFile(SEED_PROFILES_FILE, "utf-8"));
-  const prof = profilesData.profiles.find((p: any) => p.name === profile);
+  const profilesData = await getProfilesFromStore();
+  let prof = profilesData.profiles?.find((p: any) => p.name === profile);
   if (!prof) {
-    return NextResponse.json(
-      { error: `Profile '${profile}' not found` },
-      { status: 404 },
-    );
+    // Auto-create the profile if it doesn't exist
+    if (!Array.isArray(profilesData.profiles)) profilesData.profiles = [];
+    prof = { name: profile, description: "", enabled: false, seeds: [], individuals: [], firms: [] };
+    profilesData.profiles.push(prof);
   }
 
   if (individuals) {
@@ -33,8 +31,7 @@ export async function POST(request: NextRequest) {
     prof.firms = [...new Set([...(prof.firms || []), ...firms])];
   }
 
-  await writeFile(SEED_PROFILES_FILE, JSON.stringify(profilesData, null, 2), "utf-8");
-  invalidateProfilesCache();
+  await saveProfilesToStore(profilesData);
 
   return NextResponse.json({
     ok: true,
