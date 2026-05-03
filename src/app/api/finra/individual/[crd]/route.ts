@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cachedFetch } from "@/lib/cache";
 import { DEFAULT_HEADERS } from "@/lib/constants";
+import { sharedCacheHeaders } from "@/lib/httpCache";
 import { logger } from "@/lib/logger";
 
 function parseDetailPayload(data: any, contentKey = "content") {
@@ -121,14 +122,17 @@ export async function GET(
 
     const finraDetail = parseDetailPayload(finraData, "content");
     if (!finraDetail) {
-      return NextResponse.json({ found: false }, { status: 200 });
+      return NextResponse.json(
+        { found: false },
+        { status: 200, headers: sharedCacheHeaders(3600) },
+      );
     }
 
     const secDetail = parseDetailPayload(secData, "iacontent");
     const detail: any = secDetail ? mergePreferPrimary(secDetail, finraDetail) : finraDetail;
     detail.hasSecData = !!secDetail;
 
-    return NextResponse.json(detail);
+    return NextResponse.json(detail, { headers: sharedCacheHeaders(3600) });
   } catch (err: any) {
     logger.error("individual proxy error", { crd, error: err.message });
     return NextResponse.json({ error: "Failed to fetch from FINRA." }, { status: 502 });

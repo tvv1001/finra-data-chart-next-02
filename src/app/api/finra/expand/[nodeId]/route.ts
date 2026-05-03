@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getFullGraph } from "@/lib/graphStore";
+import { sharedCacheHeaders } from "@/lib/httpCache";
 import { logger } from "@/lib/logger";
 
 export async function GET(
@@ -30,7 +31,10 @@ export async function GET(
     const selfNode = nodes.find((n) => n.id === nodeId);
     const resultNodes = selfNode ? [selfNode, ...neighborNodes] : neighborNodes;
 
-    return NextResponse.json({ nodes: resultNodes, links: neighborLinks });
+    return NextResponse.json(
+      { nodes: resultNodes, links: neighborLinks },
+      { headers: sharedCacheHeaders(300) },
+    );
   } catch (err: any) {
     logger.error("expand error", { error: err.message });
     return NextResponse.json({ error: "Failed to expand node." }, { status: 500 });

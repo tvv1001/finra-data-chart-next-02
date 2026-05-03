@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProfilesFromStore } from "@/lib/graphStore";
+import { sharedCacheHeaders } from "@/lib/httpCache";
 
 async function getProfilesData() {
   return getProfilesFromStore();
@@ -32,5 +33,5 @@ export async function GET(
     firms: Array.isArray(prof.firms)
       ? prof.firms.map(Number).filter(Boolean)
       : [],
-  });
+  }, { headers: sharedCacheHeaders(300) });
 }

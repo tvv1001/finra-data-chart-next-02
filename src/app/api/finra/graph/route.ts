@@ -4,6 +4,7 @@ import {
   graphFileExists,
   getProfilesFromStore,
 } from "@/lib/graphStore";
+import { sharedCacheHeaders } from "@/lib/httpCache";
 
 async function getProfilesData() {
   return getProfilesFromStore();
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
         totalFirms: 0,
         totalLinks: 0,
       },
-    });
+    }, { headers: sharedCacheHeaders(120) });
   }
 
   if (limit > 0) {
@@ -106,10 +107,10 @@ export async function GET(request: NextRequest) {
         totalNodes: nodes.length,
         totalLinks: links.length,
       },
-    });
+    }, { headers: sharedCacheHeaders(120) });
   }
 
   // Return full graph from store (Redis on Vercel, filesystem locally)
   const graph = await getFullGraph();
-  return NextResponse.json(graph);
+  return NextResponse.json(graph, { headers: sharedCacheHeaders(120) });
 }

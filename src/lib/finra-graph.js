@@ -18,6 +18,9 @@
 // API base. When VITE_API_URL is not set, use relative paths so the dev
 // server proxy (`/api`) is used and we don't hardcode a backend port.
 const BASE = (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_URL) || "";
+const ENABLE_SERVER_PROFILE_SYNC =
+  typeof process !== "undefined" &&
+  process.env.NEXT_PUBLIC_ENABLE_SERVER_PROFILE_SYNC === "1";
 
 // Safely build an absolute URL for API calls. When `BASE` is empty the
 // browser `location.origin` will be used so `new URL` never throws.
@@ -25,6 +28,17 @@ function makeApiUrl(path) {
   const p = path.startsWith("/") ? path : `/${path}`;
   const base = BASE || (typeof location !== "undefined" ? location.origin : "");
   return new URL(p, base);
+}
+
+function syncProfileSelection(payload) {
+  if (!ENABLE_SERVER_PROFILE_SYNC) return;
+  fetch(`${BASE}/api/finra/add-to-profile`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ profile: "custom", ...payload }),
+  }).catch((err) =>
+    console.error("Failed to sync profile selection to server:", err),
+  );
 }
 
 let d3;
@@ -4021,11 +4035,7 @@ function selectNode(d) {
   const parsedId = rawId && !isNaN(rawId) ? parseInt(rawId, 10) : null;
   if (parsedId) {
     const data = d.group === 'individual' ? { individuals: [parsedId] } : { firms: [parsedId] };
-    fetch(`${BASE}/api/finra/add-to-profile`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ profile: 'custom', ...data })
-    }).catch(err => console.error('Failed to add selected node to profile:', err));
+    syncProfileSelection(data);
   }
 
   // For individual nodes, fetch detail data from API and re-render if it's still selected
@@ -4184,14 +4194,16 @@ function revealNeighbors(clickedNode, hops = 1) {
   layoutLinks.push(...newLinks);
 
   // Add revealed nodes to seed profile for persistence
-  const individuals = newNodes.filter(n => n.group === 'individual').map(n => parseInt(n.id));
-  const firms = newNodes.filter(n => n.group === 'firm').map(n => parseInt(n.id));
+  const individuals = newNodes
+    .filter((n) => n.group === "individual")
+    .map((n) => Number(String(n.id).split(":").pop()))
+    .filter(Number.isFinite);
+  const firms = newNodes
+    .filter((n) => n.group === "firm")
+    .map((n) => Number(String(n.id).split(":").pop()))
+    .filter(Number.isFinite);
   if (individuals.length || firms.length) {
-    fetch(`${BASE}/api/finra/add-to-profile`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ profile: 'custom', individuals, firms })
-    }).catch(err => console.error('Failed to add revealed nodes to profile:', err));
+    syncProfileSelection({ individuals, firms });
   }
 
   // Rebuild neighbor cache for the live layout

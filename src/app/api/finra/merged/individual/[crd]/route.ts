@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mergedIndividual } from "@/lib/dataMerge";
+import { sharedCacheHeaders } from "@/lib/httpCache";
 import { logger } from "@/lib/logger";
 
 function parseDetailPayload(data: any, contentKey = "content") {
@@ -102,7 +103,7 @@ export async function GET(
   try {
     const data = await mergedIndividual(crd);
     if (!data.found) {
-      return NextResponse.json({ found: false });
+      return NextResponse.json({ found: false }, { headers: sharedCacheHeaders(3600) });
     }
 
     const finraDetail = parseDetailPayload(data.sources.finra || {}, "content");
@@ -115,7 +116,7 @@ export async function GET(
     return NextResponse.json({
       ...data,
       merged: normalizedMergedDetail,
-    });
+    }, { headers: sharedCacheHeaders(3600) });
   } catch (err: any) {
     logger.error("merged individual error", { crd, error: err?.message });
     return NextResponse.json({ error: "Failed to compute merged record" }, { status: 500 });

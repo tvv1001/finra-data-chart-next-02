@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cachedFetch } from "@/lib/cache";
 import { DEFAULT_HEADERS } from "@/lib/constants";
+import { sharedCacheHeaders } from "@/lib/httpCache";
 import { logger } from "@/lib/logger";
 
 function buildFirmQueryParams(searchParams: URLSearchParams) {
@@ -91,7 +92,10 @@ export async function GET(
     }
 
     if (!bcDetail && !secDetail) {
-      return NextResponse.json({ found: false }, { status: 200 });
+      return NextResponse.json(
+        { found: false },
+        { status: 200, headers: sharedCacheHeaders(3600) },
+      );
     }
 
     let detail: any = bcDetail || secDetail;
@@ -118,7 +122,7 @@ export async function GET(
       if (!detail.brochures && secDetail.brochures) detail.brochures = secDetail.brochures;
     }
 
-    return NextResponse.json(detail);
+    return NextResponse.json(detail, { headers: sharedCacheHeaders(3600) });
   } catch (err: any) {
     logger.error("firm proxy error", { id, error: err.message });
     return NextResponse.json({ error: "Failed to fetch from FINRA." }, { status: 502 });
