@@ -193,7 +193,7 @@ async function validateLocalData() {
 async function main() {
   await ensureDirs();
   const argv = require('minimist')(process.argv.slice(2));
-  const concurrency = Number(argv.concurrency || argv.c || 10);
+  const concurrency = Number(argv.concurrency || argv.c || 20);
   const force = argv.force || argv.f || false;
   const limit = Number(argv.limit || 2000);
 
@@ -231,7 +231,7 @@ async function main() {
   }
 
   console.log('Prepared', tasks.length, 'tasks; running with concurrency=', concurrency);
-  const delay = Number(argv.delay || argv.d || 120);
+  const delay = Number(argv.delay || argv.d || 80);
   const fetched = await parallelFetch(tasks, concurrency, delay);
   console.log('Parallel crawl complete. fetched=', fetched);
   console.log('Validating local JSON files...');

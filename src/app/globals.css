@@ -546,12 +546,10 @@ body {
 
 .fg-detail-row {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
+  flex-direction: column;
+  gap: 2px;
   padding: 5px 0;
   border-bottom: 1px solid #f1f5f9;
-  align-items: baseline;
-  flex-direction: row;
 }
 .fg-detail-row:last-child {
   border-bottom: none;
@@ -560,8 +558,9 @@ body {
 .fg-label {
   font-weight: 600;
   color: var(--text-m);
-  white-space: nowrap;
-  flex-shrink: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .fg-section-title {

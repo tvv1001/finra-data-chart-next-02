@@ -225,4 +225,63 @@ async function build() {
   }
 }
 
-if (require.main === module) build().catch((e)=>{ console.error(e); process.exit(1); });
+// ── Incremental manifest ────────────────────────────────────────────────────
+// Tracks which source files have already been processed so that rebuilds only
+// re-parse changed or new files rather than the full corpus each time.
+const MANIFEST_FILE = path.join(ROOT, 'data', 'build_manifest.json');
+
+async function readManifest() {
+  try { return JSON.parse(await fs.readFile(MANIFEST_FILE, 'utf-8')); } catch { return {}; }
+}
+
+async function writeManifest(manifest) {
+  await fs.writeFile(MANIFEST_FILE, JSON.stringify(manifest, null, 2), 'utf-8');
+}
+
+async function getFileMtime(p) {
+  try { return (await fs.stat(p)).mtimeMs; } catch { return 0; }
+}
+
+async function readJsonFilesIncremental(dir, manifest) {
+  const out = [];
+  const updated = {};
+  try {
+    const files = await fs.readdir(dir);
+    for (const f of files) {
+      if (!f.endsWith('.json')) continue;
+      const p = path.join(dir, f);
+      const mtime = await getFileMtime(p);
+      updated[p] = mtime;
+      if (manifest[p] && manifest[p] === mtime) continue; // unchanged
+      try {
+        const raw = await fs.readFile(p, 'utf-8');
+        out.push({ file: f, json: JSON.parse(raw) });
+      } catch {}
+    }
+  } catch {}
+  return { files: out, mtimes: updated };
+}
+
+async function buildIncremental() {
+  const manifest = await readManifest();
+  const { files: finraFiles, mtimes: fMtimes } = await readJsonFilesIncremental(FINRA, manifest);
+  const { files: secFiles, mtimes: sMtimes } = await readJsonFilesIncremental(SEC, manifest);
+
+  const newFiles = finraFiles.length + secFiles.length;
+  if (newFiles === 0) {
+    console.log('build_graph_from_cache: no new/changed files — skipping rebuild');
+    return;
+  }
+  console.log(`build_graph_from_cache: ${newFiles} changed file(s) detected — rebuilding graph`);
+  await build();
+  // Update manifest with new mtimes
+  const combined = { ...manifest, ...fMtimes, ...sMtimes };
+  await writeManifest(combined);
+}
+
+if (require.main === module) {
+  const argv = require('minimist')(process.argv.slice(2));
+  const incremental = argv.incremental || argv.i || false;
+  const runner = incremental ? buildIncremental : build;
+  runner().catch((e) => { console.error(e); process.exit(1); });
+}

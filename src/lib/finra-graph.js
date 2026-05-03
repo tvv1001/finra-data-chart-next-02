@@ -2747,6 +2747,9 @@ async function filterGraph(rawQuery) {
     });
 }
 
+
+
+
 function updateMeta(meta = {}) {
   if (!meta && !layoutNodes) return;
   const el = document.getElementById("fg-meta-label");
@@ -5183,7 +5186,7 @@ function renderFirmDetail(d) {
       ${d.otherNames?.length ? row("Other names", esc(d.otherNames.join("; "))) : ""}
       ${Array.isArray(d.brochures) && d.brochures.length ? `
         <div class="fg-section-title">Form ADV Brochures</div>
-        ${d.brochures.slice(0, 5).map(b => `<div class="fg-detail-row"><span class="fg-label" style="max-width:100%">${esc(b.brochureName || "")}</span><span style="white-space:nowrap">${esc(b.dateSubmitted || "")}</span></div>`).join("")}
+        ${d.brochures.slice(0, 5).map(b => `<div class="fg-detail-row"><span class="fg-label">${esc(b.brochureName || "")}</span><span>${esc(b.dateSubmitted || "")}</span></div>`).join("")}
       ` : ""}
 
       ${
