@@ -9,6 +9,18 @@
 #   UPSTASH_REDIS_REST_URL
 #   UPSTASH_REDIS_REST_TOKEN
 #
+
+
+
+
+
+#   VERCEL_ORG_ID     – from .vercel/project.json (teamId) after `vercel link`
+#   VERCEL_PROJECT_ID – from .vercel/project.json (projectId) after `vercel link`
+
+
+
+
+
 name: Deploy to Vercel
 
 on:
