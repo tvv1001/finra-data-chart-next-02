@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, readFile, mkdir } from "node:fs/promises";
-import path from "node:path";
-import { GRAPH_FILE } from "@/lib/constants";
-import { getFullGraph, invalidateGraphCache, graphFileExists } from "@/lib/graphStore";
+import { getFullGraph, graphFileExists, saveGraph } from "@/lib/graphStore";
 import { logger } from "@/lib/logger";
 import { stripSimState } from "@/lib/graphStore";
 
@@ -67,9 +64,7 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    await mkdir(path.dirname(GRAPH_FILE), { recursive: true });
-    await writeFile(GRAPH_FILE, JSON.stringify(merged, null, 2), "utf-8");
-    invalidateGraphCache();
+    await saveGraph(merged);
 
     return NextResponse.json({ ok: true, addedNodes: added, addedLinks: addedLinks.length });
   } catch (err: any) {

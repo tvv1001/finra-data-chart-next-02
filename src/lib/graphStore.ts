@@ -2,14 +2,31 @@
  * graphStore.ts – Module-level graph file cache and helper utilities.
  * Shared by /api/finra/graph, /expand, /nodes-by-ids, /graph-search, /graph-append
  *
+ * Persistence strategy:
+ *  – On Vercel (UPSTASH_REDIS_REST_URL set): graph is stored in Upstash Redis
+ *  – Locally (no env vars): graph is stored in data/national/finra-graph.json
+ *
  * Cache strategy:
  *  – _graphCache is populated on first read and cleared by:
- *    a) chokidar file watcher (live rebuilds without restart)
+ *    a) chokidar file watcher (live rebuilds without restart, local only)
  *    b) explicit invalidateGraphCache() calls from API routes
  *    c) TTL: max 5 minutes to avoid stale data if watcher misses an event
  */
-import { readFile, writeFile, access, constants } from "node:fs/promises";
+import { readFile, writeFile, access, mkdir, constants } from "node:fs/promises";
+import path from "node:path";
+import { Redis } from "@upstash/redis";
 import { GRAPH_FILE } from "./constants";
+
+const REDIS_GRAPH_KEY = "finra:graph";
+
+let _redis: Redis | null = null;
+function getRedis(): Redis | null {
+  if (_redis !== null) return _redis;
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (url && token) _redis = new Redis({ url, token });
+  return _redis;
+}
 
 export let _graphCache: any = null;
 let _graphCacheAt = 0;
@@ -30,6 +47,15 @@ export async function getFullGraph() {
   const now = Date.now();
   if (_graphCache && now - _graphCacheAt < GRAPH_CACHE_TTL_MS) return _graphCache;
   if (_graphCache && now - _graphCacheAt >= GRAPH_CACHE_TTL_MS) _graphCache = null;
+
+  const redis = getRedis();
+  if (redis) {
+    const raw = await redis.get<string>(REDIS_GRAPH_KEY);
+    _graphCache = raw ? (typeof raw === "string" ? JSON.parse(raw) : raw) : { nodes: [], links: [], meta: {} };
+    _graphCacheAt = now;
+    return _graphCache;
+  }
+
   if (!(await graphFileExists())) {
     _graphCache = { nodes: [], links: [], meta: {} };
     _graphCacheAt = now;
@@ -41,12 +67,28 @@ export async function getFullGraph() {
   return _graphCache;
 }
 
+export async function saveGraph(data: any) {
+  const redis = getRedis();
+  if (redis) {
+    await redis.set(REDIS_GRAPH_KEY, JSON.stringify(data));
+  } else {
+    await mkdir(path.dirname(GRAPH_FILE), { recursive: true });
+    await writeFile(GRAPH_FILE, JSON.stringify(data, null, 2), "utf-8");
+  }
+  invalidateGraphCache();
+}
+
 export function invalidateGraphCache() {
   _graphCache = null;
   _graphCacheAt = 0;
 }
 
 export async function graphFileExists() {
+  const redis = getRedis();
+  if (redis) {
+    const exists = await redis.exists(REDIS_GRAPH_KEY);
+    return exists > 0;
+  }
   try {
     await access(GRAPH_FILE, constants.R_OK);
     return true;
