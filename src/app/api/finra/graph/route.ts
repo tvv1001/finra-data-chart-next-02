@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
-import { createReadStream } from "node:fs";
-import { Readable } from "node:stream";
 import {
-  GRAPH_FILE,
   SEED_PROFILES_FILE,
 } from "@/lib/constants";
 import {
@@ -46,8 +43,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (limit > 0) {
-    const raw = await readFile(GRAPH_FILE, "utf-8");
-    const graph = JSON.parse(raw);
+    const graph = await getFullGraph();
     const nodes: any[] = graph.nodes || [];
     const links: any[] = graph.links || [];
 
@@ -126,10 +122,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Stream the raw file
-  const fileStream = createReadStream(GRAPH_FILE);
-  const webStream = Readable.toWeb(fileStream) as ReadableStream;
-  return new NextResponse(webStream, {
-    headers: { "Content-Type": "application/json" },
-  });
+  // Return full graph from store (Redis on Vercel, filesystem locally)
+  const graph = await getFullGraph();
+  return NextResponse.json(graph);
 }
