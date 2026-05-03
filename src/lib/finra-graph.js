@@ -1497,6 +1497,7 @@ export function init(_d3) { d3 = _d3;
 
     // Rebuild neighbor cache and update info
     neighborMap = buildNeighborMap(layoutNodes, layoutLinks);
+    if (layoutNodes.length || layoutLinks.length) showEmpty(false);
     if (graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
     updateMeta();
 
