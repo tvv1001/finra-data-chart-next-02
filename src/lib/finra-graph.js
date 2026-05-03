@@ -3975,6 +3975,20 @@ function syncIndividualConnectionsFromDetail(personNode, detail) {
   const personId = personNode.id;
   const newNodes = [];
   const newLinks = [];
+
+  const resolveExistingFirmNode = (firmId) => {
+    const value = String(firmId || "").trim();
+    if (!value) return null;
+    return (
+      layoutNodes.find(
+        (node) =>
+          node.group === "firm" &&
+          (node.id === `firm:${value}` ||
+            node.id === `firm_${value}` ||
+            String(node.firmId || "") === value),
+      ) || null
+    );
+  };
   const inferEmploymentCurrentFlag = (employment, fallbackCurrent = null) => {
     if (typeof fallbackCurrent === "boolean") return fallbackCurrent;
     if (typeof employment?._isCurrent === "boolean") return employment._isCurrent;
@@ -4072,7 +4086,7 @@ function syncIndividualConnectionsFromDetail(personNode, detail) {
         "",
     ).trim();
     const existingFirmNode = firmId
-      ? findExistingFirmNode(firmId)
+      ? resolveExistingFirmNode(firmId)
       : findFirmNodeByLabel(firmName);
     const syntheticFirmNodeId = !firmId && !existingFirmNode
       ? buildSyntheticFirmNodeId(firmName)
@@ -4161,7 +4175,7 @@ function syncIndividualConnectionsFromDetail(personNode, detail) {
         "",
     ).trim();
     const existingFirmNode = firmId
-      ? findExistingFirmNode(firmId)
+      ? resolveExistingFirmNode(firmId)
       : findFirmNodeByLabel(firmName);
     const syntheticFirmNodeId = !firmId && !existingFirmNode
       ? buildSyntheticFirmNodeId(firmName)
@@ -5097,7 +5111,16 @@ function renderPersonDetail(d) {
   // Deduplicate: for each (type, date) pair keep the entry with the most content.
   // A blank duplicate (same type, no date/detail/resolution) is dropped when a
   // richer entry with the same type already exists.
-  const _rawDisclosures = [...(d.disclosures || []), ...(d.iaDisclosures || [])];
+  const _rawDisclosures = [
+    ...(d.disclosures || []).map((dis) => ({
+      ...dis,
+      _sourceLabel: dis?._sourceLabel || "BrokerCheck",
+    })),
+    ...(d.iaDisclosures || []).map((dis) => ({
+      ...dis,
+      _sourceLabel: dis?._sourceLabel || "SEC AdvisorInfo",
+    })),
+  ];
   const allDisclosures = (() => {
     function disHasContent(dis) {
       return !!(
@@ -5294,12 +5317,46 @@ function renderPersonDetail(d) {
     (d.registrationCount?.approvedStateRegistrationCount || 0) +
       (d.registrationCount?.approvedIAStateRegistrationCount || 0);
 
+  function disclosureValueToText(value) {
+    if (value == null) return "";
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => disclosureValueToText(item))
+        .filter(Boolean)
+        .join("; ");
+    }
+    if (typeof value === "object") {
+      return Object.entries(value)
+        .map(([key, nestedValue]) => {
+          const nestedText = disclosureValueToText(nestedValue);
+          return nestedText ? `${key}: ${nestedText}` : "";
+        })
+        .filter(Boolean)
+        .join(" | ");
+    }
+    return String(value).trim();
+  }
+
+  function disclosureLabelText(key) {
+    return String(key || "")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/[_-]+/g, " ")
+      .trim();
+  }
+
+  function disclosureKeyId(key) {
+    return String(key || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
+  }
+
   // ── Helper: render a single raw FINRA/SEC disclosure ──────────────────────
   function renderDisclosure(dis) {
     const dtype = dis.disclosureType || dis.type || "";
     const ddate = dis.eventDate || dis.date || "";
     const dres = dis.disclosureResolution || dis.resolution || "";
     const dd = dis.disclosureDetail || {};
+    const dsource = dis._sourceLabel || "";
 
     const isObj = dd && typeof dd === "object" && !Array.isArray(dd);
 
@@ -5342,10 +5399,46 @@ function renderPersonDetail(d) {
       .map((s) => String(s).trim())
       .filter(Boolean);
 
+    const handledDetailKeys = new Set(
+      [
+        "Allegations",
+        "allegations",
+        "Initiated By",
+        "initiatedBy",
+        "Resolution",
+        "resolution",
+        "Sanctions",
+        "sanctions",
+        "SanctionDetails",
+        "Sanction Details",
+        "Broker Comment",
+        "brokerComment",
+        "Settlement Amount",
+        "settlementAmount",
+        "DocketNumberFDA",
+        "DocketNumberAAO",
+        "arbitrationDocketNumber",
+      ].map((key) => disclosureKeyId(key)),
+    );
+
+    const extraDetailRows = isObj
+      ? Object.entries(dd)
+          .map(([key, value]) => ({
+            key,
+            keyId: disclosureKeyId(key),
+            valueText: disclosureValueToText(value),
+          }))
+          .filter(
+            ({ keyId, valueText }) =>
+              valueText && !handledDetailKeys.has(keyId),
+          )
+      : [];
+
     return `
       <div class="fg-disclosure">
         <div class="fg-dis-header">
           <span class="fg-dis-type">${esc(dtype)}</span>
+          ${dsource ? `<span class="fg-badge inactive">${esc(dsource)}</span>` : ""}
           ${ddate ? `<span class="fg-dis-date">${esc(ddate)}</span>` : ""}
           ${dres ? `<span class="fg-dis-res ${/final|settled/i.test(dres) ? "final" : "pending"}">${esc(dres)}</span>` : ""}
           ${isIAExcl || isBCExcl ? `<span class="fg-badge inactive" title="Excluded from count">${isIAExcl ? "IA-excl" : ""}${isIAExcl && isBCExcl ? " " : ""}${isBCExcl ? "BC-excl" : ""}</span>` : ""}
@@ -5358,10 +5451,20 @@ function renderPersonDetail(d) {
         ${sanctionBadges.length ? `<div class="fg-dis-sanctions">${sanctionBadges.map((s) => `<span class="fg-badge inactive">${esc(s)}</span>`).join(" ")}</div>` : ""}
         ${comments.length ? `<div class="fg-dis-row"><span class="fg-dis-label">Broker comment:</span><div class="fg-dis-text fg-dis-comment">${comments.map((c) => esc(String(c))).join("<br>")}</div></div>` : ""}
         ${docketFDA || docketAAO || arbDocket ? `<div class="fg-dis-row fg-dis-dockets">${[docketFDA && `FDA: ${esc(docketFDA)}`, docketAAO && `AAO: ${esc(docketAAO)}`, arbDocket && `Arb: ${esc(arbDocket)}`].filter(Boolean).join(" &nbsp;|&nbsp; ")}</div>` : ""}
+        ${extraDetailRows.length ? extraDetailRows.map(({ key, valueText }) => `<div class="fg-dis-row"><span class="fg-dis-label">${esc(disclosureLabelText(key))}:</span><div class="fg-dis-text">${esc(valueText)}</div></div>`).join("") : ""}
       </div>`;
   }
 
   const crd = bi.individualId || d.crd || String(d.id).replace(/^person[:_]/, "");
+  const brokerCheckSummaryUrl = bi.individualId
+    ? `https://brokercheck.finra.org/individual/summary/${encodeURIComponent(bi.individualId)}`
+    : null;
+  const brokerCheckReportUrl = crd
+    ? `https://files.brokercheck.finra.org/individual/individual_${encodeURIComponent(crd)}.pdf`
+    : null;
+  const secSummaryUrl = bi.individualId && d.hasSecData
+    ? `https://adviserinfo.sec.gov/Individual/${encodeURIComponent(bi.individualId)}`
+    : null;
   const bcRawUrl = bi.individualId
     ? `https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?hl=true&includePrevious=true&nrows=12&r=25&sort=bc_lastname_sort+asc,bc_firstname_sort+asc,bc_middlename_sort+asc,score+desc&wt=json`
     : null;
@@ -5380,8 +5483,9 @@ function renderPersonDetail(d) {
     </div>
     <div class="fg-sb-body">
       <div class="fg-ext-links">
-        ${bi.individualId ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/individual/summary/${encodeURIComponent(bi.individualId)}" target="_blank" rel="noopener noreferrer">&#x2197; BrokerCheck Summary</a>` : ""}
-        ${bi.individualId && d.hasSecData ? `<a class="fg-ext-link sec" href="https://adviserinfo.sec.gov/Individual/${encodeURIComponent(bi.individualId)}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo Summary</a>` : ""}
+        ${brokerCheckSummaryUrl ? `<a class="fg-ext-link bc" href="${brokerCheckSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; BrokerCheck Summary</a>` : ""}
+        ${brokerCheckReportUrl ? `<a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; BrokerCheck Detailed Report (PDF)</a>` : ""}
+        ${secSummaryUrl ? `<a class="fg-ext-link sec" href="${secSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo Summary</a>` : ""}
       </div>
 
       ${bi.individualId ? row("CRD", `<code>${bi.individualId}</code>`) : ""}
@@ -5546,7 +5650,15 @@ function renderPersonDetail(d) {
               ${allDisclosures.map(renderDisclosure).join("")}
             </details>`
           : d.disclosureFlag === "Y" || d.iaDisclosureFlag === "Y"
-            ? `<div class="fg-section-title">Disclosures</div><p class="fg-sb-note">Disclosure flag is set. Click to load full details from BrokerCheck.</p>`
+            ? `<details class="fg-section-toggle" open>
+                <summary class="fg-section-title">Disclosures</summary>
+                <p class="fg-sb-note">BrokerCheck or SEC marks this record as having disclosures, but the current API response did not include structured disclosure bodies for this profile.</p>
+                <div class="fg-ext-links">
+                  ${brokerCheckSummaryUrl ? `<a class="fg-ext-link bc" href="${brokerCheckSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; Open BrokerCheck Summary</a>` : ""}
+                  ${brokerCheckReportUrl ? `<a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; Open BrokerCheck Detailed Report (PDF)</a>` : ""}
+                  ${secSummaryUrl ? `<a class="fg-ext-link sec" href="${secSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; Open SEC AdvisorInfo Summary</a>` : ""}
+                </div>
+              </details>`
             : ""
       }
     </div>
