@@ -11,6 +11,37 @@ const SEC = path.join(BASE, 'adviserinfo.sec.gov');
 function personId(crd) { return `person:${crd}`; }
 function firmId(id) { return `firm:${id}`; }
 
+function getEmploymentLinkOptions(argv = {}) {
+  const includeCurrentEmployments = argv['current-employment-lines'] !== false
+    && argv.currentEmploymentLines !== false;
+  const includePreviousEmployments = argv['previous-employment-lines'] === true
+    || argv.previousEmploymentLines === true
+    || argv['include-previous-employments'] === true
+    || argv.includePreviousEmployments === true;
+
+  return {
+    includeCurrentEmployments,
+    includePreviousEmployments,
+    // These broad object scans cannot reliably distinguish current vs previous
+    // employment, so keep them off unless previous-employment lines are enabled.
+    enableHeuristicEmploymentLinks:
+      includeCurrentEmployments && includePreviousEmployments,
+  };
+}
+
+function collectEmploymentRecords(source, options) {
+  if (!source || typeof source !== 'object') return [];
+
+  const records = [];
+  if (options.includeCurrentEmployments) {
+    records.push(...(source.ind_current_employments || source.currentEmployments || []));
+  }
+  if (options.includePreviousEmployments) {
+    records.push(...(source.ind_previous_employments || source.previousEmployments || []));
+  }
+  return records;
+}
+
 async function readJsonFiles(dir) {
   const out = [];
   try {
@@ -26,7 +57,7 @@ async function readJsonFiles(dir) {
   return out;
 }
 
-function extractPeopleAndFirmsFromHits(json) {
+function extractPeopleAndFirmsFromHits(json, employmentOptions) {
   const nodes = { people: new Map(), firms: new Map(), links: [] };
   const hits = json?.hits?.hits || [];
   for (const h of hits) {
@@ -34,7 +65,7 @@ function extractPeopleAndFirmsFromHits(json) {
     const crd = src.ind_source_id || src.person?.crd || (src.content && (() => { try { const p = typeof src.content === 'string' ? JSON.parse(src.content) : src.content; return p?.basicInformation?.crd || p?.basicInformation?.individualId; } catch {return null;} })());
     if (crd) {
       nodes.people.set(String(crd), { id: personId(crd), label: `${src.ind_firstname||''} ${src.ind_lastname||''}`.trim() || String(crd), group: 'individual' });
-      const emps = src.ind_current_employments || src.ind_previous_employments || [];
+      const emps = collectEmploymentRecords(src, employmentOptions);
       for (const e of emps) {
         const fid = e.firmId || e.firm_id || e.firmId;
         if (fid) {
@@ -52,7 +83,8 @@ function extractPeopleAndFirmsFromHits(json) {
   return nodes;
 }
 
-async function build() {
+async function build(options = {}) {
+  const employmentOptions = options.employmentOptions || getEmploymentLinkOptions();
   const finraFiles = await readJsonFiles(FINRA);
   const secFiles = await readJsonFiles(SEC);
   const people = new Map();
@@ -60,9 +92,15 @@ async function build() {
   const links = [];
   const parsedFiles = [...finraFiles, ...secFiles];
 
+  console.log(
+    'build_graph_from_cache: employment lines',
+    `current=${employmentOptions.includeCurrentEmployments}`,
+    `previous=${employmentOptions.includePreviousEmployments}`,
+  );
+
   // First pass: collect people and firms
   for (const f of parsedFiles) {
-    const { people: p, firms: fo, links: li } = extractPeopleAndFirmsFromHits(f.json || f);
+    const { people: p, firms: fo, links: li } = extractPeopleAndFirmsFromHits(f.json || f, employmentOptions);
     for (const [k, v] of p) people.set(k, v);
     for (const [k, v] of fo) firms.set(k, v);
     for (const l of li) links.push(l);
@@ -135,18 +173,20 @@ async function build() {
       crd = null;
     }
     if (crd && people.has(crd)) {
-      const found = findFirmIds(obj);
-      for (const fid of found) {
-        links.push({ source: personId(crd), target: firmId(fid), type: 'employed_by' });
-        firms.set(fid, firms.get(fid) || { id: firmId(fid), label: String(fid), group: 'firm' });
-      }
-      // Heuristic firm names
-      const names = findFirmNames(obj);
-      for (const nm of names) {
-        const slug = nm.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-        const fid = `name:${slug}`;
-        links.push({ source: personId(crd), target: firmId(fid), type: 'employed_by' });
-        firms.set(fid, firms.get(fid) || { id: firmId(fid), label: nm, group: 'firm' });
+      if (employmentOptions.enableHeuristicEmploymentLinks) {
+        const found = findFirmIds(obj);
+        for (const fid of found) {
+          links.push({ source: personId(crd), target: firmId(fid), type: 'employed_by' });
+          firms.set(fid, firms.get(fid) || { id: firmId(fid), label: String(fid), group: 'firm' });
+        }
+        // Heuristic firm names
+        const names = findFirmNames(obj);
+        for (const nm of names) {
+          const slug = nm.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+          const fid = `name:${slug}`;
+          links.push({ source: personId(crd), target: firmId(fid), type: 'employed_by' });
+          firms.set(fid, firms.get(fid) || { id: firmId(fid), label: nm, group: 'firm' });
+        }
       }
       // also try parsing content JSON more deeply for employment arrays
       try {
@@ -158,10 +198,8 @@ async function build() {
             c = typeof src.content === 'string' ? JSON.parse(src.content) : src.content;
           }
           if (c) {
-            const currentEmps = c?.currentEmployments || c?.ind_current_employments || [];
-            const prevEmps = c?.previousEmployments || c?.ind_previous_employments || [];
-            const allEmps = [...currentEmps, ...prevEmps];
-            for (const e of allEmps) {
+            const emps = collectEmploymentRecords(c, employmentOptions);
+            for (const e of emps) {
               const fid = e.firmId || e.firm_id || e.firmId;
               if (fid) {
                 links.push({ source: personId(crd), target: firmId(String(fid)), type: 'employed_by' });
@@ -262,7 +300,7 @@ async function readJsonFilesIncremental(dir, manifest) {
   return { files: out, mtimes: updated };
 }
 
-async function buildIncremental() {
+async function buildIncremental(options = {}) {
   const manifest = await readManifest();
   const { files: finraFiles, mtimes: fMtimes } = await readJsonFilesIncremental(FINRA, manifest);
   const { files: secFiles, mtimes: sMtimes } = await readJsonFilesIncremental(SEC, manifest);
@@ -273,7 +311,7 @@ async function buildIncremental() {
     return;
   }
   console.log(`build_graph_from_cache: ${newFiles} changed file(s) detected — rebuilding graph`);
-  await build();
+  await build(options);
   // Update manifest with new mtimes
   const combined = { ...manifest, ...fMtimes, ...sMtimes };
   await writeManifest(combined);
@@ -282,6 +320,7 @@ async function buildIncremental() {
 if (require.main === module) {
   const argv = require('minimist')(process.argv.slice(2));
   const incremental = argv.incremental || argv.i || false;
+  const employmentOptions = getEmploymentLinkOptions(argv);
   const runner = incremental ? buildIncremental : build;
-  runner().catch((e) => { console.error(e); process.exit(1); });
+  runner({ employmentOptions }).catch((e) => { console.error(e); process.exit(1); });
 }
