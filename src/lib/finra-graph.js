@@ -3722,7 +3722,9 @@ async function ensureIndividualDetail(personNode) {
   if (!match) return;
   const crd = match[1];
 
-  if (personNode._detailLoaded) return;
+  if (personNode._detailLoaded && hasRichIndividualDetail(personNode)) {
+    return;
+  }
 
   try {
     // First try the local merged record (fast, no external call)

@@ -97,8 +97,17 @@ export async function graphFileExists() {
   }
 }
 
-// D3 simulation keys that should not be persisted to disk
-const D3_SIM_KEYS = ["x", "y", "vx", "vy", "fx", "fy", "index"];
+// D3 simulation keys and transient UI hydration flags should not be persisted.
+const D3_SIM_KEYS = [
+  "x",
+  "y",
+  "vx",
+  "vy",
+  "fx",
+  "fy",
+  "index",
+  "_detailLoaded",
+];
 
 export function stripSimState(obj: Record<string, any>) {
   const out: Record<string, any> = {};
