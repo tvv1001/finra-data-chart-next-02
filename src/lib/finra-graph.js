@@ -882,6 +882,7 @@ export function init(_d3) { d3 = _d3;
                         label: o?.legalName || o?.name || `Person ${pid}`,
                         group: "individual",
                         crd: pid,
+                        bcScope: o?.bcScope || null,
                       });
                     }
                     if (
@@ -1271,6 +1272,7 @@ export function init(_d3) { d3 = _d3;
             label: pname,
             group: "individual",
             crd: pid,
+            bcScope: o?.bcScope || null,
           });
         }
         links.push({
@@ -1431,6 +1433,8 @@ export function init(_d3) { d3 = _d3;
             id: personNodeId,
             label: pname,
             group: "individual",
+            crd: pid,
+            bcScope: o?.bcScope || null,
           });
         }
         if (
@@ -3739,6 +3743,70 @@ function hasRichIndividualDetail(detail) {
   return false;
 }
 
+function normalizeComparableName(name) {
+  return String(name || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+async function mergeIndividualOwnerEvidence(personNode) {
+  if (!personNode || !graphData) return false;
+
+  const personId = personNode.id;
+  const personCrd = String(personNode.crd || "").trim();
+  const personName = normalizeComparableName(personNode.label);
+  const connectedFirmIds = new Set();
+
+  for (const link of layoutLinks || []) {
+    if (link.relationship !== "controls") continue;
+    const sourceId = link.source?.id ?? link.source;
+    const targetId = link.target?.id ?? link.target;
+    if (sourceId === personId) connectedFirmIds.add(targetId);
+    if (targetId === personId) connectedFirmIds.add(sourceId);
+  }
+
+  let merged = false;
+  for (const firmNodeId of connectedFirmIds) {
+    const firmNode =
+      layoutNodes?.find((node) => node.id === firmNodeId) ||
+      graphData.nodes?.find((node) => node.id === firmNodeId);
+    if (!firmNode || firmNode.group !== "firm") continue;
+
+    if (!Array.isArray(firmNode.directOwners) || !firmNode.directOwners.length) {
+      try {
+        await ensureFirmDetail(firmNode);
+      } catch {
+        // Ignore firm detail failures and keep scanning other connected firms.
+      }
+    }
+
+    const owner = (firmNode.directOwners || []).find((entry) => {
+      const ownerCrd = String(
+        entry?.crdNumber || entry?.crd || entry?.personId || "",
+      ).trim();
+      const ownerName = normalizeComparableName(entry?.legalName || entry?.name);
+      return (personCrd && ownerCrd === personCrd) || (personName && ownerName === personName);
+    });
+    if (!owner) continue;
+
+    personNode.crd ||= String(
+      owner?.crdNumber || owner?.crd || owner?.personId || "",
+    ).trim();
+    personNode.bcScope ||= owner?.bcScope || null;
+    if (!personNode.basicInformation) personNode.basicInformation = {};
+    if (!personNode.basicInformation.individualId && personNode.crd) {
+      personNode.basicInformation.individualId = personNode.crd;
+    }
+    if (!personNode.label && (owner?.legalName || owner?.name)) {
+      personNode.label = owner.legalName || owner.name;
+    }
+    merged = true;
+  }
+
+  return merged;
+}
+
 // Fetch individual detail from API and merge all data into the node.
 // Called when an individual node is selected to hydrate missing data.
 async function ensureIndividualDetail(personNode) {
@@ -3747,8 +3815,11 @@ async function ensureIndividualDetail(personNode) {
   // Extract CRD from node ID.
   // Supports "person:6482604", legacy "person_6482604", and bare numeric ids.
   const match = personNode.id.match(/^(?:person[:_])?(\d+)$/);
-  if (!match) return;
-  const crd = match[1];
+  const crd = String(personNode.crd || match?.[1] || "").trim();
+  if (!crd) {
+    await mergeIndividualOwnerEvidence(personNode);
+    return;
+  }
 
   if (personNode._detailLoaded && hasRichIndividualDetail(personNode)) {
     return;
@@ -3815,6 +3886,10 @@ async function ensureIndividualDetail(personNode) {
 
     if (!detail && localDetail) {
       detail = localDetail;
+    }
+
+    if (!detail || detail.found === false) {
+      await mergeIndividualOwnerEvidence(personNode);
     }
 
     // Inline merge of individual detail into the person node (avoid external helper dependency)
@@ -4161,6 +4236,7 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
         label: owner?.legalName || owner?.name || `Person ${personId}`,
         group: "individual",
         crd: personId,
+        bcScope: owner?.bcScope || null,
       });
     }
 
