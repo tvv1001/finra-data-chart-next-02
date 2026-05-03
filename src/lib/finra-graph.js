@@ -4087,7 +4087,30 @@ async function expandFromServer(clickedNode, hops = 1) {
     );
     if (r.ok) {
       const { nodes: newNodes, links: newLinks } = await r.json();
+      const renderedIds = new Set((layoutNodes || []).map((n) => n.id));
+      const hiddenNodes = (newNodes || [])
+        .filter((n) => n.id !== clickedNode.id && !renderedIds.has(n.id))
+        .map((n, index) => {
+          const radius = 110 + (index % 6) * 24;
+          const angle = (index / Math.max(1, newNodes.length - 1 || 1)) * Math.PI * 2;
+          return {
+            ...n,
+            x:
+              clickedNode.x +
+              Math.cos(angle) * radius +
+              (Math.random() - 0.5) * 18,
+            y:
+              clickedNode.y +
+              Math.sin(angle) * radius +
+              (Math.random() - 0.5) * 18,
+          };
+        });
+
       mergeIntoGraphData(newNodes, newLinks);
+
+      if (hiddenNodes.length && typeof appendFetched === "function") {
+        appendFetched(hiddenNodes, newLinks || []);
+      }
     }
   } catch {
     // non-critical — fall back to whatever is already in graphData
