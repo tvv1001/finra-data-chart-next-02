@@ -3885,6 +3885,53 @@ function syncIndividualConnectionsFromDetail(personNode, detail) {
   const personId = personNode.id;
   const newNodes = [];
   const newLinks = [];
+  const inferEmploymentCurrentFlag = (employment, fallbackCurrent = null) => {
+    if (typeof fallbackCurrent === "boolean") return fallbackCurrent;
+    if (typeof employment?._isCurrent === "boolean") return employment._isCurrent;
+
+    const currentText = [
+      employment?.status,
+      employment?.registrationStatus,
+      employment?.employmentStatus,
+      employment?.currentStatus,
+      employment?.registrationEndDate,
+      employment?.endDate,
+      employment?.terminationDate,
+      employment?.toDate,
+      employment?.end,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    if (/present|current|active/.test(currentText)) return true;
+    if (/previous|former|inactive|terminated|ended|ceased/.test(currentText)) {
+      return false;
+    }
+    return false;
+  };
+
+  const findFirmNodeByLabel = (label) => {
+    const normalizedLabel = String(label || "").trim().toLowerCase();
+    if (!normalizedLabel) return null;
+    return (
+      layoutNodes.find(
+        (node) =>
+          node.group === "firm" &&
+          String(node.label || "").trim().toLowerCase() === normalizedLabel,
+      ) || null
+    );
+  };
+
+  const buildSyntheticFirmNodeId = (label) => {
+    const normalized = String(label || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    return normalized ? `firm:name:${normalized}` : null;
+  };
+
   const employments = [
     ...(detail.currentEmployments || []).map((employment) => ({
       ...employment,
@@ -3902,6 +3949,18 @@ function syncIndividualConnectionsFromDetail(personNode, detail) {
       ...employment,
       _isCurrent: false,
     })),
+    ...((detail.employments || []).map((employment) => ({
+      ...employment,
+      _isCurrent: inferEmploymentCurrentFlag(employment),
+    }))),
+    ...((detail.employmentHistory || []).map((employment) => ({
+      ...employment,
+      _isCurrent: inferEmploymentCurrentFlag(employment),
+    }))),
+    ...((detail.brokerDetails?.employmentHistory || []).map((employment) => ({
+      ...employment,
+      _isCurrent: inferEmploymentCurrentFlag(employment),
+    }))),
   ];
 
   for (const employment of employments) {
@@ -3909,21 +3968,38 @@ function syncIndividualConnectionsFromDetail(personNode, detail) {
       employment?.firmId ||
         employment?.firm_id ||
         employment?.firmIdNumber ||
+        employment?.organizationId ||
+        employment?.orgId ||
         "",
     ).trim();
-    if (!firmId) continue;
+    const firmName = String(
+      employment?.firmName ||
+        employment?.firm_name ||
+        employment?.organizationName ||
+        employment?.firm ||
+        employment?.name ||
+        employment?.legalName ||
+        "",
+    ).trim();
+    const existingFirmNode = firmId
+      ? findExistingFirmNode(firmId)
+      : findFirmNodeByLabel(firmName);
+    const syntheticFirmNodeId = !firmId && !existingFirmNode
+      ? buildSyntheticFirmNodeId(firmName)
+      : null;
+    const firmNodeId = existingFirmNode?.id || (firmId ? `firm:${firmId}` : syntheticFirmNodeId);
+    if (!firmNodeId) continue;
 
-    const firmNodeId = `firm:${firmId}`;
     const office = employment?.branchOfficeLocations?.[0];
     if (
-      !layoutNodes.some((node) => node.id === firmNodeId) &&
+      !existingFirmNode &&
       !newNodes.some((node) => node.id === firmNodeId)
     ) {
       newNodes.push({
         id: firmNodeId,
-        label: employment?.firmName || employment?.firm_name || `Firm ${firmId}`,
+        label: firmName || `Firm ${firmId}`,
         group: "firm",
-        firmId,
+        firmId: firmId || undefined,
         bdSecNumber: employment?.bdSECNumber || employment?.firm_bd_sec_number,
         iaSecNumber: employment?.iaSECNumber || employment?.firm_ia_sec_number,
         bcScope: employment?.firmBCScope || null,
@@ -3948,19 +4024,102 @@ function syncIndividualConnectionsFromDetail(personNode, detail) {
         link.relationship === "employed_by"
       );
     });
+    if (!hasLayoutLink && !hasPendingLink) {
+      newLinks.push({
+        source: personId,
+        target: firmNodeId,
+        relationship: "employed_by",
+        isCurrent: employment._isCurrent,
+        startDate:
+          employment?.registrationBeginDate ||
+          employment?.startDate ||
+          employment?.fromDate ||
+          null,
+        endDate: employment._isCurrent
+          ? null
+          : employment?.registrationEndDate ||
+            employment?.endDate ||
+            employment?.toDate ||
+            null,
+        city: employment?.city || office?.city || null,
+        state: employment?.state || office?.state || null,
+      });
+    }
+  }
+
+  const controlRecords = [
+    ...(detail.controlPositions || []),
+    ...(detail.controlPositionList || []),
+    ...(detail.controlRelationships || []),
+    ...(detail.brokerDetails?.controlPositions || []),
+  ];
+
+  for (const controlRecord of controlRecords) {
+    const firmId = String(
+      controlRecord?.firmId ||
+        controlRecord?.firm_id ||
+        controlRecord?.organizationId ||
+        controlRecord?.orgId ||
+        "",
+    ).trim();
+    const firmName = String(
+      controlRecord?.firmName ||
+        controlRecord?.organizationName ||
+        controlRecord?.firm ||
+        controlRecord?.name ||
+        controlRecord?.legalName ||
+        "",
+    ).trim();
+    const existingFirmNode = firmId
+      ? findExistingFirmNode(firmId)
+      : findFirmNodeByLabel(firmName);
+    const syntheticFirmNodeId = !firmId && !existingFirmNode
+      ? buildSyntheticFirmNodeId(firmName)
+      : null;
+    const firmNodeId = existingFirmNode?.id || (firmId ? `firm:${firmId}` : syntheticFirmNodeId);
+    if (!firmNodeId) continue;
+
+    if (
+      !existingFirmNode &&
+      !newNodes.some((node) => node.id === firmNodeId)
+    ) {
+      newNodes.push({
+        id: firmNodeId,
+        label: firmName || `Firm ${firmId}`,
+        group: "firm",
+        firmId: firmId || undefined,
+      });
+    }
+
+    const hasLayoutLink = layoutLinks.some((link) => {
+      const sourceId = link.source?.id ?? link.source;
+      const targetId = link.target?.id ?? link.target;
+      return (
+        sourceId === personId &&
+        targetId === firmNodeId &&
+        link.relationship === "controls"
+      );
+    });
+    const hasPendingLink = newLinks.some((link) => {
+      const sourceId = link.source?.id ?? link.source;
+      const targetId = link.target?.id ?? link.target;
+      return (
+        sourceId === personId &&
+        targetId === firmNodeId &&
+        link.relationship === "controls"
+      );
+    });
     if (hasLayoutLink || hasPendingLink) continue;
 
     newLinks.push({
       source: personId,
       target: firmNodeId,
-      relationship: "employed_by",
-      isCurrent: employment._isCurrent,
-      startDate: employment?.registrationBeginDate || null,
-      endDate: employment._isCurrent
-        ? null
-        : employment?.registrationEndDate || null,
-      city: employment?.city || office?.city || null,
-      state: employment?.state || office?.state || null,
+      relationship: "controls",
+      position:
+        controlRecord?.position ||
+        controlRecord?.title ||
+        controlRecord?.role ||
+        null,
     });
   }
 
