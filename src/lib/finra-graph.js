@@ -3867,6 +3867,7 @@ async function ensureIndividualDetail(personNode) {
           personNode.primaryOffice = { firmId: current.firmId, firmName: current.firmName, address: parts.join(", ") };
         }
       } catch {}
+      syncIndividualConnectionsFromDetail(personNode, detail);
       personNode._detailLoaded = true;
     } catch (e) {
       console.warn("Failed to merge individual detail:", e);
@@ -3876,6 +3877,156 @@ async function ensureIndividualDetail(personNode) {
   } catch (err) {
     console.error(`Error fetching individual detail for ${crd}:`, err);
   }
+}
+
+function syncIndividualConnectionsFromDetail(personNode, detail) {
+  if (!personNode || !detail) return;
+
+  const personId = personNode.id;
+  const newNodes = [];
+  const newLinks = [];
+  const employments = [
+    ...(detail.currentEmployments || []).map((employment) => ({
+      ...employment,
+      _isCurrent: true,
+    })),
+    ...(detail.currentIAEmployments || []).map((employment) => ({
+      ...employment,
+      _isCurrent: true,
+    })),
+    ...(detail.previousEmployments || []).map((employment) => ({
+      ...employment,
+      _isCurrent: false,
+    })),
+    ...(detail.previousIAEmployments || []).map((employment) => ({
+      ...employment,
+      _isCurrent: false,
+    })),
+  ];
+
+  for (const employment of employments) {
+    const firmId = String(
+      employment?.firmId ||
+        employment?.firm_id ||
+        employment?.firmIdNumber ||
+        "",
+    ).trim();
+    if (!firmId) continue;
+
+    const firmNodeId = `firm:${firmId}`;
+    const office = employment?.branchOfficeLocations?.[0];
+    if (
+      !layoutNodes.some((node) => node.id === firmNodeId) &&
+      !newNodes.some((node) => node.id === firmNodeId)
+    ) {
+      newNodes.push({
+        id: firmNodeId,
+        label: employment?.firmName || employment?.firm_name || `Firm ${firmId}`,
+        group: "firm",
+        firmId,
+        bdSecNumber: employment?.bdSECNumber || employment?.firm_bd_sec_number,
+        iaSecNumber: employment?.iaSECNumber || employment?.firm_ia_sec_number,
+        bcScope: employment?.firmBCScope || null,
+      });
+    }
+
+    const hasLayoutLink = layoutLinks.some((link) => {
+      const sourceId = link.source?.id ?? link.source;
+      const targetId = link.target?.id ?? link.target;
+      return (
+        sourceId === personId &&
+        targetId === firmNodeId &&
+        link.relationship === "employed_by"
+      );
+    });
+    const hasPendingLink = newLinks.some((link) => {
+      const sourceId = link.source?.id ?? link.source;
+      const targetId = link.target?.id ?? link.target;
+      return (
+        sourceId === personId &&
+        targetId === firmNodeId &&
+        link.relationship === "employed_by"
+      );
+    });
+    if (hasLayoutLink || hasPendingLink) continue;
+
+    newLinks.push({
+      source: personId,
+      target: firmNodeId,
+      relationship: "employed_by",
+      isCurrent: employment._isCurrent,
+      startDate: employment?.registrationBeginDate || null,
+      endDate: employment._isCurrent
+        ? null
+        : employment?.registrationEndDate || null,
+      city: employment?.city || office?.city || null,
+      state: employment?.state || office?.state || null,
+    });
+  }
+
+  if (!newNodes.length && !newLinks.length) return;
+  appendFetched(newNodes, newLinks);
+  mergeIntoGraphData(newNodes, newLinks);
+}
+
+function syncFirmConnectionsFromDetail(firmNode, detail) {
+  if (!firmNode || !detail) return;
+
+  const firmNodeId = firmNode.id;
+  const newNodes = [];
+  const newLinks = [];
+  const owners = detail.directOwners || detail.owners || [];
+
+  for (const owner of owners) {
+    const personId = String(
+      owner?.crdNumber || owner?.crd || owner?.personId || "",
+    ).trim();
+    if (!personId) continue;
+
+    const personNodeId = `person:${personId}`;
+    if (
+      !layoutNodes.some((node) => node.id === personNodeId) &&
+      !newNodes.some((node) => node.id === personNodeId)
+    ) {
+      newNodes.push({
+        id: personNodeId,
+        label: owner?.legalName || owner?.name || `Person ${personId}`,
+        group: "individual",
+        crd: personId,
+      });
+    }
+
+    const hasLayoutLink = layoutLinks.some((link) => {
+      const sourceId = link.source?.id ?? link.source;
+      const targetId = link.target?.id ?? link.target;
+      return (
+        sourceId === personNodeId &&
+        targetId === firmNodeId &&
+        link.relationship === "controls"
+      );
+    });
+    const hasPendingLink = newLinks.some((link) => {
+      const sourceId = link.source?.id ?? link.source;
+      const targetId = link.target?.id ?? link.target;
+      return (
+        sourceId === personNodeId &&
+        targetId === firmNodeId &&
+        link.relationship === "controls"
+      );
+    });
+    if (hasLayoutLink || hasPendingLink) continue;
+
+    newLinks.push({
+      source: personNodeId,
+      target: firmNodeId,
+      relationship: "controls",
+      position: owner?.position || null,
+    });
+  }
+
+  if (!newNodes.length && !newLinks.length) return;
+  appendFetched(newNodes, newLinks);
+  mergeIntoGraphData(newNodes, newLinks);
 }
 
 // Fetch firm detail from the server (which checks local cache first, then FINRA API).
@@ -4022,6 +4173,7 @@ async function ensureFirmDetail(firmNode) {
       firmNode.brochures = detail.brochures.brochuredetails;
     }
 
+    syncFirmConnectionsFromDetail(firmNode, detail);
     firmNode._detailLoaded = true;
     console.log(`Firm detail loaded for ID ${firmId}: ${firmNode.disclosures?.length || 0} disclosures, ${firmNode.directOwners?.length || 0} owners`);
   } catch (err) {
