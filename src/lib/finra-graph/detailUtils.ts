@@ -4,12 +4,15 @@ function isPlaceholderNodeLabel(label, group) {
 	const text = String(label || '').trim();
 	if (!text) return true;
 	if (/^\d+$/.test(text)) return true;
+	if (/^\d+-\d+$/.test(text)) return true;
 	if (/^(?:crd|sec)#?\s*\d+$/i.test(text)) return true;
+	if (/^(?:crd|sec)\s*#?:?\s*\d+-?\d*$/i.test(text)) return true;
+	if (/^8-\d+$/i.test(text)) return true;
 	if (group === 'individual') {
-		return /^CRD\s+\d+$/i.test(text) || /^Person\s+\d+$/i.test(text);
+		return /^CRD\s+#?:?\s*\d+$/i.test(text) || /^Person\s+\d+$/i.test(text);
 	}
 	if (group === 'firm') {
-		return /^Firm\s+\d+$/i.test(text);
+		return /^Firm\s+\d+$/i.test(text) || /^SEC\s+#?:?\s*8?-?\d+$/i.test(text);
 	}
 	return false;
 }

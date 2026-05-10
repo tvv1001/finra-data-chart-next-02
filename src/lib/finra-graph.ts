@@ -4610,32 +4610,79 @@ function isPlaceholderExpansionLabel(label, group) {
 	const text = String(label || '').trim();
 	if (!text) return true;
 	if (/^\d+$/.test(text)) return true;
+	if (/^\d+-\d+$/.test(text)) return true;
 	if (/^(?:crd|sec)#?\s*\d+$/i.test(text)) return true;
+	if (/^(?:crd|sec)\s*#?:?\s*\d+-?\d*$/i.test(text)) return true;
+	if (/^8-\d+$/i.test(text)) return true;
 	if (group === 'individual') {
-		return /^CRD\s+\d+$/i.test(text) || /^Person\s+\d+$/i.test(text);
+		return /^CRD\s+#?:?\s*\d+$/i.test(text) || /^Person\s+\d+$/i.test(text);
 	}
 	if (group === 'firm') {
-		return /^Firm\s+\d+$/i.test(text);
+		return /^Firm\s+\d+$/i.test(text) || /^SEC\s+#?:?\s*8?-?\d+$/i.test(text);
 	}
 	return false;
+}
+
+function firstMeaningfulText(...values) {
+	for (const value of values) {
+		const text = String(value || '').trim();
+		if (text) return text;
+	}
+	return '';
+}
+
+function getSourceBackedIndividualName(node) {
+	const source = node?._source || {};
+	return normalizePersonLabel(
+		[source.firstName, source.middleName, source.lastName, source.ind_firstname, source.ind_middlename, source.ind_lastname].filter(Boolean).join(' ') ||
+			firstMeaningfulText(source.name, source.legalName, source.personName, source.individualName),
+	);
+}
+
+function getSourceBackedFirmName(node) {
+	const source = node?._source || {};
+	return firstMeaningfulText(
+		source.firm_name,
+		source.firmName,
+		source.organizationName,
+		source.organization_name,
+		source.legalName,
+		source.name,
+		source.companyName,
+		source.displayName,
+	);
 }
 
 function getPreferredNodeLabel(node) {
 	if (!node) return '';
 	const basic = node.basicInformation || {};
 	if (node.group === 'individual') {
-		const personName = normalizePersonLabel([basic.firstName, basic.middleName, basic.lastName].filter(Boolean).join(' ') || basic.name || node.name || node.legalName || '');
+		const personName = normalizePersonLabel(
+			[basic.firstName, basic.middleName, basic.lastName].filter(Boolean).join(' ') ||
+				firstMeaningfulText(basic.name, node.name, node.legalName, node.personName, node.displayName, getSourceBackedIndividualName(node)),
+		);
 		if (personName && (isPlaceholderExpansionLabel(node.label, 'individual') || personName.length >= String(node.label || '').length)) {
 			return personName;
 		}
 	}
 	if (node.group === 'firm') {
-		const firmName = String(basic.firmName || node.firmName || node.name || node.organizationName || node.legalName || '').trim();
+		const firmName = firstMeaningfulText(
+			basic.firmName,
+			basic.name,
+			node.firmName,
+			node.name,
+			node.organizationName,
+			node.organization_name,
+			node.legalName,
+			node.companyName,
+			node.displayName,
+			getSourceBackedFirmName(node),
+		);
 		if (firmName && (isPlaceholderExpansionLabel(node.label, 'firm') || firmName.length >= String(node.label || '').length)) {
 			return firmName;
 		}
 	}
-	return String(node.label || basic.name || node.name || '').trim();
+	return firstMeaningfulText(node.label, basic.name, node.name, node.legalName, node.organizationName, node.displayName);
 }
 
 function clipFirmLabelAtWord(label, maxChars = 44) {
@@ -4652,10 +4699,13 @@ function clipFirmLabelAtWord(label, maxChars = 44) {
 function getRenderedNodeLabel(node) {
 	const preferredLabel = getPreferredNodeLabel(node);
 	if (!preferredLabel) return '';
+	if (isPlaceholderExpansionLabel(preferredLabel, node?.group)) return '';
 	if (node?.group === 'firm') {
-		return clipFirmLabelAtWord(preferredLabel);
+		const clippedLabel = clipFirmLabelAtWord(preferredLabel);
+		return isPlaceholderExpansionLabel(clippedLabel, node?.group) ? '' : clippedLabel;
 	}
-	return formatNodeLabel(preferredLabel);
+	const formattedLabel = formatNodeLabel(preferredLabel);
+	return isPlaceholderExpansionLabel(formattedLabel, node?.group) ? '' : formattedLabel;
 }
 
 function normalizeNodeLabelInPlace(node) {
