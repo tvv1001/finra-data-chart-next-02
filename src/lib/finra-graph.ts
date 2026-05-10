@@ -2761,14 +2761,6 @@ function updateSubsetInfo(shown, total) {
 	const fmt = (n) => (typeof n === 'number' ? n.toLocaleString() : String(n ?? '–'));
 	const cacheTotal = typeof _cacheStats?.people === 'number' || typeof _cacheStats?.firms === 'number' ? (_cacheStats?.people || 0) + (_cacheStats?.firms || 0) : null;
 
-	if (info) {
-		if (typeof cacheTotal === 'number' && cacheTotal > 0) {
-		} else if (typeof shown === 'number' && typeof total === 'number' && shown > total) {
-			// Defensive UI: if the displayed count temporarily exceeds the server-reported
-			// total (race condition), show both values instead of an incorrect "X of Y".
-			info.textContent = `Showing ${fmt(shown)} nodes (server reports ${fmt(total)})`;
-		}
-	}
 	if (sel) sel.classList.remove('hidden');
 }
 
@@ -3387,6 +3379,20 @@ function reapplySelectionState() {
 		.classed('selected', (node) => highlightState.rootIds.has(node.id))
 		.classed('highlighted-hop', (node) => !highlightState.rootIds.has(node.id) && highlightState.hopNodeIds.has(node.id));
 	highlightLinks(highlightState);
+}
+
+function markNodeSelected(node, options: { persist?: boolean } = {}) {
+	if (!node?.id) return;
+	const { persist = true } = options;
+	upsertHighlightedSelection(node.id, getDefaultSelectionHops());
+	selectedId = node.id;
+	reapplySelectionState();
+	if (!persist) return;
+	try {
+		saveSession();
+	} catch (e) {
+		/* ignore */
+	}
 }
 
 // Refreshes colors for all nodes dynamically to ensure nodes and links correctly reflect state
@@ -4677,6 +4683,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 			revealNeighbors(clickedNode, 'all', {
 				linkFilter: isNonGrayExpansionLink,
 				restrictToIds: new Set(hiddenIds),
+				markSelected: true,
 			});
 			if (runId !== nonGrayExpandRunId) return;
 
@@ -5329,10 +5336,11 @@ async function expandFromServer(
 	hops: number | 'all' = getDefaultExpansionHops(),
 	options: {
 		matchExistingOnly?: boolean;
+		markSelected?: boolean;
 	} = {},
 ) {
 	const normalizedHops = normalizeHighlightHops(hops);
-	const { matchExistingOnly = false } = options;
+	const { matchExistingOnly = false, markSelected = false } = options;
 	let expansionPayload = { nodes: [], links: [] };
 	try {
 		expansionPayload = await ensureExpansionDataForNode(clickedNode?.id, normalizedHops, { matchExistingOnly });
@@ -5344,6 +5352,7 @@ async function expandFromServer(
 	revealNeighbors(clickedNode, normalizedHops, {
 		restrictToIds: matchExistingOnly ? expansionNodeIds : null,
 		linkFilter: expansionLinkKeys.size > 0 ? (link) => expansionLinkKeys.has(getLinkKey(link)) : null,
+		markSelected,
 	});
 }
 
@@ -5352,7 +5361,7 @@ async function expandLoadedSeedNodes() {
 	const seedIds = new Set(layoutNodes.filter((n) => n.group === 'individual' || n.group === 'firm').map((n) => n.id));
 	for (const node of layoutNodes) {
 		if (!seedIds.has(node.id)) continue;
-		await expandFromServer(node);
+		await expandFromServer(node, getDefaultExpansionHops(), { markSelected: true });
 	}
 }
 
@@ -5369,7 +5378,7 @@ async function expandFetchedNodes(nodes) {
 		seen.add(node.id);
 		const liveNode = layoutNodes.find((entry) => entry.id === node.id);
 		if (!liveNode) continue;
-		await expandFromServer(liveNode);
+		await expandFromServer(liveNode, getDefaultExpansionHops(), { markSelected: true });
 	}
 }
 
@@ -5381,10 +5390,11 @@ function revealNeighbors(
 	options: {
 		linkFilter?: ((link: any) => boolean) | null;
 		restrictToIds?: Set<string> | null;
+		markSelected?: boolean;
 	} = {},
 ) {
 	if (!graphData || !layoutNodes || !layoutLinks || !nodeGroup || !linkGroup) return;
-	const { linkFilter = null, restrictToIds = null } = options;
+	const { linkFilter = null, restrictToIds = null, markSelected = false } = options;
 
 	const renderedIds = new Set(layoutNodes.map((n) => n.id));
 	const parentNodeId = getRevealParentNodeId(clickedNode, renderedIds);
@@ -5451,7 +5461,21 @@ function revealNeighbors(
 		})
 		.map((l) => ({ ...l }));
 
-	if (newNodes.length === 0 && newLinks.length === 0) return;
+	const liveClickedNode = markSelected && clickedNode?.id ? layoutNodes.find((node) => node.id === clickedNode.id) || clickedNode : null;
+	if (markSelected && liveClickedNode) {
+		markNodeSelected(liveClickedNode, { persist: false });
+	}
+
+	if (newNodes.length === 0 && newLinks.length === 0) {
+		if (markSelected && liveClickedNode) {
+			try {
+				saveSession();
+			} catch (e) {
+				/* ignore */
+			}
+		}
+		return;
+	}
 
 	// Push into live arrays
 	layoutNodes.push(...newNodes);
