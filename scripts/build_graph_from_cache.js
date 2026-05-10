@@ -38,12 +38,75 @@ function uniqueSortedIds(values) {
 	return Array.from(new Set(values.map((value) => String(value || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
 }
 
+function firstMeaningfulText(...values) {
+	for (const value of values) {
+		const text = String(value || '')
+			.replace(/\s+/g, ' ')
+			.trim();
+		if (text) return text;
+	}
+	return '';
+}
+
+function normalizeSeedName(value) {
+	const text = String(value || '')
+		.replace(/\s+/g, ' ')
+		.trim();
+	if (!text) return '';
+	if (
+		/^\d+$/.test(text) ||
+		/^\d+-\d+$/.test(text) ||
+		/^(?:crd|sec)\s*#?:?\s*\d+-?\d*$/i.test(text) ||
+		/^8-\d+$/i.test(text) ||
+		/^person\s+\d+$/i.test(text) ||
+		/^firm\s+\d+$/i.test(text)
+	) {
+		return '';
+	}
+	return text;
+}
+
+function getSeedNodeDisplayName(node) {
+	const basic = node?.basicInformation || {};
+	if (node?.group === 'individual') {
+		const fullName = [basic.firstName, basic.middleName, basic.lastName].filter(Boolean).join(' ');
+		return normalizeSeedName(firstMeaningfulText(fullName, basic.name, node?.name, node?.personName, node?.displayName, node?.legalName, node?.label));
+	}
+	if (node?.group === 'firm') {
+		return normalizeSeedName(
+			firstMeaningfulText(
+				basic.firmName,
+				basic.name,
+				node?.firmName,
+				node?.organizationName,
+				node?.organization_name,
+				node?.companyName,
+				node?.name,
+				node?.displayName,
+				node?.legalName,
+				node?.label,
+			),
+		);
+	}
+	return '';
+}
+
+function getNumericSeedNumber(nodeId, group) {
+	const prefix = group === 'individual' ? 'person:' : 'firm:';
+	if (!String(nodeId || '').startsWith(prefix)) return '';
+	const rawNumber = String(nodeId || '')
+		.slice(prefix.length)
+		.trim();
+	return /^\d+$/.test(rawNumber) ? rawNumber : '';
+}
+
 function buildSeedBankFromGraph(graph) {
 	const individuals = [];
 	const firms = [];
 	const entities = [];
 	const others = [];
 	const allNodeIds = [];
+	const nameByNumber = { individual: {}, firm: {} };
 
 	for (const node of Array.isArray(graph?.nodes) ? graph.nodes : []) {
 		const nodeId = resolveId(node);
@@ -52,9 +115,19 @@ function buildSeedBankFromGraph(graph) {
 		switch (node?.group) {
 			case 'individual':
 				individuals.push(nodeId);
+				{
+					const rawNumber = getNumericSeedNumber(nodeId, 'individual');
+					const displayName = getSeedNodeDisplayName(node);
+					if (rawNumber && displayName) nameByNumber.individual[rawNumber] = displayName;
+				}
 				break;
 			case 'firm':
 				firms.push(nodeId);
+				{
+					const rawNumber = getNumericSeedNumber(nodeId, 'firm');
+					const displayName = getSeedNodeDisplayName(node);
+					if (rawNumber && displayName) nameByNumber.firm[rawNumber] = displayName;
+				}
 				break;
 			case 'entity':
 				entities.push(nodeId);
@@ -77,6 +150,7 @@ function buildSeedBankFromGraph(graph) {
 		entityIds,
 		otherIds,
 		allNodeIds: uniqueAllNodeIds,
+		nameByNumber,
 		updatedAt: new Date().toISOString(),
 		counts: {
 			individuals: individualIds.length,

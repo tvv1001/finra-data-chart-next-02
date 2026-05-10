@@ -12,7 +12,9 @@ async function getProfilesData() {
 export async function GET(request: NextRequest) {
 	const searchParams = new URL(request.url).searchParams;
 	if (searchParams.get('bank') === '1') {
-		return NextResponse.json(await getSeedBankFromStore());
+		const seedBank = await getSeedBankFromStore();
+		const { nameByNumber: _privateNameByNumber, ...publicSeedBank } = seedBank;
+		return NextResponse.json(publicSeedBank);
 	}
 
 	const profileName = searchParams.get('profile');

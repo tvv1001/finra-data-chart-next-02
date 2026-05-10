@@ -18,6 +18,10 @@ type SeedBank = {
 	entityIds: string[];
 	otherIds: string[];
 	allNodeIds: string[];
+	nameByNumber: {
+		individual: Record<string, string>;
+		firm: Record<string, string>;
+	};
 	updatedAt: string;
 	counts: {
 		individuals: number;
@@ -33,6 +37,8 @@ type RecentSeeds = {
 	firmIds: string[];
 	updatedAt: string;
 };
+
+export type SeedLookupKind = 'individual' | 'firm';
 
 let _redis: Redis | null = null;
 function getRedis(): Redis | null {
@@ -113,6 +119,7 @@ function createEmptySeedBank(): SeedBank {
 		entityIds: [],
 		otherIds: [],
 		allNodeIds: [],
+		nameByNumber: { individual: {}, firm: {} },
 		updatedAt: new Date(0).toISOString(),
 		counts: { individuals: 0, firms: 0, entities: 0, others: 0, totalNodes: 0 },
 	};
@@ -120,6 +127,86 @@ function createEmptySeedBank(): SeedBank {
 
 function uniqueSortedIds(values: unknown[]): string[] {
 	return Array.from(new Set(values.map((v) => String(v || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+}
+
+function firstMeaningfulText(...values: unknown[]): string {
+	for (const value of values) {
+		const text = String(value || '')
+			.replace(/\s+/g, ' ')
+			.trim();
+		if (text) return text;
+	}
+	return '';
+}
+
+function normalizeSeedName(value: unknown): string {
+	const text = String(value || '')
+		.replace(/\s+/g, ' ')
+		.trim();
+	if (!text) return '';
+	if (
+		/^\d+$/.test(text) ||
+		/^\d+-\d+$/.test(text) ||
+		/^(?:crd|sec)\s*#?:?\s*\d+-?\d*$/i.test(text) ||
+		/^8-\d+$/i.test(text) ||
+		/^person\s+\d+$/i.test(text) ||
+		/^firm\s+\d+$/i.test(text)
+	) {
+		return '';
+	}
+	return text;
+}
+
+function getSeedNodeDisplayName(node: any): string {
+	const basic = node?.basicInformation || {};
+	if (node?.group === 'individual') {
+		const fullName = [basic.firstName, basic.middleName, basic.lastName].filter(Boolean).join(' ');
+		return normalizeSeedName(firstMeaningfulText(fullName, basic.name, node?.name, node?.personName, node?.displayName, node?.legalName, node?.label));
+	}
+	if (node?.group === 'firm') {
+		return normalizeSeedName(
+			firstMeaningfulText(
+				basic.firmName,
+				basic.name,
+				node?.firmName,
+				node?.organizationName,
+				node?.organization_name,
+				node?.companyName,
+				node?.name,
+				node?.displayName,
+				node?.legalName,
+				node?.label,
+			),
+		);
+	}
+	return '';
+}
+
+function getNumericSeedNumber(nodeId: string, group: 'individual' | 'firm'): string {
+	const prefix = group === 'individual' ? 'person:' : 'firm:';
+	if (!nodeId.startsWith(prefix)) return '';
+	const rawNumber = nodeId.slice(prefix.length).trim();
+	return /^\d+$/.test(rawNumber) ? rawNumber : '';
+}
+
+function normalizeSeedNameMap(raw: unknown): { individual: Record<string, string>; firm: Record<string, string> } {
+	const input = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+	const normalizeEntries = (entries: unknown) => {
+		const output: Record<string, string> = {};
+		if (!entries || typeof entries !== 'object') return output;
+		for (const [key, value] of Object.entries(entries as Record<string, unknown>)) {
+			const normalizedKey = String(key || '').trim();
+			const normalizedValue = normalizeSeedName(value);
+			if (!/^\d+$/.test(normalizedKey) || !normalizedValue) continue;
+			output[normalizedKey] = normalizedValue;
+		}
+		return output;
+	};
+
+	return {
+		individual: normalizeEntries(input.individual),
+		firm: normalizeEntries(input.firm),
+	};
 }
 
 function uniqueRecentIds(values: unknown[]): string[] {
@@ -141,6 +228,7 @@ function buildSeedBankFromGraph(graph: any): SeedBank {
 	const entities: string[] = [];
 	const others: string[] = [];
 	const allNodeIds: string[] = [];
+	const nameByNumber = { individual: {} as Record<string, string>, firm: {} as Record<string, string> };
 
 	for (const node of normalizedGraph.nodes) {
 		const nodeId = resolveId(node);
@@ -149,9 +237,19 @@ function buildSeedBankFromGraph(graph: any): SeedBank {
 		switch (node?.group) {
 			case 'individual':
 				individuals.push(nodeId);
+				{
+					const rawNumber = getNumericSeedNumber(nodeId, 'individual');
+					const displayName = getSeedNodeDisplayName(node);
+					if (rawNumber && displayName) nameByNumber.individual[rawNumber] = displayName;
+				}
 				break;
 			case 'firm':
 				firms.push(nodeId);
+				{
+					const rawNumber = getNumericSeedNumber(nodeId, 'firm');
+					const displayName = getSeedNodeDisplayName(node);
+					if (rawNumber && displayName) nameByNumber.firm[rawNumber] = displayName;
+				}
 				break;
 			case 'entity':
 				entities.push(nodeId);
@@ -174,6 +272,7 @@ function buildSeedBankFromGraph(graph: any): SeedBank {
 		entityIds,
 		otherIds,
 		allNodeIds: uniqueAllNodeIds,
+		nameByNumber,
 		updatedAt: new Date().toISOString(),
 		counts: {
 			individuals: individualIds.length,
@@ -202,6 +301,7 @@ function normalizeSeedBankPayload(raw: unknown): SeedBank {
 		entityIds,
 		otherIds,
 		allNodeIds,
+		nameByNumber: normalizeSeedNameMap(candidate.nameByNumber),
 		updatedAt: typeof candidate.updatedAt === 'string' && candidate.updatedAt ? candidate.updatedAt : new Date().toISOString(),
 		counts: {
 			individuals: individualIds.length,
@@ -323,6 +423,15 @@ export async function getSeedBankFromStore(): Promise<SeedBank> {
 
 	const graph = await getFullGraph();
 	return syncSeedBankFromGraph(graph);
+}
+
+export async function getSeedNameByNumber(kind: SeedLookupKind, id: string): Promise<string | null> {
+	const normalizedId = String(id || '').trim();
+	if (!/^\d+$/.test(normalizedId)) return null;
+	const seedBank = await getSeedBankFromStore();
+	const lookup = seedBank.nameByNumber?.[kind];
+	const value = lookup && typeof lookup === 'object' ? lookup[normalizedId] : '';
+	return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
 export async function getRecentSeedsFromStore(): Promise<RecentSeeds> {
