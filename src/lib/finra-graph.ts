@@ -1978,7 +1978,8 @@ export function init(_d3) {
 	void loadGraph().finally(() => {
 		void fetchCacheStats();
 	});
-	// Keep meta refresh user-driven; do not poll in the background.
+	// Poll lightweight meta/cache endpoints so externally updated Redis totals
+	// appear in the UI without a hard refresh.
 	let _metaPollId = null;
 	const META_POLL_MS = 15000;
 
@@ -2006,8 +2007,15 @@ export function init(_d3) {
 
 	function startMetaPolling() {
 		if (_metaPollId) return;
-		fetchMetaOnce();
+		void fetchMetaOnce();
+		void fetchCacheStats();
+		_metaPollId = setInterval(() => {
+			void fetchMetaOnce();
+			void fetchCacheStats();
+		}, META_POLL_MS);
 	}
+
+	startMetaPolling();
 }
 
 // ── Data loading ────────────────────────────────────────────────────────────
