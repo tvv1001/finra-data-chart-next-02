@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getFullGraph, getSeedBankFromStore, invalidateGraphCache } from '@/lib/graphStore';
+import { getFullGraph, getSeedBankFromStore } from '@/lib/graphStore';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET() {
-	invalidateGraphCache();
 	const [graph, seedBank] = await Promise.all([getFullGraph(), getSeedBankFromStore()]);
 	const nodes: any[] = Array.isArray(graph?.nodes) ? graph.nodes : [];
 	const links: any[] = Array.isArray(graph?.links) ? graph.links : [];

@@ -1114,7 +1114,6 @@ function drawDisclosureIndicator(g, d, r) {
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 export function init(_d3) {
 	d3 = _d3;
-	startCacheStatsPolling();
 	(document.getElementById('btn-log-close') as HTMLButtonElement | null)?.addEventListener('click', closeLog);
 
 	const refreshLayoutBtn = document.getElementById('fg-refresh-layout') as HTMLButtonElement | null;
@@ -1143,6 +1142,7 @@ export function init(_d3) {
 			clearSessionBtn.textContent = 'Clearing…';
 			try {
 				await resetSessionView();
+				void fetchCacheStats();
 				clearSessionBtn.textContent = 'Cleared!';
 			} catch (err) {
 				console.error('clearSession failed:', err);
@@ -1173,6 +1173,7 @@ export function init(_d3) {
 			if (nodeObj) {
 				lastExpandOriginNode = nodeObj;
 				expandFromServer(nodeObj).finally(() => {
+					void fetchCacheStats();
 					reapplySelectionState();
 					try {
 						saveSession();
@@ -1596,6 +1597,7 @@ export function init(_d3) {
 
 				// ── 6. Persist to server so data survives page reload ──────────────
 				persistToServer(batchAllNodes, batchAllLinks);
+				void fetchCacheStats();
 
 				const newCount = batchAllNodes.length;
 				updateFetchStatus(`Added ${newCount} node${newCount !== 1 ? 's' : ''} for "${q}"`);
@@ -1897,6 +1899,7 @@ export function init(_d3) {
 				appendFetched(nodes, links);
 				mergeIntoGraphData(nodes, links);
 				persistToServer(nodes, links);
+				void fetchCacheStats();
 				setLocStatus(`Added ${nodes.length} node${nodes.length !== 1 ? 's' : ''} for ${city}`);
 			} catch (err) {
 				console.error('city search failed', err);
@@ -1955,6 +1958,7 @@ export function init(_d3) {
 				appendFetched(nodes, links);
 				mergeIntoGraphData(nodes, links);
 				persistToServer(nodes, links);
+				void fetchCacheStats();
 				setLocStatus(`Added ${nodes.length} node${nodes.length !== 1 ? 's' : ''} within ${radius} mi of ${zip}`);
 			} catch (err) {
 				console.error('zip search failed', err);
@@ -1968,9 +1972,7 @@ export function init(_d3) {
 
 	renderLegend();
 	loadGraph();
-	// Start background meta polling so UI updates when server-side graph file
-	// is rebuilt externally (e.g. after batch crawls). A manual refresh button
-	// is available in the toolbar with id `fg-refresh`.
+	// Keep meta refresh user-driven; do not poll in the background.
 	let _metaPollId = null;
 	const META_POLL_MS = 15000;
 
@@ -1998,15 +2000,8 @@ export function init(_d3) {
 
 	function startMetaPolling() {
 		if (_metaPollId) return;
-		// Poll graph metadata, which reflects downloaded local data.
 		fetchMetaOnce();
-		_metaPollId = setInterval(() => {
-			fetchMetaOnce();
-		}, META_POLL_MS);
 	}
-
-	// Kick off polling after initial load so UI shows updated counts automatically
-	startMetaPolling();
 }
 
 // ── Data loading ────────────────────────────────────────────────────────────
@@ -2996,8 +2991,6 @@ async function filterGraph(rawQuery) {
 
 // Cache stats are polled and reused for the header and bottom status bar.
 let _cacheStats = null;
-let _cacheStatsPollId = null;
-let _cacheStatsVisibilityHandler = null;
 function fetchCacheStats() {
 	return fetch('/api/finra/cache-stats', { cache: 'no-store' })
 		.then((r) => r.json())
@@ -3020,24 +3013,6 @@ function fetchCacheStats() {
 		.catch(() => {});
 }
 
-function startCacheStatsPolling() {
-	if (_cacheStatsPollId) return;
-	fetchCacheStats();
-	_cacheStatsPollId = setInterval(() => {
-		fetchCacheStats();
-	}, 2000);
-
-	if (!_cacheStatsVisibilityHandler && typeof document !== 'undefined') {
-		_cacheStatsVisibilityHandler = () => {
-			if (document.visibilityState === 'visible') {
-				fetchCacheStats();
-			}
-		};
-		document.addEventListener('visibilitychange', _cacheStatsVisibilityHandler);
-		window.addEventListener('focus', _cacheStatsVisibilityHandler);
-	}
-}
-
 function updateMeta(meta: { totalIndividuals?: number; totalFirms?: number; totalLinks?: number } = {}) {
 	if (!meta && !layoutNodes) return;
 
@@ -3053,17 +3028,15 @@ function updateMeta(meta: { totalIndividuals?: number; totalFirms?: number; tota
 
 	const bottomEl = document.getElementById('fg-bottom-status');
 	if (bottomEl) {
-		let cacheSeeds = _cacheStats?.people ?? '–';
-		let cacheFirms = _cacheStats?.firms ?? '–';
-		let cacheLinks = _cacheStats?.links ?? '–';
+		const parts = [`Displayed: ${fmt(dispSeeds)} People  ${fmt(dispFirms)} Firms  ${fmt(dispLinks)} Links`];
+		if (_cacheStats && (typeof _cacheStats.people === 'number' || typeof _cacheStats.firms === 'number' || typeof _cacheStats.links === 'number')) {
+			const cacheSeeds = typeof _cacheStats.people === 'number' ? Math.max(_cacheStats.people, dispSeeds) : '–';
+			const cacheFirms = typeof _cacheStats.firms === 'number' ? Math.max(_cacheStats.firms, dispFirms) : '–';
+			const cacheLinks = typeof _cacheStats.links === 'number' ? Math.max(_cacheStats.links, dispLinks) : '–';
+			parts.push(`redis cache: ${fmt(cacheSeeds)} People ${fmt(cacheFirms)} Firms ${fmt(cacheLinks)} Links`);
+		}
 
-		if (typeof cacheSeeds === 'number') cacheSeeds = Math.max(cacheSeeds, dispSeeds);
-		if (typeof cacheFirms === 'number') cacheFirms = Math.max(cacheFirms, dispFirms);
-		if (typeof cacheLinks === 'number') cacheLinks = Math.max(cacheLinks, dispLinks);
-
-		bottomEl.textContent =
-			`Displayed: ${fmt(dispSeeds)} People  ${fmt(dispFirms)} Firms  ${fmt(dispLinks)} Links` +
-			`  / redis cache: ${fmt(cacheSeeds)} People ${fmt(cacheFirms)} Firms ${fmt(cacheLinks)} Links`;
+		bottomEl.textContent = parts.join('  / ');
 	}
 }
 
