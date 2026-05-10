@@ -726,9 +726,36 @@ async function loadBaselineGraph(profileName) {
 	return graphData;
 }
 
+async function clearPersistedServerGraph() {
+	const url = makeApiUrl('/api/finra/graph-reset');
+	url.searchParams.set('_ts', String(Date.now()));
+	const response = await fetch(url.toString(), {
+		method: 'POST',
+		cache: 'no-store',
+		headers: {
+			'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+		},
+	});
+	if (!response.ok) {
+		throw new Error(`HTTP ${response.status}`);
+	}
+}
+
 async function resetSessionView() {
+	let clearPersistedGraphError = null;
+	try {
+		await clearPersistedServerGraph();
+	} catch (error) {
+		clearPersistedGraphError = error;
+	}
+
 	clearSession();
 	clearGraphData();
+	void fetchCacheStats();
+
+	if (clearPersistedGraphError) {
+		throw clearPersistedGraphError;
+	}
 }
 
 // Normalize saved zoom transform from either object form or SVG transform string.

@@ -404,6 +404,27 @@ export async function saveGraph(data: any) {
 	invalidateGraphCache();
 }
 
+export async function clearGraphStore({ clearRecentSeeds = true }: { clearRecentSeeds?: boolean } = {}) {
+	const emptyGraph = {
+		...EMPTY_GRAPH,
+		meta: {
+			generated: new Date().toISOString(),
+			sourceLabel: '(session reset)',
+			totalIndividuals: 0,
+			totalFirms: 0,
+			totalEntities: 0,
+			totalNodes: 0,
+			totalLinks: 0,
+		},
+	};
+
+	await saveGraph(emptyGraph);
+
+	if (clearRecentSeeds) {
+		await saveRecentSeedsToStore(createEmptyRecentSeeds());
+	}
+}
+
 export function invalidateGraphCache() {
 	_graphCache = null;
 	_graphCacheAt = 0;
