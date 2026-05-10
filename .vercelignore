@@ -1,0 +1,13 @@
+node_modules/
+.next/
+coverage/
+dist/
+build/
+.DS_Store
+Thumbs.db
+.env*
+*.log
+.vercel/
+data/external/
+data/national/adviserinfo.sec.gov/
+data/national/brokercheck.finra.org/

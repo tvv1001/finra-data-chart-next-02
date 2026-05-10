@@ -1,0 +1,25 @@
+{
+  "_comment": "Custom search profiles. Load a profile by appending ?profile=<name> to the app URL.",
+  "_format": {
+    "name": "URL-safe identifier used in ?profile=<name>",
+    "description": "Human-readable label shown in the UI",
+    "seeds": "Name strings — searched on both FINRA BrokerCheck and SEC AdviserInfo",
+    "individuals": "CRD numbers (integers) — fetched directly from BrokerCheck individual detail",
+    "firms": "Firm CRD numbers (integers) — fetched directly from BrokerCheck firm detail",
+    "enabled": "Boolean — when true, load seeds from the local graph file only (no outbound FINRA/SEC API calls)"
+  },
+  "profiles": [
+    {
+      "name": "custom",
+      "description": "My custom search list",
+      "enabled": false,
+      "seeds": [],
+      "firms": [
+
+      ],
+      "individuals": [
+
+      ]
+    }
+  ]
+}

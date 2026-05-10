@@ -1,0 +1,39 @@
+# Node
+node_modules/
+.env*
+*.log
+dist/
+build/
+.next/
+coverage/
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# VSCode
+.vscode/
+
+# Misc
+*.local
+*.cache
+*.swp
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Test/coverage
+coverage/
+.nyc_output/
+
+# Production
+out/
+.next/cache/*
+data/national/*
+data/external/*
+.vercel

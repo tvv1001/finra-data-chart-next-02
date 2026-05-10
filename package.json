@@ -1,0 +1,38 @@
+{
+	"name": "finra-data-chart-next",
+	"version": "0.1.0",
+	"private": true,
+	"scripts": {
+		"dev": "next dev",
+		"dev:clean": "rm -rf .next && next dev",
+		"prebuild": "node scripts/build_graph_from_cache.js --employment-scope all --no-redis && node scripts/build_primed_cache_bundle.js",
+		"build": "next build",
+		"start": "next start",
+		"lint": "next lint",
+		"build:graph": "node scripts/build_graph_from_cache.js --employment-scope all",
+		"prime:all": "node scripts/download_all_api_data.js"
+	},
+	"dependencies": {
+		"@upstash/redis": "^1.37.0",
+		"axios": "^1.7.2",
+		"bottleneck": "^2.19.5",
+		"chokidar": "^5.0.0",
+		"d3": "^7.9.0",
+		"d3-force": "^3.0.0",
+		"minimist": "^1.2.8",
+		"next": "^15.1.0",
+		"react": "^19.0.0",
+		"react-dom": "^19.0.0",
+		"winston": "^3.13.0"
+	},
+	"devDependencies": {
+		"@types/d3": "^7.4.3",
+		"@types/d3-force": "^3.0.10",
+		"@types/node": "^20.19.0",
+		"@types/react": "^19.0.0",
+		"@types/react-dom": "^19.0.0",
+		"eslint": "^9.0.0",
+		"eslint-config-next": "^15.1.0",
+		"typescript": "^5.7.0"
+	}
+}
