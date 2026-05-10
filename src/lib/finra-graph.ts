@@ -137,6 +137,7 @@ const SESSION_STORAGE_SOFT_LIMIT_BYTES = 4 * 1024 * 1024; // stay comfortably be
 const SESSION_FULL_LAYOUT_NODE_LIMIT = 1200; // above this, store only compact positioning data
 const NON_GRAY_HOP_ANIMATION_MS = 420;
 const NON_GRAY_HOP_DELAY_MS = 520;
+const NON_GRAY_DETAIL_BATCH_SIZE = 6;
 
 function getDefaultSelectionHops(): number {
 	const normalized = normalizeHighlightHops(DEFAULT_SELECTION_HOPS);
@@ -4594,6 +4595,51 @@ async function fetchExpansionDataForNodeIds(nodeIds: string[] = [], hops: number
 	return { nodes: mergedNodes, links: mergedLinks };
 }
 
+async function hydrateExpansionFrontierNodes(nodeIds: string[] = []) {
+	const uniqueIds = Array.from(new Set(nodeIds.filter(Boolean)));
+	if (!uniqueIds.length) return [];
+
+	const hydratedIds = new Set<string>();
+	for (let index = 0; index < uniqueIds.length; index += NON_GRAY_DETAIL_BATCH_SIZE) {
+		const chunk = uniqueIds.slice(index, index + NON_GRAY_DETAIL_BATCH_SIZE);
+		const results = await Promise.allSettled(
+			chunk.map(async (nodeId) => {
+				const liveNode = layoutNodes?.find((node) => node.id === nodeId) || graphData?.nodes?.find((node) => node.id === nodeId);
+				if (!liveNode) return null;
+				if (liveNode.group === 'individual') {
+					await ensureIndividualDetail(liveNode);
+				} else if (liveNode.group === 'firm') {
+					await ensureFirmDetail(liveNode);
+				} else {
+					return null;
+				}
+				normalizeNodeLabelInPlace(liveNode);
+				return liveNode.id;
+			}),
+		);
+
+		results.forEach((result) => {
+			if (result.status !== 'fulfilled' || !result.value) return;
+			hydratedIds.add(result.value);
+		});
+	}
+
+	const impactedIds = Array.from(hydratedIds);
+	if (impactedIds.length) {
+		rerenderGraphNodesByIds(impactedIds);
+		refreshGraphColors();
+		reapplySelectionState();
+		if (selectedId && impactedIds.includes(selectedId)) {
+			const selectedNode = layoutNodes?.find((node) => node.id === selectedId) || graphData?.nodes?.find((node) => node.id === selectedId);
+			if (selectedNode) {
+				renderSidebar(selectedNode);
+			}
+		}
+	}
+
+	return impactedIds;
+}
+
 async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = getDefaultExpansionHops()) {
 	if (!clickedNode?.id || !graphData) return;
 
@@ -4607,6 +4653,8 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 
 	while (frontierIds.length && waveCount < maxWaves) {
 		waveCount += 1;
+		await hydrateExpansionFrontierNodes(frontierIds);
+		if (runId !== nonGrayExpandRunId) return;
 		await fetchExpansionDataForNodeIds(frontierIds, 1);
 		if (runId !== nonGrayExpandRunId) return;
 
