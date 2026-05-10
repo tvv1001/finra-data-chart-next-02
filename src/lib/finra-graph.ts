@@ -360,7 +360,7 @@ function armNodePulseStopOnInteraction() {
 		stopNodePulseLoop();
 	};
 	const listenerOptions = { capture: true, passive: true } as const;
-	const events: Array<keyof WindowEventMap> = ['click'];
+	const events: Array<keyof WindowEventMap> = ['click', 'pointerdown', 'wheel', 'keydown'];
 	events.forEach((eventName) => {
 		window.addEventListener(eventName, stopOnInteraction, listenerOptions);
 	});
@@ -1164,39 +1164,21 @@ export function init(_d3) {
 		});
 	}
 
-	const expandBtn = document.getElementById('fg-expand-btn') as HTMLButtonElement | null;
-	if (expandBtn) {
-		expandBtn.addEventListener('click', () => {
-			const sideEl = document.getElementById('fg-sidebar');
-			const sid = sideEl?.dataset?.displayedId || selectedId;
-			if (!sid) return;
-			const nodeObj = (Array.isArray(layoutNodes) && layoutNodes.find((n) => n.id === sid)) || null;
-			if (nodeObj) {
-				lastExpandOriginNode = nodeObj;
-				expandFromServer(nodeObj).finally(() => {
-					void fetchCacheStats();
-					reapplySelectionState();
-					try {
-						saveSession();
-					} catch (e) {
-						/* ignore */
-					}
-				});
-			}
-		});
-	}
-
 	const focusSidebarBtn = document.getElementById('fg-focus-btn') as HTMLButtonElement | null;
 	if (focusSidebarBtn) {
 		focusSidebarBtn.addEventListener('click', () => {
 			const sideEl = document.getElementById('fg-sidebar');
 			const sid = sideEl?.dataset?.displayedId || selectedId;
 			if (!sid) return;
+			const focusDuration = 600;
 			const nodeObj = (Array.isArray(layoutNodes) && layoutNodes.find((n) => n.id === sid)) || null;
 			if (nodeObj && typeof selectNode === 'function') {
 				selectNode(nodeObj);
 			}
-			focusNodeById(sid);
+			focusNodeById(sid, { duration: focusDuration, pulse: false });
+			startNodePulseLoop(sid, {
+				startDelayMs: Math.max(180, Math.min(focusDuration, 320)),
+			});
 			void fetchCacheStats();
 		});
 	}
@@ -3044,7 +3026,7 @@ function updateMeta(meta: { totalIndividuals?: number; totalFirms?: number; tota
 			const cacheSeeds = typeof _cacheStats.people === 'number' ? Math.max(_cacheStats.people, dispSeeds) : '–';
 			const cacheFirms = typeof _cacheStats.firms === 'number' ? Math.max(_cacheStats.firms, dispFirms) : '–';
 			const cacheLinks = typeof _cacheStats.links === 'number' ? Math.max(_cacheStats.links, dispLinks) : '–';
-			parts.push(`redis cache: ${fmt(cacheSeeds)} People ${fmt(cacheFirms)} Firms ${fmt(cacheLinks)} Links`);
+			// parts.push(`redis cache: ${fmt(cacheSeeds)} People ${fmt(cacheFirms)} Firms ${fmt(cacheLinks)} Links`);
 		}
 
 		bottomEl.textContent = parts.join('  / ');

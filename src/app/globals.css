@@ -522,7 +522,7 @@ body {
 .fg-fetch {
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	gap: 8px;
 	position: relative;
 }
 
@@ -543,13 +543,13 @@ body {
 .fg-search-input,
 .fg-fetch-input {
 	font: 13px var(--sans);
-	padding: 6px 10px;
-	height: 32px;
-	outline: 1px solid rgba(255, 255, 255, 0.1);
-	border-radius: 7px;
-	background: rgba(255, 255, 255, 0.06);
-	color: #f1f5f9;
-	border: none;
+	padding: 7px 10px;
+	height: 34px;
+	outline: none;
+	border-radius: 6px;
+	background: #ffffff;
+	color: var(--text-h);
+	border: 1px solid rgba(15, 23, 42, 0.18);
 	transition:
 		border-color 0.15s,
 		background 0.15s,
@@ -563,18 +563,16 @@ body {
 	width: 260px;
 	flex: none;
 	min-width: 0;
-	outline: 1px solid #333;
-	color: var(--text-h);
 }
 .fg-search-input:focus,
 .fg-fetch-input:focus {
-	border-color: rgba(99, 150, 255, 0.55);
-	background: rgba(255, 255, 255, 0.1);
-	box-shadow: 0 0 0 2px rgba(99, 150, 255, 0.18);
+	border-color: rgba(37, 99, 235, 0.45);
+	background: #ffffff;
+	box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 .fg-search-input::placeholder,
 .fg-fetch-input::placeholder {
-	color: var(--text);
+	color: #64748b;
 }
 /* hide browser default search cancel button */
 .fg-search-input::-webkit-search-cancel-button,
@@ -626,11 +624,14 @@ body {
 /* Primary fetch action button */
 .fg-action-btn {
 	font: 600 12px/1 var(--sans);
-	padding: 7px 14px;
+	padding: 7px 12px;
 	border-radius: 6px;
-	border: 1px solid var(--accent-s);
-	background: var(--accent);
-	color: #fff;
+	border: 1px solid rgba(37, 99, 235, 0.7);
+	background: #ffffff;
+	color: var(--accent-s);
+	min-height: 34px;
+	box-shadow: none;
+	letter-spacing: 0.01em;
 	cursor: pointer;
 	white-space: nowrap;
 	transition:
@@ -638,11 +639,11 @@ body {
 		transform 0.1s,
 		box-shadow 0.15s;
 	flex-shrink: 0;
-	box-shadow: 0 6px 14px rgba(37, 99, 235, 0.18);
 }
 .fg-action-btn:hover {
-	background: var(--accent-s);
+	background: rgba(37, 99, 235, 0.06);
 	transform: translateY(-1px);
+	box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
 }
 .fg-action-btn:active {
 	transform: translateY(0);
@@ -770,24 +771,29 @@ body {
 
 .fg-sidebar-actions {
 	display: flex;
-	gap: 8px;
-	padding: 12px 12px 0;
+	gap: 4px;
+	padding: 8px 10px 0;
 	position: sticky;
 	top: 0;
 	z-index: 3;
 	background: var(--surface);
+	justify-content: flex-end;
 }
 
 .fg-sidebar-action-btn {
-	flex: 1 1 50%;
-	width: 50%;
+	flex: 0 0 auto;
+	width: auto;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	padding: 10px 12px;
-	border-radius: 10px;
+	gap: 6px;
+	min-height: 28px;
+	padding: 5px 10px;
+	border-radius: 6px;
 	border: 1px solid var(--border-strong);
-	font: 600 12px/1 var(--sans);
+	font: 600 11px/1 var(--sans);
+	letter-spacing: 0.01em;
+	text-transform: none;
 	cursor: pointer;
 	transition:
 		background 0.15s ease,
@@ -795,28 +801,57 @@ body {
 		color 0.15s ease,
 		box-shadow 0.15s ease;
 	white-space: nowrap;
+	box-shadow: none;
 }
 
 .fg-sidebar-action-btn--secondary {
-	background: #eef2ff;
-	border-color: #c7d2fe;
+	background: #ffffff;
+	border-color: rgba(37, 99, 235, 0.22);
 	color: #1d4ed8;
 }
 
 .fg-sidebar-action-btn--secondary:hover:not(:disabled) {
-	background: #dbeafe;
-	border-color: #93c5fd;
+	background: rgba(37, 99, 235, 0.05);
+	border-color: rgba(37, 99, 235, 0.32);
 }
 
 .fg-sidebar-action-btn--primary {
-	background: var(--surface);
-	border-color: var(--border-strong);
+	background: #ffffff;
+	border-color: rgba(15, 23, 42, 0.16);
 	color: var(--text-h);
 }
 
 .fg-sidebar-action-btn--primary:hover:not(:disabled) {
-	background: var(--bg);
-	box-shadow: var(--shadow);
+	background: rgba(15, 23, 42, 0.04);
+	border-color: rgba(15, 23, 42, 0.22);
+	color: var(--text-h);
+}
+
+.fg-sidebar-action-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 12px;
+	height: 12px;
+	font-size: 12px;
+	line-height: 1;
+	flex-shrink: 0;
+}
+
+.fg-sidebar-action-icon svg {
+	display: block;
+	width: 12px;
+	height: 12px;
+	overflow: visible;
+}
+
+.fg-sidebar-action-icon--trailing {
+	margin-left: 2px;
+}
+
+.fg-sidebar-action-label {
+	display: inline-block;
+	line-height: 1;
 }
 
 .fg-sidebar-action-btn:disabled {

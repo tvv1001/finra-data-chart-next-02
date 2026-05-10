@@ -128,22 +128,61 @@ export default function FinraGraph() {
 					className='fg-sidebar hidden'>
 					<div className='fg-sidebar-actions'>
 						<button
-							id='fg-expand-btn'
-							className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary'
-							title='Load related connections'>
-							Expand
-						</button>
-						<button
 							id='fg-focus-btn'
 							className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary'
 							title='Focus on this node'>
-							Center
+							<span className='fg-sidebar-action-label'>Center</span>
+							<span
+								className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
+								aria-hidden='true'>
+								<svg
+									viewBox='0 0 16 16'
+									fill='none'
+									focusable='false'>
+									<circle
+										cx='8'
+										cy='8'
+										r='2.75'
+										stroke='currentColor'
+										strokeWidth='1.4'
+									/>
+									<path
+										d='M8 1.75V4'
+										stroke='currentColor'
+										strokeWidth='1.4'
+										strokeLinecap='round'
+									/>
+									<path
+										d='M8 12V14.25'
+										stroke='currentColor'
+										strokeWidth='1.4'
+										strokeLinecap='round'
+									/>
+									<path
+										d='M1.75 8H4'
+										stroke='currentColor'
+										strokeWidth='1.4'
+										strokeLinecap='round'
+									/>
+									<path
+										d='M12 8H14.25'
+										stroke='currentColor'
+										strokeWidth='1.4'
+										strokeLinecap='round'
+									/>
+								</svg>
+							</span>
 						</button>
 						<button
 							className='fg-sidebar-action-btn fg-sidebar-action-btn--primary'
 							type='button'
 							onClick={hideSidebar}>
-							Close
+							<span className='fg-sidebar-action-label'>Close</span>
+							<span
+								className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
+								aria-hidden='true'>
+								✕
+							</span>
 						</button>
 					</div>
 					<div
