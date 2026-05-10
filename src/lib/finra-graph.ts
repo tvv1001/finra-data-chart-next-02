@@ -47,6 +47,7 @@ import {
 	row as rowImpl,
 	truncate as truncateImpl,
 } from './finra-graph/formatters';
+import { DEFAULT_EXPANSION_HOPS, DEFAULT_SELECTION_HOPS } from './finra-graph-defaults';
 
 // API base. When VITE_API_URL is not set, use relative paths so the dev
 // server proxy (`/api`) is used and we don't hardcode a backend port.
@@ -126,6 +127,7 @@ let appendFetched = null;
 // The node that most recently triggered an expand/reveal action.
 // Used to bias placement of newly injected nodes near their parent.
 let lastExpandOriginNode = null;
+let nonGrayExpandRunId = 0;
 
 const INITIAL_SEED_COUNT = 0; // random seed nodes on first load (default select)
 const FILTER_MATCH_LIMIT = 100; // maximum number of direct matches to show when filtering
@@ -133,8 +135,8 @@ const LS_SESSION_KEY = 'finra_session'; // storage key for persisted session nod
 const SESSION_TTL_MS = 365 * 24 * 60 * 60 * 1000; // 1 year
 const SESSION_STORAGE_SOFT_LIMIT_BYTES = 4 * 1024 * 1024; // stay comfortably below common browser quotas
 const SESSION_FULL_LAYOUT_NODE_LIMIT = 1200; // above this, store only compact positioning data
-const DEFAULT_SELECTION_HOPS = 1;
-const DEFAULT_EXPANSION_HOPS = 2;
+const NON_GRAY_HOP_ANIMATION_MS = 420;
+const NON_GRAY_HOP_DELAY_MS = 520;
 
 function getDefaultSelectionHops(): number {
 	const normalized = normalizeHighlightHops(DEFAULT_SELECTION_HOPS);
@@ -386,6 +388,10 @@ function normalizeHighlightHops(hops) {
 	return Math.floor(parsed);
 }
 
+function delay(ms: number) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function upsertHighlightedSelection(id, hops = 1) {
 	if (!id) return;
 	const normalizedHops = normalizeHighlightHops(hops);
@@ -397,6 +403,32 @@ function getLinkKey(link) {
 	const sourceId = link.source?.id ?? link.source;
 	const targetId = link.target?.id ?? link.target;
 	return `${sourceId}|${targetId}|${link.relationship || ''}`;
+}
+
+function isNonGrayExpansionLink(link) {
+	if (!link) return false;
+	if (link.relationship === 'controls') return true;
+	if (link.relationship === 'previous_employed_by') return false;
+	if (link.relationship === 'employed_by') {
+		if (link.isCurrent === false) return false;
+		return isCurrentRegistration(link);
+	}
+	return false;
+}
+
+function buildLinkAdjacency(links, linkFilter: ((link: any) => boolean) | null = null) {
+	const adjacency = new Map<string, Array<{ nodeId: string; link: any }>>();
+	(links || []).forEach((link) => {
+		if (typeof linkFilter === 'function' && !linkFilter(link)) return;
+		const sourceId = link.source?.id ?? link.source;
+		const targetId = link.target?.id ?? link.target;
+		if (!sourceId || !targetId) return;
+		if (!adjacency.has(sourceId)) adjacency.set(sourceId, []);
+		if (!adjacency.has(targetId)) adjacency.set(targetId, []);
+		adjacency.get(sourceId).push({ nodeId: targetId, link });
+		adjacency.get(targetId).push({ nodeId: sourceId, link });
+	});
+	return adjacency;
 }
 
 function computeHighlightState() {
@@ -2683,7 +2715,7 @@ async function loadGraph() {
 }
 
 // Build a subgraph from `seedCount` random nodes plus all their N-hop neighbors.
-function subsetGraph(data, seedCount, hops = 3) {
+function subsetGraph(data, seedCount, hops = DEFAULT_EXPANSION_HOPS) {
 	const adj = new Map<string, string[]>();
 	data.links.forEach((l) => {
 		const srcId = l.source?.id ?? l.source;
@@ -3419,41 +3451,6 @@ function renderGraph(_data) {
 	const H = main.clientHeight;
 
 	svg.attr('viewBox', `0 0 ${W} ${H}`);
-
-	// ── Filter to the top 2 non-firm hubs and top firm hub + their direct neighbours ──
-	const _rawDeg = new Map<string, number>(data.nodes.map((n) => [n.id, 0]));
-	data.links.forEach((l) => {
-		const s = l.source?.id ?? l.source;
-		const t = l.target?.id ?? l.target;
-		if (_rawDeg.has(s)) _rawDeg.set(s, _rawDeg.get(s) + 1);
-		if (_rawDeg.has(t)) _rawDeg.set(t, _rawDeg.get(t) + 1);
-	});
-	const _topNonFirms = data.nodes
-		.filter((n) => n.group !== 'firm')
-		.sort((a, b) => (_rawDeg.get(b.id) || 0) - (_rawDeg.get(a.id) || 0))
-		.slice(0, 2);
-	const _topFirm = data.nodes.filter((n) => n.group === 'firm').sort((a, b) => (_rawDeg.get(b.id) || 0) - (_rawDeg.get(a.id) || 0))[0];
-	const _allowedIds = new Set();
-	for (const hub of [..._topNonFirms, _topFirm]) {
-		if (!hub) continue;
-		_allowedIds.add(hub.id);
-		data.links.forEach((l) => {
-			const s = l.source?.id ?? l.source;
-			const t = l.target?.id ?? l.target;
-			if (s === hub.id) _allowedIds.add(t);
-			if (t === hub.id) _allowedIds.add(s);
-		});
-	}
-	const _filteredData = {
-		...data,
-		nodes: data.nodes.filter((n) => _allowedIds.has(n.id)),
-		links: data.links.filter((l) => {
-			const s = l.source?.id ?? l.source;
-			const t = l.target?.id ?? l.target;
-			return _allowedIds.has(s) && _allowedIds.has(t);
-		}),
-	};
-	data = _filteredData;
 
 	// Deep-copy so D3 mutation doesn't corrupt the original
 	const nodes = data.nodes.map((n) => ({ ...n }));
@@ -4597,6 +4594,60 @@ async function fetchExpansionDataForNodeIds(nodeIds: string[] = [], hops: number
 	return { nodes: mergedNodes, links: mergedLinks };
 }
 
+async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = getDefaultExpansionHops()) {
+	if (!clickedNode?.id || !graphData) return;
+
+	const runId = ++nonGrayExpandRunId;
+	lastExpandOriginNode = clickedNode;
+	const normalizedHops = normalizeHighlightHops(hops);
+	const maxWaves = normalizedHops === 'all' ? 100 : Math.max(1, Number(normalizedHops) || 1);
+	const visitedIds = new Set([clickedNode.id]);
+	let frontierIds = [clickedNode.id];
+	let waveCount = 0;
+
+	while (frontierIds.length && waveCount < maxWaves) {
+		waveCount += 1;
+		await fetchExpansionDataForNodeIds(frontierIds, 1);
+		if (runId !== nonGrayExpandRunId) return;
+
+		const adjacency = buildLinkAdjacency(graphData?.links || [], isNonGrayExpansionLink);
+		const nextIds = [];
+		frontierIds.forEach((frontierId) => {
+			(adjacency.get(frontierId) || []).forEach(({ nodeId }) => {
+				if (visitedIds.has(nodeId)) return;
+				visitedIds.add(nodeId);
+				nextIds.push(nodeId);
+			});
+		});
+
+		const uniqueNextIds = Array.from(new Set(nextIds));
+		if (!uniqueNextIds.length) break;
+
+		const renderedIds = new Set((layoutNodes || []).map((node) => node.id));
+		const hiddenIds = uniqueNextIds.filter((nodeId) => !renderedIds.has(nodeId));
+		if (hiddenIds.length) {
+			revealNeighbors(clickedNode, 'all', {
+				linkFilter: isNonGrayExpansionLink,
+				restrictToIds: new Set(hiddenIds),
+			});
+			if (runId !== nonGrayExpandRunId) return;
+
+			spreadNeighbors(clickedNode, new Set(hiddenIds), { duration: NON_GRAY_HOP_ANIMATION_MS });
+			await delay(NON_GRAY_HOP_DELAY_MS);
+			if (runId !== nonGrayExpandRunId) return;
+		}
+
+		frontierIds = uniqueNextIds;
+	}
+
+	reapplySelectionState();
+	try {
+		saveSession();
+	} catch (e) {
+		/* ignore */
+	}
+}
+
 function getExpansionNodeMatchLabel(node) {
 	if (!node) return '';
 	const basic = node.basicInformation || {};
@@ -4905,7 +4956,10 @@ async function ensureExpansionDataForNode(
 async function handleNodeOpen(event, d) {
 	event.stopPropagation();
 	anchorNode(d);
-	selectNode(d);
+	selectNode(d, { skipAutoExpand: true });
+	void expandNodeThroughNonGrayHops(d).catch((err) => {
+		console.error('Progressive non-gray hop expansion failed:', err);
+	});
 	void fetchCacheStats();
 }
 
@@ -4981,10 +5035,8 @@ function selectNode(
 	}
 
 	if (!skipAutoExpand) {
-		// Fetch direct neighbors from the full server graph, merge into graphData,
-		// then reveal. Deeper progressive reveal was removed to keep click handling simple.
 		lastExpandOriginNode = d;
-		expandFromServer(d, getDefaultExpansionHops(), { matchExistingOnly: true }).finally(() => {
+		expandNodeThroughNonGrayHops(d, getDefaultExpansionHops()).finally(() => {
 			reapplySelectionState();
 			try {
 				saveSession();

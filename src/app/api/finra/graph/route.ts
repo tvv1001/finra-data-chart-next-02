@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFullGraph, graphFileExists, getProfilesFromStore } from '@/lib/graphStore';
+import { DEFAULT_EXPANSION_HOPS } from '@/lib/finra-graph-defaults';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 
 async function getProfilesData() {
@@ -77,7 +78,7 @@ export async function GET(request: NextRequest) {
 			adj.get(t)!.push(s);
 		}
 		let frontier = new Set(seedIds);
-		for (let h = 0; h < 3; h++) {
+		for (let h = 0; h < DEFAULT_EXPANSION_HOPS; h++) {
 			const next = new Set<string>();
 			for (const id of frontier) {
 				for (const nid of adj.get(id) || []) {
