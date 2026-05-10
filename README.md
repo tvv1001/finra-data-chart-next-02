@@ -1,267 +1,468 @@
 # FINRA Network Graph
 
-An interactive force-directed graph that visualizes relationships between registered individuals and firms sourced from FINRA BrokerCheck and the SEC's IAPD (Investment Adviser Public Disclosure). Built with Next.js 15, D3 v7, and a local JSON cache that mirrors the upstream APIs.
+Interactive FINRA / SEC relationship graph built with **Next.js 15**, **React 19**, and **D3 v7**.
+
+The app visualizes people, firms, and control relationships using cached FINRA BrokerCheck and SEC AdviserInfo data, then lets you expand the network, inspect merged detail records, and persist a working graph session across reloads.
 
 Live demo: https://finra-data-chart-next-02.vercel.app
 
 ---
 
-## Preview
+## At a glance
+
+- Explore relationships between brokers, advisers, firms, and control entities
+- Merge FINRA BrokerCheck and SEC AdviserInfo detail into one interactive view
+- Grow the graph incrementally from searches, fetched records, and saved profiles
+- Inspect rich sidebar details with sticky timeline/disclosure sections
+- Run locally from cached JSON artifacts or deploy with bundled graph + primed cache data
+
+---
+
+## Preview & demo
 
 ![FINRA Network Graph screenshot](public/graph-screenshot.png)
+
+- **Live app:** https://finra-data-chart-next-02.vercel.app
+- **Best first click:** search a CRD, person name, or firm ID, then open a node and scroll the sidebar detail sections
+
+---
+
+## Why this exists
+
+FINRA and SEC data is rich, but it is usually consumed one record at a time.
+
+This project turns those record-by-record views into a navigable network so you can:
+
+- spot clusters of related firms and people faster
+- inspect ownership and control relationships alongside employment history
+- compare FINRA and SEC detail in one place
+- preserve a working graph session while investigating a specific part of the network
+
+It is especially useful when you want to move from “look up one profile” to “understand the surrounding ecosystem.”
+
+---
+
+## What the app does
+
+- Renders a force-directed graph of:
+  - **Individuals**
+  - **Firms**
+  - **Non-CRD entities** (for Form BD ownership relationships)
+- Combines data from:
+  - **FINRA BrokerCheck**
+  - **SEC AdviserInfo / IAPD**
+- Opens a detail sidebar with:
+  - merged person / firm detail
+  - employment and registration history
+  - disclosures
+  - ownership / control positions
+  - sticky section titles while scrolling through the detail panel
+- Supports incremental graph growth by fetching and appending new nodes into the live layout
+- Persists graph session state in the browser so selections, highlights, and extra fetched nodes survive reloads
+
+---
+
+## Current UI highlights
+
+The current app shell includes:
+
+- **Fetch Nodes** search box for name, CRD, or firm ID lookup
+- **Reflow Layout** to restart the force layout
+- **Clear Highlight** to remove current graph highlighting
+- **Reset Session** to clear the persisted graph/session state
+- A detail sidebar with:
+  - **Center** action to focus the currently displayed node
+  - **Close** action
+  - sticky section headers from **Employment** onward
+- Automatic sidebar restore when a saved session includes a selected node
+- Background click / `Escape` close behavior for the sidebar
 
 ---
 
 ## Quick start
 
+### Install and run locally
+
 ```bash
 pnpm install
-pnpm run dev:clean  # http://localhost:3000 (recommended after stale build/runtime errors)
+pnpm run dev:clean
+```
 
-# or, if you do not need a clean start:
-# pnpm run dev      # http://localhost:3000
+Local app URL:
 
-# Populate the local data cache in iterative identifier-led batches
+- `http://localhost:3000`
+
+`dev:clean` is the safest option when the local `.next` cache gets grumpy.
+
+### Useful local commands
+
+```bash
+# Standard dev server
+pnpm run dev
+
+# Iteratively expand the local FINRA/SEC cache from identifiers already discovered
 pnpm run prime:all
 
-# Rebuild the graph from whatever is already cached on disk
+# Rebuild graph artifacts from cached JSON on disk
 pnpm run build:graph
 
-# Production build (also refreshes deployable graph artifacts from data/national)
+# Production build (also regenerates graph artifacts first)
 pnpm run build
 ```
 
-Environment variables:
+### Production build note
 
-| Variable | Purpose |
-| --- | --- |
-| `NEXT_PUBLIC_API_URL` | Prefix for client-side API calls; leave blank for relative paths |
-| `NEXT_PUBLIC_ENABLE_SERVER_PROFILE_SYNC` | Set to `1` to persist profile selections server-side |
-| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Required in deployment for shared Redis-backed graph/profile/seed persistence and API response caching; local dev falls back to filesystem/in-memory when absent |
-| `CRON_SECRET` | Optional but recommended for protecting the production prime-check route used by Vercel Cron |
-| `FINRA_PRIME_BATCH_LIMIT` / `FINRA_PRIME_CONCURRENCY` | Optional tuning for the bounded production prime-check batch |
+On large graph snapshots, `next build` may need more Node heap during trace collection.
 
-On a fresh deployment with Redis enabled, the app will bootstrap `finra:graph` and `finra:seed-bank` from the bundled `data/national/` artifacts on the first graph read if Redis is still empty. That is generally much faster and more reliable than trying to recrawl tens of thousands of upstream FINRA/SEC records at runtime inside a serverless function.
+This command has been verified to complete successfully in this repo:
 
-The app does **not** run a true always-on crawler in production. On Vercel Hobby, `vercel.json` now schedules a bounded daily prime check via `GET /api/finra/prime-check` once per day. That route warms Redis-backed FINRA/SEC response caches for recently viewed firms and individuals without relying on a permanently running process or unsupported high-frequency cron execution.
+```bash
+env NODE_OPTIONS=--max-old-space-size=8192 pnpm build
+```
 
-As people use the website, detail requests to `/api/finra/individual/[crd]` and `/api/finra/firm/[id]` already fetch live FINRA/SEC data on cache misses and store those responses in Redis via `cachedFetch`. The app now also remembers recently viewed individual and firm IDs so the daily cron can revisit them and keep those hot paths warm.
+---
 
-For best performance, use the identifier-led local priming flow (`pnpm run prime:all`) before deployment, ship the refreshed `data/national/` artifacts with the deployment, and let the deployed app warm Redis from those bundled files.
+## Environment variables
 
-`pnpm run build` now refreshes `data/national/finra-graph.json` and `data/national/finra-seed-bank.json` before `next build`, and `.vercelignore` intentionally keeps `data/national/` in the deployment bundle while excluding the duplicate `data/external/` mirror to avoid shipping twice the same upstream payloads.
+| Variable                                              | Purpose                                                                                         |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_URL`                                 | Optional API base URL for client-side requests; leave unset for relative `/api/...` calls       |
+| `NEXT_PUBLIC_ENABLE_SERVER_PROFILE_SYNC`              | When set to `1`, fetched node selections can be synced into the server-side `custom` profile    |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Enables shared Redis-backed graph, seed bank, recent-seed tracking, and response caching        |
+| `CRON_SECRET`                                         | Optional bearer token required by `/api/finra/prime-check` when you want to protect cron access |
+| `FINRA_PRIME_BATCH_LIMIT`                             | Optional limit override for the prime-check warming batch                                       |
+| `FINRA_PRIME_CONCURRENCY`                             | Optional concurrency override for the prime-check warming batch                                 |
 
-To stay under Vercel upload limits, the build now also creates merged primed-cache bundle files under `data/national/primed-cache/` and excludes the loose raw detail directories from deployment. On a Redis cache miss, `cachedFetch` first checks those bundled primed-cache files and, if a match exists, merges that payload into Redis before ever calling the live upstream API.
+If Redis is **not** configured, the app falls back to:
+
+- filesystem-backed graph / seed storage
+- in-memory request caching for upstream API responses
 
 ---
 
 ## Data sources
 
-| Source                                              | What is fetched                                                                           |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `api.brokercheck.finra.org/search/individual/<CRD>` | Broker-check individual detail (employments, disclosures, exams, SRO/state registrations) |
-| `api.brokercheck.finra.org/search/firm/<CRD>`       | Broker-dealer Form BD data (owners, disclosures, states, addresses)                       |
-| `api.adviserinfo.sec.gov/search/individual/<CRD>`   | IA (investment adviser) individual detail                                                 |
-| `api.adviserinfo.sec.gov/search/firm/<CRD>`         | IA firm Form ADV data                                                                     |
+The application uses detail-first upstream endpoints for canonical person and firm records:
 
-Responses are cached under `data/national/` with filenames that match the URL pattern, e.g. `api.brokercheck.finra.org_search_individual_4240769.json`. The cache is refreshed by the scraper scripts; the Next.js API routes serve from the cache first and fall back to the live APIs on a miss.
+| Source                                                          | Purpose                 |
+| --------------------------------------------------------------- | ----------------------- |
+| `https://api.brokercheck.finra.org/search/individual/<CRD>?...` | FINRA individual detail |
+| `https://api.brokercheck.finra.org/search/firm/<CRD>?...`       | FINRA firm detail       |
+| `https://api.adviserinfo.sec.gov/search/individual/<CRD>?...`   | SEC individual detail   |
+| `https://api.adviserinfo.sec.gov/search/firm/<CRD>?wt=json`     | SEC firm detail         |
 
-Seed CRDs are stored in `data/seed-profiles.json` and drive which individuals and firms are loaded at startup.
-
----
-
-## Node types
-
-Each node in the graph is one of three types, rendered with a distinct shape and colour.
-
-### Individual — blue circle
-
-Represents a registered person (broker, investment adviser representative, or owner). Node radius scales with the square root of its connection count so highly-connected people are visually prominent.
-
-**Red fill** — if the person is the _source_ of at least one `controls` link (i.e. a direct owner of a firm listed on Form BD), their fill changes from blue to red. This happens live after the graph loads, so the colour may change as detail data is fetched.
-
-**Dim / half-opacity** — a _stub_ individual has been found in a Form BD owner list but has not yet had their full CRD record fetched. The node is rendered at 50% opacity. Once selected, the full record is fetched and the node fills in.
-
-### Firm — amber square
-
-Represents a registered broker-dealer or investment adviser firm. Square size scales with degree (number of connections).
-
-The **border stroke** colour signals the dominant link type entering that firm:
-
-| Border colour     | Meaning                                        |
-| ----------------- | ---------------------------------------------- |
-| Red (`#ef4444`)   | More `controls` links than `employed_by` links |
-| Slate (`#64748b`) | More `employed_by` links than `controls` links |
-| White             | No links, or equal counts of both              |
-
-When a firm has **both** `controls` and `employed_by` links, a second dashed outer rect is drawn in the minority colour to show the mixed relationship.
-
-Stub firms (dim, 45% opacity) are firm nodes synthesised from a person's employment history but not yet enriched with Form BD data.
-
-### Entity — yellow diamond
-
-Represents a non-individual owner listed on Form BD — typically a holding company, LLC, or trust that controls a firm but does not itself have a FINRA CRD number. Drawn as a rotated square (diamond).
+The app also proxies FINRA / SEC search-style endpoints for user-driven lookup flows.
 
 ---
 
-## Edge (link) types
+## Runtime data model
 
-All edges are directed and carry an arrowhead pointing toward the target.
+### Main graph artifacts
 
-### `employed_by` — person → firm
+The build/runtime pipeline centers on these generated files:
 
-Drawn for every entry in a person's `currentEmployments`, `currentIAEmployments`, `previousEmployments`, or `previousIAEmployments` arrays from BrokerCheck / IAPD.
+- `data/national/finra-graph.json` — graph nodes, links, and meta
+- `data/national/finra-seed-bank.json` — deduplicated IDs/counts used for global stats and lookup support
+- `data/national/primed-cache/*.json` — bundled FINRA / SEC response caches for deployment-time warm starts
 
-**Colour rules:**
+### Seed inputs
 
-| State                         | Colour                                   |
-| ----------------------------- | ---------------------------------------- |
-| Previous registration         | Dark slate `#2f343a`, 65% opacity, 1.1px |
-| Current / active registration | Red `#ff0c0c`, 65% opacity, 1.1px        |
-
-**How "current" is determined** (evaluated by `isCurrentRegistration`):
-
-1. If the link carries an explicit `isCurrent` boolean, that value is used directly.
-2. Otherwise, the source person node's `currentEmployments` and `currentIAEmployments` arrays are checked. If the target firm's ID appears there, the link is current.
-3. If the target firm appears only in `previousEmployments` / `previousIAEmployments`, the link is previous.
-4. If the firm is absent from both lists, the link falls back to `endDate`: a `null` or empty end date is treated as current.
-
-### `controls` — person or entity → firm
-
-Created from the `directOwners` array on a firm's Form BD. Signals that the source person or entity has a formal ownership or control position over the target firm.
-
-Always drawn in red (`#ff0c0c`), regardless of current/previous status, because Form BD owners are inherently present-tense declarations unless the firm is inactive.
+- `data/seed-profiles.json` stores named profiles and curated IDs/seeds
+- `/api/finra/seeds` can return either base seeds or seed-bank data (`?bank=1`)
+- the app also tracks **recently viewed individual and firm IDs** so production prime-check runs can warm likely hot paths
 
 ---
 
-## Disclosure indicator
+## Caching and storage behavior
 
-Nodes where `disclosureFlag` or `iaDisclosureFlag` is truthy (set from BrokerCheck / IAPD detail) get an **orange dashed ring** drawn around the node shape:
+### Graph storage
 
-- **Individual** — dashed circle slightly larger than the node radius, orange `#f97316`, 1.5px
-- **Firm** — dashed rect slightly larger than the square, same colour and weight
+- **Local development**: graph and seed-bank data are read from disk
+- **With Upstash Redis**: graph and seed-bank data are served from Redis when present
+- If Redis is enabled but the graph key is empty, the server will **bootstrap the graph from the bundled disk graph artifact** and store it back into Redis
 
-This ring is visible as soon as the detail data is loaded. Nodes loaded from the graph cache already carry the flag; stub nodes may gain it after the first selection triggers a detail fetch.
+### Upstream response caching
 
----
+The FINRA / SEC proxy layer uses `cachedFetch` with:
 
-## Interaction
+- Redis when available
+- in-memory fallback locally
+- a pre-primed bundle fallback from `data/national/primed-cache/` before calling live upstream APIs
 
-| Action | Effect |
-| --- | --- |
-| **Click node** | Selects the node, opens the detail sidebar, highlights connected edges (red for controls/current, cyan-blue for previous), spreads neighbours outward, and triggers a server expand to load 1-hop neighbours not yet in the graph |
-| **Click background** | Deselects current node, restores default edge colours |
-| **Scroll / pinch** | Zoom in/out; labels are hidden below a zoom threshold to reduce paint overhead |
-| **Drag node** | Pins the node at the dragged position; direct neighbours are temporarily freed so they move fluidly alongside |
-| **Filter box** | Live text filter — dims non-matching nodes and their edges |
-| **Fetch box** | Query by name, CRD, or firm ID to load additional nodes from the server graph into the visible layout |
-| **Reveal hops selector** | Controls how many hops of neighbours are revealed on each click (1 / 2 / 3 / all) |
+This means deployed cold starts can often hydrate API responses from shipped cache bundles without immediately hitting upstream services.
 
-### Selection highlight colours
+### Session persistence
 
-| Edge type                | Highlighted colour  | Width |
-| ------------------------ | ------------------- | ----- |
-| `controls`               | Vivid red `#ff2222` | 2.5px |
-| `employed_by` (current)  | Vivid red `#ff2222` | 2.5px |
-| `employed_by` (previous) | Cyan-blue `#38bdf8` | 2px   |
+The browser stores graph session state in `localStorage`, including:
+
+- selected node
+- highlight roots / hop settings
+- positions for rendered nodes
+- extra nodes and links injected beyond the original server response
+- zoom transform
 
 ---
 
-## Legend
+## Graph semantics
 
-| Symbol             | Meaning                                             |
-| ------------------ | --------------------------------------------------- |
-| Blue circle        | Individual (registered person)                      |
-| Red circle         | Owner / Controller (individual who controls a firm) |
-| Dim blue circle    | Stub — Form BD name only, full CRD not yet loaded   |
-| Amber square       | Firm (broker-dealer or IA)                          |
-| Yellow diamond     | Entity (non-CRD owner, e.g. holding company)        |
-| Dark line →        | Employed by (previous registration)                 |
-| Red line →         | Employed by (current) or Controls                   |
-| Orange dashed ring | Has regulatory / disciplinary disclosures           |
+### Node types
+
+- **Individual** — person / broker / adviser representative
+- **Firm** — broker-dealer or adviser firm
+- **Entity** — non-individual owner from Form BD data
+
+### Relationship types
+
+- `employed_by`
+- `previous_employed_by`
+- `controls`
+
+The graph and loader code normalize `relationship` as the canonical link field, even when older payloads still contain legacy `type` values.
+
+### Disclosure indicator
+
+People and firms with disclosures render with an additional disclosure ring so regulatory history is visible directly on the graph.
+
+---
+
+## Detail sidebar behavior
+
+Person and firm detail rendering currently supports:
+
+- merged FINRA + SEC detail routes
+- normalized label/location formatting
+- sorted dated cards with current/newest items first where applicable
+- sticky main section titles in the scrolling detail panel
+- disclosures with richer field extraction and presentation
+
+For individuals, the sidebar can include:
+
+- aliases
+- years of experience / firm counts
+- current and previous employment
+- current and previous registrations
+- registered SROs and states
+- control positions
+- qualifications & exams
+- disclosures
+
+For firms, the sidebar can include:
+
+- contact and registration info
+- general information
+- Form ADV brochures
+- disclosures
+- direct owners / executive officers
 
 ---
 
 ## Architecture overview
 
-```
+```text
 data/
-  seed-profiles.json          ← CRDs that seed the initial graph load
-  national/                   ← cached raw API responses (JSON)
-  external/                   ← additional fetched firm detail (JSON)
+  seed-profiles.json
+  national/
+    finra-graph.json
+    finra-seed-bank.json
+    primed-cache/
+  external/
 
 scripts/
-  node_scraper.js             ← fetches individual/firm detail from FINRA/SEC APIs
-  batch_crawl_and_build.js    ← runs scraper then build_graph_from_cache in sequence
-  build_graph_from_cache.js   ← reads cached JSON, builds finra-graph.json
-  parallel_crawler.js         ← concurrent scraper for large datasets
-  enrich_nodes.js             ← post-processing enrichment pass
-  recompute_graph_meta.js     ← recomputes degree / hub stats without a full rebuild
-  check_local_integrity.js    ← validates cache completeness
+  build_graph_from_cache.js
+  build_primed_cache_bundle.js
+  download_all_api_data.js
+  parallel_crawler.js
+  batch_crawl_and_build.js
+  continuous_crawl_and_rebuild.js
+  recompute_graph_meta.js
+  check_local_integrity.js
+  enrich_nodes.js
 
 src/
   app/
-    page.tsx                  ← root page; loads FinraGraph component
-    api/finra/                ← Next.js API route handlers
+    page.tsx
+    api/finra/**
   components/
-    FinraGraph.tsx            ← React wrapper; bootstraps the D3 engine into the DOM
+    FinraGraph.tsx
   lib/
-    finra-graph.ts            ← D3 rendering engine (TypeScript)
+    finra-graph.ts
     finra-graph/
-      detailUtils.ts          ← sidebar detail-panel data extraction helpers
-      formatters.ts           ← value formatting utilities (dates, currency, etc.)
-      sidebar.ts              ← sidebar render logic and event handlers
-    graphStore.ts             ← server-side graph read/write (file + Redis)
-    cache.ts                  ← Upstash Redis / in-memory cache layer
+      detailUtils.ts
+      formatters.ts
+      sidebar.ts
+    graphStore.ts
+    cache.ts
 ```
-
-### API routes
-
-| Route                                    | Purpose                                          |
-| ---------------------------------------- | ------------------------------------------------ |
-| `GET /api/finra/graph`                   | Returns full or subset graph JSON                |
-| `GET /api/finra/individual/[crd]`        | Individual detail (cache → FINRA API)            |
-| `GET /api/finra/firm/[id]`               | Firm detail (cache → FINRA API)                  |
-| `GET /api/finra/merged/individual/[crd]` | Merged FINRA + SEC individual record             |
-| `GET /api/finra/merged/firm/[id]`        | Merged FINRA + SEC firm record                   |
-| `GET /api/finra/expand/[nodeId]`         | 1-hop neighbourhood for a given node             |
-| `GET /api/finra/search`                  | Name / CRD search against the local graph        |
-| `GET /api/finra/location-search`         | People / firms near a city or ZIP code           |
-| `POST /api/finra/run-scraper`            | SSE-streamed scraper run (streams stdout/stderr) |
-| `GET /api/finra/profile/[name]`          | Load / save a named seed profile                 |
-| `GET /api/finra/cache-stats`             | Cache hit/miss counters                          |
 
 ---
 
-## Scripts reference
+## Key scripts
+
+### Build graph artifacts from cached JSON
 
 ```bash
-# Full crawl + graph rebuild from scratch
+node scripts/build_graph_from_cache.js --employment-scope all --no-redis
+```
+
+What it does:
+
+- reads cached FINRA / SEC payloads from disk
+- rebuilds graph nodes and links
+- writes `finra-graph.json`
+- writes `finra-seed-bank.json`
+- optionally syncs the graph and seed bank to Redis
+
+Supported employment scopes:
+
+- `current`
+- `previous`
+- `all`
+- `none`
+
+### Build deployment cache bundles
+
+```bash
+node scripts/build_primed_cache_bundle.js
+```
+
+This creates merged JSON bundles in `data/national/primed-cache/` from canonical cached filenames such as:
+
+- `api.brokercheck.finra.org_search_individual_<CRD>.json`
+- `api.adviserinfo.sec.gov_search_individual_<CRD>.json`
+- `api.brokercheck.finra.org_search_firm_<CRD>.json`
+- `api.adviserinfo.sec.gov_search_firm_<CRD>.json`
+
+### Iterative priming / expansion
+
+```bash
+node scripts/download_all_api_data.js
+```
+
+This script:
+
+- rebuilds the graph first
+- runs the crawler in batches
+- rebuilds the graph after each batch
+- can optionally bootstrap from a remote seed graph via `--seed-graph-url`
+
+### Other maintenance scripts
+
+```bash
 node scripts/batch_crawl_and_build.js
-
-# Continuous crawl (keeps going until all pending CRDs are fetched)
 node scripts/continuous_crawl_and_rebuild.js
-
-# Rebuild graph from existing cache (no network calls)
-node scripts/build_graph_from_cache.js
-  --employment-scope current|previous|all|none   # which employment links to include (default: all)
-
-# Check integrity of the local cache
-node scripts/check_local_integrity.js
-
-# Recompute graph metadata (degrees, hub scores) without full rebuild
 node scripts/recompute_graph_meta.js
-
-# Enrich existing nodes with additional fields
+node scripts/check_local_integrity.js
 node scripts/enrich_nodes.js
 ```
 
 ---
 
-## Deployment
+## API surface
 
-The app is deployed on Vercel. The `vercel.json` configures function timeouts for the scraper route. Upstash Redis is optional — without it the API route cache falls back to a Node.js in-memory `Map` that resets on each cold start.
+### Graph and state routes
+
+| Route                            | Purpose                                                                                |
+| -------------------------------- | -------------------------------------------------------------------------------------- |
+| `GET /api/finra/graph`           | Return the full graph or a random seeded subset with 3-hop context when `limit` is set |
+| `POST /api/finra/graph-append`   | Persist newly fetched nodes/links into the graph store                                 |
+| `POST /api/finra/graph-reset`    | Clear the persisted graph/session-backed store                                         |
+| `GET /api/finra/graph-search`    | Search the local graph store                                                           |
+| `GET /api/finra/nodes-by-ids`    | Return graph nodes by ID                                                               |
+| `GET /api/finra/expand/[nodeId]` | Return N-hop neighborhood expansion for a node                                         |
+
+### Detail and merge routes
+
+| Route                                    | Purpose                                       |
+| ---------------------------------------- | --------------------------------------------- |
+| `GET /api/finra/individual/[crd]`        | FINRA / SEC-backed individual detail          |
+| `GET /api/finra/firm/[id]`               | FINRA / SEC-backed firm detail                |
+| `GET /api/finra/merged/individual/[crd]` | Explicit merged FINRA + SEC individual record |
+| `GET /api/finra/merged/firm/[id]`        | Explicit merged firm record                   |
+
+### Search and helper routes
+
+| Route                            | Purpose                                                               |
+| -------------------------------- | --------------------------------------------------------------------- |
+| `GET /api/finra/search`          | FINRA search proxy                                                    |
+| `GET /api/finra/sec-search`      | SEC individual search proxy                                           |
+| `GET /api/finra/sec-search-firm` | SEC firm search proxy                                                 |
+| `GET /api/finra/location-search` | FINRA location-oriented search proxy                                  |
+| `GET /api/finra/cache-stats`     | Return deduplicated global counts from the seed bank plus link totals |
+| `GET /api/finra/health`          | Lightweight health/status check                                       |
+| `POST /api/finra/recompute-meta` | Recompute graph meta counts from stored graph data                    |
+| `GET /api/finra/run-scraper`     | SSE stream for scraper execution logs                                 |
+| `GET /api/finra/prime-check`     | Daily production warm-up route                                        |
+
+### Seed / profile routes
+
+| Route                            | Purpose                                           |
+| -------------------------------- | ------------------------------------------------- |
+| `GET /api/finra/seeds`           | Return current seed list or public seed-bank data |
+| `PUT /api/finra/seeds`           | Replace stored seeds                              |
+| `GET /api/finra/profile/[name]`  | Load a named profile                              |
+| `POST /api/finra/add-to-profile` | Append individuals/firms into a named profile     |
+
+---
+
+## Deployment notes
+
+### Vercel
+
+- `vercel.json` schedules **one daily cron**:
+  - `GET /api/finra/prime-check` at `0 3 * * *`
+- API routes under `src/app/api/**` are configured with `maxDuration: 30`
+
+### Runtime bundle contents
+
+`next.config.ts` includes these files in traced output:
+
+- `data/national/**/*.json`
+- `data/seed-profiles.json`
+
+That ensures deployment bundles contain:
+
+- the graph artifact
+- the seed bank
+- primed cache bundles
+- profile definitions
+
+### `.vercelignore`
+
+Deployment intentionally excludes:
+
+- `data/external/`
+- loose raw cache mirrors under:
+  - `data/national/adviserinfo.sec.gov/`
+  - `data/national/brokercheck.finra.org/`
+
+This keeps the deployment payload smaller while still shipping the consolidated graph and primed-cache artifacts the app actually uses at runtime.
+
+---
+
+## Recommended workflows
+
+### Local development
+
+1. `pnpm install`
+2. `pnpm run dev:clean`
+3. Optionally expand the local cache with `pnpm run prime:all`
+4. Rebuild graph artifacts with `pnpm run build:graph`
+
+### Preparing a deployment
+
+1. Refresh cached data / graph artifacts locally
+2. Ensure `data/national/finra-graph.json` and `data/national/finra-seed-bank.json` are current
+3. Ensure `data/national/primed-cache/` is regenerated
+4. Build with:
 
 ```bash
-npx vercel --prod
+env NODE_OPTIONS=--max-old-space-size=8192 pnpm build
 ```
+
+---
+
+## Notes
+
+- The graph UI is intentionally optimized for incremental growth rather than a single massive one-shot render.
+- Global People / Firms counts shown by the app come from the **seed bank**, not just the currently rendered subset.
+- The prime-check route warms recent usage paths; it is **not** a continuous crawler.
