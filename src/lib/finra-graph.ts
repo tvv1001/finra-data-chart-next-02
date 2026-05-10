@@ -39,6 +39,8 @@ import {
 	capitalize as capitalizeImpl,
 	esc as escImpl,
 	firmSizeLabel as firmSizeLabelImpl,
+	formatLocationText as formatLocationTextImpl,
+	formatUiText as formatUiTextImpl,
 	formatNodeLabel as formatNodeLabelImpl,
 	normalizePersonLabel as normalizePersonLabelImpl,
 	openSidebarToggles as openSidebarTogglesImpl,
@@ -5911,7 +5913,7 @@ function renderPersonDetail(d) {
 		return Array.from(seen.values());
 	})();
 	const disclosureCount = allDisclosures.length;
-	const aliases = d.otherNames?.length ? d.otherNames : bi.otherNames || [];
+	const aliases = (d.otherNames?.length ? d.otherNames : bi.otherNames || []).map((alias) => normalizePersonLabel(alias)).filter(Boolean);
 
 	// ── Employment timeline from stored arrays, fallback to graph links ────────
 	// Build unified list from FINRA arrays (currentEmployments, previousEmployments,
@@ -5920,10 +5922,11 @@ function renderPersonDetail(d) {
 		const bo = emp.branchOfficeLocations?.[0];
 		const city = emp.city || bo?.city || '';
 		const state = emp.state || bo?.state || '';
-		const street = bo?.street1 || '';
-		const zip = bo?.zipCode || '';
-		const loc = [city, state].filter(Boolean).join(', ');
-		const addr = [street, city, state, zip].filter(Boolean).join(', ');
+		const street1 = bo?.street1 || '';
+		const street2 = bo?.street2 || '';
+		const zip = emp.zipCode || bo?.zipCode || '';
+		const loc = formatLocationText([city, state].filter(Boolean).join(', '));
+		const addr = formatLocationText([street1, street2, city, state, zip].filter(Boolean).join(', '));
 		return {
 			firmName: emp.firmName || '',
 			firmId: emp.firmId,
@@ -5942,10 +5945,22 @@ function renderPersonDetail(d) {
 		};
 	}
 
+	function getEmploymentDetailLine(entry) {
+		return entry.addr || entry.loc || '';
+	}
+
+	function getEmploymentScopeTags(entry) {
+		return [
+			entry.employmentStatus ? formatUiText(entry.employmentStatus) : null,
+			entry.iaOnly ? 'IA only' : null,
+			entry.firmBCScope && entry.firmBCScope !== 'ACTIVE' ? `Firm FINRA: ${formatUiText(entry.firmBCScope)}` : null,
+		].filter(Boolean);
+	}
+
 	function regToEntry(emp, role, isCurrent) {
 		const office = emp.branchOfficeLocations?.[0];
-		const officeAddress = office ? [office.street1, office.street2, office.city, office.state, office.zipCode].filter(Boolean).join(', ') : '';
-		const cityState = [emp.city || office?.city || '', emp.state || office?.state || ''].filter(Boolean).join(', ');
+		const officeAddress = office ? formatLocationText([office.street1, office.street2, office.city, office.state, office.zipCode].filter(Boolean).join(', ')) : '';
+		const cityState = formatLocationText([emp.city || office?.city || '', emp.state || office?.state || ''].filter(Boolean).join(', '));
 		return {
 			role,
 			firmId: emp.firmId,
@@ -6034,7 +6049,7 @@ function renderPersonDetail(d) {
 				end: l.endDate || null,
 				isCurrent: !l.endDate,
 				iaOnly: false,
-				loc: [l.city, l.state].filter(Boolean).join(', '),
+				loc: formatLocationText([l.city, l.state].filter(Boolean).join(', ')),
 			};
 		});
 	}
@@ -6221,7 +6236,7 @@ function renderPersonDetail(d) {
       ${typeof d.firmCount === 'number' ? row('Firms (all time)', esc(String(d.firmCount))) : ''}
       ${licenseCount ? row('State Licenses', esc(String(licenseCount))) : ''}
       ${row('Disclosures', esc(String(disclosureCount)))}
-      ${d.primaryOffice?.address ? row('Primary Office', esc(d.primaryOffice.address), 'fg-detail-row--stacked') : ''}
+	      ${d.primaryOffice?.address ? row('Primary Office', esc(formatLocationText(d.primaryOffice.address)), 'fg-detail-row--stacked') : ''}
       ${
 				d.registrationCount ?
 					`
@@ -6237,19 +6252,16 @@ function renderPersonDetail(d) {
 
       ${
 				currentEmploymentEntries.length ?
-					`<div class="fg-section-title">CURRENT EMPLOYMENT (${currentEmploymentEntries.length})</div>
+					`<div class="fg-section-title">Current Employment (${currentEmploymentEntries.length})</div>
             <div class="fg-timeline">
               ${currentEmploymentEntries
 								.map((e) => {
-									const scopeTags = [
-										e.employmentStatus ? e.employmentStatus : null,
-										e.iaOnly ? 'IA only' : null,
-										e.firmBCScope && e.firmBCScope !== 'ACTIVE' ? `Firm FINRA: ${e.firmBCScope}` : null,
-									].filter(Boolean);
+									const detailLine = getEmploymentDetailLine(e);
+									const scopeTags = getEmploymentScopeTags(e);
 									return `<div class="fg-tl-entry active-pos">
                   <span class="fg-tl-firm">${esc(e.firmName)}${e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : ''}</span>
                   <span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>
-                  ${e.loc ? `<span class="fg-tl-loc">${esc(e.loc)}</span>` : ''}
+								  ${detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : ''}
                   ${scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : ''}
                 </div>`;
 								})
@@ -6260,21 +6272,24 @@ function renderPersonDetail(d) {
 
       ${
 				previousEmploymentEntries.length ?
-					`<div class="fg-section-title">PREVIOUS EMPLOYMENT (${previousEmploymentEntries.length})</div>
+					`<div class="fg-section-title">Previous Employment (${previousEmploymentEntries.length})</div>
             <div class="fg-timeline">
               ${previousEmploymentEntries
 								.map((e) => {
 									const cls = `fg-tl-entry${e.isCurrent ? ' active-pos' : ''}`;
-									const scopeTags = [e.iaOnly ? 'IA only' : null, e.firmBCScope && e.firmBCScope !== 'ACTIVE' ? `Firm FINRA: ${e.firmBCScope}` : null].filter(Boolean);
+									const detailLine = getEmploymentDetailLine(e);
+									const scopeTags = getEmploymentScopeTags(e);
 									return `<div class="${cls}">
                   <span class="fg-tl-firm">${esc(e.firmName)}${e.bdSecNumber ? ` <small>SEC#${esc(e.bdSecNumber)}</small>` : ''}</span>
-                  ${e.cityState ? `<span class="fg-tl-loc">${esc(e.cityState)}</span>` : ''}
                   <span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>
+								  ${detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : ''}
+								  ${scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : ''}
+								  ${e.expelledDate ? `<span class="fg-badge inactive">Expelled ${esc(e.expelledDate)}</span>` : ''}
                 </div>`;
 								})
 								.join('')}
             </div>`
-				:	`<div class="fg-section-title">PREVIOUS EMPLOYMENT</div>
+				:	`<div class="fg-section-title">Previous Employment</div>
             <div class="fg-empty-state" style="margin-top:8px">No previous employment records found for this profile.</div>`
 			}
 
@@ -6717,6 +6732,14 @@ function formatNodeLabel(str) {
 
 function capitalize(str) {
 	return capitalizeImpl(str);
+}
+
+function formatUiText(str) {
+	return formatUiTextImpl(str);
+}
+
+function formatLocationText(str) {
+	return formatLocationTextImpl(str);
 }
 
 function truncate(str, n) {
