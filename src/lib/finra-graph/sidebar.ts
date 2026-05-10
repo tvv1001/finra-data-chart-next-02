@@ -112,7 +112,7 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 				seen.set(key, dis);
 			}
 		}
-		return Array.from(seen.values());
+		return Array.from(seen.values()).sort((a, b) => compareCurrentFirstByDates(a, b, { currentKey: '__never', dateKeys: ['eventDate', 'date'] }));
 	})();
 	const disclosureCount = allDisclosures.length;
 	const aliases = (d.otherNames?.length ? d.otherNames : bi.otherNames || []).map((alias) => normalizePersonLabel(alias)).filter(Boolean);
@@ -182,6 +182,35 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 		});
 	}
 
+	function parseSortDateValue(value) {
+		const raw = String(value || '').trim();
+		if (!raw) return Number.NEGATIVE_INFINITY;
+		const shortDateMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+		if (shortDateMatch) {
+			const [, month, day, year] = shortDateMatch;
+			return Date.UTC(Number(year), Number(month) - 1, Number(day));
+		}
+		const parsed = Date.parse(raw);
+		return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+	}
+
+	function compareCurrentFirstByDates(a, b, options: { currentKey?: string; dateKeys?: string[] } = {}) {
+		const currentKey = options.currentKey || 'isCurrent';
+		const dateKeys = Array.isArray(options.dateKeys) ? options.dateKeys : [];
+		const aCurrent = Boolean(a?.[currentKey]);
+		const bCurrent = Boolean(b?.[currentKey]);
+		if (aCurrent !== bCurrent) return aCurrent ? -1 : 1;
+
+		for (const key of dateKeys) {
+			const diff = parseSortDateValue(b?.[key]) - parseSortDateValue(a?.[key]);
+			if (diff !== 0) return diff;
+		}
+
+		return String(a?.firmName || a?.label || a?.brochureName || a?.examName || a?.type || '').localeCompare(
+			String(b?.firmName || b?.label || b?.brochureName || b?.examName || b?.type || ''),
+		);
+	}
+
 	function renderRegistrationRole(role, { inactive = false }: { inactive?: boolean } = {}) {
 		const normalizedRole = String(role || '')
 			.trim()
@@ -200,7 +229,7 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 	const currentRegistrations = dedupeRegs([
 		...(d.currentIAEmployments || []).map((emp) => regToEntry(emp, 'IA', true)),
 		...(d.currentEmployments || []).map((emp) => regToEntry(emp, 'B', true)),
-	]);
+	]).sort((a, b) => compareCurrentFirstByDates(a, b, { dateKeys: ['start', 'end'] }));
 	const previousRegistrations = dedupeRegs([
 		...(d.previousIAEmployments || []).map((emp) => regToEntry(emp, 'IA', false)),
 		...(d.previousEmployments || []).map((emp) => regToEntry(emp, 'B', false)),
@@ -223,19 +252,9 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 			seen.add(key);
 			return true;
 		});
-		empEntries.sort((a, b) => {
-			if (a.isCurrent && !b.isCurrent) return -1;
-			if (!a.isCurrent && b.isCurrent) return 1;
-			return (b.start || '').localeCompare(a.start || '');
-		});
+		empEntries.sort((a, b) => compareCurrentFirstByDates(a, b, { dateKeys: ['end', 'start'] }));
 	} else {
-		const empLinks = links
-			.filter((l) => l.relationship === 'employed_by')
-			.sort((a, b) => {
-				if (!a.endDate && b.endDate) return -1;
-				if (a.endDate && !b.endDate) return 1;
-				return (b.startDate || '').localeCompare(a.startDate || '');
-			});
+		const empLinks = links.filter((l) => l.relationship === 'employed_by');
 		empEntries = empLinks.map((l) => {
 			const firmNode = graphData?.nodes?.find((n) => n.id === (l.target?.id || l.target));
 			return {
@@ -248,6 +267,7 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 				loc: formatLocationText([l.city, l.state].filter(Boolean).join(', ')),
 			};
 		});
+		empEntries.sort((a, b) => compareCurrentFirstByDates(a, b, { dateKeys: ['end', 'start'] }));
 	}
 
 	const currentEmploymentEntries = empEntries.filter((e) => e.isCurrent);
@@ -272,7 +292,9 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 		return allEmploymentEntries.find((entry) => normalizeFirmKey(entry?.firmName) === controlFirmName) || null;
 	}
 
-	const allExams = [...(d.stateExamCategory || []), ...(d.principalExamCategory || []), ...(d.productExamCategory || [])];
+	const allExams = [...(d.stateExamCategory || []), ...(d.principalExamCategory || []), ...(d.productExamCategory || [])].sort((a, b) =>
+		compareCurrentFirstByDates(a, b, { currentKey: '__never', dateKeys: ['examTakenDate'] }),
+	);
 	const regStates = Array.isArray(d.registeredStates) ? d.registeredStates.filter(Boolean) : [];
 	const licenseCount = regStates.length || (d.registrationCount?.approvedStateRegistrationCount || 0) + (d.registrationCount?.approvedIAStateRegistrationCount || 0);
 
@@ -431,11 +453,11 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 				:	''
 			}
 
-      ${currentEmploymentEntries.length || previousEmploymentEntries.length ? `<div class='fg-section-title'>Employment</div>` : ''}
+	${currentEmploymentEntries.length || previousEmploymentEntries.length ? `<div class='fg-section-title fg-section-title--sticky'>Employment</div>` : ''}
 
       ${
 				currentEmploymentEntries.length ?
-					`<div class='fg-section-title'>Current Employment (${currentEmploymentEntries.length})</div>
+					`<div class='fg-section-title fg-section-title--sticky'>Current Employment (${currentEmploymentEntries.length})</div>
             <div class='fg-timeline'>
               ${currentEmploymentEntries
 								.map((e) => {
@@ -455,7 +477,7 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 
       ${
 				previousEmploymentEntries.length ?
-					`<div class='fg-section-title'>Previous Employment (${previousEmploymentEntries.length})</div>
+					`<div class='fg-section-title fg-section-title--sticky'>Previous Employment (${previousEmploymentEntries.length})</div>
             <div class='fg-timeline'>
               ${previousEmploymentEntries
 								.map((e) => {
@@ -472,13 +494,13 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 								})
 								.join('')}
             </div>`
-				:	`<div class='fg-section-title'>Previous Employment</div>
+				:	`<div class='fg-section-title fg-section-title--sticky'>Previous Employment</div>
             <div class='fg-empty-state' style='margin-top:8px'>No previous employment records found for this profile.</div>`
 			}
 
       ${
 				currentRegistrations.length ?
-					`<div class='fg-section-title'>Current Registrations</div>
+					`<div class='fg-section-title fg-section-title--sticky'>Current Registrations</div>
             <div class='fg-timeline'>
               ${currentRegistrations
 								.map(
@@ -500,7 +522,7 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 
       ${
 				previousRegistrations.length ?
-					`<div class='fg-section-title'>Previous Registrations</div>
+					`<div class='fg-section-title fg-section-title--sticky'>Previous Registrations</div>
             <div class='fg-timeline'>
               ${previousRegistrations
 								.map(
@@ -519,7 +541,7 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
       ${
 				d.registeredSROs?.length ?
 					`<details class='fg-section-toggle'>
-              <summary class='fg-section-title'>Registered SROs (${d.registeredSROs.length})</summary>
+			      <summary class='fg-section-title fg-section-title--sticky'>Registered SROs (${d.registeredSROs.length})</summary>
               ${d.registeredSROs
 								.map((sro) => {
 									const name = esc(sro.sro || sro.name || '');
@@ -542,7 +564,7 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 
       ${
 				regStates.length ?
-					`<div class='fg-section-title'>Registered States</div>
+					`<div class='fg-section-title fg-section-title--sticky'>Registered States</div>
             <div class='fg-states-grid'>
               ${regStates
 								.map((s) => {
@@ -561,8 +583,24 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 
       ${
 				controlLinks.length ?
-					`<div class='fg-section-title'>Control Positions</div>
+					`<div class='fg-section-title fg-section-title--sticky'>Control Positions</div>
             ${controlLinks
+							.slice()
+							.sort((a, b) =>
+								compareCurrentFirstByDates(
+									{
+										isCurrent: !a.endDate && !a.registrationEndDate && !a.toDate,
+										end: a.endDate || a.registrationEndDate || a.toDate,
+										start: a.startDate || a.registrationBeginDate || a.fromDate || a.effectiveDate || a.date,
+									},
+									{
+										isCurrent: !b.endDate && !b.registrationEndDate && !b.toDate,
+										end: b.endDate || b.registrationEndDate || b.toDate,
+										start: b.startDate || b.registrationBeginDate || b.fromDate || b.effectiveDate || b.date,
+									},
+									{ dateKeys: ['end', 'start'] },
+								),
+							)
 							.map((l) => {
 								const firmNode = graphData?.nodes?.find((n) => n.id === (l.target?.id || l.target));
 								const employmentMatch = findEmploymentMatchForControl(l, firmNode);
@@ -599,7 +637,7 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 
       ${
 				allExams.length ?
-					`<div class='fg-section-title'>Qualifications &amp; Exams (${allExams.length})</div>
+					`<div class='fg-section-title fg-section-title--sticky'>Qualifications &amp; Exams (${allExams.length})</div>
             <div class='fg-timeline'>
               ${allExams
 								.map((ex) => {
@@ -618,12 +656,12 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
       ${
 				allDisclosures.length ?
 					`<details class='fg-section-toggle'>
-            <summary class='fg-section-title'>Disclosures (${allDisclosures.length})</summary>
+			<summary class='fg-section-title fg-section-title--sticky'>Disclosures (${allDisclosures.length})</summary>
             ${allDisclosures.map(renderDisclosure).join('')}
           </details>`
 				: d.disclosureFlag === 'Y' || d.iaDisclosureFlag === 'Y' ?
 					`<details class='fg-section-toggle'>
-            <summary class='fg-section-title'>Disclosures</summary>
+			<summary class='fg-section-title fg-section-title--sticky'>Disclosures</summary>
             <p class='fg-sb-note'>FINRA or SEC marks this record as having disclosures, but the current API response did not include structured disclosure bodies for this profile.</p>
             <div class='fg-ext-links'>
               ${brokerCheckSummaryUrl ? `<a class='fg-ext-link bc' href='${brokerCheckSummaryUrl}' target='_blank' rel='noopener noreferrer'>&#x2197; Open FINRA Summary</a>` : ''}
@@ -640,6 +678,25 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 export function renderFirmDetail(d) {
 	const owners = d.directOwners || [];
 	const disclosures = d.disclosures || [];
+	function parseFirmSortDateValue(value) {
+		const raw = String(value || '').trim();
+		if (!raw) return Number.NEGATIVE_INFINITY;
+		const shortDateMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+		if (shortDateMatch) {
+			const [, month, day, year] = shortDateMatch;
+			return Date.UTC(Number(year), Number(month) - 1, Number(day));
+		}
+		const parsed = Date.parse(raw);
+		return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+	}
+
+	function compareFirmDatesDesc(a, b, dateKeys: string[] = []) {
+		for (const key of dateKeys) {
+			const diff = parseFirmSortDateValue(b?.[key]) - parseFirmSortDateValue(a?.[key]);
+			if (diff !== 0) return diff;
+		}
+		return String(a?.brochureName || a?.type || a?.disclosureType || '').localeCompare(String(b?.brochureName || b?.type || b?.disclosureType || ''));
+	}
 	const crdSec = [d.firmId ? `CRD#: ${d.firmId}` : null, d.bdSecNumber ? `SEC#: 8-${d.bdSecNumber}` : null].filter(Boolean).join(' / ');
 	const statusDate = d.firmStatusDate || '';
 	const statusText = d.firmStatus ? capitalize(String(d.firmStatus || '').toLowerCase()) : '';
@@ -680,6 +737,7 @@ export function renderFirmDetail(d) {
 	const disclosureTotal =
 		Number.isFinite(Number(d.disclosureCount)) ? Number(d.disclosureCount) : disclosures.reduce((sum, dis) => sum + Number(dis?.count ?? dis?.disclosureCount ?? 0), 0);
 	const hasAffiliateDisclosureSummary = Boolean(d.affiliateDisclosures);
+	const sortedBrochures = Array.isArray(d.brochures) ? d.brochures.slice().sort((a, b) => compareFirmDatesDesc(a, b, ['dateSubmitted'])) : [];
 
 	return `
 		<div class='fg-sb-header firm'>
@@ -731,13 +789,13 @@ export function renderFirmDetail(d) {
       ${row('Fiscal Year End', esc(d.fiscalYearEnd || '–'))}
       ${d.otherNames?.length ? row('Other names', esc(d.otherNames.join('; '))) : ''}
       ${
-				Array.isArray(d.brochures) && d.brochures.length ?
+				sortedBrochures.length ?
 					`
         <div class='fg-section-title'>Form ADV Brochures</div>
-        ${d.brochures
-					.slice(0, 5)
-					.map((b) => `<div class='fg-detail-row'><span class='fg-label'>${esc(b.brochureName || '')}</span><span>${esc(b.dateSubmitted || '')}</span></div>`)
-					.join('')}
+						${sortedBrochures
+							.slice(0, 5)
+							.map((b) => `<div class='fg-detail-row'><span class='fg-label'>${esc(b.brochureName || '')}</span><span>${esc(b.dateSubmitted || '')}</span></div>`)
+							.join('')}
       `
 				:	''
 			}

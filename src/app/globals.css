@@ -1063,6 +1063,24 @@ body {
 	margin: 14px 0 6px;
 }
 
+.fg-sidebar {
+	--fg-sidebar-sticky-offset: 38px;
+	--fg-sidebar-sticky-pad-x: 6px;
+}
+
+.fg-section-title--sticky {
+	position: sticky;
+	top: var(--fg-sidebar-sticky-offset);
+	z-index: 2;
+	display: block;
+	margin-left: calc(var(--fg-sidebar-sticky-pad-x) * -1);
+	margin-right: calc(var(--fg-sidebar-sticky-pad-x) * -1);
+	padding: 8px var(--fg-sidebar-sticky-pad-x) 6px;
+	background: color-mix(in srgb, var(--surface) 94%, transparent);
+	box-shadow: 0 1px 0 rgba(15, 23, 42, 0.08);
+	backdrop-filter: blur(6px);
+}
+
 .fg-section-toggle {
 	margin: 14px 0 6px;
 }
