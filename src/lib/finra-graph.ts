@@ -1124,6 +1124,7 @@ export function init(_d3) {
 			refreshLayoutBtn.textContent = 'Refreshing…';
 			try {
 				refreshNodeLayout();
+				void fetchCacheStats();
 			} catch (err) {
 				console.error('refreshNodeLayout failed:', err);
 			} finally {
@@ -1196,6 +1197,7 @@ export function init(_d3) {
 				selectNode(nodeObj);
 			}
 			focusNodeById(sid);
+			void fetchCacheStats();
 		});
 	}
 
@@ -1230,6 +1232,7 @@ export function init(_d3) {
 					else updateSubsetInfo(graphData.nodes.length, totalNodes);
 				}
 				renderGraph(graphData);
+				void fetchCacheStats();
 			} catch (err) {
 				console.error('subset select fetch failed', err);
 			}
@@ -1971,7 +1974,10 @@ export function init(_d3) {
 	}
 
 	renderLegend();
-	loadGraph();
+	void fetchCacheStats();
+	void loadGraph().finally(() => {
+		void fetchCacheStats();
+	});
 	// Keep meta refresh user-driven; do not poll in the background.
 	let _metaPollId = null;
 	const META_POLL_MS = 15000;
@@ -2723,9 +2729,6 @@ function updateSubsetInfo(shown, total) {
 	const info = document.getElementById('fg-subset-info');
 	const sel = document.getElementById('fg-subset-select') as HTMLSelectElement | null;
 	const fmt = (n) => (typeof n === 'number' ? n.toLocaleString() : String(n ?? '–'));
-
-	// Prefer showing the approximate total from the Redis cache (people+firms)
-	// when available, since this better reflects the global corpus size.
 	const cacheTotal = typeof _cacheStats?.people === 'number' || typeof _cacheStats?.firms === 'number' ? (_cacheStats?.people || 0) + (_cacheStats?.firms || 0) : null;
 
 	if (info) {
@@ -4856,6 +4859,7 @@ async function handleNodeOpen(event, d) {
 	event.stopPropagation();
 	anchorNode(d);
 	selectNode(d);
+	void fetchCacheStats();
 }
 
 function selectNode(
