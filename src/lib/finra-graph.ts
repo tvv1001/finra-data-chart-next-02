@@ -58,6 +58,9 @@ const GRAPH_COLORS = {
 	nodeFirm: 'var(--color-highlight-firm)',
 	nodeEntity: 'var(--color-highlight-entity)',
 	nodeStub: '#60a5fa',
+	nodeInactive: '#cbd5e1',
+	nodeInactiveStroke: '#94a3b8',
+	nodeInactiveLabel: '#64748b',
 	nodeDefault: 'var(--color-default-text)',
 	nodeBorder: '#fff',
 	nodeLabel: '#1e293b',
@@ -67,6 +70,7 @@ const GRAPH_COLORS = {
 	lineControls: 'var(--color-highlight-controls)',
 	lineControlsHighlight: '#ff2222',
 	lineDisclosure: '#f97316',
+	lineInactive: '#94a3b8',
 	lineNeutral: 'var(--color-default-line)',
 	linePreviousEmployment: 'var(--color-default-line)',
 };
@@ -118,6 +122,9 @@ let selectionRestoreTimer = null; // timer used when restoring a saved selection
 let nodePulseTimer = null; // timer used to pulse the restored node after focus animation
 let nodePulseInterval = null; // interval used to keep the restored node pulsing until interaction
 let nodePulseInteractionCleanup: (() => void) | null = null; // removes reload pulse interaction listeners once the user interacts
+let activeLabelZoomThreshold = 0.3;
+let inactiveLabelCompactZoomThreshold = 0.42;
+let inactiveLabelCompactMode = false;
 // Baseline snapshot from the initial server response for this page load.
 // Used to identify which rendered nodes/links are truly "added" extras.
 let initialServerNodeIds = null; // Set<id>
@@ -2991,7 +2998,12 @@ async function filterGraph(rawQuery) {
 	});
 
 	// update node opacity
-	nodeSel.style('opacity', (d) => (expanded.has(d.id) ? 0.45 : 0.45));
+	nodeSel.style('opacity', (d) => {
+		const inactive = isNodeInactive(d);
+		if (matched.has(d.id)) return inactive ? 0.6 : 0.9;
+		if (expanded.has(d.id)) return inactive ? 0.38 : 0.58;
+		return inactive ? 0.1 : 0.18;
+	});
 
 	// Update the count to reflect visible (expanded) nodes
 	if (graphData) {
@@ -3225,6 +3237,128 @@ function getImpactedNodeIds(nodes = [], links = []) {
 	return Array.from(ids);
 }
 
+function classifyActivityText(value) {
+	const normalized = String(value || '')
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '');
+	if (!normalized) return null;
+	if (/(inactive|terminated|revoked|suspended|notinscope|withdrawn|barred|expelled|denied|ceased|closed|previouslyregistered|nolongerregistered|notregistered)/.test(normalized)) {
+		return 'inactive';
+	}
+	if (/(active|approved|current)/.test(normalized)) {
+		return 'active';
+	}
+	return null;
+}
+
+function collectNodeActivityFlags(values = []) {
+	let hasActive = false;
+	let hasInactive = false;
+	values.forEach((value) => {
+		const activity = classifyActivityText(value);
+		if (activity === 'active') hasActive = true;
+		if (activity === 'inactive') hasInactive = true;
+	});
+	return { hasActive, hasInactive };
+}
+
+function hasApprovedRegistrationCounts(registrationCount) {
+	const counts = registrationCount || {};
+	return [counts.approvedFinraRegistrationCount, counts.approvedSRORegistrationCount, counts.approvedStateRegistrationCount, counts.approvedIAStateRegistrationCount].some(
+		(value) => Number(value || 0) > 0,
+	);
+}
+
+function hasActiveRegisteredStates(registeredStates = []) {
+	if (!Array.isArray(registeredStates) || !registeredStates.length) return false;
+	return registeredStates.some((entry) => {
+		if (!entry || typeof entry !== 'object') return false;
+		const status = classifyActivityText(entry.status || entry.registrationStatus || entry.scopeStatus);
+		return status === 'active';
+	});
+}
+
+function hasApprovedSro(registeredSROs = []) {
+	if (!Array.isArray(registeredSROs) || !registeredSROs.length) return false;
+	return registeredSROs.some((entry) => classifyActivityText(entry?.status) === 'active');
+}
+
+function hasHistoricalIndividualRegistrations(node) {
+	return Boolean(
+		node?.previousEmployments?.length ||
+		node?.previousIAEmployments?.length ||
+		(Array.isArray(node?.registeredStates) && node.registeredStates.length) ||
+		hasApprovedSro(node?.registeredSROs),
+	);
+}
+
+function isNodeInactive(node) {
+	if (!node || typeof node !== 'object') return false;
+
+	if (node.group === 'firm') {
+		const activityFlags = collectNodeActivityFlags([node.firmStatus, node.bcScope, node.basicInformation?.firmStatus, node.basicInformation?.bcScope]);
+		if (activityFlags.hasActive) return false;
+		if (node.isLegacy === 'Y') return true;
+		if (Array.isArray(node.activeStates) && node.activeStates.length) return false;
+		return activityFlags.hasInactive;
+	}
+
+	if (node.group === 'individual') {
+		const activityFlags = collectNodeActivityFlags([node.bcScope, node.iaScope, node.basicInformation?.bcScope, node.basicInformation?.iaScope]);
+		if (activityFlags.hasActive) return false;
+		if (hasApprovedRegistrationCounts(node.registrationCount)) return false;
+		if (node.currentEmployments?.length || node.currentIAEmployments?.length) return false;
+		if (hasActiveRegisteredStates(node.registeredStates)) return false;
+		if (hasApprovedSro(node.registeredSROs)) return false;
+		if (activityFlags.hasInactive) return true;
+		return hasHistoricalIndividualRegistrations(node) && !node.stub;
+	}
+
+	return false;
+}
+
+function resolveLinkEndpointNode(endpoint) {
+	if (endpoint && typeof endpoint === 'object') return endpoint;
+	const endpointId = String(endpoint || '').trim();
+	if (!endpointId) return null;
+	return layoutNodes?.find((node) => node.id === endpointId) || null;
+}
+
+function hasInactiveEndpoint(link) {
+	if (!link) return false;
+	const sourceNode = resolveLinkEndpointNode(link.source);
+	const targetNode = resolveLinkEndpointNode(link.target);
+	return isNodeInactive(sourceNode) || isNodeInactive(targetNode);
+}
+
+function getLinkHighlightColor(link) {
+	if (hasInactiveEndpoint(link)) return getLinkColor(link);
+	if (link?.relationship === 'controls') return GRAPH_COLORS.lineControlsHighlight;
+	return getLinkColor(link);
+}
+
+function getCompactInactiveNodeLabel(node) {
+	const preferredLabel = getPreferredNodeLabel(node);
+	if (!preferredLabel) return '';
+	if (node?.group === 'firm') {
+		const clippedLabel = clipFirmLabelAtWord(preferredLabel, 26);
+		return isPlaceholderExpansionLabel(clippedLabel, node?.group) ? '' : clippedLabel;
+	}
+	const formattedLabel = formatNodeLabel(preferredLabel);
+	const compactLabel = truncate(formattedLabel, 18);
+	return isPlaceholderExpansionLabel(compactLabel, node?.group) ? '' : compactLabel;
+}
+
+function updateInactiveLabelZoomState(rootSelection, zoomScale) {
+	if (!rootSelection) return;
+	const compactInactive = zoomScale < inactiveLabelCompactZoomThreshold;
+	rootSelection.classed('fg-inactive-labels-compact', compactInactive);
+	if (inactiveLabelCompactMode === compactInactive) return;
+	inactiveLabelCompactMode = compactInactive;
+	rootSelection.selectAll('.fg-label--inactive').text((node) => (inactiveLabelCompactMode ? getCompactInactiveNodeLabel(node) : getRenderedNodeLabel(node)));
+}
+
 function rerenderGraphNodesByIds(nodeIds) {
 	if (!nodeSel) return;
 	const ids = Array.isArray(nodeIds) ? nodeIds.filter(Boolean) : Array.from(nodeIds || []).filter(Boolean);
@@ -3240,19 +3374,24 @@ function renderNodeContents(selection) {
 		g.selectAll('*').remove();
 
 		const r = NODE_R[d.group] || 10;
+		const inactive = isNodeInactive(d);
 		// Use lighter blue for stub individuals to match the legend
-		let color = NODE_COLOR[d.group] || GRAPH_COLORS.nodeDefault;
-		let nodeOpacity = 1;
+		let color = inactive ? GRAPH_COLORS.nodeInactive : NODE_COLOR[d.group] || GRAPH_COLORS.nodeDefault;
+		let nodeOpacity = inactive ? 0.82 : 1;
 		if (d.group === 'individual' && d.stub) {
-			color = GRAPH_COLORS.nodeStub;
-			nodeOpacity = 0.45;
+			color = inactive ? GRAPH_COLORS.nodeInactive : GRAPH_COLORS.nodeStub;
+			nodeOpacity = inactive ? 0.72 : 0.45;
 		}
+		const nodeStroke = inactive ? GRAPH_COLORS.nodeInactiveStroke : GRAPH_COLORS.nodeBorder;
+		const nodeLabelColor = inactive ? GRAPH_COLORS.nodeInactiveLabel : GRAPH_COLORS.nodeLabel;
+		const nodeLabelHalo = inactive ? 'rgba(248,250,252,0.95)' : GRAPH_COLORS.nodeLabelHalo;
 
 		if (d.group === 'firm') {
 			const s = (d._vizHalf ?? r * 0.85) * 2;
 			const deg = d._deg || { total: 0, controls: 0, employed: 0 };
 			const dominantStroke =
-				deg.controls > deg.employed ? '#ef4444'
+				inactive ? GRAPH_COLORS.nodeInactiveStroke
+				: deg.controls > deg.employed ? '#ef4444'
 				: deg.employed > deg.controls ? '#ff4806'
 				: GRAPH_COLORS.nodeBorder;
 			const hasConnections = deg.total > 0;
@@ -3269,7 +3408,7 @@ function renderNodeContents(selection) {
 			}
 
 			// Draw minority stroke as a larger hexagon if needed
-			if (deg.controls > 0 && deg.employed > 0) {
+			if (!inactive && deg.controls > 0 && deg.employed > 0) {
 				const minorityStroke = deg.controls > deg.employed ? '#ff4806' : '#ef4444';
 				g.append('polygon')
 					.attr('points', hexPoints((s + 8) / 2))
@@ -3283,7 +3422,12 @@ function renderNodeContents(selection) {
 			g.append('polygon')
 				.attr('points', hexPoints(s / 2))
 				.attr('fill', color)
-				.attr('stroke', hasConnections ? dominantStroke : GRAPH_COLORS.nodeBorder)
+				.attr(
+					'stroke',
+					inactive ? GRAPH_COLORS.nodeInactiveStroke
+					: hasConnections ? dominantStroke
+					: GRAPH_COLORS.nodeBorder,
+				)
 				.attr('stroke-width', strokeW)
 				.attr('opacity', nodeOpacity === 1 ? 0.9 : nodeOpacity);
 		} else if (d.group === 'entity') {
@@ -3291,32 +3435,37 @@ function renderNodeContents(selection) {
 			g.append('polygon')
 				.attr('points', `0,${-s} ${s},0 0,${s} ${-s},0`)
 				.attr('fill', color)
-				.attr('stroke', GRAPH_COLORS.nodeBorder)
+				.attr('stroke', nodeStroke)
 				.attr('stroke-width', 1.5)
-				.attr('opacity', 0.8);
+				.attr('opacity', inactive ? 0.7 : 0.8);
 		} else {
 			const rv = d._vizHalf != null ? d._vizHalf : r;
-			g.append('circle').attr('r', rv).attr('fill', color).attr('stroke', GRAPH_COLORS.nodeBorder).attr('stroke-width', 1.5).attr('opacity', nodeOpacity);
+			g.append('circle').attr('r', rv).attr('fill', color).attr('stroke', nodeStroke).attr('stroke-width', 1.5).attr('opacity', nodeOpacity);
 		}
 
 		drawDisclosureIndicator(g, d, r);
 
 		['halo', 'fill'].forEach((pass) => {
+			const labelClass = [`fg-label-${pass}`];
+			if (inactive) {
+				labelClass.push('fg-label--inactive', `fg-label-${pass}--inactive`);
+			}
+			const labelText = inactive && inactiveLabelCompactMode ? getCompactInactiveNodeLabel(d) : getRenderedNodeLabel(d);
 			g.append('text')
-				.attr('class', `fg-label-${pass}`)
+				.attr('class', labelClass.join(' '))
 				.attr('dy', d._vizHalf != null ? d._vizHalf + 14 : r + 14)
 				.attr('text-anchor', 'middle')
 				.attr('font-size', '10px')
 				.attr('font-family', 'var(--sans)')
 				.attr('font-weight', '500')
-				.attr('fill', pass === 'halo' ? 'none' : GRAPH_COLORS.nodeLabel)
-				.attr('stroke', pass === 'halo' ? GRAPH_COLORS.nodeLabelHalo : 'none')
+				.attr('fill', pass === 'halo' ? 'none' : nodeLabelColor)
+				.attr('stroke', pass === 'halo' ? nodeLabelHalo : 'none')
 				.attr('stroke-width', pass === 'halo' ? 4 : 0)
 				.attr('stroke-linejoin', 'round')
 				.attr('paint-order', 'stroke')
 				.attr('pointer-events', 'all')
 				.style('cursor', 'pointer')
-				.text(getRenderedNodeLabel(d));
+				.text(labelText);
 		});
 
 		g.append('title').text(() => {
@@ -3348,12 +3497,14 @@ function isCurrentRegistration(d) {
 }
 
 function getLinkColor(d) {
+	if (hasInactiveEndpoint(d)) return GRAPH_COLORS.lineInactive;
 	if (d.relationship === 'controls') return GRAPH_COLORS.lineControls;
 	if (d.relationship === 'employed_by' && d.isCurrent === false) return GRAPH_COLORS.linePreviousEmployment;
 	return LINK_COLOR[d.relationship] || DEFAULT_LINK_COLOR;
 }
 
 function getLinkMarker(d) {
+	if (hasInactiveEndpoint(d)) return 'url(#arrow-inactive)';
 	if (d.relationship === 'controls') return `url(#arrow-controls)`;
 	if (d.relationship === 'employed_by' && d.isCurrent === false) return `url(#arrow-previous_employed_by)`;
 	if (d.relationship === 'employed_by' && isCurrentRegistration(d)) return `url(#arrow-current_employed_by)`;
@@ -3399,15 +3550,7 @@ function markNodeSelected(node, options: { persist?: boolean } = {}) {
 function refreshGraphColors() {
 	if (!nodeSel || !layoutLinks || !linkSel) return;
 
-	nodeSel.each(function (d) {
-		const color = NODE_COLOR[d.group] || GRAPH_COLORS.nodeDefault;
-		d3.select(this)
-			.selectAll('circle, rect, polygon')
-			.filter(function () {
-				return d3.select(this).attr('fill') !== 'none';
-			})
-			.attr('fill', color);
-	});
+	renderNodeContents(nodeSel);
 
 	linkSel
 		.attr('stroke', (d) => getLinkColor(d))
@@ -3508,13 +3651,21 @@ function renderGraph(_data) {
 		isHuge ? 0.8
 		: isLarge ? 0.55
 		: 0.3;
+	activeLabelZoomThreshold = labelZoomThreshold;
+	inactiveLabelCompactZoomThreshold = labelZoomThreshold * 1.35;
+	inactiveLabelCompactMode = initialScaleForCompactState(nodeCount) < inactiveLabelCompactZoomThreshold;
+
+	function initialScaleForCompactState(count) {
+		return count > 1000 ? 0.18 : 0.25;
+	}
 
 	const zoom = d3
 		.zoom()
 		.scaleExtent([0.1, 6])
 		.on('zoom', (event) => {
 			root.attr('transform', event.transform);
-			root.classed('fg-labels-hidden', event.transform.k < labelZoomThreshold);
+			root.classed('fg-labels-hidden', event.transform.k < activeLabelZoomThreshold);
+			updateInactiveLabelZoomState(root, event.transform.k);
 			if (zoomSaveTimer) clearTimeout(zoomSaveTimer);
 			zoomSaveTimer = setTimeout(() => {
 				try {
@@ -3545,11 +3696,12 @@ function renderGraph(_data) {
 	}
 
 	const root = svg.append('g').attr('class', 'fg-root');
+	updateInactiveLabelZoomState(root, initialScaleForCompactState(nodeCount));
 
 	// ── Arrow markers ─────────────────────────────────────────────────────────
 	const defs = svg.append('defs');
 
-	['employed_by', 'previous_employed_by', 'controls', 'current_employed_by'].forEach((rel) => {
+	['employed_by', 'previous_employed_by', 'controls', 'current_employed_by', 'inactive'].forEach((rel) => {
 		defs
 			.append('marker')
 			.attr('id', `arrow-${rel}`)
@@ -3565,6 +3717,7 @@ function renderGraph(_data) {
 			.attr(
 				'fill',
 				rel === 'controls' ? GRAPH_COLORS.lineControls
+				: rel === 'inactive' ? GRAPH_COLORS.lineInactive
 				: rel === 'previous_employed_by' ? GRAPH_COLORS.linePreviousEmployment
 				: GRAPH_COLORS.lineEmployedBy,
 			);
@@ -5653,7 +5806,7 @@ function highlightLinks(highlightState = null) {
 			sel
 				.style('opacity', 1)
 				.style('stroke-opacity', null)
-				.attr('stroke', d.relationship === 'controls' ? GRAPH_COLORS.lineControlsHighlight : getLinkColor(d))
+				.attr('stroke', getLinkHighlightColor(d))
 				.attr('stroke-opacity', connectedToRoot ? 1 : 0.97)
 				.attr(
 					'stroke-width',
@@ -6847,6 +7000,12 @@ function renderLegend() {
 			label: 'Individual',
 		},
 		{
+			color: GRAPH_COLORS.nodeInactive,
+			shape: 'circle-inactive',
+			label: 'Inactive node',
+			opacity: 0.82,
+		},
+		{
 			color: 'var(--c-individual)',
 			shape: 'circle-s',
 			label: 'Stub (Form BD only)',
@@ -6861,6 +7020,7 @@ function renderLegend() {
 		{ color: GRAPH_COLORS.lineEmployedBy, shape: 'line', label: 'Current employment/registration (Blue)' },
 		{ color: GRAPH_COLORS.linePreviousEmployment, shape: 'line-dashed', label: 'Previous employment/registration (Gray)' },
 		{ color: GRAPH_COLORS.lineControls, shape: 'line', label: 'Controls (From BD, Red)' },
+		{ color: GRAPH_COLORS.lineInactive, shape: 'line', label: 'Inactive connection (Gray)' },
 		{ color: GRAPH_COLORS.lineDisclosure, shape: 'ring', label: 'Has disclosures' },
 	];
 
@@ -6870,6 +7030,8 @@ function renderLegend() {
 			let svg;
 			if (shape === 'circle' || shape === 'circle-s') {
 				svg = `<svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="${color}" opacity="${opacity}" stroke="#fff" stroke-width="1.5"/></svg>`;
+			} else if (shape === 'circle-inactive') {
+				svg = `<svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="${color}" opacity="${opacity}" stroke="${GRAPH_COLORS.nodeInactiveStroke}" stroke-width="1.5"/></svg>`;
 			} else if (shape === 'rect') {
 				svg = `<svg width="16" height="16"><rect x="2" y="2" width="12" height="12" rx="2" fill="${color}" stroke="#fff" stroke-width="1.5" opacity="0.9"/></svg>`;
 			} else if (shape === 'diamond') {

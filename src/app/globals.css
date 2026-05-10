@@ -1400,6 +1400,22 @@ body {
 	opacity: 1 !important;
 }
 
+.fg-label-fill--inactive {
+	opacity: 0.86;
+}
+
+.fg-label-halo--inactive {
+	opacity: 0.92;
+}
+
+.fg-root.fg-inactive-labels-compact .fg-label-fill--inactive {
+	opacity: 0.62;
+}
+
+.fg-root.fg-inactive-labels-compact .fg-label-halo--inactive {
+	opacity: 0.72;
+}
+
 /* LOD: hide labels when zoomed out far (toggled by JS via .fg-labels-hidden) */
 .fg-root.fg-labels-hidden .fg-label-fill,
 .fg-root.fg-labels-hidden .fg-label-halo {
