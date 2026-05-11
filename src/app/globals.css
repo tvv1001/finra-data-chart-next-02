@@ -2,19 +2,73 @@
 
 /* ── Design tokens (match main app) ───────────────────────────────────── */
 :root {
-	/* Default colors */
+	/* Legend: individuals */
+	--color-highlight-individual: #0965e6;
+	--color-node-stub: #8ab7ee;
+	--opacity-node-default: 1;
+	--opacity-node-stub: 0.85;
+	--opacity-node-stub-inactive: 0.72;
+
+	/* Legend: firms */
+	--color-highlight-firm: #d97706;
+	--color-node-firm-employed-stroke: #4a413d;
+	--color-node-firm-controls-stroke: #ef4444;
+	--stroke-width-node-firm-connected: 0.5;
+	--stroke-width-node-firm-employed: var(--stroke-width-node-firm-connected);
+	--stroke-width-node-firm-controls: var(--stroke-width-node-firm-connected);
+	--stroke-width-node-firm-isolated: 0.5;
+
+	/* Legend: entities */
+	--color-highlight-entity: #f20ee3;
+	--opacity-node-entity: 0.9;
+	--opacity-node-entity-inactive: 0.7;
+
+	/* Legend: relationships */
+	--color-highlight-controls: #e50909;
+	--color-highlight-employed: #004cb6;
+	--color-node-disclosure-stroke: #f97316;
+	--color-node-pulse: #fbbf24;
+	--stroke-width-node-disclosure: 0.2;
+	--stroke-width-node-pulse: 2.2;
+	--stroke-dasharray-node-disclosure: 4;
+	--stroke-opacity-node-pulse: 0.95;
+
+	/* Shared node/default styling */
 	--color-default-text: #2e3744;
 	--color-default-line: #71757b81;
 	--color-default-muted: #454a53;
 	--color-default-soft: #414b5a;
+	--color-node-border: #ffffff;
+	--stroke-width-node-default: 1.5;
 
-	/* Highlighted colors */
-	--color-highlight-individual: #2563eb;
-	--color-highlight-firm: #d97706;
-	--color-highlight-entity: #f20ee3;
-	--color-highlight-controls: #e50909;
-	--color-highlight-employed: #1061db;
+	/* Inactive nodes */
+	--color-node-inactive: #869ab944;
+	--color-node-inactive-stroke: #879bb7;
+	--color-node-inactive-label: #334155;
+	--color-node-inactive-highlighted-stroke: rgba(192, 201, 213, 0.95);
+	--opacity-node-inactive: 0.82;
+	--shadow-node-inactive-highlighted: drop-shadow(0 0 6px rgba(71, 85, 105, 0.38));
 
+	/* Selected state */
+	--color-node-selected-stroke: rgb(0, 7, 21);
+	--color-node-firm-selected-stroke: #8b5947;
+	--opacity-node-selected: 1;
+	--fill-opacity-node-selected: 0.8;
+	--stroke-opacity-node-selected: 1;
+	--stroke-width-node-selected: 1.5;
+	--shadow-node-selected: drop-shadow(0 0 8px rgba(54, 61, 75, 0.5));
+
+	/* Highlighted-hop state */
+	--color-node-highlighted-stroke: rgb(142, 47, 9);
+	--color-node-firm-highlighted-stroke: #af4741;
+	--opacity-node-highlighted: 0.96;
+	--fill-opacity-node-highlighted: 0.96;
+	--stroke-opacity-node-highlighted: 1;
+	--stroke-width-node-highlighted: 2.4;
+	--stroke-width-node-firm-highlighted: var(--stroke-width-node-firm-connected);
+	--shadow-node-highlighted: drop-shadow(0 0 6px rgba(142, 47, 9, 0.42));
+
+	/* App surface + typography */
 	--text: #000;
 	--text-h: #222;
 	--text-m: #272020;
@@ -30,7 +84,7 @@
 	--sans: 'Manrope', system-ui, sans-serif;
 	--mono: ui-monospace, Consolas, monospace;
 
-	/* node palette */
+	/* Node palette aliases */
 	--c-individual: #2563eb;
 	--c-firm: #d97706;
 	--c-entity: #f20ee3;
@@ -40,6 +94,9 @@
 	--c-default-line-gray: #9a9ea381;
 	--c-default-muted-gray: #454a53;
 	--c-default-soft-gray: #414b5a;
+	--c-inactive-node: var(--color-node-inactive);
+	--c-inactive-node-stroke: var(--color-node-inactive-stroke);
+	--c-inactive-node-label: var(--color-node-inactive-label);
 }
 
 *,
@@ -1371,26 +1428,116 @@ body {
 	display: block;
 }
 
+.fg-node .fg-node-shape--circle,
+.fg-node .fg-node-shape--entity {
+	stroke: var(--color-node-border);
+	stroke-width: var(--stroke-width-node-default);
+}
+
+.fg-node .fg-node-shape--firm {
+	stroke-width: var(--stroke-width-node-firm-isolated);
+}
+
+.fg-node .fg-node-disclosure-ring {
+	fill: none;
+	stroke: var(--color-node-disclosure-stroke);
+	stroke-width: var(--stroke-width-node-disclosure);
+	stroke-dasharray: var(--stroke-dasharray-node-disclosure);
+}
+
+.fg-node.fg-node--firm.fg-node--inactive .fg-node-disclosure-ring {
+	stroke: var(--color-node-inactive-stroke);
+}
+
+.fg-node .fg-node-shape--firm.fg-node-shape--firm-connected {
+	stroke-width: var(--stroke-width-node-firm-connected);
+}
+
+.fg-node .fg-node-shape--firm.fg-node-shape--firm-employed {
+	stroke-width: var(--stroke-width-node-firm-employed);
+}
+
+.fg-node .fg-node-shape--firm.fg-node-shape--firm-controls {
+	stroke-width: var(--stroke-width-node-firm-controls);
+}
+
+.fg-node.fg-node--individual .fg-node-shape--circle {
+	fill: var(--color-highlight-individual);
+	opacity: var(--opacity-node-default) !important;
+}
+
+.fg-node.fg-node--individual.fg-node--stub .fg-node-shape--circle {
+	fill: var(--color-node-stub);
+	opacity: var(--opacity-node-stub);
+}
+
+.fg-node.fg-node--entity .fg-node-shape--entity {
+	fill: var(--color-highlight-entity);
+	opacity: var(--opacity-node-entity);
+}
+
+.fg-node.fg-node--inactive .fg-node-shape--circle,
+.fg-node.fg-node--inactive .fg-node-shape--entity {
+	fill: var(--color-node-inactive);
+	stroke: var(--color-node-inactive-stroke);
+}
+
+.fg-node.fg-node--inactive .fg-node-shape--circle {
+	opacity: var(--opacity-node-inactive);
+}
+
+.fg-node.fg-node--inactive.fg-node--stub .fg-node-shape--circle {
+	opacity: var(--opacity-node-stub-inactive);
+}
+
+.fg-node.fg-node--inactive .fg-node-shape--entity {
+	opacity: var(--opacity-node-entity-inactive);
+}
+
 /* D3 node selected ring */
 .fg-node.selected circle,
 .fg-node.selected rect,
 .fg-node.selected polygon {
-	opacity: 1 !important;
-	fill-opacity: 1 !important;
-	stroke-opacity: 1 !important;
-	stroke-width: 3 !important;
-	filter: drop-shadow(0 0 8px rgba(37, 99, 235, 0.5));
+	opacity: var(--opacity-node-selected) !important;
+	fill-opacity: var(--fill-opacity-node-selected) !important;
+	stroke-opacity: var(--stroke-opacity-node-selected) !important;
+	stroke: var(--color-node-selected-stroke) !important;
+	stroke-width: var(--stroke-width-node-selected) !important;
+	filter: var(--shadow-node-selected);
 }
 
-.fg-node.highlighted-hop circle,
+.fg-node.fg-node--firm.selected polygon {
+	stroke: var(--color-node-firm-selected-stroke) !important;
+}
+
+.fg-node.fg-node--inactive.selected circle,
+.fg-node.fg-node--inactive.selected rect,
+.fg-node.fg-node--inactive.selected polygon {
+	stroke: var(--color-node-inactive-stroke) !important;
+	filter: drop-shadow(0 0 8px rgba(71, 85, 105, 0.42));
+}
+
+/* .fg-node.highlighted-hop circle,
 .fg-node.highlighted-hop rect,
 .fg-node.highlighted-hop polygon {
-	opacity: 0.96 !important;
-	fill-opacity: 0.96 !important;
-	stroke-opacity: 1 !important;
-	stroke: rgba(37, 99, 235, 0.95) !important;
-	stroke-width: 2.4 !important;
-	filter: drop-shadow(0 0 6px rgba(37, 99, 235, 0.42));
+	opacity: var(--opacity-node-highlighted) !important;
+	fill-opacity: var(--fill-opacity-node-highlighted) !important;
+	stroke-opacity: var(--stroke-opacity-node-highlighted) !important;
+	stroke: var(--color-node-highlighted-stroke) !important;
+	stroke-width: var(--stroke-width-node-highlighted) !important;
+	filter: var(--shadow-node-highlighted);
+} */
+
+.fg-node.fg-node--firm.highlighted-hop polygon {
+	stroke: var(--color-node-firm-highlighted-stroke) !important;
+	stroke-width: var(--stroke-width-node-firm-highlighted) !important;
+}
+
+.fg-node.fg-node--inactive.highlighted-hop circle,
+.fg-node.fg-node--inactive.highlighted-hop rect,
+.fg-node.fg-node--inactive.highlighted-hop polygon {
+	stroke: var(--color-node-inactive-highlighted-stroke) !important;
+	filter: var(--shadow-node-inactive-highlighted);
 }
 
 .fg-node.selected .fg-label-fill,

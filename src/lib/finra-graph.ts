@@ -57,23 +57,28 @@ const GRAPH_COLORS = {
 	nodeIndividual: 'var(--color-highlight-individual)',
 	nodeFirm: 'var(--color-highlight-firm)',
 	nodeEntity: 'var(--color-highlight-entity)',
-	nodeStub: '#60a5fa',
-	nodeInactive: '#cbd5e1',
-	nodeInactiveStroke: '#94a3b8',
-	nodeInactiveLabel: '#64748b',
+	nodeStub: 'var(--color-node-stub)',
+	nodeInactive: 'var(--color-node-inactive)',
+	nodeInactiveStroke: 'var(--color-node-inactive-stroke)',
+	nodeInactiveLabel: 'var(--color-node-inactive-label)',
 	nodeDefault: 'var(--color-default-text)',
-	nodeBorder: '#fff',
+	nodeBorder: 'var(--color-node-border)',
 	nodeLabel: '#1e293b',
 	nodeLabelHalo: 'rgba(246,248,252,0.92)',
-	nodePulse: '#ff9f1c',
+	nodePulse: 'var(--color-node-pulse)',
 	lineEmployedBy: 'var(--color-highlight-employed)',
 	lineControls: 'var(--color-highlight-controls)',
 	lineControlsHighlight: '#ff2222',
 	lineDisclosure: '#f97316',
-	lineInactive: '#94a3b8',
+	lineInactive: 'var(--color-default-line)',
 	lineNeutral: 'var(--color-default-line)',
 	linePreviousEmployment: 'var(--color-default-line)',
+	nodeFirmEmployedStroke: 'var(--color-node-firm-employed-stroke)',
+	nodeFirmControlsStroke: 'var(--color-node-firm-controls-stroke)',
 };
+
+const NODE_STROKE_WIDTH_DEFAULT = 'var(--stroke-width-node-default)';
+const NODE_OPACITY_STUB = 'var(--opacity-node-stub)';
 
 const ENABLE_SERVER_PROFILE_SYNC = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_ENABLE_SERVER_PROFILE_SYNC === '1';
 
@@ -125,6 +130,9 @@ let nodePulseInteractionCleanup: (() => void) | null = null; // removes reload p
 let activeLabelZoomThreshold = 0.3;
 let inactiveLabelCompactZoomThreshold = 0.42;
 let inactiveLabelCompactMode = false;
+let sessionPersistenceMode: 'full' | 'compact' | 'reduced' | 'minimal' = 'full';
+
+type SessionPersistenceMode = 'full' | 'compact' | 'reduced' | 'minimal';
 // Baseline snapshot from the initial server response for this page load.
 // Used to identify which rendered nodes/links are truly "added" extras.
 let initialServerNodeIds = null; // Set<id>
@@ -179,9 +187,10 @@ function getPersistedNodePositions({ compact = false } = {}) {
 	return layoutNodes.filter((node) => focusIds.has(node.id)).map((node) => buildPersistedNodePosition(node));
 }
 
-function buildSessionPayload({ compact = false } = {}) {
+function buildSessionPayload({ compact = false, extraNodeMode = 'full' }: { compact?: boolean; extraNodeMode?: 'full' | 'ids' | 'none' } = {}) {
 	const serverIds = initialServerNodeIds || new Set(graphData.nodes.map((n) => n.id));
 	const extraNodes = layoutNodes.filter((n) => !serverIds.has(n.id));
+	const extraNodeIds = extraNodes.map((node) => node.id).filter(Boolean);
 	const renderedServerIds = layoutNodes.filter((n) => serverIds.has(n.id)).map((n) => n.id);
 	const baseLinkKeys =
 		initialServerLinkKeys ||
@@ -193,6 +202,9 @@ function buildSessionPayload({ compact = false } = {}) {
 			}),
 		);
 	const shouldCompactLayout = compact || layoutNodes.length > SESSION_FULL_LAYOUT_NODE_LIMIT;
+	const includeExtraNodeObjects = extraNodeMode === 'full';
+	const includeExtraNodeIds = extraNodeMode === 'ids';
+	const includeExtraLinks = extraNodeMode !== 'none';
 	const effectiveCleared =
 		isSessionCleared &&
 		renderedServerIds.length === 0 &&
@@ -210,25 +222,32 @@ function buildSessionPayload({ compact = false } = {}) {
 			hops: entry.hops === 'all' ? 'all' : Number(entry.hops) || 1,
 		})),
 		nodePositions: getPersistedNodePositions({ compact: shouldCompactLayout }),
-		extraNodes: extraNodes.map((n) => {
-			const { x, y, vx, vy, fx, fy, index, ...rest } = n;
-			return sanitizePersistedNode(rest);
-		}),
-		extraLinks: layoutLinks
-			.filter((l) => {
-				const s = l.source?.id ?? l.source;
-				const t = l.target?.id ?? l.target;
-				return !baseLinkKeys.has(`${s}|${t}`);
-			})
-			.map((l) => ({
-				source: l.source?.id ?? l.source,
-				target: l.target?.id ?? l.target,
-				relationship: l.relationship,
-				startDate: l.startDate,
-				endDate: l.endDate,
-				city: l.city,
-				state: l.state,
-			})),
+		extraNodes:
+			includeExtraNodeObjects ?
+				extraNodes.map((n) => {
+					const { x, y, vx, vy, fx, fy, index, ...rest } = n;
+					return sanitizePersistedNode(rest);
+				})
+			:	[],
+		extraNodeIds: includeExtraNodeIds ? extraNodeIds : [],
+		extraLinks:
+			includeExtraLinks ?
+				layoutLinks
+					.filter((l) => {
+						const s = l.source?.id ?? l.source;
+						const t = l.target?.id ?? l.target;
+						return !baseLinkKeys.has(`${s}|${t}`);
+					})
+					.map((l) => ({
+						source: l.source?.id ?? l.source,
+						target: l.target?.id ?? l.target,
+						relationship: l.relationship,
+						startDate: l.startDate,
+						endDate: l.endDate,
+						city: l.city,
+						state: l.state,
+					}))
+			:	[],
 		zoomTransform: (() => {
 			try {
 				if (svgSel && typeof svgSel.node === 'function') {
@@ -266,22 +285,41 @@ function persistSessionPayload(payload) {
 	localStorage.setItem(LS_SESSION_KEY, serialized);
 }
 
+function getSessionPersistenceAttempts() {
+	return [
+		{ mode: 'full', options: { compact: false, extraNodeMode: 'full' as const } },
+		{ mode: 'compact', options: { compact: true, extraNodeMode: 'full' as const } },
+		{ mode: 'reduced', options: { compact: true, extraNodeMode: 'ids' as const } },
+		{ mode: 'minimal', options: { compact: true, extraNodeMode: 'none' as const } },
+	] satisfies Array<{ mode: SessionPersistenceMode; options: { compact: boolean; extraNodeMode: 'full' | 'ids' | 'none' } }>;
+}
+
 function saveSession() {
 	if (!layoutNodes || !graphData) return;
-	try {
-		const payload = buildSessionPayload();
-		isSessionCleared = Boolean(payload.cleared);
-		persistSessionPayload(payload);
-	} catch (fullSaveError) {
+	const attempts = getSessionPersistenceAttempts();
+	const startIndex = Math.max(
+		0,
+		attempts.findIndex((entry) => entry.mode === sessionPersistenceMode),
+	);
+	let lastError = null;
+
+	for (let index = startIndex; index < attempts.length; index += 1) {
+		const attempt = attempts[index];
 		try {
-			const compactPayload = buildSessionPayload({ compact: true });
-			isSessionCleared = Boolean(compactPayload.cleared);
-			persistSessionPayload(compactPayload);
-			console.warn('Saved compact graph session after full session persistence failed.', fullSaveError);
-		} catch (compactSaveError) {
-			console.warn('Failed to persist graph session.', compactSaveError);
+			const payload = buildSessionPayload(attempt.options);
+			isSessionCleared = Boolean(payload.cleared);
+			persistSessionPayload(payload);
+			if (sessionPersistenceMode !== attempt.mode) {
+				console.warn(`Graph session persistence downgraded to ${attempt.mode} mode after oversized payload.`, lastError);
+			}
+			sessionPersistenceMode = attempt.mode;
+			return;
+		} catch (error) {
+			lastError = error;
 		}
 	}
+
+	console.warn('Failed to persist graph session.', lastError);
 }
 
 function resetTransientDetailState(node) {
@@ -526,8 +564,8 @@ function pulseNodeHighlightById(id, { duration = 1200, stroke = GRAPH_COLORS.nod
 				.attr('class', 'fg-restore-ring')
 				.attr('fill', 'none')
 				.attr('stroke', stroke)
-				.attr('stroke-width', 1)
-				.attr('stroke-opacity', 0.95)
+				.attr('stroke-width', 'var(--stroke-width-node-pulse)')
+				.attr('stroke-opacity', 'var(--stroke-opacity-node-pulse)')
 				.attr('pointer-events', 'none')
 				.attr('r', baseRadius * 0.85)
 				.transition()
@@ -677,6 +715,11 @@ async function restoreSavedSession(session) {
 		restoredExtraNodes.forEach((node) => resetTransientDetailState(node));
 		mergeIntoGraphData(restoredExtraNodes, session.extraLinks || []);
 		appendFetched(restoredExtraNodes, session.extraLinks || []);
+	} else if (session.extraNodeIds?.length) {
+		const missingExtraNodeIds = session.extraNodeIds.filter((id) => !layoutNodes.some((node) => node.id === id));
+		if (missingExtraNodeIds.length) {
+			await injectNodesById(missingExtraNodeIds);
+		}
 	}
 
 	try {
@@ -717,6 +760,7 @@ async function restoreSavedSession(session) {
 
 function clearGraphData() {
 	graphData = { nodes: [], links: [], meta: {} };
+	sessionPersistenceMode = 'full';
 	initialServerNodeIds = new Set();
 	initialServerLinkKeys = new Set();
 	isSubsetMode = false;
@@ -745,6 +789,7 @@ async function loadBaselineGraph(profileName) {
 		throw new Error(`HTTP ${res.status}`);
 	}
 	graphData = await res.json();
+	sessionPersistenceMode = 'full';
 	normalizeNodeLabelsInPlace(graphData?.nodes || []);
 	initialServerNodeIds = new Set(graphData.nodes.map((n) => n.id));
 	initialServerLinkKeys = new Set(
@@ -1131,11 +1176,12 @@ function drawDisclosureIndicator(g, d, r) {
 	if (d.group === 'individual') {
 		const rv = d._vizHalf != null ? d._vizHalf : r;
 		g.append('circle')
+			.attr('class', 'fg-node-disclosure-ring fg-node-disclosure-ring--circle')
 			.attr('r', rv + 2.2) // closer to node
-			.attr('fill', 'none')
-			.attr('stroke', GRAPH_COLORS.lineDisclosure)
-			.attr('stroke-width', 0.7)
-			.attr('stroke-dasharray', '2 1.5');
+			.attr('fill', null)
+			.attr('stroke', null)
+			.attr('stroke-width', null)
+			.attr('stroke-dasharray', null);
 		return;
 	}
 	if (d.group === 'firm') {
@@ -1150,11 +1196,12 @@ function drawDisclosureIndicator(g, d, r) {
 			return points.join(' ');
 		}
 		g.append('polygon')
+			.attr('class', 'fg-node-disclosure-ring fg-node-disclosure-ring--firm')
 			.attr('points', hexPoints(s / 2 + 2.2)) // just outside node
-			.attr('fill', 'none')
-			.attr('stroke', GRAPH_COLORS.lineDisclosure)
-			.attr('stroke-width', 0.7)
-			.attr('stroke-dasharray', '2 1.5');
+			.attr('fill', null)
+			.attr('stroke', null)
+			.attr('stroke-width', null)
+			.attr('stroke-dasharray', null);
 	}
 }
 
@@ -2600,7 +2647,7 @@ async function loadGraph() {
 
 		if (clearedSession) {
 			clearGraphData();
-			if (session && (session.extraNodes?.length || session.renderedServerIds?.length)) {
+			if (session && (session.extraNodes?.length || session.extraNodeIds?.length || session.renderedServerIds?.length)) {
 				await restoreSavedSession(session);
 			}
 			return;
@@ -3106,7 +3153,12 @@ const LINK_OPACITY = {
 	controls: 0.65,
 };
 const DEFAULT_LINK_WIDTH = 0.75;
-const defaultLinkOpacity = (d) => LINK_OPACITY[d.relationship] ?? 0.5;
+const INACTIVE_LINK_OPACITY = 0.34;
+const defaultLinkOpacity = (d) => {
+	if (hasInactiveEndpoint(d)) return INACTIVE_LINK_OPACITY;
+	if (usesCurrentEmploymentStyling(d)) return LINK_OPACITY.employed_by;
+	return LINK_OPACITY[d.relationship] ?? 0.5;
+};
 
 function getEmploymentRelationship(entry) {
 	return getEmploymentRelationshipImpl(entry);
@@ -3307,6 +3359,7 @@ function isNodeInactive(node) {
 	if (node.group === 'individual') {
 		const activityFlags = collectNodeActivityFlags([node.bcScope, node.iaScope, node.basicInformation?.bcScope, node.basicInformation?.iaScope]);
 		if (activityFlags.hasActive) return false;
+		if (node.stub) return false;
 		if (hasApprovedRegistrationCounts(node.registrationCount)) return false;
 		if (node.currentEmployments?.length || node.currentIAEmployments?.length) return false;
 		if (hasActiveRegisteredStates(node.registeredStates)) return false;
@@ -3330,6 +3383,16 @@ function hasInactiveEndpoint(link) {
 	const sourceNode = resolveLinkEndpointNode(link.source);
 	const targetNode = resolveLinkEndpointNode(link.target);
 	return isNodeInactive(sourceNode) || isNodeInactive(targetNode);
+}
+
+function isPreviousEmploymentLink(link) {
+	if (!link) return false;
+	return link.relationship === 'previous_employed_by' || (link.relationship === 'employed_by' && link.isCurrent === false);
+}
+
+function usesCurrentEmploymentStyling(link) {
+	if (!link || hasInactiveEndpoint(link)) return false;
+	return isCurrentRegistration(link) || isPreviousEmploymentLink(link);
 }
 
 function getLinkHighlightColor(link) {
@@ -3375,12 +3438,17 @@ function renderNodeContents(selection) {
 
 		const r = NODE_R[d.group] || 10;
 		const inactive = isNodeInactive(d);
+		g.classed('fg-node--inactive', inactive)
+			.classed('fg-node--individual', d.group === 'individual')
+			.classed('fg-node--firm', d.group === 'firm')
+			.classed('fg-node--entity', d.group === 'entity')
+			.classed('fg-node--stub', d.group === 'individual' && Boolean(d.stub));
 		// Use lighter blue for stub individuals to match the legend
 		let color = inactive ? GRAPH_COLORS.nodeInactive : NODE_COLOR[d.group] || GRAPH_COLORS.nodeDefault;
-		let nodeOpacity = inactive ? 0.82 : 1;
+		let nodeOpacity: number | string = inactive ? 0.82 : 1;
 		if (d.group === 'individual' && d.stub) {
 			color = inactive ? GRAPH_COLORS.nodeInactive : GRAPH_COLORS.nodeStub;
-			nodeOpacity = inactive ? 0.72 : 0.45;
+			nodeOpacity = inactive ? 0.72 : NODE_OPACITY_STUB;
 		}
 		const nodeStroke = inactive ? GRAPH_COLORS.nodeInactiveStroke : GRAPH_COLORS.nodeBorder;
 		const nodeLabelColor = inactive ? GRAPH_COLORS.nodeInactiveLabel : GRAPH_COLORS.nodeLabel;
@@ -3389,10 +3457,14 @@ function renderNodeContents(selection) {
 		if (d.group === 'firm') {
 			const s = (d._vizHalf ?? r * 0.85) * 2;
 			const deg = d._deg || { total: 0, controls: 0, employed: 0 };
+			const dominantClass =
+				deg.controls > deg.employed ? 'fg-node-shape--firm-controls'
+				: deg.employed > deg.controls ? 'fg-node-shape--firm-employed'
+				: '';
 			const dominantStroke =
 				inactive ? GRAPH_COLORS.nodeInactiveStroke
-				: deg.controls > deg.employed ? '#ef4444'
-				: deg.employed > deg.controls ? '#ff4806'
+				: deg.controls > deg.employed ? GRAPH_COLORS.nodeFirmControlsStroke
+				: deg.employed > deg.controls ? GRAPH_COLORS.nodeFirmEmployedStroke
 				: GRAPH_COLORS.nodeBorder;
 			const hasConnections = deg.total > 0;
 			const strokeW = hasConnections ? 0.5 : 1.5;
@@ -3409,7 +3481,7 @@ function renderNodeContents(selection) {
 
 			// Draw minority stroke as a larger hexagon if needed
 			if (!inactive && deg.controls > 0 && deg.employed > 0) {
-				const minorityStroke = deg.controls > deg.employed ? '#ff4806' : '#ef4444';
+				const minorityStroke = deg.controls > deg.employed ? GRAPH_COLORS.nodeFirmEmployedStroke : GRAPH_COLORS.nodeFirmControlsStroke;
 				g.append('polygon')
 					.attr('points', hexPoints((s + 8) / 2))
 					.attr('fill', 'none')
@@ -3420,6 +3492,7 @@ function renderNodeContents(selection) {
 
 			// Main firm hexagon
 			g.append('polygon')
+				.attr('class', `fg-node-shape fg-node-shape--firm ${hasConnections ? 'fg-node-shape--firm-connected' : ''} ${dominantClass}`.trim())
 				.attr('points', hexPoints(s / 2))
 				.attr('fill', color)
 				.attr(
@@ -3428,19 +3501,26 @@ function renderNodeContents(selection) {
 					: hasConnections ? dominantStroke
 					: GRAPH_COLORS.nodeBorder,
 				)
-				.attr('stroke-width', strokeW)
+				.attr('stroke-width', null)
 				.attr('opacity', nodeOpacity === 1 ? 0.9 : nodeOpacity);
 		} else if (d.group === 'entity') {
 			const s = r * 1.5;
 			g.append('polygon')
+				.attr('class', 'fg-node-shape fg-node-shape--entity')
 				.attr('points', `0,${-s} ${s},0 0,${s} ${-s},0`)
-				.attr('fill', color)
-				.attr('stroke', nodeStroke)
-				.attr('stroke-width', 1.5)
-				.attr('opacity', inactive ? 0.7 : 0.8);
+				.attr('fill', null)
+				.attr('stroke', null)
+				.attr('stroke-width', null)
+				.attr('opacity', null);
 		} else {
 			const rv = d._vizHalf != null ? d._vizHalf : r;
-			g.append('circle').attr('r', rv).attr('fill', color).attr('stroke', nodeStroke).attr('stroke-width', 1.5).attr('opacity', nodeOpacity);
+			g.append('circle')
+				.attr('class', 'fg-node-shape fg-node-shape--circle')
+				.attr('r', rv)
+				.attr('fill', null)
+				.attr('stroke', null)
+				.attr('stroke-width', null)
+				.attr('opacity', null);
 		}
 
 		drawDisclosureIndicator(g, d, r);
@@ -3497,29 +3577,28 @@ function isCurrentRegistration(d) {
 }
 
 function getLinkColor(d) {
-	if (hasInactiveEndpoint(d)) return GRAPH_COLORS.lineInactive;
+	if (hasInactiveEndpoint(d)) return GRAPH_COLORS.linePreviousEmployment;
 	if (d.relationship === 'controls') return GRAPH_COLORS.lineControls;
-	if (d.relationship === 'employed_by' && d.isCurrent === false) return GRAPH_COLORS.linePreviousEmployment;
+	if (usesCurrentEmploymentStyling(d)) return GRAPH_COLORS.lineEmployedBy;
 	return LINK_COLOR[d.relationship] || DEFAULT_LINK_COLOR;
 }
 
 function getLinkMarker(d) {
-	if (hasInactiveEndpoint(d)) return 'url(#arrow-inactive)';
+	if (hasInactiveEndpoint(d)) return 'url(#arrow-previous_employed_by)';
 	if (d.relationship === 'controls') return `url(#arrow-controls)`;
-	if (d.relationship === 'employed_by' && d.isCurrent === false) return `url(#arrow-previous_employed_by)`;
-	if (d.relationship === 'employed_by' && isCurrentRegistration(d)) return `url(#arrow-current_employed_by)`;
+	if (usesCurrentEmploymentStyling(d)) return `url(#arrow-current_employed_by)`;
 	return `url(#arrow-${d.relationship})`;
 }
 
 function getLinkDash(d) {
-	if (d.relationship === 'previous_employed_by') return '5 3';
-	if (d.relationship === 'employed_by' && d.isCurrent === false) return '5 3';
+	if (hasInactiveEndpoint(d)) return '5 3';
+	if (usesCurrentEmploymentStyling(d)) return null;
 	return null;
 }
 
 function getLinkWidth(d) {
-	if (d.relationship === 'previous_employed_by') return 0.5;
-	if (d.relationship === 'employed_by' && d.isCurrent === false) return 0.5;
+	if (hasInactiveEndpoint(d)) return 0.5;
+	if (usesCurrentEmploymentStyling(d)) return DEFAULT_LINK_WIDTH;
 	return DEFAULT_LINK_WIDTH;
 }
 
@@ -5803,22 +5882,30 @@ function highlightLinks(highlightState = null) {
 		const connectedToRoot = state.rootIds.has(srcId) || state.rootIds.has(tgtId);
 		const sel = d3.select(this);
 		if (connected) {
+			const highlightedStrokeWidth =
+				hasInactiveEndpoint(d) ?
+					connectedToRoot ? 0.95
+					:	0.78
+				: d.relationship === 'controls' ?
+					connectedToRoot ? 1.9
+					:	1.55
+				: usesCurrentEmploymentStyling(d) ?
+					connectedToRoot ? 1.85
+					:	1.5
+				: connectedToRoot ? 1.4
+				: 1.15;
+			const linkStrokeOpacity =
+				hasInactiveEndpoint(d) ?
+					connectedToRoot ? 0.7
+					:	0.58
+				: connectedToRoot ? 1
+				: 0.97;
 			sel
 				.style('opacity', 1)
 				.style('stroke-opacity', null)
 				.attr('stroke', getLinkHighlightColor(d))
-				.attr('stroke-opacity', connectedToRoot ? 1 : 0.97)
-				.attr(
-					'stroke-width',
-					d.relationship === 'controls' ?
-						connectedToRoot ? 1.9
-						:	1.55
-					: isCurrentRegistration(d) ?
-						connectedToRoot ? 1.85
-						:	1.5
-					: connectedToRoot ? 1.4
-					: 1.15,
-				);
+				.attr('stroke-opacity', linkStrokeOpacity)
+				.attr('stroke-width', highlightedStrokeWidth);
 		} else {
 			sel.style('opacity', 0.3).style('stroke-opacity', null).attr('stroke', getLinkColor(d)).attr('stroke-opacity', 0.24).attr('stroke-width', 0.6);
 		}
@@ -6134,6 +6221,7 @@ function renderPersonDetail(d) {
 		if (!raw) return '';
 		const normalized = raw.toLowerCase().replace(/\s+/g, '');
 		const isActive = /active|approved/.test(normalized) && !/inactive|notinscope|terminated|revoked|suspended/.test(normalized);
+		if (!isActive && d.stub) return '';
 		const label = `${isActive ? 'Active' : 'Inactive'} ${domain}`;
 		return `<span class="fg-badge ${isActive ? 'active' : 'inactive'}" title="${esc(sourceTitle)}">${esc(label)}</span>`;
 	}
@@ -7017,10 +7105,9 @@ function renderLegend() {
 			shape: 'diamond',
 			label: 'Entity (non-CRD owner)',
 		},
-		{ color: GRAPH_COLORS.lineEmployedBy, shape: 'line', label: 'Current employment/registration (Blue)' },
-		{ color: GRAPH_COLORS.linePreviousEmployment, shape: 'line-dashed', label: 'Previous employment/registration (Gray)' },
+		{ color: GRAPH_COLORS.lineEmployedBy, shape: 'line', label: 'Current emp/reg' },
+		{ color: GRAPH_COLORS.linePreviousEmployment, shape: 'line-dashed', label: 'Previous emp/reg' },
 		{ color: GRAPH_COLORS.lineControls, shape: 'line', label: 'Controls (From BD, Red)' },
-		{ color: GRAPH_COLORS.lineInactive, shape: 'line', label: 'Inactive connection (Gray)' },
 		{ color: GRAPH_COLORS.lineDisclosure, shape: 'ring', label: 'Has disclosures' },
 	];
 
