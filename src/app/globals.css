@@ -27,9 +27,10 @@
 	--color-highlight-controls: #e50909;
 	--color-highlight-employed: #004cb6;
 	--color-node-disclosure-stroke: #f97316;
-	--color-node-pulse: #fbbf24;
+	--color-node-pulse: #18a0fb !important;
+	--shadow-node-pulse: drop-shadow(0 0 8px rgba(24, 160, 251, 0.92)) drop-shadow(0 0 18px rgba(56, 189, 248, 0.72));
 	--stroke-width-node-disclosure: 0.2;
-	--stroke-width-node-pulse: 2.2;
+	--stroke-width-node-pulse: 4.2;
 	--stroke-dasharray-node-disclosure: 4;
 	--stroke-opacity-node-pulse: 0.95;
 
@@ -174,13 +175,15 @@ body {
 }
 
 .fg-bottom-status {
+	appearance: none;
+	-webkit-appearance: none;
 	position: fixed;
 	right: 18px;
 	bottom: 18px;
 	z-index: 50;
 	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
+	align-items: center;
+	gap: 8px;
 	padding: 10px 14px;
 	border-radius: 16px;
 	background: rgba(17, 24, 39, 0.92);
@@ -191,10 +194,34 @@ body {
 	-webkit-backdrop-filter: blur(10px);
 	backdrop-filter: blur(10px);
 	pointer-events: none;
+	text-align: left;
+	white-space: nowrap;
 }
 
-.fg-bottom-status span {
-	margin-bottom: 4px;
+.fg-bottom-status__text {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.fg-bottom-status__indicator {
+	display: none;
+	flex: 0 0 auto;
+	width: 14px;
+	height: 14px;
+	position: relative;
+	opacity: 0.92;
+}
+
+.fg-bottom-status__indicator::before {
+	content: '';
+	position: absolute;
+	inset: 3px 2px 2px 3px;
+	border-right: 2px solid currentColor;
+	border-bottom: 2px solid currentColor;
+	transform: rotate(45deg);
+	transform-origin: center;
+	transition: transform 0.18s ease;
 }
 
 /* ── Layout ────────────────────────────────────────────────────────────── */
@@ -2344,9 +2371,9 @@ a,
 }
 
 /* D3 node selected ring */
-.fg-node.selected circle,
-.fg-node.selected rect,
-.fg-node.selected polygon {
+.fg-node.selected .fg-node-shape--circle,
+.fg-node.selected .fg-node-shape--entity,
+.fg-node.selected .fg-node-shape--firm {
 	opacity: var(--opacity-node-selected) !important;
 	fill-opacity: var(--fill-opacity-node-selected) !important;
 	stroke-opacity: var(--stroke-opacity-node-selected) !important;
@@ -2355,15 +2382,21 @@ a,
 	filter: var(--shadow-node-selected);
 }
 
-.fg-node.fg-node--firm.selected polygon {
+.fg-node.fg-node--firm.selected .fg-node-shape--firm {
 	stroke: var(--color-node-firm-selected-stroke) !important;
 }
 
-.fg-node.fg-node--inactive.selected circle,
-.fg-node.fg-node--inactive.selected rect,
-.fg-node.fg-node--inactive.selected polygon {
+.fg-node.fg-node--inactive.selected .fg-node-shape--circle,
+.fg-node.fg-node--inactive.selected .fg-node-shape--entity,
+.fg-node.fg-node--inactive.selected .fg-node-shape--firm {
 	stroke: var(--color-node-inactive-stroke) !important;
 	filter: drop-shadow(0 0 8px rgba(71, 85, 105, 0.42));
+}
+
+.fg-node .fg-restore-ring {
+	stroke: var(--color-node-pulse) !important;
+	filter: var(--shadow-node-pulse) !important;
+	fill: none !important;
 }
 
 /* .fg-node.highlighted-hop circle,
@@ -2686,6 +2719,225 @@ a,
 #finra-app[data-graph-empty='true'] .fg-header {
 	position: relative;
 	z-index: 130;
+}
+
+@media (max-width: 860px) {
+	.fg-header-bar {
+		align-items: center;
+		gap: 6px;
+		padding: 8px 10px;
+		flex-wrap: nowrap;
+	}
+
+	.fg-header-brand {
+		flex: 0 0 auto;
+		width: auto;
+	}
+
+	.fg-header-controls {
+		display: flex;
+		width: auto;
+		flex: 1 1 auto;
+		padding-top: 0;
+		min-width: 0;
+	}
+
+	.fg-toolbar-status--top {
+		justify-content: flex-end;
+	}
+	.fg-search-input,
+	.fg-fetch-input {
+		font: 16px var(--sans);
+	}
+	.fg-fetch-status {
+		flex-direction: row;
+		align-items: center;
+		gap: 6px;
+		flex-wrap: nowrap;
+	}
+
+	.fg-fetch {
+		width: auto;
+		max-height: none;
+		flex: 1 1 auto;
+	}
+
+	.fg-fetch-input {
+		width: min(160px, 100%);
+		min-width: 0;
+		max-width: 160px;
+	}
+
+	.fg-action-btn {
+		padding-inline: 8px;
+		font-size: 10px;
+		min-height: 30px;
+	}
+
+	.fg-toolbar-actions {
+		display: none;
+	}
+
+	.fg-ghost-btn,
+	.fg-danger-btn {
+		padding-inline: 7px;
+		font-size: 10px;
+		min-height: 30px;
+	}
+
+	.fg-body {
+		position: relative;
+	}
+
+	.fg-sidebar-backdrop {
+		display: none;
+	}
+
+	.fg-sidebar {
+		position: absolute;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		width: min(78vw, 288px);
+		max-width: 288px;
+		border-right: none;
+		border-left: 1px solid var(--border);
+		box-shadow: -14px 0 34px rgba(15, 23, 42, 0.18);
+		z-index: 3;
+	}
+
+	.fg-sidebar-inner {
+		padding: 12px 12px 16px;
+	}
+
+	.fg-sidebar-actions {
+		padding: 8px 8px 0;
+		gap: 6px;
+		justify-content: stretch;
+	}
+
+	.fg-sidebar-actions .fg-sidebar-action-btn {
+		flex: 1 1 0;
+		min-width: 0;
+		padding: 0;
+		min-height: 34px;
+	}
+
+	.fg-sidebar-action-btn--mobile-only {
+		display: inline-flex;
+	}
+
+	.fg-sidebar-actions .fg-sidebar-action-label {
+		display: none;
+	}
+
+	.fg-sidebar-actions .fg-sidebar-action-icon {
+		width: 16px;
+		height: 16px;
+		font-size: 15px;
+	}
+
+	.fg-sidebar-actions .fg-sidebar-action-icon--trailing {
+		margin-left: 0;
+	}
+
+	.fg-sidebar-mobile-actions {
+		display: flex;
+		padding: 8px 8px 0;
+		gap: 6px;
+		position: sticky;
+		top: 42px;
+		z-index: 3;
+		background: var(--surface);
+	}
+
+	.fg-sidebar {
+		--fg-sidebar-sticky-offset: 78px;
+		--fg-sidebar-sticky-pad-x: 4px;
+	}
+
+	.fg-legend {
+		left: 10px;
+		bottom: 10px;
+		padding: 8px 10px;
+		font-size: 11px;
+		max-width: min(200px, calc(100vw - 20px));
+	}
+
+	.fg-empty {
+		padding: 20px;
+		text-align: center;
+		font-size: 14px;
+		line-height: 1.5;
+	}
+
+	.fg-bottom-status {
+		right: 10px;
+		bottom: 10px;
+		max-width: min(260px, calc(100vw - 20px));
+		padding: 8px 10px;
+		font-size: 11px;
+	}
+}
+.fg-restore-ring {
+	stroke: var(--color-node-pulse) !important;
+	filter: var(--shadow-node-pulse);
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	animation: fg-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@media (max-width: 860px) and (orientation: landscape) {
+	#finra-app[data-legend-toggle='true'][data-legend-open='false'] .fg-legend,
+	#finra-app[data-legend-toggle='true'][data-graph-empty='true'] .fg-legend {
+		display: none !important;
+	}
+
+	#finra-app[data-legend-toggle='true'][data-legend-open='true'][data-graph-empty='false'] .fg-legend {
+		display: flex !important;
+	}
+
+	#finra-app[data-legend-toggle='true'] .fg-legend {
+		left: 10px;
+		right: 10px;
+		bottom: calc(env(safe-area-inset-bottom) + 52px);
+		max-width: none;
+		padding: 10px 12px;
+		border-radius: 14px;
+		background: rgba(255, 255, 255, 0.96);
+		box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+
+	#finra-app[data-legend-toggle='true'] .fg-bottom-status {
+		left: 10px;
+		right: 10px;
+		bottom: 0;
+		max-width: none;
+		width: auto;
+		min-height: 42px;
+		padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+		border-radius: 14px 14px 0 0;
+		border-bottom: none;
+		background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.97) 100%);
+		box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.22);
+		pointer-events: auto;
+		cursor: pointer;
+		justify-content: space-between;
+		align-items: center;
+		white-space: nowrap;
+		overflow: hidden;
+	}
+
+	#finra-app[data-legend-toggle='true'] .fg-bottom-status__indicator {
+		display: inline-flex;
+	}
+
+	#finra-app[data-legend-toggle='true'][data-legend-open='true'] .fg-bottom-status__indicator::before {
+		transform: rotate(225deg);
+	}
+
+	#finra-app[data-legend-toggle='true'] .fg-bottom-status__text {
+		flex: 1 1 auto;
+		padding-right: 8px;
+	}
 }
 
 #finra-app[data-graph-empty='true'] .fg-fetch {
