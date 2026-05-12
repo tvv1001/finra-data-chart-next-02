@@ -101,12 +101,6 @@ export default function FinraGraph() {
 					<div
 						id='fg-header-controls'
 						className='fg-header-controls'>
-						<div className='fg-toolbar-group fg-toolbar-status fg-toolbar-status--top'>
-							<span
-								id='fg-subset-info'
-								className='fg-subset-info'></span>
-						</div>
-
 						<div className='fg-fetch-status'>
 							<div className='fg-fetch'>
 								<input
@@ -122,6 +116,11 @@ export default function FinraGraph() {
 									title='Fetch matching nodes from the server'>
 									Fetch Nodes
 								</button>
+								<div className='fg-toolbar-group fg-toolbar-status fg-toolbar-status--top'>
+									<span
+										id='fg-subset-info'
+										className='fg-subset-info'></span>
+								</div>
 							</div>
 
 							<div className='fg-toolbar-group fg-toolbar-actions'>

@@ -376,6 +376,10 @@ body {
 }
 
 .fg-toolbar-status {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	overflow: hidden;
 	min-width: 0;
 	flex: 1 1 220px;
 }
@@ -599,12 +603,10 @@ body {
 
 .fg-subset-info {
 	display: block;
-	position: absolute;
-	top: 10px;
-	right: 12px;
+	position: static;
 	align-items: center;
 	min-height: 32px;
-	padding: 6px 10px;
+	padding: 8px 0px 0px 10px;
 	border-radius: 999px;
 	font-size: 11px;
 	color: var(--text-h);
@@ -612,6 +614,7 @@ body {
 	font-weight: 600;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	max-width: min(36vw, 420px);
 }
 
 .fg-toolbar-status .fg-subset-info:empty {
