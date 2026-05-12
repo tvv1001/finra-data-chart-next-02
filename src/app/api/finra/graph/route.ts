@@ -112,6 +112,25 @@ export async function GET(request: NextRequest) {
 		);
 	}
 
+	if (profileName === 'custom') {
+		return NextResponse.json(
+			{
+				nodes: [],
+				links: [],
+				meta: {
+					sourceLabel: '(custom profile starts empty)',
+					generated: new Date().toISOString(),
+					totalIndividuals: 0,
+					totalFirms: 0,
+					totalEntities: 0,
+					totalNodes: 0,
+					totalLinks: 0,
+				},
+			},
+			{ headers: sharedCacheHeaders(120) },
+		);
+	}
+
 	// Return full graph from store (Redis on Vercel, filesystem locally)
 	const graph = await getFullGraph();
 	return NextResponse.json(graph, { headers: sharedCacheHeaders(120) });
