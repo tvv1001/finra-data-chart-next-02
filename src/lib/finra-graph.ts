@@ -791,6 +791,7 @@ async function loadBaselineGraph(profileName) {
 	graphData = await res.json();
 	sessionPersistenceMode = 'full';
 	normalizeNodeLabelsInPlace(graphData?.nodes || []);
+	const hasGraphContent = Boolean((graphData?.nodes?.length || 0) > 0 || (graphData?.links?.length || 0) > 0);
 	initialServerNodeIds = new Set(graphData.nodes.map((n) => n.id));
 	initialServerLinkKeys = new Set(
 		graphData.links.map((l) => {
@@ -799,7 +800,6 @@ async function loadBaselineGraph(profileName) {
 			return `${s}|${t}`;
 		}),
 	);
-	showEmpty(false);
 	updateMeta(graphData.meta);
 	const totalNodes = graphData.meta?.totalNodes ?? graphData.nodes.length;
 	if (totalNodes > graphData.nodes.length) {
@@ -815,6 +815,7 @@ async function loadBaselineGraph(profileName) {
 		if (sel) sel.value = 'all';
 		renderGraph(graphData);
 	}
+	showEmpty(!hasGraphContent);
 	return graphData;
 }
 
