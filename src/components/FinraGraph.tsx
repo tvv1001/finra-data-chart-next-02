@@ -89,12 +89,32 @@ export default function FinraGraph() {
 		const app = appRef.current;
 		const sidebar = document.getElementById('fg-sidebar');
 		const empty = document.getElementById('fg-empty');
+		const bottomStatus = document.getElementById('fg-bottom-status') as HTMLButtonElement | null;
 		if (!app || !sidebar || !empty) return;
+
+		const landscapeMobileQuery = window.matchMedia('(max-width: 860px) and (orientation: landscape)');
 
 		const syncUiFlags = () => {
 			const isSidebarOpen = !sidebar.classList.contains('hidden');
+			const isGraphEmpty = !empty.classList.contains('hidden');
+			const allowLegendToggle = landscapeMobileQuery.matches && !isGraphEmpty;
 			app.dataset.sidebarOpen = isSidebarOpen ? 'true' : 'false';
-			app.dataset.graphEmpty = empty.classList.contains('hidden') ? 'false' : 'true';
+			app.dataset.graphEmpty = isGraphEmpty ? 'true' : 'false';
+			app.dataset.legendToggle = allowLegendToggle ? 'true' : 'false';
+			if (!allowLegendToggle) {
+				app.dataset.legendOpen = 'false';
+			}
+			if (bottomStatus) {
+				bottomStatus.setAttribute('aria-expanded', app.dataset.legendOpen === 'true' ? 'true' : 'false');
+			}
+		};
+
+		const toggleLegend = () => {
+			if (app.dataset.legendToggle !== 'true') return;
+			app.dataset.legendOpen = app.dataset.legendOpen === 'true' ? 'false' : 'true';
+			if (bottomStatus) {
+				bottomStatus.setAttribute('aria-expanded', app.dataset.legendOpen === 'true' ? 'true' : 'false');
+			}
 		};
 
 		syncUiFlags();
@@ -102,9 +122,13 @@ export default function FinraGraph() {
 		const observer = new MutationObserver(syncUiFlags);
 		observer.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
 		observer.observe(empty, { attributes: true, attributeFilter: ['class'] });
+		landscapeMobileQuery.addEventListener('change', syncUiFlags);
+		bottomStatus?.addEventListener('click', toggleLegend);
 
 		return () => {
 			observer.disconnect();
+			landscapeMobileQuery.removeEventListener('change', syncUiFlags);
+			bottomStatus?.removeEventListener('click', toggleLegend);
 		};
 	}, [isMounted]);
 
@@ -133,17 +157,17 @@ export default function FinraGraph() {
 		if (!isMounted) return;
 		const handleDocumentClickCapture = (event: MouseEvent) => {
 			const sidebar = document.getElementById('fg-sidebar');
+			const bottomStatus = document.getElementById('fg-bottom-status');
+			if (!sidebar || sidebar.classList.contains('hidden')) return;
 			const target = event.target as Node | null;
 			const mobileMenuToggle = document.getElementById('fg-mobile-menu-toggle');
 			const graphNode = target instanceof Element ? target.closest('.fg-node') : null;
 
-			if (sidebar && !sidebar.classList.contains('hidden')) {
-				if (graphNode) {
-					return;
-				}
-				if (target && !sidebar.contains(target) && (!mobileMenuToggle || !mobileMenuToggle.contains(target))) {
-					hideSidebar();
-				}
+			if (target && sidebar.contains(target)) return;
+			if (target && bottomStatus?.contains(target)) return;
+			if (graphNode) return;
+			if (target && (!mobileMenuToggle || !mobileMenuToggle.contains(target))) {
+				hideSidebar();
 			}
 		};
 
@@ -191,6 +215,7 @@ export default function FinraGraph() {
 			ref={appRef}
 			data-sidebar-open='false'
 			data-sidebar-pinned='false'
+			data-legend-open='false'
 			data-graph-empty='false'>
 			<header className='fg-header'>
 				<div className='fg-header-bar'>
@@ -522,10 +547,19 @@ export default function FinraGraph() {
 					className='fg-log-body'></pre>
 			</div>
 
-			<div
+			<button
 				id='fg-bottom-status'
 				className='fg-bottom-status'
-				aria-live='polite'></div>
+				type='button'
+				aria-live='polite'
+				aria-expanded='false'>
+				<span
+					id='fg-bottom-status-text'
+					className='fg-bottom-status__text'></span>
+				<span
+					className='fg-bottom-status__indicator'
+					aria-hidden='true'></span>
+			</button>
 		</div>
 	);
 }

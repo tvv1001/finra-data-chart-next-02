@@ -1033,29 +1033,43 @@ function startNodePulseLoop(id, { interval = 1400, immediate = true, startDelayM
 	beginPulseLoop();
 }
 
+function resolveCssColorValue(value, fallback = '#18a0fb') {
+	if (typeof value !== 'string') return fallback;
+	const trimmed = value.trim();
+	if (!trimmed) return fallback;
+	if (typeof window === 'undefined' || !trimmed.includes('var(')) return trimmed;
+	const match = /var\((--[^),\s]+)(?:,\s*([^)]+))?\)/.exec(trimmed);
+	if (!match) return trimmed;
+	const variableName = match[1];
+	const fallbackValue = match[2]?.trim() || fallback;
+	const resolved = window.getComputedStyle(document.documentElement).getPropertyValue(variableName).trim();
+	return resolved || fallbackValue;
+}
+
 function pulseNodeHighlightById(id, { duration = 1200, stroke = GRAPH_COLORS.nodePulse }: { duration?: number; stroke?: string } = {}) {
 	try {
 		if (!nodeSel) return;
 		const selectedNode = nodeSel.filter((node) => node.id === id);
 		if (!selectedNode || typeof selectedNode.empty !== 'function' || selectedNode.empty()) return;
+		const resolvedStroke = resolveCssColorValue(stroke);
 
 		selectedNode.each(function (nodeDatum) {
 			const nodeGroupSel = d3.select(this);
 			nodeGroupSel.selectAll('circle.fg-restore-ring').remove();
-			const baseRadius = Math.max((nodeDatum?._vizHalf || NODE_R[nodeDatum?.group] || 10) + 6, 12);
+			const baseRadius = Math.max((nodeDatum?._vizHalf || NODE_R[nodeDatum?.group] || 10) + 8, 14);
 			nodeGroupSel
 				.append('circle')
 				.attr('class', 'fg-restore-ring')
 				.attr('fill', 'none')
-				.attr('stroke', stroke)
+				.attr('stroke', resolvedStroke)
 				.attr('stroke-width', 'var(--stroke-width-node-pulse)')
 				.attr('stroke-opacity', 'var(--stroke-opacity-node-pulse)')
 				.attr('pointer-events', 'none')
-				.attr('r', baseRadius * 0.85)
+				.attr('r', baseRadius * 0.82)
 				.transition()
 				.duration(duration)
 				.ease(d3.easeCubicOut)
-				.attr('r', baseRadius * 2.1)
+				.attr('r', baseRadius * 2.35)
 				.attr('stroke-opacity', 0)
 				.remove();
 		});
@@ -1467,6 +1481,52 @@ function getViewportSize() {
 	return {
 		width: main?.clientWidth || 800,
 		height: main?.clientHeight || 600,
+	};
+}
+
+function getVisibleGraphViewport() {
+	const main = document.getElementById('fg-main');
+	const { width, height } = getViewportSize();
+	const fallback = {
+		width,
+		height,
+		centerX: width / 2,
+		centerY: height / 2,
+		visibleLeft: 0,
+		visibleRight: width,
+		visibleTop: 0,
+		visibleBottom: height,
+		visibleWidth: width,
+		visibleHeight: height,
+	};
+	if (!main) return fallback;
+
+	const sidebar = document.getElementById('fg-sidebar');
+	if (!sidebar || sidebar.classList.contains('hidden')) return fallback;
+
+	const mainRect = main.getBoundingClientRect();
+	const sidebarRect = sidebar.getBoundingClientRect();
+	const horizontalOverlap = Math.max(0, Math.min(mainRect.right, sidebarRect.right) - Math.max(mainRect.left, sidebarRect.left));
+	const verticalOverlap = Math.max(0, Math.min(mainRect.bottom, sidebarRect.bottom) - Math.max(mainRect.top, sidebarRect.top));
+	if (horizontalOverlap <= 0 || verticalOverlap <= 0) return fallback;
+
+	const occludedLeft = sidebarRect.left <= mainRect.left + 8 ? horizontalOverlap : 0;
+	const occludedRight = occludedLeft ? 0 : horizontalOverlap;
+	const visibleLeft = occludedLeft;
+	const visibleRight = Math.max(visibleLeft + 1, width - occludedRight);
+	const visibleWidth = Math.max(visibleRight - visibleLeft, 1);
+
+	return {
+		width,
+		height,
+		centerX: visibleLeft + visibleWidth / 2,
+		centerY: height / 2,
+		visibleLeft,
+		visibleRight,
+		visibleTop: 0,
+		visibleBottom: height,
+		visibleWidth,
+		visibleHeight: height,
 	};
 }
 
@@ -6683,15 +6743,13 @@ function focusNodeById(
 		// layoutNodes is the current array of node objects in the visualization
 		const node = (Array.isArray(layoutNodes) && layoutNodes.find((n) => n.id === id)) || null;
 		if (!node) return;
-		const main = document.getElementById('fg-main');
-		const W = main.clientWidth;
-		const H = main.clientHeight;
+		const viewport = getVisibleGraphViewport();
 		const transform = d3.zoomTransform(svgSel.node());
 		const k = transform.k || 1;
 		const x = node.x || 0;
 		const y = node.y || 0;
-		const tx = W / 2 - x * k;
-		const ty = H / 2 - y * k;
+		const tx = viewport.centerX - x * k;
+		const ty = viewport.centerY - y * k;
 		svgSel.transition().duration(duration).call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(k));
 
 		// transient highlight: enlarge circle briefly
@@ -6741,14 +6799,14 @@ function focusNodesInMainArea(nodeIds, { duration = 650, maxScale = 1.1 }: { dur
 		const bounds = getLayoutBounds(targetNodes);
 		if (!bounds) return false;
 
-		const { width, height } = getViewportSize();
-		const padding = Math.max(72, Math.min(width, height) * 0.16);
-		const usableWidth = Math.max(width - padding * 2, 1);
-		const usableHeight = Math.max(height - padding * 2, 1);
+		const viewport = getVisibleGraphViewport();
+		const padding = Math.max(72, Math.min(viewport.visibleWidth, viewport.visibleHeight) * 0.16);
+		const usableWidth = Math.max(viewport.visibleWidth - padding * 2, 1);
+		const usableHeight = Math.max(viewport.visibleHeight - padding * 2, 1);
 		const fitScale = Math.min(usableWidth / bounds.width, usableHeight / bounds.height);
 		const targetScale = Math.max(0.22, Math.min(maxScale, Number.isFinite(fitScale) ? fitScale : 1));
 
-		const target = d3.zoomIdentity.translate(width / 2 - bounds.centerX * targetScale, height / 2 - bounds.centerY * targetScale).scale(targetScale);
+		const target = d3.zoomIdentity.translate(viewport.centerX - bounds.centerX * targetScale, viewport.centerY - bounds.centerY * targetScale).scale(targetScale);
 
 		if (duration > 0) {
 			svgSel.transition().duration(duration).call(zoomBehavior.transform, target);
