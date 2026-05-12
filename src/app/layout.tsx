@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
+import ViewportDebugOverlay from '@/components/ViewportDebugOverlay';
 import './globals.css';
 
 const siteUrl = 'https://finra-data-chart-next-02.vercel.app';
@@ -78,6 +79,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 		<html lang='en'>
 			<body>
 				<ServiceWorkerRegistration />
+				<ViewportDebugOverlay />
 				{children}
 			</body>
 		</html>
