@@ -674,6 +674,18 @@ function normalizeProfileIds(items) {
 	return (Array.isArray(items) ? items : []).map((item) => String(item ?? '').trim()).filter((value) => /^[0-9]+$/.test(value));
 }
 
+function getNormalizedProfileSeedQueries(profile) {
+	return (Array.isArray(profile?.seeds) ? profile.seeds : []).map((seed) => String(seed ?? '').trim()).filter(Boolean);
+}
+
+function profileHasExplicitSeedTargets(profile) {
+	if (Array.isArray(profile)) {
+		return profile.map((seed) => String(seed ?? '').trim()).filter(Boolean).length > 0;
+	}
+	if (!profile || typeof profile !== 'object') return false;
+	return normalizeProfileIds(profile.individuals).length > 0 || normalizeProfileIds(profile.firms).length > 0 || getNormalizedProfileSeedQueries(profile).length > 0;
+}
+
 function flattenEmploymentRecords(detail, { includeGeneric = false }: { includeGeneric?: boolean } = {}) {
 	return flattenEmploymentRecordsImpl(detail, { includeGeneric });
 }
@@ -2642,6 +2654,12 @@ async function loadGraph() {
 		const session = loadSession();
 		const clearedSession = Boolean(session?.cleared);
 		isSessionCleared = clearedSession;
+		const hasSavedSessionData = Boolean(
+			session &&
+			!clearedSession &&
+			(session.extraNodes?.length || session.extraNodeIds?.length || session.renderedServerIds?.length || session.selectedNodeId || session.highlightedNodes?.length),
+		);
+		const shouldStartEmptyForCustomProfile = profileName === 'custom' && !profileHasExplicitSeedTargets(profileData) && !hasSavedSessionData;
 
 		if (!currentProfileEnabled) {
 			if (session && !clearedSession) {
@@ -2665,6 +2683,9 @@ async function loadGraph() {
 				await restoreSavedSession(session);
 			}
 			return;
+		} else if (shouldStartEmptyForCustomProfile) {
+			clearGraphData();
+			return;
 		} else {
 			await loadBaselineGraph(profileName);
 			if (!graphData) return;
@@ -2682,31 +2703,20 @@ async function loadGraph() {
 		const prof = profileData;
 
 		if (Array.isArray(prof)) {
-			const loadedSeedNodes = [];
 			for (const seed of prof.map(String).filter(Boolean)) {
 				try {
-					const fetchedNodes = await fetchAndInjectLocalQuery(seed);
-					if (Array.isArray(fetchedNodes) && fetchedNodes.length) {
-						loadedSeedNodes.push(...fetchedNodes);
-					}
+					await fetchAndInjectLocalQuery(seed);
 				} catch {
 					/* ignore — non-critical */
 				}
-			}
-			if (!clearedSession && loadedSeedNodes.length) {
-				await expandFetchedNodes(loadedSeedNodes);
 			}
 			return;
 		}
 
 		if (prof && typeof prof === 'object') {
-			const loadedSeedNodes = [];
 			const indCrds = normalizeProfileIds(prof.individuals);
 			const firmIds = normalizeProfileIds(prof.firms);
-			const seedQueries = (prof.seeds || [])
-				.map(String)
-				.map((s) => s.trim())
-				.filter(Boolean);
+			const seedQueries = getNormalizedProfileSeedQueries(prof);
 
 			const indivPromises = indCrds.map(async (c) => {
 				if (layoutNodes.some((n) => n.id === `person:${c}`)) return { nodes: [], links: [] };
@@ -2748,7 +2758,6 @@ async function loadGraph() {
 				appendFetched(batchAllNodes, batchAllLinks);
 				mergeIntoGraphData(batchAllNodes, batchAllLinks);
 				persistToServer(batchAllNodes, batchAllLinks);
-				loadedSeedNodes.push(...batchAllNodes);
 			}
 
 			if (seedQueries.length) {
@@ -2776,12 +2785,7 @@ async function loadGraph() {
 					appendFetched(seedBatchNodes, seedBatchLinks);
 					mergeIntoGraphData(seedBatchNodes, seedBatchLinks);
 					persistToServer(seedBatchNodes, seedBatchLinks);
-					loadedSeedNodes.push(...seedBatchNodes);
 				}
-			}
-
-			if (!clearedSession && loadedSeedNodes.length) {
-				await expandFetchedNodes(loadedSeedNodes);
 			}
 		}
 	} catch (err) {
@@ -5615,23 +5619,6 @@ async function expandLoadedSeedNodes() {
 	for (const node of layoutNodes) {
 		if (!seedIds.has(node.id)) continue;
 		await expandFromServer(node, getDefaultExpansionHops(), { markSelected: true });
-	}
-}
-
-async function expandFetchedNodes(nodes) {
-	if (!Array.isArray(nodes) || !nodes.length || !layoutNodes || !graphData) {
-		return;
-	}
-
-	const seen = new Set();
-	const candidates = nodes.filter((node) => node && (node.group === 'individual' || node.group === 'firm'));
-
-	for (const node of candidates) {
-		if (!node?.id || seen.has(node.id)) continue;
-		seen.add(node.id);
-		const liveNode = layoutNodes.find((entry) => entry.id === node.id);
-		if (!liveNode) continue;
-		await expandFromServer(liveNode, getDefaultExpansionHops(), { markSelected: true });
 	}
 }
 
