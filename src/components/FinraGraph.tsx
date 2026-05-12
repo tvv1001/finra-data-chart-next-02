@@ -107,7 +107,7 @@ export default function FinraGraph() {
 									id='fg-fetch-input'
 									className='fg-fetch-input'
 									type='search'
-									placeholder='Fetch: name, CRD or firm id…'
+									placeholder='Fetch: firm, person, CRD/SEC#'
 									autoComplete='off'
 								/>
 								<button

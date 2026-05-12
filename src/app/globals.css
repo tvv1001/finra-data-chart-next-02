@@ -1896,10 +1896,9 @@ body {
 	}
 
 	.fg-fetch-input {
-		width: min(122px, 100%);
-		max-width: 122px;
+		width: min(230px, 100%);
+		max-width: 230px;
 		padding-inline: 8px;
-		font-size: 11px;
 	}
 
 	.fg-action-btn,
