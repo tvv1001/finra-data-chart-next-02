@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 function hideSidebar() {
 	document.getElementById('fg-sidebar')?.classList.add('hidden');
@@ -9,6 +9,8 @@ function hideSidebar() {
 
 export default function FinraGraph() {
 	const mountedRef = useRef(false);
+	const appRef = useRef<HTMLDivElement | null>(null);
+	const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false);
 
 	// If a saved session exists with a selected node or highlights, show the
 	// sidebar on initial load so the UI matches the persisted production view.
@@ -26,6 +28,28 @@ export default function FinraGraph() {
 		} catch (e) {
 			// ignore parse errors
 		}
+	}, []);
+
+	useEffect(() => {
+		const app = appRef.current;
+		const sidebar = document.getElementById('fg-sidebar');
+		const empty = document.getElementById('fg-empty');
+		if (!app || !sidebar || !empty) return;
+
+		const syncUiFlags = () => {
+			app.dataset.sidebarOpen = sidebar.classList.contains('hidden') ? 'false' : 'true';
+			app.dataset.graphEmpty = empty.classList.contains('hidden') ? 'false' : 'true';
+		};
+
+		syncUiFlags();
+
+		const observer = new MutationObserver(syncUiFlags);
+		observer.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
+		observer.observe(empty, { attributes: true, attributeFilter: ['class'] });
+
+		return () => {
+			observer.disconnect();
+		};
 	}, []);
 
 	useEffect(() => {
@@ -63,55 +87,75 @@ export default function FinraGraph() {
 	}, []);
 
 	return (
-		<div id='finra-app'>
+		<div
+			id='finra-app'
+			ref={appRef}
+			data-sidebar-open='false'
+			data-graph-empty='false'>
 			<header className='fg-header'>
 				<div className='fg-header-bar'>
-					<h1 className='fg-title'>
-						FINRA <span className='fg-title-accent'>Network</span>
-					</h1>
+					<div className='fg-header-brand'>
+						<h1 className='fg-title'>
+							FINRA <span className='fg-title-accent'>Network</span>
+						</h1>
+						<button
+							type='button'
+							className='fg-mobile-menu-toggle'
+							aria-expanded={isHeaderMenuOpen}
+							aria-controls='fg-header-controls'
+							aria-label={isHeaderMenuOpen ? 'Hide controls' : 'Show controls'}
+							onClick={() => setIsHeaderMenuOpen((open) => !open)}>
+							<span aria-hidden='true'>{isHeaderMenuOpen ? '✕' : '☰'}</span>
+						</button>
+					</div>
 
-					<div className='fg-fetch-status'>
-						<div className='fg-fetch'>
-							<input
-								id='fg-fetch-input'
-								className='fg-fetch-input'
-								type='search'
-								placeholder='Fetch: name, CRD or firm id…'
-								autoComplete='off'
-							/>
-							<button
-								id='fg-fetch-remote'
-								className='fg-btn-primary fg-action-btn'
-								title='Fetch matching nodes from the server'>
-								Fetch Nodes
-							</button>
-						</div>
-						<div className='fg-toolbar-group fg-toolbar-status'>
+					<div
+						id='fg-header-controls'
+						className={`fg-header-controls${isHeaderMenuOpen ? ' is-open' : ''}`}>
+						<div className='fg-toolbar-group fg-toolbar-status fg-toolbar-status--top'>
 							<span
 								id='fg-subset-info'
 								className='fg-subset-info'></span>
 						</div>
-					</div>
 
-					<div className='fg-toolbar-group fg-toolbar-actions'>
-						<button
-							id='fg-refresh-layout'
-							className='fg-ghost-btn'
-							title='Re-run the graph layout'>
-							↺ Reflow Layout
-						</button>
-						<button
-							id='fg-clear-highlights'
-							className='fg-ghost-btn'
-							title='Clear selected highlights'>
-							Clear Highlight
-						</button>
-						<button
-							id='fg-clear-session'
-							className='fg-danger-btn'
-							title='Clear saved session and reload fresh'>
-							Reset Session
-						</button>
+						<div className='fg-fetch-status'>
+							<div className='fg-fetch'>
+								<input
+									id='fg-fetch-input'
+									className='fg-fetch-input'
+									type='search'
+									placeholder='Fetch: name, CRD or firm id…'
+									autoComplete='off'
+								/>
+								<button
+									id='fg-fetch-remote'
+									className='fg-btn-primary fg-action-btn'
+									title='Fetch matching nodes from the server'>
+									Fetch Nodes
+								</button>
+							</div>
+
+							<div className='fg-toolbar-group fg-toolbar-actions'>
+								<button
+									id='fg-refresh-layout'
+									className='fg-ghost-btn'
+									title='Re-run the graph layout'>
+									↺ Reflow Layout
+								</button>
+								<button
+									id='fg-clear-highlights'
+									className='fg-ghost-btn'
+									title='Clear selected highlights'>
+									Clear Highlight
+								</button>
+								<button
+									id='fg-clear-session'
+									className='fg-danger-btn'
+									title='Clear saved session and reload fresh'>
+									Reset Session
+								</button>
+							</div>
+						</div>
 					</div>
 				</div>
 			</header>

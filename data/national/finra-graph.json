@@ -1,13 +1,4027 @@
 {
-  "nodes": [],
-  "links": [],
+  "nodes": [
+    {
+      "id": "person:4945805",
+      "label": "Stephen Bocchino",
+      "group": "individual",
+      "crd": "4945805",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "firm:79",
+      "label": "J.P. MORGAN SECURITIES LLC",
+      "group": "firm",
+      "firmId": "79",
+      "bdSecNumber": "35008",
+      "iaSecNumber": "3702",
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 14.79
+    },
+    {
+      "id": "person:5129598",
+      "label": "Anthony S Bocchino",
+      "group": "individual",
+      "crd": "5129598",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "person:7263414",
+      "label": "Anna Lisa McKay",
+      "group": "individual",
+      "crd": "7263414",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:5681082",
+      "label": "Charles Joseph Bocchino",
+      "group": "individual",
+      "crd": "5681082",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 14.875
+    },
+    {
+      "id": "firm:35865",
+      "label": "SUSQUEHANNA FINANCIAL GROUP, LLLP",
+      "group": "firm",
+      "firmId": "35865",
+      "bdSecNumber": "44325",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "firm:35874",
+      "label": "SUSQUEHANNA SECURITIES, LLC",
+      "group": "firm",
+      "firmId": "35874",
+      "bdSecNumber": "47034",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "person:1957710",
+      "label": "John Bocchino",
+      "group": "individual",
+      "crd": "1957710",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:4196274",
+      "label": "Rosemary Bocchino",
+      "group": "individual",
+      "crd": "4196274",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:3168609",
+      "label": "David Louis Bocchino",
+      "group": "individual",
+      "crd": "3168609",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:1768782",
+      "label": "Peter Andrew Bocchino",
+      "group": "individual",
+      "crd": "1768782",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:6342072",
+      "label": "Brian Joseph Bocchino",
+      "group": "individual",
+      "crd": "6342072",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 14.875
+    },
+    {
+      "id": "firm:43036",
+      "label": "STATE FARM VP MANAGEMENT CORP.",
+      "group": "firm",
+      "firmId": "43036",
+      "bdSecNumber": "50128",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "firm:3487",
+      "label": "STATE FARM INVESTMENT MANAGEMENT CORP.",
+      "group": "firm",
+      "firmId": "3487",
+      "bdSecNumber": "13379",
+      "iaSecNumber": "8184",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "person:2876260",
+      "label": "John Batista Bocchino",
+      "group": "individual",
+      "crd": "2876260",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:2604250",
+      "label": "Steven Silvio Bocchino",
+      "group": "individual",
+      "crd": "2604250",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:5172573",
+      "label": "Matthew Joseph Bocchino",
+      "group": "individual",
+      "crd": "5172573",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "firm:7059",
+      "label": "CITIGROUP GLOBAL MARKETS INC.",
+      "group": "firm",
+      "firmId": "7059",
+      "bdSecNumber": "8177",
+      "iaSecNumber": "3387",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "person:6968768",
+      "label": "Jon M. Deatherage",
+      "group": "individual",
+      "crd": "6968768",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "firm:7784",
+      "label": "FIDELITY BROKERAGE SERVICES LLC",
+      "group": "firm",
+      "firmId": "7784",
+      "bdSecNumber": "23292",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "person:6925047",
+      "label": "Sarah Deatherage",
+      "group": "individual",
+      "crd": "6925047",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "firm:250",
+      "label": "EDWARD JONES",
+      "group": "firm",
+      "firmId": "250",
+      "bdSecNumber": "759",
+      "iaSecNumber": "3297",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "person:1832973",
+      "label": "Gerald Holton Deatherage",
+      "group": "individual",
+      "crd": "1832973",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "firm:152974",
+      "label": "CREATIVEONE SECURITIES, LLC",
+      "group": "firm",
+      "firmId": "152974",
+      "bdSecNumber": "68494",
+      "iaSecNumber": "78158",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "person:7518529",
+      "label": "Nicholas Deatherage",
+      "group": "individual",
+      "crd": "7518529",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "firm:6627",
+      "label": "EQUITABLE ADVISORS, LLC",
+      "group": "firm",
+      "firmId": "6627",
+      "bdSecNumber": "17883",
+      "iaSecNumber": "14065",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "person:4138697",
+      "label": "James Harold Deatherage",
+      "group": "individual",
+      "crd": "4138697",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:3037908",
+      "label": "Owen Wayne Deatherage",
+      "group": "individual",
+      "crd": "3037908",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:2876149",
+      "label": "Dwayne McCord Deatherage",
+      "group": "individual",
+      "crd": "2876149",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 14.875
+    },
+    {
+      "id": "firm:6694",
+      "label": "RAYMOND JAMES FINANCIAL SERVICES, INC.",
+      "group": "firm",
+      "firmId": "6694",
+      "bdSecNumber": "17983",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "firm:149018",
+      "label": "RAYMOND JAMES FINANCIAL SERVICES ADVISORS, INC",
+      "group": "firm",
+      "firmId": "149018",
+      "iaSecNumber": "69815",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "person:1491161",
+      "label": "Mary Moran Deatherage",
+      "group": "individual",
+      "crd": "1491161",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:8236307",
+      "label": "Shauna Mae Deatherage",
+      "group": "individual",
+      "crd": "8236307",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "person:2836842",
+      "label": "Kyle Walker Deatherage",
+      "group": "individual",
+      "crd": "2836842",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 14.875
+    },
+    {
+      "id": "firm:42046",
+      "label": "KESTRA INVESTMENT SERVICES, LLC",
+      "group": "firm",
+      "firmId": "42046",
+      "bdSecNumber": "49672",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "firm:283330",
+      "label": "KESTRA ADVISORY SERVICES, LLC",
+      "group": "firm",
+      "firmId": "283330",
+      "iaSecNumber": "56126",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "person:2205503",
+      "label": "Larry Robert Deatherage",
+      "group": "individual",
+      "crd": "2205503",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "firm:126777",
+      "label": "SAGEVIEW ADVISORY GROUP, LLC",
+      "group": "firm",
+      "firmId": "126777",
+      "iaSecNumber": "64265",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "person:6152588",
+      "label": "Matthew William Deatherage",
+      "group": "individual",
+      "crd": "6152588",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:2147679",
+      "label": "Heath Gary Goldstein",
+      "group": "individual",
+      "crd": "2147679",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "firm:283072",
+      "label": "1ST FINANCIAL INVESTMENT, INC.",
+      "group": "firm",
+      "firmId": "283072",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "person:5518018",
+      "label": "Thomas Edward Hey",
+      "group": "individual",
+      "crd": "5518018",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:8077110",
+      "label": "Allan Bolton Hey",
+      "group": "individual",
+      "crd": "8077110",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:4698527",
+      "label": "Thomas Joseph Hey",
+      "group": "individual",
+      "crd": "4698527",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "person:5860216",
+      "label": "Brian R. Hey",
+      "group": "individual",
+      "crd": "5860216",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:1224254",
+      "label": "Daniel Frederick Hey",
+      "group": "individual",
+      "crd": "1224254",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:6372335",
+      "label": "Peter Van Vleck Heye",
+      "group": "individual",
+      "crd": "6372335",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "firm:171058",
+      "label": "PJT PARTNERS LP",
+      "group": "firm",
+      "firmId": "171058",
+      "bdSecNumber": "69442",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 9.433499740394593
+    },
+    {
+      "id": "person:1016576",
+      "label": "Herbert Raymond Heyn",
+      "group": "individual",
+      "crd": "1016576",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:1684059",
+      "label": "Norman Dale Heyd",
+      "group": "individual",
+      "crd": "1684059",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:7950141",
+      "label": "Matthew Joseph Heye",
+      "group": "individual",
+      "crd": "7950141",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "firm:324086",
+      "label": "ALL OPTIONS USA, LLC",
+      "group": "firm",
+      "firmId": "324086",
+      "bdSecNumber": "71016",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 9.433499740394593
+    },
+    {
+      "id": "person:2379143",
+      "label": "Rhona H Heyl",
+      "group": "individual",
+      "crd": "2379143",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:7613677",
+      "label": "David Edward Heyl",
+      "group": "individual",
+      "crd": "7613677",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:6413473",
+      "label": "Marcus Carl Heyn",
+      "group": "individual",
+      "crd": "6413473",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:2880011",
+      "label": "Osbert Hewin Haynes",
+      "group": "individual",
+      "crd": "2880011",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 14.875
+    },
+    {
+      "id": "firm:13577",
+      "label": "NETWORK 1 FINANCIAL SECURITIES INC.",
+      "group": "firm",
+      "firmId": "13577",
+      "bdSecNumber": "29471",
+      "_deg": {
+        "total": 5,
+        "controls": 0,
+        "employed": 5
+      },
+      "_vizHalf": 14.79
+    },
+    {
+      "id": "firm:121239",
+      "label": "NETWORK 1 FINANCIAL ADVISORS INC.",
+      "group": "firm",
+      "firmId": "121239",
+      "_deg": {
+        "total": 4,
+        "controls": 0,
+        "employed": 4
+      },
+      "_vizHalf": 13.766999480789185
+    },
+    {
+      "id": "person:2111868",
+      "label": "William Colbert Heming",
+      "group": "individual",
+      "crd": "2111868",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 14.875
+    },
+    {
+      "id": "person:2446600",
+      "label": "Timothy James Herrmann",
+      "group": "individual",
+      "crd": "2446600",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "person:6516053",
+      "label": "Erika De La Rosa Hennessey",
+      "group": "individual",
+      "crd": "6516053",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "firm:133370",
+      "label": "1919 INVESTMENT COUNSEL, LLC",
+      "group": "firm",
+      "firmId": "133370",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 9.433499740394593
+    },
+    {
+      "id": "person:8187614",
+      "label": "Stephen R Hernandez",
+      "group": "individual",
+      "crd": "8187614",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "firm:175346",
+      "label": "1900 WEALTH",
+      "group": "firm",
+      "firmId": "175346",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 9.433499740394593
+    },
+    {
+      "id": "person:1828390",
+      "label": "Darren Norman Henke",
+      "group": "individual",
+      "crd": "1828390",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "firm:284921",
+      "label": "180 WEALTH ADVISORS, LLC",
+      "group": "firm",
+      "firmId": "284921",
+      "iaSecNumber": "110219",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 9.433499740394593
+    },
+    {
+      "id": "person:4146799",
+      "label": "Nicky Cheng De Young",
+      "group": "individual",
+      "crd": "4146799",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "firm:39164",
+      "label": "1ST DISCOUNT BROKERAGE, INC.",
+      "group": "firm",
+      "firmId": "39164",
+      "bdSecNumber": "48557",
+      "iaSecNumber": "68364",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 9.433499740394593
+    },
+    {
+      "id": "person:2692919",
+      "label": "Lance William Helfert",
+      "group": "individual",
+      "crd": "2692919",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "firm:310628",
+      "label": "15 EQUITY",
+      "group": "firm",
+      "firmId": "310628",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 9.433499740394593
+    },
+    {
+      "id": "person:1360736",
+      "label": "Richard Herbert Neubert",
+      "group": "individual",
+      "crd": "1360736",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 14.875
+    },
+    {
+      "id": "person:5908071",
+      "label": "Tamara Lynn Morgosh",
+      "group": "individual",
+      "crd": "5908071",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "firm:145873",
+      "label": "10 STAR ASSET MANAGEMENT",
+      "group": "firm",
+      "firmId": "145873",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 9.433499740394593
+    },
+    {
+      "id": "person:4158466",
+      "label": "Christian Manuel Herrera",
+      "group": "individual",
+      "crd": "4158466",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 14.875
+    },
+    {
+      "id": "person:2051395",
+      "label": "William Robert Bryan",
+      "group": "individual",
+      "crd": "2051395",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:20472",
+      "label": "TIAA-CREF INDIVIDUAL & INSTITUTIONAL SERVICES, LLC",
+      "group": "firm",
+      "firmId": "20472",
+      "bdSecNumber": "44454",
+      "iaSecNumber": "63550",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:2106821",
+      "label": "Tami Rena Bryan",
+      "group": "individual",
+      "crd": "2106821",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:8158",
+      "label": "ROBERT W. BAIRD & CO. INCORPORATED",
+      "group": "firm",
+      "firmId": "8158",
+      "bdSecNumber": "497",
+      "iaSecNumber": "7571",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:735142",
+      "label": "Jan Bryan",
+      "group": "individual",
+      "crd": "735142",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:2380206",
+      "label": "Michael Kim Bryan",
+      "group": "individual",
+      "crd": "2380206",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:111135",
+      "label": "MESIROW FINANCIAL INVESTMENT MANAGEMENT, INC.",
+      "group": "firm",
+      "firmId": "111135",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:5121545",
+      "label": "Brandon L. Bryan",
+      "group": "individual",
+      "crd": "5121545",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:5393",
+      "label": "CHARLES SCHWAB & CO., INC.",
+      "group": "firm",
+      "firmId": "5393",
+      "bdSecNumber": "16514",
+      "iaSecNumber": "29938",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:8113891",
+      "label": "Luke Thomas Bryan",
+      "group": "individual",
+      "crd": "8113891",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:7452",
+      "label": "VANGUARD MARKETING CORPORATION",
+      "group": "firm",
+      "firmId": "7452",
+      "bdSecNumber": "21570",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:6664669",
+      "label": "William Henry Bryan",
+      "group": "individual",
+      "crd": "6664669",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:7691",
+      "label": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED",
+      "group": "firm",
+      "firmId": "7691",
+      "bdSecNumber": "7221",
+      "iaSecNumber": "14235",
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 10.279522868262784
+    },
+    {
+      "id": "person:4349172",
+      "label": "Timothy D Bryan",
+      "group": "individual",
+      "crd": "4349172",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:149777",
+      "label": "MORGAN STANLEY",
+      "group": "firm",
+      "firmId": "149777",
+      "bdSecNumber": "68191",
+      "iaSecNumber": "70103",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:6958517",
+      "label": "Michael Thomas Bryan",
+      "group": "individual",
+      "crd": "6958517",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:1433823",
+      "label": "Jeffrey Lynn Bryan",
+      "group": "individual",
+      "crd": "1433823",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "person:6308151",
+      "label": "Larry L Bryan",
+      "group": "individual",
+      "crd": "6308151",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:7194528",
+      "label": "Benjamin Davis Bryan",
+      "group": "individual",
+      "crd": "7194528",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:8032",
+      "label": "COMMONWEALTH FINANCIAL NETWORK",
+      "group": "firm",
+      "firmId": "8032",
+      "bdSecNumber": "24040",
+      "iaSecNumber": "41541",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:6637717",
+      "label": "Brian Lee Platte",
+      "group": "individual",
+      "crd": "6637717",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 8.417467871686412
+    },
+    {
+      "id": "firm:316880",
+      "label": "ADVISOR 123 LLC",
+      "group": "firm",
+      "firmId": "316880",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:307098",
+      "label": "ASPIRE WEALTH",
+      "group": "firm",
+      "firmId": "307098",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:4352352",
+      "label": "Brian G Anderson",
+      "group": "individual",
+      "crd": "4352352",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "person:4071865",
+      "label": "Brian Matthew Nash",
+      "group": "individual",
+      "crd": "4071865",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:277033",
+      "label": "16 POINTS LLC",
+      "group": "firm",
+      "firmId": "277033",
+      "bdSecNumber": "69648",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:6171502",
+      "label": "Brian William Davies",
+      "group": "individual",
+      "crd": "6171502",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "person:5600921",
+      "label": "David Brian Guevara",
+      "group": "individual",
+      "crd": "5600921",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:326590",
+      "label": "1031 SECURITIES INC.",
+      "group": "firm",
+      "firmId": "326590",
+      "bdSecNumber": "71095",
+      "_deg": {
+        "total": 3,
+        "controls": 0,
+        "employed": 3
+      },
+      "_vizHalf": 11.443594069160296
+    },
+    {
+      "id": "person:8020869",
+      "label": "Scott Brian Douglas",
+      "group": "individual",
+      "crd": "8020869",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "person:6398452",
+      "label": "Austin Brannon Kroll",
+      "group": "individual",
+      "crd": "6398452",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "person:4766979",
+      "label": "Ryan Atticus Lowe",
+      "group": "individual",
+      "crd": "4766979",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "person:4316310",
+      "label": "Kimberly Ann Ryan",
+      "group": "individual",
+      "crd": "4316310",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 13,
+        "controls": 0,
+        "employed": 13
+      },
+      "_vizHalf": 14.875
+    },
+    {
+      "id": "firm:323214",
+      "label": "WITHUM CAPITAL, LLC",
+      "group": "firm",
+      "firmId": "323214",
+      "bdSecNumber": "71044",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:322688",
+      "label": "FCA CAPITAL MARKETS LLC",
+      "group": "firm",
+      "firmId": "322688",
+      "bdSecNumber": "70970",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:171350",
+      "label": "CRAFT CAPITAL MANAGEMENT LLC",
+      "group": "firm",
+      "firmId": "171350",
+      "bdSecNumber": "69455",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:328894",
+      "label": "AXOM PARTNERS LLC",
+      "group": "firm",
+      "firmId": "328894",
+      "bdSecNumber": "71192",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:151152",
+      "label": "STRATCAP SECURITIES, LLC",
+      "group": "firm",
+      "firmId": "151152",
+      "bdSecNumber": "68338",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:153322",
+      "label": "AMERICAN ELM DISTRIBUTION PARTNERS, LLC",
+      "group": "firm",
+      "firmId": "153322",
+      "bdSecNumber": "68523",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:121057",
+      "label": "ERG SECURITIES (US) LLC",
+      "group": "firm",
+      "firmId": "121057",
+      "bdSecNumber": "65376",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:306193",
+      "label": "THE GROWTH STAGE INC.",
+      "group": "firm",
+      "firmId": "306193",
+      "bdSecNumber": "70467",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:16843",
+      "label": "FIRSTRADE SECURITIES INC.",
+      "group": "firm",
+      "firmId": "16843",
+      "bdSecNumber": "34642",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:131338",
+      "label": "DRAKE STAR SECURITIES LLC",
+      "group": "firm",
+      "firmId": "131338",
+      "bdSecNumber": "66448",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:316477",
+      "label": "DASTA FINANCIAL, LLC",
+      "group": "firm",
+      "firmId": "316477",
+      "bdSecNumber": "70841",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:320717",
+      "label": "AVID CAPITAL ADVISORS LLC",
+      "group": "firm",
+      "firmId": "320717",
+      "bdSecNumber": "70956",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:7341867",
+      "label": "David Ryan Gourley",
+      "group": "individual",
+      "crd": "7341867",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:330823",
+      "label": "K-12 PLANNING",
+      "group": "firm",
+      "firmId": "330823",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:8034704",
+      "label": "Brandon J Muzzarelli",
+      "group": "individual",
+      "crd": "8034704",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:105435",
+      "label": "1834 INVESTMENT ADVISORS CO.",
+      "group": "firm",
+      "firmId": "105435",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:5425820",
+      "label": "Ryan William Kruger",
+      "group": "individual",
+      "crd": "5425820",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:323398",
+      "label": "10ELMS LLP",
+      "group": "firm",
+      "firmId": "323398",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:33894",
+      "label": "James Witt Bryan",
+      "group": "individual",
+      "crd": "33894",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:6801475",
+      "label": "Jake H. Karp",
+      "group": "individual",
+      "crd": "6801475",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 8.417467871686412
+    },
+    {
+      "id": "person:7647370",
+      "label": "Andrew Karp",
+      "group": "individual",
+      "crd": "7647370",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:38642",
+      "label": "BLACKROCK INVESTMENTS, LLC",
+      "group": "firm",
+      "firmId": "38642",
+      "bdSecNumber": "48436",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:4398624",
+      "label": "Gilbert Martin Karp",
+      "group": "individual",
+      "crd": "4398624",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:103863",
+      "label": "FARMERS FINANCIAL SOLUTIONS, LLC",
+      "group": "firm",
+      "firmId": "103863",
+      "bdSecNumber": "52361",
+      "iaSecNumber": "108217",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:5268942",
+      "label": "David W. Karp",
+      "group": "individual",
+      "crd": "5268942",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "person:2261061",
+      "label": "David Lewis Karp",
+      "group": "individual",
+      "crd": "2261061",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:2561771",
+      "label": "Gregory Lee Karp",
+      "group": "individual",
+      "crd": "2561771",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:103857",
+      "label": "USA FINANCIAL SECURITIES LLC",
+      "group": "firm",
+      "firmId": "103857",
+      "bdSecNumber": "52342",
+      "iaSecNumber": "68276",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:2856846",
+      "label": "Harrison S. Karp",
+      "group": "individual",
+      "crd": "2856846",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "person:5681359",
+      "label": "Andrew L. Karp",
+      "group": "individual",
+      "crd": "5681359",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:5809887",
+      "label": "David Eric Karp",
+      "group": "individual",
+      "crd": "5809887",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:2335003",
+      "label": "Peter Christopher Karp",
+      "group": "individual",
+      "crd": "2335003",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:143483",
+      "label": "COMPOSITION WEALTH, LLC",
+      "group": "firm",
+      "firmId": "143483",
+      "iaSecNumber": "74711",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:7559725",
+      "label": "DANIEL Sheps KARP",
+      "group": "individual",
+      "crd": "7559725",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:264525",
+      "label": "Haim Karp",
+      "group": "individual",
+      "crd": "264525",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:7807108",
+      "label": "Lawrence Andrew Karp",
+      "group": "individual",
+      "crd": "7807108",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "person:7093432",
+      "label": "Christopher Tobin Kardys",
+      "group": "individual",
+      "crd": "7093432",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "person:4346916",
+      "label": "Arthur Sheldon Karafin",
+      "group": "individual",
+      "crd": "4346916",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "person:5893928",
+      "label": "Evan Karp",
+      "group": "individual",
+      "crd": "5893928",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:2640276",
+      "label": "Thomas Matthew Trump",
+      "group": "individual",
+      "crd": "2640276",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 8.417467871686412
+    },
+    {
+      "id": "firm:39543",
+      "label": "CAMBRIDGE INVESTMENT RESEARCH, INC.",
+      "group": "firm",
+      "firmId": "39543",
+      "bdSecNumber": "48740",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:134139",
+      "label": "CAMBRIDGE INVESTMENT RESEARCH ADVISORS, INC.",
+      "group": "firm",
+      "firmId": "134139",
+      "iaSecNumber": "63930",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:5499983",
+      "label": "Evan Dwight Trump",
+      "group": "individual",
+      "crd": "5499983",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:7913719",
+      "label": "Cory D Trump",
+      "group": "individual",
+      "crd": "7913719",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:2881",
+      "label": "NORTHWESTERN MUTUAL INVESTMENT SERVICES, LLC",
+      "group": "firm",
+      "firmId": "2881",
+      "bdSecNumber": "14088",
+      "iaSecNumber": "8095",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:4240468",
+      "label": "Michael David Trump",
+      "group": "individual",
+      "crd": "4240468",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:18272",
+      "label": "ALLSTATE FINANCIAL SERVICES, LLC",
+      "group": "firm",
+      "firmId": "18272",
+      "bdSecNumber": "36365",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:5787082",
+      "label": "Kaela J. Trump",
+      "group": "individual",
+      "crd": "5787082",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:1438619",
+      "label": "Rosmari Trump",
+      "group": "individual",
+      "crd": "1438619",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:6363",
+      "label": "AMERIPRISE FINANCIAL SERVICES, LLC",
+      "group": "firm",
+      "firmId": "6363",
+      "bdSecNumber": "16791",
+      "iaSecNumber": "28543",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:3083418",
+      "label": "Jonathan Trump",
+      "group": "individual",
+      "crd": "3083418",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 4,
+        "controls": 0,
+        "employed": 4
+      },
+      "_vizHalf": 10.14368958489306
+    },
+    {
+      "id": "firm:10299",
+      "label": "CETERA ADVISORS LLC",
+      "group": "firm",
+      "firmId": "10299",
+      "bdSecNumber": "26892",
+      "iaSecNumber": "33020",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:10358",
+      "label": "CETERA FINANCIAL SPECIALISTS LLC",
+      "group": "firm",
+      "firmId": "10358",
+      "bdSecNumber": "27082",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:13572",
+      "label": "CETERA WEALTH SERVICES, LLC",
+      "group": "firm",
+      "firmId": "13572",
+      "bdSecNumber": "29577",
+      "iaSecNumber": "47342",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:15340",
+      "label": "CETERA INVESTMENT SERVICES LLC",
+      "group": "firm",
+      "firmId": "15340",
+      "bdSecNumber": "31826",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:4061204",
+      "label": "Denise Lynn Trump",
+      "group": "individual",
+      "crd": "4061204",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:6199123",
+      "label": "David Roland Trump",
+      "group": "individual",
+      "crd": "6199123",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:13109",
+      "label": "EMPOWER FINANCIAL SERVICES, INC.",
+      "group": "firm",
+      "firmId": "13109",
+      "bdSecNumber": "33854",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:5025647",
+      "label": "Christopher Lynn Trump",
+      "group": "individual",
+      "crd": "5025647",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:4178332",
+      "label": "Dana M. Trumps",
+      "group": "individual",
+      "crd": "4178332",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:7026399",
+      "label": "Samuel Trumps",
+      "group": "individual",
+      "crd": "7026399",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:175112",
+      "label": "CAPTRUST",
+      "group": "firm",
+      "firmId": "175112",
+      "iaSecNumber": "62193",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:7407763",
+      "label": "John William Vance",
+      "group": "individual",
+      "crd": "7407763",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "person:2691106",
+      "label": "David Perry Vance",
+      "group": "individual",
+      "crd": "2691106",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "person:5780208",
+      "label": "James R. Vance",
+      "group": "individual",
+      "crd": "5780208",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "person:6633614",
+      "label": "Kenneth Aaron Vance",
+      "group": "individual",
+      "crd": "6633614",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:6222550",
+      "label": "Clinton David Vance",
+      "group": "individual",
+      "crd": "6222550",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 5,
+        "controls": 0,
+        "employed": 5
+      },
+      "_vizHalf": 10.8393452750517
+    },
+    {
+      "id": "firm:105644",
+      "label": "CETERA INVESTMENT ADVISERS LLC",
+      "group": "firm",
+      "firmId": "105644",
+      "iaSecNumber": "20406",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:7743421",
+      "label": "Corey J. Vance",
+      "group": "individual",
+      "crd": "7743421",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 8.417467871686412
+    },
+    {
+      "id": "firm:104555",
+      "label": "STRATEGIC ADVISERS LLC",
+      "group": "firm",
+      "firmId": "104555",
+      "iaSecNumber": "13243",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:4717422",
+      "label": "Jason Odell Vance",
+      "group": "individual",
+      "crd": "4717422",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:5491174",
+      "label": "James Joseph Vance",
+      "group": "individual",
+      "crd": "5491174",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:19616",
+      "label": "WELLS FARGO CLEARING SERVICES, LLC",
+      "group": "firm",
+      "firmId": "19616",
+      "bdSecNumber": "37180",
+      "iaSecNumber": "37967",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:5884759",
+      "label": "Kara Beth Vance",
+      "group": "individual",
+      "crd": "5884759",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:123037",
+      "label": "TIMOTHY FINANCIAL COUNSEL, INC.",
+      "group": "firm",
+      "firmId": "123037",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:5067949",
+      "label": "Derek Adam Vance",
+      "group": "individual",
+      "crd": "5067949",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:8174",
+      "label": "UBS FINANCIAL SERVICES INC.",
+      "group": "firm",
+      "firmId": "8174",
+      "bdSecNumber": "16267",
+      "iaSecNumber": "7163",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:6908865",
+      "label": "Alexander James Vance",
+      "group": "individual",
+      "crd": "6908865",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:7224903",
+      "label": "Samuel Paul Robert Vance",
+      "group": "individual",
+      "crd": "7224903",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:6763247",
+      "label": "Andrew Scott VanderSchaaf",
+      "group": "individual",
+      "crd": "6763247",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 8.417467871686412
+    },
+    {
+      "id": "person:2270402",
+      "label": "Howard Lee",
+      "group": "individual",
+      "crd": "2270402",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "person:8228753",
+      "label": "Hoa Nguyen",
+      "group": "individual",
+      "crd": "8228753",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "person:6126513",
+      "label": "Henry L. Hoffman",
+      "group": "individual",
+      "crd": "6126513",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:6951229",
+      "label": "Heather Hobson Lewis",
+      "group": "individual",
+      "crd": "6951229",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:1394981",
+      "label": "Henry Lee Hodges",
+      "group": "individual",
+      "crd": "1394981",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:10111",
+      "label": "PFS INVESTMENTS INC.",
+      "group": "firm",
+      "firmId": "10111",
+      "bdSecNumber": "26486",
+      "iaSecNumber": "72263",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:6265620",
+      "label": "Helen Kyong-Hwa Hong",
+      "group": "individual",
+      "crd": "6265620",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "person:4433847",
+      "label": "Diana Leigh Wynn",
+      "group": "individual",
+      "crd": "4433847",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "person:836958",
+      "label": "Holly Lee Hendrix",
+      "group": "individual",
+      "crd": "836958",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:1147127",
+      "label": "Lewis Herrup Hoff",
+      "group": "individual",
+      "crd": "1147127",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:247362",
+      "label": "Lewis Henry Hodge",
+      "group": "individual",
+      "crd": "247362",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:7283134",
+      "label": "Heaven Lee Goodwin",
+      "group": "individual",
+      "crd": "7283134",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:5238372",
+      "label": "Sandra L. Holland",
+      "group": "individual",
+      "crd": "5238372",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 10,
+        "controls": 0,
+        "employed": 10
+      },
+      "_vizHalf": 13.568741455137186
+    },
+    {
+      "id": "firm:7174",
+      "label": "FUNDS DISTRIBUTOR, LLC",
+      "group": "firm",
+      "firmId": "7174",
+      "bdSecNumber": "20518",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:15634",
+      "label": "FORESIDE DISTRIBUTION SERVICES, L.P.",
+      "group": "firm",
+      "firmId": "15634",
+      "bdSecNumber": "32480",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:25938",
+      "label": "DISTRIBUTION SERVICES, LLC",
+      "group": "firm",
+      "firmId": "25938",
+      "bdSecNumber": "42106",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:31334",
+      "label": "FORESIDE FUNDS DISTRIBUTORS LLC",
+      "group": "firm",
+      "firmId": "31334",
+      "bdSecNumber": "45467",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:35682",
+      "label": "MGI FUNDS DISTRIBUTORS, LLC",
+      "group": "firm",
+      "firmId": "35682",
+      "bdSecNumber": "46960",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:46106",
+      "label": "FORESIDE FUND SERVICES, LLC",
+      "group": "firm",
+      "firmId": "46106",
+      "bdSecNumber": "51293",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:103848",
+      "label": "QUASAR DISTRIBUTORS, LLC",
+      "group": "firm",
+      "firmId": "103848",
+      "bdSecNumber": "52323",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:103934",
+      "label": "STERLING CAPITAL DISTRIBUTORS, LLC",
+      "group": "firm",
+      "firmId": "103934",
+      "bdSecNumber": "52396",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:130745",
+      "label": "IMST DISTRIBUTORS, LLC",
+      "group": "firm",
+      "firmId": "130745",
+      "bdSecNumber": "66389",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "firm:148477",
+      "label": "FORESIDE FINANCIAL SERVICES, LLC",
+      "group": "firm",
+      "firmId": "148477",
+      "bdSecNumber": "68027",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:56579",
+      "label": "Howard Crash",
+      "group": "individual",
+      "crd": "56579",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:4485449",
+      "label": "Rinaldo Dominik Crassa",
+      "group": "individual",
+      "crd": "4485449",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 8.417467871686412
+    },
+    {
+      "id": "person:7942348",
+      "label": "William D Crass",
+      "group": "individual",
+      "crd": "7942348",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:46173",
+      "label": "PARK AVENUE SECURITIES LLC",
+      "group": "firm",
+      "firmId": "46173",
+      "bdSecNumber": "51324",
+      "iaSecNumber": "58108",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:2189838",
+      "label": "Thaddeus Crass",
+      "group": "individual",
+      "crd": "2189838",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "person:6262765",
+      "label": "Andrew Jay Crask",
+      "group": "individual",
+      "crd": "6262765",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:7695622",
+      "label": "Marissa Collins",
+      "group": "individual",
+      "crd": "7695622",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:110929",
+      "label": "CG ADVISORY SERVICES",
+      "group": "firm",
+      "firmId": "110929",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:6173672",
+      "label": "Davies Malcolm Crasta",
+      "group": "individual",
+      "crd": "6173672",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:5596453",
+      "label": "Jason Robert Crasnick",
+      "group": "individual",
+      "crd": "5596453",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:8209",
+      "label": "MORGAN STANLEY & CO. LLC",
+      "group": "firm",
+      "firmId": "8209",
+      "bdSecNumber": "15869",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:5218291",
+      "label": "Diego Crasny",
+      "group": "individual",
+      "crd": "5218291",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:27060",
+      "label": "BBVA SECURITIES INC.",
+      "group": "firm",
+      "firmId": "27060",
+      "bdSecNumber": "42857",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:3058719",
+      "label": "Kathy Smith",
+      "group": "individual",
+      "crd": "3058719",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:5037049",
+      "label": "Ashley Lauren Blaz",
+      "group": "individual",
+      "crd": "5037049",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    },
+    {
+      "id": "firm:705",
+      "label": "RAYMOND JAMES & ASSOCIATES, INC.",
+      "group": "firm",
+      "firmId": "705",
+      "bdSecNumber": "10999",
+      "iaSecNumber": "10418",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 8.76247574345941
+    },
+    {
+      "id": "person:7818511",
+      "label": "Andrea J Crase",
+      "group": "individual",
+      "crd": "7818511",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 7.19684479244653
+    }
+  ],
+  "links": [
+    {
+      "source": "person:4945805",
+      "target": "firm:79",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5129598",
+      "target": "firm:79",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5681082",
+      "target": "firm:35865",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5681082",
+      "target": "firm:35874",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6342072",
+      "target": "firm:43036",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6342072",
+      "target": "firm:3487",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5172573",
+      "target": "firm:7059",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6968768",
+      "target": "firm:7784",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6925047",
+      "target": "firm:250",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:1832973",
+      "target": "firm:152974",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:7518529",
+      "target": "firm:6627",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2876149",
+      "target": "firm:6694",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2876149",
+      "target": "firm:149018",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:8236307",
+      "target": "firm:43036",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2836842",
+      "target": "firm:42046",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2836842",
+      "target": "firm:283330",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2205503",
+      "target": "firm:126777",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2147679",
+      "target": "firm:283072",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4698527",
+      "target": "firm:6627",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6372335",
+      "target": "firm:171058",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:7950141",
+      "target": "firm:324086",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2880011",
+      "target": "firm:13577",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2880011",
+      "target": "firm:121239",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2111868",
+      "target": "firm:13577",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2111868",
+      "target": "firm:121239",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2446600",
+      "target": "firm:13577",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6516053",
+      "target": "firm:133370",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:8187614",
+      "target": "firm:175346",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:1828390",
+      "target": "firm:284921",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4146799",
+      "target": "firm:39164",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2692919",
+      "target": "firm:310628",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:1360736",
+      "target": "firm:13577",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:1360736",
+      "target": "firm:121239",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5908071",
+      "target": "firm:145873",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4158466",
+      "target": "firm:13577",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4158466",
+      "target": "firm:121239",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2051395",
+      "target": "firm:20472",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2106821",
+      "target": "firm:8158",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2380206",
+      "target": "firm:111135",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5121545",
+      "target": "firm:5393",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:8113891",
+      "target": "firm:7452",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6664669",
+      "target": "firm:7691",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4349172",
+      "target": "firm:149777",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:1433823",
+      "target": "firm:7691",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:7194528",
+      "target": "firm:8032",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6637717",
+      "target": "firm:316880",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6637717",
+      "target": "firm:307098",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4352352",
+      "target": "firm:13577",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4071865",
+      "target": "firm:277033",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6171502",
+      "target": "firm:13577",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5600921",
+      "target": "firm:326590",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:8020869",
+      "target": "firm:326590",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6398452",
+      "target": "firm:175346",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4766979",
+      "target": "firm:310628",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4316310",
+      "target": "firm:323214",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4316310",
+      "target": "firm:322688",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4316310",
+      "target": "firm:171350",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4316310",
+      "target": "firm:328894",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4316310",
+      "target": "firm:151152",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4316310",
+      "target": "firm:326590",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4316310",
+      "target": "firm:153322",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4316310",
+      "target": "firm:121057",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4316310",
+      "target": "firm:306193",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4316310",
+      "target": "firm:16843",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4316310",
+      "target": "firm:131338",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4316310",
+      "target": "firm:316477",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4316310",
+      "target": "firm:320717",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:7341867",
+      "target": "firm:330823",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:8034704",
+      "target": "firm:105435",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5425820",
+      "target": "firm:323398",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6801475",
+      "target": "firm:42046",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6801475",
+      "target": "firm:283330",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:7647370",
+      "target": "firm:38642",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4398624",
+      "target": "firm:103863",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5268942",
+      "target": "firm:7784",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2561771",
+      "target": "firm:103857",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2856846",
+      "target": "firm:79",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2335003",
+      "target": "firm:143483",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:7807108",
+      "target": "firm:326590",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:7093432",
+      "target": "firm:175346",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4346916",
+      "target": "firm:133370",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2640276",
+      "target": "firm:39543",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2640276",
+      "target": "firm:134139",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:7913719",
+      "target": "firm:2881",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4240468",
+      "target": "firm:18272",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:1438619",
+      "target": "firm:6363",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:3083418",
+      "target": "firm:10299",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:3083418",
+      "target": "firm:10358",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:3083418",
+      "target": "firm:13572",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:3083418",
+      "target": "firm:15340",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6199123",
+      "target": "firm:13109",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:7026399",
+      "target": "firm:175112",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:7407763",
+      "target": "firm:2881",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2691106",
+      "target": "firm:5393",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5780208",
+      "target": "firm:7784",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6222550",
+      "target": "firm:10299",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6222550",
+      "target": "firm:10358",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6222550",
+      "target": "firm:15340",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6222550",
+      "target": "firm:13572",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6222550",
+      "target": "firm:105644",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:7743421",
+      "target": "firm:7784",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:7743421",
+      "target": "firm:104555",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5491174",
+      "target": "firm:19616",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5884759",
+      "target": "firm:123037",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5067949",
+      "target": "firm:8174",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6763247",
+      "target": "firm:307098",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6763247",
+      "target": "firm:316880",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:2270402",
+      "target": "firm:7691",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:8228753",
+      "target": "firm:7691",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:1394981",
+      "target": "firm:10111",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:6265620",
+      "target": "firm:43036",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5238372",
+      "target": "firm:7174",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5238372",
+      "target": "firm:15634",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5238372",
+      "target": "firm:25938",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5238372",
+      "target": "firm:31334",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5238372",
+      "target": "firm:35682",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5238372",
+      "target": "firm:46106",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5238372",
+      "target": "firm:103848",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5238372",
+      "target": "firm:103934",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5238372",
+      "target": "firm:130745",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5238372",
+      "target": "firm:148477",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:4485449",
+      "target": "firm:6694"
+    },
+    {
+      "source": "person:4485449",
+      "target": "firm:149018"
+    },
+    {
+      "source": "person:7942348",
+      "target": "firm:46173"
+    },
+    {
+      "source": "person:2189838",
+      "target": "firm:7691"
+    },
+    {
+      "source": "person:7695622",
+      "target": "firm:110929"
+    },
+    {
+      "source": "person:5596453",
+      "target": "firm:8209"
+    },
+    {
+      "source": "person:5218291",
+      "target": "firm:27060"
+    },
+    {
+      "source": "person:5037049",
+      "target": "firm:705"
+    },
+    {
+      "source": "person:7818511",
+      "target": "firm:149777"
+    }
+  ],
   "meta": {
-    "generated": "2026-05-12T04:17:56.936Z",
+    "generated": "2026-05-12T05:13:36.405Z",
     "sourceLabel": "(session reset)",
-    "totalIndividuals": 0,
-    "totalFirms": 0,
+    "totalIndividuals": 138,
+    "totalFirms": 89,
     "totalEntities": 0,
-    "totalNodes": 0,
-    "totalLinks": 0
+    "totalNodes": 227,
+    "totalLinks": 130
   }
 }
