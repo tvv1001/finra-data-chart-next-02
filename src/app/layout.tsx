@@ -1,10 +1,17 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
+import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
 import './globals.css';
 
 const siteUrl = 'https://finra-data-chart-next-02.vercel.app';
 
+export const viewport: Viewport = {
+	themeColor: '#F97316',
+	colorScheme: 'light',
+};
+
 export const metadata: Metadata = {
 	metadataBase: new URL(siteUrl),
+	manifest: '/manifest.webmanifest',
 	title: {
 		default: 'FINRA Network Graph',
 		template: '%s | FINRA Network Graph',
@@ -47,13 +54,29 @@ export const metadata: Metadata = {
 			'max-video-preview': -1,
 		},
 	},
-	icons: { icon: '/favicon.svg' },
+	icons: {
+		icon: [
+			{ url: '/favicon.svg', type: 'image/svg+xml' },
+			{ url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+			{ url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+		],
+		apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+		shortcut: ['/favicon.svg'],
+	},
+	appleWebApp: {
+		capable: true,
+		title: 'FINRA Graph',
+		statusBarStyle: 'default',
+	},
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
 	return (
 		<html lang='en'>
-			<body>{children}</body>
+			<body>
+				<ServiceWorkerRegistration />
+				{children}
+			</body>
 		</html>
 	);
 }
