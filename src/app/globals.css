@@ -116,8 +116,8 @@ body {
 
 .fg-viewport-debug {
 	position: fixed;
-	top: max(10px, env(safe-area-inset-top));
 	left: max(10px, env(safe-area-inset-left));
+	bottom: max(10px, env(safe-area-inset-bottom));
 	z-index: 9999;
 	display: grid;
 	gap: 4px;
@@ -169,6 +169,34 @@ body {
 .fg-viewport-debug__hint code {
 	font-family: var(--mono);
 	color: #fde68a;
+}
+
+@media (max-width: 860px) {
+	.fg-viewport-debug {
+		left: max(8px, env(safe-area-inset-left));
+		right: max(8px, env(safe-area-inset-right));
+		bottom: max(8px, env(safe-area-inset-bottom));
+		min-width: 0;
+		max-width: none;
+		width: auto;
+		padding: 8px 10px;
+		gap: 3px;
+		font-size: 11px;
+		opacity: 0.92;
+	}
+
+	.fg-viewport-debug__row {
+		grid-template-columns: 44px minmax(0, 1fr);
+		gap: 6px;
+	}
+
+	.fg-viewport-debug__title {
+		font-size: 11px;
+	}
+
+	.fg-viewport-debug__hint {
+		font-size: 10px;
+	}
 }
 
 .fg-bottom-status {
