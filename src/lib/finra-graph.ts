@@ -825,9 +825,6 @@ async function clearPersistedServerGraph() {
 	const response = await fetch(url.toString(), {
 		method: 'POST',
 		cache: 'no-store',
-		headers: {
-			'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-		},
 	});
 	if (!response.ok) {
 		throw new Error(`HTTP ${response.status}`);
@@ -847,7 +844,7 @@ async function resetSessionView() {
 	void fetchCacheStats();
 
 	if (clearPersistedGraphError) {
-		throw clearPersistedGraphError;
+		console.warn('Failed to clear persisted server graph; local session was cleared instead.', clearPersistedGraphError);
 	}
 }
 
@@ -1211,12 +1208,15 @@ export function init(_d3) {
 	d3 = _d3;
 	(document.getElementById('btn-log-close') as HTMLButtonElement | null)?.addEventListener('click', closeLog);
 
-	const refreshLayoutBtn = document.getElementById('fg-refresh-layout') as HTMLButtonElement | null;
-	if (refreshLayoutBtn) {
+	const refreshLayoutButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-action="refresh-layout"]'));
+	refreshLayoutButtons.forEach((refreshLayoutBtn) => {
 		refreshLayoutBtn.addEventListener('click', () => {
-			refreshLayoutBtn.disabled = true;
-			const originalText = refreshLayoutBtn.textContent;
-			refreshLayoutBtn.textContent = 'Refreshing…';
+			const buttons = refreshLayoutButtons;
+			buttons.forEach((button) => {
+				button.disabled = true;
+				button.dataset.originalText = button.textContent || '';
+				button.textContent = 'Refreshing…';
+			});
 			try {
 				refreshNodeLayout();
 				void fetchCacheStats();
@@ -1224,40 +1224,54 @@ export function init(_d3) {
 				console.error('refreshNodeLayout failed:', err);
 			} finally {
 				setTimeout(() => {
-					refreshLayoutBtn.textContent = originalText || 'Refresh node layout';
-					refreshLayoutBtn.disabled = false;
+					buttons.forEach((button) => {
+						button.textContent = button.dataset.originalText || 'Refresh node layout';
+						button.disabled = false;
+						delete button.dataset.originalText;
+					});
 				}, 900);
 			}
 		});
-	}
+	});
 
-	const clearSessionBtn = document.getElementById('fg-clear-session') as HTMLButtonElement | null;
-	if (clearSessionBtn) {
+	const clearSessionButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-action="clear-session"]'));
+	clearSessionButtons.forEach((clearSessionBtn) => {
 		clearSessionBtn.addEventListener('click', async () => {
-			clearSessionBtn.disabled = true;
-			clearSessionBtn.textContent = 'Clearing…';
+			const buttons = clearSessionButtons;
+			buttons.forEach((button) => {
+				button.disabled = true;
+				button.dataset.originalText = button.textContent || '';
+				button.textContent = 'Clearing…';
+			});
 			try {
 				await resetSessionView();
 				void fetchCacheStats();
-				clearSessionBtn.textContent = 'Cleared!';
+				buttons.forEach((button) => {
+					button.textContent = 'Cleared!';
+				});
 			} catch (err) {
 				console.error('clearSession failed:', err);
-				clearSessionBtn.textContent = 'Error';
+				buttons.forEach((button) => {
+					button.textContent = 'Error';
+				});
 			} finally {
 				setTimeout(() => {
-					clearSessionBtn.textContent = 'Clear session';
-					clearSessionBtn.disabled = false;
+					buttons.forEach((button) => {
+						button.textContent = button.dataset.originalText || 'Clear session';
+						button.disabled = false;
+						delete button.dataset.originalText;
+					});
 				}, 1500);
 			}
 		});
-	}
+	});
 
-	const clearHighlightsBtn = document.getElementById('fg-clear-highlights') as HTMLButtonElement | null;
-	if (clearHighlightsBtn) {
+	const clearHighlightsButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-action="clear-highlights"]'));
+	clearHighlightsButtons.forEach((clearHighlightsBtn) => {
 		clearHighlightsBtn.addEventListener('click', () => {
 			clearHighlights();
 		});
-	}
+	});
 
 	const focusSidebarBtn = document.getElementById('fg-focus-btn') as HTMLButtonElement | null;
 	if (focusSidebarBtn) {
