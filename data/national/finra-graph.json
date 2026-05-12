@@ -193704,6 +193704,236 @@
       "id": "firm:name:kindling_mbd_llc",
       "label": "KINDLING MBD LLC",
       "group": "firm"
+    },
+    {
+      "id": "person:5829684",
+      "label": "Louis James Fetch",
+      "group": "individual",
+      "crd": "5829684",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 14.875
+    },
+    {
+      "id": "firm:153956",
+      "label": "LONE PEAK GLOBAL INVESTORS, LLC",
+      "group": "firm",
+      "firmId": "153956",
+      "iaSecNumber": "78911",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 14.79
+    },
+    {
+      "id": "person:6363569",
+      "label": "Austin J Fetch",
+      "group": "individual",
+      "crd": "6363569",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "person:8147666",
+      "label": "Trevor Fetch",
+      "group": "individual",
+      "crd": "8147666",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "person:4421634",
+      "label": "Jessica L. Fetcho",
+      "group": "individual",
+      "crd": "4421634",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "person:6059231",
+      "label": "Christopher Fetchet",
+      "group": "individual",
+      "crd": "6059231",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "person:6065209",
+      "label": "Kyle Fetchko",
+      "group": "individual",
+      "crd": "6065209",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:7883984",
+      "label": "Jake Hunter Fetchen",
+      "group": "individual",
+      "crd": "7883984",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:6206211",
+      "label": "Samuel Jay Fetchero",
+      "group": "individual",
+      "crd": "6206211",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:4187898",
+      "label": "Courtney Hershberger",
+      "group": "individual",
+      "crd": "4187898",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "person:4275845",
+      "label": "Christine Susan Gordon",
+      "group": "individual",
+      "crd": "4275845",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.763009550107068
+    },
+    {
+      "id": "person:2329532",
+      "label": "Paula Brown",
+      "group": "individual",
+      "crd": "2329532",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:6923272",
+      "label": "Kristine Cory Carothers",
+      "group": "individual",
+      "crd": "6923272",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 14.875
+    },
+    {
+      "id": "firm:140777",
+      "label": "FIRST CITIZENS ASSET MANAGEMENT, INC",
+      "group": "firm",
+      "firmId": "140777",
+      "iaSecNumber": "79917",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 14.79
+    },
+    {
+      "id": "firm:105435",
+      "label": "1834 INVESTMENT ADVISORS CO.",
+      "group": "firm",
+      "firmId": "105435",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 14.79
     }
   ],
   "links": [
@@ -508056,14 +508286,58 @@
       "source": "person:8029722",
       "target": "firm:6959",
       "relationship": "employed_by"
+    },
+    {
+      "source": "person:5829684",
+      "target": "firm:46106"
+    },
+    {
+      "source": "person:5829684",
+      "target": "firm:153956"
+    },
+    {
+      "source": "person:6363569",
+      "target": "firm:282580"
+    },
+    {
+      "source": "person:8147666",
+      "target": "firm:231"
+    },
+    {
+      "source": "person:4421634",
+      "target": "firm:250"
+    },
+    {
+      "source": "person:6059231",
+      "target": "firm:6247"
+    },
+    {
+      "source": "person:4187898",
+      "target": "firm:149777"
+    },
+    {
+      "source": "person:4275845",
+      "target": "firm:7691"
+    },
+    {
+      "source": "person:6923272",
+      "target": "firm:44430"
+    },
+    {
+      "source": "person:6923272",
+      "target": "firm:140777"
+    },
+    {
+      "source": "person:6074501",
+      "target": "firm:105435"
     }
   ],
   "meta": {
-    "generated": "2026-05-12T16:18:32.975Z",
-    "totalIndividuals": 32208,
-    "totalFirms": 6533,
+    "generated": "2026-05-12T16:46:32.258Z",
+    "totalIndividuals": 32220,
+    "totalFirms": 6536,
     "totalEntities": 0,
-    "totalNodes": 38741,
-    "totalLinks": 62870
+    "totalNodes": 38756,
+    "totalLinks": 62881
   }
 }
