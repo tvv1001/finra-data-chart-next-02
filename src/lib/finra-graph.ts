@@ -143,6 +143,7 @@ let appendFetched = null;
 // Used to bias placement of newly injected nodes near their parent.
 let lastExpandOriginNode = null;
 let nonGrayExpandRunId = 0;
+let hasUserInitiatedGraphExpansion = false;
 
 const INITIAL_SEED_COUNT = 0; // random seed nodes on first load (default select)
 const FILTER_MATCH_LIMIT = 100; // maximum number of direct matches to show when filtering
@@ -162,6 +163,10 @@ function getDefaultSelectionHops(): number {
 function getDefaultExpansionHops(): number {
 	const normalized = normalizeHighlightHops(DEFAULT_EXPANSION_HOPS);
 	return normalized === 'all' ? 1 : normalized;
+}
+
+function markUserInitiatedGraphExpansion() {
+	hasUserInitiatedGraphExpansion = true;
 }
 
 // ── Session persistence helpers ────────────────────────────────────────────
@@ -777,6 +782,7 @@ function clearGraphData() {
 	initialServerLinkKeys = new Set();
 	isSubsetMode = false;
 	allowFirstFetchZoom = true;
+	hasUserInitiatedGraphExpansion = false;
 	selectedId = null;
 	highlightedSelections = [];
 	stopNodePulseLoop();
@@ -1288,6 +1294,7 @@ export function init(_d3) {
 	const focusSidebarBtn = document.getElementById('fg-focus-btn') as HTMLButtonElement | null;
 	if (focusSidebarBtn) {
 		focusSidebarBtn.addEventListener('click', () => {
+			markUserInitiatedGraphExpansion();
 			const sideEl = document.getElementById('fg-sidebar');
 			const sid = sideEl?.dataset?.displayedId || selectedId;
 			if (!sid) return;
@@ -5267,6 +5274,7 @@ async function ensureExpansionDataForNode(
 
 async function handleNodeOpen(event, d) {
 	event.stopPropagation();
+	markUserInitiatedGraphExpansion();
 	anchorNode(d);
 	selectNode(d, { skipAutoExpand: true });
 	void expandNodeThroughNonGrayHops(d).catch((err) => {
@@ -5597,6 +5605,9 @@ async function expandFromServer(
 	} = {},
 ) {
 	const normalizedHops = normalizeHighlightHops(hops);
+	if (!hasUserInitiatedGraphExpansion && normalizedHops !== 1) {
+		return;
+	}
 	const { matchExistingOnly = false, markSelected = false } = options;
 	let expansionPayload = { nodes: [], links: [] };
 	try {
