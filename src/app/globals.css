@@ -674,7 +674,7 @@ body {
 /* Shared style for both header inputs */
 .fg-search-input,
 .fg-fetch-input {
-	font: 13px var(--sans);
+	font: 14px var(--sans);
 	padding: 7px 10px;
 	height: 34px;
 	outline: none;
@@ -687,6 +687,7 @@ body {
 		background 0.15s,
 		box-shadow 0.15s;
 }
+
 .fg-search-input {
 	width: 100%;
 	min-width: 0;
@@ -1739,7 +1740,10 @@ body {
 	.fg-toolbar-status--top {
 		justify-content: flex-end;
 	}
-
+	.fg-search-input,
+	.fg-fetch-input {
+		font: 16px var(--sans);
+	}
 	.fg-fetch-status {
 		flex-direction: row;
 		align-items: center;
