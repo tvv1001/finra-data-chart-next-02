@@ -35,5 +35,6 @@ coverage/
 out/
 .next/cache/*
 data/national/*
+!data/national/finra-graph.json
 data/external/*
 .vercel
