@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 function hideSidebar() {
 	document.getElementById('fg-sidebar')?.classList.add('hidden');
@@ -10,7 +10,6 @@ function hideSidebar() {
 export default function FinraGraph() {
 	const mountedRef = useRef(false);
 	const appRef = useRef<HTMLDivElement | null>(null);
-	const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false);
 
 	// If a saved session exists with a selected node or highlights, show the
 	// sidebar on initial load so the UI matches the persisted production view.
@@ -37,7 +36,8 @@ export default function FinraGraph() {
 		if (!app || !sidebar || !empty) return;
 
 		const syncUiFlags = () => {
-			app.dataset.sidebarOpen = sidebar.classList.contains('hidden') ? 'false' : 'true';
+			const isSidebarOpen = !sidebar.classList.contains('hidden');
+			app.dataset.sidebarOpen = isSidebarOpen ? 'true' : 'false';
 			app.dataset.graphEmpty = empty.classList.contains('hidden') ? 'false' : 'true';
 		};
 
@@ -95,23 +95,12 @@ export default function FinraGraph() {
 			<header className='fg-header'>
 				<div className='fg-header-bar'>
 					<div className='fg-header-brand'>
-						<h1 className='fg-title'>
-							FINRA <span className='fg-title-accent'>Network</span>
-						</h1>
-						<button
-							type='button'
-							className='fg-mobile-menu-toggle'
-							aria-expanded={isHeaderMenuOpen}
-							aria-controls='fg-header-controls'
-							aria-label={isHeaderMenuOpen ? 'Hide controls' : 'Show controls'}
-							onClick={() => setIsHeaderMenuOpen((open) => !open)}>
-							<span aria-hidden='true'>{isHeaderMenuOpen ? '✕' : '☰'}</span>
-						</button>
+						<h1 className='fg-title'>FINRA</h1>
 					</div>
 
 					<div
 						id='fg-header-controls'
-						className={`fg-header-controls${isHeaderMenuOpen ? ' is-open' : ''}`}>
+						className='fg-header-controls'>
 						<div className='fg-toolbar-group fg-toolbar-status fg-toolbar-status--top'>
 							<span
 								id='fg-subset-info'
@@ -138,18 +127,21 @@ export default function FinraGraph() {
 							<div className='fg-toolbar-group fg-toolbar-actions'>
 								<button
 									id='fg-refresh-layout'
+									data-fg-action='refresh-layout'
 									className='fg-ghost-btn'
 									title='Re-run the graph layout'>
 									↺ Reflow Layout
 								</button>
 								<button
 									id='fg-clear-highlights'
+									data-fg-action='clear-highlights'
 									className='fg-ghost-btn'
 									title='Clear selected highlights'>
 									Clear Highlight
 								</button>
 								<button
 									id='fg-clear-session'
+									data-fg-action='clear-session'
 									className='fg-danger-btn'
 									title='Clear saved session and reload fresh'>
 									Reset Session
@@ -172,9 +164,23 @@ export default function FinraGraph() {
 					className='fg-sidebar hidden'>
 					<div className='fg-sidebar-actions'>
 						<button
+							className='fg-sidebar-action-btn fg-sidebar-action-btn--primary'
+							type='button'
+							onClick={hideSidebar}
+							title='Close details panel'
+							aria-label='Close details panel'>
+							<span className='fg-sidebar-action-label'>Close</span>
+							<span
+								className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
+								aria-hidden='true'>
+								✕
+							</span>
+						</button>
+						<button
 							id='fg-focus-btn'
 							className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary'
-							title='Focus on this node'>
+							title='Focus on this node'
+							aria-label='Center on this node'>
 							<span className='fg-sidebar-action-label'>Center</span>
 							<span
 								className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
@@ -218,15 +224,33 @@ export default function FinraGraph() {
 							</span>
 						</button>
 						<button
-							className='fg-sidebar-action-btn fg-sidebar-action-btn--primary'
 							type='button'
-							onClick={hideSidebar}>
-							<span className='fg-sidebar-action-label'>Close</span>
+							data-fg-action='refresh-layout'
+							className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-sidebar-action-btn--mobile-only'
+							title='Re-run the graph layout'
+							aria-label='Reflow layout'>
+							<span className='fg-sidebar-action-label'>Refresh</span>
 							<span
 								className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
 								aria-hidden='true'>
-								✕
+								↺
 							</span>
+						</button>
+					</div>
+					<div className='fg-sidebar-mobile-actions'>
+						<button
+							type='button'
+							data-fg-action='clear-highlights'
+							className='fg-ghost-btn'
+							title='Clear selected highlights'>
+							Clear Highlight
+						</button>
+						<button
+							type='button'
+							data-fg-action='clear-session'
+							className='fg-danger-btn'
+							title='Clear saved session and reload fresh'>
+							Reset Session
 						</button>
 					</div>
 					<div
@@ -249,7 +273,6 @@ export default function FinraGraph() {
 						id='fg-empty'
 						className='fg-empty hidden'>
 						<p>Search for a firm, person, CRD, or SEC# to begin.</p>
-						<p>Use the Fetch box above to look up a name, firm, CRD, or SEC#.</p>
 					</div>
 				</main>
 			</div>

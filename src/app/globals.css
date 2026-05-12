@@ -171,8 +171,8 @@ body {
 .fg-header-brand {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: 10px;
+	justify-content: flex-start;
+	gap: 8px;
 	min-width: 0;
 	flex: 0 1 auto;
 }
@@ -182,8 +182,9 @@ body {
 	flex: 1 1 520px;
 	min-width: 0;
 	margin-left: auto;
-	flex-direction: column;
-	align-items: stretch;
+	flex-direction: row;
+	align-items: center;
+	justify-content: flex-end;
 	gap: 8px;
 }
 
@@ -366,11 +367,12 @@ body {
 .fg-fetch-status {
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: 8px;
 	min-width: 0;
-	width: 100%;
-	justify-content: space-between;
-	flex-wrap: wrap;
+	width: auto;
+	justify-content: flex-end;
+	flex-wrap: nowrap;
+	flex: 1 1 auto;
 }
 
 .fg-toolbar-status {
@@ -379,7 +381,7 @@ body {
 }
 
 .fg-toolbar-status--top {
-	width: 100%;
+	width: auto;
 	justify-content: flex-end;
 	flex: 0 0 auto;
 }
@@ -387,8 +389,9 @@ body {
 .fg-toolbar-actions {
 	gap: 6px;
 	margin-left: auto;
-	flex-wrap: wrap;
+	flex-wrap: nowrap;
 	justify-content: flex-end;
+	flex: 0 0 auto;
 }
 
 .fg-global-stats {
@@ -597,8 +600,8 @@ body {
 .fg-subset-info {
 	display: block;
 	position: absolute;
-	top: 12px;
-	right: 55px;
+	top: 10px;
+	right: 12px;
 	align-items: center;
 	min-height: 32px;
 	padding: 6px 10px;
@@ -649,6 +652,7 @@ body {
 .fg-fetch {
 	flex: 1 1 320px;
 	min-width: 0;
+	flex-wrap: nowrap;
 }
 
 .fg-search--full {
@@ -688,6 +692,7 @@ body {
 	width: min(320px, 100%);
 	flex: 1 1 220px;
 	min-width: 0;
+	max-width: 300px;
 }
 .fg-search-input:focus,
 .fg-fetch-input:focus {
@@ -749,7 +754,7 @@ body {
 /* Primary fetch action button */
 .fg-action-btn {
 	font: 600 12px/1 var(--sans);
-	padding: 7px 12px;
+	padding: 7px 10px;
 	border-radius: 6px;
 	border: 1px solid rgba(37, 99, 235, 0.7);
 	background: #ffffff;
@@ -777,7 +782,7 @@ body {
 /* Ghost utility buttons */
 .fg-ghost-btn {
 	font: 600 11px/1 var(--sans);
-	padding: 7px 12px;
+	padding: 7px 9px;
 	min-height: 32px;
 	border-radius: 6px;
 	border: 1px solid rgba(15, 23, 42, 0.18);
@@ -807,7 +812,7 @@ body {
 /* Danger / destructive action button */
 .fg-danger-btn {
 	font: 600 11px/1 var(--sans);
-	padding: 7px 12px;
+	padding: 7px 9px;
 	min-height: 32px;
 	border-radius: 6px;
 	border: 1px solid rgba(239, 68, 68, 0.38);
@@ -903,6 +908,23 @@ body {
 	z-index: 3;
 	background: var(--surface);
 	justify-content: flex-end;
+}
+
+.fg-sidebar-action-btn--mobile-only {
+	display: none;
+}
+
+.fg-sidebar-mobile-actions {
+	display: none;
+	gap: 6px;
+	padding: 8px 10px 0;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	background: var(--surface);
+}
+
+.fg-sidebar-mobile-actions > button {
+	flex: 1 1 calc(50% - 3px);
 }
 
 .fg-sidebar-action-btn {
@@ -1692,29 +1714,23 @@ body {
 
 @media (max-width: 860px) {
 	.fg-header-bar {
-		align-items: flex-start;
-		gap: 8px;
+		align-items: center;
+		gap: 6px;
 		padding: 8px 10px;
+		flex-wrap: nowrap;
 	}
 
 	.fg-header-brand {
-		width: 100%;
-		flex: 1 1 100%;
-	}
-
-	.fg-mobile-menu-toggle {
-		display: inline-flex;
+		flex: 0 0 auto;
+		width: auto;
 	}
 
 	.fg-header-controls {
-		display: none;
-		width: 100%;
-		flex: 1 1 100%;
-		padding-top: 2px;
-	}
-
-	.fg-header-controls.is-open {
 		display: flex;
+		width: auto;
+		flex: 1 1 auto;
+		padding-top: 0;
+		min-width: 0;
 	}
 
 	.fg-toolbar-status--top {
@@ -1722,34 +1738,39 @@ body {
 	}
 
 	.fg-fetch-status {
-		flex-direction: column;
-		align-items: stretch;
-		gap: 10px;
+		flex-direction: row;
+		align-items: center;
+		gap: 6px;
+		flex-wrap: nowrap;
 	}
 
 	.fg-fetch {
-		width: 100%;
-		max-height: fit-content;
+		width: auto;
+		max-height: none;
+		flex: 1 1 auto;
 	}
 
 	.fg-fetch-input {
-		width: 100%;
+		width: min(160px, 100%);
 		min-width: 0;
+		max-width: 160px;
 	}
 
 	.fg-action-btn {
-		padding-inline: 11px;
+		padding-inline: 8px;
+		font-size: 10px;
+		min-height: 30px;
 	}
 
 	.fg-toolbar-actions {
-		width: 100%;
-		margin-left: 0;
-		justify-content: stretch;
-		gap: 8px;
+		display: none;
 	}
 
-	.fg-toolbar-actions > button {
-		flex: 1 1 140px;
+	.fg-ghost-btn,
+	.fg-danger-btn {
+		padding-inline: 7px;
+		font-size: 10px;
+		min-height: 30px;
 	}
 
 	.fg-body {
@@ -1785,10 +1806,47 @@ body {
 
 	.fg-sidebar-actions {
 		padding: 8px 8px 0;
+		gap: 6px;
+		justify-content: stretch;
+	}
+
+	.fg-sidebar-actions .fg-sidebar-action-btn {
+		flex: 1 1 0;
+		min-width: 0;
+		padding: 0;
+		min-height: 34px;
+	}
+
+	.fg-sidebar-action-btn--mobile-only {
+		display: inline-flex;
+	}
+
+	.fg-sidebar-actions .fg-sidebar-action-label {
+		display: none;
+	}
+
+	.fg-sidebar-actions .fg-sidebar-action-icon {
+		width: 16px;
+		height: 16px;
+		font-size: 15px;
+	}
+
+	.fg-sidebar-actions .fg-sidebar-action-icon--trailing {
+		margin-left: 0;
+	}
+
+	.fg-sidebar-mobile-actions {
+		display: flex;
+		padding: 8px 8px 0;
+		gap: 6px;
+		position: sticky;
+		top: 42px;
+		z-index: 3;
+		background: var(--surface);
 	}
 
 	.fg-sidebar {
-		--fg-sidebar-sticky-offset: 36px;
+		--fg-sidebar-sticky-offset: 78px;
 		--fg-sidebar-sticky-pad-x: 4px;
 	}
 
@@ -1818,27 +1876,53 @@ body {
 
 @media (max-width: 560px) {
 	.fg-title {
-		font-size: 15px;
+		font-size: 14px;
 	}
 
-	.fg-fetch {
-		flex-wrap: wrap;
+	.fg-header-bar {
+		gap: 5px;
+		padding-inline: 8px;
+	}
+
+	.fg-fetch-status {
+		gap: 5px;
+	}
+
+	.fg-fetch-input {
+		width: min(122px, 100%);
+		max-width: 122px;
+		padding-inline: 8px;
+		font-size: 11px;
 	}
 
 	.fg-action-btn,
-	.fg-fetch-input {
-		width: 100%;
+	.fg-ghost-btn,
+	.fg-danger-btn {
+		padding-inline: 6px;
+		font-size: 9px;
+		letter-spacing: 0;
 	}
 
-	.fg-toolbar-actions > button {
-		flex: 1 1 100%;
+	.fg-toolbar-actions {
+		gap: 3px;
+	}
+
+	.fg-sidebar-mobile-actions {
+		gap: 4px;
+	}
+
+	.fg-sidebar-mobile-actions > button {
+		flex: 1 1 calc(50% - 2px);
 	}
 
 	.fg-subset-info {
-		max-width: 100%;
+		max-width: calc(100vw - 16px);
 		justify-content: flex-end;
-		padding-inline: 0;
+		padding: 0;
 		background: transparent;
+		font-size: 10px;
+		top: 8px;
+		right: 8px;
 	}
 
 	.fg-sidebar {
