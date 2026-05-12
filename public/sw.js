@@ -1,8 +1,20 @@
-const VERSION = 'v1';
+const VERSION = 'v2';
 const STATIC_CACHE = `finra-static-${VERSION}`;
 const RUNTIME_CACHE = `finra-runtime-${VERSION}`;
 const OFFLINE_URL = '/offline.html';
-const PRECACHE_URLS = ['/', OFFLINE_URL, '/manifest.webmanifest', '/favicon.svg', '/icon-192.png', '/icon-512.png', '/icon-512-maskable.png', '/apple-touch-icon.png'];
+const PRECACHE_URLS = [
+	'/',
+	OFFLINE_URL,
+	'/manifest.webmanifest',
+	'/favicon.ico',
+	'/favicon-32x32.png',
+	'/favicon-16x16.png',
+	'/pwa-icon.svg',
+	'/icon-192.png',
+	'/icon-512.png',
+	'/icon-512-maskable.png',
+	'/apple-touch-icon.png',
+];
 
 self.addEventListener('install', (event) => {
 	event.waitUntil(
