@@ -2642,7 +2642,6 @@ async function loadGraph() {
 		const session = loadSession();
 		const clearedSession = Boolean(session?.cleared);
 		isSessionCleared = clearedSession;
-		const shouldExpandLoadedSeedNodes = !clearedSession;
 
 		if (!currentProfileEnabled) {
 			if (session && !clearedSession) {
@@ -2683,20 +2682,25 @@ async function loadGraph() {
 		const prof = profileData;
 
 		if (Array.isArray(prof)) {
+			const loadedSeedNodes = [];
 			for (const seed of prof.map(String).filter(Boolean)) {
 				try {
-					await fetchAndInjectLocalQuery(seed);
+					const fetchedNodes = await fetchAndInjectLocalQuery(seed);
+					if (Array.isArray(fetchedNodes) && fetchedNodes.length) {
+						loadedSeedNodes.push(...fetchedNodes);
+					}
 				} catch {
 					/* ignore — non-critical */
 				}
 			}
-			if (shouldExpandLoadedSeedNodes) {
-				await expandLoadedSeedNodes();
+			if (!clearedSession && loadedSeedNodes.length) {
+				await expandFetchedNodes(loadedSeedNodes);
 			}
 			return;
 		}
 
 		if (prof && typeof prof === 'object') {
+			const loadedSeedNodes = [];
 			const indCrds = normalizeProfileIds(prof.individuals);
 			const firmIds = normalizeProfileIds(prof.firms);
 			const seedQueries = (prof.seeds || [])
@@ -2744,6 +2748,7 @@ async function loadGraph() {
 				appendFetched(batchAllNodes, batchAllLinks);
 				mergeIntoGraphData(batchAllNodes, batchAllLinks);
 				persistToServer(batchAllNodes, batchAllLinks);
+				loadedSeedNodes.push(...batchAllNodes);
 			}
 
 			if (seedQueries.length) {
@@ -2771,12 +2776,13 @@ async function loadGraph() {
 					appendFetched(seedBatchNodes, seedBatchLinks);
 					mergeIntoGraphData(seedBatchNodes, seedBatchLinks);
 					persistToServer(seedBatchNodes, seedBatchLinks);
+					loadedSeedNodes.push(...seedBatchNodes);
 				}
 			}
-		}
 
-		if (shouldExpandLoadedSeedNodes) {
-			await expandLoadedSeedNodes();
+			if (!clearedSession && loadedSeedNodes.length) {
+				await expandFetchedNodes(loadedSeedNodes);
+			}
 		}
 	} catch (err) {
 		console.error('loadGraph:', err);
