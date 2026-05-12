@@ -6,6 +6,11 @@ import './globals.css';
 const siteUrl = 'https://finra-data-chart-next-02.vercel.app';
 
 export const viewport: Viewport = {
+	width: 'device-width',
+	initialScale: 1,
+	maximumScale: 1,
+	userScalable: false,
+	interactiveWidget: 'resizes-content',
 	themeColor: '#F97316',
 	colorScheme: 'light',
 };
