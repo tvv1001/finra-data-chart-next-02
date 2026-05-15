@@ -128,6 +128,9 @@ env NODE_OPTIONS=--max-old-space-size=8192 pnpm build
 | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_API_URL`                                 | Optional API base URL for client-side requests; leave unset for relative `/api/...` calls       |
 | `NEXT_PUBLIC_ENABLE_SERVER_PROFILE_SYNC`              | When set to `1`, fetched node selections can be synced into the server-side `custom` profile    |
+| `NEXT_PUBLIC_UMAMI_SCRIPT_URL`                        | Full URL to your Umami script, e.g. `https://analytics.example.com/script.js`                   |
+| `NEXT_PUBLIC_UMAMI_WEBSITE_ID`                        | Umami website ID for this app                                                                   |
+| `NEXT_PUBLIC_UMAMI_DOMAINS`                           | Optional comma-separated domain allowlist passed to Umami (for example `example.com`)           |
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Enables shared Redis-backed graph, seed bank, recent-seed tracking, and response caching        |
 | `CRON_SECRET`                                         | Optional bearer token required by `/api/finra/prime-check` when you want to protect cron access |
 | `FINRA_PRIME_BATCH_LIMIT`                             | Optional limit override for the prime-check warming batch                                       |
@@ -137,6 +140,22 @@ If Redis is **not** configured, the app falls back to:
 
 - filesystem-backed graph / seed storage
 - in-memory request caching for upstream API responses
+
+### Umami analytics setup
+
+This app now supports **Umami** as the primary analytics provider.
+
+To enable it:
+
+1. Deploy or create an Umami site
+2. Set these environment variables:
+
+- `NEXT_PUBLIC_UMAMI_SCRIPT_URL`
+- `NEXT_PUBLIC_UMAMI_WEBSITE_ID`
+
+3. Optionally set `NEXT_PUBLIC_UMAMI_DOMAINS` if you want Umami to restrict tracking to a specific domain list
+
+If the script URL or website ID is missing, the analytics script is not injected, so local development stays quiet by default.
 
 ---
 

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
-import { Analytics } from '@vercel/analytics/next';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
+import UmamiAnalytics from '@/components/UmamiAnalytics';
 import ViewportDebugOverlay from '@/components/ViewportDebugOverlay';
 import './globals.css';
 
@@ -89,8 +89,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 			<body>
 				<ServiceWorkerRegistration />
 				<ViewportDebugOverlay />
+				<UmamiAnalytics />
 				{children}
-				<Analytics />
 			</body>
 		</html>
 	);

@@ -2194,6 +2194,23 @@ body {
 	stroke-width: 2.5px !important;
 }
 
+.fg-node.trace-combined circle,
+.fg-node.trace-combined rect,
+.fg-node.trace-combined polygon {
+	stroke: #22c55e !important;
+	stroke-width: 3.5px !important;
+	filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+}
+
+.fg-node.trace-combined .fg-label-fill {
+	fill: #14532d !important;
+	font-weight: 800 !important;
+}
+
+.fg-node.trace-combined .fg-label-halo {
+	stroke-width: 6px !important;
+}
+
 /* Connector (intermediate) nodes — same reduced intensity */
 .fg-node.trace-shortest-connector circle,
 .fg-node.trace-shortest-connector rect,
