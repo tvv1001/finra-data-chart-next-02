@@ -182,6 +182,11 @@ function hasLockedFetchStatus() {
 	return info?.dataset.fetchLocked === 'true' || wrap?.dataset.fetchLocked === 'true';
 }
 
+function clearFetchStatus() {
+	activeFetchStatusMessage = null;
+	applyStatusPresentation('', { transient: false, dismissible: false });
+}
+
 type SessionPersistenceMode = 'full' | 'compact' | 'reduced' | 'minimal';
 // Baseline snapshot from the initial server response for this page load.
 // Used to identify which rendered nodes/links are truly "added" extras.
@@ -1206,6 +1211,7 @@ function clearGraphData() {
 	initialServerNodeIds = new Set();
 	initialServerLinkKeys = new Set();
 	isSubsetMode = false;
+	clearFetchStatus();
 	allowFirstFetchZoom = true;
 	hasUserInitiatedGraphExpansion = false;
 	selectedId = null;
@@ -2212,8 +2218,7 @@ export function init(_d3) {
 	const subsetInfoCloseBtn = document.getElementById('fg-subset-info-close') as HTMLButtonElement | null;
 	if (subsetInfoCloseBtn) {
 		subsetInfoCloseBtn.addEventListener('click', () => {
-			activeFetchStatusMessage = null;
-			applyStatusPresentation('', { transient: false, dismissible: false });
+			clearFetchStatus();
 		});
 	}
 
@@ -6413,6 +6418,7 @@ function updateShortDetail(d) {
 function clearHighlights() {
 	disableAllTraceModes();
 	if (!nodeSel) return;
+	clearFetchStatus();
 	if (selectionRestoreTimer) {
 		clearTimeout(selectionRestoreTimer);
 		selectionRestoreTimer = null;
