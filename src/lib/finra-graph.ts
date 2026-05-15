@@ -160,6 +160,28 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 	updateInactiveLabelZoomState(rootGroup, normalizedScale);
 }
 
+function applyStatusPresentation(text, options: { transient?: boolean; dismissible?: boolean } = {}) {
+	const { transient = false, dismissible = false } = options;
+	const info = document.getElementById('fg-subset-info');
+	const wrap = info?.closest('.fg-toolbar-status--top') as HTMLElement | null;
+	if (info) {
+		info.textContent = text;
+		info.dataset.transient = transient ? 'true' : 'false';
+		info.dataset.dismissible = dismissible ? 'true' : 'false';
+		info.dataset.fetchLocked = dismissible ? 'true' : 'false';
+	}
+	if (wrap) {
+		wrap.dataset.dismissible = dismissible ? 'true' : 'false';
+		wrap.dataset.fetchLocked = dismissible ? 'true' : 'false';
+	}
+}
+
+function hasLockedFetchStatus() {
+	const info = document.getElementById('fg-subset-info');
+	const wrap = info?.closest('.fg-toolbar-status--top') as HTMLElement | null;
+	return info?.dataset.fetchLocked === 'true' || wrap?.dataset.fetchLocked === 'true';
+}
+
 type SessionPersistenceMode = 'full' | 'compact' | 'reduced' | 'minimal';
 // Baseline snapshot from the initial server response for this page load.
 // Used to identify which rendered nodes/links are truly "added" extras.
@@ -172,6 +194,7 @@ let appendFetched = null;
 let lastExpandOriginNode = null;
 let nonGrayExpandRunId = 0;
 let hasUserInitiatedGraphExpansion = false;
+let activeFetchStatusMessage: string | null = null;
 
 const INITIAL_SEED_COUNT = 0; // random seed nodes on first load (default select)
 const FILTER_MATCH_LIMIT = 100; // maximum number of direct matches to show when filtering
@@ -2189,20 +2212,14 @@ export function init(_d3) {
 	const subsetInfoCloseBtn = document.getElementById('fg-subset-info-close') as HTMLButtonElement | null;
 	if (subsetInfoCloseBtn) {
 		subsetInfoCloseBtn.addEventListener('click', () => {
-			if (isSubsetMode && graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
-			else clearSubsetInfo();
+			activeFetchStatusMessage = null;
+			applyStatusPresentation('', { transient: false, dismissible: false });
 		});
 	}
 
 	function updateFetchStatus(msg) {
-		const info = document.getElementById('fg-subset-info');
-		const wrap = info?.closest('.fg-toolbar-status--top') as HTMLElement | null;
-		if (info) {
-			info.textContent = msg;
-			info.dataset.transient = 'true';
-			info.dataset.dismissible = 'true';
-		}
-		if (wrap) wrap.dataset.dismissible = 'true';
+		activeFetchStatusMessage = msg;
+		applyStatusPresentation(msg, { transient: true, dismissible: true });
 	}
 
 	// Append fetched nodes/links into live layout (reuse revealNeighbors append logic)
@@ -3301,30 +3318,20 @@ function subsetGraph(data, seedCount, hops = DEFAULT_EXPANSION_HOPS) {
 }
 
 function updateSubsetInfo(shown, total) {
-	const info = document.getElementById('fg-subset-info');
-	const wrap = info?.closest('.fg-toolbar-status--top') as HTMLElement | null;
 	const sel = document.getElementById('fg-subset-select') as HTMLSelectElement | null;
-	const fmt = (n) => (typeof n === 'number' ? n.toLocaleString() : String(n ?? '–'));
-	const cacheTotal = typeof _cacheStats?.people === 'number' || typeof _cacheStats?.firms === 'number' ? (_cacheStats?.people || 0) + (_cacheStats?.firms || 0) : null;
-	if (info) {
-		info.dataset.transient = 'false';
-		info.dataset.dismissible = 'false';
+	if (activeFetchStatusMessage || hasLockedFetchStatus()) {
+		applyStatusPresentation(activeFetchStatusMessage || '', { transient: Boolean(activeFetchStatusMessage), dismissible: Boolean(activeFetchStatusMessage) });
 	}
-	if (wrap) wrap.dataset.dismissible = 'false';
 
 	if (sel) sel.classList.remove('hidden');
 }
 
 function clearSubsetInfo() {
 	const info = document.getElementById('fg-subset-info');
-	const wrap = info?.closest('.fg-toolbar-status--top') as HTMLElement | null;
 	const sel = document.getElementById('fg-subset-select') as HTMLSelectElement | null;
-	if (info) {
-		info.textContent = '';
-		info.dataset.transient = 'false';
-		info.dataset.dismissible = 'false';
+	if (!activeFetchStatusMessage && !hasLockedFetchStatus() && info) {
+		applyStatusPresentation('', { transient: false, dismissible: false });
 	}
-	if (wrap) wrap.dataset.dismissible = 'false';
 	if (sel) sel.value = 'all';
 }
 
