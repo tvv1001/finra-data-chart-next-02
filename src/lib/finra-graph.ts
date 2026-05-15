@@ -439,34 +439,42 @@ function calculateTrace(nodeIds?: string[]) {
 		}
 	}
 
-	// 2. Shortest Path (Direct connection between first and last node) - GREEN
+	// 2. Shortest Loop (first selected node to last, then reconnect back) - GREEN
 	if (isTraceMode) {
-		const shortestPathStartEnd = findShortestPath(nodeIds[0], nodeIds[nodeIds.length - 1], adj);
-		if (shortestPathStartEnd) {
-			shortestPathStartEnd.forEach((id) => traceShortestIds.add(id));
-			extractConnectorNodeIds(shortestPathStartEnd).forEach((id) => traceShortestConnectorIds.add(id));
+		const shortestLoop = buildClosedTraceLoop(nodeIds[0], nodeIds[nodeIds.length - 1], adj);
+		if (shortestLoop) {
+			shortestLoop.forEach((id) => traceShortestIds.add(id));
+			extractConnectorNodeIds(shortestLoop).forEach((id) => traceShortestConnectorIds.add(id));
 		}
 
-		// 3. Longest Path (single longest path between any two log nodes) - PURPLE
+		// 3. Longest Loop (largest reconnecting loop between any two log nodes) - PURPLE
 		let maxLen = -1;
-		let longestPath: string[] = [];
+		let longestLoop: string[] = [];
 		for (let i = 0; i < nodeIds.length; i++) {
 			for (let j = i + 1; j < nodeIds.length; j++) {
-				const path = findShortestPath(nodeIds[i], nodeIds[j], adj);
-				if (path && path.length > maxLen) {
-					maxLen = path.length;
-					longestPath = path;
+				const loop = buildClosedTraceLoop(nodeIds[i], nodeIds[j], adj);
+				if (loop && loop.length > maxLen) {
+					maxLen = loop.length;
+					longestLoop = loop;
 				}
 			}
 		}
-		longestPath.forEach((id) => traceLongestIds.add(id));
-		extractConnectorNodeIds(longestPath).forEach((id) => traceLongestConnectorIds.add(id));
+		longestLoop.forEach((id) => traceLongestIds.add(id));
+		extractConnectorNodeIds(longestLoop).forEach((id) => traceLongestConnectorIds.add(id));
 	}
 
 	reapplySelectionState();
 }
 
-function findShortestPath(startId: string, endId: string, adj: Map<string, Array<{ nodeId: string; linkId: string }>>) {
+function findShortestPath(
+	startId: string,
+	endId: string,
+	adj: Map<string, Array<{ nodeId: string; linkId: string }>>,
+	options: {
+		blockedLinkIds?: Set<string>;
+	} = {},
+) {
+	const { blockedLinkIds = new Set<string>() } = options;
 	if (startId === endId) return [startId];
 	const queue: Array<{ nodeId: string; path: string[] }> = [{ nodeId: startId, path: [startId] }];
 	const visited = new Set<string>([startId]);
@@ -475,6 +483,7 @@ function findShortestPath(startId: string, endId: string, adj: Map<string, Array
 		const { nodeId, path } = queue.shift()!;
 		const neighbors = adj.get(nodeId) || [];
 		for (const { nodeId: nextId, linkId } of neighbors) {
+			if (blockedLinkIds.has(linkId)) continue;
 			if (nextId === endId) {
 				return [...path, linkId, nextId];
 			}
@@ -485,6 +494,31 @@ function findShortestPath(startId: string, endId: string, adj: Map<string, Array
 		}
 	}
 	return null;
+}
+
+function getPathLinkIds(path: string[] | null) {
+	const linkIds = new Set<string>();
+	if (!Array.isArray(path)) return linkIds;
+	for (let i = 1; i < path.length; i += 2) {
+		linkIds.add(path[i]);
+	}
+	return linkIds;
+}
+
+function buildClosedTraceLoop(startId: string, endId: string, adj: Map<string, Array<{ nodeId: string; linkId: string }>>) {
+	const forwardPath = findShortestPath(startId, endId, adj);
+	if (!forwardPath) return null;
+
+	const blockedLinkIds = getPathLinkIds(forwardPath);
+	let returnPath = findShortestPath(endId, startId, adj, { blockedLinkIds });
+
+	// If the graph has no alternate return route, fall back to retracing the path
+	// in reverse so trace mode still forms a closed loop back to the start.
+	if (!returnPath) {
+		returnPath = [...forwardPath].reverse();
+	}
+
+	return [...forwardPath, ...returnPath.slice(1)];
 }
 
 function toggleTraceMode() {
@@ -4056,6 +4090,12 @@ function renderGraph(_data) {
 		return count > 1000 ? 0.18 : 0.25;
 	}
 
+	function updateTraceStrokeScale(scale: number) {
+		const normalized = Math.max(0, Math.min(1, Number(scale) || 1));
+		const gentleScale = 0.78 + normalized * 0.22;
+		svg.style('--fg-trace-stroke-scale', String(gentleScale));
+	}
+
 	const zoom = d3
 		.zoom()
 		.scaleExtent([0.1, 6])
@@ -4063,6 +4103,7 @@ function renderGraph(_data) {
 			root.attr('transform', event.transform);
 			root.classed('fg-labels-hidden', event.transform.k < activeLabelZoomThreshold);
 			updateInactiveLabelZoomState(root, event.transform.k);
+			updateTraceStrokeScale(event.transform.k);
 			if (zoomSaveTimer) clearTimeout(zoomSaveTimer);
 			zoomSaveTimer = setTimeout(() => {
 				try {
@@ -4085,6 +4126,7 @@ function renderGraph(_data) {
 		isHuge ? 0.18
 		: isLarge ? 0.25
 		: 0.25;
+	updateTraceStrokeScale(initialScale);
 	try {
 		// Use immediate transition to set scale centered on the viewport
 		svg.transition().duration(0).call(zoom.scaleTo, initialScale);
@@ -4175,6 +4217,7 @@ function renderGraph(_data) {
 		.selectAll('line')
 		.data(links)
 		.join('line')
+		.attr('class', 'fg-link')
 		.attr('stroke', (d) => getLinkColor(d))
 		.attr('stroke-opacity', defaultLinkOpacity)
 		.attr('stroke-width', (d) => getLinkWidth(d))
@@ -4378,6 +4421,7 @@ function injectNodesById(ids) {
 	const enteredLinks = allLinks
 		.enter()
 		.append('line')
+		.attr('class', 'fg-link')
 		.attr('stroke', (d) => getLinkColor(d))
 		.attr('stroke-opacity', 0)
 		.attr('stroke-width', (d) => getLinkWidth(d))
@@ -6061,6 +6105,7 @@ function revealNeighbors(
 	const enteredLinks = allLinks
 		.enter()
 		.append('line')
+		.attr('class', 'fg-link')
 		.attr('stroke', (d) => getLinkColor(d))
 		.attr('stroke-opacity', 0)
 		.attr('stroke-width', (d) => getLinkWidth(d))
@@ -6203,7 +6248,8 @@ function highlightLinks(highlightState = null) {
 			.attr('stroke-opacity', defaultLinkOpacity)
 			.attr('stroke-width', (d) => getLinkWidth(d))
 			.classed('trace-shortest', false)
-			.classed('trace-longest', false);
+			.classed('trace-longest', false)
+			.classed('trace-log', false);
 		return;
 	}
 
