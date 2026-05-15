@@ -125,6 +125,7 @@ let zoomBehavior = null; // d3.zoom() instance
 let zoomSaveTimer = null; // debounce timer for zoom-state persistence
 let refreshLayoutStopTimer = null; // timer used to stop refresh-layout sooner
 let selectionRestoreTimer = null; // timer used when restoring a saved selection after reload
+let fetchStatusTimer = null; // timer used to clear short-lived fetch status messages
 let nodePulseTimer = null; // timer used to pulse the restored node after focus animation
 let nodePulseInterval = null; // interval used to keep the restored node pulsing until interaction
 let nodePulseInteractionCleanup: (() => void) | null = null; // removes reload pulse interaction listeners once the user interacts
@@ -421,69 +422,25 @@ let traceLongestConnectorIds = new Set<string>(); // intermediate nodes only
 let traceLogConnectorIds = new Set<string>(); // intermediate nodes only
 
 const LS_LOG_KEY = 'finra_selection_log';
-const LS_LOG_PIN_KEY = 'finra_selection_log_pinned';
 
 function getSelectionLogPanel() {
 	return document.getElementById('fg-selection-log');
 }
 
-function getSelectionLogActionButtons(action: 'pin' | 'trace' | 'copy-all' | 'clear') {
+function getSelectionLogActionButtons(action: 'trace' | 'copy-all' | 'clear') {
 	return Array.from(document.querySelectorAll<HTMLButtonElement>(`[data-fg-selection-log-action="${action}"]`));
-}
-
-function isSelectionLogPinned() {
-	return getSelectionLogPanel()?.dataset.pinned === 'true';
 }
 
 function updateSelectionLogChrome() {
 	const panel = getSelectionLogPanel();
 	if (!panel) return;
 
-	const pinned = panel.dataset.pinned === 'true';
-	panel.dataset.pinned = pinned ? 'true' : 'false';
-
-	getSelectionLogActionButtons('pin').forEach((pinBtn) => {
-		pinBtn.classList.toggle('is-pinned', pinned);
-		pinBtn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
-		pinBtn.textContent = pinned ? 'Unpin' : 'Pin';
-		pinBtn.title = pinned ? 'Allow the log drawer to auto-close again' : 'Keep the log drawer open until unpinned';
-	});
-}
-
-function setSelectionLogPinned(pinned: boolean, options: { persist?: boolean } = {}) {
-	const { persist = true } = options;
-	const panel = getSelectionLogPanel();
-	if (!panel) return;
-	panel.dataset.pinned = pinned ? 'true' : 'false';
-	if (persist) {
-		try {
-			localStorage.setItem(LS_LOG_PIN_KEY, pinned ? '1' : '0');
-		} catch {
-			// ignore storage errors
-		}
-	}
-	updateSelectionLogChrome();
-	if (pinned) panel.classList.remove('hidden');
-}
-
-function loadSelectionLogPinState() {
-	let pinned = false;
-	try {
-		pinned = localStorage.getItem(LS_LOG_PIN_KEY) === '1';
-	} catch {
-		// ignore storage errors
-	}
-	setSelectionLogPinned(pinned, { persist: false });
-	if (pinned) getSelectionLogPanel()?.classList.remove('hidden');
+	delete panel.dataset.pinned;
 }
 
 function openSelectionLog() {
 	if (!sidebarSelectedNode) return;
-	document.getElementById('fg-sidebar')?.classList.remove('hidden');
-	document.getElementById('fg-sidebar-backdrop')?.classList.remove('hidden');
-	sidebarViewMode = 'log';
-	renderSidebar(sidebarSelectedNode);
-	updateSelectionLogChrome();
+	setSidebarViewMode('log', { expandMobile: true });
 }
 
 function closeSelectionLog(options: { force?: boolean } = {}) {
@@ -660,7 +617,7 @@ function buildTraceRoute(startId: string, endId: string, adj: Map<string, Array<
 
 function toggleTraceMode() {
 	isTraceMode = !isTraceMode;
-	const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('#fg-trace-mode'));
+	const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('#fg-trace-mode, [data-fg-trace-mode-button]'));
 	buttons.forEach((btn) => {
 		btn.classList.toggle('trace-active', isTraceMode);
 		btn.textContent = isTraceMode ? 'Tracing On' : 'Trace Mode';
@@ -688,7 +645,7 @@ function disableAllTraceModes() {
 	traceLongestConnectorIds.clear();
 	traceLogConnectorIds.clear();
 
-	Array.from(document.querySelectorAll<HTMLButtonElement>('#fg-trace-mode')).forEach((traceModeBtn) => {
+	Array.from(document.querySelectorAll<HTMLButtonElement>('#fg-trace-mode, [data-fg-trace-mode-button]')).forEach((traceModeBtn) => {
 		traceModeBtn.classList.remove('trace-active');
 		traceModeBtn.textContent = 'Trace Mode';
 	});
@@ -1231,10 +1188,13 @@ function clearGraphData() {
 	hasUserInitiatedGraphExpansion = false;
 	selectedId = null;
 	highlightedSelections = [];
+	sidebarSelectedNode = null;
+	sidebarViewMode = 'none';
 	stopNodePulseLoop();
 	clearSubsetInfo();
 	renderGraph(graphData);
 	updateMeta({ totalIndividuals: 0, totalFirms: 0, totalLinks: 0 });
+	showSidebarHint();
 	showEmpty(true);
 }
 
@@ -1247,6 +1207,9 @@ async function loadBaselineGraph(profileName) {
 	const res = await fetch(url.toString(), { cache: 'no-store' });
 	if (!res.ok) {
 		if (res.status === 404) {
+			sidebarSelectedNode = null;
+			sidebarViewMode = 'none';
+			showSidebarHint();
 			showEmpty(true);
 			return null;
 		}
@@ -1278,6 +1241,11 @@ async function loadBaselineGraph(profileName) {
 		const sel = document.getElementById('fg-subset-select') as HTMLSelectElement | null;
 		if (sel) sel.value = 'all';
 		renderGraph(graphData);
+	}
+	if (!hasGraphContent) {
+		sidebarSelectedNode = null;
+		sidebarViewMode = 'none';
+		showSidebarHint();
 	}
 	showEmpty(!hasGraphContent);
 	return graphData;
@@ -1670,17 +1638,19 @@ function drawDisclosureIndicator(g, d, r) {
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 export function init(_d3) {
 	d3 = _d3;
+	if (isSidebarPersistentlyPinned()) {
+		showSidebarHint({ keepOpen: true });
+	}
 	loadSelectionLog();
-	loadSelectionLogPinState();
+	try {
+		localStorage.removeItem('finra_selection_log_pinned');
+	} catch {
+		// ignore storage errors
+	}
 	updateSelectionLogUI();
 	updateSelectionLogChrome();
 	(document.getElementById('btn-log-close') as HTMLButtonElement | null)?.addEventListener('click', closeLog);
-	getSelectionLogActionButtons('pin').forEach((button) => {
-		button.addEventListener('click', () => {
-			setSelectionLogPinned(!isSelectionLogPinned());
-		});
-	});
-	Array.from(document.querySelectorAll<HTMLButtonElement>('#fg-trace-mode')).forEach((button) => {
+	Array.from(document.querySelectorAll<HTMLButtonElement>('#fg-trace-mode, [data-fg-trace-mode-button]')).forEach((button) => {
 		button.addEventListener('click', toggleTraceMode);
 	});
 	getSelectionLogActionButtons('trace').forEach((button) => {
@@ -2219,16 +2189,25 @@ export function init(_d3) {
 
 	function updateFetchStatus(msg) {
 		const info = document.getElementById('fg-subset-info');
-		if (info) info.textContent = msg;
+		if (fetchStatusTimer) {
+			clearTimeout(fetchStatusTimer);
+			fetchStatusTimer = null;
+		}
+		if (info) {
+			info.textContent = msg;
+			const isTransientFetchMessage = typeof msg === 'string' && /^Added \d+ nodes? for /.test(msg);
+			info.dataset.transient = isTransientFetchMessage ? 'true' : 'false';
+		}
 
-		const persistFetchMessage = typeof msg === 'string' && /^Added \d+ nodes? for /.test(msg);
-		if (persistFetchMessage) return;
+		const transientFetchMessage = typeof msg === 'string' && /^Added \d+ nodes? for /.test(msg);
+		const restoreDelayMs = transientFetchMessage ? 2000 : 3500;
 
-		setTimeout(() => {
+		fetchStatusTimer = setTimeout(() => {
+			fetchStatusTimer = null;
 			// restore subset info after a short delay (if subset mode)
 			if (isSubsetMode && graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
 			else if (!isSubsetMode) clearSubsetInfo();
-		}, 3500);
+		}, restoreDelayMs);
 	}
 
 	// Append fetched nodes/links into live layout (reuse revealNeighbors append logic)
@@ -3338,7 +3317,10 @@ function updateSubsetInfo(shown, total) {
 function clearSubsetInfo() {
 	const info = document.getElementById('fg-subset-info');
 	const sel = document.getElementById('fg-subset-select') as HTMLSelectElement | null;
-	if (info) info.textContent = '';
+	if (info) {
+		info.textContent = '';
+		info.dataset.transient = 'false';
+	}
 	if (sel) sel.value = 'all';
 }
 
@@ -3649,6 +3631,10 @@ function showEmpty(show) {
 
 function closeLog() {
 	document.getElementById('fg-log-panel').classList.add('hidden');
+}
+
+function isSidebarPersistentlyPinned() {
+	return document.getElementById('fg-sidebar')?.dataset.persistentPinned === 'true';
 }
 
 // ── D3 Rendering ────────────────────────────────────────────────────────────
@@ -4480,8 +4466,10 @@ function renderGraph(_data) {
 			selectionRestoreTimer = null;
 		}
 		stopNodePulseLoop();
-		document.getElementById('fg-sidebar')?.classList.add('hidden');
-		document.getElementById('fg-sidebar-backdrop')?.classList.add('hidden');
+		if (!isSidebarPersistentlyPinned()) {
+			document.getElementById('fg-sidebar')?.classList.add('hidden');
+			document.getElementById('fg-sidebar-backdrop')?.classList.add('hidden');
+		}
 		// Keep the existing selection when clicking whitespace; only close the sidebar.
 	});
 
@@ -6360,13 +6348,34 @@ function revealNeighbors(
 	}
 }
 
-function showSidebarHint() {
+function showSidebarHint(options: { keepOpen?: boolean } = {}) {
+	const persistentPin = isSidebarPersistentlyPinned();
+	const { keepOpen = persistentPin } = options;
 	const inner = document.getElementById('fg-sidebar-inner');
 	if (inner) inner.innerHTML = `<p class="fg-hint">Click a node to inspect it.</p>`;
 	const side = document.getElementById('fg-sidebar');
-	if (side) side.classList.add('hidden');
-	if (side) side.dataset.displayedId = '';
-	document.getElementById('fg-sidebar-backdrop')?.classList.add('hidden');
+	if (side) {
+		side.dataset.displayedId = '';
+		side.dataset.viewMode = 'none';
+		side.dataset.mobileExpanded = 'false';
+		side.dataset.temporarilyPinned = 'false';
+		side.dataset.persistentPinned = persistentPin ? 'true' : 'false';
+		if (keepOpen) {
+			side.classList.remove('hidden');
+		} else {
+			side.classList.add('hidden');
+		}
+	}
+	const backdrop = document.getElementById('fg-sidebar-backdrop');
+	if (backdrop) {
+		backdrop.dataset.temporarilyPinned = 'false';
+		backdrop.dataset.persistentPinned = persistentPin ? 'true' : 'false';
+		if (keepOpen) {
+			backdrop.classList.remove('hidden');
+		} else {
+			backdrop.classList.add('hidden');
+		}
+	}
 	const focusBtn = document.getElementById('fg-focus-btn') as HTMLButtonElement | null;
 	if (focusBtn) focusBtn.disabled = true;
 	try {
@@ -6411,7 +6420,7 @@ function clearHighlights() {
 		.classed('trace-log-connector', false);
 
 	highlightLinks(null);
-	showSidebarHint();
+	showSidebarHint({ keepOpen: true });
 	try {
 		saveSession();
 	} catch (e) {
@@ -6712,13 +6721,19 @@ function scheduleFirstFetchFocusIfAvailable(
 }
 
 function isMobileSidebarViewport() {
-	return typeof window !== 'undefined' && window.matchMedia('(max-width: 860px)').matches;
+	return true;
 }
 
 function syncMobileSidebarExpandedState(expanded: boolean) {
 	const side = document.getElementById('fg-sidebar');
 	if (!side) return;
 	side.dataset.mobileExpanded = expanded ? 'true' : 'false';
+	const isTemporarilyPinned = expanded && (side.dataset.viewMode === 'info' || side.dataset.viewMode === 'log');
+	side.dataset.temporarilyPinned = isTemporarilyPinned ? 'true' : 'false';
+	const backdrop = document.getElementById('fg-sidebar-backdrop');
+	if (backdrop) {
+		backdrop.dataset.temporarilyPinned = isTemporarilyPinned ? 'true' : 'false';
+	}
 	const toggleBtn = side.querySelector('.fg-sidebar-mobile-summary-toggle') as HTMLButtonElement | null;
 	if (toggleBtn) {
 		toggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
@@ -6729,7 +6744,8 @@ function syncMobileSidebarExpandedState(expanded: boolean) {
 function renderMobileSidebarToggle() {
 	return `
 		<button class="fg-sidebar-mobile-summary-toggle fg-sb-info-toggle${sidebarViewMode === 'info' ? ' is-active' : ''}" type="button" aria-expanded="false" title="Show info">
-			<span class="fg-sidebar-mobile-summary-toggle__label">Info</span>
+			<span class="fg-sb-toggle-btn__label fg-sidebar-mobile-summary-toggle__label">Info</span>
+			<span class="fg-sb-toggle-btn__chevron" aria-hidden="true">▾</span>
 		</button>
 	`;
 }
@@ -6737,7 +6753,8 @@ function renderMobileSidebarToggle() {
 function renderSidebarSelectionLogToggle() {
 	return `
 		<button class="fg-sb-log-toggle${sidebarViewMode === 'log' ? ' is-active' : ''}" type="button" title="Show selection log" aria-label="Show selection log">
-			Log
+			<span class="fg-sb-toggle-btn__label">Log</span>
+			<span class="fg-sb-toggle-btn__chevron" aria-hidden="true">▾</span>
 		</button>
 	`;
 }
@@ -6747,31 +6764,34 @@ function renderSidebarSelectionLogBody() {
 		<div class="fg-sb-body fg-sb-body--log">
 			<div class="fg-section-title">Selection Log</div>
 			<div class="fg-log-drawer-actions fg-log-drawer-actions--sidebar">
-				<button
-					data-fg-selection-log-action="pin"
-					class="fg-ghost-btn fg-btn-sm"
-					title="Keep the log drawer open until unpinned"
-					aria-pressed="false">
-					Pin
-				</button>
-				<button
-					data-fg-selection-log-action="trace"
-					class="fg-ghost-btn fg-btn-sm"
-					title="Trace path between all logged nodes">
-					Trace with Log
-				</button>
-				<button
-					data-fg-selection-log-action="copy-all"
-					class="fg-ghost-btn fg-btn-sm"
-					title="Copy all entries">
-					Copy All
-				</button>
-				<button
-					data-fg-selection-log-action="clear"
-					class="fg-ghost-btn fg-btn-sm"
-					title="Clear log">
-					Clear
-				</button>
+				<div class="fg-log-drawer-actions-row fg-log-drawer-actions-row--primary">
+					<button
+						data-fg-trace-mode-button="sidebar-log"
+						class="fg-ghost-btn fg-btn-sm"
+						title="Toggle path tracing mode">
+						Trace Mode
+					</button>
+					<button
+						data-fg-selection-log-action="trace"
+						class="fg-ghost-btn fg-btn-sm"
+						title="Trace path between all logged nodes">
+						Trace with Log
+					</button>
+				</div>
+				<div class="fg-log-drawer-actions-row fg-log-drawer-actions-row--secondary">
+					<button
+						data-fg-selection-log-action="copy-all"
+						class="fg-ghost-btn fg-btn-sm"
+						title="Copy all entries">
+						Copy All
+					</button>
+					<button
+						data-fg-selection-log-action="clear"
+						class="fg-ghost-btn fg-btn-sm"
+						title="Clear log">
+						Clear
+					</button>
+				</div>
 			</div>
 			<div id="fg-sidebar-selection-log-list" class="fg-selection-log-list fg-selection-log-list--sidebar">
 				<p class="fg-log-empty">No nodes selected yet.</p>
@@ -7293,10 +7313,6 @@ function renderPersonDetail(d) {
     <div class="fg-sb-header individual">
 		<div class="fg-sb-title-row">
 	<div class="fg-sb-title">${esc(getPreferredNodeLabel(d) || [bi.firstName, bi.middleName, bi.lastName].filter(Boolean).join(' '))}</div>
-			<div class="fg-sb-title-actions">
-				${renderSidebarSelectionLogToggle()}
-				${renderMobileSidebarToggle()}
-			</div>
 		</div>
 		${personSummaryLine ? `<div class="fg-sb-crd">${personSummaryLine}</div>` : ''}
       <div class="fg-sb-badges">
@@ -7304,6 +7320,10 @@ function renderPersonDetail(d) {
         ${stubBadge}
         ${disclosureCount ? `<span class="fg-badge inactive">${disclosureCount} disclosure${disclosureCount !== 1 ? 's' : ''}</span>` : ''}
       </div>
+		<div class="fg-sb-title-actions fg-sb-title-actions--below-tags">
+			${renderMobileSidebarToggle()}
+			${renderSidebarSelectionLogToggle()}
+		</div>
     </div>
     <div class="fg-sb-body fg-sb-body--person">
       <div class="fg-ext-links">
@@ -7632,10 +7652,6 @@ function renderFirmDetail(d) {
 		<div class="fg-sb-header firm">
 			<div class="fg-sb-title-row">
 				<div class="fg-sb-title">${esc(getPreferredNodeLabel(d))}</div>
-				<div class="fg-sb-title-actions">
-					${renderSidebarSelectionLogToggle()}
-					${renderMobileSidebarToggle()}
-				</div>
 			</div>
 			${crdSec ? `<div class="fg-sb-crd">${crdSec}</div>` : ''}
       <div class="fg-sb-badges">
@@ -7649,6 +7665,10 @@ function renderFirmDetail(d) {
 				})()}
         ${scopeBadge}
       </div>
+			<div class="fg-sb-title-actions fg-sb-title-actions--below-tags">
+				${renderMobileSidebarToggle()}
+				${renderSidebarSelectionLogToggle()}
+			</div>
     </div>
     <div class="fg-sb-body">
       <div class="fg-ext-links">
@@ -7770,15 +7790,15 @@ function renderEntityDetail(d) {
     <div class="fg-sb-header entity">
 		<div class="fg-sb-title-row">
 	<div class="fg-sb-title">${esc(getPreferredNodeLabel(d))}</div>
-			<div class="fg-sb-title-actions">
-				${renderSidebarSelectionLogToggle()}
-				${renderMobileSidebarToggle()}
-			</div>
 		</div>
       <div class="fg-sb-badges">
         <span class="fg-badge">Entity</span>
         ${d.bcScope ? `<span class="fg-badge">${esc(d.bcScope)}</span>` : ''}
       </div>
+		<div class="fg-sb-title-actions fg-sb-title-actions--below-tags">
+			${renderMobileSidebarToggle()}
+			${renderSidebarSelectionLogToggle()}
+		</div>
     </div>
     <div class="fg-sb-body">
       <p style="font-size:13px;color:var(--text-m);margin-top:8px">
