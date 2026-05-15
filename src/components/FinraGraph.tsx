@@ -9,7 +9,7 @@ function ensureSidebarHintContent() {
 	if (!inner) return;
 	const hasRenderableContent = inner.children.length > 0 || Boolean(inner.textContent?.trim());
 	if (!hasRenderableContent) {
-		inner.innerHTML = `<p class="fg-hint">Click a node to inspect it.</p>`;
+		inner.innerHTML = ` `;
 	}
 }
 
