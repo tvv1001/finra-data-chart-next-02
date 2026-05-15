@@ -113,7 +113,7 @@ export default function FinraGraph() {
 	}, [isMounted]);
 
 	if (!isMounted) {
-		return <div style={{ padding: '2rem', color: '#aaa' }}>Loading graph…</div>;
+		return null;
 	}
 
 	return (
@@ -155,11 +155,17 @@ export default function FinraGraph() {
 
 							<div className="fg-toolbar-group fg-toolbar-actions">
 								<button
+									id="fg-trace-mode"
+									className="fg-ghost-btn"
+									title="Toggle path tracing mode">
+									Trace Mode
+								</button>
+								<button
 									id="fg-refresh-layout"
 									data-fg-action="refresh-layout"
 									className="fg-ghost-btn"
 									title="Re-run the graph layout">
-									&#8634; Reflow Layout
+									↺ Reflow Layout
 								</button>
 								<button
 									id="fg-clear-highlights"
@@ -195,6 +201,12 @@ export default function FinraGraph() {
 						<h3>Selection Log</h3>
 						<div className="fg-log-drawer-actions">
 							<button
+								id="btn-selection-log-trace"
+								className="fg-ghost-btn fg-btn-sm"
+								title="Trace path between all logged nodes">
+								Trace with Log
+							</button>
+							<button
 								id="btn-selection-log-copy-all"
 								className="fg-ghost-btn fg-btn-sm"
 								title="Copy all entries">
@@ -209,7 +221,7 @@ export default function FinraGraph() {
 							<button
 								id="btn-selection-log-close"
 								className="fg-log-close">
-								&times;
+								✕
 							</button>
 						</div>
 					</div>
@@ -235,7 +247,7 @@ export default function FinraGraph() {
 							<span
 								className="fg-sidebar-action-icon fg-sidebar-action-icon--trailing"
 								aria-hidden="true">
-								&times;
+								✕
 							</span>
 						</button>
 						<button
@@ -295,7 +307,7 @@ export default function FinraGraph() {
 							<span
 								className="fg-sidebar-action-icon fg-sidebar-action-icon--trailing"
 								aria-hidden="true">
-								&#8634;
+								↺
 							</span>
 						</button>
 					</div>
@@ -358,7 +370,7 @@ export default function FinraGraph() {
 					<button
 						id="btn-log-close"
 						className="fg-log-close">
-						&times;
+						✕
 					</button>
 				</div>
 				<pre
@@ -372,4 +384,5 @@ export default function FinraGraph() {
 				aria-live="polite"></div>
 		</div>
 	);
+
 }

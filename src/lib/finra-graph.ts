@@ -381,8 +381,145 @@ let currentProfileName = null;
 let currentProfileEnabled = true;
 let isSessionCleared = false;
 let selectedNodesLog: Array<{ id: string; label: string; secondaryId: string; group: string }> = [];
+let isTraceMode = false;
+let isTraceLogMode = false;
+let traceShortestIds = new Set<string>(); // node and link IDs
+let traceLongestIds = new Set<string>(); // node and link IDs
+let traceLogIds = new Set<string>(); // node and link IDs
+let traceShortestConnectorIds = new Set<string>(); // intermediate nodes only
+let traceLongestConnectorIds = new Set<string>(); // intermediate nodes only
+let traceLogConnectorIds = new Set<string>(); // intermediate nodes only
 
 const LS_LOG_KEY = 'finra_selection_log';
+
+function calculateTrace(nodeIds?: string[]) {
+	if (!nodeIds || nodeIds.length < 2) {
+		const logIds = selectedNodesLog.map((n) => n.id);
+		if (logIds.length < 2) return;
+		nodeIds = logIds;
+	}
+
+	traceShortestIds.clear();
+	traceLongestIds.clear();
+	traceLogIds.clear();
+	traceShortestConnectorIds.clear();
+	traceLongestConnectorIds.clear();
+	traceLogConnectorIds.clear();
+
+	const adj = new Map<string, Array<{ nodeId: string; linkId: string }>>();
+	layoutNodes.forEach((n) => adj.set(n.id, []));
+	layoutLinks.forEach((l) => {
+		const s = l.source?.id ?? l.source;
+		const t = l.target?.id ?? l.target;
+		const linkId = getLinkKey(l);
+		if (adj.has(s) && adj.has(t)) {
+			adj.get(s).push({ nodeId: t, linkId });
+			adj.get(t).push({ nodeId: s, linkId });
+		}
+	});
+
+	// path = [nodeId, linkId, nodeId, linkId, ..., nodeId]; even indices = nodes, odd = links
+	// intermediate (connector) nodes are even indices excluding 0 and last
+	const extractConnectorNodeIds = (path: string[]): string[] => {
+		const out: string[] = [];
+		for (let i = 2; i < path.length - 1; i += 2) out.push(path[i]);
+		return out;
+	};
+
+	// 1. Log Path (Chronological sequence through all nodes in the log) - PINK
+	if (isTraceLogMode) {
+		for (let i = 0; i < nodeIds.length - 1; i++) {
+			const start = nodeIds[i];
+			const end = nodeIds[i + 1];
+			const path = findShortestPath(start, end, adj);
+			if (path) {
+				path.forEach((id) => traceLogIds.add(id));
+				extractConnectorNodeIds(path).forEach((id) => traceLogConnectorIds.add(id));
+			}
+		}
+	}
+
+	// 2. Shortest Path (Direct connection between first and last node) - GREEN
+	if (isTraceMode) {
+		const shortestPathStartEnd = findShortestPath(nodeIds[0], nodeIds[nodeIds.length - 1], adj);
+		if (shortestPathStartEnd) {
+			shortestPathStartEnd.forEach((id) => traceShortestIds.add(id));
+			extractConnectorNodeIds(shortestPathStartEnd).forEach((id) => traceShortestConnectorIds.add(id));
+		}
+
+		// 3. Longest Path (single longest path between any two log nodes) - PURPLE
+		let maxLen = -1;
+		let longestPath: string[] = [];
+		for (let i = 0; i < nodeIds.length; i++) {
+			for (let j = i + 1; j < nodeIds.length; j++) {
+				const path = findShortestPath(nodeIds[i], nodeIds[j], adj);
+				if (path && path.length > maxLen) {
+					maxLen = path.length;
+					longestPath = path;
+				}
+			}
+		}
+		longestPath.forEach((id) => traceLongestIds.add(id));
+		extractConnectorNodeIds(longestPath).forEach((id) => traceLongestConnectorIds.add(id));
+	}
+
+	reapplySelectionState();
+}
+
+function findShortestPath(startId: string, endId: string, adj: Map<string, Array<{ nodeId: string; linkId: string }>>) {
+	if (startId === endId) return [startId];
+	const queue: Array<{ nodeId: string; path: string[] }> = [{ nodeId: startId, path: [startId] }];
+	const visited = new Set<string>([startId]);
+
+	while (queue.length > 0) {
+		const { nodeId, path } = queue.shift()!;
+		const neighbors = adj.get(nodeId) || [];
+		for (const { nodeId: nextId, linkId } of neighbors) {
+			if (nextId === endId) {
+				return [...path, linkId, nextId];
+			}
+			if (!visited.has(nextId)) {
+				visited.add(nextId);
+				queue.push({ nodeId: nextId, path: [...path, linkId, nextId] });
+			}
+		}
+	}
+	return null;
+}
+
+function toggleTraceMode() {
+	isTraceMode = !isTraceMode;
+	const btn = document.getElementById('fg-trace-mode');
+	if (btn) {
+		btn.classList.toggle('trace-active', isTraceMode);
+		btn.textContent = isTraceMode ? 'Tracing On' : 'Trace Mode';
+	}
+	if (isTraceMode) {
+		calculateTrace();
+	} else {
+		traceShortestIds.clear();
+		traceLongestIds.clear();
+		traceShortestConnectorIds.clear();
+		traceLongestConnectorIds.clear();
+		reapplySelectionState();
+	}
+}
+
+function toggleTraceLogMode() {
+	isTraceLogMode = !isTraceLogMode;
+	const btn = document.getElementById('btn-selection-log-trace') as HTMLButtonElement | null;
+	if (btn) {
+		btn.classList.toggle('trace-log-active', isTraceLogMode);
+		btn.textContent = isTraceLogMode ? 'Log Trace On' : 'Trace with Log';
+	}
+	if (isTraceLogMode) {
+		calculateTrace();
+	} else {
+		traceLogIds.clear();
+		traceLogConnectorIds.clear();
+		reapplySelectionState();
+	}
+}
 
 function loadSelectionLog() {
 	try {
@@ -1339,6 +1476,10 @@ export function init(_d3) {
 	(document.getElementById('btn-log-close') as HTMLButtonElement | null)?.addEventListener('click', closeLog);
 	(document.getElementById('fg-selection-log-toggle') as HTMLButtonElement | null)?.addEventListener('click', toggleSelectionLog);
 	(document.getElementById('btn-selection-log-close') as HTMLButtonElement | null)?.addEventListener('click', toggleSelectionLog);
+	(document.getElementById('fg-trace-mode') as HTMLButtonElement | null)?.addEventListener('click', toggleTraceMode);
+	(document.getElementById('btn-selection-log-trace') as HTMLButtonElement | null)?.addEventListener('click', () => {
+		toggleTraceLogMode();
+	});
 	(document.getElementById('btn-selection-log-copy-all') as HTMLButtonElement | null)?.addEventListener('click', () => {
 		const text = selectedNodesLog
 			.map((entry) => `${entry.label} :: ${entry.secondaryId}`)
@@ -3775,6 +3916,16 @@ function reapplySelectionState() {
 	nodeSel
 		.classed('selected', (node) => highlightState.rootIds.has(node.id))
 		.classed('highlighted-hop', (node) => !highlightState.rootIds.has(node.id) && highlightState.hopNodeIds.has(node.id));
+
+	// Trace Mode node highlights — endpoints get trace-* class, connectors get trace-*-connector class
+	nodeSel
+		.classed('trace-shortest', (d) => isTraceMode && traceShortestIds.has(d.id) && !traceShortestConnectorIds.has(d.id))
+		.classed('trace-shortest-connector', (d) => isTraceMode && traceShortestConnectorIds.has(d.id))
+		.classed('trace-longest', (d) => isTraceMode && traceLongestIds.has(d.id) && !traceLongestConnectorIds.has(d.id))
+		.classed('trace-longest-connector', (d) => isTraceMode && traceLongestConnectorIds.has(d.id))
+		.classed('trace-log', (d) => isTraceLogMode && traceLogIds.has(d.id) && !traceLogConnectorIds.has(d.id))
+		.classed('trace-log-connector', (d) => isTraceLogMode && traceLogConnectorIds.has(d.id));
+
 	highlightLinks(highlightState);
 }
 
@@ -6004,7 +6155,27 @@ function clearHighlights() {
 	stopNodePulseLoop();
 	selectedId = null;
 	highlightedSelections = [];
-	nodeSel.classed('selected', false).classed('highlighted-hop', false);
+	nodeSel
+		.classed('selected', false)
+		.classed('highlighted-hop', false)
+		.classed('trace-shortest', false)
+		.classed('trace-shortest-connector', false)
+		.classed('trace-longest', false)
+		.classed('trace-longest-connector', false)
+		.classed('trace-log', false)
+		.classed('trace-log-connector', false);
+
+	if (isTraceMode) {
+		traceShortestIds.clear();
+		traceLongestIds.clear();
+		traceShortestConnectorIds.clear();
+		traceLongestConnectorIds.clear();
+	}
+	if (isTraceLogMode) {
+		traceLogIds.clear();
+		traceLogConnectorIds.clear();
+	}
+
 	highlightLinks(null);
 	showSidebarHint();
 	try {
@@ -6020,49 +6191,74 @@ function clearHighlights() {
 function highlightLinks(highlightState = null) {
 	if (!linkSel) return;
 	const state = highlightState && typeof highlightState === 'object' ? highlightState : computeHighlightState();
-	if (!state.rootIds.size) {
+
+	const hasNormalHighlights = state.rootIds.size > 0;
+
+	if (!hasNormalHighlights && !isTraceMode && !isTraceLogMode) {
 		// restore default appearance (both attributes and inline styles)
 		linkSel
 			.style('stroke-opacity', null)
 			.style('opacity', null)
 			.attr('stroke', (d) => getLinkColor(d))
 			.attr('stroke-opacity', defaultLinkOpacity)
-			.attr('stroke-width', (d) => getLinkWidth(d));
+			.attr('stroke-width', (d) => getLinkWidth(d))
+			.classed('trace-shortest', false)
+			.classed('trace-longest', false);
 		return;
 	}
+
 	linkSel.each(function (d) {
 		const srcId = d.source?.id ?? d.source;
 		const tgtId = d.target?.id ?? d.target;
-		const connected = state.linkKeys.has(getLinkKey(d));
+		const linkKey = getLinkKey(d);
+		const connected = state.linkKeys.has(linkKey);
 		const connectedToRoot = state.rootIds.has(srcId) || state.rootIds.has(tgtId);
+		const isTraceShortest = isTraceMode && traceShortestIds.has(linkKey);
+		const isTraceLongest = isTraceMode && traceLongestIds.has(linkKey);
+		const isTraceLog = isTraceLogMode && traceLogIds.has(linkKey);
+
 		const sel = d3.select(this);
-		if (connected) {
-			const highlightedStrokeWidth =
-				hasInactiveEndpoint(d) ?
-					connectedToRoot ? 0.95
-					:	0.78
-				: d.relationship === 'controls' ?
-					connectedToRoot ? 1.9
-					:	1.55
-				: usesCurrentEmploymentStyling(d) ?
-					connectedToRoot ? 1.85
-					:	1.5
-				: connectedToRoot ? 1.4
-				: 1.15;
-			const linkStrokeOpacity =
-				hasInactiveEndpoint(d) ?
-					connectedToRoot ? 0.7
-					:	0.58
-				: connectedToRoot ? 1
-				: 0.97;
-			sel
-				.style('opacity', 1)
-				.style('stroke-opacity', null)
-				.attr('stroke', getLinkHighlightColor(d))
-				.attr('stroke-opacity', linkStrokeOpacity)
-				.attr('stroke-width', highlightedStrokeWidth);
-		} else {
-			sel.style('opacity', 0.3).style('stroke-opacity', null).attr('stroke', getLinkColor(d)).attr('stroke-opacity', 0.24).attr('stroke-width', 0.6);
+
+		sel.classed('trace-shortest', isTraceShortest).classed('trace-longest', isTraceLongest).classed('trace-log', isTraceLog);
+
+		if (isTraceShortest || isTraceLongest || isTraceLog) {
+			sel.style('opacity', 1).style('stroke-opacity', 1);
+			// CSS classes handle the stroke and width
+			return;
+		}
+
+		if (hasNormalHighlights) {
+			if (connected) {
+				const highlightedStrokeWidth =
+					hasInactiveEndpoint(d) ?
+						connectedToRoot ? 0.95
+						:	0.78
+					: d.relationship === 'controls' ?
+						connectedToRoot ? 1.9
+						:	1.55
+					: usesCurrentEmploymentStyling(d) ?
+						connectedToRoot ? 1.85
+						:	1.5
+					: connectedToRoot ? 1.4
+					: 1.15;
+				const linkStrokeOpacity =
+					hasInactiveEndpoint(d) ?
+						connectedToRoot ? 0.7
+						:	0.58
+					: connectedToRoot ? 1
+					: 0.97;
+				sel
+					.style('opacity', 1)
+					.style('stroke-opacity', null)
+					.attr('stroke', getLinkHighlightColor(d))
+					.attr('stroke-opacity', linkStrokeOpacity)
+					.attr('stroke-width', highlightedStrokeWidth);
+			} else {
+				sel.style('opacity', 0.3).style('stroke-opacity', null).attr('stroke', getLinkColor(d)).attr('stroke-opacity', 0.24).attr('stroke-width', 0.6);
+			}
+		} else if (isTraceMode || isTraceLogMode) {
+			// Dim links not in trace if either trace mode is on but no normal selection
+			sel.style('opacity', 0.2).style('stroke-opacity', 0.15).attr('stroke-width', 0.5);
 		}
 	});
 }
