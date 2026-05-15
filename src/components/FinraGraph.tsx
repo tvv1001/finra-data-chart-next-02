@@ -2,56 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-const SIDEBAR_PIN_STORAGE_KEY = 'finra_sidebar_pinned';
-
 function ensureSidebarHintContent() {
 	const inner = document.getElementById('fg-sidebar-inner');
 	if (!inner) return;
 	const hasRenderableContent = inner.children.length > 0 || Boolean(inner.textContent?.trim());
 	if (!hasRenderableContent) {
 		inner.innerHTML = ` `;
-	}
-}
-
-function isSidebarPersistentlyPinned() {
-	const sidebar = document.getElementById('fg-sidebar');
-	if (sidebar?.dataset.persistentPinned === 'true') return true;
-	return document.getElementById('finra-app')?.dataset.sidebarPinned === 'true';
-}
-
-function syncSidebarPinnedState(pinned: boolean, options: { persist?: boolean } = {}) {
-	const { persist = true } = options;
-	const app = document.getElementById('finra-app');
-	const sidebar = document.getElementById('fg-sidebar');
-	const backdrop = document.getElementById('fg-sidebar-backdrop');
-	const pinButton = document.getElementById('fg-mobile-menu-pin-toggle');
-
-	app?.setAttribute('data-sidebar-pinned', pinned ? 'true' : 'false');
-	if (sidebar) {
-		sidebar.dataset.persistentPinned = pinned ? 'true' : 'false';
-		if (pinned) {
-			sidebar.classList.remove('hidden');
-			ensureSidebarHintContent();
-		}
-	}
-	if (backdrop) {
-		backdrop.dataset.persistentPinned = pinned ? 'true' : 'false';
-		if (pinned) {
-			backdrop.classList.remove('hidden');
-		}
-	}
-	if (pinButton) {
-		pinButton.classList.toggle('is-active', pinned);
-		pinButton.setAttribute('aria-pressed', pinned ? 'true' : 'false');
-		pinButton.setAttribute('title', pinned ? 'Unpin menu' : 'Pin menu open');
-		pinButton.setAttribute('aria-label', pinned ? 'Unpin menu' : 'Pin menu open');
-	}
-	if (persist) {
-		try {
-			localStorage.setItem(SIDEBAR_PIN_STORAGE_KEY, pinned ? '1' : '0');
-		} catch {
-			// ignore storage errors
-		}
 	}
 }
 
@@ -63,13 +19,33 @@ function isSidebarTemporarilyPinned() {
 	return isExpanded && (viewMode === 'info' || viewMode === 'log');
 }
 
+function isSidebarPersistentlyPinned() {
+	return document.getElementById('fg-sidebar')?.dataset.persistentPinned === 'true';
+}
+
+function syncSidebarPinButton(pinned: boolean) {
+	const btn = document.getElementById('fg-sidebar-pin-toggle');
+	if (!btn) return;
+	btn.setAttribute('aria-pressed', String(pinned));
+	btn.setAttribute('data-pinned', String(pinned));
+	btn.title = pinned ? 'Unpin panel' : 'Pin panel open';
+	btn.setAttribute('aria-label', pinned ? 'Unpin panel' : 'Pin panel open');
+}
+
+function toggleSidebarPin() {
+	const sidebar = document.getElementById('fg-sidebar');
+	if (!sidebar) return;
+	const pinned = sidebar.dataset.persistentPinned !== 'true';
+	sidebar.dataset.persistentPinned = String(pinned);
+	try {
+		localStorage.setItem('finra_sidebar_pinned', String(pinned));
+	} catch {}
+	syncSidebarPinButton(pinned);
+}
+
 function hideSidebar(options: { force?: boolean; clearPersistentPin?: boolean } = {}) {
-	const { force = false, clearPersistentPin = false } = options;
-	if (!force && isSidebarPersistentlyPinned()) return;
-	if (!force && isSidebarTemporarilyPinned()) return;
-	if (clearPersistentPin && isSidebarPersistentlyPinned()) {
-		syncSidebarPinnedState(false);
-	}
+	const { force = false } = options;
+	if (!force && (isSidebarTemporarilyPinned() || isSidebarPersistentlyPinned())) return;
 	document.getElementById('fg-sidebar')?.classList.add('hidden');
 	document.getElementById('fg-sidebar-backdrop')?.classList.add('hidden');
 }
@@ -80,21 +56,11 @@ function toggleMobileMenu() {
 	if (!sidebar) return;
 	const isOpen = !sidebar.classList.contains('hidden');
 	if (isOpen) {
-		hideSidebar({ force: true, clearPersistentPin: true });
+		hideSidebar({ force: true });
 		return;
 	}
 	sidebar.classList.remove('hidden');
 	backdrop?.classList.remove('hidden');
-}
-
-function toggleSidebarPin() {
-	const nextPinned = !isSidebarPersistentlyPinned();
-	syncSidebarPinnedState(nextPinned);
-	if (nextPinned) {
-		document.getElementById('fg-sidebar')?.classList.remove('hidden');
-		document.getElementById('fg-sidebar-backdrop')?.classList.remove('hidden');
-		ensureSidebarHintContent();
-	}
 }
 
 function hideSelectionLog() {
@@ -116,37 +82,6 @@ export default function FinraGraph() {
 
 	useEffect(() => {
 		if (!isMounted) return;
-		let pinned = false;
-		try {
-			pinned = localStorage.getItem(SIDEBAR_PIN_STORAGE_KEY) === '1';
-		} catch {
-			// ignore storage errors
-		}
-		syncSidebarPinnedState(pinned, { persist: false });
-	}, [isMounted]);
-
-	// If a saved session exists with a selected node or highlights, show the
-	// sidebar on initial load so the UI matches the persisted production view.
-	useEffect(() => {
-		if (!isMounted) return;
-		try {
-			const raw = localStorage.getItem('finra_session');
-			if (!raw) return;
-			const parsed = JSON.parse(raw as string);
-			const data = parsed && typeof parsed === 'object' && 'data' in parsed ? parsed.data : parsed;
-			const hasSelection = data && !data.cleared && (data.selectedNodeId || (Array.isArray(data.highlightedNodes) && data.highlightedNodes.length));
-			if (hasSelection) {
-				document.getElementById('fg-sidebar')?.classList.remove('hidden');
-				document.getElementById('fg-sidebar-backdrop')?.classList.remove('hidden');
-			}
-		} catch (e) {
-			// ignore parse errors
-		}
-		if (isSidebarPersistentlyPinned()) {
-			document.getElementById('fg-sidebar')?.classList.remove('hidden');
-			document.getElementById('fg-sidebar-backdrop')?.classList.remove('hidden');
-			ensureSidebarHintContent();
-		}
 	}, [isMounted]);
 
 	useEffect(() => {
@@ -200,8 +135,12 @@ export default function FinraGraph() {
 			const sidebar = document.getElementById('fg-sidebar');
 			const target = event.target as Node | null;
 			const mobileMenuToggle = document.getElementById('fg-mobile-menu-toggle');
+			const graphNode = target instanceof Element ? target.closest('.fg-node') : null;
 
 			if (sidebar && !sidebar.classList.contains('hidden')) {
+				if (graphNode) {
+					return;
+				}
 				if (target && !sidebar.contains(target) && (!mobileMenuToggle || !mobileMenuToggle.contains(target))) {
 					hideSidebar();
 				}
@@ -225,6 +164,15 @@ export default function FinraGraph() {
 	useEffect(() => {
 		if (!isMounted || mountedRef.current) return;
 		mountedRef.current = true;
+
+		try {
+			const pinned = localStorage.getItem('finra_sidebar_pinned') === 'true';
+			if (pinned) {
+				const sidebar = document.getElementById('fg-sidebar');
+				if (sidebar) sidebar.dataset.persistentPinned = 'true';
+				syncSidebarPinButton(true);
+			}
+		} catch {}
 
 		Promise.all([import('d3'), import('d3-force'), import('@/lib/finra-graph')]).then(([d3Module, d3ForceModule, { init }]) => {
 			const combinedD3 = { ...d3Module, ...d3ForceModule };
@@ -268,12 +216,39 @@ export default function FinraGraph() {
 											id='fg-subset-info'
 											className='fg-subset-info'></span>
 										<button
-											id='fg-subset-info-close'
+											id='fg-subset-info-pin'
 											type='button'
-											className='fg-subset-info-close'
-											title='Dismiss status'
-											aria-label='Dismiss status'>
-											✕
+											className='fg-subset-info-pin'
+											title='Pin status'
+											aria-label='Pin status'
+											aria-pressed='false'>
+											<span
+												className='fg-subset-info-pin__icon'
+												aria-hidden='true'>
+												<svg
+													viewBox='0 0 16 16'
+													fill='none'
+													focusable='false'>
+													<path
+														d='M5.25 2.25h5.5l-.85 3.1 1.9 1.9H4.2l1.9-1.9-.85-3.1Z'
+														stroke='currentColor'
+														strokeWidth='1.3'
+														strokeLinejoin='round'
+													/>
+													<path
+														d='M8 7.25v6.5'
+														stroke='currentColor'
+														strokeWidth='1.3'
+														strokeLinecap='round'
+													/>
+													<path
+														d='M6.45 13.75h3.1'
+														stroke='currentColor'
+														strokeWidth='1.3'
+														strokeLinecap='round'
+													/>
+												</svg>
+											</span>
 										</button>
 									</div>
 								</div>
@@ -297,42 +272,6 @@ export default function FinraGraph() {
 									<span className='fg-mobile-menu-toggle__bar'></span>
 									<span className='fg-mobile-menu-toggle__bar'></span>
 									<span className='fg-mobile-menu-toggle__bar'></span>
-								</span>
-							</button>
-							<button
-								id='fg-mobile-menu-pin-toggle'
-								type='button'
-								className='fg-mobile-menu-pin-toggle'
-								onClick={toggleSidebarPin}
-								title='Pin menu open'
-								aria-label='Pin menu open'
-								aria-pressed='false'>
-								<span
-									className='fg-mobile-menu-pin-toggle__icon'
-									aria-hidden='true'>
-									<svg
-										viewBox='0 0 16 16'
-										fill='none'
-										focusable='false'>
-										<path
-											d='M5.25 2.25h5.5l-.85 3.1 1.9 1.9H4.2l1.9-1.9-.85-3.1Z'
-											stroke='currentColor'
-											strokeWidth='1.3'
-											strokeLinejoin='round'
-										/>
-										<path
-											d='M8 7.25v6.5'
-											stroke='currentColor'
-											strokeWidth='1.3'
-											strokeLinecap='round'
-										/>
-										<path
-											d='M6.45 13.75h3.1'
-											stroke='currentColor'
-											strokeWidth='1.3'
-											strokeLinecap='round'
-										/>
-									</svg>
 								</span>
 							</button>
 
@@ -419,17 +358,30 @@ export default function FinraGraph() {
 					className='fg-sidebar hidden'>
 					<div className='fg-sidebar-actions'>
 						<button
-							className='fg-sidebar-action-btn fg-sidebar-action-btn--primary'
+							id='fg-sidebar-pin-toggle'
+							className='fg-sidebar-action-btn fg-sidebar-action-btn--pin'
 							type='button'
-							onClick={() => hideSidebar({ force: true, clearPersistentPin: true })}
-							title='Close details panel'
-							aria-label='Close details panel'>
-							<span className='fg-sidebar-action-label'>Close</span>
+							onClick={toggleSidebarPin}
+							title='Pin panel open'
+							aria-label='Pin panel open'
+							aria-pressed='false'
+							data-pinned='false'>
 							<span
-								className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
+								className='fg-sidebar-action-icon'
 								aria-hidden='true'>
-								✕
+								<svg
+									viewBox='0 0 16 16'
+									fill='none'
+									xmlns='http://www.w3.org/2000/svg'>
+									<path
+										d='M9.5 1.5L14.5 6.5L10.5 10.5L9 9L7 11H5L3 13L3 11L5 9H3L3.5 7L7 7L5.5 5.5L9.5 1.5Z'
+										stroke='currentColor'
+										strokeWidth='1.2'
+										strokeLinejoin='round'
+									/>
+								</svg>
 							</span>
+							<span className='fg-sidebar-action-label'>Pin</span>
 						</button>
 						<button
 							id='fg-focus-btn'
