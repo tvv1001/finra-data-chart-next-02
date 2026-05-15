@@ -7899,11 +7899,6 @@ function renderLegend() {
 			opacity: 0.45,
 		},
 		{ color: 'var(--c-firm)', shape: 'rect', label: 'Firm' },
-		{
-			color: 'var(--c-entity)',
-			shape: 'diamond',
-			label: 'Entity (non-CRD owner)',
-		},
 		{ color: GRAPH_COLORS.lineEmployedBy, shape: 'line', label: 'Current emp/reg' },
 		{ color: GRAPH_COLORS.linePreviousEmployment, shape: 'line-dashed', label: 'Previous emp/reg' },
 		{ color: GRAPH_COLORS.lineControls, shape: 'line', label: 'Controls (From BD, Red)' },
