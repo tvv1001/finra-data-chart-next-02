@@ -763,22 +763,6 @@ body {
 	font-variant-numeric: tabular-nums;
 }
 
-.fg-subset-info {
-	display: block;
-	position: static;
-	align-items: center;
-	min-height: 32px;
-	padding: 0;
-	border-radius: 999px;
-	font-size: 10px;
-	color: var(--text-h);
-	white-space: nowrap;
-	font-weight: 600;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	max-width: calc(100vw - 16px);
-}
-
 .fg-toolbar-status .fg-subset-info:empty {
 	display: none;
 }
@@ -837,7 +821,6 @@ body {
 
 	.fg-fetch-field {
 		display: block;
-		flex: 1 1 auto;
 		min-width: 0;
 	}
 
@@ -856,34 +839,6 @@ body {
 		min-height: 32px;
 	}
 
-	.fg-toolbar-status--top {
-		position: absolute;
-		left: 2px;
-		top: calc(100% + 14px);
-		width: max-content;
-		max-width: min(280px, calc(100vw - 32px));
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		justify-content: flex-start;
-		min-height: 0;
-		padding: 6px 10px;
-		border-radius: 10px;
-		background: rgba(219, 234, 254, 0.96);
-		border: 1px solid rgba(37, 99, 235, 0.18);
-		box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
-		pointer-events: auto;
-		z-index: 25;
-	}
-
-	.fg-toolbar-status--top:not([data-dismissible='true']) {
-		background: transparent;
-		border: none;
-		box-shadow: none;
-		padding: 0;
-		max-width: 100%;
-	}
-
 	.fg-subset-info {
 		min-height: 0;
 		max-width: 100%;
@@ -895,16 +850,43 @@ body {
 		text-overflow: clip;
 		color: #1e3a8a;
 	}
+}
 
-	.fg-subset-info[data-transient='true'] {
-		display: inline-flex;
-		align-items: center;
-		min-height: 28px;
-		padding: 0 10px;
-		white-space: nowrap;
-		max-width: none;
-		color: #1d4ed8;
-	}
+.fg-subset-info[data-transient='true'] {
+	display: inline-flex;
+	align-items: center;
+	min-height: 28px;
+	padding: 0 10px;
+	white-space: nowrap;
+	max-width: none;
+	color: #1d4ed8;
+}
+.fg-toolbar-status--top {
+	position: absolute;
+	left: 2px;
+	top: calc(100% + 14px);
+	width: max-content;
+	max-width: min(280px, calc(100vw - 32px));
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	justify-content: flex-start;
+	min-height: 0;
+	padding: 6px 10px;
+	border-radius: 10px;
+	background: rgba(219, 234, 254, 0.96);
+	border: 1px solid rgba(37, 99, 235, 0.18);
+	box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+	pointer-events: auto;
+	z-index: 25;
+}
+
+.fg-toolbar-status--top:not([data-dismissible='true']) {
+	background: transparent;
+	border: none;
+	box-shadow: none;
+	padding: 0;
+	max-width: 100%;
 }
 
 .fg-show-all-btn {
