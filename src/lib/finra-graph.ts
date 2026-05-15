@@ -99,6 +99,24 @@ function syncProfileSelection(payload) {
 	}).catch((err) => console.error('Failed to sync profile selection to server:', err));
 }
 
+function trackUmamiEvent(eventName: string, eventData: Record<string, string | number | boolean | null | undefined> = {}) {
+	if (typeof window === 'undefined') return;
+	const tracker = (
+		window as Window & {
+			umami?: {
+				track?: (name: string, data?: Record<string, unknown>) => void;
+			};
+		}
+	).umami;
+	if (typeof tracker?.track !== 'function') return;
+
+	try {
+		tracker.track(eventName, eventData);
+	} catch {
+		// ignore analytics transport/runtime failures
+	}
+}
+
 let d3;
 
 // ── State ──────────────────────────────────────────────────────────────────
@@ -555,28 +573,47 @@ function calculateTrace(nodeIds?: string[]) {
 		}
 	}
 
-	// 2. Shortest Loop (first selected node to last, then reconnect back) - GREEN
+	// 2. Trace Mode route: keep the default origin->target route purple,
+	//    but when a real loop exists, make the full loop green and keep
+	//    a separate purple highlight for the longest non-circle stretch.
 	if (isTraceMode) {
-		const shortestLoop = buildClosedTraceLoop(nodeIds[0], nodeIds[nodeIds.length - 1], adj);
-		if (shortestLoop) {
-			shortestLoop.forEach((id) => traceShortestIds.add(id));
-			extractConnectorNodeIds(shortestLoop).forEach((id) => traceShortestConnectorIds.add(id));
-		}
+		const originId = nodeIds[0];
+		const targetId = nodeIds[nodeIds.length - 1];
+		const traceRoute = buildTraceRoute(originId, targetId, adj);
+		const getPathNodeCount = (path: string[] | null) => (Array.isArray(path) ? Math.ceil(path.length / 2) : 0);
 
-		// 3. Longest Loop (largest reconnecting loop between any two log nodes) - PURPLE
-		let maxLen = -1;
-		let longestLoop: string[] = [];
-		for (let i = 0; i < nodeIds.length; i++) {
-			for (let j = i + 1; j < nodeIds.length; j++) {
-				const loop = buildClosedTraceLoop(nodeIds[i], nodeIds[j], adj);
-				if (loop && loop.length > maxLen) {
-					maxLen = loop.length;
-					longestLoop = loop;
-				}
+		let longestNonCircleRoute: string[] = [];
+		let longestNonCircleNodeCount = -1;
+		let fallbackLongestRoute: string[] = [];
+		let fallbackLongestNodeCount = -1;
+
+		for (let i = 1; i < nodeIds.length; i++) {
+			const candidateRoute = buildTraceRoute(originId, nodeIds[i], adj);
+			const candidateForwardPath = candidateRoute?.forwardPath || null;
+			const candidateNodeCount = getPathNodeCount(candidateForwardPath);
+			if (!candidateForwardPath) continue;
+
+			if (candidateNodeCount > fallbackLongestNodeCount) {
+				fallbackLongestNodeCount = candidateNodeCount;
+				fallbackLongestRoute = candidateForwardPath;
+			}
+
+			if (!candidateRoute?.hasDistinctReturn && candidateNodeCount > longestNonCircleNodeCount) {
+				longestNonCircleNodeCount = candidateNodeCount;
+				longestNonCircleRoute = candidateForwardPath;
 			}
 		}
-		longestLoop.forEach((id) => traceLongestIds.add(id));
-		extractConnectorNodeIds(longestLoop).forEach((id) => traceLongestConnectorIds.add(id));
+
+		const purpleRoute = longestNonCircleRoute.length ? longestNonCircleRoute : fallbackLongestRoute;
+		if (purpleRoute.length) {
+			purpleRoute.forEach((id) => traceLongestIds.add(id));
+			extractConnectorNodeIds(purpleRoute).forEach((id) => traceLongestConnectorIds.add(id));
+		}
+
+		if (traceRoute?.hasDistinctReturn && traceRoute.closedLoop) {
+			traceRoute.closedLoop.forEach((id) => traceShortestIds.add(id));
+			extractConnectorNodeIds(traceRoute.closedLoop).forEach((id) => traceShortestConnectorIds.add(id));
+		}
 	}
 
 	reapplySelectionState();
@@ -621,24 +658,28 @@ function getPathLinkIds(path: string[] | null) {
 	return linkIds;
 }
 
-function buildClosedTraceLoop(startId: string, endId: string, adj: Map<string, Array<{ nodeId: string; linkId: string }>>) {
+function buildTraceRoute(startId: string, endId: string, adj: Map<string, Array<{ nodeId: string; linkId: string }>>) {
 	const forwardPath = findShortestPath(startId, endId, adj);
 	if (!forwardPath) return null;
 
 	const blockedLinkIds = getPathLinkIds(forwardPath);
-	let returnPath = findShortestPath(endId, startId, adj, { blockedLinkIds });
+	const returnPath = findShortestPath(endId, startId, adj, { blockedLinkIds });
 
-	// If the graph has no alternate return route, fall back to retracing the path
-	// in reverse so trace mode still forms a closed loop back to the start.
-	if (!returnPath) {
-		returnPath = [...forwardPath].reverse();
-	}
-
-	return [...forwardPath, ...returnPath.slice(1)];
+	return {
+		forwardPath,
+		returnPath,
+		closedLoop: returnPath ? [...forwardPath, ...returnPath.slice(1)] : null,
+		hasDistinctReturn: Boolean(returnPath),
+	};
 }
 
 function toggleTraceMode() {
 	isTraceMode = !isTraceMode;
+	trackUmamiEvent('trace_mode_clicked', {
+		enabled: isTraceMode,
+		log_trace_enabled: isTraceLogMode,
+		selected_log_count: selectedNodesLog.length,
+	});
 	const btn = document.getElementById('fg-trace-mode');
 	if (btn) {
 		btn.classList.toggle('trace-active', isTraceMode);
@@ -653,6 +694,32 @@ function toggleTraceMode() {
 		traceLongestConnectorIds.clear();
 		reapplySelectionState();
 	}
+	syncTraceLabelPresentation();
+	updateSelectionLogChrome();
+}
+
+function disableAllTraceModes() {
+	isTraceMode = false;
+	isTraceLogMode = false;
+	traceShortestIds.clear();
+	traceLongestIds.clear();
+	traceLogIds.clear();
+	traceShortestConnectorIds.clear();
+	traceLongestConnectorIds.clear();
+	traceLogConnectorIds.clear();
+
+	const traceModeBtn = document.getElementById('fg-trace-mode') as HTMLButtonElement | null;
+	if (traceModeBtn) {
+		traceModeBtn.classList.remove('trace-active');
+		traceModeBtn.textContent = 'Trace Mode';
+	}
+
+	const traceLogBtn = document.getElementById('btn-selection-log-trace') as HTMLButtonElement | null;
+	if (traceLogBtn) {
+		traceLogBtn.classList.remove('trace-log-active');
+		traceLogBtn.textContent = 'Trace with Log';
+	}
+
 	syncTraceLabelPresentation();
 	updateSelectionLogChrome();
 }
@@ -1725,6 +1792,12 @@ export function init(_d3) {
 	const clearHighlightsButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-action="clear-highlights"]'));
 	clearHighlightsButtons.forEach((clearHighlightsBtn) => {
 		clearHighlightsBtn.addEventListener('click', () => {
+			trackUmamiEvent('clear_highlight_clicked', {
+				trace_mode_enabled: isTraceMode,
+				log_trace_enabled: isTraceLogMode,
+				highlighted_selection_count: highlightedSelections.length,
+				selected_log_count: selectedNodesLog.length,
+			});
 			clearHighlights();
 		});
 	});
@@ -1854,6 +1927,10 @@ export function init(_d3) {
 		const runRemoteFetch = async () => {
 			const q = String(fetchInput.value || '').trim();
 			if (!q) return;
+			trackUmamiEvent('fetch_nodes_clicked', {
+				query_length: q.length,
+				query_type: /^\d+$/.test(q) ? 'id' : 'text',
+			});
 			fetchBtn.disabled = true;
 			const origText = fetchBtn.textContent;
 			fetchBtn.textContent = 'Fetching…';
@@ -4086,6 +4163,10 @@ function reapplySelectionState() {
 		.classed('highlighted-hop', (node) => !highlightState.rootIds.has(node.id) && highlightState.hopNodeIds.has(node.id));
 
 	// Trace Mode node highlights — endpoints get trace-* class, connectors get trace-*-connector class
+	const isOnShortestTrace = (id: string) => traceShortestIds.has(id) || traceShortestConnectorIds.has(id);
+	const isOnLongestTrace = (id: string) => traceLongestIds.has(id) || traceLongestConnectorIds.has(id);
+	const isOnLogTrace = (id: string) => traceLogIds.has(id) || traceLogConnectorIds.has(id);
+
 	nodeSel
 		.classed('trace-shortest', (d) => isTraceMode && traceShortestIds.has(d.id) && !traceShortestConnectorIds.has(d.id))
 		.classed('trace-shortest-connector', (d) => isTraceMode && traceShortestConnectorIds.has(d.id))
@@ -4093,12 +4174,10 @@ function reapplySelectionState() {
 		.classed('trace-longest-connector', (d) => isTraceMode && traceLongestConnectorIds.has(d.id))
 		.classed('trace-log', (d) => isTraceLogMode && traceLogIds.has(d.id) && !traceLogConnectorIds.has(d.id))
 		.classed('trace-log-connector', (d) => isTraceLogMode && traceLogConnectorIds.has(d.id))
+		.classed('trace-combined', (d) => isTraceMode && isOnShortestTrace(d.id) && isOnLongestTrace(d.id))
 		.classed(
 			'fg-node--trace-muted',
-			(d) =>
-				isAnyTraceModeActive() &&
-				!(isTraceMode && (traceShortestIds.has(d.id) || traceShortestConnectorIds.has(d.id) || traceLongestIds.has(d.id) || traceLongestConnectorIds.has(d.id))) &&
-				!(isTraceLogMode && (traceLogIds.has(d.id) || traceLogConnectorIds.has(d.id))),
+			(d) => isAnyTraceModeActive() && !(isTraceMode && (isOnShortestTrace(d.id) || isOnLongestTrace(d.id))) && !(isTraceLogMode && isOnLogTrace(d.id)),
 		);
 
 	nodeSel.each(function (node) {
@@ -6342,6 +6421,7 @@ function updateShortDetail(d) {
 }
 
 function clearHighlights() {
+	disableAllTraceModes();
 	if (!nodeSel) return;
 	if (selectionRestoreTimer) {
 		clearTimeout(selectionRestoreTimer);
@@ -6359,17 +6439,6 @@ function clearHighlights() {
 		.classed('trace-longest-connector', false)
 		.classed('trace-log', false)
 		.classed('trace-log-connector', false);
-
-	if (isTraceMode) {
-		traceShortestIds.clear();
-		traceLongestIds.clear();
-		traceShortestConnectorIds.clear();
-		traceLongestConnectorIds.clear();
-	}
-	if (isTraceLogMode) {
-		traceLogIds.clear();
-		traceLogConnectorIds.clear();
-	}
 
 	highlightLinks(null);
 	showSidebarHint();
