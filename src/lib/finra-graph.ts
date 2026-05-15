@@ -160,19 +160,28 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 	updateInactiveLabelZoomState(rootGroup, normalizedScale);
 }
 
-function applyStatusPresentation(text, options: { transient?: boolean; dismissible?: boolean } = {}) {
-	const { transient = false, dismissible = false } = options;
+function applyStatusPresentation(text, options: { transient?: boolean; dismissible?: boolean; pinned?: boolean } = {}) {
+	const { transient = false, dismissible = false, pinned = false } = options;
 	const info = document.getElementById('fg-subset-info');
 	const wrap = info?.closest('.fg-toolbar-status--top') as HTMLElement | null;
+	const pinBtn = document.getElementById('fg-subset-info-pin') as HTMLButtonElement | null;
 	if (info) {
 		info.textContent = text;
 		info.dataset.transient = transient ? 'true' : 'false';
 		info.dataset.dismissible = dismissible ? 'true' : 'false';
+		info.dataset.pinned = pinned ? 'true' : 'false';
 		info.dataset.fetchLocked = dismissible ? 'true' : 'false';
 	}
 	if (wrap) {
 		wrap.dataset.dismissible = dismissible ? 'true' : 'false';
+		wrap.dataset.pinned = pinned ? 'true' : 'false';
 		wrap.dataset.fetchLocked = dismissible ? 'true' : 'false';
+	}
+	if (pinBtn) {
+		pinBtn.classList.toggle('is-active', pinned);
+		pinBtn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+		pinBtn.setAttribute('title', pinned ? 'Unpin status' : 'Pin status');
+		pinBtn.setAttribute('aria-label', pinned ? 'Unpin status' : 'Pin status');
 	}
 }
 
@@ -184,7 +193,36 @@ function hasLockedFetchStatus() {
 
 function clearFetchStatus() {
 	activeFetchStatusMessage = null;
-	applyStatusPresentation('', { transient: false, dismissible: false });
+	applyStatusPresentation('', { transient: false, dismissible: false, pinned: activeFetchStatusPinned });
+	const pinBtn = document.getElementById('fg-subset-info-pin') as HTMLButtonElement | null;
+	if (pinBtn) {
+		pinBtn.setAttribute('aria-pressed', activeFetchStatusPinned ? 'true' : 'false');
+		pinBtn.setAttribute('title', activeFetchStatusPinned ? 'Unpin status' : 'Pin status');
+		pinBtn.setAttribute('aria-label', activeFetchStatusPinned ? 'Unpin status' : 'Pin status');
+		pinBtn.classList.toggle('is-active', activeFetchStatusPinned);
+	}
+}
+
+function setFetchStatusPinned(pinned: boolean) {
+	activeFetchStatusPinned = pinned;
+	const pinBtn = document.getElementById('fg-subset-info-pin') as HTMLButtonElement | null;
+	if (pinBtn) {
+		pinBtn.classList.toggle('is-active', pinned);
+		pinBtn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+		pinBtn.setAttribute('title', pinned ? 'Unpin status' : 'Pin status');
+		pinBtn.setAttribute('aria-label', pinned ? 'Unpin status' : 'Pin status');
+	}
+	try {
+		localStorage.setItem(FETCH_STATUS_PIN_STORAGE_KEY, pinned ? '1' : '0');
+	} catch {
+		/* ignore storage errors */
+	}
+	if (!activeFetchStatusMessage) return;
+	applyStatusPresentation(activeFetchStatusMessage, {
+		transient: true,
+		dismissible: true,
+		pinned: activeFetchStatusPinned,
+	});
 }
 
 type SessionPersistenceMode = 'full' | 'compact' | 'reduced' | 'minimal';
@@ -200,6 +238,17 @@ let lastExpandOriginNode = null;
 let nonGrayExpandRunId = 0;
 let hasUserInitiatedGraphExpansion = false;
 let activeFetchStatusMessage: string | null = null;
+const FETCH_STATUS_PIN_STORAGE_KEY = 'finra_fetch_status_pinned';
+
+function getPersistedFetchStatusPinned() {
+	try {
+		return localStorage.getItem(FETCH_STATUS_PIN_STORAGE_KEY) === '1';
+	} catch {
+		return false;
+	}
+}
+
+let activeFetchStatusPinned = getPersistedFetchStatusPinned();
 
 const INITIAL_SEED_COUNT = 0; // random seed nodes on first load (default select)
 const FILTER_MATCH_LIMIT = 100; // maximum number of direct matches to show when filtering
@@ -2215,16 +2264,16 @@ export function init(_d3) {
 		});
 	}
 
-	const subsetInfoCloseBtn = document.getElementById('fg-subset-info-close') as HTMLButtonElement | null;
-	if (subsetInfoCloseBtn) {
-		subsetInfoCloseBtn.addEventListener('click', () => {
-			clearFetchStatus();
+	const subsetInfoPinBtn = document.getElementById('fg-subset-info-pin') as HTMLButtonElement | null;
+	if (subsetInfoPinBtn) {
+		subsetInfoPinBtn.addEventListener('click', () => {
+			setFetchStatusPinned(!activeFetchStatusPinned);
 		});
 	}
 
 	function updateFetchStatus(msg) {
 		activeFetchStatusMessage = msg;
-		applyStatusPresentation(msg, { transient: true, dismissible: true });
+		applyStatusPresentation(msg, { transient: true, dismissible: true, pinned: activeFetchStatusPinned });
 	}
 
 	// Append fetched nodes/links into live layout (reuse revealNeighbors append logic)
@@ -3325,7 +3374,11 @@ function subsetGraph(data, seedCount, hops = DEFAULT_EXPANSION_HOPS) {
 function updateSubsetInfo(shown, total) {
 	const sel = document.getElementById('fg-subset-select') as HTMLSelectElement | null;
 	if (activeFetchStatusMessage || hasLockedFetchStatus()) {
-		applyStatusPresentation(activeFetchStatusMessage || '', { transient: Boolean(activeFetchStatusMessage), dismissible: Boolean(activeFetchStatusMessage) });
+		applyStatusPresentation(activeFetchStatusMessage || '', {
+			transient: Boolean(activeFetchStatusMessage),
+			dismissible: Boolean(activeFetchStatusMessage),
+			pinned: activeFetchStatusPinned,
+		});
 	}
 
 	if (sel) sel.classList.remove('hidden');
@@ -3335,7 +3388,7 @@ function clearSubsetInfo() {
 	const info = document.getElementById('fg-subset-info');
 	const sel = document.getElementById('fg-subset-select') as HTMLSelectElement | null;
 	if (!activeFetchStatusMessage && !hasLockedFetchStatus() && info) {
-		applyStatusPresentation('', { transient: false, dismissible: false });
+		applyStatusPresentation('', { transient: false, dismissible: false, pinned: false });
 	}
 	if (sel) sel.value = 'all';
 }
