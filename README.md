@@ -90,7 +90,7 @@ pnpm run dev:clean
 
 Local app URL:
 
-- `http://localhost:3000`
+- `http://localhost:4444`
 
 `dev:clean` is the safest option when the local `.next` cache gets grumpy.
 

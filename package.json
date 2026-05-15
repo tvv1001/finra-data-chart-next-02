@@ -3,11 +3,11 @@
 	"version": "0.1.0",
 	"private": true,
 	"scripts": {
-		"dev": "next dev",
-		"dev:clean": "rm -rf .next && next dev",
+		"dev": "next dev -p 4444",
+		"dev:clean": "rm -rf .next && next dev -p 4444",
 		"prebuild": "node scripts/build_graph_from_cache.js --employment-scope all --no-redis && node scripts/build_primed_cache_bundle.js",
 		"build": "next build",
-		"start": "next start",
+		"start": "next start -p 4444",
 		"lint": "next lint",
 		"build:graph": "node scripts/build_graph_from_cache.js --employment-scope all",
 		"prime:all": "node scripts/download_all_api_data.js"
