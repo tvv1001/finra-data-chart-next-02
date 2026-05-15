@@ -255,24 +255,34 @@ export default function FinraGraph() {
 						className='fg-header-controls'>
 						<div className='fg-fetch-status'>
 							<div className='fg-fetch'>
-								<input
-									id='fg-fetch-input'
-									className='fg-fetch-input'
-									type='search'
-									placeholder='Fetch: firm, person, CRD/SEC#'
-									autoComplete='off'
-								/>
+								<div className='fg-fetch-field'>
+									<input
+										id='fg-fetch-input'
+										className='fg-fetch-input'
+										type='search'
+										placeholder='Fetch: firm, person, CRD/SEC#'
+										autoComplete='off'
+									/>
+									<div className='fg-toolbar-group fg-toolbar-status fg-toolbar-status--top'>
+										<span
+											id='fg-subset-info'
+											className='fg-subset-info'></span>
+										<button
+											id='fg-subset-info-close'
+											type='button'
+											className='fg-subset-info-close'
+											title='Dismiss status'
+											aria-label='Dismiss status'>
+											✕
+										</button>
+									</div>
+								</div>
 								<button
 									id='fg-fetch-remote'
 									className='fg-btn-primary fg-action-btn'
 									title='Fetch matching nodes from the server'>
 									Fetch Nodes
 								</button>
-								<div className='fg-toolbar-group fg-toolbar-status fg-toolbar-status--top'>
-									<span
-										id='fg-subset-info'
-										className='fg-subset-info'></span>
-								</div>
 							</div>
 							<button
 								id='fg-mobile-menu-toggle'

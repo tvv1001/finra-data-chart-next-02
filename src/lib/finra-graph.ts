@@ -125,7 +125,6 @@ let zoomBehavior = null; // d3.zoom() instance
 let zoomSaveTimer = null; // debounce timer for zoom-state persistence
 let refreshLayoutStopTimer = null; // timer used to stop refresh-layout sooner
 let selectionRestoreTimer = null; // timer used when restoring a saved selection after reload
-let fetchStatusTimer = null; // timer used to clear short-lived fetch status messages
 let nodePulseTimer = null; // timer used to pulse the restored node after focus animation
 let nodePulseInterval = null; // interval used to keep the restored node pulsing until interaction
 let nodePulseInteractionCleanup: (() => void) | null = null; // removes reload pulse interaction listeners once the user interacts
@@ -2187,27 +2186,23 @@ export function init(_d3) {
 		});
 	}
 
+	const subsetInfoCloseBtn = document.getElementById('fg-subset-info-close') as HTMLButtonElement | null;
+	if (subsetInfoCloseBtn) {
+		subsetInfoCloseBtn.addEventListener('click', () => {
+			if (isSubsetMode && graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
+			else clearSubsetInfo();
+		});
+	}
+
 	function updateFetchStatus(msg) {
 		const info = document.getElementById('fg-subset-info');
-		if (fetchStatusTimer) {
-			clearTimeout(fetchStatusTimer);
-			fetchStatusTimer = null;
-		}
+		const wrap = info?.closest('.fg-toolbar-status--top') as HTMLElement | null;
 		if (info) {
 			info.textContent = msg;
-			const isTransientFetchMessage = typeof msg === 'string' && /^Added \d+ nodes? for /.test(msg);
-			info.dataset.transient = isTransientFetchMessage ? 'true' : 'false';
+			info.dataset.transient = 'true';
+			info.dataset.dismissible = 'true';
 		}
-
-		const transientFetchMessage = typeof msg === 'string' && /^Added \d+ nodes? for /.test(msg);
-		const restoreDelayMs = transientFetchMessage ? 2000 : 3500;
-
-		fetchStatusTimer = setTimeout(() => {
-			fetchStatusTimer = null;
-			// restore subset info after a short delay (if subset mode)
-			if (isSubsetMode && graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
-			else if (!isSubsetMode) clearSubsetInfo();
-		}, restoreDelayMs);
+		if (wrap) wrap.dataset.dismissible = 'true';
 	}
 
 	// Append fetched nodes/links into live layout (reuse revealNeighbors append logic)
@@ -3307,20 +3302,29 @@ function subsetGraph(data, seedCount, hops = DEFAULT_EXPANSION_HOPS) {
 
 function updateSubsetInfo(shown, total) {
 	const info = document.getElementById('fg-subset-info');
+	const wrap = info?.closest('.fg-toolbar-status--top') as HTMLElement | null;
 	const sel = document.getElementById('fg-subset-select') as HTMLSelectElement | null;
 	const fmt = (n) => (typeof n === 'number' ? n.toLocaleString() : String(n ?? '–'));
 	const cacheTotal = typeof _cacheStats?.people === 'number' || typeof _cacheStats?.firms === 'number' ? (_cacheStats?.people || 0) + (_cacheStats?.firms || 0) : null;
+	if (info) {
+		info.dataset.transient = 'false';
+		info.dataset.dismissible = 'false';
+	}
+	if (wrap) wrap.dataset.dismissible = 'false';
 
 	if (sel) sel.classList.remove('hidden');
 }
 
 function clearSubsetInfo() {
 	const info = document.getElementById('fg-subset-info');
+	const wrap = info?.closest('.fg-toolbar-status--top') as HTMLElement | null;
 	const sel = document.getElementById('fg-subset-select') as HTMLSelectElement | null;
 	if (info) {
 		info.textContent = '';
 		info.dataset.transient = 'false';
+		info.dataset.dismissible = 'false';
 	}
+	if (wrap) wrap.dataset.dismissible = 'false';
 	if (sel) sel.value = 'all';
 }
 
@@ -6352,7 +6356,7 @@ function showSidebarHint(options: { keepOpen?: boolean } = {}) {
 	const persistentPin = isSidebarPersistentlyPinned();
 	const { keepOpen = persistentPin } = options;
 	const inner = document.getElementById('fg-sidebar-inner');
-	if (inner) inner.innerHTML = `<p class="fg-hint">Click a node to inspect it.</p>`;
+	if (inner) inner.innerHTML = ` `;
 	const side = document.getElementById('fg-sidebar');
 	if (side) {
 		side.dataset.displayedId = '';

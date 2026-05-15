@@ -1,13 +1,439 @@
 {
-  "nodes": [],
-  "links": [],
+  "nodes": [
+    {
+      "id": "person:2437137",
+      "label": "Vernon Gang",
+      "group": "individual",
+      "crd": "2437137",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 9.001644452187053
+    },
+    {
+      "id": "firm:19616",
+      "label": "WELLS FARGO CLEARING SERVICES, LLC",
+      "group": "firm",
+      "firmId": "19616",
+      "bdSecNumber": "37180",
+      "iaSecNumber": "37967",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "person:3072063",
+      "label": "Kevin Gang",
+      "group": "individual",
+      "crd": "3072063",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 9.001644452187053
+    },
+    {
+      "id": "firm:7691",
+      "label": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED",
+      "group": "firm",
+      "firmId": "7691",
+      "bdSecNumber": "7221",
+      "iaSecNumber": "14235",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "person:1191472",
+      "label": "Jeffrey Gang",
+      "group": "individual",
+      "crd": "1191472",
+      "disclosureFlag": "Y",
+      "iaDisclosureFlag": "Y",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:6075127",
+      "label": "Jack Jian Gang",
+      "group": "individual",
+      "crd": "6075127",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:8183522",
+      "label": "Kevin Gang",
+      "group": "individual",
+      "crd": "8183522",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 9.001644452187053
+    },
+    {
+      "id": "firm:10409",
+      "label": "MML INVESTORS SERVICES, LLC",
+      "group": "firm",
+      "firmId": "10409",
+      "bdSecNumber": "27250",
+      "iaSecNumber": "44264",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "person:7907627",
+      "label": "Chengxi Gang",
+      "group": "individual",
+      "crd": "7907627",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 9.001644452187053
+    },
+    {
+      "id": "firm:145115",
+      "label": "MOELIS & COMPANY LLC",
+      "group": "firm",
+      "firmId": "145115",
+      "bdSecNumber": "67705",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "person:4697734",
+      "label": "Kristin Gang",
+      "group": "individual",
+      "crd": "4697734",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 5,
+        "controls": 0,
+        "employed": 5
+      },
+      "_vizHalf": 14.875
+    },
+    {
+      "id": "firm:10299",
+      "label": "CETERA ADVISORS LLC",
+      "group": "firm",
+      "firmId": "10299",
+      "bdSecNumber": "26892",
+      "iaSecNumber": "33020",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "firm:10358",
+      "label": "CETERA FINANCIAL SPECIALISTS LLC",
+      "group": "firm",
+      "firmId": "10358",
+      "bdSecNumber": "27082",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "firm:13572",
+      "label": "CETERA WEALTH SERVICES, LLC",
+      "group": "firm",
+      "firmId": "13572",
+      "bdSecNumber": "29577",
+      "iaSecNumber": "47342",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "firm:15340",
+      "label": "CETERA INVESTMENT SERVICES LLC",
+      "group": "firm",
+      "firmId": "15340",
+      "bdSecNumber": "31826",
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 14.79
+    },
+    {
+      "id": "firm:105644",
+      "label": "CETERA INVESTMENT ADVISERS LLC",
+      "group": "firm",
+      "firmId": "105644",
+      "iaSecNumber": "20406",
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 14.79
+    },
+    {
+      "id": "person:5393976",
+      "label": "Taehoon Gang",
+      "group": "individual",
+      "crd": "5393976",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 2,
+        "controls": 0,
+        "employed": 2
+      },
+      "_vizHalf": 10.969840027857808
+    },
+    {
+      "id": "person:4902806",
+      "label": "Taylor Milton Gang",
+      "group": "individual",
+      "crd": "4902806",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 9.001644452187053
+    },
+    {
+      "id": "firm:109698",
+      "label": "EVENSKY & KATZ/FOLDES WEALTH MANAGEMENT",
+      "group": "firm",
+      "firmId": "109698",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "person:6909321",
+      "label": "James Joseph Gang",
+      "group": "individual",
+      "crd": "6909321",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:5940090",
+      "label": "Thomas Paul Gang",
+      "group": "individual",
+      "crd": "5940090",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 0,
+        "controls": 0,
+        "employed": 0
+      },
+      "_vizHalf": 6
+    },
+    {
+      "id": "person:6930817",
+      "label": "Joseph Edward Gang",
+      "group": "individual",
+      "crd": "6930817",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 9.001644452187053
+    },
+    {
+      "id": "firm:250",
+      "label": "EDWARD JONES",
+      "group": "firm",
+      "firmId": "250",
+      "bdSecNumber": "759",
+      "iaSecNumber": "3297",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    },
+    {
+      "id": "person:6874920",
+      "label": "Cory Joseph Gano",
+      "group": "individual",
+      "crd": "6874920",
+      "disclosureFlag": "N",
+      "iaDisclosureFlag": "N",
+      "basicInformation": {},
+      "firmCount": 0,
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 9.001644452187053
+    },
+    {
+      "id": "firm:294775",
+      "label": "10 KEY CONSULTING, LLC",
+      "group": "firm",
+      "firmId": "294775",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 11.951864709697645
+    }
+  ],
+  "links": [
+    {
+      "source": "person:2437137",
+      "target": "firm:19616"
+    },
+    {
+      "source": "person:3072063",
+      "target": "firm:7691"
+    },
+    {
+      "source": "person:8183522",
+      "target": "firm:10409"
+    },
+    {
+      "source": "person:7907627",
+      "target": "firm:145115"
+    },
+    {
+      "source": "person:4697734",
+      "target": "firm:10299"
+    },
+    {
+      "source": "person:4697734",
+      "target": "firm:10358"
+    },
+    {
+      "source": "person:4697734",
+      "target": "firm:13572"
+    },
+    {
+      "source": "person:4697734",
+      "target": "firm:15340"
+    },
+    {
+      "source": "person:4697734",
+      "target": "firm:105644"
+    },
+    {
+      "source": "person:5393976",
+      "target": "firm:15340"
+    },
+    {
+      "source": "person:5393976",
+      "target": "firm:105644"
+    },
+    {
+      "source": "person:4902806",
+      "target": "firm:109698"
+    },
+    {
+      "source": "person:6930817",
+      "target": "firm:250"
+    },
+    {
+      "source": "person:6874920",
+      "target": "firm:294775"
+    }
+  ],
   "meta": {
-    "generated": "2026-05-15T17:30:13.866Z",
+    "generated": "2026-05-15T17:51:58.348Z",
     "sourceLabel": "(session reset)",
-    "totalIndividuals": 0,
-    "totalFirms": 0,
+    "totalIndividuals": 13,
+    "totalFirms": 12,
     "totalEntities": 0,
-    "totalNodes": 0,
-    "totalLinks": 0
+    "totalNodes": 25,
+    "totalLinks": 14
   }
 }
