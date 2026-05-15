@@ -409,6 +409,8 @@ let currentProfileName = null;
 let currentProfileEnabled = true;
 let isSessionCleared = false;
 let selectedNodesLog: Array<{ id: string; label: string; secondaryId: string; group: string }> = [];
+let sidebarSelectedNode = null;
+let sidebarViewMode: 'none' | 'info' | 'log' = 'none';
 let isTraceMode = false;
 let isTraceLogMode = false;
 let traceShortestIds = new Set<string>(); // node and link IDs
@@ -476,41 +478,37 @@ function loadSelectionLogPinState() {
 }
 
 function openSelectionLog() {
-	if (isMobileSidebarViewport()) {
-		document.getElementById('fg-sidebar')?.classList.remove('hidden');
-		document.getElementById('fg-sidebar-backdrop')?.classList.remove('hidden');
-		const mobileLogSection = document.getElementById('fg-mobile-log-section') as HTMLDetailsElement | null;
-		if (mobileLogSection) mobileLogSection.open = true;
-		updateSelectionLogChrome();
-		return;
-	}
-	const panel = getSelectionLogPanel();
-	if (!panel) return;
-	panel.classList.remove('hidden');
+	if (!sidebarSelectedNode) return;
+	document.getElementById('fg-sidebar')?.classList.remove('hidden');
+	document.getElementById('fg-sidebar-backdrop')?.classList.remove('hidden');
+	sidebarViewMode = 'log';
+	renderSidebar(sidebarSelectedNode);
 	updateSelectionLogChrome();
 }
 
 function closeSelectionLog(options: { force?: boolean } = {}) {
-	const { force = false } = options;
-	if (isMobileSidebarViewport()) {
-		if (!force && isSelectionLogPinned()) {
-			updateSelectionLogChrome();
-			return false;
-		}
-		const mobileLogSection = document.getElementById('fg-mobile-log-section') as HTMLDetailsElement | null;
-		if (mobileLogSection) mobileLogSection.open = false;
-		updateSelectionLogChrome();
-		return true;
-	}
-	const panel = getSelectionLogPanel();
-	if (!panel) return false;
-	if (!force && isSelectionLogPinned()) {
-		updateSelectionLogChrome();
-		return false;
-	}
-	panel.classList.add('hidden');
+	const { force: _force = false } = options;
+	if (!sidebarSelectedNode) return false;
+	sidebarViewMode = 'none';
+	renderSidebar(sidebarSelectedNode);
 	updateSelectionLogChrome();
 	return true;
+}
+
+function setSidebarViewMode(
+	mode: 'none' | 'info' | 'log',
+	options: {
+		expandMobile?: boolean;
+	} = {},
+) {
+	if (!sidebarSelectedNode) return;
+	const { expandMobile = mode !== 'none' } = options;
+	sidebarViewMode = mode;
+	renderSidebar(sidebarSelectedNode);
+	if (isMobileSidebarViewport()) {
+		syncMobileSidebarExpandedState(expandMobile);
+	}
+	updateSelectionLogChrome();
 }
 
 function calculateTrace(nodeIds?: string[]) {
@@ -662,7 +660,7 @@ function buildTraceRoute(startId: string, endId: string, adj: Map<string, Array<
 
 function toggleTraceMode() {
 	isTraceMode = !isTraceMode;
-	const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('#fg-trace-mode, #fg-mobile-log-trace-mode'));
+	const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('#fg-trace-mode'));
 	buttons.forEach((btn) => {
 		btn.classList.toggle('trace-active', isTraceMode);
 		btn.textContent = isTraceMode ? 'Tracing On' : 'Trace Mode';
@@ -690,7 +688,7 @@ function disableAllTraceModes() {
 	traceLongestConnectorIds.clear();
 	traceLogConnectorIds.clear();
 
-	Array.from(document.querySelectorAll<HTMLButtonElement>('#fg-trace-mode, #fg-mobile-log-trace-mode')).forEach((traceModeBtn) => {
+	Array.from(document.querySelectorAll<HTMLButtonElement>('#fg-trace-mode')).forEach((traceModeBtn) => {
 		traceModeBtn.classList.remove('trace-active');
 		traceModeBtn.textContent = 'Trace Mode';
 	});
@@ -780,7 +778,7 @@ function addToSelectionLog(d) {
 }
 
 function updateSelectionLogUI() {
-	const containers = Array.from(document.querySelectorAll<HTMLElement>('#fg-selection-log-list, #fg-mobile-selection-log-list'));
+	const containers = Array.from(document.querySelectorAll<HTMLElement>('#fg-selection-log-list, #fg-sidebar-selection-log-list'));
 	if (!containers.length) return;
 
 	containers.forEach((container) => {
@@ -825,19 +823,8 @@ function copyToClipboard(text, element) {
 }
 
 function toggleSelectionLog() {
-	if (isMobileSidebarViewport()) {
-		const mobileLogSection = document.getElementById('fg-mobile-log-section') as HTMLDetailsElement | null;
-		if (!mobileLogSection || !mobileLogSection.open || document.getElementById('fg-sidebar')?.classList.contains('hidden')) {
-			openSelectionLog();
-		} else {
-			closeSelectionLog();
-		}
-		return;
-	}
-	const panel = getSelectionLogPanel();
-	if (!panel) return;
-	if (panel.classList.contains('hidden')) openSelectionLog();
-	else closeSelectionLog();
+	if (!sidebarSelectedNode) return;
+	setSidebarViewMode(sidebarViewMode === 'log' ? 'none' : 'log', { expandMobile: sidebarViewMode !== 'log' });
 }
 
 function isProfileEnabled(profile) {
@@ -1688,13 +1675,12 @@ export function init(_d3) {
 	updateSelectionLogUI();
 	updateSelectionLogChrome();
 	(document.getElementById('btn-log-close') as HTMLButtonElement | null)?.addEventListener('click', closeLog);
-	(document.getElementById('fg-selection-log-toggle') as HTMLButtonElement | null)?.addEventListener('click', toggleSelectionLog);
 	getSelectionLogActionButtons('pin').forEach((button) => {
 		button.addEventListener('click', () => {
 			setSelectionLogPinned(!isSelectionLogPinned());
 		});
 	});
-	Array.from(document.querySelectorAll<HTMLButtonElement>('#fg-trace-mode, #fg-mobile-log-trace-mode')).forEach((button) => {
+	Array.from(document.querySelectorAll<HTMLButtonElement>('#fg-trace-mode')).forEach((button) => {
 		button.addEventListener('click', toggleTraceMode);
 	});
 	getSelectionLogActionButtons('trace').forEach((button) => {
@@ -6742,10 +6728,55 @@ function syncMobileSidebarExpandedState(expanded: boolean) {
 
 function renderMobileSidebarToggle() {
 	return `
-		<button class="fg-sidebar-mobile-summary-toggle" type="button" aria-expanded="false" title="Expand details">
-			<span class="fg-sidebar-mobile-summary-toggle__label fg-sidebar-mobile-summary-toggle__label--collapsed">Show details</span>
-			<span class="fg-sidebar-mobile-summary-toggle__label fg-sidebar-mobile-summary-toggle__label--expanded">Hide details</span>
+		<button class="fg-sidebar-mobile-summary-toggle fg-sb-info-toggle${sidebarViewMode === 'info' ? ' is-active' : ''}" type="button" aria-expanded="false" title="Show info">
+			<span class="fg-sidebar-mobile-summary-toggle__label">Info</span>
 		</button>
+	`;
+}
+
+function renderSidebarSelectionLogToggle() {
+	return `
+		<button class="fg-sb-log-toggle${sidebarViewMode === 'log' ? ' is-active' : ''}" type="button" title="Show selection log" aria-label="Show selection log">
+			Log
+		</button>
+	`;
+}
+
+function renderSidebarSelectionLogBody() {
+	return `
+		<div class="fg-sb-body fg-sb-body--log">
+			<div class="fg-section-title">Selection Log</div>
+			<div class="fg-log-drawer-actions fg-log-drawer-actions--sidebar">
+				<button
+					data-fg-selection-log-action="pin"
+					class="fg-ghost-btn fg-btn-sm"
+					title="Keep the log drawer open until unpinned"
+					aria-pressed="false">
+					Pin
+				</button>
+				<button
+					data-fg-selection-log-action="trace"
+					class="fg-ghost-btn fg-btn-sm"
+					title="Trace path between all logged nodes">
+					Trace with Log
+				</button>
+				<button
+					data-fg-selection-log-action="copy-all"
+					class="fg-ghost-btn fg-btn-sm"
+					title="Copy all entries">
+					Copy All
+				</button>
+				<button
+					data-fg-selection-log-action="clear"
+					class="fg-ghost-btn fg-btn-sm"
+					title="Clear log">
+					Clear
+				</button>
+			</div>
+			<div id="fg-sidebar-selection-log-list" class="fg-selection-log-list fg-selection-log-list--sidebar">
+				<p class="fg-log-empty">No nodes selected yet.</p>
+			</div>
+		</div>
 	`;
 }
 
@@ -6753,24 +6784,50 @@ function renderSidebar(d) {
 	const el = document.getElementById('fg-sidebar-inner');
 	const side = document.getElementById('fg-sidebar');
 	const previousDisplayedId = side?.dataset.displayedId || '';
+	const isSameNode = sidebarSelectedNode?.id === (d?.id || '');
+	if (!isSameNode) {
+		sidebarViewMode = 'none';
+	}
+	sidebarSelectedNode = d;
 	const preserveExpandedState =
 		Boolean(side) && !side.classList.contains('hidden') && isMobileSidebarViewport() && previousDisplayedId === (d?.id || '') && side.dataset.mobileExpanded === 'true';
 	el.innerHTML =
 		d.group === 'firm' ? renderFirmDetail(d)
 		: d.group === 'entity' ? renderEntityDetail(d)
 		: renderPersonDetail(d);
+	if (sidebarViewMode === 'log') {
+		const body = el.querySelector('.fg-sb-body');
+		if (body) {
+			body.outerHTML = renderSidebarSelectionLogBody();
+		}
+	}
+	if (sidebarViewMode === 'none') {
+		el.querySelector('.fg-sb-body')?.classList.add('hidden');
+	}
 	// show sidebar and update header short detail when rendering
 	if (side) side.classList.remove('hidden');
 	document.getElementById('fg-sidebar-backdrop')?.classList.remove('hidden');
 	if (side) side.dataset.displayedId = d?.id || '';
+	if (side) side.dataset.viewMode = sidebarViewMode;
 	syncMobileSidebarExpandedState(!isMobileSidebarViewport() || preserveExpandedState);
 	const mobileToggle = el.querySelector('.fg-sidebar-mobile-summary-toggle') as HTMLButtonElement | null;
 	if (mobileToggle) {
 		mobileToggle.addEventListener('click', (event) => {
 			event.stopPropagation();
-			syncMobileSidebarExpandedState(side?.dataset.mobileExpanded !== 'true');
+			const nextMode = sidebarViewMode === 'info' ? 'none' : 'info';
+			setSidebarViewMode(nextMode, { expandMobile: nextMode !== 'none' });
 		});
 	}
+	const logToggleButtons = Array.from(el.querySelectorAll<HTMLButtonElement>('.fg-sb-log-toggle'));
+	logToggleButtons.forEach((button) => {
+		button.addEventListener('click', (event) => {
+			event.stopPropagation();
+			const nextMode = sidebarViewMode === 'log' ? 'none' : 'log';
+			setSidebarViewMode(nextMode, { expandMobile: nextMode !== 'none' });
+		});
+	});
+	updateSelectionLogUI();
+	updateSelectionLogChrome();
 	const focusBtn = document.getElementById('fg-focus-btn') as HTMLButtonElement | null;
 	if (focusBtn) focusBtn.disabled = false;
 	try {
@@ -7234,7 +7291,13 @@ function renderPersonDetail(d) {
 
 	return `
     <div class="fg-sb-header individual">
+		<div class="fg-sb-title-row">
 	<div class="fg-sb-title">${esc(getPreferredNodeLabel(d) || [bi.firstName, bi.middleName, bi.lastName].filter(Boolean).join(' '))}</div>
+			<div class="fg-sb-title-actions">
+				${renderSidebarSelectionLogToggle()}
+				${renderMobileSidebarToggle()}
+			</div>
+		</div>
 		${personSummaryLine ? `<div class="fg-sb-crd">${personSummaryLine}</div>` : ''}
       <div class="fg-sb-badges">
         ${scopeBadgesHtml}
@@ -7242,7 +7305,6 @@ function renderPersonDetail(d) {
         ${disclosureCount ? `<span class="fg-badge inactive">${disclosureCount} disclosure${disclosureCount !== 1 ? 's' : ''}</span>` : ''}
       </div>
     </div>
-	${renderMobileSidebarToggle()}
     <div class="fg-sb-body fg-sb-body--person">
       <div class="fg-ext-links">
         ${brokerCheckSummaryUrl ? `<a class="fg-ext-link bc" href="${brokerCheckSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
@@ -7568,7 +7630,13 @@ function renderFirmDetail(d) {
 
 	return `
 		<div class="fg-sb-header firm">
-			<div class="fg-sb-title">${esc(getPreferredNodeLabel(d))}</div>
+			<div class="fg-sb-title-row">
+				<div class="fg-sb-title">${esc(getPreferredNodeLabel(d))}</div>
+				<div class="fg-sb-title-actions">
+					${renderSidebarSelectionLogToggle()}
+					${renderMobileSidebarToggle()}
+				</div>
+			</div>
 			${crdSec ? `<div class="fg-sb-crd">${crdSec}</div>` : ''}
       <div class="fg-sb-badges">
         ${legacyBadge}
@@ -7582,7 +7650,6 @@ function renderFirmDetail(d) {
         ${scopeBadge}
       </div>
     </div>
-	${renderMobileSidebarToggle()}
     <div class="fg-sb-body">
       <div class="fg-ext-links">
         ${showBrokerCheckSummary ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/firm/summary/${encodeURIComponent(firmId)}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
@@ -7701,13 +7768,18 @@ function renderFirmDetail(d) {
 function renderEntityDetail(d) {
 	return `
     <div class="fg-sb-header entity">
+		<div class="fg-sb-title-row">
 	<div class="fg-sb-title">${esc(getPreferredNodeLabel(d))}</div>
+			<div class="fg-sb-title-actions">
+				${renderSidebarSelectionLogToggle()}
+				${renderMobileSidebarToggle()}
+			</div>
+		</div>
       <div class="fg-sb-badges">
         <span class="fg-badge">Entity</span>
         ${d.bcScope ? `<span class="fg-badge">${esc(d.bcScope)}</span>` : ''}
       </div>
     </div>
-	${renderMobileSidebarToggle()}
     <div class="fg-sb-body">
       <p style="font-size:13px;color:var(--text-m);margin-top:8px">
         Non-individual owner listed on Form BD (no CRD number).
