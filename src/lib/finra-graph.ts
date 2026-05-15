@@ -117,6 +117,7 @@ let neighborMap = null; // Map<nodeId, Set<nodeId>> — rebuilt each renderGraph
 let nodeGroup = null; // <g.fg-nodes> selection — for live node injection
 let linkGroup = null; // <g.fg-links> selection — for live link injection
 let arrowGroup = null; // <g.fg-arrowheads> selection — for top-layer arrowheads
+let rootGroup = null; // <g.fg-root> selection — for zoom/state-driven graph styling
 let allowFirstFetchZoom = true; // only auto-zoom on the first user fetch into an empty graph
 // D3 references needed for restoring zoom state
 let svgSel = null; // d3 selection for #fg-svg
@@ -131,6 +132,33 @@ let activeLabelZoomThreshold = 0.3;
 let inactiveLabelCompactZoomThreshold = 0.42;
 let inactiveLabelCompactMode = false;
 let sessionPersistenceMode: 'full' | 'compact' | 'reduced' | 'minimal' = 'full';
+
+function isAnyTraceModeActive() {
+	return isTraceMode || isTraceLogMode;
+}
+
+function getCurrentGraphZoomScale() {
+	try {
+		if (!svgSel?.node || !d3?.zoomTransform) return 1;
+		return d3.zoomTransform(svgSel.node()).k || 1;
+	} catch {
+		return 1;
+	}
+}
+
+function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
+	if (!rootGroup) return;
+	const traceActive = isAnyTraceModeActive();
+	const normalizedScale = Math.max(0.1, Number(zoomScale) || 1);
+	const traceLabelScale = traceActive ? Math.max(1.35, Math.min(2.2, 1 / Math.max(0.45, Math.min(1, normalizedScale)))) : 1;
+
+	rootGroup
+		.classed('fg-trace-labels', traceActive)
+		.classed('fg-labels-hidden', normalizedScale < activeLabelZoomThreshold)
+		.style('--fg-trace-label-scale', String(traceLabelScale));
+
+	updateInactiveLabelZoomState(rootGroup, normalizedScale);
+}
 
 type SessionPersistenceMode = 'full' | 'compact' | 'reduced' | 'minimal';
 // Baseline snapshot from the initial server response for this page load.
@@ -391,6 +419,94 @@ let traceLongestConnectorIds = new Set<string>(); // intermediate nodes only
 let traceLogConnectorIds = new Set<string>(); // intermediate nodes only
 
 const LS_LOG_KEY = 'finra_selection_log';
+const LS_LOG_PIN_KEY = 'finra_selection_log_pinned';
+
+function getSelectionLogPanel() {
+	return document.getElementById('fg-selection-log');
+}
+
+function getSelectionLogPinButton() {
+	return document.getElementById('btn-selection-log-pin') as HTMLButtonElement | null;
+}
+
+function isSelectionLogPinned() {
+	return getSelectionLogPanel()?.dataset.pinned === 'true';
+}
+
+function isSelectionLogTraceLocked() {
+	return isAnyTraceModeActive();
+}
+
+function updateSelectionLogChrome() {
+	const panel = getSelectionLogPanel();
+	const pinBtn = getSelectionLogPinButton();
+	if (!panel) return;
+
+	const pinned = panel.dataset.pinned === 'true';
+	const traceLocked = isSelectionLogTraceLocked();
+	panel.dataset.traceLocked = traceLocked ? 'true' : 'false';
+	panel.dataset.pinned = pinned ? 'true' : 'false';
+
+	if (pinBtn) {
+		pinBtn.classList.toggle('is-pinned', pinned);
+		pinBtn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+		pinBtn.textContent = pinned ? 'Unpin' : 'Pin';
+		pinBtn.title = pinned ? 'Allow the log drawer to auto-close again' : 'Keep the log drawer open until unpinned';
+	}
+
+	const closeBtn = document.getElementById('btn-selection-log-close') as HTMLButtonElement | null;
+	if (closeBtn) {
+		closeBtn.disabled = traceLocked;
+		closeBtn.title = traceLocked ? 'Disable trace mode to close the log drawer' : 'Close selection log';
+	}
+}
+
+function setSelectionLogPinned(pinned: boolean, options: { persist?: boolean } = {}) {
+	const { persist = true } = options;
+	const panel = getSelectionLogPanel();
+	if (!panel) return;
+	panel.dataset.pinned = pinned ? 'true' : 'false';
+	if (persist) {
+		try {
+			localStorage.setItem(LS_LOG_PIN_KEY, pinned ? '1' : '0');
+		} catch {
+			// ignore storage errors
+		}
+	}
+	updateSelectionLogChrome();
+	if (pinned) panel.classList.remove('hidden');
+}
+
+function loadSelectionLogPinState() {
+	let pinned = false;
+	try {
+		pinned = localStorage.getItem(LS_LOG_PIN_KEY) === '1';
+	} catch {
+		// ignore storage errors
+	}
+	setSelectionLogPinned(pinned, { persist: false });
+	if (pinned) getSelectionLogPanel()?.classList.remove('hidden');
+}
+
+function openSelectionLog() {
+	const panel = getSelectionLogPanel();
+	if (!panel) return;
+	panel.classList.remove('hidden');
+	updateSelectionLogChrome();
+}
+
+function closeSelectionLog(options: { force?: boolean } = {}) {
+	const { force = false } = options;
+	const panel = getSelectionLogPanel();
+	if (!panel) return false;
+	if (!force && (isSelectionLogPinned() || isSelectionLogTraceLocked())) {
+		updateSelectionLogChrome();
+		return false;
+	}
+	panel.classList.add('hidden');
+	updateSelectionLogChrome();
+	return true;
+}
 
 function calculateTrace(nodeIds?: string[]) {
 	if (!nodeIds || nodeIds.length < 2) {
@@ -537,6 +653,8 @@ function toggleTraceMode() {
 		traceLongestConnectorIds.clear();
 		reapplySelectionState();
 	}
+	syncTraceLabelPresentation();
+	updateSelectionLogChrome();
 }
 
 function toggleTraceLogMode() {
@@ -548,11 +666,14 @@ function toggleTraceLogMode() {
 	}
 	if (isTraceLogMode) {
 		calculateTrace();
+		openSelectionLog();
 	} else {
 		traceLogIds.clear();
 		traceLogConnectorIds.clear();
 		reapplySelectionState();
 	}
+	syncTraceLabelPresentation();
+	updateSelectionLogChrome();
 }
 
 function loadSelectionLog() {
@@ -656,10 +777,10 @@ function copyToClipboard(text, element) {
 }
 
 function toggleSelectionLog() {
-	const panel = document.getElementById('fg-selection-log');
-	if (panel) {
-		panel.classList.toggle('hidden');
-	}
+	const panel = getSelectionLogPanel();
+	if (!panel) return;
+	if (panel.classList.contains('hidden')) openSelectionLog();
+	else closeSelectionLog();
 }
 
 function isProfileEnabled(profile) {
@@ -1506,10 +1627,17 @@ function drawDisclosureIndicator(g, d, r) {
 export function init(_d3) {
 	d3 = _d3;
 	loadSelectionLog();
+	loadSelectionLogPinState();
 	updateSelectionLogUI();
+	updateSelectionLogChrome();
 	(document.getElementById('btn-log-close') as HTMLButtonElement | null)?.addEventListener('click', closeLog);
 	(document.getElementById('fg-selection-log-toggle') as HTMLButtonElement | null)?.addEventListener('click', toggleSelectionLog);
-	(document.getElementById('btn-selection-log-close') as HTMLButtonElement | null)?.addEventListener('click', toggleSelectionLog);
+	(document.getElementById('btn-selection-log-close') as HTMLButtonElement | null)?.addEventListener('click', () => {
+		closeSelectionLog();
+	});
+	(document.getElementById('btn-selection-log-pin') as HTMLButtonElement | null)?.addEventListener('click', () => {
+		setSelectionLogPinned(!isSelectionLogPinned());
+	});
 	(document.getElementById('fg-trace-mode') as HTMLButtonElement | null)?.addEventListener('click', toggleTraceMode);
 	(document.getElementById('btn-selection-log-trace') as HTMLButtonElement | null)?.addEventListener('click', () => {
 		toggleTraceLogMode();
@@ -3755,9 +3883,9 @@ function getCompactInactiveNodeLabel(node) {
 	return isPlaceholderExpansionLabel(compactLabel, node?.group) ? '' : compactLabel;
 }
 
-function updateInactiveLabelZoomState(rootSelection, zoomScale) {
+function updateInactiveLabelZoomState(rootSelection, zoomScale, forceExpandedLabels = false) {
 	if (!rootSelection) return;
-	const compactInactive = zoomScale < inactiveLabelCompactZoomThreshold;
+	const compactInactive = !forceExpandedLabels && zoomScale < inactiveLabelCompactZoomThreshold;
 	rootSelection.classed('fg-inactive-labels-compact', compactInactive);
 	if (inactiveLabelCompactMode === compactInactive) return;
 	inactiveLabelCompactMode = compactInactive;
@@ -3845,6 +3973,10 @@ function renderNodeContents(selection) {
 				)
 				.attr('stroke-width', null)
 				.attr('opacity', nodeOpacity === 1 ? 0.9 : nodeOpacity);
+
+			g.append('polygon')
+				.attr('class', 'fg-node-overlay')
+				.attr('points', hexPoints(s / 2));
 		} else if (d.group === 'entity') {
 			const s = r * 1.5;
 			g.append('polygon')
@@ -3854,6 +3986,7 @@ function renderNodeContents(selection) {
 				.attr('stroke', null)
 				.attr('stroke-width', null)
 				.attr('opacity', null);
+			g.append('polygon').attr('class', 'fg-node-overlay').attr('points', `0,${-s} ${s},0 0,${s} ${-s},0`);
 		} else {
 			const rv = d._vizHalf != null ? d._vizHalf : r;
 			g.append('circle')
@@ -3863,6 +3996,7 @@ function renderNodeContents(selection) {
 				.attr('stroke', null)
 				.attr('stroke-width', null)
 				.attr('opacity', null);
+			g.append('circle').attr('class', 'fg-node-overlay').attr('r', rv);
 		}
 
 		drawDisclosureIndicator(g, d, r);
@@ -3958,7 +4092,23 @@ function reapplySelectionState() {
 		.classed('trace-longest', (d) => isTraceMode && traceLongestIds.has(d.id) && !traceLongestConnectorIds.has(d.id))
 		.classed('trace-longest-connector', (d) => isTraceMode && traceLongestConnectorIds.has(d.id))
 		.classed('trace-log', (d) => isTraceLogMode && traceLogIds.has(d.id) && !traceLogConnectorIds.has(d.id))
-		.classed('trace-log-connector', (d) => isTraceLogMode && traceLogConnectorIds.has(d.id));
+		.classed('trace-log-connector', (d) => isTraceLogMode && traceLogConnectorIds.has(d.id))
+		.classed(
+			'fg-node--trace-muted',
+			(d) =>
+				isAnyTraceModeActive() &&
+				!(isTraceMode && (traceShortestIds.has(d.id) || traceShortestConnectorIds.has(d.id) || traceLongestIds.has(d.id) || traceLongestConnectorIds.has(d.id))) &&
+				!(isTraceLogMode && (traceLogIds.has(d.id) || traceLogConnectorIds.has(d.id))),
+		);
+
+	nodeSel.each(function (node) {
+		const shouldRaise =
+			highlightState.rootIds.has(node.id) ||
+			highlightState.hopNodeIds.has(node.id) ||
+			(isTraceMode && (traceShortestIds.has(node.id) || traceShortestConnectorIds.has(node.id) || traceLongestIds.has(node.id) || traceLongestConnectorIds.has(node.id))) ||
+			(isTraceLogMode && (traceLogIds.has(node.id) || traceLogConnectorIds.has(node.id)));
+		if (shouldRaise) d3.select(this).raise();
+	});
 
 	highlightLinks(highlightState);
 }
@@ -4101,9 +4251,8 @@ function renderGraph(_data) {
 		.scaleExtent([0.1, 6])
 		.on('zoom', (event) => {
 			root.attr('transform', event.transform);
-			root.classed('fg-labels-hidden', event.transform.k < activeLabelZoomThreshold);
-			updateInactiveLabelZoomState(root, event.transform.k);
 			updateTraceStrokeScale(event.transform.k);
+			syncTraceLabelPresentation(event.transform.k);
 			if (zoomSaveTimer) clearTimeout(zoomSaveTimer);
 			zoomSaveTimer = setTimeout(() => {
 				try {
@@ -4135,7 +4284,8 @@ function renderGraph(_data) {
 	}
 
 	const root = svg.append('g').attr('class', 'fg-root');
-	updateInactiveLabelZoomState(root, initialScaleForCompactState(nodeCount));
+	rootGroup = root;
+	syncTraceLabelPresentation(initialScale);
 
 	// ── Arrow markers ─────────────────────────────────────────────────────────
 	const defs = svg.append('defs');
@@ -6268,7 +6418,8 @@ function highlightLinks(highlightState = null) {
 		sel.classed('trace-shortest', isTraceShortest).classed('trace-longest', isTraceLongest).classed('trace-log', isTraceLog);
 
 		if (isTraceShortest || isTraceLongest || isTraceLog) {
-			sel.style('opacity', 1).style('stroke-opacity', 1);
+			sel.style('opacity', null).style('stroke-opacity', null).attr('stroke-opacity', 1);
+			sel.raise();
 			// CSS classes handle the stroke and width
 			return;
 		}
@@ -6287,24 +6438,20 @@ function highlightLinks(highlightState = null) {
 						:	1.5
 					: connectedToRoot ? 1.4
 					: 1.15;
-				const linkStrokeOpacity =
-					hasInactiveEndpoint(d) ?
-						connectedToRoot ? 0.7
-						:	0.58
-					: connectedToRoot ? 1
-					: 0.97;
-				sel
-					.style('opacity', 1)
-					.style('stroke-opacity', null)
-					.attr('stroke', getLinkHighlightColor(d))
-					.attr('stroke-opacity', linkStrokeOpacity)
-					.attr('stroke-width', highlightedStrokeWidth);
+				sel.style('opacity', null).style('stroke-opacity', null).attr('stroke', getLinkHighlightColor(d)).attr('stroke-opacity', 1).attr('stroke-width', highlightedStrokeWidth);
+				sel.raise();
 			} else {
 				sel.style('opacity', 0.3).style('stroke-opacity', null).attr('stroke', getLinkColor(d)).attr('stroke-opacity', 0.24).attr('stroke-width', 0.6);
 			}
 		} else if (isTraceMode || isTraceLogMode) {
-			// Dim links not in trace if either trace mode is on but no normal selection
-			sel.style('opacity', 0.2).style('stroke-opacity', 0.15).attr('stroke-width', 0.5);
+			// Keep non-trace links visible during trace mode, just dimmed by ~20%
+			const baseStrokeOpacity = Number(defaultLinkOpacity) || 1;
+			sel
+				.style('opacity', 0.8)
+				.style('stroke-opacity', null)
+				.attr('stroke', getLinkColor(d))
+				.attr('stroke-opacity', Math.max(0.18, baseStrokeOpacity * 0.8))
+				.attr('stroke-width', getLinkWidth(d));
 		}
 	});
 }
