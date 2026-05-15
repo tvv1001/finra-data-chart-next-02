@@ -380,6 +380,116 @@ function loadSession() {
 let currentProfileName = null;
 let currentProfileEnabled = true;
 let isSessionCleared = false;
+let selectedNodesLog: Array<{ id: string; label: string; secondaryId: string; group: string }> = [];
+
+const LS_LOG_KEY = 'finra_selection_log';
+
+function loadSelectionLog() {
+	try {
+		const raw = localStorage.getItem(LS_LOG_KEY);
+		if (raw) {
+			selectedNodesLog = JSON.parse(raw);
+		}
+	} catch (e) {
+		console.warn('Failed to load selection log from localStorage', e);
+	}
+}
+
+function saveSelectionLog() {
+	try {
+		localStorage.setItem(LS_LOG_KEY, JSON.stringify(selectedNodesLog));
+	} catch (e) {
+		console.warn('Failed to save selection log to localStorage', e);
+	}
+}
+
+function getSecondaryId(d) {
+	if (d.group === 'individual') {
+		const crd = d.crd || d.id.split(':').pop() || '';
+		return crd ? `CRD# ${crd}` : '';
+	}
+	if (d.group === 'firm') {
+		const parts = [];
+		const crd = d.firmId || d.id.split(':').pop();
+		if (crd && /^\d+$/.test(crd)) {
+			parts.push(`CRD# ${crd}`);
+		}
+		const sec = d.bdSecNumber || d.iaSecNumber;
+		if (sec) {
+			parts.push(`SEC# ${sec}`);
+		}
+		return parts.length > 0 ? parts.join(' / ') : '';
+	}
+	return '';
+}
+
+function addToSelectionLog(d) {
+	const secondaryId = getSecondaryId(d);
+	const entry = {
+		id: d.id,
+		label: d.label,
+		secondaryId: secondaryId,
+		group: d.group,
+	};
+
+	// Avoid duplicates by ID or combined label + secondaryId
+	if (selectedNodesLog.some((e) => e.id === entry.id)) return;
+	if (selectedNodesLog.some((e) => e.label === entry.label && e.secondaryId === entry.secondaryId)) return;
+
+	selectedNodesLog.push(entry);
+	saveSelectionLog();
+	updateSelectionLogUI();
+}
+
+function updateSelectionLogUI() {
+	const container = document.getElementById('fg-selection-log-list');
+	if (!container) return;
+
+	container.innerHTML = '';
+	if (selectedNodesLog.length === 0) {
+		container.innerHTML = '<p class="fg-log-empty">No nodes selected yet.</p>';
+		return;
+	}
+
+	selectedNodesLog
+		.slice()
+		.reverse()
+		.forEach((entry) => {
+			const div = document.createElement('div');
+			div.className = `fg-log-entry ${entry.group}`;
+			const text = `${entry.label} :: ${entry.secondaryId}`;
+			div.innerHTML = `
+			<span class="fg-log-text" title="Click to copy">${text}</span>
+			<button class="fg-log-copy-btn" title="Copy to clipboard">
+				<svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path></svg>
+			</button>
+		`;
+			div.querySelector('.fg-log-text')?.addEventListener('click', () => {
+				copyToClipboard(text, div);
+			});
+			div.querySelector('.fg-log-copy-btn')?.addEventListener('click', () => {
+				copyToClipboard(text, div);
+			});
+			container.appendChild(div);
+		});
+}
+
+function copyToClipboard(text, element) {
+	navigator.clipboard.writeText(text).then(() => {
+		const originalBackground = element.style.background;
+		element.style.background = 'rgba(34, 197, 94, 0.2)';
+		setTimeout(() => {
+			element.style.background = originalBackground;
+		}, 500);
+	});
+}
+
+function toggleSelectionLog() {
+	const panel = document.getElementById('fg-selection-log');
+	if (panel) {
+		panel.classList.toggle('hidden');
+	}
+}
 
 function isProfileEnabled(profile) {
 	// `enabled` in data/seed-profiles.json is used as a profile behavior flag,
@@ -1224,7 +1334,32 @@ function drawDisclosureIndicator(g, d, r) {
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 export function init(_d3) {
 	d3 = _d3;
+	loadSelectionLog();
+	updateSelectionLogUI();
 	(document.getElementById('btn-log-close') as HTMLButtonElement | null)?.addEventListener('click', closeLog);
+	(document.getElementById('fg-selection-log-toggle') as HTMLButtonElement | null)?.addEventListener('click', toggleSelectionLog);
+	(document.getElementById('btn-selection-log-close') as HTMLButtonElement | null)?.addEventListener('click', toggleSelectionLog);
+	(document.getElementById('btn-selection-log-copy-all') as HTMLButtonElement | null)?.addEventListener('click', () => {
+		const text = selectedNodesLog
+			.map((entry) => `${entry.label} :: ${entry.secondaryId}`)
+			.reverse()
+			.join('\n');
+		navigator.clipboard.writeText(text).then(() => {
+			const btn = document.getElementById('btn-selection-log-copy-all') as HTMLButtonElement | null;
+			if (btn) {
+				const originalText = btn.textContent;
+				btn.textContent = 'Copied!';
+				setTimeout(() => {
+					btn.textContent = originalText;
+				}, 1000);
+			}
+		});
+	});
+	(document.getElementById('btn-selection-log-clear') as HTMLButtonElement | null)?.addEventListener('click', () => {
+		selectedNodesLog = [];
+		saveSelectionLog();
+		updateSelectionLogUI();
+	});
 
 	const refreshLayoutButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-action="refresh-layout"]'));
 	refreshLayoutButtons.forEach((refreshLayoutBtn) => {
@@ -5303,6 +5438,7 @@ function selectNode(
 	const hops = getDefaultSelectionHops();
 	upsertHighlightedSelection(d.id, hops);
 	selectedId = d.id;
+	addToSelectionLog(d);
 	reapplySelectionState();
 	renderSidebar(d);
 	if (persist) {
