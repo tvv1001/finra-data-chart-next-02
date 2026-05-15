@@ -130,6 +130,7 @@ body {
 	background: rgba(15, 23, 42, 0.9);
 	color: #f8fafc;
 	box-shadow: 0 16px 40px rgba(15, 23, 42, 0.28);
+	-webkit-backdrop-filter: blur(10px);
 	backdrop-filter: blur(10px);
 	font: 12px/1.35 var(--mono);
 	pointer-events: none;
@@ -187,6 +188,7 @@ body {
 	font: 12px/1.4 var(--sans);
 	box-shadow: 0 10px 30px rgba(15, 23, 42, 0.3);
 	border: 1px solid rgba(148, 163, 184, 0.18);
+	-webkit-backdrop-filter: blur(10px);
 	backdrop-filter: blur(10px);
 	pointer-events: none;
 }
@@ -201,6 +203,8 @@ body {
 	flex-direction: column;
 	height: 100svh;
 	overflow: hidden;
+	/* Prevent rubber-band bounce from propagating to the page on iOS */
+	overscroll-behavior: none;
 	--fg-empty-target-center: 50vw;
 	--fg-empty-target-right: 18px;
 	--fg-empty-target-bottom: 72px;
@@ -928,7 +932,8 @@ body {
 /* Shared style for both header inputs */
 .fg-search-input,
 .fg-fetch-input {
-	font: 14px var(--sans);
+	/* 16px prevents iOS Safari auto-zoom on input focus */
+	font: 16px var(--sans);
 	padding: 7px 10px;
 	height: 34px;
 	outline: none;
@@ -970,7 +975,8 @@ body {
 }
 
 .fg-subset-select {
-	font-size: 12px;
+	/* 16px prevents iOS Safari auto-zoom on select focus */
+	font-size: 16px;
 	padding: 4px 8px;
 	border-radius: 6px;
 	border: 1px solid var(--border-strong);
@@ -983,6 +989,15 @@ body {
 }
 
 /* ── Buttons ────────────────────────────────────────────────────────────── */
+/* Suppress iOS gray/blue tap-highlight flash on all interactive elements */
+button,
+[role='button'],
+a,
+.fg-btn,
+.fg-node {
+	-webkit-tap-highlight-color: transparent;
+}
+
 .fg-btn {
 	font: 13px/1 var(--sans);
 	font-weight: 600;
@@ -1140,6 +1155,7 @@ body {
 	pointer-events: none;
 	transition:
 		opacity 0.18s ease,
+		-webkit-backdrop-filter 0.18s ease,
 		backdrop-filter 0.18s ease;
 }
 
@@ -1175,6 +1191,9 @@ body {
 	border-radius: 14px 0 0 14px;
 	overflow-y: auto;
 	overflow-x: hidden;
+	/* Contain overscroll so rubber-band doesn't escape sidebar on iOS */
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
 	scrollbar-width: thin;
 	z-index: 70;
 	box-shadow: -14px 0 34px rgba(15, 23, 42, 0.18);
@@ -1565,6 +1584,8 @@ body {
 .fg-selection-log-list--mobile {
 	max-height: 220px;
 	overflow-y: auto;
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
 	padding-top: 12px;
 }
 
@@ -1846,6 +1867,8 @@ body {
 	min-height: 0;
 	overflow-y: auto;
 	overflow-x: hidden;
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
 	padding-right: 2px;
 	scrollbar-width: thin;
 }
@@ -1877,6 +1900,8 @@ body {
 	min-height: 120px;
 	max-height: none;
 	overflow-y: auto;
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
 	padding-top: 4px;
 	border-top: 1px solid rgba(15, 23, 42, 0.08);
 }
@@ -1952,6 +1977,7 @@ body {
 	padding: 8px var(--fg-sidebar-sticky-pad-x) 6px;
 	background: color-mix(in srgb, var(--surface) 94%, transparent);
 	box-shadow: 0 1px 0 rgba(15, 23, 42, 0.08);
+	-webkit-backdrop-filter: blur(6px);
 	backdrop-filter: blur(6px);
 }
 
@@ -2245,6 +2271,10 @@ body {
 	height: 100%;
 	display: block;
 	touch-action: none;
+	/* Suppress iOS long-press context menu and text selection on graph canvas */
+	-webkit-touch-callout: none;
+	-webkit-user-select: none;
+	user-select: none;
 }
 
 .fg-node .fg-node-shape--circle,
@@ -2483,6 +2513,7 @@ body {
 	gap: 6px;
 	font-size: 12px;
 	pointer-events: none;
+	-webkit-backdrop-filter: blur(4px);
 	backdrop-filter: blur(4px);
 	max-width: min(240px, calc(100vw - 32px));
 	display: none !important;
@@ -2529,6 +2560,8 @@ body {
 	width: min(390px, calc(100vw - 32px));
 	max-height: calc(100svh - var(--fg-empty-target-bottom) - 40px);
 	overflow: auto;
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
 	padding: 18px 18px 18px;
 	border-radius: 18px;
 	background: rgba(15, 23, 42, 0.92);
@@ -2855,6 +2888,8 @@ body {
 .fg-selection-log-list {
 	flex: 1;
 	overflow-y: auto;
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
 	padding: 8px;
 	display: flex;
 	flex-direction: column;
@@ -2966,6 +3001,8 @@ body {
 	flex: 1;
 	overflow-y: auto;
 	overflow-x: auto;
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
 	margin: 0;
 	padding: 10px 14px;
 	font: 12px/1.6 var(--sans);
@@ -3027,7 +3064,8 @@ body {
 	border: 1px solid var(--border, #334155);
 	border-radius: 6px;
 	color: var(--text, #f1f5f9);
-	font-size: 14px;
+	/* 16px prevents iOS Safari auto-zoom on input focus */
+	font-size: 16px;
 	padding: 8px 10px;
 	outline: none;
 	margin-bottom: 16px;
@@ -3048,4 +3086,45 @@ body {
 	font-size: 12.5px;
 	min-height: 18px;
 	color: var(--text-m, #94a3b8);
+}
+
+/* ── iOS: prevent :hover states from getting stuck after tap ─────────────── */
+/* Only apply hover styles when the device actually supports hover (mouse/trackpad) */
+@media (hover: none) {
+	.fg-btn:hover,
+	.fg-btn-primary:hover,
+	.fg-action-btn:hover,
+	.fg-ghost-btn:hover,
+	.fg-danger-btn:hover,
+	.fg-clear-session:hover,
+	.fg-mobile-menu-toggle:hover,
+	.fg-loc-btn:hover:not(:disabled),
+	.fg-home-link:hover,
+	.fg-subset-info-pin:hover,
+	.fg-show-all-btn:hover,
+	.fg-sidebar-action-btn--secondary:hover:not(:disabled),
+	.fg-sidebar-action-btn--primary:hover:not(:disabled),
+	.fg-sidebar-action-btn--pin:hover:not(:disabled),
+	.fg-sidebar-action-btn--pin[data-pinned='true']:hover:not(:disabled),
+	.fg-mobile-legend-tooltip__toggle:hover,
+	.fg-sb-log-toggle:hover,
+	.fg-sb-title-actions .fg-sidebar-mobile-summary-toggle:hover,
+	.fg-sb-title-actions .fg-sb-info-toggle.is-active:hover,
+	.fg-sb-log-toggle.is-active:hover,
+	.fg-adv-btn:hover,
+	.fg-ext-link:hover,
+	.fg-selection-log-floating-toggle:hover,
+	.fg-log-entry:hover,
+	.fg-log-copy-btn:hover,
+	.fg-log-close:hover,
+	.fg-dialog-close:hover,
+	.fg-menu-summary:hover {
+		background: revert;
+		box-shadow: revert;
+		color: revert;
+		border-color: revert;
+		filter: revert;
+		text-decoration: revert;
+		opacity: revert;
+	}
 }
