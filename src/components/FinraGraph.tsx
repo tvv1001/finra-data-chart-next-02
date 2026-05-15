@@ -2,7 +2,74 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-function hideSidebar() {
+const SIDEBAR_PIN_STORAGE_KEY = 'finra_sidebar_pinned';
+
+function ensureSidebarHintContent() {
+	const inner = document.getElementById('fg-sidebar-inner');
+	if (!inner) return;
+	const hasRenderableContent = inner.children.length > 0 || Boolean(inner.textContent?.trim());
+	if (!hasRenderableContent) {
+		inner.innerHTML = `<p class="fg-hint">Click a node to inspect it.</p>`;
+	}
+}
+
+function isSidebarPersistentlyPinned() {
+	const sidebar = document.getElementById('fg-sidebar');
+	if (sidebar?.dataset.persistentPinned === 'true') return true;
+	return document.getElementById('finra-app')?.dataset.sidebarPinned === 'true';
+}
+
+function syncSidebarPinnedState(pinned: boolean, options: { persist?: boolean } = {}) {
+	const { persist = true } = options;
+	const app = document.getElementById('finra-app');
+	const sidebar = document.getElementById('fg-sidebar');
+	const backdrop = document.getElementById('fg-sidebar-backdrop');
+	const pinButton = document.getElementById('fg-mobile-menu-pin-toggle');
+
+	app?.setAttribute('data-sidebar-pinned', pinned ? 'true' : 'false');
+	if (sidebar) {
+		sidebar.dataset.persistentPinned = pinned ? 'true' : 'false';
+		if (pinned) {
+			sidebar.classList.remove('hidden');
+			ensureSidebarHintContent();
+		}
+	}
+	if (backdrop) {
+		backdrop.dataset.persistentPinned = pinned ? 'true' : 'false';
+		if (pinned) {
+			backdrop.classList.remove('hidden');
+		}
+	}
+	if (pinButton) {
+		pinButton.classList.toggle('is-active', pinned);
+		pinButton.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+		pinButton.setAttribute('title', pinned ? 'Unpin menu' : 'Pin menu open');
+		pinButton.setAttribute('aria-label', pinned ? 'Unpin menu' : 'Pin menu open');
+	}
+	if (persist) {
+		try {
+			localStorage.setItem(SIDEBAR_PIN_STORAGE_KEY, pinned ? '1' : '0');
+		} catch {
+			// ignore storage errors
+		}
+	}
+}
+
+function isSidebarTemporarilyPinned() {
+	const sidebar = document.getElementById('fg-sidebar');
+	if (!sidebar || sidebar.classList.contains('hidden')) return false;
+	const isExpanded = sidebar.dataset.mobileExpanded === 'true';
+	const viewMode = sidebar.dataset.viewMode;
+	return isExpanded && (viewMode === 'info' || viewMode === 'log');
+}
+
+function hideSidebar(options: { force?: boolean; clearPersistentPin?: boolean } = {}) {
+	const { force = false, clearPersistentPin = false } = options;
+	if (!force && isSidebarPersistentlyPinned()) return;
+	if (!force && isSidebarTemporarilyPinned()) return;
+	if (clearPersistentPin && isSidebarPersistentlyPinned()) {
+		syncSidebarPinnedState(false);
+	}
 	document.getElementById('fg-sidebar')?.classList.add('hidden');
 	document.getElementById('fg-sidebar-backdrop')?.classList.add('hidden');
 }
@@ -13,11 +80,21 @@ function toggleMobileMenu() {
 	if (!sidebar) return;
 	const isOpen = !sidebar.classList.contains('hidden');
 	if (isOpen) {
-		hideSidebar();
+		hideSidebar({ force: true, clearPersistentPin: true });
 		return;
 	}
 	sidebar.classList.remove('hidden');
 	backdrop?.classList.remove('hidden');
+}
+
+function toggleSidebarPin() {
+	const nextPinned = !isSidebarPersistentlyPinned();
+	syncSidebarPinnedState(nextPinned);
+	if (nextPinned) {
+		document.getElementById('fg-sidebar')?.classList.remove('hidden');
+		document.getElementById('fg-sidebar-backdrop')?.classList.remove('hidden');
+		ensureSidebarHintContent();
+	}
 }
 
 function hideSelectionLog() {
@@ -37,6 +114,17 @@ export default function FinraGraph() {
 		setIsMounted(true);
 	}, []);
 
+	useEffect(() => {
+		if (!isMounted) return;
+		let pinned = false;
+		try {
+			pinned = localStorage.getItem(SIDEBAR_PIN_STORAGE_KEY) === '1';
+		} catch {
+			// ignore storage errors
+		}
+		syncSidebarPinnedState(pinned, { persist: false });
+	}, [isMounted]);
+
 	// If a saved session exists with a selected node or highlights, show the
 	// sidebar on initial load so the UI matches the persisted production view.
 	useEffect(() => {
@@ -53,6 +141,11 @@ export default function FinraGraph() {
 			}
 		} catch (e) {
 			// ignore parse errors
+		}
+		if (isSidebarPersistentlyPinned()) {
+			document.getElementById('fg-sidebar')?.classList.remove('hidden');
+			document.getElementById('fg-sidebar-backdrop')?.classList.remove('hidden');
+			ensureSidebarHintContent();
 		}
 	}, [isMounted]);
 
@@ -77,6 +170,27 @@ export default function FinraGraph() {
 
 		return () => {
 			observer.disconnect();
+		};
+	}, [isMounted]);
+
+	useEffect(() => {
+		if (!isMounted) return;
+		const app = appRef.current;
+		const fetchInput = document.getElementById('fg-fetch-input');
+		if (!app || !fetchInput) return;
+
+		const syncEmptyStateTarget = () => {
+			const rect = fetchInput.getBoundingClientRect();
+			app.style.setProperty('--fg-empty-target-center', `${rect.left + rect.width / 2}px`);
+			app.style.setProperty('--fg-empty-target-right', `${Math.max(16, window.innerWidth - rect.right)}px`);
+			app.style.setProperty('--fg-empty-target-bottom', `${rect.bottom}px`);
+		};
+
+		syncEmptyStateTarget();
+		window.addEventListener('resize', syncEmptyStateTarget);
+
+		return () => {
+			window.removeEventListener('resize', syncEmptyStateTarget);
 		};
 	}, [isMounted]);
 
@@ -128,6 +242,7 @@ export default function FinraGraph() {
 			id='finra-app'
 			ref={appRef}
 			data-sidebar-open='false'
+			data-sidebar-pinned='false'
 			data-graph-empty='false'>
 			<header className='fg-header'>
 				<div className='fg-header-bar'>
@@ -164,9 +279,51 @@ export default function FinraGraph() {
 								type='button'
 								className='fg-mobile-menu-toggle'
 								onClick={toggleMobileMenu}
-								title='Open mobile menu'
-								aria-label='Open mobile menu'>
-								☰
+								title='Toggle menu'
+								aria-label='Toggle menu'>
+								<span
+									className='fg-mobile-menu-toggle__icon'
+									aria-hidden='true'>
+									<span className='fg-mobile-menu-toggle__bar'></span>
+									<span className='fg-mobile-menu-toggle__bar'></span>
+									<span className='fg-mobile-menu-toggle__bar'></span>
+								</span>
+							</button>
+							<button
+								id='fg-mobile-menu-pin-toggle'
+								type='button'
+								className='fg-mobile-menu-pin-toggle'
+								onClick={toggleSidebarPin}
+								title='Pin menu open'
+								aria-label='Pin menu open'
+								aria-pressed='false'>
+								<span
+									className='fg-mobile-menu-pin-toggle__icon'
+									aria-hidden='true'>
+									<svg
+										viewBox='0 0 16 16'
+										fill='none'
+										focusable='false'>
+										<path
+											d='M5.25 2.25h5.5l-.85 3.1 1.9 1.9H4.2l1.9-1.9-.85-3.1Z'
+											stroke='currentColor'
+											strokeWidth='1.3'
+											strokeLinejoin='round'
+										/>
+										<path
+											d='M8 7.25v6.5'
+											stroke='currentColor'
+											strokeWidth='1.3'
+											strokeLinecap='round'
+										/>
+										<path
+											d='M6.45 13.75h3.1'
+											stroke='currentColor'
+											strokeWidth='1.3'
+											strokeLinecap='round'
+										/>
+									</svg>
+								</span>
 							</button>
 
 							<div className='fg-toolbar-group fg-toolbar-actions'>
@@ -215,14 +372,6 @@ export default function FinraGraph() {
 					className='fg-selection-log hidden'>
 					<div className='fg-log-drawer-header'>
 						<h3>Selection Log</h3>
-						<button
-							id='btn-selection-log-pin'
-							data-fg-selection-log-action='pin'
-							className='fg-ghost-btn fg-btn-sm fg-log-drawer-pin'
-							title='Keep log drawer open until unpinned'
-							aria-pressed='false'>
-							Pin
-						</button>
 						<div className='fg-log-drawer-actions'>
 							<button
 								id='btn-selection-log-trace'
@@ -262,7 +411,7 @@ export default function FinraGraph() {
 						<button
 							className='fg-sidebar-action-btn fg-sidebar-action-btn--primary'
 							type='button'
-							onClick={hideSidebar}
+							onClick={() => hideSidebar({ force: true, clearPersistentPin: true })}
 							title='Close details panel'
 							aria-label='Close details panel'>
 							<span className='fg-sidebar-action-label'>Close</span>
@@ -364,7 +513,7 @@ export default function FinraGraph() {
 					<div
 						id='fg-sidebar-inner'
 						className='fg-sidebar-inner'>
-						<p className='fg-hint'>Click a node to inspect it.</p>
+						{/* <p className='fg-hint'>Click a node to inspect it.</p> */}
 					</div>
 				</aside>
 
@@ -378,7 +527,19 @@ export default function FinraGraph() {
 					<div
 						id='fg-empty'
 						className='fg-empty hidden'>
-						<p>Search for a firm, person, CRD, or SEC# to begin.</p>
+						<div className='fg-empty-card'>
+							<div
+								className='fg-empty-card__arrow'
+								aria-hidden='true'>
+								<span className='fg-empty-card__arrow-line'></span>
+								<span className='fg-empty-card__arrow-head'></span>
+							</div>
+							<p className='fg-empty-eyebrow'>First time here?</p>
+							<h2 className='fg-empty-title'>Start with the search field above.</h2>
+							<ul className='fg-empty-steps'>
+								<li>Selecting a firm will only show it's employees, while selecting a person will show all their associated firms and connections.</li>
+							</ul>
+						</div>
 					</div>
 				</main>
 			</div>

@@ -1,8 +1,8 @@
 # FINRA Network Graph
 
-Interactive FINRA / SEC relationship graph built with **Next.js 15**, **React 19**, and **D3 v7**.
+An interactive FINRA / SEC relationship explorer built with **Next.js 15**, **React 19**, and **D3 v7**.
 
-The app visualizes people, firms, and control relationships using cached FINRA BrokerCheck and SEC AdviserInfo data, then lets you expand the network, inspect merged detail records, and persist a working graph session across reloads.
+The app turns FINRA BrokerCheck and SEC AdviserInfo records into a navigable network of people, firms, and control relationships. You can search, expand the graph incrementally, inspect merged detail records, and keep your working session across reloads.
 
 Live demo: https://finra-data-chart-next-02.vercel.app
 
@@ -11,10 +11,10 @@ Live demo: https://finra-data-chart-next-02.vercel.app
 ## At a glance
 
 - Explore relationships between brokers, advisers, firms, and control entities
-- Merge FINRA BrokerCheck and SEC AdviserInfo detail into one interactive view
-- Grow the graph incrementally from searches, fetched records, and saved profiles
-- Inspect rich sidebar details with sticky timeline/disclosure sections
-- Run locally from cached JSON artifacts or deploy with bundled graph + primed cache data
+- View FINRA BrokerCheck and SEC AdviserInfo detail in one place
+- Expand the graph incrementally from searches, fetched records, and saved profiles
+- Inspect rich sidebar detail with timelines, disclosures, and ownership context
+- Run locally from cached artifacts or deploy with bundled graph and primed cache data
 
 ---
 
@@ -23,7 +23,7 @@ Live demo: https://finra-data-chart-next-02.vercel.app
 ![FINRA Network Graph screenshot](public/graph-screenshot.png)
 
 - **Live app:** https://finra-data-chart-next-02.vercel.app
-- **Best first click:** search a CRD, person name, or firm ID, then open a node and scroll the sidebar detail sections
+- **Best first click:** search a person, firm, or CRD, then open a node and explore the sidebar detail sections
 
 ---
 
@@ -38,44 +38,37 @@ This project turns those record-by-record views into a navigable network so you 
 - compare FINRA and SEC detail in one place
 - preserve a working graph session while investigating a specific part of the network
 
-It is especially useful when you want to move from “look up one profile” to “understand the surrounding ecosystem.”
+It is especially useful when you want to move from “look up one record” to “understand the surrounding ecosystem.”
 
 ---
 
 ## What the app does
 
-- Renders a force-directed graph of:
-  - **Individuals**
-  - **Firms**
-  - **Non-CRD entities** (for Form BD ownership relationships)
-- Combines data from:
-  - **FINRA BrokerCheck**
-  - **SEC AdviserInfo / IAPD**
-- Opens a detail sidebar with:
-  - merged person / firm detail
-  - employment and registration history
-  - disclosures
-  - ownership / control positions
-  - sticky section titles while scrolling through the detail panel
-- Supports incremental graph growth by fetching and appending new nodes into the live layout
-- Persists graph session state in the browser so selections, highlights, and extra fetched nodes survive reloads
+- Maps relationships between **individuals**, **firms**, and **non-CRD entities** in a force-directed graph
+- Blends **FINRA BrokerCheck** and **SEC AdviserInfo / IAPD** data into a single interactive view
+- Lets you open a detail sidebar for merged records, employment history, registrations, disclosures, and control relationships
+- Grows the graph incrementally as you search, fetch, and expand records
+- Saves your working session in the browser so selections, highlights, added nodes, and layout state survive reloads
 
 ---
 
 ## Current UI highlights
 
-The current app shell includes:
+The current interface is built around a mobile-first floating menu and detail sidebar:
 
-- **Fetch Nodes** search box for name, CRD, or firm ID lookup
-- **Reflow Layout** to restart the force layout
-- **Clear Highlight** to remove current graph highlighting
-- **Reset Session** to clear the persisted graph/session state
+- **Fetch Nodes** search for people, firms, CRDs, and IDs
+- A first-visit onboarding overlay that highlights the search field when the graph is empty
+- A short-lived mobile status message below the search input after successful fetches
+- Quick graph actions for **Reflow Layout**, **Clear Highlight**, and **Reset Session**
+- An animated hamburger menu with a persistent pin control beside it
 - A detail sidebar with:
-  - **Center** action to focus the currently displayed node
-  - **Close** action
-  - sticky section headers from **Employment** onward
+  - **Center** and **Close** actions
+  - mobile **Info** and **Log** toggles for the selected node
+  - a mobile **Legend** tooltip that can expand outside the menu container
+  - sticky section headers for long detail views
 - Automatic sidebar restore when a saved session includes a selected node
-- Background click / `Escape` close behavior for the sidebar
+- A neutral hint state when the graph is empty, so stale person or firm detail is never left on screen
+- Background click and `Escape` support for dismissing the sidebar when it is not pinned
 
 ---
 
@@ -234,6 +227,10 @@ Person and firm detail rendering currently supports:
 - sorted dated cards with current/newest items first where applicable
 - sticky main section titles in the scrolling detail panel
 - disclosures with richer field extraction and presentation
+- mobile-first sidebar interactions including:
+  - temporary pinning while expanded **Info** / **Log** panels are open
+  - persistent menu pinning from the header control
+  - empty/hint fallback content when no node detail should be shown
 
 For individuals, the sidebar can include:
 
