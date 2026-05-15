@@ -84,9 +84,7 @@ export default function FinraGraph() {
 		if (!isMounted) return;
 		const handleDocumentClickCapture = (event: MouseEvent) => {
 			const sidebar = document.getElementById('fg-sidebar');
-			const logPanel = document.getElementById('fg-selection-log');
 			const target = event.target as Node | null;
-			const targetElement = target instanceof Element ? target : null;
 			const mobileMenuToggle = document.getElementById('fg-mobile-menu-toggle');
 
 			if (sidebar && !sidebar.classList.contains('hidden')) {
@@ -94,20 +92,11 @@ export default function FinraGraph() {
 					hideSidebar();
 				}
 			}
-
-			if (logPanel && !logPanel.classList.contains('hidden')) {
-				const toggleBtn = document.getElementById('fg-selection-log-toggle');
-				const clickedHeaderBar = Boolean(targetElement?.closest('.fg-header'));
-				if (target && !clickedHeaderBar && !logPanel.contains(target) && (!toggleBtn || !toggleBtn.contains(target))) {
-					hideSelectionLog();
-				}
-			}
 		};
 
 		const handleEscapeKey = (event: KeyboardEvent) => {
 			if (event.key !== 'Escape') return;
 			hideSidebar();
-			hideSelectionLog();
 		};
 
 		document.addEventListener('click', handleDocumentClickCapture, true);
@@ -359,70 +348,24 @@ export default function FinraGraph() {
 							title='Clear saved session and reload fresh'>
 							Reset Session
 						</button>
+						<details className='fg-mobile-legend-tooltip'>
+							<summary
+								className='fg-mobile-legend-tooltip__toggle'
+								title='Show legend'>
+								Legend
+							</summary>
+							<div className='fg-mobile-legend-tooltip__panel'>
+								<div
+									id='fg-mobile-legend'
+									className='fg-mobile-legend'></div>
+							</div>
+						</details>
 					</div>
 					<div
 						id='fg-sidebar-inner'
 						className='fg-sidebar-inner'>
 						<p className='fg-hint'>Click a node to inspect it.</p>
 					</div>
-					<details
-						id='fg-mobile-log-section'
-						className='fg-mobile-menu-section fg-mobile-log-section'>
-						<summary className='fg-mobile-menu-section-summary'>Selection Log</summary>
-						<div className='fg-mobile-menu-section-body'>
-							<div className='fg-mobile-log-actions'>
-								<button
-									id='fg-mobile-log-trace-mode'
-									type='button'
-									className='fg-ghost-btn fg-btn-sm'
-									title='Toggle path tracing mode'>
-									Trace Mode
-								</button>
-								<button
-									type='button'
-									data-fg-selection-log-action='pin'
-									className='fg-ghost-btn fg-btn-sm'
-									title='Keep log drawer open until unpinned'
-									aria-pressed='false'>
-									Pin
-								</button>
-								<button
-									type='button'
-									data-fg-selection-log-action='trace'
-									className='fg-ghost-btn fg-btn-sm'
-									title='Trace path between all logged nodes'>
-									Trace with Log
-								</button>
-								<button
-									type='button'
-									data-fg-selection-log-action='copy-all'
-									className='fg-ghost-btn fg-btn-sm'
-									title='Copy all entries'>
-									Copy All
-								</button>
-								<button
-									type='button'
-									data-fg-selection-log-action='clear'
-									className='fg-ghost-btn fg-btn-sm'
-									title='Clear log'>
-									Clear
-								</button>
-							</div>
-							<div
-								id='fg-mobile-selection-log-list'
-								className='fg-selection-log-list fg-selection-log-list--mobile'>
-								<p className='fg-log-empty'>No nodes selected yet.</p>
-							</div>
-						</div>
-					</details>
-					<details className='fg-mobile-menu-section fg-mobile-legend-section'>
-						<summary className='fg-mobile-menu-section-summary'>Legend</summary>
-						<div className='fg-mobile-menu-section-body'>
-							<div
-								id='fg-mobile-legend'
-								className='fg-mobile-legend'></div>
-						</div>
-					</details>
 				</aside>
 
 				<main
@@ -432,19 +375,6 @@ export default function FinraGraph() {
 					<div
 						id='fg-legend'
 						className='fg-legend'></div>
-					<button
-						id='fg-selection-log-toggle'
-						className='fg-selection-log-floating-toggle'
-						title='View selected nodes log'>
-						<svg
-							viewBox='0 0 16 16'
-							fill='currentColor'
-							width='16'
-							height='16'>
-							<path d='M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v12.5A1.75 1.75 0 0 1 14.25 16H1.75A1.75 1.75 0 0 1 0 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25V1.75a.25.25 0 0 0-.25-.25Zm2.5 8.5a.75.75 0 0 1 .75-.75h7a.75.75 0 0 1 0 1.5h-7a.75.75 0 0 1-.75-.75Zm0-3.5a.75.75 0 0 1 .75-.75h7a.75.75 0 0 1 0 1.5h-7a.75.75 0 0 1-.75-.75Zm0-3.5a.75.75 0 0 1 .75-.75h7a.75.75 0 0 1 0 1.5h-7a.75.75 0 0 1-.75-.75Z'></path>
-						</svg>
-						<span>Log</span>
-					</button>
 					<div
 						id='fg-empty'
 						className='fg-empty hidden'>
