@@ -99,24 +99,6 @@ function syncProfileSelection(payload) {
 	}).catch((err) => console.error('Failed to sync profile selection to server:', err));
 }
 
-function trackUmamiEvent(eventName: string, eventData: Record<string, string | number | boolean | null | undefined> = {}) {
-	if (typeof window === 'undefined') return;
-	const tracker = (
-		window as Window & {
-			umami?: {
-				track?: (name: string, data?: Record<string, unknown>) => void;
-			};
-		}
-	).umami;
-	if (typeof tracker?.track !== 'function') return;
-
-	try {
-		tracker.track(eventName, eventData);
-	} catch {
-		// ignore analytics transport/runtime failures
-	}
-}
-
 let d3;
 
 // ── State ──────────────────────────────────────────────────────────────────
@@ -443,40 +425,27 @@ function getSelectionLogPanel() {
 	return document.getElementById('fg-selection-log');
 }
 
-function getSelectionLogPinButton() {
-	return document.getElementById('btn-selection-log-pin') as HTMLButtonElement | null;
+function getSelectionLogActionButtons(action: 'pin' | 'trace' | 'copy-all' | 'clear') {
+	return Array.from(document.querySelectorAll<HTMLButtonElement>(`[data-fg-selection-log-action="${action}"]`));
 }
 
 function isSelectionLogPinned() {
 	return getSelectionLogPanel()?.dataset.pinned === 'true';
 }
 
-function isSelectionLogTraceLocked() {
-	return isAnyTraceModeActive();
-}
-
 function updateSelectionLogChrome() {
 	const panel = getSelectionLogPanel();
-	const pinBtn = getSelectionLogPinButton();
 	if (!panel) return;
 
 	const pinned = panel.dataset.pinned === 'true';
-	const traceLocked = isSelectionLogTraceLocked();
-	panel.dataset.traceLocked = traceLocked ? 'true' : 'false';
 	panel.dataset.pinned = pinned ? 'true' : 'false';
 
-	if (pinBtn) {
+	getSelectionLogActionButtons('pin').forEach((pinBtn) => {
 		pinBtn.classList.toggle('is-pinned', pinned);
 		pinBtn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
 		pinBtn.textContent = pinned ? 'Unpin' : 'Pin';
 		pinBtn.title = pinned ? 'Allow the log drawer to auto-close again' : 'Keep the log drawer open until unpinned';
-	}
-
-	const closeBtn = document.getElementById('btn-selection-log-close') as HTMLButtonElement | null;
-	if (closeBtn) {
-		closeBtn.disabled = traceLocked;
-		closeBtn.title = traceLocked ? 'Disable trace mode to close the log drawer' : 'Close selection log';
-	}
+	});
 }
 
 function setSelectionLogPinned(pinned: boolean, options: { persist?: boolean } = {}) {
@@ -507,6 +476,14 @@ function loadSelectionLogPinState() {
 }
 
 function openSelectionLog() {
+	if (isMobileSidebarViewport()) {
+		document.getElementById('fg-sidebar')?.classList.remove('hidden');
+		document.getElementById('fg-sidebar-backdrop')?.classList.remove('hidden');
+		const mobileLogSection = document.getElementById('fg-mobile-log-section') as HTMLDetailsElement | null;
+		if (mobileLogSection) mobileLogSection.open = true;
+		updateSelectionLogChrome();
+		return;
+	}
 	const panel = getSelectionLogPanel();
 	if (!panel) return;
 	panel.classList.remove('hidden');
@@ -515,9 +492,19 @@ function openSelectionLog() {
 
 function closeSelectionLog(options: { force?: boolean } = {}) {
 	const { force = false } = options;
+	if (isMobileSidebarViewport()) {
+		if (!force && isSelectionLogPinned()) {
+			updateSelectionLogChrome();
+			return false;
+		}
+		const mobileLogSection = document.getElementById('fg-mobile-log-section') as HTMLDetailsElement | null;
+		if (mobileLogSection) mobileLogSection.open = false;
+		updateSelectionLogChrome();
+		return true;
+	}
 	const panel = getSelectionLogPanel();
 	if (!panel) return false;
-	if (!force && (isSelectionLogPinned() || isSelectionLogTraceLocked())) {
+	if (!force && isSelectionLogPinned()) {
 		updateSelectionLogChrome();
 		return false;
 	}
@@ -675,16 +662,11 @@ function buildTraceRoute(startId: string, endId: string, adj: Map<string, Array<
 
 function toggleTraceMode() {
 	isTraceMode = !isTraceMode;
-	trackUmamiEvent('trace_mode_clicked', {
-		enabled: isTraceMode,
-		log_trace_enabled: isTraceLogMode,
-		selected_log_count: selectedNodesLog.length,
-	});
-	const btn = document.getElementById('fg-trace-mode');
-	if (btn) {
+	const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('#fg-trace-mode, #fg-mobile-log-trace-mode'));
+	buttons.forEach((btn) => {
 		btn.classList.toggle('trace-active', isTraceMode);
 		btn.textContent = isTraceMode ? 'Tracing On' : 'Trace Mode';
-	}
+	});
 	if (isTraceMode) {
 		calculateTrace();
 	} else {
@@ -708,17 +690,15 @@ function disableAllTraceModes() {
 	traceLongestConnectorIds.clear();
 	traceLogConnectorIds.clear();
 
-	const traceModeBtn = document.getElementById('fg-trace-mode') as HTMLButtonElement | null;
-	if (traceModeBtn) {
+	Array.from(document.querySelectorAll<HTMLButtonElement>('#fg-trace-mode, #fg-mobile-log-trace-mode')).forEach((traceModeBtn) => {
 		traceModeBtn.classList.remove('trace-active');
 		traceModeBtn.textContent = 'Trace Mode';
-	}
+	});
 
-	const traceLogBtn = document.getElementById('btn-selection-log-trace') as HTMLButtonElement | null;
-	if (traceLogBtn) {
+	getSelectionLogActionButtons('trace').forEach((traceLogBtn) => {
 		traceLogBtn.classList.remove('trace-log-active');
 		traceLogBtn.textContent = 'Trace with Log';
-	}
+	});
 
 	syncTraceLabelPresentation();
 	updateSelectionLogChrome();
@@ -726,11 +706,10 @@ function disableAllTraceModes() {
 
 function toggleTraceLogMode() {
 	isTraceLogMode = !isTraceLogMode;
-	const btn = document.getElementById('btn-selection-log-trace') as HTMLButtonElement | null;
-	if (btn) {
+	getSelectionLogActionButtons('trace').forEach((btn) => {
 		btn.classList.toggle('trace-log-active', isTraceLogMode);
 		btn.textContent = isTraceLogMode ? 'Log Trace On' : 'Trace with Log';
-	}
+	});
 	if (isTraceLogMode) {
 		calculateTrace();
 		openSelectionLog();
@@ -801,36 +780,38 @@ function addToSelectionLog(d) {
 }
 
 function updateSelectionLogUI() {
-	const container = document.getElementById('fg-selection-log-list');
-	if (!container) return;
+	const containers = Array.from(document.querySelectorAll<HTMLElement>('#fg-selection-log-list, #fg-mobile-selection-log-list'));
+	if (!containers.length) return;
 
-	container.innerHTML = '';
-	if (selectedNodesLog.length === 0) {
-		container.innerHTML = '<p class="fg-log-empty">No nodes selected yet.</p>';
-		return;
-	}
+	containers.forEach((container) => {
+		container.innerHTML = '';
+		if (selectedNodesLog.length === 0) {
+			container.innerHTML = '<p class="fg-log-empty">No nodes selected yet.</p>';
+			return;
+		}
 
-	selectedNodesLog
-		.slice()
-		.reverse()
-		.forEach((entry) => {
-			const div = document.createElement('div');
-			div.className = `fg-log-entry ${entry.group}`;
-			const text = `${entry.label} :: ${entry.secondaryId}`;
-			div.innerHTML = `
+		selectedNodesLog
+			.slice()
+			.reverse()
+			.forEach((entry) => {
+				const div = document.createElement('div');
+				div.className = `fg-log-entry ${entry.group}`;
+				const text = `${entry.label} :: ${entry.secondaryId}`;
+				div.innerHTML = `
 			<span class="fg-log-text" title="Click to copy">${text}</span>
 			<button class="fg-log-copy-btn" title="Copy to clipboard">
 				<svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path></svg>
 			</button>
 		`;
-			div.querySelector('.fg-log-text')?.addEventListener('click', () => {
-				copyToClipboard(text, div);
+				div.querySelector('.fg-log-text')?.addEventListener('click', () => {
+					copyToClipboard(text, div);
+				});
+				div.querySelector('.fg-log-copy-btn')?.addEventListener('click', () => {
+					copyToClipboard(text, div);
+				});
+				container.appendChild(div);
 			});
-			div.querySelector('.fg-log-copy-btn')?.addEventListener('click', () => {
-				copyToClipboard(text, div);
-			});
-			container.appendChild(div);
-		});
+	});
 }
 
 function copyToClipboard(text, element) {
@@ -844,6 +825,15 @@ function copyToClipboard(text, element) {
 }
 
 function toggleSelectionLog() {
+	if (isMobileSidebarViewport()) {
+		const mobileLogSection = document.getElementById('fg-mobile-log-section') as HTMLDetailsElement | null;
+		if (!mobileLogSection || !mobileLogSection.open || document.getElementById('fg-sidebar')?.classList.contains('hidden')) {
+			openSelectionLog();
+		} else {
+			closeSelectionLog();
+		}
+		return;
+	}
 	const panel = getSelectionLogPanel();
 	if (!panel) return;
 	if (panel.classList.contains('hidden')) openSelectionLog();
@@ -1699,36 +1689,40 @@ export function init(_d3) {
 	updateSelectionLogChrome();
 	(document.getElementById('btn-log-close') as HTMLButtonElement | null)?.addEventListener('click', closeLog);
 	(document.getElementById('fg-selection-log-toggle') as HTMLButtonElement | null)?.addEventListener('click', toggleSelectionLog);
-	(document.getElementById('btn-selection-log-close') as HTMLButtonElement | null)?.addEventListener('click', () => {
-		closeSelectionLog();
-	});
-	(document.getElementById('btn-selection-log-pin') as HTMLButtonElement | null)?.addEventListener('click', () => {
-		setSelectionLogPinned(!isSelectionLogPinned());
-	});
-	(document.getElementById('fg-trace-mode') as HTMLButtonElement | null)?.addEventListener('click', toggleTraceMode);
-	(document.getElementById('btn-selection-log-trace') as HTMLButtonElement | null)?.addEventListener('click', () => {
-		toggleTraceLogMode();
-	});
-	(document.getElementById('btn-selection-log-copy-all') as HTMLButtonElement | null)?.addEventListener('click', () => {
-		const text = selectedNodesLog
-			.map((entry) => `${entry.label} :: ${entry.secondaryId}`)
-			.reverse()
-			.join('\n');
-		navigator.clipboard.writeText(text).then(() => {
-			const btn = document.getElementById('btn-selection-log-copy-all') as HTMLButtonElement | null;
-			if (btn) {
-				const originalText = btn.textContent;
-				btn.textContent = 'Copied!';
-				setTimeout(() => {
-					btn.textContent = originalText;
-				}, 1000);
-			}
+	getSelectionLogActionButtons('pin').forEach((button) => {
+		button.addEventListener('click', () => {
+			setSelectionLogPinned(!isSelectionLogPinned());
 		});
 	});
-	(document.getElementById('btn-selection-log-clear') as HTMLButtonElement | null)?.addEventListener('click', () => {
-		selectedNodesLog = [];
-		saveSelectionLog();
-		updateSelectionLogUI();
+	Array.from(document.querySelectorAll<HTMLButtonElement>('#fg-trace-mode, #fg-mobile-log-trace-mode')).forEach((button) => {
+		button.addEventListener('click', toggleTraceMode);
+	});
+	getSelectionLogActionButtons('trace').forEach((button) => {
+		button.addEventListener('click', () => {
+			toggleTraceLogMode();
+		});
+	});
+	getSelectionLogActionButtons('copy-all').forEach((button) => {
+		button.addEventListener('click', () => {
+			const text = selectedNodesLog
+				.map((entry) => `${entry.label} :: ${entry.secondaryId}`)
+				.reverse()
+				.join('\n');
+			navigator.clipboard.writeText(text).then(() => {
+				const originalText = button.textContent;
+				button.textContent = 'Copied!';
+				setTimeout(() => {
+					button.textContent = originalText;
+				}, 1000);
+			});
+		});
+	});
+	getSelectionLogActionButtons('clear').forEach((button) => {
+		button.addEventListener('click', () => {
+			selectedNodesLog = [];
+			saveSelectionLog();
+			updateSelectionLogUI();
+		});
 	});
 
 	const refreshLayoutButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-action="refresh-layout"]'));
@@ -1792,12 +1786,6 @@ export function init(_d3) {
 	const clearHighlightsButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-action="clear-highlights"]'));
 	clearHighlightsButtons.forEach((clearHighlightsBtn) => {
 		clearHighlightsBtn.addEventListener('click', () => {
-			trackUmamiEvent('clear_highlight_clicked', {
-				trace_mode_enabled: isTraceMode,
-				log_trace_enabled: isTraceLogMode,
-				highlighted_selection_count: highlightedSelections.length,
-				selected_log_count: selectedNodesLog.length,
-			});
 			clearHighlights();
 		});
 	});
@@ -1927,10 +1915,6 @@ export function init(_d3) {
 		const runRemoteFetch = async () => {
 			const q = String(fetchInput.value || '').trim();
 			if (!q) return;
-			trackUmamiEvent('fetch_nodes_clicked', {
-				query_length: q.length,
-				query_type: /^\d+$/.test(q) ? 'id' : 'text',
-			});
 			fetchBtn.disabled = true;
 			const origText = fetchBtn.textContent;
 			fetchBtn.textContent = 'Fetching…';
@@ -6741,17 +6725,52 @@ function scheduleFirstFetchFocusIfAvailable(
 	scheduleFocusNodesInMainArea(nodeIds, options);
 }
 
+function isMobileSidebarViewport() {
+	return typeof window !== 'undefined' && window.matchMedia('(max-width: 860px)').matches;
+}
+
+function syncMobileSidebarExpandedState(expanded: boolean) {
+	const side = document.getElementById('fg-sidebar');
+	if (!side) return;
+	side.dataset.mobileExpanded = expanded ? 'true' : 'false';
+	const toggleBtn = side.querySelector('.fg-sidebar-mobile-summary-toggle') as HTMLButtonElement | null;
+	if (toggleBtn) {
+		toggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+		toggleBtn.title = expanded ? 'Collapse details' : 'Expand details';
+	}
+}
+
+function renderMobileSidebarToggle() {
+	return `
+		<button class="fg-sidebar-mobile-summary-toggle" type="button" aria-expanded="false" title="Expand details">
+			<span class="fg-sidebar-mobile-summary-toggle__label fg-sidebar-mobile-summary-toggle__label--collapsed">Show details</span>
+			<span class="fg-sidebar-mobile-summary-toggle__label fg-sidebar-mobile-summary-toggle__label--expanded">Hide details</span>
+		</button>
+	`;
+}
+
 function renderSidebar(d) {
 	const el = document.getElementById('fg-sidebar-inner');
+	const side = document.getElementById('fg-sidebar');
+	const previousDisplayedId = side?.dataset.displayedId || '';
+	const preserveExpandedState =
+		Boolean(side) && !side.classList.contains('hidden') && isMobileSidebarViewport() && previousDisplayedId === (d?.id || '') && side.dataset.mobileExpanded === 'true';
 	el.innerHTML =
 		d.group === 'firm' ? renderFirmDetail(d)
 		: d.group === 'entity' ? renderEntityDetail(d)
 		: renderPersonDetail(d);
 	// show sidebar and update header short detail when rendering
-	const side = document.getElementById('fg-sidebar');
 	if (side) side.classList.remove('hidden');
 	document.getElementById('fg-sidebar-backdrop')?.classList.remove('hidden');
 	if (side) side.dataset.displayedId = d?.id || '';
+	syncMobileSidebarExpandedState(!isMobileSidebarViewport() || preserveExpandedState);
+	const mobileToggle = el.querySelector('.fg-sidebar-mobile-summary-toggle') as HTMLButtonElement | null;
+	if (mobileToggle) {
+		mobileToggle.addEventListener('click', (event) => {
+			event.stopPropagation();
+			syncMobileSidebarExpandedState(side?.dataset.mobileExpanded !== 'true');
+		});
+	}
 	const focusBtn = document.getElementById('fg-focus-btn') as HTMLButtonElement | null;
 	if (focusBtn) focusBtn.disabled = false;
 	try {
@@ -7211,16 +7230,19 @@ function renderPersonDetail(d) {
 	const secSummaryUrl = bi.individualId && hasSecPage ? `https://adviserinfo.sec.gov/Individual/${encodeURIComponent(bi.individualId)}` : null;
 	const bcRawUrl = bi.individualId ? `https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}`.trim() : null;
 	const secRawUrl = bi.individualId ? `https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}`.trim() : null;
+	const personSummaryLine = crd ? `CRD#: ${esc(String(crd))}` : '';
 
 	return `
     <div class="fg-sb-header individual">
 	<div class="fg-sb-title">${esc(getPreferredNodeLabel(d) || [bi.firstName, bi.middleName, bi.lastName].filter(Boolean).join(' '))}</div>
+		${personSummaryLine ? `<div class="fg-sb-crd">${personSummaryLine}</div>` : ''}
       <div class="fg-sb-badges">
         ${scopeBadgesHtml}
         ${stubBadge}
         ${disclosureCount ? `<span class="fg-badge inactive">${disclosureCount} disclosure${disclosureCount !== 1 ? 's' : ''}</span>` : ''}
       </div>
     </div>
+	${renderMobileSidebarToggle()}
     <div class="fg-sb-body fg-sb-body--person">
       <div class="fg-ext-links">
         ${brokerCheckSummaryUrl ? `<a class="fg-ext-link bc" href="${brokerCheckSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
@@ -7560,6 +7582,7 @@ function renderFirmDetail(d) {
         ${scopeBadge}
       </div>
     </div>
+	${renderMobileSidebarToggle()}
     <div class="fg-sb-body">
       <div class="fg-ext-links">
         ${showBrokerCheckSummary ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/firm/summary/${encodeURIComponent(firmId)}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
@@ -7684,6 +7707,7 @@ function renderEntityDetail(d) {
         ${d.bcScope ? `<span class="fg-badge">${esc(d.bcScope)}</span>` : ''}
       </div>
     </div>
+	${renderMobileSidebarToggle()}
     <div class="fg-sb-body">
       <p style="font-size:13px;color:var(--text-m);margin-top:8px">
         Non-individual owner listed on Form BD (no CRD number).
@@ -7724,8 +7748,7 @@ function renderLegend() {
 		{ color: GRAPH_COLORS.lineDisclosure, shape: 'ring', label: 'Has disclosures' },
 	];
 
-	const legend = document.getElementById('fg-legend');
-	legend.innerHTML = items
+	const legendMarkup = items
 		.map(({ color, shape, label, opacity = 1 }) => {
 			let svg;
 			if (shape === 'circle' || shape === 'circle-s') {
@@ -7746,6 +7769,10 @@ function renderLegend() {
 			return `<div class="fg-legend-item">${svg}<span>${label}</span></div>`;
 		})
 		.join('');
+
+	Array.from(document.querySelectorAll<HTMLElement>('#fg-legend, #fg-mobile-legend')).forEach((legend) => {
+		legend.innerHTML = legendMarkup;
+	});
 }
 
 // ── Resize ────────────────────────────────────────────────────────────────────

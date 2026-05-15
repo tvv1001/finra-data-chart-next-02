@@ -4401,6 +4401,32 @@
         "employed": 0
       },
       "_vizHalf": 6
+    },
+    {
+      "id": "firm:106766",
+      "label": "ONEDIGITAL",
+      "group": "firm",
+      "firmId": "106766",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 14.79
+    },
+    {
+      "id": "firm:149777",
+      "label": "MORGAN STANLEY",
+      "group": "firm",
+      "firmId": "149777",
+      "bdSecNumber": "68191",
+      "iaSecNumber": "70103",
+      "_deg": {
+        "total": 1,
+        "controls": 0,
+        "employed": 1
+      },
+      "_vizHalf": 14.79
     }
   ],
   "links": [
@@ -5121,36 +5147,50 @@
     },
     {
       "source": "person:4945805",
-      "target": "firm:79"
+      "target": "firm:79",
+      "relationship": "employed_by"
     },
     {
       "source": "person:5129598",
-      "target": "firm:79"
+      "target": "firm:79",
+      "relationship": "employed_by"
     },
     {
       "source": "person:6342072",
-      "target": "firm:43036"
+      "target": "firm:43036",
+      "relationship": "employed_by"
     },
     {
       "source": "person:6342072",
-      "target": "firm:3487"
+      "target": "firm:3487",
+      "relationship": "employed_by"
     },
     {
       "source": "person:5681082",
-      "target": "firm:35865"
+      "target": "firm:35865",
+      "relationship": "employed_by"
     },
     {
       "source": "person:5681082",
-      "target": "firm:35874"
+      "target": "firm:35874",
+      "relationship": "employed_by"
+    },
+    {
+      "source": "person:5722298",
+      "target": "firm:106766"
+    },
+    {
+      "source": "person:7948554",
+      "target": "firm:149777"
     }
   ],
   "meta": {
-    "generated": "2026-05-15T07:56:41.338Z",
+    "generated": "2026-05-15T14:41:27.165Z",
     "sourceLabel": "(session reset)",
     "totalIndividuals": 182,
-    "totalFirms": 115,
+    "totalFirms": 117,
     "totalEntities": 0,
-    "totalNodes": 297,
-    "totalLinks": 149
+    "totalNodes": 299,
+    "totalLinks": 151
   }
 }
