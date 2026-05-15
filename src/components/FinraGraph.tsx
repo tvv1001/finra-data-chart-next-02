@@ -7,12 +7,24 @@ function hideSidebar() {
 	document.getElementById('fg-sidebar-backdrop')?.classList.add('hidden');
 }
 
+function toggleMobileMenu() {
+	const sidebar = document.getElementById('fg-sidebar');
+	const backdrop = document.getElementById('fg-sidebar-backdrop');
+	if (!sidebar) return;
+	const isOpen = !sidebar.classList.contains('hidden');
+	if (isOpen) {
+		hideSidebar();
+		return;
+	}
+	sidebar.classList.remove('hidden');
+	backdrop?.classList.remove('hidden');
+}
+
 function hideSelectionLog() {
 	const panel = document.getElementById('fg-selection-log');
 	if (!panel) return;
 	const isPinned = panel.dataset.pinned === 'true';
-	const isTraceLocked = panel.dataset.traceLocked === 'true';
-	if (isPinned || isTraceLocked) return;
+	if (isPinned) return;
 	panel.classList.add('hidden');
 }
 
@@ -74,16 +86,19 @@ export default function FinraGraph() {
 			const sidebar = document.getElementById('fg-sidebar');
 			const logPanel = document.getElementById('fg-selection-log');
 			const target = event.target as Node | null;
+			const targetElement = target instanceof Element ? target : null;
+			const mobileMenuToggle = document.getElementById('fg-mobile-menu-toggle');
 
 			if (sidebar && !sidebar.classList.contains('hidden')) {
-				if (target && !sidebar.contains(target)) {
+				if (target && !sidebar.contains(target) && (!mobileMenuToggle || !mobileMenuToggle.contains(target))) {
 					hideSidebar();
 				}
 			}
 
 			if (logPanel && !logPanel.classList.contains('hidden')) {
 				const toggleBtn = document.getElementById('fg-selection-log-toggle');
-				if (target && !logPanel.contains(target) && (!toggleBtn || !toggleBtn.contains(target))) {
+				const clickedHeaderBar = Boolean(targetElement?.closest('.fg-header'));
+				if (target && !clickedHeaderBar && !logPanel.contains(target) && (!toggleBtn || !toggleBtn.contains(target))) {
 					hideSelectionLog();
 				}
 			}
@@ -155,6 +170,15 @@ export default function FinraGraph() {
 										className='fg-subset-info'></span>
 								</div>
 							</div>
+							<button
+								id='fg-mobile-menu-toggle'
+								type='button'
+								className='fg-mobile-menu-toggle'
+								onClick={toggleMobileMenu}
+								title='Open mobile menu'
+								aria-label='Open mobile menu'>
+								☰
+							</button>
 
 							<div className='fg-toolbar-group fg-toolbar-actions'>
 								<button
@@ -202,36 +226,35 @@ export default function FinraGraph() {
 					className='fg-selection-log hidden'>
 					<div className='fg-log-drawer-header'>
 						<h3>Selection Log</h3>
+						<button
+							id='btn-selection-log-pin'
+							data-fg-selection-log-action='pin'
+							className='fg-ghost-btn fg-btn-sm fg-log-drawer-pin'
+							title='Keep log drawer open until unpinned'
+							aria-pressed='false'>
+							Pin
+						</button>
 						<div className='fg-log-drawer-actions'>
 							<button
-								id='btn-selection-log-pin'
-								className='fg-ghost-btn fg-btn-sm'
-								title='Keep log drawer open until unpinned'
-								aria-pressed='false'>
-								Pin
-							</button>
-							<button
 								id='btn-selection-log-trace'
+								data-fg-selection-log-action='trace'
 								className='fg-ghost-btn fg-btn-sm'
 								title='Trace path between all logged nodes'>
 								Trace with Log
 							</button>
 							<button
 								id='btn-selection-log-copy-all'
+								data-fg-selection-log-action='copy-all'
 								className='fg-ghost-btn fg-btn-sm'
 								title='Copy all entries'>
 								Copy All
 							</button>
 							<button
 								id='btn-selection-log-clear'
+								data-fg-selection-log-action='clear'
 								className='fg-ghost-btn fg-btn-sm'
 								title='Clear log'>
 								Clear
-							</button>
-							<button
-								id='btn-selection-log-close'
-								className='fg-log-close'>
-								✕
 							</button>
 						</div>
 					</div>
@@ -342,6 +365,64 @@ export default function FinraGraph() {
 						className='fg-sidebar-inner'>
 						<p className='fg-hint'>Click a node to inspect it.</p>
 					</div>
+					<details
+						id='fg-mobile-log-section'
+						className='fg-mobile-menu-section fg-mobile-log-section'>
+						<summary className='fg-mobile-menu-section-summary'>Selection Log</summary>
+						<div className='fg-mobile-menu-section-body'>
+							<div className='fg-mobile-log-actions'>
+								<button
+									id='fg-mobile-log-trace-mode'
+									type='button'
+									className='fg-ghost-btn fg-btn-sm'
+									title='Toggle path tracing mode'>
+									Trace Mode
+								</button>
+								<button
+									type='button'
+									data-fg-selection-log-action='pin'
+									className='fg-ghost-btn fg-btn-sm'
+									title='Keep log drawer open until unpinned'
+									aria-pressed='false'>
+									Pin
+								</button>
+								<button
+									type='button'
+									data-fg-selection-log-action='trace'
+									className='fg-ghost-btn fg-btn-sm'
+									title='Trace path between all logged nodes'>
+									Trace with Log
+								</button>
+								<button
+									type='button'
+									data-fg-selection-log-action='copy-all'
+									className='fg-ghost-btn fg-btn-sm'
+									title='Copy all entries'>
+									Copy All
+								</button>
+								<button
+									type='button'
+									data-fg-selection-log-action='clear'
+									className='fg-ghost-btn fg-btn-sm'
+									title='Clear log'>
+									Clear
+								</button>
+							</div>
+							<div
+								id='fg-mobile-selection-log-list'
+								className='fg-selection-log-list fg-selection-log-list--mobile'>
+								<p className='fg-log-empty'>No nodes selected yet.</p>
+							</div>
+						</div>
+					</details>
+					<details className='fg-mobile-menu-section fg-mobile-legend-section'>
+						<summary className='fg-mobile-menu-section-summary'>Legend</summary>
+						<div className='fg-mobile-menu-section-body'>
+							<div
+								id='fg-mobile-legend'
+								className='fg-mobile-legend'></div>
+						</div>
+					</details>
 				</aside>
 
 				<main
