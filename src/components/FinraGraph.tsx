@@ -8,7 +8,12 @@ function hideSidebar() {
 }
 
 function hideSelectionLog() {
-	document.getElementById('fg-selection-log')?.classList.add('hidden');
+	const panel = document.getElementById('fg-selection-log');
+	if (!panel) return;
+	const isPinned = panel.dataset.pinned === 'true';
+	const isTraceLocked = panel.dataset.traceLocked === 'true';
+	if (isPinned || isTraceLocked) return;
+	panel.classList.add('hidden');
 }
 
 export default function FinraGraph() {
@@ -103,13 +108,11 @@ export default function FinraGraph() {
 		if (!isMounted || mountedRef.current) return;
 		mountedRef.current = true;
 
-		Promise.all([import('d3'), import('d3-force'), import('@/lib/finra-graph')]).then(
-			([d3Module, d3ForceModule, { init }]) => {
-				const combinedD3 = { ...d3Module, ...d3ForceModule };
-				(window as any).d3 = combinedD3;
-				init(combinedD3);
-			},
-		);
+		Promise.all([import('d3'), import('d3-force'), import('@/lib/finra-graph')]).then(([d3Module, d3ForceModule, { init }]) => {
+			const combinedD3 = { ...d3Module, ...d3ForceModule };
+			(window as any).d3 = combinedD3;
+			init(combinedD3);
+		});
 	}, [isMounted]);
 
 	if (!isMounted) {
@@ -118,67 +121,67 @@ export default function FinraGraph() {
 
 	return (
 		<div
-			id="finra-app"
+			id='finra-app'
 			ref={appRef}
-			data-sidebar-open="false"
-			data-graph-empty="false">
-			<header className="fg-header">
-				<div className="fg-header-bar">
-					<div className="fg-header-brand">
-						<h1 className="fg-title">FINRA</h1>
+			data-sidebar-open='false'
+			data-graph-empty='false'>
+			<header className='fg-header'>
+				<div className='fg-header-bar'>
+					<div className='fg-header-brand'>
+						<h1 className='fg-title'>FINRA</h1>
 					</div>
 
 					<div
-						id="fg-header-controls"
-						className="fg-header-controls">
-						<div className="fg-fetch-status">
-							<div className="fg-fetch">
+						id='fg-header-controls'
+						className='fg-header-controls'>
+						<div className='fg-fetch-status'>
+							<div className='fg-fetch'>
 								<input
-									id="fg-fetch-input"
-									className="fg-fetch-input"
-									type="search"
-									placeholder="Fetch: firm, person, CRD/SEC#"
-									autoComplete="off"
+									id='fg-fetch-input'
+									className='fg-fetch-input'
+									type='search'
+									placeholder='Fetch: firm, person, CRD/SEC#'
+									autoComplete='off'
 								/>
 								<button
-									id="fg-fetch-remote"
-									className="fg-btn-primary fg-action-btn"
-									title="Fetch matching nodes from the server">
+									id='fg-fetch-remote'
+									className='fg-btn-primary fg-action-btn'
+									title='Fetch matching nodes from the server'>
 									Fetch Nodes
 								</button>
-								<div className="fg-toolbar-group fg-toolbar-status fg-toolbar-status--top">
+								<div className='fg-toolbar-group fg-toolbar-status fg-toolbar-status--top'>
 									<span
-										id="fg-subset-info"
-										className="fg-subset-info"></span>
+										id='fg-subset-info'
+										className='fg-subset-info'></span>
 								</div>
 							</div>
 
-							<div className="fg-toolbar-group fg-toolbar-actions">
+							<div className='fg-toolbar-group fg-toolbar-actions'>
 								<button
-									id="fg-trace-mode"
-									className="fg-ghost-btn"
-									title="Toggle path tracing mode">
+									id='fg-trace-mode'
+									className='fg-ghost-btn'
+									title='Toggle path tracing mode'>
 									Trace Mode
 								</button>
 								<button
-									id="fg-refresh-layout"
-									data-fg-action="refresh-layout"
-									className="fg-ghost-btn"
-									title="Re-run the graph layout">
+									id='fg-refresh-layout'
+									data-fg-action='refresh-layout'
+									className='fg-ghost-btn'
+									title='Re-run the graph layout'>
 									↺ Reflow Layout
 								</button>
 								<button
-									id="fg-clear-highlights"
-									data-fg-action="clear-highlights"
-									className="fg-ghost-btn"
-									title="Clear selected highlights">
+									id='fg-clear-highlights'
+									data-fg-action='clear-highlights'
+									className='fg-ghost-btn'
+									title='Clear selected highlights'>
 									Clear Highlight
 								</button>
 								<button
-									id="fg-clear-session"
-									data-fg-action="clear-session"
-									className="fg-danger-btn"
-									title="Clear saved session and reload fresh">
+									id='fg-clear-session'
+									data-fg-action='clear-session'
+									className='fg-danger-btn'
+									title='Clear saved session and reload fresh'>
 									Reset Session
 								</button>
 							</div>
@@ -187,202 +190,208 @@ export default function FinraGraph() {
 				</div>
 			</header>
 
-			<div className="fg-body">
+			<div className='fg-body'>
 				<div
-					id="fg-sidebar-backdrop"
-					className="fg-sidebar-backdrop hidden"
-					aria-hidden="true"></div>
+					id='fg-sidebar-backdrop'
+					className='fg-sidebar-backdrop hidden'
+					aria-hidden='true'></div>
 
 				{/* Selection log drawer */}
 				<aside
-					id="fg-selection-log"
-					className="fg-selection-log hidden">
-					<div className="fg-log-drawer-header">
+					id='fg-selection-log'
+					className='fg-selection-log hidden'>
+					<div className='fg-log-drawer-header'>
 						<h3>Selection Log</h3>
-						<div className="fg-log-drawer-actions">
+						<div className='fg-log-drawer-actions'>
 							<button
-								id="btn-selection-log-trace"
-								className="fg-ghost-btn fg-btn-sm"
-								title="Trace path between all logged nodes">
+								id='btn-selection-log-pin'
+								className='fg-ghost-btn fg-btn-sm'
+								title='Keep log drawer open until unpinned'
+								aria-pressed='false'>
+								Pin
+							</button>
+							<button
+								id='btn-selection-log-trace'
+								className='fg-ghost-btn fg-btn-sm'
+								title='Trace path between all logged nodes'>
 								Trace with Log
 							</button>
 							<button
-								id="btn-selection-log-copy-all"
-								className="fg-ghost-btn fg-btn-sm"
-								title="Copy all entries">
+								id='btn-selection-log-copy-all'
+								className='fg-ghost-btn fg-btn-sm'
+								title='Copy all entries'>
 								Copy All
 							</button>
 							<button
-								id="btn-selection-log-clear"
-								className="fg-ghost-btn fg-btn-sm"
-								title="Clear log">
+								id='btn-selection-log-clear'
+								className='fg-ghost-btn fg-btn-sm'
+								title='Clear log'>
 								Clear
 							</button>
 							<button
-								id="btn-selection-log-close"
-								className="fg-log-close">
+								id='btn-selection-log-close'
+								className='fg-log-close'>
 								✕
 							</button>
 						</div>
 					</div>
 					<div
-						id="fg-selection-log-list"
-						className="fg-selection-log-list">
-						<p className="fg-log-empty">No nodes selected yet.</p>
+						id='fg-selection-log-list'
+						className='fg-selection-log-list'>
+						<p className='fg-log-empty'>No nodes selected yet.</p>
 					</div>
 				</aside>
 
 				{/* Detail sidebar */}
 				<aside
-					id="fg-sidebar"
-					className="fg-sidebar hidden">
-					<div className="fg-sidebar-actions">
+					id='fg-sidebar'
+					className='fg-sidebar hidden'>
+					<div className='fg-sidebar-actions'>
 						<button
-							className="fg-sidebar-action-btn fg-sidebar-action-btn--primary"
-							type="button"
+							className='fg-sidebar-action-btn fg-sidebar-action-btn--primary'
+							type='button'
 							onClick={hideSidebar}
-							title="Close details panel"
-							aria-label="Close details panel">
-							<span className="fg-sidebar-action-label">Close</span>
+							title='Close details panel'
+							aria-label='Close details panel'>
+							<span className='fg-sidebar-action-label'>Close</span>
 							<span
-								className="fg-sidebar-action-icon fg-sidebar-action-icon--trailing"
-								aria-hidden="true">
+								className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
+								aria-hidden='true'>
 								✕
 							</span>
 						</button>
 						<button
-							id="fg-focus-btn"
-							className="fg-sidebar-action-btn fg-sidebar-action-btn--secondary"
-							title="Focus on this node"
-							aria-label="Center on this node">
-							<span className="fg-sidebar-action-label">Center</span>
+							id='fg-focus-btn'
+							className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary'
+							title='Focus on this node'
+							aria-label='Center on this node'>
+							<span className='fg-sidebar-action-label'>Center</span>
 							<span
-								className="fg-sidebar-action-icon fg-sidebar-action-icon--trailing"
-								aria-hidden="true">
+								className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
+								aria-hidden='true'>
 								<svg
-									viewBox="0 0 16 16"
-									fill="none"
-									focusable="false">
+									viewBox='0 0 16 16'
+									fill='none'
+									focusable='false'>
 									<circle
-										cx="8"
-										cy="8"
-										r="2.75"
-										stroke="currentColor"
-										strokeWidth="1.4"
+										cx='8'
+										cy='8'
+										r='2.75'
+										stroke='currentColor'
+										strokeWidth='1.4'
 									/>
 									<path
-										d="M8 1.75V4"
-										stroke="currentColor"
-										strokeWidth="1.4"
-										strokeLinecap="round"
+										d='M8 1.75V4'
+										stroke='currentColor'
+										strokeWidth='1.4'
+										strokeLinecap='round'
 									/>
 									<path
-										d="M8 12V14.25"
-										stroke="currentColor"
-										strokeWidth="1.4"
-										strokeLinecap="round"
+										d='M8 12V14.25'
+										stroke='currentColor'
+										strokeWidth='1.4'
+										strokeLinecap='round'
 									/>
 									<path
-										d="M1.75 8H4"
-										stroke="currentColor"
-										strokeWidth="1.4"
-										strokeLinecap="round"
+										d='M1.75 8H4'
+										stroke='currentColor'
+										strokeWidth='1.4'
+										strokeLinecap='round'
 									/>
 									<path
-										d="M12 8H14.25"
-										stroke="currentColor"
-										strokeWidth="1.4"
-										strokeLinecap="round"
+										d='M12 8H14.25'
+										stroke='currentColor'
+										strokeWidth='1.4'
+										strokeLinecap='round'
 									/>
 								</svg>
 							</span>
 						</button>
 						<button
-							type="button"
-							data-fg-action="refresh-layout"
-							className="fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-sidebar-action-btn--mobile-only"
-							title="Re-run the graph layout"
-							aria-label="Reflow layout">
-							<span className="fg-sidebar-action-label">Refresh</span>
+							type='button'
+							data-fg-action='refresh-layout'
+							className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-sidebar-action-btn--mobile-only'
+							title='Re-run the graph layout'
+							aria-label='Reflow layout'>
+							<span className='fg-sidebar-action-label'>Refresh</span>
 							<span
-								className="fg-sidebar-action-icon fg-sidebar-action-icon--trailing"
-								aria-hidden="true">
+								className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
+								aria-hidden='true'>
 								↺
 							</span>
 						</button>
 					</div>
-					<div className="fg-sidebar-mobile-actions">
+					<div className='fg-sidebar-mobile-actions'>
 						<button
-							type="button"
-							data-fg-action="clear-highlights"
-							className="fg-ghost-btn"
-							title="Clear selected highlights">
+							type='button'
+							data-fg-action='clear-highlights'
+							className='fg-ghost-btn'
+							title='Clear selected highlights'>
 							Clear Highlight
 						</button>
 						<button
-							type="button"
-							data-fg-action="clear-session"
-							className="fg-danger-btn"
-							title="Clear saved session and reload fresh">
+							type='button'
+							data-fg-action='clear-session'
+							className='fg-danger-btn'
+							title='Clear saved session and reload fresh'>
 							Reset Session
 						</button>
 					</div>
 					<div
-						id="fg-sidebar-inner"
-						className="fg-sidebar-inner">
-						<p className="fg-hint">Click a node to inspect it.</p>
+						id='fg-sidebar-inner'
+						className='fg-sidebar-inner'>
+						<p className='fg-hint'>Click a node to inspect it.</p>
 					</div>
 				</aside>
 
 				<main
-					className="fg-main"
-					id="fg-main">
-					<svg id="fg-svg"></svg>
+					className='fg-main'
+					id='fg-main'>
+					<svg id='fg-svg'></svg>
 					<div
-						id="fg-legend"
-						className="fg-legend"></div>
+						id='fg-legend'
+						className='fg-legend'></div>
 					<button
-						id="fg-selection-log-toggle"
-						className="fg-selection-log-floating-toggle"
-						title="View selected nodes log">
+						id='fg-selection-log-toggle'
+						className='fg-selection-log-floating-toggle'
+						title='View selected nodes log'>
 						<svg
-							viewBox="0 0 16 16"
-							fill="currentColor"
-							width="16"
-							height="16">
-							<path d="M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v12.5A1.75 1.75 0 0 1 14.25 16H1.75A1.75 1.75 0 0 1 0 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25V1.75a.25.25 0 0 0-.25-.25Zm2.5 8.5a.75.75 0 0 1 .75-.75h7a.75.75 0 0 1 0 1.5h-7a.75.75 0 0 1-.75-.75Zm0-3.5a.75.75 0 0 1 .75-.75h7a.75.75 0 0 1 0 1.5h-7a.75.75 0 0 1-.75-.75Zm0-3.5a.75.75 0 0 1 .75-.75h7a.75.75 0 0 1 0 1.5h-7a.75.75 0 0 1-.75-.75Z"></path>
+							viewBox='0 0 16 16'
+							fill='currentColor'
+							width='16'
+							height='16'>
+							<path d='M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v12.5A1.75 1.75 0 0 1 14.25 16H1.75A1.75 1.75 0 0 1 0 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25V1.75a.25.25 0 0 0-.25-.25Zm2.5 8.5a.75.75 0 0 1 .75-.75h7a.75.75 0 0 1 0 1.5h-7a.75.75 0 0 1-.75-.75Zm0-3.5a.75.75 0 0 1 .75-.75h7a.75.75 0 0 1 0 1.5h-7a.75.75 0 0 1-.75-.75Zm0-3.5a.75.75 0 0 1 .75-.75h7a.75.75 0 0 1 0 1.5h-7a.75.75 0 0 1-.75-.75Z'></path>
 						</svg>
 						<span>Log</span>
 					</button>
 					<div
-						id="fg-empty"
-						className="fg-empty hidden">
+						id='fg-empty'
+						className='fg-empty hidden'>
 						<p>Search for a firm, person, CRD, or SEC# to begin.</p>
 					</div>
 				</main>
 			</div>
 
 			<div
-				id="fg-log-panel"
-				className="fg-log-panel hidden">
-				<div className="fg-log-header">
+				id='fg-log-panel'
+				className='fg-log-panel hidden'>
+				<div className='fg-log-header'>
 					<span>Scraper Output</span>
 					<button
-						id="btn-log-close"
-						className="fg-log-close">
+						id='btn-log-close'
+						className='fg-log-close'>
 						✕
 					</button>
 				</div>
 				<pre
-					id="fg-log-body"
-					className="fg-log-body"></pre>
+					id='fg-log-body'
+					className='fg-log-body'></pre>
 			</div>
 
 			<div
-				id="fg-bottom-status"
-				className="fg-bottom-status"
-				aria-live="polite"></div>
+				id='fg-bottom-status'
+				className='fg-bottom-status'
+				aria-live='polite'></div>
 		</div>
 	);
-
 }
