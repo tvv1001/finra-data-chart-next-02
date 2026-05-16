@@ -327,6 +327,7 @@ function buildSessionPayload({ compact = false, extraNodeMode = 'full' }: { comp
 		cleared: effectiveCleared,
 		renderedServerIds,
 		selectedNodeId: selectedId || null,
+		sidebarViewMode: sidebarViewMode,
 		highlightedNodes: highlightedSelections.map((entry) => ({
 			id: entry.id,
 			hops: entry.hops === 'all' ? 'all' : Number(entry.hops) || 1,
@@ -507,11 +508,43 @@ function getSelectionLogActionButtons(action: 'trace' | 'copy-all' | 'clear') {
 	return Array.from(document.querySelectorAll<HTMLButtonElement>(`[data-fg-selection-log-action="${action}"]`));
 }
 
+function syncSelectionLogActionButtonStates() {
+	const traceModeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('#fg-trace-mode, [data-fg-trace-mode-button]'));
+	traceModeButtons.forEach((button) => {
+		button.classList.toggle('trace-active', isTraceMode);
+		button.classList.toggle('active', isTraceMode);
+		button.setAttribute('aria-pressed', isTraceMode ? 'true' : 'false');
+		button.textContent = isTraceMode ? 'Tracing On' : 'Trace Mode';
+	});
+
+	getSelectionLogActionButtons('trace').forEach((button) => {
+		button.classList.toggle('trace-log-active', isTraceLogMode);
+		button.classList.toggle('active', isTraceLogMode);
+		button.setAttribute('aria-pressed', isTraceLogMode ? 'true' : 'false');
+		button.textContent = isTraceLogMode ? 'Log Trace On' : 'Trace with Log';
+	});
+}
+
+function flashSelectionLogActionButton(button: HTMLButtonElement, text: string, duration = 1000) {
+	const originalText = button.dataset.originalText || button.textContent || '';
+	button.dataset.originalText = originalText;
+	button.classList.add('active');
+	button.setAttribute('aria-pressed', 'true');
+	button.textContent = text;
+	setTimeout(() => {
+		button.classList.remove('active');
+		button.setAttribute('aria-pressed', 'false');
+		button.textContent = button.dataset.originalText || originalText;
+		delete button.dataset.originalText;
+	}, duration);
+}
+
 function updateSelectionLogChrome() {
 	const panel = getSelectionLogPanel();
 	if (!panel) return;
 
 	delete panel.dataset.pinned;
+	syncSelectionLogActionButtonStates();
 }
 
 function openSelectionLog() {
@@ -542,6 +575,11 @@ function setSidebarViewMode(
 		syncMobileSidebarExpandedState(expandMobile);
 	}
 	updateSelectionLogChrome();
+	try {
+		saveSession();
+	} catch {
+		/* ignore persistence errors */
+	}
 }
 
 function calculateTrace(nodeIds?: string[]) {
@@ -693,11 +731,7 @@ function buildTraceRoute(startId: string, endId: string, adj: Map<string, Array<
 
 function toggleTraceMode() {
 	isTraceMode = !isTraceMode;
-	const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('#fg-trace-mode, [data-fg-trace-mode-button]'));
-	buttons.forEach((btn) => {
-		btn.classList.toggle('trace-active', isTraceMode);
-		btn.textContent = isTraceMode ? 'Tracing On' : 'Trace Mode';
-	});
+	syncSelectionLogActionButtonStates();
 	if (isTraceMode) {
 		calculateTrace();
 	} else {
@@ -721,15 +755,7 @@ function disableAllTraceModes() {
 	traceLongestConnectorIds.clear();
 	traceLogConnectorIds.clear();
 
-	Array.from(document.querySelectorAll<HTMLButtonElement>('#fg-trace-mode, [data-fg-trace-mode-button]')).forEach((traceModeBtn) => {
-		traceModeBtn.classList.remove('trace-active');
-		traceModeBtn.textContent = 'Trace Mode';
-	});
-
-	getSelectionLogActionButtons('trace').forEach((traceLogBtn) => {
-		traceLogBtn.classList.remove('trace-log-active');
-		traceLogBtn.textContent = 'Trace with Log';
-	});
+	syncSelectionLogActionButtonStates();
 
 	syncTraceLabelPresentation();
 	updateSelectionLogChrome();
@@ -737,10 +763,7 @@ function disableAllTraceModes() {
 
 function toggleTraceLogMode() {
 	isTraceLogMode = !isTraceLogMode;
-	getSelectionLogActionButtons('trace').forEach((btn) => {
-		btn.classList.toggle('trace-log-active', isTraceLogMode);
-		btn.textContent = isTraceLogMode ? 'Log Trace On' : 'Trace with Log';
-	});
+	syncSelectionLogActionButtonStates();
 	if (isTraceLogMode) {
 		calculateTrace();
 		openSelectionLog();
@@ -858,6 +881,42 @@ function copyToClipboard(text, element) {
 function toggleSelectionLog() {
 	if (!sidebarSelectedNode) return;
 	setSidebarViewMode(sidebarViewMode === 'log' ? 'none' : 'log', { expandMobile: sidebarViewMode !== 'log' });
+}
+
+function handleDelegatedButtonClicks(event: MouseEvent) {
+	const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button') : null;
+	if (!target) return;
+
+	if (target.matches('#fg-trace-mode, [data-fg-trace-mode-button]')) {
+		toggleTraceMode();
+		return;
+	}
+
+	const action = target.dataset.fgSelectionLogAction as 'trace' | 'copy-all' | 'clear' | undefined;
+	if (!action) return;
+
+	if (action === 'trace') {
+		toggleTraceLogMode();
+		return;
+	}
+
+	if (action === 'copy-all') {
+		const text = selectedNodesLog
+			.map((entry) => `${entry.label} :: ${entry.secondaryId}`)
+			.reverse()
+			.join('\n');
+		navigator.clipboard.writeText(text).then(() => {
+			flashSelectionLogActionButton(target, 'Copied!');
+		});
+		return;
+	}
+
+	if (action === 'clear') {
+		selectedNodesLog = [];
+		saveSelectionLog();
+		updateSelectionLogUI();
+		flashSelectionLogActionButton(target, 'Cleared!');
+	}
 }
 
 function isProfileEnabled(profile) {
@@ -1107,6 +1166,9 @@ function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: 
 		if (!node) return;
 		resetTransientDetailState(node);
 		renderSidebar(node);
+		if (session?.sidebarViewMode === 'info' || session?.sidebarViewMode === 'log') {
+			setSidebarViewMode(session.sidebarViewMode, { expandMobile: session.sidebarViewMode !== 'none' });
+		}
 		if (node.group === 'individual') {
 			ensureIndividualDetail(node)
 				.then(() => {
@@ -1787,36 +1849,8 @@ export function init(_d3) {
 	updateSelectionLogUI();
 	updateSelectionLogChrome();
 	(document.getElementById('btn-log-close') as HTMLButtonElement | null)?.addEventListener('click', closeLog);
-	Array.from(document.querySelectorAll<HTMLButtonElement>('#fg-trace-mode, [data-fg-trace-mode-button]')).forEach((button) => {
-		button.addEventListener('click', toggleTraceMode);
-	});
-	getSelectionLogActionButtons('trace').forEach((button) => {
-		button.addEventListener('click', () => {
-			toggleTraceLogMode();
-		});
-	});
-	getSelectionLogActionButtons('copy-all').forEach((button) => {
-		button.addEventListener('click', () => {
-			const text = selectedNodesLog
-				.map((entry) => `${entry.label} :: ${entry.secondaryId}`)
-				.reverse()
-				.join('\n');
-			navigator.clipboard.writeText(text).then(() => {
-				const originalText = button.textContent;
-				button.textContent = 'Copied!';
-				setTimeout(() => {
-					button.textContent = originalText;
-				}, 1000);
-			});
-		});
-	});
-	getSelectionLogActionButtons('clear').forEach((button) => {
-		button.addEventListener('click', () => {
-			selectedNodesLog = [];
-			saveSelectionLog();
-			updateSelectionLogUI();
-		});
-	});
+	document.addEventListener('click', handleDelegatedButtonClicks);
+	syncSelectionLogActionButtonStates();
 
 	const refreshLayoutButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-action="refresh-layout"]'));
 	refreshLayoutButtons.forEach((refreshLayoutBtn) => {
@@ -6852,6 +6886,14 @@ function isMobileSidebarViewport() {
 	return true;
 }
 
+function setSidebarToggleState(button: HTMLButtonElement | null, active: boolean, titles: { active: string; inactive: string }) {
+	if (!button) return;
+	button.classList.toggle('is-active', active);
+	button.setAttribute('aria-expanded', active ? 'true' : 'false');
+	button.setAttribute('aria-pressed', active ? 'true' : 'false');
+	button.title = active ? titles.active : titles.inactive;
+}
+
 function syncMobileSidebarExpandedState(expanded: boolean) {
 	const side = document.getElementById('fg-sidebar');
 	if (!side) return;
@@ -6862,29 +6904,37 @@ function syncMobileSidebarExpandedState(expanded: boolean) {
 	if (backdrop) {
 		backdrop.dataset.temporarilyPinned = isTemporarilyPinned ? 'true' : 'false';
 	}
-	const toggleBtn = side.querySelector('.fg-sidebar-mobile-summary-toggle') as HTMLButtonElement | null;
-	if (toggleBtn) {
-		toggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-		toggleBtn.title = expanded ? 'Collapse details' : 'Expand details';
-	}
+	setSidebarToggleState(side.querySelector('.fg-sidebar-mobile-summary-toggle') as HTMLButtonElement | null, side.dataset.viewMode === 'info' && expanded, {
+		active: 'Collapse details',
+		inactive: 'Expand details',
+	});
+	setSidebarToggleState(side.querySelector('.fg-sb-log-toggle') as HTMLButtonElement | null, side.dataset.viewMode === 'log' && expanded, {
+		active: 'Hide selection log',
+		inactive: 'Show selection log',
+	});
+}
+
+function renderSidebarToggleButton(className: string, label: string, isActive: boolean, titles: { active: string; inactive: string }, ariaLabel?: string) {
+	return `
+		<button class="fg-sb-toggle-btn ${className}${isActive ? ' is-active' : ''}" type="button" aria-expanded="${isActive ? 'true' : 'false'}" aria-pressed="${isActive ? 'true' : 'false'}" title="${isActive ? titles.active : titles.inactive}"${ariaLabel ? ` aria-label="${ariaLabel}"` : ''}>
+			<span class="fg-sb-toggle-btn__label">${label}</span>
+			<span class="fg-sb-toggle-btn__chevron" aria-hidden="true">▾</span>
+		</button>
+	`;
 }
 
 function renderMobileSidebarToggle() {
-	return `
-		<button class="fg-sidebar-mobile-summary-toggle fg-sb-info-toggle${sidebarViewMode === 'info' ? ' is-active' : ''}" type="button" aria-expanded="false" title="Show info">
-			<span class="fg-sb-toggle-btn__label fg-sidebar-mobile-summary-toggle__label">Info</span>
-			<span class="fg-sb-toggle-btn__chevron" aria-hidden="true">▾</span>
-		</button>
-	`;
+	return renderSidebarToggleButton(
+		'fg-sidebar-mobile-summary-toggle fg-sb-info-toggle',
+		'Info',
+		sidebarViewMode === 'info',
+		{ active: 'Collapse details', inactive: 'Expand details' },
+		'Show info',
+	);
 }
 
 function renderSidebarSelectionLogToggle() {
-	return `
-		<button class="fg-sb-log-toggle${sidebarViewMode === 'log' ? ' is-active' : ''}" type="button" title="Show selection log" aria-label="Show selection log">
-			<span class="fg-sb-toggle-btn__label">Log</span>
-			<span class="fg-sb-toggle-btn__chevron" aria-hidden="true">▾</span>
-		</button>
-	`;
+	return renderSidebarToggleButton('fg-sb-log-toggle', 'Log', sidebarViewMode === 'log', { active: 'Hide selection log', inactive: 'Show selection log' }, 'Show selection log');
 }
 
 function renderSidebarSelectionLogBody() {
@@ -6896,12 +6946,14 @@ function renderSidebarSelectionLogBody() {
 					<button
 						data-fg-trace-mode-button="sidebar-log"
 						class="fg-ghost-btn fg-btn-sm"
+						type="button"
 						title="Toggle path tracing mode">
 						Trace Mode
 					</button>
 					<button
 						data-fg-selection-log-action="trace"
 						class="fg-ghost-btn fg-btn-sm"
+						type="button"
 						title="Trace path between all logged nodes">
 						Trace with Log
 					</button>
@@ -6910,12 +6962,14 @@ function renderSidebarSelectionLogBody() {
 					<button
 						data-fg-selection-log-action="copy-all"
 						class="fg-ghost-btn fg-btn-sm"
+						type="button"
 						title="Copy all entries">
 						Copy All
 					</button>
 					<button
 						data-fg-selection-log-action="clear"
 						class="fg-ghost-btn fg-btn-sm"
+						type="button"
 						title="Clear log">
 						Clear
 					</button>
@@ -6932,13 +6986,8 @@ function renderSidebar(d) {
 	const el = document.getElementById('fg-sidebar-inner');
 	const side = document.getElementById('fg-sidebar');
 	const previousDisplayedId = side?.dataset.displayedId || '';
-	const isSameNode = sidebarSelectedNode?.id === (d?.id || '');
-	if (!isSameNode) {
-		sidebarViewMode = 'none';
-	}
 	sidebarSelectedNode = d;
-	const preserveExpandedState =
-		Boolean(side) && !side.classList.contains('hidden') && isMobileSidebarViewport() && previousDisplayedId === (d?.id || '') && side.dataset.mobileExpanded === 'true';
+	const preserveExpandedState = sidebarViewMode !== 'none';
 	el.innerHTML =
 		d.group === 'firm' ? renderFirmDetail(d)
 		: d.group === 'entity' ? renderEntityDetail(d)
