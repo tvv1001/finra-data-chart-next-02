@@ -15,6 +15,7 @@
 	"dependencies": {
 		"@upstash/redis": "^1.37.0",
 		"@vercel/analytics": "^2.0.1",
+		"@vercel/speed-insights": "^2.0.0",
 		"axios": "^1.7.2",
 		"bottleneck": "^2.19.5",
 		"chokidar": "^5.0.0",
