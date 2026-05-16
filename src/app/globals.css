@@ -2999,19 +2999,25 @@ a,
 }
 
 /* ── Trace Mode Highlights ─────────────────────────────────────────────── */
-/* Endpoint nodes (start/end of each trace path) */
+/* Endpoint nodes (start/end of each trace path) — use solid green circles */
 .fg-node.trace-shortest circle,
 .fg-node.trace-shortest rect,
 .fg-node.trace-shortest polygon {
-	stroke: #00ff00 !important;
-	stroke-width: 2.5px !important;
+	fill: #22c55e !important;
+	fill-opacity: 1 !important;
+	stroke: #166534 !important;
+	stroke-width: 2.75px !important;
+	filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
 }
 
 .fg-node.trace-longest circle,
 .fg-node.trace-longest rect,
 .fg-node.trace-longest polygon {
-	stroke: #cc00ff !important;
-	stroke-width: 2.5px !important;
+	fill: #cc00ff !important;
+	fill-opacity: 1 !important;
+	stroke: #7e22ce !important;
+	stroke-width: 2.75px !important;
+	filter: drop-shadow(0 0 8px rgba(204, 0, 255, 0.24));
 }
 
 .fg-node.trace-log circle,
@@ -3025,8 +3031,8 @@ a,
 .fg-node.trace-combined circle,
 .fg-node.trace-combined rect,
 .fg-node.trace-combined polygon {
-	stroke: #22c55e !important;
-	stroke-width: 3.5px !important;
+	fill: #22c55e !important;
+	stroke: #14532d !important;
 	filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
 }
 
@@ -3043,15 +3049,28 @@ a,
 .fg-node.trace-shortest-connector circle,
 .fg-node.trace-shortest-connector rect,
 .fg-node.trace-shortest-connector polygon {
-	stroke: #00ff00 !important;
-	stroke-width: 1.5px !important;
+	fill: #4ade80 !important;
+	fill-opacity: 1 !important;
+	stroke: #166534 !important;
+	stroke-width: 1.75px !important;
 }
 
 .fg-node.trace-longest-connector circle,
 .fg-node.trace-longest-connector rect,
 .fg-node.trace-longest-connector polygon {
-	stroke: #cc00ff !important;
-	stroke-width: 1.5px !important;
+	fill: #e9d5ff !important;
+	fill-opacity: 1 !important;
+	stroke: #8b5cf6 !important;
+	stroke-width: 1.75px !important;
+}
+
+.fg-node.trace-combined-connector circle,
+.fg-node.trace-combined-connector rect,
+.fg-node.trace-combined-connector polygon {
+	fill: #4ade80 !important;
+	fill-opacity: 1 !important;
+	stroke: #166534 !important;
+	stroke-width: 1.75px !important;
 }
 
 .fg-node.trace-log-connector circle,
@@ -3080,17 +3099,29 @@ a,
 	stroke-linecap: round;
 	stroke-linejoin: round;
 	vector-effect: non-scaling-stroke;
+	filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
 }
 
-.fg-links line.trace-log,
-.fg-link.trace-log {
-	stroke: #e8ff1a !important;
+.fg-links line.trace-combined,
+.fg-link.trace-combined {
+	stroke: #22c55e !important;
 	stroke-width: calc(4px * var(--fg-trace-stroke-scale, 1)) !important;
 	stroke-opacity: 1 !important;
 	stroke-linecap: round;
 	stroke-linejoin: round;
 	vector-effect: non-scaling-stroke;
-	filter: drop-shadow(0 3px 0 rgba(15, 23, 42, 0.92)) drop-shadow(0 0 8px rgba(232, 255, 26, 0.58));
+	filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+}
+
+.fg-links line.trace-log,
+.fg-link.trace-log {
+	stroke: #fbbf24 !important;
+	stroke-width: calc(2px * var(--fg-trace-stroke-scale, 1)) !important;
+	stroke-opacity: 1 !important;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	vector-effect: non-scaling-stroke;
+	filter: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.7)) drop-shadow(0 0 4px rgba(251, 191, 36, 0.24));
 }
 
 .fg-ghost-btn.trace-active {
