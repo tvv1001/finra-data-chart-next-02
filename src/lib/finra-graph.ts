@@ -621,6 +621,7 @@ function calculateTrace() {
 	const traceLogNodeIds = isTraceLogMode ? getTraceLogNodeIds() : [];
 	const hasTraceTargets = traceModeNodeIds.length >= 2;
 	const hasTraceLogTargets = traceLogNodeIds.length >= 2;
+	const blockedTraceLinkIds = new Set<string>((layoutLinks || []).filter((link) => Boolean(getLinkDash(link))).map((link) => getLinkKey(link)));
 
 	if (!hasTraceTargets && !hasTraceLogTargets) {
 		traceShortestIds.clear();
@@ -665,7 +666,7 @@ function calculateTrace() {
 		for (let i = 0; i < traceLogNodeIds.length - 1; i++) {
 			const start = traceLogNodeIds[i];
 			const end = traceLogNodeIds[i + 1];
-			const path = findShortestPath(start, end, adj);
+			const path = findShortestPath(start, end, adj, { blockedLinkIds: blockedTraceLinkIds });
 			if (path) {
 				path.forEach((id) => traceLogIds.add(id));
 				extractConnectorNodeIds(path).forEach((id) => traceLogConnectorIds.add(id));
@@ -679,7 +680,7 @@ function calculateTrace() {
 	if (hasTraceTargets) {
 		const originId = traceModeNodeIds[0];
 		const targetId = traceModeNodeIds[traceModeNodeIds.length - 1];
-		const traceRoute = buildTraceRoute(originId, targetId, adj);
+		const traceRoute = buildTraceRoute(originId, targetId, adj, { blockedLinkIds: blockedTraceLinkIds });
 		const getPathNodeCount = (path: string[] | null) => (Array.isArray(path) ? Math.ceil(path.length / 2) : 0);
 
 		let longestNonCircleRoute: string[] = [];
@@ -688,7 +689,7 @@ function calculateTrace() {
 		let fallbackLongestNodeCount = -1;
 
 		for (let i = 1; i < traceModeNodeIds.length; i++) {
-			const candidateRoute = buildTraceRoute(originId, traceModeNodeIds[i], adj);
+			const candidateRoute = buildTraceRoute(originId, traceModeNodeIds[i], adj, { blockedLinkIds: blockedTraceLinkIds });
 			const candidateForwardPath = candidateRoute?.forwardPath || null;
 			const candidateNodeCount = getPathNodeCount(candidateForwardPath);
 			if (!candidateForwardPath) continue;
@@ -789,12 +790,20 @@ function getPathLinkIds(path: string[] | null) {
 	return linkIds;
 }
 
-function buildTraceRoute(startId: string, endId: string, adj: Map<string, Array<{ nodeId: string; linkId: string }>>) {
-	const forwardPath = findShortestPath(startId, endId, adj);
+function buildTraceRoute(
+	startId: string,
+	endId: string,
+	adj: Map<string, Array<{ nodeId: string; linkId: string }>>,
+	options: {
+		blockedLinkIds?: Set<string>;
+	} = {},
+) {
+	const { blockedLinkIds = new Set<string>() } = options;
+	const forwardPath = findShortestPath(startId, endId, adj, { blockedLinkIds });
 	if (!forwardPath) return null;
 
-	const blockedLinkIds = getPathLinkIds(forwardPath);
-	const returnPath = findShortestPath(endId, startId, adj, { blockedLinkIds });
+	const returnBlockedLinkIds = new Set<string>([...blockedLinkIds, ...getPathLinkIds(forwardPath)]);
+	const returnPath = findShortestPath(endId, startId, adj, { blockedLinkIds: returnBlockedLinkIds });
 
 	return {
 		forwardPath,
