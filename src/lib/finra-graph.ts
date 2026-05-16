@@ -705,8 +705,8 @@ function calculateTrace() {
 		}
 
 		const purpleRoute =
-			longestNonCircleRoute.length ? longestNonCircleRoute
-			: traceRoute?.hasDistinctReturn ? []
+			traceRoute?.hasDistinctReturn ? []
+			: longestNonCircleRoute.length ? longestNonCircleRoute
 			: fallbackLongestRoute;
 		if (purpleRoute.length) {
 			purpleRoute.forEach((id) => traceLongestIds.add(id));
@@ -6696,7 +6696,11 @@ function highlightLinks(highlightState = null) {
 
 		const sel = d3.select(this);
 
-		sel.classed('trace-shortest', isTraceShortest).classed('trace-longest', isTraceLongest).classed('trace-log', isTraceLog);
+		sel
+			.classed('trace-shortest', isTraceShortest)
+			.classed('trace-longest', isTraceLongest)
+			.classed('trace-combined', isTraceShortest && isTraceLongest)
+			.classed('trace-log', isTraceLog);
 
 		if (isTraceShortest || isTraceLongest || isTraceLog) {
 			sel.style('opacity', null).style('stroke-opacity', null).attr('stroke-opacity', 1);
