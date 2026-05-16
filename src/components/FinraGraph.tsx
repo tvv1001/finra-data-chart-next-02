@@ -351,6 +351,7 @@ export default function FinraGraph() {
 								id='btn-selection-log-trace'
 								data-fg-selection-log-action='trace'
 								className='fg-ghost-btn fg-btn-sm'
+								type='button'
 								title='Trace path between all logged nodes'>
 								Trace with Log
 							</button>
@@ -358,6 +359,7 @@ export default function FinraGraph() {
 								id='btn-selection-log-copy-all'
 								data-fg-selection-log-action='copy-all'
 								className='fg-ghost-btn fg-btn-sm'
+								type='button'
 								title='Copy all entries'>
 								Copy All
 							</button>
@@ -365,6 +367,7 @@ export default function FinraGraph() {
 								id='btn-selection-log-clear'
 								data-fg-selection-log-action='clear'
 								className='fg-ghost-btn fg-btn-sm'
+								type='button'
 								title='Clear log'>
 								Clear
 							</button>
