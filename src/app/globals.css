@@ -3017,8 +3017,9 @@ a,
 .fg-node.trace-log circle,
 .fg-node.trace-log rect,
 .fg-node.trace-log polygon {
-	stroke: #ff00aa !important;
+	stroke: #1af4ff !important;
 	stroke-width: 2.5px !important;
+	filter: drop-shadow(0 3px 0 rgba(15, 23, 42, 0.92)) drop-shadow(0 0 8px rgba(232, 255, 26, 0.68));
 }
 
 .fg-node.trace-combined circle,
@@ -3056,8 +3057,9 @@ a,
 .fg-node.trace-log-connector circle,
 .fg-node.trace-log-connector rect,
 .fg-node.trace-log-connector polygon {
-	stroke: #ff00aa !important;
+	stroke: #e8ff1a !important;
 	stroke-width: 1.5px !important;
+	filter: drop-shadow(0 2px 0 rgba(15, 23, 42, 0.88)) drop-shadow(0 0 6px rgba(232, 255, 26, 0.55));
 }
 
 .fg-links line.trace-shortest,
@@ -3082,12 +3084,13 @@ a,
 
 .fg-links line.trace-log,
 .fg-link.trace-log {
-	stroke: #ff00aa !important;
+	stroke: #e8ff1a !important;
 	stroke-width: calc(4px * var(--fg-trace-stroke-scale, 1)) !important;
 	stroke-opacity: 1 !important;
 	stroke-linecap: round;
 	stroke-linejoin: round;
 	vector-effect: non-scaling-stroke;
+	filter: drop-shadow(0 3px 0 rgba(15, 23, 42, 0.92)) drop-shadow(0 0 8px rgba(232, 255, 26, 0.58));
 }
 
 .fg-ghost-btn.trace-active {

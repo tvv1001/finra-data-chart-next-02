@@ -103,6 +103,29 @@ Before changing endpoint guidance in `.github/copilot-instructions.md`, `.github
 - prefer the pattern already used by the app unless live testing or the task proves a better replacement
 - if route code and docs differ, fix the mismatch instead of copying the stale form forward
 
+## Keep functional docs strictly aligned with the current working state
+
+When updating `README.md`, repo instruction files, or prompts that describe graph functionality:
+
+- treat the current runtime implementation as the source of truth
+- validate behavior against the relevant code paths before documenting it
+- avoid documenting intended behavior unless that behavior is already implemented and verified
+
+For graph interaction changes, validate against:
+
+- `src/lib/finra-graph.ts` for state and path computation
+- `src/app/globals.css` for the actual visual meaning of graph classes
+- the current working browser state when the task depends on visible interaction behavior
+
+This is especially important for:
+
+- trace-mode semantics
+- selection and highlight behavior
+- sidebar and selection-log interactions
+- any statement about what colors, rings, or path overlays mean
+
+If the implementation and docs disagree, update the docs to match the verified current behavior unless the task explicitly requires changing the implementation too.
+
 ## Good examples
 
 - Good: “Use `https://api.adviserinfo.sec.gov/search/firm/<CRD>?wt=json` for SEC firm detail hydration.”
