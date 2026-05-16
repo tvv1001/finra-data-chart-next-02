@@ -8,7 +8,7 @@
  *   individual  – dim blue      (stub: Form BD name only, no full CRD record loaded yet)
  *   firm        – amber square  (registered broker-dealer or IA firm; size scales with degree)
  *                               border: red=primarily controlled, slate=primarily employs, white=neutral
- *   entity      – yellow diamond (non-individual Form BD control owner, e.g. holding company)
+ *   entity      – pink diamond (non-individual Form BD control owner, e.g. holding company)
  *
  * Disclosure indicator:
  *   orange dashed ring around the node → person or firm has regulatory/disciplinary disclosures
