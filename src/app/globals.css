@@ -19,7 +19,7 @@
 	--stroke-width-node-firm-isolated: 0.5;
 
 	/* Legend: entities */
-	--color-highlight-entity: #f20ee3;
+	--color-highlight-entity: #ff4d8d;
 	--opacity-node-entity: 0.9;
 	--opacity-node-entity-inactive: 0.7;
 
@@ -88,7 +88,7 @@
 	/* Node palette aliases */
 	--c-individual: #2563eb;
 	--c-firm: #d97706;
-	--c-entity: #f20ee3;
+	--c-entity: #ff4d8d;
 	--c-controls: #e50909;
 	--c-employed: #1061db;
 	--c-default-gray: #2e3744;
