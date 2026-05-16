@@ -1417,20 +1417,13 @@ async function clearPersistedServerGraph() {
 }
 
 async function resetSessionView() {
-	let clearPersistedGraphError = null;
-	try {
-		await clearPersistedServerGraph();
-	} catch (error) {
-		clearPersistedGraphError = error;
-	}
-
 	clearSession();
 	clearGraphData();
 	void fetchCacheStats();
 
-	if (clearPersistedGraphError) {
-		console.warn('Failed to clear persisted server graph; local session was cleared instead.', clearPersistedGraphError);
-	}
+	void clearPersistedServerGraph().catch((error) => {
+		console.warn('Failed to clear persisted server graph; local session was cleared instead.', error);
+	});
 }
 
 // Normalize saved zoom transform from either object form or SVG transform string.
