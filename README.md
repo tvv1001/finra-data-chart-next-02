@@ -70,6 +70,80 @@ The current interface is built around a mobile-first floating menu and detail si
 - A neutral hint state when the graph is empty, so stale person or firm detail is never left on screen
 - Background click and `Escape` support for dismissing the sidebar when it is not pinned
 
+### Selection, highlight, and trace behavior
+
+The current graph interaction model is stateful and intentionally layered:
+
+- **Selection** keeps a current node selected in the sidebar and on the graph
+- **Highlight roots** drive hop-based highlight expansion around selected nodes
+- **Trace Mode** computes a pairwise path between current selection-context endpoints
+- **Trace with Log** computes a chronological path through the saved selection log
+
+#### Selection and highlight state
+
+- Clicking a node selects it, opens the sidebar, and appends it to the selection log when it is not already present there
+- The current selected node is tracked separately from hop highlights
+- **Clear Highlight** removes normal hop-based highlight state while keeping the currently selected node selected
+- Trace overlays remain visible after **Clear Highlight** until trace mode itself is turned off
+
+#### Trace Mode
+
+`Trace Mode` uses the current selection context first and only falls back to recent log context when there are not enough active selection endpoints.
+
+The current endpoint resolution order is:
+
+1. use the active `highlightedSelections`
+2. add the current `selectedId` if it is not already present
+3. if there are still fewer than two endpoints:
+
+- with one selected endpoint, pair it with the most recent distinct node from the selection log
+- with zero selected endpoints, use the last two unique selection-log nodes
+
+Regular trace then computes:
+
+- a **green** endpoint/loop trace (`trace-shortest`)
+- an optional **purple** non-circle route (`trace-longest`)
+
+Green trace behavior:
+
+- the current origin and target endpoints are always marked green
+- if a distinct return path exists, the full closed loop is also marked green
+- green connector nodes use a reduced stroke width compared to green endpoints
+
+Purple trace behavior:
+
+- purple represents the longest explicit non-circle forward route from the active trace origin to a candidate target
+- if no non-circle candidate exists and the main trace is a complete loop, purple is suppressed
+- if no complete loop exists, purple can fall back to the best available forward route
+
+This means a complete green circle should not also show a fallback purple line on that same loop.
+
+#### Trace with Log
+
+`Trace with Log` is separate from regular `Trace Mode`.
+
+- it uses the full chronological `selectedNodesLog`
+- it computes shortest paths between each consecutive pair in that log
+- it renders those nodes and links in **pink** (`trace-log`)
+- it is allowed to coexist conceptually with the same graph state, but its source of truth is the log, not the active highlight roots
+
+#### Combined trace styling
+
+Some nodes can be both green and purple.
+
+- when a node belongs to both the green and purple regular-trace sets, it receives `trace-combined`
+- combined nodes use a stronger green-leaning visual treatment rather than a plain purple one
+
+#### Validation note for current behavior
+
+This README is intended to describe the **currently implemented** graph behavior, not an aspirational future model.
+
+When trace or selection behavior changes in code, update this section only after validating the live behavior against:
+
+- `src/lib/finra-graph.ts`
+- `src/app/globals.css`
+- the current working UI state in the browser
+
 ---
 
 ## Quick start

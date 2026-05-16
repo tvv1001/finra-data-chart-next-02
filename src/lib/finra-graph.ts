@@ -125,6 +125,7 @@ let zoomBehavior = null; // d3.zoom() instance
 let zoomSaveTimer = null; // debounce timer for zoom-state persistence
 let refreshLayoutStopTimer = null; // timer used to stop refresh-layout sooner
 let selectionRestoreTimer = null; // timer used when restoring a saved selection after reload
+let traceRefreshTimer: ReturnType<typeof setTimeout> | null = null; // trailing trace refresh when async reveals land after selection
 let nodePulseTimer = null; // timer used to pulse the restored node after focus animation
 let nodePulseInterval = null; // interval used to keep the restored node pulsing until interaction
 let nodePulseInteractionCleanup: (() => void) | null = null; // removes reload pulse interaction listeners once the user interacts
@@ -722,6 +723,31 @@ function calculateTrace() {
 	}
 
 	reapplySelectionState();
+}
+
+function refreshTraceState(options: { deferMs?: number } = {}) {
+	const { deferMs = 0 } = options;
+	const runRefresh = () => {
+		traceRefreshTimer = null;
+		if (isAnyTraceModeActive()) {
+			calculateTrace();
+			syncTraceLabelPresentation();
+			return;
+		}
+		reapplySelectionState();
+	};
+
+	if (traceRefreshTimer) {
+		clearTimeout(traceRefreshTimer);
+		traceRefreshTimer = null;
+	}
+
+	if (deferMs > 0) {
+		traceRefreshTimer = setTimeout(runRefresh, deferMs);
+		return;
+	}
+
+	runRefresh();
 }
 
 function findShortestPath(
@@ -2492,7 +2518,7 @@ export function init(_d3) {
 		rerenderGraphNodesByIds(getImpactedNodeIds(uniqNodes, newLinks));
 
 		refreshGraphColors();
-		reapplySelectionState();
+		refreshTraceState();
 
 		// Replace tick handler so it covers the full updated selections.
 		simulation.on('tick', () => {
@@ -4358,7 +4384,7 @@ function markNodeSelected(node, options: { persist?: boolean } = {}) {
 	const { persist = true } = options;
 	upsertHighlightedSelection(node.id, getDefaultSelectionHops());
 	selectedId = node.id;
-	reapplySelectionState();
+	refreshTraceState();
 	if (!persist) return;
 	try {
 		saveSession();
@@ -4840,7 +4866,7 @@ function injectNodesById(ids) {
 	rerenderGraphNodesByIds(getImpactedNodeIds(toAdd, newLinks));
 
 	refreshGraphColors();
-	reapplySelectionState();
+	refreshTraceState();
 
 	simulation.on('tick', () => {
 		linkSel
@@ -5620,7 +5646,7 @@ async function hydrateExpansionFrontierNodes(nodeIds: string[] = []) {
 	if (impactedIds.length) {
 		rerenderGraphNodesByIds(impactedIds);
 		refreshGraphColors();
-		reapplySelectionState();
+		refreshTraceState();
 		if (selectedId && impactedIds.includes(selectedId)) {
 			const selectedNode = layoutNodes?.find((node) => node.id === selectedId) || graphData?.nodes?.find((node) => node.id === selectedId);
 			if (selectedNode) {
@@ -5681,7 +5707,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 		frontierIds = uniqueNextIds;
 	}
 
-	reapplySelectionState();
+	refreshTraceState({ deferMs: 120 });
 	try {
 		saveSession();
 	} catch (e) {
@@ -6001,6 +6027,7 @@ async function handleNodeOpen(event, d) {
 	selectNode(d, { skipAutoExpand: true });
 	void expandNodeThroughNonGrayHops(d).catch((err) => {
 		console.error('Progressive non-gray hop expansion failed:', err);
+		refreshTraceState({ deferMs: 120 });
 	});
 	void fetchCacheStats();
 }
@@ -6026,7 +6053,7 @@ function selectNode(
 	upsertHighlightedSelection(d.id, hops);
 	selectedId = d.id;
 	addToSelectionLog(d);
-	reapplySelectionState();
+	refreshTraceState();
 	renderSidebar(d);
 	if (persist) {
 		try {
@@ -6080,7 +6107,7 @@ function selectNode(
 	if (!skipAutoExpand) {
 		lastExpandOriginNode = d;
 		expandNodeThroughNonGrayHops(d, getDefaultExpansionHops()).finally(() => {
-			reapplySelectionState();
+			refreshTraceState({ deferMs: 120 });
 			try {
 				saveSession();
 			} catch (e) {
@@ -6514,7 +6541,7 @@ function revealNeighbors(
 	rerenderGraphNodesByIds(getImpactedNodeIds(newNodes, newLinks));
 
 	refreshGraphColors();
-	reapplySelectionState();
+	refreshTraceState();
 
 	simulation.on('tick', () => {
 		linkSel
