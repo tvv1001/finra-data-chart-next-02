@@ -1,3 +1,13 @@
 {
-	"nodes": []
+  "nodes": [],
+  "links": [],
+  "meta": {
+    "generated": "2026-05-16T07:54:17.326Z",
+    "sourceLabel": "(session reset)",
+    "totalIndividuals": 0,
+    "totalFirms": 0,
+    "totalEntities": 0,
+    "totalNodes": 0,
+    "totalLinks": 0
+  }
 }

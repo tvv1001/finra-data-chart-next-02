@@ -582,11 +582,54 @@ function setSidebarViewMode(
 	}
 }
 
-function calculateTrace(nodeIds?: string[]) {
-	if (!nodeIds || nodeIds.length < 2) {
-		const logIds = selectedNodesLog.map((n) => n.id);
-		if (logIds.length < 2) return;
-		nodeIds = logIds;
+function getTraceModeNodeIds() {
+	const ids = highlightedSelections.map((entry) => String(entry?.id || '').trim()).filter(Boolean);
+	if (selectedId) {
+		const normalizedSelectedId = String(selectedId).trim();
+		if (normalizedSelectedId && !ids.includes(normalizedSelectedId)) {
+			ids.push(normalizedSelectedId);
+		}
+	}
+	const uniqueIds = Array.from(new Set(ids));
+	if (uniqueIds.length >= 2) return uniqueIds;
+
+	const recentLogIds = Array.from(
+		new Set(
+			selectedNodesLog
+				.map((entry) => String(entry?.id || '').trim())
+				.filter(Boolean)
+				.reverse(),
+		),
+	).reverse();
+
+	if (uniqueIds.length === 1) {
+		const selectedTraceId = uniqueIds[0];
+		const previousTraceId = [...recentLogIds].reverse().find((id) => id !== selectedTraceId) || '';
+		return previousTraceId ? [previousTraceId, selectedTraceId] : uniqueIds;
+	}
+
+	return recentLogIds.slice(-2);
+}
+
+function getTraceLogNodeIds() {
+	return Array.from(new Set(selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter(Boolean)));
+}
+
+function calculateTrace() {
+	const traceModeNodeIds = isTraceMode ? getTraceModeNodeIds() : [];
+	const traceLogNodeIds = isTraceLogMode ? getTraceLogNodeIds() : [];
+	const hasTraceTargets = traceModeNodeIds.length >= 2;
+	const hasTraceLogTargets = traceLogNodeIds.length >= 2;
+
+	if (!hasTraceTargets && !hasTraceLogTargets) {
+		traceShortestIds.clear();
+		traceLongestIds.clear();
+		traceLogIds.clear();
+		traceShortestConnectorIds.clear();
+		traceLongestConnectorIds.clear();
+		traceLogConnectorIds.clear();
+		reapplySelectionState();
+		return;
 	}
 
 	traceShortestIds.clear();
@@ -617,10 +660,10 @@ function calculateTrace(nodeIds?: string[]) {
 	};
 
 	// 1. Log Path (Chronological sequence through all nodes in the log) - PINK
-	if (isTraceLogMode) {
-		for (let i = 0; i < nodeIds.length - 1; i++) {
-			const start = nodeIds[i];
-			const end = nodeIds[i + 1];
+	if (hasTraceLogTargets) {
+		for (let i = 0; i < traceLogNodeIds.length - 1; i++) {
+			const start = traceLogNodeIds[i];
+			const end = traceLogNodeIds[i + 1];
 			const path = findShortestPath(start, end, adj);
 			if (path) {
 				path.forEach((id) => traceLogIds.add(id));
@@ -632,9 +675,9 @@ function calculateTrace(nodeIds?: string[]) {
 	// 2. Trace Mode route: keep the default origin->target route purple,
 	//    but when a real loop exists, make the full loop green and keep
 	//    a separate purple highlight for the longest non-circle stretch.
-	if (isTraceMode) {
-		const originId = nodeIds[0];
-		const targetId = nodeIds[nodeIds.length - 1];
+	if (hasTraceTargets) {
+		const originId = traceModeNodeIds[0];
+		const targetId = traceModeNodeIds[traceModeNodeIds.length - 1];
 		const traceRoute = buildTraceRoute(originId, targetId, adj);
 		const getPathNodeCount = (path: string[] | null) => (Array.isArray(path) ? Math.ceil(path.length / 2) : 0);
 
@@ -643,8 +686,8 @@ function calculateTrace(nodeIds?: string[]) {
 		let fallbackLongestRoute: string[] = [];
 		let fallbackLongestNodeCount = -1;
 
-		for (let i = 1; i < nodeIds.length; i++) {
-			const candidateRoute = buildTraceRoute(originId, nodeIds[i], adj);
+		for (let i = 1; i < traceModeNodeIds.length; i++) {
+			const candidateRoute = buildTraceRoute(originId, traceModeNodeIds[i], adj);
 			const candidateForwardPath = candidateRoute?.forwardPath || null;
 			const candidateNodeCount = getPathNodeCount(candidateForwardPath);
 			if (!candidateForwardPath) continue;
@@ -660,11 +703,17 @@ function calculateTrace(nodeIds?: string[]) {
 			}
 		}
 
-		const purpleRoute = longestNonCircleRoute.length ? longestNonCircleRoute : fallbackLongestRoute;
+		const purpleRoute =
+			longestNonCircleRoute.length ? longestNonCircleRoute
+			: traceRoute?.hasDistinctReturn ? []
+			: fallbackLongestRoute;
 		if (purpleRoute.length) {
 			purpleRoute.forEach((id) => traceLongestIds.add(id));
 			extractConnectorNodeIds(purpleRoute).forEach((id) => traceLongestConnectorIds.add(id));
 		}
+
+		if (originId) traceShortestIds.add(originId);
+		if (targetId) traceShortestIds.add(targetId);
 
 		if (traceRoute?.hasDistinctReturn && traceRoute.closedLoop) {
 			traceRoute.closedLoop.forEach((id) => traceShortestIds.add(id));
