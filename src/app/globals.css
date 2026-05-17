@@ -1263,7 +1263,7 @@ a,
 	top: 8px;
 	right: 0;
 	bottom: auto;
-	max-width: 360px;
+	max-width: 333px;
 	height: auto;
 	max-height: min(calc(100% - 16px), 74svh);
 	flex-shrink: 0;
