@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getFullGraph, graphFileExists, getProfilesFromStore } from '@/lib/graphStore';
+import { getFullGraph, getProfilesFromStore } from '@/lib/graphStore';
 import { DEFAULT_EXPANSION_HOPS } from '@/lib/finra-graph-defaults';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 
@@ -11,26 +11,6 @@ export async function GET(request: NextRequest) {
 	const { searchParams } = new URL(request.url);
 	const limit = parseInt(searchParams.get('limit') ?? '0', 10);
 	const profileName = searchParams.get('profile') ?? undefined;
-
-	const exists = await graphFileExists();
-	if (!exists) {
-		return NextResponse.json(
-			{
-				nodes: [],
-				links: [],
-				meta: {
-					sourceLabel: '(no local graph)',
-					generated: new Date().toISOString(),
-					totalIndividuals: 0,
-					totalFirms: 0,
-					totalEntities: 0,
-					totalNodes: 0,
-					totalLinks: 0,
-				},
-			},
-			{ headers: sharedCacheHeaders(120) },
-		);
-	}
 
 	if (limit > 0) {
 		const graph = await getFullGraph();

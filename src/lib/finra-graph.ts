@@ -340,7 +340,7 @@ function buildSessionPayload({ compact = false, extraNodeMode = 'full' }: { comp
 					const { x, y, vx, vy, fx, fy, index, ...rest } = n;
 					return sanitizePersistedNode(rest);
 				})
-			:	[],
+			: [],
 		extraNodeIds: includeExtraNodeIds ? extraNodeIds : [],
 		extraLinks:
 			includeExtraLinks ?
@@ -4092,7 +4092,9 @@ function isNodeInactive(node) {
 	if (!node || typeof node !== 'object') return false;
 
 	if (node.group === 'firm') {
-		const activityFlags = collectNodeActivityFlags([node.firmStatus, node.bcScope, node.basicInformation?.firmStatus, node.basicInformation?.bcScope]);
+		const statusFlags = collectNodeActivityFlags([node.firmStatus, node.basicInformation?.firmStatus]);
+		if (statusFlags.hasInactive) return true;
+		const activityFlags = collectNodeActivityFlags([node.bcScope, node.basicInformation?.bcScope]);
 		if (activityFlags.hasActive) return false;
 		if (node.isLegacy === 'Y') return true;
 		if (Array.isArray(node.activeStates) && node.activeStates.length) return false;
@@ -7350,7 +7352,7 @@ function renderPersonDetail(d) {
 		);
 	}
 
-	function renderRegistrationRole(role, { inactive = false }: { inactive?: boolean } = {}) {
+	function renderRegistrationRole(role, { inactive = false, showIcon = true }: { inactive?: boolean; showIcon?: boolean } = {}) {
 		const normalizedRole = String(role || '')
 			.trim()
 			.toUpperCase();
@@ -7362,13 +7364,37 @@ function renderPersonDetail(d) {
 			normalizedRole === 'B' ? 'fg-reg-role--broker'
 			: normalizedRole === 'IA' ? 'fg-reg-role--ia'
 			: 'fg-reg-role--default';
-		return `<span class="fg-reg-role ${roleClass}${inactive ? ' is-inactive' : ''}" title="${esc(label)}"><span class="fg-reg-role__icon">${esc(normalizedRole || label.charAt(0))}</span><span class="fg-reg-role__label">${esc(label)}</span></span>`;
+		return `<span class="fg-reg-role ${roleClass}${inactive ? ' is-inactive' : ''}${showIcon ? '' : ' fg-reg-role--text-only'}" title="${esc(label)}">${showIcon ? `<span class="fg-reg-role__icon">${esc(normalizedRole || label.charAt(0))}</span>` : ''}<span class="fg-reg-role__label">${esc(label)}</span></span>`;
 	}
 
 	const currentRegistrations = dedupeRegs([
 		...(d.currentIAEmployments || []).map((emp) => regToEntry(emp, 'IA', true)),
 		...(d.currentEmployments || []).map((emp) => regToEntry(emp, 'B', true)),
 	]).sort((a, b) => compareCurrentFirstByDates(a, b, { dateKeys: ['start', 'end'] }));
+	const topCurrentRegistrationRoles = Array.from(new Set(currentRegistrations.map((reg) => reg.role)))
+		.filter(Boolean)
+		.sort((a, b) => {
+			const order = (role) => (role === 'B' ? 0 : role === 'IA' ? 1 : 2);
+			return order(a) - order(b);
+		});
+	const topCurrentRegistrationHtml = topCurrentRegistrationRoles.length
+		? `
+			<div class="fg-sb-role-summary">
+				<div class="fg-firm-summary__roles">
+					${topCurrentRegistrationRoles
+						.map(
+							(role) => `
+								<div class="fg-firm-summary__role">
+									<span class="fg-firm-summary__role-icon ${String(role).toUpperCase() === 'IA' ? 'fg-firm-summary__role-icon--ia' : 'fg-firm-summary__role-icon--broker'}" aria-hidden="true">${esc(String(role).toUpperCase())}</span>
+									<div class="fg-firm-summary__role-copy">
+										<div class="fg-firm-summary__role-title">${esc(String(role).toUpperCase() === 'IA' ? 'Investment Adviser' : 'Broker Regulated by FINRA')}</div>
+									</div>
+								</div>`,
+						)
+						.join('')}
+				</div>
+			</div>`
+		: '';
 	const previousRegistrations = dedupeRegs([
 		...(d.previousIAEmployments || []).map((emp) => regToEntry(emp, 'IA', false)),
 		...(d.previousEmployments || []).map((emp) => regToEntry(emp, 'B', false)),
@@ -7579,6 +7605,7 @@ function renderPersonDetail(d) {
         ${stubBadge}
         ${disclosureCount ? `<span class="fg-badge inactive">${disclosureCount} disclosure${disclosureCount !== 1 ? 's' : ''}</span>` : ''}
       </div>
+			${topCurrentRegistrationHtml}
 		<div class="fg-sb-title-actions fg-sb-title-actions--below-tags">
 			${renderMobileSidebarToggle()}
 			${renderSidebarSelectionLogToggle()}
@@ -7688,7 +7715,7 @@ function renderPersonDetail(d) {
 								.map(
 									(reg) => `
                 <div class="fg-tl-entry">
-									  <span class="fg-tl-firm">${renderRegistrationRole(reg.role, { inactive: true })} ${esc(reg.firmName)}${reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : ''}</span>
+							  <span class="fg-tl-firm">${renderRegistrationRole(reg.role, { inactive: true, showIcon: false })} ${esc(reg.firmName)}${reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : ''}</span>
                   ${reg.cityState ? `<span class="fg-tl-loc">${esc(reg.cityState)}</span>` : ''}
                   <span class="fg-tl-dates">${esc(reg.start || '–')} → ${esc(reg.end || 'present')}</span>
                 </div>`,
@@ -7884,10 +7911,10 @@ function renderFirmDetail(d) {
 	const brokerCheckReportUrl = firmId ? `https://files.brokercheck.finra.org/firm/firm_${encodeURIComponent(firmId)}.pdf` : null;
 	const bcRawUrl = firmId ? `https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(firmId)}`.trim() : null;
 	const secRawUrl = firmId ? `https://api.adviserinfo.sec.gov/search/firm/${encodeURIComponent(firmId)}`.trim() : null;
-	const secSummaryUrl = firmId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(firmId)}` : null;
-	const secFirmId = firmId || d.iaSecNumber || '';
+	const secFirmId = d.iaSecNumber || firmId || '';
+	const secSummaryUrl = secFirmId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(secFirmId)}` : null;
 	const hasFinraPage = d.hasFinraData === true;
-	const hasSecPage = d.hasSecData === true && Boolean(secFirmId);
+	const hasSecPage = Boolean(d.hasSecData === true || d.iaSecNumber || d.secSummaryDescription || (Array.isArray(d.secDocumentLinks) && d.secDocumentLinks.length));
 	const secDocumentLinks =
 		hasSecPage ?
 			Array.isArray(d.secDocumentLinks) && d.secDocumentLinks.length ? d.secDocumentLinks
@@ -7904,8 +7931,30 @@ function renderFirmDetail(d) {
 	const showBrokerCheckSummary = hasFinraPage;
 	const disclosureTotal =
 		Number.isFinite(Number(d.disclosureCount)) ? Number(d.disclosureCount) : disclosures.reduce((sum, dis) => sum + Number(dis?.count ?? dis?.disclosureCount ?? 0), 0);
+	const disclosureLabel = disclosureTotal === 1 ? 'Disclosure' : 'Disclosures';
+	const disclosureBadge = disclosureTotal > 0 ? `<span class="fg-badge inactive">${disclosureLabel} ${esc(String(disclosureTotal))}</span>` : '';
 	const hasAffiliateDisclosureSummary = Boolean(d.affiliateDisclosures);
 	const sortedBrochures = Array.isArray(d.brochures) ? d.brochures.slice().sort((a, b) => compareFirmDatesDesc(a, b, ['dateSubmitted'])) : [];
+	const officeAddress = String(d.officeAddress || '').trim();
+	const districtLabel = String(d.districtName || '').trim();
+	const finraSummaryLabel = `Brokerage Firm${districtLabel ? ` Regulated by FINRA (${districtLabel})` : ' Regulated by FINRA'}`;
+	const secSummaryLabel = 'Investment Adviser Firm';
+	const topSummaryRoleHtml = `
+		<div class="fg-firm-summary__roles">
+			<div class="fg-firm-summary__role">
+				<span class="fg-firm-summary__role-icon fg-firm-summary__role-icon--broker" aria-hidden="true">B</span>
+				<div class="fg-firm-summary__role-copy">
+					<div class="fg-firm-summary__role-title">${esc(finraSummaryLabel)}</div>
+				</div>
+			</div>
+			${hasSecPage ? `
+			<div class="fg-firm-summary__role">
+				<span class="fg-firm-summary__role-icon fg-firm-summary__role-icon--ia" aria-hidden="true">IA</span>
+				<div class="fg-firm-summary__role-copy">
+					<div class="fg-firm-summary__role-title">${esc(secSummaryLabel)}</div>
+				</div>
+			</div>` : ''}
+		</div>`;
 
 	return `
 		<div class="fg-sb-header firm">
@@ -7923,13 +7972,29 @@ function renderFirmDetail(d) {
 					return `${statusBadge}${d.firmSize ? `<span class="fg-badge">${esc(firmSizeLabel(d.firmSize))}</span>` : ''}`;
 				})()}
         ${scopeBadge}
+        ${disclosureBadge}
       </div>
+			<div class="fg-sb-role-summary">
+				${topSummaryRoleHtml}
+			</div>
 			<div class="fg-sb-title-actions fg-sb-title-actions--below-tags">
 				${renderMobileSidebarToggle()}
 				${renderSidebarSelectionLogToggle()}
 			</div>
     </div>
     <div class="fg-sb-body">
+			<div class="fg-firm-summary">
+				<div class="fg-firm-summary__header">
+					${d.otherNames?.length ? `<div class="fg-firm-summary__aliases">${esc(d.otherNames.join(', '))}</div>` : ''}
+					${crdSec ? `<div class="fg-firm-summary__crd">${esc(crdSec)}</div>` : ''}
+				</div>
+				<div class="fg-firm-summary__grid">
+					<div class="fg-firm-summary__panel fg-firm-summary__panel--address">
+						<div class="fg-firm-summary__panel-title">Main Address</div>
+						<div class="fg-firm-summary__address">${officeAddress ? esc(officeAddress) : '–'}</div>
+					</div>
+				</div>
+			</div>
       <div class="fg-ext-links">
         ${showBrokerCheckSummary ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/firm/summary/${encodeURIComponent(firmId)}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
         ${secDocumentLinks
@@ -7942,7 +8007,6 @@ function renderFirmDetail(d) {
 				d.officeAddress || d.businessPhone ?
 					`
       <div class="fg-section-title">Contact</div>
-      ${d.officeAddress ? row('Address', esc(d.officeAddress)) : ''}
       ${d.businessPhone ? row('Phone', esc(d.businessPhone)) : ''}
       `
 				:	''
@@ -7963,7 +8027,6 @@ function renderFirmDetail(d) {
       ${row('Established in', d.formedState ? `${esc(d.formedState)}${d.formedDate ? ' since ' + d.formedDate : ''}` : '–')}
       ${row('Type', esc(d.firmType || '–'))}
       ${row('Fiscal Year End', esc(d.fiscalYearEnd || '–'))}
-      ${d.otherNames?.length ? row('Other names', esc(d.otherNames.join('; '))) : ''}
       ${
 				sortedBrochures.length ?
 					`
