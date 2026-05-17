@@ -244,35 +244,14 @@ export default function FinraGraph() {
 											id='fg-subset-info-pin'
 											type='button'
 											className='fg-subset-info-pin'
-											title='Pin status'
-											aria-label='Pin status'
+											title='Dismiss status'
+											aria-label='Dismiss status'
 											aria-pressed='false'>
 											<span
 												className='fg-subset-info-pin__icon'
 												aria-hidden='true'>
-												<svg
-													viewBox='0 0 16 16'
-													fill='none'
-													focusable='false'>
-													<path
-														d='M5.25 2.25h5.5l-.85 3.1 1.9 1.9H4.2l1.9-1.9-.85-3.1Z'
-														stroke='currentColor'
-														strokeWidth='1.3'
-														strokeLinejoin='round'
-													/>
-													<path
-														d='M8 7.25v6.5'
-														stroke='currentColor'
-														strokeWidth='1.3'
-														strokeLinecap='round'
-													/>
-													<path
-														d='M6.45 13.75h3.1'
-														stroke='currentColor'
-														strokeWidth='1.3'
-														strokeLinecap='round'
-													/>
-												</svg>
+												<span className='fg-subset-info-pin__bar fg-subset-info-pin__bar--one' />
+												<span className='fg-subset-info-pin__bar fg-subset-info-pin__bar--two' />
 											</span>
 										</button>
 									</div>
