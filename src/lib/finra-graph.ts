@@ -1,36 +1,16 @@
 /**
  * finra.ts  –  FINRA BrokerCheck Network Graph
- *
- * Renders the finra-graph.json as an interactive D3 v7 force-directed graph.
- *
- * Nodes:
- *   individual  – blue circle   (registered person; size scales with connection count)
- *   individual  – dim blue      (stub: Form BD name only, no full CRD record loaded yet)
- *   firm        – amber square  (registered broker-dealer or IA firm; size scales with degree)
- *                               border: red=primarily controlled, slate=primarily employs, white=neutral
- *   entity      – pink diamond (non-individual Form BD control owner, e.g. holding company)
- *
- * Disclosure indicator:
- *   orange dashed ring around the node → person or firm has regulatory/disciplinary disclosures
- *
- * Links:
- *   employed_by (current)  – blue arrow         (person → firm, active registration)
- *   controls               – red arrow          (person/entity → firm, from Form BD directOwners)
- *
- * On selection:
- *   controls → vivid red highlight, 2.5px
- *   employed_by → blue highlight
  */
 
 import {
-	applyIndividualDetail as applyIndividualDetailImpl,
+	flattenEmploymentRecords as flattenEmploymentRecordsImpl,
 	buildSyntheticFirmNodeId as buildSyntheticFirmNodeIdImpl,
+	getEmploymentRelationship as getEmploymentRelationshipImpl,
+	hasRichIndividualDetail as hasRichIndividualDetailImpl,
 	findExistingFirmNode as findExistingFirmNodeImpl,
 	findExistingPersonNode as findExistingPersonNodeImpl,
 	findFirmNodeByLabel as findFirmNodeByLabelImpl,
-	flattenEmploymentRecords as flattenEmploymentRecordsImpl,
-	getEmploymentRelationship as getEmploymentRelationshipImpl,
-	hasRichIndividualDetail as hasRichIndividualDetailImpl,
+	applyIndividualDetail as applyIndividualDetailImpl,
 	normalizeComparableName as normalizeComparableNameImpl,
 	normalizeFirmLabelKey as normalizeFirmLabelKeyImpl,
 	normalizeIndividualDetailPayload as normalizeIndividualDetailPayloadImpl,
@@ -181,8 +161,8 @@ function applyStatusPresentation(text, options: { transient?: boolean; dismissib
 	if (pinBtn) {
 		pinBtn.classList.toggle('is-active', pinned);
 		pinBtn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
-		pinBtn.setAttribute('title', pinned ? 'Unpin status' : 'Pin status');
-		pinBtn.setAttribute('aria-label', pinned ? 'Unpin status' : 'Pin status');
+		pinBtn.setAttribute('title', 'Dismiss status');
+		pinBtn.setAttribute('aria-label', 'Dismiss status');
 	}
 }
 
@@ -194,13 +174,14 @@ function hasLockedFetchStatus() {
 
 function clearFetchStatus() {
 	activeFetchStatusMessage = null;
-	applyStatusPresentation('', { transient: false, dismissible: false, pinned: activeFetchStatusPinned });
+	activeFetchStatusPinned = false;
+	applyStatusPresentation('', { transient: false, dismissible: false, pinned: false });
 	const pinBtn = document.getElementById('fg-subset-info-pin') as HTMLButtonElement | null;
 	if (pinBtn) {
-		pinBtn.setAttribute('aria-pressed', activeFetchStatusPinned ? 'true' : 'false');
-		pinBtn.setAttribute('title', activeFetchStatusPinned ? 'Unpin status' : 'Pin status');
-		pinBtn.setAttribute('aria-label', activeFetchStatusPinned ? 'Unpin status' : 'Pin status');
-		pinBtn.classList.toggle('is-active', activeFetchStatusPinned);
+		pinBtn.setAttribute('aria-pressed', 'false');
+		pinBtn.setAttribute('title', 'Dismiss status');
+		pinBtn.setAttribute('aria-label', 'Dismiss status');
+		pinBtn.classList.remove('is-active');
 	}
 }
 
@@ -210,8 +191,8 @@ function setFetchStatusPinned(pinned: boolean) {
 	if (pinBtn) {
 		pinBtn.classList.toggle('is-active', pinned);
 		pinBtn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
-		pinBtn.setAttribute('title', pinned ? 'Unpin status' : 'Pin status');
-		pinBtn.setAttribute('aria-label', pinned ? 'Unpin status' : 'Pin status');
+		pinBtn.setAttribute('title', 'Dismiss status');
+		pinBtn.setAttribute('aria-label', 'Dismiss status');
 	}
 	try {
 		localStorage.setItem(FETCH_STATUS_PIN_STORAGE_KEY, pinned ? '1' : '0');
@@ -568,8 +549,8 @@ function setSidebarViewMode(
 		expandMobile?: boolean;
 	} = {},
 ) {
+	const { expandMobile = false } = options;
 	if (!sidebarSelectedNode) return;
-	const { expandMobile = mode !== 'none' } = options;
 	sidebarViewMode = mode;
 	renderSidebar(sidebarSelectedNode);
 	if (isMobileSidebarViewport()) {
@@ -2438,7 +2419,7 @@ export function init(_d3) {
 	const subsetInfoPinBtn = document.getElementById('fg-subset-info-pin') as HTMLButtonElement | null;
 	if (subsetInfoPinBtn) {
 		subsetInfoPinBtn.addEventListener('click', () => {
-			setFetchStatusPinned(!activeFetchStatusPinned);
+			clearFetchStatus();
 		});
 	}
 
@@ -2737,7 +2718,7 @@ export function init(_d3) {
 	if (zipBtn) {
 		zipBtn.addEventListener('click', async () => {
 			const zip = ((document.getElementById('fg-loc-zip') as HTMLInputElement | null)?.value || '').trim();
-			const radius = radiusInput?.value || '25';
+			const radius = Number.parseInt((radiusInput?.value || '25').trim(), 10) || 25;
 			if (!zip) {
 				setLocStatus('Enter a ZIP code', true);
 				return;
@@ -2748,7 +2729,7 @@ export function init(_d3) {
 			try {
 				const u = makeApiUrl('/api/finra/location-search');
 				u.searchParams.set('zip', zip);
-				u.searchParams.set('radius', radius);
+				u.searchParams.set('radius', String(radius));
 				const r = await fetch(u.toString());
 				if (!r.ok) throw new Error(`HTTP ${r.status}`);
 				const data = await r.json();
@@ -7614,7 +7595,7 @@ function renderPersonDetail(d) {
     <div class="fg-sb-body fg-sb-body--person">
       <div class="fg-ext-links">
         ${brokerCheckSummaryUrl ? `<a class="fg-ext-link bc" href="${brokerCheckSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
-        ${brokerCheckReportUrl ? `<a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>` : ''}
+	        ${brokerCheckReportUrl ? `<a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>` : ''}
         ${secSummaryUrl ? `<a class="fg-ext-link sec" href="${secSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo Summary</a>` : ''}
       </div>
 
@@ -7913,10 +7894,21 @@ function renderFirmDetail(d) {
 	const brokerCheckReportUrl = firmId ? `https://files.brokercheck.finra.org/firm/firm_${encodeURIComponent(firmId)}.pdf` : null;
 	const bcRawUrl = firmId ? `https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(firmId)}`.trim() : null;
 	const secRawUrl = firmId ? `https://api.adviserinfo.sec.gov/search/firm/${encodeURIComponent(firmId)}`.trim() : null;
-	const secFirmId = d.iaSecNumber || firmId || '';
+	const secScopeFlags = d.orgScopeStatusFlags || {};
+	const hasPublicSecFirmPage = Boolean(
+		secScopeFlags.isSECRegistered === 'Y' ||
+		secScopeFlags.isStateRegistered === 'Y' ||
+		secScopeFlags.isERARegistered === 'Y' ||
+		secScopeFlags.isSECERARegistered === 'Y' ||
+		secScopeFlags.isStateERARegistered === 'Y' ||
+		d.iaSecNumber ||
+		d.secSummaryDescription ||
+		(Array.isArray(d.secDocumentLinks) && d.secDocumentLinks.length),
+	);
+	const secFirmId = d.iaSecNumber || (hasPublicSecFirmPage ? firmId : '') || '';
 	const secSummaryUrl = secFirmId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(secFirmId)}` : null;
 	const hasFinraPage = d.hasFinraData === true;
-	const hasSecPage = Boolean(d.hasSecData === true || d.iaSecNumber || d.secSummaryDescription || (Array.isArray(d.secDocumentLinks) && d.secDocumentLinks.length));
+	const hasSecPage = hasPublicSecFirmPage;
 	const secDocumentLinks =
 		hasSecPage ?
 			Array.isArray(d.secDocumentLinks) && d.secDocumentLinks.length ? d.secDocumentLinks
@@ -8007,11 +7999,10 @@ function renderFirmDetail(d) {
       ${d.isLegacy === 'Y' ? `<p class="fg-sb-note">Not currently registered as broker. FINRA contains only limited information about this firm.</p>` : ''}
       ${
 				d.officeAddress || d.businessPhone ?
-					`
-      <div class="fg-section-title">Contact</div>
-      ${d.businessPhone ? row('Phone', esc(d.businessPhone)) : ''}
-      `
-				:	''
+					`<div class="fg-section-title">Contact</div>
+					${d.officeAddress ? row('Address', esc(d.officeAddress)) : ''}
+					${d.businessPhone ? row('Phone', esc(d.businessPhone)) : ''}`
+				: ''
 			}
       <div class="fg-section-title">Registration</div>
 			${row('SEC Registration Status', d.firmStatus ? esc(d.firmStatus) + (statusDate ? ` (${statusDate})` : '') : '–')}
@@ -8137,7 +8128,6 @@ function renderLegend() {
 	const items = [
 		{
 			color: 'var(--c-individual)',
-			shape: 'circle',
 			label: 'Individual',
 		},
 		{
