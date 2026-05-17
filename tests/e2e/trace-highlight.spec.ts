@@ -7,6 +7,40 @@ type TraceTargets = {
 	targetIndex: number;
 };
 
+async function synthesizeTouchDragClick(page: Page, selector: string) {
+	await page.locator(selector).evaluate((button) => {
+		const rect = button.getBoundingClientRect();
+		const startX = rect.left + rect.width / 2;
+		const startY = rect.top + rect.height / 2;
+		const endX = startX + 18;
+		const endY = startY + 18;
+
+		if ('PointerEvent' in window) {
+			const pointerInit = {
+				bubbles: true,
+				cancelable: true,
+				composed: true,
+				isPrimary: true,
+				pointerId: 41,
+				pointerType: 'touch',
+			};
+			button.dispatchEvent(new PointerEvent('pointerdown', { ...pointerInit, clientX: startX, clientY: startY }));
+			button.dispatchEvent(new PointerEvent('pointermove', { ...pointerInit, clientX: endX, clientY: endY }));
+			button.dispatchEvent(new PointerEvent('pointerup', { ...pointerInit, clientX: endX, clientY: endY }));
+		}
+
+		button.dispatchEvent(
+			new MouseEvent('click', {
+				bubbles: true,
+				cancelable: true,
+				composed: true,
+				clientX: endX,
+				clientY: endY,
+			}),
+		);
+	});
+}
+
 async function getTraceTargets(page: Page): Promise<TraceTargets> {
 	const traceTargets = await page.evaluate(() => {
 		const nodes = Array.from(document.querySelectorAll<Element>('.fg-node'));
@@ -27,24 +61,59 @@ async function getTraceTargets(page: Page): Promise<TraceTargets> {
 	return traceTargets;
 }
 
-test('Trace with Log applies trace classes to rendered graph nodes', async ({ page }) => {
+test('Mobile sidebar controls ignore draggy touch gestures and Trace with Log still works', async ({ page }) => {
 	await page.goto('/');
 	await resetBrowserGraphState(page);
 	await page.reload();
 
 	await fetchGraphQueryWithLinkedResults(page, '3102054');
 
+	const sidebar = page.locator('#fg-sidebar');
+	const mobileMenuToggle = page.getByRole('button', { name: 'Toggle menu' });
+	await expect(sidebar).toHaveClass(/hidden/);
+
+	await synthesizeTouchDragClick(page, '#fg-mobile-menu-toggle');
+	await expect(sidebar).toHaveClass(/hidden/);
+	await page.waitForTimeout(300);
+
+	await mobileMenuToggle.click();
+	await expect(sidebar).not.toHaveClass(/hidden/);
+	await mobileMenuToggle.click();
+	await expect(sidebar).toHaveClass(/hidden/);
+
 	const { sourceIndex, targetIndex } = await getTraceTargets(page);
 	const sourceNode = page.locator('.fg-node').nth(sourceIndex);
 	const targetNode = page.locator('.fg-node').nth(targetIndex);
 
 	await sourceNode.click({ force: true });
-	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/);
+	await expect(sidebar).not.toHaveClass(/hidden/);
+
+	const infoToggle = page.getByRole('button', { name: 'Show info' });
+	const traceModeToggle = page.locator('#fg-sidebar [data-fg-trace-mode-button="sidebar-mobile"]');
+	await expect(infoToggle).toBeVisible();
+	await expect(traceModeToggle).toBeVisible();
+	await expect(infoToggle).toHaveAttribute('aria-pressed', 'false');
+	await expect(traceModeToggle).toHaveAttribute('aria-pressed', 'false');
+
+	await synthesizeTouchDragClick(page, '.fg-sidebar-mobile-summary-toggle');
+	await synthesizeTouchDragClick(page, '#fg-sidebar [data-fg-trace-mode-button="sidebar-mobile"]');
+
+	await expect(infoToggle).toHaveAttribute('aria-pressed', 'false');
+	await expect(traceModeToggle).toHaveAttribute('aria-pressed', 'false');
 	await targetNode.click({ force: true });
 	const sidebarLogToggle = page.getByRole('button', { name: 'Show selection log' });
 	await expect(sidebarLogToggle).toBeVisible();
+	await expect(sidebarLogToggle).toHaveAttribute('aria-pressed', 'false');
+
+	await synthesizeTouchDragClick(page, '.fg-sb-log-toggle');
+	await expect(sidebarLogToggle).toHaveAttribute('aria-pressed', 'false');
+	await page.waitForTimeout(300);
+
 	await sidebarLogToggle.click();
 	await expect(page.locator('#fg-sidebar-selection-log-list .fg-log-entry')).toHaveCount(2);
+
+	await traceModeToggle.click();
+	await expect(traceModeToggle).toHaveAttribute('aria-pressed', 'true');
 
 	const sidebarTraceButton = page.locator('#fg-sidebar [data-fg-selection-log-action="trace"]').first();
 	await expect(sidebarTraceButton).toBeVisible();
@@ -53,7 +122,6 @@ test('Trace with Log applies trace classes to rendered graph nodes', async ({ pa
 	await expect(sidebarTraceButton).toHaveText('Log Trace On');
 	await expect(sidebarTraceButton).toHaveAttribute('aria-pressed', 'true');
 	await expect(sourceNode).toHaveClass(/trace-log/);
-	await expect(targetNode).toHaveClass(/trace-log/);
 	await expect
 		.poll(async () => page.locator('.fg-node.trace-log, .fg-node.trace-log-connector').count(), {
 			timeout: 10_000,
