@@ -2,6 +2,66 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+const MOBILE_TOUCH_SLOP_PX = 12;
+const MOBILE_TOUCH_CLICK_SUPPRESSION_MS = 250;
+
+function bindTouchDragClickSuppression(button: HTMLElement | null) {
+	if (!button || button.dataset.touchGuardBound === 'true') return;
+	button.dataset.touchGuardBound = 'true';
+
+	let activePointerId: number | null = null;
+	let startX = 0;
+	let startY = 0;
+	let suppressClickUntil = 0;
+
+	const movedBeyondTouchSlop = (clientX: number, clientY: number) => Math.hypot(clientX - startX, clientY - startY) > MOBILE_TOUCH_SLOP_PX;
+	const suppressNextClick = () => {
+		suppressClickUntil = Date.now() + MOBILE_TOUCH_CLICK_SUPPRESSION_MS;
+	};
+
+	button.addEventListener(
+		'pointerdown',
+		(event) => {
+			if (event.pointerType !== 'touch') return;
+			activePointerId = event.pointerId;
+			startX = event.clientX;
+			startY = event.clientY;
+		},
+		{ passive: true },
+	);
+
+	button.addEventListener(
+		'pointermove',
+		(event) => {
+			if (event.pointerType !== 'touch' || activePointerId !== event.pointerId) return;
+			if (!movedBeyondTouchSlop(event.clientX, event.clientY)) return;
+			suppressNextClick();
+			activePointerId = null;
+		},
+		{ passive: true },
+	);
+
+	const finalizePointer = (event: PointerEvent) => {
+		if (event.pointerType !== 'touch' || activePointerId !== event.pointerId) return;
+		if (movedBeyondTouchSlop(event.clientX, event.clientY)) {
+			suppressNextClick();
+		}
+		activePointerId = null;
+	};
+
+	button.addEventListener('pointerup', finalizePointer, { passive: true });
+	button.addEventListener('pointercancel', finalizePointer, { passive: true });
+	button.addEventListener(
+		'click',
+		(event) => {
+			if (Date.now() >= suppressClickUntil) return;
+			event.preventDefault();
+			event.stopPropagation();
+		},
+		true,
+	);
+}
+
 function ensureSidebarHintContent() {
 	const inner = document.getElementById('fg-sidebar-inner');
 	if (!inner) return;
@@ -214,6 +274,12 @@ export default function FinraGraph() {
 			document.removeEventListener('focusin', handleDocumentFocusIn, true);
 			document.removeEventListener('keydown', handleEscapeKey);
 		};
+	}, [isMounted]);
+
+	useEffect(() => {
+		if (!isMounted) return;
+		bindTouchDragClickSuppression(document.getElementById('fg-mobile-menu-toggle'));
+		bindTouchDragClickSuppression(document.getElementById('fg-sidebar-pin-toggle'));
 	}, [isMounted]);
 
 	useEffect(() => {

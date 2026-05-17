@@ -1674,6 +1674,32 @@ function getViewportSize() {
 	};
 }
 
+function getMobileSidebarChromeOcclusionTop(mainRect: DOMRect, sidebar: HTMLElement) {
+	if (typeof window === 'undefined') return 0;
+	if (!window.matchMedia('(max-width: 860px)').matches) return 0;
+	if (!sidebar || sidebar.classList.contains('hidden')) return 0;
+	if (sidebar.dataset.mobileExpanded === 'true') return 0;
+
+	const chromeSections = Array.from(sidebar.querySelectorAll<HTMLElement>('.fg-sidebar-actions, .fg-sidebar-mobile-actions')).filter((section) => {
+		const style = window.getComputedStyle(section);
+		return style.display !== 'none' && style.visibility !== 'hidden';
+	});
+	if (!chromeSections.length) return 0;
+
+	let chromeBottom = mainRect.top;
+	chromeSections.forEach((section) => {
+		const rect = section.getBoundingClientRect();
+		if (rect.bottom <= mainRect.top || rect.top >= mainRect.bottom) return;
+		chromeBottom = Math.max(chromeBottom, Math.min(mainRect.bottom, rect.bottom));
+	});
+
+	const overlap = Math.max(0, chromeBottom - mainRect.top);
+	if (!overlap) return 0;
+
+	const safetyPadding = 12;
+	return Math.min(overlap + safetyPadding, Math.max(mainRect.height - 1, 0));
+}
+
 function getVisibleGraphViewport() {
 	const main = document.getElementById('fg-main');
 	const { width, height } = getViewportSize();
@@ -1702,21 +1728,25 @@ function getVisibleGraphViewport() {
 
 	const occludedLeft = sidebarRect.left <= mainRect.left + 8 ? horizontalOverlap : 0;
 	const occludedRight = occludedLeft ? 0 : horizontalOverlap;
+	const occludedTop = getMobileSidebarChromeOcclusionTop(mainRect, sidebar);
 	const visibleLeft = occludedLeft;
 	const visibleRight = Math.max(visibleLeft + 1, width - occludedRight);
+	const visibleTop = Math.min(Math.max(0, occludedTop), Math.max(height - 1, 0));
+	const visibleBottom = height;
 	const visibleWidth = Math.max(visibleRight - visibleLeft, 1);
+	const visibleHeight = Math.max(visibleBottom - visibleTop, 1);
 
 	return {
 		width,
 		height,
 		centerX: visibleLeft + visibleWidth / 2,
-		centerY: height / 2,
+		centerY: visibleTop + visibleHeight / 2,
 		visibleLeft,
 		visibleRight,
-		visibleTop: 0,
-		visibleBottom: height,
+		visibleTop,
+		visibleBottom,
 		visibleWidth,
-		visibleHeight: height,
+		visibleHeight,
 	};
 }
 
@@ -1981,6 +2011,7 @@ export function init(_d3) {
 	syncSelectionLogActionButtonStates();
 
 	const refreshLayoutButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-action="refresh-layout"]'));
+	refreshLayoutButtons.forEach((button) => bindTouchDragClickSuppression(button));
 	refreshLayoutButtons.forEach((refreshLayoutBtn) => {
 		refreshLayoutBtn.addEventListener('click', () => {
 			const buttons = refreshLayoutButtons;
@@ -2007,6 +2038,7 @@ export function init(_d3) {
 	});
 
 	const clearSessionButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-action="clear-session"]'));
+	clearSessionButtons.forEach((button) => bindTouchDragClickSuppression(button));
 	clearSessionButtons.forEach((clearSessionBtn) => {
 		clearSessionBtn.addEventListener('click', async () => {
 			const buttons = clearSessionButtons;
@@ -2039,6 +2071,7 @@ export function init(_d3) {
 	});
 
 	const clearHighlightsButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-action="clear-highlights"]'));
+	clearHighlightsButtons.forEach((button) => bindTouchDragClickSuppression(button));
 	clearHighlightsButtons.forEach((clearHighlightsBtn) => {
 		clearHighlightsBtn.addEventListener('click', () => {
 			clearHighlights();
@@ -2047,6 +2080,7 @@ export function init(_d3) {
 
 	const focusSidebarBtn = document.getElementById('fg-focus-btn') as HTMLButtonElement | null;
 	if (focusSidebarBtn) {
+		bindTouchDragClickSuppression(focusSidebarBtn);
 		focusSidebarBtn.addEventListener('click', () => {
 			markUserInitiatedGraphExpansion();
 			const sideEl = document.getElementById('fg-sidebar');
@@ -7303,6 +7337,119 @@ function isMobileSidebarViewport() {
 	return true;
 }
 
+const MOBILE_SIDEBAR_TOGGLE_TOUCH_SLOP_PX = 12;
+const MOBILE_SIDEBAR_TOGGLE_TOUCH_SUPPRESSION_MS = 250;
+
+function bindTouchDragClickSuppression(button: HTMLElement | null) {
+	if (!button || button.dataset.touchGuardBound === 'true') return;
+	button.dataset.touchGuardBound = 'true';
+
+	let activePointerId: number | null = null;
+	let startX = 0;
+	let startY = 0;
+	let suppressClickUntil = 0;
+
+	const movedBeyondTouchSlop = (clientX: number, clientY: number) => Math.hypot(clientX - startX, clientY - startY) > MOBILE_SIDEBAR_TOGGLE_TOUCH_SLOP_PX;
+	const suppressNextClick = () => {
+		suppressClickUntil = Date.now() + MOBILE_SIDEBAR_TOGGLE_TOUCH_SUPPRESSION_MS;
+	};
+
+	button.addEventListener(
+		'pointerdown',
+		(event) => {
+			if (event.pointerType !== 'touch') return;
+			activePointerId = event.pointerId;
+			startX = event.clientX;
+			startY = event.clientY;
+		},
+		{ passive: true },
+	);
+
+	button.addEventListener(
+		'pointermove',
+		(event) => {
+			if (event.pointerType !== 'touch' || activePointerId !== event.pointerId) return;
+			if (!movedBeyondTouchSlop(event.clientX, event.clientY)) return;
+			suppressNextClick();
+			activePointerId = null;
+		},
+		{ passive: true },
+	);
+
+	const finalizePointer = (event: PointerEvent) => {
+		if (event.pointerType !== 'touch' || activePointerId !== event.pointerId) return;
+		if (movedBeyondTouchSlop(event.clientX, event.clientY)) {
+			suppressNextClick();
+		}
+		activePointerId = null;
+	};
+
+	button.addEventListener('pointerup', finalizePointer, { passive: true });
+	button.addEventListener('pointercancel', finalizePointer, { passive: true });
+	button.addEventListener(
+		'click',
+		(event) => {
+			if (Date.now() >= suppressClickUntil) return;
+			event.preventDefault();
+			event.stopPropagation();
+		},
+		true,
+	);
+}
+
+function bindSidebarToggleInteraction(button: HTMLButtonElement | null, resolveNextMode: () => 'none' | 'info' | 'log') {
+	if (!button || button.dataset.touchGuardBound === 'true') return;
+	button.dataset.touchGuardBound = 'true';
+
+	let activePointerId: number | null = null;
+	let startX = 0;
+	let startY = 0;
+	let suppressClickUntil = 0;
+
+	const suppressNextClick = () => {
+		suppressClickUntil = Date.now() + MOBILE_SIDEBAR_TOGGLE_TOUCH_SUPPRESSION_MS;
+	};
+
+	const movedBeyondTouchSlop = (clientX: number, clientY: number) => Math.hypot(clientX - startX, clientY - startY) > MOBILE_SIDEBAR_TOGGLE_TOUCH_SLOP_PX;
+
+	const onPointerDown = (event: PointerEvent) => {
+		if (event.pointerType !== 'touch') return;
+		activePointerId = event.pointerId;
+		startX = event.clientX;
+		startY = event.clientY;
+	};
+
+	const onPointerMove = (event: PointerEvent) => {
+		if (event.pointerType !== 'touch' || activePointerId !== event.pointerId) return;
+		if (!movedBeyondTouchSlop(event.clientX, event.clientY)) return;
+		suppressNextClick();
+		activePointerId = null;
+	};
+
+	const onPointerEnd = (event: PointerEvent) => {
+		if (event.pointerType !== 'touch' || activePointerId !== event.pointerId) return;
+		if (movedBeyondTouchSlop(event.clientX, event.clientY)) {
+			suppressNextClick();
+		}
+		activePointerId = null;
+	};
+
+	button.addEventListener('pointerdown', onPointerDown, { passive: true });
+	button.addEventListener('pointermove', onPointerMove, { passive: true });
+	button.addEventListener('pointerup', onPointerEnd, { passive: true });
+	button.addEventListener('pointercancel', onPointerEnd, { passive: true });
+	button.addEventListener('click', (event) => {
+		if (Date.now() < suppressClickUntil) {
+			event.preventDefault();
+			event.stopPropagation();
+			return;
+		}
+		event.stopPropagation();
+		const nextMode = resolveNextMode();
+		setSidebarViewMode(nextMode, { expandMobile: nextMode !== 'none' });
+	});
+}
+
 function setSidebarToggleState(button: HTMLButtonElement | null, active: boolean, titles: { active: string; inactive: string }) {
 	if (!button) return;
 	button.classList.toggle('is-active', active);
@@ -7426,20 +7573,16 @@ function renderSidebar(d) {
 	syncMobileSidebarExpandedState(!isMobileSidebarViewport() || preserveExpandedState);
 	const mobileToggle = el.querySelector('.fg-sidebar-mobile-summary-toggle') as HTMLButtonElement | null;
 	if (mobileToggle) {
-		mobileToggle.addEventListener('click', (event) => {
-			event.stopPropagation();
-			const nextMode = sidebarViewMode === 'info' ? 'none' : 'info';
-			setSidebarViewMode(nextMode, { expandMobile: nextMode !== 'none' });
-		});
+		bindSidebarToggleInteraction(mobileToggle, () => (sidebarViewMode === 'info' ? 'none' : 'info'));
 	}
 	const logToggleButtons = Array.from(el.querySelectorAll<HTMLButtonElement>('.fg-sb-log-toggle'));
 	logToggleButtons.forEach((button) => {
-		button.addEventListener('click', (event) => {
-			event.stopPropagation();
-			const nextMode = sidebarViewMode === 'log' ? 'none' : 'log';
-			setSidebarViewMode(nextMode, { expandMobile: nextMode !== 'none' });
-		});
+		bindSidebarToggleInteraction(button, () => (sidebarViewMode === 'log' ? 'none' : 'log'));
 	});
+	const touchGuardButtons = Array.from(
+		document.querySelectorAll<HTMLElement>('#fg-sidebar button, #fg-selection-log button, #fg-sidebar details.fg-mobile-legend-tooltip > summary, [data-fg-trace-mode-button]'),
+	);
+	touchGuardButtons.forEach((button) => bindTouchDragClickSuppression(button));
 	updateSelectionLogUI();
 	updateSelectionLogChrome();
 	const focusBtn = document.getElementById('fg-focus-btn') as HTMLButtonElement | null;
