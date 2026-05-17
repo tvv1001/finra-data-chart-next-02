@@ -2202,6 +2202,53 @@ a,
 	border: none;
 }
 
+.fg-tl-entry.active-pos {
+	outline: 1px solid #2563eb;
+	box-shadow: 0 4px 16px rgba(37, 99, 235, 0.18);
+	background: linear-gradient(0deg, rgba(0, 76, 207, 0.235) 0%, rgba(239, 246, 255, 0.92) 100%);
+}
+
+.fg-control-card {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding-top: 2px;
+}
+
+.fg-control-card__entry {
+	padding: 10px 12px;
+	border-radius: 10px;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 251, 255, 0.95) 100%);
+	outline-color: rgba(37, 99, 235, 0.2);
+}
+
+.fg-control-card__firm {
+	font-size: 13px;
+	line-height: 1.35;
+	font-weight: 800;
+	color: var(--text-h);
+}
+
+.fg-control-card__firm small {
+	font-size: 10px;
+	font-weight: 700;
+	color: var(--text-m);
+	letter-spacing: 0.01em;
+}
+
+.fg-control-card__date,
+.fg-control-card__status,
+.fg-control-card__position {
+	color: var(--text-h);
+	font-weight: 700;
+}
+
+.fg-control-card__location,
+.fg-control-card__address {
+	font-size: 11px;
+	line-height: 1.45;
+}
+
 .fg-tl-firm {
 	display: block;
 	font-weight: 600;
