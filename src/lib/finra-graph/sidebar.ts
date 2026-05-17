@@ -14,15 +14,13 @@ function hasPublicFinraIndividualPage(detail, basicInformation: Record<string, a
 		.trim()
 		.toLowerCase()
 		.replace(/\s+/g, '');
+	if (bcScope === 'notinscope') return false;
 	if (bcScope && bcScope !== 'notinscope') return true;
 
 	const registrationCount = detail?.registrationCount || {};
 	if (Number(registrationCount.approvedFinraRegistrationCount || 0) > 0) return true;
 	if (Number(registrationCount.approvedSRORegistrationCount || 0) > 0) return true;
-	if (hasAnyItems(detail?.currentEmployments)) return true;
-	if (hasAnyItems(detail?.previousEmployments)) return true;
 	if (hasAnyItems(detail?.registeredSROs)) return true;
-	if (hasAnyItems(detail?.disclosures)) return true;
 
 	return false;
 }
@@ -54,11 +52,93 @@ function hasPublicSecIndividualPage(detail, basicInformation: Record<string, any
 	return false;
 }
 
+type NodeSourceCoverage = 'both' | 'sec_only' | 'finra_only' | 'none';
+
+function toNodeSourceCoverage(finra: boolean, sec: boolean): NodeSourceCoverage {
+	if (finra && sec) return 'both';
+	if (sec) return 'sec_only';
+	if (finra) return 'finra_only';
+	return 'none';
+}
+
+function isNotInScopeValue(value) {
+	return (
+		String(value || '')
+			.trim()
+			.toLowerCase()
+			.replace(/\s+/g, '') === 'notinscope'
+	);
+}
+
+function hasIndividualFinraPresence(node) {
+	if (!node || typeof node !== 'object') return false;
+	if (node.hasFinraData === true) return true;
+	if (hasPublicFinraIndividualPage(node, node.basicInformation || {})) return true;
+	if (hasAnyItems(node?.currentEmployments)) return true;
+	if (hasAnyItems(node?.previousEmployments)) return true;
+	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
+	return false;
+}
+
+function hasIndividualSecPresence(node) {
+	if (!node || typeof node !== 'object') return false;
+	if (node.hasSecData === true) return true;
+	if (hasPublicSecIndividualPage(node, node.basicInformation || {})) return true;
+	if (Number(node?.registrationCount?.approvedIAStateRegistrationCount || 0) > 0) return true;
+	if (
+		Array.isArray(node?.registeredStates) &&
+		node.registeredStates.some((entry) => {
+			if (!entry || typeof entry !== 'object') return false;
+			const scope = String(entry.regScope || entry.scope || '')
+				.trim()
+				.toLowerCase();
+			return scope === 'ia';
+		})
+	) {
+		return true;
+	}
+	if (hasAnyItems(node?.previousIAEmployments)) return true;
+	if (hasAnyItems(node?.iaDisclosures)) return true;
+	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
+	return false;
+}
+
+function hasFirmFinraPresence(node) {
+	if (!node || typeof node !== 'object') return false;
+	if (node.hasFinraData === true) return true;
+	if (node.isLegacy === 'Y') return true;
+	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
+	if (Boolean(String(node?.bcScope || node?.basicInformation?.bcScope || '').trim())) return true;
+	return false;
+}
+
+function hasFirmSecPresence(node) {
+	if (!node || typeof node !== 'object') return false;
+	if (node.hasSecData === true) return true;
+	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
+	if (Boolean(String(node?.iaSecNumber || node?.basicInformation?.iaSECNumber || node?.basicInformation?.iaSecNumber || '').trim())) return true;
+	if (hasAnyItems(node?.secDocumentLinks)) return true;
+	if (Boolean(String(node?.secSummaryDescription || '').trim())) return true;
+	return false;
+}
+
+function formatNodeSourceTruthSummary(node) {
+	const finra = node?.group === 'firm' ? hasFirmFinraPresence(node) : hasIndividualFinraPresence(node);
+	const sec = node?.group === 'firm' ? hasFirmSecPresence(node) : hasIndividualSecPresence(node);
+	const coverage = toNodeSourceCoverage(finra, sec);
+	const coverageLabel =
+		coverage === 'both' ? 'both SEC+FINRA'
+		: coverage === 'sec_only' ? 'SEC only'
+		: coverage === 'finra_only' ? 'FINRA only'
+		: 'none';
+	return `FINRA=${finra ? 'true' : 'false'} · SEC=${sec ? 'true' : 'false'} (${coverageLabel})`;
+}
+
 export function renderPersonDetail(d, context: RenderContext = {}) {
 	const graphData = context.graphData;
 	const bi = d.basicInformation || {};
 	const hasFinraPage = d.hasFinraData === false ? false : hasPublicFinraIndividualPage(d, bi);
-	const hasSecPage = d.hasSecData === false ? false : hasPublicSecIndividualPage(d, bi);
+	const hasSecPage = hasPublicSecIndividualPage(d, bi);
 	const links = (graphData?.links || []).filter((l) => (l.source?.id || l.source) === d.id || (l.target?.id || l.target) === d.id);
 	const controlLinks = links.filter((l) => l.relationship === 'controls');
 
@@ -411,9 +491,9 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 	}
 
 	const crd = bi.individualId || d.crd || String(d.id).replace(/^person[:_]/, '');
-	const brokerCheckSummaryUrl = bi.individualId && hasFinraPage ? `https://brokercheck.finra.org/individual/summary/${encodeURIComponent(bi.individualId)}` : null;
+	const brokerCheckSummaryUrl = crd && hasFinraPage ? `https://brokercheck.finra.org/individual/summary/${encodeURIComponent(crd)}` : null;
 	const brokerCheckReportUrl = crd && hasFinraPage ? `https://files.brokercheck.finra.org/individual/individual_${encodeURIComponent(crd)}.pdf` : null;
-	const secSummaryUrl = bi.individualId && hasSecPage ? `https://adviserinfo.sec.gov/Individual/${encodeURIComponent(bi.individualId)}` : null;
+	const secSummaryUrl = crd && hasSecPage ? `https://adviserinfo.sec.gov/individual/summary/${encodeURIComponent(crd)}` : null;
 
 	return `
     <div class='fg-sb-header individual'>
@@ -432,6 +512,7 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
       </div>
 
       ${bi.individualId ? row('CRD', `<code>${bi.individualId}</code>`) : ''}
+	${row('ID source check', esc(formatNodeSourceTruthSummary(d)))}
       ${aliases.length ? row('Also known as', esc(aliases.join('; '))) : ''}
       ${
 				d.yearsExperience != null ? row('Years of Experience', esc(String(d.yearsExperience)))
@@ -697,7 +778,6 @@ export function renderFirmDetail(d) {
 		}
 		return String(a?.brochureName || a?.type || a?.disclosureType || '').localeCompare(String(b?.brochureName || b?.type || b?.disclosureType || ''));
 	}
-	const crdSec = [d.firmId ? `CRD#: ${d.firmId}` : null, d.bdSecNumber ? `SEC#: 8-${d.bdSecNumber}` : null].filter(Boolean).join(' / ');
 	const statusDate = d.firmStatusDate || '';
 	const statusText = d.firmStatus ? capitalize(String(d.firmStatus || '').toLowerCase()) : '';
 	const statusIsActive = d.firmStatus ? /\bactive\b|\bapproved\b/i.test(String(d.firmStatus)) : false;
@@ -716,21 +796,63 @@ export function renderFirmDetail(d) {
 	const states = Array.isArray(d.activeStates) && d.activeStates.length ? d.activeStates.join(', ') : 'N/A';
 	const firmId = d.firmId || String(d.id).replace(/^firm[:_]/, '');
 	const brokerCheckReportUrl = firmId ? `https://files.brokercheck.finra.org/firm/firm_${encodeURIComponent(firmId)}.pdf` : null;
+	const normalizeSecFirmId = (value: string | number | null | undefined) => {
+		const raw = String(value || '').trim();
+		if (!raw) return '';
+		if (/^8-\d+$/i.test(raw)) return raw;
+		if (/^\d+$/.test(raw)) return `8-${raw}`;
+		return raw;
+	};
+	const secFirmId = normalizeSecFirmId(d.iaSecNumber || d.bdSecNumber || d.bdSECNumber || d.basicInformation?.iaSECNumber || d.basicInformation?.bdSECNumber || firmId);
+	const crdSec = [firmId ? `CRD#: ${firmId}` : null, secFirmId ? `SEC#: ${secFirmId}` : null].filter(Boolean).join(' / ');
 	const secSummaryUrl = firmId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(firmId)}` : null;
-	const secFirmId = firmId || d.iaSecNumber || '';
+	const iaSecRaw = String(d.iaSecNumber || d.basicInformation?.iaSECNumber || d.basicInformation?.iaSecNumber || '')
+		.trim()
+		.toUpperCase();
+	const hasAdviserStyleIaSec = /^801-?\d+$/.test(iaSecRaw);
+	const secScopeFlags = d.orgScopeStatusFlags || {};
+	const hasPositiveSecScopeFlags =
+		secScopeFlags.isSECRegistered === 'Y' ||
+		secScopeFlags.isStateRegistered === 'Y' ||
+		secScopeFlags.isERARegistered === 'Y' ||
+		secScopeFlags.isSECERARegistered === 'Y' ||
+		secScopeFlags.isStateERARegistered === 'Y';
 	const hasFinraPage = d.hasFinraData === true;
-	const hasSecPage = d.hasSecData === true && Boolean(secFirmId);
+	const hasSecPage = Boolean(firmId) && (hasPositiveSecScopeFlags || hasAdviserStyleIaSec);
 	const secDocumentLinks =
 		hasSecPage ?
-			Array.isArray(d.secDocumentLinks) && d.secDocumentLinks.length ? d.secDocumentLinks
-			: secFirmId ?
-				[
-					{ label: 'SEC AdvisorInfo Summary', href: secSummaryUrl },
-					{ label: 'Latest Form ADV filed', href: `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(secFirmId)}/PDF/${encodeURIComponent(secFirmId)}.pdf` },
-					{ label: 'SEC firm brochure', href: `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(secFirmId)}` },
-					{ label: 'SEC Form CRS', href: `https://reports.adviserinfo.sec.gov/crs/crs_${encodeURIComponent(secFirmId)}.pdf` },
-				]
-			:	[]
+			(() => {
+				const defaultLinks =
+					firmId ?
+						[
+							{ label: 'SEC AdvisorInfo Summary', href: secSummaryUrl },
+							{ label: 'Latest Form ADV filed', href: `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(firmId)}/PDF/${encodeURIComponent(firmId)}.pdf` },
+							{ label: 'SEC firm brochure', href: `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(firmId)}` },
+							{ label: 'SEC Form CRS', href: `https://reports.adviserinfo.sec.gov/crs/crs_${encodeURIComponent(firmId)}.pdf` },
+						]
+					:	[];
+
+				if (!Array.isArray(d.secDocumentLinks) || !d.secDocumentLinks.length) return defaultLinks;
+
+				return d.secDocumentLinks.map((link) => {
+					const label = String(link?.label || '').trim();
+					if (!label) return link;
+					if (/^SEC AdvisorInfo Summary$/i.test(label)) return { ...link, href: secSummaryUrl };
+					if (/^Latest Form ADV filed$/i.test(label)) {
+						return {
+							...link,
+							href: `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(firmId)}/PDF/${encodeURIComponent(firmId)}.pdf`,
+						};
+					}
+					if (/^SEC firm brochure$/i.test(label)) {
+						return { ...link, href: `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(firmId)}` };
+					}
+					if (/^SEC Form CRS$/i.test(label)) {
+						return { ...link, href: `https://reports.adviserinfo.sec.gov/crs/crs_${encodeURIComponent(firmId)}.pdf` };
+					}
+					return link;
+				});
+			})()
 		:	[];
 	const secSummaryDescription = hasSecPage && d.secSummaryDescription ? String(d.secSummaryDescription).trim() : '';
 	const showBrokerCheckSummary = hasFinraPage;
@@ -772,6 +894,7 @@ export function renderFirmDetail(d) {
 				:	''
 			}
       <div class='fg-section-title'>Registration</div>
+	${row('ID source check', esc(formatNodeSourceTruthSummary(d)))}
       ${row('SEC Registration Status', d.firmStatus ? esc(d.firmStatus) + (statusDate ? ` (${statusDate})` : '') : '–')}
       ${d.districtName ? row('FINRA District', esc(d.districtName)) : ''}
       ${row('Company Type', esc(d.firmType || 'N/A'))}
