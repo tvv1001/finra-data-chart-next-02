@@ -7158,7 +7158,6 @@ function hasPublicSecIndividualPage(detail, basicInformation: Record<string, any
 		return true;
 	}
 	if (hasAnyItems(detail?.currentIAEmployments)) return true;
-	if (hasAnyItems(detail?.previousIAEmployments)) return true;
 	if (hasAnyItems(detail?.iaDisclosures)) return true;
 	if (
 		Array.isArray(detail?.registeredStates) &&
@@ -7180,6 +7179,7 @@ function renderPersonDetail(d) {
 	const bi = d.basicInformation || {};
 	const hasFinraPage = d.hasFinraData === false ? false : hasPublicFinraIndividualPage(d, bi);
 	const hasSecPage = d.hasSecData === false ? false : hasPublicSecIndividualPage(d, bi);
+	const showSecReferences = hasSecPage;
 	const links = (graphData?.links || []).filter((l) => (l.source?.id || l.source) === d.id || (l.target?.id || l.target) === d.id);
 	const controlLinks = links.filter((l) => l.relationship === 'controls');
 
@@ -7197,7 +7197,7 @@ function renderPersonDetail(d) {
 	}
 
 	const finraScopeText = d.bcScope || bi.bcScope || (hasFinraPage ? 'Active' : '');
-	const secScopeText = d.iaScope || bi.iaScope || (hasSecPage ? 'Active' : '');
+	const secScopeText = hasSecPage ? d.iaScope || bi.iaScope || 'Active' : '';
 	const scopeBadgesHtml = [formatDomainScopeBadge(finraScopeText, 'finra', 'FINRA'), formatDomainScopeBadge(secScopeText, 'sec', 'SEC AdvisorInfo')].filter(Boolean).join(' ');
 
 	// ── All disclosures (BC + IA) ─────────────────────────────────────────────
@@ -7292,7 +7292,7 @@ function renderPersonDetail(d) {
 	function getEmploymentScopeTags(entry) {
 		return [
 			entry.employmentStatus ? formatUiText(entry.employmentStatus) : null,
-			entry.iaOnly ? 'IA only' : null,
+			showSecReferences && entry.iaOnly ? 'IA only' : null,
 			entry.firmBCScope && entry.firmBCScope !== 'ACTIVE' ? `Firm FINRA: ${formatUiText(entry.firmBCScope)}` : null,
 		].filter(Boolean);
 	}
@@ -7651,7 +7651,7 @@ function renderPersonDetail(d) {
 									const detailLine = getEmploymentDetailLine(e);
 									const scopeTags = getEmploymentScopeTags(e);
 									return `<div class="fg-tl-entry active-pos">
-                  <span class="fg-tl-firm">${esc(e.firmName)}${e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : ''}</span>
+	                  <span class="fg-tl-firm">${esc(e.firmName)}${showSecReferences && e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : ''}</span>
                   <span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>
 								  ${detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : ''}
                   ${scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : ''}
@@ -7672,7 +7672,7 @@ function renderPersonDetail(d) {
 									const detailLine = getEmploymentDetailLine(e);
 									const scopeTags = getEmploymentScopeTags(e);
 									return `<div class="${cls}">
-                  <span class="fg-tl-firm">${esc(e.firmName)}${e.bdSecNumber ? ` <small>SEC#${esc(e.bdSecNumber)}</small>` : ''}</span>
+                  <span class="fg-tl-firm">${esc(e.firmName)}${showSecReferences && e.bdSecNumber ? ` <small>SEC#${esc(e.bdSecNumber)}</small>` : ''}</span>
                   <span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>
 								  ${detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : ''}
 								  ${scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : ''}
@@ -7715,7 +7715,7 @@ function renderPersonDetail(d) {
 								.map(
 									(reg) => `
                 <div class="fg-tl-entry">
-							  <span class="fg-tl-firm">${renderRegistrationRole(reg.role, { inactive: true, showIcon: false })} ${esc(reg.firmName)}${reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : ''}</span>
+								  <span class="fg-tl-firm">${esc(reg.firmName)}${reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : ''}</span>
                   ${reg.cityState ? `<span class="fg-tl-loc">${esc(reg.cityState)}</span>` : ''}
                   <span class="fg-tl-dates">${esc(reg.start || '–')} → ${esc(reg.end || 'present')}</span>
                 </div>`,
@@ -7771,6 +7771,7 @@ function renderPersonDetail(d) {
       ${
 				controlLinks.length ?
 					`<div class="fg-section-title fg-section-title--sticky">Control Positions</div>
+						<div class="fg-control-card">
 						${controlLinks
 							.slice()
 							.sort((a, b) =>
@@ -7810,16 +7811,17 @@ function renderPersonDetail(d) {
 									l.location ||
 									employmentMatch?.loc ||
 									(l.city || l.officeCity || l.state || l.officeState ? [l.city || l.officeCity, l.state || l.officeState].filter(Boolean).join(', ') : null);
-								return `<div class="fg-tl-entry active-pos">
-					        <span class="fg-tl-firm">${esc(firmNode?.label || l.firmName || employmentMatch?.firmName || l.name || l.organizationName || l.legalName || '')}${secNumber ? ` <small>SEC#${esc(String(secNumber))}</small>` : ''}</span>
-                ${dateRange ? `<span class="fg-tl-dates">${dateRange}</span>` : ''}
-                ${firmStatus ? `<span class="fg-tl-status">${esc(firmStatus)}</span>` : ''}
-                ${l.position ? `<span class="fg-tl-loc">${esc(l.position)}</span>` : ''}
-                ${location ? `<span class="fg-tl-loc">${esc(location)}</span>` : ''}
-                ${firmAddress ? `<span class="fg-tl-loc">${esc(firmAddress)}</span>` : ''}
-              </div>`;
+								return `<div class="fg-tl-entry fg-control-card__entry active-pos">
+		        <span class="fg-tl-firm fg-control-card__firm">${esc(firmNode?.label || l.firmName || employmentMatch?.firmName || l.name || l.organizationName || l.legalName || '')}${secNumber ? ` <small>SEC#${esc(String(secNumber))}</small>` : ''}</span>
+	                ${dateRange ? `<span class="fg-tl-dates fg-control-card__date"><strong>${dateRange}</strong></span>` : ''}
+	                ${firmStatus ? `<span class="fg-tl-status fg-control-card__status"><strong>${esc(firmStatus)}</strong></span>` : ''}
+	                ${l.position ? `<span class="fg-tl-loc fg-control-card__position"><strong>${esc(l.position)}</strong></span>` : ''}
+	                ${location ? `<span class="fg-tl-loc fg-control-card__location">${esc(location)}</span>` : ''}
+	                ${firmAddress ? `<span class="fg-tl-loc fg-control-card__address">${esc(firmAddress)}</span>` : ''}
+	              </div>`;
 							})
-							.join('')}`
+								.join('')}
+					</div>`
 				:	''
 			}
 
