@@ -439,6 +439,104 @@ function clearSession() {
 	sessionStorage.removeItem(LS_SESSION_KEY);
 }
 
+function emitSelectedNodeRoute(nodeId: string | null, { replace = false }: { replace?: boolean } = {}) {
+	if (typeof window === 'undefined') return;
+	window.dispatchEvent(
+		new CustomEvent(SELECTED_NODE_ROUTE_EVENT, {
+			detail: {
+				nodeId: nodeId || null,
+				replace,
+			},
+		}),
+	);
+}
+
+async function fetchNodesByIds(nodeIds: string[] = []) {
+	const uniqueIds = Array.from(new Set(nodeIds.map((nodeId) => String(nodeId || '').trim()).filter(Boolean)));
+	if (!uniqueIds.length) return [];
+	const url = makeApiUrl('/api/finra/nodes-by-ids');
+	url.searchParams.set('ids', uniqueIds.join(','));
+	const response = await fetch(url.toString());
+	if (!response.ok) throw new Error(`nodes-by-ids HTTP ${response.status}`);
+	return response.json();
+}
+
+async function ensureRouteNodeAvailable(nodeId: string) {
+	const normalizedNodeId = String(nodeId || '').trim();
+	if (!normalizedNodeId) return null;
+
+	let liveNode = layoutNodes?.find((node) => node.id === normalizedNodeId) || graphData?.nodes?.find((node) => node.id === normalizedNodeId) || null;
+	if (liveNode && !layoutNodes?.some((node) => node.id === normalizedNodeId)) {
+		injectNodesById([normalizedNodeId]);
+		liveNode = layoutNodes?.find((node) => node.id === normalizedNodeId) || graphData?.nodes?.find((node) => node.id === normalizedNodeId) || liveNode;
+	}
+	if (liveNode) return liveNode;
+
+	try {
+		const expansion = await fetchExpansionDataForNodeIds([normalizedNodeId], getDefaultExpansionHops());
+		if (expansion.nodes.length || expansion.links.length) {
+			mergeIntoGraphData(expansion.nodes, expansion.links);
+			appendFetched?.(expansion.nodes, expansion.links);
+			liveNode = layoutNodes?.find((node) => node.id === normalizedNodeId) || graphData?.nodes?.find((node) => node.id === normalizedNodeId) || null;
+		}
+	} catch (error) {
+		console.warn('Failed to expand route-selected node:', error);
+	}
+
+	if (liveNode) return liveNode;
+
+	try {
+		const fetchedNodes = await fetchNodesByIds([normalizedNodeId]);
+		if (fetchedNodes.length) {
+			mergeIntoGraphData(fetchedNodes, []);
+			injectNodesById(fetchedNodes.map((node) => node.id));
+			liveNode = layoutNodes?.find((node) => node.id === normalizedNodeId) || graphData?.nodes?.find((node) => node.id === normalizedNodeId) || null;
+		}
+	} catch (error) {
+		console.warn('Failed to fetch route-selected node by id:', error);
+	}
+
+	if (liveNode) return liveNode;
+
+	const [nodePrefix, rawNodeId] = normalizedNodeId.split(':');
+	if (rawNodeId && /^[0-9]+$/.test(rawNodeId)) {
+		try {
+			const fetchedBatch =
+				nodePrefix === 'person' ? await fetchIndividualBatch(rawNodeId)
+				: nodePrefix === 'firm' ? await fetchFirmBatch(rawNodeId)
+				: { nodes: [], links: [] };
+			if (fetchedBatch.nodes.length || fetchedBatch.links.length) {
+				mergeIntoGraphData(fetchedBatch.nodes, fetchedBatch.links);
+				appendFetched?.(fetchedBatch.nodes, fetchedBatch.links);
+				liveNode = layoutNodes?.find((node) => node.id === normalizedNodeId) || graphData?.nodes?.find((node) => node.id === normalizedNodeId) || null;
+			}
+		} catch (error) {
+			console.warn('Failed to hydrate route-selected node directly from detail APIs:', error);
+		}
+	}
+
+	return liveNode;
+}
+
+async function applyPendingRouteNodeSelection() {
+	const targetNodeId = String(pendingRouteNodeId || '').trim();
+	if (!targetNodeId) return false;
+	if (!graphData || !layoutNodes) return false;
+
+	const liveNode = await ensureRouteNodeAvailable(targetNodeId);
+	if (!liveNode) return false;
+
+	pendingRouteNodeId = null;
+	selectNode(liveNode, {
+		skipAutoExpand: true,
+		skipProfileSync: true,
+		focus: true,
+		focusDuration: 520,
+		syncRoute: false,
+	});
+	return true;
+}
+
 function loadSession() {
 	try {
 		const raw = localStorage.getItem(LS_SESSION_KEY);
@@ -473,6 +571,8 @@ let sidebarSelectedNode = null;
 let sidebarViewMode: 'none' | 'info' | 'log' = 'none';
 let isTraceMode = false;
 let isTraceLogMode = false;
+let pendingRouteNodeId: string | null = null;
+let routeNodeRequestListenerBound = false;
 let traceShortestIds = new Set<string>(); // node and link IDs
 let traceLongestIds = new Set<string>(); // node and link IDs
 let traceLogIds = new Set<string>(); // node and link IDs
@@ -481,6 +581,8 @@ let traceLongestConnectorIds = new Set<string>(); // intermediate nodes only
 let traceLogConnectorIds = new Set<string>(); // intermediate nodes only
 
 const LS_LOG_KEY = 'finra_selection_log';
+const ROUTE_NODE_REQUEST_EVENT = 'finra:route-node-request';
+const SELECTED_NODE_ROUTE_EVENT = 'finra:selected-node-route';
 const TRACE_LOG_GUARD_WARNING_PREFIX = '[finra-graph] Trace with Log guard:';
 let lastTraceLogGuardWarning = '';
 
@@ -1554,6 +1656,7 @@ async function clearPersistedServerGraph() {
 async function resetSessionView() {
 	clearSession();
 	clearGraphData();
+	emitSelectedNodeRoute(null, { replace: true });
 	void fetchCacheStats();
 
 	void clearPersistedServerGraph().catch((error) => {
@@ -1993,8 +2096,21 @@ function drawDisclosureIndicator(g, d, r) {
 }
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
-export function init(_d3) {
+export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) {
 	d3 = _d3;
+	pendingRouteNodeId = String(options?.initialRouteNodeId || '').trim() || pendingRouteNodeId;
+
+	if (!routeNodeRequestListenerBound && typeof window !== 'undefined') {
+		window.addEventListener(ROUTE_NODE_REQUEST_EVENT, ((event: Event) => {
+			const detail = (event as CustomEvent<{ nodeId?: string | null }>).detail || {};
+			pendingRouteNodeId = String(detail.nodeId || '').trim() || null;
+			if (pendingRouteNodeId) {
+				void applyPendingRouteNodeSelection();
+			}
+		}) as EventListener);
+		routeNodeRequestListenerBound = true;
+	}
+
 	if (isSidebarPersistentlyPinned()) {
 		showSidebarHint({ keepOpen: true });
 	}
@@ -3579,7 +3695,7 @@ async function loadGraph() {
 			!clearedSession &&
 			(session.extraNodes?.length || session.extraNodeIds?.length || session.renderedServerIds?.length || session.selectedNodeId || session.highlightedNodes?.length),
 		);
-		const shouldStartEmptyForCustomProfile = profileName === 'custom' && !profileHasExplicitSeedTargets(profileData) && !hasSavedSessionData;
+		const shouldStartEmptyForCustomProfile = profileName === 'custom' && !pendingRouteNodeId && !profileHasExplicitSeedTargets(profileData) && !hasSavedSessionData;
 
 		if (!currentProfileEnabled) {
 			if (session && !clearedSession) {
@@ -3711,6 +3827,13 @@ async function loadGraph() {
 	} catch (err) {
 		console.error('loadGraph:', err);
 		showEmpty(true);
+	} finally {
+		if (pendingRouteNodeId) {
+			if (!graphData || !layoutNodes) {
+				clearGraphData();
+			}
+			void applyPendingRouteNodeSelection();
+		}
 	}
 }
 
@@ -6419,9 +6542,10 @@ function selectNode(
 		focus?: boolean;
 		pulse?: boolean;
 		focusDuration?: number;
+		syncRoute?: boolean;
 	} = {},
 ) {
-	const { persist = true, skipProfileSync = false, skipAutoExpand = false, focus = false, pulse = false, focusDuration = 600 } = options;
+	const { persist = true, skipProfileSync = false, skipAutoExpand = false, focus = false, pulse = false, focusDuration = 600, syncRoute = true } = options;
 	if (selectionRestoreTimer) {
 		clearTimeout(selectionRestoreTimer);
 		selectionRestoreTimer = null;
@@ -6430,6 +6554,9 @@ function selectNode(
 	const hops = getDefaultSelectionHops();
 	upsertHighlightedSelection(d.id, hops);
 	selectedId = d.id;
+	if (syncRoute) {
+		emitSelectedNodeRoute(d.id);
+	}
 	addToSelectionLog(d);
 	refreshTraceState();
 	renderSidebar(d);

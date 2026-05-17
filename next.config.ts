@@ -6,6 +6,14 @@ const nextConfig: NextConfig = {
 	// output: "export",
 	// Compress API + page responses with gzip/brotli
 	compress: true,
+	async rewrites() {
+		return [
+			{
+				source: '/node/:nodeId',
+				destination: '/',
+			},
+		];
+	},
 	outputFileTracingIncludes: {
 		'/*': bundledRuntimeData,
 		'/api/finra/prime-check': bundledRuntimeData,
