@@ -5,6 +5,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { DATA_DIR } from './constants';
+import { getFullGraph } from './graphStore';
 
 const BASE = path.join(DATA_DIR, 'national');
 const FINRA_DIR = path.join(BASE, 'brokercheck.finra.org');
@@ -13,7 +14,6 @@ const SEC_DIR = path.join(BASE, 'adviserinfo.sec.gov');
 let _loaded = false;
 const finraIndividuals = new Map<string, any>();
 const secIndividuals = new Map<string, any>();
-let finraGraph: any = null;
 
 async function _loadFinraFiles() {
 	try {
@@ -75,19 +75,10 @@ async function _loadSecFiles() {
 	} catch {}
 }
 
-async function _loadGraph() {
-	try {
-		const gRaw = await readFile(path.join(BASE, 'finra-graph.json'), 'utf-8');
-		finraGraph = JSON.parse(gRaw);
-	} catch {
-		finraGraph = null;
-	}
-}
-
 async function ensureLoaded() {
 	if (_loaded) return;
 	_loaded = true;
-	await Promise.all([_loadFinraFiles(), _loadSecFiles(), _loadGraph()]);
+	await Promise.all([_loadFinraFiles(), _loadSecFiles()]);
 }
 
 function _pickIndividualFields(src: any) {
@@ -147,6 +138,7 @@ export async function mergedIndividual(crd: string) {
 export async function mergedFirm(firmId: string) {
 	await ensureLoaded();
 	const id = String(firmId);
+	const finraGraph = await getFullGraph();
 	let firmNode: any = null;
 	if (finraGraph && Array.isArray(finraGraph.nodes)) {
 		firmNode = finraGraph.nodes.find((n: any) => n.group === 'firm' && String(n.firmId) === id);

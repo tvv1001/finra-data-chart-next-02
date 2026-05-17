@@ -3,7 +3,9 @@
  * Shared by /api/finra/graph, /expand, /nodes-by-ids, /graph-search, /graph-append
  */
 import { readFile, writeFile, access, mkdir, rename, unlink, constants } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import { Redis } from '@upstash/redis';
 import { GRAPH_FILE, RECENT_SEEDS_FILE, SEED_BANK_FILE, SEED_PROFILES_FILE, SEEDS_FILE } from './constants';
 
@@ -52,6 +54,8 @@ function getRedis(): Redis | null {
 export let _graphCache: any = null;
 let _graphCacheAt = 0;
 const GRAPH_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
+let _graphBootstrapPromise: Promise<boolean> | null = null;
+const execFileAsync = promisify(execFile);
 
 if (process.env.NODE_ENV !== 'test') {
 	import('chokidar')
@@ -342,6 +346,30 @@ async function readGraphFromDisk() {
 	return parseGraphPayload(raw, GRAPH_FILE);
 }
 
+async function ensureGraphFileFromCache() {
+	if (await localGraphFileExists()) return true;
+	if (_graphBootstrapPromise) return _graphBootstrapPromise;
+
+	_graphBootstrapPromise = (async () => {
+		try {
+			const scriptPath = path.join(process.cwd(), 'scripts', 'build_graph_from_cache.js');
+			await execFileAsync(process.execPath, [scriptPath, '--employment-scope', 'current', '--no-redis'], {
+				cwd: process.cwd(),
+				env: process.env,
+				maxBuffer: 10 * 1024 * 1024,
+			});
+			return await localGraphFileExists();
+		} catch (error) {
+			console.warn('Failed to rebuild missing finra-graph.json from cache.', error);
+			return false;
+		}
+	})().finally(() => {
+		_graphBootstrapPromise = null;
+	});
+
+	return _graphBootstrapPromise;
+}
+
 async function readSeedBankFromDisk() {
 	try {
 		const raw = await readFile(SEED_BANK_FILE, 'utf-8');
@@ -481,7 +509,29 @@ export async function getFullGraph() {
 			if (raw) {
 				_graphCache = parseGraphPayload(typeof raw === 'string' ? JSON.parse(raw) : raw, 'Redis graph payload');
 				_graphCacheAt = now;
+				if (!(await localGraphFileExists())) {
+					try {
+						await writeJsonFileAtomic(GRAPH_FILE, _graphCache);
+						await syncSeedBankFromGraph(_graphCache);
+					} catch (error) {
+						console.warn('Failed to restore local finra-graph.json from Redis payload.', error);
+					}
+				}
 				return _graphCache;
+			}
+			if (await ensureGraphFileFromCache()) {
+				const diskGraph = await readGraphFromDisk();
+				if (diskGraph) {
+					try {
+						await redis.set(REDIS_GRAPH_KEY, JSON.stringify(diskGraph));
+						await syncSeedBankFromGraph(diskGraph);
+					} catch (error) {
+						console.warn('Failed to sync rebuilt finra-graph.json into Redis.', error);
+					}
+					_graphCache = diskGraph;
+					_graphCacheAt = now;
+					return _graphCache;
+				}
 			}
 			const boot = await bootstrapGraphFromDisk(redis);
 			_graphCache = boot ?? { ...EMPTY_GRAPH };
@@ -492,12 +542,12 @@ export async function getFullGraph() {
 		}
 	}
 
-	if (!(await localGraphFileExists())) {
+	if (!(await ensureGraphFileFromCache())) {
 		_graphCache = { ...EMPTY_GRAPH };
 		_graphCacheAt = now;
 		return _graphCache;
 	}
-	_graphCache = await readGraphFromDisk();
+	_graphCache = (await readGraphFromDisk()) || { ...EMPTY_GRAPH };
 	_graphCacheAt = now;
 	return _graphCache;
 }

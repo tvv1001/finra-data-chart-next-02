@@ -299,36 +299,6 @@ export default function FinraGraph() {
 									<span className='fg-mobile-menu-toggle__bar'></span>
 								</span>
 							</button>
-
-							<div className='fg-toolbar-group fg-toolbar-actions'>
-								<button
-									id='fg-trace-mode'
-									className='fg-ghost-btn'
-									title='Toggle path tracing mode'>
-									Trace Mode
-								</button>
-								<button
-									id='fg-refresh-layout'
-									data-fg-action='refresh-layout'
-									className='fg-ghost-btn'
-									title='Re-run the graph layout'>
-									↺ Reflow Layout
-								</button>
-								<button
-									id='fg-clear-highlights'
-									data-fg-action='clear-highlights'
-									className='fg-ghost-btn'
-									title='Clear selected highlights'>
-									Clear Highlight
-								</button>
-								<button
-									id='fg-clear-session'
-									data-fg-action='clear-session'
-									className='fg-danger-btn'
-									title='Clear saved session and reload fresh'>
-									Reset Session
-								</button>
-							</div>
 						</div>
 					</div>
 				</div>
@@ -473,6 +443,13 @@ export default function FinraGraph() {
 						</button>
 					</div>
 					<div className='fg-sidebar-mobile-actions'>
+						<button
+							type='button'
+							data-fg-trace-mode-button='sidebar-mobile'
+							className='fg-ghost-btn'
+							title='Toggle path tracing mode'>
+							Trace Mode
+						</button>
 						<button
 							type='button'
 							data-fg-action='clear-highlights'

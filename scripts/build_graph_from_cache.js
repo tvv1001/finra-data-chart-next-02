@@ -178,6 +178,17 @@ async function saveGraphArtifacts(graph, { syncRedis = true } = {}) {
 	return { graphFile: GRAPH_FILE, seedBankFile: SEED_BANK_FILE, redisSynced: true };
 }
 
+async function ensureGraphArtifacts(options = {}) {
+	try {
+		await fs.access(GRAPH_FILE);
+		return { existed: true, built: false };
+	} catch {
+		console.log('finra-graph.json missing; rebuilding from cached source files.');
+		await build(options);
+		return { existed: false, built: true };
+	}
+}
+
 function normalizeEmploymentScope(rawValue) {
 	const value = String(rawValue || 'current')
 		.trim()
@@ -626,4 +637,5 @@ module.exports = {
 	normalizeEmploymentScope,
 	buildSeedBankFromGraph,
 	saveGraphArtifacts,
+	ensureGraphArtifacts,
 };

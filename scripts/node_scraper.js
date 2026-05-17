@@ -2,6 +2,7 @@
 const axios = require('axios');
 const fs = require('fs/promises');
 const path = require('path');
+const { ensureGraphArtifacts, getEmploymentScopeOptions } = require('./build_graph_from_cache');
 
 const ROOT = process.cwd();
 const BASE_API = 'http://localhost:3001';
@@ -37,6 +38,7 @@ async function writeGraph(g) {
 }
 
 async function run(seeds = [], maxDepth = 2) {
+	await ensureGraphArtifacts({ employmentOptions: getEmploymentScopeOptions('all'), syncRedis: false });
 	const seen = new Set();
 	const graph = await loadGraph();
 	const nodeMap = new Map(graph.nodes.map((n) => [n.id, n]));

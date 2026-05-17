@@ -2,6 +2,7 @@
 const fs = require('fs/promises');
 const path = require('path');
 const axios = require('axios');
+const { ensureGraphArtifacts, getEmploymentScopeOptions } = require('./build_graph_from_cache');
 
 const ROOT = process.cwd();
 const GRAPH_FILE = path.join(ROOT, 'data', 'national', 'finra-graph.json');
@@ -23,6 +24,7 @@ function extractId(node) {
 }
 
 async function enrich() {
+	await ensureGraphArtifacts({ employmentOptions: getEmploymentScopeOptions('all'), syncRedis: false });
 	const graph = await readGraph();
 	const nodes = graph.nodes || [];
 	for (const node of nodes) {
