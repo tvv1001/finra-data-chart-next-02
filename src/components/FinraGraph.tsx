@@ -363,7 +363,7 @@ export default function FinraGraph() {
 
 		let cancelled = false;
 		let attempts = 0;
-		let retryTimer: ReturnType<typeof window.setTimeout> | null = null;
+		let retryTimer: number | null = null;
 
 		const requestRouteNodeSelection = () => {
 			if (cancelled) return;
