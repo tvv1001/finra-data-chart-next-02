@@ -87,6 +87,14 @@ function buildSecDocumentLinks(id: string) {
 	];
 }
 
+function normalizeSecFirmId(value: string | number | null | undefined) {
+	const raw = String(value || '').trim();
+	if (!raw) return '';
+	if (/^8-\d+$/i.test(raw)) return raw;
+	if (/^\d+$/.test(raw)) return `8-${raw}`;
+	return raw;
+}
+
 function extractSecDocumentLinks(html: string, id: string) {
 	if (!html || !id) return [];
 	const links = new Map<string, string>();
@@ -202,10 +210,29 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			if (!detail.brochures && secDetail.brochures) detail.brochures = secDetail.brochures;
 		}
 
-		const secHtml = secPageData?.status === 'fulfilled' ? secPageData.value : null;
-		const secPageValid = isValidSecFirmSummaryPage(secHtml, id);
+		const secFirmId = normalizeSecFirmId(
+			detail?.basicInformation?.bdSECNumber ||
+			detail?.basicInformation?.bdSecNumber ||
+			detail?.bdSECNumber ||
+			detail?.bdSecNumber ||
+			id,
+		);
+
+		let secHtml = secPageData?.status === 'fulfilled' ? secPageData.value : null;
+		let secPageValid = isValidSecFirmSummaryPage(secHtml, id);
 		detail.hasFinraData = !!bcDetail;
-		detail.hasSecData = secPageValid;
+
+		if (!secPageValid && secFirmId && secFirmId !== id) {
+			const normalizedSecPageUrl = `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(secFirmId)}`;
+			const normalizedSecHtml = await cachedFetch(`sec:firm:summaryHtml:${secFirmId}`, 60 * 60 * 24, async () => {
+				const r = await axios.get(normalizedSecPageUrl, { headers: DEFAULT_HEADERS, timeout: 15000 });
+				return r.data;
+			});
+			secHtml = normalizedSecHtml;
+			secPageValid = isValidSecFirmSummaryPage(secHtml, secFirmId);
+		}
+
+		detail.hasSecData = Boolean(secFirmId) && Boolean(secDetail || secPageValid);
 
 		if (secPageValid) {
 			const summaryDescription =
@@ -213,15 +240,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			if (summaryDescription) {
 				detail.secSummaryDescription = summaryDescription;
 			}
-			const pageLinks = extractSecDocumentLinks(secHtml, id);
+			const pageLinks = extractSecDocumentLinks(secHtml, secFirmId);
 			if (pageLinks.length) detail.secDocumentLinks = pageLinks;
-		} else {
-			detail.secSummaryDescription = undefined;
-			detail.secDocumentLinks = [];
 		}
 
 		if (detail.hasSecData && (!Array.isArray(detail.secDocumentLinks) || !detail.secDocumentLinks.length)) {
-			detail.secDocumentLinks = buildSecDocumentLinks(id);
+			detail.secDocumentLinks = buildSecDocumentLinks(secFirmId);
+		}
+
+		if (!detail.hasSecData) {
+			detail.secSummaryDescription = undefined;
+			detail.secDocumentLinks = [];
 		}
 
 		return NextResponse.json(detail, { headers: sharedCacheHeaders(3600) });

@@ -63,6 +63,12 @@ function toggleMobileMenu() {
 	backdrop?.classList.remove('hidden');
 }
 
+function handleLegendTooltipBlur(event: React.FocusEvent<HTMLDetailsElement>) {
+	const nextTarget = event.relatedTarget;
+	if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return;
+	event.currentTarget.open = false;
+}
+
 function hideSelectionLog() {
 	const panel = document.getElementById('fg-selection-log');
 	if (!panel) return;
@@ -138,6 +144,11 @@ export default function FinraGraph() {
 		const fetchInput = document.getElementById('fg-fetch-input');
 		if (!app || !fetchInput) return;
 
+		fetchInput.setAttribute('autocorrect', 'off');
+		fetchInput.setAttribute('autocapitalize', 'off');
+		fetchInput.setAttribute('data-gramm', 'false');
+		(fetchInput as HTMLInputElement).spellcheck = false;
+
 		const syncEmptyStateTarget = () => {
 			const rect = fetchInput.getBoundingClientRect();
 			app.style.setProperty('--fg-empty-target-center', `${rect.left + rect.width / 2}px`);
@@ -155,7 +166,16 @@ export default function FinraGraph() {
 
 	useEffect(() => {
 		if (!isMounted) return;
+		const closeOpenLegendTooltip = (target: EventTarget | null) => {
+			const openLegend = document.querySelector<HTMLDetailsElement>('.fg-mobile-legend-tooltip[open]');
+			if (!openLegend) return;
+			if (target instanceof Node && openLegend.contains(target)) return;
+			openLegend.open = false;
+		};
+
 		const handleDocumentClickCapture = (event: MouseEvent) => {
+			closeOpenLegendTooltip(event.target);
+
 			const sidebar = document.getElementById('fg-sidebar');
 			const bottomStatus = document.getElementById('fg-bottom-status');
 			if (!sidebar || sidebar.classList.contains('hidden')) return;
@@ -171,16 +191,27 @@ export default function FinraGraph() {
 			}
 		};
 
+		const handleDocumentFocusIn = (event: FocusEvent) => {
+			closeOpenLegendTooltip(event.target);
+		};
+
 		const handleEscapeKey = (event: KeyboardEvent) => {
 			if (event.key !== 'Escape') return;
+			const openLegend = document.querySelector<HTMLDetailsElement>('.fg-mobile-legend-tooltip[open]');
+			if (openLegend) {
+				openLegend.open = false;
+				return;
+			}
 			hideSidebar();
 		};
 
 		document.addEventListener('click', handleDocumentClickCapture, true);
+		document.addEventListener('focusin', handleDocumentFocusIn, true);
 		document.addEventListener('keydown', handleEscapeKey);
 
 		return () => {
 			document.removeEventListener('click', handleDocumentClickCapture, true);
+			document.removeEventListener('focusin', handleDocumentFocusIn, true);
 			document.removeEventListener('keydown', handleEscapeKey);
 		};
 	}, [isMounted]);
@@ -233,8 +264,12 @@ export default function FinraGraph() {
 										id='fg-fetch-input'
 										className='fg-fetch-input'
 										type='search'
-										placeholder='Fetch: firm, person, CRD/SEC#'
+										placeholder='firm, person, CRD/SEC#'
 										autoComplete='off'
+										autoCorrect='off'
+										autoCapitalize='off'
+										spellCheck={false}
+										data-gramm='false'
 									/>
 									<div className='fg-toolbar-group fg-toolbar-status fg-toolbar-status--top'>
 										<span
@@ -443,7 +478,9 @@ export default function FinraGraph() {
 							title='Clear saved session and reload fresh'>
 							Reset Session
 						</button>
-						<details className='fg-mobile-legend-tooltip'>
+						<details
+							className='fg-mobile-legend-tooltip'
+							onBlur={handleLegendTooltipBlur}>
 							<summary
 								className='fg-mobile-legend-tooltip__toggle'
 								title='Show legend'>

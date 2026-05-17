@@ -532,6 +532,51 @@ env NODE_OPTIONS=--max-old-space-size=8192 pnpm build
 
 ---
 
+## Testing strategy
+
+A repo-specific testing plan lives in [`TESTING_STRATEGY.md`](./TESTING_STRATEGY.md).
+
+It covers:
+
+- unit testing for normalization and formatting helpers
+- integration testing for FINRA API routes and storage behavior
+- fixture-driven testing for graph/artifact build scripts
+- browser end-to-end coverage for graph interaction flows such as selection, sidebar state, trace mode, trace with log, and session reset
+- phased rollout guidance for adding tests without stalling feature work
+
+### Current Playwright regression suite
+
+The current browser suite is intentionally small and deterministic.
+
+- `tests/e2e/smoke.spec.ts` — app shell smoke coverage
+- `tests/e2e/mobile-menu.spec.ts` — mobile menu open/close shell behavior
+- `tests/e2e/reset-session.spec.ts` — persisted session reset marker and reload behavior
+- `tests/e2e/trace-log.spec.ts` — persisted `Trace with Log` UI state
+- `tests/e2e/selection-log-clear.spec.ts` — selection-log clear persistence
+- `tests/e2e/trace-highlight.spec.ts` — `Trace with Log` classes applied to rendered graph nodes
+
+Shared setup and storage helpers live in `tests/e2e/helpers/finra-e2e.ts`.
+
+Run the browser suite with:
+
+```bash
+pnpm run test:e2e
+```
+
+Or run the lightweight smoke path with:
+
+```bash
+pnpm run test:smoke
+```
+
+When adding new Playwright specs in this repo, prefer:
+
+- deterministic seeded browser storage for persisted-state regressions
+- visible menu/sidebar toggles before clicking transient controls
+- assertions based on classes, ARIA state, and stable text rather than pixel-perfect visuals
+
+---
+
 ## Notes
 
 - The graph UI is intentionally optimized for incremental growth rather than a single massive one-shot render.

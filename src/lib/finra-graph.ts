@@ -232,7 +232,7 @@ function getPersistedFetchStatusPinned() {
 
 let activeFetchStatusPinned = getPersistedFetchStatusPinned();
 
-const INITIAL_SEED_COUNT = 0; // random seed nodes on first load (default select)
+const INITIAL_SEED_COUNT = 12; // random seed nodes on first load (default select)
 const FILTER_MATCH_LIMIT = 100; // maximum number of direct matches to show when filtering
 const LS_SESSION_KEY = 'finra_session'; // storage key for persisted session nodes
 const SESSION_TTL_MS = 365 * 24 * 60 * 60 * 1000; // 1 year
@@ -321,7 +321,7 @@ function buildSessionPayload({ compact = false, extraNodeMode = 'full' }: { comp
 					const { x, y, vx, vy, fx, fy, index, ...rest } = n;
 					return sanitizePersistedNode(rest);
 				})
-			: [],
+			:	[],
 		extraNodeIds: includeExtraNodeIds ? extraNodeIds : [],
 		extraLinks:
 			includeExtraLinks ?
@@ -481,9 +481,51 @@ let traceLongestConnectorIds = new Set<string>(); // intermediate nodes only
 let traceLogConnectorIds = new Set<string>(); // intermediate nodes only
 
 const LS_LOG_KEY = 'finra_selection_log';
+const TRACE_LOG_GUARD_WARNING_PREFIX = '[finra-graph] Trace with Log guard:';
+let lastTraceLogGuardWarning = '';
+
+function isDevelopmentRuntime() {
+	if (typeof process !== 'undefined' && process.env.NODE_ENV) {
+		return process.env.NODE_ENV !== 'production';
+	}
+	if (typeof location !== 'undefined') {
+		return /(?:localhost|127\.0\.0\.1)$/i.test(location.hostname);
+	}
+	return false;
+}
+
+function warnTraceLogGuard(message: string) {
+	if (!isDevelopmentRuntime()) return;
+	if (lastTraceLogGuardWarning === message) return;
+	lastTraceLogGuardWarning = message;
+	console.warn(`${TRACE_LOG_GUARD_WARNING_PREFIX} ${message}`);
+}
 
 function getSelectionLogPanel() {
 	return document.getElementById('fg-selection-log');
+}
+
+function guardTraceLogSurface(reason = 'state-sync') {
+	if (!isTraceLogMode) {
+		lastTraceLogGuardWarning = '';
+		return;
+	}
+
+	const panel = getSelectionLogPanel();
+	if (!panel) {
+		warnTraceLogGuard(`standalone panel missing during ${reason}`);
+		return;
+	}
+
+	const shouldUseStandalonePanel = !sidebarSelectedNode;
+	if (!shouldUseStandalonePanel) return;
+
+	const panelHidden = panel.classList.contains('hidden');
+	if (panelHidden || panel.dataset.pinned !== 'true') {
+		if (panelHidden) panel.classList.remove('hidden');
+		panel.dataset.pinned = 'true';
+		warnTraceLogGuard(`restored standalone panel visibility during ${reason}`);
+	}
 }
 
 function getSelectionLogActionButtons(action: 'trace' | 'copy-all' | 'clear') {
@@ -523,20 +565,30 @@ function flashSelectionLogActionButton(button: HTMLButtonElement, text: string, 
 
 function updateSelectionLogChrome() {
 	const panel = getSelectionLogPanel();
-	if (!panel) return;
+	if (panel) {
+		const shouldShowStandalonePanel = isTraceLogMode && !sidebarSelectedNode;
+		panel.classList.toggle('hidden', !shouldShowStandalonePanel);
+		panel.dataset.pinned = shouldShowStandalonePanel ? 'true' : 'false';
+	}
 
-	delete panel.dataset.pinned;
 	syncSelectionLogActionButtonStates();
+	guardTraceLogSurface('updateSelectionLogChrome');
 }
 
 function openSelectionLog() {
-	if (!sidebarSelectedNode) return;
+	if (!sidebarSelectedNode) {
+		updateSelectionLogChrome();
+		return;
+	}
 	setSidebarViewMode('log', { expandMobile: true });
 }
 
 function closeSelectionLog(options: { force?: boolean } = {}) {
 	const { force: _force = false } = options;
-	if (!sidebarSelectedNode) return false;
+	if (!sidebarSelectedNode) {
+		updateSelectionLogChrome();
+		return false;
+	}
 	sidebarViewMode = 'none';
 	renderSidebar(sidebarSelectedNode);
 	updateSelectionLogChrome();
@@ -565,10 +617,11 @@ function setSidebarViewMode(
 }
 
 function getTraceModeNodeIds() {
-	const ids = highlightedSelections.map((entry) => String(entry?.id || '').trim()).filter(Boolean);
+	const visibleNodeIds = new Set((layoutNodes || []).map((node) => String(node?.id || '').trim()).filter(Boolean));
+	const ids = highlightedSelections.map((entry) => String(entry?.id || '').trim()).filter((id) => Boolean(id) && visibleNodeIds.has(id));
 	if (selectedId) {
 		const normalizedSelectedId = String(selectedId).trim();
-		if (normalizedSelectedId && !ids.includes(normalizedSelectedId)) {
+		if (normalizedSelectedId && visibleNodeIds.has(normalizedSelectedId) && !ids.includes(normalizedSelectedId)) {
 			ids.push(normalizedSelectedId);
 		}
 	}
@@ -579,7 +632,7 @@ function getTraceModeNodeIds() {
 		new Set(
 			selectedNodesLog
 				.map((entry) => String(entry?.id || '').trim())
-				.filter(Boolean)
+				.filter((id) => Boolean(id) && visibleNodeIds.has(id))
 				.reverse(),
 		),
 	).reverse();
@@ -594,7 +647,8 @@ function getTraceModeNodeIds() {
 }
 
 function getTraceLogNodeIds() {
-	return Array.from(new Set(selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter(Boolean)));
+	const visibleNodeIds = new Set((layoutNodes || []).map((node) => String(node?.id || '').trim()).filter(Boolean));
+	return Array.from(new Set(selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter((id) => Boolean(id) && visibleNodeIds.has(id))));
 }
 
 function calculateTrace() {
@@ -602,7 +656,14 @@ function calculateTrace() {
 	const traceLogNodeIds = isTraceLogMode ? getTraceLogNodeIds() : [];
 	const hasTraceTargets = traceModeNodeIds.length >= 2;
 	const hasTraceLogTargets = traceLogNodeIds.length >= 2;
-	const blockedTraceLinkIds = new Set<string>((layoutLinks || []).filter((link) => Boolean(getLinkDash(link))).map((link) => getLinkKey(link)));
+	// Strict trace rule: inactive endpoints (rendered as dashed gray links) are excluded
+	// from pathfinding and must never be highlighted.
+	const blockedTraceLinkIds = new Set<string>((layoutLinks || []).filter((link) => Boolean(getLinkDash(link)) || hasInactiveEndpoint(link)).map((link) => getLinkKey(link)));
+	const isTraceEligibleNode = (nodeId: string) => {
+		const node = layoutNodes.find((entry) => entry.id === nodeId);
+		if (!node) return false;
+		return !isNodeInactive(node);
+	};
 
 	if (!hasTraceTargets && !hasTraceLogTargets) {
 		traceShortestIds.clear();
@@ -695,8 +756,8 @@ function calculateTrace() {
 			extractConnectorNodeIds(purpleRoute).forEach((id) => traceLongestConnectorIds.add(id));
 		}
 
-		if (originId) traceShortestIds.add(originId);
-		if (targetId) traceShortestIds.add(targetId);
+		if (originId && isTraceEligibleNode(originId)) traceShortestIds.add(originId);
+		if (targetId && isTraceEligibleNode(targetId)) traceShortestIds.add(targetId);
 
 		if (traceRoute?.hasDistinctReturn && traceRoute.closedLoop) {
 			traceRoute.closedLoop.forEach((id) => traceShortestIds.add(id));
@@ -952,6 +1013,11 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 	const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button') : null;
 	if (!target) return;
 
+	if (target.id === 'fg-subset-info-pin') {
+		clearFetchStatus();
+		return;
+	}
+
 	if (target.matches('#fg-trace-mode, [data-fg-trace-mode-button]')) {
 		toggleTraceMode();
 		return;
@@ -980,6 +1046,7 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 		selectedNodesLog = [];
 		saveSelectionLog();
 		updateSelectionLogUI();
+		refreshTraceState();
 		flashSelectionLogActionButton(target, 'Cleared!');
 	}
 }
@@ -1419,6 +1486,9 @@ function clearGraphData() {
 async function loadBaselineGraph(profileName) {
 	isSessionCleared = false;
 	const url = makeApiUrl('/api/finra/graph');
+	if (!profileName && INITIAL_SEED_COUNT > 0) {
+		url.searchParams.set('limit', String(INITIAL_SEED_COUNT));
+	}
 	if (profileName) {
 		url.searchParams.set('profile', profileName);
 	}
@@ -2097,9 +2167,136 @@ export function init(_d3) {
 	const fetchBtn = document.getElementById('fg-fetch-remote') as HTMLButtonElement | null;
 	const fetchInput = document.getElementById('fg-fetch-input') as HTMLInputElement | null;
 	if (fetchBtn && fetchInput) {
+		const normalizeSecComparable = (value) => {
+			const raw = String(value || '')
+				.trim()
+				.toLowerCase();
+			if (!raw) return '';
+			if (/^8-\d+$/.test(raw)) return raw;
+			if (/^\d+$/.test(raw)) return `8-${raw}`;
+			return raw;
+		};
+
+		const collectSearchableNodeKeys = (node) => {
+			if (!node || typeof node !== 'object') return [];
+			const basic = node.basicInformation || {};
+			const idSuffix = String(node.id || '')
+				.split(':')
+				.pop();
+			const preferredLabel = getPreferredNodeLabel(node);
+			const keys = [
+				node.id,
+				idSuffix,
+				node.crd,
+				basic.individualId,
+				node.firmId,
+				basic.firmId,
+				node.bdSecNumber,
+				node.iaSecNumber,
+				basic.bdSECNumber,
+				basic.iaSECNumber,
+				preferredLabel,
+				node.label,
+				node.name,
+				basic.name,
+				[basic.firstName, basic.middleName, basic.lastName].filter(Boolean).join(' '),
+				...(Array.isArray(node.otherNames) ? node.otherNames : []),
+				...(Array.isArray(basic.otherNames) ? basic.otherNames : []),
+			];
+			return keys.map((entry) => String(entry || '').trim()).filter(Boolean);
+		};
+
+		const findExistingNodeMatches = (rawQuery, explicitNodePool = null) => {
+			const query = String(rawQuery || '').trim();
+			if (!query) return [];
+			const comparableQuery = normalizeComparableName(query);
+			const numericQuery = /^\d+$/.test(query) ? query : '';
+			const normalizedSecQuery = normalizeSecComparable(query);
+			const nodePool =
+				Array.isArray(explicitNodePool) ? explicitNodePool : [...(Array.isArray(layoutNodes) ? layoutNodes : []), ...(Array.isArray(graphData?.nodes) ? graphData.nodes : [])];
+			const byId = new Map((nodePool || []).filter(Boolean).map((node) => [node.id, node]));
+			const connectionCounts = new Map();
+			for (const link of Array.isArray(layoutLinks) ? layoutLinks : []) {
+				const sourceId = link?.source?.id ?? link?.source;
+				const targetId = link?.target?.id ?? link?.target;
+				if (sourceId) connectionCounts.set(sourceId, (connectionCounts.get(sourceId) || 0) + 1);
+				if (targetId) connectionCounts.set(targetId, (connectionCounts.get(targetId) || 0) + 1);
+			}
+
+			const scored = [];
+			for (const node of byId.values()) {
+				const keys = collectSearchableNodeKeys(node);
+				if (!keys.length) continue;
+
+				let bestScore = -1;
+				if (numericQuery) {
+					const nodeId = String(node?.id || '').trim();
+					if (nodeId.endsWith(`:${numericQuery}`) || nodeId.endsWith(`_${numericQuery}`) || nodeId === numericQuery) {
+						bestScore = Math.max(bestScore, 240);
+					}
+				}
+				for (const rawKey of keys) {
+					const key = String(rawKey || '').trim();
+					if (!key) continue;
+					const keyComparable = normalizeComparableName(key);
+					const keySecComparable = normalizeSecComparable(key);
+
+					if (key === query) bestScore = Math.max(bestScore, 220);
+					if (numericQuery && key === numericQuery) bestScore = Math.max(bestScore, 220);
+					if (normalizedSecQuery && keySecComparable === normalizedSecQuery) bestScore = Math.max(bestScore, 210);
+					if (comparableQuery && keyComparable === comparableQuery) bestScore = Math.max(bestScore, 185);
+					if (comparableQuery && keyComparable.startsWith(comparableQuery)) bestScore = Math.max(bestScore, 150);
+					if (comparableQuery && keyComparable.includes(comparableQuery)) bestScore = Math.max(bestScore, 120);
+				}
+
+				if (bestScore > 0) {
+					scored.push({
+						node,
+						score: bestScore,
+						connections: connectionCounts.get(node.id) || 0,
+					});
+				}
+			}
+
+			return scored.sort(
+				(a, b) => b.connections - a.connections || b.score - a.score || String(getPreferredNodeLabel(a.node)).localeCompare(String(getPreferredNodeLabel(b.node))),
+			);
+		};
+
+		const focusExistingNodeMatch = (rawQuery) => {
+			const renderedNodes = (nodeSel && typeof nodeSel.data === 'function' ? nodeSel.data() : []).filter(Boolean);
+			const renderedMatches = findExistingNodeMatches(rawQuery, renderedNodes);
+			const matches = renderedMatches.length ? renderedMatches : findExistingNodeMatches(rawQuery);
+			if (!matches.length) return false;
+			const bestNodeId = matches[0]?.node?.id;
+			if (!bestNodeId) return false;
+
+			if (!layoutNodes.some((node) => node.id === bestNodeId)) {
+				injectNodesById([bestNodeId]);
+			}
+
+			const liveNode = layoutNodes.find((node) => node.id === bestNodeId) || matches[0].node;
+			if (!liveNode) return false;
+
+			selectNode(liveNode, {
+				skipAutoExpand: true,
+				focus: true,
+				pulse: true,
+				focusDuration: 520,
+			});
+
+			const preferredLabel = getPreferredNodeLabel(liveNode) || liveNode.label || liveNode.id;
+			clearFetchStatus();
+			updateFetchStatus(matches.length > 1 ? `Already loaded: focused ${preferredLabel} (${matches.length} matches)` : `Already loaded: focused ${preferredLabel}`);
+			return true;
+		};
+
 		const runRemoteFetch = async () => {
 			const q = String(fetchInput.value || '').trim();
 			if (!q) return;
+			if (focusExistingNodeMatch(q)) {
+				return;
+			}
 			fetchBtn.disabled = true;
 			const origText = fetchBtn.textContent;
 			fetchBtn.textContent = 'Fetching…';
@@ -4046,10 +4243,28 @@ function hasApprovedRegistrationCounts(registrationCount) {
 	);
 }
 
-function hasActiveRegisteredStates(registeredStates = []) {
+function hasActiveRegisteredStates(registeredStates = [], allowedScopes: string[] | null = null) {
 	if (!Array.isArray(registeredStates) || !registeredStates.length) return false;
+	const normalizedAllowedScopes =
+		Array.isArray(allowedScopes) ?
+			new Set(
+				allowedScopes
+					.map((scope) =>
+						String(scope || '')
+							.trim()
+							.toLowerCase(),
+					)
+					.filter(Boolean),
+			)
+		:	null;
 	return registeredStates.some((entry) => {
 		if (!entry || typeof entry !== 'object') return false;
+		if (normalizedAllowedScopes) {
+			const scope = String(entry.regScope || entry.scope || '')
+				.trim()
+				.toLowerCase();
+			if (scope && !normalizedAllowedScopes.has(scope)) return false;
+		}
 		const status = classifyActivityText(entry.status || entry.registrationStatus || entry.scopeStatus);
 		return status === 'active';
 	});
@@ -4068,28 +4283,165 @@ function hasHistoricalIndividualRegistrations(node) {
 		hasApprovedSro(node?.registeredSROs),
 	);
 }
+type NodeSourceCoverage = 'both' | 'sec_only' | 'finra_only' | 'none';
+
+type NodeSourceTruth = {
+	finra: boolean;
+	sec: boolean;
+	both: boolean;
+	secOnly: boolean;
+	finraOnly: boolean;
+	none: boolean;
+	coverage: NodeSourceCoverage;
+};
+
+function toNodeSourceCoverage(finra: boolean, sec: boolean): NodeSourceCoverage {
+	if (finra && sec) return 'both';
+	if (sec) return 'sec_only';
+	if (finra) return 'finra_only';
+	return 'none';
+}
+
+function isNotInScopeValue(value) {
+	return (
+		String(value || '')
+			.trim()
+			.toLowerCase()
+			.replace(/\s+/g, '') === 'notinscope'
+	);
+}
+
+function hasIndividualFinraPresence(node) {
+	if (!node || typeof node !== 'object') return false;
+	if (node.hasFinraData === true) return true;
+	if (hasPublicFinraIndividualPage(node, node.basicInformation || {})) return true;
+	if (hasAnyItems(node?.currentEmployments)) return true;
+	if (hasAnyItems(node?.previousEmployments)) return true;
+	if (hasApprovedSro(node?.registeredSROs)) return true;
+	if (hasActiveRegisteredStates(node?.registeredStates, ['bc', 'b', 'broker'])) return true;
+	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
+	const bcScopeFlags = collectNodeActivityFlags([node?.bcScope, node?.basicInformation?.bcScope]);
+	if (bcScopeFlags.hasActive || bcScopeFlags.hasInactive) return true;
+	return false;
+}
+
+function hasIndividualSecPresence(node) {
+	if (!node || typeof node !== 'object') return false;
+	if (node.hasSecData === true) return true;
+	if (hasPublicSecIndividualPage(node, node.basicInformation || {})) return true;
+	if (hasSecActivityEvidence(node)) return true;
+	if (Number(node?.registrationCount?.approvedIAStateRegistrationCount || 0) > 0) return true;
+	if (hasAnyItems(node?.previousIAEmployments)) return true;
+	if (hasAnyItems(node?.iaDisclosures)) return true;
+	if (hasActiveRegisteredStates(node?.registeredStates, ['ia'])) return true;
+	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
+	const iaScopeFlags = collectNodeActivityFlags([node?.iaScope, node?.basicInformation?.iaScope]);
+	if (iaScopeFlags.hasActive || iaScopeFlags.hasInactive) return true;
+	return false;
+}
+
+function hasFirmFinraPresence(node) {
+	if (!node || typeof node !== 'object') return false;
+	if (node.hasFinraData === true) return true;
+	if (node.isLegacy === 'Y') return true;
+	if (hasAnyItems(node?.selfRegulatoryOrgs)) return true;
+	if (Boolean(String(node?.districtName || '').trim())) return true;
+	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
+	const bcScopeFlags = collectNodeActivityFlags([node?.bcScope, node?.basicInformation?.bcScope]);
+	if (bcScopeFlags.hasActive || bcScopeFlags.hasInactive) return true;
+	return false;
+}
+
+function hasFirmSecPresence(node) {
+	if (!node || typeof node !== 'object') return false;
+	if (node.hasSecData === true) return true;
+	if (Boolean(String(node?.iaSecNumber || node?.basicInformation?.iaSECNumber || node?.basicInformation?.iaSecNumber || '').trim())) return true;
+	if (hasAnyItems(node?.secDocumentLinks)) return true;
+	if (Boolean(String(node?.secSummaryDescription || '').trim())) return true;
+	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
+	const secStatusFlags = collectNodeActivityFlags([node?.firmStatus, node?.basicInformation?.firmStatus, node?.iaScope, node?.basicInformation?.iaScope]);
+	if (secStatusFlags.hasActive || secStatusFlags.hasInactive) return true;
+	return false;
+}
+
+function getNodeSourceTruth(node): NodeSourceTruth {
+	const finra =
+		node?.group === 'individual' ? hasIndividualFinraPresence(node)
+		: node?.group === 'firm' ? hasFirmFinraPresence(node)
+		: Boolean(node?.hasFinraData);
+	const sec =
+		node?.group === 'individual' ? hasIndividualSecPresence(node)
+		: node?.group === 'firm' ? hasFirmSecPresence(node)
+		: Boolean(node?.hasSecData);
+	const coverage = toNodeSourceCoverage(finra, sec);
+	return {
+		finra,
+		sec,
+		both: coverage === 'both',
+		secOnly: coverage === 'sec_only',
+		finraOnly: coverage === 'finra_only',
+		none: coverage === 'none',
+		coverage,
+	};
+}
+
+function formatNodeSourceTruthSummary(node) {
+	const sourceTruth = getNodeSourceTruth(node);
+	const coverageLabel =
+		sourceTruth.coverage === 'both' ? 'both SEC+FINRA'
+		: sourceTruth.coverage === 'sec_only' ? 'SEC only'
+		: sourceTruth.coverage === 'finra_only' ? 'FINRA only'
+		: 'none';
+	return `FINRA=${sourceTruth.finra ? 'true' : 'false'} · SEC=${sourceTruth.sec ? 'true' : 'false'} (${coverageLabel})`;
+}
+
+function hasSecActivityEvidence(node) {
+	if (!node || typeof node !== 'object') return false;
+	const iaActivityFlags = collectNodeActivityFlags([node.iaScope, node.basicInformation?.iaScope]);
+	if (iaActivityFlags.hasActive) return true;
+	if (Number(node?.registrationCount?.approvedIAStateRegistrationCount || 0) > 0) return true;
+	if (Array.isArray(node?.currentIAEmployments) && node.currentIAEmployments.length > 0) return true;
+	if (hasActiveRegisteredStates(node?.registeredStates, ['ia'])) return true;
+	return false;
+}
 
 function isNodeInactive(node) {
 	if (!node || typeof node !== 'object') return false;
+	const sourceTruth = getNodeSourceTruth(node);
 
 	if (node.group === 'firm') {
-		const statusFlags = collectNodeActivityFlags([node.firmStatus, node.basicInformation?.firmStatus]);
-		if (statusFlags.hasInactive) return true;
-		const activityFlags = collectNodeActivityFlags([node.bcScope, node.basicInformation?.bcScope]);
-		if (activityFlags.hasActive) return false;
-		if (node.isLegacy === 'Y') return true;
-		if (Array.isArray(node.activeStates) && node.activeStates.length) return false;
-		return activityFlags.hasInactive;
+		const finraFlags = sourceTruth.finra ? collectNodeActivityFlags([node.bcScope, node.basicInformation?.bcScope]) : { hasActive: false, hasInactive: false };
+		const secFlags =
+			sourceTruth.sec ?
+				collectNodeActivityFlags([node.firmStatus, node.basicInformation?.firmStatus, node.iaScope, node.basicInformation?.iaScope])
+			:	{ hasActive: false, hasInactive: false };
+		if (finraFlags.hasActive || secFlags.hasActive) return false;
+		if ((sourceTruth.finra || sourceTruth.sec) && Array.isArray(node.activeStates) && node.activeStates.length) return false;
+		if (node.isLegacy === 'Y' && !sourceTruth.sec) return true;
+		if (finraFlags.hasInactive || secFlags.hasInactive) return true;
+		return false;
 	}
 
 	if (node.group === 'individual') {
-		const activityFlags = collectNodeActivityFlags([node.bcScope, node.iaScope, node.basicInformation?.bcScope, node.basicInformation?.iaScope]);
+		const finraSignalsEnabled = sourceTruth.finra;
+		const secSignalsEnabled = sourceTruth.sec || hasSecActivityEvidence(node);
+		const activityFlags = collectNodeActivityFlags([
+			...(finraSignalsEnabled ? [node.bcScope, node.basicInformation?.bcScope] : []),
+			...(secSignalsEnabled ? [node.iaScope, node.basicInformation?.iaScope] : []),
+		]);
+		const counts = node.registrationCount || {};
+		const hasFinraApprovedCounts =
+			finraSignalsEnabled &&
+			(Number(counts.approvedFinraRegistrationCount || 0) > 0 || Number(counts.approvedSRORegistrationCount || 0) > 0 || Number(counts.approvedStateRegistrationCount || 0) > 0);
+		const hasSecApprovedCounts = secSignalsEnabled && Number(counts.approvedIAStateRegistrationCount || 0) > 0;
+		const hasFinraActiveStates = finraSignalsEnabled && hasActiveRegisteredStates(node.registeredStates, ['bc', 'b', 'broker']);
+		const hasSecActiveStates = secSignalsEnabled && hasActiveRegisteredStates(node.registeredStates, ['ia']);
 		if (activityFlags.hasActive) return false;
 		if (node.stub) return false;
-		if (hasApprovedRegistrationCounts(node.registrationCount)) return false;
-		if (node.currentEmployments?.length || node.currentIAEmployments?.length) return false;
-		if (hasActiveRegisteredStates(node.registeredStates)) return false;
-		if (hasApprovedSro(node.registeredSROs)) return false;
+		if (hasFinraApprovedCounts || hasSecApprovedCounts) return false;
+		if ((finraSignalsEnabled && node.currentEmployments?.length) || (secSignalsEnabled && node.currentIAEmployments?.length)) return false;
+		if (hasFinraActiveStates || hasSecActiveStates) return false;
+		if (finraSignalsEnabled && hasApprovedSro(node.registeredSROs)) return false;
 		if (activityFlags.hasInactive) return true;
 		return hasHistoricalIndividualRegistrations(node) && !node.stub;
 	}
@@ -7110,6 +7462,7 @@ function hasPublicFinraIndividualPage(detail, basicInformation: Record<string, a
 		.trim()
 		.toLowerCase()
 		.replace(/\s+/g, '');
+	if (bcScope === 'notinscope') return false;
 	if (bcScope && bcScope !== 'notinscope') return true;
 
 	const registrationCount = detail?.registrationCount || {};
@@ -7119,10 +7472,7 @@ function hasPublicFinraIndividualPage(detail, basicInformation: Record<string, a
 	if (Number(registrationCount.approvedSRORegistrationCount || 0) > 0) {
 		return true;
 	}
-	if (hasAnyItems(detail?.currentEmployments)) return true;
-	if (hasAnyItems(detail?.previousEmployments)) return true;
 	if (hasAnyItems(detail?.registeredSROs)) return true;
-	if (hasAnyItems(detail?.disclosures)) return true;
 
 	return false;
 }
@@ -7159,7 +7509,7 @@ function hasPublicSecIndividualPage(detail, basicInformation: Record<string, any
 function renderPersonDetail(d) {
 	const bi = d.basicInformation || {};
 	const hasFinraPage = d.hasFinraData === false ? false : hasPublicFinraIndividualPage(d, bi);
-	const hasSecPage = d.hasSecData === false ? false : hasPublicSecIndividualPage(d, bi);
+	const hasSecPage = hasPublicSecIndividualPage(d, bi);
 	const showSecReferences = hasSecPage;
 	const links = (graphData?.links || []).filter((l) => (l.source?.id || l.source) === d.id || (l.target?.id || l.target) === d.id);
 	const controlLinks = links.filter((l) => l.relationship === 'controls');
@@ -7355,14 +7705,40 @@ function renderPersonDetail(d) {
 	const topCurrentRegistrationRoles = Array.from(new Set(currentRegistrations.map((reg) => reg.role)))
 		.filter(Boolean)
 		.sort((a, b) => {
-			const order = (role) => (role === 'B' ? 0 : role === 'IA' ? 1 : 2);
+			const order = (role) =>
+				role === 'B' ? 0
+				: role === 'IA' ? 1
+				: 2;
 			return order(a) - order(b);
 		});
-	const topCurrentRegistrationHtml = topCurrentRegistrationRoles.length
-		? `
+	const sourceTruth = getNodeSourceTruth(d);
+	const finraActivityFlags = collectNodeActivityFlags([d.bcScope, bi.bcScope]);
+	const hasActiveFinraIndicator =
+		finraActivityFlags.hasActive ||
+		Number(d?.registrationCount?.approvedFinraRegistrationCount || 0) > 0 ||
+		Number(d?.registrationCount?.approvedSRORegistrationCount || 0) > 0 ||
+		Number(d?.registrationCount?.approvedStateRegistrationCount || 0) > 0 ||
+		(Boolean(d?.currentEmployments?.length) && !d?.stub) ||
+		hasActiveRegisteredStates(d?.registeredStates, ['bc', 'b', 'broker']) ||
+		hasApprovedSro(d?.registeredSROs);
+	const hasBrokerIndicatorSource = hasActiveFinraIndicator;
+	const hasIaIndicatorSource = hasSecPage || sourceTruth.sec;
+	const fallbackRoles = [hasBrokerIndicatorSource ? 'B' : null, hasIaIndicatorSource ? 'IA' : null].filter(Boolean);
+	const topRoleIndicators = (topCurrentRegistrationRoles.length ? topCurrentRegistrationRoles : fallbackRoles)
+		.filter((role) => role !== 'B' || hasActiveFinraIndicator)
+		.sort((a, b) => {
+			const order = (role) =>
+				role === 'B' ? 0
+				: role === 'IA' ? 1
+				: 2;
+			return order(a) - order(b);
+		});
+	const topCurrentRegistrationHtml =
+		topRoleIndicators.length ?
+			`
 			<div class="fg-sb-role-summary">
 				<div class="fg-firm-summary__roles">
-					${topCurrentRegistrationRoles
+					${topRoleIndicators
 						.map(
 							(role) => `
 								<div class="fg-firm-summary__role">
@@ -7375,7 +7751,7 @@ function renderPersonDetail(d) {
 						.join('')}
 				</div>
 			</div>`
-		: '';
+		:	'';
 	const previousRegistrations = dedupeRegs([
 		...(d.previousIAEmployments || []).map((emp) => regToEntry(emp, 'IA', false)),
 		...(d.previousEmployments || []).map((emp) => regToEntry(emp, 'B', false)),
@@ -7568,9 +7944,9 @@ function renderPersonDetail(d) {
 	}
 
 	const crd = bi.individualId || d.crd || String(d.id).replace(/^person[:_]/, '');
-	const brokerCheckSummaryUrl = bi.individualId && hasFinraPage ? `https://brokercheck.finra.org/individual/summary/${encodeURIComponent(bi.individualId)}` : null;
+	const brokerCheckSummaryUrl = crd && hasFinraPage ? `https://brokercheck.finra.org/individual/summary/${encodeURIComponent(crd)}` : null;
 	const brokerCheckReportUrl = crd && hasFinraPage ? `https://files.brokercheck.finra.org/individual/individual_${encodeURIComponent(crd)}.pdf` : null;
-	const secSummaryUrl = bi.individualId && hasSecPage ? `https://adviserinfo.sec.gov/Individual/${encodeURIComponent(bi.individualId)}` : null;
+	const secSummaryUrl = crd && hasSecPage ? `https://adviserinfo.sec.gov/individual/summary/${encodeURIComponent(crd)}` : null;
 	const bcRawUrl = bi.individualId ? `https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}`.trim() : null;
 	const secRawUrl = bi.individualId ? `https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}`.trim() : null;
 	const personSummaryLine = crd ? `CRD#: ${esc(String(crd))}` : '';
@@ -7600,6 +7976,7 @@ function renderPersonDetail(d) {
       </div>
 
       ${bi.individualId ? row('CRD', `<code>${bi.individualId}</code>`) : ''}
+		${row('ID source check', esc(formatNodeSourceTruthSummary(d)))}
       ${aliases.length ? row('Also known as', esc(aliases.join('; '))) : ''}
       ${
 				d.yearsExperience != null ? row('Years of Experience', esc(String(d.yearsExperience)))
@@ -7801,7 +8178,7 @@ function renderPersonDetail(d) {
 	                ${firmAddress ? `<span class="fg-tl-loc fg-control-card__address">${esc(firmAddress)}</span>` : ''}
 	              </div>`;
 							})
-								.join('')}
+							.join('')}
 					</div>`
 				:	''
 			}
@@ -7871,7 +8248,6 @@ function renderFirmDetail(d) {
 		return String(a?.brochureName || a?.type || a?.disclosureType || '').localeCompare(String(b?.brochureName || b?.type || b?.disclosureType || ''));
 	}
 
-	const crdSec = [d.firmId ? `CRD#: ${d.firmId}` : null, d.bdSecNumber ? `SEC#: 8-${d.bdSecNumber}` : null].filter(Boolean).join(' / ');
 	const statusDate = d.firmStatusDate || '';
 	const statusText = d.firmStatus ? capitalize(String(d.firmStatus || '').toLowerCase()) : '';
 	const statusIsActive = d.firmStatus ? /\bactive\b|\bapproved\b/i.test(String(d.firmStatus)) : false;
@@ -7894,32 +8270,64 @@ function renderFirmDetail(d) {
 	const brokerCheckReportUrl = firmId ? `https://files.brokercheck.finra.org/firm/firm_${encodeURIComponent(firmId)}.pdf` : null;
 	const bcRawUrl = firmId ? `https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(firmId)}`.trim() : null;
 	const secRawUrl = firmId ? `https://api.adviserinfo.sec.gov/search/firm/${encodeURIComponent(firmId)}`.trim() : null;
+	const normalizeSecFirmId = (value: string | number | null | undefined) => {
+		const raw = String(value || '').trim();
+		if (!raw) return '';
+		if (/^8-\d+$/i.test(raw)) return raw;
+		if (/^\d+$/.test(raw)) return `8-${raw}`;
+		return raw;
+	};
+	const iaSecRaw = String(d.iaSecNumber || d.basicInformation?.iaSECNumber || d.basicInformation?.iaSecNumber || '')
+		.trim()
+		.toUpperCase();
+	const hasAdviserStyleIaSec = /^801-?\d+$/.test(iaSecRaw);
 	const secScopeFlags = d.orgScopeStatusFlags || {};
-	const hasPublicSecFirmPage = Boolean(
+	const hasPositiveSecScopeFlags =
 		secScopeFlags.isSECRegistered === 'Y' ||
 		secScopeFlags.isStateRegistered === 'Y' ||
 		secScopeFlags.isERARegistered === 'Y' ||
 		secScopeFlags.isSECERARegistered === 'Y' ||
-		secScopeFlags.isStateERARegistered === 'Y' ||
-		d.iaSecNumber ||
-		d.secSummaryDescription ||
-		(Array.isArray(d.secDocumentLinks) && d.secDocumentLinks.length),
-	);
-	const secFirmId = d.iaSecNumber || (hasPublicSecFirmPage ? firmId : '') || '';
-	const secSummaryUrl = secFirmId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(secFirmId)}` : null;
+		secScopeFlags.isStateERARegistered === 'Y';
+	const hasPublicSecFirmPage = Boolean(hasPositiveSecScopeFlags || hasAdviserStyleIaSec);
+	const secFirmId = normalizeSecFirmId(d.iaSecNumber || d.bdSecNumber || d.bdSECNumber || d.basicInformation?.iaSECNumber || d.basicInformation?.bdSECNumber);
+	const crdSec = [firmId ? `CRD#: ${firmId}` : null, secFirmId ? `SEC#: ${secFirmId}` : null].filter(Boolean).join(' / ');
+	const secSummaryUrl = firmId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(firmId)}` : null;
 	const hasFinraPage = d.hasFinraData === true;
-	const hasSecPage = hasPublicSecFirmPage;
+	const hasSecPage = hasPublicSecFirmPage && Boolean(firmId);
 	const secDocumentLinks =
 		hasSecPage ?
-			Array.isArray(d.secDocumentLinks) && d.secDocumentLinks.length ? d.secDocumentLinks
-			: secFirmId ?
-				[
-					{ label: 'SEC AdvisorInfo Summary', href: secSummaryUrl },
-					{ label: 'Latest Form ADV filed', href: `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(secFirmId)}/PDF/${encodeURIComponent(secFirmId)}.pdf` },
-					{ label: 'SEC firm brochure', href: `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(secFirmId)}` },
-					{ label: 'SEC Form CRS', href: `https://reports.adviserinfo.sec.gov/crs/crs_${encodeURIComponent(secFirmId)}.pdf` },
-				]
-			:	[]
+			(() => {
+				const defaultLinks =
+					firmId ?
+						[
+							{ label: 'SEC AdvisorInfo Summary', href: secSummaryUrl },
+							{ label: 'Latest Form ADV filed', href: `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(firmId)}/PDF/${encodeURIComponent(firmId)}.pdf` },
+							{ label: 'SEC firm brochure', href: `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(firmId)}` },
+							{ label: 'SEC Form CRS', href: `https://reports.adviserinfo.sec.gov/crs/crs_${encodeURIComponent(firmId)}.pdf` },
+						]
+					:	[];
+
+				if (!Array.isArray(d.secDocumentLinks) || !d.secDocumentLinks.length) return defaultLinks;
+
+				return d.secDocumentLinks.map((link) => {
+					const label = String(link?.label || '').trim();
+					if (!label) return link;
+					if (/^SEC AdvisorInfo Summary$/i.test(label)) return { ...link, href: secSummaryUrl };
+					if (/^Latest Form ADV filed$/i.test(label)) {
+						return {
+							...link,
+							href: `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(firmId)}/PDF/${encodeURIComponent(firmId)}.pdf`,
+						};
+					}
+					if (/^SEC firm brochure$/i.test(label)) {
+						return { ...link, href: `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(firmId)}` };
+					}
+					if (/^SEC Form CRS$/i.test(label)) {
+						return { ...link, href: `https://reports.adviserinfo.sec.gov/crs/crs_${encodeURIComponent(firmId)}.pdf` };
+					}
+					return link;
+				});
+			})()
 		:	[];
 	const secSummaryDescription = hasSecPage && d.secSummaryDescription ? String(d.secSummaryDescription).trim() : '';
 	const showBrokerCheckSummary = hasFinraPage;
@@ -7929,7 +8337,10 @@ function renderFirmDetail(d) {
 	const disclosureBadge = disclosureTotal > 0 ? `<span class="fg-badge inactive">${disclosureLabel} ${esc(String(disclosureTotal))}</span>` : '';
 	const hasAffiliateDisclosureSummary = Boolean(d.affiliateDisclosures);
 	const sortedBrochures = Array.isArray(d.brochures) ? d.brochures.slice().sort((a, b) => compareFirmDatesDesc(a, b, ['dateSubmitted'])) : [];
-	const officeAddress = String(d.officeAddress || '').trim();
+	const officeAddressRaw = String(d.officeAddress || '').trim();
+	const officeAddress = /^(?:-|n\/?a|na|none|null|undefined)$/i.test(officeAddressRaw) ? '' : officeAddressRaw;
+	const hasOfficeAddress = Boolean(officeAddress);
+	const businessPhone = String(d.businessPhone || '').trim();
 	const districtLabel = String(d.districtName || '').trim();
 	const finraSummaryLabel = `Brokerage Firm${districtLabel ? ` Regulated by FINRA (${districtLabel})` : ' Regulated by FINRA'}`;
 	const secSummaryLabel = 'Investment Adviser Firm';
@@ -7941,13 +8352,17 @@ function renderFirmDetail(d) {
 					<div class="fg-firm-summary__role-title">${esc(finraSummaryLabel)}</div>
 				</div>
 			</div>
-			${hasSecPage ? `
+			${
+				hasSecPage ?
+					`
 			<div class="fg-firm-summary__role">
 				<span class="fg-firm-summary__role-icon fg-firm-summary__role-icon--ia" aria-hidden="true">IA</span>
 				<div class="fg-firm-summary__role-copy">
 					<div class="fg-firm-summary__role-title">${esc(secSummaryLabel)}</div>
 				</div>
-			</div>` : ''}
+			</div>`
+				:	''
+			}
 		</div>`;
 
 	return `
@@ -7982,12 +8397,16 @@ function renderFirmDetail(d) {
 					${d.otherNames?.length ? `<div class="fg-firm-summary__aliases">${esc(d.otherNames.join(', '))}</div>` : ''}
 					${crdSec ? `<div class="fg-firm-summary__crd">${esc(crdSec)}</div>` : ''}
 				</div>
-				<div class="fg-firm-summary__grid">
-					<div class="fg-firm-summary__panel fg-firm-summary__panel--address">
-						<div class="fg-firm-summary__panel-title">Main Address</div>
-						<div class="fg-firm-summary__address">${officeAddress ? esc(officeAddress) : '–'}</div>
-					</div>
-				</div>
+				${
+					hasOfficeAddress ?
+						`<div class="fg-firm-summary__grid">
+							<div class="fg-firm-summary__panel fg-firm-summary__panel--address">
+								<div class="fg-firm-summary__panel-title">Main Address</div>
+								<div class="fg-firm-summary__address">${esc(officeAddress)}</div>
+							</div>
+						</div>`
+					:	''
+				}
 			</div>
       <div class="fg-ext-links">
         ${showBrokerCheckSummary ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/firm/summary/${encodeURIComponent(firmId)}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
@@ -7996,15 +8415,16 @@ function renderFirmDetail(d) {
 					.join('')}
       </div>
       ${secSummaryDescription ? `<div class="fg-section-title">SEC summary</div><p class="fg-sb-note">${esc(secSummaryDescription)}</p>` : ''}
-      ${d.isLegacy === 'Y' ? `<p class="fg-sb-note">Not currently registered as broker. FINRA contains only limited information about this firm.</p>` : ''}
-      ${
-				d.officeAddress || d.businessPhone ?
+			${d.isLegacy === 'Y' ? `<p class="fg-sb-note">Not currently registered as broker. FINRA contains only limited information about this firm.</p>` : ''}
+			${
+				hasOfficeAddress || businessPhone ?
 					`<div class="fg-section-title">Contact</div>
-					${d.officeAddress ? row('Address', esc(d.officeAddress)) : ''}
-					${d.businessPhone ? row('Phone', esc(d.businessPhone)) : ''}`
-				: ''
+					${hasOfficeAddress ? row('Address', esc(officeAddress)) : ''}
+					${businessPhone ? row('Phone', esc(businessPhone)) : ''}`
+				:	''
 			}
       <div class="fg-section-title">Registration</div>
+			${row('ID source check', esc(formatNodeSourceTruthSummary(d)))}
 			${row('SEC Registration Status', d.firmStatus ? esc(d.firmStatus) + (statusDate ? ` (${statusDate})` : '') : '–')}
 			${d.districtName ? row('FINRA District', esc(d.districtName)) : ''}
 			${row('Company Type', esc(d.firmType || 'N/A'))}

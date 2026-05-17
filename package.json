@@ -9,6 +9,10 @@
 		"build": "next build",
 		"start": "next start -p 4444",
 		"lint": "next lint",
+		"test:e2e": "playwright test",
+		"test:e2e:headed": "playwright test --headed",
+		"test:smoke": "playwright test tests/e2e/smoke.spec.ts",
+		"playwright:install": "playwright install chromium",
 		"build:graph": "node scripts/build_graph_from_cache.js --employment-scope all",
 		"prime:all": "node scripts/download_all_api_data.js"
 	},
@@ -28,6 +32,7 @@
 		"winston": "^3.13.0"
 	},
 	"devDependencies": {
+		"@playwright/test": "^1.60.0",
 		"@types/d3": "^7.4.3",
 		"@types/d3-force": "^3.0.10",
 		"@types/node": "^20.19.0",
@@ -35,6 +40,8 @@
 		"@types/react-dom": "^19.0.0",
 		"eslint": "^9.0.0",
 		"eslint-config-next": "^15.1.0",
+		"playwright": "^1.60.0",
+		"playwright-extra": "^4.3.6",
 		"typescript": "^5.7.0"
 	}
 }

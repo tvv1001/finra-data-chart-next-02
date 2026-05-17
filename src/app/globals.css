@@ -772,6 +772,26 @@ body {
 	background: linear-gradient(180deg, rgba(219, 234, 254, 0.98) 0%, rgba(191, 219, 254, 0.96) 100%);
 	border: 1px solid rgba(37, 99, 235, 0.22);
 	box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: stretch;
+	max-width: min(640px, calc(100vw - 32px));
+}
+
+.fg-toolbar-status--top[data-dismissible='true'] .fg-subset-info[data-transient='true'] {
+	min-width: 0;
+	max-width: 100%;
+	overflow: visible;
+	text-overflow: clip;
+	white-space: normal;
+	overflow-wrap: anywhere;
+	word-break: break-word;
+	display: block;
+	padding-right: 8px;
+	padding-left: 10px;
+	padding-top: 5px;
+	padding-bottom: 5px;
+	line-height: 1.2;
 }
 
 .fg-toolbar-status--top[data-dismissible='true'] .fg-subset-info-pin {
@@ -868,6 +888,10 @@ body {
 		text-overflow: clip;
 		color: #1e3a8a;
 	}
+
+	.fg-toolbar-status--top[data-dismissible='true'] {
+		max-width: calc(100vw - 24px);
+	}
 }
 
 .fg-subset-info[data-transient='true'] {
@@ -884,7 +908,7 @@ body {
 	left: 2px;
 	top: calc(100% + 14px);
 	width: max-content;
-	max-width: min(280px, calc(100vw - 32px));
+	max-width: min(380px, calc(100vw - 32px));
 	display: flex;
 	align-items: center;
 	gap: 6px;
@@ -1144,6 +1168,12 @@ a,
 .fg-danger-btn {
 	font: 600 11px/1 var(--sans);
 	padding: 7px 9px;
+
+	.fg-toolbar-status--top[data-dismissible='true'] .fg-subset-info[data-transient='true'] {
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
 	min-height: 32px;
 	border-radius: 6px;
 	border: 1px solid rgba(239, 68, 68, 0.38);
@@ -1271,7 +1301,7 @@ a,
 
 .fg-sidebar[data-mobile-expanded='true'][data-view-mode='log'],
 .fg-sidebar[data-mobile-expanded='true'][data-view-mode='info'] {
-	height: min(calc(100% - 16px), 90svh);
+	height: fit-content;
 	overflow-y: hidden;
 }
 
@@ -1304,8 +1334,8 @@ a,
 
 .fg-sidebar-mobile-actions {
 	display: flex;
-	gap: 4px;
-	padding: 8px 8px 0;
+	gap: 6px;
+	padding: 6px 8px 0;
 	flex-wrap: wrap;
 	justify-content: flex-end;
 	background: var(--surface);
@@ -1561,13 +1591,13 @@ a,
 
 .fg-mobile-legend-tooltip {
 	position: relative;
-	margin: 0;
-	flex: 1 1 calc(33.333% - 4px);
+	margin: 2px 0 0;
+	flex: 1 1 100%;
 	min-width: 0;
 	overflow: visible;
 }
 
-.fg-selection-log,
+.fg-selection-log.hidden,
 .fg-selection-log-floating-toggle,
 .fg-legend {
 	display: none !important;
