@@ -1,9 +1,14 @@
 'use client';
 
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+
+import { buildNodeRouteHref, buildNodeRoutePath, parseNodeIdFromPathname } from '@/lib/node-route';
 
 const MOBILE_TOUCH_SLOP_PX = 12;
 const MOBILE_TOUCH_CLICK_SUPPRESSION_MS = 250;
+const ROUTE_NODE_REQUEST_EVENT = 'finra:route-node-request';
+const SELECTED_NODE_ROUTE_EVENT = 'finra:selected-node-route';
 
 function bindTouchDragClickSuppression(button: HTMLElement | null) {
 	if (!button || button.dataset.touchGuardBound === 'true') return;
@@ -159,10 +164,30 @@ export default function FinraGraph() {
 	const appRef = useRef<HTMLDivElement | null>(null);
 	const wasGraphEmptyRef = useRef<boolean | null>(null);
 	const [isMounted, setIsMounted] = useState(false);
+	const [graphReady, setGraphReady] = useState(false);
+	const [browserPathname, setBrowserPathname] = useState('');
+	const router = useRouter();
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
+	const routeNodeId = parseNodeIdFromPathname(browserPathname || pathname);
+	const searchSuffix = searchParams.toString() ? `?${searchParams.toString()}` : '';
 
 	useEffect(() => {
 		setIsMounted(true);
 	}, []);
+
+	useEffect(() => {
+		if (!isMounted) return;
+		const syncBrowserPathname = () => {
+			setBrowserPathname(window.location.pathname);
+		};
+
+		syncBrowserPathname();
+		window.addEventListener('popstate', syncBrowserPathname);
+		return () => {
+			window.removeEventListener('popstate', syncBrowserPathname);
+		};
+	}, [isMounted, pathname]);
 
 	useEffect(() => {
 		if (!isMounted) return;
@@ -301,6 +326,71 @@ export default function FinraGraph() {
 
 	useEffect(() => {
 		if (!isMounted) return;
+
+		const handleSelectedNodeRoute = (event: Event) => {
+			const detail = (event as CustomEvent<{ nodeId?: string | null; replace?: boolean }>).detail || {};
+			const nextHref = buildNodeRouteHref(detail.nodeId ?? null, searchSuffix);
+			const nextPath = buildNodeRoutePath(detail.nodeId ?? null);
+			const currentHref = `${browserPathname || pathname || '/'}${searchSuffix}`;
+			if (nextHref === currentHref) return;
+			setBrowserPathname(nextPath);
+			if (detail.replace) {
+				router.replace(nextHref, { scroll: false });
+				return;
+			}
+			router.push(nextHref, { scroll: false });
+		};
+
+		window.addEventListener(SELECTED_NODE_ROUTE_EVENT, handleSelectedNodeRoute as EventListener);
+		return () => {
+			window.removeEventListener(SELECTED_NODE_ROUTE_EVENT, handleSelectedNodeRoute as EventListener);
+		};
+	}, [browserPathname, isMounted, pathname, router, searchSuffix]);
+
+	useEffect(() => {
+		if (!isMounted || !graphReady) return;
+		window.dispatchEvent(
+			new CustomEvent(ROUTE_NODE_REQUEST_EVENT, {
+				detail: {
+					nodeId: routeNodeId,
+				},
+			}),
+		);
+	}, [graphReady, isMounted, routeNodeId]);
+
+	useEffect(() => {
+		if (!isMounted || !graphReady || !routeNodeId) return;
+
+		let cancelled = false;
+		let attempts = 0;
+		let retryTimer: ReturnType<typeof window.setTimeout> | null = null;
+
+		const requestRouteNodeSelection = () => {
+			if (cancelled) return;
+			const displayedId = document.getElementById('fg-sidebar')?.dataset?.displayedId || '';
+			if (displayedId === routeNodeId || attempts >= 6) return;
+			attempts += 1;
+			window.dispatchEvent(
+				new CustomEvent(ROUTE_NODE_REQUEST_EVENT, {
+					detail: {
+						nodeId: routeNodeId,
+					},
+				}),
+			);
+			retryTimer = window.setTimeout(requestRouteNodeSelection, 350);
+		};
+
+		retryTimer = window.setTimeout(requestRouteNodeSelection, 150);
+		return () => {
+			cancelled = true;
+			if (retryTimer) {
+				window.clearTimeout(retryTimer);
+			}
+		};
+	}, [graphReady, isMounted, routeNodeId]);
+
+	useEffect(() => {
+		if (!isMounted) return;
 		bindTouchDragClickSuppression(document.getElementById('fg-mobile-menu-toggle'));
 		bindTouchDragClickSuppression(document.getElementById('fg-sidebar-pin-toggle'));
 	}, [isMounted]);
@@ -321,9 +411,12 @@ export default function FinraGraph() {
 		Promise.all([import('d3'), import('d3-force'), import('@/lib/finra-graph')]).then(([d3Module, d3ForceModule, { init }]) => {
 			const combinedD3 = { ...d3Module, ...d3ForceModule };
 			(window as any).d3 = combinedD3;
-			init(combinedD3);
+			init(combinedD3, {
+				initialRouteNodeId: routeNodeId,
+			});
+			setGraphReady(true);
 		});
-	}, [isMounted]);
+	}, [isMounted, routeNodeId]);
 
 	if (!isMounted) {
 		return null;
