@@ -137,9 +137,27 @@ function hideSelectionLog() {
 	panel.classList.add('hidden');
 }
 
+function focusFetchInputWhenEmpty(options: { force?: boolean } = {}) {
+	const { force = false } = options;
+	const fetchInput = document.getElementById('fg-fetch-input') as HTMLInputElement | null;
+	const empty = document.getElementById('fg-empty');
+	if (!fetchInput || !empty || fetchInput.disabled || empty.classList.contains('hidden')) return;
+
+	const activeElement = document.activeElement as HTMLElement | null;
+	if (!force && activeElement && activeElement !== document.body && activeElement !== fetchInput) {
+		return;
+	}
+
+	window.requestAnimationFrame(() => {
+		if (empty.classList.contains('hidden') || document.activeElement === fetchInput) return;
+		fetchInput.focus({ preventScroll: true });
+	});
+}
+
 export default function FinraGraph() {
 	const mountedRef = useRef(false);
 	const appRef = useRef<HTMLDivElement | null>(null);
+	const wasGraphEmptyRef = useRef<boolean | null>(null);
 	const [isMounted, setIsMounted] = useState(false);
 
 	useEffect(() => {
@@ -163,6 +181,7 @@ export default function FinraGraph() {
 		const syncUiFlags = () => {
 			const isSidebarOpen = !sidebar.classList.contains('hidden');
 			const isGraphEmpty = !empty.classList.contains('hidden');
+			const shouldFocusFetchInput = isGraphEmpty && wasGraphEmptyRef.current !== true;
 			const allowLegendToggle = landscapeMobileQuery.matches && !isGraphEmpty;
 			app.dataset.sidebarOpen = isSidebarOpen ? 'true' : 'false';
 			app.dataset.graphEmpty = isGraphEmpty ? 'true' : 'false';
@@ -172,6 +191,10 @@ export default function FinraGraph() {
 			}
 			if (bottomStatus) {
 				bottomStatus.setAttribute('aria-expanded', app.dataset.legendOpen === 'true' ? 'true' : 'false');
+			}
+			wasGraphEmptyRef.current = isGraphEmpty;
+			if (shouldFocusFetchInput) {
+				focusFetchInputWhenEmpty({ force: true });
 			}
 		};
 
