@@ -112,6 +112,8 @@ let nodePulseInteractionCleanup: (() => void) | null = null; // removes reload p
 let activeLabelZoomThreshold = 0.3;
 let inactiveLabelCompactZoomThreshold = 0.42;
 let inactiveLabelCompactMode = false;
+let graphTickFrameId: number | null = null;
+let nodeLabelRenderMode: 'full' | 'compact' = 'full';
 let sessionPersistenceMode: 'full' | 'compact' | 'reduced' | 'minimal' = 'full';
 
 function isAnyTraceModeActive() {
@@ -150,6 +152,41 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 		.style('--fg-trace-label-scale', String(traceLabelScale));
 
 	updateInactiveLabelZoomState(rootGroup, normalizedScale);
+}
+
+function setGraphLabelRenderMode(nodeCount = layoutNodes?.length || 0) {
+	nodeLabelRenderMode = nodeCount > 1500 ? 'compact' : 'full';
+}
+
+function updateGraphTickPositions(linkSelection, nodeSelection, arrowSelection) {
+	if (!linkSelection || !nodeSelection) return;
+	linkSelection
+		.attr('x1', (d) => d.source.x)
+		.attr('y1', (d) => d.source.y)
+		.attr('x2', (d) => d.target.x)
+		.attr('y2', (d) => d.target.y);
+	if (arrowSelection) {
+		arrowSelection
+			.attr('x1', (d) => d.source.x)
+			.attr('y1', (d) => d.source.y)
+			.attr('x2', (d) => d.target.x)
+			.attr('y2', (d) => d.target.y);
+	}
+	nodeSelection.attr('transform', (d) => `translate(${d.x},${d.y})`);
+}
+
+function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection) {
+	if (graphTickFrameId != null) return;
+	graphTickFrameId = requestAnimationFrame(() => {
+		graphTickFrameId = null;
+		updateGraphTickPositions(linkSelection, nodeSelection, arrowSelection);
+	});
+}
+
+function cancelGraphTickPositions() {
+	if (graphTickFrameId == null) return;
+	cancelAnimationFrame(graphTickFrameId);
+	graphTickFrameId = null;
 }
 
 function applyStatusPresentation(text, options: { transient?: boolean; dismissible?: boolean; pinned?: boolean } = {}) {
@@ -2942,6 +2979,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			}),
 		);
 		applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
+		setGraphLabelRenderMode(layoutNodes.length);
 
 		// Rebuild neighbor cache and update info
 		neighborMap = buildNeighborMap(layoutNodes, layoutLinks);
@@ -3002,19 +3040,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 
 		// Replace tick handler so it covers the full updated selections.
 		simulation.on('tick', () => {
-			linkSel
-				.attr('x1', (d) => d.source.x)
-				.attr('y1', (d) => d.source.y)
-				.attr('x2', (d) => d.target.x)
-				.attr('y2', (d) => d.target.y);
-			if (arrowSel) {
-				arrowSel
-					.attr('x1', (d) => d.source.x)
-					.attr('y1', (d) => d.source.y)
-					.attr('x2', (d) => d.target.x)
-					.attr('y2', (d) => d.target.y);
-			}
-			nodeSel.attr('transform', (d) => `translate(${d.x},${d.y})`);
+			scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
 		});
 
 		// Restart simulation with new nodes/links
@@ -4917,6 +4943,9 @@ function renderNodeContents(selection) {
 			if (inactive) {
 				labelClass.push('fg-label--inactive', `fg-label-${pass}--inactive`);
 			}
+			if (pass === 'halo' && nodeLabelRenderMode === 'compact' && !inactive && !isNodeOnAnyTrace(d.id) && d.id !== selectedId) {
+				return;
+			}
 			const labelText = inactive && inactiveLabelCompactMode ? getCompactInactiveNodeLabel(d) : getRenderedNodeLabel(d);
 			const labelDy = (d._vizHalf != null ? d._vizHalf : r) + 8;
 			g.append('text')
@@ -5123,6 +5152,7 @@ async function fetchAndInjectOrphanNodes(links, knownIds) {
 function renderGraph(_data) {
 	let data = _data;
 	if (simulation) simulation.stop();
+	cancelGraphTickPositions();
 	if (spreadAnimId) {
 		cancelAnimationFrame(spreadAnimId);
 		spreadAnimId = null;
@@ -5178,6 +5208,7 @@ function renderGraph(_data) {
 	const nodeCount = nodes.length;
 	const isLarge = nodeCount > 300;
 	const isHuge = nodeCount > 1000;
+	setGraphLabelRenderMode(nodeCount);
 
 	// ── Zoom ──────────────────────────────────────────────────────────────────
 	// LOD threshold: hide labels when zoomed out (less DOM paint, higher props)
@@ -5364,18 +5395,15 @@ function renderGraph(_data) {
 		// During high-energy early layout, skip every other DOM write to cut paint time.
 		// Physics still advances every tick; only the SVG update is throttled.
 		if (simulation.alpha() > 0.15 && _tickN % 2 !== 0) return;
-
-		link
-			.attr('x1', (d) => d.source.x)
-			.attr('y1', (d) => d.source.y)
-			.attr('x2', (d) => d.target.x)
-			.attr('y2', (d) => d.target.y);
-
-		node.attr('transform', (d) => `translate(${d.x},${d.y})`);
+		scheduleGraphTickPositions(link, node, arrow);
 	});
 
 	// Stop simulation after 5 seconds to prevent endless movement
-	setTimeout(() => simulation.stop(), 5000);
+	const stopAfterMs =
+		isHuge ? 2500
+		: isLarge ? 3500
+		: 5000;
+	setTimeout(() => simulation.stop(), stopAfterMs);
 
 	// Preserve the current selection on blank click; highlights must be cleared explicitly.
 	svg.on('click', () => {
@@ -5513,6 +5541,7 @@ function injectNodesById(ids) {
 	layoutNodes.push(...toAdd);
 	layoutLinks.push(...newLinks);
 	applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
+	setGraphLabelRenderMode(layoutNodes.length);
 
 	neighborMap = buildNeighborMap(layoutNodes, layoutLinks);
 	if (graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
@@ -5570,22 +5599,6 @@ function injectNodesById(ids) {
 	refreshGraphColors();
 	refreshTraceState();
 
-	simulation.on('tick', () => {
-		linkSel
-			.attr('x1', (d) => d.source.x)
-			.attr('y1', (d) => d.source.y)
-			.attr('x2', (d) => d.target.x)
-			.attr('y2', (d) => d.target.y);
-		if (arrowSel) {
-			arrowSel
-				.attr('x1', (d) => d.source.x)
-				.attr('y1', (d) => d.source.y)
-				.attr('x2', (d) => d.target.x)
-				.attr('y2', (d) => d.target.y);
-		}
-		nodeSel.attr('transform', (d) => `translate(${d.x},${d.y})`);
-	});
-
 	simulation.nodes(layoutNodes);
 	simulation.force('link').links(layoutLinks);
 	simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
@@ -5596,19 +5609,7 @@ function injectNodesById(ids) {
 
 	// Update tick handler to cover new selections
 	simulation.on('tick', () => {
-		linkSel
-			.attr('x1', (d) => d.source.x)
-			.attr('y1', (d) => d.source.y)
-			.attr('x2', (d) => d.target.x)
-			.attr('y2', (d) => d.target.y);
-		if (arrowSel) {
-			arrowSel
-				.attr('x1', (d) => d.source.x)
-				.attr('y1', (d) => d.source.y)
-				.attr('x2', (d) => d.target.x)
-				.attr('y2', (d) => d.target.y);
-		}
-		nodeSel.attr('transform', (d) => `translate(${d.x},${d.y})`);
+		scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
 	});
 
 	// Persist session so reload restores these revealed neighbors
