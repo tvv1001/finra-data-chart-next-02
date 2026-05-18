@@ -12,15 +12,13 @@ const DEFAULT_CONCURRENCY = Number(process.env.FINRA_PRIME_CONCURRENCY || 4);
 
 const INDIVIDUAL_QUERY = new URLSearchParams({
 	hl: 'true',
-	wt: 'json',
-	nrows: '12',
 	includePrevious: 'true',
+	wt: 'json',
 }).toString();
 
 const FIRM_QUERY = new URLSearchParams({
 	hl: 'true',
 	wt: 'json',
-	nrows: '12',
 }).toString();
 
 function isAuthorized(request: NextRequest) {

@@ -8,8 +8,8 @@ const FINRA_DIR = path.join(NATIONAL_DIR, 'brokercheck.finra.org');
 const SEC_DIR = path.join(NATIONAL_DIR, 'adviserinfo.sec.gov');
 const PRIMED_CACHE_DIR = path.join(NATIONAL_DIR, 'primed-cache');
 
-const INDIVIDUAL_QUERY = 'hl=true&wt=json&nrows=12&includePrevious=true';
-const FIRM_QUERY = 'hl=true&wt=json&nrows=12';
+const INDIVIDUAL_QUERY = 'hl=true&includePrevious=true&wt=json';
+const FIRM_QUERY = 'hl=true&wt=json';
 
 const bundles = {
 	'finra-individual': {},

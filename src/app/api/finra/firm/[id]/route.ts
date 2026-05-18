@@ -16,7 +16,7 @@ function buildFirmQueryParams(searchParams: URLSearchParams) {
 	}
 	if (!params.has('hl')) params.set('hl', 'true');
 	if (!params.has('wt')) params.set('wt', 'json');
-	if (!params.has('nrows')) params.set('nrows', '12');
+	params.delete('nrows');
 	return params;
 }
 
@@ -210,13 +210,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			if (!detail.brochures && secDetail.brochures) detail.brochures = secDetail.brochures;
 		}
 
-		const secFirmId = normalizeSecFirmId(
-			detail?.basicInformation?.bdSECNumber ||
-			detail?.basicInformation?.bdSecNumber ||
-			detail?.bdSECNumber ||
-			detail?.bdSecNumber ||
-			id,
-		);
+		const secFirmId = normalizeSecFirmId(detail?.basicInformation?.bdSECNumber || detail?.basicInformation?.bdSecNumber || detail?.bdSECNumber || detail?.bdSecNumber || id);
 
 		let secHtml = secPageData?.status === 'fulfilled' ? secPageData.value : null;
 		let secPageValid = isValidSecFirmSummaryPage(secHtml, id);
