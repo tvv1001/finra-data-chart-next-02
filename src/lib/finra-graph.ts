@@ -4918,9 +4918,10 @@ function renderNodeContents(selection) {
 				labelClass.push('fg-label--inactive', `fg-label-${pass}--inactive`);
 			}
 			const labelText = inactive && inactiveLabelCompactMode ? getCompactInactiveNodeLabel(d) : getRenderedNodeLabel(d);
+			const labelDy = (d._vizHalf != null ? d._vizHalf : r) + 8;
 			g.append('text')
 				.attr('class', labelClass.join(' '))
-				.attr('dy', d._vizHalf != null ? d._vizHalf + 14 : r + 14)
+				.attr('dy', labelDy)
 				.attr('text-anchor', 'middle')
 				.attr('font-size', '10px')
 				.attr('font-family', 'var(--sans)')
