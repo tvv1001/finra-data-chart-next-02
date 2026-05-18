@@ -7307,6 +7307,8 @@ function highlightLinks(highlightState = null) {
 			.attr('stroke', (d) => getLinkColor(d))
 			.attr('stroke-opacity', defaultLinkOpacity)
 			.attr('stroke-width', (d) => getLinkWidth(d))
+			.classed('fg-link--depth-active', false)
+			.classed('fg-link--depth-recessed', false)
 			.classed('trace-shortest', false)
 			.classed('trace-longest', false)
 			.classed('trace-log', false);
@@ -7327,6 +7329,8 @@ function highlightLinks(highlightState = null) {
 		const sel = d3.select(this);
 
 		sel
+			.classed('fg-link--depth-active', false)
+			.classed('fg-link--depth-recessed', false)
 			.classed('trace-shortest', isTraceShortest)
 			.classed('trace-longest', isTraceLongest)
 			.classed('trace-combined', isTraceShortest && isTraceLongest)
@@ -7340,6 +7344,7 @@ function highlightLinks(highlightState = null) {
 
 		if (hasNormalHighlights) {
 			if (connected) {
+				sel.classed('fg-link--depth-active', true);
 				const highlightedStrokeWidth =
 					hasInactiveEndpoint(d) ?
 						connectedToRoot ? 0.95
@@ -7354,11 +7359,21 @@ function highlightLinks(highlightState = null) {
 					: 1.15;
 				sel.style('opacity', null).style('stroke-opacity', null).attr('stroke', getLinkHighlightColor(d)).attr('stroke-opacity', 1).attr('stroke-width', highlightedStrokeWidth);
 			} else {
-				sel.style('opacity', 0.3).style('stroke-opacity', null).attr('stroke', getLinkColor(d)).attr('stroke-opacity', 0.24).attr('stroke-width', 0.6);
+				sel.classed('fg-link--depth-recessed', true);
+				const recessedLinkOpacity = hasInactiveEndpoint(d) ? 0.42 : 0.56;
+				const recessedStrokeOpacity = hasInactiveEndpoint(d) ? 0.32 : 0.46;
+				const recessedStrokeWidth = hasInactiveEndpoint(d) ? 0.68 : 0.82;
+				sel
+					.style('opacity', recessedLinkOpacity)
+					.style('stroke-opacity', null)
+					.attr('stroke', getLinkColor(d))
+					.attr('stroke-opacity', recessedStrokeOpacity)
+					.attr('stroke-width', recessedStrokeWidth);
 			}
 		} else if (isTraceMode || isTraceLogMode) {
 			// Keep non-trace links visible during trace mode, just dimmed by ~20%
 			const baseStrokeOpacity = Number(defaultLinkOpacity) || 1;
+			sel.classed('fg-link--depth-recessed', true);
 			sel
 				.style('opacity', 0.8)
 				.style('stroke-opacity', null)

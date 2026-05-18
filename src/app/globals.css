@@ -54,13 +54,22 @@
 	--color-node-selected-stroke: rgb(0, 7, 21);
 	--color-node-firm-selected-stroke: #8b5947;
 	--color-node-firm-selected-overlay: rgba(255, 251, 235, 0.72);
+	--color-node-depth-overlay: rgba(255, 255, 255, 0.96);
 	--opacity-node-selected: 1;
 	--fill-opacity-node-selected: 0.8;
+	--fill-opacity-node-depth: 0.08;
+	--fill-opacity-node-depth-inactive: 0.025;
+	--fill-opacity-node-depth-selected: 0.14;
+	--fill-opacity-node-depth-trace: 0.18;
 	--stroke-opacity-node-selected: 1;
 	--stroke-width-node-selected: 1.5;
 	--stroke-width-node-firm-selected: 2.2;
 	--shadow-node-selected: drop-shadow(0 0 8px rgba(54, 61, 75, 0.5));
 	--shadow-node-firm-selected: drop-shadow(0 0 10px rgba(217, 119, 6, 0.28)) drop-shadow(0 0 20px rgba(120, 53, 15, 0.18));
+	--shadow-link-active: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.28));
+	--shadow-link-trace-shortest: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.45)) drop-shadow(0 0 5px rgba(34, 197, 94, 0.28));
+	--shadow-link-trace-longest: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.48)) drop-shadow(0 0 6px rgba(204, 0, 255, 0.26));
+	--shadow-link-trace-log: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.7)) drop-shadow(0 0 4px rgba(251, 191, 36, 0.24));
 
 	/* Highlighted-hop state */
 	--color-node-highlighted-stroke: rgb(142, 47, 9);
@@ -2746,14 +2755,48 @@ a,
 }
 
 .fg-node .fg-node-overlay {
-	fill: #ffffff;
-	fill-opacity: 0;
+	fill: var(--color-node-depth-overlay);
+	fill-opacity: var(--fill-opacity-node-depth);
 	stroke: none;
 	pointer-events: none;
 }
 
+.fg-node.fg-node--inactive .fg-node-overlay {
+	fill-opacity: var(--fill-opacity-node-depth-inactive);
+}
+
+.fg-node.selected .fg-node-overlay,
+.fg-node.highlighted-hop .fg-node-overlay {
+	fill-opacity: var(--fill-opacity-node-depth-selected);
+}
+
+.fg-node.trace-shortest .fg-node-overlay,
+.fg-node.trace-shortest-connector .fg-node-overlay,
+.fg-node.trace-longest .fg-node-overlay,
+.fg-node.trace-longest-connector .fg-node-overlay,
+.fg-node.trace-log .fg-node-overlay,
+.fg-node.trace-log-connector .fg-node-overlay,
+.fg-node.trace-combined .fg-node-overlay,
+.fg-node.trace-combined-connector .fg-node-overlay {
+	fill-opacity: var(--fill-opacity-node-depth-trace);
+}
+
 .fg-node.fg-node--trace-muted .fg-node-overlay {
 	fill-opacity: 0.25;
+}
+
+.fg-link {
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	vector-effect: non-scaling-stroke;
+}
+
+.fg-link.fg-link--depth-active {
+	filter: var(--shadow-link-active);
+}
+
+.fg-link.fg-link--depth-recessed {
+	filter: none;
 }
 
 .fg-label-fill--inactive {
@@ -3403,6 +3446,7 @@ a,
 	stroke-linecap: round;
 	stroke-linejoin: round;
 	vector-effect: non-scaling-stroke;
+	filter: var(--shadow-link-trace-shortest);
 }
 
 .fg-links line.trace-longest,
@@ -3413,7 +3457,7 @@ a,
 	stroke-linecap: round;
 	stroke-linejoin: round;
 	vector-effect: non-scaling-stroke;
-	filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+	filter: var(--shadow-link-trace-longest);
 }
 
 .fg-links line.trace-combined,
@@ -3424,7 +3468,7 @@ a,
 	stroke-linecap: round;
 	stroke-linejoin: round;
 	vector-effect: non-scaling-stroke;
-	filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+	filter: var(--shadow-link-trace-shortest);
 }
 
 .fg-links line.trace-log,
@@ -3435,7 +3479,7 @@ a,
 	stroke-linecap: round;
 	stroke-linejoin: round;
 	vector-effect: non-scaling-stroke;
-	filter: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.7)) drop-shadow(0 0 4px rgba(251, 191, 36, 0.24));
+	filter: var(--shadow-link-trace-log);
 }
 
 .fg-ghost-btn.trace-active {
