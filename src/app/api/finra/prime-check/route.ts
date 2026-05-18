@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cachedFetch } from '@/lib/cache';
 import { DEFAULT_HEADERS } from '@/lib/constants';
 import { getFullGraph, getRecentSeedsFromStore, getSeedBankFromStore } from '@/lib/graphStore';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -99,12 +100,50 @@ async function warmFirm(id: string) {
 	]);
 }
 
+function extractFdaDockets(detail: any) {
+	const disclosures = Array.isArray(detail?.disclosures) ? detail.disclosures : [];
+	const dockets = new Set<string>();
+
+	for (const disclosure of disclosures) {
+		const dd = disclosure?.disclosureDetail;
+		if (!dd || typeof dd !== 'object' || Array.isArray(dd)) continue;
+		const docket = String(dd.DocketNumberFDA || '').trim();
+		if (docket) dockets.add(docket);
+	}
+
+	return Array.from(dockets);
+}
+
+async function fetchLocalJson(origin: string, path: string) {
+	const response = await fetch(`${origin}${path}`, {
+		headers: {
+			'Accept': 'application/json',
+			'x-finra-prime-check': '1',
+		},
+		cache: 'no-store',
+	});
+
+	let payload: any = null;
+	try {
+		payload = await response.json();
+	} catch {
+		payload = null;
+	}
+
+	if (!response.ok) {
+		throw new Error(payload?.error || `HTTP ${response.status}`);
+	}
+
+	return payload;
+}
+
 export async function GET(request: NextRequest) {
 	if (!isAuthorized(request)) {
 		return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
 	}
 
 	const { searchParams } = new URL(request.url);
+	const origin = request.nextUrl.origin;
 	const limit = Number(searchParams.get('limit') || DEFAULT_LIMIT);
 	const concurrency = Number(searchParams.get('concurrency') || DEFAULT_CONCURRENCY);
 
@@ -119,8 +158,18 @@ export async function GET(request: NextRequest) {
 	const results = {
 		warmedIndividuals: 0,
 		warmedFirms: 0,
+		fdaChecks: {
+			individualsScanned: 0,
+			docketsQueued: 0,
+			docketsChecked: 0,
+			found: 0,
+			blocked: 0,
+			noResults: 0,
+			failures: [] as Array<{ crd: string; docket: string; error: string }>,
+		},
 		failures: [] as Array<{ kind: 'individual' | 'firm'; id: string; error: string }>,
 	};
+	const seenFdaDockets = new Set<string>();
 
 	try {
 		await runWithConcurrency(warmTargets, concurrency, async (target) => {
@@ -128,6 +177,41 @@ export async function GET(request: NextRequest) {
 				if (target.kind === 'individual') {
 					await warmIndividual(target.id);
 					results.warmedIndividuals += 1;
+					results.fdaChecks.individualsScanned += 1;
+
+					const detail = await fetchLocalJson(origin, `/api/finra/individual/${encodeURIComponent(target.id)}`);
+					if (detail?.found === false) {
+						return;
+					}
+
+					for (const docket of extractFdaDockets(detail)) {
+						if (seenFdaDockets.has(docket)) continue;
+						seenFdaDockets.add(docket);
+						results.fdaChecks.docketsQueued += 1;
+
+						try {
+							const fdaResult = await fetchLocalJson(origin, `/api/finra/fda/${encodeURIComponent(docket)}`);
+							results.fdaChecks.docketsChecked += 1;
+							if (fdaResult?.blocked) {
+								results.fdaChecks.blocked += 1;
+							} else if (fdaResult?.found) {
+								results.fdaChecks.found += 1;
+							} else {
+								results.fdaChecks.noResults += 1;
+							}
+						} catch (error: any) {
+							results.fdaChecks.failures.push({
+								crd: target.id,
+								docket,
+								error: String(error?.message || error),
+							});
+							logger.warn('prime-check FDA lookup failed', {
+								crd: target.id,
+								docket,
+								error: error?.message || String(error),
+							});
+						}
+					}
 					return;
 				}
 				await warmFirm(target.id);
@@ -158,6 +242,33 @@ export async function GET(request: NextRequest) {
 
 	const [afterGraph, afterSeedBank] = await Promise.all([getFullGraph(), getSeedBankFromStore()]);
 	const after = summarizeStats(afterGraph, afterSeedBank);
+	const changed = before.people !== after.people || before.firms !== after.firms || before.links !== after.links || before.totalNodes !== after.totalNodes;
+
+	logger.info('prime-check completed', {
+		mode: 'daily-usage-aware-prime-check',
+		limit,
+		concurrency,
+		recentSeeds: {
+			individualsQueued: recentSeeds.individualIds.length,
+			firmsQueued: recentSeeds.firmIds.length,
+			updatedAt: recentSeeds.updatedAt,
+		},
+		results: {
+			warmedIndividuals: results.warmedIndividuals,
+			warmedFirms: results.warmedFirms,
+			failures: results.failures.length,
+			fdaChecks: {
+				individualsScanned: results.fdaChecks.individualsScanned,
+				docketsQueued: results.fdaChecks.docketsQueued,
+				docketsChecked: results.fdaChecks.docketsChecked,
+				found: results.fdaChecks.found,
+				blocked: results.fdaChecks.blocked,
+				noResults: results.fdaChecks.noResults,
+				failures: results.fdaChecks.failures.length,
+			},
+		},
+		changed,
+	});
 
 	return NextResponse.json(
 		{
@@ -173,7 +284,7 @@ export async function GET(request: NextRequest) {
 			results,
 			before,
 			after,
-			changed: before.people !== after.people || before.firms !== after.firms || before.links !== after.links || before.totalNodes !== after.totalNodes,
+			changed,
 		},
 		{
 			headers: {
