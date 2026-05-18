@@ -2834,7 +2834,7 @@ a,
 .fg-root.fg-trace-labels .fg-node.trace-log-connector .fg-label-fill,
 .fg-root.fg-trace-labels .fg-node.trace-log-connector .fg-label-halo {
 	display: block !important;
-	font-size: calc(10px * var(--fg-trace-label-scale, 1)) !important;
+	font-size: calc(11px * var(--fg-trace-label-scale, 1)) !important;
 }
 
 .fg-root.fg-trace-labels .fg-node.trace-shortest .fg-label-fill,
@@ -3251,6 +3251,20 @@ a,
 	animation: fg-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 @media (max-width: 860px) and (orientation: landscape) {
+	#finra-app {
+		width: 100vw;
+		max-width: 100vw;
+	}
+
+	.fg-header-bar {
+		padding-left: max(10px, env(safe-area-inset-left));
+		padding-right: max(10px, env(safe-area-inset-right));
+	}
+
+	.fg-sidebar {
+		right: env(safe-area-inset-right);
+	}
+
 	#finra-app[data-legend-toggle='true'][data-legend-open='false'] .fg-legend,
 	#finra-app[data-legend-toggle='true'][data-graph-empty='true'] .fg-legend {
 		display: none !important;
@@ -3261,8 +3275,8 @@ a,
 	}
 
 	#finra-app[data-legend-toggle='true'] .fg-legend {
-		left: 10px;
-		right: 10px;
+		left: max(10px, env(safe-area-inset-left));
+		right: max(10px, env(safe-area-inset-right));
 		bottom: calc(env(safe-area-inset-bottom) + 52px);
 		max-width: none;
 		padding: 10px 12px;
@@ -3272,8 +3286,8 @@ a,
 	}
 
 	#finra-app[data-legend-toggle='true'] .fg-bottom-status {
-		left: 10px;
-		right: 10px;
+		left: max(10px, env(safe-area-inset-left));
+		right: max(10px, env(safe-area-inset-right));
 		bottom: 0;
 		max-width: none;
 		width: auto;
