@@ -64,12 +64,17 @@
 	--stroke-opacity-node-selected: 1;
 	--stroke-width-node-selected: 1.5;
 	--stroke-width-node-firm-selected: 2.2;
-	--shadow-node-selected: drop-shadow(0 0 8px rgba(54, 61, 75, 0.5));
-	--shadow-node-firm-selected: drop-shadow(0 0 10px rgba(217, 119, 6, 0.28)) drop-shadow(0 0 20px rgba(120, 53, 15, 0.18));
+	--shadow-node-selected: drop-shadow(2px 3px 4px rgba(10, 18, 38, 0.36)) drop-shadow(0 0 8px rgba(54, 61, 75, 0.5));
+	--shadow-node-firm-selected: drop-shadow(2px 3px 4px rgba(10, 18, 38, 0.36)) drop-shadow(0 0 10px rgba(217, 119, 6, 0.28)) drop-shadow(0 0 20px rgba(120, 53, 15, 0.18));
 	--shadow-link-active: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.28));
 	--shadow-link-trace-shortest: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.45)) drop-shadow(0 0 5px rgba(34, 197, 94, 0.28));
 	--shadow-link-trace-longest: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.48)) drop-shadow(0 0 6px rgba(204, 0, 255, 0.26));
 	--shadow-link-trace-log: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.7)) drop-shadow(0 0 4px rgba(251, 191, 36, 0.24));
+
+	/* Directional perspective shadow — consistent light from upper-left for all nodes and labels */
+	--shadow-node: drop-shadow(2px 3px 4px rgba(10, 18, 38, 0.32));
+	--shadow-node-inactive: drop-shadow(1px 2px 3px rgba(10, 18, 38, 0.16));
+	--shadow-label: drop-shadow(1px 2px 2px rgba(10, 18, 38, 0.28));
 
 	/* Highlighted-hop state */
 	--color-node-highlighted-stroke: rgb(142, 47, 9);
@@ -79,7 +84,7 @@
 	--stroke-opacity-node-highlighted: 1;
 	--stroke-width-node-highlighted: 2.4;
 	--stroke-width-node-firm-highlighted: var(--stroke-width-node-firm-connected);
-	--shadow-node-highlighted: drop-shadow(0 0 6px rgba(142, 47, 9, 0.42));
+	--shadow-node-highlighted: drop-shadow(2px 3px 4px rgba(10, 18, 38, 0.32)) drop-shadow(0 0 6px rgba(142, 47, 9, 0.42));
 
 	/* App surface + typography */
 	--text: #000;
@@ -2622,10 +2627,12 @@ a,
 .fg-node .fg-node-shape--entity {
 	stroke: var(--color-node-border);
 	stroke-width: var(--stroke-width-node-default);
+	filter: var(--shadow-node);
 }
 
 .fg-node .fg-node-shape--firm {
 	stroke-width: var(--stroke-width-node-firm-isolated);
+	filter: var(--shadow-node);
 }
 
 .fg-node .fg-node-disclosure-ring {
@@ -2670,6 +2677,7 @@ a,
 .fg-node.fg-node--inactive .fg-node-shape--entity {
 	fill: var(--color-node-inactive);
 	stroke: var(--color-node-inactive-stroke);
+	filter: var(--shadow-node-inactive);
 }
 
 .fg-node.fg-node--inactive .fg-node-shape--circle {
@@ -2797,6 +2805,10 @@ a,
 
 .fg-link.fg-link--depth-recessed {
 	filter: none;
+}
+
+.fg-label-fill {
+	filter: var(--shadow-label);
 }
 
 .fg-label-fill--inactive {
