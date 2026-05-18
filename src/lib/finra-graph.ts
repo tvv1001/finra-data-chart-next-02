@@ -2406,10 +2406,12 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				if (!keys.length) continue;
 
 				let bestScore = -1;
+				let hasExactMatch = false;
 				if (numericQuery) {
 					const nodeId = String(node?.id || '').trim();
 					if (nodeId.endsWith(`:${numericQuery}`) || nodeId.endsWith(`_${numericQuery}`) || nodeId === numericQuery) {
 						bestScore = Math.max(bestScore, 240);
+						hasExactMatch = true;
 					}
 				}
 				for (const rawKey of keys) {
@@ -2418,10 +2420,22 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 					const keyComparable = normalizeComparableName(key);
 					const keySecComparable = normalizeSecComparable(key);
 
-					if (key === query) bestScore = Math.max(bestScore, 220);
-					if (numericQuery && key === numericQuery) bestScore = Math.max(bestScore, 220);
-					if (normalizedSecQuery && keySecComparable === normalizedSecQuery) bestScore = Math.max(bestScore, 210);
-					if (comparableQuery && keyComparable === comparableQuery) bestScore = Math.max(bestScore, 185);
+					if (key === query) {
+						bestScore = Math.max(bestScore, 220);
+						hasExactMatch = true;
+					}
+					if (numericQuery && key === numericQuery) {
+						bestScore = Math.max(bestScore, 220);
+						hasExactMatch = true;
+					}
+					if (normalizedSecQuery && keySecComparable === normalizedSecQuery) {
+						bestScore = Math.max(bestScore, 210);
+						hasExactMatch = true;
+					}
+					if (comparableQuery && keyComparable === comparableQuery) {
+						bestScore = Math.max(bestScore, 185);
+						hasExactMatch = true;
+					}
 					if (comparableQuery && keyComparable.startsWith(comparableQuery)) bestScore = Math.max(bestScore, 150);
 					if (comparableQuery && keyComparable.includes(comparableQuery)) bestScore = Math.max(bestScore, 120);
 				}
@@ -2430,6 +2444,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 					scored.push({
 						node,
 						score: bestScore,
+						hasExactMatch,
 						connections: connectionCounts.get(node.id) || 0,
 					});
 				}
@@ -2440,11 +2455,15 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			);
 		};
 
-		const focusExistingNodeMatch = (rawQuery) => {
+		const focusExistingNodeMatch = (rawQuery, options: { statusPrefix?: string } = {}) => {
+			const { statusPrefix = 'Already loaded' } = options;
 			const renderedNodes = (nodeSel && typeof nodeSel.data === 'function' ? nodeSel.data() : []).filter(Boolean);
-			const renderedMatches = findExistingNodeMatches(rawQuery, renderedNodes);
-			const matches = renderedMatches.length ? renderedMatches : findExistingNodeMatches(rawQuery);
+			const renderedMatches = findExistingNodeMatches(rawQuery, renderedNodes).filter((match) => match.hasExactMatch);
+			const matches = renderedMatches.length ? renderedMatches : findExistingNodeMatches(rawQuery).filter((match) => match.hasExactMatch);
 			if (!matches.length) return false;
+			const bestScore = matches[0]?.score ?? -1;
+			const topMatches = matches.filter((match) => match.score === bestScore);
+			if (topMatches.length !== 1) return false;
 			const bestNodeId = matches[0]?.node?.id;
 			if (!bestNodeId) return false;
 
@@ -2464,20 +2483,60 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 
 			const preferredLabel = getPreferredNodeLabel(liveNode) || liveNode.label || liveNode.id;
 			clearFetchStatus();
-			updateFetchStatus(matches.length > 1 ? `Already loaded: focused ${preferredLabel} (${matches.length} matches)` : `Already loaded: focused ${preferredLabel}`);
+			updateFetchStatus(matches.length > 1 ? `${statusPrefix}: focused ${preferredLabel} (${matches.length} matches)` : `${statusPrefix}: focused ${preferredLabel}`);
 			return true;
+		};
+
+		const ensureFetchRuntimeReady = async () => {
+			for (let attempt = 0; attempt < 20; attempt += 1) {
+				if (graphData && Array.isArray(layoutNodes) && Array.isArray(layoutLinks) && typeof appendFetched === 'function') {
+					return true;
+				}
+				await new Promise<void>((resolve) => {
+					window.requestAnimationFrame(() => resolve());
+				});
+			}
+			return Boolean(graphData && Array.isArray(layoutNodes) && Array.isArray(layoutLinks) && typeof appendFetched === 'function');
 		};
 
 		const runRemoteFetch = async () => {
 			const q = String(fetchInput.value || '').trim();
 			if (!q) return;
-			if (focusExistingNodeMatch(q)) {
+			if (!(await ensureFetchRuntimeReady())) {
+				updateFetchStatus('Graph is still loading. Please try again.');
 				return;
 			}
 			fetchBtn.disabled = true;
 			const origText = fetchBtn.textContent;
 			fetchBtn.textContent = 'Fetching…';
 			try {
+				const localResult = await fetchLocalQueryBatch(q);
+				const localNodes = Array.isArray(localResult?.nodes) ? localResult.nodes : [];
+				const localLinks = Array.isArray(localResult?.links) ? localResult.links : [];
+				const localMatchedIds = Array.isArray(localResult?.matchedIds) ? localResult.matchedIds.map((id) => String(id || '').trim()).filter(Boolean) : [];
+				const isDirectIdQuery = /^\d+$/.test(q);
+				const localHasGraphContext = localLinks.length > 0 || localNodes.length > 1;
+				const shouldUseLocalResults = (localNodes.length > 0 || localMatchedIds.length > 0) && (!isDirectIdQuery || localHasGraphContext);
+
+				if (shouldUseLocalResults) {
+					scheduleFirstFetchFocusIfAvailable(
+						localNodes.map((node) => node.id),
+						{
+							duration: 700,
+							maxScale: 1.05,
+						},
+					);
+					appendFetched(localNodes, localLinks);
+					mergeIntoGraphData(localNodes, localLinks);
+					void fetchCacheStats();
+
+					if (!focusExistingNodeMatch(q, { statusPrefix: 'Loaded from local API' })) {
+						const localMatchCount = localMatchedIds.length || localNodes.length;
+						updateFetchStatus(`Loaded ${localMatchCount} local match${localMatchCount !== 1 ? 'es' : ''} for "${q}"`);
+					}
+					return;
+				}
+
 				// ── 1. Search all three external endpoints in parallel ─────────────
 				// FINRA firm:   https://api.brokercheck.finra.org/search/firm?query=…
 				// FINRA indiv:  https://api.brokercheck.finra.org/search/individual?query=…
@@ -2564,6 +2623,9 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				}
 
 				if (!allHits.length) {
+					if (focusExistingNodeMatch(q)) {
+						return;
+					}
 					updateFetchStatus(`No remote results for "${q}"`);
 					return;
 				}
@@ -2785,6 +2847,9 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 
 				// ── 3. Append all nodes/links to the live view ─────────────────────
 				if (batchAllNodes.length === 0) {
+					if (focusExistingNodeMatch(q)) {
+						return;
+					}
 					updateFetchStatus(`No structured data found for "${q}"`);
 					return;
 				}
@@ -3249,8 +3314,8 @@ async function fetchAndInjectLocalQuery(q) {
 		const res = await fetch(url, { headers: { Accept: 'application/json' } });
 		if (!res.ok) throw new Error(`Local query failed: ${res.status}`);
 		const data = await res.json();
-		const nodes = data?.nodes || [];
-		const links = data?.links || [];
+		const nodes = Array.isArray(data) ? data : data?.nodes || [];
+		const links = Array.isArray(data) ? [] : data?.links || [];
 		if (!nodes.length) throw new Error('No local results');
 		mergeIntoGraphData(nodes, links);
 		return true;
@@ -3401,11 +3466,14 @@ async function fetchLocalQueryBatch(q) {
 	try {
 		const url = makeApiUrl(`/api/finra/graph-search?q=${encodeURIComponent(q)}&limit=50`).toString();
 		const res = await fetch(url, { headers: { Accept: 'application/json' } });
-		if (!res.ok) return { nodes: [], links: [] };
+		if (!res.ok) return { nodes: [], links: [], matchedIds: [] };
 		const data = await res.json();
-		return { nodes: data?.nodes || [], links: data?.links || [] };
+		if (Array.isArray(data)) {
+			return { nodes: data, links: [], matchedIds: data.map((node) => node?.id).filter(Boolean) };
+		}
+		return { nodes: data?.nodes || [], links: data?.links || [], matchedIds: data?.matchedIds || [] };
 	} catch {
-		return { nodes: [], links: [] };
+		return { nodes: [], links: [], matchedIds: [] };
 	}
 }
 
