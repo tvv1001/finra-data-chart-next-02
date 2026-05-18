@@ -36,7 +36,7 @@
 
 	/* Shared node/default styling */
 	--color-default-text: #2e3744;
-	--color-default-line: #71757b81;
+	--color-default-line: rgba(113, 117, 123, 0.38);
 	--color-default-muted: #454a53;
 	--color-default-soft: #414b5a;
 	--color-node-border: #ffffff;
