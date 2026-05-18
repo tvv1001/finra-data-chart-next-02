@@ -127,11 +127,22 @@ function getCurrentGraphZoomScale() {
 	}
 }
 
+function getSelectionLinkEmphasis(zoomScale = getCurrentGraphZoomScale()) {
+	const normalizedScale = Math.max(0.18, Math.min(1, Number(zoomScale) || 1));
+	const zoomWeight = Math.max(0, Math.min(1, (normalizedScale - 0.18) / 0.82));
+
+	return {
+		strokeWidthScale: 0.7 + zoomWeight * 0.3,
+		strokeOpacity: 0.66 + zoomWeight * 0.22,
+		showActiveFilter: normalizedScale >= 0.55,
+	};
+}
+
 function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 	if (!rootGroup) return;
 	const traceActive = isAnyTraceModeActive();
 	const normalizedScale = Math.max(0.1, Number(zoomScale) || 1);
-	const traceLabelScale = traceActive ? Math.max(1.35, Math.min(2.2, 1 / Math.max(0.45, Math.min(1, normalizedScale)))) : 1;
+	const traceLabelScale = traceActive ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, normalizedScale)))) : 1;
 
 	rootGroup
 		.classed('fg-trace-labels', traceActive)
@@ -7302,6 +7313,7 @@ function highlightLinks(highlightState = null) {
 	if (!hasNormalHighlights && !isTraceMode && !isTraceLogMode) {
 		// restore default appearance (both attributes and inline styles)
 		linkSel
+			.style('filter', null)
 			.style('stroke-opacity', null)
 			.style('opacity', null)
 			.attr('stroke', (d) => getLinkColor(d))
@@ -7325,6 +7337,7 @@ function highlightLinks(highlightState = null) {
 		const isTraceShortest = isTraceMode && traceShortestIds.has(linkKey);
 		const isTraceLongest = isTraceMode && traceLongestIds.has(linkKey);
 		const isTraceLog = isTraceLogMode && traceLogIds.has(linkKey);
+		const selectionLinkEmphasis = getSelectionLinkEmphasis();
 
 		const sel = d3.select(this);
 
@@ -7337,7 +7350,7 @@ function highlightLinks(highlightState = null) {
 			.classed('trace-log', isTraceLog);
 
 		if (isTraceShortest || isTraceLongest || isTraceLog) {
-			sel.style('opacity', null).style('stroke-opacity', null).attr('stroke-opacity', 1);
+			sel.style('filter', null).style('opacity', null).style('stroke-opacity', null).attr('stroke-opacity', 1);
 			// CSS classes handle the stroke and width
 			return;
 		}
@@ -7357,13 +7370,20 @@ function highlightLinks(highlightState = null) {
 						:	1.5
 					: connectedToRoot ? 1.4
 					: 1.15;
-				sel.style('opacity', null).style('stroke-opacity', null).attr('stroke', getLinkHighlightColor(d)).attr('stroke-opacity', 1).attr('stroke-width', highlightedStrokeWidth);
+				sel
+					.style('filter', selectionLinkEmphasis.showActiveFilter ? null : 'none')
+					.style('opacity', null)
+					.style('stroke-opacity', null)
+					.attr('stroke', getLinkHighlightColor(d))
+					.attr('stroke-opacity', selectionLinkEmphasis.strokeOpacity)
+					.attr('stroke-width', highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale);
 			} else {
 				sel.classed('fg-link--depth-recessed', true);
 				const recessedLinkOpacity = hasInactiveEndpoint(d) ? 0.42 : 0.56;
 				const recessedStrokeOpacity = hasInactiveEndpoint(d) ? 0.32 : 0.46;
 				const recessedStrokeWidth = hasInactiveEndpoint(d) ? 0.68 : 0.82;
 				sel
+					.style('filter', null)
 					.style('opacity', recessedLinkOpacity)
 					.style('stroke-opacity', null)
 					.attr('stroke', getLinkColor(d))
@@ -7375,6 +7395,7 @@ function highlightLinks(highlightState = null) {
 			const baseStrokeOpacity = Number(defaultLinkOpacity) || 1;
 			sel.classed('fg-link--depth-recessed', true);
 			sel
+				.style('filter', null)
 				.style('opacity', 0.8)
 				.style('stroke-opacity', null)
 				.attr('stroke', getLinkColor(d))
