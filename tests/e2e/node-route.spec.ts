@@ -31,20 +31,20 @@ test('Selecting a node pushes an analytics-friendly node route', async ({ page }
 			timeout: 10_000,
 			message: 'expected selecting a node to push a /node/... route',
 		})
-		.toBe('/node/person%3A3102054');
+		.toBe('/node/person-3102054');
 });
 
 test('A direct node route restores that node selection on a clean session', async ({ page }) => {
 	await page.goto('/');
 	await resetBrowserGraphState(page);
-	await page.goto('/node/person%3A3102054');
+	await page.goto('/node/person-3102054');
 
 	await expect
 		.poll(async () => page.evaluate(() => window.location.pathname), {
 			timeout: 10_000,
 			message: 'expected the direct node route to remain active after load',
 		})
-		.toBe('/node/person%3A3102054');
+		.toBe('/node/person-3102054');
 
 	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/, { timeout: 20_000 });
 	await expect
@@ -54,6 +54,24 @@ test('A direct node route restores that node selection on a clean session', asyn
 			{
 				timeout: 20_000,
 				message: 'expected the direct node route to restore the selected node in the sidebar',
+			},
+		)
+		.toBe('person:3102054');
+});
+
+test('A legacy encoded node route still restores that node selection', async ({ page }) => {
+	await page.goto('/');
+	await resetBrowserGraphState(page);
+	await page.goto('/node/person%3A3102054');
+
+	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/, { timeout: 20_000 });
+	await expect
+		.poll(
+			async () =>
+				page.evaluate(() => document.getElementById('fg-sidebar')?.getAttribute('data-displayed-id') || document.getElementById('fg-sidebar')?.dataset?.displayedId || ''),
+			{
+				timeout: 20_000,
+				message: 'expected the legacy encoded node route to restore the selected node in the sidebar',
 			},
 		)
 		.toBe('person:3102054');
