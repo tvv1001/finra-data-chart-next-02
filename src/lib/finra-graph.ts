@@ -4398,12 +4398,12 @@ const LINK_COLOR = {
 	controls: GRAPH_COLORS.lineControls,
 };
 const LINK_OPACITY = {
-	employed_by: 0.65,
-	previous_employed_by: 0.5,
-	controls: 0.65,
+	employed_by: 0.58,
+	previous_employed_by: 0.42,
+	controls: 0.58,
 };
 const DEFAULT_LINK_WIDTH = 0.75;
-const INACTIVE_LINK_OPACITY = 0.34;
+const INACTIVE_LINK_OPACITY = 0.28;
 const defaultLinkOpacity = (d) => {
 	if (hasInactiveEndpoint(d)) return INACTIVE_LINK_OPACITY;
 	if (usesCurrentEmploymentStyling(d)) return LINK_OPACITY.employed_by;
@@ -5032,10 +5032,11 @@ function isLinkOnAnyTrace(linkKey: string) {
 
 function getNodeRenderPriority(node, highlightState) {
 	if (!node) return 1;
-	if (isNodeOnAnyTrace(node.id)) return 3;
-	if (highlightState?.rootIds?.has(node.id) || highlightState?.hopNodeIds?.has(node.id)) return 2;
-	if (isNodeInactive(node)) return 0;
-	return 1;
+	const degreeBias = Math.max(0, Math.min(1000, getNodeDegreeValue(node)));
+	if (isNodeOnAnyTrace(node.id)) return 4000 + degreeBias;
+	if (highlightState?.rootIds?.has(node.id) || highlightState?.hopNodeIds?.has(node.id)) return 3000 + degreeBias;
+	if (isNodeInactive(node)) return 1000 + degreeBias;
+	return 2000 + degreeBias;
 }
 
 function getLinkRenderPriority(link, highlightState) {
@@ -5225,14 +5226,16 @@ function renderGraph(_data) {
 	}
 
 	function updateTraceStrokeScale(scale: number) {
-		const normalized = Math.max(0, Math.min(1, Number(scale) || 1));
-		const gentleScale = 0.78 + normalized * 0.22;
+		const minZoom = 0.25;
+		const clampedZoom = Math.max(minZoom, Math.min(1, Number(scale) || 1));
+		const normalized = (clampedZoom - minZoom) / (1 - minZoom);
+		const gentleScale = 1.2 - normalized * 0.2;
 		svg.style('--fg-trace-stroke-scale', String(gentleScale));
 	}
 
 	const zoom = d3
 		.zoom()
-		.scaleExtent([0.1, 6])
+		.scaleExtent([0.25, 6])
 		.on('zoom', (event) => {
 			root.attr('transform', event.transform);
 			updateTraceStrokeScale(event.transform.k);
@@ -5254,9 +5257,9 @@ function renderGraph(_data) {
 	svg.call(zoom);
 
 	// Set an initial zoom so larger graphs start more zoomed-out by default.
-	// Scale choices: small=1, medium≈0.8, large≈0.6, huge≈0.45
+	// Scale choices: small=1, medium≈0.8, large≈0.25, huge≈0.25
 	const initialScale =
-		isHuge ? 0.18
+		isHuge ? 0.25
 		: isLarge ? 0.25
 		: 0.25;
 	updateTraceStrokeScale(initialScale);
@@ -5360,6 +5363,20 @@ function renderGraph(_data) {
 	linkSel = link;
 	linkGroup = root.select('.fg-links');
 
+	// ── Arrowheads ───────────────────────────────────────────────────────────
+	// Keep arrows beneath node labels so names remain readable.
+	const arrow = root
+		.append('g')
+		.attr('class', 'fg-arrowheads')
+		.selectAll('line')
+		.data(links)
+		.join('line')
+		.attr('stroke', 'none')
+		.attr('fill', 'none')
+		.attr('marker-end', (d) => getLinkMarker(d));
+	arrowSel = arrow;
+	arrowGroup = root.select('.fg-arrowheads');
+
 	// ── Nodes ─────────────────────────────────────────────────────────────────
 	const node = root
 		.append('g')
@@ -5372,19 +5389,6 @@ function renderGraph(_data) {
 		.on('click', handleNodeOpen);
 	nodeSel = node;
 	nodeGroup = root.select('.fg-nodes');
-
-	// ── Arrowheads ───────────────────────────────────────────────────────────
-	const arrow = root
-		.append('g')
-		.attr('class', 'fg-arrowheads')
-		.selectAll('line')
-		.data(links)
-		.join('line')
-		.attr('stroke', 'none')
-		.attr('fill', 'none')
-		.attr('marker-end', (d) => getLinkMarker(d));
-	arrowSel = arrow;
-	arrowGroup = root.select('.fg-arrowheads');
 
 	renderNodeContents(node);
 
