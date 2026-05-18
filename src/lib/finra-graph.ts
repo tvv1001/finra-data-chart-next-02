@@ -8687,17 +8687,17 @@ function renderFirmDetail(d) {
 					.join('')}
       </div>
 			<div class="fg-sb-copy-below-links">
-      ${secSummaryDescription ? `<div class="fg-section-title">SEC summary</div><p class="fg-sb-note">${esc(secSummaryDescription)}</p>` : ''}
+      ${secSummaryDescription ? `<div class="fg-section-title fg-section-title--sticky">SEC summary</div><p class="fg-sb-note">${esc(secSummaryDescription)}</p>` : ''}
 			${d.isLegacy === 'Y' ? `<p class="fg-sb-note">Not currently registered as broker. FINRA contains only limited information about this firm.</p>` : ''}
 			${
 				hasOfficeAddress || businessPhone ?
-					`<div class="fg-section-title">Contact</div>
+					`<div class="fg-section-title fg-section-title--sticky">Contact</div>
 					${hasOfficeAddress ? row('Address', esc(officeAddress)) : ''}
 					${businessPhone ? row('Phone', esc(businessPhone)) : ''}`
 				:	''
 			}
 			</div>
-      <div class="fg-section-title">Registration</div>
+      <div class="fg-section-title fg-section-title--sticky">Registration</div>
 			${row('ID source check', esc(formatNodeSourceTruthSummary(d)))}
 			${row('SEC Registration Status', d.firmStatus ? esc(d.firmStatus) + (statusDate ? ` (${statusDate})` : '') : '–')}
 			${d.districtName ? row('FINRA District', esc(d.districtName)) : ''}
@@ -8710,14 +8710,14 @@ function renderFirmDetail(d) {
 				: 'N/A',
 			)}
       ${row('Regulator', esc(d.regulator || '–'))}
-      <div class="fg-section-title">General Information</div>
+			<div class="fg-section-title fg-section-title--sticky">General Information</div>
       ${row('Established in', d.formedState ? `${esc(d.formedState)}${d.formedDate ? ' since ' + d.formedDate : ''}` : '–')}
       ${row('Type', esc(d.firmType || '–'))}
       ${row('Fiscal Year End', esc(d.fiscalYearEnd || '–'))}
       ${
 				sortedBrochures.length ?
 					`
-        <div class="fg-section-title">Form ADV Brochures</div>
+				<div class="fg-section-title fg-section-title--sticky">Form ADV Brochures</div>
 						${sortedBrochures
 							.slice(0, 5)
 							.map((b) => `<div class="fg-detail-row"><span class="fg-label">${esc(b.brochureName || '')}</span><span>${esc(b.dateSubmitted || '')}</span></div>`)
@@ -8729,7 +8729,7 @@ function renderFirmDetail(d) {
       ${
 				disclosures.length || disclosureTotal > 0 || hasAffiliateDisclosureSummary ?
 					`
-        <div class="fg-section-title">Disclosures</div>
+        <div class="fg-section-title fg-section-title--sticky">Disclosures</div>
 					<div class="fg-disclosure">
 						${disclosures
 							.map(
@@ -8774,7 +8774,7 @@ function renderFirmDetail(d) {
       ${
 				owners.length ?
 					`
-        <div class="fg-section-title">Form BD — Direct Owners &amp; Executive Officers</div>
+        <div class="fg-section-title fg-section-title--sticky">Form BD — Direct Owners &amp; Executive Officers</div>
         ${owners
 					.map(
 						(o) => `
