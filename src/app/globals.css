@@ -53,11 +53,14 @@
 	/* Selected state */
 	--color-node-selected-stroke: rgb(0, 7, 21);
 	--color-node-firm-selected-stroke: #8b5947;
+	--color-node-firm-selected-overlay: rgba(255, 251, 235, 0.72);
 	--opacity-node-selected: 1;
 	--fill-opacity-node-selected: 0.8;
 	--stroke-opacity-node-selected: 1;
 	--stroke-width-node-selected: 1.5;
+	--stroke-width-node-firm-selected: 2.2;
 	--shadow-node-selected: drop-shadow(0 0 8px rgba(54, 61, 75, 0.5));
+	--shadow-node-firm-selected: drop-shadow(0 0 10px rgba(217, 119, 6, 0.28)) drop-shadow(0 0 20px rgba(120, 53, 15, 0.18));
 
 	/* Highlighted-hop state */
 	--color-node-highlighted-stroke: rgb(142, 47, 9);
@@ -2686,6 +2689,17 @@ a,
 
 .fg-node.fg-node--firm.selected .fg-node-shape--firm {
 	stroke: var(--color-node-firm-selected-stroke) !important;
+	stroke-width: var(--stroke-width-node-firm-selected) !important;
+	filter: var(--shadow-node-firm-selected);
+}
+
+.fg-node.fg-node--firm.selected .fg-node-overlay {
+	fill: var(--color-node-firm-selected-overlay);
+	fill-opacity: 0.22;
+}
+
+.fg-node.fg-node--firm.fg-node--inactive.selected .fg-node-overlay {
+	fill-opacity: 0;
 }
 
 .fg-node.fg-node--inactive.selected .fg-node-shape--circle,

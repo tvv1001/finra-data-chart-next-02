@@ -1373,10 +1373,9 @@ function pulseNodeHighlightById(id, { duration = 1200, stroke = GRAPH_COLORS.nod
 
 function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: number } = {}) {
 	const restoredHighlights =
-		Array.isArray(session?.highlightedNodes) && session.highlightedNodes.length ? session.highlightedNodes
+		Array.isArray(session?.highlightedNodes) ? session.highlightedNodes
 		: session?.selectedNodeId ? [{ id: session.selectedNodeId, hops: 1 }]
 		: [];
-	if (!restoredHighlights.length) return;
 
 	if (selectionRestoreTimer) {
 		clearTimeout(selectionRestoreTimer);
@@ -1385,6 +1384,23 @@ function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: 
 
 	const restoreSelection = () => {
 		selectionRestoreTimer = null;
+
+		if (!restoredHighlights.length) {
+			selectedId =
+				typeof session?.selectedNodeId === 'string' && Array.isArray(layoutNodes) && layoutNodes.some((node) => node.id === session.selectedNodeId) ? session.selectedNodeId : null;
+			highlightedSelections = [];
+			reapplySelectionState();
+
+			const selectedNode = Array.isArray(layoutNodes) ? layoutNodes.find((entry) => entry.id === selectedId) : null;
+			if (!selectedNode) return;
+			resetTransientDetailState(selectedNode);
+			renderSidebar(selectedNode);
+			if (session?.sidebarViewMode === 'info' || session?.sidebarViewMode === 'log') {
+				setSidebarViewMode(session.sidebarViewMode, { expandMobile: session.sidebarViewMode !== 'none' });
+			}
+			return;
+		}
+
 		highlightedSelections = restoredHighlights
 			.map((entry) => ({
 				id: entry?.id,
@@ -4945,8 +4961,8 @@ function reapplySelectionState() {
 	if (!nodeSel) return;
 	const highlightState = computeHighlightState();
 	nodeSel
-		.classed('selected', (node) => highlightState.rootIds.has(node.id))
-		.classed('highlighted-hop', (node) => !highlightState.rootIds.has(node.id) && highlightState.hopNodeIds.has(node.id));
+		.classed('selected', (node) => node.id === selectedId || highlightState.rootIds.has(node.id))
+		.classed('highlighted-hop', (node) => node.id !== selectedId && !highlightState.rootIds.has(node.id) && highlightState.hopNodeIds.has(node.id));
 
 	// Trace Mode node highlights — endpoints get trace-* class, connectors get trace-*-connector class
 	const isOnShortestTrace = (id: string) => traceShortestIds.has(id) || traceShortestConnectorIds.has(id);
@@ -7264,19 +7280,8 @@ function clearHighlights() {
 		selectionRestoreTimer = null;
 	}
 	stopNodePulseLoop();
-	selectedId = null;
 	highlightedSelections = [];
-	nodeSel
-		.classed('selected', false)
-		.classed('highlighted-hop', false)
-		.classed('trace-shortest', false)
-		.classed('trace-shortest-connector', false)
-		.classed('trace-longest', false)
-		.classed('trace-longest-connector', false)
-		.classed('trace-log', false)
-		.classed('trace-log-connector', false);
-
-	highlightLinks(null);
+	reapplySelectionState();
 	showSidebarHint({ keepOpen: true });
 	try {
 		saveSession();
