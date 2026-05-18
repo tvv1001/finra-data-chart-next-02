@@ -8389,8 +8389,6 @@ function renderPersonDetail(d) {
 				:	''
 			}
 
-	${currentEmploymentEntries.length || previousEmploymentEntries.length ? `<div class="fg-section-title fg-section-title--sticky">Employment</div>` : ''}
-
       ${
 				currentEmploymentEntries.length ?
 					`<div class="fg-section-title fg-section-title--sticky">Current Employment (${currentEmploymentEntries.length})</div>
