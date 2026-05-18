@@ -85,8 +85,8 @@ function buildIndividualQueryParams(searchParams: URLSearchParams) {
 	}
 	if (!params.has('hl')) params.set('hl', 'true');
 	if (!params.has('wt')) params.set('wt', 'json');
-	if (!params.has('nrows')) params.set('nrows', '12');
 	if (!params.has('includePrevious')) params.set('includePrevious', 'true');
+	params.delete('nrows');
 	return params;
 }
 

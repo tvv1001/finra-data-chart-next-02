@@ -17,8 +17,20 @@ let upstash: Redis | null = null;
 let memStore: MemStore | null = null;
 const primedBundleCache = new Map<PrimedBundleName, PrimedBundle | null>();
 
-const DEFAULT_INDIVIDUAL_QUERY = 'hl=true&wt=json&nrows=12&includePrevious=true';
-const DEFAULT_FIRM_QUERY = 'hl=true&wt=json&nrows=12';
+const DEFAULT_INDIVIDUAL_QUERY = 'hl=true&includePrevious=true&wt=json';
+const DEFAULT_FIRM_QUERY = 'hl=true&wt=json';
+
+/** Strip nrows from a cache key so keys are stable regardless of the nrows parameter.
+ *  Cache keys have the form `prefix:crd:querystring` — we target the last segment. */
+function normalizeKey(key: string): string {
+	const lastColon = key.lastIndexOf(':');
+	if (lastColon === -1) return key;
+	const suffix = key.slice(lastColon + 1);
+	if (!suffix.includes('=')) return key;
+	const qs = new URLSearchParams(suffix);
+	qs.delete('nrows');
+	return key.slice(0, lastColon + 1) + qs.toString();
+}
 
 const primedBundleFiles: Record<PrimedBundleName, string> = {
 	'finra-individual': path.join(PRIMED_CACHE_DIR, 'finra-individual.json'),
@@ -73,22 +85,29 @@ async function loadPrimedBundle(name: PrimedBundleName): Promise<PrimedBundle | 
 }
 
 function resolvePrimedBundleName(key: string): PrimedBundleName | null {
-	if (key.startsWith('finra:individual:') && key.endsWith(`:${DEFAULT_INDIVIDUAL_QUERY}`)) return 'finra-individual';
-	if (key.startsWith('sec:individual:') && key.endsWith(`:${DEFAULT_INDIVIDUAL_QUERY}`)) return 'sec-individual';
-	if (key.startsWith('finra:firm:') && key.endsWith(`:${DEFAULT_FIRM_QUERY}`)) return 'finra-firm';
-	if (key.startsWith('sec:firm:') && !key.startsWith('sec:firm:summaryHtml:') && key.split(':').length === 3) return 'sec-firm';
+	const nk = normalizeKey(key);
+	if (nk.startsWith('finra:individual:') && nk.endsWith(`:${DEFAULT_INDIVIDUAL_QUERY}`)) return 'finra-individual';
+	if (nk.startsWith('sec:individual:') && nk.endsWith(`:${DEFAULT_INDIVIDUAL_QUERY}`)) return 'sec-individual';
+	if (nk.startsWith('finra:firm:') && nk.endsWith(`:${DEFAULT_FIRM_QUERY}`)) return 'finra-firm';
+	if (nk.startsWith('sec:firm:') && !nk.startsWith('sec:firm:summaryHtml:') && nk.split(':').length === 3) return 'sec-firm';
 	return null;
 }
 
 async function getPrimedCacheValue<T>(key: string): Promise<T | null> {
-	const bundleName = resolvePrimedBundleName(key);
+	const nk = normalizeKey(key);
+	const bundleName = resolvePrimedBundleName(nk);
 	if (!bundleName) return null;
 	const bundle = await loadPrimedBundle(bundleName);
-	if (!bundle || !(key in bundle)) return null;
-	return bundle[key] as T;
+	// try normalized key first, then original key (backwards compat with bundles built before normalization)
+	if (bundle) {
+		if (nk in bundle) return bundle[nk] as T;
+		if (key in bundle) return bundle[key] as T;
+	}
+	return null;
 }
 
-export async function cachedFetch<T>(key: string, ttlSeconds: number, fetcher: () => Promise<T>): Promise<T> {
+export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher: () => Promise<T>): Promise<T> {
+	const key = normalizeKey(rawKey);
 	const redis = getUpstash();
 
 	if (redis) {
@@ -124,7 +143,8 @@ export async function cachedFetch<T>(key: string, ttlSeconds: number, fetcher: (
 	return value;
 }
 
-export async function clearCache(key: string) {
+export async function clearCache(rawKey: string) {
+	const key = normalizeKey(rawKey);
 	const redis = getUpstash();
 	if (redis) {
 		try {
