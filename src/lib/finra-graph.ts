@@ -2495,11 +2495,45 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				const [indHits, firmHits, secHits] = await Promise.all([fetchFinraAll(false), fetchFinraAll(true), fetchSec()]);
 				const allHits = [...indHits, ...firmHits, ...secHits];
 
+				const hitHasIndividualId = (hit) => {
+					const src = hit?._source || hit || {};
+					if (src?.ind_source_id || src?.ind_crd) return true;
+					if (typeof src?.content === 'string') {
+						try {
+							const parsed = JSON.parse(src.content);
+							return Boolean(parsed?.basicInformation?.individualId);
+						} catch {
+							return false;
+						}
+					}
+					return false;
+				};
+
+				const hitHasFirmId = (hit) => {
+					const src = hit?._source || hit || {};
+					if (src?.firm_id || src?.firmId || src?.firm_source_id) return true;
+					if (typeof src?.content === 'string') {
+						try {
+							const parsed = JSON.parse(src.content);
+							return Boolean(parsed?.basicInformation?.firmId);
+						} catch {
+							return false;
+						}
+					}
+					return false;
+				};
+
 				// When query is a pure number, always inject synthetic hits so the
-				// direct-by-ID lookup path runs even if text search returned nothing.
+				// direct-by-ID lookup path runs when search could not already identify
+				// the query as an individual or firm. Avoid synthesizing the opposite
+				// kind when a real hit already exists, because that can stall the UI
+				// on an unnecessary detail request for the wrong record type.
 				if (/^\d+$/.test(q)) {
-					if (!allHits.some((h) => String((h._source || h)?.firm_id || (h._source || h)?.firmId) === q)) allHits.push({ _source: { firm_id: q } });
-					if (!allHits.some((h) => String((h._source || h)?.ind_source_id || (h._source || h)?.ind_crd) === q)) allHits.push({ _source: { ind_source_id: q } });
+					const hasIndividualHit = allHits.some((hit) => hitHasIndividualId(hit));
+					const hasFirmHit = allHits.some((hit) => hitHasFirmId(hit));
+					if (!hasIndividualHit && !hasFirmHit) {
+						allHits.push({ _source: { ind_source_id: q } }, { _source: { firm_id: q } });
+					}
 				}
 
 				if (!allHits.length) {
@@ -2835,12 +2869,29 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 		const enteredLinks = allLinks
 			.enter()
 			.append('line')
+			.attr('class', 'fg-link')
 			.attr('stroke', (d) => getLinkColor(d))
 			.attr('stroke-opacity', 0)
 			.attr('stroke-width', (d) => getLinkWidth(d))
+			.attr('stroke-dasharray', (d) => getLinkDash(d))
 			.attr('marker-end', (d) => getLinkMarker(d));
 		enteredLinks.transition().duration(400).attr('stroke-opacity', defaultLinkOpacity);
 		linkSel = linkGroup.selectAll('line');
+
+		if (arrowGroup) {
+			const allArrows = arrowGroup.selectAll('line').data(layoutLinks, (d) => {
+				const s = d.source?.id ?? d.source;
+				const t = d.target?.id ?? d.target;
+				return `${s}-${t}-${d.relationship}`;
+			});
+			allArrows
+				.enter()
+				.append('line')
+				.attr('stroke', 'none')
+				.attr('fill', 'none')
+				.attr('marker-end', (d) => getLinkMarker(d));
+			arrowSel = arrowGroup.selectAll('line');
+		}
 
 		const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
 		const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen);
@@ -4843,6 +4894,53 @@ function getLinkWidth(d) {
 	return DEFAULT_LINK_WIDTH;
 }
 
+function isNodeOnAnyTrace(nodeId: string) {
+	return (
+		(isTraceMode && (traceShortestIds.has(nodeId) || traceShortestConnectorIds.has(nodeId) || traceLongestIds.has(nodeId) || traceLongestConnectorIds.has(nodeId))) ||
+		(isTraceLogMode && (traceLogIds.has(nodeId) || traceLogConnectorIds.has(nodeId)))
+	);
+}
+
+function isLinkOnAnyTrace(linkKey: string) {
+	return (isTraceMode && (traceShortestIds.has(linkKey) || traceLongestIds.has(linkKey))) || (isTraceLogMode && traceLogIds.has(linkKey));
+}
+
+function getNodeRenderPriority(node, highlightState) {
+	if (!node) return 1;
+	if (isNodeOnAnyTrace(node.id)) return 3;
+	if (highlightState?.rootIds?.has(node.id) || highlightState?.hopNodeIds?.has(node.id)) return 2;
+	if (isNodeInactive(node)) return 0;
+	return 1;
+}
+
+function getLinkRenderPriority(link, highlightState) {
+	if (!link) return 1;
+	const linkKey = getLinkKey(link);
+	if (isLinkOnAnyTrace(linkKey)) return 3;
+	if (highlightState?.linkKeys?.has(linkKey)) return 2;
+	if (hasInactiveEndpoint(link)) return 0;
+	return 1;
+}
+
+function comparePriorityWithTieBreak(aPriority, bPriority, aTieBreak, bTieBreak) {
+	if (aPriority !== bPriority) return aPriority - bPriority;
+	return String(aTieBreak || '').localeCompare(String(bTieBreak || ''));
+}
+
+function orderGraphVisualLayers(highlightState = computeHighlightState()) {
+	if (linkSel && typeof linkSel.sort === 'function') {
+		linkSel.sort((a, b) => comparePriorityWithTieBreak(getLinkRenderPriority(a, highlightState), getLinkRenderPriority(b, highlightState), getLinkKey(a), getLinkKey(b)));
+	}
+
+	if (arrowSel && typeof arrowSel.sort === 'function') {
+		arrowSel.sort((a, b) => comparePriorityWithTieBreak(getLinkRenderPriority(a, highlightState), getLinkRenderPriority(b, highlightState), getLinkKey(a), getLinkKey(b)));
+	}
+
+	if (nodeSel && typeof nodeSel.sort === 'function') {
+		nodeSel.sort((a, b) => comparePriorityWithTieBreak(getNodeRenderPriority(a, highlightState), getNodeRenderPriority(b, highlightState), a?.id, b?.id));
+	}
+}
+
 function reapplySelectionState() {
 	if (!nodeSel) return;
 	const highlightState = computeHighlightState();
@@ -4868,16 +4966,8 @@ function reapplySelectionState() {
 			(d) => isAnyTraceModeActive() && !(isTraceMode && (isOnShortestTrace(d.id) || isOnLongestTrace(d.id))) && !(isTraceLogMode && isOnLogTrace(d.id)),
 		);
 
-	nodeSel.each(function (node) {
-		const shouldRaise =
-			highlightState.rootIds.has(node.id) ||
-			highlightState.hopNodeIds.has(node.id) ||
-			(isTraceMode && (traceShortestIds.has(node.id) || traceShortestConnectorIds.has(node.id) || traceLongestIds.has(node.id) || traceLongestConnectorIds.has(node.id))) ||
-			(isTraceLogMode && (traceLogIds.has(node.id) || traceLogConnectorIds.has(node.id)));
-		if (shouldRaise) d3.select(this).raise();
-	});
-
 	highlightLinks(highlightState);
+	orderGraphVisualLayers(highlightState);
 }
 
 function markNodeSelected(node, options: { persist?: boolean } = {}) {
@@ -5349,6 +5439,21 @@ function injectNodesById(ids) {
 	enteredLinks.transition().duration(400).attr('stroke-opacity', defaultLinkOpacity);
 	linkSel = linkGroup.selectAll('line');
 
+	if (arrowGroup) {
+		const allArrows = arrowGroup.selectAll('line').data(layoutLinks, (d) => {
+			const s = d.source?.id ?? d.source;
+			const t = d.target?.id ?? d.target;
+			return `${s}-${t}-${d.relationship}`;
+		});
+		allArrows
+			.enter()
+			.append('line')
+			.attr('stroke', 'none')
+			.attr('fill', 'none')
+			.attr('marker-end', (d) => getLinkMarker(d));
+		arrowSel = arrowGroup.selectAll('line');
+	}
+
 	const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
 	const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen);
 
@@ -5375,6 +5480,13 @@ function injectNodesById(ids) {
 			.attr('y1', (d) => d.source.y)
 			.attr('x2', (d) => d.target.x)
 			.attr('y2', (d) => d.target.y);
+		if (arrowSel) {
+			arrowSel
+				.attr('x1', (d) => d.source.x)
+				.attr('y1', (d) => d.source.y)
+				.attr('x2', (d) => d.target.x)
+				.attr('y2', (d) => d.target.y);
+		}
 		nodeSel.attr('transform', (d) => `translate(${d.x},${d.y})`);
 	});
 
@@ -5393,6 +5505,13 @@ function injectNodesById(ids) {
 			.attr('y1', (d) => d.source.y)
 			.attr('x2', (d) => d.target.x)
 			.attr('y2', (d) => d.target.y);
+		if (arrowSel) {
+			arrowSel
+				.attr('x1', (d) => d.source.x)
+				.attr('y1', (d) => d.source.y)
+				.attr('x2', (d) => d.target.x)
+				.attr('y2', (d) => d.target.y);
+		}
 		nodeSel.attr('transform', (d) => `translate(${d.x},${d.y})`);
 	});
 
@@ -7186,6 +7305,7 @@ function highlightLinks(highlightState = null) {
 			.classed('trace-shortest', false)
 			.classed('trace-longest', false)
 			.classed('trace-log', false);
+		orderGraphVisualLayers(state);
 		return;
 	}
 
@@ -7209,7 +7329,6 @@ function highlightLinks(highlightState = null) {
 
 		if (isTraceShortest || isTraceLongest || isTraceLog) {
 			sel.style('opacity', null).style('stroke-opacity', null).attr('stroke-opacity', 1);
-			sel.raise();
 			// CSS classes handle the stroke and width
 			return;
 		}
@@ -7229,7 +7348,6 @@ function highlightLinks(highlightState = null) {
 					: connectedToRoot ? 1.4
 					: 1.15;
 				sel.style('opacity', null).style('stroke-opacity', null).attr('stroke', getLinkHighlightColor(d)).attr('stroke-opacity', 1).attr('stroke-width', highlightedStrokeWidth);
-				sel.raise();
 			} else {
 				sel.style('opacity', 0.3).style('stroke-opacity', null).attr('stroke', getLinkColor(d)).attr('stroke-opacity', 0.24).attr('stroke-width', 0.6);
 			}
@@ -7244,6 +7362,8 @@ function highlightLinks(highlightState = null) {
 				.attr('stroke-width', getLinkWidth(d));
 		}
 	});
+
+	orderGraphVisualLayers(state);
 }
 
 // ── Spread neighbors on click ────────────────────────────────────────────────
