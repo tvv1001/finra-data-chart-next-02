@@ -8244,6 +8244,7 @@ function renderPersonDetail(d) {
 	        ${brokerCheckReportUrl ? `<a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>` : ''}
         ${secSummaryUrl ? `<a class="fg-ext-link sec" href="${secSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo Summary</a>` : ''}
       </div>
+		<div class="fg-sb-copy-below-links">
 
       ${bi.individualId ? row('CRD', `<code>${bi.individualId}</code>`) : ''}
 		${row('ID source check', esc(formatNodeSourceTruthSummary(d)))}
@@ -8490,6 +8491,7 @@ function renderPersonDetail(d) {
 					</details>`
 				:	''
 			}
+		</div>
     </div>
   `;
 }
@@ -8684,6 +8686,7 @@ function renderFirmDetail(d) {
 					.map((link) => (link?.href ? `<a class="fg-ext-link sec" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer">&#x2197; ${esc(link.label)}</a>` : ''))
 					.join('')}
       </div>
+			<div class="fg-sb-copy-below-links">
       ${secSummaryDescription ? `<div class="fg-section-title">SEC summary</div><p class="fg-sb-note">${esc(secSummaryDescription)}</p>` : ''}
 			${d.isLegacy === 'Y' ? `<p class="fg-sb-note">Not currently registered as broker. FINRA contains only limited information about this firm.</p>` : ''}
 			${
@@ -8693,6 +8696,7 @@ function renderFirmDetail(d) {
 					${businessPhone ? row('Phone', esc(businessPhone)) : ''}`
 				:	''
 			}
+			</div>
       <div class="fg-section-title">Registration</div>
 			${row('ID source check', esc(formatNodeSourceTruthSummary(d)))}
 			${row('SEC Registration Status', d.firmStatus ? esc(d.firmStatus) + (statusDate ? ` (${statusDate})` : '') : '–')}
