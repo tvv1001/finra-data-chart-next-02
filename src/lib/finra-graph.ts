@@ -134,7 +134,7 @@ function getSelectionLinkEmphasis(zoomScale = getCurrentGraphZoomScale()) {
 	const zoomWeight = Math.max(0, Math.min(1, (normalizedScale - 0.18) / 0.82));
 
 	return {
-		strokeWidthScale: 0.7 + zoomWeight * 0.3,
+		strokeWidthScale: 0.45 + zoomWeight * 0.25,
 		strokeOpacity: 0.66 + zoomWeight * 0.22,
 		showActiveFilter: normalizedScale >= 0.55,
 	};
@@ -2547,33 +2547,6 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			const origText = fetchBtn.textContent;
 			fetchBtn.textContent = 'Fetching…';
 			try {
-				const localResult = await fetchLocalQueryBatch(q);
-				const localNodes = Array.isArray(localResult?.nodes) ? localResult.nodes : [];
-				const localLinks = Array.isArray(localResult?.links) ? localResult.links : [];
-				const localMatchedIds = Array.isArray(localResult?.matchedIds) ? localResult.matchedIds.map((id) => String(id || '').trim()).filter(Boolean) : [];
-				const isDirectIdQuery = /^\d+$/.test(q);
-				const localHasGraphContext = localLinks.length > 0 || localNodes.length > 1;
-				const shouldUseLocalResults = (localNodes.length > 0 || localMatchedIds.length > 0) && (!isDirectIdQuery || localHasGraphContext);
-
-				if (shouldUseLocalResults) {
-					scheduleFirstFetchFocusIfAvailable(
-						localNodes.map((node) => node.id),
-						{
-							duration: 700,
-							maxScale: 1.05,
-						},
-					);
-					appendFetched(localNodes, localLinks);
-					mergeIntoGraphData(localNodes, localLinks);
-					void fetchCacheStats();
-
-					if (!focusExistingNodeMatch(q, { statusPrefix: 'Loaded from local API' })) {
-						const localMatchCount = localMatchedIds.length || localNodes.length;
-						updateFetchStatus(`Loaded ${localMatchCount} local match${localMatchCount !== 1 ? 'es' : ''} for "${q}"`);
-					}
-					return;
-				}
-
 				// ── 1. Search all three external endpoints in parallel ─────────────
 				// FINRA firm:   https://api.brokercheck.finra.org/search/firm?query=…
 				// FINRA indiv:  https://api.brokercheck.finra.org/search/individual?query=…
@@ -2660,9 +2633,6 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				}
 
 				if (!allHits.length) {
-					if (focusExistingNodeMatch(q)) {
-						return;
-					}
 					updateFetchStatus(`No remote results for "${q}"`);
 					return;
 				}
@@ -2884,9 +2854,6 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 
 				// ── 3. Append all nodes/links to the live view ─────────────────────
 				if (batchAllNodes.length === 0) {
-					if (focusExistingNodeMatch(q)) {
-						return;
-					}
 					updateFetchStatus(`No structured data found for "${q}"`);
 					return;
 				}
