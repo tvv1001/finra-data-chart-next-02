@@ -66,6 +66,7 @@
 	--stroke-width-node-firm-selected: 2.2;
 	--shadow-node-selected: drop-shadow(2px 3px 4px rgba(10, 18, 38, 0.36)) drop-shadow(0 0 8px rgba(54, 61, 75, 0.5));
 	--shadow-node-firm-selected: drop-shadow(2px 3px 4px rgba(10, 18, 38, 0.36)) drop-shadow(0 0 10px rgba(217, 119, 6, 0.28)) drop-shadow(0 0 20px rgba(120, 53, 15, 0.18));
+	--shadow-link: drop-shadow(0 1px 1px rgba(15, 23, 42, 0.18));
 	--shadow-link-active: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.28));
 	--shadow-link-trace-shortest: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.45)) drop-shadow(0 0 5px rgba(34, 197, 94, 0.28));
 	--shadow-link-trace-longest: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.48)) drop-shadow(0 0 6px rgba(204, 0, 255, 0.26));
@@ -2615,6 +2616,7 @@ a,
 	stroke: var(--color-node-border);
 	stroke-width: var(--stroke-width-node-default);
 	filter: var(--shadow-node);
+	cursor: pointer;
 }
 
 .fg-node .fg-node-shape--firm {
@@ -2784,6 +2786,7 @@ a,
 	stroke-linecap: round;
 	stroke-linejoin: round;
 	vector-effect: non-scaling-stroke;
+	filter: var(--shadow-link);
 }
 
 .fg-link.fg-link--depth-active {

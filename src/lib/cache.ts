@@ -1,13 +1,14 @@
 /**
  * cache.ts – Simple TTL cache: Upstash Redis (HTTP/REST) when env vars are
- * present, in-memory Map fallback for local development. This variant uses
+ * present, file-based binary cache fallback for local development, and
  * pre-primed JSON bundles (stored under data/national/primed-cache) when
  * available to populate Redis on cold starts and avoid first-request latency.
  */
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
+import { readFile, writeFile, mkdir, access, unlink } from 'node:fs/promises';
+import * as crypto from 'node:crypto';
+import * as path from 'node:path';
 import { Redis } from '@upstash/redis';
-import { PRIMED_CACHE_DIR } from './constants';
+import { DATA_DIR, PRIMED_CACHE_DIR } from './constants';
 
 type MemStore = Map<string, { value: unknown; expiresAt: number }>;
 type PrimedBundle = Record<string, unknown>;
@@ -16,6 +17,7 @@ type PrimedBundleName = 'finra-individual' | 'sec-individual' | 'finra-firm' | '
 let upstash: Redis | null = null;
 let memStore: MemStore | null = null;
 const primedBundleCache = new Map<PrimedBundleName, PrimedBundle | null>();
+const BINARY_CACHE_DIR = path.join(DATA_DIR, 'cache-binary');
 
 const DEFAULT_INDIVIDUAL_QUERY = 'hl=true&includePrevious=true&wt=json';
 const DEFAULT_FIRM_QUERY = 'hl=true&wt=json';
@@ -69,6 +71,99 @@ function memGet(map: MemStore, key: string): unknown | null {
 		return null;
 	}
 	return item.value;
+}
+
+function getBinaryFilePaths(key: string) {
+	const hash = crypto.createHash('sha256').update(key).digest('hex');
+	return {
+		dataPath: path.join(BINARY_CACHE_DIR, `${hash}.bin`),
+		metaPath: path.join(BINARY_CACHE_DIR, `${hash}.json`),
+	};
+}
+
+async function ensureBinaryCacheDir() {
+	try {
+		await mkdir(BINARY_CACHE_DIR, { recursive: true });
+	} catch {
+		// ignore
+	}
+}
+
+async function readBinaryCache(key: string): Promise<Buffer | null> {
+	const { dataPath, metaPath } = getBinaryFilePaths(key);
+	try {
+		await access(dataPath);
+		await access(metaPath);
+	} catch {
+		return null;
+	}
+
+	try {
+		const rawMeta = await readFile(metaPath, 'utf-8');
+		const meta = JSON.parse(rawMeta) as { expiresAt: number };
+		if (meta.expiresAt <= Date.now()) {
+			await Promise.all([unlink(dataPath).catch(() => undefined), unlink(metaPath).catch(() => undefined)]);
+			return null;
+		}
+		return await readFile(dataPath);
+	} catch {
+		return null;
+	}
+}
+
+async function writeBinaryCache(key: string, value: Buffer, ttlSeconds: number) {
+	await ensureBinaryCacheDir();
+	const { dataPath, metaPath } = getBinaryFilePaths(key);
+	const expiresAt = Date.now() + ttlSeconds * 1000;
+	await Promise.all([writeFile(dataPath, value), writeFile(metaPath, JSON.stringify({ expiresAt }), 'utf-8')]);
+}
+
+function toBuffer(value: Buffer | Uint8Array | ArrayBuffer): Buffer {
+	if (Buffer.isBuffer(value)) return value;
+	if (ArrayBuffer.isView(value)) return Buffer.from(value.buffer, value.byteOffset, value.byteLength);
+	return Buffer.from(value);
+}
+
+async function getBinaryFromRedis(key: string): Promise<Buffer | null> {
+	const redis = getUpstash();
+	if (!redis) return null;
+	try {
+		const raw = await redis.get<string>(key);
+		if (raw == null) return null;
+		return Buffer.from(raw, 'base64');
+	} catch {
+		return null;
+	}
+}
+
+async function setBinaryInRedis(key: string, value: Buffer, ttlSeconds: number): Promise<void> {
+	const redis = getUpstash();
+	if (!redis) return;
+	try {
+		await redis.set(key, value.toString('base64'), { ex: ttlSeconds });
+	} catch {
+		// ignore redis binary set errors
+	}
+}
+
+export async function cachedFetchBinary(rawKey: string, ttlSeconds: number, fetcher: () => Promise<Buffer | Uint8Array | ArrayBuffer>): Promise<Buffer> {
+	const key = normalizeKey(rawKey);
+	const redis = getUpstash();
+	if (redis) {
+		const cached = await getBinaryFromRedis(key);
+		if (cached) return cached;
+	}
+
+	const localCached = await readBinaryCache(key);
+	if (localCached) return localCached;
+
+	const value = toBuffer(await fetcher());
+	if (redis) {
+		await setBinaryInRedis(key, value, ttlSeconds);
+	} else {
+		await writeBinaryCache(key, value, ttlSeconds);
+	}
+	return value;
 }
 
 async function loadPrimedBundle(name: PrimedBundleName): Promise<PrimedBundle | null> {

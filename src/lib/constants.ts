@@ -1,4 +1,4 @@
-import path from 'node:path';
+import * as path from 'node:path';
 
 export const DATA_DIR = path.resolve(process.cwd(), 'data');
 export const GRAPH_FILE = path.join(DATA_DIR, 'national', 'finra-graph.json');
