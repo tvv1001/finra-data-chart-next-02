@@ -8,6 +8,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Redis } from '@upstash/redis';
 import { PRIMED_CACHE_DIR } from './constants';
+import { fileCacheGet, fileCacheSet, fileCacheClearSync } from './file-cache';
 
 type MemStore = Map<string, { value: unknown; expiresAt: number }>;
 type PrimedBundle = Record<string, unknown>;
@@ -129,6 +130,27 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 		}
 	}
 
+	// If not using Upstash, prefer a filesystem-backed cache during local development
+	if (process.env.NODE_ENV === 'development') {
+		try {
+			const fileHit = await fileCacheGet<T>(key);
+			if (fileHit !== null) return fileHit as T;
+
+			const primed = await getPrimedCacheValue<T>(key);
+			if (primed != null) {
+				await fileCacheSet(key, primed, ttlSeconds * 1000);
+				return primed;
+			}
+
+			const value = await fetcher();
+			if (value !== undefined) await fileCacheSet(key, value, ttlSeconds * 1000);
+			return value;
+		} catch (err) {
+			// on any file-cache error, fall back to in-memory
+			console.warn('file-cache error, falling back to in-memory', err);
+		}
+	}
+
 	const mem = getMem();
 	const hit = memGet(mem, key);
 	if (hit !== null) return hit as T;
@@ -151,6 +173,14 @@ export async function clearCache(rawKey: string) {
 			return await redis.del(key);
 		} catch {
 			// fall through to in-memory
+		}
+	}
+	if (process.env.NODE_ENV === 'development') {
+		try {
+			fileCacheClearSync();
+			return true;
+		} catch (err) {
+			// fallback
 		}
 	}
 	return getMem().delete(key);

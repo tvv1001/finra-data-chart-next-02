@@ -24,16 +24,14 @@ Use the patterns already validated by this application and its live upstream tes
 Prefer direct detail endpoints when the goal is to fetch a specific person or firm record:
 
 - Individual detail:
-  - `https://api.brokercheck.finra.org/search/individual/<CRD>?hl=true&wt=json`
-  - `https://api.adviserinfo.sec.gov/search/individual/<CRD>?wt=json`
+  - `https://api.brokercheck.finra.org/search/individual/<CRD>`
+  - `https://api.adviserinfo.sec.gov/search/individual/<CRD>`
 - Expanded individual detail with previous registrations:
-  - `https://api.brokercheck.finra.org/search/individual/<CRD>?hl=true&includePrevious=true&nrows=<NROWS>&r=<R>&sort=bc_lastname_sort+asc,bc_firstname_sort+asc,bc_middlename_sort+asc,score+desc&wt=json`
-  - `https://api.adviserinfo.sec.gov/search/individual/<CRD>?hl=true&includePrevious=true&nrows=<NROWS>&r=<R>&sort=bc_lastname_sort+asc,bc_firstname_sort+asc,bc_middlename_sort+asc,score+desc&wt=json`
+  - `https://api.brokercheck.finra.org/search/individual/<CRD>?includePrevious=true`
+  - `https://api.adviserinfo.sec.gov/search/individual/<CRD>?includePrevious=true`
 - Firm detail:
-  - `https://api.brokercheck.finra.org/search/firm/<CRD>?hl=true&wt=json`
-  - `https://api.adviserinfo.sec.gov/search/firm/<CRD>?wt=json`
-- Expanded firm detail:
-  - `https://api.brokercheck.finra.org/search/firm/<CRD>?hl=true&nrows=<NROWS>&query=<QUERY>&start=<START>&wt=json`
+  - `https://api.brokercheck.finra.org/search/firm/<CRD>?includePrevious=true`
+  - `https://api.adviserinfo.sec.gov/search/firm/<CRD>?includePrevious=true`
 
 For this app, live testing confirmed that the SEC direct firm detail form `search/firm/<CRD>?wt=json` returns structured detail content and should be preferred over a query-by-ID URL when the task is detail hydration.
 
