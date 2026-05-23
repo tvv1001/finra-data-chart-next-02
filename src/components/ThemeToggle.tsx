@@ -63,11 +63,16 @@ export default function ThemeToggle() {
 	return (
 		<button
 			type='button'
-			className='fg-action-btn'
+			className='fg-sidebar-action-btn fg-sidebar-action-btn--theme fg-sidebar-action-btn--icon-only'
 			onClick={handleToggle}
 			title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-			aria-pressed={theme === 'dark'}>
-			{theme === 'dark' ? '🌙 Dark Theme' : '☀️ Light Theme'}
+			aria-pressed={theme === 'dark'}
+			aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}>
+			<span
+				className='fg-sidebar-action-icon'
+				aria-hidden='true'>
+				{theme === 'dark' ? '☀️' : '🌙'}
+			</span>
 		</button>
 	);
 }
