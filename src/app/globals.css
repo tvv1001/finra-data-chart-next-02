@@ -134,6 +134,9 @@ html[data-theme='dark'] {
 	--accent-bg: rgba(37, 99, 235, 0.14);
 	--shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
 	--shadow-node: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+	--color-node-inactive: rgba(148, 163, 184, 0.36);
+	--opacity-node-inactive: 0.62;
+	--shadow-node-inactive: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.24));
 	--shadow-node-inactive-highlighted: drop-shadow(0 0 6px rgba(148, 163, 184, 0.18));
 	--accent: #d97706;
 }
@@ -187,6 +190,10 @@ html[data-theme='dark'] .fg-subset-info[data-transient='true'],
 html[data-theme='dark'] .fg-toolbar-status--top[data-dismissible='true'] .fg-subset-info-pin {
 	color: var(--text);
 }
+
+/* html[data-theme='dark'] .fg-sidebar[data-view-mode='info'] .fg-sb-body {
+	scrollbar-color: #036bbb #05080b;
+} */
 
 html[data-theme='dark'] .fg-menu-summary {
 	border-color: rgba(255, 255, 255, 0.16);
@@ -1337,7 +1344,6 @@ a,
 }
 .fg-action-btn:hover {
 	background: rgba(37, 99, 235, 0.06);
-	transform: translateY(-1px);
 	box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
 }
 .fg-action-btn:active {
@@ -1508,7 +1514,7 @@ a,
 	z-index: 70;
 	box-shadow: -14px 0 34px rgba(15, 23, 42, 0.18);
 	min-width: 345px;
-	scrollbar-color: #036bbb #05080b;
+	padding: 11px 0 0 11px;
 }
 
 .fg-sidebar:has(.fg-mobile-legend-tooltip[open]) {
@@ -2789,6 +2795,7 @@ a,
 }
 
 .fg-node .fg-node-shape--firm {
+	stroke: #ffffff;
 	stroke-width: var(--stroke-width-node-firm-isolated);
 	filter: var(--shadow-node);
 }
@@ -2884,6 +2891,12 @@ a,
 	filter: drop-shadow(0 0 8px rgba(71, 85, 105, 0.42));
 }
 
+.fg-node.fg-node--firm.fg-node--inactive.selected .fg-node-shape--firm {
+	stroke: none !important;
+	stroke-width: 0 !important;
+	filter: none !important;
+}
+
 .fg-node .fg-restore-ring {
 	stroke: var(--color-node-pulse) !important;
 	filter: var(--shadow-node-pulse) !important;
@@ -2923,8 +2936,6 @@ a,
 .fg-node .fg-node-overlay {
 	fill: var(--color-node-depth-overlay);
 	fill-opacity: var(--fill-opacity-node-depth);
-	stroke: none;
-	pointer-events: none;
 }
 
 .fg-node.fg-node--inactive .fg-node-overlay {
@@ -3517,7 +3528,6 @@ a,
 .fg-selection-log-floating-toggle:hover {
 	background: var(--bg);
 	border-color: var(--accent);
-	transform: translateY(-1px);
 }
 
 .fg-selection-log-floating-toggle span {

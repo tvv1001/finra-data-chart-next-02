@@ -90,7 +90,7 @@ const themeLoaderScript = `
 	try {
 		var theme = window.localStorage.getItem('finra_color_scheme');
 		if (theme !== 'light' && theme !== 'dark') {
-			theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+			theme = 'dark';
 		}
 		document.documentElement.dataset.theme = theme;
 		document.documentElement.classList.toggle('theme-dark', theme === 'dark');

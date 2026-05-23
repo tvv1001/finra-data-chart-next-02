@@ -12,8 +12,7 @@ function getSavedTheme(): 'light' | 'dark' | null {
 }
 
 function getSystemTheme(): 'light' | 'dark' {
-	if (typeof window === 'undefined') return 'light';
-	return window.matchMedia(SYSTEM_QUERY).matches ? 'dark' : 'light';
+	return 'dark';
 }
 
 function applyTheme(theme: 'light' | 'dark') {
@@ -23,27 +22,14 @@ function applyTheme(theme: 'light' | 'dark') {
 }
 
 export default function ThemeToggle() {
-	const [theme, setTheme] = useState<'light' | 'dark'>('light');
+	const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 	const initializedRef = useRef(false);
 
 	useEffect(() => {
 		const savedTheme = getSavedTheme();
-		const initialTheme = savedTheme ?? getSystemTheme();
+		const initialTheme = savedTheme ?? 'dark';
 		setTheme(initialTheme);
 		applyTheme(initialTheme);
-
-		if (savedTheme === null) {
-			const media = window.matchMedia(SYSTEM_QUERY);
-			const handleChange = (event: MediaQueryListEvent) => {
-				const nextTheme = event.matches ? 'dark' : 'light';
-				if (!getSavedTheme()) {
-					setTheme(nextTheme);
-					applyTheme(nextTheme);
-				}
-			};
-			media.addEventListener('change', handleChange);
-			return () => media.removeEventListener('change', handleChange);
-		}
 	}, []);
 
 	useEffect(() => {
