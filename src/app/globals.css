@@ -2795,7 +2795,7 @@ a,
 
 .fg-node .fg-node-shape--firm {
 	stroke: #ffffff;
-	stroke-width: 4px;
+	stroke-width: 0.5px;
 	transition:
 		filter 180ms ease,
 		transform 180ms ease;

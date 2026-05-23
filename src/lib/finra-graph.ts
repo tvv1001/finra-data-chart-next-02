@@ -4403,6 +4403,8 @@ function applyGraphDerivedNodeMetrics(nodes, links) {
 	linkList.forEach((link) => {
 		const sourceId = link.source?.id ?? link.source;
 		const targetId = link.target?.id ?? link.target;
+		const isCurrentLink = !isPreviousEmploymentLink(link);
+		if (!isCurrentLink) return;
 		[sourceId, targetId].forEach((id) => {
 			const entry = degMap.get(id);
 			if (!entry) return;
@@ -7233,6 +7235,8 @@ function revealNeighbors(
 
 	if (newNodes.length === 0 && newLinks.length === 0) {
 		if (markSelected && liveClickedNode) {
+			reapplySelectionState();
+			refreshGraphColors();
 			try {
 				saveSession();
 			} catch (e) {
