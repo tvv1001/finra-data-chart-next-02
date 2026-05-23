@@ -85,10 +85,28 @@ export const metadata: Metadata = {
 	},
 };
 
+const themeLoaderScript = `
+(function () {
+	try {
+		var theme = window.localStorage.getItem('finra_color_scheme');
+		if (theme !== 'light' && theme !== 'dark') {
+			theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+		}
+		document.documentElement.dataset.theme = theme;
+		document.documentElement.classList.toggle('theme-dark', theme === 'dark');
+	} catch (error) {
+		console.warn('Theme loader failed', error);
+	}
+})();
+`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
 	return (
-		<html lang='en'>
+		<html
+			lang='en'
+			suppressHydrationWarning>
 			<body>
+				<script dangerouslySetInnerHTML={{ __html: themeLoaderScript }} />
 				<ServiceWorkerRegistration />
 				<ViewportDebugOverlay />
 				{children}

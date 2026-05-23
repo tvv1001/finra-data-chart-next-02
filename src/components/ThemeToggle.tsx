@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const STORAGE_KEY = 'finra_color_scheme';
 const SYSTEM_QUERY = '(prefers-color-scheme: dark)';
@@ -19,15 +19,12 @@ function getSystemTheme(): 'light' | 'dark' {
 function applyTheme(theme: 'light' | 'dark') {
 	const root = document.documentElement;
 	root.dataset.theme = theme;
-	if (theme === 'dark') {
-		root.classList.add('theme-dark');
-	} else {
-		root.classList.remove('theme-dark');
-	}
+	root.classList.toggle('theme-dark', theme === 'dark');
 }
 
 export default function ThemeToggle() {
 	const [theme, setTheme] = useState<'light' | 'dark'>('light');
+	const initializedRef = useRef(false);
 
 	useEffect(() => {
 		const savedTheme = getSavedTheme();
@@ -50,7 +47,11 @@ export default function ThemeToggle() {
 	}, []);
 
 	useEffect(() => {
-		if (typeof window === 'undefined') return;
+		if (!initializedRef.current) {
+			initializedRef.current = true;
+			return;
+		}
+
 		window.localStorage.setItem(STORAGE_KEY, theme);
 		applyTheme(theme);
 	}, [theme]);
