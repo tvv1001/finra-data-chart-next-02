@@ -565,6 +565,55 @@ export default function FinraGraph() {
 								↺
 							</span>
 						</button>
+
+						<button
+							type='button'
+							data-fg-trace-mode-button='sidebar-mobile'
+							className='fg-ghost-btn'
+							title='Toggle path tracing mode'>
+							Trace Mode
+						</button>
+						<button
+							type='button'
+							data-fg-action='clear-session'
+							className='fg-danger-btn'
+							title='Clear saved session and reload fresh'>
+							Reset Session
+						</button>
+						<button
+							id='fg-sidebar-pin-toggle'
+							className='fg-sidebar-action-btn fg-sidebar-action-btn--pin fg-sidebar-action-btn--icon-only'
+							type='button'
+							onClick={toggleSidebarPin}
+							title='Pin panel open'
+							aria-label='Pin panel open'
+							aria-pressed='false'
+							data-pinned='false'>
+							<span
+								className='fg-sidebar-action-icon'
+								aria-hidden='true'>
+								<svg
+									viewBox='0 0 16 16'
+									fill='none'
+									xmlns='http://www.w3.org/2000/svg'>
+									<path
+										d='M9.5 1.5L14.5 6.5L10.5 10.5L9 9L7 11H5L3 13L3 11L5 9H3L3.5 7L7 7L5.5 5.5L9.5 1.5Z'
+										stroke='currentColor'
+										strokeWidth='1.2'
+										strokeLinejoin='round'
+									/>
+								</svg>
+							</span>
+						</button>
+					</div>
+					<div className='fg-sidebar-mobile-actions'>
+						<button
+							type='button'
+							data-fg-action='clear-highlights'
+							className='fg-ghost-btn'
+							title='Clear selected highlights'>
+							Clear Highlight
+						</button>
 						<button
 							id='fg-focus-btn'
 							className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary'
@@ -613,6 +662,7 @@ export default function FinraGraph() {
 								</svg>
 							</span>
 						</button>
+
 						<details
 							className='fg-mobile-legend-tooltip'
 							onBlur={handleLegendTooltipBlur}>
@@ -627,54 +677,6 @@ export default function FinraGraph() {
 									className='fg-mobile-legend'></div>
 							</div>
 						</details>
-						<button
-							id='fg-sidebar-pin-toggle'
-							className='fg-sidebar-action-btn fg-sidebar-action-btn--pin fg-sidebar-action-btn--icon-only'
-							type='button'
-							onClick={toggleSidebarPin}
-							title='Pin panel open'
-							aria-label='Pin panel open'
-							aria-pressed='false'
-							data-pinned='false'>
-							<span
-								className='fg-sidebar-action-icon'
-								aria-hidden='true'>
-								<svg
-									viewBox='0 0 16 16'
-									fill='none'
-									xmlns='http://www.w3.org/2000/svg'>
-									<path
-										d='M9.5 1.5L14.5 6.5L10.5 10.5L9 9L7 11H5L3 13L3 11L5 9H3L3.5 7L7 7L5.5 5.5L9.5 1.5Z'
-										stroke='currentColor'
-										strokeWidth='1.2'
-										strokeLinejoin='round'
-									/>
-								</svg>
-							</span>
-						</button>
-					</div>
-					<div className='fg-sidebar-mobile-actions'>
-						<button
-							type='button'
-							data-fg-trace-mode-button='sidebar-mobile'
-							className='fg-ghost-btn'
-							title='Toggle path tracing mode'>
-							Trace Mode
-						</button>
-						<button
-							type='button'
-							data-fg-action='clear-highlights'
-							className='fg-ghost-btn'
-							title='Clear selected highlights'>
-							Clear Highlight
-						</button>
-						<button
-							type='button'
-							data-fg-action='clear-session'
-							className='fg-danger-btn'
-							title='Clear saved session and reload fresh'>
-							Reset Session
-						</button>
 						<ThemeToggle />
 					</div>
 

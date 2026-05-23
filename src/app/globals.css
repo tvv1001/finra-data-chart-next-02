@@ -150,7 +150,8 @@ html[data-theme='dark'] .fg-ghost-btn {
 html[data-theme='dark'] .fg-action-btn:hover,
 html[data-theme='dark'] .fg-mobile-menu-toggle:hover,
 html[data-theme='dark'] .fg-ghost-btn:hover {
-	background: rgba(255, 255, 255, 0.05);
+	background: rgba(37, 99, 235, 0.05);
+	border-color: rgba(37, 99, 235, 0.32);
 }
 
 html[data-theme='dark'] .fg-menu-panel {
@@ -312,6 +313,17 @@ html[data-theme='dark'] .fg-ghost-btn {
 	background: rgba(255, 255, 255, 0.08);
 }
 
+html[data-theme='dark'] .fg-sb-header.individual .fg-sb-title {
+	color: var(--text);
+	-webkit-text-stroke: 4px var(--surface);
+	paint-order: stroke fill;
+}
+
+html[data-theme='dark'] .fg-tl-entry {
+	outline-color: rgba(148, 163, 184, 0.18);
+	background: rgb(0 0 0 / 32%);
+}
+
 *,
 *::before,
 *::after {
@@ -402,7 +414,7 @@ body {
 	color: #f8fafc;
 	font: 12px/1.4 var(--sans);
 	box-shadow: 0 10px 30px rgba(15, 23, 42, 0.3);
-	border: 1px solid rgba(148, 163, 184, 0.18);
+	border: none;
 	-webkit-backdrop-filter: blur(10px);
 	backdrop-filter: blur(10px);
 	pointer-events: none;
@@ -1384,10 +1396,7 @@ a,
 /* Danger / destructive action button */
 .fg-danger-btn {
 	font: 600 11px/1 var(--sans);
-	padding: 7px 9px;
 
-	min-height: 32px;
-	border-radius: 5px;
 	border: 1px solid rgba(239, 68, 68, 0.38);
 	background: #fff1f2;
 	color: #b91c1c;
@@ -1405,7 +1414,6 @@ a,
 	border-color: rgba(239, 68, 68, 0.55);
 	color: #991b1b;
 	box-shadow: 0 4px 12px rgba(239, 68, 68, 0.12);
-	transform: translateY(-1px);
 }
 .fg-danger-btn:disabled {
 	opacity: 0.4;
@@ -1532,7 +1540,6 @@ a,
 	position: sticky;
 	top: 0;
 	z-index: 3;
-	background: var(--surface);
 	justify-content: stretch;
 	flex-wrap: nowrap;
 }
@@ -1550,25 +1557,23 @@ a,
 
 .fg-sidebar-mobile-actions {
 	display: flex;
+	padding: 8px 8px 0;
 	gap: 6px;
-	padding: 6px 8px 0;
 	position: sticky;
 	top: 42px;
-	z-index: 3;
-	overflow: visible;
+	z-index: 99;
 }
 
 .fg-sidebar-action-btn,
 .fg-ghost-btn,
-.fg-mobile-legend-tooltip {
+.fg-mobile-legend-tooltip,
+.fg-danger-btn {
 	flex: 1 1 calc(33.333% - 4px);
 	width: auto;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	gap: 6px;
-	min-height: 30px;
-	padding: 7px 8px;
 	border-radius: 5px;
 	border: 1px solid var(--border-strong);
 	font: 600 10px/1 var(--sans);
@@ -1586,6 +1591,7 @@ a,
 		box-shadow 0.15s ease;
 	white-space: nowrap;
 	box-shadow: none;
+	width: 80px;
 }
 
 .fg-sidebar-action-btn--secondary {
@@ -1660,32 +1666,6 @@ a,
 	display: inline-block;
 	font-size: 10px;
 	line-height: 1;
-}
-
-.fg-sidebar-actions [data-fg-action='refresh-layout'] {
-	order: 1;
-}
-
-.fg-sidebar-actions #fg-focus-btn {
-	order: 2;
-}
-
-.fg-sidebar-actions > .fg-mobile-legend-tooltip {
-	order: 3;
-	padding: 0;
-}
-
-.fg-sidebar-actions .fg-sidebar-action-btn--primary {
-	order: 3;
-}
-
-.fg-sidebar-actions .fg-sidebar-action-btn--pin {
-	order: 4;
-	margin-left: auto;
-}
-
-.fg-sidebar-actions .fg-sidebar-action-btn--theme {
-	order: 5;
 }
 
 .fg-sidebar-action-btn--icon-only {
@@ -1836,13 +1816,6 @@ a,
 	min-height: 30px;
 }
 
-.fg-ghost-btn,
-.fg-danger-btn {
-	padding-inline: 7px;
-	font-size: 10px;
-	min-height: 30px;
-}
-
 .fg-mobile-legend-tooltip > summary {
 	list-style: none;
 	border: none;
@@ -1881,7 +1854,6 @@ a,
 	background: rgba(37, 99, 235, 0.08);
 	border-color: rgba(37, 99, 235, 0.32);
 	box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
-	transform: translateY(-1px);
 }
 
 .fg-mobile-legend-tooltip__panel {
@@ -2411,10 +2383,11 @@ a,
 
 .fg-section-title {
 	display: block;
+	margin-top: 14px;
 	margin-left: calc(var(--fg-sidebar-sticky-bleed-left, 8px) * -1);
 	margin-right: calc(var(--fg-sidebar-sticky-bleed-right, 10px) * -1);
 	padding: 8px var(--fg-sidebar-sticky-bleed-right, 10px) 6px var(--fg-sidebar-sticky-bleed-left, 8px);
-	background: #1d1d20;
+	background: transparent;
 	border: 1px solid rgba(15, 23, 42, 0.12);
 	border-top: none;
 	box-shadow: 0 1px 0 rgba(15, 23, 42, 0.08);
@@ -2646,9 +2619,12 @@ a,
 	font-size: 11px;
 	font-style: italic;
 }
+
 .fg-dis-res.final {
 	color: #166534;
+	font-weight: bold;
 }
+
 .fg-dis-res.pending {
 	color: #92400e;
 }
@@ -3332,13 +3308,6 @@ a,
 		display: none;
 	}
 
-	.fg-ghost-btn,
-	.fg-danger-btn {
-		padding-inline: 7px;
-		font-size: 10px;
-		min-height: 30px;
-	}
-
 	.fg-body {
 		position: relative;
 	}
@@ -3391,15 +3360,6 @@ a,
 
 	.fg-sidebar-actions .fg-sidebar-action-icon--trailing {
 		margin-left: 0;
-	}
-
-	.fg-sidebar-mobile-actions {
-		display: flex;
-		padding: 8px 8px 0;
-		gap: 6px;
-		position: sticky;
-		top: 42px;
-		z-index: 99;
 	}
 
 	.fg-sidebar {
