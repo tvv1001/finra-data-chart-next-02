@@ -3,6 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
+import ThemeToggle from '@/components/ThemeToggle';
 import { buildNodeRouteHref, buildNodeRoutePath, parseNodeIdFromPathname } from '@/lib/node-route';
 
 const MOBILE_TOUCH_SLOP_PX = 12;
@@ -637,6 +638,7 @@ export default function FinraGraph() {
 								↺
 							</span>
 						</button>
+						<ThemeToggle />
 					</div>
 					<div className='fg-sidebar-mobile-actions'>
 						<button
