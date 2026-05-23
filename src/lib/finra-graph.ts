@@ -4905,32 +4905,28 @@ function renderNodeContents(selection) {
 
 		drawDisclosureIndicator(g, d, r);
 
-		['halo', 'fill'].forEach((pass) => {
-			const labelClass = [`fg-label-${pass}`];
-			if (inactive) {
-				labelClass.push('fg-label--inactive', `fg-label-${pass}--inactive`);
-			}
-			if (pass === 'halo' && nodeLabelRenderMode === 'compact' && !inactive && !isNodeOnAnyTrace(d.id) && d.id !== selectedId) {
-				return;
-			}
-			const labelText = inactive && inactiveLabelCompactMode ? getCompactInactiveNodeLabel(d) : getRenderedNodeLabel(d);
-			const labelDy = (d._vizHalf != null ? d._vizHalf : r) + 8;
-			g.append('text')
-				.attr('class', labelClass.join(' '))
-				.attr('dy', labelDy)
-				.attr('text-anchor', 'middle')
-				.attr('font-size', '10px')
-				.attr('font-family', 'var(--sans)')
-				.attr('font-weight', '500')
-				.attr('fill', pass === 'halo' ? 'none' : nodeLabelColor)
-				.attr('stroke', pass === 'halo' ? nodeLabelHalo : 'none')
-				.attr('stroke-width', pass === 'halo' ? 4 : 0)
-				.attr('stroke-linejoin', 'round')
-				.attr('paint-order', 'stroke')
-				.attr('pointer-events', 'all')
-				.style('cursor', 'pointer')
-				.text(labelText);
-		});
+		const labelText = inactive && inactiveLabelCompactMode ? getCompactInactiveNodeLabel(d) : getRenderedNodeLabel(d);
+		const labelDy = (d._vizHalf != null ? d._vizHalf : r) + 8;
+		const label = g
+			.append('text')
+			.attr('class', `fg-label${inactive ? ' fg-label--inactive' : ''}`)
+			.attr('dy', labelDy)
+			.attr('text-anchor', 'middle')
+			.attr('font-size', '10px')
+			.attr('font-family', 'var(--sans)')
+			.attr('font-weight', '500')
+			.attr('fill', nodeLabelColor)
+			.attr('stroke', nodeLabelHalo)
+			.attr('stroke-width', 4)
+			.attr('stroke-linejoin', 'round')
+			.attr('paint-order', 'stroke')
+			.attr('pointer-events', 'all')
+			.style('cursor', 'pointer')
+			.text(labelText);
+
+		if (nodeLabelRenderMode === 'compact' && !inactive && !isNodeOnAnyTrace(d.id) && d.id !== selectedId) {
+			label.attr('display', 'none');
+		}
 
 		g.append('title').text(() => {
 			const parts = [getPreferredNodeLabel(d), d.group?.toUpperCase?.() || ''];
@@ -5077,11 +5073,76 @@ function markNodeSelected(node, options: { persist?: boolean } = {}) {
 	}
 }
 
+function getNodeVisualLabelText(node) {
+	return isNodeInactive(node) && inactiveLabelCompactMode ? getCompactInactiveNodeLabel(node) : getRenderedNodeLabel(node);
+}
+
+function updateNodeVisuals(selection) {
+	if (!selection) return;
+	selection.each(function (d) {
+		const g = d3.select(this);
+		const inactive = isNodeInactive(d);
+		let color = inactive ? GRAPH_COLORS.nodeInactive : NODE_COLOR[d.group] || GRAPH_COLORS.nodeDefault;
+		let nodeOpacity = inactive ? 0.82 : 1;
+		let nodeStroke = inactive ? GRAPH_COLORS.nodeInactiveStroke : GRAPH_COLORS.nodeBorder;
+		let nodeLabelColor = inactive ? GRAPH_COLORS.nodeInactiveLabel : GRAPH_COLORS.nodeLabel;
+		let nodeLabelHalo = inactive ? 'rgba(248,250,252,0.95)' : GRAPH_COLORS.nodeLabelHalo;
+
+		if (d.group === 'individual' && d.stub) {
+			color = inactive ? GRAPH_COLORS.nodeInactive : GRAPH_COLORS.nodeStub;
+			nodeOpacity = inactive ? 0.72 : NODE_OPACITY_STUB;
+		}
+
+		if (d.group === 'firm') {
+			const r = NODE_R[d.group] || 10;
+			const s = (d._vizHalf ?? r * 0.85) * 2;
+			const deg = d._deg || { total: 0, controls: 0, employed: 0 };
+			const hasConnections = deg.total > 0;
+			const dominantStroke =
+				inactive ? GRAPH_COLORS.nodeInactiveStroke
+				: deg.controls > deg.employed ? GRAPH_COLORS.nodeFirmControlsStroke
+				: deg.employed > deg.controls ? GRAPH_COLORS.nodeFirmEmployedStroke
+				: GRAPH_COLORS.nodeBorder;
+
+			const firmShape = g.select('.fg-node-shape--firm');
+			if (!firmShape.empty()) {
+				firmShape
+					.attr('fill', color)
+					.attr('stroke', dominantStroke)
+					.attr('opacity', nodeOpacity === 1 ? 0.9 : nodeOpacity)
+					.classed('fg-node-shape--firm-connected', hasConnections)
+					.classed('fg-node-shape--firm-employed', deg.employed > deg.controls)
+					.classed('fg-node-shape--firm-controls', deg.controls > deg.employed);
+			}
+		} else if (d.group === 'entity') {
+			const shape = g.select('.fg-node-shape--entity');
+			if (!shape.empty()) {
+				shape.attr('fill', color).attr('stroke', nodeStroke).attr('opacity', nodeOpacity);
+			}
+		} else {
+			const shape = g.select('.fg-node-shape--circle');
+			if (!shape.empty()) {
+				shape.attr('fill', color).attr('stroke', nodeStroke).attr('opacity', nodeOpacity);
+			}
+		}
+
+		const labelText = getNodeVisualLabelText(d);
+		const label = g.select('text.fg-label');
+		if (!label.empty()) {
+			label
+				.text(labelText)
+				.attr('fill', nodeLabelColor)
+				.attr('stroke', nodeLabelHalo)
+				.attr('opacity', inactive ? 0.86 : 1);
+		}
+	});
+}
+
 // Refreshes colors for all nodes dynamically to ensure nodes and links correctly reflect state
 function refreshGraphColors() {
 	if (!nodeSel || !layoutLinks || !linkSel) return;
 
-	renderNodeContents(nodeSel);
+	updateNodeVisuals(nodeSel);
 
 	linkSel
 		.attr('stroke', (d) => getLinkColor(d))

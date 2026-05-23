@@ -79,7 +79,7 @@
 
 	/* Highlighted-hop state */
 	--color-node-highlighted-stroke: rgb(142, 47, 9);
-	--color-node-firm-highlighted-stroke: #af4741;
+	--color-node-firm-highlighted-stroke: #fff2f2;
 	--opacity-node-highlighted: 0.96;
 	--fill-opacity-node-highlighted: 0.96;
 	--stroke-opacity-node-highlighted: 1;
@@ -2790,14 +2790,22 @@ a,
 .fg-node .fg-node-shape--entity {
 	stroke: var(--color-node-border);
 	stroke-width: var(--stroke-width-node-default);
-	filter: var(--shadow-node);
 	cursor: pointer;
 }
 
 .fg-node .fg-node-shape--firm {
 	stroke: #ffffff;
-	stroke-width: var(--stroke-width-node-firm-isolated);
-	filter: var(--shadow-node);
+	stroke-width: 4px;
+	transition:
+		filter 180ms ease,
+		transform 180ms ease;
+}
+
+.fg-node.fg-node--inactive .fg-node-shape--circle,
+.fg-node.fg-node--inactive .fg-node-shape--entity,
+.fg-node.fg-node--inactive .fg-node-shape--firm {
+	transform: translate(0, 1px);
+	filter: none;
 }
 
 .fg-node .fg-node-disclosure-ring {
@@ -2843,6 +2851,12 @@ a,
 	fill: var(--color-node-inactive);
 	stroke: var(--color-node-inactive-stroke);
 	filter: var(--shadow-node-inactive);
+}
+
+.fg-node.fg-node--inactive .fg-node-shape--firm {
+	fill: var(--color-node-inactive);
+	stroke: var(--color-node-inactive-stroke);
+	opacity: 0.48;
 }
 
 .fg-node.fg-node--inactive .fg-node-shape--circle {
@@ -2916,7 +2930,7 @@ a,
 
 .fg-node.fg-node--firm.highlighted-hop polygon {
 	stroke: var(--color-node-firm-highlighted-stroke) !important;
-	stroke-width: var(--stroke-width-node-firm-highlighted) !important;
+	stroke-width: 2px !important;
 }
 
 .fg-node.fg-node--inactive.highlighted-hop circle,
@@ -2926,8 +2940,17 @@ a,
 	filter: var(--shadow-node-inactive-highlighted);
 }
 
-.fg-node.selected .fg-label-fill,
-.fg-node.highlighted-hop .fg-label-fill {
+.fg-node.fg-node--inactive.highlighted-hop polygon {
+	stroke: rgb(143, 139, 139) !important;
+	stroke-width: 1px !important;
+}
+.fg-node.fg-node--inactive text.fg-label {
+	fill: var(--color-node-inactive-label) !important;
+	opacity: 0.48 !important;
+}
+
+.fg-node.selected text.fg-label,
+.fg-node.highlighted-hop text.fg-label {
 	fill: #0f172a !important;
 	font-weight: 700;
 	opacity: 1 !important;
@@ -2966,7 +2989,7 @@ a,
 	stroke-linecap: round;
 	stroke-linejoin: round;
 	vector-effect: non-scaling-stroke;
-	filter: var(--shadow-link);
+	filter: none;
 }
 
 .fg-link.fg-link--depth-active {
@@ -2975,101 +2998,86 @@ a,
 
 .fg-link.fg-link--depth-recessed {
 	filter: none;
+	opacity: 0.42 !important;
+	stroke-opacity: 0.32 !important;
 }
 
-.fg-label-fill {
+.fg-label {
 	filter: var(--shadow-label);
 }
 
-.fg-label-fill--inactive {
+.fg-label--inactive {
 	opacity: 0.86;
 }
 
-.fg-label-halo--inactive {
-	opacity: 0.92;
-}
-
-.fg-root.fg-inactive-labels-compact .fg-label-fill--inactive {
+.fg-root.fg-inactive-labels-compact text.fg-label.fg-label--inactive {
 	opacity: 0.62;
 }
 
-.fg-root.fg-inactive-labels-compact .fg-label-halo--inactive {
-	opacity: 0.72;
-}
-
 /* LOD: hide labels when zoomed out far (toggled by JS via .fg-labels-hidden) */
-.fg-root.fg-labels-hidden .fg-label-fill,
-.fg-root.fg-labels-hidden .fg-label-halo {
+.fg-root.fg-labels-hidden text.fg-label {
 	display: none;
 }
 
-.fg-root.fg-trace-labels .fg-node.trace-shortest .fg-label-fill,
-.fg-root.fg-trace-labels .fg-node.trace-shortest .fg-label-halo,
-.fg-root.fg-trace-labels .fg-node.trace-shortest-connector .fg-label-fill,
-.fg-root.fg-trace-labels .fg-node.trace-shortest-connector .fg-label-halo,
-.fg-root.fg-trace-labels .fg-node.trace-longest .fg-label-fill,
-.fg-root.fg-trace-labels .fg-node.trace-longest .fg-label-halo,
-.fg-root.fg-trace-labels .fg-node.trace-longest-connector .fg-label-fill,
-.fg-root.fg-trace-labels .fg-node.trace-longest-connector .fg-label-halo,
-.fg-root.fg-trace-labels .fg-node.trace-log .fg-label-fill,
-.fg-root.fg-trace-labels .fg-node.trace-log .fg-label-halo,
-.fg-root.fg-trace-labels .fg-node.trace-log-connector .fg-label-fill,
-.fg-root.fg-trace-labels .fg-node.trace-log-connector .fg-label-halo {
+.fg-root.fg-trace-labels .fg-node.trace-shortest text.fg-label,
+.fg-root.fg-trace-labels .fg-node.trace-shortest-connector text.fg-label,
+.fg-root.fg-trace-labels .fg-node.trace-longest text.fg-label,
+.fg-root.fg-trace-labels .fg-node.trace-longest-connector text.fg-label,
+.fg-root.fg-trace-labels .fg-node.trace-log text.fg-label,
+.fg-root.fg-trace-labels .fg-node.trace-log-connector text.fg-label,
+.fg-root.fg-trace-labels .fg-node.trace-combined text.fg-label,
+.fg-root.fg-trace-labels .fg-node.trace-combined-connector text.fg-label {
 	display: block !important;
 	font-size: calc(11px * var(--fg-trace-label-scale, 1)) !important;
 }
 
-.fg-root.fg-trace-labels .fg-node.trace-shortest .fg-label-fill,
-.fg-root.fg-trace-labels .fg-node.trace-shortest-connector .fg-label-fill,
-.fg-root.fg-trace-labels .fg-node.trace-longest .fg-label-fill,
-.fg-root.fg-trace-labels .fg-node.trace-longest-connector .fg-label-fill,
-.fg-root.fg-trace-labels .fg-node.trace-log .fg-label-fill,
-.fg-root.fg-trace-labels .fg-node.trace-log-connector .fg-label-fill {
+.fg-root.fg-trace-labels .fg-node.trace-shortest text.fg-label,
+.fg-root.fg-trace-labels .fg-node.trace-shortest-connector text.fg-label,
+.fg-root.fg-trace-labels .fg-node.trace-longest text.fg-label,
+.fg-root.fg-trace-labels .fg-node.trace-longest-connector text.fg-label,
+.fg-root.fg-trace-labels .fg-node.trace-log text.fg-label,
+.fg-root.fg-trace-labels .fg-node.trace-log-connector text.fg-label {
 	fill: #0f172a !important;
 	font-weight: 700 !important;
 	opacity: 1 !important;
 }
 
-.fg-root.fg-trace-labels .fg-node.trace-shortest .fg-label-fill--inactive,
-.fg-root.fg-trace-labels .fg-node.trace-shortest-connector .fg-label-fill--inactive,
-.fg-root.fg-trace-labels .fg-node.trace-longest .fg-label-fill--inactive,
-.fg-root.fg-trace-labels .fg-node.trace-longest-connector .fg-label-fill--inactive,
-.fg-root.fg-trace-labels .fg-node.trace-log .fg-label-fill--inactive,
-.fg-root.fg-trace-labels .fg-node.trace-log-connector .fg-label-fill--inactive {
+.fg-root.fg-trace-labels .fg-node.trace-shortest text.fg-label.fg-label--inactive,
+.fg-root.fg-trace-labels .fg-node.trace-shortest-connector text.fg-label.fg-label--inactive,
+.fg-root.fg-trace-labels .fg-node.trace-longest text.fg-label.fg-label--inactive,
+.fg-root.fg-trace-labels .fg-node.trace-longest-connector text.fg-label.fg-label--inactive,
+.fg-root.fg-trace-labels .fg-node.trace-log text.fg-label.fg-label--inactive,
+.fg-root.fg-trace-labels .fg-node.trace-log-connector text.fg-label.fg-label--inactive {
 	opacity: 0.96 !important;
 }
 
-.fg-root.fg-labels-hidden.fg-trace-labels .fg-node.trace-shortest .fg-label-fill,
-.fg-root.fg-labels-hidden.fg-trace-labels .fg-node.trace-shortest .fg-label-halo,
-.fg-root.fg-labels-hidden.fg-trace-labels .fg-node.trace-shortest-connector .fg-label-fill,
-.fg-root.fg-labels-hidden.fg-trace-labels .fg-node.trace-shortest-connector .fg-label-halo,
-.fg-root.fg-labels-hidden.fg-trace-labels .fg-node.trace-longest .fg-label-fill,
-.fg-root.fg-labels-hidden.fg-trace-labels .fg-node.trace-longest .fg-label-halo,
-.fg-root.fg-labels-hidden.fg-trace-labels .fg-node.trace-longest-connector .fg-label-fill,
-.fg-root.fg-labels-hidden.fg-trace-labels .fg-node.trace-longest-connector .fg-label-halo,
-.fg-root.fg-labels-hidden.fg-trace-labels .fg-node.trace-log .fg-label-fill,
-.fg-root.fg-labels-hidden.fg-trace-labels .fg-node.trace-log .fg-label-halo,
-.fg-root.fg-labels-hidden.fg-trace-labels .fg-node.trace-log-connector .fg-label-fill,
-.fg-root.fg-labels-hidden.fg-trace-labels .fg-node.trace-log-connector .fg-label-halo {
+.fg-root.fg-labels-hidden.fg-trace-labels .fg-node.trace-shortest text.fg-label,
+.fg-root.fg-labels-hidden.fg-trace-labels .fg-node.trace-shortest-connector text.fg-label,
+.fg-root.fg-labels-hidden.fg-trace-labels .fg-node.trace-longest text.fg-label,
+.fg-root.fg-labels-hidden.fg-trace-labels .fg-node.trace-longest-connector text.fg-label,
+.fg-root.fg-labels-hidden.fg-trace-labels .fg-node.trace-log text.fg-label,
+.fg-root.fg-labels-hidden.fg-trace-labels .fg-node.trace-log-connector text.fg-label,
+.fg-root.fg-labels-hidden.fg-trace-labels .fg-node.trace-combined text.fg-label,
+.fg-root.fg-labels-hidden.fg-trace-labels .fg-node.trace-combined-connector text.fg-label {
 	display: block !important;
 }
 
-.fg-root.fg-trace-labels .fg-node.trace-shortest .fg-label-halo,
-.fg-root.fg-trace-labels .fg-node.trace-shortest-connector .fg-label-halo,
-.fg-root.fg-trace-labels .fg-node.trace-longest .fg-label-halo,
-.fg-root.fg-trace-labels .fg-node.trace-longest-connector .fg-label-halo,
-.fg-root.fg-trace-labels .fg-node.trace-log .fg-label-halo,
-.fg-root.fg-trace-labels .fg-node.trace-log-connector .fg-label-halo {
+.fg-root.fg-trace-labels .fg-node.trace-shortest text.fg-label,
+.fg-root.fg-trace-labels .fg-node.trace-shortest-connector text.fg-label,
+.fg-root.fg-trace-labels .fg-node.trace-longest text.fg-label,
+.fg-root.fg-trace-labels .fg-node.trace-longest-connector text.fg-label,
+.fg-root.fg-trace-labels .fg-node.trace-log text.fg-label,
+.fg-root.fg-trace-labels .fg-node.trace-log-connector text.fg-label {
 	stroke-width: 5px !important;
 	opacity: 1 !important;
 }
 
-.fg-root.fg-trace-labels .fg-node.trace-shortest .fg-label-halo--inactive,
-.fg-root.fg-trace-labels .fg-node.trace-shortest-connector .fg-label-halo--inactive,
-.fg-root.fg-trace-labels .fg-node.trace-longest .fg-label-halo--inactive,
-.fg-root.fg-trace-labels .fg-node.trace-longest-connector .fg-label-halo--inactive,
-.fg-root.fg-trace-labels .fg-node.trace-log .fg-label-halo--inactive,
-.fg-root.fg-trace-labels .fg-node.trace-log-connector .fg-label-halo--inactive {
+.fg-root.fg-trace-labels .fg-node.trace-shortest text.fg-label.fg-label--inactive,
+.fg-root.fg-trace-labels .fg-node.trace-shortest-connector text.fg-label.fg-label--inactive,
+.fg-root.fg-trace-labels .fg-node.trace-longest text.fg-label.fg-label--inactive,
+.fg-root.fg-trace-labels .fg-node.trace-longest-connector text.fg-label.fg-label--inactive,
+.fg-root.fg-trace-labels .fg-node.trace-log text.fg-label.fg-label--inactive,
+.fg-root.fg-trace-labels .fg-node.trace-log-connector text.fg-label.fg-label--inactive {
 	opacity: 0.96 !important;
 }
 
@@ -3572,41 +3580,24 @@ a,
 	filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
 }
 
-.fg-node.trace-combined .fg-label-fill {
+.fg-node.trace-combined text.fg-label {
 	fill: #14532d !important;
 	font-weight: 800 !important;
-}
-
-.fg-node.trace-combined .fg-label-halo {
 	stroke-width: 6px !important;
 }
-.fg-node.selected .fg-label-fill,
-.fg-node.highlighted-hop .fg-label-fill {
+
+.fg-node.selected text.fg-label,
+.fg-node.highlighted-hop text.fg-label {
 	fill: #8e99b3 !important;
 	font-weight: 700;
 	opacity: 1 !important;
 }
 
-.fg-label-fill,
-.fg-label-fill {
+text.fg-label {
 	fill: #8e99b3 !important;
 	font-weight: 700;
 	opacity: 1 !important;
-}
-text.fg-label-halo {
 	stroke: #0b0b0b !important;
-	opacity: 1 !important;
-	fill: #0b0b0b !important;
-	border-width: 6px !important;
-	stroke-width: 4px !important;
-	fill-opacity: 1 !important;
-}
-
-text.fg-label-fill {
-	stroke: #0b0b0b !important;
-	opacity: 1 !important;
-	fill: #8e99b3 !important;
-	border-width: 6px !important;
 	stroke-width: 4px !important;
 	fill-opacity: 1 !important;
 }
