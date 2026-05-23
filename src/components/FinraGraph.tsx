@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import ThemeToggle from '@/components/ThemeToggle';
 import { buildNodeRouteHref, buildNodeRoutePath, parseNodeIdFromPathname } from '@/lib/node-route';
@@ -170,8 +170,11 @@ export default function FinraGraph() {
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
-	const routeNodeId = parseNodeIdFromPathname(browserPathname || pathname);
-	const searchSuffix = searchParams.toString() ? `?${searchParams.toString()}` : '';
+	const routeNodeId = useMemo(() => parseNodeIdFromPathname(browserPathname || pathname), [browserPathname, pathname]);
+	const searchSuffix = useMemo(() => {
+		const suffix = searchParams.toString();
+		return suffix ? `?${suffix}` : '';
+	}, [searchParams]);
 
 	useEffect(() => {
 		setIsMounted(true);
