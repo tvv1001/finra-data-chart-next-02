@@ -86,6 +86,7 @@ let graphData = null; // { nodes, links, meta } — full dataset
 let simulation = null;
 let selectedId = null;
 let highlightedSelections = []; // [{ id, hops }] — persistent multi-node highlight roots
+let visitedNodeIds = new Set();
 let linkSel = null; // current <line> selection
 let nodeSel = null; // current <g.fg-node> selection
 let arrowSel = null; // current top-line marker selection
@@ -1312,6 +1313,7 @@ function computeHighlightState() {
 		return { rootIds, nodeIds, hopNodeIds, linkKeys };
 	}
 
+	const nodeById = new Map((layoutNodes || []).map((node) => [node.id, node]));
 	const adjacency = new Map<string, Array<{ nodeId: string; link: any }>>((layoutNodes || []).map((node) => [node.id, []]));
 	(layoutLinks || []).forEach((link) => {
 		const sourceId = link.source?.id ?? link.source;
@@ -1324,6 +1326,9 @@ function computeHighlightState() {
 
 	highlightedSelections.forEach((entry) => {
 		if (!entry?.id) return;
+		const entryNode = nodeById.get(entry.id) || null;
+		const entryInactive = isNodeInactive(entryNode);
+
 		rootIds.add(entry.id);
 		nodeIds.add(entry.id);
 
@@ -1340,6 +1345,10 @@ function computeHighlightState() {
 			neighbors.forEach(({ nodeId, link }) => {
 				const nextDist = currentDist + 1;
 				if (maxHops !== 'all' && nextDist > maxHops) return;
+
+				const neighborNode = nodeById.get(nodeId) || null;
+				if (!entryInactive && isNodeInactive(neighborNode)) return;
+
 				linkKeys.add(getLinkKey(link));
 				nodeIds.add(nodeId);
 				if (!rootIds.has(nodeId)) hopNodeIds.add(nodeId);
@@ -1639,6 +1648,7 @@ function clearGraphData() {
 	hasUserInitiatedGraphExpansion = false;
 	selectedId = null;
 	highlightedSelections = [];
+	visitedNodeIds.clear();
 	sidebarSelectedNode = null;
 	sidebarViewMode = 'none';
 	stopNodePulseLoop();
@@ -5034,7 +5044,7 @@ function reapplySelectionState() {
 	if (!nodeSel) return;
 	const highlightState = computeHighlightState();
 	nodeSel
-		.classed('selected', (node) => node.id === selectedId || highlightState.rootIds.has(node.id))
+		.classed('selected', (node) => node.id === selectedId || visitedNodeIds.has(node.id) || highlightState.rootIds.has(node.id))
 		.classed('highlighted-hop', (node) => node.id !== selectedId && !highlightState.rootIds.has(node.id) && highlightState.hopNodeIds.has(node.id));
 
 	// Trace Mode node highlights — endpoints get trace-* class, connectors get trace-*-connector class
@@ -5064,6 +5074,7 @@ function markNodeSelected(node, options: { persist?: boolean } = {}) {
 	const { persist = true } = options;
 	upsertHighlightedSelection(node.id, getDefaultSelectionHops());
 	selectedId = node.id;
+	visitedNodeIds.add(node.id);
 	refreshTraceState();
 	if (!persist) return;
 	try {
