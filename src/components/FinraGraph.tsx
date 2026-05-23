@@ -553,34 +553,22 @@ export default function FinraGraph() {
 					className='fg-sidebar hidden'>
 					<div className='fg-sidebar-actions'>
 						<button
-							id='fg-sidebar-pin-toggle'
-							className='fg-sidebar-action-btn fg-sidebar-action-btn--pin'
 							type='button'
-							onClick={toggleSidebarPin}
-							title='Pin panel open'
-							aria-label='Pin panel open'
-							aria-pressed='false'
-							data-pinned='false'>
+							data-fg-action='refresh-layout'
+							className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-sidebar-action-btn--mobile-only'
+							title='Re-run the graph layout'
+							aria-label='Reflow layout'>
+							<span className='fg-sidebar-action-label'>Refresh</span>
 							<span
-								className='fg-sidebar-action-icon'
+								className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
 								aria-hidden='true'>
-								<svg
-									viewBox='0 0 16 16'
-									fill='none'
-									xmlns='http://www.w3.org/2000/svg'>
-									<path
-										d='M9.5 1.5L14.5 6.5L10.5 10.5L9 9L7 11H5L3 13L3 11L5 9H3L3.5 7L7 7L5.5 5.5L9.5 1.5Z'
-										stroke='currentColor'
-										strokeWidth='1.2'
-										strokeLinejoin='round'
-									/>
-								</svg>
+								↺
 							</span>
-							<span className='fg-sidebar-action-label'>Pin</span>
 						</button>
 						<button
 							id='fg-focus-btn'
 							className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary'
+							type='button'
 							title='Focus on this node'
 							aria-label='Center on this node'>
 							<span className='fg-sidebar-action-label'>Center</span>
@@ -625,20 +613,45 @@ export default function FinraGraph() {
 								</svg>
 							</span>
 						</button>
+						<details
+							className='fg-mobile-legend-tooltip'
+							onBlur={handleLegendTooltipBlur}>
+							<summary
+								className='fg-mobile-legend-tooltip__toggle'
+								title='Show legend'>
+								Legend
+							</summary>
+							<div className='fg-mobile-legend-tooltip__panel'>
+								<div
+									id='fg-mobile-legend'
+									className='fg-mobile-legend'></div>
+							</div>
+						</details>
 						<button
+							id='fg-sidebar-pin-toggle'
+							className='fg-sidebar-action-btn fg-sidebar-action-btn--pin fg-sidebar-action-btn--icon-only'
 							type='button'
-							data-fg-action='refresh-layout'
-							className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-sidebar-action-btn--mobile-only'
-							title='Re-run the graph layout'
-							aria-label='Reflow layout'>
-							<span className='fg-sidebar-action-label'>Refresh</span>
+							onClick={toggleSidebarPin}
+							title='Pin panel open'
+							aria-label='Pin panel open'
+							aria-pressed='false'
+							data-pinned='false'>
 							<span
-								className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
+								className='fg-sidebar-action-icon'
 								aria-hidden='true'>
-								↺
+								<svg
+									viewBox='0 0 16 16'
+									fill='none'
+									xmlns='http://www.w3.org/2000/svg'>
+									<path
+										d='M9.5 1.5L14.5 6.5L10.5 10.5L9 9L7 11H5L3 13L3 11L5 9H3L3.5 7L7 7L5.5 5.5L9.5 1.5Z'
+										stroke='currentColor'
+										strokeWidth='1.2'
+										strokeLinejoin='round'
+									/>
+								</svg>
 							</span>
 						</button>
-						<ThemeToggle />
 					</div>
 					<div className='fg-sidebar-mobile-actions'>
 						<button
@@ -662,21 +675,9 @@ export default function FinraGraph() {
 							title='Clear saved session and reload fresh'>
 							Reset Session
 						</button>
-						<details
-							className='fg-mobile-legend-tooltip'
-							onBlur={handleLegendTooltipBlur}>
-							<summary
-								className='fg-mobile-legend-tooltip__toggle'
-								title='Show legend'>
-								Legend
-							</summary>
-							<div className='fg-mobile-legend-tooltip__panel'>
-								<div
-									id='fg-mobile-legend'
-									className='fg-mobile-legend'></div>
-							</div>
-						</details>
+						<ThemeToggle />
 					</div>
+
 					<div
 						id='fg-sidebar-inner'
 						className='fg-sidebar-inner'>
