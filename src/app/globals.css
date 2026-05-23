@@ -2930,7 +2930,6 @@ a,
 
 .fg-node.fg-node--firm.highlighted-hop polygon {
 	stroke: var(--color-node-firm-highlighted-stroke) !important;
-	stroke-width: 2px !important;
 }
 
 .fg-node.fg-node--inactive.highlighted-hop circle,
