@@ -4784,6 +4784,18 @@ function hasIndividualSecPresence(node: any) {
 function hasFirmFinraPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
 
+	// Per-node suppression: if the node explicitly suppresses FINRA links, respect that.
+	if (
+		Array.isArray(node?.suppressedExternalLinks) &&
+		node.suppressedExternalLinks.some(
+			(s: any) =>
+				String(s || '')
+					.trim()
+					.toLowerCase() === 'finra',
+		)
+	)
+		return false;
+
 	// if this firm is explicitly blacklisted, treat as no FINRA presence
 	const rawFirmId = String(node?.firmId || node?.id || '')
 		.replace(/^firm[:_]/, '')
