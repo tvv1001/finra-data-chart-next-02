@@ -2202,7 +2202,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 
 	if (!routeNodeRequestListenerBound && typeof window !== 'undefined') {
 		window.addEventListener(ROUTE_NODE_REQUEST_EVENT, ((event: Event) => {
-			const detail = (event as CustomEvent<{ nodeId?: string | null; searchQuery?: string }>).detail || {};
+			const detail = (event as CustomEvent<{ nodeId?: string | null; searchQuery?: string; pulseDuration?: number | string | null }>).detail || {};
 			// If caller requested a text search (e.g., firm name), run the search
 			// and attempt to resolve a firm node by label before routing.
 			if (detail.searchQuery && String(detail.searchQuery || '').trim()) {
@@ -9329,13 +9329,13 @@ function renderFirmDetail(d: any) {
 					</button>
 		`;
 				}
-				// No CRD: make row clickable by searching the name
+				// No CRD: render as static row (not clickable) since there's no node to route to
 				return `
-					<button type="button" class="fg-owner-row fg-card-clickable" data-search-query="${esc(o.legalName || '')}">
+					<div class="fg-owner-row fg-owner-row--static">
 						${nameHtml}
 						${posHtml}
-					</button>
-		`;
+					</div>
+			`;
 			})
 			.join('')}
       `

@@ -220,7 +220,6 @@ html[data-theme='dark'] .fg-menu-summary {
 /* Clickable sidebar/card rows */
 .fg-card-clickable {
 	display: block;
-	width: 100%;
 	text-align: left;
 	border: none;
 	background: transparent;
@@ -240,7 +239,6 @@ html[data-theme='dark'] .fg-menu-summary {
 .fg-card-clickable .fg-tl-dates,
 .fg-card-clickable .fg-tl-loc {
 	display: inline-block;
-	margin-left: 8px;
 }
 
 /* CRD link/button specific styles (card-like) */
@@ -255,18 +253,19 @@ html[data-theme='dark'] .fg-menu-summary {
 	cursor: pointer;
 	color: inherit;
 }
-.fg-crd-link.fg-card-clickable,
-.fg-crd-link[role='button'] {
-	display: block;
-	width: 100%;
+.fg-owner-row,
+.fg-crd-link,
+.fg-card-clickable {
+	background:
+		linear-gradient(217deg, rgba(255, 255, 255, 0.18), transparent 90.71%), linear-gradient(127deg, rgba(255, 255, 255, 0.14), transparent 60.71%),
+		linear-gradient(336deg, rgba(255, 255, 255, 0.12), transparent 100%);
 }
-.fg-crd-link:hover {
-	background: #ff0000;
-}
-.fg-crd-link:focus-visible {
-	outline: 3px solid rgba(37, 99, 235, 0.18);
-	outline-offset: 2px;
-	background: #ff0000;
+
+.fg-owner-row:hover,
+.fg-crd-link:hover,
+.fg-card-clickable:hover {
+	outline: 2px solid rgba(37, 99, 235, 0.18);
+	outline-offset: -2px;
 }
 
 html[data-theme='dark'] .fg-sidebar {
@@ -1795,6 +1794,15 @@ a,
 	height: 100%;
 }
 
+.fg-sidebar[data-view-mode='log'] .fg-sidebar-inner:focus-visible,
+.fg-sidebar[data-view-mode='info'] .fg-sidebar-inner:focus-visible,
+.fg-sidebar[data-view-mode='log'] .fg-sidebar-inner:hover,
+.fg-sidebar[data-view-mode='info'] .fg-sidebar-inner:hover {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	height: 100%;
+}
 .fg-sidebar[data-view-mode='info'] {
 	--fg-sidebar-sticky-offset: 0px;
 }
@@ -2823,11 +2831,12 @@ a,
 /* Owners */
 .fg-owner-row {
 	background: rgba(255, 255, 255, 0.96);
-	border: 1px solid rgba(15, 23, 42, 0.18);
+	outline: 1px solid rgba(15, 23, 42, 0.18);
 	box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
 	padding: 5px;
+	margin: 0;
 	margin-bottom: 5px;
-	border-top: 1px solid rgba(15, 23, 42, 0.08);
+	outline-offset: -1px;
 	border-radius: 5px;
 }
 .fg-owner-name {
@@ -3043,8 +3052,11 @@ a,
 	opacity: 1 !important;
 }
 
-/* Light theme: ensure SVG node labels are black with a subtle white outline for legibility */
-:not(.theme-dark) text.fg-label {
+/* Light theme: ensure SVG node labels are black with a subtle white outline for legibility
+   Support both the class toggle and the data-theme attribute (some code toggles data-theme)
+*/
+:not(.theme-dark) text.fg-label,
+[data-theme='light'] text.fg-label {
 	fill: var(--text) !important;
 	stroke: #ffffff;
 	stroke-width: 2px;
@@ -3054,7 +3066,9 @@ a,
 }
 
 :not(.theme-dark) .fg-node.selected text.fg-label,
-:not(.theme-dark) .fg-node.highlighted-hop text.fg-label {
+:not(.theme-dark) .fg-node.highlighted-hop text.fg-label,
+[data-theme='light'] .fg-node.selected text.fg-label,
+[data-theme='light'] .fg-node.highlighted-hop text.fg-label {
 	/* stronger weight for selected/highlighted labels in light mode */
 	fill: var(--text) !important;
 	stroke: #ffffff;
