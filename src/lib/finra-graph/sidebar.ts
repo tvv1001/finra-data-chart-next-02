@@ -1,15 +1,15 @@
-import { flattenEmploymentRecords } from './detailUtils';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { capitalize, esc, firmSizeLabel, formatLocationText, formatUiText, normalizePersonLabel, row } from './formatters';
 
 type RenderContext = {
 	graphData?: any;
 };
 
-function hasAnyItems(list) {
+function hasAnyItems(list: any[] | null | undefined) {
 	return Array.isArray(list) && list.length > 0;
 }
 
-function hasPublicFinraIndividualPage(detail, basicInformation: Record<string, any> = {}) {
+function hasPublicFinraIndividualPage(detail: any, basicInformation: Record<string, any> = {}) {
 	const bcScope = String(detail?.bcScope || basicInformation?.bcScope || '')
 		.trim()
 		.toLowerCase()
@@ -25,7 +25,7 @@ function hasPublicFinraIndividualPage(detail, basicInformation: Record<string, a
 	return false;
 }
 
-function hasPublicSecIndividualPage(detail, basicInformation: Record<string, any> = {}) {
+function hasPublicSecIndividualPage(detail: any, basicInformation: Record<string, any> = {}) {
 	const iaScope = String(detail?.iaScope || basicInformation?.iaScope || '')
 		.trim()
 		.toLowerCase()
@@ -40,7 +40,7 @@ function hasPublicSecIndividualPage(detail, basicInformation: Record<string, any
 	if (
 		Array.isArray(detail?.registeredStates) &&
 		detail.registeredStates.some(
-			(entry) =>
+			(entry: any) =>
 				String(entry?.regScope || '')
 					.trim()
 					.toLowerCase() === 'ia',
@@ -61,6 +61,14 @@ function toNodeSourceCoverage(finra: boolean, sec: boolean): NodeSourceCoverage 
 	return 'none';
 }
 
+// Firms known to have broken or unreachable FINRA/BrokerCheck summary pages.
+// Add CRD numbers here to suppress FINRA links for those firms.
+const BROKEN_FINRA_FIRM_IDS = new Set(['134139']);
+
+// Individual IDs for which SEC AdvisorInfo links should be suppressed.
+// Add numeric individual CRD-like ids (no prefix) here when upstream SEC pages are incorrect or undesirable.
+const SUPPRESSED_SEC_INDIV_IDS = new Set(['18040']);
+
 function isNotInScopeValue(value) {
 	return (
 		String(value || '')
@@ -72,16 +80,47 @@ function isNotInScopeValue(value) {
 
 function hasIndividualFinraPresence(node) {
 	if (!node || typeof node !== 'object') return false;
+	// Per-node suppression: if the node explicitly suppresses FINRA links, respect that.
+	if (
+		Array.isArray(node?.suppressedExternalLinks) &&
+		node.suppressedExternalLinks.some(
+			(s: any) =>
+				String(s || '')
+					.trim()
+					.toLowerCase() === 'finra',
+		)
+	)
+		return false;
+	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
 	if (node.hasFinraData === true) return true;
 	if (hasPublicFinraIndividualPage(node, node.basicInformation || {})) return true;
 	if (hasAnyItems(node?.currentEmployments)) return true;
 	if (hasAnyItems(node?.previousEmployments)) return true;
-	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
 	return false;
 }
 
 function hasIndividualSecPresence(node) {
 	if (!node || typeof node !== 'object') return false;
+
+	// Per-node suppression: if the node explicitly suppresses SEC links, respect that.
+	if (
+		Array.isArray(node?.suppressedExternalLinks) &&
+		node.suppressedExternalLinks.some(
+			(s: any) =>
+				String(s || '')
+					.trim()
+					.toLowerCase() === 'sec',
+		)
+	)
+		return false;
+
+	// Per-id suppression: if the node's id/crd is known to be invalid for SEC links, suppress.
+	const rawId = String(node?.crd || node?.basicInformation?.individualId || node?.individualId || node?.id || '')
+		.replace(/^person[:_]/, '')
+		.replace(/^node[:_]/, '')
+		.trim();
+	if (rawId && SUPPRESSED_SEC_INDIV_IDS.has(rawId)) return false;
+	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
 	if (node.hasSecData === true) return true;
 	if (hasPublicSecIndividualPage(node, node.basicInformation || {})) return true;
 	if (Number(node?.registrationCount?.approvedIAStateRegistrationCount || 0) > 0) return true;
@@ -99,30 +138,54 @@ function hasIndividualSecPresence(node) {
 	}
 	if (hasAnyItems(node?.previousIAEmployments)) return true;
 	if (hasAnyItems(node?.iaDisclosures)) return true;
-	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
 	return false;
 }
 
-function hasFirmFinraPresence(node) {
+function hasFirmFinraPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
+
+	// Per-node suppression: if the node explicitly suppresses FINRA links, respect that.
+	if (
+		Array.isArray(node?.suppressedExternalLinks) &&
+		node.suppressedExternalLinks.some(
+			(s: any) =>
+				String(s || '')
+					.trim()
+					.toLowerCase() === 'finra',
+		)
+	)
+		return false;
+
+	// if this firm is explicitly blacklisted, treat as no FINRA presence
+	const rawFirmId = String(node?.firmId || node?.id || '')
+		.replace(/^firm[:_]/, '')
+		.replace(/^node[:_]/, '')
+		.trim();
+	if (rawFirmId && BROKEN_FINRA_FIRM_IDS.has(rawFirmId)) return false;
+	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
 	if (node.hasFinraData === true) return true;
 	if (node.isLegacy === 'Y') return true;
-	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
+	// If this firm carries a SEC '8-' identifier and we don't have explicit FINRA data,
+	// treat it as SEC-only and do not surface a FINRA brokercheck link.
+	const secIdRaw = node?.iaSecNumber || node?.basicInformation?.iaSECNumber || node?.basicInformation?.bdSECNumber || node?.bdSECNumber || '';
+	const secId = String(secIdRaw || '').trim();
+	if (secId && /^8-\d+/i.test(secId)) return false;
+
 	if (Boolean(String(node?.bcScope || node?.basicInformation?.bcScope || '').trim())) return true;
 	return false;
 }
 
-function hasFirmSecPresence(node) {
+function hasFirmSecPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
-	if (node.hasSecData === true) return true;
 	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
+	if (node.hasSecData === true) return true;
 	if (Boolean(String(node?.iaSecNumber || node?.basicInformation?.iaSECNumber || node?.basicInformation?.iaSecNumber || '').trim())) return true;
 	if (hasAnyItems(node?.secDocumentLinks)) return true;
 	if (Boolean(String(node?.secSummaryDescription || '').trim())) return true;
 	return false;
 }
 
-function formatNodeSourceTruthSummary(node) {
+function formatNodeSourceTruthSummary(node: any) {
 	const finra = node?.group === 'firm' ? hasFirmFinraPresence(node) : hasIndividualFinraPresence(node);
 	const sec = node?.group === 'firm' ? hasFirmSecPresence(node) : hasIndividualSecPresence(node);
 	const coverage = toNodeSourceCoverage(finra, sec);
@@ -134,17 +197,17 @@ function formatNodeSourceTruthSummary(node) {
 	return `FINRA=${finra ? 'true' : 'false'} · SEC=${sec ? 'true' : 'false'} (${coverageLabel})`;
 }
 
-export function renderPersonDetail(d, context: RenderContext = {}) {
+export function renderPersonDetail(d: any, context: RenderContext = {}) {
 	const graphData = context.graphData;
 	const bi = d.basicInformation || {};
-	const hasFinraPage = d.hasFinraData === false ? false : hasPublicFinraIndividualPage(d, bi);
-	const hasSecPage = hasPublicSecIndividualPage(d, bi);
-	const links = (graphData?.links || []).filter((l) => (l.source?.id || l.source) === d.id || (l.target?.id || l.target) === d.id);
-	const controlLinks = links.filter((l) => l.relationship === 'controls');
+	const hasFinraPage = hasIndividualFinraPresence(d);
+	const hasSecPage = hasIndividualSecPresence(d);
+	const links: any[] = (graphData?.links || []).filter((l: any) => (l.source?.id || l.source) === d.id || (l.target?.id || l.target) === d.id);
+	const controlLinks = links.filter((l: any) => l.relationship === 'controls');
 
 	const stubBadge = d.stub ? `<span class='fg-badge stub'>Form BD stub</span>` : '';
 
-	function formatDomainScopeBadge(text, domain, sourceTitle) {
+	function formatDomainScopeBadge(text: string | null | undefined, domain: string, sourceTitle: string) {
 		const raw = String(text || '').trim();
 		if (!raw) return '';
 		const normalized = raw.toLowerCase().replace(/\s+/g, '');
@@ -337,9 +400,16 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 		const empLinks = links.filter((l) => l.relationship === 'employed_by');
 		empEntries = empLinks.map((l) => {
 			const firmNode = graphData?.nodes?.find((n) => n.id === (l.target?.id || l.target));
+			let resolvedFirmId = l.firmId || null;
+			if (!resolvedFirmId && firmNode) {
+				// try common id shapes: 'firm:123' or 'firm_123'
+				const m = String(firmNode.id || '').match(/(?:firm[:_])(\d+)/);
+				if (m) resolvedFirmId = m[1];
+				else if (firmNode.firmId) resolvedFirmId = firmNode.firmId;
+			}
 			return {
 				firmName: firmNode?.label || l.firmName || '',
-				firmId: l.firmId,
+				firmId: resolvedFirmId,
 				start: l.startDate || '',
 				end: l.endDate || null,
 				isCurrent: !l.endDate,
@@ -360,6 +430,29 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 			.toLowerCase()
 			.replace(/[^a-z0-9]+/g, ' ')
 			.trim();
+	}
+
+	function resolveFirmCrdByName(name, providedId) {
+		// prefer provided id
+		if (providedId) return String(providedId);
+		const label = String(name || '').trim();
+		if (!label) return null;
+		// try find a firm node in graphData by normalized label
+		const candidate = graphData?.nodes?.find((n) => n && n.group === 'firm' && normalizeFirmKey(n.label) === normalizeFirmKey(label));
+		if (candidate) {
+			if (candidate.firmId) return String(candidate.firmId);
+			const mid = String(candidate.id || '').match(/(?:firm[:_])(\d+)/);
+			if (mid) return mid[1];
+		}
+		return null;
+	}
+
+	function renderFirmNameWithCrd(name, maybeId) {
+		const crd = resolveFirmCrdByName(name, maybeId);
+		if (crd) {
+			return `<button class='fg-crd-link' data-crd='${esc(String(crd))}' title='View this CRD'>${esc(name)}</button>`;
+		}
+		return esc(name || '');
 	}
 
 	function findEmploymentMatchForControl(link, firmNode) {
@@ -545,11 +638,11 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 									const detailLine = getEmploymentDetailLine(e);
 									const scopeTags = getEmploymentScopeTags(e);
 									return `<div class='fg-tl-entry active-pos'>
-                  <span class='fg-tl-firm'>${esc(e.firmName)}${e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : ''}</span>
-                  <span class='fg-tl-dates'>${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>
-								  ${detailLine ? `<span class='fg-tl-loc'>${esc(detailLine)}</span>` : ''}
-                  ${scopeTags.length ? `<span class='fg-tl-loc' style='color:var(--text-m)'>${esc(scopeTags.join(' · '))}</span>` : ''}
-                </div>`;
+									  <span class='fg-tl-firm'>${renderFirmNameWithCrd(e.firmName, e.firmId)}${e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : ''}</span>
+						                  <span class='fg-tl-dates'>${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>
+										  ${detailLine ? `<span class='fg-tl-loc'>${esc(detailLine)}</span>` : ''}
+						                  ${scopeTags.length ? `<span class='fg-tl-loc' style='color:var(--text-m)'>${esc(scopeTags.join(' · '))}</span>` : ''}
+						                </div>`;
 								})
 								.join('')}
             </div>`
@@ -566,12 +659,12 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 									const detailLine = getEmploymentDetailLine(e);
 									const scopeTags = getEmploymentScopeTags(e);
 									return `<div class='${cls}'>
-                  <span class='fg-tl-firm'>${esc(e.firmName)}${e.bdSecNumber ? ` <small>SEC#${esc(e.bdSecNumber)}</small>` : ''}</span>
-                  <span class='fg-tl-dates'>${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>
-								  ${detailLine ? `<span class='fg-tl-loc'>${esc(detailLine)}</span>` : ''}
-                  ${scopeTags.length ? `<span class='fg-tl-loc' style='color:var(--text-m)'>${esc(scopeTags.join(' · '))}</span>` : ''}
-                  ${e.expelledDate ? `<span class='fg-badge inactive'>Expelled ${esc(e.expelledDate)}</span>` : ''}
-                </div>`;
+									  <span class='fg-tl-firm'>${renderFirmNameWithCrd(e.firmName, e.firmId)}${e.bdSecNumber ? ` <small>SEC#${esc(e.bdSecNumber)}</small>` : ''}</span>
+						                  <span class='fg-tl-dates'>${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>
+										  ${detailLine ? `<span class='fg-tl-loc'>${esc(detailLine)}</span>` : ''}
+						                  ${scopeTags.length ? `<span class='fg-tl-loc' style='color:var(--text-m)'>${esc(scopeTags.join(' · '))}</span>` : ''}
+						                  ${e.expelledDate ? `<span class='fg-badge inactive'>Expelled ${esc(e.expelledDate)}</span>` : ''}
+						                </div>`;
 								})
 								.join('')}
             </div>`
@@ -587,7 +680,11 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 								.map(
 									(reg) => `
                 <div class='fg-tl-entry active-pos'>
-                  <span class='fg-tl-firm'>${renderRegistrationRole(reg.role)} ${esc(reg.firmName)}${reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : ''}</span>
+									<span class='fg-tl-firm'>${renderRegistrationRole(reg.role)} ${
+										reg.firmId ?
+											`<button class='fg-crd-link' data-crd='${esc(String(reg.firmId))}' title='View this CRD'>${esc(reg.firmName)}</button> (<button class='fg-crd-link' data-crd='${esc(String(reg.firmId))}' title='View this CRD'>CRD#${esc(String(reg.firmId))}</button>)`
+										:	esc(reg.firmName)
+									}</span>
                   ${
 										reg.officeAddress ? `<span class='fg-tl-loc'>${esc(reg.officeAddress)}</span>`
 										: reg.cityState ? `<span class='fg-tl-loc'>${esc(reg.cityState)}</span>`
@@ -609,7 +706,11 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 								.map(
 									(reg) => `
                 <div class='fg-tl-entry'>
-                  <span class='fg-tl-firm'>${renderRegistrationRole(reg.role, { inactive: true })} ${esc(reg.firmName)}${reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : ''}</span>
+									<span class='fg-tl-firm'>${renderRegistrationRole(reg.role, { inactive: true })} ${
+										reg.firmId ?
+											`<button class='fg-crd-link' data-crd='${esc(String(reg.firmId))}' title='View this CRD'>${esc(reg.firmName)}</button> (<button class='fg-crd-link' data-crd='${esc(String(reg.firmId))}' title='View this CRD'>CRD#${esc(String(reg.firmId))}</button>)`
+										:	esc(reg.firmName)
+									}</span>
                   ${reg.cityState ? `<span class='fg-tl-loc'>${esc(reg.cityState)}</span>` : ''}
                   <span class='fg-tl-dates'>${esc(reg.start || '–')} → ${esc(reg.end || 'present')}</span>
                 </div>`,
@@ -704,7 +805,7 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
 									employmentMatch?.loc ||
 									(l.city || l.officeCity || l.state || l.officeState ? [l.city || l.officeCity, l.state || l.officeState].filter(Boolean).join(', ') : null);
 								return `<div class='fg-tl-entry active-pos'>
-                  <span class='fg-tl-firm'>${esc(firmNode?.label || l.firmName || employmentMatch?.firmName || l.name || l.organizationName || l.legalName || '')}${secNumber ? ` <small>SEC#${esc(String(secNumber))}</small>` : ''}</span>
+									<span class='fg-tl-firm'>${renderFirmNameWithCrd(firmNode?.label || l.firmName || employmentMatch?.firmName || l.name || l.organizationName || l.legalName || '', firmNode?.firmId || l.firmId || employmentMatch?.firmId)}${secNumber ? ` <small>SEC#${esc(String(secNumber))}</small>` : ''}</span>
                   ${dateRange ? `<span class='fg-tl-dates'>${dateRange}</span>` : ''}
                   ${firmStatus ? `<span class='fg-tl-status'>${esc(firmStatus)}</span>` : ''}
                   ${l.position ? `<span class='fg-tl-loc'>${esc(l.position)}</span>` : ''}
@@ -756,28 +857,7 @@ export function renderPersonDetail(d, context: RenderContext = {}) {
   `;
 }
 
-export function renderFirmDetail(d) {
-	const owners = d.directOwners || [];
-	const disclosures = d.disclosures || [];
-	function parseFirmSortDateValue(value) {
-		const raw = String(value || '').trim();
-		if (!raw) return Number.NEGATIVE_INFINITY;
-		const shortDateMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-		if (shortDateMatch) {
-			const [, month, day, year] = shortDateMatch;
-			return Date.UTC(Number(year), Number(month) - 1, Number(day));
-		}
-		const parsed = Date.parse(raw);
-		return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
-	}
-
-	function compareFirmDatesDesc(a, b, dateKeys: string[] = []) {
-		for (const key of dateKeys) {
-			const diff = parseFirmSortDateValue(b?.[key]) - parseFirmSortDateValue(a?.[key]);
-			if (diff !== 0) return diff;
-		}
-		return String(a?.brochureName || a?.type || a?.disclosureType || '').localeCompare(String(b?.brochureName || b?.type || b?.disclosureType || ''));
-	}
+export function renderFirmDetail(d: any) {
 	const statusDate = d.firmStatusDate || '';
 	const statusText = d.firmStatus ? capitalize(String(d.firmStatus || '').toLowerCase()) : '';
 	const statusIsActive = d.firmStatus ? /\bactive\b|\bapproved\b/i.test(String(d.firmStatus)) : false;
@@ -795,7 +875,6 @@ export function renderFirmDetail(d) {
 	const sros = Array.isArray(d.selfRegulatoryOrgs) && d.selfRegulatoryOrgs.length ? d.selfRegulatoryOrgs.join(', ') : 'N/A';
 	const states = Array.isArray(d.activeStates) && d.activeStates.length ? d.activeStates.join(', ') : 'N/A';
 	const firmId = d.firmId || String(d.id).replace(/^firm[:_]/, '');
-	const brokerCheckReportUrl = firmId ? `https://files.brokercheck.finra.org/firm/firm_${encodeURIComponent(firmId)}.pdf` : null;
 	const normalizeSecFirmId = (value: string | number | null | undefined) => {
 		const raw = String(value || '').trim();
 		if (!raw) return '';
@@ -806,19 +885,10 @@ export function renderFirmDetail(d) {
 	const secFirmId = normalizeSecFirmId(d.iaSecNumber || d.bdSecNumber || d.bdSECNumber || d.basicInformation?.iaSECNumber || d.basicInformation?.bdSECNumber || firmId);
 	const crdSec = [firmId ? `CRD#: ${firmId}` : null, secFirmId ? `SEC#: ${secFirmId}` : null].filter(Boolean).join(' / ');
 	const secSummaryUrl = firmId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(firmId)}` : null;
-	const iaSecRaw = String(d.iaSecNumber || d.basicInformation?.iaSECNumber || d.basicInformation?.iaSecNumber || '')
-		.trim()
-		.toUpperCase();
-	const hasAdviserStyleIaSec = /^801-?\d+$/.test(iaSecRaw);
-	const secScopeFlags = d.orgScopeStatusFlags || {};
-	const hasPositiveSecScopeFlags =
-		secScopeFlags.isSECRegistered === 'Y' ||
-		secScopeFlags.isStateRegistered === 'Y' ||
-		secScopeFlags.isERARegistered === 'Y' ||
-		secScopeFlags.isSECERARegistered === 'Y' ||
-		secScopeFlags.isStateERARegistered === 'Y';
-	const hasFinraPage = d.hasFinraData === true;
-	const hasSecPage = Boolean(firmId) && (hasPositiveSecScopeFlags || hasAdviserStyleIaSec);
+
+	const hasFinraPage = hasFirmFinraPresence(d);
+	const hasSecPage = hasFirmSecPresence(d);
+
 	const secDocumentLinks =
 		hasSecPage ?
 			(() => {
@@ -834,7 +904,7 @@ export function renderFirmDetail(d) {
 
 				if (!Array.isArray(d.secDocumentLinks) || !d.secDocumentLinks.length) return defaultLinks;
 
-				return d.secDocumentLinks.map((link) => {
+				return d.secDocumentLinks.map((link: any) => {
 					const label = String(link?.label || '').trim();
 					if (!label) return link;
 					if (/^SEC AdvisorInfo Summary$/i.test(label)) return { ...link, href: secSummaryUrl };
@@ -856,10 +926,11 @@ export function renderFirmDetail(d) {
 		:	[];
 	const secSummaryDescription = hasSecPage && d.secSummaryDescription ? String(d.secSummaryDescription).trim() : '';
 	const showBrokerCheckSummary = hasFinraPage;
-	const disclosureTotal =
-		Number.isFinite(Number(d.disclosureCount)) ? Number(d.disclosureCount) : disclosures.reduce((sum, dis) => sum + Number(dis?.count ?? dis?.disclosureCount ?? 0), 0);
-	const hasAffiliateDisclosureSummary = Boolean(d.affiliateDisclosures);
-	const sortedBrochures = Array.isArray(d.brochures) ? d.brochures.slice().sort((a, b) => compareFirmDatesDesc(a, b, ['dateSubmitted'])) : [];
+
+	const officeAddressRaw = String(d.officeAddress || '').trim();
+	const officeAddress = /^(?:-|n\/?a|na|none|null|undefined)$/i.test(officeAddressRaw) ? '' : officeAddressRaw;
+	const hasOfficeAddress = Boolean(officeAddress);
+	const businessPhone = String(d.businessPhone || '').trim();
 
 	return `
 		<div class='fg-sb-header firm'>
@@ -885,11 +956,11 @@ export function renderFirmDetail(d) {
       ${secSummaryDescription ? `<div class='fg-section-title'>SEC summary</div><p class='fg-sb-note'>${esc(secSummaryDescription)}</p>` : ''}
       ${d.isLegacy === 'Y' ? `<p class='fg-sb-note'>Not currently registered as broker. FINRA contains only limited information about this firm.</p>` : ''}
       ${
-				d.officeAddress || d.businessPhone ?
+				hasOfficeAddress || businessPhone ?
 					`
       <div class='fg-section-title'>Contact</div>
-      ${d.officeAddress ? row('Address', esc(d.officeAddress)) : ''}
-      ${d.businessPhone ? row('Phone', esc(d.businessPhone)) : ''}
+      ${hasOfficeAddress ? row('Address', esc(officeAddress)) : ''}
+      ${businessPhone ? row('Phone', esc(businessPhone)) : ''}
       `
 				:	''
 			}
@@ -911,76 +982,6 @@ export function renderFirmDetail(d) {
       ${row('Type', esc(d.firmType || '–'))}
       ${row('Fiscal Year End', esc(d.fiscalYearEnd || '–'))}
       ${d.otherNames?.length ? row('Other names', esc(d.otherNames.join('; '))) : ''}
-      ${
-				sortedBrochures.length ?
-					`
-        <div class='fg-section-title'>Form ADV Brochures</div>
-						${sortedBrochures
-							.slice(0, 5)
-							.map((b) => `<div class='fg-detail-row'><span class='fg-label'>${esc(b.brochureName || '')}</span><span>${esc(b.dateSubmitted || '')}</span></div>`)
-							.join('')}
-      `
-				:	''
-			}
-
-      ${
-				disclosures.length || disclosureTotal > 0 || hasAffiliateDisclosureSummary ?
-					`
-        <div class='fg-section-title'>Disclosures</div>
-        <div class='fg-disclosure'>
-          ${disclosures
-						.map(
-							(dis) => `
-            <div class='fg-dis-header'>
-              <span class='fg-dis-type'>${esc(dis.type || dis.disclosureType || '')}:</span>
-            </div>
-            <div class='fg-dis-row'><span class='fg-dis-label'>Total Disclosure</span> ${esc(String(dis.count ?? dis.disclosureCount ?? ''))}</div>
-          `,
-						)
-						.join('')}
-          ${disclosureTotal > 0 && !disclosures.length ? `<div class='fg-dis-header'><span class='fg-dis-type'>Total Disclosure</span></div><div class='fg-dis-row'>${esc(String(disclosureTotal))}</div>` : ''}
-          ${disclosureTotal > 0 ? `<div class='fg-dis-row'>For details of these disclosures as well as disclosures involving non-registered affiliated entities refer to the Detailed Report${brokerCheckReportUrl ? ` <a class='fg-ext-link bc' href='${brokerCheckReportUrl}' target='_blank' rel='noopener noreferrer'>&#x2197; FINRA Detailed Report (PDF)</a>` : ''}. For disclosures involving registered affiliated entities visit the BrokerCheck page for those firms.</div>` : ''}
-          ${hasAffiliateDisclosureSummary ? `<div class='fg-dis-header'><span class='fg-dis-type'>Affiliate Disclosure (registered)</span></div><div class='fg-dis-row'><span class='fg-dis-label'>Count:</span> ${esc(String(d.affiliateDisclosures.registeredAffiliateDisclosureCount ?? 0))}</div><div class='fg-dis-header'><span class='fg-dis-type'>Affiliate Disclosure (non-registered)</span></div><div class='fg-dis-row'><span class='fg-dis-label'>Count:</span> ${esc(String(d.affiliateDisclosures.nonRegisteredAffiliateDisclosureCount ?? 0))}</div>` : ''}
-        </div>
-      `
-				:	''
-			}
-
-      ${
-				owners.length ?
-					`
-        <div class='fg-section-title'>Form BD — Direct Owners &amp; Executive Officers</div>
-        ${owners
-					.map(
-						(o) => `
-          <div class='fg-owner-row'>
-            <span class='fg-owner-name'>${esc(o.legalName || '')}</span>
-            <span class='fg-owner-pos'>${esc(o.position || '')}</span>
-            ${o.crdNumber ? `<a class='fg-owner-crd' href='https://brokercheck.finra.org/individual/summary/${encodeURIComponent(o.crdNumber)}' target='_blank' rel='noopener noreferrer'>CRD ${o.crdNumber}</a>` : ''}
-          </div>
-        `,
-					)
-					.join('')}
-      `
-				:	''
-			}
-    </div>
-  `;
-}
-
-export function renderEntityDetail(d) {
-	return `
-    <div class='fg-sb-header entity'>
-      <div class='fg-sb-title'>${esc(d.label)}</div>
-      <div class='fg-sb-badges'>
-        <span class='fg-badge'>Entity</span>
-        ${d.bcScope ? `<span class='fg-badge'>${esc(d.bcScope)}</span>` : ''}
-      </div>
-    </div>
-    <div class='fg-sb-body'>
-      <p style='font-size:13px;color:var(--text-m);margin-top:8px'>
-        Non-individual owner listed on Form BD (no CRD number).
-      </p>
     </div>
   `;
 }

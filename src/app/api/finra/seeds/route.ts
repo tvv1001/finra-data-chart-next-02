@@ -10,6 +10,16 @@ async function getProfilesData() {
 }
 
 export async function GET(request: NextRequest) {
+	// In production, do not expose seed lists unless caller presents the secret header.
+	// This prevents accidentally deploying curated seed lists.
+	if (process.env.NODE_ENV === 'production') {
+		const header = request.headers.get('x-seeds-secret') || '';
+		const secret = process.env.SEEDS_API_SECRET || '';
+		if (!secret || header !== secret) {
+			// return empty list to avoid leaking seeds in production
+			return NextResponse.json([]);
+		}
+	}
 	const searchParams = new URL(request.url).searchParams;
 	if (searchParams.get('bank') === '1') {
 		const seedBank = await getSeedBankFromStore();

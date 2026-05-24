@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * finra.ts  –  FINRA BrokerCheck Network Graph
  */
@@ -32,6 +33,31 @@ import { DEFAULT_EXPANSION_HOPS, DEFAULT_SELECTION_HOPS } from './finra-graph-de
 // API base. When VITE_API_URL is not set, use relative paths so the dev
 // server proxy (`/api`) is used and we don't hardcode a backend port.
 const BASE = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) || '';
+
+// Firms known to have broken or unreachable FINRA/BrokerCheck summary pages.
+// Add CRD numbers here to suppress FINRA links for those firms.
+const BROKEN_FINRA_FIRM_IDS = new Set(['134139']);
+// Individual IDs for which SEC AdvisorInfo links should be suppressed.
+// Add numeric individual CRD-like ids (no prefix) here when upstream SEC pages are incorrect or undesirable.
+const SUPPRESSED_SEC_INDIV_IDS = new Set(['18040']);
+
+// Simple once-only logger sets to avoid spamming the console during render loops.
+const _loggedBadNodeCoords = new Set<string | number>();
+const _loggedBadTransforms = new Set<string>();
+
+function _logOnce(set: Set<any>, key: any, level: 'warn' | 'info' | 'error', ...args: any[]) {
+	try {
+		const k = typeof key === 'string' || typeof key === 'number' ? String(key) : JSON.stringify(key);
+		if (set.has(k)) return;
+		set.add(k);
+	} catch (e) {
+		// ignore serialization errors
+	}
+	// keep logs conspicuous and searchable
+	if (level === 'warn') console.warn('[finra-graph]', ...args);
+	else if (level === 'error') console.error('[finra-graph]', ...args);
+	else console.info('[finra-graph]', ...args);
+}
 
 const GRAPH_COLORS = {
 	nodeIndividual: 'var(--color-highlight-individual)',
@@ -86,6 +112,7 @@ let graphData = null; // { nodes, links, meta } — full dataset
 let simulation = null;
 let selectedId = null;
 let highlightedSelections = []; // [{ id, hops }] — persistent multi-node highlight roots
+let visitedNodeIds = new Set();
 let linkSel = null; // current <line> selection
 let nodeSel = null; // current <g.fg-node> selection
 let arrowSel = null; // current top-line marker selection
@@ -97,6 +124,12 @@ let neighborMap = null; // Map<nodeId, Set<nodeId>> — rebuilt each renderGraph
 let nodeGroup = null; // <g.fg-nodes> selection — for live node injection
 let linkGroup = null; // <g.fg-links> selection — for live link injection
 let arrowGroup = null; // <g.fg-arrowheads> selection — for top-layer arrowheads
+let linkBottomGroup = null;
+let linkMidGroup = null;
+let linkTopGroup = null;
+let arrowBottomGroup = null;
+let arrowMidGroup = null;
+let arrowTopGroup = null;
 let rootGroup = null; // <g.fg-root> selection — for zoom/state-driven graph styling
 let allowFirstFetchZoom = true; // only auto-zoom on the first user fetch into an empty graph
 // D3 references needed for restoring zoom state
@@ -151,6 +184,12 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 		.classed('fg-labels-hidden', normalizedScale < activeLabelZoomThreshold)
 		.style('--fg-trace-label-scale', String(traceLabelScale));
 
+	// Hide all node labels when zoomed out below threshold
+	const labelGroup = rootGroup.select('.fg-label-group');
+	if (labelGroup && labelGroup.size()) {
+		labelGroup.classed('fg-labels-hidden', normalizedScale < activeLabelZoomThreshold);
+	}
+
 	updateInactiveLabelZoomState(rootGroup, normalizedScale);
 }
 
@@ -161,10 +200,10 @@ function setGraphLabelRenderMode(nodeCount = layoutNodes?.length || 0) {
 function updateGraphTickPositions(linkSelection, nodeSelection, arrowSelection) {
 	if (!linkSelection || !nodeSelection) return;
 	linkSelection
-		.attr('x1', (d) => d.source.x)
-		.attr('y1', (d) => d.source.y)
-		.attr('x2', (d) => d.target.x)
-		.attr('y2', (d) => d.target.y);
+		.attr('x1', (d) => (Number.isFinite(d.source?.x) ? d.source.x : 0))
+		.attr('y1', (d) => (Number.isFinite(d.source?.y) ? d.source.y : 0))
+		.attr('x2', (d) => (Number.isFinite(d.target?.x) ? d.target.x : 0))
+		.attr('y2', (d) => (Number.isFinite(d.target?.y) ? d.target.y : 0));
 	if (arrowSelection) {
 		arrowSelection
 			.attr('x1', (d) => d.source.x)
@@ -172,7 +211,7 @@ function updateGraphTickPositions(linkSelection, nodeSelection, arrowSelection) 
 			.attr('x2', (d) => d.target.x)
 			.attr('y2', (d) => d.target.y);
 	}
-	nodeSelection.attr('transform', (d) => `translate(${d.x},${d.y})`);
+	nodeSelection.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 }
 
 function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection) {
@@ -617,9 +656,11 @@ let isSessionCleared = false;
 let selectedNodesLog: Array<{ id: string; label: string; secondaryId: string; group: string }> = [];
 let sidebarSelectedNode = null;
 let sidebarViewMode: 'none' | 'info' | 'log' = 'none';
+let sidebarLogSticky = false; // true if user has explicitly opened log toggle
 let isTraceMode = false;
 let isTraceLogMode = false;
 let pendingRouteNodeId: string | null = null;
+let pendingRoutePulseDuration: number | null = null; // optional pulse duration (ms) requested with route
 let routeNodeRequestListenerBound = false;
 let traceShortestIds = new Set<string>(); // node and link IDs
 let traceLongestIds = new Set<string>(); // node and link IDs
@@ -745,25 +786,28 @@ function closeSelectionLog(options: { force?: boolean } = {}) {
 	return true;
 }
 
-function setSidebarViewMode(
-	mode: 'none' | 'info' | 'log',
-	options: {
-		expandMobile?: boolean;
-	} = {},
-) {
-	const { expandMobile = false } = options;
-	if (!sidebarSelectedNode) return;
+function setSidebarViewMode(mode: 'none' | 'info' | 'log', options: { expandMobile?: boolean } = {}) {
 	sidebarViewMode = mode;
-	renderSidebar(sidebarSelectedNode);
-	if (isMobileSidebarViewport()) {
-		syncMobileSidebarExpandedState(expandMobile);
-	}
-	updateSelectionLogChrome();
 	try {
-		saveSession();
+		if (typeof window !== 'undefined' && window.sessionStorage) {
+			sessionStorage.setItem('finra_sidebar_view_mode', mode);
+		}
 	} catch {
 		/* ignore persistence errors */
 	}
+
+	const sidebar = document.getElementById('fg-sidebar');
+	if (sidebar) {
+		sidebar.dataset.viewMode = mode;
+		if (options.expandMobile) {
+			sidebar.dataset.mobileExpanded = 'true';
+			sidebar.classList.remove('hidden');
+			document.getElementById('fg-sidebar-backdrop')?.classList.remove('hidden');
+		}
+	}
+
+	if (sidebarSelectedNode) renderSidebar(sidebarSelectedNode);
+	updateSelectionLogChrome();
 }
 
 function getTraceModeNodeIds() {
@@ -1100,10 +1144,9 @@ function addToSelectionLog(d) {
 		group: d.group,
 	};
 
-	// Avoid duplicates by ID or combined label + secondaryId
+	// Only add if this node was explicitly selected (not just visited/expanded)
+	// Avoid duplicates by ID
 	if (selectedNodesLog.some((e) => e.id === entry.id)) return;
-	if (selectedNodesLog.some((e) => e.label === entry.label && e.secondaryId === entry.secondaryId)) return;
-
 	selectedNodesLog.push(entry);
 	saveSelectionLog();
 	updateSelectionLogUI();
@@ -1111,6 +1154,12 @@ function addToSelectionLog(d) {
 
 function updateSelectionLogUI() {
 	const containers = Array.from(document.querySelectorAll<HTMLElement>('#fg-selection-log-list, #fg-sidebar-selection-log-list'));
+
+	// Force a node update on the canvas so labels can reflect isLogged status
+	if (typeof (window as any).updateNodeStyles === 'function') {
+		(window as any).updateNodeStyles();
+	}
+
 	if (!containers.length) return;
 
 	containers.forEach((container) => {
@@ -1128,9 +1177,12 @@ function updateSelectionLogUI() {
 				div.className = `fg-log-entry ${entry.group}`;
 				const text = `${entry.label} :: ${entry.secondaryId}`;
 				div.innerHTML = `
-			<span class="fg-log-text" title="Click to copy">${text}</span>
+			<span class="fg-log-text" title="Click to copy">
+				<strong class="fg-log-label">${entry.label}</strong>
+				<span class="fg-log-subtext">:: ${entry.secondaryId}</span>
+			</span>
 			<button class="fg-log-copy-btn" title="Copy to clipboard">
-				<svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path></svg>
+				<svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path></svg>
 			</button>
 		`;
 				div.querySelector('.fg-log-text')?.addEventListener('click', () => {
@@ -1227,6 +1279,19 @@ function stopNodePulseLoop() {
 		clearTimeout(nodePulseTimer);
 		nodePulseTimer = null;
 	}
+	// Remove any transient pulse rings immediately so clicks clear visual state
+	try {
+		if (nodeSel && typeof nodeSel.selectAll === 'function') {
+			nodeSel.selectAll('circle.fg-restore-ring, circle.fg-restore-ring--static').remove();
+		}
+		const svg = typeof document !== 'undefined' ? document.getElementById('fg-svg') : null;
+		if (svg) {
+			const rings = svg.querySelectorAll('circle.fg-restore-ring, circle.fg-restore-ring--static');
+			rings.forEach((el) => el.remove());
+		}
+	} catch (e) {
+		/* ignore */
+	}
 }
 
 function armNodePulseStopOnInteraction() {
@@ -1312,6 +1377,7 @@ function computeHighlightState() {
 		return { rootIds, nodeIds, hopNodeIds, linkKeys };
 	}
 
+	const nodeById = new Map((layoutNodes || []).map((node) => [node.id, node]));
 	const adjacency = new Map<string, Array<{ nodeId: string; link: any }>>((layoutNodes || []).map((node) => [node.id, []]));
 	(layoutLinks || []).forEach((link) => {
 		const sourceId = link.source?.id ?? link.source;
@@ -1324,6 +1390,9 @@ function computeHighlightState() {
 
 	highlightedSelections.forEach((entry) => {
 		if (!entry?.id) return;
+		const entryNode = nodeById.get(entry.id) || null;
+		const entryInactive = isNodeInactive(entryNode);
+
 		rootIds.add(entry.id);
 		nodeIds.add(entry.id);
 
@@ -1340,6 +1409,10 @@ function computeHighlightState() {
 			neighbors.forEach(({ nodeId, link }) => {
 				const nextDist = currentDist + 1;
 				if (maxHops !== 'all' && nextDist > maxHops) return;
+
+				const neighborNode = nodeById.get(nodeId) || null;
+				if (!entryInactive && isNodeInactive(neighborNode)) return;
+
 				linkKeys.add(getLinkKey(link));
 				nodeIds.add(nodeId);
 				if (!rootIds.has(nodeId)) hopNodeIds.add(nodeId);
@@ -1374,6 +1447,43 @@ function startNodePulseLoop(id, { interval = 1400, immediate = true, startDelayM
 	beginPulseLoop();
 }
 
+// Pulse a rotating set of node ids. Used when multiple new nodes are revealed so
+// they each get a transient blue ring until the user interacts with the view.
+function startMultiNodePulseLoop(ids: Array<string | number>, options: { duration?: number; startDelayMs?: number } = {}) {
+	const { duration = 5000, startDelayMs = 0 } = options;
+	if (!Array.isArray(ids) || !ids.length) return;
+	stopNodePulseLoop();
+	const begin = () => {
+		armNodePulseStopOnInteraction();
+		// Stagger a single blue pulse for each new node so they draw attention.
+		try {
+			ids.forEach((id, i) => {
+				setTimeout(() => {
+					pulseNodeHighlightById(id, { duration, stroke: GRAPH_COLORS.nodePulse });
+				}, i * 100);
+			});
+		} catch (e) {
+			/* ignore */
+		}
+		// Ensure we clear any timers after the duration so stopNodePulseLoop won't linger
+		nodePulseTimer = setTimeout(
+			() => {
+				nodePulseTimer = null;
+				stopNodePulseLoop();
+			},
+			duration + ids.length * 120,
+		);
+	};
+	if (startDelayMs > 0) {
+		nodePulseTimer = setTimeout(() => {
+			nodePulseTimer = null;
+			begin();
+		}, startDelayMs);
+		return;
+	}
+	begin();
+}
+
 function resolveCssColorValue(value, fallback = '#18a0fb') {
 	if (typeof value !== 'string') return fallback;
 	const trimmed = value.trim();
@@ -1398,6 +1508,30 @@ function pulseNodeHighlightById(id, { duration = 1200, stroke = GRAPH_COLORS.nod
 			const nodeGroupSel = d3.select(this);
 			nodeGroupSel.selectAll('circle.fg-restore-ring').remove();
 			const baseRadius = Math.max((nodeDatum?._vizHalf || NODE_R[nodeDatum?.group] || 10) + 8, 14);
+
+			// When trace mode is active, do not animate the pulse growth — simply
+			// show a static green (or provided stroke) ring so labels are stable.
+			if (isTraceMode || isTraceLogMode) {
+				nodeGroupSel
+					.append('circle')
+					.attr('class', 'fg-restore-ring fg-restore-ring--static')
+					.attr('fill', 'none')
+					.attr('stroke', resolvedStroke)
+					.attr('stroke-width', 'var(--stroke-width-node-pulse)')
+					.attr('stroke-opacity', 'var(--stroke-opacity-node-pulse)')
+					.attr('pointer-events', 'none')
+					.attr('r', baseRadius);
+				// remove after duration to mirror transient pulse behavior
+				setTimeout(() => {
+					try {
+						nodeGroupSel.selectAll('circle.fg-restore-ring--static').remove();
+					} catch (e) {
+						/* ignore */
+					}
+				}, duration);
+				return;
+			}
+
 			nodeGroupSel
 				.append('circle')
 				.attr('class', 'fg-restore-ring')
@@ -1639,6 +1773,7 @@ function clearGraphData() {
 	hasUserInitiatedGraphExpansion = false;
 	selectedId = null;
 	highlightedSelections = [];
+	visitedNodeIds.clear();
 	sidebarSelectedNode = null;
 	sidebarViewMode = 'none';
 	stopNodePulseLoop();
@@ -1785,7 +1920,7 @@ function applySavedNodePositions(savedPositions) {
 			.attr('y2', (d) => d.target.y);
 	}
 	if (nodeSel) {
-		nodeSel.attr('transform', (d) => `translate(${d.x},${d.y})`);
+		nodeSel.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 	}
 
 	simulation.alpha(0).restart();
@@ -1960,6 +2095,16 @@ function getGraphViewportMetrics() {
 
 	const { width, height } = getViewportSize();
 	const transform = d3.zoomTransform(svgSel.node());
+	// Detect and log invalid transforms (once) to help track down NaN origins.
+	try {
+		const tKey = `${String(transform?.x)}|${String(transform?.y)}|${String(transform?.k)}`;
+		if (!Number.isFinite(transform?.k) || !Number.isFinite(transform?.x) || !Number.isFinite(transform?.y)) {
+			_logOnce(_loggedBadTransforms, tKey, 'warn', `Detected non-finite zoom transform: x=${transform?.x} y=${transform?.y} k=${transform?.k}`);
+		}
+	} catch {
+		// ignore
+	}
+
 	const k = Number.isFinite(transform?.k) && transform.k > 0 ? transform.k : 1;
 	const x = Number.isFinite(transform?.x) ? transform.x : 0;
 	const y = Number.isFinite(transform?.y) ? transform.y : 0;
@@ -2070,6 +2215,10 @@ function refreshNodeLayout() {
 		node.fy = null;
 
 		if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) {
+			// Log the occurrence once per node so we can track which nodes become non-finite.
+			const origX = node.x;
+			const origY = node.y;
+			_logOnce(_loggedBadNodeCoords, node.id || index, 'warn', `Node has non-finite coords; id=${node.id} origX=${origX} origY=${origY}. Assigning jittered position.`);
 			node.x = centerX + (Math.random() - 0.5) * 140;
 			node.y = centerY + (Math.random() - 0.5) * 140;
 		} else {
@@ -2166,8 +2315,30 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 
 	if (!routeNodeRequestListenerBound && typeof window !== 'undefined') {
 		window.addEventListener(ROUTE_NODE_REQUEST_EVENT, ((event: Event) => {
-			const detail = (event as CustomEvent<{ nodeId?: string | null }>).detail || {};
+			const detail = (event as CustomEvent<{ nodeId?: string | null; searchQuery?: string; pulseDuration?: number | string | null }>).detail || {};
+			// If caller requested a text search (e.g., firm name), run the search
+			// and attempt to resolve a firm node by label before routing.
+			if (detail.searchQuery && String(detail.searchQuery || '').trim()) {
+				const q = String(detail.searchQuery || '').trim();
+				void (async () => {
+					try {
+						await fetchAndInjectQuery(q);
+						const candidate = findFirmNodeByLabel(q);
+						if (candidate && candidate.id) {
+							pendingRouteNodeId = candidate.id;
+							// preserve any requested pulse duration when resolving via search
+							pendingRoutePulseDuration = Number(detail.pulseDuration) || null;
+							void applyPendingRouteNodeSelection();
+						}
+					} catch (e) {
+						console.warn('Search-based route resolution failed:', e);
+					}
+				})();
+				return;
+			}
 			pendingRouteNodeId = String(detail.nodeId || '').trim() || null;
+			// capture optional pulse duration (ms) requested by the event sender
+			pendingRoutePulseDuration = typeof detail.pulseDuration !== 'undefined' ? Number(detail.pulseDuration) || null : pendingRoutePulseDuration;
 			if (pendingRouteNodeId) {
 				void applyPendingRouteNodeSelection();
 			}
@@ -2995,7 +3166,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 
 		// Apply initial transform so new nodes appear at their placed position
 		// immediately (the renderGraph tick handler only covers old nodes).
-		enteredNodes.attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
+		enteredNodes.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 
 		enteredNodes.transition().duration(400).attr('opacity', 1);
 		nodeSel = nodeGroup.selectAll('g.fg-node');
@@ -3605,6 +3776,8 @@ function updateGraphMeta() {
 function mergeIntoGraphData(newNodes, newLinks) {
 	if (!graphData) return;
 	normalizeNodeLabelsInPlace(newNodes);
+	// Track which nodes are newly added so renderGraph can pulse them.
+	const addedIds = [];
 	const gIds = new Set(graphData.nodes.map((n) => n.id));
 	const gLinkKeys = new Set(
 		graphData.links.map((l) => {
@@ -3618,6 +3791,7 @@ function mergeIntoGraphData(newNodes, newLinks) {
 		.forEach((n) => {
 			graphData.nodes.push(n);
 			gIds.add(n.id);
+			addedIds.push(n.id);
 		});
 	newNodes
 		.filter((n) => gIds.has(n.id))
@@ -3650,6 +3824,76 @@ function mergeIntoGraphData(newNodes, newLinks) {
 	}
 
 	updateGraphMeta();
+	if (addedIds.length) {
+		// Expose recent additions for the next render so they can be highlighted.
+		graphData._recentlyAddedNodeIds = addedIds;
+	}
+
+	// After merging, validate external presence (FINRA/SEC) for affected nodes.
+	// Fire-and-forget: update nodes in-place when validation returns.
+	(function validateMergedNodes() {
+		if (!graphData) return;
+		const candidates = newNodes
+			.map((n) => n.id)
+			.filter(Boolean)
+			.map((id) => graphData.nodes.find((x) => x.id === id))
+			.filter(Boolean);
+
+		const toCheck = candidates.filter((node) => {
+			if (!node) return false;
+			if (node._externalValidated) return false;
+			if (node.group === 'individual') {
+				const crd = String(node.crd || node.basicInformation?.individualId || '').trim();
+				return Boolean(crd);
+			}
+			if (node.group === 'firm') {
+				const fid = String(node.firmId || '').trim();
+				return Boolean(fid);
+			}
+			return false;
+		});
+
+		if (!toCheck.length) return;
+
+		for (const node of toCheck) {
+			// kick off async validation without blocking merge
+			void (async (n) => {
+				try {
+					if (n.group === 'individual') {
+						const crd = String(n.crd || n.basicInformation?.individualId || '').trim();
+						if (!crd) return;
+						const res = await fetch(`${BASE}/api/finra/merged/individual/${encodeURIComponent(crd)}`);
+						if (!res.ok) return;
+						const payload = await res.json();
+						const merged = payload?.merged || null;
+						if (merged) {
+							if (merged.hasFinraData != null) n.hasFinraData = merged.hasFinraData;
+							if (merged.hasSecData != null) n.hasSecData = merged.hasSecData;
+						}
+					} else if (n.group === 'firm') {
+						const fid = String(n.firmId || '').trim();
+						if (!fid) return;
+						const res = await fetch(`${BASE}/api/finra/merged/firm/${encodeURIComponent(fid)}`);
+						if (!res.ok) return;
+						const payload = await res.json();
+						const merged = payload?.merged || null;
+						if (merged) {
+							if (merged.hasFinraData != null) n.hasFinraData = merged.hasFinraData;
+							if (merged.hasSecData != null) n.hasSecData = merged.hasSecData;
+						}
+					}
+					n._externalValidated = Date.now();
+					try {
+						saveSession();
+					} catch {
+						/* ignore */
+					}
+				} catch (err) {
+					/* ignore validation failures */
+				}
+			})(node);
+		}
+	})();
 }
 
 // Fire-and-forget persist of newly fetched nodes/links to the server graph file.
@@ -4393,6 +4637,8 @@ function applyGraphDerivedNodeMetrics(nodes, links) {
 	linkList.forEach((link) => {
 		const sourceId = link.source?.id ?? link.source;
 		const targetId = link.target?.id ?? link.target;
+		const isCurrentLink = !isPreviousEmploymentLink(link);
+		if (!isCurrentLink) return;
 		[sourceId, targetId].forEach((id) => {
 			const entry = degMap.get(id);
 			if (!entry) return;
@@ -4607,22 +4853,53 @@ function isNotInScopeValue(value) {
 	);
 }
 
-function hasIndividualFinraPresence(node) {
+function hasIndividualFinraPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
+	// Per-node suppression: if the node explicitly suppresses FINRA links, respect that.
+	if (
+		Array.isArray(node?.suppressedExternalLinks) &&
+		node.suppressedExternalLinks.some(
+			(s: any) =>
+				String(s || '')
+					.trim()
+					.toLowerCase() === 'finra',
+		)
+	)
+		return false;
+	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
 	if (node.hasFinraData === true) return true;
 	if (hasPublicFinraIndividualPage(node, node.basicInformation || {})) return true;
 	if (hasAnyItems(node?.currentEmployments)) return true;
 	if (hasAnyItems(node?.previousEmployments)) return true;
 	if (hasApprovedSro(node?.registeredSROs)) return true;
 	if (hasActiveRegisteredStates(node?.registeredStates, ['bc', 'b', 'broker'])) return true;
-	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
 	const bcScopeFlags = collectNodeActivityFlags([node?.bcScope, node?.basicInformation?.bcScope]);
 	if (bcScopeFlags.hasActive || bcScopeFlags.hasInactive) return true;
 	return false;
 }
 
-function hasIndividualSecPresence(node) {
+function hasIndividualSecPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
+
+	// Per-node suppression: if the node explicitly suppresses SEC links, respect that.
+	if (
+		Array.isArray(node?.suppressedExternalLinks) &&
+		node.suppressedExternalLinks.some(
+			(s: any) =>
+				String(s || '')
+					.trim()
+					.toLowerCase() === 'sec',
+		)
+	)
+		return false;
+
+	// Per-id suppression: if the node's id/crd is known to be invalid for SEC links, suppress.
+	const rawId = String(node?.crd || node?.basicInformation?.individualId || node?.individualId || node?.id || '')
+		.replace(/^person[:_]/, '')
+		.replace(/^node[:_]/, '')
+		.trim();
+	if (rawId && SUPPRESSED_SEC_INDIV_IDS.has(rawId)) return false;
+	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
 	if (node.hasSecData === true) return true;
 	if (hasPublicSecIndividualPage(node, node.basicInformation || {})) return true;
 	if (hasSecActivityEvidence(node)) return true;
@@ -4630,31 +4907,49 @@ function hasIndividualSecPresence(node) {
 	if (hasAnyItems(node?.previousIAEmployments)) return true;
 	if (hasAnyItems(node?.iaDisclosures)) return true;
 	if (hasActiveRegisteredStates(node?.registeredStates, ['ia'])) return true;
-	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
 	const iaScopeFlags = collectNodeActivityFlags([node?.iaScope, node?.basicInformation?.iaScope]);
 	if (iaScopeFlags.hasActive || iaScopeFlags.hasInactive) return true;
 	return false;
 }
 
-function hasFirmFinraPresence(node) {
+function hasFirmFinraPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
+
+	// Per-node suppression: if the node explicitly suppresses FINRA links, respect that.
+	if (
+		Array.isArray(node?.suppressedExternalLinks) &&
+		node.suppressedExternalLinks.some(
+			(s: any) =>
+				String(s || '')
+					.trim()
+					.toLowerCase() === 'finra',
+		)
+	)
+		return false;
+
+	// if this firm is explicitly blacklisted, treat as no FINRA presence
+	const rawFirmId = String(node?.firmId || node?.id || '')
+		.replace(/^firm[:_]/, '')
+		.replace(/^node[:_]/, '')
+		.trim();
+	if (rawFirmId && BROKEN_FINRA_FIRM_IDS.has(rawFirmId)) return false;
+	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
 	if (node.hasFinraData === true) return true;
 	if (node.isLegacy === 'Y') return true;
 	if (hasAnyItems(node?.selfRegulatoryOrgs)) return true;
 	if (Boolean(String(node?.districtName || '').trim())) return true;
-	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
 	const bcScopeFlags = collectNodeActivityFlags([node?.bcScope, node?.basicInformation?.bcScope]);
 	if (bcScopeFlags.hasActive || bcScopeFlags.hasInactive) return true;
 	return false;
 }
 
-function hasFirmSecPresence(node) {
+function hasFirmSecPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
+	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
 	if (node.hasSecData === true) return true;
 	if (Boolean(String(node?.iaSecNumber || node?.basicInformation?.iaSECNumber || node?.basicInformation?.iaSecNumber || '').trim())) return true;
 	if (hasAnyItems(node?.secDocumentLinks)) return true;
 	if (Boolean(String(node?.secSummaryDescription || '').trim())) return true;
-	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
 	const secStatusFlags = collectNodeActivityFlags([node?.firmStatus, node?.basicInformation?.firmStatus, node?.iaScope, node?.basicInformation?.iaScope]);
 	if (secStatusFlags.hasActive || secStatusFlags.hasInactive) return true;
 	return false;
@@ -4905,32 +5200,32 @@ function renderNodeContents(selection) {
 
 		drawDisclosureIndicator(g, d, r);
 
-		['halo', 'fill'].forEach((pass) => {
-			const labelClass = [`fg-label-${pass}`];
-			if (inactive) {
-				labelClass.push('fg-label--inactive', `fg-label-${pass}--inactive`);
-			}
-			if (pass === 'halo' && nodeLabelRenderMode === 'compact' && !inactive && !isNodeOnAnyTrace(d.id) && d.id !== selectedId) {
-				return;
-			}
-			const labelText = inactive && inactiveLabelCompactMode ? getCompactInactiveNodeLabel(d) : getRenderedNodeLabel(d);
-			const labelDy = (d._vizHalf != null ? d._vizHalf : r) + 8;
-			g.append('text')
-				.attr('class', labelClass.join(' '))
-				.attr('dy', labelDy)
-				.attr('text-anchor', 'middle')
-				.attr('font-size', '10px')
-				.attr('font-family', 'var(--sans)')
-				.attr('font-weight', '500')
-				.attr('fill', pass === 'halo' ? 'none' : nodeLabelColor)
-				.attr('stroke', pass === 'halo' ? nodeLabelHalo : 'none')
-				.attr('stroke-width', pass === 'halo' ? 4 : 0)
-				.attr('stroke-linejoin', 'round')
-				.attr('paint-order', 'stroke')
-				.attr('pointer-events', 'all')
-				.style('cursor', 'pointer')
-				.text(labelText);
-		});
+		const labelText = inactive && inactiveLabelCompactMode ? getCompactInactiveNodeLabel(d) : getRenderedNodeLabel(d);
+		const labelDy = (d._vizHalf != null ? d._vizHalf : r) + 8;
+
+		// Check if this node is in the selection log (by id)
+		const isLogged = selectedNodesLog.some((e) => e.id === d.id);
+		const labelFontSize = isLogged ? '24px' : '12px';
+		const label = g
+			.append('text')
+			.attr('class', `fg-label${inactive ? ' fg-label--inactive' : ''}${isLogged ? ' fg-label--logged' : ''}`)
+			.attr('dy', labelDy)
+			.attr('text-anchor', 'middle')
+			.attr('font-size', labelFontSize)
+			.attr('font-family', 'var(--sans)')
+			.attr('font-weight', isLogged ? '700' : '500')
+			.attr('fill', nodeLabelColor)
+			.attr('stroke', nodeLabelHalo)
+			.attr('stroke-width', 4)
+			.attr('stroke-linejoin', 'round')
+			.attr('paint-order', 'stroke')
+			.attr('pointer-events', 'all')
+			.style('cursor', 'pointer')
+			.text(labelText);
+
+		if (nodeLabelRenderMode === 'compact' && !inactive && !isNodeOnAnyTrace(d.id) && d.id !== selectedId) {
+			label.attr('display', 'none');
+		}
 
 		g.append('title').text(() => {
 			const parts = [getPreferredNodeLabel(d), d.group?.toUpperCase?.() || ''];
@@ -5000,7 +5295,14 @@ function isLinkOnAnyTrace(linkKey: string) {
 function getNodeRenderPriority(node, highlightState) {
 	if (!node) return 1;
 	const degreeBias = Math.max(0, Math.min(1000, getNodeDegreeValue(node)));
+	// Nodes on an explicit trace get top priority
 	if (isNodeOnAnyTrace(node.id)) return 4000 + degreeBias;
+
+	// Nodes that have been explicitly selected (current selection or visited selections)
+	// should render above ordinary nodes so their labels and connecting lines are visible.
+	if (node.id === selectedId || visitedNodeIds.has(node.id)) return 3000 + degreeBias;
+
+	// Highlight roots/hop nodes (from trace/highlight state) also get high priority
 	if (highlightState?.rootIds?.has(node.id) || highlightState?.hopNodeIds?.has(node.id)) return 3000 + degreeBias;
 	if (isNodeInactive(node)) return 1000 + degreeBias;
 	return 2000 + degreeBias;
@@ -5009,9 +5311,28 @@ function getNodeRenderPriority(node, highlightState) {
 function getLinkRenderPriority(link, highlightState) {
 	if (!link) return 1;
 	const linkKey = getLinkKey(link);
-	if (isLinkOnAnyTrace(linkKey)) return 3;
-	if (highlightState?.linkKeys?.has(linkKey)) return 2;
+	// If either endpoint is inactive, demote the link to the lowest layer
 	if (hasInactiveEndpoint(link)) return 0;
+
+	// If the link connects to any node that is on an explicit trace, keep it very high
+	if (isLinkOnAnyTrace(linkKey)) return 3;
+
+	// If the link is part of the current highlight set, place above normal links
+	if (highlightState?.linkKeys?.has(linkKey)) return 2;
+
+	// Promote links that touch very-high-priority nodes (largest/selected/highlighted)
+	try {
+		const src = typeof link.source === 'object' ? link.source : layoutNodes?.find((n) => n.id === link.source);
+		const tgt = typeof link.target === 'object' ? link.target : layoutNodes?.find((n) => n.id === link.target);
+		const srcPriority = getNodeRenderPriority(src, highlightState);
+		const tgtPriority = getNodeRenderPriority(tgt, highlightState);
+		const maxNodePriority = Math.max(srcPriority || 0, tgtPriority || 0);
+		// Any link connected to nodes with priority >= 3000 (highlight/root) should be on top of ordinary links
+		if (maxNodePriority >= 3000) return 4;
+	} catch (e) {
+		// ignore and fall back to default
+	}
+
 	return 1;
 }
 
@@ -5032,13 +5353,137 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 	if (nodeSel && typeof nodeSel.sort === 'function') {
 		nodeSel.sort((a, b) => comparePriorityWithTieBreak(getNodeRenderPriority(a, highlightState), getNodeRenderPriority(b, highlightState), a?.id, b?.id));
 	}
+
+	// Move individual link/arrow DOM nodes between link sub-groups so some links
+	// can render above or below the main node group (provides 2.5D depth).
+	try {
+		if (linkGroup && linkBottomGroup && linkMidGroup && linkTopGroup && linkSel) {
+			const bottomNode = linkBottomGroup.node();
+			const midNode = linkMidGroup.node();
+			const topNode = linkTopGroup.node();
+			linkSel.each(function (d) {
+				const pr = getLinkRenderPriority(d, highlightState);
+				const el = this as any;
+				if (pr <= 0) {
+					if (el.parentNode !== bottomNode) bottomNode.appendChild(el);
+				} else if (pr >= 3) {
+					if (el.parentNode !== topNode) topNode.appendChild(el);
+				} else {
+					if (el.parentNode !== midNode) midNode.appendChild(el);
+				}
+			});
+		}
+		if (arrowGroup && arrowBottomGroup && arrowMidGroup && arrowTopGroup && arrowSel) {
+			const bottomNode = arrowBottomGroup.node();
+			const midNode = arrowMidGroup.node();
+			const topNode = arrowTopGroup.node();
+			arrowSel.each(function (d) {
+				const pr = getLinkRenderPriority(d, highlightState);
+				const el = this as any;
+				if (pr <= 0) {
+					if (el.parentNode !== bottomNode) bottomNode.appendChild(el);
+				} else if (pr >= 3) {
+					if (el.parentNode !== topNode) topNode.appendChild(el);
+				} else {
+					if (el.parentNode !== midNode) midNode.appendChild(el);
+				}
+			});
+		}
+	} catch (e) {
+		// Non-fatal — DOM move failures should not break rendering
+	}
+
+	// If highlight mode is active, ensure linkTopGroup is placed below nodeGroup
+	// so highlighted connecting lines do not visually occlude node labels. When
+	// no highlight is active, keep top links appended after nodes so they can
+	// render above nodes as originally intended.
+	try {
+		if (nodeGroup && nodeGroup.node()) {
+			const nodesEl = nodeGroup.node();
+			const parent = nodesEl.parentNode;
+			if (parent) {
+				// handle both linkTopGroup and arrowTopGroup positioning so neither
+				// the highlighted link strokes nor arrowheads occlude node labels
+				const topGroups = [];
+				if (linkTopGroup && linkTopGroup.node()) topGroups.push(linkTopGroup.node());
+				if (arrowTopGroup && arrowTopGroup.node()) topGroups.push(arrowTopGroup.node());
+				// Treat highlight as active when any root/link/hop nodes are present.
+				const highlightActive = Boolean(
+					highlightState &&
+					((highlightState.rootIds && highlightState.rootIds.size) ||
+						(highlightState.linkKeys && highlightState.linkKeys.size) ||
+						(highlightState.hopNodeIds && highlightState.hopNodeIds.size)),
+				);
+				if (highlightActive) {
+					// move top groups to render before nodes (under labels)
+					for (const tg of topGroups) {
+						if (tg.parentNode === parent && tg === nodesEl.previousSibling) continue;
+						parent.insertBefore(tg, nodesEl);
+					}
+				} else {
+					// ensure top groups render after nodes
+					let insertBeforeNode = nodesEl.nextSibling;
+					for (const tg of topGroups) {
+						if (tg.parentNode === parent && tg === insertBeforeNode) {
+							insertBeforeNode = tg.nextSibling;
+							continue;
+						}
+						parent.insertBefore(tg, insertBeforeNode);
+						insertBeforeNode = tg.nextSibling;
+					}
+				}
+			}
+		}
+	} catch (e) {
+		// Ignore DOM manipulation errors — non-fatal
+	}
+
+	// Expose a debug-friendly render order map for E2E tests and dev inspection.
+	try {
+		const nodeRender = [];
+		if (nodeSel) {
+			nodeSel.each(function (d) {
+				try {
+					const pr = getNodeRenderPriority(d, highlightState);
+					const layer =
+						pr >= 3000 ? 'top'
+						: pr <= 1000 ? 'bottom'
+						: 'mid';
+					nodeRender.push({ id: d.id, priority: pr, layer });
+				} catch (e) {
+					/* ignore per-node errors */
+				}
+			});
+		}
+
+		const linkRender = [];
+		if (linkSel) {
+			linkSel.each(function (d) {
+				try {
+					const pr = getLinkRenderPriority(d, highlightState);
+					const layer =
+						pr >= 3 ? 'top'
+						: pr <= 0 ? 'bottom'
+						: 'mid';
+					const key = `${d.source?.id || d.source}-${d.target?.id || d.target}-${d.relationship}`;
+					linkRender.push({ key, priority: pr, layer });
+				} catch (e) {
+					/* ignore */
+				}
+			});
+		}
+
+		(window as any).__FG_RENDER_ORDER = { nodes: nodeRender, links: linkRender, timestamp: Date.now() };
+	} catch (e) {
+		/* ignore debug exposure errors */
+	}
 }
 
 function reapplySelectionState() {
 	if (!nodeSel) return;
 	const highlightState = computeHighlightState();
 	nodeSel
-		.classed('selected', (node) => node.id === selectedId || highlightState.rootIds.has(node.id))
+		.classed('selected', (node) => node.id === selectedId || visitedNodeIds.has(node.id) || highlightState.rootIds.has(node.id))
 		.classed('highlighted-hop', (node) => node.id !== selectedId && !highlightState.rootIds.has(node.id) && highlightState.hopNodeIds.has(node.id));
 
 	// Trace Mode node highlights — endpoints get trace-* class, connectors get trace-*-connector class
@@ -5068,6 +5513,7 @@ function markNodeSelected(node, options: { persist?: boolean } = {}) {
 	const { persist = true } = options;
 	upsertHighlightedSelection(node.id, getDefaultSelectionHops());
 	selectedId = node.id;
+	visitedNodeIds.add(node.id);
 	refreshTraceState();
 	if (!persist) return;
 	try {
@@ -5077,11 +5523,76 @@ function markNodeSelected(node, options: { persist?: boolean } = {}) {
 	}
 }
 
+function getNodeVisualLabelText(node) {
+	return isNodeInactive(node) && inactiveLabelCompactMode ? getCompactInactiveNodeLabel(node) : getRenderedNodeLabel(node);
+}
+
+function updateNodeVisuals(selection) {
+	if (!selection) return;
+	selection.each(function (d) {
+		const g = d3.select(this);
+		const inactive = isNodeInactive(d);
+		let color = inactive ? GRAPH_COLORS.nodeInactive : NODE_COLOR[d.group] || GRAPH_COLORS.nodeDefault;
+		let nodeOpacity: number | string = inactive ? 0.82 : 1;
+		let nodeStroke = inactive ? GRAPH_COLORS.nodeInactiveStroke : GRAPH_COLORS.nodeBorder;
+		let nodeLabelColor = inactive ? GRAPH_COLORS.nodeInactiveLabel : GRAPH_COLORS.nodeLabel;
+		let nodeLabelHalo = inactive ? 'rgba(248,250,252,0.95)' : GRAPH_COLORS.nodeLabelHalo;
+
+		if (d.group === 'individual' && d.stub) {
+			color = inactive ? GRAPH_COLORS.nodeInactive : GRAPH_COLORS.nodeStub;
+			nodeOpacity = inactive ? 0.72 : NODE_OPACITY_STUB;
+		}
+
+		if (d.group === 'firm') {
+			const r = NODE_R[d.group] || 10;
+			const s = (d._vizHalf ?? r * 0.85) * 2;
+			const deg = d._deg || { total: 0, controls: 0, employed: 0 };
+			const hasConnections = deg.total > 0;
+			const dominantStroke =
+				inactive ? GRAPH_COLORS.nodeInactiveStroke
+				: deg.controls > deg.employed ? GRAPH_COLORS.nodeFirmControlsStroke
+				: deg.employed > deg.controls ? GRAPH_COLORS.nodeFirmEmployedStroke
+				: GRAPH_COLORS.nodeBorder;
+
+			const firmShape = g.select('.fg-node-shape--firm');
+			if (!firmShape.empty()) {
+				firmShape
+					.attr('fill', color)
+					.attr('stroke', dominantStroke)
+					.attr('opacity', nodeOpacity === 1 ? 0.9 : nodeOpacity)
+					.classed('fg-node-shape--firm-connected', hasConnections)
+					.classed('fg-node-shape--firm-employed', deg.employed > deg.controls)
+					.classed('fg-node-shape--firm-controls', deg.controls > deg.employed);
+			}
+		} else if (d.group === 'entity') {
+			const shape = g.select('.fg-node-shape--entity');
+			if (!shape.empty()) {
+				shape.attr('fill', color).attr('stroke', nodeStroke).attr('opacity', nodeOpacity);
+			}
+		} else {
+			const shape = g.select('.fg-node-shape--circle');
+			if (!shape.empty()) {
+				shape.attr('fill', color).attr('stroke', nodeStroke).attr('opacity', nodeOpacity);
+			}
+		}
+
+		const labelText = getNodeVisualLabelText(d);
+		const label = g.select('text.fg-label');
+		if (!label.empty()) {
+			label
+				.text(labelText)
+				.attr('fill', nodeLabelColor)
+				.attr('stroke', nodeLabelHalo)
+				.attr('opacity', inactive ? 0.86 : 1);
+		}
+	});
+}
+
 // Refreshes colors for all nodes dynamically to ensure nodes and links correctly reflect state
 function refreshGraphColors() {
 	if (!nodeSel || !layoutLinks || !linkSel) return;
 
-	renderNodeContents(nodeSel);
+	updateNodeVisuals(nodeSel);
 
 	linkSel
 		.attr('stroke', (d) => getLinkColor(d))
@@ -5239,6 +5750,10 @@ function renderGraph(_data) {
 
 	const root = svg.append('g').attr('class', 'fg-root');
 	rootGroup = root;
+
+	// Use root as the logical parent for link selections (individual layered groups exist separately)
+	linkGroup = root;
+	arrowGroup = root;
 	syncTraceLabelPresentation(initialScale);
 
 	// ── Arrow markers ─────────────────────────────────────────────────────────
@@ -5314,35 +5829,58 @@ function renderGraph(_data) {
 	// Build neighbor adjacency cache after D3 has resolved link source/target objects
 	neighborMap = buildNeighborMap(nodes, links);
 
-	// ── Links ─────────────────────────────────────────────────────────────────
-	const link = root
-		.append('g')
-		.attr('class', 'fg-links')
-		.selectAll('line')
-		.data(links)
-		.join('line')
-		.attr('class', 'fg-link')
-		.attr('stroke', (d) => getLinkColor(d))
-		.attr('stroke-opacity', defaultLinkOpacity)
-		.attr('stroke-width', (d) => getLinkWidth(d))
-		.attr('stroke-dasharray', (d) => getLinkDash(d))
-		.attr('marker-end', (d) => getLinkMarker(d));
-	linkSel = link;
-	linkGroup = root.select('.fg-links');
+	// ── Links (split into three stacked layers so some links can render above nodes) ──
+	// create bottom/mid link layers now; the top layer is created after nodes
+	linkBottomGroup = root.append('g').attr('class', 'fg-links-bottom');
+	linkMidGroup = root.append('g').attr('class', 'fg-links-mid');
+	// linkTopGroup will be appended after node group so top links can render above nodes
 
-	// ── Arrowheads ───────────────────────────────────────────────────────────
-	// Keep arrows beneath node labels so names remain readable.
-	const arrow = root
-		.append('g')
-		.attr('class', 'fg-arrowheads')
-		.selectAll('line')
-		.data(links)
-		.join('line')
-		.attr('stroke', 'none')
-		.attr('fill', 'none')
-		.attr('marker-end', (d) => getLinkMarker(d));
-	arrowSel = arrow;
-	arrowGroup = root.select('.fg-arrowheads');
+	// partition links by initial render priority
+	const initialHighlight = computeHighlightState();
+	const bottomLinks = links.filter((l) => getLinkRenderPriority(l, initialHighlight) <= 0);
+	const topLinks = links.filter((l) => getLinkRenderPriority(l, initialHighlight) >= 3);
+	const midLinks = links.filter((l) => {
+		const p = getLinkRenderPriority(l, initialHighlight);
+		return p > 0 && p < 3;
+	});
+
+	function joinLinkSelection(groupSel, data) {
+		return groupSel
+			.selectAll('line')
+			.data(data, (d) => `${d.source?.id || d.source}-${d.target?.id || d.target}-${d.relationship}`)
+			.join('line')
+			.attr('class', 'fg-link')
+			.attr('stroke', (d) => getLinkColor(d))
+			.attr('stroke-opacity', defaultLinkOpacity)
+			.attr('stroke-width', (d) => getLinkWidth(d))
+			.attr('stroke-dasharray', (d) => getLinkDash(d))
+			.attr('marker-end', (d) => getLinkMarker(d));
+	}
+
+	joinLinkSelection(linkBottomGroup, bottomLinks);
+	joinLinkSelection(linkMidGroup, midLinks);
+	// topLinks will be joined after node group is created
+	linkSel = root.selectAll('.fg-links-bottom line, .fg-links-mid line, .fg-links-top line');
+
+	// ── Arrowheads (also split to mirror link stacking)
+	// create bottom/mid arrow layers now; top arrow layer will be created after nodes
+	arrowBottomGroup = root.append('g').attr('class', 'fg-arrowheads-bottom');
+	arrowMidGroup = root.append('g').attr('class', 'fg-arrowheads-mid');
+
+	function joinArrowSelection(groupSel, data) {
+		return groupSel
+			.selectAll('line')
+			.data(data, (d) => `${d.source?.id || d.source}-${d.target?.id || d.target}-${d.relationship}`)
+			.join('line')
+			.attr('stroke', 'none')
+			.attr('fill', 'none')
+			.attr('marker-end', (d) => getLinkMarker(d));
+	}
+
+	joinArrowSelection(arrowBottomGroup, bottomLinks);
+	joinArrowSelection(arrowMidGroup, midLinks);
+	// arrowTopGroup will be created and joined after node group creation
+	arrowSel = root.selectAll('.fg-arrowheads-bottom line, .fg-arrowheads-mid line, .fg-arrowheads-top line');
 
 	// ── Nodes ─────────────────────────────────────────────────────────────────
 	const node = root
@@ -5359,6 +5897,31 @@ function renderGraph(_data) {
 
 	renderNodeContents(node);
 
+	// If the data payload included recently added node ids (set by mergeIntoGraphData),
+	// pulse them to draw attention. Pulses will stop on the first user interaction.
+	try {
+		if (Array.isArray(data._recentlyAddedNodeIds) && data._recentlyAddedNodeIds.length) {
+			startMultiNodePulseLoop(data._recentlyAddedNodeIds, { duration: 5000 });
+			// Clear so subsequent renders don't re-trigger pulses.
+			delete data._recentlyAddedNodeIds;
+		}
+	} catch (e) {
+		/* ignore */
+	}
+
+	// Create top link/arrow groups after nodes so their contents render above node labels
+	try {
+		linkTopGroup = root.append('g').attr('class', 'fg-links-top');
+		joinLinkSelection(linkTopGroup, topLinks);
+		arrowTopGroup = root.append('g').attr('class', 'fg-arrowheads-top');
+		joinArrowSelection(arrowTopGroup, topLinks);
+		// refresh combined selections to include top groups
+		linkSel = root.selectAll('.fg-links-bottom line, .fg-links-mid line, .fg-links-top line');
+		arrowSel = root.selectAll('.fg-arrowheads-bottom line, .fg-arrowheads-mid line, .fg-arrowheads-top line');
+	} catch (e) {
+		/* ignore */
+	}
+
 	// ── Tick ──────────────────────────────────────────────────────────────────
 	let _tickN = 0;
 	simulation.on('tick', () => {
@@ -5366,7 +5929,7 @@ function renderGraph(_data) {
 		// During high-energy early layout, skip every other DOM write to cut paint time.
 		// Physics still advances every tick; only the SVG update is throttled.
 		if (simulation.alpha() > 0.15 && _tickN % 2 !== 0) return;
-		scheduleGraphTickPositions(link, node, arrow);
+		scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
 	});
 
 	// Stop simulation after 5 seconds to prevent endless movement
@@ -5533,6 +6096,20 @@ function injectNodesById(ids) {
 		.attr('stroke-dasharray', (d) => getLinkDash(d))
 		.attr('marker-end', (d) => getLinkMarker(d));
 	enteredLinks.transition().duration(400).attr('stroke-opacity', defaultLinkOpacity);
+
+	// ensure new links are moved into correct sub-groups for proper layering
+	try {
+		orderGraphVisualLayers();
+	} catch (e) {
+		/* ignore */
+	}
+
+	// Ensure newly-entered links are placed in the correct layered subgroup
+	try {
+		orderGraphVisualLayers();
+	} catch (e) {
+		/* ignore */
+	}
 	linkSel = linkGroup.selectAll('line');
 
 	if (arrowGroup) {
@@ -5560,12 +6137,24 @@ function injectNodesById(ids) {
 		/* ignore */
 	}
 
-	enteredNodes.attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
+	enteredNodes.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 
 	enteredNodes.transition().duration(400).attr('opacity', 1);
 	nodeSel = nodeGroup.selectAll('g.fg-node');
 	linkSel = linkGroup.selectAll('line');
 	rerenderGraphNodesByIds(getImpactedNodeIds(toAdd, newLinks));
+
+	// Pulse newly injected nodes so they're visually highlighted until interaction.
+	try {
+		if (toAdd.length) {
+			startMultiNodePulseLoop(
+				toAdd.map((n) => n.id),
+				{ duration: 5000 },
+			);
+		}
+	} catch (e) {
+		/* ignore */
+	}
 
 	refreshGraphColors();
 	refreshTraceState();
@@ -6741,6 +7330,7 @@ function selectNode(
 	const hops = getDefaultSelectionHops();
 	upsertHighlightedSelection(d.id, hops);
 	selectedId = d.id;
+	visitedNodeIds.add(d.id);
 	if (syncRoute) {
 		emitSelectedNodeRoute(d.id);
 	}
@@ -6768,6 +7358,13 @@ function selectNode(
 	} else if (pulse) {
 		pulseNodeHighlightById(d.id);
 	}
+	// Always show blue location ring after selection. Use any requested pulse duration
+	// provided by route requests (e.g. sidebar links), otherwise default to 4000ms.
+	const defaultPulseMs = 4000;
+	const finalPulseMs = typeof pendingRoutePulseDuration === 'number' && Number.isFinite(pendingRoutePulseDuration) ? pendingRoutePulseDuration : defaultPulseMs;
+	// Clear consumed pending pulse value so it doesn't affect subsequent selections
+	pendingRoutePulseDuration = null;
+	pulseNodeHighlightById(d.id, { duration: finalPulseMs });
 
 	// For individual nodes, fetch detail data from API and re-render if it's still selected
 	if (d.group === 'individual') {
@@ -7154,13 +7751,18 @@ function revealNeighbors(
 		})
 		.map((l) => ({ ...l }));
 
-	const liveClickedNode = markSelected && clickedNode?.id ? layoutNodes.find((node) => node.id === clickedNode.id) || clickedNode : null;
-	if (markSelected && liveClickedNode) {
-		markNodeSelected(liveClickedNode, { persist: false });
+	if (markSelected && clickedNode?.id) {
+		// Always add to visitedNodeIds and mark as selected, even if not found in layoutNodes
+		visitedNodeIds.add(clickedNode.id);
+		markNodeSelected(layoutNodes.find((node) => node.id === clickedNode.id) || clickedNode, { persist: false });
+		reapplySelectionState();
+		refreshGraphColors();
 	}
 
 	if (newNodes.length === 0 && newLinks.length === 0) {
-		if (markSelected && liveClickedNode) {
+		if (markSelected && clickedNode) {
+			reapplySelectionState();
+			refreshGraphColors();
 			try {
 				saveSession();
 			} catch (e) {
@@ -7225,6 +7827,13 @@ function revealNeighbors(
 	enteredLinks.transition().duration(800).attr('stroke-opacity', defaultLinkOpacity);
 	linkSel = linkGroup.selectAll('line');
 
+	// Ensure newly-entered links are placed into the correct layered subgroup
+	try {
+		orderGraphVisualLayers();
+	} catch (e) {
+		/* ignore */
+	}
+
 	const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
 	const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen);
 
@@ -7241,7 +7850,7 @@ function revealNeighbors(
 			.attr('y1', (d) => d.source.y)
 			.attr('x2', (d) => d.target.x)
 			.attr('y2', (d) => d.target.y);
-		nodeSel.attr('transform', (d) => `translate(${d.x},${d.y})`);
+		nodeSel.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 	});
 
 	simulation.nodes(layoutNodes);
@@ -7512,7 +8121,7 @@ function spreadNeighbors(
 		});
 
 		// Re-render affected nodes
-		nodeSel.filter((d) => neighborIdSet.has(d.id)).attr('transform', (d) => `translate(${d.x},${d.y})`);
+		nodeSel.filter((d) => neighborIdSet.has(d.id)).attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 
 		// Re-render all links touching the clicked node or any neighbor
 		linkSel
@@ -7663,7 +8272,11 @@ function scheduleFirstFetchFocusIfAvailable(
 }
 
 function isMobileSidebarViewport() {
-	return true;
+	if (typeof window !== 'undefined' && typeof window.innerWidth === 'number') {
+		return window.innerWidth <= 900;
+	}
+	// Fallback: treat as desktop if window is not available
+	return false;
 }
 
 const MOBILE_SIDEBAR_TOGGLE_TOUCH_SLOP_PX = 12;
@@ -7880,6 +8493,11 @@ function renderSidebar(d) {
 	const side = document.getElementById('fg-sidebar');
 	const previousDisplayedId = side?.dataset.displayedId || '';
 	sidebarSelectedNode = d;
+	// If not mobile and sidebarViewMode is 'none', default to 'info' (expanded),
+	// but if log is sticky, keep log open between node selections
+	if (!isMobileSidebarViewport() && sidebarViewMode === 'none') {
+		sidebarViewMode = sidebarLogSticky ? 'log' : 'info';
+	}
 	const preserveExpandedState = sidebarViewMode !== 'none';
 	el.innerHTML =
 		d.group === 'firm' ? renderFirmDetail(d)
@@ -7920,6 +8538,16 @@ function renderSidebar(d) {
 		updateShortDetail(d);
 	} catch (e) {
 		/* no-op */
+	}
+
+	// mark that the sidebar was rendered by client-side code so automated tests
+	// can wait for hydration before asserting on DOM contents
+	try {
+		if (side) side.dataset.renderedByClient = '1';
+		// eslint-disable-next-line no-undef
+		if (typeof window !== 'undefined') (window as any).__FG_SIDEBAR_RENDERED = true;
+	} catch (e) {
+		/* ignore */
 	}
 
 	openSidebarToggles();
@@ -7978,12 +8606,12 @@ function hasPublicSecIndividualPage(detail, basicInformation: Record<string, any
 }
 
 // ── Person detail ────────────────────────────────────────────────────────────
-function renderPersonDetail(d) {
+function renderPersonDetail(d: any) {
 	const bi = d.basicInformation || {};
-	const hasFinraPage = d.hasFinraData === false ? false : hasPublicFinraIndividualPage(d, bi);
-	const hasSecPage = hasPublicSecIndividualPage(d, bi);
+	const hasFinraPage = hasIndividualFinraPresence(d);
+	const hasSecPage = hasIndividualSecPresence(d);
 	const showSecReferences = hasSecPage;
-	const links = (graphData?.links || []).filter((l) => (l.source?.id || l.source) === d.id || (l.target?.id || l.target) === d.id);
+	const links = (graphData?.links || []).filter((l: any) => (l.source?.id || l.source) === d.id || (l.target?.id || l.target) === d.id);
 	const controlLinks = links.filter((l) => l.relationship === 'controls');
 
 	const stubBadge = d.stub ? `<span class="fg-badge stub">Form BD stub</span>` : '';
@@ -8394,33 +9022,55 @@ function renderPersonDetail(d) {
 					.filter(({ keyId, valueText }) => valueText && !handledDetailKeys.has(keyId))
 			:	[];
 
+		// If all detail fields are blank, show only a link to the PDF details page
+		const hasAnyDetail = Boolean(
+			initiatedBy ||
+			allegs ||
+			resolution ||
+			sanctionText ||
+			settlementAmt ||
+			sanctionBadges.length ||
+			comments.length ||
+			docketFDA ||
+			docketAAO ||
+			arbDocket ||
+			extraDetailRows.length,
+		);
+		if (!hasAnyDetail) {
+			// Try to get CRD from the disclosure or parent node
+			const crd = dis.crd || dis.individualId || dis.personId || '';
+			const pdfUrl = crd ? `https://files.brokercheck.finra.org/individual/individual_${encodeURIComponent(crd)}.pdf` : null;
+			return pdfUrl ?
+					`<div class="fg-disclosure fg-disclosure--nodetail"><a class="fg-ext-link bc" href="${pdfUrl}" target="_blank" rel="noopener noreferrer">View full disclosure details (PDF)</a></div>`
+				:	'';
+		}
 		return `
-      <div class="fg-disclosure">
-        <div class="fg-dis-header">
-          <span class="fg-dis-type">${esc(dtype)}</span>
-          ${dsource ? `<span class="fg-badge inactive">${esc(dsource)}</span>` : ''}
-          ${ddate ? `<span class="fg-dis-date">${esc(ddate)}</span>` : ''}
-          ${dres ? `<span class="fg-dis-res ${/final|settled/i.test(dres) ? 'final' : 'pending'}">${esc(dres)}</span>` : ''}
+			<div class="fg-disclosure">
+				<div class="fg-dis-header">
+					<span class="fg-dis-type">${esc(dtype)}</span>
+					${dsource ? `<span class="fg-badge inactive">${esc(dsource)}</span>` : ''}
+					${ddate ? `<span class="fg-dis-date">${esc(ddate)}</span>` : ''}
+					${dres ? `<span class="fg-dis-res ${/final|settled/i.test(dres) ? 'final' : 'pending'}">${esc(dres)}</span>` : ''}
 								${isIAExcl || isBCExcl ? `<span class="fg-badge inactive" title="Excluded from count">${isIAExcl ? 'IA-excl' : ''}${isIAExcl && isBCExcl ? ' ' : ''}${isBCExcl ? 'FINRA-excl' : ''}</span>` : ''}
-        </div>
-        ${initiatedBy ? `<div class="fg-dis-row"><span class="fg-dis-label">Initiated by:</span> ${esc(initiatedBy)}</div>` : ''}
-        ${allegs ? `<div class="fg-dis-row"><span class="fg-dis-label">Allegations:</span><div class="fg-dis-text">${esc(allegs)}</div></div>` : ''}
-        ${resolution ? `<div class="fg-dis-row"><span class="fg-dis-label">Resolution:</span> ${esc(resolution)}</div>` : ''}
-        ${sanctionText ? `<div class="fg-dis-row"><span class="fg-dis-label">Sanctions:</span><div class="fg-dis-text">${esc(sanctionText)}</div></div>` : ''}
-        ${settlementAmt ? `<div class="fg-dis-row"><span class="fg-dis-label">Settlement:</span> <strong>${esc(settlementAmt)}</strong></div>` : ''}
-        ${sanctionBadges.length ? `<div class="fg-dis-sanctions">${sanctionBadges.map((s) => `<span class="fg-badge inactive">${esc(s)}</span>`).join(' ')}</div>` : ''}
-        ${comments.length ? `<div class="fg-dis-row"><span class="fg-dis-label">Broker comment:</span><div class="fg-dis-text fg-dis-comment">${comments.map((c) => esc(String(c))).join('<br>')}</div></div>` : ''}
-        ${docketFDA || docketAAO || arbDocket ? `<div class="fg-dis-row fg-dis-dockets">${[docketFDA && `FDA: ${esc(docketFDA)}`, docketAAO && `AAO: ${esc(docketAAO)}`, arbDocket && `Arb: ${esc(arbDocket)}`].filter(Boolean).join(' &nbsp;|&nbsp; ')}</div>` : ''}
-        ${extraDetailRows.length ? extraDetailRows.map(({ key, valueText }) => `<div class="fg-dis-row"><span class="fg-dis-label">${esc(disclosureLabelText(key))}:</span><div class="fg-dis-text">${esc(valueText)}</div></div>`).join('') : ''}
-      </div>`;
+				</div>
+				${initiatedBy ? `<div class="fg-dis-row"><span class="fg-dis-label">Initiated by:</span> ${esc(initiatedBy)}</div>` : ''}
+				${allegs ? `<div class="fg-dis-row"><span class="fg-dis-label">Allegations:</span><div class="fg-dis-text">${esc(allegs)}</div></div>` : ''}
+				${resolution ? `<div class="fg-dis-row"><span class="fg-dis-label">Resolution:</span> ${esc(resolution)}</div>` : ''}
+				${sanctionText ? `<div class="fg-dis-row"><span class="fg-dis-label">Sanctions:</span><div class="fg-dis-text">${esc(sanctionText)}</div></div>` : ''}
+				${settlementAmt ? `<div class="fg-dis-row"><span class="fg-dis-label">Settlement:</span> <strong>${esc(settlementAmt)}</strong></div>` : ''}
+				${sanctionBadges.length ? `<div class="fg-dis-sanctions">${sanctionBadges.map((s) => `<span class="fg-badge inactive">${esc(s)}</span>`).join(' ')}</div>` : ''}
+				${comments.length ? `<div class="fg-dis-row"><span class="fg-dis-label">Broker comment:</span><div class="fg-dis-text fg-dis-comment">${comments.map((c) => esc(String(c))).join('<br>')}</div></div>` : ''}
+				${docketFDA || docketAAO || arbDocket ? `<div class="fg-dis-row fg-dis-dockets">${[docketFDA && `FDA: ${esc(docketFDA)}`, docketAAO && `AAO: ${esc(docketAAO)}`, arbDocket && `Arb: ${esc(arbDocket)}`].filter(Boolean).join(' &nbsp;|&nbsp; ')}</div>` : ''}
+				${extraDetailRows.length ? extraDetailRows.map(({ key, valueText }) => `<div class="fg-dis-row"><span class="fg-dis-label">${esc(disclosureLabelText(key))}:</span><div class="fg-dis-text">${esc(valueText)}</div></div>`).join('') : ''}
+			</div>`;
 	}
 
 	const crd = bi.individualId || d.crd || String(d.id).replace(/^person[:_]/, '');
+
+	// Only show links if the data is present for each source
 	const brokerCheckSummaryUrl = crd && hasFinraPage ? `https://brokercheck.finra.org/individual/summary/${encodeURIComponent(crd)}` : null;
 	const brokerCheckReportUrl = crd && hasFinraPage ? `https://files.brokercheck.finra.org/individual/individual_${encodeURIComponent(crd)}.pdf` : null;
 	const secSummaryUrl = crd && hasSecPage ? `https://adviserinfo.sec.gov/individual/summary/${encodeURIComponent(crd)}` : null;
-	const bcRawUrl = bi.individualId ? `https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}`.trim() : null;
-	const secRawUrl = bi.individualId ? `https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}`.trim() : null;
 	const personSummaryLine = crd ? `CRD#: ${esc(String(crd))}` : '';
 
 	return `
@@ -8441,11 +9091,11 @@ function renderPersonDetail(d) {
 		</div>
     </div>
     <div class="fg-sb-body fg-sb-body--person">
-      <div class="fg-ext-links">
-        ${brokerCheckSummaryUrl ? `<a class="fg-ext-link bc" href="${brokerCheckSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
-	        ${brokerCheckReportUrl ? `<a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>` : ''}
-        ${secSummaryUrl ? `<a class="fg-ext-link sec" href="${secSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo Summary</a>` : ''}
-      </div>
+			<div class="fg-ext-links">
+				${brokerCheckSummaryUrl ? `<a class="fg-ext-link bc" href="${brokerCheckSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
+				${brokerCheckReportUrl ? `<a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>` : ''}
+				${secSummaryUrl ? `<a class="fg-ext-link sec" href="${secSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo Summary</a>` : ''}
+			</div>
 		<div class="fg-sb-copy-below-links">
 
       ${bi.individualId ? row('CRD', `<code>${bi.individualId}</code>`) : ''}
@@ -8475,18 +9125,20 @@ function renderPersonDetail(d) {
 				currentEmploymentEntries.length ?
 					`<div class="fg-section-title fg-section-title--sticky">Current Employment (${currentEmploymentEntries.length})</div>
             <div class="fg-timeline">
-              ${currentEmploymentEntries
-								.map((e) => {
-									const detailLine = getEmploymentDetailLine(e);
-									const scopeTags = getEmploymentScopeTags(e);
-									return `<div class="fg-tl-entry active-pos">
-	                  <span class="fg-tl-firm">${esc(e.firmName)}${showSecReferences && e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : ''}</span>
-                  <span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>
-								  ${detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : ''}
-                  ${scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : ''}
-                </div>`;
-								})
-								.join('')}
+			  ${currentEmploymentEntries
+					.map((e) => {
+						const detailLine = getEmploymentDetailLine(e);
+						const scopeTags = getEmploymentScopeTags(e);
+						const datesHtml = `<span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>`;
+						const detailHtml = detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : '';
+						const scopeHtml = scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : '';
+						const secHtml = showSecReferences && e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : '';
+						if (e.firmId) {
+							return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-crd-link" data-crd="${esc(e.firmId)}" data-crd-type="firm">${esc(e.firmName)}${secHtml}${datesHtml}${detailHtml}${scopeHtml}</button>`;
+						}
+						return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable" data-search-query="${esc(e.firmName)}">${esc(e.firmName)}${secHtml}${datesHtml}${detailHtml}${scopeHtml}</button>`;
+					})
+					.join('')}
             </div>`
 				:	''
 			}
@@ -8495,20 +9147,22 @@ function renderPersonDetail(d) {
 				previousEmploymentEntries.length ?
 					`<div class="fg-section-title fg-section-title--sticky">Previous Employment (${previousEmploymentEntries.length})</div>
             <div class="fg-timeline">
-              ${previousEmploymentEntries
-								.map((e) => {
-									const cls = `fg-tl-entry${e.isCurrent ? ' active-pos' : ''}`;
-									const detailLine = getEmploymentDetailLine(e);
-									const scopeTags = getEmploymentScopeTags(e);
-									return `<div class="${cls}">
-                  <span class="fg-tl-firm">${esc(e.firmName)}${showSecReferences && e.bdSecNumber ? ` <small>SEC#${esc(e.bdSecNumber)}</small>` : ''}</span>
-                  <span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>
-								  ${detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : ''}
-								  ${scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : ''}
-								  ${e.expelledDate ? `<span class="fg-badge inactive">Expelled ${esc(e.expelledDate)}</span>` : ''}
-                </div>`;
-								})
-								.join('')}
+			  ${previousEmploymentEntries
+					.map((e) => {
+						const cls = `fg-tl-entry${e.isCurrent ? ' active-pos' : ''}`;
+						const detailLine = getEmploymentDetailLine(e);
+						const scopeTags = getEmploymentScopeTags(e);
+						const datesHtml = `<span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>`;
+						const detailHtml = detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : '';
+						const scopeHtml = scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : '';
+						const expelledHtml = e.expelledDate ? `<span class="fg-badge inactive">Expelled ${esc(e.expelledDate)}</span>` : '';
+						const secHtml = showSecReferences && e.bdSecNumber ? ` <small>SEC#${esc(e.bdSecNumber)}</small>` : '';
+						if (e.firmId) {
+							return `<button type="button" class="${cls} fg-card-clickable fg-crd-link" data-crd="${esc(e.firmId)}" data-crd-type="firm">${esc(e.firmName)}${secHtml}${datesHtml}${detailHtml}${scopeHtml}${expelledHtml}</button>`;
+						}
+						return `<button type="button" class="${cls} fg-card-clickable" data-search-query="${esc(e.firmName)}">${esc(e.firmName)}${secHtml}${datesHtml}${detailHtml}${scopeHtml}${expelledHtml}</button>`;
+					})
+					.join('')}
             </div>`
 				:	`<div class="fg-section-title fg-section-title--sticky">Previous Employment</div>
             <div class="fg-empty-state" style="margin-top:8px">No previous employment records found for this profile.</div>`
@@ -8518,20 +9172,21 @@ function renderPersonDetail(d) {
 				currentRegistrations.length ?
 					`<div class="fg-section-title fg-section-title--sticky">Current Registrations</div>
             <div class="fg-timeline">
-              ${currentRegistrations
-								.map(
-									(reg) => `
-                <div class="fg-tl-entry active-pos">
-									  <span class="fg-tl-firm">${renderRegistrationRole(reg.role)} ${esc(reg.firmName)}${reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : ''}</span>
-                  ${
-										reg.officeAddress ? `<span class="fg-tl-loc">${esc(reg.officeAddress)}</span>`
-										: reg.cityState ? `<span class="fg-tl-loc">${esc(reg.cityState)}</span>`
-										: ''
-									}
-                  ${reg.start ? `<span class="fg-tl-dates">Registered since ${esc(reg.start)}</span>` : ''}
-                </div>`,
-								)
-								.join('')}
+			  ${currentRegistrations
+					.map((reg) => {
+						const roleFirm = `${renderRegistrationRole(reg.role)} ${esc(reg.firmName)}`;
+						const crdHtml = reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : '';
+						const locHtml =
+							reg.officeAddress ? `<span class="fg-tl-loc">${esc(reg.officeAddress)}</span>`
+							: reg.cityState ? `<span class="fg-tl-loc">${esc(reg.cityState)}</span>`
+							: '';
+						const datesHtml = reg.start ? `<span class="fg-tl-dates">Registered since ${esc(reg.start)}</span>` : '';
+						if (reg.firmId) {
+							return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-crd-link" data-crd="${esc(reg.firmId)}" data-crd-type="firm"><span class="fg-tl-firm">${roleFirm}${crdHtml}</span>${locHtml}${datesHtml}</button>`;
+						}
+						return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable" data-search-query="${esc(reg.firmName)}"><span class="fg-tl-firm">${roleFirm}${crdHtml}</span>${locHtml}${datesHtml}</button>`;
+					})
+					.join('')}
             </div>`
 				:	''
 			}
@@ -8540,16 +9195,17 @@ function renderPersonDetail(d) {
 				previousRegistrations.length ?
 					`<div class="fg-section-title fg-section-title--sticky">Previous Registrations</div>
             <div class="fg-timeline">
-              ${previousRegistrations
-								.map(
-									(reg) => `
-                <div class="fg-tl-entry">
-								  <span class="fg-tl-firm">${esc(reg.firmName)}${reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : ''}</span>
-                  ${reg.cityState ? `<span class="fg-tl-loc">${esc(reg.cityState)}</span>` : ''}
-                  <span class="fg-tl-dates">${esc(reg.start || '–')} → ${esc(reg.end || 'present')}</span>
-                </div>`,
-								)
-								.join('')}
+			  ${previousRegistrations
+					.map((reg) => {
+						const crdHtml = reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : '';
+						const locHtml = reg.cityState ? `<span class="fg-tl-loc">${esc(reg.cityState)}</span>` : '';
+						const datesHtml = `<span class="fg-tl-dates">${esc(reg.start || '–')} → ${esc(reg.end || 'present')}</span>`;
+						if (reg.firmId) {
+							return `<button type="button" class="fg-tl-entry fg-card-clickable fg-crd-link" data-crd="${esc(reg.firmId)}" data-crd-type="firm">${esc(reg.firmName)}${crdHtml}${locHtml}${datesHtml}</button>`;
+						}
+						return `<button type="button" class="fg-tl-entry fg-card-clickable" data-search-query="${esc(reg.firmName)}">${esc(reg.firmName)}${crdHtml}${locHtml}${datesHtml}</button>`;
+					})
+					.join('')}
             </div>`
 				:	''
 			}
@@ -8621,7 +9277,6 @@ function renderPersonDetail(d) {
 							.map((l) => {
 								const firmNode = graphData.nodes.find((n) => n.id === (l.target?.id || l.target));
 								const employmentMatch = findEmploymentMatchForControl(l, firmNode);
-								const firmId = firmNode?.firmId || String(l.firmId || l.firm_id || l.organizationId || l.orgId || '').trim() || null;
 								const firmAddress =
 									firmNode?.officeAddress ||
 									l.officeAddress ||
@@ -8697,10 +9352,10 @@ function renderPersonDetail(d) {
 }
 
 // ── Firm detail ──────────────────────────────────────────────────────────────
-function renderFirmDetail(d) {
+function renderFirmDetail(d: any) {
 	const owners = d.directOwners || [];
 	const disclosures = d.disclosures || [];
-	function parseFirmSortDateValue(value) {
+	function parseFirmSortDateValue(value: any) {
 		const raw = String(value || '').trim();
 		if (!raw) return Number.NEGATIVE_INFINITY;
 		const shortDateMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -8712,7 +9367,7 @@ function renderFirmDetail(d) {
 		return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
 	}
 
-	function compareFirmDatesDesc(a, b, dateKeys: string[] = []) {
+	function compareFirmDatesDesc(a: any, b: any, dateKeys: string[] = []) {
 		for (const key of dateKeys) {
 			const diff = parseFirmSortDateValue(b?.[key]) - parseFirmSortDateValue(a?.[key]);
 			if (diff !== 0) return diff;
@@ -8740,8 +9395,6 @@ function renderFirmDetail(d) {
 
 	const firmId = d.firmId || String(d.id).replace(/^firm[:_]/, '');
 	const brokerCheckReportUrl = firmId ? `https://files.brokercheck.finra.org/firm/firm_${encodeURIComponent(firmId)}.pdf` : null;
-	const bcRawUrl = firmId ? `https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(firmId)}`.trim() : null;
-	const secRawUrl = firmId ? `https://api.adviserinfo.sec.gov/search/firm/${encodeURIComponent(firmId)}`.trim() : null;
 	const normalizeSecFirmId = (value: string | number | null | undefined) => {
 		const raw = String(value || '').trim();
 		if (!raw) return '';
@@ -8749,23 +9402,11 @@ function renderFirmDetail(d) {
 		if (/^\d+$/.test(raw)) return `8-${raw}`;
 		return raw;
 	};
-	const iaSecRaw = String(d.iaSecNumber || d.basicInformation?.iaSECNumber || d.basicInformation?.iaSecNumber || '')
-		.trim()
-		.toUpperCase();
-	const hasAdviserStyleIaSec = /^801-?\d+$/.test(iaSecRaw);
-	const secScopeFlags = d.orgScopeStatusFlags || {};
-	const hasPositiveSecScopeFlags =
-		secScopeFlags.isSECRegistered === 'Y' ||
-		secScopeFlags.isStateRegistered === 'Y' ||
-		secScopeFlags.isERARegistered === 'Y' ||
-		secScopeFlags.isSECERARegistered === 'Y' ||
-		secScopeFlags.isStateERARegistered === 'Y';
-	const hasPublicSecFirmPage = Boolean(hasPositiveSecScopeFlags || hasAdviserStyleIaSec);
 	const secFirmId = normalizeSecFirmId(d.iaSecNumber || d.bdSecNumber || d.bdSECNumber || d.basicInformation?.iaSECNumber || d.basicInformation?.bdSECNumber);
 	const crdSec = [firmId ? `CRD#: ${firmId}` : null, secFirmId ? `SEC#: ${secFirmId}` : null].filter(Boolean).join(' / ');
 	const secSummaryUrl = firmId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(firmId)}` : null;
-	const hasFinraPage = d.hasFinraData === true;
-	const hasSecPage = hasPublicSecFirmPage && Boolean(firmId);
+	const hasFinraPage = hasFirmFinraPresence(d);
+	const hasSecPage = hasFirmSecPresence(d);
 	const secDocumentLinks =
 		hasSecPage ?
 			(() => {
@@ -8781,7 +9422,7 @@ function renderFirmDetail(d) {
 
 				if (!Array.isArray(d.secDocumentLinks) || !d.secDocumentLinks.length) return defaultLinks;
 
-				return d.secDocumentLinks.map((link) => {
+				return d.secDocumentLinks.map((link: any) => {
 					const label = String(link?.label || '').trim();
 					if (!label) return link;
 					if (/^SEC AdvisorInfo Summary$/i.test(label)) return { ...link, href: secSummaryUrl };
@@ -8880,12 +9521,17 @@ function renderFirmDetail(d) {
 					:	''
 				}
 			</div>
-      <div class="fg-ext-links">
-        ${showBrokerCheckSummary ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/firm/summary/${encodeURIComponent(firmId)}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
-        ${secDocumentLinks
-					.map((link) => (link?.href ? `<a class="fg-ext-link sec" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer">&#x2197; ${esc(link.label)}</a>` : ''))
-					.join('')}
-      </div>
+			<div class="fg-ext-links">
+				${hasFinraPage && firmId ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/firm/summary/${encodeURIComponent(firmId)}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
+				${
+					hasSecPage && Array.isArray(secDocumentLinks) && secDocumentLinks.length > 0 ?
+						secDocumentLinks
+							.filter((link) => link?.href)
+							.map((link) => `<a class="fg-ext-link sec" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer">&#x2197; ${esc(link.label)}</a>`)
+							.join('')
+					:	''
+				}
+			</div>
 			<div class="fg-sb-copy-below-links">
       ${secSummaryDescription ? `<div class="fg-section-title fg-section-title--sticky">SEC summary</div><p class="fg-sb-note">${esc(secSummaryDescription)}</p>` : ''}
 			${d.isLegacy === 'Y' ? `<p class="fg-sb-note">Not currently registered as broker. FINRA contains only limited information about this firm.</p>` : ''}
@@ -8975,22 +9621,42 @@ function renderFirmDetail(d) {
 				owners.length ?
 					`
         <div class="fg-section-title fg-section-title--sticky">Form BD — Direct Owners &amp; Executive Officers</div>
-        ${owners
-					.map(
-						(o) => `
-          <div class="fg-owner-row">
-            <span class="fg-owner-name">${esc(o.legalName || '')}</span>
-            <span class="fg-owner-pos">${esc(o.position || '')}</span>
-            ${o.crdNumber ? `<a class="fg-owner-crd" href="https://brokercheck.finra.org/individual/summary/${encodeURIComponent(o.crdNumber)}" target="_blank" rel="noopener noreferrer">CRD ${o.crdNumber}</a>` : ''}
-          </div>
-        `,
-					)
-					.join('')}
+		${owners
+			.map((o) => {
+				const nameHtml = `<span class="fg-owner-name">${esc(o.legalName || '')}</span>`;
+				const posHtml = `<span class="fg-owner-pos">${esc(o.position || '')}</span>`;
+				if (o.crdNumber) {
+					return `
+					<button type="button" class="fg-owner-row fg-card-clickable fg-crd-link" data-crd="${esc(o.crdNumber)}" data-crd-type="person" title="View person ${esc(o.crdNumber)}">
+						${nameHtml}
+						${posHtml}
+					</button>
+		`;
+				}
+				// No CRD: render as static row (not clickable) since there's no node to route to
+				return `
+					<div class="fg-owner-row fg-owner-row--static">
+						${nameHtml}
+						${posHtml}
+					</div>
+			`;
+			})
+			.join('')}
       `
 				:	''
 			}
     </div>
   `;
+}
+
+function renderFirmNameWithCrd(name: string, maybeId: any) {
+	const raw = String(maybeId || '').trim();
+	if (!raw) return `<span class="fg-tl-firm">${esc(name)}</span>`;
+	const crdMatch = raw.replace(/^firm[:_]/, '');
+	if (/^\d+$/.test(crdMatch)) {
+		return `<button class="fg-crd-link" data-crd="${esc(crdMatch)}" data-crd-type="firm">${esc(name)}</button>`;
+	}
+	return `<span class="fg-tl-firm">${esc(name)}</span>`;
 }
 
 // ── Entity detail ────────────────────────────────────────────────────────────

@@ -3,6 +3,10 @@
 		{
 			"path": "/api/finra/prime-check",
 			"schedule": "0 3 * * *"
+		},
+		{
+			"path": "/api/cron/validate-links",
+			"schedule": "0 6 * * *"
 		}
 	],
 	"functions": {

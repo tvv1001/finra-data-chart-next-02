@@ -210,11 +210,36 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			if (!detail.brochures && secDetail.brochures) detail.brochures = secDetail.brochures;
 		}
 
+		// helper: find a numeric-ish firm id from common fields (firmId, bdSECNumber, etc.)
+		function findNumericFirmId(obj: any, candidates = ['firmId', 'firm_id', 'bdSECNumber', 'bdSecNumber', 'firmIdNumber']) {
+			if (!obj || typeof obj !== 'object') return '';
+			for (const key of candidates) {
+				const v = obj[key];
+				if (v == null) continue;
+				const s = String(v).trim();
+				if (/^\d+$/.test(s)) return s;
+				if (/^8-\d+$/i.test(s)) return s;
+			}
+			const bi = obj.basicInformation || obj.basic_information || obj.basic || null;
+			if (bi && typeof bi === 'object') {
+				for (const key of candidates) {
+					const v = bi[key];
+					if (v == null) continue;
+					const s = String(v).trim();
+					if (/^\d+$/.test(s)) return s;
+					if (/^8-\d+$/i.test(s)) return s;
+				}
+			}
+			return '';
+		}
+
 		const secFirmId = normalizeSecFirmId(detail?.basicInformation?.bdSECNumber || detail?.basicInformation?.bdSecNumber || detail?.bdSECNumber || detail?.bdSecNumber || id);
 
 		let secHtml = secPageData?.status === 'fulfilled' ? secPageData.value : null;
 		let secPageValid = isValidSecFirmSummaryPage(secHtml, id);
-		detail.hasFinraData = !!bcDetail;
+		// only consider FINRA present if parsed BC detail exists and includes a usable firm id
+		const finraFirmNumeric = bcDetail ? findNumericFirmId(bcDetail, ['firmId', 'firm_id', 'bdSECNumber', 'bdSecNumber', 'firmId']) : '';
+		detail.hasFinraData = !!bcDetail && !!finraFirmNumeric;
 
 		if (!secPageValid && secFirmId && secFirmId !== id) {
 			const normalizedSecPageUrl = `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(secFirmId)}`;
