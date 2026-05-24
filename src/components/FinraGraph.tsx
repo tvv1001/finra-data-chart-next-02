@@ -195,7 +195,8 @@ export default function FinraGraph() {
 					// Legacy behavior: assume numeric CRD clicked from employment means firm
 					nodeId = `firm:${crd}`;
 				}
-				window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { nodeId } }));
+				// When routing to a node from the sidebar link, request a 5s pulse highlight
+				window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { nodeId, pulseDuration: 5000 } }));
 			}
 
 			// If the firm name is rendered as plain text (no CRD button), allow
@@ -206,7 +207,8 @@ export default function FinraGraph() {
 				if (name) {
 					e.preventDefault();
 					e.stopPropagation();
-					window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { searchQuery: name } }));
+					// When routing by clicking a firm name in the sidebar, request a 5s pulse highlight
+					window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { searchQuery: name, pulseDuration: 5000 } }));
 				}
 			}
 		};

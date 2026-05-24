@@ -99,6 +99,12 @@ let neighborMap = null; // Map<nodeId, Set<nodeId>> — rebuilt each renderGraph
 let nodeGroup = null; // <g.fg-nodes> selection — for live node injection
 let linkGroup = null; // <g.fg-links> selection — for live link injection
 let arrowGroup = null; // <g.fg-arrowheads> selection — for top-layer arrowheads
+let linkBottomGroup = null;
+let linkMidGroup = null;
+let linkTopGroup = null;
+let arrowBottomGroup = null;
+let arrowMidGroup = null;
+let arrowTopGroup = null;
 let rootGroup = null; // <g.fg-root> selection — for zoom/state-driven graph styling
 let allowFirstFetchZoom = true; // only auto-zoom on the first user fetch into an empty graph
 // D3 references needed for restoring zoom state
@@ -629,6 +635,7 @@ let sidebarLogSticky = false; // true if user has explicitly opened log toggle
 let isTraceMode = false;
 let isTraceLogMode = false;
 let pendingRouteNodeId: string | null = null;
+let pendingRoutePulseDuration: number | null = null; // optional pulse duration (ms) requested with route
 let routeNodeRequestListenerBound = false;
 let traceShortestIds = new Set<string>(); // node and link IDs
 let traceLongestIds = new Set<string>(); // node and link IDs
@@ -2206,6 +2213,8 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 						const candidate = findFirmNodeByLabel(q);
 						if (candidate && candidate.id) {
 							pendingRouteNodeId = candidate.id;
+							// preserve any requested pulse duration when resolving via search
+							pendingRoutePulseDuration = Number(detail.pulseDuration) || null;
 							void applyPendingRouteNodeSelection();
 						}
 					} catch (e) {
@@ -2215,6 +2224,8 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				return;
 			}
 			pendingRouteNodeId = String(detail.nodeId || '').trim() || null;
+			// capture optional pulse duration (ms) requested by the event sender
+			pendingRoutePulseDuration = typeof detail.pulseDuration !== 'undefined' ? Number(detail.pulseDuration) || null : pendingRoutePulseDuration;
 			if (pendingRouteNodeId) {
 				void applyPendingRouteNodeSelection();
 			}
@@ -5058,9 +5069,28 @@ function getNodeRenderPriority(node, highlightState) {
 function getLinkRenderPriority(link, highlightState) {
 	if (!link) return 1;
 	const linkKey = getLinkKey(link);
-	if (isLinkOnAnyTrace(linkKey)) return 3;
-	if (highlightState?.linkKeys?.has(linkKey)) return 2;
+	// If either endpoint is inactive, demote the link to the lowest layer
 	if (hasInactiveEndpoint(link)) return 0;
+
+	// If the link connects to any node that is on an explicit trace, keep it very high
+	if (isLinkOnAnyTrace(linkKey)) return 3;
+
+	// If the link is part of the current highlight set, place above normal links
+	if (highlightState?.linkKeys?.has(linkKey)) return 2;
+
+	// Promote links that touch very-high-priority nodes (largest/selected/highlighted)
+	try {
+		const src = typeof link.source === 'object' ? link.source : layoutNodes?.find((n) => n.id === link.source);
+		const tgt = typeof link.target === 'object' ? link.target : layoutNodes?.find((n) => n.id === link.target);
+		const srcPriority = getNodeRenderPriority(src, highlightState);
+		const tgtPriority = getNodeRenderPriority(tgt, highlightState);
+		const maxNodePriority = Math.max(srcPriority || 0, tgtPriority || 0);
+		// Any link connected to nodes with priority >= 3000 (highlight/root) should be on top of ordinary links
+		if (maxNodePriority >= 3000) return 4;
+	} catch (e) {
+		// ignore and fall back to default
+	}
+
 	return 1;
 }
 
@@ -5080,6 +5110,85 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 
 	if (nodeSel && typeof nodeSel.sort === 'function') {
 		nodeSel.sort((a, b) => comparePriorityWithTieBreak(getNodeRenderPriority(a, highlightState), getNodeRenderPriority(b, highlightState), a?.id, b?.id));
+	}
+
+	// Move individual link/arrow DOM nodes between link sub-groups so some links
+	// can render above or below the main node group (provides 2.5D depth).
+	try {
+		if (linkGroup && linkBottomGroup && linkMidGroup && linkTopGroup && linkSel) {
+			const bottomNode = linkBottomGroup.node();
+			const midNode = linkMidGroup.node();
+			const topNode = linkTopGroup.node();
+			linkSel.each(function (d) {
+				const pr = getLinkRenderPriority(d, highlightState);
+				const el = this as any;
+				if (pr <= 0) {
+					if (el.parentNode !== bottomNode) bottomNode.appendChild(el);
+				} else if (pr >= 3) {
+					if (el.parentNode !== topNode) topNode.appendChild(el);
+				} else {
+					if (el.parentNode !== midNode) midNode.appendChild(el);
+				}
+			});
+		}
+		if (arrowGroup && arrowBottomGroup && arrowMidGroup && arrowTopGroup && arrowSel) {
+			const bottomNode = arrowBottomGroup.node();
+			const midNode = arrowMidGroup.node();
+			const topNode = arrowTopGroup.node();
+			arrowSel.each(function (d) {
+				const pr = getLinkRenderPriority(d, highlightState);
+				const el = this as any;
+				if (pr <= 0) {
+					if (el.parentNode !== bottomNode) bottomNode.appendChild(el);
+				} else if (pr >= 3) {
+					if (el.parentNode !== topNode) topNode.appendChild(el);
+				} else {
+					if (el.parentNode !== midNode) midNode.appendChild(el);
+				}
+			});
+		}
+	} catch (e) {
+		// Non-fatal — DOM move failures should not break rendering
+	}
+
+	// Expose a debug-friendly render order map for E2E tests and dev inspection.
+	try {
+		const nodeRender = [];
+		if (nodeSel) {
+			nodeSel.each(function (d) {
+				try {
+					const pr = getNodeRenderPriority(d, highlightState);
+					const layer =
+						pr >= 3000 ? 'top'
+						: pr <= 1000 ? 'bottom'
+						: 'mid';
+					nodeRender.push({ id: d.id, priority: pr, layer });
+				} catch (e) {
+					/* ignore per-node errors */
+				}
+			});
+		}
+
+		const linkRender = [];
+		if (linkSel) {
+			linkSel.each(function (d) {
+				try {
+					const pr = getLinkRenderPriority(d, highlightState);
+					const layer =
+						pr >= 3 ? 'top'
+						: pr <= 0 ? 'bottom'
+						: 'mid';
+					const key = `${d.source?.id || d.source}-${d.target?.id || d.target}-${d.relationship}`;
+					linkRender.push({ key, priority: pr, layer });
+				} catch (e) {
+					/* ignore */
+				}
+			});
+		}
+
+		(window as any).__FG_RENDER_ORDER = { nodes: nodeRender, links: linkRender, timestamp: Date.now() };
+	} catch (e) {
+		/* ignore debug exposure errors */
 	}
 }
 
@@ -5354,6 +5463,10 @@ function renderGraph(_data) {
 
 	const root = svg.append('g').attr('class', 'fg-root');
 	rootGroup = root;
+
+	// Use root as the logical parent for link selections (individual layered groups exist separately)
+	linkGroup = root;
+	arrowGroup = root;
 	syncTraceLabelPresentation(initialScale);
 
 	// ── Arrow markers ─────────────────────────────────────────────────────────
@@ -5429,35 +5542,58 @@ function renderGraph(_data) {
 	// Build neighbor adjacency cache after D3 has resolved link source/target objects
 	neighborMap = buildNeighborMap(nodes, links);
 
-	// ── Links ─────────────────────────────────────────────────────────────────
-	const link = root
-		.append('g')
-		.attr('class', 'fg-links')
-		.selectAll('line')
-		.data(links)
-		.join('line')
-		.attr('class', 'fg-link')
-		.attr('stroke', (d) => getLinkColor(d))
-		.attr('stroke-opacity', defaultLinkOpacity)
-		.attr('stroke-width', (d) => getLinkWidth(d))
-		.attr('stroke-dasharray', (d) => getLinkDash(d))
-		.attr('marker-end', (d) => getLinkMarker(d));
-	linkSel = link;
-	linkGroup = root.select('.fg-links');
+	// ── Links (split into three stacked layers so some links can render above nodes) ──
+	// create bottom/mid link layers now; the top layer is created after nodes
+	linkBottomGroup = root.append('g').attr('class', 'fg-links-bottom');
+	linkMidGroup = root.append('g').attr('class', 'fg-links-mid');
+	// linkTopGroup will be appended after node group so top links can render above nodes
 
-	// ── Arrowheads ───────────────────────────────────────────────────────────
-	// Keep arrows beneath node labels so names remain readable.
-	const arrow = root
-		.append('g')
-		.attr('class', 'fg-arrowheads')
-		.selectAll('line')
-		.data(links)
-		.join('line')
-		.attr('stroke', 'none')
-		.attr('fill', 'none')
-		.attr('marker-end', (d) => getLinkMarker(d));
-	arrowSel = arrow;
-	arrowGroup = root.select('.fg-arrowheads');
+	// partition links by initial render priority
+	const initialHighlight = computeHighlightState();
+	const bottomLinks = links.filter((l) => getLinkRenderPriority(l, initialHighlight) <= 0);
+	const topLinks = links.filter((l) => getLinkRenderPriority(l, initialHighlight) >= 3);
+	const midLinks = links.filter((l) => {
+		const p = getLinkRenderPriority(l, initialHighlight);
+		return p > 0 && p < 3;
+	});
+
+	function joinLinkSelection(groupSel, data) {
+		return groupSel
+			.selectAll('line')
+			.data(data, (d) => `${d.source?.id || d.source}-${d.target?.id || d.target}-${d.relationship}`)
+			.join('line')
+			.attr('class', 'fg-link')
+			.attr('stroke', (d) => getLinkColor(d))
+			.attr('stroke-opacity', defaultLinkOpacity)
+			.attr('stroke-width', (d) => getLinkWidth(d))
+			.attr('stroke-dasharray', (d) => getLinkDash(d))
+			.attr('marker-end', (d) => getLinkMarker(d));
+	}
+
+	joinLinkSelection(linkBottomGroup, bottomLinks);
+	joinLinkSelection(linkMidGroup, midLinks);
+	// topLinks will be joined after node group is created
+	linkSel = root.selectAll('.fg-links-bottom line, .fg-links-mid line, .fg-links-top line');
+
+	// ── Arrowheads (also split to mirror link stacking)
+	// create bottom/mid arrow layers now; top arrow layer will be created after nodes
+	arrowBottomGroup = root.append('g').attr('class', 'fg-arrowheads-bottom');
+	arrowMidGroup = root.append('g').attr('class', 'fg-arrowheads-mid');
+
+	function joinArrowSelection(groupSel, data) {
+		return groupSel
+			.selectAll('line')
+			.data(data, (d) => `${d.source?.id || d.source}-${d.target?.id || d.target}-${d.relationship}`)
+			.join('line')
+			.attr('stroke', 'none')
+			.attr('fill', 'none')
+			.attr('marker-end', (d) => getLinkMarker(d));
+	}
+
+	joinArrowSelection(arrowBottomGroup, bottomLinks);
+	joinArrowSelection(arrowMidGroup, midLinks);
+	// arrowTopGroup will be created and joined after node group creation
+	arrowSel = root.selectAll('.fg-arrowheads-bottom line, .fg-arrowheads-mid line, .fg-arrowheads-top line');
 
 	// ── Nodes ─────────────────────────────────────────────────────────────────
 	const node = root
@@ -5474,6 +5610,19 @@ function renderGraph(_data) {
 
 	renderNodeContents(node);
 
+	// Create top link/arrow groups after nodes so their contents render above node labels
+	try {
+		linkTopGroup = root.append('g').attr('class', 'fg-links-top');
+		joinLinkSelection(linkTopGroup, topLinks);
+		arrowTopGroup = root.append('g').attr('class', 'fg-arrowheads-top');
+		joinArrowSelection(arrowTopGroup, topLinks);
+		// refresh combined selections to include top groups
+		linkSel = root.selectAll('.fg-links-bottom line, .fg-links-mid line, .fg-links-top line');
+		arrowSel = root.selectAll('.fg-arrowheads-bottom line, .fg-arrowheads-mid line, .fg-arrowheads-top line');
+	} catch (e) {
+		/* ignore */
+	}
+
 	// ── Tick ──────────────────────────────────────────────────────────────────
 	let _tickN = 0;
 	simulation.on('tick', () => {
@@ -5481,7 +5630,7 @@ function renderGraph(_data) {
 		// During high-energy early layout, skip every other DOM write to cut paint time.
 		// Physics still advances every tick; only the SVG update is throttled.
 		if (simulation.alpha() > 0.15 && _tickN % 2 !== 0) return;
-		scheduleGraphTickPositions(link, node, arrow);
+		scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
 	});
 
 	// Stop simulation after 5 seconds to prevent endless movement
@@ -5648,6 +5797,20 @@ function injectNodesById(ids) {
 		.attr('stroke-dasharray', (d) => getLinkDash(d))
 		.attr('marker-end', (d) => getLinkMarker(d));
 	enteredLinks.transition().duration(400).attr('stroke-opacity', defaultLinkOpacity);
+
+	// ensure new links are moved into correct sub-groups for proper layering
+	try {
+		orderGraphVisualLayers();
+	} catch (e) {
+		/* ignore */
+	}
+
+	// Ensure newly-entered links are placed in the correct layered subgroup
+	try {
+		orderGraphVisualLayers();
+	} catch (e) {
+		/* ignore */
+	}
 	linkSel = linkGroup.selectAll('line');
 
 	if (arrowGroup) {
@@ -6884,8 +7047,13 @@ function selectNode(
 	} else if (pulse) {
 		pulseNodeHighlightById(d.id);
 	}
-	// Always show blue location ring for 4 seconds after selection
-	pulseNodeHighlightById(d.id, { duration: 4000 });
+	// Always show blue location ring after selection. Use any requested pulse duration
+	// provided by route requests (e.g. sidebar links), otherwise default to 4000ms.
+	const defaultPulseMs = 4000;
+	const finalPulseMs = typeof pendingRoutePulseDuration === 'number' && Number.isFinite(pendingRoutePulseDuration) ? pendingRoutePulseDuration : defaultPulseMs;
+	// Clear consumed pending pulse value so it doesn't affect subsequent selections
+	pendingRoutePulseDuration = null;
+	pulseNodeHighlightById(d.id, { duration: finalPulseMs });
 
 	// For individual nodes, fetch detail data from API and re-render if it's still selected
 	if (d.group === 'individual') {
@@ -7347,6 +7515,13 @@ function revealNeighbors(
 		.attr('marker-end', (d) => getLinkMarker(d));
 	enteredLinks.transition().duration(800).attr('stroke-opacity', defaultLinkOpacity);
 	linkSel = linkGroup.selectAll('line');
+
+	// Ensure newly-entered links are placed into the correct layered subgroup
+	try {
+		orderGraphVisualLayers();
+	} catch (e) {
+		/* ignore */
+	}
 
 	const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
 	const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen);
@@ -8016,7 +8191,7 @@ function renderSidebar(d) {
 	el.innerHTML =
 		d.group === 'firm' ? renderFirmDetail(d)
 		: d.group === 'entity' ? renderEntityDetail(d)
-		: renderPersonDetail(d, { graphData });
+		: renderPersonDetail(d);
 	if (sidebarViewMode === 'log') {
 		const body = el.querySelector('.fg-sb-body');
 		if (body) {
@@ -8059,7 +8234,7 @@ function renderSidebar(d) {
 	try {
 		if (side) side.dataset.renderedByClient = '1';
 		// eslint-disable-next-line no-undef
-		if (typeof window !== 'undefined') window.__FG_SIDEBAR_RENDERED = true;
+		if (typeof window !== 'undefined') (window as any).__FG_SIDEBAR_RENDERED = true;
 	} catch (e) {
 		/* ignore */
 	}
