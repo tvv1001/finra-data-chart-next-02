@@ -73,6 +73,12 @@ async function buildBundle({ dir, regex, bundle, key }) {
 }
 
 async function main() {
+	// Safety guard: do not run unless explicitly enabled to avoid priming PII into repo artifacts.
+	// Set ENABLE_PRIMED_CACHE=true in the environment to opt-in when you intentionally want to generate bundles.
+	if (process.env.ENABLE_PRIMED_CACHE !== 'true') {
+		console.warn('Primed cache builder skipped: set ENABLE_PRIMED_CACHE=true to enable.');
+		return;
+	}
 	await ensureDir(PRIMED_CACHE_DIR);
 	const counts = {};
 	for (const pattern of patterns) {
