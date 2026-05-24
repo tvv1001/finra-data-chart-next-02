@@ -107,7 +107,7 @@
 	--c-individual: #2563eb;
 	--c-firm: #d97706;
 	--c-entity: #ff4d8d;
-	--c-controls: #e50909;
+	--c-controls: #61e509;
 	--c-employed: #1061db;
 	--c-default-gray: #2e3744;
 	--c-default-line-gray: #9a9ea381;
@@ -139,6 +139,23 @@ html[data-theme='dark'] {
 	--shadow-node-inactive: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.24));
 	--shadow-node-inactive-highlighted: drop-shadow(0 0 6px rgba(148, 163, 184, 0.18));
 	--accent: #d97706;
+}
+
+html[data-theme='dark'] .fg-owner-row,
+html[data-theme='dark'] .fg-tl-entry {
+	padding-top: 8px;
+	background: rgba(30, 34, 55, 0.799);
+	border-color: rgba(148, 163, 184, 0.16);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.26);
+}
+
+html[data-theme='dark'] .fg-owner-row:hover,
+html[data-theme='dark'] .fg-owner-row:focus,
+html[data-theme='dark'] .fg-tl-entry:hover,
+html[data-theme='dark'] .fg-tl-entry:focus {
+	background: rgba(8, 17, 47, 0.599);
+	border-color: rgba(148, 163, 184, 0.16);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.26);
 }
 
 html[data-theme='dark'] .fg-action-btn,
@@ -244,12 +261,12 @@ html[data-theme='dark'] .fg-menu-summary {
 	width: 100%;
 }
 .fg-crd-link:hover {
-	background: var(--surface-hover);
+	background: #ff0000;
 }
 .fg-crd-link:focus-visible {
 	outline: 3px solid rgba(37, 99, 235, 0.18);
 	outline-offset: 2px;
-	background: var(--surface-hover);
+	background: #ff0000;
 }
 
 html[data-theme='dark'] .fg-sidebar {
@@ -346,12 +363,6 @@ html[data-theme='dark'] .fg-disclosure .fg-dis-type {
 	color: #ffb197;
 }
 
-html[data-theme='dark'] .fg-owner-row {
-	background: rgba(255, 255, 255, 0.04);
-	border-color: rgba(148, 163, 184, 0.16);
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.26);
-}
-
 html[data-theme='dark'] .fg-sidebar-action-btn--icon-only {
 	flex: 0 0 auto;
 	width: auto;
@@ -379,7 +390,7 @@ html[data-theme='dark'] .fg-tl-entry {
 }
 
 html[data-theme='dark'] .fg-log-entry:hover {
-	background: rgb(0 0 0 / 48%);
+	background: rgba(18, 49, 125, 0.898);
 	border-top-color: rgb(81, 94, 113);
 	border-right-color: rgb(81, 94, 113);
 	border-bottom-color: rgb(81, 94, 113);
