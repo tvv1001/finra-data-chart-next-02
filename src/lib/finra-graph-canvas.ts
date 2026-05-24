@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 const ROUTE_NODE_REQUEST_EVENT = 'finra:route-node-request';
 const SELECTED_NODE_ROUTE_EVENT = 'finra:selected-node-route';
 const GRAPH_API_PATH = '/api/finra/graph';
@@ -230,6 +231,7 @@ function updateNodeStyles() {
 		renderNodeGraphic(sprite, node, selectedNodeIds.has(String(node.id)));
 	}
 }
+(window as any).updateNodeStyles = updateNodeStyles;
 
 function selectNode(nodeId: string) {
 	selectedNodeId = nodeId;

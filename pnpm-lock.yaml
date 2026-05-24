@@ -41,6 +41,9 @@ importers:
       pixi.js:
         specifier: ^8.4.0
         version: 8.18.1
+      playwright-extra-plugin-stealth:
+        specifier: ^0.0.1
+        version: 0.0.1
       react:
         specifier: ^19.0.0
         version: 19.2.5
@@ -1818,6 +1821,9 @@ packages:
     resolution: {integrity: sha512-9bW6zvX/m0lEbgTKJ6YppOKx8H3VOPBMOCFh2irXFOT4BbHgrx5hPjwJYLT40Lu+4qtD36qKc/Hn56StUW57IA==}
     engines: {node: '>=18'}
     hasBin: true
+
+  playwright-extra-plugin-stealth@0.0.1:
+    resolution: {integrity: sha512-eI0Ujf4MXbcupzlVEXaaOnb+Exjt1sFi7t/3KxIA5pVww+WRAXRWdhqTz0glX62jJq2YM8fLu+GyvULpjTpZrw==}
 
   playwright-extra@4.3.6:
     resolution: {integrity: sha512-q2rVtcE8V8K3vPVF1zny4pvwZveHLH8KBuVU2MoE3Jw4OKVoBWsHI9CH9zPydovHHOCDxjGN2Vg+2m644q3ijA==}
@@ -3986,6 +3992,8 @@ snapshots:
       tiny-lru: 11.4.7
 
   playwright-core@1.60.0: {}
+
+  playwright-extra-plugin-stealth@0.0.1: {}
 
   playwright-extra@4.3.6(playwright-core@1.60.0)(playwright@1.60.0):
     dependencies:

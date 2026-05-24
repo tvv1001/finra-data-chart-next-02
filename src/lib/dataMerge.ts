@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * dataMerge.ts – Merge FINRA and SEC data from local cached files.
  * Ported from server/services/dataMerge/mergeFinraSec.js

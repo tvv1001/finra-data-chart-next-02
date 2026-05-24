@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * graphStore.ts – Module-level graph file cache and helper utilities.
  * Shared by /api/finra/graph, /expand, /nodes-by-ids, /graph-search, /graph-append

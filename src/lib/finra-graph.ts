@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * finra.ts  –  FINRA BrokerCheck Network Graph
  */
@@ -151,6 +152,12 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 		.classed('fg-trace-labels', traceActive)
 		.classed('fg-labels-hidden', normalizedScale < activeLabelZoomThreshold)
 		.style('--fg-trace-label-scale', String(traceLabelScale));
+
+	// Hide all node labels when zoomed out below threshold
+	const labelGroup = rootGroup.select('.fg-label-group');
+	if (labelGroup && labelGroup.size()) {
+		labelGroup.classed('fg-labels-hidden', normalizedScale < activeLabelZoomThreshold);
+	}
 
 	updateInactiveLabelZoomState(rootGroup, normalizedScale);
 }
@@ -618,6 +625,7 @@ let isSessionCleared = false;
 let selectedNodesLog: Array<{ id: string; label: string; secondaryId: string; group: string }> = [];
 let sidebarSelectedNode = null;
 let sidebarViewMode: 'none' | 'info' | 'log' = 'none';
+let sidebarLogSticky = false; // true if user has explicitly opened log toggle
 let isTraceMode = false;
 let isTraceLogMode = false;
 let pendingRouteNodeId: string | null = null;
@@ -754,6 +762,12 @@ function setSidebarViewMode(
 ) {
 	const { expandMobile = false } = options;
 	if (!sidebarSelectedNode) return;
+	// Track sticky log state
+	if (mode === 'log') {
+		sidebarLogSticky = true;
+	} else if (mode === 'info') {
+		sidebarLogSticky = false;
+	}
 	sidebarViewMode = mode;
 	renderSidebar(sidebarSelectedNode);
 	if (isMobileSidebarViewport()) {
@@ -1101,10 +1115,9 @@ function addToSelectionLog(d) {
 		group: d.group,
 	};
 
-	// Avoid duplicates by ID or combined label + secondaryId
+	// Only add if this node was explicitly selected (not just visited/expanded)
+	// Avoid duplicates by ID
 	if (selectedNodesLog.some((e) => e.id === entry.id)) return;
-	if (selectedNodesLog.some((e) => e.label === entry.label && e.secondaryId === entry.secondaryId)) return;
-
 	selectedNodesLog.push(entry);
 	saveSelectionLog();
 	updateSelectionLogUI();
@@ -1112,6 +1125,12 @@ function addToSelectionLog(d) {
 
 function updateSelectionLogUI() {
 	const containers = Array.from(document.querySelectorAll<HTMLElement>('#fg-selection-log-list, #fg-sidebar-selection-log-list'));
+
+	// Force a node update on the canvas so labels can reflect isLogged status
+	if (typeof (window as any).updateNodeStyles === 'function') {
+		(window as any).updateNodeStyles();
+	}
+
 	if (!containers.length) return;
 
 	containers.forEach((container) => {
@@ -1129,9 +1148,12 @@ function updateSelectionLogUI() {
 				div.className = `fg-log-entry ${entry.group}`;
 				const text = `${entry.label} :: ${entry.secondaryId}`;
 				div.innerHTML = `
-			<span class="fg-log-text" title="Click to copy">${text}</span>
+			<span class="fg-log-text" title="Click to copy">
+				<strong class="fg-log-label">${entry.label}</strong>
+				<span class="fg-log-subtext">:: ${entry.secondaryId}</span>
+			</span>
 			<button class="fg-log-copy-btn" title="Copy to clipboard">
-				<svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path></svg>
+				<svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path></svg>
 			</button>
 		`;
 				div.querySelector('.fg-log-text')?.addEventListener('click', () => {
@@ -4619,22 +4641,23 @@ function isNotInScopeValue(value) {
 	);
 }
 
-function hasIndividualFinraPresence(node) {
+function hasIndividualFinraPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
+	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
 	if (node.hasFinraData === true) return true;
 	if (hasPublicFinraIndividualPage(node, node.basicInformation || {})) return true;
 	if (hasAnyItems(node?.currentEmployments)) return true;
 	if (hasAnyItems(node?.previousEmployments)) return true;
 	if (hasApprovedSro(node?.registeredSROs)) return true;
 	if (hasActiveRegisteredStates(node?.registeredStates, ['bc', 'b', 'broker'])) return true;
-	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
 	const bcScopeFlags = collectNodeActivityFlags([node?.bcScope, node?.basicInformation?.bcScope]);
 	if (bcScopeFlags.hasActive || bcScopeFlags.hasInactive) return true;
 	return false;
 }
 
-function hasIndividualSecPresence(node) {
+function hasIndividualSecPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
+	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
 	if (node.hasSecData === true) return true;
 	if (hasPublicSecIndividualPage(node, node.basicInformation || {})) return true;
 	if (hasSecActivityEvidence(node)) return true;
@@ -4642,31 +4665,30 @@ function hasIndividualSecPresence(node) {
 	if (hasAnyItems(node?.previousIAEmployments)) return true;
 	if (hasAnyItems(node?.iaDisclosures)) return true;
 	if (hasActiveRegisteredStates(node?.registeredStates, ['ia'])) return true;
-	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
 	const iaScopeFlags = collectNodeActivityFlags([node?.iaScope, node?.basicInformation?.iaScope]);
 	if (iaScopeFlags.hasActive || iaScopeFlags.hasInactive) return true;
 	return false;
 }
 
-function hasFirmFinraPresence(node) {
+function hasFirmFinraPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
+	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
 	if (node.hasFinraData === true) return true;
 	if (node.isLegacy === 'Y') return true;
 	if (hasAnyItems(node?.selfRegulatoryOrgs)) return true;
 	if (Boolean(String(node?.districtName || '').trim())) return true;
-	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
 	const bcScopeFlags = collectNodeActivityFlags([node?.bcScope, node?.basicInformation?.bcScope]);
 	if (bcScopeFlags.hasActive || bcScopeFlags.hasInactive) return true;
 	return false;
 }
 
-function hasFirmSecPresence(node) {
+function hasFirmSecPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
+	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
 	if (node.hasSecData === true) return true;
 	if (Boolean(String(node?.iaSecNumber || node?.basicInformation?.iaSECNumber || node?.basicInformation?.iaSecNumber || '').trim())) return true;
 	if (hasAnyItems(node?.secDocumentLinks)) return true;
 	if (Boolean(String(node?.secSummaryDescription || '').trim())) return true;
-	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
 	const secStatusFlags = collectNodeActivityFlags([node?.firmStatus, node?.basicInformation?.firmStatus, node?.iaScope, node?.basicInformation?.iaScope]);
 	if (secStatusFlags.hasActive || secStatusFlags.hasInactive) return true;
 	return false;
@@ -4919,14 +4941,18 @@ function renderNodeContents(selection) {
 
 		const labelText = inactive && inactiveLabelCompactMode ? getCompactInactiveNodeLabel(d) : getRenderedNodeLabel(d);
 		const labelDy = (d._vizHalf != null ? d._vizHalf : r) + 8;
+
+		// Check if this node is in the selection log (by id)
+		const isLogged = selectedNodesLog.some((e) => e.id === d.id);
+		const labelFontSize = isLogged ? '24px' : '12px';
 		const label = g
 			.append('text')
-			.attr('class', `fg-label${inactive ? ' fg-label--inactive' : ''}`)
+			.attr('class', `fg-label${inactive ? ' fg-label--inactive' : ''}${isLogged ? ' fg-label--logged' : ''}`)
 			.attr('dy', labelDy)
 			.attr('text-anchor', 'middle')
-			.attr('font-size', '10px')
+			.attr('font-size', labelFontSize)
 			.attr('font-family', 'var(--sans)')
-			.attr('font-weight', '500')
+			.attr('font-weight', isLogged ? '700' : '500')
 			.attr('fill', nodeLabelColor)
 			.attr('stroke', nodeLabelHalo)
 			.attr('stroke-width', 4)
@@ -5096,7 +5122,7 @@ function updateNodeVisuals(selection) {
 		const g = d3.select(this);
 		const inactive = isNodeInactive(d);
 		let color = inactive ? GRAPH_COLORS.nodeInactive : NODE_COLOR[d.group] || GRAPH_COLORS.nodeDefault;
-		let nodeOpacity = inactive ? 0.82 : 1;
+		let nodeOpacity: number | string = inactive ? 0.82 : 1;
 		let nodeStroke = inactive ? GRAPH_COLORS.nodeInactiveStroke : GRAPH_COLORS.nodeBorder;
 		let nodeLabelColor = inactive ? GRAPH_COLORS.nodeInactiveLabel : GRAPH_COLORS.nodeLabel;
 		let nodeLabelHalo = inactive ? 'rgba(248,250,252,0.95)' : GRAPH_COLORS.nodeLabelHalo;
@@ -6815,6 +6841,7 @@ function selectNode(
 	const hops = getDefaultSelectionHops();
 	upsertHighlightedSelection(d.id, hops);
 	selectedId = d.id;
+	visitedNodeIds.add(d.id);
 	if (syncRoute) {
 		emitSelectedNodeRoute(d.id);
 	}
@@ -6842,6 +6869,8 @@ function selectNode(
 	} else if (pulse) {
 		pulseNodeHighlightById(d.id);
 	}
+	// Always show blue location ring for 4 seconds after selection
+	pulseNodeHighlightById(d.id, { duration: 4000 });
 
 	// For individual nodes, fetch detail data from API and re-render if it's still selected
 	if (d.group === 'individual') {
@@ -7228,13 +7257,16 @@ function revealNeighbors(
 		})
 		.map((l) => ({ ...l }));
 
-	const liveClickedNode = markSelected && clickedNode?.id ? layoutNodes.find((node) => node.id === clickedNode.id) || clickedNode : null;
-	if (markSelected && liveClickedNode) {
-		markNodeSelected(liveClickedNode, { persist: false });
+	if (markSelected && clickedNode?.id) {
+		// Always add to visitedNodeIds and mark as selected, even if not found in layoutNodes
+		visitedNodeIds.add(clickedNode.id);
+		markNodeSelected(layoutNodes.find((node) => node.id === clickedNode.id) || clickedNode, { persist: false });
+		reapplySelectionState();
+		refreshGraphColors();
 	}
 
 	if (newNodes.length === 0 && newLinks.length === 0) {
-		if (markSelected && liveClickedNode) {
+		if (markSelected && clickedNode) {
 			reapplySelectionState();
 			refreshGraphColors();
 			try {
@@ -7739,7 +7771,11 @@ function scheduleFirstFetchFocusIfAvailable(
 }
 
 function isMobileSidebarViewport() {
-	return true;
+	if (typeof window !== 'undefined' && typeof window.innerWidth === 'number') {
+		return window.innerWidth <= 900;
+	}
+	// Fallback: treat as desktop if window is not available
+	return false;
 }
 
 const MOBILE_SIDEBAR_TOGGLE_TOUCH_SLOP_PX = 12;
@@ -7956,6 +7992,11 @@ function renderSidebar(d) {
 	const side = document.getElementById('fg-sidebar');
 	const previousDisplayedId = side?.dataset.displayedId || '';
 	sidebarSelectedNode = d;
+	// If not mobile and sidebarViewMode is 'none', default to 'info' (expanded),
+	// but if log is sticky, keep log open between node selections
+	if (!isMobileSidebarViewport() && sidebarViewMode === 'none') {
+		sidebarViewMode = sidebarLogSticky ? 'log' : 'info';
+	}
 	const preserveExpandedState = sidebarViewMode !== 'none';
 	el.innerHTML =
 		d.group === 'firm' ? renderFirmDetail(d)
@@ -8054,12 +8095,12 @@ function hasPublicSecIndividualPage(detail, basicInformation: Record<string, any
 }
 
 // ── Person detail ────────────────────────────────────────────────────────────
-function renderPersonDetail(d) {
+function renderPersonDetail(d: any) {
 	const bi = d.basicInformation || {};
-	const hasFinraPage = d.hasFinraData === false ? false : hasPublicFinraIndividualPage(d, bi);
-	const hasSecPage = hasPublicSecIndividualPage(d, bi);
+	const hasFinraPage = hasIndividualFinraPresence(d);
+	const hasSecPage = hasIndividualSecPresence(d);
 	const showSecReferences = hasSecPage;
-	const links = (graphData?.links || []).filter((l) => (l.source?.id || l.source) === d.id || (l.target?.id || l.target) === d.id);
+	const links = (graphData?.links || []).filter((l: any) => (l.source?.id || l.source) === d.id || (l.target?.id || l.target) === d.id);
 	const controlLinks = links.filter((l) => l.relationship === 'controls');
 
 	const stubBadge = d.stub ? `<span class="fg-badge stub">Form BD stub</span>` : '';
@@ -8470,33 +8511,55 @@ function renderPersonDetail(d) {
 					.filter(({ keyId, valueText }) => valueText && !handledDetailKeys.has(keyId))
 			:	[];
 
+		// If all detail fields are blank, show only a link to the PDF details page
+		const hasAnyDetail = Boolean(
+			initiatedBy ||
+			allegs ||
+			resolution ||
+			sanctionText ||
+			settlementAmt ||
+			sanctionBadges.length ||
+			comments.length ||
+			docketFDA ||
+			docketAAO ||
+			arbDocket ||
+			extraDetailRows.length,
+		);
+		if (!hasAnyDetail) {
+			// Try to get CRD from the disclosure or parent node
+			const crd = dis.crd || dis.individualId || dis.personId || '';
+			const pdfUrl = crd ? `https://files.brokercheck.finra.org/individual/individual_${encodeURIComponent(crd)}.pdf` : null;
+			return pdfUrl ?
+					`<div class="fg-disclosure fg-disclosure--nodetail"><a class="fg-ext-link bc" href="${pdfUrl}" target="_blank" rel="noopener noreferrer">View full disclosure details (PDF)</a></div>`
+				:	'';
+		}
 		return `
-      <div class="fg-disclosure">
-        <div class="fg-dis-header">
-          <span class="fg-dis-type">${esc(dtype)}</span>
-          ${dsource ? `<span class="fg-badge inactive">${esc(dsource)}</span>` : ''}
-          ${ddate ? `<span class="fg-dis-date">${esc(ddate)}</span>` : ''}
-          ${dres ? `<span class="fg-dis-res ${/final|settled/i.test(dres) ? 'final' : 'pending'}">${esc(dres)}</span>` : ''}
+			<div class="fg-disclosure">
+				<div class="fg-dis-header">
+					<span class="fg-dis-type">${esc(dtype)}</span>
+					${dsource ? `<span class="fg-badge inactive">${esc(dsource)}</span>` : ''}
+					${ddate ? `<span class="fg-dis-date">${esc(ddate)}</span>` : ''}
+					${dres ? `<span class="fg-dis-res ${/final|settled/i.test(dres) ? 'final' : 'pending'}">${esc(dres)}</span>` : ''}
 								${isIAExcl || isBCExcl ? `<span class="fg-badge inactive" title="Excluded from count">${isIAExcl ? 'IA-excl' : ''}${isIAExcl && isBCExcl ? ' ' : ''}${isBCExcl ? 'FINRA-excl' : ''}</span>` : ''}
-        </div>
-        ${initiatedBy ? `<div class="fg-dis-row"><span class="fg-dis-label">Initiated by:</span> ${esc(initiatedBy)}</div>` : ''}
-        ${allegs ? `<div class="fg-dis-row"><span class="fg-dis-label">Allegations:</span><div class="fg-dis-text">${esc(allegs)}</div></div>` : ''}
-        ${resolution ? `<div class="fg-dis-row"><span class="fg-dis-label">Resolution:</span> ${esc(resolution)}</div>` : ''}
-        ${sanctionText ? `<div class="fg-dis-row"><span class="fg-dis-label">Sanctions:</span><div class="fg-dis-text">${esc(sanctionText)}</div></div>` : ''}
-        ${settlementAmt ? `<div class="fg-dis-row"><span class="fg-dis-label">Settlement:</span> <strong>${esc(settlementAmt)}</strong></div>` : ''}
-        ${sanctionBadges.length ? `<div class="fg-dis-sanctions">${sanctionBadges.map((s) => `<span class="fg-badge inactive">${esc(s)}</span>`).join(' ')}</div>` : ''}
-        ${comments.length ? `<div class="fg-dis-row"><span class="fg-dis-label">Broker comment:</span><div class="fg-dis-text fg-dis-comment">${comments.map((c) => esc(String(c))).join('<br>')}</div></div>` : ''}
-        ${docketFDA || docketAAO || arbDocket ? `<div class="fg-dis-row fg-dis-dockets">${[docketFDA && `FDA: ${esc(docketFDA)}`, docketAAO && `AAO: ${esc(docketAAO)}`, arbDocket && `Arb: ${esc(arbDocket)}`].filter(Boolean).join(' &nbsp;|&nbsp; ')}</div>` : ''}
-        ${extraDetailRows.length ? extraDetailRows.map(({ key, valueText }) => `<div class="fg-dis-row"><span class="fg-dis-label">${esc(disclosureLabelText(key))}:</span><div class="fg-dis-text">${esc(valueText)}</div></div>`).join('') : ''}
-      </div>`;
+				</div>
+				${initiatedBy ? `<div class="fg-dis-row"><span class="fg-dis-label">Initiated by:</span> ${esc(initiatedBy)}</div>` : ''}
+				${allegs ? `<div class="fg-dis-row"><span class="fg-dis-label">Allegations:</span><div class="fg-dis-text">${esc(allegs)}</div></div>` : ''}
+				${resolution ? `<div class="fg-dis-row"><span class="fg-dis-label">Resolution:</span> ${esc(resolution)}</div>` : ''}
+				${sanctionText ? `<div class="fg-dis-row"><span class="fg-dis-label">Sanctions:</span><div class="fg-dis-text">${esc(sanctionText)}</div></div>` : ''}
+				${settlementAmt ? `<div class="fg-dis-row"><span class="fg-dis-label">Settlement:</span> <strong>${esc(settlementAmt)}</strong></div>` : ''}
+				${sanctionBadges.length ? `<div class="fg-dis-sanctions">${sanctionBadges.map((s) => `<span class="fg-badge inactive">${esc(s)}</span>`).join(' ')}</div>` : ''}
+				${comments.length ? `<div class="fg-dis-row"><span class="fg-dis-label">Broker comment:</span><div class="fg-dis-text fg-dis-comment">${comments.map((c) => esc(String(c))).join('<br>')}</div></div>` : ''}
+				${docketFDA || docketAAO || arbDocket ? `<div class="fg-dis-row fg-dis-dockets">${[docketFDA && `FDA: ${esc(docketFDA)}`, docketAAO && `AAO: ${esc(docketAAO)}`, arbDocket && `Arb: ${esc(arbDocket)}`].filter(Boolean).join(' &nbsp;|&nbsp; ')}</div>` : ''}
+				${extraDetailRows.length ? extraDetailRows.map(({ key, valueText }) => `<div class="fg-dis-row"><span class="fg-dis-label">${esc(disclosureLabelText(key))}:</span><div class="fg-dis-text">${esc(valueText)}</div></div>`).join('') : ''}
+			</div>`;
 	}
 
 	const crd = bi.individualId || d.crd || String(d.id).replace(/^person[:_]/, '');
+
+	// Only show links if the data is present for each source
 	const brokerCheckSummaryUrl = crd && hasFinraPage ? `https://brokercheck.finra.org/individual/summary/${encodeURIComponent(crd)}` : null;
 	const brokerCheckReportUrl = crd && hasFinraPage ? `https://files.brokercheck.finra.org/individual/individual_${encodeURIComponent(crd)}.pdf` : null;
 	const secSummaryUrl = crd && hasSecPage ? `https://adviserinfo.sec.gov/individual/summary/${encodeURIComponent(crd)}` : null;
-	const bcRawUrl = bi.individualId ? `https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}`.trim() : null;
-	const secRawUrl = bi.individualId ? `https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}`.trim() : null;
 	const personSummaryLine = crd ? `CRD#: ${esc(String(crd))}` : '';
 
 	return `
@@ -8517,11 +8580,11 @@ function renderPersonDetail(d) {
 		</div>
     </div>
     <div class="fg-sb-body fg-sb-body--person">
-      <div class="fg-ext-links">
-        ${brokerCheckSummaryUrl ? `<a class="fg-ext-link bc" href="${brokerCheckSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
-	        ${brokerCheckReportUrl ? `<a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>` : ''}
-        ${secSummaryUrl ? `<a class="fg-ext-link sec" href="${secSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo Summary</a>` : ''}
-      </div>
+			<div class="fg-ext-links">
+				${brokerCheckSummaryUrl ? `<a class="fg-ext-link bc" href="${brokerCheckSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
+				${brokerCheckReportUrl ? `<a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>` : ''}
+				${secSummaryUrl ? `<a class="fg-ext-link sec" href="${secSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo Summary</a>` : ''}
+			</div>
 		<div class="fg-sb-copy-below-links">
 
       ${bi.individualId ? row('CRD', `<code>${bi.individualId}</code>`) : ''}
@@ -8697,7 +8760,6 @@ function renderPersonDetail(d) {
 							.map((l) => {
 								const firmNode = graphData.nodes.find((n) => n.id === (l.target?.id || l.target));
 								const employmentMatch = findEmploymentMatchForControl(l, firmNode);
-								const firmId = firmNode?.firmId || String(l.firmId || l.firm_id || l.organizationId || l.orgId || '').trim() || null;
 								const firmAddress =
 									firmNode?.officeAddress ||
 									l.officeAddress ||
@@ -8773,10 +8835,10 @@ function renderPersonDetail(d) {
 }
 
 // ── Firm detail ──────────────────────────────────────────────────────────────
-function renderFirmDetail(d) {
+function renderFirmDetail(d: any) {
 	const owners = d.directOwners || [];
 	const disclosures = d.disclosures || [];
-	function parseFirmSortDateValue(value) {
+	function parseFirmSortDateValue(value: any) {
 		const raw = String(value || '').trim();
 		if (!raw) return Number.NEGATIVE_INFINITY;
 		const shortDateMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -8788,7 +8850,7 @@ function renderFirmDetail(d) {
 		return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
 	}
 
-	function compareFirmDatesDesc(a, b, dateKeys: string[] = []) {
+	function compareFirmDatesDesc(a: any, b: any, dateKeys: string[] = []) {
 		for (const key of dateKeys) {
 			const diff = parseFirmSortDateValue(b?.[key]) - parseFirmSortDateValue(a?.[key]);
 			if (diff !== 0) return diff;
@@ -8816,8 +8878,6 @@ function renderFirmDetail(d) {
 
 	const firmId = d.firmId || String(d.id).replace(/^firm[:_]/, '');
 	const brokerCheckReportUrl = firmId ? `https://files.brokercheck.finra.org/firm/firm_${encodeURIComponent(firmId)}.pdf` : null;
-	const bcRawUrl = firmId ? `https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(firmId)}`.trim() : null;
-	const secRawUrl = firmId ? `https://api.adviserinfo.sec.gov/search/firm/${encodeURIComponent(firmId)}`.trim() : null;
 	const normalizeSecFirmId = (value: string | number | null | undefined) => {
 		const raw = String(value || '').trim();
 		if (!raw) return '';
@@ -8825,23 +8885,11 @@ function renderFirmDetail(d) {
 		if (/^\d+$/.test(raw)) return `8-${raw}`;
 		return raw;
 	};
-	const iaSecRaw = String(d.iaSecNumber || d.basicInformation?.iaSECNumber || d.basicInformation?.iaSecNumber || '')
-		.trim()
-		.toUpperCase();
-	const hasAdviserStyleIaSec = /^801-?\d+$/.test(iaSecRaw);
-	const secScopeFlags = d.orgScopeStatusFlags || {};
-	const hasPositiveSecScopeFlags =
-		secScopeFlags.isSECRegistered === 'Y' ||
-		secScopeFlags.isStateRegistered === 'Y' ||
-		secScopeFlags.isERARegistered === 'Y' ||
-		secScopeFlags.isSECERARegistered === 'Y' ||
-		secScopeFlags.isStateERARegistered === 'Y';
-	const hasPublicSecFirmPage = Boolean(hasPositiveSecScopeFlags || hasAdviserStyleIaSec);
 	const secFirmId = normalizeSecFirmId(d.iaSecNumber || d.bdSecNumber || d.bdSECNumber || d.basicInformation?.iaSECNumber || d.basicInformation?.bdSECNumber);
 	const crdSec = [firmId ? `CRD#: ${firmId}` : null, secFirmId ? `SEC#: ${secFirmId}` : null].filter(Boolean).join(' / ');
 	const secSummaryUrl = firmId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(firmId)}` : null;
-	const hasFinraPage = d.hasFinraData === true;
-	const hasSecPage = hasPublicSecFirmPage && Boolean(firmId);
+	const hasFinraPage = hasFirmFinraPresence(d);
+	const hasSecPage = hasFirmSecPresence(d);
 	const secDocumentLinks =
 		hasSecPage ?
 			(() => {
@@ -8857,7 +8905,7 @@ function renderFirmDetail(d) {
 
 				if (!Array.isArray(d.secDocumentLinks) || !d.secDocumentLinks.length) return defaultLinks;
 
-				return d.secDocumentLinks.map((link) => {
+				return d.secDocumentLinks.map((link: any) => {
 					const label = String(link?.label || '').trim();
 					if (!label) return link;
 					if (/^SEC AdvisorInfo Summary$/i.test(label)) return { ...link, href: secSummaryUrl };
@@ -8956,12 +9004,17 @@ function renderFirmDetail(d) {
 					:	''
 				}
 			</div>
-      <div class="fg-ext-links">
-        ${showBrokerCheckSummary ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/firm/summary/${encodeURIComponent(firmId)}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
-        ${secDocumentLinks
-					.map((link) => (link?.href ? `<a class="fg-ext-link sec" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer">&#x2197; ${esc(link.label)}</a>` : ''))
-					.join('')}
-      </div>
+			<div class="fg-ext-links">
+				${hasFinraPage && firmId ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/firm/summary/${encodeURIComponent(firmId)}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
+				${
+					hasSecPage && Array.isArray(secDocumentLinks) && secDocumentLinks.length > 0 ?
+						secDocumentLinks
+							.filter((link) => link?.href)
+							.map((link) => `<a class="fg-ext-link sec" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer">&#x2197; ${esc(link.label)}</a>`)
+							.join('')
+					:	''
+				}
+			</div>
 			<div class="fg-sb-copy-below-links">
       ${secSummaryDescription ? `<div class="fg-section-title fg-section-title--sticky">SEC summary</div><p class="fg-sb-note">${esc(secSummaryDescription)}</p>` : ''}
 			${d.isLegacy === 'Y' ? `<p class="fg-sb-note">Not currently registered as broker. FINRA contains only limited information about this firm.</p>` : ''}

@@ -12,7 +12,6 @@
 		"test:e2e": "playwright test",
 		"test:e2e:headed": "playwright test --headed",
 		"test:smoke": "playwright test tests/e2e/smoke.spec.ts",
-		"playwright:install": "playwright install chromium",
 		"build:graph": "node scripts/build_graph_from_cache.js --employment-scope all",
 		"prime:all": "node scripts/download_all_api_data.js"
 	},
@@ -28,6 +27,7 @@
 		"minimist": "^1.2.8",
 		"next": "^15.1.0",
 		"pixi.js": "^8.4.0",
+		"playwright-extra-plugin-stealth": "^0.0.1",
 		"react": "^19.0.0",
 		"react-dom": "^19.0.0",
 		"winston": "^3.13.0"
