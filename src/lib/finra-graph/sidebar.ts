@@ -337,9 +337,16 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 		const empLinks = links.filter((l) => l.relationship === 'employed_by');
 		empEntries = empLinks.map((l) => {
 			const firmNode = graphData?.nodes?.find((n) => n.id === (l.target?.id || l.target));
+			let resolvedFirmId = l.firmId || null;
+			if (!resolvedFirmId && firmNode) {
+				// try common id shapes: 'firm:123' or 'firm_123'
+				const m = String(firmNode.id || '').match(/(?:firm[:_])(\d+)/);
+				if (m) resolvedFirmId = m[1];
+				else if (firmNode.firmId) resolvedFirmId = firmNode.firmId;
+			}
 			return {
 				firmName: firmNode?.label || l.firmName || '',
-				firmId: l.firmId,
+				firmId: resolvedFirmId,
 				start: l.startDate || '',
 				end: l.endDate || null,
 				isCurrent: !l.endDate,
@@ -360,6 +367,29 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 			.toLowerCase()
 			.replace(/[^a-z0-9]+/g, ' ')
 			.trim();
+	}
+
+	function resolveFirmCrdByName(name, providedId) {
+		// prefer provided id
+		if (providedId) return String(providedId);
+		const label = String(name || '').trim();
+		if (!label) return null;
+		// try find a firm node in graphData by normalized label
+		const candidate = graphData?.nodes?.find((n) => n && n.group === 'firm' && normalizeFirmKey(n.label) === normalizeFirmKey(label));
+		if (candidate) {
+			if (candidate.firmId) return String(candidate.firmId);
+			const mid = String(candidate.id || '').match(/(?:firm[:_])(\d+)/);
+			if (mid) return mid[1];
+		}
+		return null;
+	}
+
+	function renderFirmNameWithCrd(name, maybeId) {
+		const crd = resolveFirmCrdByName(name, maybeId);
+		if (crd) {
+			return `<button class='fg-crd-link' data-crd='${esc(String(crd))}' title='View this CRD'>${esc(name)}</button>`;
+		}
+		return esc(name || '');
 	}
 
 	function findEmploymentMatchForControl(link, firmNode) {
@@ -545,11 +575,11 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 									const detailLine = getEmploymentDetailLine(e);
 									const scopeTags = getEmploymentScopeTags(e);
 									return `<div class='fg-tl-entry active-pos'>
-                  <span class='fg-tl-firm'>${esc(e.firmName)}${e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : ''}</span>
-                  <span class='fg-tl-dates'>${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>
-								  ${detailLine ? `<span class='fg-tl-loc'>${esc(detailLine)}</span>` : ''}
-                  ${scopeTags.length ? `<span class='fg-tl-loc' style='color:var(--text-m)'>${esc(scopeTags.join(' · '))}</span>` : ''}
-                </div>`;
+									  <span class='fg-tl-firm'>${renderFirmNameWithCrd(e.firmName, e.firmId)}${e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : ''}</span>
+						                  <span class='fg-tl-dates'>${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>
+										  ${detailLine ? `<span class='fg-tl-loc'>${esc(detailLine)}</span>` : ''}
+						                  ${scopeTags.length ? `<span class='fg-tl-loc' style='color:var(--text-m)'>${esc(scopeTags.join(' · '))}</span>` : ''}
+						                </div>`;
 								})
 								.join('')}
             </div>`
@@ -566,12 +596,12 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 									const detailLine = getEmploymentDetailLine(e);
 									const scopeTags = getEmploymentScopeTags(e);
 									return `<div class='${cls}'>
-                  <span class='fg-tl-firm'>${esc(e.firmName)}${e.bdSecNumber ? ` <small>SEC#${esc(e.bdSecNumber)}</small>` : ''}</span>
-                  <span class='fg-tl-dates'>${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>
-								  ${detailLine ? `<span class='fg-tl-loc'>${esc(detailLine)}</span>` : ''}
-                  ${scopeTags.length ? `<span class='fg-tl-loc' style='color:var(--text-m)'>${esc(scopeTags.join(' · '))}</span>` : ''}
-                  ${e.expelledDate ? `<span class='fg-badge inactive'>Expelled ${esc(e.expelledDate)}</span>` : ''}
-                </div>`;
+									  <span class='fg-tl-firm'>${renderFirmNameWithCrd(e.firmName, e.firmId)}${e.bdSecNumber ? ` <small>SEC#${esc(e.bdSecNumber)}</small>` : ''}</span>
+						                  <span class='fg-tl-dates'>${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>
+										  ${detailLine ? `<span class='fg-tl-loc'>${esc(detailLine)}</span>` : ''}
+						                  ${scopeTags.length ? `<span class='fg-tl-loc' style='color:var(--text-m)'>${esc(scopeTags.join(' · '))}</span>` : ''}
+						                  ${e.expelledDate ? `<span class='fg-badge inactive'>Expelled ${esc(e.expelledDate)}</span>` : ''}
+						                </div>`;
 								})
 								.join('')}
             </div>`
@@ -587,7 +617,11 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 								.map(
 									(reg) => `
                 <div class='fg-tl-entry active-pos'>
-                  <span class='fg-tl-firm'>${renderRegistrationRole(reg.role)} ${esc(reg.firmName)}${reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : ''}</span>
+									<span class='fg-tl-firm'>${renderRegistrationRole(reg.role)} ${
+										reg.firmId ?
+											`<button class='fg-crd-link' data-crd='${esc(String(reg.firmId))}' title='View this CRD'>${esc(reg.firmName)}</button> (<button class='fg-crd-link' data-crd='${esc(String(reg.firmId))}' title='View this CRD'>CRD#${esc(String(reg.firmId))}</button>)`
+										:	esc(reg.firmName)
+									}</span>
                   ${
 										reg.officeAddress ? `<span class='fg-tl-loc'>${esc(reg.officeAddress)}</span>`
 										: reg.cityState ? `<span class='fg-tl-loc'>${esc(reg.cityState)}</span>`
@@ -609,7 +643,11 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 								.map(
 									(reg) => `
                 <div class='fg-tl-entry'>
-                  <span class='fg-tl-firm'>${renderRegistrationRole(reg.role, { inactive: true })} ${esc(reg.firmName)}${reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : ''}</span>
+									<span class='fg-tl-firm'>${renderRegistrationRole(reg.role, { inactive: true })} ${
+										reg.firmId ?
+											`<button class='fg-crd-link' data-crd='${esc(String(reg.firmId))}' title='View this CRD'>${esc(reg.firmName)}</button> (<button class='fg-crd-link' data-crd='${esc(String(reg.firmId))}' title='View this CRD'>CRD#${esc(String(reg.firmId))}</button>)`
+										:	esc(reg.firmName)
+									}</span>
                   ${reg.cityState ? `<span class='fg-tl-loc'>${esc(reg.cityState)}</span>` : ''}
                   <span class='fg-tl-dates'>${esc(reg.start || '–')} → ${esc(reg.end || 'present')}</span>
                 </div>`,
@@ -704,7 +742,7 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 									employmentMatch?.loc ||
 									(l.city || l.officeCity || l.state || l.officeState ? [l.city || l.officeCity, l.state || l.officeState].filter(Boolean).join(', ') : null);
 								return `<div class='fg-tl-entry active-pos'>
-                  <span class='fg-tl-firm'>${esc(firmNode?.label || l.firmName || employmentMatch?.firmName || l.name || l.organizationName || l.legalName || '')}${secNumber ? ` <small>SEC#${esc(String(secNumber))}</small>` : ''}</span>
+									<span class='fg-tl-firm'>${renderFirmNameWithCrd(firmNode?.label || l.firmName || employmentMatch?.firmName || l.name || l.organizationName || l.legalName || '', firmNode?.firmId || l.firmId || employmentMatch?.firmId)}${secNumber ? ` <small>SEC#${esc(String(secNumber))}</small>` : ''}</span>
                   ${dateRange ? `<span class='fg-tl-dates'>${dateRange}</span>` : ''}
                   ${firmStatus ? `<span class='fg-tl-status'>${esc(firmStatus)}</span>` : ''}
                   ${l.position ? `<span class='fg-tl-loc'>${esc(l.position)}</span>` : ''}

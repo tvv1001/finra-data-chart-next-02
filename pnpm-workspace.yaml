@@ -1,2 +1,3 @@
 allowBuilds:
+  puppeteer: true
   sharp: set this to true or false

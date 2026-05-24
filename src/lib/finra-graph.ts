@@ -754,31 +754,28 @@ function closeSelectionLog(options: { force?: boolean } = {}) {
 	return true;
 }
 
-function setSidebarViewMode(
-	mode: 'none' | 'info' | 'log',
-	options: {
-		expandMobile?: boolean;
-	} = {},
-) {
-	const { expandMobile = false } = options;
-	if (!sidebarSelectedNode) return;
-	// Track sticky log state
-	if (mode === 'log') {
-		sidebarLogSticky = true;
-	} else if (mode === 'info') {
-		sidebarLogSticky = false;
-	}
+function setSidebarViewMode(mode: 'none' | 'info' | 'log', options: { expandMobile?: boolean } = {}) {
 	sidebarViewMode = mode;
-	renderSidebar(sidebarSelectedNode);
-	if (isMobileSidebarViewport()) {
-		syncMobileSidebarExpandedState(expandMobile);
-	}
-	updateSelectionLogChrome();
 	try {
-		saveSession();
+		if (typeof window !== 'undefined' && window.sessionStorage) {
+			sessionStorage.setItem('finra_sidebar_view_mode', mode);
+		}
 	} catch {
 		/* ignore persistence errors */
 	}
+
+	const sidebar = document.getElementById('fg-sidebar');
+	if (sidebar) {
+		sidebar.dataset.viewMode = mode;
+		if (options.expandMobile) {
+			sidebar.dataset.mobileExpanded = 'true';
+			sidebar.classList.remove('hidden');
+			document.getElementById('fg-sidebar-backdrop')?.classList.remove('hidden');
+		}
+	}
+
+	if (sidebarSelectedNode) renderSidebar(sidebarSelectedNode);
+	updateSelectionLogChrome();
 }
 
 function getTraceModeNodeIds() {
@@ -2198,7 +2195,25 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 
 	if (!routeNodeRequestListenerBound && typeof window !== 'undefined') {
 		window.addEventListener(ROUTE_NODE_REQUEST_EVENT, ((event: Event) => {
-			const detail = (event as CustomEvent<{ nodeId?: string | null }>).detail || {};
+			const detail = (event as CustomEvent<{ nodeId?: string | null; searchQuery?: string }>).detail || {};
+			// If caller requested a text search (e.g., firm name), run the search
+			// and attempt to resolve a firm node by label before routing.
+			if (detail.searchQuery && String(detail.searchQuery || '').trim()) {
+				const q = String(detail.searchQuery || '').trim();
+				void (async () => {
+					try {
+						await fetchAndInjectQuery(q);
+						const candidate = findFirmNodeByLabel(q);
+						if (candidate && candidate.id) {
+							pendingRouteNodeId = candidate.id;
+							void applyPendingRouteNodeSelection();
+						}
+					} catch (e) {
+						console.warn('Search-based route resolution failed:', e);
+					}
+				})();
+				return;
+			}
 			pendingRouteNodeId = String(detail.nodeId || '').trim() || null;
 			if (pendingRouteNodeId) {
 				void applyPendingRouteNodeSelection();
@@ -8001,7 +8016,7 @@ function renderSidebar(d) {
 	el.innerHTML =
 		d.group === 'firm' ? renderFirmDetail(d)
 		: d.group === 'entity' ? renderEntityDetail(d)
-		: renderPersonDetail(d);
+		: renderPersonDetail(d, { graphData });
 	if (sidebarViewMode === 'log') {
 		const body = el.querySelector('.fg-sb-body');
 		if (body) {
@@ -8037,6 +8052,16 @@ function renderSidebar(d) {
 		updateShortDetail(d);
 	} catch (e) {
 		/* no-op */
+	}
+
+	// mark that the sidebar was rendered by client-side code so automated tests
+	// can wait for hydration before asserting on DOM contents
+	try {
+		if (side) side.dataset.renderedByClient = '1';
+		// eslint-disable-next-line no-undef
+		if (typeof window !== 'undefined') window.__FG_SIDEBAR_RENDERED = true;
+	} catch (e) {
+		/* ignore */
 	}
 
 	openSidebarToggles();
@@ -8619,7 +8644,7 @@ function renderPersonDetail(d: any) {
 									const detailLine = getEmploymentDetailLine(e);
 									const scopeTags = getEmploymentScopeTags(e);
 									return `<div class="fg-tl-entry active-pos">
-	                  <span class="fg-tl-firm">${esc(e.firmName)}${showSecReferences && e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : ''}</span>
+					  ${renderFirmNameWithCrd(e.firmName, e.firmId)}${showSecReferences && e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : ''}
                   <span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>
 								  ${detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : ''}
                   ${scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : ''}
@@ -8640,7 +8665,7 @@ function renderPersonDetail(d: any) {
 									const detailLine = getEmploymentDetailLine(e);
 									const scopeTags = getEmploymentScopeTags(e);
 									return `<div class="${cls}">
-                  <span class="fg-tl-firm">${esc(e.firmName)}${showSecReferences && e.bdSecNumber ? ` <small>SEC#${esc(e.bdSecNumber)}</small>` : ''}</span>
+				  ${renderFirmNameWithCrd(e.firmName, e.firmId)}${showSecReferences && e.bdSecNumber ? ` <small>SEC#${esc(e.bdSecNumber)}</small>` : ''}
                   <span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>
 								  ${detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : ''}
 								  ${scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : ''}
@@ -8661,7 +8686,7 @@ function renderPersonDetail(d: any) {
 								.map(
 									(reg) => `
                 <div class="fg-tl-entry active-pos">
-									  <span class="fg-tl-firm">${renderRegistrationRole(reg.role)} ${esc(reg.firmName)}${reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : ''}</span>
+									  <span class="fg-tl-firm">${renderRegistrationRole(reg.role)} ${renderFirmNameWithCrd(reg.firmName, reg.firmId)}${reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : ''}</span>
                   ${
 										reg.officeAddress ? `<span class="fg-tl-loc">${esc(reg.officeAddress)}</span>`
 										: reg.cityState ? `<span class="fg-tl-loc">${esc(reg.cityState)}</span>`
@@ -8683,7 +8708,7 @@ function renderPersonDetail(d: any) {
 								.map(
 									(reg) => `
                 <div class="fg-tl-entry">
-								  <span class="fg-tl-firm">${esc(reg.firmName)}${reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : ''}</span>
+								  ${renderFirmNameWithCrd(reg.firmName, reg.firmId)}${reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : ''}
                   ${reg.cityState ? `<span class="fg-tl-loc">${esc(reg.cityState)}</span>` : ''}
                   <span class="fg-tl-dates">${esc(reg.start || '–')} → ${esc(reg.end || 'present')}</span>
                 </div>`,
@@ -9120,6 +9145,16 @@ function renderFirmDetail(d: any) {
 			}
     </div>
   `;
+}
+
+function renderFirmNameWithCrd(name: string, maybeId: any) {
+	const raw = String(maybeId || '').trim();
+	if (!raw) return `<span class="fg-tl-firm">${esc(name)}</span>`;
+	const crdMatch = raw.replace(/^firm[:_]/, '');
+	if (/^\d+$/.test(crdMatch)) {
+		return `<button class="fg-crd-link" data-crd="${esc(crdMatch)}" data-crd-type="firm">${esc(name)}</button>`;
+	}
+	return `<span class="fg-tl-firm">${esc(name)}</span>`;
 }
 
 // ── Entity detail ────────────────────────────────────────────────────────────

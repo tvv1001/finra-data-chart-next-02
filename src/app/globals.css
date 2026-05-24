@@ -344,6 +344,11 @@ html[data-theme='dark'] .fg-state-pill.active {
 	color: var(--text);
 }
 
+html[data-theme='dark'] .fg-dis-comment {
+	background: rgba(148, 163, 184, 0.16);
+	outline: 1px solid rgba(148, 163, 184, 0.24);
+}
+
 *,
 *::before,
 *::after {
@@ -1546,6 +1551,7 @@ a,
 .fg-sidebar[data-mobile-expanded='true'][data-view-mode='info'] {
 	max-height: 94svh;
 	overflow-y: hidden;
+	padding: 0;
 }
 
 .fg-sidebar[data-mobile-expanded='false'] .fg-sb-body {
@@ -2046,6 +2052,7 @@ a,
 .fg-sb-title-actions--below-tags .fg-sb-log-toggle {
 	min-width: 0;
 	margin: 0;
+	max-width: 159px;
 }
 
 .fg-sb-title-actions .fg-sidebar-mobile-summary-toggle__label {
