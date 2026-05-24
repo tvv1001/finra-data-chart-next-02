@@ -710,7 +710,7 @@ export default function FinraGraph() {
 							<p className='fg-empty-eyebrow'>First time here?</p>
 							<h2 className='fg-empty-title'>Start with the search field above.</h2>
 							<ul className='fg-empty-steps'>
-								<li>Selecting a firm will only show it's employees, while selecting a person will show all their associated firms and connections.</li>
+								<li>Selecting a firm will only show its employees, while selecting a person will show all their associated firms and connections.</li>
 							</ul>
 						</div>
 					</div>
