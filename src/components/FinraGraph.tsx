@@ -1,8 +1,8 @@
 'use client';
-
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
+import ThemeToggle from './ThemeToggle';
 import { buildNodeRouteHref, buildNodeRoutePath, parseNodeIdFromPathname } from '@/lib/node-route';
 
 const MOBILE_TOUCH_SLOP_PX = 12;
@@ -169,8 +169,63 @@ export default function FinraGraph() {
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
-	const routeNodeId = parseNodeIdFromPathname(browserPathname || pathname);
-	const searchSuffix = searchParams.toString() ? `?${searchParams.toString()}` : '';
+	const routeNodeId = useMemo(() => parseNodeIdFromPathname(browserPathname || pathname), [browserPathname, pathname]);
+	const searchSuffix = useMemo(() => {
+		const suffix = searchParams.toString();
+		return suffix ? `?${suffix}` : '';
+	}, [searchParams]);
+
+	// Delegate click handler for CRD links in sidebar
+	useEffect(() => {
+		if (!isMounted) return;
+		const sidebar = document.getElementById('fg-sidebar-inner');
+		if (!sidebar) return;
+		const handler = (e: MouseEvent) => {
+			const target = e.target as HTMLElement;
+			const crdBtn = target.closest('.fg-crd-link') as HTMLElement | null;
+			if (crdBtn && crdBtn.dataset.crd) {
+				e.preventDefault();
+				e.stopPropagation();
+				const crd = String(crdBtn.dataset.crd || '').trim();
+				const type = String(crdBtn.dataset.crdType || '').trim();
+				let nodeId = crd;
+				if (type) {
+					nodeId = `${type}:${crd}`;
+				} else if (/^\d+$/.test(crd)) {
+					// Legacy behavior: assume numeric CRD clicked from employment means firm
+					nodeId = `firm:${crd}`;
+				}
+				// When routing to a node from the sidebar link, request a 5s pulse highlight
+				window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { nodeId, pulseDuration: 5000 } }));
+				return;
+			}
+
+			// If the clicked row carries a data-search-query attribute (or a nearby firm span), use that to search-by-name
+			const searchBtn = target.closest('[data-search-query]') as HTMLElement | null;
+			if (searchBtn) {
+				e.preventDefault();
+				e.stopPropagation();
+				const name = String(searchBtn.dataset.searchQuery || '').trim() || (searchBtn.textContent || '').trim();
+				if (name) {
+					window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { searchQuery: name, pulseDuration: 5000 } }));
+				}
+				return;
+			}
+
+			// Fallback: legacy plain firm-name spans
+			const firmNameEl = target.closest('.fg-tl-firm') as HTMLElement | null;
+			if (firmNameEl) {
+				const name = (firmNameEl.textContent || '').trim();
+				if (name) {
+					e.preventDefault();
+					e.stopPropagation();
+					window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { searchQuery: name, pulseDuration: 5000 } }));
+				}
+			}
+		};
+		sidebar.addEventListener('click', handler);
+		return () => sidebar.removeEventListener('click', handler);
+	}, [isMounted]);
 
 	useEffect(() => {
 		setIsMounted(true);
@@ -552,8 +607,36 @@ export default function FinraGraph() {
 					className='fg-sidebar hidden'>
 					<div className='fg-sidebar-actions'>
 						<button
+							type='button'
+							data-fg-action='refresh-layout'
+							className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-sidebar-action-btn--mobile-only'
+							title='Re-run the graph layout'
+							aria-label='Reflow layout'>
+							<span className='fg-sidebar-action-label'>Refresh</span>
+							<span
+								className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
+								aria-hidden='true'>
+								↺
+							</span>
+						</button>
+
+						<button
+							type='button'
+							data-fg-trace-mode-button='sidebar-mobile'
+							className='fg-ghost-btn'
+							title='Toggle path tracing mode'>
+							Trace Mode
+						</button>
+						<button
+							type='button'
+							data-fg-action='clear-session'
+							className='fg-danger-btn'
+							title='Clear saved session and reload fresh'>
+							Reset Session
+						</button>
+						<button
 							id='fg-sidebar-pin-toggle'
-							className='fg-sidebar-action-btn fg-sidebar-action-btn--pin'
+							className='fg-sidebar-action-btn fg-sidebar-action-btn--pin fg-sidebar-action-btn--icon-only'
 							type='button'
 							onClick={toggleSidebarPin}
 							title='Pin panel open'
@@ -575,11 +658,20 @@ export default function FinraGraph() {
 									/>
 								</svg>
 							</span>
-							<span className='fg-sidebar-action-label'>Pin</span>
+						</button>
+					</div>
+					<div className='fg-sidebar-mobile-actions'>
+						<button
+							type='button'
+							data-fg-action='clear-highlights'
+							className='fg-ghost-btn'
+							title='Clear selected highlights'>
+							Clear Highlight
 						</button>
 						<button
 							id='fg-focus-btn'
 							className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary'
+							type='button'
 							title='Focus on this node'
 							aria-label='Center on this node'>
 							<span className='fg-sidebar-action-label'>Center</span>
@@ -624,42 +716,7 @@ export default function FinraGraph() {
 								</svg>
 							</span>
 						</button>
-						<button
-							type='button'
-							data-fg-action='refresh-layout'
-							className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-sidebar-action-btn--mobile-only'
-							title='Re-run the graph layout'
-							aria-label='Reflow layout'>
-							<span className='fg-sidebar-action-label'>Refresh</span>
-							<span
-								className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
-								aria-hidden='true'>
-								↺
-							</span>
-						</button>
-					</div>
-					<div className='fg-sidebar-mobile-actions'>
-						<button
-							type='button'
-							data-fg-trace-mode-button='sidebar-mobile'
-							className='fg-ghost-btn'
-							title='Toggle path tracing mode'>
-							Trace Mode
-						</button>
-						<button
-							type='button'
-							data-fg-action='clear-highlights'
-							className='fg-ghost-btn'
-							title='Clear selected highlights'>
-							Clear Highlight
-						</button>
-						<button
-							type='button'
-							data-fg-action='clear-session'
-							className='fg-danger-btn'
-							title='Clear saved session and reload fresh'>
-							Reset Session
-						</button>
+
 						<details
 							className='fg-mobile-legend-tooltip'
 							onBlur={handleLegendTooltipBlur}>
@@ -674,7 +731,9 @@ export default function FinraGraph() {
 									className='fg-mobile-legend'></div>
 							</div>
 						</details>
+						<ThemeToggle />
 					</div>
+
 					<div
 						id='fg-sidebar-inner'
 						className='fg-sidebar-inner'>
@@ -702,7 +761,7 @@ export default function FinraGraph() {
 							<p className='fg-empty-eyebrow'>First time here?</p>
 							<h2 className='fg-empty-title'>Start with the search field above.</h2>
 							<ul className='fg-empty-steps'>
-								<li>Selecting a firm will only show it's employees, while selecting a person will show all their associated firms and connections.</li>
+								<li>Selecting a firm will only show its employees, while selecting a person will show all their associated firms and connections.</li>
 							</ul>
 						</div>
 					</div>
@@ -741,3 +800,18 @@ export default function FinraGraph() {
 		</div>
 	);
 }
+
+// Export helpers for unit testing (DOM-only, no browser binaries required)
+export {
+	bindTouchDragClickSuppression,
+	ensureSidebarHintContent,
+	isSidebarTemporarilyPinned,
+	isSidebarPersistentlyPinned,
+	syncSidebarPinButton,
+	toggleSidebarPin,
+	hideSidebar,
+	toggleMobileMenu,
+	handleLegendTooltipBlur,
+	hideSelectionLog,
+	focusFetchInputWhenEmpty,
+};

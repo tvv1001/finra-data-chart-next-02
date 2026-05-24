@@ -5,14 +5,14 @@
 	"scripts": {
 		"dev": "next dev -p 4444",
 		"dev:clean": "rm -rf .next && next dev -p 4444",
-		"prebuild": "node scripts/build_graph_from_cache.js --employment-scope all --no-redis && node scripts/build_primed_cache_bundle.js",
+		"prebuild": "node scripts/build_graph_from_cache.js --employment-scope all --no-redis",
 		"build": "next build",
 		"start": "next start -p 4444",
 		"lint": "next lint",
 		"test:e2e": "playwright test",
+		"test:unit": "vitest",
 		"test:e2e:headed": "playwright test --headed",
 		"test:smoke": "playwright test tests/e2e/smoke.spec.ts",
-		"playwright:install": "playwright install chromium",
 		"build:graph": "node scripts/build_graph_from_cache.js --employment-scope all",
 		"prime:all": "node scripts/download_all_api_data.js"
 	},
@@ -28,6 +28,8 @@
 		"minimist": "^1.2.8",
 		"next": "^15.1.0",
 		"pixi.js": "^8.4.0",
+		"playwright-extra-plugin-stealth": "^0.0.1",
+		"puppeteer": "^25.0.4",
 		"react": "^19.0.0",
 		"react-dom": "^19.0.0",
 		"winston": "^3.13.0"
@@ -44,6 +46,9 @@
 		"playwright": "^1.60.0",
 		"playwright-extra": "^4.3.6",
 		"sharp": "^0.34.5",
-		"typescript": "^5.7.0"
+		"typescript": "^5.7.0",
+		"vitest": "^1.1.7",
+		"@testing-library/dom": "^9.0.0",
+		"jsdom": "^22.1.0"
 	}
 }

@@ -1,13 +1,7 @@
-node_modules/
-.next/
-coverage/
-dist/
-build/
-.DS_Store
-Thumbs.db
-.env*
-*.log
-.vercel/
-data/external/
-data/national/adviserinfo.sec.gov/
-data/national/brokercheck.finra.org/
+# Prevent shipping curated seed lists and primed cache bundles to Vercel deployments
+
+data/seed-profiles.json data/national/primed-cache/** data/national/finra-seed-bank.json data/national/finra-recent-seeds.json data/national/primed-cache/**
+
+# Also exclude large cache artifacts that are not required for runtime
+
+data/national/_.bak_ data/cache-binary/\*_ node_modules/ .next/ coverage/ dist/ build/ .DS_Store Thumbs.db .env_ \*.log .vercel/ data/external/ data/national/adviserinfo.sec.gov/ data/national/brokercheck.finra.org/
