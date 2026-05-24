@@ -3035,6 +3035,28 @@ a,
 	opacity: 1 !important;
 }
 
+/* Light theme: ensure SVG node labels are black with a subtle white outline for legibility */
+:not(.theme-dark) text.fg-label {
+	fill: var(--text) !important;
+	stroke: #ffffff;
+	stroke-width: 2px;
+	paint-order: stroke fill;
+	stroke-linejoin: round;
+	stroke-opacity: 1;
+}
+
+:not(.theme-dark) .fg-node.selected text.fg-label,
+:not(.theme-dark) .fg-node.highlighted-hop text.fg-label {
+	/* stronger weight for selected/highlighted labels in light mode */
+	fill: var(--text) !important;
+	stroke: #ffffff;
+	stroke-width: 2px;
+	paint-order: stroke fill;
+	stroke-linejoin: round;
+	stroke-opacity: 1;
+	font-weight: 700;
+}
+
 .fg-node .fg-node-overlay {
 	fill: var(--color-node-depth-overlay);
 	fill-opacity: var(--fill-opacity-node-depth);
