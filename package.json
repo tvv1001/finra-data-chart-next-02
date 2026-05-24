@@ -5,7 +5,7 @@
 	"scripts": {
 		"dev": "next dev -p 4444",
 		"dev:clean": "rm -rf .next && next dev -p 4444",
-		"prebuild": "node scripts/build_graph_from_cache.js --employment-scope all --no-redis && node scripts/build_primed_cache_bundle.js",
+		"prebuild": "node scripts/build_graph_from_cache.js --employment-scope all --no-redis",
 		"build": "next build",
 		"start": "next start -p 4444",
 		"lint": "next lint",
