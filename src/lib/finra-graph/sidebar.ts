@@ -108,6 +108,12 @@ function hasFirmFinraPresence(node: any) {
 	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
 	if (node.hasFinraData === true) return true;
 	if (node.isLegacy === 'Y') return true;
+	// If this firm carries a SEC '8-' identifier and we don't have explicit FINRA data,
+	// treat it as SEC-only and do not surface a FINRA brokercheck link.
+	const secIdRaw = node?.iaSecNumber || node?.basicInformation?.iaSECNumber || node?.basicInformation?.bdSECNumber || node?.bdSECNumber || '';
+	const secId = String(secIdRaw || '').trim();
+	if (secId && /^8-\d+/i.test(secId)) return false;
+
 	if (Boolean(String(node?.bcScope || node?.basicInformation?.bcScope || '').trim())) return true;
 	return false;
 }

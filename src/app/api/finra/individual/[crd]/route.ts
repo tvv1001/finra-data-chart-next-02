@@ -150,8 +150,36 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				secDetail ? mergePreferPrimary(secDetail, finraDetail)
 				:	finraDetail
 			:	secDetail;
-		detail.hasFinraData = !!finraDetail;
-		detail.hasSecData = !!secDetail;
+
+		// determine whether parsed details contain a usable numeric identifier
+		function findNumericId(obj: any, candidates: string[]) {
+			if (!obj || typeof obj !== 'object') return '';
+			for (const key of candidates) {
+				const v = obj[key];
+				if (v == null) continue;
+				const s = String(v).trim();
+				if (/^\d+$/.test(s)) return s;
+				if (/^8-\d+$/i.test(s)) return s;
+			}
+			// try nested basicInformation
+			const bi = obj.basicInformation || obj.basic_information || obj.basic || null;
+			if (bi && typeof bi === 'object') {
+				for (const key of candidates) {
+					const v = bi[key];
+					if (v == null) continue;
+					const s = String(v).trim();
+					if (/^\d+$/.test(s)) return s;
+					if (/^8-\d+$/i.test(s)) return s;
+				}
+			}
+			return '';
+		}
+
+		const finraNumeric = finraDetail ? findNumericId(finraDetail, ['individualId', 'individual_id', 'crd', 'ind_crd', 'ind_source_id']) : '';
+		const secNumeric = secDetail ? findNumericId(secDetail, ['individualId', 'individual_id', 'crd', 'ind_crd', 'ind_source_id']) : '';
+
+		detail.hasFinraData = !!finraDetail && !!finraNumeric;
+		detail.hasSecData = !!secDetail && !!secNumeric;
 
 		return NextResponse.json(detail, { headers: sharedCacheHeaders(3600) });
 	} catch (err: any) {
