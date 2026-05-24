@@ -1,0 +1,27 @@
+name: Block primed-cache artifacts
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  check-primed-cache:
+    name: Check for primed-cache artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail if primed-cache files are present
+        run: |
+          set -euo pipefail
+          echo "Checking for primed-cache artifacts..."
+          files=$(git ls-files 'data/national/primed-cache/*' || true)
+          if [ -n "$files" ]; then
+            echo "ERROR: primed-cache artifacts detected in repository:" >&2
+            echo "$files" >&2
+            echo "Remove these files before committing or add them to .gitignore. If you intentionally generate primed-cache bundles, set ENABLE_PRIMED_CACHE=true and keep them out of the repo." >&2
+            exit 1
+          fi
+          echo "No primed-cache artifacts found."
