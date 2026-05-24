@@ -197,17 +197,28 @@ export default function FinraGraph() {
 				}
 				// When routing to a node from the sidebar link, request a 5s pulse highlight
 				window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { nodeId, pulseDuration: 5000 } }));
+				return;
 			}
 
-			// If the firm name is rendered as plain text (no CRD button), allow
-			// clicking the firm name to trigger a search-by-name route resolution.
+			// If the clicked row carries a data-search-query attribute (or a nearby firm span), use that to search-by-name
+			const searchBtn = target.closest('[data-search-query]') as HTMLElement | null;
+			if (searchBtn) {
+				e.preventDefault();
+				e.stopPropagation();
+				const name = String(searchBtn.dataset.searchQuery || '').trim() || (searchBtn.textContent || '').trim();
+				if (name) {
+					window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { searchQuery: name, pulseDuration: 5000 } }));
+				}
+				return;
+			}
+
+			// Fallback: legacy plain firm-name spans
 			const firmNameEl = target.closest('.fg-tl-firm') as HTMLElement | null;
-			if (!crdBtn && firmNameEl) {
+			if (firmNameEl) {
 				const name = (firmNameEl.textContent || '').trim();
 				if (name) {
 					e.preventDefault();
 					e.stopPropagation();
-					// When routing by clicking a firm name in the sidebar, request a 5s pulse highlight
 					window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { searchQuery: name, pulseDuration: 5000 } }));
 				}
 			}
