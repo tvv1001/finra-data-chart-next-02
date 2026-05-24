@@ -32,6 +32,29 @@ export async function POST(req: NextRequest) {
 		const stdout = out.join('');
 		const stderr = err.join('');
 
+		// After validation completes, also run the revalidate_external_presence script
+		const REVALIDATE_PATH = path.join(process.cwd(), 'scripts', 'revalidate_external_presence.js');
+		let revalidate = null;
+		try {
+			const rout: string[] = [];
+			const rerr: string[] = [];
+			// build safe args to limit concurrency/work per-run to stay within free tier limits
+			const rvConcurrency = process.env.REVALIDATE_CONCURRENCY || '1';
+			const rvLimit = process.env.REVALIDATE_LIMIT || '200';
+			const rchild = spawn(process.execPath, [REVALIDATE_PATH, `--concurrency=${rvConcurrency}`, `--limit=${rvLimit}`], { env: { ...process.env }, cwd: process.cwd() });
+			rchild.stdout.on('data', (d) => rout.push(String(d)));
+			rchild.stderr.on('data', (d) => rerr.push(String(d)));
+
+			const rcode: number = await new Promise((resolve, reject) => {
+				rchild.on('close', resolve);
+				rchild.on('error', reject);
+			});
+
+			revalidate = { exitCode: Number(rcode ?? 0), stdout: rout.join(''), stderr: rerr.join('') };
+		} catch (re) {
+			revalidate = { error: String(re) };
+		}
+
 		// locate the most recent report and suggested files in data/national
 		const DATA_DIR = path.join(process.cwd(), 'data', 'national');
 		const files = await import('fs/promises');
@@ -52,7 +75,7 @@ export async function POST(req: NextRequest) {
 		const reportJson = latestReport ? JSON.parse(await files.readFile(latestReport, 'utf8')) : null;
 		const suggestedJson = latestSuggested ? JSON.parse(await files.readFile(latestSuggested, 'utf8')) : null;
 
-		return NextResponse.json({ ok: true, exitCode: code, report: reportJson, suggested: suggestedJson, stdout, stderr });
+		return NextResponse.json({ ok: true, exitCode: code, report: reportJson, suggested: suggestedJson, stdout, stderr, revalidate });
 	} catch (e: any) {
 		return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
 	}

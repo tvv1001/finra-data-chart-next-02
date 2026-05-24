@@ -65,6 +65,10 @@ function toNodeSourceCoverage(finra: boolean, sec: boolean): NodeSourceCoverage 
 // Add CRD numbers here to suppress FINRA links for those firms.
 const BROKEN_FINRA_FIRM_IDS = new Set(['134139']);
 
+// Individual IDs for which SEC AdvisorInfo links should be suppressed.
+// Add numeric individual CRD-like ids (no prefix) here when upstream SEC pages are incorrect or undesirable.
+const SUPPRESSED_SEC_INDIV_IDS = new Set(['18040']);
+
 function isNotInScopeValue(value) {
 	return (
 		String(value || '')
@@ -76,6 +80,17 @@ function isNotInScopeValue(value) {
 
 function hasIndividualFinraPresence(node) {
 	if (!node || typeof node !== 'object') return false;
+	// Per-node suppression: if the node explicitly suppresses FINRA links, respect that.
+	if (
+		Array.isArray(node?.suppressedExternalLinks) &&
+		node.suppressedExternalLinks.some(
+			(s: any) =>
+				String(s || '')
+					.trim()
+					.toLowerCase() === 'finra',
+		)
+	)
+		return false;
 	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
 	if (node.hasFinraData === true) return true;
 	if (hasPublicFinraIndividualPage(node, node.basicInformation || {})) return true;
@@ -86,6 +101,24 @@ function hasIndividualFinraPresence(node) {
 
 function hasIndividualSecPresence(node) {
 	if (!node || typeof node !== 'object') return false;
+
+	// Per-node suppression: if the node explicitly suppresses SEC links, respect that.
+	if (
+		Array.isArray(node?.suppressedExternalLinks) &&
+		node.suppressedExternalLinks.some(
+			(s: any) =>
+				String(s || '')
+					.trim()
+					.toLowerCase() === 'sec',
+		)
+		return false;
+
+	// Per-id suppression: if the node's id/crd is known to be invalid for SEC links, suppress.
+	const rawId = String(node?.crd || node?.basicInformation?.individualId || node?.individualId || node?.id || '')
+		.replace(/^person[:_]/, '')
+		.replace(/^node[:_]/, '')
+		.trim();
+	if (rawId && SUPPRESSED_SEC_INDIV_IDS.has(rawId)) return false;
 	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
 	if (node.hasSecData === true) return true;
 	if (hasPublicSecIndividualPage(node, node.basicInformation || {})) return true;

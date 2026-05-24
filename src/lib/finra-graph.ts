@@ -37,6 +37,9 @@ const BASE = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL)
 // Firms known to have broken or unreachable FINRA/BrokerCheck summary pages.
 // Add CRD numbers here to suppress FINRA links for those firms.
 const BROKEN_FINRA_FIRM_IDS = new Set(['134139']);
+// Individual IDs for which SEC AdvisorInfo links should be suppressed.
+// Add numeric individual CRD-like ids (no prefix) here when upstream SEC pages are incorrect or undesirable.
+const SUPPRESSED_SEC_INDIV_IDS = new Set(['18040']);
 
 // Simple once-only logger sets to avoid spamming the console during render loops.
 const _loggedBadNodeCoords = new Set<string | number>();
@@ -3825,6 +3828,72 @@ function mergeIntoGraphData(newNodes, newLinks) {
 		// Expose recent additions for the next render so they can be highlighted.
 		graphData._recentlyAddedNodeIds = addedIds;
 	}
+
+	// After merging, validate external presence (FINRA/SEC) for affected nodes.
+	// Fire-and-forget: update nodes in-place when validation returns.
+	(function validateMergedNodes() {
+		if (!graphData) return;
+		const candidates = newNodes
+			.map((n) => n.id)
+			.filter(Boolean)
+			.map((id) => graphData.nodes.find((x) => x.id === id))
+			.filter(Boolean);
+
+		const toCheck = candidates.filter((node) => {
+			if (!node) return false;
+			if (node._externalValidated) return false;
+			if (node.group === 'individual') {
+				const crd = String(node.crd || node.basicInformation?.individualId || '').trim();
+				return Boolean(crd);
+			}
+			if (node.group === 'firm') {
+				const fid = String(node.firmId || '').trim();
+				return Boolean(fid);
+			}
+			return false;
+		});
+
+		if (!toCheck.length) return;
+
+		for (const node of toCheck) {
+			// kick off async validation without blocking merge
+			void (async (n) => {
+				try {
+					if (n.group === 'individual') {
+						const crd = String(n.crd || n.basicInformation?.individualId || '').trim();
+						if (!crd) return;
+						const res = await fetch(`${BASE}/api/finra/merged/individual/${encodeURIComponent(crd)}`);
+						if (!res.ok) return;
+						const payload = await res.json();
+						const merged = payload?.merged || null;
+						if (merged) {
+							if (merged.hasFinraData != null) n.hasFinraData = merged.hasFinraData;
+							if (merged.hasSecData != null) n.hasSecData = merged.hasSecData;
+						}
+					} else if (n.group === 'firm') {
+						const fid = String(n.firmId || '').trim();
+						if (!fid) return;
+						const res = await fetch(`${BASE}/api/finra/merged/firm/${encodeURIComponent(fid)}`);
+						if (!res.ok) return;
+						const payload = await res.json();
+						const merged = payload?.merged || null;
+						if (merged) {
+							if (merged.hasFinraData != null) n.hasFinraData = merged.hasFinraData;
+							if (merged.hasSecData != null) n.hasSecData = merged.hasSecData;
+						}
+					}
+					n._externalValidated = Date.now();
+					try {
+						saveSession();
+					} catch {
+						/* ignore */
+					}
+				} catch (err) {
+					/* ignore validation failures */
+				}
+			})(node);
+		}
+	})();
 }
 
 // Fire-and-forget persist of newly fetched nodes/links to the server graph file.
@@ -4786,6 +4855,17 @@ function isNotInScopeValue(value) {
 
 function hasIndividualFinraPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
+	// Per-node suppression: if the node explicitly suppresses FINRA links, respect that.
+	if (
+		Array.isArray(node?.suppressedExternalLinks) &&
+		node.suppressedExternalLinks.some(
+			(s: any) =>
+				String(s || '')
+					.trim()
+					.toLowerCase() === 'finra',
+		)
+	)
+		return false;
 	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
 	if (node.hasFinraData === true) return true;
 	if (hasPublicFinraIndividualPage(node, node.basicInformation || {})) return true;
@@ -4800,6 +4880,25 @@ function hasIndividualFinraPresence(node: any) {
 
 function hasIndividualSecPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
+
+	// Per-node suppression: if the node explicitly suppresses SEC links, respect that.
+	if (
+		Array.isArray(node?.suppressedExternalLinks) &&
+		node.suppressedExternalLinks.some(
+			(s: any) =>
+				String(s || '')
+					.trim()
+					.toLowerCase() === 'sec',
+		)
+	)
+		return false;
+
+	// Per-id suppression: if the node's id/crd is known to be invalid for SEC links, suppress.
+	const rawId = String(node?.crd || node?.basicInformation?.individualId || node?.individualId || node?.id || '')
+		.replace(/^person[:_]/, '')
+		.replace(/^node[:_]/, '')
+		.trim();
+	if (rawId && SUPPRESSED_SEC_INDIV_IDS.has(rawId)) return false;
 	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
 	if (node.hasSecData === true) return true;
 	if (hasPublicSecIndividualPage(node, node.basicInformation || {})) return true;
