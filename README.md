@@ -326,6 +326,7 @@ env NODE_OPTIONS=--max-old-space-size=8192 pnpm build
 | `CRON_SECRET`                                         | Optional bearer token required by `/api/finra/prime-check` when you want to protect cron access |
 | `FINRA_PRIME_BATCH_LIMIT`                             | Optional limit override for the prime-check warming batch                                       |
 | `FINRA_PRIME_CONCURRENCY`                             | Optional concurrency override for the prime-check warming batch                                 |
+| `SEEDS_API_SECRET`                                    | Optional secret required to expose seed lists from `/api/finra/seeds` in production             |
 
 If Redis is **not** configured, the app falls back to:
 

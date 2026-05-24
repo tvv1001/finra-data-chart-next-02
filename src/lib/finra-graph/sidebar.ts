@@ -111,6 +111,7 @@ function hasIndividualSecPresence(node) {
 					.trim()
 					.toLowerCase() === 'sec',
 		)
+	)
 		return false;
 
 	// Per-id suppression: if the node's id/crd is known to be invalid for SEC links, suppress.
