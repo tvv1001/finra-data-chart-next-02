@@ -5060,7 +5060,14 @@ function isLinkOnAnyTrace(linkKey: string) {
 function getNodeRenderPriority(node, highlightState) {
 	if (!node) return 1;
 	const degreeBias = Math.max(0, Math.min(1000, getNodeDegreeValue(node)));
+	// Nodes on an explicit trace get top priority
 	if (isNodeOnAnyTrace(node.id)) return 4000 + degreeBias;
+
+	// Nodes that have been explicitly selected (current selection or visited selections)
+	// should render above ordinary nodes so their labels and connecting lines are visible.
+	if (node.id === selectedId || visitedNodeIds.has(node.id)) return 3000 + degreeBias;
+
+	// Highlight roots/hop nodes (from trace/highlight state) also get high priority
 	if (highlightState?.rootIds?.has(node.id) || highlightState?.hopNodeIds?.has(node.id)) return 3000 + degreeBias;
 	if (isNodeInactive(node)) return 1000 + degreeBias;
 	return 2000 + degreeBias;
