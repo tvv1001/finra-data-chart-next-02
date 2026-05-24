@@ -8814,18 +8814,20 @@ function renderPersonDetail(d: any) {
 				currentEmploymentEntries.length ?
 					`<div class="fg-section-title fg-section-title--sticky">Current Employment (${currentEmploymentEntries.length})</div>
             <div class="fg-timeline">
-              ${currentEmploymentEntries
-								.map((e) => {
-									const detailLine = getEmploymentDetailLine(e);
-									const scopeTags = getEmploymentScopeTags(e);
-									return `<div class="fg-tl-entry active-pos">
-					  ${renderFirmNameWithCrd(e.firmName, e.firmId)}${showSecReferences && e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : ''}
-                  <span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>
-								  ${detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : ''}
-                  ${scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : ''}
-                </div>`;
-								})
-								.join('')}
+			  ${currentEmploymentEntries
+					.map((e) => {
+						const detailLine = getEmploymentDetailLine(e);
+						const scopeTags = getEmploymentScopeTags(e);
+						const datesHtml = `<span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>`;
+						const detailHtml = detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : '';
+						const scopeHtml = scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : '';
+						const secHtml = showSecReferences && e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : '';
+						if (e.firmId) {
+							return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-crd-link" data-crd="${esc(e.firmId)}" data-crd-type="firm">${esc(e.firmName)}${secHtml}${datesHtml}${detailHtml}${scopeHtml}</button>`;
+						}
+						return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable" data-search-query="${esc(e.firmName)}">${esc(e.firmName)}${secHtml}${datesHtml}${detailHtml}${scopeHtml}</button>`;
+					})
+					.join('')}
             </div>`
 				:	''
 			}
@@ -8834,20 +8836,22 @@ function renderPersonDetail(d: any) {
 				previousEmploymentEntries.length ?
 					`<div class="fg-section-title fg-section-title--sticky">Previous Employment (${previousEmploymentEntries.length})</div>
             <div class="fg-timeline">
-              ${previousEmploymentEntries
-								.map((e) => {
-									const cls = `fg-tl-entry${e.isCurrent ? ' active-pos' : ''}`;
-									const detailLine = getEmploymentDetailLine(e);
-									const scopeTags = getEmploymentScopeTags(e);
-									return `<div class="${cls}">
-				  ${renderFirmNameWithCrd(e.firmName, e.firmId)}${showSecReferences && e.bdSecNumber ? ` <small>SEC#${esc(e.bdSecNumber)}</small>` : ''}
-                  <span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>
-								  ${detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : ''}
-								  ${scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : ''}
-								  ${e.expelledDate ? `<span class="fg-badge inactive">Expelled ${esc(e.expelledDate)}</span>` : ''}
-                </div>`;
-								})
-								.join('')}
+			  ${previousEmploymentEntries
+					.map((e) => {
+						const cls = `fg-tl-entry${e.isCurrent ? ' active-pos' : ''}`;
+						const detailLine = getEmploymentDetailLine(e);
+						const scopeTags = getEmploymentScopeTags(e);
+						const datesHtml = `<span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>`;
+						const detailHtml = detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : '';
+						const scopeHtml = scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : '';
+						const expelledHtml = e.expelledDate ? `<span class="fg-badge inactive">Expelled ${esc(e.expelledDate)}</span>` : '';
+						const secHtml = showSecReferences && e.bdSecNumber ? ` <small>SEC#${esc(e.bdSecNumber)}</small>` : '';
+						if (e.firmId) {
+							return `<button type="button" class="${cls} fg-card-clickable fg-crd-link" data-crd="${esc(e.firmId)}" data-crd-type="firm">${esc(e.firmName)}${secHtml}${datesHtml}${detailHtml}${scopeHtml}${expelledHtml}</button>`;
+						}
+						return `<button type="button" class="${cls} fg-card-clickable" data-search-query="${esc(e.firmName)}">${esc(e.firmName)}${secHtml}${datesHtml}${detailHtml}${scopeHtml}${expelledHtml}</button>`;
+					})
+					.join('')}
             </div>`
 				:	`<div class="fg-section-title fg-section-title--sticky">Previous Employment</div>
             <div class="fg-empty-state" style="margin-top:8px">No previous employment records found for this profile.</div>`
@@ -8857,20 +8861,21 @@ function renderPersonDetail(d: any) {
 				currentRegistrations.length ?
 					`<div class="fg-section-title fg-section-title--sticky">Current Registrations</div>
             <div class="fg-timeline">
-              ${currentRegistrations
-								.map(
-									(reg) => `
-                <div class="fg-tl-entry active-pos">
-									  <span class="fg-tl-firm">${renderRegistrationRole(reg.role)} ${renderFirmNameWithCrd(reg.firmName, reg.firmId)}${reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : ''}</span>
-                  ${
-										reg.officeAddress ? `<span class="fg-tl-loc">${esc(reg.officeAddress)}</span>`
-										: reg.cityState ? `<span class="fg-tl-loc">${esc(reg.cityState)}</span>`
-										: ''
-									}
-                  ${reg.start ? `<span class="fg-tl-dates">Registered since ${esc(reg.start)}</span>` : ''}
-                </div>`,
-								)
-								.join('')}
+			  ${currentRegistrations
+					.map((reg) => {
+						const roleFirm = `${renderRegistrationRole(reg.role)} ${esc(reg.firmName)}`;
+						const crdHtml = reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : '';
+						const locHtml =
+							reg.officeAddress ? `<span class="fg-tl-loc">${esc(reg.officeAddress)}</span>`
+							: reg.cityState ? `<span class="fg-tl-loc">${esc(reg.cityState)}</span>`
+							: '';
+						const datesHtml = reg.start ? `<span class="fg-tl-dates">Registered since ${esc(reg.start)}</span>` : '';
+						if (reg.firmId) {
+							return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-crd-link" data-crd="${esc(reg.firmId)}" data-crd-type="firm"><span class="fg-tl-firm">${roleFirm}${crdHtml}</span>${locHtml}${datesHtml}</button>`;
+						}
+						return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable" data-search-query="${esc(reg.firmName)}"><span class="fg-tl-firm">${roleFirm}${crdHtml}</span>${locHtml}${datesHtml}</button>`;
+					})
+					.join('')}
             </div>`
 				:	''
 			}
@@ -8879,16 +8884,17 @@ function renderPersonDetail(d: any) {
 				previousRegistrations.length ?
 					`<div class="fg-section-title fg-section-title--sticky">Previous Registrations</div>
             <div class="fg-timeline">
-              ${previousRegistrations
-								.map(
-									(reg) => `
-                <div class="fg-tl-entry">
-								  ${renderFirmNameWithCrd(reg.firmName, reg.firmId)}${reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : ''}
-                  ${reg.cityState ? `<span class="fg-tl-loc">${esc(reg.cityState)}</span>` : ''}
-                  <span class="fg-tl-dates">${esc(reg.start || '–')} → ${esc(reg.end || 'present')}</span>
-                </div>`,
-								)
-								.join('')}
+			  ${previousRegistrations
+					.map((reg) => {
+						const crdHtml = reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : '';
+						const locHtml = reg.cityState ? `<span class="fg-tl-loc">${esc(reg.cityState)}</span>` : '';
+						const datesHtml = `<span class="fg-tl-dates">${esc(reg.start || '–')} → ${esc(reg.end || 'present')}</span>`;
+						if (reg.firmId) {
+							return `<button type="button" class="fg-tl-entry fg-card-clickable fg-crd-link" data-crd="${esc(reg.firmId)}" data-crd-type="firm">${esc(reg.firmName)}${crdHtml}${locHtml}${datesHtml}</button>`;
+						}
+						return `<button type="button" class="fg-tl-entry fg-card-clickable" data-search-query="${esc(reg.firmName)}">${esc(reg.firmName)}${crdHtml}${locHtml}${datesHtml}</button>`;
+					})
+					.join('')}
             </div>`
 				:	''
 			}
@@ -9304,17 +9310,27 @@ function renderFirmDetail(d: any) {
 				owners.length ?
 					`
         <div class="fg-section-title fg-section-title--sticky">Form BD — Direct Owners &amp; Executive Officers</div>
-        ${owners
-					.map(
-						(o) => `
-					<div class="fg-owner-row">
-						<span class="fg-owner-name">${esc(o.legalName || '')}</span>
-						<span class="fg-owner-pos">${esc(o.position || '')}</span>
-						${o.crdNumber ? `<button class="fg-crd-link" data-crd="${esc(o.crdNumber)}" data-crd-type="person" title="View person ${esc(o.crdNumber)}">CRD ${esc(o.crdNumber)}</button> <a class="fg-owner-crd-ext" href="https://brokercheck.finra.org/individual/summary/${encodeURIComponent(o.crdNumber)}" target="_blank" rel="noopener noreferrer">↗</a>` : ''}
-					</div>
-        `,
-					)
-					.join('')}
+		${owners
+			.map((o) => {
+				const nameHtml = `<span class="fg-owner-name">${esc(o.legalName || '')}</span>`;
+				const posHtml = `<span class="fg-owner-pos">${esc(o.position || '')}</span>`;
+				if (o.crdNumber) {
+					return `
+					<button type="button" class="fg-owner-row fg-card-clickable fg-crd-link" data-crd="${esc(o.crdNumber)}" data-crd-type="person" title="View person ${esc(o.crdNumber)}">
+						${nameHtml}
+						${posHtml}
+					</button>
+		`;
+				}
+				// No CRD: make row clickable by searching the name
+				return `
+					<button type="button" class="fg-owner-row fg-card-clickable" data-search-query="${esc(o.legalName || '')}">
+						${nameHtml}
+						${posHtml}
+					</button>
+		`;
+			})
+			.join('')}
       `
 				:	''
 			}
