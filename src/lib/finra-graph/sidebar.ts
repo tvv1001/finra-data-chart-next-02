@@ -61,6 +61,10 @@ function toNodeSourceCoverage(finra: boolean, sec: boolean): NodeSourceCoverage 
 	return 'none';
 }
 
+// Firms known to have broken or unreachable FINRA/BrokerCheck summary pages.
+// Add CRD numbers here to suppress FINRA links for those firms.
+const BROKEN_FINRA_FIRM_IDS = new Set(['134139']);
+
 function isNotInScopeValue(value) {
 	return (
 		String(value || '')
@@ -105,6 +109,13 @@ function hasIndividualSecPresence(node) {
 
 function hasFirmFinraPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
+
+	// if this firm is explicitly blacklisted, treat as no FINRA presence
+	const rawFirmId = String(node?.firmId || node?.id || '')
+		.replace(/^firm[:_]/, '')
+		.replace(/^node[:_]/, '')
+		.trim();
+	if (rawFirmId && BROKEN_FINRA_FIRM_IDS.has(rawFirmId)) return false;
 	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
 	if (node.hasFinraData === true) return true;
 	if (node.isLegacy === 'Y') return true;
