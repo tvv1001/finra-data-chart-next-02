@@ -419,6 +419,17 @@ html[data-theme='dark'] text.fg-label {
 	stroke-width: 4px !important;
 	fill-opacity: 1 !important;
 }
+
+html[data-theme='dark'] .fg-root.fg-trace-labels .fg-node.trace-shortest text.fg-label,
+html[data-theme='dark'] .fg-root.fg-trace-labels .fg-node.trace-shortest-connector text.fg-label,
+html[data-theme='dark'] .fg-root.fg-trace-labels .fg-node.trace-longest text.fg-label,
+html[data-theme='dark'] .fg-root.fg-trace-labels .fg-node.trace-longest-connector text.fg-label,
+html[data-theme='dark'] .fg-root.fg-trace-labels .fg-node.trace-log text.fg-label,
+html[data-theme='dark'] .fg-root.fg-trace-labels .fg-node.trace-log-connector text.fg-label {
+	fill: #ffffff !important;
+	font-weight: 700 !important;
+	opacity: 1 !important;
+}
 *,
 *::before,
 *::after {
@@ -3160,7 +3171,7 @@ a,
 .fg-root.fg-trace-labels .fg-node.trace-longest-connector text.fg-label,
 .fg-root.fg-trace-labels .fg-node.trace-log text.fg-label,
 .fg-root.fg-trace-labels .fg-node.trace-log-connector text.fg-label {
-	fill: #0f172a !important;
+	fill: #000000 !important;
 	font-weight: 700 !important;
 	opacity: 1 !important;
 }

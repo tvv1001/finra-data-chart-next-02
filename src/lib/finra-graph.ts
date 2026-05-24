@@ -1433,6 +1433,30 @@ function pulseNodeHighlightById(id, { duration = 1200, stroke = GRAPH_COLORS.nod
 			const nodeGroupSel = d3.select(this);
 			nodeGroupSel.selectAll('circle.fg-restore-ring').remove();
 			const baseRadius = Math.max((nodeDatum?._vizHalf || NODE_R[nodeDatum?.group] || 10) + 8, 14);
+
+			// When trace mode is active, do not animate the pulse growth — simply
+			// show a static green (or provided stroke) ring so labels are stable.
+			if (isTraceMode || isTraceLogMode) {
+				nodeGroupSel
+					.append('circle')
+					.attr('class', 'fg-restore-ring fg-restore-ring--static')
+					.attr('fill', 'none')
+					.attr('stroke', resolvedStroke)
+					.attr('stroke-width', 'var(--stroke-width-node-pulse)')
+					.attr('stroke-opacity', 'var(--stroke-opacity-node-pulse)')
+					.attr('pointer-events', 'none')
+					.attr('r', baseRadius);
+				// remove after duration to mirror transient pulse behavior
+				setTimeout(() => {
+					try {
+						nodeGroupSel.selectAll('circle.fg-restore-ring--static').remove();
+					} catch (e) {
+						/* ignore */
+					}
+				}, duration);
+				return;
+			}
+
 			nodeGroupSel
 				.append('circle')
 				.attr('class', 'fg-restore-ring')
@@ -5156,6 +5180,51 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 		}
 	} catch (e) {
 		// Non-fatal — DOM move failures should not break rendering
+	}
+
+	// If highlight mode is active, ensure linkTopGroup is placed below nodeGroup
+	// so highlighted connecting lines do not visually occlude node labels. When
+	// no highlight is active, keep top links appended after nodes so they can
+	// render above nodes as originally intended.
+	try {
+		if (nodeGroup && nodeGroup.node()) {
+			const nodesEl = nodeGroup.node();
+			const parent = nodesEl.parentNode;
+			if (parent) {
+				// handle both linkTopGroup and arrowTopGroup positioning so neither
+				// the highlighted link strokes nor arrowheads occlude node labels
+				const topGroups = [];
+				if (linkTopGroup && linkTopGroup.node()) topGroups.push(linkTopGroup.node());
+				if (arrowTopGroup && arrowTopGroup.node()) topGroups.push(arrowTopGroup.node());
+				// Treat highlight as active when any root/link/hop nodes are present.
+				const highlightActive = Boolean(
+					highlightState &&
+					((highlightState.rootIds && highlightState.rootIds.size) ||
+						(highlightState.linkKeys && highlightState.linkKeys.size) ||
+						(highlightState.hopNodeIds && highlightState.hopNodeIds.size)),
+				);
+				if (highlightActive) {
+					// move top groups to render before nodes (under labels)
+					for (const tg of topGroups) {
+						if (tg.parentNode === parent && tg === nodesEl.previousSibling) continue;
+						parent.insertBefore(tg, nodesEl);
+					}
+				} else {
+					// ensure top groups render after nodes
+					let insertBeforeNode = nodesEl.nextSibling;
+					for (const tg of topGroups) {
+						if (tg.parentNode === parent && tg === insertBeforeNode) {
+							insertBeforeNode = tg.nextSibling;
+							continue;
+						}
+						parent.insertBefore(tg, insertBeforeNode);
+						insertBeforeNode = tg.nextSibling;
+					}
+				}
+			}
+		}
+	} catch (e) {
+		// Ignore DOM manipulation errors — non-fatal
 	}
 
 	// Expose a debug-friendly render order map for E2E tests and dev inspection.
