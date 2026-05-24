@@ -28,6 +28,7 @@
 		"next": "^15.1.0",
 		"pixi.js": "^8.4.0",
 		"playwright-extra-plugin-stealth": "^0.0.1",
+		"puppeteer": "^25.0.4",
 		"react": "^19.0.0",
 		"react-dom": "^19.0.0",
 		"winston": "^3.13.0"

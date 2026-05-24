@@ -24,6 +24,8 @@ let activeDrag: {
 let routeNodeListener: ((event: Event) => void) | null = null;
 let stopAnimationListener: ((event: Event) => void) | null = null;
 let PixiCore: any = null;
+// Track new nodes for blue ring highlight
+let newNodeIds = new Set<string>();
 
 const groupColors: Record<string, number> = {
 	individual: 0x4a90e2,
@@ -49,18 +51,15 @@ async function fetchGraphData() {
 	if (!response.ok) {
 		throw new Error(`Failed to load graph data: ${response.status}`);
 	}
-
 	const graph = await response.json();
 	const rawNodes = Array.isArray(graph.nodes) ? graph.nodes : [];
 	const rawLinks = Array.isArray(graph.links) ? graph.links : [];
-
 	const nodes = rawNodes.slice(0, MAX_NODES).map((node: any) => ({ ...node }));
 	const ids = new Set(nodes.map((node) => String(node.id)));
 	const links = rawLinks
 		.filter((link: any) => ids.has(String(link.source)) && ids.has(String(link.target)))
 		.slice(0, MAX_LINKS)
 		.map((link: any) => ({ ...link }));
-
 	return { nodes, links };
 }
 
@@ -197,6 +196,14 @@ function renderNodeGraphic(graphic: any, node: any, selected: boolean) {
 	const radius = getNodeRadius(node);
 	const color = selected ? 0xffdc64 : getNodeColor(node);
 	graphic.clear();
+	// Blue ring highlight for new nodes (same as center, no pulse)
+	const isNew = newNodeIds.has(String(node.id));
+	if (isNew) {
+		// Use a blue ring, 3px, color #2196f3 (0x2196f3)
+		graphic.lineStyle(3, 0x2196f3, 1);
+		graphic.drawCircle(0, 0, radius + 4);
+	}
+	// Normal node
 	graphic.beginFill(color);
 	graphic.lineStyle(2, selected ? 0xffe399 : 0x222222, selected ? 1 : 0.65);
 	graphic.drawCircle(0, 0, radius);
@@ -364,6 +371,9 @@ export async function init(_d3: any, options: { initialRouteNodeId?: string | nu
 	graphNodes = data.nodes;
 	graphLinks = data.links;
 
+	// Mark all loaded nodes as new
+	newNodeIds = new Set(graphNodes.map((n) => String(n.id)));
+
 	const nodeIndex = new Map(graphNodes.map((node) => [String(node.id), node]));
 	graphLinks.forEach((link) => {
 		const sourceId = String(link.source || link.sourceId || '');
@@ -411,6 +421,19 @@ export async function init(_d3: any, options: { initialRouteNodeId?: string | nu
 
 	installRouteListener();
 	installStopAnimationListener();
+
+	// Add canvas click handler to clear new node highlights
+	const clearNewNodeHighlight = (e: MouseEvent) => {
+		// Only clear if click is on canvas, not on a node
+		const canvas = getCanvasElement();
+		if (canvas && e.target === canvas) {
+			if (newNodeIds.size > 0) {
+				newNodeIds.clear();
+				updateNodeStyles();
+			}
+		}
+	};
+	window.addEventListener('click', clearNewNodeHighlight, true);
 
 	if (initialRouteNodeId) {
 		selectNode(initialRouteNodeId);

@@ -1,5 +1,4 @@
 'use client';
-
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -175,6 +174,45 @@ export default function FinraGraph() {
 		const suffix = searchParams.toString();
 		return suffix ? `?${suffix}` : '';
 	}, [searchParams]);
+
+	// Delegate click handler for CRD links in sidebar
+	useEffect(() => {
+		if (!isMounted) return;
+		const sidebar = document.getElementById('fg-sidebar-inner');
+		if (!sidebar) return;
+		const handler = (e: MouseEvent) => {
+			const target = e.target as HTMLElement;
+			const crdBtn = target.closest('.fg-crd-link') as HTMLElement | null;
+			if (crdBtn && crdBtn.dataset.crd) {
+				e.preventDefault();
+				e.stopPropagation();
+				const crd = String(crdBtn.dataset.crd || '').trim();
+				const type = String(crdBtn.dataset.crdType || '').trim();
+				let nodeId = crd;
+				if (type) {
+					nodeId = `${type}:${crd}`;
+				} else if (/^\d+$/.test(crd)) {
+					// Legacy behavior: assume numeric CRD clicked from employment means firm
+					nodeId = `firm:${crd}`;
+				}
+				window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { nodeId } }));
+			}
+
+			// If the firm name is rendered as plain text (no CRD button), allow
+			// clicking the firm name to trigger a search-by-name route resolution.
+			const firmNameEl = target.closest('.fg-tl-firm') as HTMLElement | null;
+			if (!crdBtn && firmNameEl) {
+				const name = (firmNameEl.textContent || '').trim();
+				if (name) {
+					e.preventDefault();
+					e.stopPropagation();
+					window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { searchQuery: name } }));
+				}
+			}
+		};
+		sidebar.addEventListener('click', handler);
+		return () => sidebar.removeEventListener('click', handler);
+	}, [isMounted]);
 
 	useEffect(() => {
 		setIsMounted(true);
