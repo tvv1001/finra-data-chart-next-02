@@ -9132,11 +9132,11 @@ function renderFirmDetail(d: any) {
         ${owners
 					.map(
 						(o) => `
-          <div class="fg-owner-row">
-            <span class="fg-owner-name">${esc(o.legalName || '')}</span>
-            <span class="fg-owner-pos">${esc(o.position || '')}</span>
-            ${o.crdNumber ? `<a class="fg-owner-crd" href="https://brokercheck.finra.org/individual/summary/${encodeURIComponent(o.crdNumber)}" target="_blank" rel="noopener noreferrer">CRD ${o.crdNumber}</a>` : ''}
-          </div>
+					<div class="fg-owner-row">
+						<span class="fg-owner-name">${esc(o.legalName || '')}</span>
+						<span class="fg-owner-pos">${esc(o.position || '')}</span>
+						${o.crdNumber ? `<button class="fg-crd-link" data-crd="${esc(o.crdNumber)}" data-crd-type="person" title="View person ${esc(o.crdNumber)}">CRD ${esc(o.crdNumber)}</button> <a class="fg-owner-crd-ext" href="https://brokercheck.finra.org/individual/summary/${encodeURIComponent(o.crdNumber)}" target="_blank" rel="noopener noreferrer">↗</a>` : ''}
+					</div>
         `,
 					)
 					.join('')}
