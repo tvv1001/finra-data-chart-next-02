@@ -38,6 +38,24 @@ const BASE = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL)
 // Add CRD numbers here to suppress FINRA links for those firms.
 const BROKEN_FINRA_FIRM_IDS = new Set(['134139']);
 
+// Simple once-only logger sets to avoid spamming the console during render loops.
+const _loggedBadNodeCoords = new Set<string | number>();
+const _loggedBadTransforms = new Set<string>();
+
+function _logOnce(set: Set<any>, key: any, level: 'warn' | 'info' | 'error', ...args: any[]) {
+	try {
+		const k = typeof key === 'string' || typeof key === 'number' ? String(key) : JSON.stringify(key);
+		if (set.has(k)) return;
+		set.add(k);
+	} catch (e) {
+		// ignore serialization errors
+	}
+	// keep logs conspicuous and searchable
+	if (level === 'warn') console.warn('[finra-graph]', ...args);
+	else if (level === 'error') console.error('[finra-graph]', ...args);
+	else console.info('[finra-graph]', ...args);
+}
+
 const GRAPH_COLORS = {
 	nodeIndividual: 'var(--color-highlight-individual)',
 	nodeFirm: 'var(--color-highlight-firm)',
@@ -179,10 +197,10 @@ function setGraphLabelRenderMode(nodeCount = layoutNodes?.length || 0) {
 function updateGraphTickPositions(linkSelection, nodeSelection, arrowSelection) {
 	if (!linkSelection || !nodeSelection) return;
 	linkSelection
-		.attr('x1', (d) => d.source.x)
-		.attr('y1', (d) => d.source.y)
-		.attr('x2', (d) => d.target.x)
-		.attr('y2', (d) => d.target.y);
+		.attr('x1', (d) => (Number.isFinite(d.source?.x) ? d.source.x : 0))
+		.attr('y1', (d) => (Number.isFinite(d.source?.y) ? d.source.y : 0))
+		.attr('x2', (d) => (Number.isFinite(d.target?.x) ? d.target.x : 0))
+		.attr('y2', (d) => (Number.isFinite(d.target?.y) ? d.target.y : 0));
 	if (arrowSelection) {
 		arrowSelection
 			.attr('x1', (d) => d.source.x)
@@ -190,7 +208,7 @@ function updateGraphTickPositions(linkSelection, nodeSelection, arrowSelection) 
 			.attr('x2', (d) => d.target.x)
 			.attr('y2', (d) => d.target.y);
 	}
-	nodeSelection.attr('transform', (d) => `translate(${d.x},${d.y})`);
+	nodeSelection.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 }
 
 function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection) {
@@ -1899,7 +1917,7 @@ function applySavedNodePositions(savedPositions) {
 			.attr('y2', (d) => d.target.y);
 	}
 	if (nodeSel) {
-		nodeSel.attr('transform', (d) => `translate(${d.x},${d.y})`);
+		nodeSel.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 	}
 
 	simulation.alpha(0).restart();
@@ -2074,6 +2092,16 @@ function getGraphViewportMetrics() {
 
 	const { width, height } = getViewportSize();
 	const transform = d3.zoomTransform(svgSel.node());
+	// Detect and log invalid transforms (once) to help track down NaN origins.
+	try {
+		const tKey = `${String(transform?.x)}|${String(transform?.y)}|${String(transform?.k)}`;
+		if (!Number.isFinite(transform?.k) || !Number.isFinite(transform?.x) || !Number.isFinite(transform?.y)) {
+			_logOnce(_loggedBadTransforms, tKey, 'warn', `Detected non-finite zoom transform: x=${transform?.x} y=${transform?.y} k=${transform?.k}`);
+		}
+	} catch {
+		// ignore
+	}
+
 	const k = Number.isFinite(transform?.k) && transform.k > 0 ? transform.k : 1;
 	const x = Number.isFinite(transform?.x) ? transform.x : 0;
 	const y = Number.isFinite(transform?.y) ? transform.y : 0;
@@ -2184,6 +2212,10 @@ function refreshNodeLayout() {
 		node.fy = null;
 
 		if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) {
+			// Log the occurrence once per node so we can track which nodes become non-finite.
+			const origX = node.x;
+			const origY = node.y;
+			_logOnce(_loggedBadNodeCoords, node.id || index, 'warn', `Node has non-finite coords; id=${node.id} origX=${origX} origY=${origY}. Assigning jittered position.`);
 			node.x = centerX + (Math.random() - 0.5) * 140;
 			node.y = centerY + (Math.random() - 0.5) * 140;
 		} else {
@@ -3131,7 +3163,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 
 		// Apply initial transform so new nodes appear at their placed position
 		// immediately (the renderGraph tick handler only covers old nodes).
-		enteredNodes.attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
+		enteredNodes.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 
 		enteredNodes.transition().duration(400).attr('opacity', 1);
 		nodeSel = nodeGroup.selectAll('g.fg-node');
@@ -6006,7 +6038,7 @@ function injectNodesById(ids) {
 		/* ignore */
 	}
 
-	enteredNodes.attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
+	enteredNodes.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 
 	enteredNodes.transition().duration(400).attr('opacity', 1);
 	nodeSel = nodeGroup.selectAll('g.fg-node');
@@ -7719,7 +7751,7 @@ function revealNeighbors(
 			.attr('y1', (d) => d.source.y)
 			.attr('x2', (d) => d.target.x)
 			.attr('y2', (d) => d.target.y);
-		nodeSel.attr('transform', (d) => `translate(${d.x},${d.y})`);
+		nodeSel.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 	});
 
 	simulation.nodes(layoutNodes);
@@ -7990,7 +8022,7 @@ function spreadNeighbors(
 		});
 
 		// Re-render affected nodes
-		nodeSel.filter((d) => neighborIdSet.has(d.id)).attr('transform', (d) => `translate(${d.x},${d.y})`);
+		nodeSel.filter((d) => neighborIdSet.has(d.id)).attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 
 		// Re-render all links touching the clicked node or any neighbor
 		linkSel
