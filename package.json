@@ -10,6 +10,7 @@
 		"start": "next start -p 4444",
 		"lint": "next lint",
 		"test:e2e": "playwright test",
+		"test:unit": "vitest",
 		"test:e2e:headed": "playwright test --headed",
 		"test:smoke": "playwright test tests/e2e/smoke.spec.ts",
 		"build:graph": "node scripts/build_graph_from_cache.js --employment-scope all",
@@ -45,6 +46,9 @@
 		"playwright": "^1.60.0",
 		"playwright-extra": "^4.3.6",
 		"sharp": "^0.34.5",
-		"typescript": "^5.7.0"
+		"typescript": "^5.7.0",
+		"vitest": "^1.1.7",
+		"@testing-library/dom": "^9.0.0",
+		"jsdom": "^22.1.0"
 	}
 }

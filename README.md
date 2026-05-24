@@ -177,6 +177,89 @@ pnpm run build:graph
 pnpm run build
 ```
 
+### Run unit tests locally (no browser required)
+
+The repository provides a small set of unit tests that exercise DOM helpers and non-visual logic using Vitest + jsdom. These run without Playwright or any browser binaries.
+
+```bash
+pnpm install
+pnpm run test:unit
+```
+
+If you want full E2E visual/functional coverage, run the Playwright suite inside Docker (recommended) or in CI. See `scripts/run-e2e.README.md` and `docker-compose.playwright.yml` for a ready-to-run container.
+
+### Production optimization
+
+Before deploying, ensure you:
+
+- Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in your environment if you want shared Redis caching.
+- Warm the primed cache bundle if you rely on deployment-time hydration: `node scripts/build_primed_cache_bundle.js` (run automatically in `pnpm build`).
+- Increase Node heap if building very large graphs:
+
+```bash
+env NODE_OPTIONS=--max-old-space-size=8192 pnpm build
+```
+
+For runtime performance in production:
+
+- Serve the pre-generated `data/national/primed-cache` bundle from your CDN or object storage if possible to avoid cold upstream calls.
+- Enable gzip compression at the CDN / server level for the `primed-cache` JSON bundles and Upstash-stored binary payloads.
+- In server environments, prefer the Upstash Redis-backed cache to reduce memory pressure on the Node process.
+
+## CONTRIBUTING & TESTS
+
+If you'd like to contribute or verify changes before deployment, use the following workflow.
+
+1. Fast local checks (no browsers)
+
+```bash
+# install deps
+pnpm install
+
+# run unit tests (jsdom, no Playwright required)
+pnpm run test:unit
+```
+
+Unit tests cover DOM helpers and non-visual logic. Aim to add unit tests for UI-facing helpers before adding new Playwright specs — these run fast in CI and locally without browsers.
+
+2. Full E2E (visual + functional)
+
+Run Playwright inside Docker (recommended when host can't install browsers):
+
+```bash
+# run all tests inside Playwright image (installs browsers automatically)
+./scripts/run-e2e-docker.sh --env-file .env.test
+
+# or use docker compose
+docker compose -f docker-compose.playwright.yml run --rm playwright
+```
+
+Notes:
+
+- For local debugging use `--spec` and `--headed` flags to open a single spec in headed mode.
+- Provide secrets via `--env-file` (Upstash creds, VALIDATE_CRON_SECRET) or export them in your shell.
+
+3. CI
+
+The repository already contains a GitHub Actions workflow to run Playwright on `ubuntu-latest`. Opening a PR will trigger tests.
+
+4. Troubleshooting & tips
+
+- If `pnpm install` prompts about ignored build scripts (esbuild), run `pnpm approve-builds --all` to allow postinstall steps.
+- If Next build runs out of memory when generating large graphs, increase Node heap:
+
+```bash
+env NODE_OPTIONS=--max-old-space-size=8192 pnpm build
+```
+
+- To warm caches for production, run the primed cache builder before deploy:
+
+```bash
+node scripts/build_primed_cache_bundle.js
+```
+
+If you want, I can add a CONTRIBUTING.md with pull-request/checklist templates and a GitHub Actions status badge — tell me and I'll draft it.
+
 ### Production build note
 
 On large graph snapshots, `next build` may need more Node heap during trace collection.

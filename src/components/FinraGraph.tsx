@@ -2,7 +2,7 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import ThemeToggle from '@/components/ThemeToggle';
+import ThemeToggle from './ThemeToggle';
 import { buildNodeRouteHref, buildNodeRoutePath, parseNodeIdFromPathname } from '@/lib/node-route';
 
 const MOBILE_TOUCH_SLOP_PX = 12;
@@ -800,3 +800,18 @@ export default function FinraGraph() {
 		</div>
 	);
 }
+
+// Export helpers for unit testing (DOM-only, no browser binaries required)
+export {
+	bindTouchDragClickSuppression,
+	ensureSidebarHintContent,
+	isSidebarTemporarilyPinned,
+	isSidebarPersistentlyPinned,
+	syncSidebarPinButton,
+	toggleSidebarPin,
+	hideSidebar,
+	toggleMobileMenu,
+	handleLegendTooltipBlur,
+	hideSelectionLog,
+	focusFetchInputWhenEmpty,
+};

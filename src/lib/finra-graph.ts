@@ -1254,6 +1254,19 @@ function stopNodePulseLoop() {
 		clearTimeout(nodePulseTimer);
 		nodePulseTimer = null;
 	}
+	// Remove any transient pulse rings immediately so clicks clear visual state
+	try {
+		if (nodeSel && typeof nodeSel.selectAll === 'function') {
+			nodeSel.selectAll('circle.fg-restore-ring, circle.fg-restore-ring--static').remove();
+		}
+		const svg = typeof document !== 'undefined' ? document.getElementById('fg-svg') : null;
+		if (svg) {
+			const rings = svg.querySelectorAll('circle.fg-restore-ring, circle.fg-restore-ring--static');
+			rings.forEach((el) => el.remove());
+		}
+	} catch (e) {
+		/* ignore */
+	}
 }
 
 function armNodePulseStopOnInteraction() {
@@ -1407,6 +1420,43 @@ function startNodePulseLoop(id, { interval = 1400, immediate = true, startDelayM
 		return;
 	}
 	beginPulseLoop();
+}
+
+// Pulse a rotating set of node ids. Used when multiple new nodes are revealed so
+// they each get a transient blue ring until the user interacts with the view.
+function startMultiNodePulseLoop(ids: Array<string | number>, options: { duration?: number; startDelayMs?: number } = {}) {
+	const { duration = 5000, startDelayMs = 0 } = options;
+	if (!Array.isArray(ids) || !ids.length) return;
+	stopNodePulseLoop();
+	const begin = () => {
+		armNodePulseStopOnInteraction();
+		// Stagger a single blue pulse for each new node so they draw attention.
+		try {
+			ids.forEach((id, i) => {
+				setTimeout(() => {
+					pulseNodeHighlightById(id, { duration, stroke: GRAPH_COLORS.nodePulse });
+				}, i * 100);
+			});
+		} catch (e) {
+			/* ignore */
+		}
+		// Ensure we clear any timers after the duration so stopNodePulseLoop won't linger
+		nodePulseTimer = setTimeout(
+			() => {
+				nodePulseTimer = null;
+				stopNodePulseLoop();
+			},
+			duration + ids.length * 120,
+		);
+	};
+	if (startDelayMs > 0) {
+		nodePulseTimer = setTimeout(() => {
+			nodePulseTimer = null;
+			begin();
+		}, startDelayMs);
+		return;
+	}
+	begin();
 }
 
 function resolveCssColorValue(value, fallback = '#18a0fb') {
@@ -3687,6 +3737,8 @@ function updateGraphMeta() {
 function mergeIntoGraphData(newNodes, newLinks) {
 	if (!graphData) return;
 	normalizeNodeLabelsInPlace(newNodes);
+	// Track which nodes are newly added so renderGraph can pulse them.
+	const addedIds = [];
 	const gIds = new Set(graphData.nodes.map((n) => n.id));
 	const gLinkKeys = new Set(
 		graphData.links.map((l) => {
@@ -3700,6 +3752,7 @@ function mergeIntoGraphData(newNodes, newLinks) {
 		.forEach((n) => {
 			graphData.nodes.push(n);
 			gIds.add(n.id);
+			addedIds.push(n.id);
 		});
 	newNodes
 		.filter((n) => gIds.has(n.id))
@@ -3732,6 +3785,10 @@ function mergeIntoGraphData(newNodes, newLinks) {
 	}
 
 	updateGraphMeta();
+	if (addedIds.length) {
+		// Expose recent additions for the next render so they can be highlighted.
+		graphData._recentlyAddedNodeIds = addedIds;
+	}
 }
 
 // Fire-and-forget persist of newly fetched nodes/links to the server graph file.
@@ -5686,6 +5743,18 @@ function renderGraph(_data) {
 
 	renderNodeContents(node);
 
+	// If the data payload included recently added node ids (set by mergeIntoGraphData),
+	// pulse them to draw attention. Pulses will stop on the first user interaction.
+	try {
+		if (Array.isArray(data._recentlyAddedNodeIds) && data._recentlyAddedNodeIds.length) {
+			startMultiNodePulseLoop(data._recentlyAddedNodeIds, { duration: 5000 });
+			// Clear so subsequent renders don't re-trigger pulses.
+			delete data._recentlyAddedNodeIds;
+		}
+	} catch (e) {
+		/* ignore */
+	}
+
 	// Create top link/arrow groups after nodes so their contents render above node labels
 	try {
 		linkTopGroup = root.append('g').attr('class', 'fg-links-top');
@@ -5920,6 +5989,18 @@ function injectNodesById(ids) {
 	nodeSel = nodeGroup.selectAll('g.fg-node');
 	linkSel = linkGroup.selectAll('line');
 	rerenderGraphNodesByIds(getImpactedNodeIds(toAdd, newLinks));
+
+	// Pulse newly injected nodes so they're visually highlighted until interaction.
+	try {
+		if (toAdd.length) {
+			startMultiNodePulseLoop(
+				toAdd.map((n) => n.id),
+				{ duration: 5000 },
+			);
+		}
+	} catch (e) {
+		/* ignore */
+	}
 
 	refreshGraphColors();
 	refreshTraceState();
