@@ -412,6 +412,14 @@ html[data-theme='dark'] .fg-dis-comment {
 	outline: 1px solid rgba(148, 163, 184, 0.24);
 }
 
+html[data-theme='dark'] text.fg-label {
+	fill: #8e99b3 !important;
+	font-weight: 700;
+	opacity: 1 !important;
+	stroke: var(--surface) !important;
+	stroke-width: 4px !important;
+	fill-opacity: 1 !important;
+}
 *,
 *::before,
 *::after {
@@ -3698,7 +3706,7 @@ text.fg-label {
 	fill: #8e99b3 !important;
 	font-weight: 700;
 	opacity: 1 !important;
-	stroke: #0b0b0b !important;
+	stroke: #ffffff !important;
 	stroke-width: 4px !important;
 	fill-opacity: 1 !important;
 }
