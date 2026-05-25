@@ -146,7 +146,10 @@ let activeLabelZoomThreshold = 0.3;
 let inactiveLabelCompactZoomThreshold = 0.42;
 let inactiveLabelCompactMode = false;
 let graphTickFrameId: number | null = null;
-let nodeLabelRenderMode: 'full' | 'compact' = 'full';
+// Render modes for node labels. 'none' disables creating text elements entirely
+let nodeLabelRenderMode: 'full' | 'compact' | 'none' = 'full';
+// When the graph exceeds this many nodes, skip creating SVG text labels to avoid massive DOM bloat
+const LABEL_NONE_THRESHOLD = 5000;
 let sessionPersistenceMode: 'full' | 'compact' | 'reduced' | 'minimal' = 'full';
 
 function isAnyTraceModeActive() {
@@ -194,7 +197,11 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 }
 
 function setGraphLabelRenderMode(nodeCount = layoutNodes?.length || 0) {
-	nodeLabelRenderMode = nodeCount > 1500 ? 'compact' : 'full';
+	if (nodeCount > LABEL_NONE_THRESHOLD) {
+		nodeLabelRenderMode = 'none';
+	} else {
+		nodeLabelRenderMode = nodeCount > 1500 ? 'compact' : 'full';
+	}
 }
 
 function updateGraphTickPositions(linkSelection, nodeSelection, arrowSelection) {
@@ -5241,25 +5248,30 @@ function renderNodeContents(selection) {
 		// Check if this node is in the selection log (by id)
 		const isLogged = selectedNodesLog.some((e) => e.id === d.id);
 		const labelFontSize = isLogged ? '24px' : '12px';
-		const label = g
-			.append('text')
-			.attr('class', `fg-label${inactive ? ' fg-label--inactive' : ''}${isLogged ? ' fg-label--logged' : ''}`)
-			.attr('dy', labelDy)
-			.attr('text-anchor', 'middle')
-			.attr('font-size', labelFontSize)
-			.attr('font-family', 'var(--sans)')
-			.attr('font-weight', isLogged ? '700' : '500')
-			.attr('fill', nodeLabelColor)
-			.attr('stroke', nodeLabelHalo)
-			.attr('stroke-width', 4)
-			.attr('stroke-linejoin', 'round')
-			.attr('paint-order', 'stroke')
-			.attr('pointer-events', 'all')
-			.style('cursor', 'pointer')
-			.text(labelText);
 
-		if (nodeLabelRenderMode === 'compact' && !inactive && !isNodeOnAnyTrace(d.id) && d.id !== selectedId) {
-			label.attr('display', 'none');
+		let label: any = null;
+		// Avoid creating SVG text nodes entirely when rendering extremely large graphs
+		if (nodeLabelRenderMode !== 'none') {
+			label = g
+				.append('text')
+				.attr('class', `fg-label${inactive ? ' fg-label--inactive' : ''}${isLogged ? ' fg-label--logged' : ''}`)
+				.attr('dy', labelDy)
+				.attr('text-anchor', 'middle')
+				.attr('font-size', labelFontSize)
+				.attr('font-family', 'var(--sans)')
+				.attr('font-weight', isLogged ? '700' : '500')
+				.attr('fill', nodeLabelColor)
+				.attr('stroke', nodeLabelHalo)
+				.attr('stroke-width', 4)
+				.attr('stroke-linejoin', 'round')
+				.attr('paint-order', 'stroke')
+				.attr('pointer-events', 'all')
+				.style('cursor', 'pointer')
+				.text(labelText);
+
+			if (nodeLabelRenderMode === 'compact' && !inactive && !isNodeOnAnyTrace(d.id) && d.id !== selectedId) {
+				label.attr('display', 'none');
+			}
 		}
 
 		g.append('title').text(() => {

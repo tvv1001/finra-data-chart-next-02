@@ -12,6 +12,8 @@ let simulation: any = null;
 let graphNodes: any[] = [];
 let graphLinks: any[] = [];
 let nodeSprites = new Map<string, any>();
+let graphNodeById = new Map<string, any>();
+let graphNeighborIds = new Map<string, Set<string>>();
 let selectedNodeId: string | null = null;
 let selectedNodeIds = new Set<string>();
 let activeDrag: {
@@ -24,6 +26,7 @@ let activeDrag: {
 let routeNodeListener: ((event: Event) => void) | null = null;
 let stopAnimationListener: ((event: Event) => void) | null = null;
 let PixiCore: any = null;
+let renderRequested = false;
 // Track new nodes for blue ring highlight
 let newNodeIds = new Set<string>();
 
@@ -40,6 +43,31 @@ function getNodeColor(node: any) {
 
 function getNodeRadius(node: any) {
 	return node?.group === 'firm' ? 10 : 7;
+}
+
+function buildGraphMaps(nodes: any[], links: any[]) {
+	graphNodeById = new Map(nodes.map((node) => [String(node.id), node]));
+	graphNeighborIds = new Map();
+
+	for (const link of links) {
+		const sourceId = String((link.source?.id ?? link.source) || '');
+		const targetId = String((link.target?.id ?? link.target) || '');
+		if (!sourceId || !targetId) continue;
+		if (!graphNeighborIds.has(sourceId)) graphNeighborIds.set(sourceId, new Set());
+		if (!graphNeighborIds.has(targetId)) graphNeighborIds.set(targetId, new Set());
+		graphNeighborIds.get(sourceId)?.add(targetId);
+		graphNeighborIds.get(targetId)?.add(sourceId);
+	}
+}
+
+function requestRender() {
+	if (renderRequested) return;
+	renderRequested = true;
+	if (typeof window === 'undefined') return;
+	window.requestAnimationFrame(() => {
+		renderRequested = false;
+		drawFrame();
+	});
 }
 
 function getNodeLabel(node: any) {
@@ -97,20 +125,16 @@ function beginNodeDrag(sprite: any, node: any, event: any) {
 		node.fy = node.y;
 	}
 
-	if (Array.isArray(graphLinks)) {
-		const neighborIds = new Set<string>();
-		for (const link of graphLinks) {
-			const sourceId = String(link.source?.id ?? link.source);
-			const targetId = String(link.target?.id ?? link.target);
-			if (sourceId === String(node.id)) neighborIds.add(targetId);
-			if (targetId === String(node.id)) neighborIds.add(sourceId);
-		}
-		for (const neighbor of graphNodes) {
-			if (neighborIds.has(String(neighbor.id))) {
+	const nodeId = String(node.id);
+	const neighborIds = graphNeighborIds.get(nodeId);
+	if (neighborIds) {
+		neighborIds.forEach((neighborId) => {
+			const neighbor = graphNodeById.get(neighborId);
+			if (neighbor) {
 				neighbor.fx = null;
 				neighbor.fy = null;
 			}
-		}
+		});
 	}
 
 	if (simulation) {
@@ -138,18 +162,18 @@ function dragNode(event: any) {
 	node.fx = newX;
 	node.fy = newY;
 
-	if (Array.isArray(graphLinks)) {
-		for (const link of graphLinks) {
-			const sourceId = String(link.source?.id ?? link.source);
-			if (sourceId === String(node.id)) {
-				const child = graphNodes.find((n) => String(n.id) === String(link.target?.id ?? link.target));
-				if (child && child.fx == null && child.fy == null) {
-					child.x = (child.x ?? 0) + dx;
-					child.y = (child.y ?? 0) + dy;
-				}
+	const neighborIds = graphNeighborIds.get(String(node.id));
+	if (neighborIds) {
+		neighborIds.forEach((neighborId) => {
+			const child = graphNodeById.get(neighborId);
+			if (child && child.fx == null && child.fy == null) {
+				child.x = (child.x ?? 0) + dx;
+				child.y = (child.y ?? 0) + dy;
 			}
-		}
+		});
 	}
+
+	requestRender();
 }
 
 function endNodeDrag() {
@@ -253,10 +277,12 @@ function updateNodeStyles() {
 		if (!sprite) continue;
 		renderNodeGraphic(sprite, node, selectedNodeIds.has(String(node.id)));
 	}
+	requestRender();
 }
 (window as any).updateNodeStyles = updateNodeStyles;
 
 function selectNode(nodeId: string) {
+	if (selectedNodeId === nodeId && selectedNodeIds.has(nodeId)) return;
 	selectedNodeId = nodeId;
 	selectedNodeIds.add(nodeId);
 	updateNodeStyles();
@@ -266,7 +292,7 @@ function selectNode(nodeId: string) {
 
 function centerOnNode(nodeId: string) {
 	if (!pixiApp) return;
-	const node = graphNodes.find((entry) => String(entry.id) === nodeId);
+	const node = graphNodeById.get(nodeId);
 	if (!node || typeof node.x !== 'number' || typeof node.y !== 'number') return;
 
 	const width = pixiApp.renderer.width;
@@ -365,7 +391,9 @@ async function createCanvasRenderer(pixi: any) {
 	}
 
 	ticker.add(() => {
+		if (!renderRequested) return;
 		drawFrame();
+		renderRequested = false;
 	});
 
 	if (typeof ticker.start === 'function') {
@@ -390,13 +418,15 @@ export async function init(_d3: any, options: { initialRouteNodeId?: string | nu
 	// Mark all loaded nodes as new
 	newNodeIds = new Set(graphNodes.map((n) => String(n.id)));
 
-	const nodeIndex = new Map(graphNodes.map((node) => [String(node.id), node]));
+	graphNodeById = new Map(graphNodes.map((node) => [String(node.id), node]));
 	graphLinks.forEach((link) => {
 		const sourceId = String(link.source || link.sourceId || '');
 		const targetId = String(link.target || link.targetId || '');
-		link.source = nodeIndex.get(sourceId) || { id: sourceId, x: 0, y: 0 };
-		link.target = nodeIndex.get(targetId) || { id: targetId, x: 0, y: 0 };
+		link.source = graphNodeById.get(sourceId) || { id: sourceId, x: 0, y: 0 };
+		link.target = graphNodeById.get(targetId) || { id: targetId, x: 0, y: 0 };
 	});
+
+	buildGraphMaps(graphNodes, graphLinks);
 
 	await createCanvasRenderer(PIXI);
 
@@ -466,6 +496,8 @@ export function destroy() {
 		pixiApp = null;
 	}
 	nodeSprites.clear();
+	graphNodeById.clear();
+	graphNeighborIds.clear();
 	graphNodes = [];
 	graphLinks = [];
 	teardownRouteListener();
