@@ -104,6 +104,27 @@ function normalizeGraphPayload(data: any) {
 	};
 }
 
+// Ensure each node has a non-placeholder-visible label before writing to
+// a shared cache (Redis). This guards against storing numeric-only or
+// CRD-like labels that the UI treats as placeholders and hides.
+function normalizeGraphLabelsInPlace(graph: any) {
+	if (!graph || !Array.isArray(graph.nodes)) return graph;
+	for (const node of graph.nodes) {
+		try {
+			const label = String(node?.label || node?.name || node?.displayName || '').trim();
+			const isNumeric = /^\d+$/.test(label);
+			const isCrdLike = /^(?:crd|sec)#?\s*\d+$/i.test(label) || /^(?:crd|sec)\s*#?:?\s*\d+-?\d*$/i.test(label) || /^8-\d+$/i.test(label);
+			if (!label || isNumeric || isCrdLike) {
+				const idText = String(node?.id || '').trim();
+				node.label = idText ? `Node ${idText}` : label || '';
+			}
+		} catch (e) {
+			// ignore per-node errors
+		}
+	}
+	return graph;
+}
+
 function parseGraphPayload(raw: unknown, sourceLabel: string) {
 	if (typeof raw === 'string') {
 		if (!raw.trim()) return { ...EMPTY_GRAPH };
@@ -493,6 +514,11 @@ export async function rememberRecentSeed(kind: 'individual' | 'firm', id: string
 async function bootstrapGraphFromDisk(redis: Redis) {
 	const diskGraph = await readGraphFromDisk();
 	if (!diskGraph) return null;
+	// Normalize labels before writing to shared Redis so clients won't
+	// receive placeholder-only labels.
+	try {
+		normalizeGraphLabelsInPlace(diskGraph);
+	} catch (e) {}
 	await redis.set(REDIS_GRAPH_KEY, JSON.stringify(diskGraph));
 	await syncSeedBankFromGraph(diskGraph);
 	return diskGraph;
@@ -524,6 +550,9 @@ export async function getFullGraph() {
 				const diskGraph = await readGraphFromDisk();
 				if (diskGraph) {
 					try {
+						try {
+							normalizeGraphLabelsInPlace(diskGraph);
+						} catch (e) {}
 						await redis.set(REDIS_GRAPH_KEY, JSON.stringify(diskGraph));
 						await syncSeedBankFromGraph(diskGraph);
 					} catch (error) {
@@ -556,6 +585,9 @@ export async function getFullGraph() {
 export async function saveGraph(data: any) {
 	const redis = getRedis();
 	if (redis) {
+		try {
+			normalizeGraphLabelsInPlace(data);
+		} catch (e) {}
 		await redis.set(REDIS_GRAPH_KEY, JSON.stringify(data));
 	} else {
 		await writeJsonFileAtomic(GRAPH_FILE, data);
