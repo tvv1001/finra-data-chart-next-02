@@ -8,6 +8,7 @@ import {
 	hideSelectionLog,
 	focusFetchInputWhenEmpty,
 } from '../../src/components/FinraGraph';
+import { normalizeNodeLabelInPlace } from '../../src/lib/finra-graph';
 
 describe('FinraGraph DOM helpers (unit)', () => {
 	beforeEach(() => {
@@ -58,6 +59,12 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		log.classList.remove('hidden');
 		hideSelectionLog();
 		expect(log.classList.contains('hidden')).toBe(true);
+	});
+
+	it('normalizeNodeLabelInPlace falls back to Node <id> for placeholder-only labels', () => {
+		const node = { id: 'person:123', label: 'CRD 123456', group: 'individual' } as any;
+		normalizeNodeLabelInPlace(node);
+		expect(node.label).toBe('Node person:123');
 	});
 
 	it('focusFetchInputWhenEmpty focuses when empty and not active', () => {

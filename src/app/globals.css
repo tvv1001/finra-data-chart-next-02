@@ -3027,6 +3027,19 @@ a,
 	fill: none !important;
 }
 
+.fg-node .fg-node-selected-ring {
+	fill: none;
+	stroke: #3b82f6;
+	stroke-width: 3px;
+	opacity: 0.95;
+	pointer-events: none;
+	display: none;
+}
+
+.fg-node.selected .fg-node-selected-ring {
+	display: inline;
+}
+
 /* .fg-node.highlighted-hop circle,
 .fg-node.highlighted-hop rect,
 .fg-node.highlighted-hop polygon {
