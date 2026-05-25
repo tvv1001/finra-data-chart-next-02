@@ -5061,7 +5061,10 @@ function isPreviousEmploymentLink(link) {
 
 function usesCurrentEmploymentStyling(link) {
 	if (!link || hasInactiveEndpoint(link)) return false;
-	return isCurrentRegistration(link) || isPreviousEmploymentLink(link);
+	// Only treat links that are current registrations as "current employment" styling.
+	// Previous employment links should NOT be included here so they render with the
+	// previous-employment (gray/dashed) styling.
+	return isCurrentRegistration(link);
 }
 
 function getLinkHighlightColor(link) {
