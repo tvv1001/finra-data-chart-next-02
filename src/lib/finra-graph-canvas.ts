@@ -212,9 +212,9 @@ function renderNodeGraphic(graphic: any, node: any, selected: boolean) {
 	const radius = getNodeRadius(node);
 	const color = selected ? 0xffdc64 : getNodeColor(node);
 	graphic.clear();
-	// Blue ring highlight for new nodes (same as center, no pulse)
+	// Blue ring highlight for selected or new nodes (same as center, no pulse)
 	const isNew = newNodeIds.has(String(node.id));
-	if (isNew) {
+	if (isNew || selected) {
 		// Use a blue ring, 3px, color #2196f3 (0x2196f3)
 		graphic.lineStyle(3, 0x2196f3, 1);
 		graphic.drawCircle(0, 0, radius + 4);

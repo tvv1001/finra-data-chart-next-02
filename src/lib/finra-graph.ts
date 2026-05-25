@@ -4752,6 +4752,26 @@ function getImpactedNodeIds(nodes = [], links = []) {
 	return Array.from(ids);
 }
 
+function resolveLinkEndpoints(links = [], nodes = []) {
+	if (!Array.isArray(links) || !Array.isArray(nodes)) return [];
+	const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+	const resolved = [];
+	for (const link of links) {
+		if (!link || typeof link !== 'object') continue;
+		const sourceId = link.source?.id ?? link.source;
+		const targetId = link.target?.id ?? link.target;
+		const sourceNode = sourceId ? nodeMap.get(sourceId) : null;
+		const targetNode = targetId ? nodeMap.get(targetId) : null;
+		if (!sourceNode || !targetNode) continue;
+		link.source = sourceNode;
+		link.target = targetNode;
+		resolved.push(link);
+	}
+	links.length = 0;
+	links.push(...resolved);
+	return links;
+}
+
 function classifyActivityText(value) {
 	const normalized = String(value || '')
 		.trim()
@@ -5139,7 +5159,6 @@ function renderNodeContents(selection) {
 				: deg.employed > deg.controls ? GRAPH_COLORS.nodeFirmEmployedStroke
 				: GRAPH_COLORS.nodeBorder;
 			const hasConnections = deg.total > 0;
-			const strokeW = hasConnections ? 0.5 : 1.5;
 
 			// Helper to generate hexagon points centered at (0,0)
 			function hexPoints(radius) {
@@ -5179,6 +5198,11 @@ function renderNodeContents(selection) {
 			g.append('polygon')
 				.attr('class', 'fg-node-overlay')
 				.attr('points', hexPoints(s / 2));
+
+			g.append('polygon')
+				.attr('class', 'fg-node-selected-ring')
+				.attr('points', hexPoints(s / 2 + 4))
+				.attr('fill', 'none');
 		} else if (d.group === 'entity') {
 			const s = r * 1.5;
 			g.append('polygon')
@@ -5189,6 +5213,10 @@ function renderNodeContents(selection) {
 				.attr('stroke-width', null)
 				.attr('opacity', null);
 			g.append('polygon').attr('class', 'fg-node-overlay').attr('points', `0,${-s} ${s},0 0,${s} ${-s},0`);
+			g.append('polygon')
+				.attr('class', 'fg-node-selected-ring')
+				.attr('points', `0,${-(s + 4)} ${s + 4},0 0,${s + 4} ${-(s + 4)},0`)
+				.attr('fill', 'none');
 		} else {
 			const rv = d._vizHalf != null ? d._vizHalf : r;
 			g.append('circle')
@@ -5199,6 +5227,10 @@ function renderNodeContents(selection) {
 				.attr('stroke-width', null)
 				.attr('opacity', null);
 			g.append('circle').attr('class', 'fg-node-overlay').attr('r', rv);
+			g.append('circle')
+				.attr('class', 'fg-node-selected-ring')
+				.attr('r', rv + 4)
+				.attr('fill', 'none');
 		}
 
 		drawDisclosureIndicator(g, d, r);
@@ -5665,7 +5697,8 @@ function renderGraph(_data) {
 		return nodeIdSet.has(s) && nodeIdSet.has(t);
 	});
 	layoutNodes = nodes;
-	layoutLinks = links;
+	const resolvedLinks = resolveLinkEndpoints(links, nodes);
+	layoutLinks = resolvedLinks;
 	// Async-resolve any orphaned link endpoints so they appear once fetched
 	if (orphanLinks.length) fetchAndInjectOrphanNodes(orphanLinks, nodeIdSet);
 
@@ -6077,6 +6110,7 @@ function injectNodesById(ids) {
 
 	layoutNodes.push(...toAdd);
 	layoutLinks.push(...newLinks);
+	resolveLinkEndpoints(layoutLinks, layoutNodes);
 	applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
 	setGraphLabelRenderMode(layoutNodes.length);
 
@@ -7113,10 +7147,11 @@ function normalizeNodeLabelInPlace(node) {
 	}
 
 	// If no preferred label exists, avoid leaving the node without any
-	// visible label. Numeric-only labels are treated as placeholders and
-	// will be hidden. Use a neutral fallback that doesn't match placeholder
-	// patterns so the label remains visible after refresh.
-	const hasLabel = Boolean(node.label && String(node.label).trim());
+	// visible label. Numeric-only or placeholder-only labels are treated as
+	// placeholders and will be hidden. Use a neutral fallback that doesn't
+	// match placeholder patterns so the label remains visible after refresh.
+	const currentLabel = String(node.label || '').trim();
+	const hasLabel = Boolean(currentLabel && !isPlaceholderExpansionLabel(currentLabel, node.group));
 	if (!hasLabel) {
 		const idText = String(node.id == null ? '' : node.id).trim();
 		if (idText) {
@@ -7135,6 +7170,8 @@ function normalizeNodeLabelsInPlace(nodes = []) {
 	});
 	return nodes;
 }
+
+export { normalizeNodeLabelInPlace };
 
 function mergeExpansionNodeIntoExistingNode(targetNodeId, incomingNode) {
 	if (!targetNodeId || !incomingNode) return;
@@ -7795,6 +7832,7 @@ function revealNeighbors(
 	// Push into live arrays
 	layoutNodes.push(...newNodes);
 	layoutLinks.push(...newLinks);
+	resolveLinkEndpoints(layoutLinks, layoutNodes);
 	applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
 
 	// Add revealed nodes to seed profile for persistence
