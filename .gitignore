@@ -40,5 +40,6 @@ out/
 .next/cache/*
 data/national/*
 data/national/finra-graph.json
+data/national/seed-crds.json
 data/external/*
 .vercel
