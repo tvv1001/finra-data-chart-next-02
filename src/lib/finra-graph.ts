@@ -7106,8 +7106,28 @@ function getRenderedNodeLabel(node) {
 function normalizeNodeLabelInPlace(node) {
 	if (!node || typeof node !== 'object') return node;
 	const preferredLabel = getPreferredNodeLabel(node);
+	// Prefer a rich/preferred label when available
 	if (preferredLabel && preferredLabel !== node.label) {
 		node.label = preferredLabel;
+		return node;
+	}
+
+	// If no preferred label exists, avoid leaving the node without any
+	// visible label. Some nodes (placeholders, newly-created stubs, or
+	// nodes coming from link endpoints) may only carry numeric ids or no
+	// name fields at all. Numeric-only labels are treated as "placeholder"
+	// elsewhere and will be hidden — so provide a small, human-friendly
+	// fallback that will render (e.g. "Person 123" / "Firm 456").
+	const hasLabel = Boolean(node.label && String(node.label).trim());
+	if (!hasLabel) {
+		const idText = String(node.id == null ? '' : node.id).trim();
+		if (idText) {
+			const prefix =
+				node.group === 'firm' ? 'Firm'
+				: node.group === 'individual' ? 'Person'
+				: '';
+			node.label = prefix ? `${prefix} ${idText}` : idText;
+		}
 	}
 	return node;
 }
