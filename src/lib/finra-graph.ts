@@ -7113,20 +7113,17 @@ function normalizeNodeLabelInPlace(node) {
 	}
 
 	// If no preferred label exists, avoid leaving the node without any
-	// visible label. Some nodes (placeholders, newly-created stubs, or
-	// nodes coming from link endpoints) may only carry numeric ids or no
-	// name fields at all. Numeric-only labels are treated as "placeholder"
-	// elsewhere and will be hidden — so provide a small, human-friendly
-	// fallback that will render (e.g. "Person 123" / "Firm 456").
+	// visible label. Numeric-only labels are treated as placeholders and
+	// will be hidden. Use a neutral fallback that doesn't match placeholder
+	// patterns so the label remains visible after refresh.
 	const hasLabel = Boolean(node.label && String(node.label).trim());
 	if (!hasLabel) {
 		const idText = String(node.id == null ? '' : node.id).trim();
 		if (idText) {
-			const prefix =
-				node.group === 'firm' ? 'Firm'
-				: node.group === 'individual' ? 'Person'
-				: '';
-			node.label = prefix ? `${prefix} ${idText}` : idText;
+			// "Node <id>" avoids matching the placeholder regexes (e.g.
+			// "Person 123" / "Firm 123") while still providing a
+			// readable identifier for freshly-added or stub nodes.
+			node.label = `Node ${idText}`;
 		}
 	}
 	return node;

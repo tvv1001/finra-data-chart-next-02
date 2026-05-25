@@ -43,7 +43,23 @@ function getNodeRadius(node: any) {
 }
 
 function getNodeLabel(node: any) {
-	return String(node?.label || node?.name || node?.id || '');
+	// Prefer explicit label or name, otherwise fall back to a readable
+	// "Node <id>" string so canvas-rendered nodes always have visible
+	// text that won't be treated as a placeholder-only label.
+	const raw = String(node?.label || node?.name || node?.id || '').trim();
+	if (!raw) return '';
+
+	// Treat purely-numeric or CRD-like tokens as placeholders and replace
+	// with a neutral fallback. This mirrors the placeholder detection in
+	// the main SVG renderer so canvas labels remain visible for new nodes.
+	const isNumeric = /^\d+$/.test(raw);
+	const isCrdLike = /^(?:crd|sec)#?\s*\d+$/i.test(raw) || /^(?:crd|sec)\s*#?:?\s*\d+-?\d*$/i.test(raw) || /^8-\d+$/i.test(raw);
+	if (isNumeric || isCrdLike) {
+		const idText = String(node?.id ?? raw).trim();
+		return idText ? `Node ${idText}` : raw;
+	}
+
+	return raw;
 }
 
 async function fetchGraphData() {
