@@ -857,9 +857,12 @@ function calculateTrace() {
 	const traceLogNodeIds = isTraceLogMode ? getTraceLogNodeIds() : [];
 	const hasTraceTargets = traceModeNodeIds.length >= 2;
 	const hasTraceLogTargets = traceLogNodeIds.length >= 2;
-	// Strict trace rule: inactive endpoints (rendered as dashed gray links) are excluded
-	// from pathfinding and must never be highlighted.
-	const blockedTraceLinkIds = new Set<string>((layoutLinks || []).filter((link) => Boolean(getLinkDash(link)) || hasInactiveEndpoint(link)).map((link) => getLinkKey(link)));
+	// Strict trace rule: gray or inactive links must be excluded from pathfinding
+	// and must never be highlighted. This includes links that are dashed via
+	// inactive endpoints as well as explicit "previous employment" links.
+	const blockedTraceLinkIds = new Set<string>(
+		(layoutLinks || []).filter((link) => Boolean(getLinkDash(link)) || hasInactiveEndpoint(link) || isPreviousEmploymentLink(link)).map((link) => getLinkKey(link)),
+	);
 	const isTraceEligibleNode = (nodeId: string) => {
 		const node = layoutNodes.find((entry) => entry.id === nodeId);
 		if (!node) return false;
