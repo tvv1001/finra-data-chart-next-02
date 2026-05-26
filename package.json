@@ -14,7 +14,11 @@
 		"test:e2e:headed": "playwright test --headed",
 		"test:smoke": "playwright test tests/e2e/smoke.spec.ts",
 		"build:graph": "node scripts/build_graph_from_cache.js --employment-scope all",
-		"prime:all": "node scripts/download_all_api_data.js"
+		"prime:all": "node scripts/download_all_api_data.js",
+		"ci:install-browsers": "npx playwright install --with-deps || npx playwright install chromium"
+	},
+	"engines": {
+		"node": ">=18"
 	},
 	"dependencies": {
 		"@upstash/redis": "^1.37.0",
@@ -29,7 +33,6 @@
 		"next": "^15.1.0",
 		"pixi.js": "^8.4.0",
 		"playwright-extra-plugin-stealth": "^0.0.1",
-		"puppeteer": "^25.0.4",
 		"react": "^19.0.0",
 		"react-dom": "^19.0.0",
 		"winston": "^3.13.0"

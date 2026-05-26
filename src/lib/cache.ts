@@ -7,9 +7,7 @@
 import { readFile, writeFile, mkdir, access, unlink } from 'node:fs/promises';
 import * as crypto from 'node:crypto';
 import * as path from 'node:path';
-import { promisify } from 'node:util';
-import { gunzip as gunzipCb } from 'node:zlib';
-const gunzip = promisify(gunzipCb);
+import { gunzipOffload } from './gzipWorker';
 import { Redis } from '@upstash/redis';
 import { DATA_DIR, PRIMED_CACHE_DIR } from './constants';
 
@@ -195,8 +193,8 @@ async function loadPrimedBundle(name: PrimedBundleName): Promise<PrimedBundle | 
 		// try binary first
 		const rawBin = await readFile(binPath);
 		try {
-			const buf = await gunzip(rawBin);
-			const parsed = JSON.parse(buf.toString('utf-8')) as PrimedBundle;
+			const json = await gunzipOffload(rawBin.toString('base64'));
+			const parsed = JSON.parse(json) as PrimedBundle;
 			// Normalize keys in the primed bundle so lookups are robust to
 			// differences in querystring parameter ordering (e.g. wt vs includePrevious).
 			const normalized: PrimedBundle = {};

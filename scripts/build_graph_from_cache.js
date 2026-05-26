@@ -619,15 +619,30 @@ async function buildIncremental(options = {}) {
 
 if (require.main === module) {
 	const argv = require('minimist')(process.argv.slice(2));
-	const incremental = argv.incremental || argv.i || false;
+	const forceFull = argv.full || argv.f || false;
+	const incrementalFlag = argv.incremental || argv.i || false;
+	// Default to incremental unless explicit full requested
+	const useIncremental = !forceFull && !incrementalFlag;
 	const employmentScope = normalizeEmploymentScope(argv['employment-scope'] || argv.employmentScope || 'current');
 	const syncRedis = !(argv['no-redis'] || argv.noRedis);
 	const employmentOptions = getEmploymentScopeOptions(employmentScope);
-	const runner = incremental ? buildIncremental : build;
-	runner({ employmentOptions, syncRedis }).catch((e) => {
-		console.error(e);
-		process.exit(1);
-	});
+
+	const start = process.hrtime.bigint();
+	const runner = useIncremental ? buildIncremental : build;
+	console.log(`build_graph_from_cache: starting ${useIncremental ? 'incremental' : 'full'} run`);
+	runner({ employmentOptions, syncRedis })
+		.then((res) => {
+			const end = process.hrtime.bigint();
+			const ms = Number(end - start) / 1_000_000;
+			console.log(`build_graph_from_cache: completed in ${ms.toFixed(1)}ms`);
+			process.exit(0);
+		})
+		.catch((e) => {
+			const end = process.hrtime.bigint();
+			const ms = Number(end - start) / 1_000_000;
+			console.error(`build_graph_from_cache: failed after ${ms.toFixed(1)}ms`, e);
+			process.exit(1);
+		});
 }
 
 module.exports = {

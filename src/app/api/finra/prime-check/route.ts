@@ -80,7 +80,7 @@ async function warmIndividual(crd: string) {
 				if (err?.response?.status === 429) {
 					try {
 						const r = getUpstashClient();
-						if (r) await r.zadd('finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'individual', crd }));
+						if (r) await (r as any).zadd('finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'individual', crd }));
 					} catch (e) {
 						// ignore redis errors
 					}
@@ -99,7 +99,7 @@ async function warmIndividual(crd: string) {
 				if (err?.response?.status === 429) {
 					try {
 						const r = getUpstashClient();
-						if (r) await r.zadd('finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'individual', crd }));
+						if (r) await (r as any).zadd('finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'individual', crd }));
 					} catch (e) {
 						// ignore
 					}
@@ -124,7 +124,7 @@ async function warmFirm(id: string) {
 				if (err?.response?.status === 429) {
 					try {
 						const r = getUpstashClient();
-						if (r) await r.zadd('finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'firm', id }));
+						if (r) await (r as any).zadd('finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'firm', id }));
 					} catch (e) {
 						// ignore
 					}
@@ -143,7 +143,7 @@ async function warmFirm(id: string) {
 				if (err?.response?.status === 429) {
 					try {
 						const r = getUpstashClient();
-						if (r) await r.zadd('finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'firm', id }));
+						if (r) await (r as any).zadd('finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'firm', id }));
 					} catch (e) {
 						// ignore
 					}
@@ -162,7 +162,7 @@ async function warmFirm(id: string) {
 				if (err?.response?.status === 429) {
 					try {
 						const r = getUpstashClient();
-						if (r) await r.zadd('finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'firm', id }));
+						if (r) await (r as any).zadd('finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'firm', id }));
 					} catch (e) {
 						// ignore
 					}
@@ -313,7 +313,7 @@ export async function GET(request: NextRequest) {
 			noResults: 0,
 			failures: [] as Array<{ crd: string; docket: string; error: string }>,
 		},
-		failures: [] as Array<{ kind: 'individual' | 'firm'; id: string; error: string }>,
+		failures: [] as Array<{ kind: 'individual' | 'firm' | 'missing'; id: string; error: string }>,
 	};
 	const seenFdaDockets = new Set<string>();
 

@@ -1,5 +1,5 @@
 allowBuilds:
   esbuild: true
-  puppeteer: true
+  puppeteer: set this to true or false
   sharp: true
   unrs-resolver: true
