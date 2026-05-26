@@ -22,7 +22,9 @@ export default defineConfig({
 		video: 'retain-on-failure',
 	},
 	webServer: {
-		command: 'pnpm dev',
+		// Ensure the Next dev server started for tests disables external FINRA/SEC calls
+		// to avoid hitting upstream rate limits during deterministic e2e runs.
+		command: 'EXTERNAL_API_DISABLED=1 pnpm dev',
 		url: baseURL,
 		reuseExistingServer: !process.env.CI,
 		timeout: 120_000,

@@ -443,92 +443,20 @@ export async function init(_d3: any, options: { initialRouteNodeId?: string | nu
 	});
 
 	// Prefer running the force simulation inside a Web Worker to avoid
-	// blocking the main thread. If Worker is unavailable, fall back to
-	// d3.forceSimulation on the main thread.
+	// blocking the main thread. Try to use a prebuilt production worker
+	// at /workers/d3-force-worker.js (served from /public). If that fails
+	// fall back to the legacy Blob-based simple simulation or main-thread d3.
 	if (typeof window !== 'undefined' && typeof (window as any).Worker === 'function') {
+		let triedStaticWorker = false;
 		try {
-			const workerCode = `
-				let nodes = [];
-				let links = [];
-				let running = false;
-				let width = 800, height = 600;
-				function stepSim() {
-					if (!running) return;
-					const k = 0.02;
-					// simple repulsion
-					for (let i = 0; i < nodes.length; i++) {
-						let ni = nodes[i];
-						let fx = 0, fy = 0;
-						for (let j = 0; j < nodes.length; j++) {
-							if (i === j) continue;
-							const nj = nodes[j];
-							let dx = ni.x - nj.x;
-							let dy = ni.y - nj.y;
-							let dist2 = dx*dx + dy*dy + 0.01;
-							let force = 1000 / dist2; // repulsive
-							fx += (dx/dist2) * force;
-							fy += (dy/dist2) * force;
-						}
-						ni.vx = (ni.vx || 0) + fx * 0.001;
-						ni.vy = (ni.vy || 0) + fy * 0.001;
-					}
-					// link springs
-					for (let l of links) {
-						const s = nodes.find(n => String(n.id) === String(l.source));
-						const t = nodes.find(n => String(n.id) === String(l.target));
-						if (!s || !t) continue;
-						const dx = t.x - s.x;
-						const dy = t.y - s.y;
-						const dist = Math.sqrt(dx*dx + dy*dy) + 0.01;
-						const desired = 70;
-						const diff = dist - desired;
-						const f = 0.001 * diff;
-						const nx = (dx/dist) * f;
-						const ny = (dy/dist) * f;
-						s.vx = (s.vx || 0) + nx;
-						s.vy = (s.vy || 0) + ny;
-						t.vx = (t.vx || 0) - nx;
-						t.vy = (t.vy || 0) - ny;
-					}
-					// integrate
-					for (let n of nodes) {
-						n.x = (n.x || width/2) + (n.vx || 0);
-						n.y = (n.y || height/2) + (n.vy || 0);
-						// decay velocities
-						n.vx *= 0.9;
-						n.vy *= 0.9;
-					}
-					// post positions
-					postMessage({ type: 'tick', nodes: nodes.map(n => ({ id: n.id, x: n.x, y: n.y })) });
-					setTimeout(stepSim, 16);
-				}
-				onmessage = function(e) {
-					const m = e.data || {};
-					if (m.type === 'init') {
-						nodes = m.nodes.map(n => ({ id: n.id, x: n.x || 0, y: n.y || 0 }));
-						links = m.links.map(l => ({ source: l.source, target: l.target }));
-						width = m.width || width;
-						height = m.height || height;
-						postMessage({ type: 'ready' });
-					} else if (m.type === 'start') {
-						running = true;
-						stepSim();
-					} else if (m.type === 'stop') {
-						running = false;
-					} else if (m.type === 'updateNodes') {
-						// merge positions
-						for (const p of m.positions || []) {
-							const n = nodes.find(x => String(x.id) === String(p.id));
-							if (n) { n.x = p.x; n.y = p.y; }
-						}
-					}
-				};
-			`;
-			const blob = new Blob([workerCode], { type: 'application/javascript' });
-			forceWorker = new Worker(URL.createObjectURL(blob));
+			// Attempt to use the bundled worker asset
+			triedStaticWorker = true;
+			forceWorker = new Worker('/workers/d3-force-worker.js');
 			forceWorker.onmessage = (ev) => {
 				const msg = ev.data || {};
-				if (msg.type === 'tick' && Array.isArray(msg.nodes)) {
+				if (msg.type === 'ready') {
+					// worker ready
+				} else if (msg.type === 'tick' && Array.isArray(msg.nodes)) {
 					for (const p of msg.nodes) {
 						const node = graphNodeById.get(String(p.id));
 						if (node) {
@@ -537,9 +465,15 @@ export async function init(_d3: any, options: { initialRouteNodeId?: string | nu
 						}
 					}
 					requestRender();
+				} else if (msg.type === 'error') {
+					// worker cannot run (missing d3), fall through to fallback below
+					console.warn('d3-force worker reported error:', msg.error);
+					try {
+						forceWorker.terminate();
+					} catch (e) {}
+					forceWorker = null;
 				}
 			};
-			// initialize worker
 			forceWorker.postMessage({
 				type: 'init',
 				nodes: graphNodes.map((n) => ({ id: n.id, x: n.x, y: n.y })),
@@ -549,33 +483,138 @@ export async function init(_d3: any, options: { initialRouteNodeId?: string | nu
 			});
 			forceWorker.postMessage({ type: 'start' });
 		} catch (e) {
-			// Fallback to main-thread d3 simulation if worker creation fails
-			console.warn('Force worker creation failed; falling back to main-thread simulation.', e);
-			simulation = _d3
-				.forceSimulation(graphNodes)
-				.force(
-					'link',
-					_d3
-						.forceLink(graphLinks)
-						.id((d: any) => d.id)
-						.distance(70)
-						.strength(0.75),
-				)
-				.force('charge', _d3.forceManyBody().strength(-150).theta(0.9))
-				.force('center', _d3.forceCenter(width / 2, height / 2))
-				.force(
-					'collision',
-					_d3
-						.forceCollide()
-						.radius((d: any) => getNodeRadius(d) + 2)
-						.strength(1),
-				)
-				.velocityDecay(0.72)
-				.alphaDecay(0.05)
-				.on('tick', () => {
-					requestRender();
-				})
-				.on('end', drawFrame);
+			// static worker failed — try the Blob fallback
+			console.warn('d3-force static worker failed; falling back to Blob worker or main-thread simulation.', e);
+			if (forceWorker) {
+				try {
+					forceWorker.terminate();
+				} catch (err) {}
+				forceWorker = null;
+			}
+		}
+
+		if (!forceWorker) {
+			// Blob fallback: simple built-in simulation (previous implementation)
+			try {
+				const workerCode = `
+					let nodes = [];
+					let links = [];
+					let running = false;
+					let width = 800, height = 600;
+					function stepSim() {
+						if (!running) return;
+						const k = 0.02;
+						for (let i = 0; i < nodes.length; i++) {
+							let ni = nodes[i];
+							let fx = 0, fy = 0;
+							for (let j = 0; j < nodes.length; j++) {
+								if (i === j) continue;
+								const nj = nodes[j];
+								let dx = ni.x - nj.x;
+								let dy = ni.y - nj.y;
+								let dist2 = dx*dx + dy*dy + 0.01;
+								let force = 1000 / dist2;
+								fx += (dx/dist2) * force;
+								fy += (dy/dist2) * force;
+							}
+							ni.vx = (ni.vx || 0) + fx * 0.001;
+							ni.vy = (ni.vy || 0) + fy * 0.001;
+						}
+						for (let l of links) {
+							const s = nodes.find(n => String(n.id) === String(l.source));
+							const t = nodes.find(n => String(n.id) === String(l.target));
+							if (!s || !t) continue;
+							const dx = t.x - s.x;
+							const dy = t.y - s.y;
+							const dist = Math.sqrt(dx*dx + dy*dy) + 0.01;
+							const desired = 70;
+							const diff = dist - desired;
+							const f = 0.001 * diff;
+							const nx = (dx/dist) * f;
+							const ny = (dy/dist) * f;
+							s.vx = (s.vx || 0) + nx;
+							s.vy = (s.vy || 0) + ny;
+							t.vx = (t.vx || 0) - nx;
+							t.vy = (t.vy || 0) - ny;
+						}
+						for (let n of nodes) {
+							n.x = (n.x || width/2) + (n.vx || 0);
+							n.y = (n.y || height/2) + (n.vy || 0);
+							n.vx *= 0.9;
+							n.vy *= 0.9;
+						}
+						postMessage({ type: 'tick', nodes: nodes.map(n => ({ id: n.id, x: n.x, y: n.y })) });
+						setTimeout(stepSim, 16);
+					}
+					onmessage = function(e) {
+						const m = e.data || {};
+						if (m.type === 'init') {
+							nodes = m.nodes.map(n => ({ id: n.id, x: n.x || 0, y: n.y || 0 }));
+							links = m.links.map(l => ({ source: l.source, target: l.target }));
+							width = m.width || width;
+							height = m.height || height;
+							postMessage({ type: 'ready' });
+						} else if (m.type === 'start') {
+							running = true; stepSim();
+						} else if (m.type === 'stop') { running = false; }
+						else if (m.type === 'updateNodes') {
+							for (const p of m.positions || []) {
+								const n = nodes.find(x => String(x.id) === String(p.id)); if (n) { n.x = p.x; n.y = p.y; }
+							}
+						}
+					};
+				`;
+				const blob = new Blob([workerCode], { type: 'application/javascript' });
+				forceWorker = new Worker(URL.createObjectURL(blob));
+				forceWorker.onmessage = (ev) => {
+					const msg = ev.data || {};
+					if (msg.type === 'tick' && Array.isArray(msg.nodes)) {
+						for (const p of msg.nodes) {
+							const node = graphNodeById.get(String(p.id));
+							if (node) {
+								node.x = p.x;
+								node.y = p.y;
+							}
+						}
+						requestRender();
+					}
+				};
+				forceWorker.postMessage({
+					type: 'init',
+					nodes: graphNodes.map((n) => ({ id: n.id, x: n.x, y: n.y })),
+					links: graphLinks.map((l) => ({ source: l.source?.id || l.source, target: l.target?.id || l.target })),
+					width,
+					height,
+				});
+				forceWorker.postMessage({ type: 'start' });
+			} catch (e2) {
+				console.warn('Fallback worker failed; falling back to main-thread d3.', e2);
+				simulation = _d3
+					.forceSimulation(graphNodes)
+					.force(
+						'link',
+						_d3
+							.forceLink(graphLinks)
+							.id((d: any) => d.id)
+							.distance(70)
+							.strength(0.75),
+					)
+					.force('charge', _d3.forceManyBody().strength(-150).theta(0.9))
+					.force('center', _d3.forceCenter(width / 2, height / 2))
+					.force(
+						'collision',
+						_d3
+							.forceCollide()
+							.radius((d: any) => getNodeRadius(d) + 2)
+							.strength(1),
+					)
+					.velocityDecay(0.72)
+					.alphaDecay(0.05)
+					.on('tick', () => {
+						requestRender();
+					})
+					.on('end', drawFrame);
+			}
 		}
 	} else {
 		simulation = _d3

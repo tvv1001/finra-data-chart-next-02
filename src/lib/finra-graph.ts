@@ -1210,7 +1210,7 @@ function updateSelectionLogUI() {
 function copyToClipboard(text, element) {
 	navigator.clipboard.writeText(text).then(() => {
 		const originalBackground = element.style.background;
-		element.style.background = 'rgba(34, 197, 94, 0.2)';
+		element.style.background = 'rgba(34, 91, 197, 0.2)';
 		setTimeout(() => {
 			element.style.background = originalBackground;
 		}, 500);
@@ -9269,7 +9269,7 @@ function renderPersonDetail(d: any) {
       ${
 				previousEmploymentEntries.length ?
 					`<div class="fg-section-title fg-section-title--sticky">Previous Employment (${previousEmploymentEntries.length})</div>
-            <div class="fg-timeline">
+				    <div class="fg-timeline fg-timeline--previous">
 			  ${previousEmploymentEntries
 					.map((e) => {
 						const cls = `fg-tl-entry${e.isCurrent ? ' active-pos' : ''}`;
@@ -9317,7 +9317,7 @@ function renderPersonDetail(d: any) {
       ${
 				previousRegistrations.length ?
 					`<div class="fg-section-title fg-section-title--sticky">Previous Registrations</div>
-            <div class="fg-timeline">
+				    <div class="fg-timeline fg-timeline--previous">
 			  ${previousRegistrations
 					.map((reg) => {
 						const crdHtml = reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : '';
