@@ -29,8 +29,8 @@ import {
 	truncate as truncateImpl,
 } from './finra-graph/formatters';
 import { DEFAULT_EXPANSION_HOPS, DEFAULT_SELECTION_HOPS } from './finra-graph-defaults';
-import * as canvasRenderer from './finra-graph-canvas';
 import * as overlayRenderer from './finra-graph-overlay';
+import * as forceWorker from './force-worker';
 
 // API base. When VITE_API_URL is not set, use relative paths so the dev
 // server proxy (`/api`) is used and we don't hardcode a backend port.
@@ -152,8 +152,7 @@ let graphTickFrameId: number | null = null;
 // Render modes for node labels. 'none' disables creating text elements entirely
 let nodeLabelRenderMode: 'full' | 'compact' | 'none' = 'full';
 // Canvas renderer mode for very large graphs
-let canvasModeActive = false;
-let canvasApi: any = null;
+// canvasModeActive retired — WebGL-only
 let pixiModeActive = false;
 let pixiApi: any = null;
 let overlayApi: any = null;
@@ -255,20 +254,6 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 				}
 			} catch (e) {
 				_logOnce(_loggedBadTransforms, 'pixi-draw-error', 'warn', 'Pixi draw failed', e);
-			}
-			return;
-		}
-		if (canvasModeActive && canvasApi) {
-			try {
-				const transform = getCurrentZoomTransform();
-				canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId });
-				if (overlayApi && typeof overlayApi.update === 'function') {
-					try {
-						overlayApi.update(layoutNodes || [], transform, { selectedId });
-					} catch (e) {}
-				}
-			} catch (e) {
-				_logOnce(_loggedBadTransforms, 'canvas-draw-error', 'warn', 'Canvas draw failed', e);
 			}
 			return;
 		}
@@ -3187,6 +3172,15 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				return !layoutLinks.some((el) => (el.source?.id ?? el.source) === s && (el.target?.id ?? el.target) === t);
 			}),
 		);
+
+		// Ensure link endpoints are node objects (some callers pass persisted links
+		// with primitive id endpoints). This prevents d3-force from attempting to
+		// create properties on string ids (e.g. vx/vy) during simulation ticks.
+		try {
+			resolveLinkEndpoints(layoutLinks, layoutNodes);
+		} catch (e) {
+			/* ignore */
+		}
 		applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
 		setGraphLabelRenderMode(layoutNodes.length);
 
@@ -3198,6 +3192,19 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 
 		// Persist session so reload restores these nodes
 		saveSession();
+
+		// If the visual groups aren't initialized yet (e.g. during session
+		// restore before renderGraph runs), don't attempt DOM operations — just
+		// ensure the simulation state is updated and return early. This avoids
+		// errors like "Cannot read properties of null (reading 'selectAll')".
+		if (!linkGroup || !nodeGroup) {
+			try {
+				applySimulationDataToSimulation(layoutNodes, layoutLinks);
+			} catch (e) {
+				/* ignore */
+			}
+			return;
+		}
 
 		// Append DOM nodes/links similar to revealNeighbors
 		const allLinks = linkGroup.selectAll('line').data(layoutLinks, (d) => {
@@ -3252,10 +3259,9 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
 		});
 
-		// Restart simulation with new nodes/links
-		simulation.nodes(layoutNodes);
-		simulation.force('link').links(layoutLinks);
-		simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
+		// Restart simulation with new nodes/links (apply defensively)
+		ensureLayoutNodesAreObjects();
+		applySimulationDataToSimulation(layoutNodes, layoutLinks);
 		simulation.alpha(getIncrementalRestartAlpha(layoutNodes.length, uniqNodes.length)).restart();
 	};
 
@@ -4843,6 +4849,75 @@ function resolveLinkEndpoints(links = [], nodes = []) {
 	return links;
 }
 
+function ensureLayoutNodesAreObjects() {
+	if (!Array.isArray(layoutNodes)) return;
+	let mutated = false;
+	const offendingNodes: Array<{ index: number; value: any }> = [];
+	const offendingLinks: Array<any> = [];
+	for (let i = 0; i < layoutNodes.length; i++) {
+		if (layoutNodes[i] == null) continue;
+		if (typeof layoutNodes[i] !== 'object') {
+			offendingNodes.push({ index: i, value: layoutNodes[i] });
+			layoutNodes[i] = { id: layoutNodes[i] };
+			mutated = true;
+		}
+	}
+	// re-resolve links if we mutated nodes so link.source/target can be objects
+	if (mutated && Array.isArray(layoutLinks)) {
+		try {
+			resolveLinkEndpoints(layoutLinks, layoutNodes);
+		} catch (e) {
+			/* ignore */
+		}
+	}
+
+	// Diagnostic logging in dev to help trace where primitive IDs leak in
+	try {
+		const hasPrimitiveLink = Array.isArray(layoutLinks) && layoutLinks.some((l) => typeof l.source === 'string' || typeof l.target === 'string');
+		if ((offendingNodes.length || hasPrimitiveLink) && typeof window !== 'undefined' && window.location && /localhost|127\.0\.0\.1/.test(window.location.hostname)) {
+			if (offendingNodes.length) console.error('finra-graph: primitive node entries coerced', offendingNodes.slice(0, 20));
+			if (Array.isArray(layoutLinks)) {
+				for (const l of layoutLinks) {
+					if (typeof l.source === 'string' || typeof l.target === 'string') offendingLinks.push({ source: l.source, target: l.target, relationship: l.relationship });
+				}
+				if (offendingLinks.length) console.error('finra-graph: links with primitive endpoints', offendingLinks.slice(0, 20));
+			}
+		}
+	} catch (e) {
+		/* ignore logging failure */
+	}
+}
+
+// Apply nodes/links to the active simulation with defensive normalization so
+// d3-force does not receive primitive ids for node/link endpoints.
+function applySimulationDataToSimulation(nodesArr = [], linksArr = []) {
+	if (!simulation) return;
+	try {
+		// coerce primitive node entries to objects with id
+		for (let i = 0; i < (nodesArr || []).length; i++) {
+			if (nodesArr[i] == null) continue;
+			if (typeof nodesArr[i] !== 'object') nodesArr[i] = { id: nodesArr[i] };
+		}
+		// ensure links reference node objects
+		resolveLinkEndpoints(linksArr, nodesArr);
+		// attach into simulation
+		simulation.nodes(nodesArr);
+		if (simulation.force && typeof simulation.force === 'function' && simulation.force('link')) {
+			try {
+				simulation.force('link').links(linksArr);
+			} catch (e) {
+				// ignore link attach errors
+			}
+		}
+		if (simulation.force && typeof simulation.force === 'function' && simulation.force('collision')) {
+			simulation.force('collision').radius((d) => getNodeCollisionRadius(d, nodesArr.length));
+		}
+	} catch (e) {
+		// defensive — don't let normalization break app flow
+		console.warn('applySimulationDataToSimulation failed', e);
+	}
+}
+
 function classifyActivityText(value) {
 	const normalized = String(value || '')
 		.trim()
@@ -5801,56 +5876,108 @@ function renderGraph(_data) {
 	const isHuge = nodeCount > 1000;
 	setGraphLabelRenderMode(nodeCount);
 
-	// Enable hardware-accelerated WebGL mode for very large graphs; fall back to Canvas
-	canvasModeActive = nodeCount > 800;
-	let pixiModeActive = false;
-	let pixiApi: any = null;
-	if (canvasModeActive) {
-		const mainEl = document.getElementById('fg-main');
-		if (mainEl) {
-			// Try to initialize Pixi (WebGL). If that fails, fall back to lightweight canvas.
-			import('pixi.js')
-				.then((PIXI) => {
-					// create a canvas for Pixi
-					const existing = document.getElementById('fg-pixi-canvas');
-					if (existing && existing.parentElement === mainEl) {
-						// reuse
-					} else {
-						const c = document.createElement('canvas');
-						c.id = 'fg-pixi-canvas';
-						c.style.position = 'absolute';
-						c.style.left = '0';
-						c.style.top = '0';
-						c.style.width = '100%';
-						c.style.height = '100%';
-						c.style.zIndex = '1';
-						mainEl.appendChild(c);
+	// Initialize hardware-accelerated WebGL (Pixi) renderer — WebGL-only mode
+	const mainEl = document.getElementById('fg-main');
+	if (mainEl) {
+		// Try to initialize Pixi (WebGL). If that fails, the graph will not render.
+		import('pixi.js')
+			.then((PIXI) => {
+				// create a canvas for Pixi
+				const existing = document.getElementById('fg-pixi-canvas');
+				if (existing && existing.parentElement === mainEl) {
+					// reuse
+				} else {
+					const c = document.createElement('canvas');
+					c.id = 'fg-pixi-canvas';
+					c.style.position = 'absolute';
+					c.style.left = '0';
+					c.style.top = '0';
+					c.style.width = '100%';
+					c.style.height = '100%';
+					c.style.zIndex = '1';
+					mainEl.appendChild(c);
+				}
+				const canvasEl = document.getElementById('fg-pixi-canvas') as HTMLCanvasElement;
+				const Application = (PIXI as any).Application || (PIXI as any).default?.Application;
+				const Graphics = (PIXI as any).Graphics || (PIXI as any).default?.Graphics;
+				const Container = (PIXI as any).Container || (PIXI as any).default?.Container;
+				if (!Application || !Graphics || !Container) throw new Error('Missing Pixi classes');
+				// Try to initialize Pixi using WebGL first. If a renderer is not
+				// available (headless / GPU disabled), fall back to a Canvas-based
+				// Pixi renderer so the graph still renders via Pixi but without WebGL.
+				let app = null;
+				try {
+					app = new Application({ view: canvasEl, resizeTo: mainEl, backgroundAlpha: 0, antialias: false, powerPreference: 'high-performance' });
+				} catch (e) {
+					app = null;
+				}
+				// If WebGL failed to create a renderer, try a Canvas renderer fallback
+				if (!app || !app.renderer || typeof app.renderer.render !== 'function') {
+					try {
+						// Destroy any partially-created instance
+						app?.destroy?.(true, { children: true, texture: true, baseTexture: true });
+					} catch (e) {}
+					try {
+						// forceCanvas is a recognized option to make Pixi use 2D canvas
+						app = new Application({ view: canvasEl, resizeTo: mainEl, backgroundAlpha: 0, antialias: false, forceCanvas: true });
+					} catch (e) {
+						app = null;
 					}
-					const canvasEl = document.getElementById('fg-pixi-canvas') as HTMLCanvasElement;
-					const Application = (PIXI as any).Application || (PIXI as any).default?.Application;
-					const Graphics = (PIXI as any).Graphics || (PIXI as any).default?.Graphics;
-					const Container = (PIXI as any).Container || (PIXI as any).default?.Container;
-					if (!Application || !Graphics || !Container) throw new Error('Missing Pixi classes');
-					const app = new Application({ view: canvasEl, resizeTo: mainEl, backgroundAlpha: 0, antialias: false, powerPreference: 'high-performance' });
-					const linkLayerPixi = new Graphics();
-					const nodeLayerPixi = new Container();
-					app.stage.addChild(linkLayerPixi);
-					app.stage.addChild(nodeLayerPixi);
+				}
+				if (!app || !app.renderer || typeof app.renderer.render !== 'function') {
+					try {
+						app?.destroy?.(true, { children: true, texture: true, baseTexture: true });
+					} catch (e) {}
+					throw new Error('Pixi renderer not available');
+				}
+				const linkLayerPixi = new Graphics();
+				const nodeLayerPixi = new Container();
+				app.stage.addChild(linkLayerPixi);
+				app.stage.addChild(nodeLayerPixi);
 
-					const nodeSpriteMap = new Map();
-					function drawPixiFrame(nodesArr, linksArr, transform, opts = {}) {
-						// draw links
-						linkLayerPixi.clear();
-						linkLayerPixi.lineStyle(1, 0x708090, 0.18);
-						for (const l of linksArr) {
-							const a = l.source;
-							const b = l.target;
-							if (!a || !b) continue;
-							linkLayerPixi.moveTo(a.x, a.y);
-							linkLayerPixi.lineTo(b.x, b.y);
-						}
-						// draw/update nodes
-						for (const n of nodesArr) {
+				const nodeSpriteMap = new Map();
+				const clusterSpriteMap = new Map();
+
+				function computeGridClusters(nodesArr, cellSize) {
+					const buckets = new Map();
+					for (const n of nodesArr) {
+						const key = `${Math.floor(n.x / cellSize)}|${Math.floor(n.y / cellSize)}`;
+						const b = buckets.get(key) || { x: 0, y: 0, count: 0, members: [], key };
+						b.x += n.x;
+						b.y += n.y;
+						b.count += 1;
+						b.members.push(n);
+						buckets.set(key, b);
+					}
+					const clusters = [];
+					for (const [k, v] of buckets.entries()) {
+						clusters.push({ id: `cluster:${k}`, x: v.x / v.count, y: v.y / v.count, count: v.count, members: v.members });
+					}
+					return clusters;
+				}
+
+				function drawPixiFrame(nodesArr, linksArr, transform, opts = {}) {
+					// draw links
+					linkLayerPixi.clear();
+					linkLayerPixi.lineStyle(1, 0x708090, 0.18);
+					for (const l of linksArr) {
+						const a = l.source;
+						const b = l.target;
+						if (!a || !b) continue;
+						linkLayerPixi.moveTo(a.x, a.y);
+						linkLayerPixi.lineTo(b.x, b.y);
+					}
+					// draw/update nodes with simple grid-based LOD clustering
+					const zoom = (transform && transform.k) || 1;
+					const baseCell = 80; // pixels at scale=1
+					const cellSize = Math.max(16, baseCell / Math.max(0.25, zoom));
+
+					const clusters = computeGridClusters(nodesArr, cellSize);
+
+					// render clusters: single-member clusters render as normal nodes
+					for (const c of clusters) {
+						if (c.count === 1) {
+							const n = c.members[0];
 							let g = nodeSpriteMap.get(String(n.id));
 							if (!g) {
 								g = new Graphics();
@@ -5858,12 +5985,11 @@ function renderGraph(_data) {
 								nodeSpriteMap.set(String(n.id), g);
 							}
 							g.clear();
-							const color = 0x4a90e2;
+							const color = n.group === 'firm' ? 0x996633 : 0x4a90e2;
 							g.beginFill(color);
 							g.drawCircle(0, 0, n.group === 'firm' ? 6 : 4);
 							g.endFill();
 							g.position.set(n.x, n.y);
-							// ensure interactive handlers for selection and drag
 							if (!g.interactive) {
 								g.interactive = true;
 								g.buttonMode = true;
@@ -5872,10 +5998,7 @@ function renderGraph(_data) {
 									evt.stopPropagation();
 									try {
 										selectNode(n);
-									} catch (e) {
-										/* ignore */
-									}
-									// start dragging
+									} catch (e) {}
 									const pos = evt.data.global;
 									g._drag = { offsetX: pos.x - n.x, offsetY: pos.y - n.y };
 									if (typeof simulation?.alphaTarget === 'function') simulation.alphaTarget(0.3).restart?.();
@@ -5887,13 +6010,6 @@ function renderGraph(_data) {
 									n.y = pos.y - g._drag.offsetY;
 									n.fx = n.x;
 									n.fy = n.y;
-									if (pixiApi && pixiApi.app && pixiApi.app.renderer) {
-										try {
-											pixiApi.app.renderer.render(pixiApi.app.stage);
-										} catch (e) {
-											/* ignore */
-										}
-									}
 								});
 								g.on('pointerup', () => {
 									if (g._drag) {
@@ -5904,100 +6020,174 @@ function renderGraph(_data) {
 									}
 								});
 							}
+						} else {
+							// cluster rendering
+							let ctn = clusterSpriteMap.get(c.id);
+							if (!ctn) {
+								ctn = new Container();
+								const g = new Graphics();
+								ctn.addChild(g);
+								// count label
+								const TextClass = (PIXI as any).Text || (PIXI as any).default?.Text;
+								const txt = TextClass ? new TextClass('', { fontSize: 12, fill: 0xffffff }) : null;
+								if (txt) ctn.addChild(txt);
+								nodeLayerPixi.addChild(ctn);
+								clusterSpriteMap.set(c.id, { container: ctn, gfx: g, text: txt });
+							}
+							const entry = clusterSpriteMap.get(c.id);
+							try {
+								entry.gfx.clear();
+								const radius = Math.min(24, 6 + Math.sqrt(c.count) * 2);
+								entry.gfx.beginFill(0xcc3333, 0.9);
+								entry.gfx.drawCircle(0, 0, radius);
+								entry.gfx.endFill();
+								entry.container.position.set(c.x, c.y);
+								if (entry.text) {
+									entry.text.text = String(c.count);
+									entry.text.anchor = { x: 0.5, y: 0.5 };
+									entry.text.position.set(0, 0);
+								}
+							} catch (e) {
+								/* ignore rendering errors */
+							}
 						}
+					}
+					if (app && app.renderer && typeof app.renderer.render === 'function') {
 						app.renderer.render(app.stage);
+					} else {
+						// If renderer disappears mid-run, disable pixi mode so DOM/SVG takes over.
+						pixiModeActive = false;
+					}
+				}
+
+				pixiApi = {
+					app,
+					drawFrame: drawPixiFrame,
+					destroy: () => {
+						try {
+							app.destroy(true, { children: true, texture: true, baseTexture: true });
+						} catch {}
+					},
+				};
+				pixiModeActive = true;
+				// Create HTML overlay for labels/tooltips
+				try {
+					overlayApi = overlayRenderer.createOverlay(mainEl, {
+						onClick: (node) => {
+							try {
+								selectNode(node, { focus: true });
+							} catch (e) {}
+						},
+						onHover: (node) => {
+							try {
+								document.dispatchEvent(new CustomEvent('finra:overlay-hover', { detail: { id: String(node.id) } }));
+							} catch (e) {}
+						},
+					});
+				} catch (e) {
+					_logOnce(_loggedBadTransforms, 'overlay-init-failed', 'warn', 'Failed to create HTML overlay', e);
+				}
+				// Start a layout worker to compute positions off the main thread
+				try {
+					forceWorker.startForceWorker(layoutNodes || nodes, layoutLinks || resolvedLinks, W, H, (tickNodes) => {
+						for (const p of tickNodes) {
+							const n = layoutNodes.find((x) => String(x.id) === String(p.id));
+							if (n) {
+								n.x = p.x;
+								n.y = p.y;
+							}
+						}
+						const transform = getCurrentZoomTransform();
+						if (pixiModeActive && pixiApi && typeof pixiApi.drawFrame === 'function') {
+							try {
+								pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId });
+							} catch (e) {}
+						}
+					});
+				} catch (e) {
+					_logOnce(_loggedBadTransforms, 'worker-start-failed', 'warn', 'Failed to start layout worker', e);
+				}
+			})
+			.catch((err) => {
+				_logOnce(_loggedBadTransforms, 'pixi-init-failed', 'warn', 'Pixi init failed; attempting Canvas fallback (WebGL unavailable).', err);
+				// Try a lightweight Canvas fallback renderer (2D) so the graph is
+				// still visible even when Pixi/WebGL cannot initialize. This keeps
+				// us out of SVG-land while avoiding platform-specific GL issues.
+				try {
+					const canvasEl = document.getElementById('fg-pixi-canvas') as HTMLCanvasElement | null;
+					if (!canvasEl) throw new Error('no-canvas');
+					const ctx = canvasEl.getContext('2d');
+					if (!ctx) throw new Error('no-2d-context');
+
+					function resizeCanvasToDisplaySize() {
+						const ratio = window.devicePixelRatio || 1;
+						const w = canvasEl.clientWidth;
+						const h = canvasEl.clientHeight;
+						if (canvasEl.width !== Math.floor(w * ratio) || canvasEl.height !== Math.floor(h * ratio)) {
+							canvasEl.width = Math.floor(w * ratio);
+							canvasEl.height = Math.floor(h * ratio);
+							ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+						}
+					}
+
+					function drawCanvasFrame(nodesArr, linksArr, transform, opts = {}) {
+						resizeCanvasToDisplaySize();
+						// clear
+						ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+						// draw links
+						ctx.strokeStyle = 'rgba(112,128,144,0.18)';
+						ctx.lineWidth = 1;
+						ctx.beginPath();
+						for (const l of linksArr || []) {
+							const a = l.source;
+							const b = l.target;
+							if (!a || !b) continue;
+							ctx.moveTo(a.x, a.y);
+							ctx.lineTo(b.x, b.y);
+						}
+						ctx.stroke();
+						// draw nodes
+						for (const n of nodesArr || []) {
+							const color = n.group === 'firm' ? '#996633' : '#4a90e2';
+							ctx.beginPath();
+							ctx.fillStyle = color;
+							const r = n.group === 'firm' ? 6 : 4;
+							ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+							ctx.fill();
+						}
 					}
 
 					pixiApi = {
-						app,
-						drawFrame: drawPixiFrame,
+						app: null,
+						drawFrame: drawCanvasFrame,
 						destroy: () => {
 							try {
-								app.destroy(true, { children: true, texture: true, baseTexture: true });
-							} catch {}
+								const c = document.getElementById('fg-pixi-canvas');
+								if (c && c.parentElement) c.parentElement.removeChild(c as any);
+							} catch (e) {}
 						},
 					};
 					pixiModeActive = true;
-					canvasApi = null;
-					// Create HTML overlay for labels/tooltips
+					_logOnce(_loggedBadTransforms, 'pixi-canvas-fallback', 'info', 'Using Canvas fallback renderer for graph rendering.');
+				} catch (e) {
+					// If even Canvas isn't available, fall back to disabling Pixi
+					pixiModeActive = false;
 					try {
-						overlayApi = overlayRenderer.createOverlay(mainEl, {
-							onClick: (node) => {
-								try {
-									selectNode(node, { focus: true });
-								} catch (e) {}
-							},
-							onHover: (node) => {
-								try {
-									document.dispatchEvent(new CustomEvent('finra:overlay-hover', { detail: { id: String(node.id) } }));
-								} catch (e) {}
-							},
-						});
-					} catch (e) {
-						_logOnce(_loggedBadTransforms, 'overlay-init-failed', 'warn', 'Failed to create HTML overlay', e);
-					}
-					// Start a layout worker to compute positions off the main thread
-					try {
-						canvasRenderer.startForceWorker(layoutNodes || nodes, layoutLinks || resolvedLinks, W, H, (tickNodes) => {
-							for (const p of tickNodes) {
-								const n = layoutNodes.find((x) => String(x.id) === String(p.id));
-								if (n) {
-									n.x = p.x;
-									n.y = p.y;
-								}
-							}
-							const transform = getCurrentZoomTransform();
-							if (pixiModeActive && pixiApi && typeof pixiApi.drawFrame === 'function') {
-								try {
-									pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId });
-								} catch (e) {}
-							} else if (canvasApi && typeof canvasApi.drawFrame === 'function') {
-								try {
-									canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId });
-								} catch (e) {}
-							}
-						});
-					} catch (e) {
-						_logOnce(_loggedBadTransforms, 'worker-start-failed', 'warn', 'Failed to start layout worker', e);
-					}
-				})
-				.catch((err) => {
-					_logOnce(_loggedBadTransforms, 'pixi-init-failed', 'warn', 'Pixi init failed, falling back to canvas', err);
-					try {
-						canvasApi = canvasRenderer.createCanvasOverlay(mainEl);
-						try {
-							overlayApi = overlayRenderer.createOverlay(mainEl, {
-								onClick: (node) => {
-									try {
-										selectNode(node, { focus: true });
-									} catch (e) {}
-								},
-								onHover: (node) => {
-									try {
-										document.dispatchEvent(new CustomEvent('finra:overlay-hover', { detail: { id: String(node.id) } }));
-									} catch (e) {}
-								},
-							});
-						} catch (e) {
-							/* ignore */
-						}
-					} catch (e) {
-						_logOnce(_loggedBadTransforms, 'canvas-init-failed', 'warn', 'Failed to initialize canvas renderer', e);
-					}
-				});
-		} // mainEl
+						const c = document.getElementById('fg-pixi-canvas');
+						if (c && c.parentElement) c.parentElement.removeChild(c);
+					} catch (ee) {}
+				}
+			});
 	} else {
-		// Tear down any existing pixi or canvas overlays
+		// Tear down any existing pixi overlays when the mount element is missing
 		try {
 			if (pixiApi && pixiApi.destroy) pixiApi.destroy();
-			if (canvasApi && canvasApi.destroy) canvasApi.destroy();
 			if (overlayApi && overlayApi.destroy) overlayApi.destroy();
 		} catch (e) {}
 		try {
-			canvasRenderer.stopForceWorker();
+			forceWorker.stopForceWorker();
 		} catch (e) {}
 		pixiApi = null;
-		canvasApi = null;
 		pixiModeActive = false;
 	}
 
@@ -6195,28 +6385,10 @@ function renderGraph(_data) {
 	arrowSel = root.selectAll('.fg-arrowheads-bottom line, .fg-arrowheads-mid line, .fg-arrowheads-top line');
 
 	// ── Nodes ─────────────────────────────────────────────────────────────────
+	// WebGL-only: do not create per-node SVG DOM elements — Pixi handles node rendering
 	let node = null;
-	if (!canvasModeActive) {
-		node = root
-			.append('g')
-			.attr('class', 'fg-nodes')
-			.selectAll('g')
-			.data(nodes, (d) => d.id)
-			.join('g')
-			.attr('class', 'fg-node')
-			.call(fluidDrag())
-			.on('click', handleNodeOpen);
-		nodeSel = node;
-		nodeGroup = root.select('.fg-nodes');
-
-		renderNodeContents(node);
-	} else {
-		// In canvas mode we do not create per-node DOM elements — drawing is
-		// handled by the canvas renderer on each tick. Keep lightweight placeholders
-		// for selections to avoid breaking code paths that expect these vars.
-		nodeSel = null;
-		nodeGroup = null;
-	}
+	nodeSel = null;
+	nodeGroup = null;
 
 	// If the data payload included recently added node ids (set by mergeIntoGraphData),
 	// pulse them to draw attention. Pulses will stop on the first user interaction.
@@ -6240,19 +6412,16 @@ function renderGraph(_data) {
 		linkSel = root.selectAll('.fg-links-bottom line, .fg-links-mid line, .fg-links-top line');
 		arrowSel = root.selectAll('.fg-arrowheads-bottom line, .fg-arrowheads-mid line, .fg-arrowheads-top line');
 
-		// If canvas mode is active, hide the SVG link/arrow groups to avoid
-		// duplicate drawing and unnecessary DOM paint.
-		if (canvasModeActive) {
-			try {
-				if (linkBottomGroup) linkBottomGroup.style('display', 'none');
-				if (linkMidGroup) linkMidGroup.style('display', 'none');
-				if (linkTopGroup) linkTopGroup.style('display', 'none');
-				if (arrowBottomGroup) arrowBottomGroup.style('display', 'none');
-				if (arrowMidGroup) arrowMidGroup.style('display', 'none');
-				if (arrowTopGroup) arrowTopGroup.style('display', 'none');
-			} catch (e) {
-				/* ignore */
-			}
+		// Hide the SVG link/arrow groups to avoid duplicate drawing and unnecessary DOM paint (Pixi will draw links)
+		try {
+			if (linkBottomGroup) linkBottomGroup.style('display', 'none');
+			if (linkMidGroup) linkMidGroup.style('display', 'none');
+			if (linkTopGroup) linkTopGroup.style('display', 'none');
+			if (arrowBottomGroup) arrowBottomGroup.style('display', 'none');
+			if (arrowMidGroup) arrowMidGroup.style('display', 'none');
+			if (arrowTopGroup) arrowTopGroup.style('display', 'none');
+		} catch (e) {
+			/* ignore */
 		}
 	} catch (e) {
 		/* ignore */
@@ -6260,7 +6429,39 @@ function renderGraph(_data) {
 
 	// ── Tick ──────────────────────────────────────────────────────────────────
 	let _tickN = 0;
+	// Guard: detect and snapshot if any link endpoints are still primitive IDs
+	let _linkPrimitiveDetected = false;
 	simulation.on('tick', () => {
+		// If we've already detected a primitive endpoint previously, skip further processing
+		if (_linkPrimitiveDetected) return;
+		// Quick scan for offending primitive endpoints to fail fast and capture context
+		try {
+			if (Array.isArray(layoutLinks)) {
+				for (let i = 0; i < layoutLinks.length; i++) {
+					const L = layoutLinks[i];
+					if (!L) continue;
+					const s = L.source;
+					const t = L.target;
+					if (typeof s === 'string' || typeof t === 'string') {
+						_linkPrimitiveDetected = true;
+						console.error('FINRA_GRAPH: primitive link endpoint detected in tick — stopping simulation to capture snapshot', {
+							offendingLink: L,
+							index: i,
+							sampleLinks: layoutLinks.slice(0, 20),
+							nodeCount: Array.isArray(layoutNodes) ? layoutNodes.length : 0,
+						});
+						try {
+							simulation.stop();
+						} catch (err) {
+							/* ignore */
+						}
+						return;
+					}
+				}
+			}
+		} catch (err) {
+			/* ignore guard errors */
+		}
 		_tickN++;
 		// During high-energy early layout, skip every other DOM write to cut paint time.
 		// Physics still advances every tick; only the SVG update is throttled.
@@ -6496,9 +6697,9 @@ function injectNodesById(ids) {
 	refreshGraphColors();
 	refreshTraceState();
 
-	simulation.nodes(layoutNodes);
-	simulation.force('link').links(layoutLinks);
-	simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
+	// Normalize and apply nodes/links defensively
+	ensureLayoutNodesAreObjects();
+	applySimulationDataToSimulation(layoutNodes, layoutLinks);
 	simulation.alpha(getIncrementalRestartAlpha(layoutNodes.length, toAdd.length)).restart();
 
 	// Persist session so reload restores these nodes
@@ -8269,9 +8470,8 @@ function revealNeighbors(
 		nodeSel.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 	});
 
-	simulation.nodes(layoutNodes);
-	simulation.force('link').links(layoutLinks);
-	simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
+	// Normalize and apply nodes/links defensively
+	applySimulationDataToSimulation(layoutNodes, layoutLinks);
 
 	// Low-energy restart — prevents nodes from exploding outward while preserving fluid motion
 	simulation.alpha(getIncrementalRestartAlpha(layoutNodes.length, newNodes.length)).restart();
