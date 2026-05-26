@@ -30,6 +30,7 @@ import {
 } from './finra-graph/formatters';
 import { DEFAULT_EXPANSION_HOPS, DEFAULT_SELECTION_HOPS } from './finra-graph-defaults';
 import * as canvasRenderer from './finra-graph-canvas';
+import * as overlayRenderer from './finra-graph-overlay';
 
 // API base. When VITE_API_URL is not set, use relative paths so the dev
 // server proxy (`/api`) is used and we don't hardcode a backend port.
@@ -155,6 +156,7 @@ let canvasModeActive = false;
 let canvasApi: any = null;
 let pixiModeActive = false;
 let pixiApi: any = null;
+let overlayApi: any = null;
 // When the graph exceeds this many nodes, skip creating SVG text labels to avoid massive DOM bloat
 const LABEL_NONE_THRESHOLD = 5000;
 let sessionPersistenceMode: 'full' | 'compact' | 'reduced' | 'minimal' = 'full';
@@ -242,11 +244,15 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 	if (graphTickFrameId != null) return;
 	graphTickFrameId = requestAnimationFrame(() => {
 		graphTickFrameId = null;
-		// If pixi (WebGL) mode is active, route draw to pixi. Else if canvas active use canvas.
 		if (pixiModeActive && pixiApi && typeof pixiApi.drawFrame === 'function') {
 			try {
 				const transform = getCurrentZoomTransform();
 				pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId });
+				if (overlayApi && typeof overlayApi.update === 'function') {
+					try {
+						overlayApi.update(layoutNodes || [], transform, { selectedId });
+					} catch (e) {}
+				}
 			} catch (e) {
 				_logOnce(_loggedBadTransforms, 'pixi-draw-error', 'warn', 'Pixi draw failed', e);
 			}
@@ -256,6 +262,11 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 			try {
 				const transform = getCurrentZoomTransform();
 				canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId });
+				if (overlayApi && typeof overlayApi.update === 'function') {
+					try {
+						overlayApi.update(layoutNodes || [], transform, { selectedId });
+					} catch (e) {}
+				}
 			} catch (e) {
 				_logOnce(_loggedBadTransforms, 'canvas-draw-error', 'warn', 'Canvas draw failed', e);
 			}
@@ -5908,11 +5919,68 @@ function renderGraph(_data) {
 					};
 					pixiModeActive = true;
 					canvasApi = null;
+					// Create HTML overlay for labels/tooltips
+					try {
+						overlayApi = overlayRenderer.createOverlay(mainEl, {
+							onClick: (node) => {
+								try {
+									selectNode(node, { focus: true });
+								} catch (e) {}
+							},
+							onHover: (node) => {
+								try {
+									document.dispatchEvent(new CustomEvent('finra:overlay-hover', { detail: { id: String(node.id) } }));
+								} catch (e) {}
+							},
+						});
+					} catch (e) {
+						_logOnce(_loggedBadTransforms, 'overlay-init-failed', 'warn', 'Failed to create HTML overlay', e);
+					}
+					// Start a layout worker to compute positions off the main thread
+					try {
+						canvasRenderer.startForceWorker(layoutNodes || nodes, layoutLinks || resolvedLinks, W, H, (tickNodes) => {
+							for (const p of tickNodes) {
+								const n = layoutNodes.find((x) => String(x.id) === String(p.id));
+								if (n) {
+									n.x = p.x;
+									n.y = p.y;
+								}
+							}
+							const transform = getCurrentZoomTransform();
+							if (pixiModeActive && pixiApi && typeof pixiApi.drawFrame === 'function') {
+								try {
+									pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId });
+								} catch (e) {}
+							} else if (canvasApi && typeof canvasApi.drawFrame === 'function') {
+								try {
+									canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId });
+								} catch (e) {}
+							}
+						});
+					} catch (e) {
+						_logOnce(_loggedBadTransforms, 'worker-start-failed', 'warn', 'Failed to start layout worker', e);
+					}
 				})
 				.catch((err) => {
 					_logOnce(_loggedBadTransforms, 'pixi-init-failed', 'warn', 'Pixi init failed, falling back to canvas', err);
 					try {
 						canvasApi = canvasRenderer.createCanvasOverlay(mainEl);
+						try {
+							overlayApi = overlayRenderer.createOverlay(mainEl, {
+								onClick: (node) => {
+									try {
+										selectNode(node, { focus: true });
+									} catch (e) {}
+								},
+								onHover: (node) => {
+									try {
+										document.dispatchEvent(new CustomEvent('finra:overlay-hover', { detail: { id: String(node.id) } }));
+									} catch (e) {}
+								},
+							});
+						} catch (e) {
+							/* ignore */
+						}
 					} catch (e) {
 						_logOnce(_loggedBadTransforms, 'canvas-init-failed', 'warn', 'Failed to initialize canvas renderer', e);
 					}
@@ -5923,6 +5991,10 @@ function renderGraph(_data) {
 		try {
 			if (pixiApi && pixiApi.destroy) pixiApi.destroy();
 			if (canvasApi && canvasApi.destroy) canvasApi.destroy();
+			if (overlayApi && overlayApi.destroy) overlayApi.destroy();
+		} catch (e) {}
+		try {
+			canvasRenderer.stopForceWorker();
 		} catch (e) {}
 		pixiApi = null;
 		canvasApi = null;
