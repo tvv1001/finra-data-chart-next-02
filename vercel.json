@@ -2,7 +2,7 @@
 	"crons": [
 		{
 			"path": "/api/finra/prime-check",
-			"schedule": "0 3 * * *"
+			"schedule": "*/6 * * * *"
 		},
 		{
 			"path": "/api/cron/validate-links",

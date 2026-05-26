@@ -3,6 +3,18 @@ import { cachedFetch } from '@/lib/cache';
 import { DEFAULT_HEADERS } from '@/lib/constants';
 import { getFullGraph, getRecentSeedsFromStore, getSeedBankFromStore } from '@/lib/graphStore';
 import { logger } from '@/lib/logger';
+import { Redis as UpstashRedis } from '@upstash/redis';
+
+function getUpstashClient() {
+	try {
+		const url = process.env.UPSTASH_REDIS_REST_URL;
+		const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+		if (url && token) return new UpstashRedis({ url, token });
+	} catch (e) {
+		// ignore
+	}
+	return null;
+}
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -57,18 +69,43 @@ async function warmIndividual(crd: string) {
 	const { default: axios } = await import('axios');
 	await Promise.allSettled([
 		cachedFetch(`finra:individual:${crd}:${INDIVIDUAL_QUERY}`, 60 * 60 * 24, async () => {
-			const response = await axios.get(`https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?${INDIVIDUAL_QUERY}`, {
-				headers: DEFAULT_HEADERS,
-				timeout: 15000,
-			});
-			return response.data;
+			try {
+				const response = await axios.get(`https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?${INDIVIDUAL_QUERY}`, {
+					headers: DEFAULT_HEADERS,
+					timeout: 15000,
+				});
+				return response.data;
+			} catch (err: any) {
+				// If upstream rate-limited, schedule a retry 10 minutes from now
+				if (err?.response?.status === 429) {
+					try {
+						const r = getUpstashClient();
+						if (r) await r.zadd('finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'individual', crd }));
+					} catch (e) {
+						// ignore redis errors
+					}
+				}
+				throw err;
+			}
 		}),
 		cachedFetch(`sec:individual:${crd}:${INDIVIDUAL_QUERY}`, 60 * 60 * 24, async () => {
-			const response = await axios.get(`https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?${INDIVIDUAL_QUERY}`, {
-				headers: DEFAULT_HEADERS,
-				timeout: 15000,
-			});
-			return response.data;
+			try {
+				const response = await axios.get(`https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?${INDIVIDUAL_QUERY}`, {
+					headers: DEFAULT_HEADERS,
+					timeout: 15000,
+				});
+				return response.data;
+			} catch (err: any) {
+				if (err?.response?.status === 429) {
+					try {
+						const r = getUpstashClient();
+						if (r) await r.zadd('finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'individual', crd }));
+					} catch (e) {
+						// ignore
+					}
+				}
+				throw err;
+			}
 		}),
 	]);
 }
@@ -77,25 +114,61 @@ async function warmFirm(id: string) {
 	const { default: axios } = await import('axios');
 	await Promise.allSettled([
 		cachedFetch(`finra:firm:${id}:${FIRM_QUERY}`, 60 * 60 * 24, async () => {
-			const response = await axios.get(`https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(id)}?${FIRM_QUERY}`, {
-				headers: DEFAULT_HEADERS,
-				timeout: 15000,
-			});
-			return response.data;
+			try {
+				const response = await axios.get(`https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(id)}?${FIRM_QUERY}`, {
+					headers: DEFAULT_HEADERS,
+					timeout: 15000,
+				});
+				return response.data;
+			} catch (err: any) {
+				if (err?.response?.status === 429) {
+					try {
+						const r = getUpstashClient();
+						if (r) await r.zadd('finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'firm', id }));
+					} catch (e) {
+						// ignore
+					}
+				}
+				throw err;
+			}
 		}),
 		cachedFetch(`sec:firm:${id}`, 60 * 60 * 24, async () => {
-			const response = await axios.get(`https://api.adviserinfo.sec.gov/search/firm/${encodeURIComponent(id)}?wt=json`, {
-				headers: DEFAULT_HEADERS,
-				timeout: 15000,
-			});
-			return response.data;
+			try {
+				const response = await axios.get(`https://api.adviserinfo.sec.gov/search/firm/${encodeURIComponent(id)}?wt=json`, {
+					headers: DEFAULT_HEADERS,
+					timeout: 15000,
+				});
+				return response.data;
+			} catch (err: any) {
+				if (err?.response?.status === 429) {
+					try {
+						const r = getUpstashClient();
+						if (r) await r.zadd('finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'firm', id }));
+					} catch (e) {
+						// ignore
+					}
+				}
+				throw err;
+			}
 		}),
 		cachedFetch(`sec:firm:summaryHtml:${id}`, 60 * 60 * 24, async () => {
-			const response = await axios.get(`https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(id)}`, {
-				headers: DEFAULT_HEADERS,
-				timeout: 15000,
-			});
-			return response.data;
+			try {
+				const response = await axios.get(`https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(id)}`, {
+					headers: DEFAULT_HEADERS,
+					timeout: 15000,
+				});
+				return response.data;
+			} catch (err: any) {
+				if (err?.response?.status === 429) {
+					try {
+						const r = getUpstashClient();
+						if (r) await r.zadd('finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'firm', id }));
+					} catch (e) {
+						// ignore
+					}
+				}
+				throw err;
+			}
 		}),
 	]);
 }
@@ -146,6 +219,76 @@ export async function GET(request: NextRequest) {
 	const origin = request.nextUrl.origin;
 	const limit = Number(searchParams.get('limit') || DEFAULT_LIMIT);
 	const concurrency = Number(searchParams.get('concurrency') || DEFAULT_CONCURRENCY);
+
+	// init upstash redis client if configured
+	let upstash: any = null;
+	try {
+		const url = process.env.UPSTASH_REDIS_REST_URL;
+		const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+		if (url && token) upstash = new UpstashRedis({ url, token });
+	} catch (e) {
+		upstash = null;
+	}
+
+	// If Redis contains a graph with >= 70000 nodes, skip warming work
+	try {
+		if (upstash) {
+			const rawGraph = await upstash.get('finra:graph');
+			if (rawGraph) {
+				try {
+					const parsed = typeof rawGraph === 'string' ? JSON.parse(rawGraph) : rawGraph;
+					const totalNodes = Array.isArray(parsed?.nodes) ? parsed.nodes.length : parsed?.nodes?.length || 0;
+					if (totalNodes >= 70000) {
+						return NextResponse.json({ ok: true, reason: 'target-count-reached', totalNodes }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
+					}
+				} catch (e) {
+					// ignore parse errors and continue
+				}
+			}
+		}
+	} catch (e) {
+		// ignore redis errors and continue
+	}
+
+	// Before normal warm of recent seeds, process any due retry entries (zset 'finra:retry')
+	if (upstash) {
+		try {
+			const now = Date.now();
+			// zrangebyscore returns members with score between -inf and now
+			const due = await upstash.zrangebyscore('finra:retry', 0, now);
+			if (Array.isArray(due) && due.length > 0) {
+				for (const member of due) {
+					try {
+						const obj = JSON.parse(member);
+						if (obj && obj.type === 'individual' && obj.crd) {
+							// attempt to warm the individual cache (best-effort)
+							try {
+								await warmIndividual(String(obj.crd));
+							} catch (e) {
+								// if 429 again, we'll reschedule below when warming recent seeds normally
+							}
+						} else if (obj && obj.type === 'firm' && obj.id) {
+							try {
+								await warmFirm(String(obj.id));
+							} catch (e) {
+								// ignore
+							}
+						}
+					} catch (e) {
+						// ignore malformed member
+					}
+				}
+				// remove processed entries
+				try {
+					await upstash.zrem('finra:retry', ...due);
+				} catch (e) {
+					/* ignore */
+				}
+			}
+		} catch (e) {
+			// ignore redis errors
+		}
+	}
 
 	const [beforeGraph, beforeSeedBank, recentSeeds] = await Promise.all([getFullGraph(), getSeedBankFromStore(), getRecentSeedsFromStore()]);
 	const before = summarizeStats(beforeGraph, beforeSeedBank);
