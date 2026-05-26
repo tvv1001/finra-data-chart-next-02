@@ -3060,7 +3060,7 @@ a,
 	stroke: #3b82f6;
 	stroke-width: 3px;
 	opacity: 0.95;
-	pointer-events: none;
+	cursor: pointer;
 	display: none;
 }
 
@@ -3137,6 +3137,7 @@ a,
 .fg-node .fg-node-overlay {
 	fill: var(--color-node-depth-overlay);
 	fill-opacity: var(--fill-opacity-node-depth);
+	cursor: pointer;
 }
 
 .fg-node.fg-node--inactive .fg-node-overlay {
