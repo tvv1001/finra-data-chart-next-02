@@ -1,4 +1,4 @@
-name: Playwright E2E
+name: Playwright tests
 
 on:
   push:
@@ -7,17 +7,29 @@ on:
     branches: [main, master]
 
 jobs:
-  test:
+  playwright-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Use Node.js
+
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: '18'
+
+      - name: Enable corepack and install pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
-      - name: Run Playwright tests
-        run: pnpm dlx playwright test --reporter=list
+
+      - name: Install Playwright browsers and system deps
+        run: pnpm run ci:install-browsers
+
+      - name: Run Playwright smoke tests
+        run: pnpm test:smoke
+
+      - name: Run full Playwright tests
+        run: pnpm test:e2e -- --reporter=list

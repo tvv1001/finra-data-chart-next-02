@@ -8,7 +8,7 @@ import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { Redis } from '@upstash/redis';
-import { gzipSync, gunzipSync } from 'node:zlib';
+import { gzipOffload, gunzipOffload } from './gzipWorker';
 import { GRAPH_FILE, RECENT_SEEDS_FILE, SEED_BANK_FILE, SEED_PROFILES_FILE, SEEDS_FILE } from './constants';
 
 const REDIS_GRAPH_KEY = 'finra:graph';
@@ -543,8 +543,8 @@ export async function getFullGraph() {
 						parsedRaw = JSON.parse(raw);
 					} else {
 						try {
-							const buf = Buffer.from(raw, 'base64');
-							const json = gunzipSync(buf).toString('utf-8');
+							// Offload gunzip to worker; redis stores base64 gzipped payloads.
+							const json = await gunzipOffload(raw as string);
 							parsedRaw = JSON.parse(json);
 						} catch (e) {
 							// fallback to attempting JSON parse
@@ -630,8 +630,8 @@ export async function saveGraph(data: any) {
 				meta: data.meta || {},
 			};
 			const json = JSON.stringify(compact);
-			const gz = gzipSync(Buffer.from(json, 'utf-8'));
-			const b64 = gz.toString('base64');
+			// Offload gzip to background worker to avoid blocking the event loop
+			const b64 = await gzipOffload(json);
 			await redis.set(REDIS_GRAPH_KEY, b64);
 		} catch (e) {
 			// On any failure, fall back to storing plain JSON
