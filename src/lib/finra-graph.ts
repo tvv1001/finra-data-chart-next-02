@@ -1584,6 +1584,16 @@ function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: 
 			highlightedSelections = [];
 			reapplySelectionState();
 
+			// Notify canvas renderer (Pixi) that a selection was restored so it
+			// can mark the node visually (canvas keeps its own selected set).
+			try {
+				if (typeof window !== 'undefined' && selectedId) {
+					window.dispatchEvent(new CustomEvent(ROUTE_NODE_REQUEST_EVENT, { detail: { nodeId: selectedId } }));
+				}
+			} catch (e) {
+				/* ignore */
+			}
+
 			const selectedNode = Array.isArray(layoutNodes) ? layoutNodes.find((entry) => entry.id === selectedId) : null;
 			if (!selectedNode) return;
 			resetTransientDetailState(selectedNode);
@@ -7884,6 +7894,19 @@ function revealNeighbors(
 	if (newNodes.length === 0 && newLinks.length === 0) {
 		if (markSelected && clickedNode) {
 			reapplySelectionState();
+
+			// Notify canvas renderer (Pixi) about restored highlighted selections
+			// so canvas can persist its selected/highlight visuals across reloads.
+			try {
+				if (typeof window !== 'undefined') {
+					// Dispatch a route request for the resolved selectedId (if any)
+					if (selectedId) {
+						window.dispatchEvent(new CustomEvent(ROUTE_NODE_REQUEST_EVENT, { detail: { nodeId: selectedId } }));
+					}
+				}
+			} catch (e) {
+				/* ignore */
+			}
 			refreshGraphColors();
 			try {
 				saveSession();
