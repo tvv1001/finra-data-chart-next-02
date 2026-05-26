@@ -137,6 +137,7 @@ let svgSel = null; // d3 selection for #fg-svg
 let zoomBehavior = null; // d3.zoom() instance
 let zoomSaveTimer = null; // debounce timer for zoom-state persistence
 let refreshLayoutStopTimer = null; // timer used to stop refresh-layout sooner
+let refreshFinalizeLayoutFn: (() => void) | null = null; // referenced finalize function for refresh layout
 let selectionRestoreTimer = null; // timer used when restoring a saved selection after reload
 let traceRefreshTimer: ReturnType<typeof setTimeout> | null = null; // trailing trace refresh when async reveals land after selection
 let nodePulseTimer = null; // timer used to pulse the restored node after focus animation
@@ -326,12 +327,12 @@ function getPersistedFetchStatusPinned() {
 
 let activeFetchStatusPinned = getPersistedFetchStatusPinned();
 
-const INITIAL_SEED_COUNT = 12; // random seed nodes on first load (default select)
+const INITIAL_SEED_COUNT = 0; // random seed nodes on first load (default select)
 const FILTER_MATCH_LIMIT = 100; // maximum number of direct matches to show when filtering
 const LS_SESSION_KEY = 'finra_session'; // storage key for persisted session nodes
 const SESSION_TTL_MS = 365 * 24 * 60 * 60 * 1000; // 1 year
 const SESSION_STORAGE_SOFT_LIMIT_BYTES = 4 * 1024 * 1024; // stay comfortably below common browser quotas
-const SESSION_FULL_LAYOUT_NODE_LIMIT = 1200; // above this, store only compact positioning data
+const SESSION_FULL_LAYOUT_NODE_LIMIT = 100000; // above this, store only compact positioning data
 const NON_GRAY_HOP_ANIMATION_MS = 420;
 const NON_GRAY_HOP_DELAY_MS = 520;
 const NON_GRAY_DETAIL_BATCH_SIZE = 6;
@@ -2244,7 +2245,9 @@ function refreshNodeLayout() {
 		refreshLayoutStopTimer = null;
 	}
 
-	const finalizeRefreshLayout = () => {
+	// Create a stable finalize function so other code (e.g. revealNeighbors)
+	// can delay the final stop briefly after newly-revealed nodes settle.
+	refreshFinalizeLayoutFn = () => {
 		simulation.alphaTarget(0);
 		simulation.stop();
 		refreshLayoutStopTimer = null;
@@ -2264,8 +2267,10 @@ function refreshNodeLayout() {
 		)
 		.restart();
 
-	simulation.on('end.refresh-layout', finalizeRefreshLayout);
-	refreshLayoutStopTimer = setTimeout(finalizeRefreshLayout, refreshDurationMs);
+	simulation.on('end.refresh-layout', refreshFinalizeLayoutFn);
+	refreshLayoutStopTimer = setTimeout(() => {
+		if (refreshFinalizeLayoutFn) refreshFinalizeLayoutFn();
+	}, refreshDurationMs);
 }
 
 function hasAffirmativeDisclosureFlag(value) {
@@ -6230,6 +6235,20 @@ function injectNodesById(ids) {
 	} catch (e) {
 		/* ignore */
 	}
+	// Give the refresh/layout stop a small bump so the settling motion doesn't
+	// stop immediately when nodes are revealed — helps visibility of progressive
+	// reveals. If a refresh timer exists, extend it by a small delay.
+	try {
+		if (refreshLayoutStopTimer && refreshFinalizeLayoutFn) {
+			// clear existing and schedule a short extra delay before finalizing
+			clearTimeout(refreshLayoutStopTimer);
+			refreshLayoutStopTimer = setTimeout(() => {
+				if (refreshFinalizeLayoutFn) refreshFinalizeLayoutFn();
+			}, 700);
+		}
+	} catch (e) {
+		/* ignore timing errors */
+	}
 }
 
 // ── Selection & Sidebar ─────────────────────────────────────────────────────
@@ -7394,6 +7413,11 @@ function selectNode(
 	} = {},
 ) {
 	const { persist = true, skipProfileSync = false, skipAutoExpand = false, focus = false, pulse = false, focusDuration = 600, syncRoute = true } = options;
+
+	// Performance: reduce selection camera motion to be minimal (instant) to match
+	// the minimal-motion behavior used by the Refresh action. Toggle via env.
+	// Default is false (motion enabled); set env REDUCE_SELECTION_MOTION=1|true to disable motion.
+	const REDUCE_SELECTION_MOTION = (typeof process !== 'undefined' && (process.env?.REDUCE_SELECTION_MOTION === '1' || process.env?.REDUCE_SELECTION_MOTION === 'true')) || false;
 	if (selectionRestoreTimer) {
 		clearTimeout(selectionRestoreTimer);
 		selectionRestoreTimer = null;
@@ -7426,9 +7450,34 @@ function selectNode(
 	}
 
 	if (focus) {
-		focusNodeById(d.id, { duration: focusDuration, pulse });
-	} else if (pulse) {
-		pulseNodeHighlightById(d.id);
+		if (REDUCE_SELECTION_MOTION) {
+			// Apply immediate transform without transitions or transient highlights
+			try {
+				if (zoomBehavior && svgSel) {
+					const node = (Array.isArray(layoutNodes) && layoutNodes.find((n) => n.id === d.id)) || null;
+					if (node && Number.isFinite(node.x) && Number.isFinite(node.y)) {
+						const viewport = getVisibleGraphViewport();
+						const transform = d3.zoomTransform(svgSel.node());
+						const k = transform.k || 1;
+						const x = node.x || 0;
+						const y = node.y || 0;
+						const tx = viewport.centerX - x * k;
+						const ty = viewport.centerY - y * k;
+						// instant, no transition
+						svgSel.call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(k));
+					}
+				}
+			} catch (e) {
+				/* ignore */
+			}
+		} else {
+			focusNodeById(d.id, { duration: focusDuration, pulse });
+		}
+	} else {
+		// do not trigger pulse/highlight when reduced-motion is enabled
+		if (!REDUCE_SELECTION_MOTION && pulse) {
+			pulseNodeHighlightById(d.id);
+		}
 	}
 	// Always show blue location ring after selection. Use any requested pulse duration
 	// provided by route requests (e.g. sidebar links), otherwise default to 4000ms.
@@ -7436,7 +7485,8 @@ function selectNode(
 	const finalPulseMs = typeof pendingRoutePulseDuration === 'number' && Number.isFinite(pendingRoutePulseDuration) ? pendingRoutePulseDuration : defaultPulseMs;
 	// Clear consumed pending pulse value so it doesn't affect subsequent selections
 	pendingRoutePulseDuration = null;
-	pulseNodeHighlightById(d.id, { duration: finalPulseMs });
+	// Show pulse only when motion is allowed; otherwise skip to avoid animation
+	if (!REDUCE_SELECTION_MOTION) pulseNodeHighlightById(d.id, { duration: finalPulseMs });
 
 	// For individual nodes, fetch detail data from API and re-render if it's still selected
 	if (d.group === 'individual') {

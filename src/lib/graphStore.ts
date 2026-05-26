@@ -8,6 +8,7 @@ import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { Redis } from '@upstash/redis';
+import { gzipSync, gunzipSync } from 'node:zlib';
 import { GRAPH_FILE, RECENT_SEEDS_FILE, SEED_BANK_FILE, SEED_PROFILES_FILE, SEEDS_FILE } from './constants';
 
 const REDIS_GRAPH_KEY = 'finra:graph';
@@ -534,17 +535,40 @@ export async function getFullGraph() {
 		try {
 			const raw = await redis.get<string>(REDIS_GRAPH_KEY);
 			if (raw) {
-				_graphCache = parseGraphPayload(typeof raw === 'string' ? JSON.parse(raw) : raw, 'Redis graph payload');
-				_graphCacheAt = now;
-				if (!(await localGraphFileExists())) {
-					try {
-						await writeJsonFileAtomic(GRAPH_FILE, _graphCache);
-						await syncSeedBankFromGraph(_graphCache);
-					} catch (error) {
-						console.warn('Failed to restore local finra-graph.json from Redis payload.', error);
+				// Support both legacy JSON string and new gzip+base64 compressed payloads.
+				let parsedRaw: any = raw;
+				if (typeof raw === 'string') {
+					const firstChar = raw.trim().charAt(0);
+					if (firstChar === '{' || firstChar === '[') {
+						parsedRaw = JSON.parse(raw);
+					} else {
+						try {
+							const buf = Buffer.from(raw, 'base64');
+							const json = gunzipSync(buf).toString('utf-8');
+							parsedRaw = JSON.parse(json);
+						} catch (e) {
+							// fallback to attempting JSON parse
+							try {
+								parsedRaw = JSON.parse(raw);
+							} catch (ee) {
+								parsedRaw = null;
+							}
+						}
 					}
 				}
-				return _graphCache;
+				if (parsedRaw) {
+					_graphCache = parseGraphPayload(parsedRaw, 'Redis graph payload');
+					_graphCacheAt = now;
+					if (!(await localGraphFileExists())) {
+						try {
+							await writeJsonFileAtomic(GRAPH_FILE, _graphCache);
+							await syncSeedBankFromGraph(_graphCache);
+						} catch (error) {
+							console.warn('Failed to restore local finra-graph.json from Redis payload.', error);
+						}
+					}
+					return _graphCache;
+				}
 			}
 			if (await ensureGraphFileFromCache()) {
 				const diskGraph = await readGraphFromDisk();
@@ -588,7 +612,31 @@ export async function saveGraph(data: any) {
 		try {
 			normalizeGraphLabelsInPlace(data);
 		} catch (e) {}
-		await redis.set(REDIS_GRAPH_KEY, JSON.stringify(data));
+		// Before storing in Redis, strip simulation state and compress payload
+		try {
+			const compact = {
+				nodes: Array.isArray(data.nodes) ? data.nodes.map((n: any) => stripSimState(n)) : [],
+				links:
+					Array.isArray(data.links) ?
+						data.links.map((l: any) => ({
+							source: typeof l.source === 'object' ? (l.source.id ?? l.source) : l.source,
+							target: typeof l.target === 'object' ? (l.target.id ?? l.target) : l.target,
+							relationship: l.relationship,
+							firmId: l.firmId || l.firm_id || null,
+							startDate: l.startDate || l.start || null,
+							endDate: l.endDate || l.end || null,
+						}))
+					:	[],
+				meta: data.meta || {},
+			};
+			const json = JSON.stringify(compact);
+			const gz = gzipSync(Buffer.from(json, 'utf-8'));
+			const b64 = gz.toString('base64');
+			await redis.set(REDIS_GRAPH_KEY, b64);
+		} catch (e) {
+			// On any failure, fall back to storing plain JSON
+			await redis.set(REDIS_GRAPH_KEY, JSON.stringify(data));
+		}
 	} else {
 		await writeJsonFileAtomic(GRAPH_FILE, data);
 	}
