@@ -220,6 +220,9 @@ export async function GET(request: NextRequest) {
 	const limit = Number(searchParams.get('limit') || DEFAULT_LIMIT);
 	const concurrency = Number(searchParams.get('concurrency') || DEFAULT_CONCURRENCY);
 
+	// measure duration for telemetry
+	const startMs = Date.now();
+
 	// init upstash redis client if configured
 	let upstash: any = null;
 	try {
@@ -314,72 +317,93 @@ export async function GET(request: NextRequest) {
 	};
 	const seenFdaDockets = new Set<string>();
 
-	try {
-		await runWithConcurrency(warmTargets, concurrency, async (target) => {
-			try {
-				if (target.kind === 'individual') {
-					await warmIndividual(target.id);
-					results.warmedIndividuals += 1;
-					results.fdaChecks.individualsScanned += 1;
+	// Expose these variables outside the try block so telemetry can reference them
+	let missingToProcess: string[] = [];
+	let runExternalWarm = false;
 
-					const detail = await fetchLocalJson(origin, `/api/finra/individual/${encodeURIComponent(target.id)}`);
-					if (detail?.found === false) {
+	try {
+		// 1) Always check for missing CRDs (present in seed bank but not in graph)
+		const missing: string[] = [];
+		try {
+			const presentIds = new Set(Array.isArray(beforeGraph?.nodes) ? beforeGraph.nodes.map((n: any) => String(n.id)) : []);
+			for (const id of beforeSeedBank?.allNodeIds || []) {
+				if (!presentIds.has(id)) missing.push(id);
+			}
+		} catch (e) {
+			// ignore errors building missing list
+		}
+
+		const MAX_MISSING_PER_RUN = Number(process.env.FINRA_PRIME_MISSING_LIMIT || 200);
+		missingToProcess = missing.slice(0, MAX_MISSING_PER_RUN);
+		if (missingToProcess.length > 0) {
+			await runWithConcurrency(missingToProcess, Math.max(1, Math.min(6, concurrency)), async (nodeId) => {
+				try {
+					const s = String(nodeId || '');
+					if (s.startsWith('person:') || /^\d+$/.test(s)) {
+						const crd = s.replace(/^person[:_]?/, '');
+						await warmIndividual(crd);
+						results.warmedIndividuals += 1;
+					} else if (s.startsWith('firm:')) {
+						const fid = s.replace(/^firm[:_]?/, '');
+						await warmFirm(fid);
+						results.warmedFirms += 1;
+					}
+				} catch (e: any) {
+					results.failures.push({ kind: 'missing', id: String(nodeId), error: String(e?.message || e) });
+				}
+			});
+		}
+
+		// 2) Intermittent external warm of recent seeds to avoid hitting APIs every cron invocation
+		const EXTERNAL_WARM_PROB = Number(process.env.FINRA_PRIME_EXTERNAL_PROB || 0.3333);
+		runExternalWarm = Math.random() < EXTERNAL_WARM_PROB;
+		try {
+			const urlObj = new URL(request.url);
+			if (urlObj.searchParams.get('forceExternal') === '1') runExternalWarm = true;
+		} catch (e) {}
+
+		if (runExternalWarm) {
+			await runWithConcurrency(warmTargets, concurrency, async (target) => {
+				try {
+					if (target.kind === 'individual') {
+						await warmIndividual(target.id);
+						results.warmedIndividuals += 1;
+						results.fdaChecks.individualsScanned += 1;
+
+						const detail = await fetchLocalJson(origin, `/api/finra/individual/${encodeURIComponent(target.id)}`);
+						if (detail?.found === false) return;
+
+						for (const docket of extractFdaDockets(detail)) {
+							if (seenFdaDockets.has(docket)) continue;
+							seenFdaDockets.add(docket);
+							results.fdaChecks.docketsQueued += 1;
+
+							try {
+								const fdaResult = await fetchLocalJson(origin, `/api/finra/fda/${encodeURIComponent(docket)}`);
+								results.fdaChecks.docketsChecked += 1;
+								if (fdaResult?.blocked) results.fdaChecks.blocked += 1;
+								else if (fdaResult?.found) results.fdaChecks.found += 1;
+								else results.fdaChecks.noResults += 1;
+							} catch (error: any) {
+								results.fdaChecks.failures.push({ crd: target.id, docket, error: String(error?.message || error) });
+								logger.warn('prime-check FDA lookup failed', { crd: target.id, docket, error: error?.message || String(error) });
+							}
+						}
 						return;
 					}
-
-					for (const docket of extractFdaDockets(detail)) {
-						if (seenFdaDockets.has(docket)) continue;
-						seenFdaDockets.add(docket);
-						results.fdaChecks.docketsQueued += 1;
-
-						try {
-							const fdaResult = await fetchLocalJson(origin, `/api/finra/fda/${encodeURIComponent(docket)}`);
-							results.fdaChecks.docketsChecked += 1;
-							if (fdaResult?.blocked) {
-								results.fdaChecks.blocked += 1;
-							} else if (fdaResult?.found) {
-								results.fdaChecks.found += 1;
-							} else {
-								results.fdaChecks.noResults += 1;
-							}
-						} catch (error: any) {
-							results.fdaChecks.failures.push({
-								crd: target.id,
-								docket,
-								error: String(error?.message || error),
-							});
-							logger.warn('prime-check FDA lookup failed', {
-								crd: target.id,
-								docket,
-								error: error?.message || String(error),
-							});
-						}
-					}
-					return;
+					await warmFirm(target.id);
+					results.warmedFirms += 1;
+				} catch (error: any) {
+					results.failures.push({ kind: target.kind, id: target.id, error: String(error?.message || error) });
 				}
-				await warmFirm(target.id);
-				results.warmedFirms += 1;
-			} catch (error: any) {
-				results.failures.push({
-					kind: target.kind,
-					id: target.id,
-					error: String(error?.message || error),
-				});
-			}
-		});
+			});
+		} else {
+			logger.info('prime-check skipped external warm this run (intermittent)', { prob: EXTERNAL_WARM_PROB });
+		}
 	} catch (error: any) {
 		return NextResponse.json(
-			{
-				ok: false,
-				error: String(error?.message || error),
-				results,
-				before,
-				recentSeeds,
-			},
-			{
-				status: 500,
-				headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' },
-			},
+			{ ok: false, error: String(error?.message || error), results, before, recentSeeds },
+			{ status: 500, headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } },
 		);
 	}
 
@@ -412,6 +436,61 @@ export async function GET(request: NextRequest) {
 		},
 		changed,
 	});
+
+	// Push a compact telemetry entry to `finra:redis-monitor` for auditing/metrics
+	try {
+		const endMs = Date.now();
+		const durationMs = endMs - startMs;
+		const monitorEntry = {
+			ts: new Date().toISOString(),
+			action: 'prime-check',
+			mode: runExternalWarm ? 'external-warm' : 'missing-only',
+			externalWarmRun: Boolean(runExternalWarm),
+			missingProcessed: Array.isArray(missingToProcess) ? missingToProcess.length : 0,
+			warmedIndividuals: results.warmedIndividuals,
+			warmedFirms: results.warmedFirms,
+			failures: results.failures.length,
+			fdaChecks: {
+				checked: results.fdaChecks.docketsChecked,
+				found: results.fdaChecks.found,
+				blocked: results.fdaChecks.blocked,
+				noResults: results.fdaChecks.noResults,
+				failures: results.fdaChecks.failures.length,
+			},
+			recentSeedsQueued: { individuals: recentSeeds.individualIds.length, firms: recentSeeds.firmIds.length },
+			before: before,
+			after: after,
+			durationMs,
+			source: 'cron',
+		};
+
+		try {
+			if (upstash) {
+				await upstash.lpush('finra:redis-monitor', JSON.stringify(monitorEntry));
+				await upstash.ltrim('finra:redis-monitor', 0, 199);
+			}
+			// Increment lightweight counters for quick metrics aggregation
+			try {
+				if (upstash) {
+					await upstash.incr('finra:metrics:prime-check:total_runs');
+					if (runExternalWarm) await upstash.incr('finra:metrics:prime-check:external_runs');
+					if (Array.isArray(missingToProcess) && missingToProcess.length > 0) await upstash.incrby('finra:metrics:prime-check:missing_processed', missingToProcess.length);
+					if (results.warmedIndividuals) await upstash.incrby('finra:metrics:prime-check:warmed_individuals', results.warmedIndividuals);
+					if (results.warmedFirms) await upstash.incrby('finra:metrics:prime-check:warmed_firms', results.warmedFirms);
+					const totalFailures = results.failures.length + results.fdaChecks.failures.length;
+					if (totalFailures) await upstash.incrby('finra:metrics:prime-check:failures', totalFailures);
+				}
+			} catch (err) {
+				logger.warn('prime-check: failed to increment metric counters', { error: String(err?.message || err) });
+			}
+		} catch (err) {
+			logger.warn('prime-check: failed to push monitor entry to redis', { error: String(err?.message || err) });
+		}
+		logger.info('prime-check: monitor entry', monitorEntry);
+	} catch (e) {
+		// non-fatal telemetry error
+		logger.warn('prime-check: telemetry error', { error: String(e?.message || e) });
+	}
 
 	return NextResponse.json(
 		{
