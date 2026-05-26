@@ -1,3 +1,282 @@
+/* Lightweight Canvas renderer for finra graph — viewport-culling, LOD, and fast draw
+ * This is a minimal, dependency-free fallback that draws nodes/links to a canvas
+ * overlay and is intended for large graphs where SVG DOM painting becomes too slow.
+ */
+
+type Node = any;
+type Link = any;
+
+let canvas: HTMLCanvasElement | null = null;
+let ctx: CanvasRenderingContext2D | null = null;
+let parentEl: HTMLElement | null = null;
+let dpr = 1;
+
+export function createCanvasOverlay(parent: HTMLElement) {
+	destroyCanvas();
+	parentEl = parent;
+	canvas = document.createElement('canvas');
+	canvas.id = 'fg-canvas';
+	canvas.style.position = 'absolute';
+	canvas.style.left = '0';
+	canvas.style.top = '0';
+	canvas.style.width = '100%';
+	canvas.style.height = '100%';
+	canvas.style.zIndex = '1';
+	canvas.style.pointerEvents = 'auto';
+	parent.style.position = parent.style.position || 'relative';
+	parent.appendChild(canvas);
+	ctx = canvas.getContext('2d');
+	dpr = Math.max(1, window.devicePixelRatio || 1);
+	resize();
+	window.addEventListener('resize', resize);
+	return { drawFrame: drawCanvasFrame, resize, destroy: destroyCanvas };
+}
+
+export function destroyCanvas() {
+	if (canvas && canvas.parentElement) canvas.parentElement.removeChild(canvas);
+	if (window && typeof window !== 'undefined') window.removeEventListener('resize', resize);
+	canvas = null;
+	ctx = null;
+	parentEl = null;
+}
+
+function resize() {
+	if (!canvas || !parentEl || !ctx) return;
+	const rect = parentEl.getBoundingClientRect();
+	const w = Math.max(1, Math.floor(rect.width));
+	const h = Math.max(1, Math.floor(rect.height));
+	canvas.width = Math.floor(w * dpr);
+	canvas.height = Math.floor(h * dpr);
+	canvas.style.width = `${w}px`;
+	canvas.style.height = `${h}px`;
+	ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function worldToScreen(x: number, y: number, transform: { x: number; y: number; k: number }) {
+	return { x: transform.x + x * transform.k, y: transform.y + y * transform.k };
+}
+
+function drawLink(ctx: CanvasRenderingContext2D, a: Node, b: Node, transform: any) {
+	const sa = worldToScreen(a.x, a.y, transform);
+	const sb = worldToScreen(b.x, b.y, transform);
+	ctx.beginPath();
+	ctx.moveTo(sa.x, sa.y);
+	ctx.lineTo(sb.x, sb.y);
+	ctx.stroke();
+}
+
+function drawNode(ctx: CanvasRenderingContext2D, n: Node, transform: any, size = 4, color = '#888') {
+	const p = worldToScreen(n.x, n.y, transform);
+	ctx.beginPath();
+	ctx.arc(p.x, p.y, Math.max(1, size * transform.k), 0, Math.PI * 2);
+	ctx.fillStyle = color;
+	ctx.fill();
+}
+
+function getColorForGroup(g: string) {
+	if (g === 'individual') return getComputedStyle(document.documentElement).getPropertyValue('--color-highlight-individual') || '#0ea5a4';
+	if (g === 'firm') return getComputedStyle(document.documentElement).getPropertyValue('--color-highlight-firm') || '#7c3aed';
+	if (g === 'entity') return getComputedStyle(document.documentElement).getPropertyValue('--color-highlight-entity') || '#fb923c';
+	return getComputedStyle(document.documentElement).getPropertyValue('--color-default-text') || '#94a3b8';
+}
+
+// Margin in world units to draw slightly outside viewport for smooth panning
+const VIEWPORT_MARGIN = 60;
+
+export function drawCanvasFrame(nodes: Node[], links: Link[], transform: { x: number; y: number; k: number }, opts: { selectedId?: string | number } = {}) {
+	if (!canvas || !ctx || !parentEl) return;
+	const rect = parentEl.getBoundingClientRect();
+	const w = rect.width;
+	const h = rect.height;
+	// clear canvas
+	ctx.clearRect(0, 0, w, h);
+
+	// compute world bounds that map to viewport
+	const invK = 1 / (transform.k || 1);
+	const minX = -transform.x * invK - VIEWPORT_MARGIN;
+	const minY = -transform.y * invK - VIEWPORT_MARGIN;
+	const maxX = (-transform.x + w) * invK + VIEWPORT_MARGIN;
+	const maxY = (-transform.y + h) * invK + VIEWPORT_MARGIN;
+
+	// cull nodes
+	const visibleNodes = nodes.filter((n) => n && Number.isFinite(n.x) && Number.isFinite(n.y) && n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY);
+
+	// draw links (lightweight) — only links with at least one visible endpoint
+	ctx.lineWidth = Math.max(0.5, 1 * (transform.k || 1));
+	ctx.strokeStyle = 'rgba(100,120,140,0.18)';
+	ctx.beginPath();
+	for (const l of links) {
+		const a = l.source;
+		const b = l.target;
+		if (!a || !b) continue;
+		// cheap bbox test
+		if (a.x < minX && b.x < minX) continue;
+		if (a.x > maxX && b.x > maxX) continue;
+		if (a.y < minY && b.y < minY) continue;
+		if (a.y > maxY && b.y > maxY) continue;
+		const sa = worldToScreen(a.x, a.y, transform);
+		const sb = worldToScreen(b.x, b.y, transform);
+		ctx.moveTo(sa.x, sa.y);
+		ctx.lineTo(sb.x, sb.y);
+	}
+	ctx.stroke();
+
+	// node LOD: if zoomed out, draw small dots; zoomed in show larger and highlight selected
+	const scale = transform.k || 1;
+	for (const n of visibleNodes) {
+		const col = getColorForGroup(n.group);
+		const baseSize = n.group === 'firm' ? 6 : 4;
+		const size = Math.max(
+			1,
+			baseSize *
+				(scale < 0.5 ? 0.6
+				: scale < 1 ? 0.9
+				: 1.2),
+		);
+		ctx.fillStyle = col;
+		drawNode(ctx, n, transform, size, col);
+		if (opts.selectedId && String(opts.selectedId) === String(n.id) && scale > 0.5) {
+			// highlight selected with halo and label
+			const p = worldToScreen(n.x, n.y, transform);
+			ctx.beginPath();
+			ctx.arc(p.x, p.y, Math.max(8, size * 3), 0, Math.PI * 2);
+			ctx.fillStyle = 'rgba(255,200,60,0.08)';
+			ctx.fill();
+			ctx.strokeStyle = 'rgba(255,200,60,0.5)';
+			ctx.lineWidth = 2;
+			ctx.stroke();
+			// label
+			ctx.font = `${12 * Math.min(2, Math.max(0.9, scale))}px Inter, system-ui, sans-serif`;
+			ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-default-text') || '#0f172a';
+			ctx.fillText(n.label || n.name || String(n.id), p.x + 10, p.y - 8);
+		}
+	}
+}
+
+export { resize as canvasResize };
+
+let _forceWorker: Worker | null = null;
+
+export function startForceWorker(nodes: any[], links: any[], width = 800, height = 600) {
+	if (typeof window === 'undefined' || typeof Worker !== 'function') return null;
+	if (_forceWorker) {
+		try {
+			_forceWorker.postMessage({ type: 'stop' });
+		} catch {}
+		try {
+			_forceWorker.terminate();
+		} catch {}
+		_forceWorker = null;
+	}
+	const workerCode = `
+		let nodes = [];
+		let links = [];
+		let running = false;
+		let width = ${width}, height = ${height};
+		function stepSim() {
+			if (!running) return;
+			const k = 0.02;
+			for (let i = 0; i < nodes.length; i++) {
+				let ni = nodes[i];
+				let fx = 0, fy = 0;
+				for (let j = 0; j < nodes.length; j++) {
+					if (i === j) continue;
+					const nj = nodes[j];
+					let dx = ni.x - nj.x;
+					let dy = ni.y - nj.y;
+					let dist2 = dx*dx + dy*dy + 0.01;
+					let force = 1000 / dist2;
+					fx += (dx/dist2) * force;
+					fy += (dy/dist2) * force;
+				}
+				ni.vx = (ni.vx || 0) + fx * 0.001;
+				ni.vy = (ni.vy || 0) + fy * 0.001;
+			}
+			for (let l of links) {
+				const s = nodes.find(n => String(n.id) === String(l.source));
+				const t = nodes.find(n => String(n.id) === String(l.target));
+				if (!s || !t) continue;
+				const dx = t.x - s.x;
+				const dy = t.y - s.y;
+				const dist = Math.sqrt(dx*dx + dy*dy) + 0.01;
+				const desired = 70;
+				const diff = dist - desired;
+				const f = 0.001 * diff;
+				const nx = (dx/dist) * f;
+				const ny = (dy/dist) * f;
+				s.vx = (s.vx || 0) + nx;
+				s.vy = (s.vy || 0) + ny;
+				t.vx = (t.vx || 0) - nx;
+				t.vy = (t.vy || 0) - ny;
+			}
+			for (let n of nodes) {
+				n.x = (n.x || width/2) + (n.vx || 0);
+				n.y = (n.y || height/2) + (n.vy || 0);
+				n.vx *= 0.9;
+				n.vy *= 0.9;
+			}
+			postMessage({ type: 'tick', nodes: nodes.map(n => ({ id: n.id, x: n.x, y: n.y })) });
+			setTimeout(stepSim, 16);
+		}
+		onmessage = function(e) {
+			const m = e.data || {};
+			if (m.type === 'init') {
+				nodes = m.nodes.map(n => ({ id: n.id, x: n.x || 0, y: n.y || 0 }));
+				links = m.links.map(l => ({ source: l.source, target: l.target }));
+				width = m.width || width;
+				height = m.height || height;
+				postMessage({ type: 'ready' });
+			} else if (m.type === 'start') { running = true; stepSim(); }
+			else if (m.type === 'stop') { running = false; }
+			else if (m.type === 'updateNodes') {
+				for (const p of m.positions || []) {
+					const n = nodes.find(x => String(x.id) === String(p.id)); if (n) { n.x = p.x; n.y = p.y; }
+				}
+			}
+		};
+	`;
+	const blob = new Blob([workerCode], { type: 'application/javascript' });
+	_forceWorker = new Worker(URL.createObjectURL(blob));
+	_forceWorker.onmessage = (ev) => {
+		const msg = ev.data || {};
+		if (msg.type === 'tick' && Array.isArray(msg.nodes)) {
+			for (const p of msg.nodes) {
+				const n = nodes.find((x) => String(x.id) === String(p.id));
+				if (n) {
+					n.x = p.x;
+					n.y = p.y;
+				}
+			}
+			// ask caller to render (main module will call requestRender())
+			try {
+				postMessage({ type: 'render-request' });
+			} catch (e) {
+				/* ignore */
+			}
+		}
+	};
+	_forceWorker.postMessage({
+		type: 'init',
+		nodes: nodes.map((n) => ({ id: n.id, x: n.x, y: n.y })),
+		links: links.map((l) => ({ source: l.source?.id || l.source, target: l.target?.id || l.target })),
+		width,
+		height,
+	});
+	_forceWorker.postMessage({ type: 'start' });
+	return _forceWorker;
+}
+
+export function stopForceWorker() {
+	if (_forceWorker) {
+		try {
+			_forceWorker.postMessage({ type: 'stop' });
+		} catch (e) {}
+		try {
+			_forceWorker.terminate();
+		} catch (e) {}
+		_forceWorker = null;
+	}
+}
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const ROUTE_NODE_REQUEST_EVENT = 'finra:route-node-request';
 const SELECTED_NODE_ROUTE_EVENT = 'finra:selected-node-route';

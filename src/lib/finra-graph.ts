@@ -29,6 +29,7 @@ import {
 	truncate as truncateImpl,
 } from './finra-graph/formatters';
 import { DEFAULT_EXPANSION_HOPS, DEFAULT_SELECTION_HOPS } from './finra-graph-defaults';
+import * as canvasRenderer from './finra-graph-canvas';
 
 // API base. When VITE_API_URL is not set, use relative paths so the dev
 // server proxy (`/api`) is used and we don't hardcode a backend port.
@@ -149,6 +150,11 @@ let inactiveLabelCompactMode = false;
 let graphTickFrameId: number | null = null;
 // Render modes for node labels. 'none' disables creating text elements entirely
 let nodeLabelRenderMode: 'full' | 'compact' | 'none' = 'full';
+// Canvas renderer mode for very large graphs
+let canvasModeActive = false;
+let canvasApi: any = null;
+let pixiModeActive = false;
+let pixiApi: any = null;
 // When the graph exceeds this many nodes, skip creating SVG text labels to avoid massive DOM bloat
 const LABEL_NONE_THRESHOLD = 5000;
 let sessionPersistenceMode: 'full' | 'compact' | 'reduced' | 'minimal' = 'full';
@@ -163,6 +169,16 @@ function getCurrentGraphZoomScale() {
 		return d3.zoomTransform(svgSel.node()).k || 1;
 	} catch {
 		return 1;
+	}
+}
+
+function getCurrentZoomTransform() {
+	try {
+		if (!svgSel?.node || !d3?.zoomTransform) return { x: 0, y: 0, k: 1 };
+		const t = d3.zoomTransform(svgSel.node());
+		return { x: t.x || 0, y: t.y || 0, k: t.k || 1 };
+	} catch {
+		return { x: 0, y: 0, k: 1 };
 	}
 }
 
@@ -226,6 +242,25 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 	if (graphTickFrameId != null) return;
 	graphTickFrameId = requestAnimationFrame(() => {
 		graphTickFrameId = null;
+		// If pixi (WebGL) mode is active, route draw to pixi. Else if canvas active use canvas.
+		if (pixiModeActive && pixiApi && typeof pixiApi.drawFrame === 'function') {
+			try {
+				const transform = getCurrentZoomTransform();
+				pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId });
+			} catch (e) {
+				_logOnce(_loggedBadTransforms, 'pixi-draw-error', 'warn', 'Pixi draw failed', e);
+			}
+			return;
+		}
+		if (canvasModeActive && canvasApi) {
+			try {
+				const transform = getCurrentZoomTransform();
+				canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId });
+			} catch (e) {
+				_logOnce(_loggedBadTransforms, 'canvas-draw-error', 'warn', 'Canvas draw failed', e);
+			}
+			return;
+		}
 		updateGraphTickPositions(linkSelection, nodeSelection, arrowSelection);
 	});
 }
@@ -5755,6 +5790,145 @@ function renderGraph(_data) {
 	const isHuge = nodeCount > 1000;
 	setGraphLabelRenderMode(nodeCount);
 
+	// Enable hardware-accelerated WebGL mode for very large graphs; fall back to Canvas
+	canvasModeActive = nodeCount > 800;
+	let pixiModeActive = false;
+	let pixiApi: any = null;
+	if (canvasModeActive) {
+		const mainEl = document.getElementById('fg-main');
+		if (mainEl) {
+			// Try to initialize Pixi (WebGL). If that fails, fall back to lightweight canvas.
+			import('pixi.js')
+				.then((PIXI) => {
+					// create a canvas for Pixi
+					const existing = document.getElementById('fg-pixi-canvas');
+					if (existing && existing.parentElement === mainEl) {
+						// reuse
+					} else {
+						const c = document.createElement('canvas');
+						c.id = 'fg-pixi-canvas';
+						c.style.position = 'absolute';
+						c.style.left = '0';
+						c.style.top = '0';
+						c.style.width = '100%';
+						c.style.height = '100%';
+						c.style.zIndex = '1';
+						mainEl.appendChild(c);
+					}
+					const canvasEl = document.getElementById('fg-pixi-canvas') as HTMLCanvasElement;
+					const Application = (PIXI as any).Application || (PIXI as any).default?.Application;
+					const Graphics = (PIXI as any).Graphics || (PIXI as any).default?.Graphics;
+					const Container = (PIXI as any).Container || (PIXI as any).default?.Container;
+					if (!Application || !Graphics || !Container) throw new Error('Missing Pixi classes');
+					const app = new Application({ view: canvasEl, resizeTo: mainEl, backgroundAlpha: 0, antialias: false, powerPreference: 'high-performance' });
+					const linkLayerPixi = new Graphics();
+					const nodeLayerPixi = new Container();
+					app.stage.addChild(linkLayerPixi);
+					app.stage.addChild(nodeLayerPixi);
+
+					const nodeSpriteMap = new Map();
+					function drawPixiFrame(nodesArr, linksArr, transform, opts = {}) {
+						// draw links
+						linkLayerPixi.clear();
+						linkLayerPixi.lineStyle(1, 0x708090, 0.18);
+						for (const l of linksArr) {
+							const a = l.source;
+							const b = l.target;
+							if (!a || !b) continue;
+							linkLayerPixi.moveTo(a.x, a.y);
+							linkLayerPixi.lineTo(b.x, b.y);
+						}
+						// draw/update nodes
+						for (const n of nodesArr) {
+							let g = nodeSpriteMap.get(String(n.id));
+							if (!g) {
+								g = new Graphics();
+								nodeLayerPixi.addChild(g);
+								nodeSpriteMap.set(String(n.id), g);
+							}
+							g.clear();
+							const color = 0x4a90e2;
+							g.beginFill(color);
+							g.drawCircle(0, 0, n.group === 'firm' ? 6 : 4);
+							g.endFill();
+							g.position.set(n.x, n.y);
+							// ensure interactive handlers for selection and drag
+							if (!g.interactive) {
+								g.interactive = true;
+								g.buttonMode = true;
+								g.cursor = 'pointer';
+								g.on('pointerdown', (evt) => {
+									evt.stopPropagation();
+									try {
+										selectNode(n);
+									} catch (e) {
+										/* ignore */
+									}
+									// start dragging
+									const pos = evt.data.global;
+									g._drag = { offsetX: pos.x - n.x, offsetY: pos.y - n.y };
+									if (typeof simulation?.alphaTarget === 'function') simulation.alphaTarget(0.3).restart?.();
+								});
+								g.on('pointermove', (evt) => {
+									if (!g._drag) return;
+									const pos = evt.data.global;
+									n.x = pos.x - g._drag.offsetX;
+									n.y = pos.y - g._drag.offsetY;
+									n.fx = n.x;
+									n.fy = n.y;
+									if (pixiApi && pixiApi.app && pixiApi.app.renderer) {
+										try {
+											pixiApi.app.renderer.render(pixiApi.app.stage);
+										} catch (e) {
+											/* ignore */
+										}
+									}
+								});
+								g.on('pointerup', () => {
+									if (g._drag) {
+										delete g._drag;
+										n.fx = null;
+										n.fy = null;
+										if (typeof simulation?.alphaTarget === 'function') simulation.alphaTarget(0);
+									}
+								});
+							}
+						}
+						app.renderer.render(app.stage);
+					}
+
+					pixiApi = {
+						app,
+						drawFrame: drawPixiFrame,
+						destroy: () => {
+							try {
+								app.destroy(true, { children: true, texture: true, baseTexture: true });
+							} catch {}
+						},
+					};
+					pixiModeActive = true;
+					canvasApi = null;
+				})
+				.catch((err) => {
+					_logOnce(_loggedBadTransforms, 'pixi-init-failed', 'warn', 'Pixi init failed, falling back to canvas', err);
+					try {
+						canvasApi = canvasRenderer.createCanvasOverlay(mainEl);
+					} catch (e) {
+						_logOnce(_loggedBadTransforms, 'canvas-init-failed', 'warn', 'Failed to initialize canvas renderer', e);
+					}
+				});
+		} // mainEl
+	} else {
+		// Tear down any existing pixi or canvas overlays
+		try {
+			if (pixiApi && pixiApi.destroy) pixiApi.destroy();
+			if (canvasApi && canvasApi.destroy) canvasApi.destroy();
+		} catch (e) {}
+		pixiApi = null;
+		canvasApi = null;
+		pixiModeActive = false;
+	}
+
 	// ── Zoom ──────────────────────────────────────────────────────────────────
 	// LOD threshold: hide labels when zoomed out (less DOM paint, higher props)
 	const labelZoomThreshold =
@@ -5949,19 +6123,28 @@ function renderGraph(_data) {
 	arrowSel = root.selectAll('.fg-arrowheads-bottom line, .fg-arrowheads-mid line, .fg-arrowheads-top line');
 
 	// ── Nodes ─────────────────────────────────────────────────────────────────
-	const node = root
-		.append('g')
-		.attr('class', 'fg-nodes')
-		.selectAll('g')
-		.data(nodes, (d) => d.id)
-		.join('g')
-		.attr('class', 'fg-node')
-		.call(fluidDrag())
-		.on('click', handleNodeOpen);
-	nodeSel = node;
-	nodeGroup = root.select('.fg-nodes');
+	let node = null;
+	if (!canvasModeActive) {
+		node = root
+			.append('g')
+			.attr('class', 'fg-nodes')
+			.selectAll('g')
+			.data(nodes, (d) => d.id)
+			.join('g')
+			.attr('class', 'fg-node')
+			.call(fluidDrag())
+			.on('click', handleNodeOpen);
+		nodeSel = node;
+		nodeGroup = root.select('.fg-nodes');
 
-	renderNodeContents(node);
+		renderNodeContents(node);
+	} else {
+		// In canvas mode we do not create per-node DOM elements — drawing is
+		// handled by the canvas renderer on each tick. Keep lightweight placeholders
+		// for selections to avoid breaking code paths that expect these vars.
+		nodeSel = null;
+		nodeGroup = null;
+	}
 
 	// If the data payload included recently added node ids (set by mergeIntoGraphData),
 	// pulse them to draw attention. Pulses will stop on the first user interaction.
@@ -5984,6 +6167,21 @@ function renderGraph(_data) {
 		// refresh combined selections to include top groups
 		linkSel = root.selectAll('.fg-links-bottom line, .fg-links-mid line, .fg-links-top line');
 		arrowSel = root.selectAll('.fg-arrowheads-bottom line, .fg-arrowheads-mid line, .fg-arrowheads-top line');
+
+		// If canvas mode is active, hide the SVG link/arrow groups to avoid
+		// duplicate drawing and unnecessary DOM paint.
+		if (canvasModeActive) {
+			try {
+				if (linkBottomGroup) linkBottomGroup.style('display', 'none');
+				if (linkMidGroup) linkMidGroup.style('display', 'none');
+				if (linkTopGroup) linkTopGroup.style('display', 'none');
+				if (arrowBottomGroup) arrowBottomGroup.style('display', 'none');
+				if (arrowMidGroup) arrowMidGroup.style('display', 'none');
+				if (arrowTopGroup) arrowTopGroup.style('display', 'none');
+			} catch (e) {
+				/* ignore */
+			}
+		}
 	} catch (e) {
 		/* ignore */
 	}
