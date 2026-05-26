@@ -69,7 +69,24 @@ export async function GET(request: NextRequest) {
 			counters[k] = n;
 		});
 
-		return NextResponse.json({ ok: true, monitor: entries, counters }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
+		// Build a simple title from the most recent entry (after -> people/firms/links) if available
+		let title = '';
+		if (Array.isArray(entries) && entries.length > 0) {
+			const recent = entries[0] as any;
+			const stats = recent?.after || recent?.before || null;
+			const people = stats?.people ?? null;
+			const firms = stats?.firms ?? null;
+			const links = stats?.links ?? null;
+			if (people != null || firms != null || links != null) {
+				const parts: string[] = [];
+				if (people != null) parts.push(`people: ${people}`);
+				if (firms != null) parts.push(`firms: ${firms}`);
+				if (links != null) parts.push(`links: ${links}`);
+				title = parts.join('  |  ');
+			}
+		}
+
+		return NextResponse.json({ ok: true, title, monitor: entries, counters }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
 	} catch (err: any) {
 		logger.warn('metrics: failed to read upstash data', { error: String(err?.message || err) });
 		return NextResponse.json({ ok: false, error: String(err?.message || err) }, { status: 500 });

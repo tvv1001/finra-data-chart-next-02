@@ -354,13 +354,56 @@ export async function GET(request: NextRequest) {
 			});
 		}
 
-		// 2) Intermittent external warm of recent seeds to avoid hitting APIs every cron invocation
+		// 2) Deterministic spacing for external warms using Redis key `finra:next-external-run`.
+		// If Upstash is available, the route will only run an external warm when now >= next-external-run.
+		// After running, it sets the next-external-run to now + random(6..18 minutes).
 		const EXTERNAL_WARM_PROB = Number(process.env.FINRA_PRIME_EXTERNAL_PROB || 0.3333);
-		runExternalWarm = Math.random() < EXTERNAL_WARM_PROB;
+		// honor explicit forceExternal query param if present
 		try {
 			const urlObj = new URL(request.url);
-			if (urlObj.searchParams.get('forceExternal') === '1') runExternalWarm = true;
+			if (urlObj.searchParams.get('forceExternal') === '1') {
+				runExternalWarm = true;
+			}
 		} catch (e) {}
+
+		if (upstash) {
+			try {
+				const now = Date.now();
+				const rawNext = await upstash.get('finra:next-external-run').catch(() => null);
+				const nextTs = Number(rawNext) || 0;
+
+				if (runExternalWarm) {
+					// forced run: schedule next run
+					const delayMin = 6 + Math.floor(Math.random() * 13); // 6..18
+					const next = now + delayMin * 60 * 1000;
+					try {
+						await upstash.set('finra:next-external-run', String(next));
+					} catch (e) {
+						// ignore set errors
+					}
+					runExternalWarm = true;
+				} else if (!nextTs || now >= nextTs) {
+					// allowed to run now; schedule next
+					const delayMin = 6 + Math.floor(Math.random() * 13);
+					const next = now + delayMin * 60 * 1000;
+					try {
+						await upstash.set('finra:next-external-run', String(next));
+					} catch (e) {
+						// ignore
+					}
+					runExternalWarm = true;
+				} else {
+					// not yet time for an external warm
+					runExternalWarm = false;
+				}
+			} catch (e) {
+				// If Redis fails, fallback to probabilistic behavior so cron still does something
+				runExternalWarm = Math.random() < EXTERNAL_WARM_PROB;
+			}
+		} else {
+			// no Upstash configured — fall back to probabilistic intermittent warm
+			runExternalWarm = Math.random() < EXTERNAL_WARM_PROB;
+		}
 
 		if (runExternalWarm) {
 			await runWithConcurrency(warmTargets, concurrency, async (target) => {
