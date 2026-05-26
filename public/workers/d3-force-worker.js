@@ -3,13 +3,12 @@
  * Expects messages: {type:'init', nodes, links, width, height}, {type:'start'},{type:'stop'},{type:'updateNodes', positions:[]}
  */
 (function () {
-	// Attempt to load d3-force UMD build
+	// Load bundled d3-force UMD build from local public assets (CSP/offline safe)
 	try {
-		importScripts('https://cdn.jsdelivr.net/npm/d3-force@3/dist/d3-force.min.js');
+		importScripts('/workers/d3-force-worker.bundle.js');
 	} catch (e) {
-		// If CDN load failed, worker will fall back to simple internal sim if needed
-		// but we surface the error to the main thread
-		postMessage({ type: 'error', message: 'Failed to import d3-force', error: String(e) });
+		// If local bundle load failed, surface the error to the main thread
+		postMessage({ type: 'error', message: 'Failed to import local d3-force bundle', error: String(e) });
 	}
 
 	let nodes = [];
