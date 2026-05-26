@@ -4,6 +4,7 @@ import { DEFAULT_HEADERS } from '@/lib/constants';
 import { getFullGraph, getRecentSeedsFromStore, getSeedBankFromStore } from '@/lib/graphStore';
 import { logger } from '@/lib/logger';
 import { Redis as UpstashRedis } from '@upstash/redis';
+import { zaddRaw } from '@/lib/upstashHelpers';
 
 function getUpstashClient() {
 	try {
@@ -80,7 +81,7 @@ async function warmIndividual(crd: string) {
 				if (err?.response?.status === 429) {
 					try {
 						const r = getUpstashClient();
-						if (r) await (r as any).zadd('finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'individual', crd }));
+						if (r) await zaddRaw(r, 'finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'individual', crd }));
 					} catch (e) {
 						// ignore redis errors
 					}
@@ -99,7 +100,7 @@ async function warmIndividual(crd: string) {
 				if (err?.response?.status === 429) {
 					try {
 						const r = getUpstashClient();
-						if (r) await (r as any).zadd('finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'individual', crd }));
+						if (r) await zaddRaw(r, 'finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'individual', crd }));
 					} catch (e) {
 						// ignore
 					}
@@ -124,7 +125,7 @@ async function warmFirm(id: string) {
 				if (err?.response?.status === 429) {
 					try {
 						const r = getUpstashClient();
-						if (r) await (r as any).zadd('finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'firm', id }));
+						if (r) await zaddRaw(r, 'finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'firm', id }));
 					} catch (e) {
 						// ignore
 					}
@@ -143,7 +144,7 @@ async function warmFirm(id: string) {
 				if (err?.response?.status === 429) {
 					try {
 						const r = getUpstashClient();
-						if (r) await (r as any).zadd('finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'firm', id }));
+						if (r) await zaddRaw(r, 'finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'firm', id }));
 					} catch (e) {
 						// ignore
 					}
@@ -162,7 +163,7 @@ async function warmFirm(id: string) {
 				if (err?.response?.status === 429) {
 					try {
 						const r = getUpstashClient();
-						if (r) await (r as any).zadd('finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'firm', id }));
+						if (r) await zaddRaw(r, 'finra:retry', Date.now() + 10 * 60 * 1000, JSON.stringify({ type: 'firm', id }));
 					} catch (e) {
 						// ignore
 					}

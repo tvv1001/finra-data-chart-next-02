@@ -29,6 +29,12 @@ const DEFAULT_FIRM_QUERY = 'hl=true&wt=json';
 // upstream providers during aggressive crawling or high traffic.
 const EXTERNAL_API_MIN_INTERVAL_MS = Number(process.env.EXTERNAL_API_MIN_INTERVAL_MS || 5000);
 const lastExternalFetch = new Map<string, number>();
+// When an external API call fails (network error, upstream 5xx, etc.) we
+// back off for a longer cooldown to avoid repeated failing requests. Default
+// cooldown is 10 minutes (600_000 ms) but can be overridden by
+// EXTERNAL_API_FAILURE_COOLDOWN_MS.
+const EXTERNAL_API_FAILURE_COOLDOWN_MS = Number(process.env.EXTERNAL_API_FAILURE_COOLDOWN_MS || 600_000);
+const lastExternalFailure = new Map<string, number>();
 // Runtime toggle to completely disable external FINRA/SEC lookups when set to
 // '1' or 'true' in the environment. Useful for offline/dev modes.
 const EXTERNAL_API_DISABLED = String(process.env.EXTERNAL_API_DISABLED || '').toLowerCase() === '1' || String(process.env.EXTERNAL_API_DISABLED || '').toLowerCase() === 'true';
@@ -274,12 +280,17 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 				: key.startsWith('sec:') ? 'sec'
 				: '';
 			if (service) {
+				const now = Date.now();
+				const lastFail = lastExternalFailure.get(service) || 0;
+				if (now - lastFail < EXTERNAL_API_FAILURE_COOLDOWN_MS) {
+					console.warn(`External API recently failed; skipping fetch for service=${service} until cooldown`);
+					return undefined as unknown as T;
+				}
 				if (EXTERNAL_API_DISABLED) {
 					console.info(`External API disabled; skipping external fetch for service=${service} key=${key}`);
 					return undefined as unknown as T;
 				}
 				const last = lastExternalFetch.get(service) || 0;
-				const now = Date.now();
 				if (now - last < EXTERNAL_API_MIN_INTERVAL_MS) {
 					// Too soon to call the external API again — return undefined so callers
 					// treat this as a cache miss without hammering the upstream service.
@@ -288,12 +299,20 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 				}
 			}
 
-			const value = await fetcher();
-			if (service) lastExternalFetch.set(service, Date.now());
-			if (value !== undefined) {
-				await redis.set(key, JSON.stringify(value), { ex: ttlSeconds });
+			try {
+				const value = await fetcher();
+				if (service) lastExternalFetch.set(service, Date.now());
+				if (value !== undefined) {
+					await redis.set(key, JSON.stringify(value), { ex: ttlSeconds });
+				}
+				return value;
+			} catch (err) {
+				if (service) {
+					lastExternalFailure.set(service, Date.now());
+					console.warn(`External fetch failed for service=${service}; backing off for ${EXTERNAL_API_FAILURE_COOLDOWN_MS}ms`, err instanceof Error ? err.message : err);
+				}
+				return undefined as unknown as T;
 			}
-			return value;
 		} catch {
 			// fall through to in-memory on Redis errors
 		}
@@ -314,22 +333,35 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 		: key.startsWith('sec:') ? 'sec'
 		: '';
 	if (service) {
+		const now = Date.now();
+		const lastFail = lastExternalFailure.get(service) || 0;
+		if (now - lastFail < EXTERNAL_API_FAILURE_COOLDOWN_MS) {
+			console.warn(`External API recently failed; skipping fetch for service=${service} until cooldown`);
+			return undefined as unknown as T;
+		}
 		if (EXTERNAL_API_DISABLED) {
 			console.info(`External API disabled; skipping external fetch for service=${service} key=${key}`);
 			return undefined as unknown as T;
 		}
 		const last = lastExternalFetch.get(service) || 0;
-		const now = Date.now();
 		if (now - last < EXTERNAL_API_MIN_INTERVAL_MS) {
 			console.warn(`Rate-limited external fetch for service=${service} key=${key}`);
 			return undefined as unknown as T;
 		}
 	}
 
-	const value = await fetcher();
-	if (service) lastExternalFetch.set(service, Date.now());
-	if (value !== undefined) memSet(mem, key, value, ttlSeconds);
-	return value;
+	try {
+		const value = await fetcher();
+		if (service) lastExternalFetch.set(service, Date.now());
+		if (value !== undefined) memSet(mem, key, value, ttlSeconds);
+		return value;
+	} catch (err) {
+		if (service) {
+			lastExternalFailure.set(service, Date.now());
+			console.warn(`External fetch failed for service=${service}; backing off for ${EXTERNAL_API_FAILURE_COOLDOWN_MS}ms`, err instanceof Error ? err.message : err);
+		}
+		return undefined as unknown as T;
+	}
 }
 
 export async function clearCache(rawKey: string) {

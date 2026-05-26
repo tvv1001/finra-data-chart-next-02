@@ -652,7 +652,7 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
       ${
 				previousEmploymentEntries.length ?
 					`<div class='fg-section-title fg-section-title--sticky'>Previous Employment (${previousEmploymentEntries.length})</div>
-            <div class='fg-timeline'>
+	            <div class='fg-timeline fg-timeline--previous'>
               ${previousEmploymentEntries
 								.map((e) => {
 									const cls = `fg-tl-entry${e.isCurrent ? ' active-pos' : ''}`;
@@ -701,7 +701,7 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
       ${
 				previousRegistrations.length ?
 					`<div class='fg-section-title fg-section-title--sticky'>Previous Registrations</div>
-            <div class='fg-timeline'>
+	            <div class='fg-timeline fg-timeline--previous'>
               ${previousRegistrations
 								.map(
 									(reg) => `

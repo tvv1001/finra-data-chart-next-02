@@ -387,14 +387,18 @@ html[data-theme='dark'] .fg-sb-header.individual .fg-sb-title {
 
 html[data-theme='dark'] .fg-tl-entry.fg-card-clickable {
 	outline-color: rgb(148 184 152 / 49%);
-	background: rgb(7 70 19 / 32%);
+	background: rgba(7, 48, 70, 0.32);
 }
-
+html[data-theme='dark'] .fg-tl-entry.fg-card-clickable:hover {
+	outline-color: rgba(148, 184, 152, 0.8);
+	background: rgba(7, 48, 70, 0.32);
+	opacity: 1;
+}
 html[data-theme='dark'] .fg-log-entry.fg-card-clickable:hover {
 	background: rgba(18, 49, 125, 0.898);
-	border-top-color: rgb(81, 94, 113);
-	border-right-color: rgb(81, 94, 113);
-	border-bottom-color: rgb(81, 94, 113);
+	border-top-color: rgba(81, 94, 113, 0.898);
+	border-right-color: rgba(81, 94, 113, 0.898);
+	border-bottom-color: rgba(81, 94, 113, 0.898);
 }
 
 html[data-theme='dark'] .fg-sro-cat-list li {
@@ -431,6 +435,13 @@ html[data-theme='dark'] .fg-root.fg-trace-labels .fg-node.trace-log-connector te
 	fill: #ffffff !important;
 	font-weight: 700 !important;
 	opacity: 1 !important;
+}
+
+html[data-theme='dark'] .fg-log-entry:hover {
+	background: rgba(18, 49, 125, 0.898);
+	border-top-color: rgb(81, 94, 113);
+	border-right-color: rgb(81, 94, 113);
+	border-bottom-color: rgb(81, 94, 113);
 }
 *,
 *::before,
@@ -2566,7 +2577,7 @@ a,
 
 .fg-tl-entry {
 	background: var(--bg);
-	outline: 1px solid #d5d5d550;
+	outline: 1px solid 1px solid #30547050;
 	outline-offset: -1px;
 	border-radius: 5px;
 	padding: 7px 10px;
@@ -2575,9 +2586,26 @@ a,
 }
 
 .fg-tl-entry.active-pos {
-	outline: 1px solid #2563eb;
+	outline: 1px solid #3d5b9e9e;
 	box-shadow: 0 4px 16px rgba(37, 99, 235, 0.18);
 	background: linear-gradient(0deg, rgba(0, 76, 207, 0.235) 0%, rgba(239, 246, 255, 0.92) 100%);
+}
+
+/* Previous items should be visually de-emphasized */
+.fg-timeline--previous .fg-tl-entry {
+	opacity: 0.62;
+	background: linear-gradient(0deg, rgba(248, 249, 250, 0.9) 0%, rgba(255, 255, 255, 0.98) 100%);
+	outline: 1px solid rgba(44, 48, 52, 0.04);
+	box-shadow: none;
+}
+.fg-timeline--previous .fg-tl-entry .fg-tl-dates,
+.fg-timeline--previous .fg-tl-entry .fg-tl-loc,
+.fg-timeline--previous .fg-tl-entry .fg-tl-firm {
+	color: var(--text-m);
+}
+
+.fg-reg-role.is-inactive {
+	opacity: 0.6;
 }
 
 .fg-control-card {
@@ -2897,7 +2925,7 @@ a,
 }
 
 .fg-node .fg-node-shape--circle,
-.fg-node .fg-node-shape--entity {
+.fg-node .fg-node-shape--firm {
 	stroke: var(--color-node-border);
 	stroke-width: var(--stroke-width-node-default);
 	cursor: pointer;
@@ -3053,6 +3081,7 @@ a,
 
 .fg-node.fg-node--firm.highlighted-hop polygon {
 	stroke: var(--color-node-firm-highlighted-stroke) !important;
+	cursor: pointer;
 }
 
 .fg-node.fg-node--inactive.highlighted-hop circle,
@@ -3117,6 +3146,7 @@ a,
 .fg-node.selected .fg-node-overlay,
 .fg-node.highlighted-hop .fg-node-overlay {
 	fill-opacity: var(--fill-opacity-node-depth-selected);
+	cursor: pointer;
 }
 
 .fg-node.trace-shortest .fg-node-overlay,
@@ -3905,7 +3935,7 @@ text.fg-label {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	padding: 4px 16px 4px 12px;
+	padding: 0 0 0 12px;
 	background: var(--bg);
 	border: 1px solid var(--border-strong);
 	border-radius: 8px;
