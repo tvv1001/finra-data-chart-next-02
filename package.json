@@ -5,7 +5,7 @@
 	"scripts": {
 		"dev": "next dev -p 4444",
 		"dev:clean": "rm -rf .next && next dev -p 4444",
-		"prebuild": "node scripts/build_workers.js && node scripts/build_graph_from_cache.js --employment-scope all --no-redis",
+		"prebuild": "if [ -n \"$UPSTASH_REDIS_REST_URL\" ]; then echo 'SKIPPING prebuild because remote Redis is configured'; else node scripts/build_workers.js && node scripts/build_graph_from_cache.js --employment-scope all --no-redis; fi",
 		"build:workers": "node scripts/build_workers.js",
 		"build": "next build",
 		"start": "next start -p 4444",
@@ -39,21 +39,22 @@
 		"winston": "^3.13.0"
 	},
 	"devDependencies": {
-		"esbuild": "^0.28.0",
 		"@playwright/test": "^1.60.0",
+		"@testing-library/dom": "^9.0.0",
 		"@types/d3": "^7.4.3",
 		"@types/d3-force": "^3.0.10",
 		"@types/node": "^20.19.0",
 		"@types/react": "^19.0.0",
 		"@types/react-dom": "^19.0.0",
+		"esbuild": "^0.28.0",
 		"eslint": "^9.0.0",
 		"eslint-config-next": "^15.1.0",
+		"jsdom": "^22.1.0",
 		"playwright": "^1.60.0",
 		"playwright-extra": "^4.3.6",
 		"sharp": "^0.34.5",
 		"typescript": "^5.7.0",
-		"vitest": "^1.1.7",
-		"@testing-library/dom": "^9.0.0",
-		"jsdom": "^22.1.0"
+		"vercel": "^54.4.1",
+		"vitest": "^1.1.7"
 	}
 }
