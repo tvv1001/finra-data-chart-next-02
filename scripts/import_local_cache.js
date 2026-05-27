@@ -114,18 +114,29 @@ async function main() {
 		}
 	}
 
-	// also import brokercheck.finra.org/firm_<id>.json files (same format)
+	// also import brokercheck.finra.org search response JSON files and legacy firm_<id>.json files
 	const brokerDir = path.join(NATIONAL, 'brokercheck.finra.org');
 	if (await fileExists(brokerDir)) {
 		const bents = await fs.readdir(brokerDir);
 		for (const name of bents) {
-			if (!name.startsWith('firm_') || !name.endsWith('.json')) continue;
-			const id = name.replace('firm_', '').replace('.json', '');
+			let id;
+			let type;
+			if (name.startsWith('firm_') && name.endsWith('.json')) {
+				type = 'firm';
+				id = name.replace('firm_', '').replace('.json', '');
+			} else {
+				const match = name.match(/^api\.brokercheck\.finra\.org_search_(individual|firm)_(\d+)\.json$/);
+				if (match) {
+					type = match[1];
+					id = match[2];
+				}
+			}
+			if (!type || !id) continue;
 			const p = path.join(brokerDir, name);
 			try {
 				const raw = await fs.readFile(p, 'utf-8');
 				const parsed = JSON.parse(raw);
-				const key = finraFirmKey(id);
+				const key = type === 'individual' ? finraIndividualKey(id) : finraFirmKey(id);
 				if (useRedis) {
 					const exists = await redis.get(key);
 					if (exists != null) {
@@ -135,7 +146,7 @@ async function main() {
 					await redis.set(key, JSON.stringify(parsed), { ex: TTL_SECONDS });
 					written++;
 				} else {
-					primedBundles['finra-firm'][key] = parsed;
+					primedBundles[`finra-${type}`][key] = parsed;
 					written++;
 				}
 			} catch (err) {
@@ -144,18 +155,29 @@ async function main() {
 		}
 	}
 
-	// import adviserinfo.sec.gov firm_* files as sec-firm
+	// import adviserinfo.sec.gov search response JSON files and legacy firm_<id>.json files
 	const secDir = path.join(NATIONAL, 'adviserinfo.sec.gov');
 	if (await fileExists(secDir)) {
 		const sents = await fs.readdir(secDir);
 		for (const name of sents) {
-			if (!name.startsWith('firm_') || !name.endsWith('.json')) continue;
-			const id = name.replace('firm_', '').replace('.json', '');
+			let id;
+			let type;
+			if (name.startsWith('firm_') && name.endsWith('.json')) {
+				type = 'firm';
+				id = name.replace('firm_', '').replace('.json', '');
+			} else {
+				const match = name.match(/^api\.adviserinfo\.sec\.gov_search_(individual|firm)_(\d+)\.json$/);
+				if (match) {
+					type = match[1];
+					id = match[2];
+				}
+			}
+			if (!type || !id) continue;
 			const p = path.join(secDir, name);
 			try {
 				const raw = await fs.readFile(p, 'utf-8');
 				const parsed = JSON.parse(raw);
-				const key = `sec:firm:${id}:${DEFAULT_FIRM_QUERY}`;
+				const key = type === 'individual' ? `sec:individual:${id}:${DEFAULT_INDIVIDUAL_QUERY}` : `sec:firm:${id}:${DEFAULT_FIRM_QUERY}`;
 				if (useRedis) {
 					const exists = await redis.get(key);
 					if (exists != null) {
@@ -165,7 +187,7 @@ async function main() {
 					await redis.set(key, JSON.stringify(parsed), { ex: TTL_SECONDS });
 					written++;
 				} else {
-					primedBundles['sec-firm'][key] = parsed;
+					primedBundles[`sec-${type}`][key] = parsed;
 					written++;
 				}
 			} catch (err) {
