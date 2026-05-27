@@ -149,16 +149,14 @@ let activeLabelZoomThreshold = 0.3;
 let inactiveLabelCompactZoomThreshold = 0.42;
 let inactiveLabelCompactMode = false;
 let graphTickFrameId: number | null = null;
-// Render modes for node labels. 'none' disables creating text elements entirely
-let nodeLabelRenderMode: 'full' | 'compact' | 'none' = 'full';
+// Render modes for node labels. compact mode still uses text, but without disabling labels entirely.
+let nodeLabelRenderMode: 'full' | 'compact' = 'full';
 // Canvas renderer mode for very large graphs
 let canvasModeActive = false;
 let canvasApi: any = null;
 let pixiModeActive = false;
 let pixiApi: any = null;
 let overlayApi: any = null;
-// When the graph exceeds this many nodes, skip creating SVG text labels to avoid massive DOM bloat
-const LABEL_NONE_THRESHOLD = 5000;
 let sessionPersistenceMode: 'full' | 'compact' | 'reduced' | 'minimal' = 'full';
 
 function isAnyTraceModeActive() {
@@ -216,11 +214,7 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 }
 
 function setGraphLabelRenderMode(nodeCount = layoutNodes?.length || 0) {
-	if (nodeCount > LABEL_NONE_THRESHOLD) {
-		nodeLabelRenderMode = 'none';
-	} else {
-		nodeLabelRenderMode = nodeCount > 1500 ? 'compact' : 'full';
-	}
+	nodeLabelRenderMode = 'full';
 }
 
 function updateGraphTickPositions(linkSelection, nodeSelection, arrowSelection) {
@@ -5314,29 +5308,22 @@ function renderNodeContents(selection) {
 		const labelFontSize = isLogged ? '24px' : '12px';
 
 		let label: any = null;
-		// Avoid creating SVG text nodes entirely when rendering extremely large graphs
-		if (nodeLabelRenderMode !== 'none') {
-			label = g
-				.append('text')
-				.attr('class', `fg-label${inactive ? ' fg-label--inactive' : ''}${isLogged ? ' fg-label--logged' : ''}`)
-				.attr('dy', labelDy)
-				.attr('text-anchor', 'middle')
-				.attr('font-size', labelFontSize)
-				.attr('font-family', 'var(--sans)')
-				.attr('font-weight', isLogged ? '700' : '500')
-				.attr('fill', nodeLabelColor)
-				.attr('stroke', nodeLabelHalo)
-				.attr('stroke-width', 4)
-				.attr('stroke-linejoin', 'round')
-				.attr('paint-order', 'stroke')
-				.attr('pointer-events', 'all')
-				.style('cursor', 'pointer')
-				.text(labelText);
-
-			if (nodeLabelRenderMode === 'compact' && !inactive && !isNodeOnAnyTrace(d.id) && d.id !== selectedId) {
-				label.attr('display', 'none');
-			}
-		}
+		label = g
+			.append('text')
+			.attr('class', `fg-label${inactive ? ' fg-label--inactive' : ''}${isLogged ? ' fg-label--logged' : ''}`)
+			.attr('dy', labelDy)
+			.attr('text-anchor', 'middle')
+			.attr('font-size', labelFontSize)
+			.attr('font-family', 'var(--sans)')
+			.attr('font-weight', isLogged ? '700' : '500')
+			.attr('fill', nodeLabelColor)
+			.attr('stroke', nodeLabelHalo)
+			.attr('stroke-width', 4)
+			.attr('stroke-linejoin', 'round')
+			.attr('paint-order', 'stroke')
+			.attr('pointer-events', 'all')
+			.style('cursor', 'pointer')
+			.text(labelText);
 
 		g.append('title').text(() => {
 			const parts = [getPreferredNodeLabel(d), d.group?.toUpperCase?.() || ''];
