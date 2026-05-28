@@ -707,14 +707,89 @@ function sanitizePersistedNode(node) {
 	return clone;
 }
 
+const SESSION_IDB_DB_NAME = 'finra_graph_session';
+const SESSION_IDB_STORE_NAME = 'session_store';
+const SESSION_IDB_ENTRY_KEY = 'active_session';
+
+function openSessionDatabase() {
+	return new Promise<IDBDatabase>((resolve, reject) => {
+		if (typeof indexedDB === 'undefined') {
+			reject(new Error('IndexedDB unavailable'));
+			return;
+		}
+		const request = indexedDB.open(SESSION_IDB_DB_NAME, 1);
+		request.onupgradeneeded = () => {
+			const db = request.result;
+			if (!db.objectStoreNames.contains(SESSION_IDB_STORE_NAME)) {
+				db.createObjectStore(SESSION_IDB_STORE_NAME);
+			}
+		};
+		request.onsuccess = () => resolve(request.result);
+		request.onerror = () => reject(request.error || new Error('IndexedDB open failed'));
+	});
+}
+
+async function saveSessionToIndexedDB(envelope: any) {
+	try {
+		const db = await openSessionDatabase();
+		const tx = db.transaction(SESSION_IDB_STORE_NAME, 'readwrite');
+		const store = tx.objectStore(SESSION_IDB_STORE_NAME);
+		store.put(envelope, SESSION_IDB_ENTRY_KEY);
+		return new Promise<void>((resolve, reject) => {
+			tx.oncomplete = () => resolve();
+			tx.onerror = () => reject(tx.error || new Error('IndexedDB write failed'));
+			tx.onabort = () => reject(tx.error || new Error('IndexedDB write aborted'));
+		});
+	} catch {
+		// Fallback to localStorage if IndexedDB is not available or fails.
+	}
+}
+
+async function loadSessionFromIndexedDB() {
+	try {
+		const db = await openSessionDatabase();
+		const tx = db.transaction(SESSION_IDB_STORE_NAME, 'readonly');
+		const store = tx.objectStore(SESSION_IDB_STORE_NAME);
+		const request = store.get(SESSION_IDB_ENTRY_KEY);
+		return await new Promise<any>((resolve, reject) => {
+			request.onsuccess = () => resolve(request.result);
+			request.onerror = () => reject(request.error || new Error('IndexedDB read failed'));
+		});
+	} catch {
+		return null;
+	}
+}
+
+async function deleteSessionFromIndexedDB() {
+	try {
+		const db = await openSessionDatabase();
+		const tx = db.transaction(SESSION_IDB_STORE_NAME, 'readwrite');
+		const store = tx.objectStore(SESSION_IDB_STORE_NAME);
+		store.delete(SESSION_IDB_ENTRY_KEY);
+		return new Promise<void>((resolve) => {
+			tx.oncomplete = () => resolve();
+			tx.onerror = () => resolve();
+			tx.onabort = () => resolve();
+		});
+	} catch {
+		return;
+	}
+}
+
 function persistSessionPayload(payload) {
 	const envelope = {
 		expiresAt: Date.now() + SESSION_TTL_MS,
 		data: payload,
 	};
 	const serialized = JSON.stringify(envelope);
-	if (serialized.length > SESSION_STORAGE_SOFT_LIMIT_BYTES) {
-		throw new Error(`Session payload too large (${serialized.length} bytes)`);
+	if (serialized.length > SESSION_STORAGE_SOFT_LIMIT_BYTES && typeof indexedDB !== 'undefined') {
+		saveSessionToIndexedDB(envelope).catch(() => undefined);
+		try {
+			localStorage.setItem(LS_SESSION_KEY, JSON.stringify({ expiresAt: envelope.expiresAt, pointer: 'idb' }));
+		} catch {
+			/* ignore persistence errors */
+		}
+		return;
 	}
 	localStorage.setItem(LS_SESSION_KEY, serialized);
 }
@@ -777,6 +852,7 @@ function clearSession() {
 	} catch {
 		// ignore quota/private mode failures
 	}
+	deleteSessionFromIndexedDB().catch(() => undefined);
 	sessionStorage.removeItem(LS_SESSION_KEY);
 }
 
@@ -806,10 +882,10 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 	const normalizedNodeId = String(nodeId || '').trim();
 	if (!normalizedNodeId) return null;
 
-	let liveNode = layoutNodes?.find((node) => node.id === normalizedNodeId) || graphData?.nodes?.find((node) => node.id === normalizedNodeId) || null;
+	let liveNode = getNodeById(normalizedNodeId);
 	if (liveNode && !layoutNodes?.some((node) => node.id === normalizedNodeId)) {
 		injectNodesById([normalizedNodeId]);
-		liveNode = layoutNodes?.find((node) => node.id === normalizedNodeId) || graphData?.nodes?.find((node) => node.id === normalizedNodeId) || liveNode;
+		liveNode = getNodeById(normalizedNodeId) || liveNode;
 	}
 	if (liveNode) return liveNode;
 
@@ -928,6 +1004,40 @@ function loadSession() {
 		}
 
 		// Legacy fallback: old sessionStorage payload
+		const legacy = sessionStorage.getItem(LS_SESSION_KEY);
+		return legacy ? JSON.parse(legacy) : null;
+	} catch {
+		return null;
+	}
+}
+
+async function loadSessionAsync() {
+	try {
+		const raw = localStorage.getItem(LS_SESSION_KEY);
+		if (raw) {
+			const parsed = JSON.parse(raw);
+			if (parsed && typeof parsed === 'object' && parsed.pointer === 'idb') {
+				const envelope = await loadSessionFromIndexedDB();
+				if (envelope && typeof envelope === 'object') {
+					const expiresAt = Number(envelope.expiresAt || 0);
+					if (!Number.isFinite(expiresAt) || Date.now() > expiresAt) {
+						localStorage.removeItem(LS_SESSION_KEY);
+						return null;
+					}
+					return envelope.data || null;
+				}
+			}
+			if (parsed && typeof parsed === 'object' && 'data' in parsed) {
+				const expiresAt = Number(parsed.expiresAt || 0);
+				if (!Number.isFinite(expiresAt) || Date.now() > expiresAt) {
+					localStorage.removeItem(LS_SESSION_KEY);
+					return null;
+				}
+				return parsed.data || null;
+			}
+			return parsed || null;
+		}
+
 		const legacy = sessionStorage.getItem(LS_SESSION_KEY);
 		return legacy ? JSON.parse(legacy) : null;
 	} catch {
@@ -4587,7 +4697,7 @@ async function loadGraph() {
 
 		const profileData = await loadProfile(profileName);
 		currentProfileEnabled = isProfileEnabled(profileData);
-		const session = loadSession();
+		const session = await loadSessionAsync();
 		const clearedSession = Boolean(session?.cleared);
 		isSessionCleared = clearedSession;
 		const hasSavedSessionData = Boolean(
@@ -6843,6 +6953,19 @@ function getNeighborIds(nodeId) {
 		if (tgtId === nodeId) ids.add(srcId);
 	});
 	return ids;
+}
+
+function getNodeById(nodeId) {
+	const normalizedNodeId = String(nodeId || '').trim();
+	if (!normalizedNodeId) return null;
+	if (Array.isArray(layoutNodes)) {
+		const found = layoutNodes.find((entry) => entry.id === normalizedNodeId);
+		if (found) return found;
+	}
+	if (graphData?.nodes) {
+		return Array.isArray(graphData.nodes) ? graphData.nodes.find((entry) => entry.id === normalizedNodeId) || null : null;
+	}
+	return null;
 }
 
 // Build a bidirectional adjacency map for O(1) neighbor lookups

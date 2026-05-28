@@ -3,6 +3,52 @@ import { getFullGraph, getProfilesFromStore } from '@/lib/graphStore';
 import { DEFAULT_EXPANSION_HOPS } from '@/lib/finra-graph-defaults';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 
+let cachedGraphRouteKey = '';
+let cachedGraphAdj: Map<string, string[]> | null = null;
+
+function getGraphRouteCacheKey(graph: any) {
+	return `${String(graph?.meta?.generated || '')}|${Number(graph?.nodes?.length || 0)}|${Number(graph?.links?.length || 0)}`;
+}
+
+function refreshGraphRouteCaches(graph: any) {
+	const key = getGraphRouteCacheKey(graph);
+	if (cachedGraphRouteKey === key && cachedGraphAdj) {
+		return { adj: cachedGraphAdj };
+	}
+
+	const adj = new Map<string, string[]>();
+	const nodes: any[] = Array.isArray(graph?.nodes) ? graph.nodes : [];
+	const links: any[] = Array.isArray(graph?.links) ? graph.links : [];
+
+	nodes.forEach((node) => {
+		const id = String(node?.id || '').trim();
+		if (id) adj.set(id, []);
+	});
+	for (const l of links) {
+		const s = String((l.source?.id ?? l.source) || '').trim();
+		const t = String((l.target?.id ?? l.target) || '').trim();
+		if (!s || !t) continue;
+		if (!adj.has(s)) adj.set(s, []);
+		if (!adj.has(t)) adj.set(t, []);
+		adj.get(s)!.push(t);
+		adj.get(t)!.push(s);
+	}
+
+	cachedGraphRouteKey = key;
+	cachedGraphAdj = adj;
+	return { adj };
+}
+
+function sampleNodesRandomly(nodes: any[], limit: number) {
+	const count = Math.max(0, Math.min(limit, nodes.length));
+	const sampled = nodes.slice();
+	for (let i = sampled.length - 1; i > sampled.length - 1 - count; i -= 1) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[sampled[i], sampled[j]] = [sampled[j], sampled[i]];
+	}
+	return sampled.slice(sampled.length - count);
+}
+
 async function getProfilesData() {
 	return getProfilesFromStore();
 }
@@ -16,19 +62,11 @@ export async function GET(request: NextRequest) {
 		const graph = await getFullGraph();
 		const nodes: any[] = graph.nodes || [];
 		const links: any[] = graph.links || [];
-
-		const degree = new Map<string, number>();
-		for (const l of links) {
-			const s = l.source?.id ?? l.source;
-			const t = l.target?.id ?? l.target;
-			degree.set(s, (degree.get(s) || 0) + 1);
-			degree.set(t, (degree.get(t) || 0) + 1);
-		}
+		const { adj: cachedAdj } = refreshGraphRouteCaches(graph);
 
 		// Select random seeds based on the limit parameter
-		const shuffled = nodes.slice().sort(() => Math.random() - 0.5);
-		const seeds: any[] = shuffled.slice(0, limit);
-		const seedIds = new Set(seeds.map((n) => n.id));
+		const seeds: any[] = sampleNodesRandomly(nodes, limit);
+		const seedIds = new Set(seeds.map((n) => String(n.id || '').trim()));
 
 		if (profileName) {
 			const pr = await getProfilesData();
@@ -48,20 +86,12 @@ export async function GET(request: NextRequest) {
 		}
 
 		const neighborIds = new Set(seedIds);
-		const adj = new Map<string, string[]>();
-		for (const l of links) {
-			const s = l.source?.id ?? l.source;
-			const t = l.target?.id ?? l.target;
-			if (!adj.has(s)) adj.set(s, []);
-			if (!adj.has(t)) adj.set(t, []);
-			adj.get(s)!.push(t);
-			adj.get(t)!.push(s);
-		}
+		const graphAdj = cachedAdj || new Map<string, string[]>();
 		let frontier = new Set(seedIds);
 		for (let h = 0; h < DEFAULT_EXPANSION_HOPS; h++) {
 			const next = new Set<string>();
 			for (const id of frontier) {
-				for (const nid of adj.get(id) || []) {
+				for (const nid of graphAdj.get(id) || []) {
 					if (!neighborIds.has(nid)) {
 						neighborIds.add(nid);
 						next.add(nid);
