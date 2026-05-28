@@ -11,6 +11,7 @@ let dpr = 1;
 const detailCache = new Map<string, any>();
 let hoverTimerGlobal: number | null = null;
 let activeTooltipIdGlobal: string | null = null;
+const OVERLAY_LABEL_ZOOM_THRESHOLD = 1.6;
 
 function worldToScreen(x: number, y: number, transform: { x: number; y: number; k: number }) {
 	return { x: transform.x + x * transform.k, y: transform.y + y * transform.k };
@@ -152,10 +153,11 @@ function createLabelElement(node: Node) {
 
 export function updateOverlay(nodes: Node[], transform: { x: number; y: number; k: number }, opts: { selectedId?: string | number } = {}) {
 	if (!container || !parentEl) return;
-	// Simple policy: render labels for the selected node and if zoomed in enough, a few visible nodes
+	// Only show overlay labels once the user is zoomed in enough.
 	const rect = parentEl.getBoundingClientRect();
 	const w = rect.width,
 		h = rect.height;
+	const scale = transform.k || 1;
 	const invK = 1 / (transform.k || 1);
 	const minX = -transform.x * invK - 40;
 	const minY = -transform.y * invK - 40;
@@ -165,13 +167,13 @@ export function updateOverlay(nodes: Node[], transform: { x: number; y: number; 
 	// compute visible nodes
 	const visible = (nodes || []).filter((n) => n && Number.isFinite(n.x) && Number.isFinite(n.y) && n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY);
 
-	// choose nodes to label: always include selected, then up to 60 nodes when zoomed in
+	// choose nodes to label only when zoomed in enough
 	const toLabel: Node[] = [];
-	if (opts.selectedId) {
-		const sel = visible.find((n) => String(n.id) === String(opts.selectedId));
-		if (sel) toLabel.push(sel);
-	}
-	if ((transform.k || 1) > 0.7) {
+	if (scale >= OVERLAY_LABEL_ZOOM_THRESHOLD) {
+		if (opts.selectedId) {
+			const sel = visible.find((n) => String(n.id) === String(opts.selectedId));
+			if (sel) toLabel.push(sel);
+		}
 		// sort by degree-ish if present, else leave order
 		const withDegree = visible.map((n) => ({ n, deg: n._deg || n.degree || 0 }));
 		withDegree.sort((a, b) => b.deg - a.deg);
