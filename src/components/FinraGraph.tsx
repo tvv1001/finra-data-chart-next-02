@@ -602,30 +602,42 @@ export default function FinraGraph() {
 					<div className='fg-log-drawer-header'>
 						<h3>Selection Log</h3>
 						<div className='fg-log-drawer-actions'>
-							<button
-								id='btn-selection-log-trace'
-								data-fg-selection-log-action='trace'
-								className='fg-ghost-btn fg-btn-sm'
-								type='button'
-								title='Trace path between all logged nodes'>
-								Trace with Log
-							</button>
-							<button
-								id='btn-selection-log-copy-all'
-								data-fg-selection-log-action='copy-all'
-								className='fg-ghost-btn fg-btn-sm'
-								type='button'
-								title='Copy all entries'>
-								Copy All
-							</button>
-							<button
-								id='btn-selection-log-clear'
-								data-fg-selection-log-action='clear'
-								className='fg-ghost-btn fg-btn-sm'
-								type='button'
-								title='Clear log'>
-								Clear
-							</button>
+							<div className='fg-log-drawer-actions-row fg-log-drawer-actions-row--primary'>
+								<button
+									id='btn-selection-log-trace'
+									data-fg-selection-log-action='trace'
+									className='fg-ghost-btn fg-btn-sm'
+									type='button'
+									title='Trace path between all logged nodes'>
+									Trace with Log
+								</button>
+							</div>
+							<div className='fg-log-drawer-actions-row fg-log-drawer-actions-row--secondary'>
+								<button
+									id='btn-selection-log-copy-all'
+									data-fg-selection-log-action='copy-all'
+									className='fg-ghost-btn fg-btn-sm'
+									type='button'
+									title='Copy all entries'>
+									Copy All
+								</button>
+								<button
+									id='btn-selection-log-bold'
+									data-fg-selection-log-action='toggle-bold'
+									className='fg-ghost-btn fg-btn-sm'
+									type='button'
+									title='Make log entries larger and bolder'>
+									Log Bold
+								</button>
+								<button
+									id='btn-selection-log-clear'
+									data-fg-selection-log-action='clear'
+									className='fg-ghost-btn fg-btn-sm'
+									type='button'
+									title='Clear log'>
+									Clear
+								</button>
+							</div>
 						</div>
 					</div>
 					<div

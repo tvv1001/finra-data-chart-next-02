@@ -2436,15 +2436,18 @@ a,
 .fg-log-drawer-actions--sidebar {
 	padding-top: 2px;
 	display: grid;
-	grid-template-columns: repeat(4, minmax(0, 1fr));
+	grid-template-columns: minmax(0, 1fr);
 	gap: 6px;
 }
 
 .fg-log-drawer-actions-row {
-	display: contents;
+	display: flex;
+	width: 100%;
+	gap: 6px;
 }
 
 .fg-log-drawer-actions-row .fg-btn-sm {
+	flex: 1 1 0;
 	min-width: 0;
 	justify-content: center;
 }
@@ -3228,6 +3231,23 @@ a,
 	font-size: calc(11px * var(--fg-trace-label-scale, 1)) !important;
 }
 
+.fg-root.fg-selection-log-labels text.fg-label {
+	font-size: calc(11px * var(--fg-selection-log-label-scale, 1)) !important;
+	stroke-width: 5px !important;
+}
+
+.fg-root.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
+	display: block !important;
+	font-size: calc(11px * var(--fg-selection-log-label-scale, 1)) !important;
+	font-weight: 700 !important;
+	opacity: 1 !important;
+	stroke-width: 5px !important;
+}
+
+.fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
+	display: block !important;
+}
+
 .fg-root.fg-trace-labels .fg-node.trace-shortest text.fg-label,
 .fg-root.fg-trace-labels .fg-node.trace-shortest-connector text.fg-label,
 .fg-root.fg-trace-labels .fg-node.trace-longest text.fg-label,
@@ -3930,11 +3950,10 @@ text.fg-label {
 }
 
 .fg-log-drawer-actions {
-	display: flex;
+	display: grid;
 	width: 100%;
 	gap: 6px;
-	align-items: center;
-	flex-wrap: wrap;
+	grid-template-columns: minmax(0, 1fr);
 }
 
 .fg-selection-log-list {
