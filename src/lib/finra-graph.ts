@@ -38,7 +38,7 @@ const BASE = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL)
 
 // Firms known to have broken or unreachable FINRA/BrokerCheck summary pages.
 // Add CRD numbers here to suppress FINRA links for those firms.
-const BROKEN_FINRA_FIRM_IDS = new Set(['134139']);
+const BROKEN_FINRA_FIRM_IDS = new Set(['134139', '298880', '314694']);
 // Individual IDs for which SEC AdvisorInfo links should be suppressed.
 // Add numeric individual CRD-like ids (no prefix) here when upstream SEC pages are incorrect or undesirable.
 const SUPPRESSED_SEC_INDIV_IDS = new Set(['18040']);
@@ -399,10 +399,71 @@ function hasTrustedCurrentRelationshipData(node) {
 	return false;
 }
 
+function hasKnownRevealableChildCount(node) {
+	if (!node || typeof node !== 'object') return false;
+	if (node.group === 'individual') {
+		const hasKnownCurrentEmployments = Array.isArray(node.currentEmployments) && Array.isArray(node.currentIAEmployments);
+		if (!hasKnownCurrentEmployments) return false;
+		if (!isNodeInactive(node)) return true;
+
+		const hasKnownPreviousEmployments = Array.isArray(node.previousEmployments);
+		const hasKnownPreviousIaEmployments = !Object.prototype.hasOwnProperty.call(node, 'previousIAEmployments') || Array.isArray(node.previousIAEmployments);
+		return hasKnownPreviousEmployments && hasKnownPreviousIaEmployments;
+	}
+	if (node.group === 'firm') {
+		return Array.isArray(node.directOwners) || getKnownCurrentFirmConnectionIds(node).size > 0;
+	}
+	return false;
+}
+
+function getExpectedIndividualRevealableEmployments(node) {
+	if (!node || node.group !== 'individual') return [];
+	const employments = [...(Array.isArray(node.currentEmployments) ? node.currentEmployments : []), ...(Array.isArray(node.currentIAEmployments) ? node.currentIAEmployments : [])];
+	if (isNodeInactive(node)) {
+		employments.push(...(Array.isArray(node.previousEmployments) ? node.previousEmployments : []));
+		employments.push(...(Array.isArray(node.previousIAEmployments) ? node.previousIAEmployments : []));
+	}
+	return employments;
+}
+
+function getKnownCurrentFirmConnectionIds(node) {
+	const currentConnectionIds = new Set<string>();
+	const firmNodeId = String(node?.id || '').trim();
+	if (!firmNodeId) return currentConnectionIds;
+
+	const seenLinkKeys = new Set<string>();
+	const allLinks = [...(Array.isArray(layoutLinks) ? layoutLinks : []), ...(Array.isArray(graphData?.links) ? graphData.links : [])];
+	allLinks.forEach((link) => {
+		if (!link) return;
+		const linkKey = getLinkKey(link);
+		if (seenLinkKeys.has(linkKey)) return;
+		seenLinkKeys.add(linkKey);
+
+		const sourceId = String(link.source?.id ?? link.source ?? '').trim();
+		const targetId = String(link.target?.id ?? link.target ?? '').trim();
+		if (!sourceId || !targetId) return;
+		if (sourceId !== firmNodeId && targetId !== firmNodeId) return;
+
+		if (link.relationship === 'controls') {
+			const endDate = String(link?.endDate || link?.registrationEndDate || link?.toDate || '').trim();
+			if (endDate) return;
+		} else if (!isCurrentRegistration(link)) {
+			return;
+		}
+
+		const otherId = sourceId === firmNodeId ? targetId : sourceId;
+		if (otherId) currentConnectionIds.add(otherId);
+	});
+
+	return currentConnectionIds;
+}
+
 function isFetchedLeafNode(node) {
 	if (!node?.id) return false;
 	if (initialServerNodeIds instanceof Set && initialServerNodeIds.has(node.id)) return false;
 	if (!hasTrustedCurrentRelationshipData(node)) return false;
+	if (!hasKnownRevealableChildCount(node)) return false;
+	if (getExpectedRevealableNeighborIds(node).size > 0) return false;
 	const neighborCount = neighborMap?.get(node.id)?.size;
 	if (typeof neighborCount === 'number') return neighborCount === 0;
 	if (!Array.isArray(layoutLinks) || layoutLinks.length === 0) return true;
@@ -411,6 +472,73 @@ function isFetchedLeafNode(node) {
 		const targetId = link.target?.id ?? link.target;
 		return sourceId === node.id || targetId === node.id;
 	});
+}
+
+function getVisibleRevealableNeighborIds(nodeId) {
+	const visibleNeighborIds = new Set<string>();
+	if (!nodeId || !Array.isArray(layoutLinks) || !layoutLinks.length) return visibleNeighborIds;
+	layoutLinks.forEach((link) => {
+		if (!isNonGrayExpansionLink(link)) return;
+		const sourceId = link.source?.id ?? link.source;
+		const targetId = link.target?.id ?? link.target;
+		if (sourceId === nodeId && targetId) visibleNeighborIds.add(targetId);
+		if (targetId === nodeId && sourceId) visibleNeighborIds.add(sourceId);
+	});
+	return visibleNeighborIds;
+}
+
+function getExpectedRevealableNeighborIds(node) {
+	const expectedNeighborIds = new Set<string>();
+	if (!node || typeof node !== 'object') return expectedNeighborIds;
+
+	if (node.group === 'individual') {
+		const employments = getExpectedIndividualRevealableEmployments(node);
+		employments.forEach((employment) => {
+			const firmId = String(employment?.firmId || employment?.firm_id || employment?.firmIdNumber || employment?.organizationId || employment?.orgId || '').trim();
+			const firmName = String(
+				employment?.firmName || employment?.firm_name || employment?.organizationName || employment?.firm || employment?.name || employment?.legalName || '',
+			).trim();
+			const existingFirmNode = findExistingFirmNode(firmId, { label: firmName });
+			const syntheticFirmNodeId = !firmId && !existingFirmNode && firmName ? buildSyntheticFirmNodeId(firmName) : null;
+			const firmNodeId = existingFirmNode?.id || (firmId ? `firm:${firmId}` : syntheticFirmNodeId);
+			if (firmNodeId) expectedNeighborIds.add(firmNodeId);
+		});
+		return expectedNeighborIds;
+	}
+
+	if (node.group === 'firm') {
+		for (const connectedNodeId of getKnownCurrentFirmConnectionIds(node)) {
+			expectedNeighborIds.add(connectedNodeId);
+		}
+		for (const owner of node.directOwners || []) {
+			const personId = String(owner?.crdNumber || owner?.crd || owner?.personId || '').trim();
+			if (personId) expectedNeighborIds.add(`person:${personId}`);
+		}
+	}
+
+	return expectedNeighborIds;
+}
+
+function isFetchedExhaustedConnectedNode(node) {
+	if (!node?.id) return false;
+	if (initialServerNodeIds instanceof Set && initialServerNodeIds.has(node.id)) return false;
+	if (!hasTrustedCurrentRelationshipData(node)) return false;
+	if (!hasKnownRevealableChildCount(node)) return false;
+
+	const neighborCount = neighborMap?.get(node.id)?.size;
+	if (!(typeof neighborCount === 'number' ? neighborCount > 0 : getNeighborIds(node.id).size > 0)) return false;
+
+	const expectedNeighborIds = getExpectedRevealableNeighborIds(node);
+	if (!expectedNeighborIds.size) return false;
+
+	const visibleNeighborIds = getVisibleRevealableNeighborIds(node.id);
+	if (!visibleNeighborIds.size) return false;
+
+	for (const expectedNeighborId of expectedNeighborIds) {
+		if (!visibleNeighborIds.has(expectedNeighborId)) return false;
+	}
+
+	return true;
 }
 
 function markUserInitiatedGraphExpansion() {
@@ -5683,7 +5811,10 @@ function reapplySelectionState() {
 	if (!nodeSel) return;
 	const highlightState = computeHighlightState();
 	nodeSel
-		.classed('selected', (node) => node.id === selectedId || visitedNodeIds.has(node.id) || highlightState.nodeIds.has(node.id) || isFetchedLeafNode(node))
+		.classed(
+			'selected',
+			(node) => node.id === selectedId || visitedNodeIds.has(node.id) || highlightState.nodeIds.has(node.id) || isFetchedLeafNode(node) || isFetchedExhaustedConnectedNode(node),
+		)
 		.classed('highlighted-hop', (node) => node.id !== selectedId && !highlightState.rootIds.has(node.id) && highlightState.hopNodeIds.has(node.id));
 
 	// Trace Mode node highlights — endpoints get trace-* class, connectors get trace-*-connector class
@@ -9868,6 +9999,120 @@ function renderPersonDetail(d: any) {
 function renderFirmDetail(d: any) {
 	const owners = d.directOwners || [];
 	const disclosures = d.disclosures || [];
+	function buildFirmCurrentConnections() {
+		const firmNodeId = String(d?.id || '').trim();
+		if (!firmNodeId) return [];
+
+		const nodeLookup = new Map<string, any>();
+		(layoutNodes || []).forEach((node) => {
+			if (node?.id) nodeLookup.set(String(node.id), node);
+		});
+		(graphData?.nodes || []).forEach((node) => {
+			if (node?.id && !nodeLookup.has(String(node.id))) nodeLookup.set(String(node.id), node);
+		});
+
+		const directOwnerByCrd = new Map<string, any>();
+		owners.forEach((owner) => {
+			const ownerCrd = String(owner?.crdNumber || owner?.crd || owner?.personId || '').trim();
+			if (ownerCrd) directOwnerByCrd.set(ownerCrd, owner);
+		});
+
+		const seen = new Set<string>();
+		const entries: Array<{
+			id: string;
+			label: string;
+			group: string;
+			crd: string;
+			relationshipLabel: string;
+			position: string;
+			dateText: string;
+		}> = [];
+
+		const allLinks = [...(layoutLinks || []), ...(graphData?.links || [])];
+		allLinks.forEach((link) => {
+			const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+			const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+			if (!sourceId || !targetId) return;
+			if (sourceId !== firmNodeId && targetId !== firmNodeId) return;
+
+			const otherId = sourceId === firmNodeId ? targetId : sourceId;
+			if (!otherId) return;
+
+			const otherNode = nodeLookup.get(otherId) || null;
+			const otherGroup = String(
+				otherNode?.group ||
+					(otherId.startsWith('person:') ? 'individual'
+					: otherId.startsWith('entity:') ? 'entity'
+					: ''),
+			).trim();
+			if (!otherGroup) return;
+
+			const otherCrd = otherGroup === 'individual' ? String(otherNode?.crd || otherId.replace(/^(?:person[:_])?/, '')).trim() : '';
+
+			let relationshipLabel = '';
+			let position = '';
+			let isCurrentConnection = false;
+			if (link.relationship === 'controls') {
+				const controlOwner = (otherCrd && directOwnerByCrd.get(otherCrd)) || null;
+				const controlEndDate = String(link?.endDate || link?.registrationEndDate || link?.toDate || '').trim();
+				isCurrentConnection = Boolean(controlOwner) || !controlEndDate;
+				relationshipLabel = 'Control';
+				position = String(controlOwner?.position || link?.position || link?.title || link?.role || '').trim();
+			} else if (link.relationship === 'employed_by') {
+				const sourceNode = (typeof link?.source === 'object' && link.source) || nodeLookup.get(sourceId) || null;
+				const targetFirmId = String(d?.firmId || firmNodeId.replace(/^(?:firm[:_])?/, '')).trim();
+				const currentEmployments = [
+					...(Array.isArray(sourceNode?.currentEmployments) ? sourceNode.currentEmployments : []),
+					...(Array.isArray(sourceNode?.currentIAEmployments) ? sourceNode.currentIAEmployments : []),
+				];
+				const previousEmployments = [
+					...(Array.isArray(sourceNode?.previousEmployments) ? sourceNode.previousEmployments : []),
+					...(Array.isArray(sourceNode?.previousIAEmployments) ? sourceNode.previousIAEmployments : []),
+				];
+				if (link?.isCurrent !== undefined) {
+					isCurrentConnection = Boolean(link.isCurrent);
+				} else if (targetFirmId && currentEmployments.some((employment) => String(employment?.firmId || employment?.firm_id || '').trim() === targetFirmId)) {
+					isCurrentConnection = true;
+				} else if (targetFirmId && previousEmployments.some((employment) => String(employment?.firmId || employment?.firm_id || '').trim() === targetFirmId)) {
+					isCurrentConnection = false;
+				} else {
+					const linkEndDate = String(link?.endDate || link?.registrationEndDate || link?.toDate || '').trim();
+					isCurrentConnection = !linkEndDate;
+				}
+				relationshipLabel = 'Current registration';
+			}
+
+			if (!isCurrentConnection || !relationshipLabel) return;
+
+			const dedupeKey = `${otherId}|${relationshipLabel}`;
+			if (seen.has(dedupeKey)) return;
+			seen.add(dedupeKey);
+
+			const label = String(getPreferredNodeLabel(otherNode) || otherNode?.label || link?.legalName || link?.name || link?.personName || otherId).trim() || otherId;
+			const startDate = String(link?.startDate || link?.registrationBeginDate || link?.fromDate || link?.effectiveDate || '').trim();
+			entries.push({
+				id: otherId,
+				label,
+				group: otherGroup,
+				crd: otherCrd,
+				relationshipLabel,
+				position,
+				dateText: startDate ? `Since ${startDate}` : '',
+			});
+		});
+
+		return entries.sort((a, b) => {
+			const relationshipOrder = (value: string) =>
+				value === 'Current registration' ? 0
+				: value === 'Control' ? 1
+				: 2;
+			const relationshipDiff = relationshipOrder(a.relationshipLabel) - relationshipOrder(b.relationshipLabel);
+			if (relationshipDiff !== 0) return relationshipDiff;
+			return String(a.label).localeCompare(String(b.label));
+		});
+	}
+
+	const currentConnections = buildFirmCurrentConnections();
 	function parseFirmSortDateValue(value: any) {
 		const raw = String(value || '').trim();
 		if (!raw) return Number.NEGATIVE_INFINITY;
@@ -10069,6 +10314,31 @@ function renderFirmDetail(d: any) {
 				: 'N/A',
 			)}
       ${row('Regulator', esc(d.regulator || '–'))}
+			${
+				currentConnections.length ?
+					`<div class="fg-section-title fg-section-title--sticky">Current Connections (${currentConnections.length})</div>
+					<div class="fg-timeline">
+						${currentConnections
+							.map((connection) => {
+								const metaBits = [connection.relationshipLabel, connection.position, connection.dateText].filter(Boolean);
+								const metaHtml = metaBits.length ? `<span class="fg-tl-loc">${esc(metaBits.join(' · '))}</span>` : '';
+								if (connection.group === 'individual' && connection.crd) {
+									return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-crd-link" data-crd="${esc(connection.crd)}" data-crd-type="person"><span class="fg-tl-firm">${esc(connection.label)}${connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>` : ''}</span>${metaHtml}</button>`;
+								}
+								if (connection.group === 'firm') {
+									const connectedFirmId = String(connection.id || '')
+										.replace(/^(?:firm[:_])?/, '')
+										.trim();
+									if (connectedFirmId) {
+										return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-crd-link" data-crd="${esc(connectedFirmId)}" data-crd-type="firm"><span class="fg-tl-firm">${esc(connection.label)} <small>CRD#${esc(connectedFirmId)}</small></span>${metaHtml}</button>`;
+									}
+								}
+								return `<div class="fg-tl-entry active-pos"><span class="fg-tl-firm">${esc(connection.label)}</span>${metaHtml}</div>`;
+							})
+							.join('')}
+					</div>`
+				:	''
+			}
 			<div class="fg-section-title fg-section-title--sticky">General Information</div>
       ${row('Established in', d.formedState ? `${esc(d.formedState)}${d.formedDate ? ' since ' + d.formedDate : ''}` : '–')}
       ${row('Type', esc(d.firmType || '–'))}

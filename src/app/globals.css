@@ -52,8 +52,8 @@
 
 	/* Selected state */
 	--color-node-selected-stroke: rgb(0, 7, 21);
-	--color-node-firm-selected-stroke: #8b5947;
-	--color-node-firm-selected-overlay: rgba(255, 251, 235, 0.72);
+	--color-node-firm-selected-stroke: #2563eb;
+	--color-node-firm-selected-overlay: rgba(59, 130, 246, 0.22);
 	--color-node-depth-overlay: rgba(255, 255, 255, 0.96);
 	--opacity-node-selected: 1;
 	--fill-opacity-node-selected: 0.8;
@@ -65,7 +65,7 @@
 	--stroke-width-node-selected: 1.5;
 	--stroke-width-node-firm-selected: 2.2;
 	--shadow-node-selected: drop-shadow(2px 3px 4px rgba(10, 18, 38, 0.36)) drop-shadow(0 0 8px rgba(54, 61, 75, 0.5));
-	--shadow-node-firm-selected: drop-shadow(2px 3px 4px rgba(10, 18, 38, 0.36)) drop-shadow(0 0 10px rgba(217, 119, 6, 0.28)) drop-shadow(0 0 20px rgba(120, 53, 15, 0.18));
+	--shadow-node-firm-selected: drop-shadow(2px 3px 4px rgba(10, 18, 38, 0.36)) drop-shadow(0 0 10px rgba(37, 99, 235, 0.26)) drop-shadow(0 0 20px rgba(29, 78, 216, 0.18));
 	--shadow-link: drop-shadow(0 1px 1px rgba(15, 23, 42, 0.18));
 	--shadow-link-active: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.28));
 	--shadow-link-trace-shortest: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.45)) drop-shadow(0 0 5px rgba(34, 197, 94, 0.28));

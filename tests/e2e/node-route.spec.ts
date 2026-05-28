@@ -163,6 +163,303 @@ test('Fetched nodes with zero child links render as selected automatically', asy
 	await expect(page.locator('.fg-link')).toHaveCount(0);
 });
 
+test('Fetched inactive nodes with hidden previous relationships do not auto-select as leaves', async ({ page }) => {
+	await page.route('**/api/finra/graph**', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({
+				nodes: [],
+				links: [],
+				meta: {
+					subset: true,
+					profile: 'custom',
+					renderedNodes: 0,
+					totalNodes: 0,
+					totalLinks: 0,
+				},
+			}),
+		});
+	});
+
+	await page.goto('/');
+	await resetBrowserGraphState(page);
+	await seedStoredSession(page, {
+		extraNodes: [
+			{
+				id: 'person:2171408',
+				label: 'Ronald Perry Mason',
+				group: 'individual',
+				crd: '2171408',
+				bcScope: 'InActive',
+				basicInformation: {
+					individualId: '2171408',
+					firstName: 'Ronald',
+					middleName: 'Perry',
+					lastName: 'Mason',
+					bcScope: 'InActive',
+				},
+				registrationCount: {
+					approvedFinraRegistrationCount: 0,
+					approvedSRORegistrationCount: 0,
+					approvedStateRegistrationCount: 0,
+					approvedIAStateRegistrationCount: 0,
+				},
+				currentEmployments: [],
+				currentIAEmployments: [],
+				previousEmployments: [{ firmId: '13686', firmName: 'H.D. VEST INVESTMENT SERVICES' }],
+				_detailLoaded: true,
+				_trustedCurrentRelationshipData: true,
+			},
+		],
+		extraLinks: [],
+	});
+	await page.reload();
+
+	const inactiveHistoricalNode = page.locator('.fg-node').filter({ hasText: 'Ronald Perry Mason' });
+	await expect
+		.poll(async () => page.locator('.fg-node').count(), {
+			timeout: 10_000,
+			message: 'expected the inactive Mason regression node to render before asserting leaf-selection behavior',
+		})
+		.toBe(1);
+	await expect(inactiveHistoricalNode).toHaveCount(1);
+	await expect(inactiveHistoricalNode).toHaveClass(/fg-node--inactive/);
+	await expect(inactiveHistoricalNode).not.toHaveClass(/selected/);
+	await expect(page.locator('.fg-link')).toHaveCount(0);
+});
+
+test('Fetched connected nodes render as selected when all trusted current relationships are already visible', async ({ page }) => {
+	await page.route('**/api/finra/graph**', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({
+				nodes: [],
+				links: [],
+				meta: {
+					subset: true,
+					profile: 'custom',
+					renderedNodes: 0,
+					totalNodes: 0,
+					totalLinks: 0,
+				},
+			}),
+		});
+	});
+
+	await page.goto('/');
+	await resetBrowserGraphState(page);
+	await seedStoredSession(page, {
+		extraNodes: [
+			{
+				id: 'firm:143571',
+				label: 'Trusted Visible Firm',
+				group: 'firm',
+				firmId: '143571',
+			},
+			{
+				id: 'person:999113',
+				label: 'Trusted Connected Fetch',
+				group: 'individual',
+				crd: '999113',
+				basicInformation: {
+					individualId: '999113',
+					firstName: 'Trusted',
+					lastName: 'Connected Fetch',
+				},
+				registrationCount: {
+					approvedFinraRegistrationCount: 1,
+					approvedSRORegistrationCount: 0,
+					approvedStateRegistrationCount: 0,
+					approvedIAStateRegistrationCount: 0,
+				},
+				currentEmployments: [{ firmId: '143571', firmName: 'Trusted Visible Firm' }],
+				currentIAEmployments: [],
+				previousEmployments: [],
+				previousIAEmployments: [],
+				_detailLoaded: true,
+				_trustedCurrentRelationshipData: true,
+			},
+		],
+		extraLinks: [
+			{
+				source: 'person:999113',
+				target: 'firm:143571',
+				relationship: 'employed_by',
+				isCurrent: true,
+			},
+		],
+	});
+	await page.reload();
+
+	await expect
+		.poll(async () => page.locator('.fg-node').count(), {
+			timeout: 10_000,
+			message: 'expected the seeded connected fetched graph to render before asserting trusted exhaustion selection',
+		})
+		.toBe(2);
+
+	const connectedFetchedNode = page.locator('.fg-node').filter({ hasText: 'Trusted Connected Fetch' });
+	await expect(connectedFetchedNode).toHaveCount(1);
+	await expect(connectedFetchedNode).toHaveClass(/selected/);
+	await expect(page.locator('.fg-link')).toHaveCount(1);
+});
+
+test('Fetched connected nodes without trusted current relationship data do not auto-select', async ({ page }) => {
+	await page.route('**/api/finra/graph**', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({
+				nodes: [],
+				links: [],
+				meta: {
+					subset: true,
+					profile: 'custom',
+					renderedNodes: 0,
+					totalNodes: 0,
+					totalLinks: 0,
+				},
+			}),
+		});
+	});
+
+	await page.goto('/');
+	await resetBrowserGraphState(page);
+	await seedStoredSession(page, {
+		extraNodes: [
+			{
+				id: 'firm:143572',
+				label: 'Partial Visible Firm',
+				group: 'firm',
+				firmId: '143572',
+			},
+			{
+				id: 'person:999114',
+				label: 'Partial Connected Fetch',
+				group: 'individual',
+				crd: '999114',
+			},
+		],
+		extraLinks: [
+			{
+				source: 'person:999114',
+				target: 'firm:143572',
+				relationship: 'employed_by',
+				isCurrent: true,
+			},
+		],
+	});
+	await page.reload();
+
+	await expect
+		.poll(async () => page.locator('.fg-node').count(), {
+			timeout: 10_000,
+			message: 'expected the seeded partial connected graph to render before asserting no auto-selection',
+		})
+		.toBe(2);
+
+	const partialConnectedNode = page.locator('.fg-node').filter({ hasText: 'Partial Connected Fetch' });
+	await expect(partialConnectedNode).toHaveCount(1);
+	await expect(partialConnectedNode).not.toHaveClass(/selected/);
+	await expect(page.locator('.fg-link')).toHaveCount(1);
+});
+
+test('Fetched firms do not auto-select until their revealable child count is known', async ({ page }) => {
+	await page.route('**/api/finra/graph**', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({
+				nodes: [],
+				links: [],
+				meta: {
+					subset: true,
+					profile: 'custom',
+					renderedNodes: 0,
+					totalNodes: 0,
+					totalLinks: 0,
+				},
+			}),
+		});
+	});
+
+	await page.goto('/');
+	await resetBrowserGraphState(page);
+	await seedStoredSession(page, {
+		extraNodes: [
+			{
+				id: 'firm:555001',
+				label: 'Unknown Child Count Firm',
+				group: 'firm',
+				firmId: '555001',
+				_detailLoaded: true,
+				_detailValidated: true,
+			},
+		],
+		extraLinks: [],
+	});
+	await page.reload();
+
+	const fetchedFirmNode = page.locator('.fg-node').filter({ hasText: 'Unknown Child Count Firm' });
+	await expect
+		.poll(async () => page.locator('.fg-node').count(), {
+			timeout: 10_000,
+			message: 'expected the fetched firm node to render before asserting child-count gating',
+		})
+		.toBe(1);
+	await expect(fetchedFirmNode).toHaveCount(1);
+	await expect(fetchedFirmNode).not.toHaveClass(/selected/);
+	await expect(page.locator('.fg-link')).toHaveCount(0);
+});
+
+test('Direct route firm 314694 auto-selects when all graph-derived current connections are visible', async ({ page }) => {
+	await page.route('**/api/finra/graph**', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({
+				nodes: [],
+				links: [],
+				meta: {
+					subset: true,
+					profile: 'custom',
+					renderedNodes: 0,
+					totalNodes: 0,
+					totalLinks: 0,
+				},
+			}),
+		});
+	});
+
+	await page.goto('/');
+	await resetBrowserGraphState(page);
+	await page.goto('/node/firm-314694');
+
+	const fetchedFirmNode = page.locator('.fg-node').filter({ hasText: '103 Advisory Group' });
+	await expect
+		.poll(async () => page.locator('.fg-node').count(), {
+			timeout: 20_000,
+			message: 'expected the direct-route firm graph to render before asserting graph-derived firm auto-selection',
+		})
+		.toBe(2);
+	await expect(fetchedFirmNode).toHaveCount(1);
+	await expect(fetchedFirmNode).toHaveClass(/selected/);
+	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/);
+	await expect
+		.poll(
+			async () =>
+				page.evaluate(() => document.getElementById('fg-sidebar')?.getAttribute('data-displayed-id') || document.getElementById('fg-sidebar')?.dataset?.displayedId || ''),
+			{
+				timeout: 20_000,
+				message: 'expected the direct-route firm sidebar to stay focused on 314694 while asserting auto-selection',
+			},
+		)
+		.toBe('firm:314694');
+	await expect(page.locator('.fg-link')).toHaveCount(1);
+});
+
 test('Fetched nodes without full current relationship data do not auto-select as leaves', async ({ page }) => {
 	await page.route('**/api/finra/graph**', async (route) => {
 		await route.fulfill({
@@ -232,6 +529,267 @@ test('A direct node route restores that node selection on a clean session', asyn
 			},
 		)
 		.toBe('person:3102054');
+});
+
+test('Firm 298880 suppresses FINRA sidebar links', async ({ page }) => {
+	await page.route('**/api/finra/graph**', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({
+				nodes: [],
+				links: [],
+				meta: {
+					subset: true,
+					profile: 'custom',
+					renderedNodes: 0,
+					totalNodes: 0,
+					totalLinks: 0,
+				},
+			}),
+		});
+	});
+
+	await page.goto('/');
+	await resetBrowserGraphState(page);
+	await seedStoredSession(page, {
+		extraNodes: [
+			{
+				id: 'firm:298880',
+				label: 'Suppressed FINRA Firm',
+				group: 'firm',
+				firmId: '298880',
+				iaSecNumber: '8-114155',
+				bcScope: 'Active',
+				firmStatus: 'Active',
+				activeStates: ['CA'],
+				directOwners: [],
+				_detailLoaded: true,
+				_detailValidated: true,
+			},
+		],
+		extraLinks: [],
+	});
+	await page.reload();
+
+	const firmNode = page.locator('.fg-node').filter({ hasText: 'Suppressed FINRA Firm' });
+	await expect
+		.poll(async () => page.locator('.fg-node').count(), {
+			timeout: 10_000,
+			message: 'expected the suppressed firm node to render before opening the sidebar',
+		})
+		.toBe(1);
+	await firmNode.click({ force: true });
+
+	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/);
+	await expect(page.locator('#fg-sidebar .fg-ext-link.bc')).toHaveCount(0);
+	await expect(page.locator('#fg-sidebar .fg-ext-link.sec', { hasText: 'SEC AdvisorInfo Summary' })).toHaveCount(1);
+});
+
+test('Firm 314694 suppresses FINRA sidebar links', async ({ page }) => {
+	await page.route('**/api/finra/graph**', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({
+				nodes: [],
+				links: [],
+				meta: {
+					subset: true,
+					profile: 'custom',
+					renderedNodes: 0,
+					totalNodes: 0,
+					totalLinks: 0,
+				},
+			}),
+		});
+	});
+
+	await page.goto('/');
+	await resetBrowserGraphState(page);
+	await seedStoredSession(page, {
+		extraNodes: [
+			{
+				id: 'firm:314694',
+				label: '103 Advisory Group',
+				group: 'firm',
+				firmId: '314694',
+				iaSecNumber: '8-123666',
+				bcScope: 'Active',
+				firmStatus: 'Active',
+				activeStates: ['CA'],
+				directOwners: [],
+				otherNames: ['103 ADVISORY GROUP', '103 ADVISORY GROUP LLC'],
+				_detailLoaded: true,
+				_detailValidated: true,
+			},
+		],
+		extraLinks: [],
+	});
+	await page.reload();
+
+	const firmNode = page.locator('.fg-node').filter({ hasText: '103 Advisory Group' });
+	await expect
+		.poll(async () => page.locator('.fg-node').count(), {
+			timeout: 10_000,
+			message: 'expected the suppressed 314694 firm node to render before opening the sidebar',
+		})
+		.toBe(1);
+	await firmNode.click({ force: true });
+
+	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/);
+	await expect(page.locator('#fg-sidebar .fg-ext-link.bc')).toHaveCount(0);
+	await expect(page.locator('#fg-sidebar .fg-ext-link.sec', { hasText: 'SEC AdvisorInfo Summary' })).toHaveCount(1);
+});
+
+test('Firm 167790 suppresses FINRA sidebar links after direct-route hydration', async ({ page }) => {
+	await page.route('**/api/finra/graph**', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({
+				nodes: [],
+				links: [],
+				meta: {
+					subset: true,
+					profile: 'custom',
+					renderedNodes: 0,
+					totalNodes: 0,
+					totalLinks: 0,
+				},
+			}),
+		});
+	});
+
+	await page.goto('/');
+	await resetBrowserGraphState(page);
+	await page.goto('/node/firm-167790');
+
+	const firmNode = page.locator('.fg-node').filter({ hasText: 'CLIENT 1ST ADVISORY GROUP' });
+	await expect
+		.poll(async () => page.locator('.fg-node').count(), {
+			timeout: 20_000,
+			message: 'expected firm 167790 to hydrate on direct route before validating source links',
+		})
+		.toBe(2);
+	await expect(firmNode).toHaveCount(1);
+	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/);
+	await expect
+		.poll(
+			async () =>
+				page.evaluate(() => document.getElementById('fg-sidebar')?.getAttribute('data-displayed-id') || document.getElementById('fg-sidebar')?.dataset?.displayedId || ''),
+			{
+				timeout: 20_000,
+				message: 'expected the direct-route sidebar to stay focused on firm 167790',
+			},
+		)
+		.toBe('firm:167790');
+	await expect(page.locator('#fg-sidebar .fg-ext-link.bc')).toHaveCount(0);
+	await expect(page.locator('#fg-sidebar .fg-ext-link.sec', { hasText: 'SEC AdvisorInfo Summary' })).toHaveCount(1);
+});
+
+test('Firm sidebars show graph-derived current connections even without rich firm detail', async ({ page }) => {
+	await page.route('**/api/finra/graph**', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({
+				nodes: [],
+				links: [],
+				meta: {
+					subset: true,
+					profile: 'custom',
+					renderedNodes: 0,
+					totalNodes: 0,
+					totalLinks: 0,
+				},
+			}),
+		});
+	});
+
+	await page.route('**/api/finra/firm/2632784**', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({ found: false }),
+		});
+	});
+
+	await page.route('**/api/finra/merged/firm/2632784**', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({ found: false }),
+		});
+	});
+
+	await page.goto('/');
+	await resetBrowserGraphState(page);
+	await seedStoredSession(page, {
+		extraNodes: [
+			{
+				id: 'firm:2632784',
+				label: 'Sparse Detail Firm',
+				group: 'firm',
+				firmId: '2632784',
+				directOwners: [
+					{
+						crdNumber: '900001',
+						legalName: 'Owner Control Person',
+						position: 'CEO',
+					},
+				],
+			},
+			{
+				id: 'person:900001',
+				label: 'Owner Control Person',
+				group: 'individual',
+				crd: '900001',
+			},
+			{
+				id: 'person:900002',
+				label: 'Registered Rep Person',
+				group: 'individual',
+				crd: '900002',
+				currentEmployments: [{ firmId: '2632784', firmName: 'Sparse Detail Firm' }],
+				currentIAEmployments: [],
+				previousEmployments: [],
+				previousIAEmployments: [],
+			},
+		],
+		extraLinks: [
+			{
+				source: 'person:900001',
+				target: 'firm:2632784',
+				relationship: 'controls',
+				position: 'CEO',
+			},
+			{
+				source: 'person:900002',
+				target: 'firm:2632784',
+				relationship: 'employed_by',
+				isCurrent: true,
+				startDate: '1/1/2024',
+			},
+		],
+	});
+	await page.reload();
+
+	const firmNode = page.locator('.fg-node').filter({ hasText: 'Sparse Detail Firm' });
+	await expect
+		.poll(async () => page.locator('.fg-node').count(), {
+			timeout: 10_000,
+			message: 'expected the seeded sparse-detail firm graph to render before opening the sidebar',
+		})
+		.toBe(3);
+	await firmNode.click({ force: true });
+
+	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/);
+	await expect(page.locator('#fg-sidebar')).toContainText('Current Connections (2)');
+	await expect(page.locator('#fg-sidebar')).toContainText('Owner Control Person');
+	await expect(page.locator('#fg-sidebar')).toContainText('Registered Rep Person');
+	await expect(page.locator('#fg-sidebar')).toContainText('Current registration');
+	await expect(page.locator('#fg-sidebar')).toContainText('Control');
 });
 
 test('A legacy encoded node route still restores that node selection', async ({ page }) => {
