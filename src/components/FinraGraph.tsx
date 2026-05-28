@@ -604,19 +604,19 @@ export default function FinraGraph() {
 						<div className='fg-log-drawer-actions'>
 							<div className='fg-log-drawer-actions-row fg-log-drawer-actions-row--primary'>
 								<button
+									data-fg-selection-log-action='toggle-bold'
+									className='fg-ghost-btn fg-btn-sm'
+									type='button'
+									title='Make log entries larger and bolder'>
+									Log Bold
+								</button>
+								<button
 									id='btn-selection-log-trace'
 									data-fg-selection-log-action='trace'
 									className='fg-ghost-btn fg-btn-sm'
 									type='button'
 									title='Trace path between all logged nodes'>
 									Trace with Log
-								</button>
-								<button
-									data-fg-selection-log-action='toggle-bold'
-									className='fg-ghost-btn fg-btn-sm'
-									type='button'
-									title='Make log entries larger and bolder'>
-									Log Bold
 								</button>
 							</div>
 							<div className='fg-log-drawer-actions-row fg-log-drawer-actions-row--secondary'>

@@ -2508,7 +2508,6 @@ a,
 
 .fg-section-title {
 	display: block;
-	margin-top: 14px;
 	margin-left: calc(var(--fg-sidebar-sticky-bleed-left, 8px) * -1);
 	margin-right: calc(var(--fg-sidebar-sticky-bleed-right, 10px) * -1);
 	padding: 8px var(--fg-sidebar-sticky-bleed-right, 10px) 6px var(--fg-sidebar-sticky-bleed-left, 8px);
@@ -3906,6 +3905,31 @@ text.fg-label {
 		0 0 0 1px rgba(16, 185, 129, 0.14),
 		0 6px 14px rgba(15, 23, 42, 0.1);
 	font-weight: 700;
+}
+
+.fg-ghost-btn[data-fg-selection-log-action='toggle-bold'].active,
+.fg-ghost-btn[data-fg-selection-log-action='trace'].trace-log-active,
+.fg-ghost-btn[data-fg-trace-mode-button].trace-active,
+#fg-trace-mode.trace-active {
+	background: linear-gradient(180deg, rgba(16, 185, 129, 0.24), rgba(16, 185, 129, 0.14));
+	border-color: rgba(16, 185, 129, 0.58);
+	color: #047857;
+	box-shadow:
+		0 0 0 1px rgba(16, 185, 129, 0.18),
+		0 8px 18px rgba(15, 23, 42, 0.12);
+	font-weight: 700;
+}
+
+.fg-ghost-btn[data-fg-selection-log-action='toggle-bold'].active::before,
+.fg-ghost-btn[data-fg-selection-log-action='trace'].trace-log-active::before,
+.fg-ghost-btn[data-fg-trace-mode-button].trace-active::before,
+#fg-trace-mode.trace-active::before {
+	content: '✓';
+	font-size: 10px;
+	line-height: 1;
+	font-weight: 900;
+	color: currentColor;
+	flex: 0 0 auto;
 }
 
 /* ── Selection log drawer ────────────────────────────────────────────────── */

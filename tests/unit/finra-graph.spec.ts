@@ -9,7 +9,14 @@ import {
 	focusFetchInputWhenEmpty,
 	routeSidebarNodeSelection,
 } from '../../src/components/FinraGraph';
-import { isNodeInactive, isRevealableChainExhausted, loadSelectionLogBoldPreference, normalizeNodeLabelInPlace, upsertSelectionLogEntry } from '../../src/lib/finra-graph';
+import {
+	isNodeInactive,
+	isRevealableChainExhausted,
+	loadPersistedSidebarViewMode,
+	loadSelectionLogBoldPreference,
+	normalizeNodeLabelInPlace,
+	upsertSelectionLogEntry,
+} from '../../src/lib/finra-graph';
 
 describe('FinraGraph DOM helpers (unit)', () => {
 	beforeEach(() => {
@@ -56,6 +63,18 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		globalThis.localStorage.setItem('finra_selection_log_bold', 'false');
 
 		expect(loadSelectionLogBoldPreference()).toBe(false);
+	});
+
+	it('loadPersistedSidebarViewMode remembers collapsed state', () => {
+		window.sessionStorage.setItem('finra_sidebar_view_mode', 'none');
+
+		expect(loadPersistedSidebarViewMode()).toBe('none');
+	});
+
+	it('loadPersistedSidebarViewMode defaults to info when no preference is saved', () => {
+		window.sessionStorage.removeItem('finra_sidebar_view_mode');
+
+		expect(loadPersistedSidebarViewMode()).toBe('info');
 	});
 
 	it('upsertSelectionLogEntry moves reselected items to most recent', () => {
