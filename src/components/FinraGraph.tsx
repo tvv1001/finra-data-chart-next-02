@@ -159,6 +159,33 @@ function focusFetchInputWhenEmpty(options: { force?: boolean } = {}) {
 	});
 }
 
+function routeSidebarNodeSelection({
+	nodeId,
+	searchSuffix,
+	browserPathname,
+	pathname,
+	setBrowserPathname,
+	router,
+	pulseDuration = 5000,
+}: {
+	nodeId: string;
+	searchSuffix: string;
+	browserPathname: string;
+	pathname: string;
+	setBrowserPathname: (nextPath: string) => void;
+	router: { push: (href: string, options?: { scroll?: boolean }) => void };
+	pulseDuration?: number;
+}) {
+	const nextHref = buildNodeRouteHref(nodeId, searchSuffix);
+	const nextPath = buildNodeRoutePath(nodeId);
+	const currentHref = `${browserPathname || pathname || '/'}${searchSuffix}`;
+	if (nextHref !== currentHref) {
+		setBrowserPathname(nextPath);
+		router.push(nextHref, { scroll: false });
+	}
+	window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { nodeId, pulseDuration } }));
+}
+
 export default function FinraGraph() {
 	const mountedRef = useRef(false);
 	const appRef = useRef<HTMLDivElement | null>(null);
@@ -195,8 +222,15 @@ export default function FinraGraph() {
 					// Legacy behavior: assume numeric CRD clicked from employment means firm
 					nodeId = `firm:${crd}`;
 				}
-				// When routing to a node from the sidebar link, request a 5s pulse highlight
-				window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { nodeId, pulseDuration: 5000 } }));
+				routeSidebarNodeSelection({
+					nodeId,
+					searchSuffix,
+					browserPathname,
+					pathname,
+					setBrowserPathname,
+					router,
+					pulseDuration: 5000,
+				});
 				return;
 			}
 
@@ -225,7 +259,7 @@ export default function FinraGraph() {
 		};
 		sidebar.addEventListener('click', handler);
 		return () => sidebar.removeEventListener('click', handler);
-	}, [isMounted]);
+	}, [browserPathname, isMounted, pathname, router, searchSuffix]);
 
 	useEffect(() => {
 		setIsMounted(true);
@@ -814,4 +848,5 @@ export {
 	handleLegendTooltipBlur,
 	hideSelectionLog,
 	focusFetchInputWhenEmpty,
+	routeSidebarNodeSelection,
 };
