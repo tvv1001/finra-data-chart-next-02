@@ -1556,10 +1556,6 @@ function updateSelectionLogUI() {
 
 	containers.forEach((container) => {
 		container.innerHTML = '';
-		if (selectedNodesLog.length === 0) {
-			container.innerHTML = '<p class="fg-log-empty">No nodes selected yet.</p>';
-			return;
-		}
 
 		selectedNodesLog
 			.slice()
@@ -9398,7 +9394,6 @@ function renderSidebarSelectionLogBody() {
 				</div>
 			</div>
 			<div id="fg-sidebar-selection-log-list" class="fg-selection-log-list fg-selection-log-list--sidebar">
-				<p class="fg-log-empty">No nodes selected yet.</p>
 			</div>
 		</div>
 	`;

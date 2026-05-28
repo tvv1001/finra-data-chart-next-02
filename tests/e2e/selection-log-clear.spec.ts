@@ -21,7 +21,6 @@ test('Clear empties the standalone selection log and persists the empty state', 
 	await page.locator('#btn-selection-log-clear').click();
 
 	await expect(page.locator('#fg-selection-log-list .fg-log-entry')).toHaveCount(0);
-	await expect(page.locator('#fg-selection-log-list')).toContainText('No nodes selected yet.');
 	await expect(page.locator('#fg-selection-log')).toBeVisible();
 	await expect(page.locator('#btn-selection-log-trace')).toHaveAttribute('aria-pressed', 'true');
 	await expect
@@ -40,5 +39,4 @@ test('Clear empties the standalone selection log and persists the empty state', 
 	await page.reload();
 
 	await expect(page.locator('#fg-selection-log-list .fg-log-entry')).toHaveCount(0);
-	await expect(page.locator('#fg-selection-log-list')).toContainText('No nodes selected yet.');
 });
