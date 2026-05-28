@@ -3043,6 +3043,11 @@ a,
 	filter: drop-shadow(0 0 8px rgba(71, 85, 105, 0.42));
 }
 
+.fg-node.fg-node--inactive.selected .fg-node-overlay,
+.fg-node.fg-node--inactive.highlighted-hop .fg-node-overlay {
+	fill-opacity: var(--fill-opacity-node-depth-inactive) !important;
+}
+
 .fg-node.fg-node--firm.fg-node--inactive.selected .fg-node-shape--firm {
 	stroke: none !important;
 	stroke-width: 0 !important;
@@ -3066,6 +3071,12 @@ a,
 
 .fg-node.selected .fg-node-selected-ring {
 	display: inline;
+}
+
+.fg-node.fg-node--inactive.selected .fg-node-selected-ring {
+	stroke: var(--color-node-inactive-stroke);
+	stroke-opacity: 0.9;
+	stroke-dasharray: 4 2;
 }
 
 /* .fg-node.highlighted-hop circle,
@@ -3105,6 +3116,12 @@ a,
 	fill: #0f172a !important;
 	font-weight: 700;
 	opacity: 1 !important;
+}
+
+.fg-node.fg-node--inactive.selected text.fg-label,
+.fg-node.fg-node--inactive.highlighted-hop text.fg-label {
+	fill: var(--color-node-inactive-label) !important;
+	opacity: 0.72 !important;
 }
 
 /* Light theme: ensure SVG node labels are black with a subtle white outline for legibility
