@@ -649,9 +649,7 @@ export default function FinraGraph() {
 					</div>
 					<div
 						id='fg-selection-log-list'
-						className='fg-selection-log-list'>
-						<p className='fg-log-empty'>No nodes selected yet.</p>
-					</div>
+						className='fg-selection-log-list'></div>
 				</aside>
 
 				{/* Detail sidebar */}
