@@ -9,10 +9,26 @@ import {
 	focusFetchInputWhenEmpty,
 	routeSidebarNodeSelection,
 } from '../../src/components/FinraGraph';
-import { isNodeInactive, isRevealableChainExhausted, normalizeNodeLabelInPlace } from '../../src/lib/finra-graph';
+import { isNodeInactive, isRevealableChainExhausted, loadSelectionLogBoldPreference, normalizeNodeLabelInPlace, upsertSelectionLogEntry } from '../../src/lib/finra-graph';
 
 describe('FinraGraph DOM helpers (unit)', () => {
 	beforeEach(() => {
+		const storage = new Map<string, string>();
+		Object.defineProperty(globalThis, 'localStorage', {
+			configurable: true,
+			value: {
+				getItem: (key: string) => (storage.has(key) ? storage.get(key)! : null),
+				setItem: (key: string, value: string) => {
+					storage.set(key, String(value));
+				},
+				removeItem: (key: string) => {
+					storage.delete(key);
+				},
+				clear: () => {
+					storage.clear();
+				},
+			},
+		});
 		document.body.innerHTML = `
       <div id="fg-sidebar" class="fg-sidebar hidden" data-mobile-expanded="false"></div>
       <div id="fg-sidebar-backdrop" class="fg-sidebar-backdrop hidden"></div>
@@ -25,7 +41,38 @@ describe('FinraGraph DOM helpers (unit)', () => {
 	});
 
 	afterEach(() => {
+		globalThis.localStorage?.clear?.();
+		delete (globalThis as typeof globalThis & { localStorage?: Storage }).localStorage;
 		document.body.innerHTML = '';
+	});
+
+	it('loadSelectionLogBoldPreference defaults to bold on for new visitors', () => {
+		globalThis.localStorage.removeItem('finra_selection_log_bold');
+
+		expect(loadSelectionLogBoldPreference()).toBe(true);
+	});
+
+	it('loadSelectionLogBoldPreference preserves a saved off preference', () => {
+		globalThis.localStorage.setItem('finra_selection_log_bold', 'false');
+
+		expect(loadSelectionLogBoldPreference()).toBe(false);
+	});
+
+	it('upsertSelectionLogEntry moves reselected items to most recent', () => {
+		const initialEntries = [
+			{ id: 'person:1', label: 'Alpha', secondaryId: 'CRD# 1', group: 'individual' },
+			{ id: 'firm:2', label: 'Bravo Firm', secondaryId: 'CRD# 2', group: 'firm' },
+			{ id: 'person:3', label: 'Charlie', secondaryId: 'CRD# 3', group: 'individual' },
+		] as const;
+
+		const reordered = upsertSelectionLogEntry([...initialEntries], {
+			id: 'person:1',
+			label: 'Alpha',
+			secondaryId: 'CRD# 1',
+			group: 'individual',
+		});
+
+		expect(reordered.map((entry) => entry.id)).toEqual(['firm:2', 'person:3', 'person:1']);
 	});
 
 	it('ensureSidebarHintContent adds placeholder when empty', () => {
