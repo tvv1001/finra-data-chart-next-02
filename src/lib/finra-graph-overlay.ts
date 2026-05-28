@@ -213,7 +213,9 @@ export function updateOverlay(
 		const p = worldToScreen(n.x, n.y, transform);
 		el.style.left = `${Math.round(p.x)}px`;
 		el.style.top = `${Math.round(p.y)}px`;
-		el.style.fontSize = `${Math.max(12, Math.round(12 * Math.max(1, Number(opts.labelScale) || 1)))}px`;
+		const isForcedLabel = forcedLabelIds.has(id);
+		const effectiveLabelScale = isForcedLabel ? Math.max(1, Number(opts.labelScale) || 1) : 1;
+		el.style.fontSize = `${Math.max(12, Math.round(12 * effectiveLabelScale))}px`;
 	}
 
 	// remove leftover labels

@@ -3231,11 +3231,6 @@ a,
 	font-size: calc(11px * var(--fg-trace-label-scale, 1)) !important;
 }
 
-.fg-root.fg-selection-log-labels text.fg-label {
-	font-size: calc(11px * var(--fg-selection-log-label-scale, 1)) !important;
-	stroke-width: 5px !important;
-}
-
 .fg-root.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
 	display: block !important;
 	font-size: calc(11px * var(--fg-selection-log-label-scale, 1)) !important;
@@ -4020,11 +4015,17 @@ text.fg-label {
 	margin-left: 4px;
 }
 
+.fg-log-actions {
+	display: flex;
+	align-items: center;
+	flex: 0 0 auto;
+	margin-left: 8px;
+}
+
 .fg-log-copy-btn {
 	background: none;
 	border: none;
 	padding: 8px;
-	margin-left: 8px;
 	cursor: pointer;
 	color: var(--text-m);
 	opacity: 0.6;
@@ -4036,6 +4037,29 @@ text.fg-label {
 .fg-log-copy-btn:hover {
 	opacity: 1;
 	color: var(--accent);
+}
+
+.fg-log-delete-btn {
+	background: none;
+	border: none;
+	padding: 8px 10px 8px 6px;
+	cursor: pointer;
+	color: var(--text-m);
+	opacity: 0.7;
+	transition:
+		opacity 0.15s,
+		color 0.15s;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 16px;
+	line-height: 1;
+	font-weight: 700;
+}
+
+.fg-log-delete-btn:hover {
+	opacity: 1;
+	color: #dc2626;
 }
 
 .fg-log-empty {

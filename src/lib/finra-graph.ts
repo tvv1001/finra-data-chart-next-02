@@ -245,10 +245,11 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 			try {
 				const transform = getCurrentZoomTransform();
 				const labelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, transform.k || 1)))) : 1;
-				pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale });
+				const logLabelNodeIds = getSelectionLogLabelNodeIds();
+				pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
 				if (overlayApi && typeof overlayApi.update === 'function') {
 					try {
-						overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale });
+						overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale, logLabelNodeIds });
 					} catch (e) {}
 				}
 			} catch (e) {
@@ -260,10 +261,11 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 			try {
 				const transform = getCurrentZoomTransform();
 				const labelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, transform.k || 1)))) : 1;
-				canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale });
+				const logLabelNodeIds = getSelectionLogLabelNodeIds();
+				canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
 				if (overlayApi && typeof overlayApi.update === 'function') {
 					try {
-						overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale });
+						overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale, logLabelNodeIds });
 					} catch (e) {}
 				}
 			} catch (e) {
@@ -1159,6 +1161,29 @@ function getSelectionLogLabelNodeIds() {
 	return Array.from(new Set(selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter((id) => Boolean(id) && visibleNodeIds.has(id))));
 }
 
+function refreshSelectionLogDrivenRendering() {
+	refreshTraceState();
+	syncTraceLabelPresentation();
+	const transform = getCurrentZoomTransform();
+	const labelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, transform.k || 1)))) : 1;
+	const logLabelNodeIds = getSelectionLogLabelNodeIds();
+	if (overlayApi && typeof overlayApi.update === 'function') {
+		try {
+			overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale, logLabelNodeIds });
+		} catch {}
+	}
+	if (canvasApi && typeof canvasApi.drawFrame === 'function') {
+		try {
+			canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
+		} catch {}
+	}
+	if (pixiApi && typeof pixiApi.drawFrame === 'function') {
+		try {
+			pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
+		} catch {}
+	}
+}
+
 function calculateTrace() {
 	const traceModeNodeIds = isTraceMode ? getTraceModeNodeIds() : [];
 	const traceLogNodeIds = isTraceLogMode ? getTraceLogNodeIds() : [];
@@ -1464,6 +1489,18 @@ function addToSelectionLog(d) {
 	selectedNodesLog.push(entry);
 	saveSelectionLog();
 	updateSelectionLogUI();
+	refreshSelectionLogDrivenRendering();
+}
+
+function removeSelectionLogEntry(entryId) {
+	const normalizedEntryId = String(entryId || '').trim();
+	if (!normalizedEntryId) return;
+	const nextLog = selectedNodesLog.filter((entry) => String(entry?.id || '').trim() !== normalizedEntryId);
+	if (nextLog.length === selectedNodesLog.length) return;
+	selectedNodesLog = nextLog;
+	saveSelectionLog();
+	updateSelectionLogUI();
+	refreshSelectionLogDrivenRendering();
 }
 
 function updateSelectionLogUI() {
@@ -1495,15 +1532,21 @@ function updateSelectionLogUI() {
 				<strong class="fg-log-label">${entry.label}</strong>
 				<span class="fg-log-subtext">:: ${entry.secondaryId}</span>
 			</span>
-			<button class="fg-log-copy-btn" title="Copy to clipboard">
-				<svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path></svg>
-			</button>
+			<div class="fg-log-actions">
+				<button class="fg-log-copy-btn" type="button" title="Copy to clipboard" aria-label="Copy ${entry.label}">
+					<svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path></svg>
+				</button>
+				<button class="fg-log-delete-btn" type="button" title="Remove from log" aria-label="Remove ${entry.label} from log">×</button>
+			</div>
 		`;
 				div.querySelector('.fg-log-text')?.addEventListener('click', () => {
 					copyToClipboard(text, div);
 				});
 				div.querySelector('.fg-log-copy-btn')?.addEventListener('click', () => {
 					copyToClipboard(text, div);
+				});
+				div.querySelector('.fg-log-delete-btn')?.addEventListener('click', () => {
+					removeSelectionLogEntry(entry.id);
 				});
 				container.appendChild(div);
 			});
@@ -1563,26 +1606,7 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 		saveSelectionLogBoldPreference();
 		updateSelectionLogUI();
 		syncSelectionLogActionButtonStates();
-		reapplySelectionState();
-		syncTraceLabelPresentation();
-		const transform = getCurrentZoomTransform();
-		const labelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, transform.k || 1)))) : 1;
-		const logLabelNodeIds = getSelectionLogLabelNodeIds();
-		if (overlayApi && typeof overlayApi.update === 'function') {
-			try {
-				overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale, logLabelNodeIds });
-			} catch {}
-		}
-		if (canvasApi && typeof canvasApi.drawFrame === 'function') {
-			try {
-				canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
-			} catch {}
-		}
-		if (pixiApi && typeof pixiApi.drawFrame === 'function') {
-			try {
-				pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
-			} catch {}
-		}
+		refreshSelectionLogDrivenRendering();
 		return;
 	}
 
@@ -1590,7 +1614,7 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 		selectedNodesLog = [];
 		saveSelectionLog();
 		updateSelectionLogUI();
-		refreshTraceState();
+		refreshSelectionLogDrivenRendering();
 		flashSelectionLogActionButton(target, 'Cleared!');
 	}
 }
@@ -3592,7 +3616,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 
 		// Restart simulation with new nodes/links
 		simulation.nodes(layoutNodes);
-		simulation.force('link').links(layoutLinks);
+		simulation.force('link').links(buildForceSimulationLinks(layoutLinks, layoutNodes));
 		simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
 		simulation.alpha(getIncrementalRestartAlpha(layoutNodes.length, uniqNodes.length)).restart();
 	};
@@ -5204,6 +5228,23 @@ function resolveLinkEndpoints(links = [], nodes = []) {
 	return links;
 }
 
+function buildForceSimulationLinks(links = [], nodes = []) {
+	if (!Array.isArray(links) || !Array.isArray(nodes)) return [];
+	const nodeMap = new Map(nodes.filter((node) => node && typeof node === 'object' && node.id != null).map((node) => [String(node.id), node]));
+	const forceLinks = [];
+	for (const link of links) {
+		if (!link || typeof link !== 'object') continue;
+		const sourceId = String(link.source?.id ?? link.source ?? '').trim();
+		const targetId = String(link.target?.id ?? link.target ?? '').trim();
+		if (!sourceId || !targetId) continue;
+		const sourceNode = nodeMap.get(sourceId);
+		const targetNode = nodeMap.get(targetId);
+		if (!sourceNode || !targetNode) continue;
+		forceLinks.push({ ...link, source: sourceNode, target: targetNode });
+	}
+	return forceLinks;
+}
+
 function classifyActivityText(value) {
 	const normalized = String(value || '')
 		.trim()
@@ -6055,8 +6096,12 @@ function updateNodeVisuals(selection) {
 		const labelText = getNodeVisualLabelText(d);
 		const label = g.select('text.fg-label');
 		if (!label.empty()) {
+			const isLogged = isSelectionLogBold && selectedNodesLog.some((entry) => entry.id === d.id);
 			label
+				.attr('class', `fg-label${inactive ? ' fg-label--inactive' : ''}${isLogged ? ' fg-label--logged' : ''}`)
 				.text(labelText)
+				.attr('font-size', isLogged ? '24px' : '12px')
+				.attr('font-weight', isLogged ? '700' : '500')
 				.attr('fill', nodeLabelColor)
 				.attr('stroke', nodeLabelHalo)
 				.attr('opacity', inactive ? 0.86 : 1);
@@ -6489,7 +6534,7 @@ function renderGraph(_data) {
 		.force(
 			'link',
 			d3
-				.forceLink(links)
+				.forceLink(buildForceSimulationLinks(links, nodes))
 				.id((d) => d.id)
 				.distance((link) => getForceLinkDistance(link, nodeCount)),
 		)
@@ -6877,7 +6922,7 @@ function injectNodesById(ids) {
 	refreshTraceState();
 
 	simulation.nodes(layoutNodes);
-	simulation.force('link').links(layoutLinks);
+	simulation.force('link').links(buildForceSimulationLinks(layoutLinks, layoutNodes));
 	simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
 	simulation.alpha(getIncrementalRestartAlpha(layoutNodes.length, toAdd.length)).restart();
 
@@ -8652,7 +8697,7 @@ function revealNeighbors(
 	});
 
 	simulation.nodes(layoutNodes);
-	simulation.force('link').links(layoutLinks);
+	simulation.force('link').links(buildForceSimulationLinks(layoutLinks, layoutNodes));
 	simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
 
 	// Low-energy restart — prevents nodes from exploding outward while preserving fluid motion

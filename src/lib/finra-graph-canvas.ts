@@ -157,7 +157,8 @@ export function drawCanvasFrame(
 			}
 			if (isForcedLabel || scale >= selectedCanvasLabelZoomThreshold) {
 				// label
-				ctx.font = `${12 * Math.min(2.6, Math.max(0.9, scale) * Math.max(1, Number(opts.labelScale) || 1))}px Inter, system-ui, sans-serif`;
+				const effectiveLabelScale = isForcedLabel ? Math.max(1, Number(opts.labelScale) || 1) : 1;
+				ctx.font = `${12 * Math.min(2.6, Math.max(0.9, scale) * effectiveLabelScale)}px Inter, system-ui, sans-serif`;
 				ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-default-text') || '#0f172a';
 				ctx.fillText(n.label || n.name || String(n.id), p.x + 10, p.y - 8);
 			}
@@ -363,6 +364,21 @@ function buildGraphMaps(nodes: any[], links: any[]) {
 		graphNeighborIds.get(sourceId)?.add(targetId);
 		graphNeighborIds.get(targetId)?.add(sourceId);
 	}
+}
+
+function buildForceSimulationLinks(links: any[], nodeMap = graphNodeById) {
+	const normalizedLinks: Array<{ source: any; target: any }> = [];
+	for (const link of links || []) {
+		if (!link || typeof link !== 'object') continue;
+		const sourceId = String(link.source?.id ?? link.source ?? link.sourceId ?? '').trim();
+		const targetId = String(link.target?.id ?? link.target ?? link.targetId ?? '').trim();
+		if (!sourceId || !targetId) continue;
+		const sourceNode = nodeMap.get(sourceId);
+		const targetNode = nodeMap.get(targetId);
+		if (!sourceNode || !targetNode) continue;
+		normalizedLinks.push({ ...link, source: sourceNode, target: targetNode });
+	}
+	return normalizedLinks;
 }
 
 function requestRender() {
@@ -893,12 +909,13 @@ export async function init(_d3: any, options: { initialRouteNodeId?: string | nu
 				forceWorker.postMessage({ type: 'start' });
 			} catch (e2) {
 				console.warn('Fallback worker failed; falling back to main-thread d3.', e2);
+				const simulationLinks = buildForceSimulationLinks(graphLinks);
 				simulation = _d3
 					.forceSimulation(graphNodes)
 					.force(
 						'link',
 						_d3
-							.forceLink(graphLinks)
+							.forceLink(simulationLinks)
 							.id((d: any) => d.id)
 							.distance(70)
 							.strength(0.75),
@@ -921,12 +938,13 @@ export async function init(_d3: any, options: { initialRouteNodeId?: string | nu
 			}
 		}
 	} else {
+		const simulationLinks = buildForceSimulationLinks(graphLinks);
 		simulation = _d3
 			.forceSimulation(graphNodes)
 			.force(
 				'link',
 				_d3
-					.forceLink(graphLinks)
+					.forceLink(simulationLinks)
 					.id((d: any) => d.id)
 					.distance(70)
 					.strength(0.75),
