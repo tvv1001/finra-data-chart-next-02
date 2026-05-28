@@ -807,23 +807,54 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 	return liveNode;
 }
 
+const routeNodeSelectionState = {
+	inFlightId: null as string | null,
+	promise: null as Promise<boolean> | null,
+	seq: 0,
+};
+
 async function applyPendingRouteNodeSelection() {
 	const targetNodeId = String(pendingRouteNodeId || '').trim();
 	if (!targetNodeId) return false;
 	if (!graphData || !layoutNodes) return false;
+	if (routeNodeSelectionState.inFlightId === targetNodeId && routeNodeSelectionState.promise) {
+		return routeNodeSelectionState.promise;
+	}
 
-	const liveNode = await ensureRouteNodeAvailable(targetNodeId);
-	if (!liveNode) return false;
+	const selectionSeq = ++routeNodeSelectionState.seq;
+	routeNodeSelectionState.inFlightId = targetNodeId;
+	const selectionPromise = (async () => {
+		const liveNode = await ensureRouteNodeAvailable(targetNodeId);
+		if (!liveNode) return false;
 
-	pendingRouteNodeId = null;
-	selectNode(liveNode, {
-		skipAutoExpand: true,
-		skipProfileSync: true,
-		focus: true,
-		focusDuration: 520,
-		syncRoute: false,
-	});
-	return true;
+		const latestPendingRouteNodeId = String(pendingRouteNodeId || '').trim();
+		if (selectionSeq !== routeNodeSelectionState.seq && latestPendingRouteNodeId && latestPendingRouteNodeId !== targetNodeId) {
+			return false;
+		}
+
+		if (latestPendingRouteNodeId === targetNodeId) {
+			pendingRouteNodeId = null;
+		}
+
+		selectNode(liveNode, {
+			skipAutoExpand: true,
+			skipProfileSync: true,
+			focus: true,
+			focusDuration: 520,
+			syncRoute: false,
+		});
+		return true;
+	})();
+	routeNodeSelectionState.promise = selectionPromise;
+
+	try {
+		return await selectionPromise;
+	} finally {
+		if (routeNodeSelectionState.promise === selectionPromise) {
+			routeNodeSelectionState.promise = null;
+			routeNodeSelectionState.inFlightId = null;
+		}
+	}
 }
 
 function loadSession() {

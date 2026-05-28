@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	ensureSidebarHintContent,
 	isSidebarTemporarilyPinned,
@@ -7,6 +7,7 @@ import {
 	hideSidebar,
 	hideSelectionLog,
 	focusFetchInputWhenEmpty,
+	routeSidebarNodeSelection,
 } from '../../src/components/FinraGraph';
 import { isNodeInactive, normalizeNodeLabelInPlace } from '../../src/lib/finra-graph';
 
@@ -130,5 +131,33 @@ describe('FinraGraph DOM helpers (unit)', () => {
 				resolve(null);
 			}, 20),
 		);
+	});
+
+	it('routeSidebarNodeSelection pushes the node route and dispatches a selection request', () => {
+		const push = vi.fn();
+		const setBrowserPathname = vi.fn();
+		const dispatched: Array<{ nodeId?: string; pulseDuration?: number }> = [];
+		const listener = (event: Event) => {
+			dispatched.push(((event as CustomEvent).detail || {}) as { nodeId?: string; pulseDuration?: number });
+		};
+
+		window.addEventListener('finra:route-node-request', listener as EventListener);
+		try {
+			routeSidebarNodeSelection({
+				nodeId: 'person:2632784',
+				searchSuffix: '?panel=info',
+				browserPathname: '/',
+				pathname: '/',
+				setBrowserPathname,
+				router: { push },
+				pulseDuration: 5000,
+			});
+
+			expect(setBrowserPathname).toHaveBeenCalledWith('/node/person-2632784');
+			expect(push).toHaveBeenCalledWith('/node/person-2632784?panel=info', { scroll: false });
+			expect(dispatched).toEqual([{ nodeId: 'person:2632784', pulseDuration: 5000 }]);
+		} finally {
+			window.removeEventListener('finra:route-node-request', listener as EventListener);
+		}
 	});
 });
