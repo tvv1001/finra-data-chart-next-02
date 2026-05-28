@@ -418,7 +418,7 @@ html[data-theme='dark'] .fg-dis-comment {
 }
 
 html[data-theme='dark'] text.fg-label {
-	fill: #8e99b3 !important;
+	fill: #ffffff !important;
 	font-weight: 700;
 	opacity: 1 !important;
 	stroke: var(--surface) !important;

@@ -8,6 +8,8 @@ import { logger } from '@/lib/logger';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+const SUPPRESSED_SEC_FIRM_IDS = new Set(['4039']);
+
 function buildFirmQueryParams(searchParams: URLSearchParams) {
 	const params = new URLSearchParams();
 	for (const [key, value] of searchParams.entries()) {
@@ -253,9 +255,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			secPageValid = isValidSecFirmSummaryPage(secHtml, secFirmId);
 		}
 
-		detail.hasSecData = Boolean(secFirmId) && Boolean(secDetail || secPageValid);
+		const suppressSecLinks = SUPPRESSED_SEC_FIRM_IDS.has(id);
+		detail.hasSecData = !suppressSecLinks && Boolean(secFirmId) && Boolean(secDetail || secPageValid);
 
-		if (secPageValid) {
+		if (!suppressSecLinks && secPageValid) {
 			const summaryDescription =
 				extractHtmlMetaContent(secHtml, 'description') || extractHtmlMetaContent(secHtml, 'og:description') || extractHtmlMetaContent(secHtml, 'twitter:description');
 			if (summaryDescription) {
@@ -265,7 +268,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			if (pageLinks.length) detail.secDocumentLinks = pageLinks;
 		}
 
-		if (detail.hasSecData && (!Array.isArray(detail.secDocumentLinks) || !detail.secDocumentLinks.length)) {
+		if (!suppressSecLinks && detail.hasSecData && (!Array.isArray(detail.secDocumentLinks) || !detail.secDocumentLinks.length)) {
 			detail.secDocumentLinks = buildSecDocumentLinks(secFirmId);
 		}
 

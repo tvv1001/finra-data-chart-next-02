@@ -42,6 +42,9 @@ const BROKEN_FINRA_FIRM_IDS = new Set(['134139', '298880', '314694']);
 // Individual IDs for which SEC AdvisorInfo links should be suppressed.
 // Add numeric individual CRD-like ids (no prefix) here when upstream SEC pages are incorrect or undesirable.
 const SUPPRESSED_SEC_INDIV_IDS = new Set(['18040']);
+// Firm IDs for which SEC AdvisorInfo links should be suppressed.
+// Add numeric firm CRD-like ids (no prefix) here when upstream SEC pages are unavailable or incorrect.
+const SUPPRESSED_SEC_FIRM_IDS = new Set(['4039']);
 
 // Simple once-only logger sets to avoid spamming the console during render loops.
 const _loggedBadNodeCoords = new Set<string | number>();
@@ -5397,6 +5400,21 @@ function hasFirmFinraPresence(node: any) {
 
 function hasFirmSecPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
+	if (
+		Array.isArray(node?.suppressedExternalLinks) &&
+		node.suppressedExternalLinks.some(
+			(s: any) =>
+				String(s || '')
+					.trim()
+					.toLowerCase() === 'sec',
+		)
+	)
+		return false;
+	const rawFirmId = String(node?.firmId || node?.id || '')
+		.replace(/^firm[:_]/, '')
+		.replace(/^node[:_]/, '')
+		.trim();
+	if (rawFirmId && SUPPRESSED_SEC_FIRM_IDS.has(rawFirmId)) return false;
 	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
 	if (node.hasSecData === true) return true;
 	if (Boolean(String(node?.iaSecNumber || node?.basicInformation?.iaSECNumber || node?.basicInformation?.iaSecNumber || '').trim())) return true;
