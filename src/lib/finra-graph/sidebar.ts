@@ -63,7 +63,7 @@ function toNodeSourceCoverage(finra: boolean, sec: boolean): NodeSourceCoverage 
 
 // Firms known to have broken or unreachable FINRA/BrokerCheck summary pages.
 // Add CRD numbers here to suppress FINRA links for those firms.
-const BROKEN_FINRA_FIRM_IDS = new Set(['134139']);
+const BROKEN_FINRA_FIRM_IDS = new Set(['134139', '298880', '314694']);
 
 // Individual IDs for which SEC AdvisorInfo links should be suppressed.
 // Add numeric individual CRD-like ids (no prefix) here when upstream SEC pages are incorrect or undesirable.

@@ -95,6 +95,33 @@ function normalizeSecFirmId(value: string | number | null | undefined) {
 	return raw;
 }
 
+function hasAnyItems(list: unknown) {
+	return Array.isArray(list) && list.length > 0;
+}
+
+function hasPublicFinraFirmDetail(detail: any, basicInformation: Record<string, any> = {}) {
+	if (!detail || typeof detail !== 'object') return false;
+
+	const bcScope = String(detail?.bcScope || basicInformation?.bcScope || '')
+		.trim()
+		.toLowerCase()
+		.replace(/\s+/g, '');
+	if (bcScope === 'notinscope') return false;
+	if (bcScope) return true;
+
+	if (
+		String(detail?.isLegacy || basicInformation?.isLegacy || '')
+			.trim()
+			.toUpperCase() === 'Y'
+	)
+		return true;
+	if (hasAnyItems(detail?.selfRegulatoryOrgs)) return true;
+	if (Boolean(String(detail?.districtName || basicInformation?.districtName || '').trim())) return true;
+	if (Boolean(String(detail?.bdSECNumber || detail?.bdSecNumber || basicInformation?.bdSECNumber || basicInformation?.bdSecNumber || '').trim())) return true;
+
+	return false;
+}
+
 function extractSecDocumentLinks(html: string, id: string) {
 	if (!html || !id) return [];
 	const links = new Map<string, string>();
@@ -210,36 +237,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			if (!detail.brochures && secDetail.brochures) detail.brochures = secDetail.brochures;
 		}
 
-		// helper: find a numeric-ish firm id from common fields (firmId, bdSECNumber, etc.)
-		function findNumericFirmId(obj: any, candidates = ['firmId', 'firm_id', 'bdSECNumber', 'bdSecNumber', 'firmIdNumber']) {
-			if (!obj || typeof obj !== 'object') return '';
-			for (const key of candidates) {
-				const v = obj[key];
-				if (v == null) continue;
-				const s = String(v).trim();
-				if (/^\d+$/.test(s)) return s;
-				if (/^8-\d+$/i.test(s)) return s;
-			}
-			const bi = obj.basicInformation || obj.basic_information || obj.basic || null;
-			if (bi && typeof bi === 'object') {
-				for (const key of candidates) {
-					const v = bi[key];
-					if (v == null) continue;
-					const s = String(v).trim();
-					if (/^\d+$/.test(s)) return s;
-					if (/^8-\d+$/i.test(s)) return s;
-				}
-			}
-			return '';
-		}
-
 		const secFirmId = normalizeSecFirmId(detail?.basicInformation?.bdSECNumber || detail?.basicInformation?.bdSecNumber || detail?.bdSECNumber || detail?.bdSecNumber || id);
 
 		let secHtml = secPageData?.status === 'fulfilled' ? secPageData.value : null;
 		let secPageValid = isValidSecFirmSummaryPage(secHtml, id);
-		// only consider FINRA present if parsed BC detail exists and includes a usable firm id
-		const finraFirmNumeric = bcDetail ? findNumericFirmId(bcDetail, ['firmId', 'firm_id', 'bdSECNumber', 'bdSecNumber', 'firmId']) : '';
-		detail.hasFinraData = !!bcDetail && !!finraFirmNumeric;
+		detail.hasFinraData = hasPublicFinraFirmDetail(bcDetail, bcDetail?.basicInformation || {});
 
 		if (!secPageValid && secFirmId && secFirmId !== id) {
 			const normalizedSecPageUrl = `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(secFirmId)}`;
