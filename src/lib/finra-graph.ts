@@ -387,6 +387,32 @@ function getDefaultExpansionHops(): number {
 	return normalized === 'all' ? 1 : normalized;
 }
 
+function hasTrustedCurrentRelationshipData(node) {
+	if (!node || typeof node !== 'object') return false;
+	if (node.group === 'individual') {
+		if (node._trustedCurrentRelationshipData === true) return true;
+		return Boolean(node._detailLoaded && hasRichIndividualDetail(node));
+	}
+	if (node.group === 'firm') {
+		return Boolean(node._detailLoaded && node._detailValidated === true);
+	}
+	return false;
+}
+
+function isFetchedLeafNode(node) {
+	if (!node?.id) return false;
+	if (initialServerNodeIds instanceof Set && initialServerNodeIds.has(node.id)) return false;
+	if (!hasTrustedCurrentRelationshipData(node)) return false;
+	const neighborCount = neighborMap?.get(node.id)?.size;
+	if (typeof neighborCount === 'number') return neighborCount === 0;
+	if (!Array.isArray(layoutLinks) || layoutLinks.length === 0) return true;
+	return !layoutLinks.some((link) => {
+		const sourceId = link.source?.id ?? link.source;
+		const targetId = link.target?.id ?? link.target;
+		return sourceId === node.id || targetId === node.id;
+	});
+}
+
 function markUserInitiatedGraphExpansion() {
 	hasUserInitiatedGraphExpansion = true;
 }
@@ -2907,6 +2933,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 					);
 
 					if (existingGraphNode) {
+						existingGraphNode._trustedCurrentRelationshipData = existingGraphNode._trustedCurrentRelationshipData === true || hasRichIndividualDetail(parsed);
 						existingGraphNode.bcScope = src?.ind_bc_scope ?? parsed?.basicInformation?.bcScope ?? parsed?.bcScope ?? existingGraphNode.bcScope ?? null;
 						existingGraphNode.iaScope = src?.ind_ia_scope ?? parsed?.basicInformation?.iaScope ?? parsed?.iaScope ?? existingGraphNode.iaScope ?? null;
 						existingGraphNode.registrationCount = {
@@ -2965,6 +2992,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 									currentIAEmployments: Array.isArray(src?.ind_ia_current_employments) ? src.ind_ia_current_employments : (parsed?.currentIAEmployments ?? []),
 									disclosureFlag,
 									iaDisclosureFlag,
+									_trustedCurrentRelationshipData: hasRichIndividualDetail(parsed),
 								},
 								parsed,
 								crd,
@@ -3687,6 +3715,7 @@ async function fetchAndInjectQuery(q) {
 					currentIAEmployments: Array.isArray(src?.ind_ia_current_employments) ? src.ind_ia_current_employments : (parsed?.currentIAEmployments ?? []),
 					disclosureFlag,
 					iaDisclosureFlag,
+					_trustedCurrentRelationshipData: hasRichIndividualDetail(parsed),
 					_source: 'finra',
 				});
 
@@ -3930,6 +3959,7 @@ function mergeIntoGraphData(newNodes, newLinks) {
 		.forEach((n) => {
 			const existingNode = graphData.nodes.find((entry) => entry.id === n.id);
 			if (!existingNode) return;
+			if (n._trustedCurrentRelationshipData === true) existingNode._trustedCurrentRelationshipData = true;
 			if (n.bcScope != null) existingNode.bcScope = n.bcScope;
 			if (n.iaScope != null) existingNode.iaScope = n.iaScope;
 			if (n.registrationCount) existingNode.registrationCount = { ...(existingNode.registrationCount || {}), ...n.registrationCount };
@@ -5653,7 +5683,7 @@ function reapplySelectionState() {
 	if (!nodeSel) return;
 	const highlightState = computeHighlightState();
 	nodeSel
-		.classed('selected', (node) => node.id === selectedId || visitedNodeIds.has(node.id) || highlightState.rootIds.has(node.id))
+		.classed('selected', (node) => node.id === selectedId || visitedNodeIds.has(node.id) || highlightState.nodeIds.has(node.id) || isFetchedLeafNode(node))
 		.classed('highlighted-hop', (node) => node.id !== selectedId && !highlightState.rootIds.has(node.id) && highlightState.hopNodeIds.has(node.id));
 
 	// Trace Mode node highlights — endpoints get trace-* class, connectors get trace-*-connector class
@@ -6815,6 +6845,7 @@ async function ensureIndividualDetail(personNode) {
 		try {
 			applyIndividualDetail(personNode, detail, crd);
 			syncIndividualConnectionsFromDetail(personNode, detail);
+			personNode._trustedCurrentRelationshipData = hasRichIndividualDetail(detail);
 			personNode._detailLoaded = true;
 			personNode._detailMissing = false;
 		} catch (e) {
