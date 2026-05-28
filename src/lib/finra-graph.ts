@@ -935,6 +935,8 @@ function loadSession() {
 	}
 }
 
+type SidebarViewMode = 'none' | 'info' | 'log';
+
 let currentProfileName = null;
 let currentProfileEnabled = true;
 let isSessionCleared = false;
@@ -942,7 +944,6 @@ type SelectionLogEntry = { id: string; label: string; secondaryId: string; group
 
 let selectedNodesLog: Array<SelectionLogEntry> = [];
 let sidebarSelectedNode = null;
-let sidebarViewMode: 'none' | 'info' | 'log' = 'none';
 let sidebarLogSticky = false; // true if user has explicitly opened log toggle
 let isTraceMode = false;
 let isTraceLogMode = false;
@@ -960,10 +961,26 @@ let traceLogConnectorIds = new Set<string>(); // intermediate nodes only
 
 const LS_LOG_KEY = 'finra_selection_log';
 const LS_LOG_BOLD_KEY = 'finra_selection_log_bold';
+const SIDEBAR_VIEW_MODE_STORAGE_KEY = 'finra_sidebar_view_mode';
 const ROUTE_NODE_REQUEST_EVENT = 'finra:route-node-request';
 const SELECTED_NODE_ROUTE_EVENT = 'finra:selected-node-route';
 const TRACE_LOG_GUARD_WARNING_PREFIX = '[finra-graph] Trace with Log guard:';
 let lastTraceLogGuardWarning = '';
+
+function normalizeSidebarViewMode(value: unknown, fallback: SidebarViewMode = 'info'): SidebarViewMode {
+	return value === 'none' || value === 'info' || value === 'log' ? value : fallback;
+}
+
+function loadPersistedSidebarViewMode(fallback: SidebarViewMode = 'info'): SidebarViewMode {
+	try {
+		if (typeof window === 'undefined' || !window.sessionStorage) return fallback;
+		return normalizeSidebarViewMode(sessionStorage.getItem(SIDEBAR_VIEW_MODE_STORAGE_KEY), fallback);
+	} catch {
+		return fallback;
+	}
+}
+
+let sidebarViewMode: SidebarViewMode = loadPersistedSidebarViewMode();
 
 function loadSelectionLogBoldPreference() {
 	try {
@@ -1131,11 +1148,11 @@ function closeSelectionLog(options: { force?: boolean } = {}) {
 	return true;
 }
 
-function setSidebarViewMode(mode: 'none' | 'info' | 'log', options: { expandMobile?: boolean } = {}) {
+function setSidebarViewMode(mode: SidebarViewMode, options: { expandMobile?: boolean } = {}) {
 	sidebarViewMode = mode;
 	try {
 		if (typeof window !== 'undefined' && window.sessionStorage) {
-			sessionStorage.setItem('finra_sidebar_view_mode', mode);
+			sessionStorage.setItem(SIDEBAR_VIEW_MODE_STORAGE_KEY, mode);
 		}
 	} catch {
 		/* ignore persistence errors */
@@ -1997,8 +2014,10 @@ function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: 
 			if (!selectedNode) return;
 			resetTransientDetailState(selectedNode);
 			renderSidebar(selectedNode);
-			if (session?.sidebarViewMode === 'info' || session?.sidebarViewMode === 'log') {
-				setSidebarViewMode(session.sidebarViewMode, { expandMobile: session.sidebarViewMode !== 'none' });
+			if (session && session.sidebarViewMode != null) {
+				setSidebarViewMode(normalizeSidebarViewMode(session.sidebarViewMode, loadPersistedSidebarViewMode()), {
+					expandMobile: session.sidebarViewMode !== 'none',
+				});
 			}
 			return;
 		}
@@ -2018,8 +2037,10 @@ function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: 
 		if (!node) return;
 		resetTransientDetailState(node);
 		renderSidebar(node);
-		if (session?.sidebarViewMode === 'info' || session?.sidebarViewMode === 'log') {
-			setSidebarViewMode(session.sidebarViewMode, { expandMobile: session.sidebarViewMode !== 'none' });
+		if (session && session.sidebarViewMode != null) {
+			setSidebarViewMode(normalizeSidebarViewMode(session.sidebarViewMode, loadPersistedSidebarViewMode()), {
+				expandMobile: session.sidebarViewMode !== 'none',
+			});
 		}
 		if (node.group === 'individual') {
 			ensureIndividualDetail(node)
@@ -7949,7 +7970,7 @@ function normalizeNodeLabelsInPlace(nodes = []) {
 	return nodes;
 }
 
-export { isNodeInactive, loadSelectionLogBoldPreference, normalizeNodeLabelInPlace, upsertSelectionLogEntry };
+export { isNodeInactive, loadPersistedSidebarViewMode, loadSelectionLogBoldPreference, normalizeNodeLabelInPlace, upsertSelectionLogEntry };
 
 function mergeExpansionNodeIntoExistingNode(targetNodeId, incomingNode) {
 	if (!targetNodeId || !incomingNode) return;
@@ -9354,18 +9375,18 @@ function renderSidebarSelectionLogBody() {
 				</div>
 				<div class="fg-log-drawer-actions-row fg-log-drawer-actions-row--secondary">
 					<button
-						data-fg-selection-log-action="copy-all"
-						class="fg-ghost-btn fg-btn-sm"
-						type="button"
-						title="Copy all entries">
-						Copy All
-					</button>
-					<button
 						data-fg-selection-log-action="toggle-bold"
 						class="fg-ghost-btn fg-btn-sm"
 						type="button"
 						title="Make log entries larger and bolder">
 						Log Bold
+					</button>
+					<button
+						data-fg-selection-log-action="copy-all"
+						class="fg-ghost-btn fg-btn-sm"
+						type="button"
+						title="Copy all entries">
+						Copy All
 					</button>
 					<button
 						data-fg-selection-log-action="clear"
@@ -9388,10 +9409,8 @@ function renderSidebar(d) {
 	const side = document.getElementById('fg-sidebar');
 	const previousDisplayedId = side?.dataset.displayedId || '';
 	sidebarSelectedNode = d;
-	// If not mobile and sidebarViewMode is 'none', default to 'info' (expanded),
-	// but if log is sticky, keep log open between node selections
-	if (!isMobileSidebarViewport() && sidebarViewMode === 'none') {
-		sidebarViewMode = sidebarLogSticky ? 'log' : 'info';
+	if (sidebarViewMode === 'none') {
+		sidebarViewMode = loadPersistedSidebarViewMode();
 	}
 	const preserveExpandedState = sidebarViewMode !== 'none';
 	el.innerHTML =
