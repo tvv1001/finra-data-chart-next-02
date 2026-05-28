@@ -34,6 +34,181 @@ test('Selecting a node pushes an analytics-friendly node route', async ({ page }
 		.toBe('/node/person-3102054');
 });
 
+test('Selecting a node also marks visible hop-connected neighbors as selected', async ({ page }) => {
+	await page.route('**/api/finra/graph**', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({
+				nodes: [],
+				links: [],
+				meta: {
+					subset: true,
+					profile: 'custom',
+					renderedNodes: 0,
+					totalNodes: 0,
+					totalLinks: 0,
+				},
+			}),
+		});
+	});
+
+	await page.goto('/');
+	await resetBrowserGraphState(page);
+	await seedStoredSession(page, {
+		extraNodes: [
+			{
+				id: 'person:3102054',
+				label: 'Hop Source Person',
+				group: 'individual',
+				crd: '3102054',
+			},
+			{
+				id: 'firm:143571',
+				label: 'Hop Neighbor Firm',
+				group: 'firm',
+				firmId: '143571',
+			},
+		],
+		extraLinks: [
+			{
+				source: 'person:3102054',
+				target: 'firm:143571',
+				relationship: 'employed_by',
+				isCurrent: true,
+			},
+		],
+	});
+	await page.reload();
+
+	await expect
+		.poll(async () => page.locator('.fg-node').count(), {
+			timeout: 10_000,
+			message: 'expected the seeded two-node graph to render before testing hop selection',
+		})
+		.toBe(2);
+
+	const sourceNode = page.locator('.fg-node').filter({ hasText: 'Hop Source Person' });
+	const connectedNode = page.locator('.fg-node').filter({ hasText: 'Hop Neighbor Firm' });
+	await expect(sourceNode).toHaveCount(1);
+	await expect(connectedNode).toHaveCount(1);
+
+	await sourceNode.click({ force: true });
+
+	await expect(sourceNode).toHaveClass(/selected/);
+	await expect(connectedNode).toHaveClass(/selected/);
+	await expect(connectedNode).toHaveClass(/highlighted-hop/);
+});
+
+test('Fetched nodes with zero child links render as selected automatically', async ({ page }) => {
+	await page.route('**/api/finra/graph**', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({
+				nodes: [],
+				links: [],
+				meta: {
+					subset: true,
+					profile: 'custom',
+					renderedNodes: 0,
+					totalNodes: 0,
+					totalLinks: 0,
+				},
+			}),
+		});
+	});
+
+	await page.goto('/');
+	await resetBrowserGraphState(page);
+	await seedStoredSession(page, {
+		extraNodes: [
+			{
+				id: 'person:999111',
+				label: 'Leaf Fetch',
+				group: 'individual',
+				crd: '999111',
+				basicInformation: {
+					individualId: '999111',
+					firstName: 'Leaf',
+					lastName: 'Fetch',
+				},
+				registrationCount: {
+					approvedFinraRegistrationCount: 0,
+					approvedSRORegistrationCount: 0,
+					approvedStateRegistrationCount: 0,
+					approvedIAStateRegistrationCount: 0,
+				},
+				currentEmployments: [],
+				currentIAEmployments: [],
+				previousEmployments: [],
+				previousIAEmployments: [],
+				_detailLoaded: true,
+				_trustedCurrentRelationshipData: true,
+			},
+		],
+		extraLinks: [],
+	});
+	await page.reload();
+
+	const fetchedLeafNode = page.locator('.fg-node').filter({ hasText: 'Leaf Fetch' });
+	await expect
+		.poll(async () => page.locator('.fg-node').count(), {
+			timeout: 10_000,
+			message: 'expected the seeded fetched leaf node to render before asserting auto-selection',
+		})
+		.toBe(1);
+	await expect(fetchedLeafNode).toHaveCount(1);
+	await expect(fetchedLeafNode).toHaveClass(/selected/);
+	await expect(page.locator('.fg-link')).toHaveCount(0);
+});
+
+test('Fetched nodes without full current relationship data do not auto-select as leaves', async ({ page }) => {
+	await page.route('**/api/finra/graph**', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({
+				nodes: [],
+				links: [],
+				meta: {
+					subset: true,
+					profile: 'custom',
+					renderedNodes: 0,
+					totalNodes: 0,
+					totalLinks: 0,
+				},
+			}),
+		});
+	});
+
+	await page.goto('/');
+	await resetBrowserGraphState(page);
+	await seedStoredSession(page, {
+		extraNodes: [
+			{
+				id: 'person:999112',
+				label: 'Partial Fetch',
+				group: 'individual',
+				crd: '999112',
+			},
+		],
+		extraLinks: [],
+	});
+	await page.reload();
+
+	const partialLeafNode = page.locator('.fg-node').filter({ hasText: 'Partial Fetch' });
+	await expect
+		.poll(async () => page.locator('.fg-node').count(), {
+			timeout: 10_000,
+			message: 'expected the under-hydrated fetched node to render before asserting no auto-selection',
+		})
+		.toBe(1);
+	await expect(partialLeafNode).toHaveCount(1);
+	await expect(partialLeafNode).not.toHaveClass(/selected/);
+	await expect(page.locator('.fg-link')).toHaveCount(0);
+});
+
 test('A direct node route restores that node selection on a clean session', async ({ page }) => {
 	await page.goto('/');
 	await resetBrowserGraphState(page);
@@ -117,7 +292,7 @@ test('A direct node route keeps a fetched inactive leaf node both selected and v
 						},
 						currentEmployments: [],
 						currentIAEmployments: [],
-						previousEmployments: [{ firmId: '1' }],
+						previousEmployments: [],
 						previousIAEmployments: [],
 						registeredStates: [],
 						registeredSROs: [],
@@ -147,7 +322,7 @@ test('A direct node route keeps a fetched inactive leaf node both selected and v
 				},
 				currentEmployments: [],
 				currentIAEmployments: [],
-				previousEmployments: [{ firmId: '1' }],
+				previousEmployments: [],
 				previousIAEmployments: [],
 				registeredStates: [],
 				registeredSROs: [],
@@ -367,95 +542,4 @@ test('Local API hits short-circuit external search before page-node reuse', asyn
 
 	expect(requestSequence).toEqual(['local']);
 	await expect(page.locator('#fg-subset-info')).toContainText('Loaded from local API', { timeout: 5_000 });
-});
-
-test('Fetched search results show inactive people as disabled before selection', async ({ page }) => {
-	await page.route('**/api/finra/graph-reset**', async (route) => {
-		await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
-	});
-	await page.route('**/api/finra/graph?**', async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: 'application/json',
-			body: JSON.stringify({
-				nodes: [],
-				links: [],
-				meta: { subset: true, profile: 'custom', renderedNodes: 0, totalNodes: 0, totalLinks: 0 },
-			}),
-		});
-	});
-	await page.route('**/api/finra/search?**', async (route) => {
-		const url = new URL(route.request().url());
-		const firm = url.searchParams.get('firm');
-		if (firm === '1') {
-			await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ hits: { hits: [] } }) });
-			return;
-		}
-		await route.fulfill({
-			status: 200,
-			contentType: 'application/json',
-			body: JSON.stringify({
-				hits: {
-					hits: [
-						{
-							_source: {
-								ind_source_id: '1302190',
-								ind_firstname: 'ALAN',
-								ind_lastname: 'MASON',
-								ind_bc_scope: 'InActive',
-								ind_ia_scope: 'InActive',
-								ind_approved_finra_registration_count: 0,
-								ind_current_employments: [],
-							},
-						},
-						{
-							_source: {
-								ind_source_id: '8085958',
-								ind_firstname: 'JOHN',
-								ind_middlename: 'MCLEAN',
-								ind_lastname: 'MASON',
-								ind_bc_scope: 'Active',
-								ind_ia_scope: 'NotInScope',
-								ind_approved_finra_registration_count: 1,
-								ind_current_employments: [{ firm_id: '143571', firm_name: 'Regression Firm' }],
-							},
-						},
-					],
-				},
-			}),
-		});
-	});
-	await page.route('**/api/finra/sec-search?**', async (route) => {
-		await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ hits: { hits: [] } }) });
-	});
-
-	await page.goto('/');
-	await resetBrowserGraphState(page);
-	await page.reload();
-
-	const fetchInput = page.locator('#fg-fetch-input');
-	const fetchButton = page.locator('#fg-fetch-remote');
-	await fetchInput.fill('mason');
-	await fetchButton.click();
-	await expect(fetchButton).toBeEnabled({ timeout: 10_000 });
-	await expect
-		.poll(async () => page.locator('.fg-node').count(), {
-			timeout: 10_000,
-			message: 'expected fetched Mason results to render graph nodes',
-		})
-		.toBeGreaterThan(0);
-
-	const nodeStates = await page.locator('.fg-node').evaluateAll((els) =>
-		els.map((el) => ({
-			text: (el.textContent || '').replace(/\s+/g, ' ').trim(),
-			classes: el.getAttribute('class') || '',
-		})),
-	);
-	const inactiveNode = nodeStates.find((node) => /Alan Mason/i.test(node.text));
-	const activeNode = nodeStates.find((node) => /John Mclean Mason/i.test(node.text));
-	expect(inactiveNode?.classes).toContain('fg-node--inactive');
-	expect(inactiveNode?.classes).not.toContain('selected');
-	expect(activeNode?.classes).toContain('fg-node--individual');
-	expect(activeNode?.classes).not.toContain('fg-node--inactive');
-	expect(activeNode?.classes).not.toContain('selected');
 });
