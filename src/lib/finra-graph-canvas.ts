@@ -83,7 +83,12 @@ function getColorForGroup(g: string) {
 // Margin in world units to draw slightly outside viewport for smooth panning
 const VIEWPORT_MARGIN = 60;
 
-export function drawCanvasFrame(nodes: Node[], links: Link[], transform: { x: number; y: number; k: number }, opts: { selectedId?: string | number } = {}) {
+export function drawCanvasFrame(
+	nodes: Node[],
+	links: Link[],
+	transform: { x: number; y: number; k: number },
+	opts: { selectedId?: string | number; labelScale?: number; logLabelNodeIds?: Array<string | number> } = {},
+) {
 	if (!canvas || !ctx || !parentEl) return;
 	const rect = parentEl.getBoundingClientRect();
 	const w = rect.width;
@@ -124,6 +129,7 @@ export function drawCanvasFrame(nodes: Node[], links: Link[], transform: { x: nu
 	// node LOD: if zoomed out, draw small dots; zoomed in show larger and highlight selected
 	const scale = transform.k || 1;
 	const selectedCanvasLabelZoomThreshold = 1.6;
+	const forcedLabelIds = new Set((opts.logLabelNodeIds || []).map((id) => String(id)));
 	for (const n of visibleNodes) {
 		const col = getColorForGroup(n.group);
 		const baseSize = n.group === 'firm' ? 6 : 4;
@@ -136,19 +142,22 @@ export function drawCanvasFrame(nodes: Node[], links: Link[], transform: { x: nu
 		);
 		ctx.fillStyle = col;
 		drawNode(ctx, n, transform, size, col);
-		if (opts.selectedId && String(opts.selectedId) === String(n.id) && scale > 0.5) {
+		const isForcedLabel = forcedLabelIds.has(String(n.id));
+		if (((opts.selectedId && String(opts.selectedId) === String(n.id)) || isForcedLabel) && scale > 0.5) {
 			// highlight selected with halo and label
 			const p = worldToScreen(n.x, n.y, transform);
-			ctx.beginPath();
-			ctx.arc(p.x, p.y, Math.max(8, size * 3), 0, Math.PI * 2);
-			ctx.fillStyle = 'rgba(255,200,60,0.08)';
-			ctx.fill();
-			ctx.strokeStyle = 'rgba(255,200,60,0.5)';
-			ctx.lineWidth = 2;
-			ctx.stroke();
-			if (scale >= selectedCanvasLabelZoomThreshold) {
+			if (opts.selectedId && String(opts.selectedId) === String(n.id)) {
+				ctx.beginPath();
+				ctx.arc(p.x, p.y, Math.max(8, size * 3), 0, Math.PI * 2);
+				ctx.fillStyle = 'rgba(255,200,60,0.08)';
+				ctx.fill();
+				ctx.strokeStyle = 'rgba(255,200,60,0.5)';
+				ctx.lineWidth = 2;
+				ctx.stroke();
+			}
+			if (isForcedLabel || scale >= selectedCanvasLabelZoomThreshold) {
 				// label
-				ctx.font = `${12 * Math.min(2, Math.max(0.9, scale))}px Inter, system-ui, sans-serif`;
+				ctx.font = `${12 * Math.min(2.6, Math.max(0.9, scale) * Math.max(1, Number(opts.labelScale) || 1))}px Inter, system-ui, sans-serif`;
 				ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-default-text') || '#0f172a';
 				ctx.fillText(n.label || n.name || String(n.id), p.x + 10, p.y - 8);
 			}

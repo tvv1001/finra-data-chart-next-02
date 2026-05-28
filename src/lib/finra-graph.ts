@@ -198,11 +198,14 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 	const traceActive = isAnyTraceModeActive();
 	const normalizedScale = Math.max(0.1, Number(zoomScale) || 1);
 	const traceLabelScale = traceActive ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, normalizedScale)))) : 1;
+	const selectionLogLabelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, normalizedScale)))) : 1;
 
 	rootGroup
 		.classed('fg-trace-labels', traceActive)
+		.classed('fg-selection-log-labels', isSelectionLogBold)
 		.classed('fg-labels-hidden', normalizedScale < activeLabelZoomThreshold)
-		.style('--fg-trace-label-scale', String(traceLabelScale));
+		.style('--fg-trace-label-scale', String(traceLabelScale))
+		.style('--fg-selection-log-label-scale', String(selectionLogLabelScale));
 
 	// Hide all node labels when zoomed out below threshold.
 	const labelGroup = rootGroup.select('.fg-label-group');
@@ -241,10 +244,11 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 		if (pixiModeActive && pixiApi && typeof pixiApi.drawFrame === 'function') {
 			try {
 				const transform = getCurrentZoomTransform();
-				pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId });
+				const labelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, transform.k || 1)))) : 1;
+				pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale });
 				if (overlayApi && typeof overlayApi.update === 'function') {
 					try {
-						overlayApi.update(layoutNodes || [], transform, { selectedId });
+						overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale });
 					} catch (e) {}
 				}
 			} catch (e) {
@@ -255,10 +259,11 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 		if (canvasModeActive && canvasApi) {
 			try {
 				const transform = getCurrentZoomTransform();
-				canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId });
+				const labelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, transform.k || 1)))) : 1;
+				canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale });
 				if (overlayApi && typeof overlayApi.update === 'function') {
 					try {
-						overlayApi.update(layoutNodes || [], transform, { selectedId });
+						overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale });
 					} catch (e) {}
 				}
 			} catch (e) {
@@ -936,6 +941,7 @@ let sidebarViewMode: 'none' | 'info' | 'log' = 'none';
 let sidebarLogSticky = false; // true if user has explicitly opened log toggle
 let isTraceMode = false;
 let isTraceLogMode = false;
+let isSelectionLogBold = false;
 let pendingRouteNodeId: string | null = null;
 let pendingRoutePulseDuration: number | null = null; // optional pulse duration (ms) requested with route
 let routeNodeRequestListenerBound = false;
@@ -947,10 +953,29 @@ let traceLongestConnectorIds = new Set<string>(); // intermediate nodes only
 let traceLogConnectorIds = new Set<string>(); // intermediate nodes only
 
 const LS_LOG_KEY = 'finra_selection_log';
+const LS_LOG_BOLD_KEY = 'finra_selection_log_bold';
 const ROUTE_NODE_REQUEST_EVENT = 'finra:route-node-request';
 const SELECTED_NODE_ROUTE_EVENT = 'finra:selected-node-route';
 const TRACE_LOG_GUARD_WARNING_PREFIX = '[finra-graph] Trace with Log guard:';
 let lastTraceLogGuardWarning = '';
+
+function loadSelectionLogBoldPreference() {
+	try {
+		return localStorage.getItem(LS_LOG_BOLD_KEY) === 'true';
+	} catch {
+		return false;
+	}
+}
+
+function saveSelectionLogBoldPreference() {
+	try {
+		localStorage.setItem(LS_LOG_BOLD_KEY, isSelectionLogBold ? 'true' : 'false');
+	} catch {
+		/* ignore persistence errors */
+	}
+}
+
+isSelectionLogBold = loadSelectionLogBoldPreference();
 
 function isDevelopmentRuntime() {
 	if (typeof process !== 'undefined' && process.env.NODE_ENV) {
@@ -996,7 +1021,7 @@ function guardTraceLogSurface(reason = 'state-sync') {
 	}
 }
 
-function getSelectionLogActionButtons(action: 'trace' | 'copy-all' | 'clear') {
+function getSelectionLogActionButtons(action: 'trace' | 'copy-all' | 'clear' | 'toggle-bold') {
 	return Array.from(document.querySelectorAll<HTMLButtonElement>(`[data-fg-selection-log-action="${action}"]`));
 }
 
@@ -1014,6 +1039,13 @@ function syncSelectionLogActionButtonStates() {
 		button.classList.toggle('active', isTraceLogMode);
 		button.setAttribute('aria-pressed', isTraceLogMode ? 'true' : 'false');
 		button.textContent = isTraceLogMode ? 'Log Trace On' : 'Trace with Log';
+	});
+
+	getSelectionLogActionButtons('toggle-bold').forEach((button) => {
+		button.classList.toggle('active', isSelectionLogBold);
+		button.setAttribute('aria-pressed', isSelectionLogBold ? 'true' : 'false');
+		button.title = isSelectionLogBold ? 'Use normal graph node label size' : 'Make graph node labels larger like trace mode';
+		button.textContent = isSelectionLogBold ? 'Log Bold On' : 'Log Bold';
 	});
 }
 
@@ -1118,6 +1150,11 @@ function getTraceModeNodeIds() {
 }
 
 function getTraceLogNodeIds() {
+	const visibleNodeIds = new Set((layoutNodes || []).map((node) => String(node?.id || '').trim()).filter(Boolean));
+	return Array.from(new Set(selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter((id) => Boolean(id) && visibleNodeIds.has(id))));
+}
+function getSelectionLogLabelNodeIds() {
+	if (!isSelectionLogBold) return [];
 	const visibleNodeIds = new Set((layoutNodes || []).map((node) => String(node?.id || '').trim()).filter(Boolean));
 	return Array.from(new Set(selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter((id) => Boolean(id) && visibleNodeIds.has(id))));
 }
@@ -1277,10 +1314,9 @@ function findShortestPath(
 ) {
 	const { blockedLinkIds = new Set<string>() } = options;
 	if (startId === endId) return [startId];
-	const queue: Array<{ nodeId: string; path: string[] }> = [{ nodeId: startId, path: [startId] }];
 	const visited = new Set<string>([startId]);
-
-	while (queue.length > 0) {
+	const queue: Array<{ nodeId: string; path: string[] }> = [{ nodeId: startId, path: [startId] }];
+	while (queue.length) {
 		const { nodeId, path } = queue.shift()!;
 		const neighbors = adj.get(nodeId) || [];
 		for (const { nodeId: nextId, linkId } of neighbors) {
@@ -1316,10 +1352,8 @@ function buildTraceRoute(
 ) {
 	const { blockedLinkIds = new Set<string>() } = options;
 	const forwardPath = findShortestPath(startId, endId, adj, { blockedLinkIds });
-	if (!forwardPath) return null;
-
 	const returnBlockedLinkIds = new Set<string>([...blockedLinkIds, ...getPathLinkIds(forwardPath)]);
-	const returnPath = findShortestPath(endId, startId, adj, { blockedLinkIds: returnBlockedLinkIds });
+	const returnPath = forwardPath ? findShortestPath(endId, startId, adj, { blockedLinkIds: returnBlockedLinkIds }) : null;
 
 	return {
 		forwardPath,
@@ -1505,7 +1539,7 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 		return;
 	}
 
-	const action = target.dataset.fgSelectionLogAction as 'trace' | 'copy-all' | 'clear' | undefined;
+	const action = target.dataset.fgSelectionLogAction as 'trace' | 'copy-all' | 'clear' | 'toggle-bold' | undefined;
 	if (!action) return;
 
 	if (action === 'trace') {
@@ -1521,6 +1555,34 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 		navigator.clipboard.writeText(text).then(() => {
 			flashSelectionLogActionButton(target, 'Copied!');
 		});
+		return;
+	}
+
+	if (action === 'toggle-bold') {
+		isSelectionLogBold = !isSelectionLogBold;
+		saveSelectionLogBoldPreference();
+		updateSelectionLogUI();
+		syncSelectionLogActionButtonStates();
+		reapplySelectionState();
+		syncTraceLabelPresentation();
+		const transform = getCurrentZoomTransform();
+		const labelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, transform.k || 1)))) : 1;
+		const logLabelNodeIds = getSelectionLogLabelNodeIds();
+		if (overlayApi && typeof overlayApi.update === 'function') {
+			try {
+				overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale, logLabelNodeIds });
+			} catch {}
+		}
+		if (canvasApi && typeof canvasApi.drawFrame === 'function') {
+			try {
+				canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
+			} catch {}
+		}
+		if (pixiApi && typeof pixiApi.drawFrame === 'function') {
+			try {
+				pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
+			} catch {}
+		}
 		return;
 	}
 
@@ -5609,7 +5671,7 @@ function renderNodeContents(selection) {
 		const labelDy = (d._vizHalf != null ? d._vizHalf : r) + 8;
 
 		// Check if this node is in the selection log (by id)
-		const isLogged = selectedNodesLog.some((e) => e.id === d.id);
+		const isLogged = isSelectionLogBold && selectedNodesLog.some((e) => e.id === d.id);
 		const labelFontSize = isLogged ? '24px' : '12px';
 
 		let label: any = null;
@@ -5896,8 +5958,10 @@ function reapplySelectionState() {
 	const isOnShortestTrace = (id: string) => traceShortestIds.has(id) || traceShortestConnectorIds.has(id);
 	const isOnLongestTrace = (id: string) => traceLongestIds.has(id) || traceLongestConnectorIds.has(id);
 	const isOnLogTrace = (id: string) => traceLogIds.has(id) || traceLogConnectorIds.has(id);
+	const selectionLogLabelNodeIds = new Set(getSelectionLogLabelNodeIds());
 
 	nodeSel
+		.classed('fg-node--selection-log-label', (d) => selectionLogLabelNodeIds.has(d.id))
 		.classed('trace-shortest', (d) => isTraceMode && traceShortestIds.has(d.id) && !traceShortestConnectorIds.has(d.id))
 		.classed('trace-shortest-connector', (d) => isTraceMode && traceShortestConnectorIds.has(d.id))
 		.classed('trace-longest', (d) => isTraceMode && traceLongestIds.has(d.id) && !traceLongestConnectorIds.has(d.id))
@@ -5912,6 +5976,7 @@ function reapplySelectionState() {
 
 	highlightLinks(highlightState);
 	orderGraphVisualLayers(highlightState);
+	updateNodeVisuals(nodeSel);
 }
 
 function markNodeSelected(node, options: { persist?: boolean } = {}) {
@@ -6249,11 +6314,25 @@ function renderGraph(_data) {
 							const transform = getCurrentZoomTransform();
 							if (pixiModeActive && pixiApi && typeof pixiApi.drawFrame === 'function') {
 								try {
-									pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId });
+									const labelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, transform.k || 1)))) : 1;
+									const logLabelNodeIds = getSelectionLogLabelNodeIds();
+									pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
+									if (overlayApi && typeof overlayApi.update === 'function') {
+										try {
+											overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale, logLabelNodeIds });
+										} catch (e) {}
+									}
 								} catch (e) {}
 							} else if (canvasApi && typeof canvasApi.drawFrame === 'function') {
 								try {
-									canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId });
+									const labelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, transform.k || 1)))) : 1;
+									const logLabelNodeIds = getSelectionLogLabelNodeIds();
+									canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
+									if (overlayApi && typeof overlayApi.update === 'function') {
+										try {
+											overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale, logLabelNodeIds });
+										} catch (e) {}
+									}
 								} catch (e) {}
 							}
 						});
@@ -9190,6 +9269,13 @@ function renderSidebarSelectionLogBody() {
 						type="button"
 						title="Copy all entries">
 						Copy All
+					</button>
+					<button
+						data-fg-selection-log-action="toggle-bold"
+						class="fg-ghost-btn fg-btn-sm"
+						type="button"
+						title="Make log entries larger and bolder">
+						Log Bold
 					</button>
 					<button
 						data-fg-selection-log-action="clear"

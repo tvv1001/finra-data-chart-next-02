@@ -151,7 +151,11 @@ function createLabelElement(node: Node) {
 	return el;
 }
 
-export function updateOverlay(nodes: Node[], transform: { x: number; y: number; k: number }, opts: { selectedId?: string | number } = {}) {
+export function updateOverlay(
+	nodes: Node[],
+	transform: { x: number; y: number; k: number },
+	opts: { selectedId?: string | number; labelScale?: number; logLabelNodeIds?: Array<string | number> } = {},
+) {
 	if (!container || !parentEl) return;
 	// Only show overlay labels once the user is zoomed in enough.
 	const rect = parentEl.getBoundingClientRect();
@@ -169,6 +173,12 @@ export function updateOverlay(nodes: Node[], transform: { x: number; y: number; 
 
 	// choose nodes to label only when zoomed in enough
 	const toLabel: Node[] = [];
+	const forcedLabelIds = new Set((opts.logLabelNodeIds || []).map((id) => String(id)));
+	if (forcedLabelIds.size) {
+		visible.forEach((node) => {
+			if (forcedLabelIds.has(String(node.id))) toLabel.push(node);
+		});
+	}
 	if (scale >= OVERLAY_LABEL_ZOOM_THRESHOLD) {
 		if (opts.selectedId) {
 			const sel = visible.find((n) => String(n.id) === String(opts.selectedId));
@@ -203,6 +213,7 @@ export function updateOverlay(nodes: Node[], transform: { x: number; y: number; 
 		const p = worldToScreen(n.x, n.y, transform);
 		el.style.left = `${Math.round(p.x)}px`;
 		el.style.top = `${Math.round(p.y)}px`;
+		el.style.fontSize = `${Math.max(12, Math.round(12 * Math.max(1, Number(opts.labelScale) || 1)))}px`;
 	}
 
 	// remove leftover labels
