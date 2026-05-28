@@ -2879,6 +2879,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				// We only fetch full detail for pure-numeric queries (direct CRD/firm ID lookup).
 				const batchAllNodes = [];
 				const batchAllLinks = [];
+				const updatedExistingNodeIds = new Set<string>();
 
 				const isDirectId = /^\d+$/.test(q);
 
@@ -2906,7 +2907,41 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 					);
 
 					if (existingGraphNode) {
+						existingGraphNode.bcScope = src?.ind_bc_scope ?? parsed?.basicInformation?.bcScope ?? parsed?.bcScope ?? existingGraphNode.bcScope ?? null;
+						existingGraphNode.iaScope = src?.ind_ia_scope ?? parsed?.basicInformation?.iaScope ?? parsed?.iaScope ?? existingGraphNode.iaScope ?? null;
+						existingGraphNode.registrationCount = {
+							...(existingGraphNode.registrationCount || {}),
+							approvedFinraRegistrationCount:
+								src?.ind_approved_finra_registration_count ??
+								parsed?.registrationCount?.approvedFinraRegistrationCount ??
+								existingGraphNode.registrationCount?.approvedFinraRegistrationCount ??
+								0,
+							approvedSRORegistrationCount:
+								src?.ind_approved_sro_registration_count ??
+								parsed?.registrationCount?.approvedSRORegistrationCount ??
+								existingGraphNode.registrationCount?.approvedSRORegistrationCount ??
+								0,
+							approvedStateRegistrationCount:
+								src?.ind_approved_state_registration_count ??
+								parsed?.registrationCount?.approvedStateRegistrationCount ??
+								existingGraphNode.registrationCount?.approvedStateRegistrationCount ??
+								0,
+							approvedIAStateRegistrationCount:
+								src?.ind_approved_ia_state_registration_count ??
+								parsed?.registrationCount?.approvedIAStateRegistrationCount ??
+								existingGraphNode.registrationCount?.approvedIAStateRegistrationCount ??
+								0,
+						};
+						existingGraphNode.currentEmployments =
+							Array.isArray(src?.ind_current_employments) ? src.ind_current_employments
+							: Array.isArray(parsed?.currentEmployments) ? parsed.currentEmployments
+							: (existingGraphNode.currentEmployments ?? []);
+						existingGraphNode.currentIAEmployments =
+							Array.isArray(src?.ind_ia_current_employments) ? src.ind_ia_current_employments
+							: Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments
+							: (existingGraphNode.currentIAEmployments ?? []);
 						applyIndividualDetail(existingGraphNode, parsed, crd);
+						updatedExistingNodeIds.add(existingGraphNode.id);
 					} else if (!batchAllNodes.some((n) => n.id === personId)) {
 						// Propagate disclosure flags if present
 						const disclosureFlag = parsed?.disclosureFlag ?? parsed?.basicInformation?.disclosureFlag ?? parsed?.ind_bc_disclosure_fl;
@@ -2918,6 +2953,16 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 									label: personLabel,
 									group: 'individual',
 									crd,
+									bcScope: src?.ind_bc_scope ?? parsed?.basicInformation?.bcScope ?? parsed?.bcScope ?? null,
+									iaScope: src?.ind_ia_scope ?? parsed?.basicInformation?.iaScope ?? parsed?.iaScope ?? null,
+									registrationCount: {
+										approvedFinraRegistrationCount: src?.ind_approved_finra_registration_count ?? parsed?.registrationCount?.approvedFinraRegistrationCount ?? 0,
+										approvedSRORegistrationCount: src?.ind_approved_sro_registration_count ?? parsed?.registrationCount?.approvedSRORegistrationCount ?? 0,
+										approvedStateRegistrationCount: src?.ind_approved_state_registration_count ?? parsed?.registrationCount?.approvedStateRegistrationCount ?? 0,
+										approvedIAStateRegistrationCount: src?.ind_approved_ia_state_registration_count ?? parsed?.registrationCount?.approvedIAStateRegistrationCount ?? 0,
+									},
+									currentEmployments: Array.isArray(src?.ind_current_employments) ? src.ind_current_employments : (parsed?.currentEmployments ?? []),
+									currentIAEmployments: Array.isArray(src?.ind_ia_current_employments) ? src.ind_ia_current_employments : (parsed?.currentIAEmployments ?? []),
 									disclosureFlag,
 									iaDisclosureFlag,
 								},
@@ -3104,6 +3149,11 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 
 				// ── 4. Update in-memory graphData so filter/subset sees new nodes ──
 				mergeIntoGraphData(batchAllNodes, batchAllLinks);
+				if (updatedExistingNodeIds.size) {
+					rerenderGraphNodesByIds(Array.from(updatedExistingNodeIds));
+					refreshGraphColors();
+					refreshTraceState();
+				}
 
 				// ── 6. Persist to server so data survives page reload ──────────────
 				persistToServer(batchAllNodes, batchAllLinks);
@@ -3237,6 +3287,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 		nodeSel = nodeGroup.selectAll('g.fg-node');
 		linkSel = linkGroup.selectAll('line');
 		rerenderGraphNodesByIds(getImpactedNodeIds(uniqNodes, newLinks));
+		reapplySelectionState();
 
 		refreshGraphColors();
 		refreshTraceState();
@@ -3626,6 +3677,14 @@ async function fetchAndInjectQuery(q) {
 					crd,
 					bcScope: src?.ind_bc_scope ?? parsed?.basicInformation?.bcScope ?? null,
 					iaScope: src?.ind_ia_scope ?? parsed?.basicInformation?.iaScope ?? null,
+					registrationCount: {
+						approvedFinraRegistrationCount: src?.ind_approved_finra_registration_count ?? parsed?.registrationCount?.approvedFinraRegistrationCount ?? 0,
+						approvedSRORegistrationCount: src?.ind_approved_sro_registration_count ?? parsed?.registrationCount?.approvedSRORegistrationCount ?? 0,
+						approvedStateRegistrationCount: src?.ind_approved_state_registration_count ?? parsed?.registrationCount?.approvedStateRegistrationCount ?? 0,
+						approvedIAStateRegistrationCount: src?.ind_approved_ia_state_registration_count ?? parsed?.registrationCount?.approvedIAStateRegistrationCount ?? 0,
+					},
+					currentEmployments: Array.isArray(src?.ind_current_employments) ? src.ind_current_employments : (parsed?.currentEmployments ?? []),
+					currentIAEmployments: Array.isArray(src?.ind_ia_current_employments) ? src.ind_ia_current_employments : (parsed?.currentIAEmployments ?? []),
 					disclosureFlag,
 					iaDisclosureFlag,
 					_source: 'finra',
@@ -3768,6 +3827,14 @@ async function fetchQueryBatch(q) {
 					crd,
 					bcScope: src?.ind_bc_scope ?? parsed?.basicInformation?.bcScope ?? null,
 					iaScope: src?.ind_ia_scope ?? parsed?.basicInformation?.iaScope ?? null,
+					registrationCount: {
+						approvedFinraRegistrationCount: src?.ind_approved_finra_registration_count ?? parsed?.registrationCount?.approvedFinraRegistrationCount ?? 0,
+						approvedSRORegistrationCount: src?.ind_approved_sro_registration_count ?? parsed?.registrationCount?.approvedSRORegistrationCount ?? 0,
+						approvedStateRegistrationCount: src?.ind_approved_state_registration_count ?? parsed?.registrationCount?.approvedStateRegistrationCount ?? 0,
+						approvedIAStateRegistrationCount: src?.ind_approved_ia_state_registration_count ?? parsed?.registrationCount?.approvedIAStateRegistrationCount ?? 0,
+					},
+					currentEmployments: Array.isArray(src?.ind_current_employments) ? src.ind_current_employments : (parsed?.currentEmployments ?? []),
+					currentIAEmployments: Array.isArray(src?.ind_ia_current_employments) ? src.ind_ia_current_employments : (parsed?.currentIAEmployments ?? []),
 					disclosureFlag,
 					iaDisclosureFlag,
 					_source: 'finra',
@@ -3863,6 +3930,11 @@ function mergeIntoGraphData(newNodes, newLinks) {
 		.forEach((n) => {
 			const existingNode = graphData.nodes.find((entry) => entry.id === n.id);
 			if (!existingNode) return;
+			if (n.bcScope != null) existingNode.bcScope = n.bcScope;
+			if (n.iaScope != null) existingNode.iaScope = n.iaScope;
+			if (n.registrationCount) existingNode.registrationCount = { ...(existingNode.registrationCount || {}), ...n.registrationCount };
+			if (Array.isArray(n.currentEmployments)) existingNode.currentEmployments = n.currentEmployments;
+			if (Array.isArray(n.currentIAEmployments)) existingNode.currentIAEmployments = n.currentIAEmployments;
 			if (n.basicInformation && !existingNode.basicInformation) existingNode.basicInformation = n.basicInformation;
 			if (n.name && !existingNode.name) existingNode.name = n.name;
 			if (n.firmName && !existingNode.firmName) existingNode.firmName = n.firmName;
@@ -5630,6 +5702,11 @@ function updateNodeVisuals(selection) {
 	selection.each(function (d) {
 		const g = d3.select(this);
 		const inactive = isNodeInactive(d);
+		g.classed('fg-node--inactive', inactive)
+			.classed('fg-node--individual', d.group === 'individual')
+			.classed('fg-node--firm', d.group === 'firm')
+			.classed('fg-node--entity', d.group === 'entity')
+			.classed('fg-node--stub', d.group === 'individual' && Boolean(d.stub));
 		let color = inactive ? GRAPH_COLORS.nodeInactive : NODE_COLOR[d.group] || GRAPH_COLORS.nodeDefault;
 		let nodeOpacity: number | string = inactive ? 0.82 : 1;
 		let nodeStroke = inactive ? GRAPH_COLORS.nodeInactiveStroke : GRAPH_COLORS.nodeBorder;
@@ -6467,6 +6544,7 @@ function injectNodesById(ids) {
 	nodeSel = nodeGroup.selectAll('g.fg-node');
 	linkSel = linkGroup.selectAll('line');
 	rerenderGraphNodesByIds(getImpactedNodeIds(toAdd, newLinks));
+	reapplySelectionState();
 
 	// Pulse newly injected nodes so they're visually highlighted until interaction.
 	try {
@@ -7472,7 +7550,7 @@ function normalizeNodeLabelsInPlace(nodes = []) {
 	return nodes;
 }
 
-export { normalizeNodeLabelInPlace };
+export { isNodeInactive, normalizeNodeLabelInPlace };
 
 function mergeExpansionNodeIntoExistingNode(targetNodeId, incomingNode) {
 	if (!targetNodeId || !incomingNode) return;
@@ -8243,6 +8321,7 @@ function revealNeighbors(
 	enteredNodes.transition().duration(800).attr('opacity', 1);
 	nodeSel = nodeGroup.selectAll('g.fg-node');
 	rerenderGraphNodesByIds(getImpactedNodeIds(newNodes, newLinks));
+	reapplySelectionState();
 
 	refreshGraphColors();
 	refreshTraceState();

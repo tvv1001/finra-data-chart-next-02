@@ -8,7 +8,7 @@ import {
 	hideSelectionLog,
 	focusFetchInputWhenEmpty,
 } from '../../src/components/FinraGraph';
-import { normalizeNodeLabelInPlace } from '../../src/lib/finra-graph';
+import { isNodeInactive, normalizeNodeLabelInPlace } from '../../src/lib/finra-graph';
 
 describe('FinraGraph DOM helpers (unit)', () => {
 	beforeEach(() => {
@@ -65,6 +65,54 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		const node = { id: 'person:123', label: 'CRD 123456', group: 'individual' } as any;
 		normalizeNodeLabelInPlace(node);
 		expect(node.label).toBe('Node person:123');
+	});
+
+	it('isNodeInactive marks fetched inactive individuals as inactive immediately', () => {
+		const node = {
+			id: 'person:123',
+			group: 'individual',
+			label: 'Example Person',
+			hasFinraData: true,
+			bcScope: 'InActive',
+			registrationCount: {
+				approvedFinraRegistrationCount: 0,
+				approvedSRORegistrationCount: 0,
+				approvedStateRegistrationCount: 0,
+				approvedIAStateRegistrationCount: 0,
+			},
+			currentEmployments: [],
+			currentIAEmployments: [],
+			previousEmployments: [{ firmId: '1' }],
+			previousIAEmployments: [],
+			registeredStates: [],
+			registeredSROs: [],
+		} as any;
+
+		expect(isNodeInactive(node)).toBe(true);
+	});
+
+	it('isNodeInactive keeps active fetched individuals enabled', () => {
+		const node = {
+			id: 'person:456',
+			group: 'individual',
+			label: 'Active Person',
+			hasFinraData: true,
+			bcScope: 'Active',
+			registrationCount: {
+				approvedFinraRegistrationCount: 1,
+				approvedSRORegistrationCount: 0,
+				approvedStateRegistrationCount: 0,
+				approvedIAStateRegistrationCount: 0,
+			},
+			currentEmployments: [{ firmId: '1' }],
+			currentIAEmployments: [],
+			previousEmployments: [],
+			previousIAEmployments: [],
+			registeredStates: [],
+			registeredSROs: [],
+		} as any;
+
+		expect(isNodeInactive(node)).toBe(false);
 	});
 
 	it('focusFetchInputWhenEmpty focuses when empty and not active', () => {
