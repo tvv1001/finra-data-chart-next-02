@@ -519,6 +519,48 @@ function getExpectedRevealableNeighborIds(node) {
 	return expectedNeighborIds;
 }
 
+export function isRevealableChainExhausted(
+	startNodeId: string,
+	getNodeById: (nodeId: string) => any,
+	getExpectedNeighborIds: (node: any) => Set<string>,
+	getVisibleNeighborIdsForNode: (nodeId: string) => Set<string>,
+	canInspectNode: (node: any, nodeId: string) => boolean = () => true,
+) {
+	const normalizedStartNodeId = String(startNodeId || '').trim();
+	if (!normalizedStartNodeId) return false;
+
+	const queue = [normalizedStartNodeId];
+	const seen = new Set<string>();
+
+	while (queue.length > 0) {
+		const currentNodeId = queue.shift();
+		if (!currentNodeId || seen.has(currentNodeId)) continue;
+		seen.add(currentNodeId);
+
+		const currentNode = getNodeById(currentNodeId);
+		if (!currentNode) continue;
+		if (currentNodeId !== normalizedStartNodeId && !canInspectNode(currentNode, currentNodeId)) {
+			return false;
+		}
+
+		const expectedNeighborIds = getExpectedNeighborIds(currentNode);
+		if (!expectedNeighborIds.size) continue;
+
+		const visibleNeighborIds = getVisibleNeighborIdsForNode(currentNodeId);
+		for (const expectedNeighborId of expectedNeighborIds) {
+			if (!visibleNeighborIds.has(expectedNeighborId)) return false;
+		}
+
+		for (const visibleNeighborId of visibleNeighborIds) {
+			if (expectedNeighborIds.has(visibleNeighborId) && !seen.has(visibleNeighborId)) {
+				queue.push(visibleNeighborId);
+			}
+		}
+	}
+
+	return true;
+}
+
 function isFetchedExhaustedConnectedNode(node) {
 	if (!node?.id) return false;
 	if (initialServerNodeIds instanceof Set && initialServerNodeIds.has(node.id)) return false;
@@ -534,11 +576,13 @@ function isFetchedExhaustedConnectedNode(node) {
 	const visibleNeighborIds = getVisibleRevealableNeighborIds(node.id);
 	if (!visibleNeighborIds.size) return false;
 
-	for (const expectedNeighborId of expectedNeighborIds) {
-		if (!visibleNeighborIds.has(expectedNeighborId)) return false;
-	}
-
-	return true;
+	return isRevealableChainExhausted(
+		node.id,
+		(nodeId) => layoutNodes?.find((entry) => entry.id === nodeId) || graphData?.nodes?.find((entry) => entry.id === nodeId) || null,
+		getExpectedRevealableNeighborIds,
+		getVisibleRevealableNeighborIds,
+		(candidateNode) => hasTrustedCurrentRelationshipData(candidateNode) && hasKnownRevealableChildCount(candidateNode),
+	);
 }
 
 function markUserInitiatedGraphExpansion() {

@@ -9,7 +9,7 @@ import {
 	focusFetchInputWhenEmpty,
 	routeSidebarNodeSelection,
 } from '../../src/components/FinraGraph';
-import { isNodeInactive, normalizeNodeLabelInPlace } from '../../src/lib/finra-graph';
+import { isNodeInactive, isRevealableChainExhausted, normalizeNodeLabelInPlace } from '../../src/lib/finra-graph';
 
 describe('FinraGraph DOM helpers (unit)', () => {
 	beforeEach(() => {
@@ -114,6 +114,91 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		} as any;
 
 		expect(isNodeInactive(node)).toBe(false);
+	});
+
+	it('isRevealableChainExhausted stays false when a visible downstream node still has hidden revealable neighbors', () => {
+		const nodesById = new Map<string, any>([
+			['person:4240769', { id: 'person:4240769', type: 'person' }],
+			['firm:34040', { id: 'firm:34040', type: 'firm' }],
+			['person:4118468', { id: 'person:4118468', type: 'person' }],
+		]);
+
+		const expectedNeighborsById = new Map<string, Set<string>>([
+			['person:4240769', new Set(['firm:34040'])],
+			['firm:34040', new Set(['person:4240769', 'person:4118468'])],
+			['person:4118468', new Set()],
+		]);
+
+		const visibleNeighborsById = new Map<string, Set<string>>([
+			['person:4240769', new Set(['firm:34040'])],
+			['firm:34040', new Set(['person:4240769'])],
+			['person:4118468', new Set()],
+		]);
+
+		expect(
+			isRevealableChainExhausted(
+				'person:4240769',
+				(nodeId) => nodesById.get(nodeId) || null,
+				(node) => expectedNeighborsById.get(node.id) || new Set(),
+				(nodeId) => visibleNeighborsById.get(nodeId) || new Set(),
+			),
+		).toBe(false);
+	});
+
+	it('isRevealableChainExhausted returns true when the visible revealable chain is fully exhausted', () => {
+		const nodesById = new Map<string, any>([
+			['person:4240769', { id: 'person:4240769', type: 'person' }],
+			['firm:34040', { id: 'firm:34040', type: 'firm' }],
+			['person:4118468', { id: 'person:4118468', type: 'person' }],
+		]);
+
+		const expectedNeighborsById = new Map<string, Set<string>>([
+			['person:4240769', new Set(['firm:34040'])],
+			['firm:34040', new Set(['person:4240769', 'person:4118468'])],
+			['person:4118468', new Set()],
+		]);
+
+		const visibleNeighborsById = new Map<string, Set<string>>([
+			['person:4240769', new Set(['firm:34040'])],
+			['firm:34040', new Set(['person:4240769', 'person:4118468'])],
+			['person:4118468', new Set(['firm:34040'])],
+		]);
+
+		expect(
+			isRevealableChainExhausted(
+				'person:4240769',
+				(nodeId) => nodesById.get(nodeId) || null,
+				(node) => expectedNeighborsById.get(node.id) || new Set(),
+				(nodeId) => visibleNeighborsById.get(nodeId) || new Set(),
+			),
+		).toBe(true);
+	});
+
+	it('isRevealableChainExhausted stays false when a visible downstream node cannot be inspected yet', () => {
+		const nodesById = new Map<string, any>([
+			['person:4240769', { id: 'person:4240769', inspectable: true }],
+			['firm:34040', { id: 'firm:34040', inspectable: false }],
+		]);
+
+		const expectedNeighborsById = new Map<string, Set<string>>([
+			['person:4240769', new Set(['firm:34040'])],
+			['firm:34040', new Set()],
+		]);
+
+		const visibleNeighborsById = new Map<string, Set<string>>([
+			['person:4240769', new Set(['firm:34040'])],
+			['firm:34040', new Set(['person:4240769'])],
+		]);
+
+		expect(
+			isRevealableChainExhausted(
+				'person:4240769',
+				(nodeId) => nodesById.get(nodeId) || null,
+				(node) => expectedNeighborsById.get(node.id) || new Set(),
+				(nodeId) => visibleNeighborsById.get(nodeId) || new Set(),
+				(node) => node.inspectable === true,
+			),
+		).toBe(false);
 	});
 
 	it('focusFetchInputWhenEmpty focuses when empty and not active', () => {
