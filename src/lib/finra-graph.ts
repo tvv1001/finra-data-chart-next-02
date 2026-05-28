@@ -938,13 +938,16 @@ function loadSession() {
 let currentProfileName = null;
 let currentProfileEnabled = true;
 let isSessionCleared = false;
-let selectedNodesLog: Array<{ id: string; label: string; secondaryId: string; group: string }> = [];
+type SelectionLogEntry = { id: string; label: string; secondaryId: string; group: string };
+
+let selectedNodesLog: Array<SelectionLogEntry> = [];
 let sidebarSelectedNode = null;
 let sidebarViewMode: 'none' | 'info' | 'log' = 'none';
 let sidebarLogSticky = false; // true if user has explicitly opened log toggle
 let isTraceMode = false;
 let isTraceLogMode = false;
 let isSelectionLogBold = false;
+let isSelectionLogEditMode = false;
 let pendingRouteNodeId: string | null = null;
 let pendingRoutePulseDuration: number | null = null; // optional pulse duration (ms) requested with route
 let routeNodeRequestListenerBound = false;
@@ -964,9 +967,11 @@ let lastTraceLogGuardWarning = '';
 
 function loadSelectionLogBoldPreference() {
 	try {
-		return localStorage.getItem(LS_LOG_BOLD_KEY) === 'true';
+		const savedPreference = localStorage.getItem(LS_LOG_BOLD_KEY);
+		if (savedPreference === null) return true;
+		return savedPreference === 'true';
 	} catch {
-		return false;
+		return true;
 	}
 }
 
@@ -1024,8 +1029,29 @@ function guardTraceLogSurface(reason = 'state-sync') {
 	}
 }
 
-function getSelectionLogActionButtons(action: 'trace' | 'copy-all' | 'clear' | 'toggle-bold') {
+function getSelectionLogActionButtons(action: 'trace' | 'copy-all' | 'clear' | 'toggle-bold' | 'edit') {
 	return Array.from(document.querySelectorAll<HTMLButtonElement>(`[data-fg-selection-log-action="${action}"]`));
+}
+
+function syncSelectionLogAuxiliaryRenderers() {
+	const transform = getCurrentZoomTransform();
+	const labelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, transform.k || 1)))) : 1;
+	const logLabelNodeIds = getSelectionLogLabelNodeIds();
+	if (overlayApi && typeof overlayApi.update === 'function') {
+		try {
+			overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale, logLabelNodeIds });
+		} catch {}
+	}
+	if (canvasApi && typeof canvasApi.drawFrame === 'function') {
+		try {
+			canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
+		} catch {}
+	}
+	if (pixiApi && typeof pixiApi.drawFrame === 'function') {
+		try {
+			pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
+		} catch {}
+	}
 }
 
 function syncSelectionLogActionButtonStates() {
@@ -1049,6 +1075,13 @@ function syncSelectionLogActionButtonStates() {
 		button.setAttribute('aria-pressed', isSelectionLogBold ? 'true' : 'false');
 		button.title = isSelectionLogBold ? 'Use normal graph node label size' : 'Make graph node labels larger like trace mode';
 		button.textContent = isSelectionLogBold ? 'Log Bold On' : 'Log Bold';
+	});
+
+	getSelectionLogActionButtons('edit').forEach((button) => {
+		button.classList.toggle('active', isSelectionLogEditMode);
+		button.setAttribute('aria-pressed', isSelectionLogEditMode ? 'true' : 'false');
+		button.title = isSelectionLogEditMode ? 'Done editing selection log entries' : 'Edit selection log entries';
+		button.textContent = 'Edit';
 	});
 }
 
@@ -1452,6 +1485,14 @@ function getSecondaryId(d) {
 	return '';
 }
 
+function upsertSelectionLogEntry(entries: Array<SelectionLogEntry>, entry: SelectionLogEntry) {
+	const normalizedEntryId = String(entry?.id || '').trim();
+	if (!normalizedEntryId) return entries.slice();
+	const nextEntries = entries.filter((existingEntry) => String(existingEntry?.id || '').trim() !== normalizedEntryId);
+	nextEntries.push(entry);
+	return nextEntries;
+}
+
 function addToSelectionLog(d) {
 	const secondaryId = getSecondaryId(d);
 	const entry = {
@@ -1461,12 +1502,29 @@ function addToSelectionLog(d) {
 		group: d.group,
 	};
 
-	// Only add if this node was explicitly selected (not just visited/expanded)
-	// Avoid duplicates by ID
-	if (selectedNodesLog.some((e) => e.id === entry.id)) return;
-	selectedNodesLog.push(entry);
+	// Only add if this node was explicitly selected (not just visited/expanded).
+	// Re-selecting an existing node moves it to the most-recent slot.
+	selectedNodesLog = upsertSelectionLogEntry(selectedNodesLog, entry);
 	saveSelectionLog();
 	updateSelectionLogUI();
+	syncSelectionLogAuxiliaryRenderers();
+}
+
+function removeSelectionLogEntry(entryId: string) {
+	const normalizedEntryId = String(entryId || '').trim();
+	if (!normalizedEntryId) return;
+	const nextLog = selectedNodesLog.filter((entry) => String(entry?.id || '').trim() !== normalizedEntryId);
+	if (nextLog.length === selectedNodesLog.length) return;
+	selectedNodesLog = nextLog;
+	if (!selectedNodesLog.length) {
+		isSelectionLogEditMode = false;
+	}
+	saveSelectionLog();
+	updateSelectionLogUI();
+	syncSelectionLogActionButtonStates();
+	refreshTraceState();
+	syncTraceLabelPresentation();
+	syncSelectionLogAuxiliaryRenderers();
 }
 
 function updateSelectionLogUI() {
@@ -1491,21 +1549,34 @@ function updateSelectionLogUI() {
 			.reverse()
 			.forEach((entry) => {
 				const div = document.createElement('div');
-				div.className = `fg-log-entry ${entry.group}`;
+				div.className = `fg-log-entry ${entry.group}${isSelectionLogEditMode ? ' is-editing' : ''}`;
 				const text = `${entry.label} :: ${entry.secondaryId}`;
+				const entryTextTitle = isSelectionLogEditMode ? 'Edit mode enabled' : 'Click to copy';
+				const actionButtonTitle = isSelectionLogEditMode ? 'Remove from log' : 'Copy to clipboard';
+				const actionButtonClass = `fg-log-item-action-btn${isSelectionLogEditMode ? ' is-delete' : ''}`;
+				const actionButtonIcon =
+					isSelectionLogEditMode ?
+						'<svg viewBox="0 0 16 16" fill="none" width="18" height="18" aria-hidden="true"><path d="M4 4L12 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 4L4 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+					:	'<svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18" aria-hidden="true"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path></svg>';
 				div.innerHTML = `
-			<span class="fg-log-text" title="Click to copy">
+			<span class="fg-log-text" title="${entryTextTitle}">
 				<strong class="fg-log-label">${entry.label}</strong>
 				<span class="fg-log-subtext">:: ${entry.secondaryId}</span>
 			</span>
-			<button class="fg-log-copy-btn" title="Copy to clipboard">
-				<svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path></svg>
+			<button class="${actionButtonClass}" title="${actionButtonTitle}" aria-label="${actionButtonTitle}">
+				${actionButtonIcon}
 			</button>
 		`;
-				div.querySelector('.fg-log-text')?.addEventListener('click', () => {
-					copyToClipboard(text, div);
-				});
-				div.querySelector('.fg-log-copy-btn')?.addEventListener('click', () => {
+				if (!isSelectionLogEditMode) {
+					div.querySelector('.fg-log-text')?.addEventListener('click', () => {
+						copyToClipboard(text, div);
+					});
+				}
+				div.querySelector('.fg-log-item-action-btn')?.addEventListener('click', () => {
+					if (isSelectionLogEditMode) {
+						removeSelectionLogEntry(entry.id);
+						return;
+					}
 					copyToClipboard(text, div);
 				});
 				container.appendChild(div);
@@ -1542,7 +1613,7 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 		return;
 	}
 
-	const action = target.dataset.fgSelectionLogAction as 'trace' | 'copy-all' | 'clear' | 'toggle-bold' | undefined;
+	const action = target.dataset.fgSelectionLogAction as 'trace' | 'copy-all' | 'clear' | 'toggle-bold' | 'edit' | undefined;
 	if (!action) return;
 
 	if (action === 'trace') {
@@ -1568,32 +1639,26 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 		syncSelectionLogActionButtonStates();
 		reapplySelectionState();
 		syncTraceLabelPresentation();
-		const transform = getCurrentZoomTransform();
-		const labelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, transform.k || 1)))) : 1;
-		const logLabelNodeIds = getSelectionLogLabelNodeIds();
-		if (overlayApi && typeof overlayApi.update === 'function') {
-			try {
-				overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale, logLabelNodeIds });
-			} catch {}
-		}
-		if (canvasApi && typeof canvasApi.drawFrame === 'function') {
-			try {
-				canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
-			} catch {}
-		}
-		if (pixiApi && typeof pixiApi.drawFrame === 'function') {
-			try {
-				pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
-			} catch {}
-		}
+		syncSelectionLogAuxiliaryRenderers();
+		return;
+	}
+
+	if (action === 'edit') {
+		isSelectionLogEditMode = !isSelectionLogEditMode;
+		updateSelectionLogUI();
+		syncSelectionLogActionButtonStates();
 		return;
 	}
 
 	if (action === 'clear') {
 		selectedNodesLog = [];
+		isSelectionLogEditMode = false;
 		saveSelectionLog();
 		updateSelectionLogUI();
+		syncSelectionLogActionButtonStates();
 		refreshTraceState();
+		syncTraceLabelPresentation();
+		syncSelectionLogAuxiliaryRenderers();
 		flashSelectionLogActionButton(target, 'Cleared!');
 	}
 }
@@ -7884,7 +7949,7 @@ function normalizeNodeLabelsInPlace(nodes = []) {
 	return nodes;
 }
 
-export { isNodeInactive, normalizeNodeLabelInPlace };
+export { isNodeInactive, loadSelectionLogBoldPreference, normalizeNodeLabelInPlace, upsertSelectionLogEntry };
 
 function mergeExpansionNodeIntoExistingNode(targetNodeId, incomingNode) {
 	if (!targetNodeId || !incomingNode) return;
@@ -9278,6 +9343,13 @@ function renderSidebarSelectionLogBody() {
 						type="button"
 						title="Trace path between all logged nodes">
 						Trace with Log
+					</button>
+					<button
+						data-fg-selection-log-action="edit"
+						class="fg-ghost-btn fg-btn-sm"
+						type="button"
+						title="Edit selection log entries">
+						Edit
 					</button>
 				</div>
 				<div class="fg-log-drawer-actions-row fg-log-drawer-actions-row--secondary">

@@ -611,6 +611,13 @@ export default function FinraGraph() {
 									title='Trace path between all logged nodes'>
 									Trace with Log
 								</button>
+								<button
+									data-fg-selection-log-action='toggle-bold'
+									className='fg-ghost-btn fg-btn-sm'
+									type='button'
+									title='Make log entries larger and bolder'>
+									Log Bold
+								</button>
 							</div>
 							<div className='fg-log-drawer-actions-row fg-log-drawer-actions-row--secondary'>
 								<button
@@ -622,12 +629,12 @@ export default function FinraGraph() {
 									Copy All
 								</button>
 								<button
-									id='btn-selection-log-bold'
-									data-fg-selection-log-action='toggle-bold'
+									id='btn-selection-log-edit'
+									data-fg-selection-log-action='edit'
 									className='fg-ghost-btn fg-btn-sm'
 									type='button'
-									title='Make log entries larger and bolder'>
-									Log Bold
+									title='Edit selection log entries'>
+									Edit
 								</button>
 								<button
 									id='btn-selection-log-clear'

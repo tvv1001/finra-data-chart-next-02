@@ -4020,7 +4020,7 @@ text.fg-label {
 	margin-left: 4px;
 }
 
-.fg-log-copy-btn {
+.fg-log-item-action-btn {
 	background: none;
 	border: none;
 	padding: 8px;
@@ -4033,9 +4033,18 @@ text.fg-label {
 	align-items: center;
 }
 
-.fg-log-copy-btn:hover {
+.fg-log-item-action-btn:hover {
 	opacity: 1;
 	color: var(--accent);
+}
+
+.fg-log-item-action-btn.is-delete:hover {
+	color: #dc2626;
+}
+
+.fg-log-entry.is-editing {
+	border-color: rgba(220, 38, 38, 0.28);
+	box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.08);
 }
 
 .fg-log-empty {
