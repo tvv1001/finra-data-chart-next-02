@@ -123,6 +123,7 @@ export function drawCanvasFrame(nodes: Node[], links: Link[], transform: { x: nu
 
 	// node LOD: if zoomed out, draw small dots; zoomed in show larger and highlight selected
 	const scale = transform.k || 1;
+	const selectedCanvasLabelZoomThreshold = 1.6;
 	for (const n of visibleNodes) {
 		const col = getColorForGroup(n.group);
 		const baseSize = n.group === 'firm' ? 6 : 4;
@@ -145,10 +146,12 @@ export function drawCanvasFrame(nodes: Node[], links: Link[], transform: { x: nu
 			ctx.strokeStyle = 'rgba(255,200,60,0.5)';
 			ctx.lineWidth = 2;
 			ctx.stroke();
-			// label
-			ctx.font = `${12 * Math.min(2, Math.max(0.9, scale))}px Inter, system-ui, sans-serif`;
-			ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-default-text') || '#0f172a';
-			ctx.fillText(n.label || n.name || String(n.id), p.x + 10, p.y - 8);
+			if (scale >= selectedCanvasLabelZoomThreshold) {
+				// label
+				ctx.font = `${12 * Math.min(2, Math.max(0.9, scale))}px Inter, system-ui, sans-serif`;
+				ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-default-text') || '#0f172a';
+				ctx.fillText(n.label || n.name || String(n.id), p.x + 10, p.y - 8);
+			}
 		}
 	}
 }

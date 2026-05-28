@@ -204,7 +204,7 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 		.classed('fg-labels-hidden', normalizedScale < activeLabelZoomThreshold)
 		.style('--fg-trace-label-scale', String(traceLabelScale));
 
-	// Hide all node labels when zoomed out below threshold
+	// Hide all node labels when zoomed out below threshold.
 	const labelGroup = rootGroup.select('.fg-label-group');
 	if (labelGroup && labelGroup.size()) {
 		labelGroup.classed('fg-labels-hidden', normalizedScale < activeLabelZoomThreshold);
@@ -6260,9 +6260,9 @@ function renderGraph(_data) {
 	// ── Zoom ──────────────────────────────────────────────────────────────────
 	// LOD threshold: hide labels when zoomed out (less DOM paint, higher props)
 	const labelZoomThreshold =
-		isHuge ? 0.8
-		: isLarge ? 0.55
-		: 0.3;
+		isHuge ? 1.75
+		: isLarge ? 1.6
+		: 0.9;
 	activeLabelZoomThreshold = labelZoomThreshold;
 	inactiveLabelCompactZoomThreshold = labelZoomThreshold * 1.35;
 	inactiveLabelCompactMode = initialScaleForCompactState(nodeCount) < inactiveLabelCompactZoomThreshold;
