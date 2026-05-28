@@ -12,6 +12,7 @@ let parentEl: HTMLElement | null = null;
 let dpr = 1;
 
 export function createCanvasOverlay(parent: HTMLElement) {
+	cachedThemeColors = null;
 	destroyCanvas();
 	parentEl = parent;
 	canvas = document.createElement('canvas');
@@ -73,11 +74,27 @@ function drawNode(ctx: CanvasRenderingContext2D, n: Node, transform: any, size =
 	ctx.fill();
 }
 
+let cachedThemeColors: Record<string, string> | null = null;
+
+function resolveCachedThemeColors() {
+	if (cachedThemeColors) return cachedThemeColors;
+	const root = document.documentElement;
+	const computed = window.getComputedStyle(root);
+	cachedThemeColors = {
+		individual: computed.getPropertyValue('--color-highlight-individual').trim() || '#0ea5a4',
+		firm: computed.getPropertyValue('--color-highlight-firm').trim() || '#7c3aed',
+		entity: computed.getPropertyValue('--color-highlight-entity').trim() || '#fb923c',
+		defaultText: computed.getPropertyValue('--color-default-text').trim() || '#94a3b8',
+	};
+	return cachedThemeColors;
+}
+
 function getColorForGroup(g: string) {
-	if (g === 'individual') return getComputedStyle(document.documentElement).getPropertyValue('--color-highlight-individual') || '#0ea5a4';
-	if (g === 'firm') return getComputedStyle(document.documentElement).getPropertyValue('--color-highlight-firm') || '#7c3aed';
-	if (g === 'entity') return getComputedStyle(document.documentElement).getPropertyValue('--color-highlight-entity') || '#fb923c';
-	return getComputedStyle(document.documentElement).getPropertyValue('--color-default-text') || '#94a3b8';
+	const colors = resolveCachedThemeColors();
+	if (g === 'individual') return colors.individual;
+	if (g === 'firm') return colors.firm;
+	if (g === 'entity') return colors.entity;
+	return colors.defaultText;
 }
 
 // Margin in world units to draw slightly outside viewport for smooth panning

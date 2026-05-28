@@ -121,6 +121,27 @@
 	--surface-hover: rgba(15, 23, 42, 0.04);
 }
 
+.fg-loading-shell,
+.fg-app-loading {
+	display: flex;
+	flex-direction: column;
+	min-height: 100vh;
+	background: var(--bg);
+}
+
+.fg-loading-main {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 32px 20px;
+}
+
+.fg-loading-main .fg-empty-card {
+	max-width: 560px;
+	width: 100%;
+}
+
 html[data-theme='dark'] {
 	--text: #e2e8f0;
 	--text-h: #f8fafc;

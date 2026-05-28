@@ -508,7 +508,24 @@ export default function FinraGraph() {
 	}, [isMounted, routeNodeId]);
 
 	if (!isMounted) {
-		return null;
+		return (
+			<div
+				id='finra-app'
+				className='fg-app-loading'>
+				<header className='fg-header'>
+					<div className='fg-header-bar'>
+						<div className='fg-header-brand'>
+							<h1 className='fg-title'>FINRA</h1>
+						</div>
+					</div>
+				</header>
+				<main className='fg-main fg-loading-main'>
+					<div className='fg-empty-card'>
+						<p className='fg-empty-eyebrow'>Loading graph…</p>
+					</div>
+				</main>
+			</div>
+		);
 	}
 
 	return (
