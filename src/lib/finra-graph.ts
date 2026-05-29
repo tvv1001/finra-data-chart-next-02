@@ -9585,6 +9585,10 @@ function renderSidebar(d) {
 	openSidebarToggles();
 }
 
+function safeArray(value: unknown): any[] {
+	return Array.isArray(value) ? value : [];
+}
+
 function hasAnyItems(list) {
 	return Array.isArray(list) && list.length > 0;
 }
@@ -9668,12 +9672,11 @@ function renderPersonDetail(d: any) {
 	// A blank duplicate (same type, no date/detail/resolution) is dropped when a
 	// richer entry with the same type already exists.
 	const _rawDisclosures = [
-		...(d.disclosures || []).map((dis) => ({
+		...safeArray(d.disclosures).map((dis) => ({
 			...dis,
 			_sourceLabel: dis?._sourceLabel || 'FINRA',
 		})),
-		...(d.iaDisclosures || []).map((dis) => ({
-			...dis,
+		...safeArray(d.iaDisclosures).map((dis) => ({
 			_sourceLabel: dis?._sourceLabel || 'SEC AdvisorInfo',
 		})),
 	];
@@ -9716,7 +9719,7 @@ function renderPersonDetail(d: any) {
 		return Array.from(seen.values()).sort((a, b) => compareCurrentFirstByDates(a, b, { currentKey: '__never', dateKeys: ['eventDate', 'date'] }));
 	})();
 	const disclosureCount = allDisclosures.length;
-	const aliases = (d.otherNames?.length ? d.otherNames : bi.otherNames || []).map((alias) => normalizePersonLabel(alias)).filter(Boolean);
+	const aliases = (safeArray(d.otherNames).length ? safeArray(d.otherNames) : safeArray(bi.otherNames)).map((alias) => normalizePersonLabel(alias)).filter(Boolean);
 
 	// ── Employment timeline from stored arrays, fallback to graph links ────────
 	// Build unified list from FINRA arrays (currentEmployments, previousEmployments,
@@ -9831,8 +9834,8 @@ function renderPersonDetail(d: any) {
 	}
 
 	const currentRegistrations = dedupeRegs([
-		...(d.currentIAEmployments || []).map((emp) => regToEntry(emp, 'IA', true)),
-		...(d.currentEmployments || []).map((emp) => regToEntry(emp, 'B', true)),
+		...safeArray(d.currentIAEmployments).map((emp) => regToEntry(emp, 'IA', true)),
+		...safeArray(d.currentEmployments).map((emp) => regToEntry(emp, 'B', true)),
 	]).sort((a, b) => compareCurrentFirstByDates(a, b, { dateKeys: ['start', 'end'] }));
 	const topCurrentRegistrationRoles = Array.from(new Set(currentRegistrations.map((reg) => reg.role)))
 		.filter(Boolean)
@@ -9850,7 +9853,7 @@ function renderPersonDetail(d: any) {
 		Number(d?.registrationCount?.approvedFinraRegistrationCount || 0) > 0 ||
 		Number(d?.registrationCount?.approvedSRORegistrationCount || 0) > 0 ||
 		Number(d?.registrationCount?.approvedStateRegistrationCount || 0) > 0 ||
-		(Boolean(d?.currentEmployments?.length) && !d?.stub) ||
+		(Boolean(safeArray(d.currentEmployments).length) && !d?.stub) ||
 		hasActiveRegisteredStates(d?.registeredStates, ['bc', 'b', 'broker']) ||
 		hasApprovedSro(d?.registeredSROs);
 	const hasBrokerIndicatorSource = hasActiveFinraIndicator;
@@ -9885,19 +9888,20 @@ function renderPersonDetail(d: any) {
 			</div>`
 		:	'';
 	const previousRegistrations = dedupeRegs([
-		...(d.previousIAEmployments || []).map((emp) => regToEntry(emp, 'IA', false)),
-		...(d.previousEmployments || []).map((emp) => regToEntry(emp, 'B', false)),
+		...safeArray(d.previousIAEmployments).map((emp) => regToEntry(emp, 'IA', false)),
+		...safeArray(d.previousEmployments).map((emp) => regToEntry(emp, 'B', false)),
 	]).sort((a, b) => compareCurrentFirstByDates(a, b, { dateKeys: ['end', 'start'] }));
 
-	const hasStoredEmps = d.currentEmployments?.length || d.previousEmployments?.length || d.currentIAEmployments?.length || d.previousIAEmployments?.length;
+	const hasStoredEmps =
+		safeArray(d.currentEmployments).length || safeArray(d.previousEmployments).length || safeArray(d.currentIAEmployments).length || safeArray(d.previousIAEmployments).length;
 
 	let empEntries = [];
 	if (hasStoredEmps) {
 		empEntries = [
-			...(d.currentEmployments || []).map((e) => empToEntry(e, true)),
-			...(d.currentIAEmployments || []).map((e) => empToEntry(e, true)),
-			...(d.previousEmployments || []).map((e) => empToEntry(e, false)),
-			...(d.previousIAEmployments || []).map((e) => empToEntry(e, false)),
+			...safeArray(d.currentEmployments).map((e) => empToEntry(e, true)),
+			...safeArray(d.currentIAEmployments).map((e) => empToEntry(e, true)),
+			...safeArray(d.previousEmployments).map((e) => empToEntry(e, false)),
+			...safeArray(d.previousIAEmployments).map((e) => empToEntry(e, false)),
 		];
 		const seen = new Set();
 		empEntries = empEntries.filter((e) => {
@@ -9948,7 +9952,7 @@ function renderPersonDetail(d: any) {
 	}
 
 	// ── Exam categories ────────────────────────────────────────────────────────
-	const allExams = [...(d.stateExamCategory || []), ...(d.principalExamCategory || []), ...(d.productExamCategory || [])].sort((a, b) =>
+	const allExams = [...safeArray(d.stateExamCategory), ...safeArray(d.principalExamCategory), ...safeArray(d.productExamCategory)].sort((a, b) =>
 		compareCurrentFirstByDates(a, b, { currentKey: '__never', dateKeys: ['examTakenDate'] }),
 	);
 
@@ -10385,8 +10389,8 @@ function renderPersonDetail(d: any) {
 
 // ── Firm detail ──────────────────────────────────────────────────────────────
 function renderFirmDetail(d: any) {
-	const owners = d.directOwners || [];
-	const disclosures = d.disclosures || [];
+	const owners = safeArray(d.directOwners);
+	const disclosures = safeArray(d.disclosures);
 	function buildFirmCurrentConnections() {
 		const firmNodeId = String(d?.id || '').trim();
 		if (!firmNodeId) return [];
@@ -10653,7 +10657,7 @@ function renderFirmDetail(d: any) {
     <div class="fg-sb-body">
 			<div class="fg-firm-summary">
 				<div class="fg-firm-summary__header">
-					${d.otherNames?.length ? `<div class="fg-firm-summary__aliases">${esc(d.otherNames.join(', '))}</div>` : ''}
+					${safeArray(d.otherNames).length ? `<div class="fg-firm-summary__aliases">${esc(safeArray(d.otherNames).join(', '))}</div>` : ''}
 					${crdSec ? `<div class="fg-firm-summary__crd">${esc(crdSec)}</div>` : ''}
 				</div>
 				${
@@ -10698,7 +10702,7 @@ function renderFirmDetail(d: any) {
 			${row(
 				'U.S. States &amp; Territories',
 				states !== 'N/A' ? esc(states)
-				: d.activeStates?.length ? `${d.activeStates.length} states/territories`
+				: safeArray(d.activeStates).length ? `${safeArray(d.activeStates).length} states/territories`
 				: 'N/A',
 			)}
       ${row('Regulator', esc(d.regulator || '–'))}

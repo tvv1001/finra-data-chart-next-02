@@ -603,12 +603,22 @@ function updateNodeStyles() {
 }
 (window as any).updateNodeStyles = updateNodeStyles;
 
-function selectNode(nodeId: string) {
+export function emitCanvasNodeSelectionEvents(nodeId: string, options: { requestDetailSync?: boolean } = {}) {
+	const { requestDetailSync = true } = options;
+	if (typeof window === 'undefined') return;
+	if (requestDetailSync) {
+		window.dispatchEvent(new CustomEvent(ROUTE_NODE_REQUEST_EVENT, { detail: { nodeId } }));
+	}
+	window.dispatchEvent(new CustomEvent(SELECTED_NODE_ROUTE_EVENT, { detail: { nodeId } }));
+}
+
+function selectNode(nodeId: string, options: { requestDetailSync?: boolean } = {}) {
+	const { requestDetailSync = true } = options;
 	if (selectedNodeId === nodeId && selectedNodeIds.has(nodeId)) return;
 	selectedNodeId = nodeId;
 	selectedNodeIds.add(nodeId);
 	updateNodeStyles();
-	window.dispatchEvent(new CustomEvent(SELECTED_NODE_ROUTE_EVENT, { detail: { nodeId } }));
+	emitCanvasNodeSelectionEvents(nodeId, { requestDetailSync });
 	centerOnNode(nodeId);
 }
 
@@ -629,7 +639,7 @@ function installRouteListener() {
 		const detail = (event as CustomEvent<{ nodeId?: string }>).detail || {};
 		const nodeId = String(detail.nodeId || '').trim();
 		if (!nodeId) return;
-		selectNode(nodeId);
+		selectNode(nodeId, { requestDetailSync: false });
 	};
 
 	window.addEventListener(ROUTE_NODE_REQUEST_EVENT, routeNodeListener as EventListener);
