@@ -44,6 +44,9 @@ data/national/seed-crds.json
 data/external/*
 .vercel
 data/raw/
+# ignore any JSON data dumps under data/ (local caches, derived files, primed bundles)
+data/*.json
+data/**/*.json
 data/derived/
 data/primed-cache/
 data/primed-cache/*

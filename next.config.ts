@@ -1,6 +1,9 @@
 import type { NextConfig } from 'next';
 
-const bundledRuntimeData = ['./data/national/**/*.json', './data/seed-profiles.json'];
+// Only bundle the small, curated seed profiles at build time.
+// Avoid bundling the entire `data/national` JSON dump which can be very large
+// and prevents opening/editing neighboring files in some editors.
+const bundledRuntimeData = ['./data/seed-profiles.json'];
 
 const nextConfig: NextConfig = {
 	// output: "export",
