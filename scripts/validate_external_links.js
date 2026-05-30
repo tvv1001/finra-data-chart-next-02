@@ -8,6 +8,10 @@ Cron-friendly: exits with 0 on success, non-zero on fatal errors.
 */
 
 const fs = require('fs').promises;
+const { assertExternalApisEnabled } = require('./external-control');
+
+// Respect global disable switch
+assertExternalApisEnabled('validate_external_links.js');
 const path = require('path');
 const zlib = require('zlib');
 

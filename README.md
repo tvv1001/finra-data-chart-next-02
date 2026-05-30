@@ -200,6 +200,16 @@ Before deploying, ensure you:
 env NODE_OPTIONS=--max-old-space-size=8192 pnpm build
 ```
 
+### Production deployment & external validation (important)
+
+This project performs an optional external validation step after merging nodes into the graph. To avoid accidental external requests in production the behavior is binary and must be explicitly enabled via an environment variable at deployment time.
+
+- Env var: `NEXT_PUBLIC_ENABLE_EXTERNAL_VALIDATION`
+  - In production (NODE_ENV=production) the app will only perform external FINRA/SEC validation when this is set to `1`.
+  - Any other value or omission disables external validation in production (recommended default).
+
+Add the variable to your deployment environment when you intentionally want the app to perform live external checks. See `.env.example` for the sample setting.
+
 For runtime performance in production:
 
 - Serve the pre-generated `data/national/primed-cache` bundle from your CDN or object storage if possible to avoid cold upstream calls.

@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 const fs = require('fs');
+const { assertExternalApisEnabled } = require('./external-control');
+
+// Respect global disable switch
+assertExternalApisEnabled('download_all_api_data.js');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const argv = require('minimist')(process.argv.slice(2));

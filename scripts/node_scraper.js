@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 const axios = require('axios');
+const { assertExternalApisEnabled } = require('./external-control');
+
+// Respect global disable switch
+assertExternalApisEnabled('node_scraper.js');
 const fs = require('fs/promises');
 const path = require('path');
 const { ensureGraphArtifacts, getEmploymentScopeOptions } = require('./build_graph_from_cache');

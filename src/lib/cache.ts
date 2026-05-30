@@ -37,7 +37,12 @@ const EXTERNAL_API_FAILURE_COOLDOWN_MS = Number(process.env.EXTERNAL_API_FAILURE
 const lastExternalFailure = new Map<string, number>();
 // Runtime toggle to completely disable external FINRA/SEC lookups when set to
 // '1' or 'true' in the environment. Useful for offline/dev modes.
-const EXTERNAL_API_DISABLED = String(process.env.EXTERNAL_API_DISABLED || '').toLowerCase() === '1' || String(process.env.EXTERNAL_API_DISABLED || '').toLowerCase() === 'true';
+// Allow disabling external APIs via either EXTERNAL_API_DISABLED or the
+// repository-wide DISABLE_EXTERNAL_API_CALLS flag to make it easy to opt-out
+// of any external network activity during debugging or offline runs.
+const EXTERNAL_API_DISABLED = [process.env.EXTERNAL_API_DISABLED, process.env.DISABLE_EXTERNAL_API_CALLS]
+	.map((v) => String(v || '').toLowerCase())
+	.some((v) => v === '1' || v === 'true');
 
 /** Strip nrows from a cache key so keys are stable regardless of the nrows parameter.
  *  Cache keys have the form `prefix:crd:querystring` — we target the last segment. */

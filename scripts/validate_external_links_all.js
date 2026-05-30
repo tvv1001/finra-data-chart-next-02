@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 // Validate FINRA/SEC links for all nodes that have firmId or personId, ignoring presence flags.
 const fs = require('fs').promises;
+const { assertExternalApisEnabled } = require('./external-control');
+
+// Respect global disable switch
+assertExternalApisEnabled('validate_external_links_all.js');
 const path = require('path');
 const zlib = require('zlib');
 

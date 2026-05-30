@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cachedFetch } from '@/lib/cache';
 import { DEFAULT_HEADERS } from '@/lib/constants';
+import { DATA_DIR } from '@/lib/constants';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { rememberRecentSeed } from '@/lib/graphStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';

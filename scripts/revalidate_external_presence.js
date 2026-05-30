@@ -13,6 +13,10 @@ Flags:
 
 const fs = require('fs').promises;
 const path = require('path');
+const { assertExternalApisEnabled } = require('./external-control');
+
+// Respect global disable switch
+assertExternalApisEnabled('revalidate_external_presence.js');
 // optional Upstash Redis integration for cache priming and monitoring
 let UpstashRedis = null;
 try {

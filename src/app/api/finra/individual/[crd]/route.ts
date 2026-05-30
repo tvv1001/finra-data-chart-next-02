@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cachedFetch } from '@/lib/cache';
 import { DEFAULT_HEADERS } from '@/lib/constants';
+import { DATA_DIR } from '@/lib/constants';
+import { readFile, readdir } from 'node:fs/promises';
+import path from 'node:path';
 import { rememberRecentSeed } from '@/lib/graphStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
@@ -100,6 +103,99 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	});
 
 	try {
+		// Try local primed-cache before hitting external APIs when available (offline-friendly)
+		let finraPrimed = null;
+		let secPrimed = null;
+		try {
+			const pcFinra = path.join(DATA_DIR, 'primed-cache', 'finra-individual.json');
+			const pcSec = path.join(DATA_DIR, 'primed-cache', 'sec-individual.json');
+			const [rawFinra, rawSec] = await Promise.allSettled([readFile(pcFinra, 'utf-8'), readFile(pcSec, 'utf-8')]);
+			if (rawFinra.status === 'fulfilled') {
+				const json = JSON.parse(rawFinra.value || '{}');
+				// try to find an entry matching the crd
+				for (const [k, v] of Object.entries(json)) {
+					try {
+						const candidate = typeof v === 'string' ? JSON.parse(v) : v;
+						const bi = candidate?.basicInformation || {};
+						const id = String(bi.individualId || bi.crd || bi.individualId || '').trim();
+						if (id === crd) {
+							finraPrimed = { content: candidate };
+							break;
+						}
+					} catch {}
+				}
+			}
+			// if not found in finra-individual.json, scan other primed-cache JSON files (e.g. additions)
+			if (!finraPrimed) {
+				try {
+					const pcDir = path.join(DATA_DIR, 'primed-cache');
+					const files = await readdir(pcDir);
+					for (const f of files || []) {
+						if (!f.endsWith('.json')) continue;
+						if (f === path.basename(path.join(DATA_DIR, 'primed-cache', 'finra-individual.json'))) continue;
+						try {
+							const raw = await readFile(path.join(pcDir, f), 'utf-8');
+							const parsed = JSON.parse(raw || '{}');
+							for (const [k2, v2] of Object.entries(parsed)) {
+								try {
+									const cand = typeof v2 === 'string' ? JSON.parse(v2) : v2;
+									const bi2 = cand?.basicInformation || {};
+									const id2 = String(bi2.individualId || bi2.crd || '').trim();
+									if (id2 === crd) {
+										finraPrimed = { content: cand };
+										break;
+									}
+								} catch {}
+							}
+						} catch {}
+						if (finraPrimed) break;
+					}
+				} catch {}
+			}
+			if (rawSec.status === 'fulfilled') {
+				const json = JSON.parse(rawSec.value || '{}');
+				for (const [k, v] of Object.entries(json)) {
+					try {
+						const candidate = typeof v === 'string' ? JSON.parse(v) : v;
+						const bi = candidate?.basicInformation || {};
+						const id = String(bi.individualId || bi.crd || bi.individualId || '').trim();
+						if (id === crd) {
+							secPrimed = { iacontent: candidate };
+							break;
+						}
+					} catch {}
+				}
+			}
+			// if not found in sec-individual.json, scan other primed-cache JSON files
+			if (!secPrimed) {
+				try {
+					const pcDir = path.join(DATA_DIR, 'primed-cache');
+					const files = await readdir(pcDir);
+					for (const f of files || []) {
+						if (!f.endsWith('.json')) continue;
+						if (f === path.basename(path.join(DATA_DIR, 'primed-cache', 'sec-individual.json'))) continue;
+						try {
+							const raw = await readFile(path.join(pcDir, f), 'utf-8');
+							const parsed = JSON.parse(raw || '{}');
+							for (const [k2, v2] of Object.entries(parsed)) {
+								try {
+									const cand = typeof v2 === 'string' ? JSON.parse(v2) : v2;
+									const bi2 = cand?.basicInformation || {};
+									const id2 = String(bi2.individualId || bi2.crd || '').trim();
+									if (id2 === crd) {
+										secPrimed = { iacontent: cand };
+										break;
+									}
+								} catch {}
+							}
+						} catch {}
+						if (secPrimed) break;
+					}
+				} catch {}
+			}
+		} catch (e) {
+			// ignore primed-cache read errors
+		}
 		const { default: axios } = await import('axios');
 		const params = buildIndividualQueryParams(new URL(request.url).searchParams);
 		const queryString = params.toString();

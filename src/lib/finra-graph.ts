@@ -93,6 +93,21 @@ const NODE_OPACITY_STUB = 'var(--opacity-node-stub)';
 
 const ENABLE_SERVER_PROFILE_SYNC = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_ENABLE_SERVER_PROFILE_SYNC === '1';
 
+// Control whether merged-node external validation runs. In production this
+// setting is strictly binary: set NEXT_PUBLIC_ENABLE_EXTERNAL_VALIDATION=1
+// to enable external validation; any other value (or unset) will disable it.
+// During local/non-production development the flag defaults to enabled when
+// unset to preserve developer feedback loops.
+let ENABLE_EXTERNAL_VALIDATION = false;
+if (typeof process !== 'undefined') {
+	const val = process.env.NEXT_PUBLIC_ENABLE_EXTERNAL_VALIDATION;
+	if (process.env.NODE_ENV === 'production') {
+		ENABLE_EXTERNAL_VALIDATION = val === '1';
+	} else {
+		ENABLE_EXTERNAL_VALIDATION = val === undefined ? true : val === '1';
+	}
+}
+
 // Safely build an absolute URL for API calls. When `BASE` is empty the
 // browser `location.origin` will be used so `new URL` never throws.
 function makeApiUrl(path) {
@@ -881,8 +896,10 @@ async function fetchNodesByIds(nodeIds: string[] = []) {
 async function ensureRouteNodeAvailable(nodeId: string) {
 	const normalizedNodeId = String(nodeId || '').trim();
 	if (!normalizedNodeId) return null;
+	console.log('[finra-graph] ensureRouteNodeAvailable start', { nodeId: normalizedNodeId });
 
 	let liveNode = getNodeById(normalizedNodeId);
+	console.log('[finra-graph] ensureRouteNodeAvailable initial lookup', { liveNode: Boolean(liveNode) });
 	if (liveNode && !layoutNodes?.some((node) => node.id === normalizedNodeId)) {
 		injectNodesById([normalizedNodeId]);
 		liveNode = getNodeById(normalizedNodeId) || liveNode;
@@ -891,6 +908,7 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 
 	try {
 		const expansion = await fetchExpansionDataForNodeIds([normalizedNodeId], getDefaultExpansionHops());
+		console.log('[finra-graph] ensureRouteNodeAvailable fetched expansion', { nodes: expansion.nodes?.length, links: expansion.links?.length });
 		if (expansion.nodes.length || expansion.links.length) {
 			mergeIntoGraphData(expansion.nodes, expansion.links);
 			appendFetched?.(expansion.nodes, expansion.links);
@@ -904,6 +922,7 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 
 	try {
 		const fetchedNodes = await fetchNodesByIds([normalizedNodeId]);
+		console.log('[finra-graph] ensureRouteNodeAvailable fetchNodesByIds result', { fetched: fetchedNodes.length });
 		if (fetchedNodes.length) {
 			mergeIntoGraphData(fetchedNodes, []);
 			injectNodesById(fetchedNodes.map((node) => node.id));
@@ -927,6 +946,7 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 				appendFetched?.(fetchedBatch.nodes, fetchedBatch.links);
 				liveNode = layoutNodes?.find((node) => node.id === normalizedNodeId) || graphData?.nodes?.find((node) => node.id === normalizedNodeId) || null;
 			}
+			console.log('[finra-graph] ensureRouteNodeAvailable fetchIndividual/firm attempt done', { liveNode: Boolean(liveNode) });
 		} catch (error) {
 			console.warn('Failed to hydrate route-selected node directly from detail APIs:', error);
 		}
@@ -943,6 +963,7 @@ const routeNodeSelectionState = {
 
 async function applyPendingRouteNodeSelection() {
 	const targetNodeId = String(pendingRouteNodeId || '').trim();
+	console.log('[finra-graph] applyPendingRouteNodeSelection', { targetNodeId });
 	if (!targetNodeId) return false;
 	if (!graphData || !layoutNodes) return false;
 	if (routeNodeSelectionState.inFlightId === targetNodeId && routeNodeSelectionState.promise) {
@@ -953,6 +974,7 @@ async function applyPendingRouteNodeSelection() {
 	routeNodeSelectionState.inFlightId = targetNodeId;
 	const selectionPromise = (async () => {
 		const liveNode = await ensureRouteNodeAvailable(targetNodeId);
+		console.log('[finra-graph] applyPendingRouteNodeSelection ensureRouteNodeAvailable returned', { liveNode: Boolean(liveNode) });
 		if (!liveNode) return false;
 
 		const latestPendingRouteNodeId = String(pendingRouteNodeId || '').trim();
@@ -964,6 +986,7 @@ async function applyPendingRouteNodeSelection() {
 			pendingRouteNodeId = null;
 		}
 
+		console.log('[finra-graph] applyPendingRouteNodeSelection selecting node', { id: liveNode.id });
 		selectNode(liveNode, {
 			skipAutoExpand: true,
 			skipProfileSync: true,
@@ -1579,6 +1602,7 @@ function loadSelectionLog() {
 		if (raw) {
 			selectedNodesLog = JSON.parse(raw);
 		}
+		console.log('[finra-graph] loadSelectionLog', { entries: Array.isArray(selectedNodesLog) ? selectedNodesLog.length : 0 });
 	} catch (e) {
 		console.warn('Failed to load selection log from localStorage', e);
 	}
@@ -3048,6 +3072,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			if (!a) return;
 			ev.preventDefault();
 			const docket = a.getAttribute('data-docket') || a.dataset.docket;
+			console.log('[finra-graph] disclosure clicked', { docket, element: a.outerHTML });
 			if (!docket) return;
 
 			// If already loaded, toggle visibility
@@ -3092,8 +3117,10 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				pre.style.fontFamily = 'inherit';
 				pre.textContent = bodyText;
 				holder.appendChild(pre);
+				console.log('[finra-graph] disclosure loaded', { docket });
 			} catch (err) {
 				holder.textContent = `Failed to load sanction: ${err.message}`;
+				console.error('[finra-graph] disclosure load failed', { docket, error: err });
 			}
 		});
 	}
@@ -3789,7 +3816,55 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 		simulation.nodes(layoutNodes);
 		simulation.force('link').links(layoutLinks);
 		simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
+		// Log appended nodes for debugging sprite/handler creation
+		try {
+			// eslint-disable-next-line no-console
+			console.info('[finra-graph] appendFetched: added', uniqNodes.length, 'new nodes', uniqNodes.map((n) => String(n.id)).slice(0, 20));
+		} catch (e) {}
 		simulation.alpha(getIncrementalRestartAlpha(layoutNodes.length, uniqNodes.length)).restart();
+
+		// If a pixi renderer is active, request an immediate synchronous draw so
+		// that interactive sprites/handlers are created before user interaction.
+		try {
+			if (pixiApi && typeof pixiApi.drawFrame === 'function') {
+				const transform = getCurrentZoomTransform();
+				const labelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, transform.k || 1)))) : 1;
+				const logLabelNodeIds = getSelectionLogLabelNodeIds();
+				// eslint-disable-next-line no-console
+				console.debug('[finra-graph] appendFetched: invoking pixiApi.drawFrame synchronously to warm sprites');
+				try {
+					pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
+					if (pixiApi && pixiApi.app && pixiApi.app.renderer) {
+						try {
+							pixiApi.app.renderer.render(pixiApi.app.stage);
+						} catch (e) {}
+					}
+				} catch (e) {
+					// eslint-disable-next-line no-console
+					console.warn('[finra-graph] appendFetched: pixi draw failed', e);
+				}
+			}
+		} catch (e) {}
+
+		// Fire-and-forget: ensure individual detail is loaded for newly appended nodes
+		try {
+			void (async () => {
+				for (const n of uniqNodes) {
+					try {
+						if (n && n.group === 'individual' && !n._detailLoaded) {
+							await ensureIndividualDetail(n);
+							// rerender the specific node so sidebar/details and labels update
+							rerenderGraphNodesByIds([n.id]);
+							try {
+								saveSession();
+							} catch (e) {}
+						}
+					} catch (e) {
+						/* ignore per-node failures */
+					}
+				}
+			})();
+		} catch (e) {}
 	};
 
 	// ── Location search handlers ──────────────────────────────────────────────
@@ -4466,6 +4541,9 @@ function mergeIntoGraphData(newNodes, newLinks) {
 			.map((id) => graphData.nodes.find((x) => x.id === id))
 			.filter(Boolean);
 
+		// If external validation is disabled (env flag), skip all external checks.
+		if (!ENABLE_EXTERNAL_VALIDATION) return;
+
 		const toCheck = candidates.filter((node) => {
 			if (!node) return false;
 			if (node._externalValidated) return false;
@@ -4493,9 +4571,31 @@ function mergeIntoGraphData(newNodes, newLinks) {
 						if (!res.ok) return;
 						const payload = await res.json();
 						const merged = payload?.merged || null;
+						// debug: log merged payload shape for selective nodes
+						try {
+							console.debug('validateMergedNodes - merged payload', {
+								crd,
+								mergedKeys: merged ? Object.keys(merged) : null,
+								hasFinra: merged?.hasFinraData,
+								hasSec: merged?.hasSecData,
+							});
+						} catch {}
 						if (merged) {
 							if (merged.hasFinraData != null) n.hasFinraData = merged.hasFinraData;
 							if (merged.hasSecData != null) n.hasSecData = merged.hasSecData;
+							// If merged payload contains richer individual detail, merge it into the graph node
+							try {
+								const candidate = merged.merged || merged.finraNode || merged;
+								if (candidate) {
+									const normalized = normalizeIndividualDetailPayloadImpl(candidate, crd);
+									// Only apply when payload contains meaningful detail (employments, registration counts, names)
+									if (hasRichIndividualDetailImpl(normalized) || normalized?.basicInformation) {
+										applyIndividualDetailImpl(n, normalized, crd);
+									}
+								}
+							} catch (e) {
+								/* ignore merge errors */
+							}
 						}
 					} else if (n.group === 'firm') {
 						const fid = String(n.firmId || '').trim();
@@ -7286,6 +7386,9 @@ async function ensureIndividualDetail(personNode) {
 			if (localRes.ok) {
 				const merged = await localRes.json();
 				const candidate = merged?.merged;
+				try {
+					console.debug('ensureIndividualDetail - local merged payload', { crd, keys: merged ? Object.keys(merged) : null });
+				} catch {}
 				if (candidate) {
 					const normalized = normalizeIndividualDetailPayload(candidate, crd);
 					if (normalized?.basicInformation && (normalized.basicInformation.individualId || normalized.basicInformation.firstName || normalized.basicInformation.lastName)) {
@@ -7300,7 +7403,14 @@ async function ensureIndividualDetail(personNode) {
 			// local lookup failed — fall through to live API
 		}
 
+		try {
+			console.debug('ensureIndividualDetail - after local lookup', { crd, detailFound: !!detail, localDetailFound: !!localDetail });
+		} catch {}
+
 		const ownerEvidenceAvailable = !detail && !localDetail && !hasRichIndividualDetail(personNode) ? await mergeIndividualOwnerEvidence(personNode) : false;
+		try {
+			console.debug('ensureIndividualDetail - ownerEvidenceAvailable', { crd, ownerEvidenceAvailable });
+		} catch {}
 		if (ownerEvidenceAvailable && isLikelyOwnerOnlyIndividual(personNode)) {
 			personNode.stub = true;
 			personNode._ownerEvidenceLoaded = true;
@@ -7316,7 +7426,11 @@ async function ensureIndividualDetail(personNode) {
 				if (!response.ok) {
 					console.warn(`Failed to fetch individual detail for ${crd}:`, response.status);
 				} else {
-					detail = unwrapDetailPayload(await response.json());
+					const raw = await response.json();
+					try {
+						console.debug('ensureIndividualDetail - live API payload', { crd, keys: raw ? Object.keys(raw) : null });
+					} catch {}
+					detail = unwrapDetailPayload(raw);
 				}
 			} catch (err) {
 				console.warn(`Local API fetch failed for individual ${crd}:`, err);
@@ -8903,6 +9017,7 @@ function revealNeighbors(
 }
 
 function showSidebarHint(options: { keepOpen?: boolean } = {}) {
+	console.log('[finra-graph] showSidebarHint', { options });
 	const persistentPin = isSidebarPersistentlyPinned();
 	const { keepOpen = persistentPin } = options;
 	const inner = document.getElementById('fg-sidebar-inner');
@@ -9523,7 +9638,9 @@ function renderSidebarSelectionLogBody() {
 }
 
 function renderSidebar(d) {
+	console.log('[finra-graph] renderSidebar start', { id: d?.id, group: d?.group, sidebarViewMode });
 	const el = document.getElementById('fg-sidebar-inner');
+	console.log('[finra-graph] renderSidebar el, side presence', { hasEl: Boolean(el), sidebarElm: Boolean(document.getElementById('fg-sidebar')) });
 	const side = document.getElementById('fg-sidebar');
 	const previousDisplayedId = side?.dataset.displayedId || '';
 	sidebarSelectedNode = d;
@@ -9535,6 +9652,28 @@ function renderSidebar(d) {
 		d.group === 'firm' ? renderFirmDetail(d)
 		: d.group === 'entity' ? renderEntityDetail(d)
 		: renderPersonDetail(d);
+	console.log('[finra-graph] renderSidebar after innerHTML set', { elHtmlLength: el?.innerHTML?.length || 0 });
+	// additional debug: log computed style and bounding rect to diagnose visibility issues
+	try {
+		if (side) {
+			const cs = window.getComputedStyle(side);
+			const rect = side.getBoundingClientRect();
+			console.log('[finra-graph] renderSidebar side style', {
+				classList: Array.from(side.classList || []),
+				dataset: { ...side.dataset },
+				display: cs.display,
+				visibility: cs.visibility,
+				opacity: cs.opacity,
+				width: rect.width,
+				height: rect.height,
+				top: rect.top,
+				left: rect.left,
+				zIndex: cs.zIndex,
+			});
+		}
+	} catch (e) {
+		console.warn('[finra-graph] renderSidebar compute-style error', e);
+	}
 	if (sidebarViewMode === 'log') {
 		const body = el.querySelector('.fg-sb-body');
 		if (body) {

@@ -9,6 +9,8 @@ function buildFinraSearchParams(searchParams: URLSearchParams) {
 	for (const [key, value] of searchParams.entries()) {
 		if (!value) continue;
 		if (key === 'type') continue;
+		// frontend may pass `firm=1`; that should control the path, not be forwarded
+		if (key === 'firm') continue;
 		if (key === 'q') {
 			if (!searchParams.has('query')) params.set('query', value);
 			continue;
@@ -28,7 +30,8 @@ function buildFinraSearchParams(searchParams: URLSearchParams) {
 export async function GET(request: NextRequest) {
 	try {
 		const { searchParams } = new URL(request.url);
-		const type = searchParams.get('type') || 'individual';
+		// Support legacy `firm=1` query from the frontend by treating it as type=firm
+		const type = searchParams.get('type') || (searchParams.get('firm') ? 'firm' : 'individual');
 		const params = buildFinraSearchParams(searchParams);
 		if (!params) return NextResponse.json({ hits: { hits: [] } });
 

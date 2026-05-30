@@ -84,4 +84,14 @@
 			"ms-vscode.cmake-tools-themes",
 		],
 	},
+	"launch": {
+		"configurations": [
+			{
+				"type": "chrome",
+				"name": "localhost:4444",
+				"request": "launch",
+				"url": "localhost:4444",
+			},
+		],
+	},
 }

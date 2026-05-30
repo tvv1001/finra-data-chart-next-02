@@ -2,6 +2,9 @@
 	try {
 		const fs = require('fs');
 		const fetch = require('node-fetch');
+		const { assertExternalApisEnabled } = require('./external-control');
+		// Respect global disable switch
+		assertExternalApisEnabled('fetch_graph_from_server.js');
 		const url = process.env.FINRA_LOCAL_URL || 'http://localhost:4444';
 		const api = `${url.replace(/\/$/, '')}/api/finra/graph?limit=10000`;
 		console.log('Fetching', api);

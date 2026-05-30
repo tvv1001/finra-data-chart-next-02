@@ -208,6 +208,7 @@ export default function FinraGraph() {
 		const sidebar = document.getElementById('fg-sidebar-inner');
 		if (!sidebar) return;
 		const handler = (e: MouseEvent) => {
+			console.log('[FinraGraph] sidebar click', { target: (e.target as HTMLElement)?.outerHTML });
 			const target = e.target as HTMLElement;
 			const crdBtn = target.closest('.fg-crd-link') as HTMLElement | null;
 			if (crdBtn && crdBtn.dataset.crd) {

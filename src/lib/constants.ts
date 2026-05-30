@@ -1,6 +1,23 @@
 import * as path from 'node:path';
+import fs from 'node:fs';
 
-export const DATA_DIR = path.resolve(process.cwd(), 'data');
+// Allow an explicit override or prefer the external shared data directory when present.
+// This avoids destructive edits of the local `data/` folder and lets developers point to
+// the canonical crawler output at /home/lenny/Dev/webDev/Data-finra-sec/data.
+const EXTERNAL_PATHS = [process.env.FINRA_DATA_DIR, '/home/lenny/Dev/webDev/Data-finra-sec/data'].filter(Boolean) as string[];
+let resolvedDataDir = path.resolve(process.cwd(), 'data');
+for (const p of EXTERNAL_PATHS) {
+	try {
+		if (fs.existsSync(p) && fs.statSync(p).isDirectory()) {
+			resolvedDataDir = p;
+			break;
+		}
+	} catch (e) {
+		// ignore and continue
+	}
+}
+
+export const DATA_DIR = resolvedDataDir;
 export const GRAPH_FILE = path.join(DATA_DIR, 'national', 'finra-graph.json');
 export const SEEDS_FILE = path.join(DATA_DIR, 'national', 'finra-seeds.json');
 export const SEED_BANK_FILE = path.join(DATA_DIR, 'national', 'finra-seed-bank.json');

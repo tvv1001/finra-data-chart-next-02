@@ -2,6 +2,10 @@
 const fs = require('fs/promises');
 const path = require('path');
 const axios = require('axios');
+const { assertExternalApisEnabled } = require('./external-control');
+
+// Respect global disable switch
+assertExternalApisEnabled('parallel_crawler.js');
 
 const ROOT = process.cwd();
 const DATA_DIR = path.join(ROOT, 'data');

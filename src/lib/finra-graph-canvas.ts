@@ -518,6 +518,12 @@ function buildNodeGraphics(node: any) {
 	}
 
 	const graphic = new Graphic();
+	// Debug: log creation so we can verify handlers/sprites are created for newly-appended nodes
+	try {
+		// Keep this low-volume and easy to grep
+		// eslint-disable-next-line no-console
+		console.debug('[canvas-renderer] buildNodeGraphics created sprite for', String(node.id));
+	} catch (e) {}
 	graphic.interactive = true;
 	graphic.buttonMode = true;
 	graphic.hitArea = new Circle(0, 0, radius + 2);

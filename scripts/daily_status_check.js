@@ -30,6 +30,10 @@
 const fs = require('fs/promises');
 const path = require('path');
 const https = require('https');
+const { assertExternalApisEnabled } = require('./external-control');
+
+// Respect global disable switch
+assertExternalApisEnabled('daily_status_check.js');
 
 const ROOT = process.cwd();
 const NATIONAL = path.join(ROOT, 'data', 'national');
