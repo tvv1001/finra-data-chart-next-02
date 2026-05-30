@@ -67,32 +67,9 @@ function mergePreferPrimary(primary: unknown, secondary: unknown): unknown {
 	if (isPlainObject(primary) && isPlainObject(secondary)) {
 		const merged: Record<string, unknown> = { ...primary };
 		for (const [key, value] of Object.entries(secondary)) {
-				let finraDetail = parseDetailPayload(data.sources.finra || {}, 'content');
-				let secDetail = parseDetailPayload(data.sources.sec || {}, 'iacontent');
-				let mergedDetail: any = secDetail ? mergePreferPrimary(secDetail, finraDetail) : finraDetail;
-
-				// Fallback: if downstream merged detail looks sparse (e.g. no employments)
-				// try to load a precomputed derived merged file from DATA_DIR/derived/merged-individual-<crd>.json
-				try {
-					const derivedPath = path.join(DATA_DIR, 'derived', `merged-individual-${crd}.json`);
-					const raw = await readFile(derivedPath, 'utf-8').catch(() => '');
-					if (raw) {
-						const parsed = JSON.parse(raw || '{}');
-						// prefer using the derived merged record when it contains richer employment lists
-						if (parsed && typeof parsed === 'object') {
-							const hasDerivedEmps = (Array.isArray(parsed.currentEmployments) && parsed.currentEmployments.length > 0) || (Array.isArray(parsed.previousEmployments) && parsed.previousEmployments.length > 0);
-							const hasMergedEmps = (mergedDetail && Array.isArray(mergedDetail.currentEmployments) && mergedDetail.currentEmployments.length > 0) || (mergedDetail && Array.isArray(mergedDetail.previousEmployments) && mergedDetail.previousEmployments.length > 0);
-							if (hasDerivedEmps && !hasMergedEmps) {
-								mergedDetail = parsed;
-								// also refresh finra/sec detail pointers where available
-								finraDetail = finraDetail || parsed;
-								secDetail = secDetail || null;
-							}
-						}
-					}
-				} catch (e) {
-					// non-fatal fallback; ignore and continue with existing mergedDetail
-				}
+			merged[key] = key in merged ? mergePreferPrimary(merged[key], value) : value;
+		}
+		return merged;
 	}
 	return primary;
 }
