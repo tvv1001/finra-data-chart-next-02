@@ -440,7 +440,8 @@ html[data-theme='dark'] .fg-dis-comment {
 
 html[data-theme='dark'] text.fg-label {
 	fill: #ffffff !important;
-	font-weight: 700;
+	font-size: var(--fg-node-label-font-size, 6px);
+	font-weight: var(--fg-node-label-font-weight, 400);
 	opacity: 1 !important;
 	stroke: var(--surface) !important;
 	stroke-width: 4px !important;
@@ -3134,7 +3135,7 @@ a,
 .fg-node.selected text.fg-label,
 .fg-node.highlighted-hop text.fg-label {
 	fill: #0f172a !important;
-	font-weight: 700;
+	font-weight: 400;
 	opacity: 1 !important;
 }
 
@@ -3161,14 +3162,14 @@ a,
 :not(.theme-dark) .fg-node.highlighted-hop text.fg-label,
 [data-theme='light'] .fg-node.selected text.fg-label,
 [data-theme='light'] .fg-node.highlighted-hop text.fg-label {
-	/* stronger weight for selected/highlighted labels in light mode */
+	/* keep selected/highlighted labels readable in light mode without extra bolding */
 	fill: var(--text) !important;
 	stroke: #ffffff;
 	stroke-width: 2px;
 	paint-order: stroke fill;
 	stroke-linejoin: round;
 	stroke-opacity: 1;
-	font-weight: 700;
+	font-weight: 400;
 }
 
 .fg-node .fg-node-overlay {
@@ -3823,13 +3824,14 @@ a,
 .fg-node.selected text.fg-label,
 .fg-node.highlighted-hop text.fg-label {
 	fill: #8e99b3 !important;
-	font-weight: 700;
+	font-weight: 400;
 	opacity: 1 !important;
 }
 
 text.fg-label {
 	fill: #8e99b3 !important;
-	font-weight: 700;
+	font-size: var(--fg-node-label-font-size, 6px);
+	font-weight: var(--fg-node-label-font-weight, 400);
 	opacity: 1 !important;
 	stroke: #ffffff !important;
 	stroke-width: 4px !important;

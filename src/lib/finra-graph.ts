@@ -28,7 +28,7 @@ import {
 	row as rowImpl,
 	truncate as truncateImpl,
 } from './finra-graph/formatters';
-import { DEFAULT_EXPANSION_HOPS, DEFAULT_SELECTION_HOPS } from './finra-graph-defaults';
+import { DEFAULT_EXPANSION_HOPS, DEFAULT_NODE_LABEL_FONT_SIZE, DEFAULT_NODE_LABEL_FONT_WEIGHT, DEFAULT_SELECTION_HOPS } from './finra-graph-defaults';
 import * as canvasRenderer from './finra-graph-canvas';
 import * as overlayRenderer from './finra-graph-overlay';
 
@@ -207,6 +207,8 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 		.classed('fg-trace-labels', traceActive)
 		.classed('fg-selection-log-labels', isSelectionLogBold)
 		.classed('fg-labels-hidden', normalizedScale < activeLabelZoomThreshold)
+		.style('--fg-node-label-font-size', DEFAULT_NODE_LABEL_FONT_SIZE)
+		.style('--fg-node-label-font-weight', DEFAULT_NODE_LABEL_FONT_WEIGHT)
 		.style('--fg-trace-label-scale', String(traceLabelScale))
 		.style('--fg-selection-log-label-scale', String(selectionLogLabelScale));
 
@@ -5851,7 +5853,7 @@ function renderNodeContents(selection) {
 
 		// Check if this node is in the selection log (by id)
 		const isLogged = isSelectionLogBold && selectedNodesLog.some((e) => e.id === d.id);
-		const labelFontSize = isLogged ? '24px' : '12px';
+		const labelFontSize = isLogged ? '24px' : DEFAULT_NODE_LABEL_FONT_SIZE;
 
 		let label: any = null;
 		label = g
@@ -5861,7 +5863,7 @@ function renderNodeContents(selection) {
 			.attr('text-anchor', 'middle')
 			.attr('font-size', labelFontSize)
 			.attr('font-family', 'var(--sans)')
-			.attr('font-weight', isLogged ? '700' : '500')
+			.attr('font-weight', isLogged ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT)
 			.attr('fill', nodeLabelColor)
 			.attr('stroke', nodeLabelHalo)
 			.attr('stroke-width', 4)
