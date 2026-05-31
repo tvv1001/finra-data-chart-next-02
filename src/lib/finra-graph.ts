@@ -4462,72 +4462,6 @@ function mergeIntoGraphData(newNodes, newLinks) {
 		// Expose recent additions for the next render so they can be highlighted.
 		graphData._recentlyAddedNodeIds = addedIds;
 	}
-
-	// After merging, validate external presence (FINRA/SEC) for affected nodes.
-	// Fire-and-forget: update nodes in-place when validation returns.
-	(function validateMergedNodes() {
-		if (!graphData) return;
-		const candidates = newNodes
-			.map((n) => n.id)
-			.filter(Boolean)
-			.map((id) => graphData.nodes.find((x) => x.id === id))
-			.filter(Boolean);
-
-		const toCheck = candidates.filter((node) => {
-			if (!node) return false;
-			if (node._externalValidated) return false;
-			if (node.group === 'individual') {
-				const crd = String(node.crd || node.basicInformation?.individualId || '').trim();
-				return Boolean(crd);
-			}
-			if (node.group === 'firm') {
-				const fid = String(node.firmId || '').trim();
-				return Boolean(fid);
-			}
-			return false;
-		});
-
-		if (!toCheck.length) return;
-
-		for (const node of toCheck) {
-			// kick off async validation without blocking merge
-			void (async (n) => {
-				try {
-					if (n.group === 'individual') {
-						const crd = String(n.crd || n.basicInformation?.individualId || '').trim();
-						if (!crd) return;
-						const res = await fetch(`${BASE}/api/finra/merged/individual/${encodeURIComponent(crd)}`);
-						if (!res.ok) return;
-						const payload = await res.json();
-						const merged = payload?.merged || null;
-						if (merged) {
-							if (merged.hasFinraData != null) n.hasFinraData = merged.hasFinraData;
-							if (merged.hasSecData != null) n.hasSecData = merged.hasSecData;
-						}
-					} else if (n.group === 'firm') {
-						const fid = String(n.firmId || '').trim();
-						if (!fid) return;
-						const res = await fetch(`${BASE}/api/finra/merged/firm/${encodeURIComponent(fid)}`);
-						if (!res.ok) return;
-						const payload = await res.json();
-						const merged = payload?.merged || null;
-						if (merged) {
-							if (merged.hasFinraData != null) n.hasFinraData = merged.hasFinraData;
-							if (merged.hasSecData != null) n.hasSecData = merged.hasSecData;
-						}
-					}
-					n._externalValidated = Date.now();
-					try {
-						saveSession();
-					} catch {
-						/* ignore */
-					}
-				} catch (err) {
-					/* ignore validation failures */
-				}
-			})(node);
-		}
-	})();
 }
 
 // Fire-and-forget persist of newly fetched nodes/links to the server graph file.
@@ -6607,7 +6541,7 @@ function renderGraph(_data) {
 						overlayApi = overlayRenderer.createOverlay(mainEl, {
 							onClick: (node) => {
 								try {
-									selectNode(node, { focus: true });
+									selectNode(node);
 								} catch (e) {}
 							},
 							onHover: (node) => {
@@ -6666,7 +6600,7 @@ function renderGraph(_data) {
 							overlayApi = overlayRenderer.createOverlay(mainEl, {
 								onClick: (node) => {
 									try {
-										selectNode(node, { focus: true });
+										selectNode(node);
 									} catch (e) {}
 								},
 								onHover: (node) => {

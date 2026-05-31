@@ -4,7 +4,7 @@ import path from 'path';
 
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || null;
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || null;
-const ADMIN_SECRET = process.env.ADMIN_SECRET || process.env.VALIDATE_CRON_SECRET || '';
+const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
 const CACHE_DIR = path.join(process.cwd(), 'data', 'national', 'api_cache');
 
 async function upstashDel(key: string) {
