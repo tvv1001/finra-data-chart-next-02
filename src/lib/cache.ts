@@ -76,23 +76,60 @@ function getPrimedRedisKey(name: PrimedBundleName): string {
 	return `primed:bundle:${name}`;
 }
 
+function getPrimedRedisMetaKey(name: PrimedBundleName): string {
+	return `${getPrimedRedisKey(name)}:meta`;
+}
+
+function getPrimedRedisPartKey(name: PrimedBundleName, index: number): string {
+	return `${getPrimedRedisKey(name)}:part:${index}`;
+}
+
+function normalizePrimedBundle(parsed: PrimedBundle): PrimedBundle {
+	const normalized: PrimedBundle = {};
+	for (const k of Object.keys(parsed)) {
+		try {
+			normalized[normalizeKey(k)] = parsed[k];
+		} catch {
+			normalized[k] = parsed[k];
+		}
+	}
+	return normalized;
+}
+
+async function decodePrimedBundlePayload(raw: string): Promise<PrimedBundle | null> {
+	try {
+		const json = await gunzipOffload(raw);
+		const parsed = JSON.parse(json) as PrimedBundle;
+		return normalizePrimedBundle(parsed);
+	} catch {
+		return null;
+	}
+}
+
 async function getPrimedBundleFromRedis(name: PrimedBundleName): Promise<PrimedBundle | null> {
 	const redis = getUpstash();
 	if (!redis) return null;
 	try {
 		const raw = await redis.get<string>(getPrimedRedisKey(name));
-		if (!raw) return null;
-		const json = await gunzipOffload(raw);
-		const parsed = JSON.parse(json) as PrimedBundle;
-		const normalized: PrimedBundle = {};
-		for (const k of Object.keys(parsed)) {
-			try {
-				normalized[normalizeKey(k)] = parsed[k];
-			} catch {
-				normalized[k] = parsed[k];
-			}
+		if (raw) {
+			const decoded = await decodePrimedBundlePayload(raw);
+			if (decoded) return decoded;
 		}
-		return normalized;
+
+		const rawMeta = await redis.get<string>(getPrimedRedisMetaKey(name));
+		if (!rawMeta) return null;
+		const meta = typeof rawMeta === 'string' ? JSON.parse(rawMeta) : rawMeta;
+		const chunkCount = Number(meta?.chunks || 0);
+		if (!meta?.chunked || !Number.isFinite(chunkCount) || chunkCount <= 0) return null;
+
+		const parts: string[] = [];
+		for (let index = 0; index < chunkCount; index += 1) {
+			const part = await redis.get<string>(getPrimedRedisPartKey(name, index));
+			if (!part) return null;
+			parts.push(part);
+		}
+
+		return await decodePrimedBundlePayload(parts.join(''));
 	} catch {
 		return null;
 	}
@@ -229,15 +266,7 @@ async function loadPrimedBundle(name: PrimedBundleName): Promise<PrimedBundle | 
 			const parsed = JSON.parse(json) as PrimedBundle;
 			// Normalize keys in the primed bundle so lookups are robust to
 			// differences in querystring parameter ordering (e.g. wt vs includePrevious).
-			const normalized: PrimedBundle = {};
-			for (const k of Object.keys(parsed)) {
-				try {
-					normalized[normalizeKey(k)] = parsed[k];
-				} catch {
-					// fallback to original key if normalization fails for any entry
-					normalized[k] = parsed[k];
-				}
-			}
+			const normalized = normalizePrimedBundle(parsed);
 			primedBundleCache.set(name, normalized);
 			return normalized;
 		} catch {
@@ -249,14 +278,7 @@ async function loadPrimedBundle(name: PrimedBundleName): Promise<PrimedBundle | 
 	try {
 		const raw = await readFile(jsonPath, 'utf-8');
 		const parsed = JSON.parse(raw) as PrimedBundle;
-		const normalized: PrimedBundle = {};
-		for (const k of Object.keys(parsed)) {
-			try {
-				normalized[normalizeKey(k)] = parsed[k];
-			} catch {
-				normalized[k] = parsed[k];
-			}
-		}
+		const normalized = normalizePrimedBundle(parsed);
 		primedBundleCache.set(name, normalized);
 		return normalized;
 	} catch {

@@ -1,7 +1,34 @@
-# Prevent shipping curated seed lists and primed cache bundles to Vercel deployments
+# Keep Vercel deployments lean: exclude the massive local data tree by default,
+# then opt back into the small runtime artifacts that production still uses.
 
-data/seed-profiles.json /data/national/primed-cache/\*\* data/national/finra-seed-bank.json data/national/finra-recent-seeds.json
+/data/**
+!/data/national/
+!/data/national/finra-graph.json
+!/data/national/finra-seed-bank.json
+!/data/national/search-index.finra.individual.json
+!/data/national/search-index.finra.firm.json
+!/data/national/search-index.sec.individual.json
+!/data/national/search-index.sec.firm.json
+!/data/seed-profiles.json
 
-# Also exclude large cache artifacts that are not required for runtime
+# Explicit exclusions for large or local-only artifacts.
+/data/national/primed-cache/**
+/data/national/finra-recent-seeds.json
+/data/national/*.bak
+/data/cache-binary/**
+/data/raw/**
 
-/data/national/_.bak_ /data/cache-binary/_ /node*modules/ /.next/ /coverage/ /dist/ /build/ /.DS_Store /Thumbs.db /.env* _.log /.vercel/ /data/ /tests/ /test-results/ /playwright-report/
+# Standard local build and test artifacts.
+/node_modules/**
+/.next/**
+/coverage/**
+/dist/**
+/build/**
+/.DS_Store
+/Thumbs.db
+/.env*
+*.log
+/.vercel/**
+/tests/**
+/test-results/**
+/playwright-report/**

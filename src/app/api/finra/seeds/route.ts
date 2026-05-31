@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSeedsFromStore, saveSeedsToStore, getProfilesFromStore, getSeedBankFromStore } from '@/lib/graphStore';
+import { getSeedBankFromStore } from '@/lib/graphStore';
+import { getSeedsFromStore, saveSeedsToStore, getProfilesFromStore } from '@/lib/seedStore';
 
 async function getSeedsBase(): Promise<string[]> {
 	return getSeedsFromStore();

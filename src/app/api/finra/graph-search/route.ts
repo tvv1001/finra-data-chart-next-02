@@ -13,6 +13,10 @@ function normalizeText(value: unknown) {
 		.toLowerCase();
 }
 
+function hasStringContent(hit: unknown): hit is { content: string } {
+	return typeof hit === 'object' && hit !== null && typeof (hit as any).content === 'string';
+}
+
 function collectSearchableNodeKeys(node: any) {
 	const basic = node?.basicInformation || {};
 	return [
@@ -80,9 +84,9 @@ export async function GET(request: NextRequest) {
 				const seenIds = new Set<string>();
 
 				for (const hit of allHits) {
-					const src = hit._source || hit;
-					let parsed = src;
-					if (typeof src?.content === 'string') {
+					const src: any = hit._source || hit;
+					let parsed: any = src;
+					if (hasStringContent(src)) {
 						try {
 							parsed = JSON.parse(src.content);
 						} catch {

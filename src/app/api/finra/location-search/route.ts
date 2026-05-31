@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cachedFetch } from '@/lib/cache';
-import { DEFAULT_HEADERS } from '@/lib/constants';
+import { cachedFetch } from '@/lib/simpleCache';
+import { DEFAULT_HEADERS } from '@/lib/requestConstants';
 import { logger } from '@/lib/logger';
 
 function buildLocationSearchParams(searchParams: URLSearchParams) {
