@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getFullGraph, getProfilesFromStore } from '@/lib/graphStore';
+import { getFullGraph, getProfilesFromStore, getSeedBankFromStore } from '@/lib/graphStore';
 import { DEFAULT_EXPANSION_HOPS } from '@/lib/finra-graph-defaults';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 
@@ -39,6 +39,34 @@ function refreshGraphRouteCaches(graph: any) {
 	return { adj };
 }
 
+async function sampleNodesFromSeedBank(nodes: any[], limit: number) {
+	try {
+		const seedBank = await getSeedBankFromStore();
+		// Prefer high-degree nodes from the seed bank for a more interesting initial graph
+		const highDegreeIndividuals = (seedBank?.individualIds || []).slice(0, 100);
+		const highDegreeFirms = (seedBank?.firmIds || []).slice(0, 100);
+
+		const candidates = [...highDegreeIndividuals, ...highDegreeFirms];
+		if (candidates.length < limit) {
+			return sampleNodesRandomly(nodes, limit);
+		}
+
+		const sampledIds = new Set<string>();
+		while (sampledIds.size < limit && candidates.length > 0) {
+			const randomIndex = Math.floor(Math.random() * candidates.length);
+			const randomId = candidates.splice(randomIndex, 1)[0];
+			if (randomId) sampledIds.add(randomId);
+		}
+
+		const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+		return Array.from(sampledIds)
+			.map((id) => nodeMap.get(id))
+			.filter(Boolean);
+	} catch {
+		return sampleNodesRandomly(nodes, limit);
+	}
+}
+
 function sampleNodesRandomly(nodes: any[], limit: number) {
 	const count = Math.max(0, Math.min(limit, nodes.length));
 	const sampled = nodes.slice();
@@ -64,8 +92,8 @@ export async function GET(request: NextRequest) {
 		const links: any[] = graph.links || [];
 		const { adj: cachedAdj } = refreshGraphRouteCaches(graph);
 
-		// Select random seeds based on the limit parameter
-		const seeds: any[] = sampleNodesRandomly(nodes, limit);
+		// Select seeds from the seed bank for a more deterministic and interesting initial subset.
+		const seeds: any[] = await sampleNodesFromSeedBank(nodes, limit);
 		const seedIds = new Set(seeds.map((n) => String(n.id || '').trim()));
 
 		if (profileName) {
@@ -87,8 +115,11 @@ export async function GET(request: NextRequest) {
 
 		const neighborIds = new Set(seedIds);
 		const graphAdj = cachedAdj || new Map<string, string[]>();
+		// For initial load, reduce hop count to speed up server response and reduce payload size.
+		// The default of 3 can create a very large subset from a few seeds.
+		const initialLoadHops = 1;
 		let frontier = new Set(seedIds);
-		for (let h = 0; h < DEFAULT_EXPANSION_HOPS; h++) {
+		for (let h = 0; h < initialLoadHops; h++) {
 			const next = new Set<string>();
 			for (const id of frontier) {
 				for (const nid of graphAdj.get(id) || []) {
