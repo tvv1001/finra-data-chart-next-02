@@ -1,24 +1,30 @@
 /**
  * cache.ts – Simple TTL cache: Upstash Redis (HTTP/REST) when env vars are
- * present, file-based binary cache fallback for local development, and
- * pre-primed JSON bundles (stored under data/national/primed-cache) when
- * available to populate Redis on cold starts and avoid first-request latency.
+ * present, plus file-based binary cache fallback under data/cache-binary.
+ * Structured values are stored as gzipped JSON (base64 in Redis, .bin on disk)
+ * so CRD detail payloads can be fully pre-cached without primed bundle lookups.
  */
 import { readFile, writeFile, mkdir, access, unlink } from 'node:fs/promises';
 import * as crypto from 'node:crypto';
 import * as path from 'node:path';
-import { gunzipOffload } from './gzipWorker';
+import { gzipSync, gunzipSync } from 'node:zlib';
+import { gunzipOffload, gzipOffload } from './gzipWorker';
 import { Redis } from '@upstash/redis';
-import { DATA_DIR, PRIMED_CACHE_DIR } from './constants';
+import { DATA_DIR } from './constants';
 
 type MemStore = Map<string, { value: unknown; expiresAt: number }>;
-type PrimedBundle = Record<string, unknown>;
-type PrimedBundleName = 'finra-individual' | 'sec-individual' | 'finra-firm' | 'sec-firm';
+type BinaryCacheMeta = {
+	expiresAt: number;
+	kind?: 'buffer-v1' | 'json-gzip-v1';
+	key?: string;
+	updatedAt?: string;
+	sourceRawFile?: string;
+};
 
 let upstash: Redis | null = null;
 let memStore: MemStore | null = null;
-const primedBundleCache = new Map<PrimedBundleName, PrimedBundle | null>();
 const BINARY_CACHE_DIR = path.join(DATA_DIR, 'cache-binary');
+const JSON_BINARY_PREFIX = 'gz:';
 
 const DEFAULT_INDIVIDUAL_QUERY = 'hl=true&includePrevious=true&wt=json';
 const DEFAULT_FIRM_QUERY = 'hl=true&wt=json';
@@ -35,14 +41,22 @@ const lastExternalFetch = new Map<string, number>();
 // EXTERNAL_API_FAILURE_COOLDOWN_MS.
 const EXTERNAL_API_FAILURE_COOLDOWN_MS = Number(process.env.EXTERNAL_API_FAILURE_COOLDOWN_MS || 600_000);
 const lastExternalFailure = new Map<string, number>();
-// Runtime toggle to completely disable external FINRA/SEC lookups when set to
-// '1' or 'true' in the environment. Useful for offline/dev modes.
-// Allow disabling external APIs via either EXTERNAL_API_DISABLED or the
-// repository-wide DISABLE_EXTERNAL_API_CALLS flag to make it easy to opt-out
-// of any external network activity during debugging or offline runs.
-const EXTERNAL_API_DISABLED = [process.env.EXTERNAL_API_DISABLED, process.env.DISABLE_EXTERNAL_API_CALLS]
+// Runtime toggle to control whether external FINRA/SEC lookups are allowed.
+// Behavior:
+// - In production (NODE_ENV === 'production') external API calls are allowed
+//   by default unless explicitly disabled via EXTERNAL_API_DISABLED or
+//   DISABLE_EXTERNAL_API_CALLS.
+// - In non-production environments external API calls are disabled by default
+//   unless the ALLOW_EXTERNAL_API env var is set to 'true'. This prevents
+//   accidental upstream requests during local development or CI runs.
+// Backwards-compat flags EXTERNAL_API_DISABLED and DISABLE_EXTERNAL_API_CALLS
+// still force-disable external requests when set to '1' or 'true'.
+const explicitDisable = [process.env.EXTERNAL_API_DISABLED, process.env.DISABLE_EXTERNAL_API_CALLS]
 	.map((v) => String(v || '').toLowerCase())
 	.some((v) => v === '1' || v === 'true');
+const explicitAllow = String(process.env.ALLOW_EXTERNAL_API || process.env.ENABLE_EXTERNAL_API || '').toLowerCase() === 'true';
+
+const EXTERNAL_API_DISABLED = explicitDisable || (process.env.NODE_ENV !== 'production' && !explicitAllow);
 
 /** Strip nrows from a cache key so keys are stable regardless of the nrows parameter.
  *  Cache keys have the form `prefix:crd:querystring` — we target the last segment. */
@@ -61,13 +75,6 @@ function normalizeKey(key: string): string {
 	const canonical = new URLSearchParams(entries as any).toString();
 	return key.slice(0, lastColon + 1) + canonical;
 }
-
-const primedBundleFiles: Record<PrimedBundleName, string> = {
-	'finra-individual': path.join(PRIMED_CACHE_DIR, 'finra-individual.json'),
-	'sec-individual': path.join(PRIMED_CACHE_DIR, 'sec-individual.json'),
-	'finra-firm': path.join(PRIMED_CACHE_DIR, 'finra-firm.json'),
-	'sec-firm': path.join(PRIMED_CACHE_DIR, 'sec-firm.json'),
-};
 
 function getUpstash(): Redis | null {
 	if (upstash !== null) return upstash;
@@ -117,7 +124,7 @@ async function ensureBinaryCacheDir() {
 	}
 }
 
-async function readBinaryCache(key: string): Promise<Buffer | null> {
+async function readLocalCacheEntry(key: string): Promise<{ buffer: Buffer; meta: BinaryCacheMeta } | null> {
 	const { dataPath, metaPath } = getBinaryFilePaths(key);
 	try {
 		await access(dataPath);
@@ -128,22 +135,33 @@ async function readBinaryCache(key: string): Promise<Buffer | null> {
 
 	try {
 		const rawMeta = await readFile(metaPath, 'utf-8');
-		const meta = JSON.parse(rawMeta) as { expiresAt: number };
+		const meta = JSON.parse(rawMeta) as BinaryCacheMeta;
 		if (meta.expiresAt <= Date.now()) {
 			await Promise.all([unlink(dataPath).catch(() => undefined), unlink(metaPath).catch(() => undefined)]);
 			return null;
 		}
-		return await readFile(dataPath);
+		return { buffer: await readFile(dataPath), meta };
 	} catch {
 		return null;
 	}
 }
 
-async function writeBinaryCache(key: string, value: Buffer, ttlSeconds: number) {
+async function writeLocalCacheEntry(key: string, value: Buffer, meta: BinaryCacheMeta) {
 	await ensureBinaryCacheDir();
 	const { dataPath, metaPath } = getBinaryFilePaths(key);
+	await Promise.all([writeFile(dataPath, value), writeFile(metaPath, JSON.stringify(meta), 'utf-8')]);
+}
+
+async function readBinaryCache(key: string): Promise<Buffer | null> {
+	const entry = await readLocalCacheEntry(key);
+	if (!entry) return null;
+	if (entry.meta.kind && entry.meta.kind !== 'buffer-v1') return null;
+	return entry.buffer;
+}
+
+async function writeBinaryCache(key: string, value: Buffer, ttlSeconds: number) {
 	const expiresAt = Date.now() + ttlSeconds * 1000;
-	await Promise.all([writeFile(dataPath, value), writeFile(metaPath, JSON.stringify({ expiresAt }), 'utf-8')]);
+	await writeLocalCacheEntry(key, value, { expiresAt, kind: 'buffer-v1', key, updatedAt: new Date().toISOString() });
 }
 
 function toBuffer(value: Buffer | Uint8Array | ArrayBuffer): Buffer {
@@ -168,9 +186,86 @@ async function setBinaryInRedis(key: string, value: Buffer, ttlSeconds: number):
 	const redis = getUpstash();
 	if (!redis) return;
 	try {
-		await redis.set(key, value.toString('base64'), { ex: ttlSeconds });
+		await Promise.all([
+			redis.set(key, value.toString('base64'), { ex: ttlSeconds }),
+			redis.set(`${key}:meta`, JSON.stringify({ binary: true, kind: 'buffer-v1' }), { ex: ttlSeconds }),
+		]);
 	} catch {
 		// ignore redis binary set errors
+	}
+}
+
+async function gzipJsonToBase64(json: string): Promise<string> {
+	try {
+		return await gzipOffload(json);
+	} catch {
+		return gzipSync(Buffer.from(json, 'utf8')).toString('base64');
+	}
+}
+
+async function gunzipBase64ToJson(base64: string): Promise<string> {
+	try {
+		return await gunzipOffload(base64);
+	} catch {
+		return gunzipSync(Buffer.from(base64, 'base64')).toString('utf8');
+	}
+}
+
+async function readStructuredCache<T>(key: string): Promise<T | null> {
+	const entry = await readLocalCacheEntry(key);
+	if (!entry) return null;
+	if (entry.meta.kind && entry.meta.kind !== 'json-gzip-v1') return null;
+	try {
+		const json = await gunzipBase64ToJson(entry.buffer.toString('base64'));
+		return JSON.parse(json) as T;
+	} catch {
+		return null;
+	}
+}
+
+async function writeStructuredCache(key: string, value: unknown, ttlSeconds: number) {
+	const json = JSON.stringify(value);
+	const expiresAt = Date.now() + ttlSeconds * 1000;
+	const gzBase64 = await gzipJsonToBase64(json);
+	await writeLocalCacheEntry(key, Buffer.from(gzBase64, 'base64'), {
+		expiresAt,
+		kind: 'json-gzip-v1',
+		key,
+		updatedAt: new Date().toISOString(),
+	});
+}
+
+async function getStructuredFromRedis<T>(key: string): Promise<T | null> {
+	const redis = getUpstash();
+	if (!redis) return null;
+	try {
+		const raw = await redis.get<string>(key);
+		if (raw == null) return null;
+		if (typeof raw === 'string' && raw.startsWith(JSON_BINARY_PREFIX)) {
+			const json = await gunzipBase64ToJson(raw.slice(JSON_BINARY_PREFIX.length));
+			return JSON.parse(json) as T;
+		}
+		return JSON.parse(raw) as T;
+	} catch {
+		return null;
+	}
+}
+
+async function setStructuredInRedis(key: string, value: unknown, ttlSeconds: number): Promise<void> {
+	const redis = getUpstash();
+	if (!redis) return;
+	try {
+		const gzBase64 = await gzipJsonToBase64(JSON.stringify(value));
+		await Promise.all([
+			redis.set(key, `${JSON_BINARY_PREFIX}${gzBase64}`, { ex: ttlSeconds }),
+			redis.set(`${key}:meta`, JSON.stringify({ binary: true, kind: 'json-gzip-v1' }), { ex: ttlSeconds }),
+		]);
+	} catch {
+		try {
+			await redis.set(key, JSON.stringify(value), { ex: ttlSeconds });
+		} catch {
+			// ignore redis structured set errors
+		}
 	}
 }
 
@@ -183,7 +278,10 @@ export async function cachedFetchBinary(rawKey: string, ttlSeconds: number, fetc
 	}
 
 	const localCached = await readBinaryCache(key);
-	if (localCached) return localCached;
+	if (localCached) {
+		if (redis) await setBinaryInRedis(key, localCached, ttlSeconds);
+		return localCached;
+	}
 
 	const value = toBuffer(await fetcher());
 	if (redis) {
@@ -194,143 +292,29 @@ export async function cachedFetchBinary(rawKey: string, ttlSeconds: number, fetc
 	return value;
 }
 
-async function loadPrimedBundle(name: PrimedBundleName): Promise<PrimedBundle | null> {
-	if (primedBundleCache.has(name)) return primedBundleCache.get(name) ?? null;
-	// Prefer a gzipped binary bundle (.bin) for server-only primed caches. Fall back
-	// to legacy JSON bundles for compatibility.
-	const jsonPath = primedBundleFiles[name];
-	const binPath = jsonPath.replace(/\.json$/, '.bin');
-	try {
-		// try binary first
-		const rawBin = await readFile(binPath);
-		try {
-			const json = await gunzipOffload(rawBin.toString('base64'));
-			const parsed = JSON.parse(json) as PrimedBundle;
-			// Normalize keys in the primed bundle so lookups are robust to
-			// differences in querystring parameter ordering (e.g. wt vs includePrevious).
-			const normalized: PrimedBundle = {};
-			for (const k of Object.keys(parsed)) {
-				try {
-					normalized[normalizeKey(k)] = parsed[k];
-				} catch {
-					// fallback to original key if normalization fails for any entry
-					normalized[k] = parsed[k];
-				}
-			}
-			primedBundleCache.set(name, normalized);
-			return normalized;
-		} catch {
-			// fall through to json
-		}
-	} catch {
-		// ignore missing bin
-	}
-	try {
-		const raw = await readFile(jsonPath, 'utf-8');
-		const parsed = JSON.parse(raw) as PrimedBundle;
-		const normalized: PrimedBundle = {};
-		for (const k of Object.keys(parsed)) {
-			try {
-				normalized[normalizeKey(k)] = parsed[k];
-			} catch {
-				normalized[k] = parsed[k];
-			}
-		}
-		primedBundleCache.set(name, normalized);
-		return normalized;
-	} catch {
-		primedBundleCache.set(name, null);
-		return null;
-	}
-}
-
-function resolvePrimedBundleName(key: string): PrimedBundleName | null {
-	const nk = normalizeKey(key);
-	if (nk.startsWith('finra:individual:') && nk.endsWith(`:${DEFAULT_INDIVIDUAL_QUERY}`)) return 'finra-individual';
-	if (nk.startsWith('sec:individual:') && nk.endsWith(`:${DEFAULT_INDIVIDUAL_QUERY}`)) return 'sec-individual';
-	if (nk.startsWith('finra:firm:') && nk.endsWith(`:${DEFAULT_FIRM_QUERY}`)) return 'finra-firm';
-	if (nk.startsWith('sec:firm:') && !nk.startsWith('sec:firm:summaryHtml:') && nk.split(':').length === 3) return 'sec-firm';
-	return null;
-}
-
-async function getPrimedCacheValue<T>(key: string): Promise<T | null> {
-	const nk = normalizeKey(key);
-	const bundleName = resolvePrimedBundleName(nk);
-	if (!bundleName) return null;
-	const bundle = await loadPrimedBundle(bundleName);
-	// try normalized key first, then original key (backwards compat with bundles built before normalization)
-	if (bundle) {
-		if (nk in bundle) return bundle[nk] as T;
-		if (key in bundle) return bundle[key] as T;
-	}
-	return null;
-}
-
 export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher: () => Promise<T>): Promise<T> {
 	const key = normalizeKey(rawKey);
 	const redis = getUpstash();
 
 	if (redis) {
 		try {
-			const raw = await redis.get<string>(key);
-			if (raw != null) return JSON.parse(raw) as T;
-			const primed = await getPrimedCacheValue<T>(key);
-			if (primed != null) {
-				await redis.set(key, JSON.stringify(primed), { ex: ttlSeconds });
-				return primed;
-			}
-			// Rate-limit outbound external fetches for FINRA/SEC sources.
-			const service =
-				key.startsWith('finra:') ? 'finra'
-				: key.startsWith('sec:') ? 'sec'
-				: '';
-			if (service) {
-				const now = Date.now();
-				const lastFail = lastExternalFailure.get(service) || 0;
-				if (now - lastFail < EXTERNAL_API_FAILURE_COOLDOWN_MS) {
-					console.warn(`External API recently failed; skipping fetch for service=${service} until cooldown`);
-					return undefined as unknown as T;
-				}
-				if (EXTERNAL_API_DISABLED) {
-					console.info(`External API disabled; skipping external fetch for service=${service} key=${key}`);
-					return undefined as unknown as T;
-				}
-				const last = lastExternalFetch.get(service) || 0;
-				if (now - last < EXTERNAL_API_MIN_INTERVAL_MS) {
-					// Too soon to call the external API again — return undefined so callers
-					// treat this as a cache miss without hammering the upstream service.
-					console.warn(`Rate-limited external fetch for service=${service} key=${key}`);
-					return undefined as unknown as T;
-				}
-			}
-
-			try {
-				const value = await fetcher();
-				if (service) lastExternalFetch.set(service, Date.now());
-				if (value !== undefined) {
-					await redis.set(key, JSON.stringify(value), { ex: ttlSeconds });
-				}
-				return value;
-			} catch (err) {
-				if (service) {
-					lastExternalFailure.set(service, Date.now());
-					console.warn(`External fetch failed for service=${service}; backing off for ${EXTERNAL_API_FAILURE_COOLDOWN_MS}ms`, err instanceof Error ? err.message : err);
-				}
-				return undefined as unknown as T;
-			}
+			const cached = await getStructuredFromRedis<T>(key);
+			if (cached != null) return cached;
 		} catch {
-			// fall through to in-memory on Redis errors
+			// fall through to local cache / in-memory on Redis errors
 		}
+	}
+
+	const localCached = await readStructuredCache<T>(key);
+	if (localCached != null) {
+		if (redis) await setStructuredInRedis(key, localCached, ttlSeconds);
+		memSet(getMem(), key, localCached, ttlSeconds);
+		return localCached;
 	}
 
 	const mem = getMem();
 	const hit = memGet(mem, key);
 	if (hit !== null) return hit as T;
-	const primed = await getPrimedCacheValue<T>(key);
-	if (primed != null) {
-		memSet(mem, key, primed, ttlSeconds);
-		return primed;
-	}
 
 	// Rate-limit outbound external fetches for FINRA/SEC sources (in-memory path).
 	const service =
@@ -358,7 +342,11 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 	try {
 		const value = await fetcher();
 		if (service) lastExternalFetch.set(service, Date.now());
-		if (value !== undefined) memSet(mem, key, value, ttlSeconds);
+		if (value !== undefined) {
+			memSet(mem, key, value, ttlSeconds);
+			await writeStructuredCache(key, value, ttlSeconds).catch(() => undefined);
+			if (redis) await setStructuredInRedis(key, value, ttlSeconds);
+		}
 		return value;
 	} catch (err) {
 		if (service) {
@@ -374,38 +362,13 @@ export async function clearCache(rawKey: string) {
 	const redis = getUpstash();
 	if (redis) {
 		try {
-			return await redis.del(key);
+			await redis.del(key);
+			await redis.del(`${key}:meta`).catch(() => undefined);
 		} catch {
 			// fall through to in-memory
 		}
 	}
+	const { dataPath, metaPath } = getBinaryFilePaths(key);
+	await Promise.all([unlink(dataPath).catch(() => undefined), unlink(metaPath).catch(() => undefined)]);
 	return getMem().delete(key);
 }
-
-// Verify primed bundles exist at startup and warn if missing. This helps ensure
-// production deployments include `data/national/primed-cache` so the server can
-// serve primed data on cold start instead of repeatedly calling external APIs.
-async function verifyPrimedBundles() {
-	for (const name of Object.keys(primedBundleFiles) as Array<PrimedBundleName>) {
-		const jsonPath = primedBundleFiles[name];
-		const binPath = jsonPath.replace(/\.json$/, '.bin');
-		try {
-			await access(binPath);
-			continue;
-		} catch {
-			// bin missing
-		}
-		try {
-			await access(jsonPath);
-			continue;
-		} catch {
-			// json missing
-		}
-		// Neither bin nor json present
-		console.warn(`Primed cache missing for ${name}: neither ${binPath} nor ${jsonPath} found. Add primed bundles to data/national/primed-cache for faster cold-starts.`);
-	}
-}
-
-// Run verification asynchronously on module load so server logs will show a
-// reminder during startup. This is lightweight (only filesystem checks).
-void verifyPrimedBundles();

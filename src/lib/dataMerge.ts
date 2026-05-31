@@ -40,44 +40,58 @@ const FINRA_DIR = path.join(BASE, 'brokercheck.finra.org');
 const SEC_DIR = path.join(BASE, 'adviserinfo.sec.gov');
 
 let _loaded = false;
+let _loadingPromise: Promise<void> | null = null;
 const finraIndividuals = new Map<string, any>();
 const secIndividuals = new Map<string, any>();
+
+function extractCanonicalIndividualSource(json: any, contentKey: 'content' | 'iacontent') {
+	if (!json || typeof json !== 'object') return null;
+
+	const hits = Array.isArray(json?.hits?.hits) ? json.hits.hits : [];
+	if (hits.length) {
+		const src = hits[0]?._source || {};
+		let parsed = null;
+		const rawContent = src?.[contentKey] ?? src?.content ?? src?.iacontent;
+		if (rawContent) {
+			try {
+				parsed = typeof rawContent === 'string' ? JSON.parse(rawContent) : rawContent;
+			} catch {
+				parsed = null;
+			}
+		}
+		const candidate = parsed && typeof parsed === 'object' ? { ...src, ...parsed } : src;
+		return candidate && typeof candidate === 'object' ? candidate : null;
+	}
+
+	const direct = json?.[contentKey] ?? json?.content ?? json?.iacontent;
+	if (direct && typeof direct === 'object' && !Array.isArray(direct)) {
+		return direct;
+	}
+
+	if (json?.basicInformation || json?.currentEmployments || json?.previousEmployments || json?.currentIAEmployments || json?.previousIAEmployments || json?.disclosures) {
+		return json;
+	}
+
+	return null;
+}
+
+function getIndividualId(candidate: any) {
+	if (!candidate || typeof candidate !== 'object') return null;
+	return (
+		candidate.ind_source_id ||
+		candidate.person?.crd ||
+		candidate.individualId ||
+		candidate.crd ||
+		candidate.basicInformation?.individualId ||
+		candidate.basicInformation?.crd ||
+		null
+	);
+}
 
 async function _loadFinraFiles() {
 	try {
 		const files = await readdir(FINRA_DIR);
-		if (!files || !files.length) {
-			// fallback: try any JSON files in primed-cache/ (load all entries)
-			try {
-				const pcDir = path.join(path.dirname(BASE), 'primed-cache');
-				const pcFiles = await readdir(pcDir);
-				for (const pf of pcFiles || []) {
-					if (!pf.endsWith('.json')) continue;
-					try {
-						const rawpc = await readFile(path.join(pcDir, pf), 'utf-8');
-						const pcJson = JSON.parse(rawpc || '{}');
-						for (const [k, v] of Object.entries(pcJson)) {
-							// try to derive an id
-							let id = null;
-							if (v && typeof v === 'object' && v.basicInformation && (v.basicInformation.individualId || v.basicInformation.crd)) {
-								id = String(v.basicInformation.individualId || v.basicInformation.crd);
-							} else {
-								const m = String(k).match(/(\d{4,})/);
-								if (m) id = m[1];
-							}
-							if (!id) continue;
-							// store a src object with content field so downstream normalize logic can parse it
-							finraIndividuals.set(String(id), { content: JSON.stringify(v), ind_source_id: id });
-						}
-					} catch (e) {
-						// ignore malformed primed-cache file and continue
-					}
-				}
-				return;
-			} catch (e) {
-				// ignore and continue to file scanning below
-			}
-		}
+		if (!files || !files.length) return;
 		for (const f of files) {
 			if (!f.endsWith('.json')) continue;
 			if (!f.startsWith('dl_') && !f.startsWith('query_') && !f.startsWith('individual_') && !f.startsWith('summary_') && !f.startsWith('api.brokercheck.finra.org_search_'))
@@ -85,26 +99,15 @@ async function _loadFinraFiles() {
 			try {
 				const raw = await readFile(path.join(FINRA_DIR, f), 'utf-8');
 				const json = JSON.parse(raw);
-				const hits = json?.hits?.hits || [];
-				for (const h of hits) {
-					const src = h._source || {};
-					// prefer person/individual identifiers only; do NOT use firm_id here
-					let id = src.ind_source_id || src.person?.crd || null;
-					if (src.content) {
-						try {
-							const parsed = typeof src.content === 'string' ? JSON.parse(src.content) : src.content;
-							if (parsed?.currentEmployments) src.ind_current_employments = parsed.currentEmployments;
-							if (parsed?.previousEmployments) src.ind_previous_employments = parsed.previousEmployments;
-							if (!id) id = parsed?.basicInformation?.individualId || parsed?.basicInformation?.crd || id;
-							// determine if this source looks like an individual record
-							const looksLikeIndividual = !!(src.ind_source_id || src.person?.crd || parsed?.basicInformation || parsed?.currentEmployments || parsed?.previousEmployments);
-							if (!looksLikeIndividual) continue; // skip firm-like records
-						} catch {}
-					}
-					if (!id) continue;
-					if (src.ind_source_id) finraIndividuals.set(String(src.ind_source_id), src);
-					else finraIndividuals.set(String(id), src);
-				}
+				const candidate = extractCanonicalIndividualSource(json, 'content');
+				const id = getIndividualId(candidate);
+				if (!id) continue;
+				if (candidate?.currentEmployments) candidate.ind_current_employments = candidate.currentEmployments;
+				if (candidate?.previousEmployments) candidate.ind_previous_employments = candidate.previousEmployments;
+				if (candidate?.currentIAEmployments) candidate.ind_ia_current_employments = candidate.currentIAEmployments;
+				if (candidate?.previousIAEmployments) candidate.ind_ia_previous_employments = candidate.previousIAEmployments;
+				if (!candidate.ind_source_id) candidate.ind_source_id = String(id);
+				finraIndividuals.set(String(candidate.ind_source_id || id), candidate);
 			} catch {}
 		}
 	} catch {}
@@ -113,53 +116,21 @@ async function _loadFinraFiles() {
 async function _loadSecFiles() {
 	try {
 		const files = await readdir(SEC_DIR);
-		if (!files || !files.length) {
-			// fallback: try primed-cache/sec-individual.json or sec-firm.json
-			try {
-				const pcPath = path.join(path.dirname(BASE), 'primed-cache', 'sec-individual.json');
-				const rawpc = await readFile(pcPath, 'utf-8');
-				const pcJson = JSON.parse(rawpc || '{}');
-				for (const [k, v] of Object.entries(pcJson)) {
-					let id = null;
-					if (v && typeof v === 'object' && v.basicInformation && (v.basicInformation.individualId || v.basicInformation.crd)) {
-						id = String(v.basicInformation.individualId || v.basicInformation.crd);
-						// treat as individual
-						secIndividuals.set(String(id), { content: JSON.stringify(v), ind_source_id: id });
-					} else {
-						// skip non-individual entries (firm records) when populating individual map
-						continue;
-					}
-				}
-				return;
-			} catch (e) {
-				// ignore
-			}
-		}
+		if (!files || !files.length) return;
 		for (const f of files) {
 			if (!f.endsWith('.json')) continue;
 			try {
 				const raw = await readFile(path.join(SEC_DIR, f), 'utf-8');
 				const json = JSON.parse(raw);
-				const hits = json?.hits?.hits || [];
-				for (const h of hits) {
-					const src = h._source || {};
-					// prefer person/individual identifiers only; do NOT use firm_id here
-					let id = src.ind_source_id || src.person?.crd || null;
-					if (src.content) {
-						try {
-							const parsed = typeof src.content === 'string' ? JSON.parse(src.content) : src.content;
-							if (parsed?.currentEmployments) src.ind_current_employments = parsed.currentEmployments;
-							if (parsed?.previousEmployments) src.ind_previous_employments = parsed.previousEmployments;
-							if (!id) id = parsed?.basicInformation?.individualId || parsed?.basicInformation?.crd || id;
-							// determine if this source looks like an individual record
-							const looksLikeIndividual = !!(src.ind_source_id || src.person?.crd || parsed?.basicInformation || parsed?.currentEmployments || parsed?.previousEmployments);
-							if (!looksLikeIndividual) continue; // skip firm-like records
-						} catch {}
-					}
-					if (!id) continue;
-					if (src.ind_source_id) secIndividuals.set(String(src.ind_source_id), src);
-					else if (id) secIndividuals.set(String(id), src);
-				}
+				const candidate = extractCanonicalIndividualSource(json, 'iacontent');
+				const id = getIndividualId(candidate);
+				if (!id) continue;
+				if (candidate?.currentEmployments) candidate.ind_current_employments = candidate.currentEmployments;
+				if (candidate?.previousEmployments) candidate.ind_previous_employments = candidate.previousEmployments;
+				if (candidate?.currentIAEmployments) candidate.ind_ia_current_employments = candidate.currentIAEmployments;
+				if (candidate?.previousIAEmployments) candidate.ind_ia_previous_employments = candidate.previousIAEmployments;
+				if (!candidate.ind_source_id) candidate.ind_source_id = String(id);
+				secIndividuals.set(String(candidate.ind_source_id || id), candidate);
 			} catch {}
 		}
 	} catch {}
@@ -167,8 +138,17 @@ async function _loadSecFiles() {
 
 async function ensureLoaded() {
 	if (_loaded) return;
-	_loaded = true;
-	await Promise.all([_loadFinraFiles(), _loadSecFiles()]);
+	if (!_loadingPromise) {
+		_loadingPromise = (async () => {
+			await Promise.all([_loadFinraFiles(), _loadSecFiles()]);
+			_loaded = true;
+		})().catch((error) => {
+			_loaded = false;
+			_loadingPromise = null;
+			throw error;
+		});
+	}
+	await _loadingPromise;
 }
 
 function _pickIndividualFields(src: any) {
@@ -216,40 +196,8 @@ export async function mergedIndividual(crd: string) {
 	const id = String(crd);
 	const finra = finraIndividuals.get(id) || null;
 	const sec = secIndividuals.get(id) || null;
-	// If neither FINRA nor SEC were found in the loaded maps, try scanning primed-cache
-	// for any JSON files that may contain per-id additions (fallback for compacted primed-cache)
-	if (!finra && !sec) {
-		try {
-			const pcDir = path.join(path.dirname(BASE), 'primed-cache');
-			const files = await readdir(pcDir);
-			for (const f of files || []) {
-				if (!f.endsWith('.json')) continue;
-				try {
-					const raw = await readFile(path.join(pcDir, f), 'utf-8');
-					const parsed = JSON.parse(raw || '{}');
-					for (const [k, v] of Object.entries(parsed)) {
-						try {
-							const cand = typeof v === 'string' ? JSON.parse(v) : v;
-							const bi = cand?.basicInformation || {};
-							const id2 = String(bi.individualId || bi.crd || '').trim();
-							if (!id2) continue;
-							// ensure this candidate is an individual record (not a firm)
-							const looksLikeIndividual = !!(cand?.basicInformation || cand?.currentEmployments || cand?.previousEmployments || cand?.person?.crd);
-							if (id2 === id && looksLikeIndividual) {
-								finraIndividuals.set(id, { content: JSON.stringify(cand), ind_source_id: id });
-								break;
-							}
-						} catch {}
-					}
-				} catch {}
-				if (finraIndividuals.has(id) || secIndividuals.has(id)) break;
-			}
-		} catch (e) {
-			// ignore
-		}
-	}
-	const finra2 = finraIndividuals.get(id) || null;
-	const sec2 = secIndividuals.get(id) || null;
+	const finra2 = finra || null;
+	const sec2 = sec || null;
 	const computed = computeDiffs(finra2, sec2);
 	return {
 		crd: id,
@@ -257,6 +205,14 @@ export async function mergedIndividual(crd: string) {
 		sources: { finra: finra2 || null, sec: sec2 || null },
 		merged: computed,
 	};
+}
+
+// Development helper: clear in-memory loaded state so callers can force a reload
+export function clearDataMergeCache() {
+	_loaded = false;
+	_loadingPromise = null;
+	finraIndividuals.clear();
+	secIndividuals.clear();
 }
 
 export async function mergedFirm(firmId: string) {

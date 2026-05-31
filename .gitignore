@@ -45,12 +45,10 @@ data/external/*
 .vercel
 data/raw/
 # ignore any JSON data dumps under data/ (local caches, derived files, primed bundles)
-data/*.json
-data/**/*.json
-data/derived/
+data/raw/
+data/national/
+data/cache-binary/
 data/primed-cache/
-data/primed-cache/*
-data/primed-cache/**
 .cache/
 tmp/
 /.next/*-dbg

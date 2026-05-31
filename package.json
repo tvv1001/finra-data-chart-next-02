@@ -16,6 +16,11 @@
 		"test:smoke": "playwright test tests/e2e/smoke.spec.ts",
 		"build:graph": "node scripts/build_graph_from_cache.js --employment-scope all",
 		"prime:all": "node scripts/download_all_api_data.js",
+		"data:append": "node scripts/update_local_cache.js",
+		"data:sync": "node scripts/sync_external_raw.js",
+		"data:daily": "node scripts/sync_external_raw.js --rebuild",
+		"data:refresh-crd": "node scripts/sync_external_raw.js --rebuild --force",
+		"data:rebuild": "node scripts/rebuild_local_data.js",
 		"ci:install-browsers": "npx playwright install --with-deps || npx playwright install chromium"
 	},
 	"engines": {

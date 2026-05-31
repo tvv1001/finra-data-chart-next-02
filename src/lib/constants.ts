@@ -1,12 +1,12 @@
 import * as path from 'node:path';
 import fs from 'node:fs';
 
-// Allow an explicit override or prefer the external shared data directory when present.
-// This avoids destructive edits of the local `data/` folder and lets developers point to
-// the canonical crawler output at /home/lenny/Dev/webDev/Data-finra-sec/data.
-const EXTERNAL_PATHS = [process.env.FINRA_DATA_DIR, '/home/lenny/Dev/webDev/Data-finra-sec/data'].filter(Boolean) as string[];
+// Prefer the repo-local `data/` directory by default so runtime API routes and
+// rebuild scripts read the same cache tree. Developers can still point the app
+// at a different data directory explicitly via FINRA_DATA_DIR.
+const DATA_DIR_CANDIDATES = [path.resolve(process.cwd(), 'data'), process.env.FINRA_DATA_DIR].filter(Boolean) as string[];
 let resolvedDataDir = path.resolve(process.cwd(), 'data');
-for (const p of EXTERNAL_PATHS) {
+for (const p of DATA_DIR_CANDIDATES) {
 	try {
 		if (fs.existsSync(p) && fs.statSync(p).isDirectory()) {
 			resolvedDataDir = p;

@@ -6,6 +6,9 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { DATA_DIR } from '@/lib/constants';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 function parseDetailPayload(data: any, contentKey = 'content') {
 	if (!data) return null;
 	if (data?.hits?.hits?.length) {

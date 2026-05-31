@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cachedFetch } from '@/lib/cache';
-import { DEFAULT_HEADERS } from '@/lib/constants';
+import { searchLocalCache } from '@/lib/localSearch';
 import { logger } from '@/lib/logger';
 
 function buildFinraSearchParams(searchParams: URLSearchParams) {
@@ -34,20 +33,18 @@ export async function GET(request: NextRequest) {
 		const type = searchParams.get('type') || (searchParams.get('firm') ? 'firm' : 'individual');
 		const params = buildFinraSearchParams(searchParams);
 		if (!params) return NextResponse.json({ hits: { hits: [] } });
-
-		const { default: axios } = await import('axios');
-		const url = `https://api.brokercheck.finra.org/search/${encodeURIComponent(type)}?${params.toString()}`;
-		const cacheKey = `finra:search:${type}:${params.toString()}`;
-		const data = await cachedFetch(cacheKey, 600, async () => {
-			const r = await axios.get(url, { headers: DEFAULT_HEADERS, timeout: 15000 });
-			return r.data;
+		const nrows = Number(params.get('nrows') || '12');
+		const start = Number(params.get('start') || '0');
+		const data = await searchLocalCache({
+			query: params.get('query') || '',
+			type: type === 'firm' ? 'firm' : 'individual',
+			source: 'finra',
+			start,
+			limit: nrows,
 		});
-		// If cachedFetch returned undefined (e.g. external APIs disabled or rate-limited)
-		// return a safe empty structure so the client can continue without errors.
-		if (!data) return NextResponse.json({ hits: { hits: [] } });
 		return NextResponse.json(data);
 	} catch (err: any) {
 		logger.error('search error', { error: err.message });
-		return NextResponse.json({ error: 'Failed to search FINRA.' }, { status: 502 });
+		return NextResponse.json({ error: 'Failed to search FINRA.' }, { status: 500 });
 	}
 }

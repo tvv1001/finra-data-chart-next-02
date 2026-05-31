@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cachedFetch } from '@/lib/cache';
-import { DEFAULT_HEADERS } from '@/lib/constants';
+import { searchLocalCache } from '@/lib/localSearch';
 import { logger } from '@/lib/logger';
 
 function buildSecSearchParams(searchParams: URLSearchParams) {
@@ -29,18 +28,18 @@ export async function GET(request: NextRequest) {
 		const { searchParams } = new URL(request.url);
 		const params = buildSecSearchParams(searchParams);
 		if (!params) return NextResponse.json({ hits: { hits: [] } });
-
-		const { default: axios } = await import('axios');
-		const url = `https://api.adviserinfo.sec.gov/search/individual?${params.toString()}`;
-		const cacheKey = `sec:search:${params.toString()}`;
-		const data = await cachedFetch(cacheKey, 600, async () => {
-			const r = await axios.get(url, { headers: DEFAULT_HEADERS, timeout: 15000 });
-			return r.data;
+		const nrows = Number(params.get('nrows') || params.get('pageSize') || '12');
+		const start = Number(params.get('start') || '0');
+		const data = await searchLocalCache({
+			query: params.get('query') || '',
+			type: 'individual',
+			source: 'sec',
+			start,
+			limit: nrows,
 		});
-		if (!data) return NextResponse.json({ hits: { hits: [] } });
 		return NextResponse.json(data);
 	} catch (err: any) {
 		logger.error('sec-search error', { error: err.message });
-		return NextResponse.json({ error: 'Failed to search SEC.' }, { status: 502 });
+		return NextResponse.json({ error: 'Failed to search SEC.' }, { status: 500 });
 	}
 }

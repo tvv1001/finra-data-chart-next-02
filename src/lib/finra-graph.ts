@@ -108,17 +108,37 @@ if (typeof process !== 'undefined') {
 	}
 }
 
+function resolveClientApiBase() {
+	const browserOrigin = typeof location !== 'undefined' ? location.origin : '';
+	if (!BASE) return browserOrigin;
+
+	if (!browserOrigin) return BASE;
+
+	try {
+		const configured = new URL(BASE, browserOrigin);
+		const current = new URL(browserOrigin);
+		const configuredIsLocal = /^(localhost|127\.0\.0\.1)$/i.test(configured.hostname);
+		const currentIsLocal = /^(localhost|127\.0\.0\.1)$/i.test(current.hostname);
+		if (configuredIsLocal && currentIsLocal && configured.origin !== current.origin) {
+			return current.origin;
+		}
+		return configured.origin;
+	} catch {
+		return browserOrigin || BASE;
+	}
+}
+
 // Safely build an absolute URL for API calls. When `BASE` is empty the
 // browser `location.origin` will be used so `new URL` never throws.
 function makeApiUrl(path) {
 	const p = path.startsWith('/') ? path : `/${path}`;
-	const base = BASE || (typeof location !== 'undefined' ? location.origin : '');
+	const base = resolveClientApiBase();
 	return new URL(p, base);
 }
 
 function syncProfileSelection(payload) {
 	if (!ENABLE_SERVER_PROFILE_SYNC) return;
-	fetch(`${BASE}/api/finra/add-to-profile`, {
+	fetch(makeApiUrl('/api/finra/add-to-profile').toString(), {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ profile: 'custom', ...payload }),
@@ -3091,7 +3111,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			parent.appendChild(holder);
 
 			try {
-				const r = await fetch(`${BASE}/api/finra/fda/${encodeURIComponent(docket)}`);
+				const r = await fetch(makeApiUrl(`/api/finra/fda/${encodeURIComponent(docket)}`).toString());
 				if (!r.ok) throw new Error(`HTTP ${r.status}`);
 				const j = await r.json();
 
@@ -3550,9 +3570,29 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 							const crd = String(src?.ind_source_id || src?.ind_crd || '').trim();
 							if (crd && /^\d+$/.test(crd)) {
 								try {
-									const r = await fetch(`${BASE}/api/finra/individual/${encodeURIComponent(crd)}`);
-									if (!r.ok) throw new Error(`${r.status}`);
-									const detail = unwrapDetailPayload(await r.json());
+									// Prefer the pre-merged local payload (FINRA+SEC) when available
+									let detail = null;
+									try {
+										const mres = await fetch(makeApiUrl(`/api/finra/merged/individual/${encodeURIComponent(crd)}`).toString());
+										if (mres.ok) {
+											const merged = await mres.json();
+											// merged.merged contains the normalized individual payload when present
+											detail = merged?.merged || merged?.finraNode || merged?.individual || null;
+											if (detail) {
+												// ensure it's normalized for UI consumers
+												detail = normalizeIndividualDetailPayload(detail, crd);
+											}
+										}
+									} catch (e) {
+										/* fall back to live API below */
+									}
+
+									if (!detail) {
+										const r = await fetch(makeApiUrl(`/api/finra/individual/${encodeURIComponent(crd)}`).toString());
+										if (!r.ok) throw new Error(`${r.status}`);
+										detail = unwrapDetailPayload(await r.json());
+									}
+
 									if (detail?.found === false) return;
 									addIndividualFromSource(detail);
 								} catch {
@@ -3563,9 +3603,23 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 							const firmId = String(src?.firm_id || src?.firmId || src?.firm_source_id || '').trim();
 							if (firmId && /^\d+$/.test(firmId)) {
 								try {
-									const r = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`);
-									if (!r.ok) throw new Error(`${r.status}`);
-									const detail = await r.json();
+									// Prefer merged firm record when available
+									let detail = null;
+									try {
+										const mres = await fetch(makeApiUrl(`/api/finra/merged/firm/${encodeURIComponent(firmId)}`).toString());
+										if (mres.ok) {
+											const merged = await mres.json();
+											detail = merged?.merged || merged?.finraNode || merged || null;
+										}
+									} catch (e) {
+										/* fall back to live API below */
+									}
+
+									if (!detail) {
+										const r = await fetch(makeApiUrl(`/api/finra/firm/${encodeURIComponent(firmId)}`).toString());
+										if (!r.ok) throw new Error(`${r.status}`);
+										detail = await r.json();
+									}
 									if (detail?.found === false) return;
 									const firmNodeId = `firm:${firmId}`;
 									const bi = detail?.basicInformation || {};
@@ -3707,164 +3761,264 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 	}
 
 	// Append fetched nodes/links into live layout (reuse revealNeighbors append logic)
+	// Serialized queue to avoid concurrent DOM/list mutations from multiple fetches.
 	appendFetched = function appendFetched(newNodes, newLinks) {
-		if (!Array.isArray(newNodes)) newNodes = [];
-		if (!Array.isArray(newLinks)) newLinks = [];
-		normalizeNodeLabelsInPlace(newNodes);
+		if (!appendFetched._queue) appendFetched._queue = Promise.resolve();
+		const runAppend = async () => {
+			if (!Array.isArray(newNodes)) newNodes = [];
+			if (!Array.isArray(newLinks)) newLinks = [];
+			normalizeNodeLabelsInPlace(newNodes);
 
-		// avoid duplicates
-		const existIds = new Set(layoutNodes.map((n) => n.id));
-		const uniqNodes = newNodes.filter((n) => !existIds.has(n.id));
-
-		// Place newly-added nodes near the expand origin (parent node) if known,
-		// otherwise fall back to the viewport center so they're visible immediately.
-		if (uniqNodes.length > 0) {
-			const main = document.getElementById('fg-main');
-			const W = main?.clientWidth || 800;
-			const H = main?.clientHeight || 600;
-			const originX = lastExpandOriginNode && Number.isFinite(lastExpandOriginNode.x) ? lastExpandOriginNode.x : W / 2;
-			const originY = lastExpandOriginNode && Number.isFinite(lastExpandOriginNode.y) ? lastExpandOriginNode.y : H / 2;
-			uniqNodes.forEach((n) => {
-				if (n.x == null && n.y == null) {
-					// Spawn tightly on the parent so nodes appear right at the click site
-					n.x = originX + (Math.random() - 0.5) * 20;
-					n.y = originY + (Math.random() - 0.5) * 20;
-				}
-			});
-		}
-		// push
-		layoutNodes.push(...uniqNodes);
-
-		const currentLayoutNodeIds = new Set(layoutNodes.map((n) => n.id));
-		layoutLinks.push(
-			...newLinks.filter((l) => {
-				const s = l.source?.id ?? l.source;
-				const t = l.target?.id ?? l.target;
-				// only include link if both nodes are currently rendered
-				if (!currentLayoutNodeIds.has(s) || !currentLayoutNodeIds.has(t)) return false;
-				// avoid duplicate link
-				return !layoutLinks.some((el) => (el.source?.id ?? el.source) === s && (el.target?.id ?? el.target) === t);
-			}),
-		);
-		applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
-		setGraphLabelRenderMode(layoutNodes.length);
-
-		// Rebuild neighbor cache and update info
-		neighborMap = buildNeighborMap(layoutNodes, layoutLinks);
-		if (layoutNodes.length || layoutLinks.length) showEmpty(false);
-		if (graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
-		updateMeta();
-
-		// Persist session so reload restores these nodes
-		saveSession();
-
-		// Append DOM nodes/links similar to revealNeighbors
-		const allLinks = linkGroup.selectAll('line').data(layoutLinks, (d) => {
-			const s = d.source?.id ?? d.source;
-			const t = d.target?.id ?? d.target;
-			return `${s}-${t}-${d.relationship}`;
-		});
-		const enteredLinks = allLinks
-			.enter()
-			.append('line')
-			.attr('class', 'fg-link')
-			.attr('stroke', (d) => getLinkColor(d))
-			.attr('stroke-opacity', 0)
-			.attr('stroke-width', (d) => getLinkWidth(d))
-			.attr('stroke-dasharray', (d) => getLinkDash(d))
-			.attr('marker-end', (d) => getLinkMarker(d));
-		enteredLinks.transition().duration(400).attr('stroke-opacity', defaultLinkOpacity);
-		linkSel = linkGroup.selectAll('line');
-
-		if (arrowGroup) {
-			const allArrows = arrowGroup.selectAll('line').data(layoutLinks, (d) => {
-				const s = d.source?.id ?? d.source;
-				const t = d.target?.id ?? d.target;
-				return `${s}-${t}-${d.relationship}`;
-			});
-			allArrows
-				.enter()
-				.append('line')
-				.attr('stroke', 'none')
-				.attr('fill', 'none')
-				.attr('marker-end', (d) => getLinkMarker(d));
-			arrowSel = arrowGroup.selectAll('line');
-		}
-
-		const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
-		const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen);
-
-		// Apply initial transform so new nodes appear at their placed position
-		// immediately (the renderGraph tick handler only covers old nodes).
-		enteredNodes.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
-
-		enteredNodes.transition().duration(400).attr('opacity', 1);
-		nodeSel = nodeGroup.selectAll('g.fg-node');
-		linkSel = linkGroup.selectAll('line');
-		rerenderGraphNodesByIds(getImpactedNodeIds(uniqNodes, newLinks));
-		reapplySelectionState();
-
-		refreshGraphColors();
-		refreshTraceState();
-
-		// Replace tick handler so it covers the full updated selections.
-		simulation.on('tick', () => {
-			scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
-		});
-
-		// Restart simulation with new nodes/links
-		simulation.nodes(layoutNodes);
-		simulation.force('link').links(layoutLinks);
-		simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
-		// Log appended nodes for debugging sprite/handler creation
-		try {
-			// eslint-disable-next-line no-console
-			console.info('[finra-graph] appendFetched: added', uniqNodes.length, 'new nodes', uniqNodes.map((n) => String(n.id)).slice(0, 20));
-		} catch (e) {}
-		simulation.alpha(getIncrementalRestartAlpha(layoutNodes.length, uniqNodes.length)).restart();
-
-		// If a pixi renderer is active, request an immediate synchronous draw so
-		// that interactive sprites/handlers are created before user interaction.
-		try {
-			if (pixiApi && typeof pixiApi.drawFrame === 'function') {
-				const transform = getCurrentZoomTransform();
-				const labelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, transform.k || 1)))) : 1;
-				const logLabelNodeIds = getSelectionLogLabelNodeIds();
-				// eslint-disable-next-line no-console
-				console.debug('[finra-graph] appendFetched: invoking pixiApi.drawFrame synchronously to warm sprites');
-				try {
-					pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
-					if (pixiApi && pixiApi.app && pixiApi.app.renderer) {
-						try {
-							pixiApi.app.renderer.render(pixiApi.app.stage);
-						} catch (e) {}
-					}
-				} catch (e) {
-					// eslint-disable-next-line no-console
-					console.warn('[finra-graph] appendFetched: pixi draw failed', e);
-				}
-			}
-		} catch (e) {}
-
-		// Fire-and-forget: ensure individual detail is loaded for newly appended nodes
-		try {
-			void (async () => {
-				for (const n of uniqNodes) {
+			// Ensure required SVG groups exist (they may be created asynchronously during init)
+			async function ensureGroupsWithBackoff() {
+				const delays = [0, 16, 120, 400];
+				for (let i = 0; i < delays.length; i += 1) {
 					try {
-						if (n && n.group === 'individual' && !n._detailLoaded) {
-							await ensureIndividualDetail(n);
-							// rerender the specific node so sidebar/details and labels update
-							rerenderGraphNodesByIds([n.id]);
+						if (rootGroup && linkGroup && nodeGroup) return true;
+					} catch {}
+					// Try to re-select groups if rootGroup has been created but children not yet
+					try {
+						if (rootGroup && !linkGroup) linkGroup = rootGroup.select('.fg-links');
+						if (rootGroup && !linkBottomGroup) linkBottomGroup = rootGroup.select('.fg-links-bottom');
+						if (rootGroup && !linkMidGroup) linkMidGroup = rootGroup.select('.fg-links-mid');
+						if (rootGroup && !linkTopGroup) linkTopGroup = rootGroup.select('.fg-links-top');
+						if (rootGroup && !arrowBottomGroup) arrowBottomGroup = rootGroup.select('.fg-arrowheads-bottom');
+						if (rootGroup && !arrowMidGroup) arrowMidGroup = rootGroup.select('.fg-arrowheads-mid');
+						if (rootGroup && !arrowTopGroup) arrowTopGroup = rootGroup.select('.fg-arrowheads-top');
+						if (rootGroup && !nodeGroup) nodeGroup = rootGroup.select('.fg-nodes');
+					} catch {}
+					if (rootGroup && linkGroup && nodeGroup) return true;
+					// wait a frame or specified ms before retrying
+					const d = delays[i];
+					if (d === 0) {
+						await new Promise((res) => window.requestAnimationFrame(res));
+					} else {
+						await delay(d);
+					}
+				}
+				return !!(rootGroup && linkGroup && nodeGroup);
+			}
+
+			if (!(await ensureGroupsWithBackoff())) {
+				console.warn('appendFetched: SVG groups not ready yet; skipping append until ready');
+				return;
+			}
+
+			// avoid duplicates
+			const existIds = new Set(layoutNodes.map((n) => n.id));
+			const uniqNodes = newNodes.filter((n) => !existIds.has(n.id));
+
+			// Place newly-added nodes near the expand origin (parent node) if known,
+			// otherwise fall back to the viewport center so they're visible immediately.
+			if (uniqNodes.length > 0) {
+				const main = document.getElementById('fg-main');
+				const W = main?.clientWidth || 800;
+				const H = main?.clientHeight || 600;
+				const originX = lastExpandOriginNode && Number.isFinite(lastExpandOriginNode.x) ? lastExpandOriginNode.x : W / 2;
+				const originY = lastExpandOriginNode && Number.isFinite(lastExpandOriginNode.y) ? lastExpandOriginNode.y : H / 2;
+				uniqNodes.forEach((n) => {
+					if (n.x == null && n.y == null) {
+						// Spawn tightly on the parent so nodes appear right at the click site
+						n.x = originX + (Math.random() - 0.5) * 20;
+						n.y = originY + (Math.random() - 0.5) * 20;
+					}
+				});
+			}
+			// Pause simulation before mutating the underlying arrays to avoid
+			// d3-force tick handlers operating on inconsistent (string) link endpoints.
+			try {
+				if (simulation && typeof simulation.stop === 'function') {
+					simulation.stop();
+				}
+				// detach tick handler while we mutate; we'll reattach below
+				try {
+					simulation?.on && simulation.on('tick', null);
+				} catch {}
+			} catch {}
+
+			// push
+			layoutNodes.push(...uniqNodes);
+
+			const currentLayoutNodeIds = new Set(layoutNodes.map((n) => n.id));
+			layoutLinks.push(
+				...newLinks.filter((l) => {
+					const s = l.source?.id ?? l.source;
+					const t = l.target?.id ?? l.target;
+					// only include link if both nodes are currently rendered
+					if (!currentLayoutNodeIds.has(s) || !currentLayoutNodeIds.has(t)) return false;
+					// avoid duplicate link
+					return !layoutLinks.some((el) => (el.source?.id ?? el.source) === s && (el.target?.id ?? el.target) === t);
+				}),
+			);
+
+			// Resolve any string endpoints to node objects before assigning to the simulation
+			try {
+				resolveLinkEndpoints(layoutLinks, layoutNodes);
+			} catch (e) {
+				console.warn('appendFetched: resolveLinkEndpoints failed', e);
+			}
+			applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
+			setGraphLabelRenderMode(layoutNodes.length);
+
+			// Rebuild neighbor cache and update info
+			neighborMap = buildNeighborMap(layoutNodes, layoutLinks);
+			if (layoutNodes.length || layoutLinks.length) showEmpty(false);
+			if (graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
+			updateMeta();
+
+			// Persist session so reload restores these nodes
+			saveSession();
+
+			// Append DOM nodes/links similar to revealNeighbors
+			// Use selection.join to avoid D3's insertBefore race condition when
+			// multiple DOM updates happen concurrently. join() handles enter/update/exit
+			// deterministically and prevents references to nodes that are no longer
+			// children of the parent.
+			linkSel = linkGroup
+				.selectAll('line')
+				.data(layoutLinks, (d) => {
+					const s = d.source?.id ?? d.source;
+					const t = d.target?.id ?? d.target;
+					return `${s}-${t}-${d.relationship}`;
+				})
+				.join(
+					(enter) =>
+						enter
+							.append('line')
+							.attr('class', 'fg-link')
+							.attr('stroke', (d) => getLinkColor(d))
+							.attr('stroke-opacity', 0)
+							.attr('stroke-width', (d) => getLinkWidth(d))
+							.attr('stroke-dasharray', (d) => getLinkDash(d))
+							.attr('marker-end', (d) => getLinkMarker(d))
+							.call((sel) => sel.transition().duration(400).attr('stroke-opacity', defaultLinkOpacity)),
+					(update) => update,
+					(exit) => exit.remove(),
+				);
+
+			if (arrowGroup) {
+				arrowSel = arrowGroup
+					.selectAll('line')
+					.data(layoutLinks, (d) => {
+						const s = d.source?.id ?? d.source;
+						const t = d.target?.id ?? d.target;
+						return `${s}-${t}-${d.relationship}`;
+					})
+					.join(
+						(enter) =>
+							enter
+								.append('line')
+								.attr('stroke', 'none')
+								.attr('fill', 'none')
+								.attr('marker-end', (d) => getLinkMarker(d)),
+						(update) => update,
+						(exit) => exit.remove(),
+					);
+			}
+
+			nodeSel = nodeGroup
+				.selectAll('g.fg-node')
+				.data(layoutNodes, (d) => d.id)
+				.join(
+					(enter) =>
+						enter
+							.append('g')
+							.attr('class', 'fg-node')
+							.attr('opacity', 0)
+							.call(fluidDrag())
+							.on('click', handleNodeOpen)
+							.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`)
+							.call((sel) => sel.transition().duration(400).attr('opacity', 1)),
+					(update) => update,
+					(exit) => exit.remove(),
+				);
+			linkSel = linkGroup.selectAll('line');
+			rerenderGraphNodesByIds(getImpactedNodeIds(uniqNodes, newLinks));
+			reapplySelectionState();
+
+			refreshGraphColors();
+			refreshTraceState();
+
+			// Replace tick handler so it covers the full updated selections.
+			try {
+				simulation.on &&
+					simulation.on('tick', () => {
+						scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
+					});
+			} catch {}
+
+			// Restart simulation with new nodes/links
+			try {
+				if (simulation && typeof simulation.nodes === 'function') simulation.nodes(layoutNodes);
+				if (simulation && simulation.force && typeof simulation.force === 'function') simulation.force('link').links(layoutLinks);
+				if (simulation && simulation.force) simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
+			} catch (e) {
+				console.warn('appendFetched: failed to assign nodes/links to simulation', e);
+			}
+			// Log appended nodes for debugging sprite/handler creation
+			try {
+				// eslint-disable-next-line no-console
+				console.info('[finra-graph] appendFetched: added', uniqNodes.length, 'new nodes', uniqNodes.map((n) => String(n.id)).slice(0, 20));
+			} catch (e) {}
+			try {
+				simulation.alpha && simulation.alpha(getIncrementalRestartAlpha(layoutNodes.length, uniqNodes.length));
+				simulation.restart && simulation.restart();
+			} catch (e) {
+				// Best-effort: if restart fails, log and continue
+				console.warn('appendFetched: simulation restart failed', e);
+			}
+
+			// If a pixi renderer is active, request an immediate synchronous draw so
+			// that interactive sprites/handlers are created before user interaction.
+			try {
+				if (pixiApi && typeof pixiApi.drawFrame === 'function') {
+					const transform = getCurrentZoomTransform();
+					const labelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, transform.k || 1)))) : 1;
+					const logLabelNodeIds = getSelectionLogLabelNodeIds();
+					// eslint-disable-next-line no-console
+					console.debug('[finra-graph] appendFetched: invoking pixiApi.drawFrame synchronously to warm sprites');
+					try {
+						pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
+						if (pixiApi && pixiApi.app && pixiApi.app.renderer) {
 							try {
-								saveSession();
+								pixiApi.app.renderer.render(pixiApi.app.stage);
 							} catch (e) {}
 						}
 					} catch (e) {
-						/* ignore per-node failures */
+						// eslint-disable-next-line no-console
+						console.warn('[finra-graph] appendFetched: pixi draw failed', e);
 					}
 				}
-			})();
-		} catch (e) {}
+			} catch (e) {}
+
+			// Fire-and-forget: ensure individual detail is loaded for newly appended nodes
+			try {
+				void (async () => {
+					for (const n of uniqNodes) {
+						try {
+							if (n && n.group === 'individual' && !n._detailLoaded) {
+								await ensureIndividualDetail(n);
+								// rerender the specific node so sidebar/details and labels update
+								rerenderGraphNodesByIds([n.id]);
+								try {
+									saveSession();
+								} catch (e) {}
+							}
+						} catch (e) {
+							/* ignore per-node failures */
+						}
+					}
+				})();
+			} catch (e) {}
+		};
+
+		// Serialize concurrent calls so DOM/network bursts don't collide.
+		appendFetched._queue = appendFetched._queue
+			.then(() => runAppend())
+			.catch((e) => {
+				console.warn('appendFetched: queued append failed', e);
+			});
+		return appendFetched._queue;
 	};
 
 	// ── Location search handlers ──────────────────────────────────────────────
@@ -3892,9 +4046,29 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				const crd = String(src?.ind_source_id || src?.ind_crd || '').trim();
 				if (crd && /^\d+$/.test(crd)) {
 					try {
-						const r = await fetch(`${BASE}/api/finra/individual/${encodeURIComponent(crd)}`);
-						if (!r.ok) return;
-						const detail = unwrapDetailPayload(await r.json());
+						// Try merged endpoint first to get combined FINRA+SEC payload in one request
+						let detail = null;
+						try {
+							const mres = await fetch(makeApiUrl(`/api/finra/merged/individual/${encodeURIComponent(crd)}`).toString());
+							if (mres.ok) {
+								const merged = await mres.json();
+								detail = merged?.merged || merged?.individual || merged || null;
+								if (detail && !detail.basicInformation) {
+									// normalize shape when necessary
+									try {
+										detail = normalizeIndividualDetailPayload(detail, crd);
+									} catch (e) {}
+								}
+							}
+						} catch (e) {
+							/* ignore and fallback */
+						}
+
+						if (!detail) {
+							const r = await fetch(makeApiUrl(`/api/finra/individual/${encodeURIComponent(crd)}`).toString());
+							if (!r.ok) return;
+							detail = unwrapDetailPayload(await r.json());
+						}
 						if (detail?.found === false) return;
 						const personId = `person:${crd}`;
 						const personLabel = normalizePersonLabel(
@@ -3944,7 +4118,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				const firmId = String(src?.firm_id || src?.firmId || src?.firm_source_id || '').trim();
 				if (firmId && /^\d+$/.test(firmId)) {
 					try {
-						const r = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`);
+						const r = await fetch(makeApiUrl(`/api/finra/firm/${encodeURIComponent(firmId)}`).toString());
 						if (!r.ok) return;
 						const detail = await r.json();
 						if (detail?.found === false) return;
@@ -4154,7 +4328,10 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 async function fetchAndInjectLocalQuery(q) {
 	try {
 		const url = makeApiUrl(`/api/finra/graph-search?q=${encodeURIComponent(q)}&limit=50`).toString();
-		const res = await fetch(url, { headers: { Accept: 'application/json' } });
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), 1500);
+		const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: controller.signal });
+		clearTimeout(timeoutId);
 		if (!res.ok) throw new Error(`Local query failed: ${res.status}`);
 		const data = await res.json();
 		const nodes = Array.isArray(data) ? data : data?.nodes || [];
@@ -4317,7 +4494,10 @@ async function fetchAndInjectQuery(q) {
 async function fetchLocalQueryBatch(q) {
 	try {
 		const url = makeApiUrl(`/api/finra/graph-search?q=${encodeURIComponent(q)}&limit=50`).toString();
-		const res = await fetch(url, { headers: { Accept: 'application/json' } });
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), 1500);
+		const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: controller.signal });
+		clearTimeout(timeoutId);
 		if (!res.ok) return { nodes: [], links: [], matchedIds: [] };
 		const data = await res.json();
 		if (Array.isArray(data)) {
@@ -4567,7 +4747,7 @@ function mergeIntoGraphData(newNodes, newLinks) {
 					if (n.group === 'individual') {
 						const crd = String(n.crd || n.basicInformation?.individualId || '').trim();
 						if (!crd) return;
-						const res = await fetch(`${BASE}/api/finra/merged/individual/${encodeURIComponent(crd)}`);
+						const res = await fetch(makeApiUrl(`/api/finra/merged/individual/${encodeURIComponent(crd)}`).toString());
 						if (!res.ok) return;
 						const payload = await res.json();
 						const merged = payload?.merged || null;
@@ -4600,7 +4780,7 @@ function mergeIntoGraphData(newNodes, newLinks) {
 					} else if (n.group === 'firm') {
 						const fid = String(n.firmId || '').trim();
 						if (!fid) return;
-						const res = await fetch(`${BASE}/api/finra/merged/firm/${encodeURIComponent(fid)}`);
+						const res = await fetch(makeApiUrl(`/api/finra/merged/firm/${encodeURIComponent(fid)}`).toString());
 						if (!res.ok) return;
 						const payload = await res.json();
 						const merged = payload?.merged || null;
@@ -4692,9 +4872,27 @@ async function fetchIndividualBatch(crd, queryLabel = null) {
 
 	const nodes = [];
 	const links = [];
-	const r = await fetch(`${BASE}/api/finra/individual/${encodeURIComponent(crd)}`);
-	if (!r.ok) throw new Error(`individual HTTP ${r.status}`);
-	const detail = unwrapDetailPayload(await r.json());
+	// Prefer merged endpoint that returns FINRA+SEC combined payload
+	let detail = null;
+	try {
+		const mres = await fetch(makeApiUrl(`/api/finra/merged/individual/${encodeURIComponent(crd)}`).toString());
+		if (mres.ok) {
+			const merged = await mres.json();
+			detail = merged?.merged || merged?.individual || merged || null;
+			if (detail && !detail.basicInformation) {
+				try {
+					detail = normalizeIndividualDetailPayload(detail, crd);
+				} catch (e) {}
+			}
+		}
+	} catch (e) {
+		/* fall through to live API */
+	}
+	if (!detail) {
+		const r = await fetch(makeApiUrl(`/api/finra/individual/${encodeURIComponent(crd)}`).toString());
+		if (!r.ok) throw new Error(`individual HTTP ${r.status}`);
+		detail = unwrapDetailPayload(await r.json());
+	}
 	if (detail?.found === false) throw new Error(`individual ${crd} not found`);
 
 	const personId = `person:${crd}`;
@@ -4751,9 +4949,22 @@ async function fetchFirmBatch(firmId, queryLabel = null) {
 
 	const nodes = [];
 	const links = [];
-	const r = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`);
-	if (!r.ok) throw new Error(`firm HTTP ${r.status}`);
-	const detail = unwrapDetailPayload(await r.json());
+	// Prefer merged firm payload (FINRA+SEC) when available
+	let detail = null;
+	try {
+		const mres = await fetch(makeApiUrl(`/api/finra/merged/firm/${encodeURIComponent(firmId)}`).toString());
+		if (mres.ok) {
+			const merged = await mres.json();
+			detail = merged?.merged || merged?.finraNode || merged || null;
+		}
+	} catch (e) {
+		/* fall through */
+	}
+	if (!detail) {
+		const r = await fetch(makeApiUrl(`/api/finra/firm/${encodeURIComponent(firmId)}`).toString());
+		if (!r.ok) throw new Error(`firm HTTP ${r.status}`);
+		detail = unwrapDetailPayload(await r.json());
+	}
 	if (detail?.found === false) throw new Error(`firm ${firmId} not found`);
 
 	const firmNodeId = `firm:${firmId}`;
@@ -5195,7 +5406,10 @@ async function filterGraph(rawQuery) {
 	// Still no match in local subset — query the server's full cached graph
 	if (matched.size === 0) {
 		try {
-			const resp = await fetch(`${BASE}/api/finra/graph-search?q=${encodeURIComponent(q)}&limit=10`);
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 1500);
+			const resp = await fetch(makeApiUrl(`/api/finra/graph-search?q=${encodeURIComponent(q)}&limit=10`).toString(), { signal: controller.signal });
+			clearTimeout(timeoutId);
 			if (resp.ok) {
 				const data = await resp.json();
 				if (data.nodes?.length) {
@@ -7382,7 +7596,7 @@ async function ensureIndividualDetail(personNode) {
 		let detail = null;
 		let localDetail = null;
 		try {
-			const localRes = await fetch(`${BASE}/api/finra/merged/individual/${encodeURIComponent(crd)}`);
+			const localRes = await fetch(makeApiUrl(`/api/finra/merged/individual/${encodeURIComponent(crd)}`).toString());
 			if (localRes.ok) {
 				const merged = await localRes.json();
 				const candidate = merged?.merged;
@@ -7420,7 +7634,7 @@ async function ensureIndividualDetail(personNode) {
 
 		// Fall back to live FINRA/SEC API if no local rich data available.
 		if (!detail) {
-			const url = `${BASE}/api/finra/individual/${encodeURIComponent(crd)}`;
+			const url = makeApiUrl(`/api/finra/individual/${encodeURIComponent(crd)}`).toString();
 			try {
 				const response = await fetch(url);
 				if (!response.ok) {
@@ -7770,7 +7984,7 @@ async function ensureFirmDetail(firmNode) {
 		// First try the local merged record (fast, no external call)
 		let detail = null;
 		try {
-			const localRes = await fetch(`${BASE}/api/finra/merged/firm/${encodeURIComponent(firmId)}`);
+			const localRes = await fetch(makeApiUrl(`/api/finra/merged/firm/${encodeURIComponent(firmId)}`).toString());
 			if (localRes.ok) {
 				const merged = await localRes.json();
 				if (merged?.found && merged?.finraNode) {
@@ -7804,7 +8018,7 @@ async function ensureFirmDetail(firmNode) {
 
 		// Fall back to live FINRA API (server-side cached for 7 days)
 		try {
-			const res = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`);
+			const res = await fetch(makeApiUrl(`/api/finra/firm/${encodeURIComponent(firmId)}`).toString());
 			if (!res.ok) {
 				console.warn(`Failed to fetch firm detail for ${firmId}:`, res.status);
 			} else {
@@ -8431,6 +8645,12 @@ function selectNode(
 	addToSelectionLog(d);
 	refreshTraceState();
 	renderSidebar(d);
+	// Ensure selection opens the info view so users see full details instead of the compact mobile summary
+	try {
+		if (sidebarViewMode !== 'info') setSidebarViewMode('info', { expandMobile: true });
+	} catch (e) {
+		/* ignore */
+	}
 	if (persist) {
 		try {
 			saveSession();
@@ -8930,7 +9150,7 @@ function revealNeighbors(
 	// Update the subset info to reflect newly-visible nodes
 	if (graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
 
-	// Append new link <line> elements
+	// Append new link <line> elements using join() to avoid insertBefore race
 	const allLinks = linkGroup.selectAll('line').data(layoutLinks, (d) => {
 		const s = d.source?.id ?? d.source;
 		const t = d.target?.id ?? d.target;
@@ -8949,17 +9169,20 @@ function revealNeighbors(
 	//   .attr("stroke-opacity", defaultLinkOpacity);
 	// linkSel = linkGroup.selectAll("line");
 
-	const enteredLinks = allLinks
-		.enter()
-		.append('line')
-		.attr('class', 'fg-link')
-		.attr('stroke', (d) => getLinkColor(d))
-		.attr('stroke-opacity', 0)
-		.attr('stroke-width', (d) => getLinkWidth(d))
-		.attr('stroke-dasharray', (d) => getLinkDash(d))
-		.attr('marker-end', (d) => getLinkMarker(d));
-	enteredLinks.transition().duration(800).attr('stroke-opacity', defaultLinkOpacity);
-	linkSel = linkGroup.selectAll('line');
+	linkSel = allLinks.join(
+		(enter) =>
+			enter
+				.append('line')
+				.attr('class', 'fg-link')
+				.attr('stroke', (d) => getLinkColor(d))
+				.attr('stroke-opacity', 0)
+				.attr('stroke-width', (d) => getLinkWidth(d))
+				.attr('stroke-dasharray', (d) => getLinkDash(d))
+				.attr('marker-end', (d) => getLinkMarker(d))
+				.call((sel) => sel.transition().duration(800).attr('stroke-opacity', defaultLinkOpacity)),
+		(update) => update,
+		(exit) => exit.remove(),
+	);
 
 	// Ensure newly-entered links are placed into the correct layered subgroup
 	try {
@@ -8969,10 +9192,18 @@ function revealNeighbors(
 	}
 
 	const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
-	const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen);
-
-	enteredNodes.transition().duration(800).attr('opacity', 1);
-	nodeSel = nodeGroup.selectAll('g.fg-node');
+	nodeSel = allNodes.join(
+		(enter) =>
+			enter
+				.append('g')
+				.attr('class', 'fg-node')
+				.attr('opacity', 0)
+				.call(fluidDrag())
+				.on('click', handleNodeOpen)
+				.call((sel) => sel.transition().duration(800).attr('opacity', 1)),
+		(update) => update,
+		(exit) => exit.remove(),
+	);
 	rerenderGraphNodesByIds(getImpactedNodeIds(newNodes, newLinks));
 	reapplySelectionState();
 
@@ -9986,27 +10217,17 @@ function renderPersonDetail(d: any) {
 			return order(a) - order(b);
 		});
 	const sourceTruth = getNodeSourceTruth(d);
-	const finraActivityFlags = collectNodeActivityFlags([d.bcScope, bi.bcScope]);
-	const hasActiveFinraIndicator =
-		finraActivityFlags.hasActive ||
-		Number(d?.registrationCount?.approvedFinraRegistrationCount || 0) > 0 ||
-		Number(d?.registrationCount?.approvedSRORegistrationCount || 0) > 0 ||
-		Number(d?.registrationCount?.approvedStateRegistrationCount || 0) > 0 ||
-		(Boolean(safeArray(d.currentEmployments).length) && !d?.stub) ||
-		hasActiveRegisteredStates(d?.registeredStates, ['bc', 'b', 'broker']) ||
-		hasApprovedSro(d?.registeredSROs);
-	const hasBrokerIndicatorSource = hasActiveFinraIndicator;
+	const hasBrokerIndicatorSource = hasFinraPage || sourceTruth.finra;
 	const hasIaIndicatorSource = hasSecPage || sourceTruth.sec;
-	const fallbackRoles = [hasBrokerIndicatorSource ? 'B' : null, hasIaIndicatorSource ? 'IA' : null].filter(Boolean);
-	const topRoleIndicators = (topCurrentRegistrationRoles.length ? topCurrentRegistrationRoles : fallbackRoles)
-		.filter((role) => role !== 'B' || hasActiveFinraIndicator)
-		.sort((a, b) => {
+	const topRoleIndicators = Array.from(new Set([...topCurrentRegistrationRoles, ...(hasBrokerIndicatorSource ? ['B'] : []), ...(hasIaIndicatorSource ? ['IA'] : [])])).sort(
+		(a, b) => {
 			const order = (role) =>
 				role === 'B' ? 0
 				: role === 'IA' ? 1
 				: 2;
 			return order(a) - order(b);
-		});
+		},
+	);
 	const topCurrentRegistrationHtml =
 		topRoleIndicators.length ?
 			`
@@ -10304,7 +10525,7 @@ function renderPersonDetail(d: any) {
 					.map((e) => {
 						const detailLine = getEmploymentDetailLine(e);
 						const scopeTags = getEmploymentScopeTags(e);
-						const datesHtml = `<span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>`;
+						const datesHtml = `<span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}&nbsp;</span>`;
 						const detailHtml = detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : '';
 						const scopeHtml = scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : '';
 						const secHtml = showSecReferences && e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : '';
@@ -10327,7 +10548,7 @@ function renderPersonDetail(d: any) {
 						const cls = `fg-tl-entry${e.isCurrent ? ' active-pos' : ''}`;
 						const detailLine = getEmploymentDetailLine(e);
 						const scopeTags = getEmploymentScopeTags(e);
-						const datesHtml = `<span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>`;
+						const datesHtml = `<span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}&nbsp;</span>`;
 						const detailHtml = detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : '';
 						const scopeHtml = scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : '';
 						const expelledHtml = e.expelledDate ? `<span class="fg-badge inactive">Expelled ${esc(e.expelledDate)}</span>` : '';
@@ -10355,7 +10576,7 @@ function renderPersonDetail(d: any) {
 							reg.officeAddress ? `<span class="fg-tl-loc">${esc(reg.officeAddress)}</span>`
 							: reg.cityState ? `<span class="fg-tl-loc">${esc(reg.cityState)}</span>`
 							: '';
-						const datesHtml = reg.start ? `<span class="fg-tl-dates">Registered since ${esc(reg.start)}</span>` : '';
+						const datesHtml = reg.start ? `<span class="fg-tl-dates">Registered since ${esc(reg.start)}&nbsp;</span>` : '';
 						if (reg.firmId) {
 							return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-crd-link" data-crd="${esc(reg.firmId)}" data-crd-type="firm"><span class="fg-tl-firm">${roleFirm}${crdHtml}</span>${locHtml}${datesHtml}</button>`;
 						}
@@ -10374,7 +10595,7 @@ function renderPersonDetail(d: any) {
 					.map((reg) => {
 						const crdHtml = reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : '';
 						const locHtml = reg.cityState ? `<span class="fg-tl-loc">${esc(reg.cityState)}</span>` : '';
-						const datesHtml = `<span class="fg-tl-dates">${esc(reg.start || '–')} → ${esc(reg.end || 'present')}</span>`;
+						const datesHtml = `<span class="fg-tl-dates">${esc(reg.start || '–')} → ${esc(reg.end || 'present')}&nbsp;</span>`;
 						if (reg.firmId) {
 							return `<button type="button" class="fg-tl-entry fg-card-clickable fg-crd-link" data-crd="${esc(reg.firmId)}" data-crd-type="firm">${esc(reg.firmName)}${crdHtml}${locHtml}${datesHtml}</button>`;
 						}
@@ -10472,7 +10693,7 @@ function renderPersonDetail(d: any) {
 									(l.city || l.officeCity || l.state || l.officeState ? [l.city || l.officeCity, l.state || l.officeState].filter(Boolean).join(', ') : null);
 								return `<div class="fg-tl-entry fg-control-card__entry active-pos">
 		        <span class="fg-tl-firm fg-control-card__firm">${esc(firmNode?.label || l.firmName || employmentMatch?.firmName || l.name || l.organizationName || l.legalName || '')}${secNumber ? ` <small>SEC#${esc(String(secNumber))}</small>` : ''}</span>
-	                ${dateRange ? `<span class="fg-tl-dates fg-control-card__date"><strong>${dateRange}</strong></span>` : ''}
+	                ${dateRange ? `<span class="fg-tl-dates fg-control-card__date"><strong>${dateRange}&nbsp;</strong></span>` : ''}
 	                ${firmStatus ? `<span class="fg-tl-status fg-control-card__status"><strong>${esc(firmStatus)}</strong></span>` : ''}
 	                ${l.position ? `<span class="fg-tl-loc fg-control-card__position"><strong>${esc(l.position)}</strong></span>` : ''}
 	                ${location ? `<span class="fg-tl-loc fg-control-card__location">${esc(location)}</span>` : ''}
@@ -10494,7 +10715,7 @@ function renderPersonDetail(d: any) {
 									return `
                 <div class="fg-tl-entry">
                   <span class="fg-tl-firm">${esc(ex.examCategory || '')} – ${esc(ex.examName || '')}</span>
-                  ${ex.examTakenDate ? `<span class="fg-tl-dates">Passed: ${esc(ex.examTakenDate)}</span>` : ''}
+	                  ${ex.examTakenDate ? `<span class="fg-tl-dates">Passed: ${esc(ex.examTakenDate)}&nbsp;</span>` : ''}
 									  ${examScopeDisplay ? `<span class="fg-tl-loc">${esc(examScopeDisplay)}</span>` : ''}
                 </div>`;
 								})

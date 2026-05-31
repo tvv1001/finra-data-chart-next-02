@@ -216,49 +216,11 @@ For runtime performance in production:
 - Enable gzip compression at the CDN / server level for the `primed-cache` JSON bundles and Upstash-stored binary payloads.
 - In server environments, prefer the Upstash Redis-backed cache to reduce memory pressure on the Node process.
 
-## Cron & revalidation (Vercel + Upstash)
+## Cron & revalidation (removed)
 
-This repo ships a Vercel cron entry (in `vercel.json`) that triggers the existing in-app validator route. The route now runs both the link validator and the revalidation script so you can keep a single scheduled job.
+Cron-based revalidation and the included helper scripts have been removed from this repository. The project no longer ships a Vercel cron entry or local cron installers. If you need scheduled revalidation, run your own external scheduler to POST the relevant `/api/cron/*` endpoints or re-run the revalidation scripts from a trusted host.
 
-Recommended Vercel env vars:
-
-- `VALIDATE_CRON_SECRET` — secret header required by `/api/cron/validate-links` (header `x-cron-secret`)
-- `REVALIDATE_CONCURRENCY` — optional, default `1` (conservative); controls parallelism for revalidation
-- `REVALIDATE_LIMIT` — optional, default `200`; maximum nodes revalidated per scheduled run
-
-Schedule note: the default schedule in `vercel.json` is `0 6 * * *` (06:00 UTC), which corresponds to midnight CST.
-
-Upstash monitoring
-
-If `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are set, the revalidation script will:
-
-- check for existing FINRA cache keys (`finra:individual:<CRD>:...` and `finra:firm:<FID>:...`) and prime them if missing
-- push compact monitoring notes into a Redis list `finra:redis-monitor` (keeps the most recent 200 entries)
-
-Quick commands
-
-- Trigger the in-app validator (runs validation + revalidation):
-
-```bash
-curl -X POST "https://<your-deployment-url>/api/cron/validate-links" \
-  -H "x-cron-secret: <VALIDATE_CRON_SECRET>"
-```
-
-- Run revalidation locally (dry-run):
-
-```bash
-node scripts/revalidate_external_presence.js --dry-run --node=firm:18040 --limit=50
-```
-
-- Inspect recent Redis monitor notes (Upstash REST example):
-
-```bash
-curl -sS -X POST "$UPSTASH_REDIS_REST_URL/lrange/finra:redis-monitor/0/99" \
-  -H "Authorization: Bearer $UPSTASH_REDIS_REST_TOKEN" \
-  -H "Content-Type: application/json"
-```
-
-These updates are designed to keep scheduled revalidation cheap on free plans: set `REVALIDATE_CONCURRENCY=1` and `REVALIDATE_LIMIT=50` in Vercel env vars for the lowest impact.
+Note: several local scripts that performed validation, revalidation, and cron installation were deleted from the `scripts/` folder as part of this cleanup. The server still exposes the cron endpoints (protected by secrets); if you want me to re-introduce a documented minimal scheduler or GitHub Actions workflow for scheduled runs, tell me and I'll prepare one.
 
 ## CONTRIBUTING & TESTS
 
@@ -528,13 +490,15 @@ Supported employment scopes:
 - `all`
 - `none`
 
-### Build deployment cache bundles
+### Rebuild local cache + deployment bundles
 
 ```bash
-node scripts/build_primed_cache_bundle.js
+node scripts/rebuild_local_data.js
 ```
 
-This creates merged JSON bundles in `data/national/primed-cache/` from canonical cached filenames such as:
+This rebuilds the local cache from `data/raw/`, writes canonical cached filenames into `data/national/`, mirrors them into `data/national/brokercheck.finra.org/` and `data/national/adviserinfo.sec.gov/`, and creates primed JSON + gzip bundles in both `data/national/primed-cache/` and `data/primed-cache/`.
+
+Canonical filenames include:
 
 - `api.brokercheck.finra.org_search_individual_<CRD>.json`
 - `api.adviserinfo.sec.gov_search_individual_<CRD>.json`

@@ -77,41 +77,43 @@ export function applyIndividualDetail(targetNode, detail, fallbackCrd = null) {
 	if (!targetNode || !detail) return targetNode;
 
 	const bi = detail?.basicInformation || {};
-	targetNode.basicInformation = bi;
+	// Merge basicInformation: prefer existing values, fill missing from detail
+	targetNode.basicInformation = { ...(targetNode.basicInformation || {}), ...bi };
 
 	if (bi.individualId || fallbackCrd) {
 		targetNode.crd = String(bi.individualId || fallbackCrd);
 	}
-	if (bi.bcScope) targetNode.bcScope = bi.bcScope;
-	if (bi.iaScope) targetNode.iaScope = bi.iaScope;
-	if (detail.hasSecData != null) targetNode.hasSecData = detail.hasSecData;
-	if (detail.hasFinraData != null) targetNode.hasFinraData = detail.hasFinraData;
+	if (bi.bcScope) targetNode.bcScope = targetNode.bcScope ?? bi.bcScope;
+	if (bi.iaScope) targetNode.iaScope = targetNode.iaScope ?? bi.iaScope;
+	if (detail.hasSecData != null) targetNode.hasSecData = Boolean(targetNode.hasSecData) || Boolean(detail.hasSecData);
+	if (detail.hasFinraData != null) targetNode.hasFinraData = Boolean(targetNode.hasFinraData) || Boolean(detail.hasFinraData);
 
 	const fullName = [bi.firstName, bi.middleName, bi.lastName].filter(Boolean).join(' ');
 	const preferredName = normalizePersonLabel(fullName || bi.name || detail?.name || '');
 	if (preferredName && (isPlaceholderNodeLabel(targetNode.label, 'individual') || preferredName.length > String(targetNode.label || '').length)) {
 		targetNode.label = preferredName;
 	}
-	if (Array.isArray(bi.otherNames)) targetNode.otherNames = bi.otherNames;
+	if (Array.isArray(bi.otherNames)) targetNode.otherNames = mergeUniqueArrays(targetNode.otherNames, bi.otherNames);
 
+	// Merge employment lists (dedupe by JSON representation)
 	if (Array.isArray(detail.currentEmployments)) {
-		targetNode.currentEmployments = detail.currentEmployments;
+		targetNode.currentEmployments = mergeUniqueArrays(targetNode.currentEmployments, detail.currentEmployments);
 	}
 	if (Array.isArray(detail.previousEmployments)) {
-		targetNode.previousEmployments = detail.previousEmployments;
+		targetNode.previousEmployments = mergeUniqueArrays(targetNode.previousEmployments, detail.previousEmployments);
 	}
 	if (Array.isArray(detail.currentIAEmployments)) {
-		targetNode.currentIAEmployments = detail.currentIAEmployments;
+		targetNode.currentIAEmployments = mergeUniqueArrays(targetNode.currentIAEmployments, detail.currentIAEmployments);
 	}
 	if (Array.isArray(detail.previousIAEmployments)) {
-		targetNode.previousIAEmployments = detail.previousIAEmployments;
+		targetNode.previousIAEmployments = mergeUniqueArrays(targetNode.previousIAEmployments, detail.previousIAEmployments);
 	}
 
 	if (Array.isArray(detail.disclosures)) {
-		targetNode.disclosures = detail.disclosures;
+		targetNode.disclosures = mergeUniqueArrays(targetNode.disclosures, detail.disclosures);
 	}
 	if (Array.isArray(detail.iaDisclosures)) {
-		targetNode.iaDisclosures = detail.iaDisclosures;
+		targetNode.iaDisclosures = mergeUniqueArrays(targetNode.iaDisclosures, detail.iaDisclosures);
 	}
 	if (bi.disclosureFlag) targetNode.disclosureFlag = bi.disclosureFlag;
 	if (detail.disclosureFlag) targetNode.disclosureFlag = detail.disclosureFlag;
@@ -121,25 +123,25 @@ export function applyIndividualDetail(targetNode, detail, fallbackCrd = null) {
 
 	if (detail.examsCount) targetNode.examsCount = detail.examsCount;
 	if (Array.isArray(detail.stateExamCategory)) {
-		targetNode.stateExamCategory = detail.stateExamCategory;
+		targetNode.stateExamCategory = mergeUniqueArrays(targetNode.stateExamCategory, detail.stateExamCategory);
 	}
 	if (Array.isArray(detail.principalExamCategory)) {
-		targetNode.principalExamCategory = detail.principalExamCategory;
+		targetNode.principalExamCategory = mergeUniqueArrays(targetNode.principalExamCategory, detail.principalExamCategory);
 	}
 	if (Array.isArray(detail.productExamCategory)) {
-		targetNode.productExamCategory = detail.productExamCategory;
+		targetNode.productExamCategory = mergeUniqueArrays(targetNode.productExamCategory, detail.productExamCategory);
 	}
 
 	if (Array.isArray(detail.registeredSROs)) {
-		targetNode.registeredSROs = detail.registeredSROs;
+		targetNode.registeredSROs = mergeUniqueArrays(targetNode.registeredSROs, detail.registeredSROs);
 	}
 	if (Array.isArray(detail.registeredStates)) {
-		targetNode.registeredStates = detail.registeredStates;
+		targetNode.registeredStates = mergeUniqueArrays(targetNode.registeredStates, detail.registeredStates);
 	}
 	if (detail.registrationCount) {
-		targetNode.registrationCount = detail.registrationCount;
+		targetNode.registrationCount = { ...(targetNode.registrationCount || {}), ...(detail.registrationCount || {}) };
 	}
-	if (detail.brokerDetails) targetNode.brokerDetails = detail.brokerDetails;
+	if (detail.brokerDetails) targetNode.brokerDetails = { ...(targetNode.brokerDetails || {}), ...(detail.brokerDetails || {}) };
 
 	try {
 		const firms = new Set();
@@ -184,6 +186,29 @@ export function applyIndividualDetail(targetNode, detail, fallbackCrd = null) {
 
 	targetNode._detailLoaded = true;
 	return targetNode;
+}
+
+function mergeUniqueArrays(existing, incoming) {
+	const out = [];
+	const seen = new Set();
+	const add = (item) => {
+		try {
+			const key = typeof item === 'object' && item !== null ? JSON.stringify(item) : String(item);
+			if (!seen.has(key)) {
+				seen.add(key);
+				out.push(item);
+			}
+		} catch (e) {
+			const key = String(item);
+			if (!seen.has(key)) {
+				seen.add(key);
+				out.push(item);
+			}
+		}
+	};
+	if (Array.isArray(existing)) existing.forEach(add);
+	if (Array.isArray(incoming)) incoming.forEach(add);
+	return out;
 }
 
 export function getEmploymentRelationship(entry) {

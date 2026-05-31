@@ -1,10 +1,4 @@
 {
-	"crons": [
-		{
-			"path": "/api/finra/prime-check",
-			"schedule": "0 10 * * *"
-		}
-	],
 	"functions": {
 		"src/app/api/**": {
 			"maxDuration": 30
