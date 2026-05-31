@@ -2,6 +2,81 @@ import { expect, test } from '@playwright/test';
 
 import { fetchGraphQueryWithLinkedResults, resetBrowserGraphState, seedStoredSession } from './helpers/finra-e2e';
 
+async function mockEmptyCustomGraph(page: Parameters<typeof test>[0]['page']) {
+	await page.route('**/api/finra/graph**', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({
+				nodes: [],
+				links: [],
+				meta: {
+					subset: true,
+					profile: 'custom',
+					renderedNodes: 0,
+					totalNodes: 0,
+					totalLinks: 0,
+				},
+			}),
+		});
+	});
+}
+
+async function expectSidebarDisplayedId(page: Parameters<typeof test>[0]['page'], displayedId: string, message: string) {
+	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/);
+	await expect
+		.poll(
+			async () =>
+				page.evaluate(() => document.getElementById('fg-sidebar')?.getAttribute('data-displayed-id') || document.getElementById('fg-sidebar')?.dataset?.displayedId || ''),
+			{
+				timeout: 20_000,
+				message,
+			},
+		)
+		.toBe(displayedId);
+}
+
+async function expectSecOnlyFirmSidebar(page: Parameters<typeof test>[0]['page'], displayedId: string) {
+	await expectSidebarDisplayedId(page, displayedId, `expected the SEC-only sidebar to stay focused on ${displayedId}`);
+	await expect(page.locator('#fg-sidebar')).toContainText('FINRA=false · SEC=true (SEC only)');
+	await expect(page.locator('#fg-sidebar .fg-ext-link.bc')).toHaveCount(0);
+	await expect(page.locator('#fg-sidebar .fg-ext-link.sec', { hasText: 'SEC AdvisorInfo Summary' })).toHaveCount(1);
+}
+
+type SeededSecOnlyFirmCase = {
+	firmId: string;
+	label: string;
+	iaSecNumber: string;
+	otherNames?: string[];
+};
+
+async function seedSecOnlyFirmNode(page: Parameters<typeof test>[0]['page'], firm: SeededSecOnlyFirmCase) {
+	await page.goto('/');
+	await resetBrowserGraphState(page);
+	await seedStoredSession(page, {
+		extraNodes: [
+			{
+				id: `firm:${firm.firmId}`,
+				label: firm.label,
+				group: 'firm',
+				firmId: firm.firmId,
+				iaSecNumber: firm.iaSecNumber,
+				hasFinraData: false,
+				hasSecData: true,
+				bcScope: 'Active',
+				firmStatus: 'Active',
+				activeStates: ['CA'],
+				directOwners: [],
+				...(firm.otherNames ? { otherNames: firm.otherNames } : {}),
+				_detailLoaded: true,
+				_detailValidated: true,
+			},
+		],
+		extraLinks: [],
+	});
+	await page.reload();
+}
+
 async function getRenderedNodeIndex(page: Parameters<typeof test>[0]['page'], matcher: RegExp) {
 	const index = await page.evaluate((patternSource) => {
 		const pattern = new RegExp(patternSource, 'i');
@@ -531,161 +606,37 @@ test('A direct node route restores that node selection on a clean session', asyn
 		.toBe('person:3102054');
 });
 
-test('Firm 298880 suppresses FINRA sidebar links', async ({ page }) => {
-	await page.route('**/api/finra/graph**', async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: 'application/json',
-			body: JSON.stringify({
-				nodes: [],
-				links: [],
-				meta: {
-					subset: true,
-					profile: 'custom',
-					renderedNodes: 0,
-					totalNodes: 0,
-					totalLinks: 0,
-				},
-			}),
-		});
+[
+	{ firmId: '134139', label: 'Suppressed FINRA Firm 134139', iaSecNumber: '8-68138' },
+	{ firmId: '298880', label: 'Suppressed FINRA Firm', iaSecNumber: '8-114155' },
+	{ firmId: '314694', label: '103 Advisory Group', iaSecNumber: '8-123666', otherNames: ['103 ADVISORY GROUP', '103 ADVISORY GROUP LLC'] },
+	{ firmId: '167790', label: 'CLIENT 1ST ADVISORY GROUP', iaSecNumber: '8-167790' },
+].forEach((firm) => {
+	test(`Firm ${firm.firmId} suppresses FINRA sidebar links`, async ({ page }) => {
+		await mockEmptyCustomGraph(page);
+		await seedSecOnlyFirmNode(page, firm);
+
+		const firmNode = page.locator('.fg-node').filter({ hasText: firm.label });
+		await expect
+			.poll(async () => page.locator('.fg-node').count(), {
+				timeout: 10_000,
+				message: `expected firm ${firm.firmId} to render before opening the SEC-only sidebar`,
+			})
+			.toBe(1);
+		await firmNode.click({ force: true });
+		await expectSecOnlyFirmSidebar(page, `firm:${firm.firmId}`);
 	});
-
-	await page.goto('/');
-	await resetBrowserGraphState(page);
-	await seedStoredSession(page, {
-		extraNodes: [
-			{
-				id: 'firm:298880',
-				label: 'Suppressed FINRA Firm',
-				group: 'firm',
-				firmId: '298880',
-				iaSecNumber: '8-114155',
-				bcScope: 'Active',
-				firmStatus: 'Active',
-				activeStates: ['CA'],
-				directOwners: [],
-				_detailLoaded: true,
-				_detailValidated: true,
-			},
-		],
-		extraLinks: [],
-	});
-	await page.reload();
-
-	const firmNode = page.locator('.fg-node').filter({ hasText: 'Suppressed FINRA Firm' });
-	await expect
-		.poll(async () => page.locator('.fg-node').count(), {
-			timeout: 10_000,
-			message: 'expected the suppressed firm node to render before opening the sidebar',
-		})
-		.toBe(1);
-	await firmNode.click({ force: true });
-
-	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/);
-	await expect(page.locator('#fg-sidebar .fg-ext-link.bc')).toHaveCount(0);
-	await expect(page.locator('#fg-sidebar .fg-ext-link.sec', { hasText: 'SEC AdvisorInfo Summary' })).toHaveCount(1);
 });
 
-test('Firm 314694 suppresses FINRA sidebar links', async ({ page }) => {
-	await page.route('**/api/finra/graph**', async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: 'application/json',
-			body: JSON.stringify({
-				nodes: [],
-				links: [],
-				meta: {
-					subset: true,
-					profile: 'custom',
-					renderedNodes: 0,
-					totalNodes: 0,
-					totalLinks: 0,
-				},
-			}),
-		});
+['115927'].forEach((firmId) => {
+	test(`Firm ${firmId} stays SEC-only after direct-route hydration`, async ({ page }) => {
+		await mockEmptyCustomGraph(page);
+		await page.goto('/');
+		await resetBrowserGraphState(page);
+		await page.goto(`/node/firm-${firmId}`);
+
+		await expectSecOnlyFirmSidebar(page, `firm:${firmId}`);
 	});
-
-	await page.goto('/');
-	await resetBrowserGraphState(page);
-	await seedStoredSession(page, {
-		extraNodes: [
-			{
-				id: 'firm:314694',
-				label: '103 Advisory Group',
-				group: 'firm',
-				firmId: '314694',
-				iaSecNumber: '8-123666',
-				bcScope: 'Active',
-				firmStatus: 'Active',
-				activeStates: ['CA'],
-				directOwners: [],
-				otherNames: ['103 ADVISORY GROUP', '103 ADVISORY GROUP LLC'],
-				_detailLoaded: true,
-				_detailValidated: true,
-			},
-		],
-		extraLinks: [],
-	});
-	await page.reload();
-
-	const firmNode = page.locator('.fg-node').filter({ hasText: '103 Advisory Group' });
-	await expect
-		.poll(async () => page.locator('.fg-node').count(), {
-			timeout: 10_000,
-			message: 'expected the suppressed 314694 firm node to render before opening the sidebar',
-		})
-		.toBe(1);
-	await firmNode.click({ force: true });
-
-	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/);
-	await expect(page.locator('#fg-sidebar .fg-ext-link.bc')).toHaveCount(0);
-	await expect(page.locator('#fg-sidebar .fg-ext-link.sec', { hasText: 'SEC AdvisorInfo Summary' })).toHaveCount(1);
-});
-
-test('Firm 167790 suppresses FINRA sidebar links after direct-route hydration', async ({ page }) => {
-	await page.route('**/api/finra/graph**', async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: 'application/json',
-			body: JSON.stringify({
-				nodes: [],
-				links: [],
-				meta: {
-					subset: true,
-					profile: 'custom',
-					renderedNodes: 0,
-					totalNodes: 0,
-					totalLinks: 0,
-				},
-			}),
-		});
-	});
-
-	await page.goto('/');
-	await resetBrowserGraphState(page);
-	await page.goto('/node/firm-167790');
-
-	const firmNode = page.locator('.fg-node').filter({ hasText: 'CLIENT 1ST ADVISORY GROUP' });
-	await expect
-		.poll(async () => page.locator('.fg-node').count(), {
-			timeout: 20_000,
-			message: 'expected firm 167790 to hydrate on direct route before validating source links',
-		})
-		.toBe(2);
-	await expect(firmNode).toHaveCount(1);
-	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/);
-	await expect
-		.poll(
-			async () =>
-				page.evaluate(() => document.getElementById('fg-sidebar')?.getAttribute('data-displayed-id') || document.getElementById('fg-sidebar')?.dataset?.displayedId || ''),
-			{
-				timeout: 20_000,
-				message: 'expected the direct-route sidebar to stay focused on firm 167790',
-			},
-		)
-		.toBe('firm:167790');
-	await expect(page.locator('#fg-sidebar .fg-ext-link.bc')).toHaveCount(0);
-	await expect(page.locator('#fg-sidebar .fg-ext-link.sec', { hasText: 'SEC AdvisorInfo Summary' })).toHaveCount(1);
 });
 
 test('Firm sidebars show graph-derived current connections even without rich firm detail', async ({ page }) => {

@@ -581,7 +581,7 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 			:	[];
 
 		return `
-      <div class='fg-disclosure'>
+	      <div class='fg-disclosure fg-section-toggle'>
         <div class='fg-dis-header'>
           <span class='fg-dis-type'>${esc(dtype)}</span>
           ${dsource ? `<span class='fg-badge inactive'>${esc(dsource)}</span>` : ''}

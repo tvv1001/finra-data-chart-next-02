@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_EXPANSION_HOPS } from '../../src/lib/finra-graph-defaults';
 import {
 	ensureSidebarHintContent,
 	isSidebarTemporarilyPinned,
@@ -10,11 +11,16 @@ import {
 	routeSidebarNodeSelection,
 } from '../../src/components/FinraGraph';
 import {
+	getAutoSelectionExpansionHops,
+	hasFirmFinraPresence,
+	hasFirmDetailContent,
 	isNodeInactive,
 	isRevealableChainExhausted,
 	loadPersistedSidebarViewMode,
 	loadSelectionLogBoldPreference,
+	normalizeFirmDetailPayload,
 	normalizeNodeLabelInPlace,
+	shouldSkipNetworkRefresh,
 	upsertSelectionLogEntry,
 } from '../../src/lib/finra-graph';
 
@@ -134,6 +140,18 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(node.label).toBe('Node person:123');
 	});
 
+	it('shouldSkipNetworkRefresh only skips requests inside the minimum interval window', () => {
+		expect(shouldSkipNetworkRefresh(0, 5000, 10_000)).toBe(false);
+		expect(shouldSkipNetworkRefresh(8_000, 5_000, 10_000)).toBe(true);
+		expect(shouldSkipNetworkRefresh(4_000, 5_000, 10_000)).toBe(false);
+	});
+
+	it('auto-selection expansion hops follows the shared default expansion hops', () => {
+		const normalizedDefaultExpansionHops = Math.max(1, Math.floor(Number(DEFAULT_EXPANSION_HOPS) || 1));
+
+		expect(getAutoSelectionExpansionHops()).toBe(normalizedDefaultExpansionHops);
+	});
+
 	it('isNodeInactive marks fetched inactive individuals as inactive immediately', () => {
 		const node = {
 			id: 'person:123',
@@ -180,6 +198,51 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		} as any;
 
 		expect(isNodeInactive(node)).toBe(false);
+	});
+
+	it('hasFirmFinraPresence respects explicit false coverage for SEC-only firms', () => {
+		const node = {
+			id: 'firm:115927',
+			group: 'firm',
+			label: 'NATIONAL ASSET MANAGEMENT, INC.',
+			firmId: '115927',
+			hasFinraData: false,
+			hasSecData: true,
+			bcScope: 'Active',
+			basicInformation: {
+				firmName: 'NATIONAL ASSET MANAGEMENT, INC.',
+				iaSECNumber: '64837',
+			},
+		} as any;
+
+		expect(hasFirmFinraPresence(node)).toBe(false);
+	});
+
+	it('hasFirmDetailContent rejects evidence-only merged firm payloads', () => {
+		const mergedEvidenceOnly = {
+			firmId: '840',
+			found: true,
+			finraNode: null,
+			evidence: [{ employment: { firmId: 840, firmName: 'COLUMBIA MANAGEMENT INVESTMENT DISTRIBUTORS, INC.' } }],
+		} as any;
+
+		expect(hasFirmDetailContent(mergedEvidenceOnly)).toBe(false);
+		expect(normalizeFirmDetailPayload(mergedEvidenceOnly)).toBeNull();
+	});
+
+	it('normalizeFirmDetailPayload keeps real firm detail payloads intact', () => {
+		const detail = {
+			basicInformation: {
+				firmId: 840,
+				firmName: 'COLUMBIA MANAGEMENT INVESTMENT DISTRIBUTORS, INC.',
+				bcScope: 'ACTIVE',
+			},
+			directOwners: [],
+			hasFinraData: true,
+		} as any;
+
+		expect(hasFirmDetailContent(detail)).toBe(true);
+		expect(normalizeFirmDetailPayload(detail)).toEqual(detail);
 	});
 
 	it('isRevealableChainExhausted stays false when a visible downstream node still has hidden revealable neighbors', () => {

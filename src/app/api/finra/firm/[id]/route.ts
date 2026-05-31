@@ -7,6 +7,7 @@ import path from 'node:path';
 import { rememberRecentSeed } from '@/lib/graphStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
+import { mergedFirm } from '@/lib/dataMerge';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -156,6 +157,32 @@ function extractSecDocumentLinks(html: string, id: string) {
 	});
 }
 
+function buildFallbackFirmDetail(id: string, fallback: any) {
+	if (!fallback?.found) return null;
+	const fallbackNode = fallback?.finraNode && typeof fallback.finraNode === 'object' ? fallback.finraNode : null;
+	const evidenceName = fallback?.evidence?.find((entry: any) => String(entry?.employment?.firmName || '').trim())?.employment?.firmName;
+	const fallbackName = String(fallbackNode?.label || fallbackNode?.firmName || fallbackNode?.name || evidenceName || `Firm ${id}`).trim();
+	const basicInformation = fallbackNode?.basicInformation && typeof fallbackNode.basicInformation === 'object' ? { ...fallbackNode.basicInformation } : {};
+	if (!basicInformation.firmId) basicInformation.firmId = Number(id);
+	if (!basicInformation.firmName && fallbackName) basicInformation.firmName = fallbackName;
+
+	return {
+		...(fallbackNode && typeof fallbackNode === 'object' ? fallbackNode : {}),
+		found: true,
+		firmId: id,
+		basicInformation,
+		directOwners: Array.isArray(fallbackNode?.directOwners) ? fallbackNode.directOwners : [],
+		disclosures: Array.isArray(fallbackNode?.disclosures) ? fallbackNode.disclosures : [],
+		registrations: fallbackNode?.registrations || {},
+		registrationStatus: Array.isArray(fallbackNode?.registrationStatus) ? fallbackNode.registrationStatus : [],
+		noticeFilings: Array.isArray(fallbackNode?.noticeFilings) ? fallbackNode.noticeFilings : [],
+		brochures: fallbackNode?.brochures || { part2ExemptFlag: ' ', brochuredetails: [] },
+		hasFinraData: Boolean(hasPublicFinraFirmDetail(fallbackNode, basicInformation) || fallback?.evidence?.length),
+		hasSecData: fallbackNode?.hasSecData === true,
+		secDocumentLinks: Array.isArray(fallbackNode?.secDocumentLinks) ? fallbackNode.secDocumentLinks : [],
+	};
+}
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
 	const { id } = await params;
 	if (!/^\d{1,10}$/.test(id)) {
@@ -283,6 +310,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		return NextResponse.json(detail, { headers: sharedCacheHeaders(3600) });
 	} catch (err: any) {
 		logger.error('firm proxy error', { id, error: err.message });
-		return NextResponse.json({ error: 'Failed to fetch from FINRA.' }, { status: 502 });
+		try {
+			const fallback = await mergedFirm(id);
+			const fallbackDetail = buildFallbackFirmDetail(id, fallback);
+			if (fallbackDetail) {
+				return NextResponse.json(fallbackDetail, { headers: sharedCacheHeaders(300) });
+			}
+		} catch (fallbackErr: any) {
+			logger.warn('firm proxy fallback failed', { id, error: fallbackErr?.message || String(fallbackErr) });
+		}
+		return NextResponse.json({ found: false }, { status: 200, headers: sharedCacheHeaders(300) });
 	}
 }

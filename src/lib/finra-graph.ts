@@ -187,6 +187,19 @@ let activeLabelZoomThreshold = 0.3;
 let inactiveLabelCompactZoomThreshold = 0.42;
 let inactiveLabelCompactMode = false;
 let graphTickFrameId: number | null = null;
+type FinraGraphGlobalPollState = {
+	metaPollId: ReturnType<typeof setInterval> | null;
+};
+
+function getGlobalFinraPollState(): FinraGraphGlobalPollState {
+	const host = globalThis as typeof globalThis & {
+		__finraGraphPollState?: FinraGraphGlobalPollState;
+	};
+	if (!host.__finraGraphPollState) {
+		host.__finraGraphPollState = { metaPollId: null };
+	}
+	return host.__finraGraphPollState;
+}
 // Render modes for node labels. compact mode still uses text, but without disabling labels entirely.
 let nodeLabelRenderMode: 'full' | 'compact' = 'full';
 // Canvas renderer mode for very large graphs
@@ -428,6 +441,10 @@ function getDefaultSelectionHops(): number {
 function getDefaultExpansionHops(): number {
 	const normalized = normalizeHighlightHops(DEFAULT_EXPANSION_HOPS);
 	return normalized === 'all' ? 1 : normalized;
+}
+
+function getAutoSelectionExpansionHops(): number {
+	return getDefaultExpansionHops();
 }
 
 function hasTrustedCurrentRelationshipData(node) {
@@ -1905,6 +1922,11 @@ function delay(ms: number) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function shouldSkipNetworkRefresh(lastRequestedAt: number, minIntervalMs: number, now = Date.now()) {
+	if (!Number.isFinite(lastRequestedAt) || lastRequestedAt <= 0) return false;
+	return now - lastRequestedAt < Math.max(0, Number(minIntervalMs) || 0);
+}
+
 function upsertHighlightedSelection(id, hops = 1) {
 	if (!id) return;
 	const normalizedHops = normalizeHighlightHops(hops);
@@ -2185,12 +2207,19 @@ function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: 
 
 		const node = Array.isArray(layoutNodes) ? layoutNodes.find((entry) => entry.id === selectedId) : null;
 		if (!node) return;
+		const routeTargetId = String(pendingRouteNodeId || '').trim();
+		const shouldDeferToPendingRoute = Boolean(routeTargetId && routeTargetId !== node.id);
 		resetTransientDetailState(node);
-		renderSidebar(node);
+		if (!shouldDeferToPendingRoute) {
+			renderSidebar(node);
+		}
 		if (session && session.sidebarViewMode != null) {
 			setSidebarViewMode(normalizeSidebarViewMode(session.sidebarViewMode, loadPersistedSidebarViewMode()), {
 				expandMobile: session.sidebarViewMode !== 'none',
 			});
+		}
+		if (shouldDeferToPendingRoute) {
+			return;
 		}
 		if (node.group === 'individual') {
 			ensureIndividualDetail(node)
@@ -3415,6 +3444,8 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				const updatedExistingNodeIds = new Set<string>();
 
 				const isDirectId = /^\d+$/.test(q);
+				const normalizeDirectDigits = (value) => String(value || '').replace(/[^0-9]/g, '');
+				const directQueryDigits = normalizeDirectDigits(q);
 
 				function addIndividualFromSource(src) {
 					// Handle FINRA search results where data is in content JSON string
@@ -3564,11 +3595,30 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 
 				if (isDirectId) {
 					// For direct numeric CRD/firm ID — fetch full detail to get rich sidebar data
+					const exactDirectHits = allHits.filter((hit) => {
+						const src = hit._source || hit || {};
+						const crd = String(src?.ind_source_id || src?.ind_crd || '').trim();
+						const firmId = String(src?.firm_id || src?.firmId || src?.firm_source_id || '').trim();
+						return (crd && normalizeDirectDigits(crd) === directQueryDigits) || (firmId && normalizeDirectDigits(firmId) === directQueryDigits);
+					});
+					const seenDirectDetailKeys = new Set<string>();
+					const directDetailHits = (exactDirectHits.length ? exactDirectHits : allHits).filter((hit) => {
+						const src = hit._source || hit || {};
+						const crd = String(src?.ind_source_id || src?.ind_crd || '').trim();
+						const firmId = String(src?.firm_id || src?.firmId || src?.firm_source_id || '').trim();
+						const directKey =
+							crd && normalizeDirectDigits(crd) === directQueryDigits ? `person:${normalizeDirectDigits(crd)}`
+							: firmId && normalizeDirectDigits(firmId) === directQueryDigits ? `firm:${normalizeDirectDigits(firmId)}`
+							: `fallback:${crd || firmId || src?.name || src?.firm_name || src?.firmName || src?.ind_firstname || 'unknown'}`;
+						if (seenDirectDetailKeys.has(directKey)) return false;
+						seenDirectDetailKeys.add(directKey);
+						return true;
+					});
 					await Promise.allSettled(
-						allHits.map(async (hit) => {
+						directDetailHits.map(async (hit) => {
 							const src = hit._source || hit;
 							const crd = String(src?.ind_source_id || src?.ind_crd || '').trim();
-							if (crd && /^\d+$/.test(crd)) {
+							if (crd && /^\d+$/.test(crd) && normalizeDirectDigits(crd) === directQueryDigits) {
 								try {
 									// Prefer the pre-merged local payload (FINRA+SEC) when available
 									let detail = null;
@@ -3601,7 +3651,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 								return;
 							}
 							const firmId = String(src?.firm_id || src?.firmId || src?.firm_source_id || '').trim();
-							if (firmId && /^\d+$/.test(firmId)) {
+							if (firmId && /^\d+$/.test(firmId) && normalizeDirectDigits(firmId) === directQueryDigits) {
 								try {
 									// Prefer merged firm record when available
 									let detail = null;
@@ -3609,7 +3659,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 										const mres = await fetch(makeApiUrl(`/api/finra/merged/firm/${encodeURIComponent(firmId)}`).toString());
 										if (mres.ok) {
 											const merged = await mres.json();
-											detail = merged?.merged || merged?.finraNode || merged || null;
+											detail = normalizeFirmDetailPayload(merged?.merged || merged?.finraNode || merged || null);
 										}
 									} catch (e) {
 										/* fall back to live API below */
@@ -3618,7 +3668,8 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 									if (!detail) {
 										const r = await fetch(makeApiUrl(`/api/finra/firm/${encodeURIComponent(firmId)}`).toString());
 										if (!r.ok) throw new Error(`${r.status}`);
-										detail = await r.json();
+										const rawDetail = await r.json();
+										detail = normalizeFirmDetailPayload(rawDetail) || unwrapDetailPayload(rawDetail);
 									}
 									if (detail?.found === false) return;
 									const firmNodeId = `firm:${firmId}`;
@@ -3991,25 +4042,8 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				}
 			} catch (e) {}
 
-			// Fire-and-forget: ensure individual detail is loaded for newly appended nodes
-			try {
-				void (async () => {
-					for (const n of uniqNodes) {
-						try {
-							if (n && n.group === 'individual' && !n._detailLoaded) {
-								await ensureIndividualDetail(n);
-								// rerender the specific node so sidebar/details and labels update
-								rerenderGraphNodesByIds([n.id]);
-								try {
-									saveSession();
-								} catch (e) {}
-							}
-						} catch (e) {
-							/* ignore per-node failures */
-						}
-					}
-				})();
-			} catch (e) {}
+			// Keep appended nodes lightweight; full detail should load on explicit
+			// selection or targeted frontier hydration, not for every appended hit.
 		};
 
 		// Serialize concurrent calls so DOM/network bursts don't collide.
@@ -4281,37 +4315,54 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 	// appear in the UI without a hard refresh.
 	let _metaPollId = null;
 	const META_POLL_MS = 15000;
+	const META_MIN_INTERVAL_MS = 7000;
+	let _metaFetchPromise: Promise<void> | null = null;
+	let _metaLastRequestedAt = 0;
 
-	async function fetchMetaOnce() {
-		try {
-			const hasProfileParam = new URLSearchParams(window.location.search).has('profile');
-			const profileName = hasProfileParam ? new URLSearchParams(window.location.search).get('profile') : 'custom';
-			const url = makeApiUrl('/api/finra/graph');
-			url.searchParams.set('limit', '1');
-			if (profileName) url.searchParams.set('profile', profileName);
-			const r = await fetch(url.toString(), { cache: 'no-store' });
-			if (!r.ok) return;
-			const j = await r.json();
-			if (j && j.meta) {
-				// Update visible meta label
-				updateMeta(j.meta);
-				// Keep in-memory graphData.meta up-to-date so other UI pieces read the latest
-				if (!graphData) graphData = { nodes: [], links: [], meta: j.meta };
-				else graphData.meta = { ...(graphData.meta || {}), ...j.meta };
+	async function fetchMetaOnce({ force = false }: { force?: boolean } = {}) {
+		if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+		if (_metaFetchPromise) return _metaFetchPromise;
+		if (!force && shouldSkipNetworkRefresh(_metaLastRequestedAt, META_MIN_INTERVAL_MS)) return;
+		_metaLastRequestedAt = Date.now();
+		_metaFetchPromise = (async () => {
+			try {
+				const hasProfileParam = new URLSearchParams(window.location.search).has('profile');
+				const profileName = hasProfileParam ? new URLSearchParams(window.location.search).get('profile') : 'custom';
+				const url = makeApiUrl('/api/finra/graph');
+				url.searchParams.set('limit', '1');
+				if (profileName) url.searchParams.set('profile', profileName);
+				const r = await fetch(url.toString(), { cache: 'no-store' });
+				if (!r.ok) return;
+				const j = await r.json();
+				if (j && j.meta) {
+					// Update visible meta label
+					updateMeta(j.meta);
+					// Keep in-memory graphData.meta up-to-date so other UI pieces read the latest
+					if (!graphData) graphData = { nodes: [], links: [], meta: j.meta };
+					else graphData.meta = { ...(graphData.meta || {}), ...j.meta };
+				}
+			} catch (e) {
+				// non-fatal; ignore network errors
+			} finally {
+				_metaFetchPromise = null;
 			}
-		} catch (e) {
-			// non-fatal; ignore network errors
-		}
+		})();
+		return _metaFetchPromise;
 	}
 
 	function startMetaPolling() {
-		if (_metaPollId) return;
+		const pollState = getGlobalFinraPollState();
+		if (pollState.metaPollId) {
+			clearInterval(pollState.metaPollId);
+			pollState.metaPollId = null;
+		}
 		void fetchMetaOnce();
 		void fetchCacheStats();
 		_metaPollId = setInterval(() => {
 			void fetchMetaOnce();
 			void fetchCacheStats();
 		}, META_POLL_MS);
+		pollState.metaPollId = _metaPollId;
 	}
 
 	startMetaPolling();
@@ -4715,6 +4766,10 @@ function mergeIntoGraphData(newNodes, newLinks) {
 	// Fire-and-forget: update nodes in-place when validation returns.
 	(function validateMergedNodes() {
 		if (!graphData) return;
+		// Bulk background validation creates large merged-detail request storms for
+		// newly merged nodes. Keep node merges lightweight and let explicit
+		// selection/detail hydration populate source-truth flags on demand.
+		return;
 		const candidates = newNodes
 			.map((n) => n.id)
 			.filter(Boolean)
@@ -4727,6 +4782,11 @@ function mergeIntoGraphData(newNodes, newLinks) {
 		const toCheck = candidates.filter((node) => {
 			if (!node) return false;
 			if (node._externalValidated) return false;
+			if (node._externalValidationPromise) return false;
+			if (node._source === 'finra') {
+				if (node.group === 'individual' && node._trustedCurrentRelationshipData === true) return false;
+				if (node.group === 'firm') return false;
+			}
 			if (node.group === 'individual') {
 				const crd = String(node.crd || node.basicInformation?.individualId || '').trim();
 				return Boolean(crd);
@@ -4742,7 +4802,7 @@ function mergeIntoGraphData(newNodes, newLinks) {
 
 		for (const node of toCheck) {
 			// kick off async validation without blocking merge
-			void (async (n) => {
+			node._externalValidationPromise = (async (n) => {
 				try {
 					if (n.group === 'individual') {
 						const crd = String(n.crd || n.basicInformation?.individualId || '').trim();
@@ -4797,6 +4857,8 @@ function mergeIntoGraphData(newNodes, newLinks) {
 					}
 				} catch (err) {
 					/* ignore validation failures */
+				} finally {
+					if (n._externalValidationPromise) delete n._externalValidationPromise;
 				}
 			})(node);
 		}
@@ -4955,7 +5017,7 @@ async function fetchFirmBatch(firmId, queryLabel = null) {
 		const mres = await fetch(makeApiUrl(`/api/finra/merged/firm/${encodeURIComponent(firmId)}`).toString());
 		if (mres.ok) {
 			const merged = await mres.json();
-			detail = merged?.merged || merged?.finraNode || merged || null;
+			detail = normalizeFirmDetailPayload(merged?.merged || merged?.finraNode || merged || null);
 		}
 	} catch (e) {
 		/* fall through */
@@ -4963,7 +5025,8 @@ async function fetchFirmBatch(firmId, queryLabel = null) {
 	if (!detail) {
 		const r = await fetch(makeApiUrl(`/api/finra/firm/${encodeURIComponent(firmId)}`).toString());
 		if (!r.ok) throw new Error(`firm HTTP ${r.status}`);
-		detail = unwrapDetailPayload(await r.json());
+		const rawDetail = await r.json();
+		detail = normalizeFirmDetailPayload(rawDetail) || unwrapDetailPayload(rawDetail);
 	}
 	if (detail?.found === false) throw new Error(`firm ${firmId} not found`);
 
@@ -5473,8 +5536,19 @@ async function filterGraph(rawQuery) {
 
 // Cache stats are polled and reused for the header and bottom status bar.
 let _cacheStats = null;
-function fetchCacheStats() {
-	return fetch('/api/finra/cache-stats', { cache: 'no-store' })
+const CACHE_STATS_MIN_INTERVAL_MS = 5000;
+let _cacheStatsRequestPromise: Promise<void> | null = null;
+let _cacheStatsLastRequestedAt = 0;
+function fetchCacheStats({ force = false }: { force?: boolean } = {}) {
+	if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+		return Promise.resolve();
+	}
+	if (_cacheStatsRequestPromise) return _cacheStatsRequestPromise;
+	if (!force && shouldSkipNetworkRefresh(_cacheStatsLastRequestedAt, CACHE_STATS_MIN_INTERVAL_MS)) {
+		return Promise.resolve();
+	}
+	_cacheStatsLastRequestedAt = Date.now();
+	_cacheStatsRequestPromise = fetch(makeApiUrl('/api/finra/cache-stats').toString(), { cache: 'no-store' })
 		.then((r) => r.json())
 		.then((data) => {
 			if (data?.counts) {
@@ -5492,7 +5566,11 @@ function fetchCacheStats() {
 				}
 			}
 		})
-		.catch(() => {});
+		.catch(() => {})
+		.finally(() => {
+			_cacheStatsRequestPromise = null;
+		});
+	return _cacheStatsRequestPromise;
 }
 
 function updateMeta(meta: { totalIndividuals?: number; totalFirms?: number; totalLinks?: number } = {}) {
@@ -5875,6 +5953,7 @@ function hasIndividualSecPresence(node: any) {
 
 function hasFirmFinraPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
+	if (node.hasFinraData === false) return false;
 
 	// Per-node suppression: if the node explicitly suppresses FINRA links, respect that.
 	if (
@@ -5906,6 +5985,7 @@ function hasFirmFinraPresence(node: any) {
 
 function hasFirmSecPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
+	if (node.hasSecData === false) return false;
 	if (
 		Array.isArray(node?.suppressedExternalLinks) &&
 		node.suppressedExternalLinks.some(
@@ -7471,6 +7551,29 @@ function unwrapDetailPayload(detail) {
 	return detail;
 }
 
+export function hasFirmDetailContent(detail) {
+	if (!detail || typeof detail !== 'object') return false;
+	if (detail.found === false) return false;
+	return Boolean(
+		detail.basicInformation ||
+		detail.firmName ||
+		detail.name ||
+		detail.firmAddressDetails ||
+		detail.iaFirmAddressDetails ||
+		detail.registrations ||
+		Array.isArray(detail.directOwners) ||
+		Array.isArray(detail.disclosures) ||
+		Array.isArray(detail.registrationStatus) ||
+		Array.isArray(detail.noticeFilings) ||
+		detail.brochures,
+	);
+}
+
+export function normalizeFirmDetailPayload(detail) {
+	const unwrapped = unwrapDetailPayload(detail);
+	return hasFirmDetailContent(unwrapped) ? unwrapped : null;
+}
+
 // Normalize a detail payload so top-level merged fields are available
 // under basicInformation and the UI can consume it consistently.
 function normalizeIndividualDetailPayload(detail, fallbackCrd) {
@@ -7591,106 +7694,121 @@ async function ensureIndividualDetail(personNode) {
 		return;
 	}
 
-	try {
-		// First try the local merged record (fast, no external call)
-		let detail = null;
-		let localDetail = null;
+	if (personNode._detailPromise) {
+		return personNode._detailPromise;
+	}
+
+	const detailPromise = (async () => {
 		try {
-			const localRes = await fetch(makeApiUrl(`/api/finra/merged/individual/${encodeURIComponent(crd)}`).toString());
-			if (localRes.ok) {
-				const merged = await localRes.json();
-				const candidate = merged?.merged;
-				try {
-					console.debug('ensureIndividualDetail - local merged payload', { crd, keys: merged ? Object.keys(merged) : null });
-				} catch {}
-				if (candidate) {
-					const normalized = normalizeIndividualDetailPayload(candidate, crd);
-					if (normalized?.basicInformation && (normalized.basicInformation.individualId || normalized.basicInformation.firstName || normalized.basicInformation.lastName)) {
-						localDetail = normalized;
-						if (hasRichIndividualDetail(normalized)) {
-							detail = normalized;
+			// First try the local merged record (fast, no external call)
+			let detail = null;
+			let localDetail = null;
+			try {
+				const localRes = await fetch(makeApiUrl(`/api/finra/merged/individual/${encodeURIComponent(crd)}`).toString());
+				if (localRes.ok) {
+					const merged = await localRes.json();
+					const candidate = merged?.merged;
+					try {
+						console.debug('ensureIndividualDetail - local merged payload', { crd, keys: merged ? Object.keys(merged) : null });
+					} catch {}
+					if (candidate) {
+						const normalized = normalizeIndividualDetailPayload(candidate, crd);
+						if (normalized?.basicInformation && (normalized.basicInformation.individualId || normalized.basicInformation.firstName || normalized.basicInformation.lastName)) {
+							localDetail = normalized;
+							if (hasRichIndividualDetail(normalized)) {
+								detail = normalized;
+							}
 						}
 					}
 				}
+			} catch {
+				// local lookup failed — fall through to live API
 			}
-		} catch {
-			// local lookup failed — fall through to live API
-		}
 
-		try {
-			console.debug('ensureIndividualDetail - after local lookup', { crd, detailFound: !!detail, localDetailFound: !!localDetail });
-		} catch {}
-
-		const ownerEvidenceAvailable = !detail && !localDetail && !hasRichIndividualDetail(personNode) ? await mergeIndividualOwnerEvidence(personNode) : false;
-		try {
-			console.debug('ensureIndividualDetail - ownerEvidenceAvailable', { crd, ownerEvidenceAvailable });
-		} catch {}
-		if (ownerEvidenceAvailable && isLikelyOwnerOnlyIndividual(personNode)) {
-			personNode.stub = true;
-			personNode._ownerEvidenceLoaded = true;
-			personNode._detailMissing = false;
-			return;
-		}
-
-		// Fall back to live FINRA/SEC API if no local rich data available.
-		if (!detail) {
-			const url = makeApiUrl(`/api/finra/individual/${encodeURIComponent(crd)}`).toString();
 			try {
-				const response = await fetch(url);
-				if (!response.ok) {
-					console.warn(`Failed to fetch individual detail for ${crd}:`, response.status);
-				} else {
-					const raw = await response.json();
-					try {
-						console.debug('ensureIndividualDetail - live API payload', { crd, keys: raw ? Object.keys(raw) : null });
-					} catch {}
-					detail = unwrapDetailPayload(raw);
-				}
-			} catch (err) {
-				console.warn(`Local API fetch failed for individual ${crd}:`, err);
-			}
+				console.debug('ensureIndividualDetail - after local lookup', { crd, detailFound: !!detail, localDetailFound: !!localDetail });
+			} catch {}
 
-			if (!detail || detail.found === false || (!detail.basicInformation && !detail.hits)) {
-				personNode.stub = false;
-				console.info(`Local API missing data for ${crd}; skipping direct browser fallback to external APIs to avoid CORS/rate-limit failures.`);
-			}
-
-			if (!detail || (detail.found === false && !detail.basicInformation && !detail.firmName)) {
-				console.debug(`Individual ${crd} not found`);
-				detail = localDetail;
-			} else {
-				detail = normalizeIndividualDetailPayload(detail, crd);
-				if (localDetail && hasRichIndividualDetail(localDetail) && !hasRichIndividualDetail(detail)) {
-					detail = localDetail;
-				}
-			}
-		}
-
-		if (!detail && localDetail) {
-			detail = localDetail;
-		}
-
-		if (!detail || detail.found === false) {
-			personNode._ownerEvidenceLoaded = await mergeIndividualOwnerEvidence(personNode);
-			if (!detail || detail.found === false) {
-				personNode._detailMissing = !personNode._ownerEvidenceLoaded;
+			const ownerEvidenceAvailable = !detail && !localDetail && !hasRichIndividualDetail(personNode) ? await mergeIndividualOwnerEvidence(personNode) : false;
+			try {
+				console.debug('ensureIndividualDetail - ownerEvidenceAvailable', { crd, ownerEvidenceAvailable });
+			} catch {}
+			if (ownerEvidenceAvailable && isLikelyOwnerOnlyIndividual(personNode)) {
+				personNode.stub = true;
+				personNode._ownerEvidenceLoaded = true;
+				personNode._detailMissing = false;
 				return;
 			}
-		}
 
-		try {
-			applyIndividualDetail(personNode, detail, crd);
-			syncIndividualConnectionsFromDetail(personNode, detail);
-			personNode._trustedCurrentRelationshipData = hasRichIndividualDetail(detail);
-			personNode._detailLoaded = true;
-			personNode._detailMissing = false;
-		} catch (e) {
-			console.warn('Failed to merge individual detail:', e);
+			// Fall back to live FINRA/SEC API if no local rich data available.
+			if (!detail) {
+				const url = makeApiUrl(`/api/finra/individual/${encodeURIComponent(crd)}`).toString();
+				try {
+					const response = await fetch(url);
+					if (!response.ok) {
+						console.warn(`Failed to fetch individual detail for ${crd}:`, response.status);
+					} else {
+						const raw = await response.json();
+						try {
+							console.debug('ensureIndividualDetail - live API payload', { crd, keys: raw ? Object.keys(raw) : null });
+						} catch {}
+						detail = unwrapDetailPayload(raw);
+					}
+				} catch (err) {
+					console.warn(`Local API fetch failed for individual ${crd}:`, err);
+				}
+
+				if (!detail || detail.found === false || (!detail.basicInformation && !detail.hits)) {
+					personNode.stub = false;
+					console.info(`Local API missing data for ${crd}; skipping direct browser fallback to external APIs to avoid CORS/rate-limit failures.`);
+				}
+
+				if (!detail || (detail.found === false && !detail.basicInformation && !detail.firmName)) {
+					console.debug(`Individual ${crd} not found`);
+					detail = localDetail;
+				} else {
+					detail = normalizeIndividualDetailPayload(detail, crd);
+					if (localDetail && hasRichIndividualDetail(localDetail) && !hasRichIndividualDetail(detail)) {
+						detail = localDetail;
+					}
+				}
+			}
+
+			if (!detail && localDetail) {
+				detail = localDetail;
+			}
+
+			if (!detail || detail.found === false) {
+				personNode._ownerEvidenceLoaded = await mergeIndividualOwnerEvidence(personNode);
+				if (!detail || detail.found === false) {
+					personNode._detailMissing = !personNode._ownerEvidenceLoaded;
+					return;
+				}
+			}
+
+			try {
+				applyIndividualDetail(personNode, detail, crd);
+				syncIndividualConnectionsFromDetail(personNode, detail);
+				personNode._trustedCurrentRelationshipData = hasRichIndividualDetail(detail);
+				personNode._detailLoaded = true;
+				personNode._detailMissing = false;
+			} catch (e) {
+				console.warn('Failed to merge individual detail:', e);
+			}
+			console.log(`Detail loaded for CRD ${crd}: ${personNode.disclosures?.length || 0} BC disclosures, ${personNode.iaDisclosures?.length || 0} IA disclosures`);
+			if (typeof refreshGraphColors === 'function') refreshGraphColors();
+		} catch (err) {
+			console.error(`Error fetching individual detail for ${crd}:`, err);
 		}
-		console.log(`Detail loaded for CRD ${crd}: ${personNode.disclosures?.length || 0} BC disclosures, ${personNode.iaDisclosures?.length || 0} IA disclosures`);
-		if (typeof refreshGraphColors === 'function') refreshGraphColors();
-	} catch (err) {
-		console.error(`Error fetching individual detail for ${crd}:`, err);
+	})();
+
+	personNode._detailPromise = detailPromise;
+	try {
+		await detailPromise;
+	} finally {
+		if (personNode._detailPromise === detailPromise) {
+			delete personNode._detailPromise;
+		}
 	}
 }
 
@@ -7979,162 +8097,183 @@ async function ensureFirmDetail(firmNode) {
 	const firmId = match[1];
 
 	if (firmNode._detailLoaded && firmNode._detailValidated === true) return;
+	if (firmNode._detailPromise) return firmNode._detailPromise;
 
-	try {
-		// First try the local merged record (fast, no external call)
-		let detail = null;
+	const detailPromise = (async () => {
 		try {
-			const localRes = await fetch(makeApiUrl(`/api/finra/merged/firm/${encodeURIComponent(firmId)}`).toString());
-			if (localRes.ok) {
-				const merged = await localRes.json();
-				if (merged?.found && merged?.finraNode) {
-					// finraNode is already a graph node — merge any enriched fields
-					const fn = merged.finraNode;
-					if (fn.firmStatus) firmNode.firmStatus = fn.firmStatus;
-					if (fn.firmStatusDate) firmNode.firmStatusDate = fn.firmStatusDate;
-					if (fn.firmType) firmNode.firmType = fn.firmType;
-					if (fn.bcScope) firmNode.bcScope = fn.bcScope;
-					if (fn.regulator) firmNode.regulator = fn.regulator;
-					if (fn.formedState) firmNode.formedState = fn.formedState;
-					if (fn.formedDate) firmNode.formedDate = fn.formedDate;
-					if (fn.isLegacy) firmNode.isLegacy = fn.isLegacy;
-					if (fn.bdSecNumber) firmNode.bdSecNumber = fn.bdSecNumber;
-					if (Array.isArray(fn.otherNames)) firmNode.otherNames = fn.otherNames;
-					if (Array.isArray(fn.directOwners)) firmNode.directOwners = fn.directOwners;
-					if (Array.isArray(fn.disclosures)) firmNode.disclosures = fn.disclosures;
-					if (Array.isArray(fn.activeStates)) firmNode.activeStates = fn.activeStates;
-					if (Array.isArray(fn.selfRegulatoryOrgs)) firmNode.selfRegulatoryOrgs = fn.selfRegulatoryOrgs;
-					if (fn.firmSize) firmNode.firmSize = fn.firmSize;
-					if (fn.iaSecNumber) firmNode.iaSecNumber = fn.iaSecNumber;
-					if (fn.fiscalYearEnd) firmNode.fiscalYearEnd = fn.fiscalYearEnd;
-					// For IA-only firms the merged node is sparse (no firmStatus, bcScope, activeStates).
-					// Do not assume local merged data is complete for all firms; continue to live FINRA fetch.
-					// If the live API fails, we'll still keep any fields merged from the local record.
+			// First try the local merged record (fast, no external call)
+			let detail = null;
+			try {
+				const localRes = await fetch(makeApiUrl(`/api/finra/merged/firm/${encodeURIComponent(firmId)}`).toString());
+				if (localRes.ok) {
+					const merged = await localRes.json();
+					if (merged?.found && merged?.finraNode) {
+						// finraNode is already a graph node — merge any enriched fields
+						const fn = merged.finraNode;
+						if (fn.firmStatus) firmNode.firmStatus = fn.firmStatus;
+						if (fn.firmStatusDate) firmNode.firmStatusDate = fn.firmStatusDate;
+						if (fn.firmType) firmNode.firmType = fn.firmType;
+						if (fn.bcScope) firmNode.bcScope = fn.bcScope;
+						if (fn.regulator) firmNode.regulator = fn.regulator;
+						if (fn.formedState) firmNode.formedState = fn.formedState;
+						if (fn.formedDate) firmNode.formedDate = fn.formedDate;
+						if (fn.isLegacy) firmNode.isLegacy = fn.isLegacy;
+						if (fn.bdSecNumber) firmNode.bdSecNumber = fn.bdSecNumber;
+						if (Array.isArray(fn.otherNames)) firmNode.otherNames = fn.otherNames;
+						if (Array.isArray(fn.directOwners)) firmNode.directOwners = fn.directOwners;
+						if (Array.isArray(fn.disclosures)) firmNode.disclosures = fn.disclosures;
+						if (Array.isArray(fn.activeStates)) firmNode.activeStates = fn.activeStates;
+						if (Array.isArray(fn.selfRegulatoryOrgs)) firmNode.selfRegulatoryOrgs = fn.selfRegulatoryOrgs;
+						if (fn.firmSize) firmNode.firmSize = fn.firmSize;
+						if (fn.iaSecNumber) firmNode.iaSecNumber = fn.iaSecNumber;
+						if (fn.fiscalYearEnd) firmNode.fiscalYearEnd = fn.fiscalYearEnd;
+						// For IA-only firms the merged node is sparse (no firmStatus, bcScope, activeStates).
+						// Do not assume local merged data is complete for all firms; continue to live FINRA fetch.
+						// If the live API fails, we'll still keep any fields merged from the local record.
+					}
 				}
+			} catch {
+				// local lookup failed — fall through to live API
 			}
-		} catch {
-			// local lookup failed — fall through to live API
-		}
 
-		// Fall back to live FINRA API (server-side cached for 7 days)
-		try {
-			const res = await fetch(makeApiUrl(`/api/finra/firm/${encodeURIComponent(firmId)}`).toString());
-			if (!res.ok) {
-				console.warn(`Failed to fetch firm detail for ${firmId}:`, res.status);
-			} else {
-				detail = unwrapDetailPayload(await res.json());
+			// Fall back to live FINRA API (server-side cached for 7 days)
+			try {
+				const res = await fetch(makeApiUrl(`/api/finra/firm/${encodeURIComponent(firmId)}`).toString());
+				if (!res.ok) {
+					console.warn(`Failed to fetch firm detail for ${firmId}:`, res.status);
+				} else {
+					detail = unwrapDetailPayload(await res.json());
+				}
+			} catch (err) {
+				console.warn(`Local API fetch failed for firm ${firmId}:`, err);
 			}
+
+			if (!detail || detail.found === false || (!detail.basicInformation && !detail.firmName && !detail.name)) {
+				console.info(`Local API missing data for firm ${firmId}; skipping direct browser fallback to external APIs to avoid CORS/rate-limit failures.`);
+			}
+
+			if (!detail || (detail.found === false && !detail.basicInformation && !detail.firmName)) {
+				console.debug(`Firm ${firmId} not found`);
+				return;
+			}
+
+			const bi = detail?.basicInformation || {};
+			const preferredFirmName = String(bi.firmName || detail?.firmName || detail?.name || '').trim();
+			if (preferredFirmName && (isPlaceholderExpansionLabel(firmNode.label, 'firm') || preferredFirmName.length > String(firmNode.label || '').length)) {
+				firmNode.label = preferredFirmName;
+			}
+			if (bi.bcScope || bi.iaScope) firmNode.bcScope = bi.bcScope || bi.iaScope;
+			if (bi.firmStatus) firmNode.firmStatus = bi.firmStatus;
+			if (bi.firmStatusDate) firmNode.firmStatusDate = bi.firmStatusDate;
+			if (bi.firmType) firmNode.firmType = bi.firmType;
+			if (bi.firmSize) firmNode.firmSize = bi.firmSize;
+			if (bi.regulator) firmNode.regulator = bi.regulator;
+			if (bi.districtName) firmNode.districtName = bi.districtName;
+			if (bi.formedState) firmNode.formedState = bi.formedState;
+			if (bi.formedDate) firmNode.formedDate = bi.formedDate;
+			if (bi.fiscalMonthEndCode) firmNode.fiscalYearEnd = bi.fiscalMonthEndCode;
+			if (bi.iaSECNumber || bi.iaSecNumber || bi.bdSECNumber) firmNode.iaSecNumber = bi.iaSECNumber || bi.iaSecNumber || bi.bdSECNumber;
+			if (bi.isLegacy) firmNode.isLegacy = bi.isLegacy;
+			if (Array.isArray(bi.otherNames) && bi.otherNames.length) firmNode.otherNames = bi.otherNames;
+			if (detail.hasFinraData != null) firmNode.hasFinraData = detail.hasFinraData;
+			if (detail.hasSecData != null) firmNode.hasSecData = detail.hasSecData;
+			if (typeof detail.secSummaryDescription === 'string') {
+				firmNode.secSummaryDescription = detail.secSummaryDescription;
+			}
+			if (Array.isArray(detail.secDocumentLinks)) {
+				firmNode.secDocumentLinks = detail.secDocumentLinks;
+			}
+			if (detail.hasSecData === false) {
+				firmNode.secSummaryDescription = '';
+				firmNode.secDocumentLinks = [];
+			}
+
+			// Address / phone
+			const addr = detail.firmAddressDetails || detail.iaFirmAddressDetails;
+			if (addr) {
+				const off = addr.officeAddress || {};
+				const parts = [off.street1, off.street2, off.city, off.state, off.postalCode, off.country].filter(Boolean);
+				if (parts.length) firmNode.officeAddress = parts.join(', ');
+				if (addr.businessPhoneNumber) firmNode.businessPhone = addr.businessPhoneNumber;
+			}
+
+			// Remap disclosures from API shape {disclosureType, disclosureCount} → {type, count}
+			if (Array.isArray(detail.disclosures) && detail.disclosures.length) {
+				firmNode.disclosures = detail.disclosures.map((dis) => ({
+					type: dis.disclosureType || dis.type || '',
+					count: dis.disclosureCount ?? dis.count ?? 0,
+				}));
+			}
+			if (Number.isFinite(detail.disclosureCount) || Number.isFinite(detail.disclosuresCount)) {
+				firmNode.disclosureCount = Number(detail.disclosureCount ?? detail.disclosuresCount);
+			}
+			if (detail.disclosureFlag != null) {
+				firmNode.disclosureFlag = detail.disclosureFlag;
+			}
+
+			// Affiliate disclosures summary
+			const aff = detail.affiliateDisclosures;
+			if (aff) {
+				firmNode.affiliateDisclosures = aff;
+			}
+
+			if (Array.isArray(detail.directOwners) && detail.directOwners.length) {
+				firmNode.directOwners = detail.directOwners;
+			}
+
+			const reg = detail.registrations || {};
+			if (Array.isArray(reg.stateList) && reg.stateList.length) {
+				// stateList may be [{state: "Alabama"}, ...] or ["Alabama", ...]
+				firmNode.activeStates = reg.stateList.map((s) => (typeof s === 'string' ? s : s.state || JSON.stringify(s)));
+			}
+			if (Array.isArray(reg.SROList) && reg.SROList.length) {
+				firmNode.selfRegulatoryOrgs = reg.SROList.map((s) => (typeof s === 'string' ? s : s.sro || s.name || JSON.stringify(s)));
+			}
+
+			// IA-only firms: pull registration status and notice-filed states from SEC fields
+			if (Array.isArray(detail.registrationStatus) && detail.registrationStatus.length) {
+				firmNode.registrationStatus = detail.registrationStatus;
+			}
+			if (!firmNode.firmStatus && Array.isArray(detail.registrationStatus) && detail.registrationStatus.length) {
+				const reg0 = detail.registrationStatus[0];
+				if (reg0.status) firmNode.firmStatus = reg0.status;
+				if (reg0.effectiveDate) firmNode.firmStatusDate = reg0.effectiveDate;
+				if (reg0.secJurisdiction) firmNode.regulator = reg0.secJurisdiction;
+			}
+			// noticeFilings gives the states where the IA is notice-filed
+			if (Array.isArray(detail.noticeFilings) && detail.noticeFilings.length) {
+				firmNode.noticeFilings = detail.noticeFilings;
+			}
+			if (!firmNode.activeStates?.length && Array.isArray(detail.noticeFilings) && detail.noticeFilings.length) {
+				firmNode.activeStates = detail.noticeFilings
+					.filter((f) => /Notice Filed|Approved/i.test(f.status || ''))
+					.map((f) => f.jurisdiction)
+					.filter(Boolean);
+			}
+			// brochures (Form ADV Part 2)
+			if (Array.isArray(detail.brochures) && detail.brochures.length && !firmNode.brochures) {
+				firmNode.brochures = detail.brochures;
+			}
+			if (detail.brochures?.brochuredetails?.length && !firmNode.brochures) {
+				firmNode.brochures = detail.brochures.brochuredetails;
+			}
+
+			syncFirmConnectionsFromDetail(firmNode, detail);
+			firmNode._detailLoaded = true;
+			firmNode._detailValidated = true;
+			console.log(`Firm detail loaded for ID ${firmId}: ${firmNode.disclosures?.length || 0} disclosures, ${firmNode.directOwners?.length || 0} owners`);
 		} catch (err) {
-			console.warn(`Local API fetch failed for firm ${firmId}:`, err);
+			console.error(`Error fetching firm detail for ${firmId}:`, err);
 		}
+	})();
 
-		if (!detail || detail.found === false || (!detail.basicInformation && !detail.firmName && !detail.name)) {
-			console.info(`Local API missing data for firm ${firmId}; skipping direct browser fallback to external APIs to avoid CORS/rate-limit failures.`);
+	firmNode._detailPromise = detailPromise;
+	try {
+		await detailPromise;
+	} finally {
+		if (firmNode._detailPromise === detailPromise) {
+			delete firmNode._detailPromise;
 		}
-
-		if (!detail || (detail.found === false && !detail.basicInformation && !detail.firmName)) {
-			console.debug(`Firm ${firmId} not found`);
-			return;
-		}
-
-		const bi = detail?.basicInformation || {};
-		const preferredFirmName = String(bi.firmName || detail?.firmName || detail?.name || '').trim();
-		if (preferredFirmName && (isPlaceholderExpansionLabel(firmNode.label, 'firm') || preferredFirmName.length > String(firmNode.label || '').length)) {
-			firmNode.label = preferredFirmName;
-		}
-		if (bi.bcScope || bi.iaScope) firmNode.bcScope = bi.bcScope || bi.iaScope;
-		if (bi.firmStatus) firmNode.firmStatus = bi.firmStatus;
-		if (bi.firmStatusDate) firmNode.firmStatusDate = bi.firmStatusDate;
-		if (bi.firmType) firmNode.firmType = bi.firmType;
-		if (bi.firmSize) firmNode.firmSize = bi.firmSize;
-		if (bi.regulator) firmNode.regulator = bi.regulator;
-		if (bi.districtName) firmNode.districtName = bi.districtName;
-		if (bi.formedState) firmNode.formedState = bi.formedState;
-		if (bi.formedDate) firmNode.formedDate = bi.formedDate;
-		if (bi.fiscalMonthEndCode) firmNode.fiscalYearEnd = bi.fiscalMonthEndCode;
-		if (bi.iaSECNumber || bi.iaSecNumber || bi.bdSECNumber) firmNode.iaSecNumber = bi.iaSECNumber || bi.iaSecNumber || bi.bdSECNumber;
-		if (bi.isLegacy) firmNode.isLegacy = bi.isLegacy;
-		if (Array.isArray(bi.otherNames) && bi.otherNames.length) firmNode.otherNames = bi.otherNames;
-		if (detail.hasFinraData != null) firmNode.hasFinraData = detail.hasFinraData;
-		if (detail.hasSecData != null) firmNode.hasSecData = detail.hasSecData;
-		if (typeof detail.secSummaryDescription === 'string') {
-			firmNode.secSummaryDescription = detail.secSummaryDescription;
-		}
-		if (Array.isArray(detail.secDocumentLinks)) {
-			firmNode.secDocumentLinks = detail.secDocumentLinks;
-		}
-		if (detail.hasSecData === false) {
-			firmNode.secSummaryDescription = '';
-			firmNode.secDocumentLinks = [];
-		}
-
-		// Address / phone
-		const addr = detail.firmAddressDetails || detail.iaFirmAddressDetails;
-		if (addr) {
-			const off = addr.officeAddress || {};
-			const parts = [off.street1, off.city, off.state, off.postalCode, off.country].filter(Boolean);
-			if (parts.length) firmNode.officeAddress = parts.join(', ');
-			if (addr.businessPhoneNumber) firmNode.businessPhone = addr.businessPhoneNumber;
-		}
-
-		// Remap disclosures from API shape {disclosureType, disclosureCount} → {type, count}
-		if (Array.isArray(detail.disclosures) && detail.disclosures.length) {
-			firmNode.disclosures = detail.disclosures.map((dis) => ({
-				type: dis.disclosureType || dis.type || '',
-				count: dis.disclosureCount ?? dis.count ?? 0,
-			}));
-		}
-		if (Number.isFinite(detail.disclosureCount) || Number.isFinite(detail.disclosuresCount)) {
-			firmNode.disclosureCount = Number(detail.disclosureCount ?? detail.disclosuresCount);
-		}
-		if (detail.disclosureFlag != null) {
-			firmNode.disclosureFlag = detail.disclosureFlag;
-		}
-
-		// Affiliate disclosures summary
-		const aff = detail.affiliateDisclosures;
-		if (aff) {
-			firmNode.affiliateDisclosures = aff;
-		}
-
-		if (Array.isArray(detail.directOwners) && detail.directOwners.length) {
-			firmNode.directOwners = detail.directOwners;
-		}
-
-		const reg = detail.registrations || {};
-		if (Array.isArray(reg.stateList) && reg.stateList.length) {
-			// stateList may be [{state: "Alabama"}, ...] or ["Alabama", ...]
-			firmNode.activeStates = reg.stateList.map((s) => (typeof s === 'string' ? s : s.state || JSON.stringify(s)));
-		}
-		if (Array.isArray(reg.SROList) && reg.SROList.length) {
-			firmNode.selfRegulatoryOrgs = reg.SROList.map((s) => (typeof s === 'string' ? s : s.sro || s.name || JSON.stringify(s)));
-		}
-
-		// IA-only firms: pull registration status and notice-filed states from SEC fields
-		if (!firmNode.firmStatus && Array.isArray(detail.registrationStatus) && detail.registrationStatus.length) {
-			const reg0 = detail.registrationStatus[0];
-			if (reg0.status) firmNode.firmStatus = reg0.status;
-			if (reg0.effectiveDate) firmNode.firmStatusDate = reg0.effectiveDate;
-			if (reg0.secJurisdiction) firmNode.regulator = reg0.secJurisdiction;
-		}
-		// noticeFilings gives the states where the IA is notice-filed
-		if (!firmNode.activeStates?.length && Array.isArray(detail.noticeFilings) && detail.noticeFilings.length) {
-			firmNode.activeStates = detail.noticeFilings
-				.filter((f) => /Notice Filed|Approved/i.test(f.status || ''))
-				.map((f) => f.jurisdiction)
-				.filter(Boolean);
-		}
-		// brochures (Form ADV Part 2)
-		if (detail.brochures?.brochuredetails?.length && !firmNode.brochures) {
-			firmNode.brochures = detail.brochures.brochuredetails;
-		}
-
-		syncFirmConnectionsFromDetail(firmNode, detail);
-		firmNode._detailLoaded = true;
-		firmNode._detailValidated = true;
-		console.log(`Firm detail loaded for ID ${firmId}: ${firmNode.disclosures?.length || 0} disclosures, ${firmNode.directOwners?.length || 0} owners`);
-	} catch (err) {
-		console.error(`Error fetching firm detail for ${firmId}:`, err);
 	}
 }
 
@@ -8176,10 +8315,13 @@ async function fetchExpansionDataForNodeIds(nodeIds: string[] = [], hops: number
 async function hydrateExpansionFrontierNodes(nodeIds: string[] = []) {
 	const uniqueIds = Array.from(new Set(nodeIds.filter(Boolean)));
 	if (!uniqueIds.length) return [];
+	const activeSelectedId = String(selectedId || '').trim();
+	const targetIds = activeSelectedId ? uniqueIds.filter((nodeId) => nodeId === activeSelectedId) : [];
+	if (!targetIds.length) return [];
 
 	const hydratedIds = new Set<string>();
-	for (let index = 0; index < uniqueIds.length; index += NON_GRAY_DETAIL_BATCH_SIZE) {
-		const chunk = uniqueIds.slice(index, index + NON_GRAY_DETAIL_BATCH_SIZE);
+	for (let index = 0; index < targetIds.length; index += NON_GRAY_DETAIL_BATCH_SIZE) {
+		const chunk = targetIds.slice(index, index + NON_GRAY_DETAIL_BATCH_SIZE);
 		const results = await Promise.allSettled(
 			chunk.map(async (nodeId) => {
 				const liveNode = layoutNodes?.find((node) => node.id === nodeId) || graphData?.nodes?.find((node) => node.id === nodeId);
@@ -8231,9 +8373,15 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 
 	while (frontierIds.length && waveCount < maxWaves) {
 		waveCount += 1;
-		await hydrateExpansionFrontierNodes(frontierIds);
+		const shouldHydrateFrontier = waveCount > 1 || frontierIds.some((nodeId) => nodeId !== clickedNode.id);
+		if (shouldHydrateFrontier) {
+			await hydrateExpansionFrontierNodes(frontierIds);
+		}
 		if (runId !== nonGrayExpandRunId) return;
-		await fetchExpansionDataForNodeIds(frontierIds, 1);
+		const expansionData = await fetchExpansionDataForNodeIds(frontierIds, 1);
+		if (expansionData.nodes.length || expansionData.links.length) {
+			mergeIntoGraphData(expansionData.nodes, expansionData.links);
+		}
 		if (runId !== nonGrayExpandRunId) return;
 
 		const adjacency = buildLinkAdjacency(graphData?.links || [], isNonGrayExpansionLink);
@@ -8417,7 +8565,16 @@ function normalizeNodeLabelsInPlace(nodes = []) {
 	return nodes;
 }
 
-export { isNodeInactive, loadPersistedSidebarViewMode, loadSelectionLogBoldPreference, normalizeNodeLabelInPlace, upsertSelectionLogEntry };
+export {
+	getAutoSelectionExpansionHops,
+	hasFirmFinraPresence,
+	isNodeInactive,
+	loadPersistedSidebarViewMode,
+	loadSelectionLogBoldPreference,
+	normalizeNodeLabelInPlace,
+	shouldSkipNetworkRefresh,
+	upsertSelectionLogEntry,
+};
 
 function mergeExpansionNodeIntoExistingNode(targetNodeId, incomingNode) {
 	if (!targetNodeId || !incomingNode) return;
@@ -8605,7 +8762,7 @@ async function handleNodeOpen(event, d) {
 	markUserInitiatedGraphExpansion();
 	anchorNode(d);
 	selectNode(d, { skipAutoExpand: true });
-	void expandNodeThroughNonGrayHops(d).catch((err) => {
+	void expandNodeThroughNonGrayHops(d, getAutoSelectionExpansionHops()).catch((err) => {
 		console.error('Progressive non-gray hop expansion failed:', err);
 		refreshTraceState({ deferMs: 120 });
 	});
@@ -8735,7 +8892,7 @@ function selectNode(
 
 	if (!skipAutoExpand) {
 		lastExpandOriginNode = d;
-		expandNodeThroughNonGrayHops(d, getDefaultExpansionHops()).finally(() => {
+		expandNodeThroughNonGrayHops(d, getAutoSelectionExpansionHops()).finally(() => {
 			refreshTraceState({ deferMs: 120 });
 			try {
 				saveSession();
@@ -9033,6 +9190,16 @@ function revealNeighbors(
 	const adj = new Map<string, Set<string>>();
 	graphData.nodes.forEach((n) => adj.set(n.id, new Set<string>()));
 	const candidateLinks = (graphData.links || []).filter((link) => (typeof linkFilter === 'function' ? linkFilter(link) : true));
+
+	// Diagnostic: warn if linkFilter rejected all links
+	if (graphData.links && graphData.links.length > 0 && candidateLinks.length === 0) {
+		console.warn('[revealNeighbors] linkFilter rejected all links:', {
+			totalLinks: graphData.links.length,
+			filterType: typeof linkFilter,
+			clickedNodeId: clickedNode.id,
+		});
+	}
+
 	candidateLinks.forEach((l) => {
 		const srcId = l.source?.id ?? l.source;
 		const tgtId = l.target?.id ?? l.target;
@@ -9063,6 +9230,17 @@ function revealNeighbors(
 
 	// Filter to only nodes not yet rendered
 	const hiddenIds = Array.from(dist.keys()).filter((id) => !renderedIds.has(id) && (!restrictToIds || restrictToIds.has(id)));
+
+	// Diagnostic: log BFS results
+	if (dist.size > 0 && hiddenIds.length === 0) {
+		console.warn('[revealNeighbors] BFS found neighbors but all filtered out:', {
+			bfsFoundCount: dist.size,
+			afterFiltering: hiddenIds.length,
+			alreadyRendered: Array.from(dist.keys()).filter((id) => renderedIds.has(id)).length,
+			restrictedOut: restrictToIds ? Array.from(dist.keys()).filter((id) => !restrictToIds.has(id)).length : 0,
+			clickedNodeId: clickedNode.id,
+		});
+	}
 
 	// Create new node objects with positions based on hop distance
 	const newNodes =
@@ -9100,6 +9278,19 @@ function revealNeighbors(
 	}
 
 	if (newNodes.length === 0 && newLinks.length === 0) {
+		// Diagnostic: log why reveal produced no neighbors (this is the silent failure point)
+		console.warn('[revealNeighbors] No new nodes/links found:', {
+			newNodes: newNodes.length,
+			newLinks: newLinks.length,
+			hiddenIds: hiddenIds?.length || 0,
+			graphDataNodes: graphData?.nodes?.length || 0,
+			graphDataLinks: graphData?.links?.length || 0,
+			layoutNodesCount: layoutNodes?.length || 0,
+			layoutLinksCount: layoutLinks?.length || 0,
+			adjacencySize: adj?.size || Object.keys(adj || {}).length,
+			clickedNodeId: clickedNode?.id,
+			restrictToIds: restrictToIds ? restrictToIds.size : 'null',
+		});
 		if (markSelected && clickedNode) {
 			reapplySelectionState();
 
@@ -10437,11 +10628,11 @@ function renderPersonDetail(d: any) {
 			const crd = dis.crd || dis.individualId || dis.personId || '';
 			const pdfUrl = crd ? `https://files.brokercheck.finra.org/individual/individual_${encodeURIComponent(crd)}.pdf` : null;
 			return pdfUrl ?
-					`<div class="fg-disclosure fg-disclosure--nodetail"><a class="fg-ext-link bc" href="${pdfUrl}" target="_blank" rel="noopener noreferrer">View full disclosure details (PDF)</a></div>`
+					`<div class="fg-disclosure fg-section-toggle fg-disclosure--nodetail"><a class="fg-ext-link bc" href="${pdfUrl}" target="_blank" rel="noopener noreferrer">View full disclosure details (PDF)</a></div>`
 				:	'';
 		}
 		return `
-			<div class="fg-disclosure">
+			<div class="fg-disclosure fg-section-toggle">
 				<div class="fg-dis-header">
 					<span class="fg-dis-type">${esc(dtype)}</span>
 					${dsource ? `<span class="fg-badge inactive">${esc(dsource)}</span>` : ''}
@@ -10900,8 +11091,20 @@ function renderFirmDetail(d: any) {
 			`<span class="fg-badge ${/\b(active|approved)\b/i.test(String(d.bcScope || '').trim()) ? 'active' : 'inactive'}">${esc(capitalize(String(d.bcScope || '').toLowerCase()))}</span>`
 		:	'';
 
-	const sros = Array.isArray(d.selfRegulatoryOrgs) && d.selfRegulatoryOrgs.length ? d.selfRegulatoryOrgs.join(', ') : 'N/A';
-	const states = Array.isArray(d.activeStates) && d.activeStates.length ? d.activeStates.join(', ') : 'N/A';
+	const sroList = safeArray(d.selfRegulatoryOrgs).filter(Boolean);
+	const sros = sroList.length ? sroList.join(', ') : '';
+	const stateList = safeArray(d.activeStates).filter(Boolean);
+	const registrationStatusList = safeArray(d.registrationStatus).filter(Boolean);
+	const noticeFilingList = safeArray(d.noticeFilings)
+		.filter((filing) => filing && /notice filed|approved/i.test(String(filing.status || '')))
+		.filter((filing) => String(filing.jurisdiction || '').trim());
+	const primaryRegistrationStatus = registrationStatusList.find((entry) => /^sec$/i.test(String(entry.secJurisdiction || '').trim())) || registrationStatusList[0] || null;
+	const secRegistrationSummary =
+		primaryRegistrationStatus ?
+			`${String(primaryRegistrationStatus.status || '').trim() || 'Registered'}${primaryRegistrationStatus.effectiveDate ? ` (${primaryRegistrationStatus.effectiveDate})` : ''}`
+		:	'';
+	const statesSummary = stateList.length > 8 ? `${stateList.length} jurisdictions` : stateList.join(', ');
+	const noticeFilingSummary = noticeFilingList.length ? `${noticeFilingList.length} notice-filed jurisdictions` : '';
 
 	const firmId = d.firmId || String(d.id).replace(/^firm[:_]/, '');
 	const brokerCheckReportUrl = firmId ? `https://files.brokercheck.finra.org/firm/firm_${encodeURIComponent(firmId)}.pdf` : null;
@@ -10967,14 +11170,23 @@ function renderFirmDetail(d: any) {
 	const districtLabel = String(d.districtName || '').trim();
 	const finraSummaryLabel = `Brokerage Firm${districtLabel ? ` Regulated by FINRA (${districtLabel})` : ' Regulated by FINRA'}`;
 	const secSummaryLabel = 'Investment Adviser Firm';
+	const generalInfoRows = [
+		d.formedState ? row('Established in', `${esc(d.formedState)}${d.formedDate ? ' since ' + d.formedDate : ''}`) : '',
+		d.firmType ? row('Type', esc(d.firmType)) : '',
+		d.fiscalYearEnd ? row('Fiscal Year End', esc(d.fiscalYearEnd)) : '',
+	].filter(Boolean);
 	const topSummaryRoleHtml = `
 		<div class="fg-firm-summary__roles">
-			<div class="fg-firm-summary__role">
-				<span class="fg-firm-summary__role-icon fg-firm-summary__role-icon--broker" aria-hidden="true">B</span>
-				<div class="fg-firm-summary__role-copy">
-					<div class="fg-firm-summary__role-title">${esc(finraSummaryLabel)}</div>
-				</div>
-			</div>
+			${
+				hasFinraPage ?
+					`<div class="fg-firm-summary__role">
+						<span class="fg-firm-summary__role-icon fg-firm-summary__role-icon--broker" aria-hidden="true">B</span>
+						<div class="fg-firm-summary__role-copy">
+							<div class="fg-firm-summary__role-title">${esc(finraSummaryLabel)}</div>
+						</div>
+					</div>`
+				:	''
+			}
 			${
 				hasSecPage ?
 					`
@@ -11045,27 +11257,17 @@ function renderFirmDetail(d: any) {
 			<div class="fg-sb-copy-below-links">
       ${secSummaryDescription ? `<div class="fg-section-title fg-section-title--sticky">SEC summary</div><p class="fg-sb-note">${esc(secSummaryDescription)}</p>` : ''}
 			${d.isLegacy === 'Y' ? `<p class="fg-sb-note">Not currently registered as broker. FINRA contains only limited information about this firm.</p>` : ''}
-			${
-				hasOfficeAddress || businessPhone ?
-					`<div class="fg-section-title fg-section-title--sticky">Contact</div>
-					${hasOfficeAddress ? row('Address', esc(officeAddress)) : ''}
-					${businessPhone ? row('Phone', esc(businessPhone)) : ''}`
-				:	''
-			}
+			${businessPhone ? row('Phone', esc(businessPhone)) : ''}
 			</div>
       <div class="fg-section-title fg-section-title--sticky">Registration</div>
 			${row('ID source check', esc(formatNodeSourceTruthSummary(d)))}
-			${row('SEC Registration Status', d.firmStatus ? esc(d.firmStatus) + (statusDate ? ` (${statusDate})` : '') : '–')}
+			${d.firmStatus || secRegistrationSummary ? row('SEC Registration Status', d.firmStatus ? esc(d.firmStatus) + (statusDate ? ` (${statusDate})` : '') : esc(secRegistrationSummary)) : ''}
 			${d.districtName ? row('FINRA District', esc(d.districtName)) : ''}
-			${row('Company Type', esc(d.firmType || 'N/A'))}
-			${row('Self-Regulatory Orgs', esc(sros))}
-			${row(
-				'U.S. States &amp; Territories',
-				states !== 'N/A' ? esc(states)
-				: safeArray(d.activeStates).length ? `${safeArray(d.activeStates).length} states/territories`
-				: 'N/A',
-			)}
-      ${row('Regulator', esc(d.regulator || '–'))}
+			${d.firmType ? row('Company Type', esc(d.firmType)) : ''}
+			${sros ? row('Self-Regulatory Orgs', esc(sros)) : ''}
+			${statesSummary ? row('U.S. States &amp; Territories', esc(statesSummary)) : ''}
+      ${d.regulator ? row('Regulator', esc(d.regulator)) : ''}
+			${noticeFilingSummary ? row('Notice Filings', esc(noticeFilingSummary)) : ''}
 			${
 				currentConnections.length ?
 					`<div class="fg-section-title fg-section-title--sticky">Current Connections (${currentConnections.length})</div>
@@ -11091,10 +11293,7 @@ function renderFirmDetail(d: any) {
 					</div>`
 				:	''
 			}
-			<div class="fg-section-title fg-section-title--sticky">General Information</div>
-      ${row('Established in', d.formedState ? `${esc(d.formedState)}${d.formedDate ? ' since ' + d.formedDate : ''}` : '–')}
-      ${row('Type', esc(d.firmType || '–'))}
-      ${row('Fiscal Year End', esc(d.fiscalYearEnd || '–'))}
+			${generalInfoRows.length ? `<div class="fg-section-title fg-section-title--sticky">General Information</div>${generalInfoRows.join('')}` : ''}
       ${
 				sortedBrochures.length ?
 					`
@@ -11111,7 +11310,7 @@ function renderFirmDetail(d: any) {
 				disclosures.length || disclosureTotal > 0 || hasAffiliateDisclosureSummary ?
 					`
         <div class="fg-section-title fg-section-title--sticky">Disclosures</div>
-					<div class="fg-disclosure">
+					<div class="fg-disclosure fg-section-toggle">
 						${disclosures
 							.map(
 								(dis) => `
