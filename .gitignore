@@ -38,8 +38,8 @@ test-results/
 # Production
 out/
 .next/cache/*
-data/national/*
-data/national/finra-graph.json
-data/national/seed-crds.json
-data/external/*
+data/cache-binary/
+data/national/
+data/primed-cache/
+data/raw/
 .vercel

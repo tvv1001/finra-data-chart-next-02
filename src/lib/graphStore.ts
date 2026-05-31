@@ -245,7 +245,7 @@ function uniqueRecentIds(values: unknown[]): string[] {
 		seen.add(normalized);
 		ids.push(normalized);
 	}
-	return ids;
+	return ids.sort((left, right) => Number(right) - Number(left));
 }
 
 function buildSeedBankFromGraph(graph: any): SeedBank {
