@@ -1,6 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import path from 'node:path';
-import { DATA_DIR } from './constants';
+import { SEARCH_INDEX_FILES } from './searchDataPaths';
 
 export type LocalSearchSource = 'finra' | 'sec';
 export type LocalSearchEntity = 'individual' | 'firm';
@@ -53,12 +52,7 @@ export type LocalSearchResponse = {
 	pageSize: number;
 };
 
-const SEARCH_INDEX_FILES: Record<LocalSearchBucket, string> = {
-	'finra:individual': path.join(DATA_DIR, 'national', 'search-index.finra.individual.json'),
-	'finra:firm': path.join(DATA_DIR, 'national', 'search-index.finra.firm.json'),
-	'sec:individual': path.join(DATA_DIR, 'national', 'search-index.sec.individual.json'),
-	'sec:firm': path.join(DATA_DIR, 'national', 'search-index.sec.firm.json'),
-};
+const SEARCH_INDEX_FILE_MAP: Record<LocalSearchBucket, string> = SEARCH_INDEX_FILES;
 
 const indexPromiseCache = new Map<LocalSearchBucket, Promise<LocalSearchIndex | null>>();
 
@@ -140,7 +134,7 @@ async function loadIndex(bucket: LocalSearchBucket): Promise<LocalSearchIndex | 
 			bucket,
 			(async () => {
 				try {
-					const raw = await readFile(SEARCH_INDEX_FILES[bucket], 'utf-8');
+					const raw = await readFile(SEARCH_INDEX_FILE_MAP[bucket], 'utf-8');
 					const parsed = JSON.parse(raw) as { generatedAt?: string; bucket?: string; docs?: LocalSearchDoc[] };
 					return {
 						generatedAt: parsed?.generatedAt,

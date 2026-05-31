@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getFullGraph, getProfilesFromStore, getSeedBankFromStore } from '@/lib/graphStore';
+import { getFullGraph, getSeedBankFromStore } from '@/lib/graphStore';
+import { getProfilesFromStore } from '@/lib/seedStore';
 import { DEFAULT_EXPANSION_HOPS } from '@/lib/finra-graph-defaults';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 

@@ -9,7 +9,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { Redis } from '@upstash/redis';
 import { gzipOffload, gunzipOffload } from './gzipWorker';
-import { GRAPH_FILE, RECENT_SEEDS_FILE, SEED_BANK_FILE, SEED_PROFILES_FILE, SEEDS_FILE } from './constants';
+import { GRAPH_FILE, RECENT_SEEDS_FILE, SEED_BANK_FILE, SEED_PROFILES_FILE, SEEDS_FILE } from './graphDataPaths';
 
 const REDIS_GRAPH_KEY = 'finra:graph';
 const REDIS_SEED_BANK_KEY = 'finra:seed-bank';

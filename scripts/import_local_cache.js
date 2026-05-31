@@ -59,6 +59,11 @@ async function main() {
 	let written = 0;
 	let skipped = 0;
 	let processed = 0;
+	const counts = {
+		root: 0,
+		brokercheck: 0,
+		adviserinfo: 0,
+	};
 	function logProgress() {
 		console.log(`import progress written=${written} skipped=${skipped} processed=${processed}`);
 	}
@@ -83,17 +88,20 @@ async function main() {
 					const exists = await redis.get(key);
 					if (exists != null) {
 						skipped++;
+						counts.root++;
 						processed++;
 						if (processed % REPORT_INTERVAL === 0) logProgress();
 						continue;
 					}
 					await redis.set(key, JSON.stringify(parsed), { ex: TTL_SECONDS });
 					written++;
+					counts.root++;
 					processed++;
 					if (processed % REPORT_INTERVAL === 0) logProgress();
 				} else {
 					primedBundles['finra-individual'][key] = parsed;
 					written++;
+					counts.root++;
 					processed++;
 					if (processed % REPORT_INTERVAL === 0) logProgress();
 				}
@@ -112,17 +120,20 @@ async function main() {
 					const exists = await redis.get(key);
 					if (exists != null) {
 						skipped++;
+						counts.root++;
 						processed++;
 						if (processed % REPORT_INTERVAL === 0) logProgress();
 						continue;
 					}
 					await redis.set(key, JSON.stringify(parsed), { ex: TTL_SECONDS });
 					written++;
+					counts.root++;
 					processed++;
 					if (processed % REPORT_INTERVAL === 0) logProgress();
 				} else {
 					primedBundles['finra-firm'][key] = parsed;
 					written++;
+					counts.root++;
 					processed++;
 					if (processed % REPORT_INTERVAL === 0) logProgress();
 				}
@@ -159,17 +170,20 @@ async function main() {
 					const exists = await redis.get(key);
 					if (exists != null) {
 						skipped++;
+						counts.brokercheck++;
 						processed++;
 						if (processed % REPORT_INTERVAL === 0) logProgress();
 						continue;
 					}
 					await redis.set(key, JSON.stringify(parsed), { ex: TTL_SECONDS });
 					written++;
+					counts.brokercheck++;
 					processed++;
 					if (processed % REPORT_INTERVAL === 0) logProgress();
 				} else {
 					primedBundles[`finra-${type}`][key] = parsed;
 					written++;
+					counts.brokercheck++;
 					processed++;
 					if (processed % REPORT_INTERVAL === 0) logProgress();
 				}
@@ -206,17 +220,20 @@ async function main() {
 					const exists = await redis.get(key);
 					if (exists != null) {
 						skipped++;
+						counts.adviserinfo++;
 						processed++;
 						if (processed % REPORT_INTERVAL === 0) logProgress();
 						continue;
 					}
 					await redis.set(key, JSON.stringify(parsed), { ex: TTL_SECONDS });
 					written++;
+					counts.adviserinfo++;
 					processed++;
 					if (processed % REPORT_INTERVAL === 0) logProgress();
 				} else {
 					primedBundles[`sec-${type}`][key] = parsed;
 					written++;
+					counts.adviserinfo++;
 					processed++;
 					if (processed % REPORT_INTERVAL === 0) logProgress();
 				}
@@ -268,7 +285,8 @@ async function main() {
 		}
 	}
 
-	console.log(`import complete. written=${written} skipped=${skipped} usingRedis=${useRedis}`);
+	console.log(`import complete. written=${written} skipped=${skipped} processed=${processed} usingRedis=${useRedis}`);
+	console.log(`import counts: root=${counts.root} brokercheck=${counts.brokercheck} adviserinfo=${counts.adviserinfo}`);
 }
 
 main().catch((err) => {

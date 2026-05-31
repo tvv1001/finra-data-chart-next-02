@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getProfilesFromStore } from '@/lib/graphStore';
+import { getProfilesFromStore } from '@/lib/seedStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 
 async function getProfilesData() {
