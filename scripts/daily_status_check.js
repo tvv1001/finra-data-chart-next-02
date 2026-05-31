@@ -2,7 +2,7 @@
 /**
  * daily_status_check.js
  *
- * Scheduled daily at 06:00 via cron (see scripts/install-cron.sh).
+ * Runs a status integrity check for the local graph data.
  *
  * For every node in the local graph that has a CRD, this script:
  *  1. Determines its source truth: FINRA=boolean · SEC=boolean
