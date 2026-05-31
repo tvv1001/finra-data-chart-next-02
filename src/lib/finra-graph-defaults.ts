@@ -1,2 +1,2 @@
 export const DEFAULT_SELECTION_HOPS = 3;
-export const DEFAULT_EXPANSION_HOPS = 4;
+export const DEFAULT_EXPANSION_HOPS = 3;

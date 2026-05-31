@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFullGraph, saveGraph } from '@/lib/graphStore';
 import { Redis as UpstashRedis } from '@upstash/redis';
 import { logger } from '@/lib/logger';
+import { searchLocalIndex } from '@/lib/localSearch';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -61,23 +62,16 @@ export async function GET(request: NextRequest) {
 		const matchedIds = new Set(matchedNodes.map((node) => String(node?.id || '').trim()).filter(Boolean));
 
 		if (!matchedIds.size) {
-			// No local matches — try external FINRA/SEC search endpoints and persist hits to local cache
+			// No graph matches — search the local FINRA/SEC indexes and persist discovered nodes into the graph cache.
 			try {
-				const origin = request.nextUrl.origin;
-				const headers = { Accept: 'application/json' };
-				const ROWS = '1000';
-				const [finraIndResp, finraFirmResp, secResp] = await Promise.allSettled([
-					fetch(`${origin}/api/finra/search?query=${encodeURIComponent(q)}&rows=${ROWS}`).then((r) => (r.ok ? r.json() : null)),
-					fetch(`${origin}/api/finra/search?query=${encodeURIComponent(q)}&firm=1&rows=${ROWS}`).then((r) => (r.ok ? r.json() : null)),
-					fetch(`${origin}/api/finra/sec-search?query=${encodeURIComponent(q)}`).then((r) => (r.ok ? r.json() : null)),
-				]);
-
-				const extractHits = (res: any) => {
-					const d = res?.status === 'fulfilled' ? res.value : null;
-					return d?.hits?.hits || d?.response?.docs || d?.results || [];
-				};
-
-				const allHits = [...extractHits(finraIndResp), ...extractHits(finraFirmResp), ...extractHits(secResp)];
+				const allHits = (
+					await Promise.all([
+						searchLocalIndex('finra', 'individual', q, { limit: 1000 }),
+						searchLocalIndex('finra', 'firm', q, { limit: 1000 }),
+						searchLocalIndex('sec', 'individual', q, { limit: 1000 }),
+						searchLocalIndex('sec', 'firm', q, { limit: 1000 }),
+					])
+				).flatMap((result) => result?.hits?.hits || []);
 				if (!allHits.length) return NextResponse.json({ nodes: [], links: [], matchedIds: [] });
 
 				// Build nodes/links from hits (similar to client-side logic)
@@ -109,7 +103,7 @@ export async function GET(request: NextRequest) {
 								]
 									.filter(Boolean)
 									.join(' ') || `CRD ${crd}`;
-							newNodes.push({ id: personId, label, group: 'individual', crd, _source: 'external' });
+							newNodes.push({ id: personId, label, group: 'individual', crd, _source: 'local-search' });
 
 							const emps = src?.ind_current_employments || src?.ind_ia_current_employments || [];
 							for (const e of emps) {
@@ -118,7 +112,7 @@ export async function GET(request: NextRequest) {
 								const firmNodeId = `firm:${fid}`;
 								if (!seenIds.has(firmNodeId)) {
 									seenIds.add(firmNodeId);
-									newNodes.push({ id: firmNodeId, label: e?.firm_name || e?.firmName || `Firm ${fid}`, group: 'firm', firmId: fid, _source: 'external' });
+									newNodes.push({ id: firmNodeId, label: e?.firm_name || e?.firmName || `Firm ${fid}`, group: 'firm', firmId: fid, _source: 'local-search' });
 								}
 								newLinks.push({ source: personId, target: firmNodeId, relationship: 'employed_by', isCurrent: true });
 							}
@@ -131,7 +125,7 @@ export async function GET(request: NextRequest) {
 						const firmNodeId = `firm:${firmId}`;
 						if (!seenIds.has(firmNodeId)) {
 							seenIds.add(firmNodeId);
-							newNodes.push({ id: firmNodeId, label: src?.firm_name || src?.firmName || `Firm ${firmId}`, group: 'firm', firmId, _source: 'external' });
+							newNodes.push({ id: firmNodeId, label: src?.firm_name || src?.firmName || `Firm ${firmId}`, group: 'firm', firmId, _source: 'local-search' });
 						}
 					}
 				}
@@ -157,7 +151,7 @@ export async function GET(request: NextRequest) {
 						if (url && token) {
 							const r = new UpstashRedis({ url, token });
 							const ts = new Date().toISOString();
-							const entry = { ts, action: 'persist-external-hits', source: 'graph-search', added: addedNodeIds.length, sample: addedNodeIds.slice(0, 5) };
+							const entry = { ts, action: 'persist-local-search-hits', source: 'graph-search', added: addedNodeIds.length, sample: addedNodeIds.slice(0, 5) };
 							await r.lpush('finra:redis-monitor', JSON.stringify(entry));
 							await r.ltrim('finra:redis-monitor', 0, 199);
 						}
@@ -170,7 +164,7 @@ export async function GET(request: NextRequest) {
 
 				return NextResponse.json({ nodes: newNodes, links: newLinks, matchedIds: Array.from(seenIds) });
 			} catch (e: any) {
-				logger.error('graph-search external fetch failed', { error: e?.message || String(e) });
+				logger.error('graph-search local index fallback failed', { error: e?.message || String(e) });
 				return NextResponse.json({ nodes: [], links: [], matchedIds: [] });
 			}
 		}

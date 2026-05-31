@@ -3731,38 +3731,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 		// Persist session so reload restores these nodes
 		saveSession();
 
-		// Append DOM nodes/links similar to revealNeighbors
-		const allLinks = linkGroup.selectAll('line').data(layoutLinks, (d) => {
-			const s = d.source?.id ?? d.source;
-			const t = d.target?.id ?? d.target;
-			return `${s}-${t}-${d.relationship}`;
-		});
-		const enteredLinks = allLinks
-			.enter()
-			.append('line')
-			.attr('class', 'fg-link')
-			.attr('stroke', (d) => getLinkColor(d))
-			.attr('stroke-opacity', 0)
-			.attr('stroke-width', (d) => getLinkWidth(d))
-			.attr('stroke-dasharray', (d) => getLinkDash(d))
-			.attr('marker-end', (d) => getLinkMarker(d));
-		enteredLinks.transition().duration(400).attr('stroke-opacity', defaultLinkOpacity);
-		linkSel = linkGroup.selectAll('line');
-
-		if (arrowGroup) {
-			const allArrows = arrowGroup.selectAll('line').data(layoutLinks, (d) => {
-				const s = d.source?.id ?? d.source;
-				const t = d.target?.id ?? d.target;
-				return `${s}-${t}-${d.relationship}`;
-			});
-			allArrows
-				.enter()
-				.append('line')
-				.attr('stroke', 'none')
-				.attr('fill', 'none')
-				.attr('marker-end', (d) => getLinkMarker(d));
-			arrowSel = arrowGroup.selectAll('line');
-		}
+		refreshLayeredLinkSelections({ enterDuration: 400 });
 
 		const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
 		const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen);
@@ -3773,7 +3742,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 
 		enteredNodes.transition().duration(400).attr('opacity', 1);
 		nodeSel = nodeGroup.selectAll('g.fg-node');
-		linkSel = linkGroup.selectAll('line');
+		linkSel = selectRenderedLinkLines();
 		rerenderGraphNodesByIds(getImpactedNodeIds(uniqNodes, newLinks));
 		reapplySelectionState();
 
@@ -6016,6 +5985,85 @@ function comparePriorityWithTieBreak(aPriority, bPriority, aTieBreak, bTieBreak)
 	return String(aTieBreak || '').localeCompare(String(bTieBreak || ''));
 }
 
+function getLinkDataKey(link) {
+	const sourceId = link?.source?.id ?? link?.source;
+	const targetId = link?.target?.id ?? link?.target;
+	return `${sourceId}-${targetId}-${link?.relationship}`;
+}
+
+function selectRenderedLinkLines() {
+	if (rootGroup) return rootGroup.selectAll('.fg-links-bottom line, .fg-links-mid line, .fg-links-top line');
+	if (linkGroup) return linkGroup.selectAll('line');
+	return null;
+}
+
+function selectRenderedArrowLines() {
+	if (rootGroup) return rootGroup.selectAll('.fg-arrowheads-bottom line, .fg-arrowheads-mid line, .fg-arrowheads-top line');
+	if (arrowGroup) return arrowGroup.selectAll('line');
+	return null;
+}
+
+function joinLayeredLinkGroup(groupSel, data, enterDuration = 0) {
+	if (!groupSel) return null;
+	const bound = groupSel.selectAll('line').data(data, (d) => getLinkDataKey(d));
+	bound.exit().remove();
+	const entered = bound.enter().append('line').attr('class', 'fg-link').attr('stroke-opacity', 0);
+	const merged = entered.merge(bound);
+	merged
+		.attr('class', 'fg-link')
+		.attr('stroke', (d) => getLinkColor(d))
+		.attr('stroke-width', (d) => getLinkWidth(d))
+		.attr('stroke-dasharray', (d) => getLinkDash(d))
+		.attr('marker-end', (d) => getLinkMarker(d));
+	if (enterDuration > 0) entered.transition().duration(enterDuration).attr('stroke-opacity', defaultLinkOpacity);
+	else entered.attr('stroke-opacity', defaultLinkOpacity);
+	merged.attr('stroke-opacity', defaultLinkOpacity);
+	return merged;
+}
+
+function joinLayeredArrowGroup(groupSel, data) {
+	if (!groupSel) return null;
+	const bound = groupSel.selectAll('line').data(data, (d) => getLinkDataKey(d));
+	bound.exit().remove();
+	const entered = bound.enter().append('line').attr('stroke', 'none').attr('fill', 'none');
+	const merged = entered.merge(bound);
+	merged
+		.attr('stroke', 'none')
+		.attr('fill', 'none')
+		.attr('marker-end', (d) => getLinkMarker(d));
+	return merged;
+}
+
+function refreshLayeredLinkSelections({ enterDuration = 0, highlightState = computeHighlightState() }: { enterDuration?: number; highlightState?: any } = {}) {
+	if (!layoutLinks) return;
+	if (!(linkBottomGroup && linkMidGroup && linkTopGroup && arrowBottomGroup && arrowMidGroup && arrowTopGroup)) {
+		linkSel = selectRenderedLinkLines();
+		arrowSel = selectRenderedArrowLines();
+		return;
+	}
+
+	const bottomLinks = [];
+	const midLinks = [];
+	const topLinks = [];
+	for (const link of layoutLinks) {
+		const priority = getLinkRenderPriority(link, highlightState);
+		if (priority <= 0) bottomLinks.push(link);
+		else if (priority >= 3) topLinks.push(link);
+		else midLinks.push(link);
+	}
+
+	joinLayeredLinkGroup(linkBottomGroup, bottomLinks, enterDuration);
+	joinLayeredLinkGroup(linkMidGroup, midLinks, enterDuration);
+	joinLayeredLinkGroup(linkTopGroup, topLinks, enterDuration);
+	joinLayeredArrowGroup(arrowBottomGroup, bottomLinks);
+	joinLayeredArrowGroup(arrowMidGroup, midLinks);
+	joinLayeredArrowGroup(arrowTopGroup, topLinks);
+
+	linkSel = selectRenderedLinkLines();
+	arrowSel = selectRenderedArrowLines();
+	orderGraphVisualLayers(highlightState);
+}
+
 function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 	if (linkSel && typeof linkSel.sort === 'function') {
 		linkSel.sort((a, b) => comparePriorityWithTieBreak(getLinkRenderPriority(a, highlightState), getLinkRenderPriority(b, highlightState), getLinkKey(a), getLinkKey(b)));
@@ -7019,52 +7067,7 @@ function injectNodesById(ids) {
 	neighborMap = buildNeighborMap(layoutNodes, layoutLinks);
 	if (graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
 
-	// Append DOM elements for links and nodes (reuse pattern from appendFetched)
-	const allLinks = linkGroup.selectAll('line').data(layoutLinks, (d) => {
-		const s = d.source?.id ?? d.source;
-		const t = d.target?.id ?? d.target;
-		return `${s}-${t}-${d.relationship}`;
-	});
-	const enteredLinks = allLinks
-		.enter()
-		.append('line')
-		.attr('class', 'fg-link')
-		.attr('stroke', (d) => getLinkColor(d))
-		.attr('stroke-opacity', 0)
-		.attr('stroke-width', (d) => getLinkWidth(d))
-		.attr('stroke-dasharray', (d) => getLinkDash(d))
-		.attr('marker-end', (d) => getLinkMarker(d));
-	enteredLinks.transition().duration(400).attr('stroke-opacity', defaultLinkOpacity);
-
-	// ensure new links are moved into correct sub-groups for proper layering
-	try {
-		orderGraphVisualLayers();
-	} catch (e) {
-		/* ignore */
-	}
-
-	// Ensure newly-entered links are placed in the correct layered subgroup
-	try {
-		orderGraphVisualLayers();
-	} catch (e) {
-		/* ignore */
-	}
-	linkSel = linkGroup.selectAll('line');
-
-	if (arrowGroup) {
-		const allArrows = arrowGroup.selectAll('line').data(layoutLinks, (d) => {
-			const s = d.source?.id ?? d.source;
-			const t = d.target?.id ?? d.target;
-			return `${s}-${t}-${d.relationship}`;
-		});
-		allArrows
-			.enter()
-			.append('line')
-			.attr('stroke', 'none')
-			.attr('fill', 'none')
-			.attr('marker-end', (d) => getLinkMarker(d));
-		arrowSel = arrowGroup.selectAll('line');
-	}
+	refreshLayeredLinkSelections({ enterDuration: 400 });
 
 	const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
 	const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen);
@@ -7080,7 +7083,7 @@ function injectNodesById(ids) {
 
 	enteredNodes.transition().duration(400).attr('opacity', 1);
 	nodeSel = nodeGroup.selectAll('g.fg-node');
-	linkSel = linkGroup.selectAll('line');
+	linkSel = selectRenderedLinkLines();
 	rerenderGraphNodesByIds(getImpactedNodeIds(toAdd, newLinks));
 	reapplySelectionState();
 
@@ -8816,43 +8819,7 @@ function revealNeighbors(
 	// Update the subset info to reflect newly-visible nodes
 	if (graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
 
-	// Append new link <line> elements
-	const allLinks = linkGroup.selectAll('line').data(layoutLinks, (d) => {
-		const s = d.source?.id ?? d.source;
-		const t = d.target?.id ?? d.target;
-		return `${s}-${t}-${d.relationship}`;
-	});
-	// const enteredLinks = allLinks
-	//   .enter()
-	//   .append("line")
-	//   .attr("stroke", (d) => LINK_COLOR[d.relationship] || "#5e6268")
-	//   .attr("stroke-opacity", 0)
-	//   .attr("stroke-width", 1)
-	//   .attr("marker-end", (d) => `url(#arrow-${d.relationship})`);
-	// enteredLinks
-	//   .transition()
-	//   .duration(400)
-	//   .attr("stroke-opacity", defaultLinkOpacity);
-	// linkSel = linkGroup.selectAll("line");
-
-	const enteredLinks = allLinks
-		.enter()
-		.append('line')
-		.attr('class', 'fg-link')
-		.attr('stroke', (d) => getLinkColor(d))
-		.attr('stroke-opacity', 0)
-		.attr('stroke-width', (d) => getLinkWidth(d))
-		.attr('stroke-dasharray', (d) => getLinkDash(d))
-		.attr('marker-end', (d) => getLinkMarker(d));
-	enteredLinks.transition().duration(800).attr('stroke-opacity', defaultLinkOpacity);
-	linkSel = linkGroup.selectAll('line');
-
-	// Ensure newly-entered links are placed into the correct layered subgroup
-	try {
-		orderGraphVisualLayers();
-	} catch (e) {
-		/* ignore */
-	}
+	refreshLayeredLinkSelections({ enterDuration: 800 });
 
 	const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
 	const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen);
