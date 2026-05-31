@@ -97,7 +97,22 @@ const ENABLE_SERVER_PROFILE_SYNC = typeof process !== 'undefined' && process.env
 // browser `location.origin` will be used so `new URL` never throws.
 function makeApiUrl(path) {
 	const p = path.startsWith('/') ? path : `/${path}`;
-	const base = BASE || (typeof location !== 'undefined' ? location.origin : '');
+	let base = BASE || '';
+	if (typeof location !== 'undefined') {
+		const origin = location.origin;
+		if (!base) {
+			base = origin;
+		} else {
+			try {
+				const candidate = new URL(base);
+				if (origin.startsWith('https:') && candidate.protocol === 'http:') {
+					base = origin;
+				}
+			} catch {
+				base = origin;
+			}
+		}
+	}
 	return new URL(p, base);
 }
 
@@ -2037,7 +2052,7 @@ function resolveCssColorValue(value, fallback = '#18a0fb') {
 	return resolved || fallbackValue;
 }
 
-function pulseNodeHighlightById(id, { duration = 1200, stroke = GRAPH_COLORS.nodePulse }: { duration?: number; stroke?: string } = {}) {
+function pulseNodeHighlightById(id, { duration = 600, stroke = GRAPH_COLORS.nodePulse }: { duration?: number; stroke?: string } = {}) {
 	try {
 		if (!nodeSel) return;
 		const selectedNode = nodeSel.filter((node) => node.id === id);
@@ -3285,40 +3300,53 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 					const hits = [];
 					let start = 0;
 					let total = null;
-					do {
-						const su = makeApiUrl('/api/finra/search');
-						su.searchParams.set('query', q);
-						su.searchParams.set('rows', String(PAGE_SIZE));
-						su.searchParams.set('start', String(start));
-						if (useFirm) su.searchParams.set('firm', '1');
-						const sr = await fetch(su.toString());
-						if (!sr.ok) break;
-						const sj = await sr.json();
-						const page = sj?.hits?.hits || sj?.response?.docs || sj?.results || [];
-						if (total === null) total = sj?.hits?.total ?? sj?.response?.numFound ?? page.length;
-						hits.push(...page);
-						start += page.length;
-						if (page.length < PAGE_SIZE) break;
-					} while (start < total);
+					try {
+						do {
+							const su = makeApiUrl('/api/finra/search');
+							su.searchParams.set('query', q);
+							su.searchParams.set('rows', String(PAGE_SIZE));
+							su.searchParams.set('start', String(start));
+							if (useFirm) su.searchParams.set('firm', '1');
+							const sr = await fetch(su.toString());
+							if (!sr.ok) break;
+							const sj = await sr.json();
+							const page = sj?.hits?.hits || sj?.response?.docs || sj?.results || [];
+							if (total === null) total = sj?.hits?.total ?? sj?.response?.numFound ?? page.length;
+							hits.push(...page);
+							start += page.length;
+							if (page.length < PAGE_SIZE) break;
+						} while (start < total);
+					} catch (err) {
+						console.warn('FINRA remote search request failed', err);
+					}
 					return hits;
 				};
 
 				const fetchSec = async () => {
-					// SEC adviserinfo: https://api.adviserinfo.sec.gov/search/individual?firm=…
-					// Server translates ?query= → ?firm= before forwarding.
 					const su = makeApiUrl('/api/finra/sec-search');
 					su.searchParams.set('query', q);
 					su.searchParams.set('pageSize', '50'); // SEC pagination
 					su.searchParams.set('pageNumber', '1');
-					const sr = await fetch(su.toString());
-					if (!sr.ok) return [];
-					const sj = await sr.json();
-					// SEC wraps results under hits.hits or currentPage array
-					return sj?.hits?.hits || sj?.response?.docs || sj?.currentPage || sj?.results || [];
+					try {
+						const sr = await fetch(su.toString());
+						if (!sr.ok) return [];
+						const sj = await sr.json();
+						return sj?.hits?.hits || sj?.response?.docs || sj?.currentPage || sj?.results || [];
+					} catch (err) {
+						console.warn('SEC remote search request failed', err);
+						return [];
+					}
 				};
 
-				const [indHits, firmHits, secHits] = await Promise.all([fetchFinraAll(false), fetchFinraAll(true), fetchSec()]);
-				const allHits = [...indHits, ...firmHits, ...secHits];
+				const results = await Promise.allSettled([fetchFinraAll(false), fetchFinraAll(true), fetchSec()]);
+				const allHits = [];
+				results.forEach((result, index) => {
+					if (result.status === 'fulfilled') {
+						allHits.push(...result.value);
+					} else {
+						console.warn(`Remote search request ${index} failed`, result.reason);
+					}
+				});
 
 				const hitHasIndividualId = (hit) => {
 					const src = hit?._source || hit || {};
@@ -6243,7 +6271,6 @@ function reapplySelectionState() {
 		);
 
 	highlightLinks(highlightState);
-	orderGraphVisualLayers(highlightState);
 	updateNodeVisuals(nodeSel);
 }
 
@@ -8325,16 +8352,16 @@ function selectNode(
 		skipAutoExpand?: boolean;
 		focus?: boolean;
 		pulse?: boolean;
-		focusDuration?: number;
+		focusDuration?: number; // Default is 300ms
 		syncRoute?: boolean;
 	} = {},
 ) {
-	const { persist = true, skipProfileSync = false, skipAutoExpand = false, focus = false, pulse = false, focusDuration = 600, syncRoute = true } = options;
+	const { persist = true, skipProfileSync = false, skipAutoExpand = false, focus = false, pulse = false, focusDuration = 300, syncRoute = true } = options;
 
 	// Performance: reduce selection camera motion to be minimal (instant) to match
 	// the minimal-motion behavior used by the Refresh action. Toggle via env.
 	// Default is false (motion enabled); set env REDUCE_SELECTION_MOTION=1|true to disable motion.
-	const REDUCE_SELECTION_MOTION = (typeof process !== 'undefined' && (process.env?.REDUCE_SELECTION_MOTION === '1' || process.env?.REDUCE_SELECTION_MOTION === 'true')) || false;
+	const REDUCE_SELECTION_MOTION = true;
 	if (selectionRestoreTimer) {
 		clearTimeout(selectionRestoreTimer);
 		selectionRestoreTimer = null;
@@ -9083,22 +9110,28 @@ function spreadNeighbors(
 		duration?: number;
 	} = {},
 ) {
-	if (!layoutNodes || !layoutLinks || !nodeSel || !linkSel) return;
+	if (!layoutNodes || !layoutLinks || !nodeSel || !linkSel || !simulation) return;
 	if (spreadAnimId) {
 		cancelAnimationFrame(spreadAnimId);
 		spreadAnimId = null;
 	}
 
-	const { duration = 480 } = options;
+	const { duration = 240 } = options;
 
-	// Find all direct neighbor IDs using the cached adjacency map
+	// Find all direct neighbor IDs using the cached adjacency map.
 	const neighborIdSet =
 		neighborIds instanceof Set ? new Set(neighborIds)
 		: Array.isArray(neighborIds) ? new Set(neighborIds)
 		: getNeighborIds(clickedNode.id);
 	if (neighborIdSet.size === 0) return;
 
-	// Fast node lookup
+	// For performance, we can skip the animation and just update positions.
+	// The user is OK with reduced animation.
+	simulation.alpha(0.1).restart();
+	setTimeout(() => simulation.stop(), 300);
+	return;
+
+	// The animation code below is being bypassed for performance.
 	const nodeById = new Map<string, any>(layoutNodes.map((d) => [d.id, d]));
 
 	// Capture start and target positions for each neighbor
@@ -9178,8 +9211,8 @@ function focusNodeById(
 		pulse?: boolean;
 	} = {},
 ) {
+	const { duration = 300, pulse = false } = options;
 	try {
-		const { duration = 600, pulse = false } = options;
 		if (!zoomBehavior || !svgSel) return;
 		// layoutNodes is the current array of node objects in the visualization
 		const node = (Array.isArray(layoutNodes) && layoutNodes.find((n) => n.id === id)) || null;
