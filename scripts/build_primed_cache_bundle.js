@@ -85,8 +85,14 @@ async function main() {
 		counts[pattern.bundle] = await buildBundle(pattern);
 	}
 
+	const zlib = require('node:zlib');
 	for (const [bundleName, data] of Object.entries(bundles)) {
-		await fs.writeFile(path.join(PRIMED_CACHE_DIR, `${bundleName}.json`), JSON.stringify(data), 'utf-8');
+		const jsonPath = path.join(PRIMED_CACHE_DIR, `${bundleName}.json`);
+		const binPath = path.join(PRIMED_CACHE_DIR, `${bundleName}.bin`);
+		const jsonText = JSON.stringify(data);
+		await fs.writeFile(jsonPath, jsonText, 'utf-8');
+		const gz = zlib.gzipSync(Buffer.from(jsonText, 'utf-8'));
+		await fs.writeFile(binPath, gz);
 	}
 
 	await fs.writeFile(

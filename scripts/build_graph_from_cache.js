@@ -21,11 +21,24 @@ function firmId(id) {
 }
 
 let redisClient;
+function isValidUpstashUrl(value) {
+	return typeof value === 'string' && /^https:\/\/[^.].*\.upstash\.io\/?$/.test(value) && !value.includes('...');
+}
 function getRedis() {
 	if (redisClient !== undefined) return redisClient;
 	const url = process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-	redisClient = url && token ? new Redis({ url, token }) : null;
+	if (!url || !token) {
+		redisClient = null;
+		return redisClient;
+	}
+	if (!isValidUpstashUrl(url)) {
+		throw new Error(`Invalid UPSTASH_REDIS_REST_URL: ${JSON.stringify(url)}. ` + 'It must be a real Upstash HTTPS URL like https://<id>.upstash.io');
+	}
+	if (typeof token !== 'string' || !token.trim() || token.includes('...')) {
+		throw new Error('Invalid UPSTASH_REDIS_REST_TOKEN: token is missing or appears to be a placeholder.');
+	}
+	redisClient = new Redis({ url, token });
 	return redisClient;
 }
 
