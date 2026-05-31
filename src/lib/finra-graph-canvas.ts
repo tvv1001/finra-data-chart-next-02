@@ -3,7 +3,7 @@
  * overlay and is intended for large graphs where SVG DOM painting becomes too slow.
  */
 
-import { DEFAULT_NODE_LABEL_FONT_SIZE_PX, DEFAULT_NODE_LABEL_FONT_WEIGHT } from './finra-graph-defaults';
+import { DEFAULT_NODE_LABEL_FONT_SIZE_PX, DEFAULT_NODE_LABEL_FONT_WEIGHT, DEFAULT_NODE_LABEL_GAP_PX } from './finra-graph-defaults';
 
 type Node = any;
 type Link = any;
@@ -178,7 +178,11 @@ export function drawCanvasFrame(
 				// label
 				ctx.font = `${DEFAULT_NODE_LABEL_FONT_WEIGHT} ${DEFAULT_NODE_LABEL_FONT_SIZE_PX * Math.min(2.6, Math.max(0.9, scale) * Math.max(1, Number(opts.labelScale) || 1))}px Inter, system-ui, sans-serif`;
 				ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-default-text') || '#0f172a';
-				ctx.fillText(n.label || n.name || String(n.id), p.x + 10, p.y - 8);
+				ctx.textAlign = 'center';
+				ctx.textBaseline = 'top';
+				ctx.fillText(n.label || n.name || String(n.id), p.x, p.y + Math.max(1, size * transform.k) + DEFAULT_NODE_LABEL_GAP_PX);
+				ctx.textAlign = 'start';
+				ctx.textBaseline = 'alphabetic';
 			}
 		}
 	}
