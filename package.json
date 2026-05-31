@@ -5,7 +5,7 @@
 	"scripts": {
 		"dev": "next dev -p 4444",
 		"dev:clean": "rm -rf .next && next dev -p 4444",
-		"prebuild": "if [ -n \"$UPSTASH_REDIS_REST_URL\" ]; then echo 'SKIPPING prebuild because remote Redis is configured'; else node scripts/build_workers.js && node scripts/build_graph_from_cache.js --employment-scope all --no-redis; fi",
+		"prebuild": "if [ -n \"$UPSTASH_REDIS_REST_URL\" ]; then echo 'SKIPPING prebuild because remote Redis is configured'; else ( [ -f scripts/build_workers.js ] && node scripts/build_workers.js || echo 'no build_workers.js, skipping' ) && node scripts/build_graph_from_cache.js --employment-scope all --no-redis; fi",
 		"build:workers": "node scripts/build_workers.js",
 		"build": "next build",
 		"start": "next start -p 4444",

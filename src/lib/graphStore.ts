@@ -10,6 +10,7 @@ import { promisify } from 'node:util';
 import { Redis } from '@upstash/redis';
 import { gzipOffload, gunzipOffload } from './gzipWorker';
 import { GRAPH_FILE, RECENT_SEEDS_FILE, SEED_BANK_FILE, SEED_PROFILES_FILE, SEEDS_FILE } from './constants';
+import { logger } from './logger';
 
 const REDIS_GRAPH_KEY = 'finra:graph';
 const REDIS_SEED_BANK_KEY = 'finra:seed-bank';
@@ -556,9 +557,40 @@ export async function getFullGraph() {
 						}
 					}
 				}
+
+				// If Redis contains an empty graph payload, prefer a non-empty local
+				// disk copy when available (this commonly occurs in dev when Redis
+				// held a placeholder). Read from disk and use that instead, syncing
+				// back into Redis when appropriate.
+				if (parsedRaw && Array.isArray((parsedRaw as any).nodes) && (parsedRaw as any).nodes.length === 0) {
+					try {
+						const diskGraphCandidate = await readGraphFromDisk();
+						if (diskGraphCandidate && Array.isArray(diskGraphCandidate.nodes) && diskGraphCandidate.nodes.length > 0) {
+							parsedRaw = diskGraphCandidate;
+							try {
+								await redis.set(REDIS_GRAPH_KEY, JSON.stringify(diskGraphCandidate));
+								logger.info('getFullGraph: replaced empty Redis graph with local disk copy', {
+									graphFile: GRAPH_FILE,
+									nodes: diskGraphCandidate.nodes.length,
+									links: (diskGraphCandidate.links || []).length,
+								});
+							} catch (e) {
+								// ignore failures to sync back to Redis
+							}
+						}
+					} catch (e) {
+						// ignore disk read failures here
+					}
+				}
 				if (parsedRaw) {
 					_graphCache = parseGraphPayload(parsedRaw, 'Redis graph payload');
 					_graphCacheAt = now;
+					try {
+						logger.info('getFullGraph: loaded graph from Redis', {
+							nodes: Array.isArray(_graphCache.nodes) ? _graphCache.nodes.length : 0,
+							links: Array.isArray(_graphCache.links) ? _graphCache.links.length : 0,
+						});
+					} catch (e) {}
 					if (!(await localGraphFileExists())) {
 						try {
 							await writeJsonFileAtomic(GRAPH_FILE, _graphCache);
@@ -584,12 +616,25 @@ export async function getFullGraph() {
 					}
 					_graphCache = diskGraph;
 					_graphCacheAt = now;
+					try {
+						logger.info('getFullGraph: loaded graph from disk (ensureGraphFileFromCache path)', {
+							nodes: Array.isArray(_graphCache.nodes) ? _graphCache.nodes.length : 0,
+							links: Array.isArray(_graphCache.links) ? _graphCache.links.length : 0,
+							graphFile: GRAPH_FILE,
+						});
+					} catch (e) {}
 					return _graphCache;
 				}
 			}
 			const boot = await bootstrapGraphFromDisk(redis);
 			_graphCache = boot ?? { ...EMPTY_GRAPH };
 			_graphCacheAt = now;
+			try {
+				logger.info('getFullGraph: bootstrapGraphFromDisk result', {
+					nodes: Array.isArray(_graphCache.nodes) ? _graphCache.nodes.length : 0,
+					links: Array.isArray(_graphCache.links) ? _graphCache.links.length : 0,
+				});
+			} catch (e) {}
 			return _graphCache;
 		} catch (e) {
 			// fall back to disk
@@ -603,6 +648,13 @@ export async function getFullGraph() {
 	}
 	_graphCache = (await readGraphFromDisk()) || { ...EMPTY_GRAPH };
 	_graphCacheAt = now;
+	try {
+		logger.info('getFullGraph: final disk read', {
+			nodes: Array.isArray(_graphCache.nodes) ? _graphCache.nodes.length : 0,
+			links: Array.isArray(_graphCache.links) ? _graphCache.links.length : 0,
+			graphFile: GRAPH_FILE,
+		});
+	} catch (e) {}
 	return _graphCache;
 }
 

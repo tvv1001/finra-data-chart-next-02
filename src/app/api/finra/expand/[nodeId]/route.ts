@@ -21,7 +21,8 @@ function normalizeHopsParam(value: string | null): number | 'all' {
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ nodeId: string }> }) {
 	try {
-		const { nodeId } = await params;
+		const rawParams = await params;
+		const nodeId = typeof rawParams.nodeId === 'string' ? decodeURIComponent(rawParams.nodeId) : rawParams.nodeId;
 		const hops = normalizeHopsParam(request.nextUrl.searchParams.get('hops'));
 		const graph = await getFullGraph();
 		const nodes: any[] = graph.nodes || [];
@@ -36,6 +37,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			if (!adjacency.has(targetId)) adjacency.set(targetId, new Set());
 			adjacency.get(sourceId)?.add(targetId);
 			adjacency.get(targetId)?.add(sourceId);
+		}
+
+		// Log adjacency state for debugging expand requests (helps identify
+		// cases where the requested node isn't present in the link map).
+		try {
+			logger.info('expand request', { nodeId, adjacencySize: adjacency.size, hasNode: adjacency.has(nodeId) });
+		} catch (e) {
+			// ignore logging failures
 		}
 
 		const visitedIds = new Set<string>([nodeId]);

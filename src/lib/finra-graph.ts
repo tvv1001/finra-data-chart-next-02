@@ -64,6 +64,47 @@ function _logOnce(set: Set<any>, key: any, level: 'warn' | 'info' | 'error', ...
 	else console.info('[finra-graph]', ...args);
 }
 
+// Development helper: expose a deterministic expand function on window so
+// tests and the console can trigger expansion reliably (route-driven
+// selection can be flaky due to timing). This helper is only attached in
+// browser environments.
+try {
+	if (typeof window !== 'undefined') {
+		(window as any).__finra_expandNode = async function (nodeId: string | any, hops?: number | 'all') {
+			try {
+				const rawId = String(nodeId || '').trim();
+				if (!rawId) return { error: 'no node id' };
+				// Try to find a live node in the current layout by id variants
+				const variants = [rawId, `person:${rawId}`, `firm:${rawId}`];
+				let liveNode = (Array.isArray(layoutNodes) ? layoutNodes.find((n) => variants.includes(String(n.id))) : null) as any;
+				if (!liveNode) {
+					// Attempt to ensure the route node is available (may fetch minimal data)
+					try {
+						// ensureRouteNodeAvailable is module-scoped; call if present
+						// @ts-ignore
+						if (typeof ensureRouteNodeAvailable === 'function') {
+							// @ts-ignore
+							liveNode = await ensureRouteNodeAvailable(rawId);
+						}
+					} catch (e) {
+						// ignore
+					}
+				}
+				if (!liveNode) return { error: 'node not found' };
+				// Use provided hops or default auto-selection hops
+				const hopCount = hops === undefined ? getAutoSelectionExpansionHops() : hops;
+				// @ts-ignore
+				await expandNodeThroughNonGrayHops(liveNode, hopCount);
+				return { ok: true };
+			} catch (e) {
+				return { error: String(e) };
+			}
+		};
+	}
+} catch (e) {
+	/* ignore */
+}
+
 const GRAPH_COLORS = {
 	nodeIndividual: 'var(--color-highlight-individual)',
 	nodeFirm: 'var(--color-highlight-firm)',
@@ -280,10 +321,10 @@ function updateGraphTickPositions(linkSelection, nodeSelection, arrowSelection) 
 		.attr('y2', (d) => (Number.isFinite(d.target?.y) ? d.target.y : 0));
 	if (arrowSelection) {
 		arrowSelection
-			.attr('x1', (d) => d.source.x)
-			.attr('y1', (d) => d.source.y)
-			.attr('x2', (d) => d.target.x)
-			.attr('y2', (d) => d.target.y);
+			.attr('x1', (d) => (Number.isFinite(d.source?.x) ? d.source.x : 0))
+			.attr('y1', (d) => (Number.isFinite(d.source?.y) ? d.source.y : 0))
+			.attr('x2', (d) => (Number.isFinite(d.target?.x) ? d.target.x : 0))
+			.attr('y2', (d) => (Number.isFinite(d.target?.y) ? d.target.y : 0));
 	}
 	nodeSelection.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 }
@@ -438,12 +479,15 @@ function getDefaultSelectionHops(): number {
 	return normalized === 'all' ? 1 : normalized;
 }
 
-function getDefaultExpansionHops(): number {
-	const normalized = normalizeHighlightHops(DEFAULT_EXPANSION_HOPS);
-	return normalized === 'all' ? 1 : normalized;
+function getDefaultExpansionHops(): number | 'all' {
+	// Preserve the special 'all' sentinel for expansion so callers that
+	// support unlimited expansion can opt into it by setting the default
+	// to the string 'all'. Other callers that require a numeric value
+	// should normalize this result themselves.
+	return normalizeHighlightHops(DEFAULT_EXPANSION_HOPS);
 }
 
-function getAutoSelectionExpansionHops(): number {
+function getAutoSelectionExpansionHops(): number | 'all' {
 	return getDefaultExpansionHops();
 }
 
@@ -538,7 +582,7 @@ function getVisibleRevealableNeighborIds(nodeId) {
 	const visibleNeighborIds = new Set<string>();
 	if (!nodeId || !Array.isArray(layoutLinks) || !layoutLinks.length) return visibleNeighborIds;
 	layoutLinks.forEach((link) => {
-		if (!isNonGrayExpansionLink(link)) return;
+		if (!isExpansionLink(link)) return;
 		const sourceId = link.source?.id ?? link.source;
 		const targetId = link.target?.id ?? link.target;
 		if (sourceId === nodeId && targetId) visibleNeighborIds.add(targetId);
@@ -944,6 +988,9 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 	if (liveNode) return liveNode;
 
 	try {
+		// Mark that this expansion was triggered by the user so the client
+		// will allow multi-hop expansions (not limited to 1 hop).
+		markUserInitiatedGraphExpansion();
 		const expansion = await fetchExpansionDataForNodeIds([normalizedNodeId], getDefaultExpansionHops());
 		console.log('[finra-graph] ensureRouteNodeAvailable fetched expansion', { nodes: expansion.nodes?.length, links: expansion.links?.length });
 		if (expansion.nodes.length || expansion.links.length) {
@@ -961,8 +1008,39 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 		const fetchedNodes = await fetchNodesByIds([normalizedNodeId]);
 		console.log('[finra-graph] ensureRouteNodeAvailable fetchNodesByIds result', { fetched: fetchedNodes.length });
 		if (fetchedNodes.length) {
-			mergeIntoGraphData(fetchedNodes, []);
-			injectNodesById(fetchedNodes.map((node) => node.id));
+			// Also reveal any neighbors/child nodes known in the full graph so the
+			// fetched node doesn't appear isolated. Use the server-side full graph
+			// (graphData) to find connecting links and include the connected nodes.
+			try {
+				if (graphData && Array.isArray(graphData.links) && Array.isArray(graphData.nodes)) {
+					const fetchedIds = new Set(fetchedNodes.map((n) => n.id));
+					const relatedLinks = graphData.links
+						.filter((l) => {
+							const s = l.source?.id ?? l.source;
+							const t = l.target?.id ?? l.target;
+							return fetchedIds.has(s) || fetchedIds.has(t);
+						})
+						.map((l) => ({ ...l }));
+					const neighborIds = new Set();
+					relatedLinks.forEach((l) => {
+						const s = l.source?.id ?? l.source;
+						const t = l.target?.id ?? l.target;
+						if (s && !fetchedIds.has(s)) neighborIds.add(s);
+						if (t && !fetchedIds.has(t)) neighborIds.add(t);
+					});
+					const neighborNodes = graphData.nodes.filter((n) => neighborIds.has(n.id)).map((n) => ({ ...n }));
+					const mergedNodes = [...fetchedNodes.map((n) => ({ ...n })), ...neighborNodes.filter((n) => !fetchedNodes.some((fn) => fn.id === n.id))];
+					mergeIntoGraphData(mergedNodes, relatedLinks);
+					appendFetched?.(mergedNodes, relatedLinks);
+				} else {
+					mergeIntoGraphData(fetchedNodes, []);
+					injectNodesById(fetchedNodes.map((node) => node.id));
+				}
+			} catch (e) {
+				console.warn('ensureRouteNodeAvailable: failed to reveal neighbors for fetched node', e);
+				mergeIntoGraphData(fetchedNodes, []);
+				injectNodesById(fetchedNodes.map((node) => node.id));
+			}
 			liveNode = layoutNodes?.find((node) => node.id === normalizedNodeId) || graphData?.nodes?.find((node) => node.id === normalizedNodeId) || null;
 		}
 	} catch (error) {
@@ -1024,13 +1102,35 @@ async function applyPendingRouteNodeSelection() {
 		}
 
 		console.log('[finra-graph] applyPendingRouteNodeSelection selecting node', { id: liveNode.id });
+		// Perform a deterministic expansion after selection rather than
+		// relying on selectNode's internal auto-expand behavior. This avoids
+		// race conditions where selectNode may trigger expansion too early
+		// or be skipped. We still render the selection synchronously.
 		selectNode(liveNode, {
+			// Skip selectNode's auto-expand and call expansion explicitly
+			// below so we have a single controlled expansion call.
 			skipAutoExpand: true,
 			skipProfileSync: true,
 			focus: true,
 			focusDuration: 520,
 			syncRoute: false,
 		});
+
+		// Ensure expansion runs and set the last expand origin so subsequent
+		// logic that relies on this variable behaves the same as auto-expand.
+		try {
+			lastExpandOriginNode = liveNode;
+			void expandNodeThroughNonGrayHops(liveNode, getAutoSelectionExpansionHops()).finally(() => {
+				refreshTraceState({ deferMs: 120 });
+				try {
+					saveSession();
+				} catch (e) {
+					/* ignore */
+				}
+			});
+		} catch (e) {
+			console.error('[finra-graph] route-triggered expansion failed', e);
+		}
 		return true;
 	})();
 	routeNodeSelectionState.promise = selectionPromise;
@@ -1951,6 +2051,15 @@ function isNonGrayExpansionLink(link) {
 	return false;
 }
 
+// Links considered for expansion (include previous employment/registrations).
+function isExpansionLink(link) {
+	if (!link) return false;
+	if (link.relationship === 'controls') return true;
+	if (link.relationship === 'previous_employed_by') return true;
+	if (link.relationship === 'employed_by') return true; // include current and previous registrations
+	return false;
+}
+
 function buildLinkAdjacency(links, linkFilter: ((link: any) => boolean) | null = null) {
 	const adjacency = new Map<string, Array<{ nodeId: string; link: any }>>();
 	(links || []).forEach((link) => {
@@ -2534,10 +2643,10 @@ function applySavedNodePositions(savedPositions) {
 
 	if (linkSel) {
 		linkSel
-			.attr('x1', (d) => d.source.x)
-			.attr('y1', (d) => d.source.y)
-			.attr('x2', (d) => d.target.x)
-			.attr('y2', (d) => d.target.y);
+			.attr('x1', (d) => (Number.isFinite(d.source?.x) ? d.source.x : 0))
+			.attr('y1', (d) => (Number.isFinite(d.source?.y) ? d.source.y : 0))
+			.attr('x2', (d) => (Number.isFinite(d.target?.x) ? d.target.x : 0))
+			.attr('y2', (d) => (Number.isFinite(d.target?.y) ? d.target.y : 0));
 	}
 	if (nodeSel) {
 		nodeSel.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
@@ -3920,35 +4029,13 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			// Persist session so reload restores these nodes
 			saveSession();
 
-			// Append DOM nodes/links similar to revealNeighbors
-			// Use selection.join to avoid D3's insertBefore race condition when
-			// multiple DOM updates happen concurrently. join() handles enter/update/exit
-			// deterministically and prevents references to nodes that are no longer
-			// children of the parent.
-			linkSel = linkGroup
-				.selectAll('line')
-				.data(layoutLinks, (d) => {
-					const s = d.source?.id ?? d.source;
-					const t = d.target?.id ?? d.target;
-					return `${s}-${t}-${d.relationship}`;
-				})
-				.join(
-					(enter) =>
-						enter
-							.append('line')
-							.attr('class', 'fg-link')
-							.attr('stroke', (d) => getLinkColor(d))
-							.attr('stroke-opacity', 0)
-							.attr('stroke-width', (d) => getLinkWidth(d))
-							.attr('stroke-dasharray', (d) => getLinkDash(d))
-							.attr('marker-end', (d) => getLinkMarker(d))
-							.call((sel) => sel.transition().duration(400).attr('stroke-opacity', defaultLinkOpacity)),
-					(update) => update,
-					(exit) => exit.remove(),
-				);
-
-			if (arrowGroup) {
-				arrowSel = arrowGroup
+			// Append DOM nodes/links similar to revealNeighbors. Prefer D3's
+			// selection.join, but some browsers can throw NotFoundError during
+			// concurrent DOM mutations (insertBefore reference races). If join
+			// fails, fall back to a safe full-rebuild of the groups to avoid
+			// leaving the UI in a broken state.
+			try {
+				linkSel = linkGroup
 					.selectAll('line')
 					.data(layoutLinks, (d) => {
 						const s = d.source?.id ?? d.source;
@@ -3959,30 +4046,98 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 						(enter) =>
 							enter
 								.append('line')
-								.attr('stroke', 'none')
-								.attr('fill', 'none')
-								.attr('marker-end', (d) => getLinkMarker(d)),
+								.attr('class', 'fg-link')
+								.attr('stroke', (d) => getLinkColor(d))
+								.attr('stroke-opacity', 0)
+								.attr('stroke-width', (d) => getLinkWidth(d))
+								.attr('stroke-dasharray', (d) => getLinkDash(d))
+								.attr('marker-end', (d) => getLinkMarker(d))
+								.call((sel) => sel.transition().duration(400).attr('stroke-opacity', defaultLinkOpacity)),
 						(update) => update,
 						(exit) => exit.remove(),
 					);
-			}
 
-			nodeSel = nodeGroup
-				.selectAll('g.fg-node')
-				.data(layoutNodes, (d) => d.id)
-				.join(
-					(enter) =>
-						enter
-							.append('g')
-							.attr('class', 'fg-node')
-							.attr('opacity', 0)
-							.call(fluidDrag())
-							.on('click', handleNodeOpen)
-							.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`)
-							.call((sel) => sel.transition().duration(400).attr('opacity', 1)),
-					(update) => update,
-					(exit) => exit.remove(),
-				);
+				if (arrowGroup) {
+					arrowSel = arrowGroup
+						.selectAll('line')
+						.data(layoutLinks, (d) => {
+							const s = d.source?.id ?? d.source;
+							const t = d.target?.id ?? d.target;
+							return `${s}-${t}-${d.relationship}`;
+						})
+						.join(
+							(enter) =>
+								enter
+									.append('line')
+									.attr('stroke', 'none')
+									.attr('fill', 'none')
+									.attr('marker-end', (d) => getLinkMarker(d)),
+							(update) => update,
+							(exit) => exit.remove(),
+						);
+				}
+
+				nodeSel = nodeGroup
+					.selectAll('g.fg-node')
+					.data(layoutNodes, (d) => d.id)
+					.join(
+						(enter) =>
+							enter
+								.append('g')
+								.attr('class', 'fg-node')
+								.attr('opacity', 0)
+								.call(fluidDrag())
+								.on('click', handleNodeOpen)
+								.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`)
+								.call((sel) => sel.transition().duration(400).attr('opacity', 1)),
+						(update) => update,
+						(exit) => exit.remove(),
+					);
+			} catch (e) {
+				// D3 .join may occasionally fail with DOM insertBefore NotFoundError
+				// when multiple concurrent updates collide. Fall back to a safe
+				// rebuild: clear and re-append elements deterministically.
+				console.warn('appendFetched: join failed, falling back to full DOM rebuild', e);
+
+				try {
+					// Rebuild links
+					linkGroup.selectAll('*').remove();
+					for (const d of layoutLinks) {
+						linkGroup
+							.append('line')
+							.attr('class', 'fg-link')
+							.attr('stroke', getLinkColor(d))
+							.attr('stroke-opacity', defaultLinkOpacity)
+							.attr('stroke-width', getLinkWidth(d))
+							.attr('stroke-dasharray', getLinkDash(d))
+							.attr('marker-end', getLinkMarker(d));
+					}
+					linkSel = linkGroup.selectAll('line');
+
+					if (arrowGroup) {
+						arrowGroup.selectAll('*').remove();
+						for (const d of layoutLinks) {
+							arrowGroup.append('line').attr('stroke', 'none').attr('fill', 'none').attr('marker-end', getLinkMarker(d));
+						}
+						arrowSel = arrowGroup.selectAll('line');
+					}
+
+					// Rebuild nodes
+					nodeGroup.selectAll('*').remove();
+					for (const d of layoutNodes) {
+						const g = nodeGroup.append('g').attr('class', 'fg-node').attr('opacity', 1);
+						try {
+							// attach drag and click handlers if available
+							typeof fluidDrag === 'function' && g.call(fluidDrag());
+							typeof handleNodeOpen === 'function' && g.on && g.on('click', handleNodeOpen);
+						} catch (inner) {}
+						g.attr('transform', `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
+					}
+					nodeSel = nodeGroup.selectAll('g.fg-node');
+				} catch (rebuildErr) {
+					console.warn('appendFetched: fallback rebuild also failed', rebuildErr);
+				}
+			}
 			linkSel = linkGroup.selectAll('line');
 			rerenderGraphNodesByIds(getImpactedNodeIds(uniqNodes, newLinks));
 			reapplySelectionState();
@@ -5222,7 +5377,7 @@ async function loadGraph() {
 }
 
 // Build a subgraph from `seedCount` random nodes plus all their N-hop neighbors.
-function subsetGraph(data, seedCount, hops = DEFAULT_EXPANSION_HOPS) {
+function subsetGraph(data, seedCount, hops = getDefaultExpansionHops()) {
 	const adj = new Map<string, string[]>();
 	data.links.forEach((l) => {
 		const srcId = l.source?.id ?? l.source;
@@ -5238,18 +5393,36 @@ function subsetGraph(data, seedCount, hops = DEFAULT_EXPANSION_HOPS) {
 	const visibleIds = new Set<string>(seeds.map((n) => n.id));
 	let frontier = new Set<string>(visibleIds);
 
-	for (let h = 0; h < hops; h++) {
-		const next = new Set<string>();
-		frontier.forEach((id) => {
-			(adj.get(id) || []).forEach((nid) => {
-				if (!visibleIds.has(nid)) {
-					visibleIds.add(nid);
-					next.add(nid);
-				}
+	const normalized = normalizeHighlightHops(hops);
+	if (normalized === 'all') {
+		// expand until no new frontier nodes are found
+		while (frontier.size > 0) {
+			const next = new Set<string>();
+			frontier.forEach((id) => {
+				(adj.get(id) || []).forEach((nid) => {
+					if (!visibleIds.has(nid)) {
+						visibleIds.add(nid);
+						next.add(nid);
+					}
+				});
 			});
-		});
-		frontier = next;
-		if (frontier.size === 0) break;
+			frontier = next;
+			if (frontier.size === 0) break;
+		}
+	} else {
+		for (let h = 0; h < normalized; h++) {
+			const next = new Set<string>();
+			frontier.forEach((id) => {
+				(adj.get(id) || []).forEach((nid) => {
+					if (!visibleIds.has(nid)) {
+						visibleIds.add(nid);
+						next.add(nid);
+					}
+				});
+			});
+			frontier = next;
+			if (frontier.size === 0) break;
+		}
 	}
 
 	const nodes = data.nodes.filter((n) => visibleIds.has(n.id));
@@ -6411,16 +6584,32 @@ function comparePriorityWithTieBreak(aPriority, bPriority, aTieBreak, bTieBreak)
 }
 
 function orderGraphVisualLayers(highlightState = computeHighlightState()) {
-	if (linkSel && typeof linkSel.sort === 'function') {
-		linkSel.sort((a, b) => comparePriorityWithTieBreak(getLinkRenderPriority(a, highlightState), getLinkRenderPriority(b, highlightState), getLinkKey(a), getLinkKey(b)));
-	}
+	// Safely sort selections only when their DOM nodes are attached to a parent.
+	try {
+		if (linkSel && typeof linkSel.sort === 'function') {
+			const nodes = typeof linkSel.nodes === 'function' ? linkSel.nodes() : [];
+			if (!nodes.some((n) => !n || !n.parentNode)) {
+				linkSel.sort((a, b) => comparePriorityWithTieBreak(getLinkRenderPriority(a, highlightState), getLinkRenderPriority(b, highlightState), getLinkKey(a), getLinkKey(b)));
+			}
+		}
 
-	if (arrowSel && typeof arrowSel.sort === 'function') {
-		arrowSel.sort((a, b) => comparePriorityWithTieBreak(getLinkRenderPriority(a, highlightState), getLinkRenderPriority(b, highlightState), getLinkKey(a), getLinkKey(b)));
-	}
+		if (arrowSel && typeof arrowSel.sort === 'function') {
+			const nodes = typeof arrowSel.nodes === 'function' ? arrowSel.nodes() : [];
+			if (!nodes.some((n) => !n || !n.parentNode)) {
+				arrowSel.sort((a, b) => comparePriorityWithTieBreak(getLinkRenderPriority(a, highlightState), getLinkRenderPriority(b, highlightState), getLinkKey(a), getLinkKey(b)));
+			}
+		}
 
-	if (nodeSel && typeof nodeSel.sort === 'function') {
-		nodeSel.sort((a, b) => comparePriorityWithTieBreak(getNodeRenderPriority(a, highlightState), getNodeRenderPriority(b, highlightState), a?.id, b?.id));
+		if (nodeSel && typeof nodeSel.sort === 'function') {
+			const nodes = typeof nodeSel.nodes === 'function' ? nodeSel.nodes() : [];
+			if (!nodes.some((n) => !n || !n.parentNode)) {
+				nodeSel.sort((a, b) => comparePriorityWithTieBreak(getNodeRenderPriority(a, highlightState), getNodeRenderPriority(b, highlightState), a?.id, b?.id));
+			}
+		}
+	} catch (e) {
+		// Sorting is a non-fatal optimization for render order; if something goes
+		// wrong (detached nodes during fast DOM updates), skip sorting instead
+		// of throwing.
 	}
 
 	// Move individual link/arrow DOM nodes between link sub-groups so some links
@@ -8384,7 +8573,8 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 		}
 		if (runId !== nonGrayExpandRunId) return;
 
-		const adjacency = buildLinkAdjacency(graphData?.links || [], isNonGrayExpansionLink);
+		// Use expansion link filter which includes previous employment/registrations
+		const adjacency = buildLinkAdjacency(graphData?.links || [], isExpansionLink);
 		const nextIds = [];
 		frontierIds.forEach((frontierId) => {
 			(adjacency.get(frontierId) || []).forEach(({ nodeId }) => {
@@ -8401,7 +8591,8 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 		const hiddenIds = uniqueNextIds.filter((nodeId) => !renderedIds.has(nodeId));
 		if (hiddenIds.length) {
 			revealNeighbors(clickedNode, 'all', {
-				linkFilter: isNonGrayExpansionLink,
+				// include previous employment/registration links when revealing neighbors
+				linkFilter: isExpansionLink,
 				restrictToIds: new Set(hiddenIds),
 				markSelected: true,
 			});
@@ -8762,7 +8953,8 @@ async function handleNodeOpen(event, d) {
 	markUserInitiatedGraphExpansion();
 	anchorNode(d);
 	selectNode(d, { skipAutoExpand: true });
-	void expandNodeThroughNonGrayHops(d, getAutoSelectionExpansionHops()).catch((err) => {
+	// On direct click, reveal only the default expansion hops (minimal neighbors)
+	void expandNodeThroughNonGrayHops(d, getDefaultExpansionHops()).catch((err) => {
 		console.error('Progressive non-gray hop expansion failed:', err);
 		refreshTraceState({ deferMs: 120 });
 	});
@@ -9403,10 +9595,10 @@ function revealNeighbors(
 
 	simulation.on('tick', () => {
 		linkSel
-			.attr('x1', (d) => d.source.x)
-			.attr('y1', (d) => d.source.y)
-			.attr('x2', (d) => d.target.x)
-			.attr('y2', (d) => d.target.y);
+			.attr('x1', (d) => (Number.isFinite(d.source?.x) ? d.source.x : 0))
+			.attr('y1', (d) => (Number.isFinite(d.source?.y) ? d.source.y : 0))
+			.attr('x2', (d) => (Number.isFinite(d.target?.x) ? d.target.x : 0))
+			.attr('y2', (d) => (Number.isFinite(d.target?.y) ? d.target.y : 0));
 		nodeSel.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 	});
 
@@ -9423,11 +9615,11 @@ function revealNeighbors(
 	// Update tick handler to cover new selections
 	simulation.on('tick', () => {
 		linkSel
-			.attr('x1', (d) => d.source.x)
-			.attr('y1', (d) => d.source.y)
-			.attr('x2', (d) => d.target.x)
-			.attr('y2', (d) => d.target.y);
-		nodeSel.attr('transform', (d) => `translate(${d.x},${d.y})`);
+			.attr('x1', (d) => (Number.isFinite(d.source?.x) ? d.source.x : 0))
+			.attr('y1', (d) => (Number.isFinite(d.source?.y) ? d.source.y : 0))
+			.attr('x2', (d) => (Number.isFinite(d.target?.x) ? d.target.x : 0))
+			.attr('y2', (d) => (Number.isFinite(d.target?.y) ? d.target.y : 0));
+		nodeSel.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 	});
 
 	// Persist session so reload restores these revealed neighbors

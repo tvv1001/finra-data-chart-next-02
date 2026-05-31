@@ -7,7 +7,6 @@ import path from 'node:path';
 import { rememberRecentSeed } from '@/lib/graphStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
-import { mergedFirm } from '@/lib/dataMerge';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -229,8 +228,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			secDetail = parseDetailPayload(secData.value, 'iacontent');
 		}
 
+		// If no payload was found in cache or upstream, respond in cache-only
+		// mode. Do NOT import raw files here; importing/updating raw data
+		// should be performed by the external crawler/import process and the
+		// local cache should be rebuilt using the provided scripts.
 		if (!bcDetail && !secDetail) {
-			return NextResponse.json({ found: false }, { status: 200, headers: sharedCacheHeaders(3600) });
+			return NextResponse.json(
+				{
+					found: false,
+					cacheOnly: true,
+					updateHint: 'Import raw data from the external crawler and rebuild the local cache (see scripts/rebuild_local_data.js or scripts/sync_external_raw.js).',
+				},
+				{ status: 200, headers: sharedCacheHeaders(3600) },
+			);
 		}
 
 		let detail: any = bcDetail || secDetail;
@@ -310,15 +320,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		return NextResponse.json(detail, { headers: sharedCacheHeaders(3600) });
 	} catch (err: any) {
 		logger.error('firm proxy error', { id, error: err.message });
-		try {
-			const fallback = await mergedFirm(id);
-			const fallbackDetail = buildFallbackFirmDetail(id, fallback);
-			if (fallbackDetail) {
-				return NextResponse.json(fallbackDetail, { headers: sharedCacheHeaders(300) });
-			}
-		} catch (fallbackErr: any) {
-			logger.warn('firm proxy fallback failed', { id, error: fallbackErr?.message || String(fallbackErr) });
-		}
-		return NextResponse.json({ found: false }, { status: 200, headers: sharedCacheHeaders(300) });
+		return NextResponse.json(
+			{
+				found: false,
+				cacheOnly: true,
+				error: 'Failed to fetch firm detail from upstream providers. Ensure local cache is populated or enable external API access.',
+				updateHint: 'Import raw data from the external crawler and rebuild the local cache (see scripts/rebuild_local_data.js or scripts/sync_external_raw.js).',
+			},
+			{ status: 200, headers: sharedCacheHeaders(300) },
+		);
 	}
 }

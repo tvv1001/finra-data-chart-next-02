@@ -139,10 +139,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			});
 		}
 
-		const finraDetail = parseDetailPayload(finraData, 'content');
-		const secDetail = parseDetailPayload(secData, 'iacontent');
+		let finraDetail = parseDetailPayload(finraData, 'content');
+		let secDetail = parseDetailPayload(secData, 'iacontent');
+
+		// If no payload was found from cache or upstream, respond in
+		// cache-only mode. Do NOT read raw files directly — updates to the
+		// cache should be performed by importing raw data from the external
+		// crawler (see scripts/rebuild_local_data.js or scripts/sync_external_raw.js).
 		if (!finraDetail && !secDetail) {
-			return NextResponse.json({ found: false }, { status: 200, headers: sharedCacheHeaders(3600) });
+			return NextResponse.json(
+				{
+					found: false,
+					cacheOnly: true,
+					updateHint: 'Import raw data from the external crawler and rebuild the local cache (see scripts/rebuild_local_data.js or scripts/sync_external_raw.js).',
+				},
+				{ status: 200, headers: sharedCacheHeaders(3600) },
+			);
 		}
 
 		// Prefer FINRA detail when both FINRA and SEC data are available.

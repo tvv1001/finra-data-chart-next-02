@@ -76,12 +76,21 @@ function normalizeKey(key: string): string {
 	return key.slice(0, lastColon + 1) + canonical;
 }
 
-function getUpstash(): Redis | null {
+async function getUpstash(): Promise<Redis | null> {
 	if (upstash !== null) return upstash;
 	const url = process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-	if (url && token) upstash = new Redis({ url, token });
-	return upstash;
+	if (!url || !token) return null;
+	try {
+		// dynamic import to avoid bundling/upfront resolution during dev
+		const mod = await import('@upstash/redis');
+		const RedisCls = (mod as any).Redis ?? (mod as any).default ?? mod;
+		upstash = new RedisCls({ url, token });
+		return upstash;
+	} catch (err) {
+		console.warn('Failed to load Upstash Redis client dynamically:', err instanceof Error ? err.message : err);
+		return null;
+	}
 }
 
 function getMem(): MemStore {
@@ -171,10 +180,10 @@ function toBuffer(value: Buffer | Uint8Array | ArrayBuffer): Buffer {
 }
 
 async function getBinaryFromRedis(key: string): Promise<Buffer | null> {
-	const redis = getUpstash();
+	const redis = await getUpstash();
 	if (!redis) return null;
 	try {
-		const raw = await redis.get<string>(key);
+		const raw = await (redis as any).get<string>(key);
 		if (raw == null) return null;
 		return Buffer.from(raw, 'base64');
 	} catch {
@@ -183,12 +192,12 @@ async function getBinaryFromRedis(key: string): Promise<Buffer | null> {
 }
 
 async function setBinaryInRedis(key: string, value: Buffer, ttlSeconds: number): Promise<void> {
-	const redis = getUpstash();
+	const redis = await getUpstash();
 	if (!redis) return;
 	try {
 		await Promise.all([
-			redis.set(key, value.toString('base64'), { ex: ttlSeconds }),
-			redis.set(`${key}:meta`, JSON.stringify({ binary: true, kind: 'buffer-v1' }), { ex: ttlSeconds }),
+			(redis as any).set(key, value.toString('base64'), { ex: ttlSeconds }),
+			(redis as any).set(`${key}:meta`, JSON.stringify({ binary: true, kind: 'buffer-v1' }), { ex: ttlSeconds }),
 		]);
 	} catch {
 		// ignore redis binary set errors
@@ -236,10 +245,10 @@ async function writeStructuredCache(key: string, value: unknown, ttlSeconds: num
 }
 
 async function getStructuredFromRedis<T>(key: string): Promise<T | null> {
-	const redis = getUpstash();
+	const redis = await getUpstash();
 	if (!redis) return null;
 	try {
-		const raw = await redis.get<string>(key);
+		const raw = await (redis as any).get<string>(key);
 		if (raw == null) return null;
 		if (typeof raw === 'string' && raw.startsWith(JSON_BINARY_PREFIX)) {
 			const json = await gunzipBase64ToJson(raw.slice(JSON_BINARY_PREFIX.length));
@@ -252,17 +261,17 @@ async function getStructuredFromRedis<T>(key: string): Promise<T | null> {
 }
 
 async function setStructuredInRedis(key: string, value: unknown, ttlSeconds: number): Promise<void> {
-	const redis = getUpstash();
+	const redis = await getUpstash();
 	if (!redis) return;
 	try {
 		const gzBase64 = await gzipJsonToBase64(JSON.stringify(value));
 		await Promise.all([
-			redis.set(key, `${JSON_BINARY_PREFIX}${gzBase64}`, { ex: ttlSeconds }),
-			redis.set(`${key}:meta`, JSON.stringify({ binary: true, kind: 'json-gzip-v1' }), { ex: ttlSeconds }),
+			(redis as any).set(key, `${JSON_BINARY_PREFIX}${gzBase64}`, { ex: ttlSeconds }),
+			(redis as any).set(`${key}:meta`, JSON.stringify({ binary: true, kind: 'json-gzip-v1' }), { ex: ttlSeconds }),
 		]);
 	} catch {
 		try {
-			await redis.set(key, JSON.stringify(value), { ex: ttlSeconds });
+			await (redis as any).set(key, JSON.stringify(value), { ex: ttlSeconds });
 		} catch {
 			// ignore redis structured set errors
 		}
@@ -271,7 +280,7 @@ async function setStructuredInRedis(key: string, value: unknown, ttlSeconds: num
 
 export async function cachedFetchBinary(rawKey: string, ttlSeconds: number, fetcher: () => Promise<Buffer | Uint8Array | ArrayBuffer>): Promise<Buffer> {
 	const key = normalizeKey(rawKey);
-	const redis = getUpstash();
+	const redis = await getUpstash();
 	if (redis) {
 		const cached = await getBinaryFromRedis(key);
 		if (cached) return cached;
@@ -294,7 +303,7 @@ export async function cachedFetchBinary(rawKey: string, ttlSeconds: number, fetc
 
 export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher: () => Promise<T>): Promise<T> {
 	const key = normalizeKey(rawKey);
-	const redis = getUpstash();
+	const redis = await getUpstash();
 
 	if (redis) {
 		try {
@@ -359,11 +368,11 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 
 export async function clearCache(rawKey: string) {
 	const key = normalizeKey(rawKey);
-	const redis = getUpstash();
+	const redis = await getUpstash();
 	if (redis) {
 		try {
-			await redis.del(key);
-			await redis.del(`${key}:meta`).catch(() => undefined);
+			await (redis as any).del(key);
+			await (redis as any).del(`${key}:meta`).catch(() => undefined);
 		} catch {
 			// fall through to in-memory
 		}
