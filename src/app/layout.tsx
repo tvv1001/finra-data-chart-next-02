@@ -1,9 +1,16 @@
 import type { Metadata, Viewport } from 'next';
+import { Manrope } from 'next/font/google';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import AnalyticsRouteBridge from '@/components/AnalyticsRouteBridge';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
 import ViewportDebugOverlay from '@/components/ViewportDebugOverlay';
 import './globals.css';
+
+const manrope = Manrope({
+	subsets: ['latin'],
+	weight: ['400', '500', '600', '700'],
+	display: 'swap',
+});
 
 const siteUrl = 'https://finra-data-chart-next-02.vercel.app';
 
@@ -104,6 +111,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 	return (
 		<html
 			lang='en'
+			className={manrope.className}
 			suppressHydrationWarning>
 			<body>
 				<script dangerouslySetInnerHTML={{ __html: themeLoaderScript }} />

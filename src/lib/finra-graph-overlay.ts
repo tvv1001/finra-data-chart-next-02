@@ -3,9 +3,16 @@
  * world coordinates by applying the same d3 zoom transform used by the renderer.
  */
 
-import { DEFAULT_NODE_LABEL_FONT_SIZE, DEFAULT_NODE_LABEL_FONT_SIZE_PX, DEFAULT_NODE_LABEL_FONT_WEIGHT } from './finra-graph-defaults';
+import { DEFAULT_NODE_LABEL_FONT_SIZE, DEFAULT_NODE_LABEL_FONT_SIZE_PX, DEFAULT_NODE_LABEL_FONT_WEIGHT, DEFAULT_NODE_LABEL_GAP_PX } from './finra-graph-defaults';
 
 type Node = any;
+
+function getNodeVisualHalf(node: Node) {
+	if (typeof node?._vizHalf === 'number' && Number.isFinite(node._vizHalf)) return node._vizHalf;
+	if (node?.group === 'firm') return 10;
+	if (node?.group === 'entity') return 10.5;
+	return 7;
+}
 
 let container: HTMLElement | null = null;
 let parentEl: HTMLElement | null = null;
@@ -128,7 +135,7 @@ function createLabelElement(node: Node) {
 	const el = document.createElement('div');
 	el.className = 'fg-overlay-label';
 	el.style.position = 'absolute';
-	el.style.transform = 'translate(-50%, -100%)';
+	el.style.transform = 'translate(-50%, 0)';
 	el.style.pointerEvents = 'auto';
 	el.style.padding = '4px 8px';
 	el.style.borderRadius = '4px';
@@ -214,8 +221,9 @@ export function updateOverlay(
 			container.appendChild(el);
 		}
 		const p = worldToScreen(n.x, n.y, transform);
+		const visualHalf = getNodeVisualHalf(n) * Math.max(0.1, transform.k || 1);
 		el.style.left = `${Math.round(p.x)}px`;
-		el.style.top = `${Math.round(p.y)}px`;
+		el.style.top = `${Math.round(p.y + visualHalf + DEFAULT_NODE_LABEL_GAP_PX)}px`;
 		el.style.fontSize = `${Math.max(DEFAULT_NODE_LABEL_FONT_SIZE_PX, Math.round(DEFAULT_NODE_LABEL_FONT_SIZE_PX * Math.max(1, Number(opts.labelScale) || 1) * 10) / 10)}px`;
 	}
 

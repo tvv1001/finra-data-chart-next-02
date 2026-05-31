@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
-
 /* ── Design tokens (match main app) ───────────────────────────────────── */
 :root {
 	/* Legend: individuals */
@@ -440,7 +438,7 @@ html[data-theme='dark'] .fg-dis-comment {
 
 html[data-theme='dark'] text.fg-label {
 	fill: #ffffff !important;
-	font-size: var(--fg-node-label-font-size, 6px);
+	font-size: var(--fg-node-label-font-size, 5px);
 	font-weight: var(--fg-node-label-font-weight, 400);
 	opacity: 1 !important;
 	stroke: var(--surface) !important;
@@ -3250,7 +3248,7 @@ a,
 }
 
 .fg-root.fg-selection-log-labels text.fg-label {
-	font-size: calc(11px * var(--fg-selection-log-label-scale, 1)) !important;
+	font-size: 8px !important;
 	stroke-width: 5px !important;
 }
 
@@ -3830,7 +3828,7 @@ a,
 
 text.fg-label {
 	fill: #8e99b3 !important;
-	font-size: var(--fg-node-label-font-size, 6px);
+	font-size: var(--fg-node-label-font-size, 5px);
 	font-weight: var(--fg-node-label-font-weight, 400);
 	opacity: 1 !important;
 	stroke: #ffffff !important;

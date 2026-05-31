@@ -28,7 +28,7 @@ import {
 	row as rowImpl,
 	truncate as truncateImpl,
 } from './finra-graph/formatters';
-import { DEFAULT_EXPANSION_HOPS, DEFAULT_NODE_LABEL_FONT_SIZE, DEFAULT_NODE_LABEL_FONT_WEIGHT, DEFAULT_SELECTION_HOPS } from './finra-graph-defaults';
+import { DEFAULT_EXPANSION_HOPS, DEFAULT_NODE_LABEL_FONT_SIZE, DEFAULT_NODE_LABEL_FONT_WEIGHT, DEFAULT_NODE_LABEL_GAP_PX, DEFAULT_SELECTION_HOPS } from './finra-graph-defaults';
 import * as canvasRenderer from './finra-graph-canvas';
 import * as overlayRenderer from './finra-graph-overlay';
 
@@ -197,6 +197,11 @@ function getSelectionLinkEmphasis(zoomScale = getCurrentGraphZoomScale()) {
 }
 
 function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
+	if (typeof document !== 'undefined') {
+		document.documentElement.style.setProperty('--fg-node-label-font-size', DEFAULT_NODE_LABEL_FONT_SIZE);
+		document.documentElement.style.setProperty('--fg-node-label-font-weight', DEFAULT_NODE_LABEL_FONT_WEIGHT);
+	}
+
 	if (!rootGroup) return;
 	const traceActive = isAnyTraceModeActive();
 	const normalizedScale = Math.max(0.1, Number(zoomScale) || 1);
@@ -5849,7 +5854,7 @@ function renderNodeContents(selection) {
 		drawDisclosureIndicator(g, d, r);
 
 		const labelText = inactive && inactiveLabelCompactMode ? getCompactInactiveNodeLabel(d) : getRenderedNodeLabel(d);
-		const labelDy = (d._vizHalf != null ? d._vizHalf : r) + 8;
+		const labelY = (d._vizHalf != null ? d._vizHalf : r) + DEFAULT_NODE_LABEL_GAP_PX;
 
 		// Check if this node is in the selection log (by id)
 		const isLogged = isSelectionLogBold && selectedNodesLog.some((e) => e.id === d.id);
@@ -5859,8 +5864,9 @@ function renderNodeContents(selection) {
 		label = g
 			.append('text')
 			.attr('class', `fg-label${inactive ? ' fg-label--inactive' : ''}${isLogged ? ' fg-label--logged' : ''}`)
-			.attr('dy', labelDy)
+			.attr('y', labelY)
 			.attr('text-anchor', 'middle')
+			.attr('dominant-baseline', 'hanging')
 			.attr('font-size', labelFontSize)
 			.attr('font-family', 'var(--sans)')
 			.attr('font-weight', isLogged ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT)
@@ -6208,13 +6214,15 @@ function reapplySelectionState() {
 	if (!nodeSel) return;
 	const highlightState = computeHighlightState();
 	nodeSel
-		.classed(
-			'selected',
-			(node) => node.id === selectedId || visitedNodeIds.has(node.id) || highlightState.nodeIds.has(node.id) || isFetchedLeafNode(node) || isFetchedExhaustedConnectedNode(node),
+		.classed('selected', (node) =>
+			shouldRenderNodeSelected(node, {
+				selectedId,
+				highlightRootIds: highlightState.rootIds,
+				isFetchedLeafNode: (candidateNode) => isFetchedLeafNode(candidateNode),
+				isFetchedExhaustedConnectedNode: (candidateNode) => isFetchedExhaustedConnectedNode(candidateNode),
+			}),
 		)
 		.classed('highlighted-hop', (node) => node.id !== selectedId && !highlightState.rootIds.has(node.id) && highlightState.hopNodeIds.has(node.id));
-
-	// Trace Mode node highlights — endpoints get trace-* class, connectors get trace-*-connector class
 	const isOnShortestTrace = (id: string) => traceShortestIds.has(id) || traceShortestConnectorIds.has(id);
 	const isOnLongestTrace = (id: string) => traceLongestIds.has(id) || traceLongestConnectorIds.has(id);
 	const isOnLogTrace = (id: string) => traceLogIds.has(id) || traceLogConnectorIds.has(id);
@@ -6237,6 +6245,26 @@ function reapplySelectionState() {
 	highlightLinks(highlightState);
 	orderGraphVisualLayers(highlightState);
 	updateNodeVisuals(nodeSel);
+}
+
+export function shouldRenderNodeSelected(
+	node,
+	options: {
+		selectedId?: string | null;
+		highlightRootIds?: Set<any>;
+		isFetchedLeafNode?: (node: any) => boolean;
+		isFetchedExhaustedConnectedNode?: (node: any) => boolean;
+	} = {},
+) {
+	if (!node?.id) return false;
+	const {
+		selectedId: candidateSelectedId = null,
+		highlightRootIds = new Set<any>(),
+		isFetchedLeafNode: isFetchedLeafNodeFn = () => false,
+		isFetchedExhaustedConnectedNode: isFetchedExhaustedConnectedNodeFn = () => false,
+	} = options;
+
+	return node.id === candidateSelectedId || highlightRootIds.has(node.id) || isFetchedLeafNodeFn(node) || isFetchedExhaustedConnectedNodeFn(node);
 }
 
 function markNodeSelected(node, options: { persist?: boolean } = {}) {

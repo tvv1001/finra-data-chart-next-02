@@ -15,6 +15,7 @@ import {
 	loadPersistedSidebarViewMode,
 	loadSelectionLogBoldPreference,
 	normalizeNodeLabelInPlace,
+	shouldRenderNodeSelected,
 	upsertSelectionLogEntry,
 } from '../../src/lib/finra-graph';
 
@@ -265,6 +266,45 @@ describe('FinraGraph DOM helpers (unit)', () => {
 				(node) => node.inspectable === true,
 			),
 		).toBe(false);
+	});
+
+	it('shouldRenderNodeSelected keeps merely visited expandable nodes out of selected styling', () => {
+		const node = { id: 'person:4624219', label: 'Katherine Patricia Clune' } as any;
+
+		expect(
+			shouldRenderNodeSelected(node, {
+				selectedId: 'person:9999999',
+				highlightRootIds: new Set<string>(),
+				isFetchedLeafNode: () => false,
+				isFetchedExhaustedConnectedNode: () => false,
+			}),
+		).toBe(false);
+	});
+
+	it('shouldRenderNodeSelected does not treat neighboring highlight hops as selected nodes', () => {
+		const child = { id: 'person:4624220', label: 'Child Node' } as any;
+
+		expect(
+			shouldRenderNodeSelected(child, {
+				selectedId: 'person:4624219',
+				highlightRootIds: new Set(['person:4624219']),
+				isFetchedLeafNode: () => false,
+				isFetchedExhaustedConnectedNode: () => false,
+			}),
+		).toBe(false);
+	});
+
+	it('shouldRenderNodeSelected still marks exhausted fetched nodes as selected', () => {
+		const node = { id: 'person:4240769', label: 'Example Person' } as any;
+
+		expect(
+			shouldRenderNodeSelected(node, {
+				selectedId: null,
+				highlightRootIds: new Set<string>(),
+				isFetchedLeafNode: () => false,
+				isFetchedExhaustedConnectedNode: () => true,
+			}),
+		).toBe(true);
 	});
 
 	it('focusFetchInputWhenEmpty focuses when empty and not active', () => {
