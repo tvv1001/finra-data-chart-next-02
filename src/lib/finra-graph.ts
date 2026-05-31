@@ -3690,6 +3690,8 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			} finally {
 				fetchBtn.disabled = false;
 				fetchBtn.textContent = origText;
+				fetchInput.value = '';
+				fetchInput.focus();
 			}
 		};
 
@@ -3732,11 +3734,12 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			const H = main?.clientHeight || 600;
 			const originX = lastExpandOriginNode && Number.isFinite(lastExpandOriginNode.x) ? lastExpandOriginNode.x : W / 2;
 			const originY = lastExpandOriginNode && Number.isFinite(lastExpandOriginNode.y) ? lastExpandOriginNode.y : H / 2;
-			uniqNodes.forEach((n) => {
+			uniqNodes.forEach((n, idx) => {
 				if (n.x == null && n.y == null) {
-					// Spawn tightly on the parent so nodes appear right at the click site
-					n.x = originX + (Math.random() - 0.5) * 20;
-					n.y = originY + (Math.random() - 0.5) * 20;
+					const ringRadius = Math.max(34, 42 + idx * 12);
+					const angle = (idx / uniqNodes.length) * Math.PI * 2;
+					n.x = originX + Math.cos(angle) * ringRadius;
+					n.y = originY + Math.sin(angle) * ringRadius;
 				}
 			});
 		}
@@ -3775,7 +3778,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 		// immediately (the renderGraph tick handler only covers old nodes).
 		enteredNodes.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 
-		enteredNodes.transition().duration(400).attr('opacity', 1);
+		enteredNodes.transition().duration(520).ease(d3.easeCubicOut).attr('opacity', 1);
 		nodeSel = nodeGroup.selectAll('g.fg-node');
 		linkSel = selectRenderedLinkLines();
 		rerenderGraphNodesByIds(getImpactedNodeIds(uniqNodes, newLinks));
@@ -6796,17 +6799,22 @@ function renderGraph(_data) {
 	simulation = d3
 		.forceSimulation(nodes)
 		.alphaDecay(
-			isHuge ? 0.1
-			: isLarge ? 0.07
-			: 0.04,
+			isHuge ? 0.09
+			: isLarge ? 0.045
+			: 0.025,
 		)
-		.velocityDecay(isLarge ? 0.65 : 0.55)
+		.velocityDecay(isLarge ? 0.62 : 0.48)
 		.force(
 			'link',
 			d3
 				.forceLink(links)
 				.id((d) => d.id)
-				.distance((link) => getForceLinkDistance(link, nodeCount)),
+				.distance((link) => getForceLinkDistance(link, nodeCount))
+				.strength(
+					isHuge ? 0.52
+					: isLarge ? 0.62
+					: 0.7,
+				),
 		)
 		.force(
 			'charge',
@@ -9211,7 +9219,7 @@ function focusNodeById(
 		pulse?: boolean;
 	} = {},
 ) {
-	const { duration = 300, pulse = false } = options;
+	const { duration = 440, pulse = false } = options;
 	try {
 		if (!zoomBehavior || !svgSel) return;
 		// layoutNodes is the current array of node objects in the visualization
@@ -9224,7 +9232,7 @@ function focusNodeById(
 		const y = node.y || 0;
 		const tx = viewport.centerX - x * k;
 		const ty = viewport.centerY - y * k;
-		svgSel.transition().duration(duration).call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(k));
+		svgSel.transition().duration(duration).ease(d3.easeCubicInOut).call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(k));
 
 		// transient highlight: enlarge circle briefly
 		try {
@@ -9232,10 +9240,12 @@ function focusNodeById(
 				.filter((n) => n.id === id)
 				.select('circle')
 				.transition()
-				.duration(250)
+				.duration(320)
+				.ease(d3.easeCubicOut)
 				.attr('r', (n) => (n._vizHalf || 6) * 1.6)
 				.transition()
-				.duration(300)
+				.duration(360)
+				.ease(d3.easeCubicInOut)
 				.attr('r', (n) => n._vizHalf || 6);
 		} catch (e) {
 			/* ignore highlight errors */
@@ -9259,7 +9269,7 @@ function focusNodeById(
 	}
 }
 
-function focusNodesInMainArea(nodeIds, { duration = 650, maxScale = 1.1 }: { duration?: number; maxScale?: number } = {}) {
+function focusNodesInMainArea(nodeIds, { duration = 720, maxScale = 1.1 }: { duration?: number; maxScale?: number } = {}) {
 	try {
 		if (!zoomBehavior || !svgSel || !Array.isArray(layoutNodes) || !layoutNodes.length) {
 			return false;
@@ -9283,7 +9293,7 @@ function focusNodesInMainArea(nodeIds, { duration = 650, maxScale = 1.1 }: { dur
 		const target = d3.zoomIdentity.translate(viewport.centerX - bounds.centerX * targetScale, viewport.centerY - bounds.centerY * targetScale).scale(targetScale);
 
 		if (duration > 0) {
-			svgSel.transition().duration(duration).call(zoomBehavior.transform, target);
+			svgSel.transition().duration(duration).ease(d3.easeCubicInOut).call(zoomBehavior.transform, target);
 		} else {
 			svgSel.call(zoomBehavior.transform, target);
 		}
