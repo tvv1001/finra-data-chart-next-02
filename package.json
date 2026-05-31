@@ -5,7 +5,7 @@
 	"scripts": {
 		"dev": "next dev -p 4444",
 		"dev:clean": "rm -rf .next && next dev -p 4444",
-		"prebuild": "if [ -n \"$UPSTASH_REDIS_REST_URL\" ]; then echo 'SKIPPING prebuild because remote Redis is configured'; else node scripts/build_workers.js && node scripts/build_graph_from_cache.js --employment-scope all --no-redis; fi",
+		"prebuild": "node scripts/prebuild.js",
 		"build:workers": "node scripts/build_workers.js",
 		"build": "next build",
 		"start": "next start -p 4444",
@@ -15,6 +15,9 @@
 		"test:e2e:headed": "playwright test --headed",
 		"test:smoke": "playwright test tests/e2e/smoke.spec.ts",
 		"build:graph": "node scripts/build_graph_from_cache.js --employment-scope all",
+		"build:primed-cache": "ENABLE_PRIMED_CACHE=true node scripts/build_primed_cache_bundle.js",
+		"deploy:primed-cache": "pnpm run build:primed-cache && node scripts/deploy_primed_cache_to_redis.js",
+		"deploy:redis-cache": "node scripts/import_local_cache.js",
 		"prime:all": "node scripts/download_all_api_data.js",
 		"ci:install-browsers": "npx playwright install --with-deps || npx playwright install chromium"
 	},

@@ -72,6 +72,32 @@ function getUpstash(): Redis | null {
 	return upstash;
 }
 
+function getPrimedRedisKey(name: PrimedBundleName): string {
+	return `primed:bundle:${name}`;
+}
+
+async function getPrimedBundleFromRedis(name: PrimedBundleName): Promise<PrimedBundle | null> {
+	const redis = getUpstash();
+	if (!redis) return null;
+	try {
+		const raw = await redis.get<string>(getPrimedRedisKey(name));
+		if (!raw) return null;
+		const json = await gunzipOffload(raw);
+		const parsed = JSON.parse(json) as PrimedBundle;
+		const normalized: PrimedBundle = {};
+		for (const k of Object.keys(parsed)) {
+			try {
+				normalized[normalizeKey(k)] = parsed[k];
+			} catch {
+				normalized[k] = parsed[k];
+			}
+		}
+		return normalized;
+	} catch {
+		return null;
+	}
+}
+
 function getMem(): MemStore {
 	if (!memStore) memStore = new Map();
 	return memStore;
@@ -234,6 +260,12 @@ async function loadPrimedBundle(name: PrimedBundleName): Promise<PrimedBundle | 
 		primedBundleCache.set(name, normalized);
 		return normalized;
 	} catch {
+		// Fall back to Redis-hosted primed bundles if local disk is unavailable.
+		const redisBundle = await getPrimedBundleFromRedis(name);
+		if (redisBundle) {
+			primedBundleCache.set(name, redisBundle);
+			return redisBundle;
+		}
 		primedBundleCache.set(name, null);
 		return null;
 	}

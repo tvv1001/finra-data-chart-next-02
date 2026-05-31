@@ -22,6 +22,7 @@ try {
 }
 const PRIMED_DIR = path.join(NATIONAL, 'primed-cache');
 const TTL_SECONDS = 60 * 60 * 24; // 1 day
+const REPORT_INTERVAL = 500;
 
 const DEFAULT_INDIVIDUAL_QUERY = 'hl=true&includePrevious=true&wt=json';
 const DEFAULT_FIRM_QUERY = 'hl=true&wt=json';
@@ -57,12 +58,17 @@ async function main() {
 
 	let written = 0;
 	let skipped = 0;
+	let processed = 0;
+	function logProgress() {
+		console.log(`import progress written=${written} skipped=${skipped} processed=${processed}`);
+	}
 
 	// ensure primed dir exists when not using redis
 	if (!useRedis) {
 		await fs.mkdir(PRIMED_DIR, { recursive: true });
 	}
 
+	console.log('Starting import from national data directory:', NATIONAL);
 	// read top-level national dir for finra-individual-*.json and finra-firm-*.json
 	const entries = await fs.readdir(NATIONAL);
 	for (const name of entries) {
@@ -77,13 +83,19 @@ async function main() {
 					const exists = await redis.get(key);
 					if (exists != null) {
 						skipped++;
+						processed++;
+						if (processed % REPORT_INTERVAL === 0) logProgress();
 						continue;
 					}
 					await redis.set(key, JSON.stringify(parsed), { ex: TTL_SECONDS });
 					written++;
+					processed++;
+					if (processed % REPORT_INTERVAL === 0) logProgress();
 				} else {
 					primedBundles['finra-individual'][key] = parsed;
 					written++;
+					processed++;
+					if (processed % REPORT_INTERVAL === 0) logProgress();
 				}
 			} catch (err) {
 				console.warn('failed to import', p, err?.message || err);
@@ -100,13 +112,19 @@ async function main() {
 					const exists = await redis.get(key);
 					if (exists != null) {
 						skipped++;
+						processed++;
+						if (processed % REPORT_INTERVAL === 0) logProgress();
 						continue;
 					}
 					await redis.set(key, JSON.stringify(parsed), { ex: TTL_SECONDS });
 					written++;
+					processed++;
+					if (processed % REPORT_INTERVAL === 0) logProgress();
 				} else {
 					primedBundles['finra-firm'][key] = parsed;
 					written++;
+					processed++;
+					if (processed % REPORT_INTERVAL === 0) logProgress();
 				}
 			} catch (err) {
 				console.warn('failed to import', p, err?.message || err);
@@ -141,13 +159,19 @@ async function main() {
 					const exists = await redis.get(key);
 					if (exists != null) {
 						skipped++;
+						processed++;
+						if (processed % REPORT_INTERVAL === 0) logProgress();
 						continue;
 					}
 					await redis.set(key, JSON.stringify(parsed), { ex: TTL_SECONDS });
 					written++;
+					processed++;
+					if (processed % REPORT_INTERVAL === 0) logProgress();
 				} else {
 					primedBundles[`finra-${type}`][key] = parsed;
 					written++;
+					processed++;
+					if (processed % REPORT_INTERVAL === 0) logProgress();
 				}
 			} catch (err) {
 				console.warn('failed to import', p, err?.message || err);
@@ -182,13 +206,19 @@ async function main() {
 					const exists = await redis.get(key);
 					if (exists != null) {
 						skipped++;
+						processed++;
+						if (processed % REPORT_INTERVAL === 0) logProgress();
 						continue;
 					}
 					await redis.set(key, JSON.stringify(parsed), { ex: TTL_SECONDS });
 					written++;
+					processed++;
+					if (processed % REPORT_INTERVAL === 0) logProgress();
 				} else {
 					primedBundles[`sec-${type}`][key] = parsed;
 					written++;
+					processed++;
+					if (processed % REPORT_INTERVAL === 0) logProgress();
 				}
 			} catch (err) {
 				console.warn('failed to import', p, err?.message || err);
