@@ -3,6 +3,8 @@
  * world coordinates by applying the same d3 zoom transform used by the renderer.
  */
 
+import { DEFAULT_NODE_LABEL_FONT_SIZE, DEFAULT_NODE_LABEL_FONT_SIZE_PX, DEFAULT_NODE_LABEL_FONT_WEIGHT } from './finra-graph-defaults';
+
 type Node = any;
 
 let container: HTMLElement | null = null;
@@ -132,7 +134,8 @@ function createLabelElement(node: Node) {
 	el.style.borderRadius = '4px';
 	el.style.background = 'rgba(255,255,255,0.95)';
 	el.style.boxShadow = '0 2px 6px rgba(16,24,40,0.12)';
-	el.style.fontSize = '12px';
+	el.style.fontSize = DEFAULT_NODE_LABEL_FONT_SIZE;
+	el.style.fontWeight = DEFAULT_NODE_LABEL_FONT_WEIGHT;
 	el.style.color = getComputedStyle(document.documentElement).getPropertyValue('--color-default-text') || '#0f172a';
 	el.textContent = node.label || node.name || String(node.id);
 	el.setAttribute('tabindex', '0');
@@ -213,7 +216,7 @@ export function updateOverlay(
 		const p = worldToScreen(n.x, n.y, transform);
 		el.style.left = `${Math.round(p.x)}px`;
 		el.style.top = `${Math.round(p.y)}px`;
-		el.style.fontSize = `${Math.max(12, Math.round(12 * Math.max(1, Number(opts.labelScale) || 1)))}px`;
+		el.style.fontSize = `${Math.max(DEFAULT_NODE_LABEL_FONT_SIZE_PX, Math.round(DEFAULT_NODE_LABEL_FONT_SIZE_PX * Math.max(1, Number(opts.labelScale) || 1) * 10) / 10)}px`;
 	}
 
 	// remove leftover labels
