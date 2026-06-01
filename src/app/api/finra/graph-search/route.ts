@@ -80,11 +80,11 @@ export async function GET(request: NextRequest) {
 				const seenIds = new Set<string>();
 
 				for (const hit of allHits) {
-					const src = hit._source || hit;
-					let parsed = src;
-					if (typeof src?.content === 'string') {
+					const src = (hit && typeof hit === 'object' && '_source' in hit ? (hit as { _source?: Record<string, any> })._source : hit) as Record<string, any>;
+					let parsed: Record<string, any> = src ?? {};
+					if (src && typeof src === 'object' && 'content' in src && typeof (src as { content?: unknown }).content === 'string') {
 						try {
-							parsed = JSON.parse(src.content);
+							parsed = JSON.parse((src as { content?: string }).content as string);
 						} catch {
 							parsed = src;
 						}
