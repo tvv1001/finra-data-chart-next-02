@@ -2,7 +2,7 @@
 	"crons": [
 		{
 			"path": "/api/finra/external-validity",
-			"schedule": "*/15 * * * *"
+			"schedule": "0 0 * * *"
 		}
 	],
 	"functions": {

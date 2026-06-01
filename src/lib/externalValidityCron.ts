@@ -272,7 +272,8 @@ function mergeIntoGraph(graph: any, node: any, links: any[]) {
 		nodeMap.set(node.id, node);
 	}
 
-	for (const extraNode of links._extraNodes || []) {
+	const extraNodes = (links as any)._extraNodes || [];
+	for (const extraNode of extraNodes) {
 		if (!nodeMap.has(extraNode.id)) nodeMap.set(extraNode.id, extraNode);
 		else nodeMap.set(extraNode.id, mergePreferPatch(nodeMap.get(extraNode.id), extraNode) as any);
 	}
