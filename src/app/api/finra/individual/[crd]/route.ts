@@ -95,6 +95,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	if (!/^\d{1,10}$/.test(crd)) {
 		return NextResponse.json({ error: 'Invalid CRD number.' }, { status: 400 });
 	}
+	const isMergedRoute = request.headers.get('x-finra-merged-route') === '1';
 	void rememberRecentSeed('individual', crd).catch((error) => {
 		logger.warn('failed to remember recent individual seed', { crd, error: error?.message || String(error) });
 	});
@@ -180,6 +181,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		detail.hasFinraData = !!finraDetail && !!finraNumeric;
 		detail.hasSecData = !!secDetail && !!secNumeric;
+
+		if (isMergedRoute) {
+			return NextResponse.json(
+				{
+					crd,
+					found: true,
+					hasFinraData: detail.hasFinraData,
+					hasSecData: detail.hasSecData,
+					finraNode: detail,
+					sources: {
+						finra: finraDetail,
+						sec: secDetail,
+					},
+					merged: detail,
+				},
+				{ headers: sharedCacheHeaders(3600) },
+			);
+		}
 
 		return NextResponse.json(detail, { headers: sharedCacheHeaders(3600) });
 	} catch (err: any) {

@@ -158,6 +158,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	if (!/^\d{1,10}$/.test(id)) {
 		return NextResponse.json({ error: 'Invalid firm ID.' }, { status: 400 });
 	}
+	const isMergedRoute = request.headers.get('x-finra-merged-route') === '1';
 	void rememberRecentSeed('firm', id).catch((error) => {
 		logger.warn('failed to remember recent firm seed', { id, error: error?.message || String(error) });
 	});
@@ -275,6 +276,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		if (!detail.hasSecData) {
 			detail.secSummaryDescription = undefined;
 			detail.secDocumentLinks = [];
+		}
+
+		if (isMergedRoute) {
+			return NextResponse.json(
+				{
+					firmId: id,
+					found: true,
+					hasFinraData: detail.hasFinraData,
+					hasSecData: detail.hasSecData,
+					finraNode: detail,
+					sources: {
+						finra: bcDetail,
+						sec: secDetail,
+					},
+					merged: detail,
+				},
+				{ headers: sharedCacheHeaders(3600) },
+			);
 		}
 
 		return NextResponse.json(detail, { headers: sharedCacheHeaders(3600) });

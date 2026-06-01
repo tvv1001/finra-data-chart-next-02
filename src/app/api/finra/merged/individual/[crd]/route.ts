@@ -107,9 +107,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			return NextResponse.json({ found: false }, { headers: sharedCacheHeaders(3600) });
 		}
 
-		const finraDetail = detail?.hasFinraData ? detail : null;
-		const secDetail = detail?.hasSecData ? detail : null;
-		const mergedDetail: any = secDetail ? mergePreferPrimary(secDetail, finraDetail) : finraDetail;
+		const finraDetail = detail?.finraNode || (detail?.hasFinraData ? detail : null);
+		const secDetail = detail?.sources?.sec || (detail?.hasSecData ? detail : null);
+		const mergedDetail: any = detail?.merged || (secDetail ? mergePreferPrimary(secDetail, finraDetail) : finraDetail);
 		if (mergedDetail) {
 			mergedDetail.hasSecData = !!secDetail;
 			mergedDetail.hasFinraData = !!finraDetail;
@@ -120,6 +120,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			{
 				crd,
 				found: true,
+				hasFinraData: !!finraDetail,
+				hasSecData: !!secDetail,
+				finraNode: finraDetail,
 				sources: { finra: finraDetail, sec: secDetail },
 				merged: normalizedMergedDetail,
 			},

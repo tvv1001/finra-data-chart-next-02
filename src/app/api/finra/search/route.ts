@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchLocalIndex } from '@/lib/localSearch';
 import { logger } from '@/lib/logger';
+import { searchGraphFallback } from '@/lib/searchGraphFallback';
 
 function buildFinraSearchParams(searchParams: URLSearchParams) {
 	const params = new URLSearchParams();
@@ -55,8 +56,12 @@ export async function GET(request: NextRequest) {
 		const query = params.get('query') || '';
 		const limit = Number.parseInt(params.get('nrows') || '12', 10) || 12;
 		const offset = Number.parseInt(params.get('start') || '0', 10) || 0;
-		const data = await searchLocalIndex('finra', type === 'firm' ? 'firm' : 'individual', query, { limit, offset });
-		return NextResponse.json(data);
+		const entity = type === 'firm' ? 'firm' : 'individual';
+		const data = await searchLocalIndex('finra', entity, query, { limit, offset });
+		if (data.total > 0) return NextResponse.json(data);
+
+		const fallback = await searchGraphFallback('finra', entity, query, { limit, offset });
+		return NextResponse.json(fallback);
 	} catch (err: any) {
 		logger.error('search error', { error: err.message });
 		return NextResponse.json({ error: 'Failed to search FINRA.' }, { status: 502 });

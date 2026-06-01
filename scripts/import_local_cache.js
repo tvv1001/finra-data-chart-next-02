@@ -8,10 +8,12 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { Redis } = require('@upstash/redis');
+const argv = require('minimist')(process.argv.slice(2));
 
 const ROOT = process.cwd();
 // Allow an external local dump directory via env or CLI. Default to workspace data/national.
 const EXTERNAL_LOCAL = process.env.LOCAL_DATA_DIR || '/home/lenny/Dev/Data/national';
+const CRD_BATCH_FILE = String(argv['crd-file'] || argv.crdFile || process.env.CRD_BATCH_FILE || '').trim();
 const fsSync = require('node:fs');
 let NATIONAL;
 try {
@@ -34,6 +36,42 @@ function finraFirmKey(id) {
 	return `finra:firm:${id}:${DEFAULT_FIRM_QUERY}`;
 }
 
+function normalizeId(value) {
+	return String(value || '')
+		.trim()
+		.replace(/^person[:_]/i, '')
+		.replace(/^firm[:_]/i, '');
+}
+
+function parseBatchPayload(rawText) {
+	const text = String(rawText || '').trim();
+	if (!text) return { individuals: new Set(), firms: new Set() };
+	try {
+		const parsed = JSON.parse(text);
+		if (Array.isArray(parsed)) {
+			return { individuals: new Set(parsed.map(normalizeId).filter((value) => /^\d+$/.test(value))), firms: new Set() };
+		}
+		const individuals = Array.isArray(parsed?.individuals) ? parsed.individuals.map(normalizeId).filter((value) => /^\d+$/.test(value)) : [];
+		const firms = Array.isArray(parsed?.firms) ? parsed.firms.map(normalizeId).filter((value) => /^\d+$/.test(value)) : [];
+		return { individuals: new Set(individuals), firms: new Set(firms) };
+	} catch {
+		const tokens = text
+			.split(/[\s,]+/g)
+			.map(normalizeId)
+			.filter((value) => /^\d+$/.test(value));
+		return { individuals: new Set(tokens), firms: new Set(tokens) };
+	}
+}
+
+async function loadBatchFilter(filePath) {
+	if (!filePath) return null;
+	const resolved = path.resolve(filePath);
+	const raw = await fs.readFile(resolved, 'utf-8');
+	const filter = parseBatchPayload(raw);
+	console.log(`Using CRD batch filter from ${resolved}: individuals=${filter.individuals.size}, firms=${filter.firms.size}`);
+	return filter;
+}
+
 async function fileExists(p) {
 	try {
 		await fs.access(p);
@@ -48,6 +86,11 @@ async function main() {
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 	const useRedis = Boolean(url && token);
 	const redis = useRedis ? new Redis({ url, token }) : null;
+	const batchFilter = await loadBatchFilter(CRD_BATCH_FILE).catch((err) => {
+		console.error(`Failed to load CRD batch file ${CRD_BATCH_FILE}:`, err?.message || err);
+		process.exit(1);
+	});
+	const hasBatchFilter = Boolean(batchFilter);
 
 	const primedBundles = {
 		'finra-individual': {},
@@ -74,12 +117,16 @@ async function main() {
 	}
 
 	console.log('Starting import from national data directory:', NATIONAL);
+	if (hasBatchFilter) {
+		console.log('Batch filtering is enabled; only matching CRDs will be imported.');
+	}
 	// read top-level national dir for finra-individual-*.json and finra-firm-*.json
 	const entries = await fs.readdir(NATIONAL);
 	for (const name of entries) {
 		const p = path.join(NATIONAL, name);
 		if (name.startsWith('finra-individual-') && name.endsWith('.json')) {
 			const id = name.replace('finra-individual-', '').replace('.json', '');
+			if (batchFilter && !batchFilter.individuals.has(normalizeId(id))) continue;
 			try {
 				const raw = await fs.readFile(p, 'utf-8');
 				const parsed = JSON.parse(raw);
@@ -112,6 +159,7 @@ async function main() {
 
 		if (name.startsWith('finra-firm-') && name.endsWith('.json')) {
 			const id = name.replace('finra-firm-', '').replace('.json', '');
+			if (batchFilter && !batchFilter.firms.has(normalizeId(id))) continue;
 			try {
 				const raw = await fs.readFile(p, 'utf-8');
 				const parsed = JSON.parse(raw);
@@ -161,6 +209,11 @@ async function main() {
 				}
 			}
 			if (!type || !id) continue;
+			if (batchFilter) {
+				const normalized = normalizeId(id);
+				if (type === 'individual' && !batchFilter.individuals.has(normalized)) continue;
+				if (type === 'firm' && !batchFilter.firms.has(normalized)) continue;
+			}
 			const p = path.join(brokerDir, name);
 			try {
 				const raw = await fs.readFile(p, 'utf-8');
@@ -211,6 +264,11 @@ async function main() {
 				}
 			}
 			if (!type || !id) continue;
+			if (batchFilter) {
+				const normalized = normalizeId(id);
+				if (type === 'individual' && !batchFilter.individuals.has(normalized)) continue;
+				if (type === 'firm' && !batchFilter.firms.has(normalized)) continue;
+			}
 			const p = path.join(secDir, name);
 			try {
 				const raw = await fs.readFile(p, 'utf-8');

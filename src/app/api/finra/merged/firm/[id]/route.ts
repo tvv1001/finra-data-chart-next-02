@@ -22,9 +22,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			{
 				firmId: id,
 				found: true,
-				finraNode: detail?.hasFinraData ? detail : null,
+				hasFinraData: !!detail?.hasFinraData,
+				hasSecData: !!detail?.hasSecData,
+				finraNode: detail?.finraNode || detail?.merged || detail,
+				sources: detail?.sources || { finra: null, sec: null },
 				evidence: [],
-				merged: detail,
+				merged: detail?.merged || detail?.finraNode || detail,
 			},
 			{ headers: sharedCacheHeaders(3600) },
 		);
