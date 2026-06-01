@@ -558,16 +558,40 @@ export async function getFullGraph() {
 					}
 				}
 				if (parsedRaw) {
-					_graphCache = parseGraphPayload(parsedRaw, 'Redis graph payload');
-					_graphCacheAt = now;
-					if (!(await localGraphFileExists())) {
-						try {
-							await writeJsonFileAtomic(GRAPH_FILE, _graphCache);
-							await syncSeedBankFromGraph(_graphCache);
-						} catch (error) {
-							console.warn('Failed to restore local finra-graph.json from Redis payload.', error);
+					const redisGraph = parseGraphPayload(parsedRaw, 'Redis graph payload');
+					const isRedisGraphEmpty = (redisGraph.nodes?.length || 0) === 0 && (redisGraph.links?.length || 0) === 0;
+					const redisSourceLabel = String(redisGraph.meta?.sourceLabel || '').trim();
+					let useDiskGraph = false;
+
+					if (isRedisGraphEmpty && redisSourceLabel === '(session reset)') {
+						const diskGraph = await readGraphFromDisk();
+						if (diskGraph && (diskGraph.nodes?.length || 0) > 0) {
+							try {
+								normalizeGraphLabelsInPlace(diskGraph);
+								await setStringIfValid(REDIS_GRAPH_KEY, JSON.stringify(diskGraph));
+								await syncSeedBankFromGraph(diskGraph);
+							} catch (error) {
+								console.warn('Failed to restore Redis graph from disk after reset.', error);
+							}
+							_graphCache = diskGraph;
+							_graphCacheAt = now;
+							useDiskGraph = true;
 						}
 					}
+
+					if (!useDiskGraph) {
+						_graphCache = redisGraph;
+						_graphCacheAt = now;
+						if (!(await localGraphFileExists())) {
+							try {
+								await writeJsonFileAtomic(GRAPH_FILE, _graphCache);
+								await syncSeedBankFromGraph(_graphCache);
+							} catch (error) {
+								console.warn('Failed to restore local finra-graph.json from Redis payload.', error);
+							}
+						}
+					}
+
 					return _graphCache;
 				}
 			}
