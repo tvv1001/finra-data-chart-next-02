@@ -1,6 +1,7 @@
 import { readFile, writeFile, mkdir, rename, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { Redis } from '@upstash/redis';
+import { setStringIfValid } from '@/lib/redisCache';
 import { RECENT_SEEDS_FILE, SEED_PROFILES_FILE, SEEDS_FILE } from './graphDataPaths';
 
 export type RecentSeeds = {
@@ -91,7 +92,7 @@ export async function getProfilesFromStore(): Promise<any> {
 	}
 	try {
 		profilesCache = JSON.parse(await readFile(SEED_PROFILES_FILE, 'utf-8'));
-		if (redis) await redis.set(REDIS_PROFILES_KEY, JSON.stringify(profilesCache));
+		if (redis) await setStringIfValid(REDIS_PROFILES_KEY, JSON.stringify(profilesCache));
 		return profilesCache;
 	} catch {
 		profilesCache = { profiles: [] };
@@ -102,7 +103,7 @@ export async function getProfilesFromStore(): Promise<any> {
 export async function saveProfilesToStore(data: any): Promise<void> {
 	const redis = getRedis();
 	if (redis) {
-		await redis.set(REDIS_PROFILES_KEY, JSON.stringify(data));
+		await setStringIfValid(REDIS_PROFILES_KEY, JSON.stringify(data));
 	} else {
 		await writeJsonFileAtomic(SEED_PROFILES_FILE, data);
 	}
@@ -125,7 +126,7 @@ export async function getSeedsFromStore(): Promise<string[]> {
 	}
 	try {
 		seedsCache = JSON.parse(await readFile(SEEDS_FILE, 'utf-8'));
-		if (redis) await redis.set(REDIS_SEEDS_KEY, JSON.stringify(seedsCache));
+		if (redis) await setStringIfValid(REDIS_SEEDS_KEY, JSON.stringify(seedsCache));
 		return seedsCache;
 	} catch {
 		seedsCache = [];
@@ -136,7 +137,7 @@ export async function getSeedsFromStore(): Promise<string[]> {
 export async function saveSeedsToStore(seeds: string[]): Promise<void> {
 	const redis = getRedis();
 	if (redis) {
-		await redis.set(REDIS_SEEDS_KEY, JSON.stringify(seeds));
+		await setStringIfValid(REDIS_SEEDS_KEY, JSON.stringify(seeds));
 	} else {
 		await writeJsonFileAtomic(SEEDS_FILE, seeds);
 	}
@@ -164,7 +165,7 @@ export async function saveRecentSeedsToStore(recentSeeds: RecentSeeds): Promise<
 	const normalized = normalizeRecentSeedsPayload(recentSeeds);
 	const redis = getRedis();
 	if (redis) {
-		await redis.set(REDIS_RECENT_SEEDS_KEY, JSON.stringify(normalized));
+		await setStringIfValid(REDIS_RECENT_SEEDS_KEY, JSON.stringify(normalized));
 	} else {
 		await writeJsonFileAtomic(RECENT_SEEDS_FILE, normalized);
 	}

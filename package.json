@@ -43,7 +43,8 @@
 		"playwright-extra-plugin-stealth": "^0.0.1",
 		"react": "^19.0.0",
 		"react-dom": "^19.0.0",
-		"winston": "^3.13.0"
+		"winston": "^3.13.0",
+		"msgpack-lite": "^0.1.26"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.60.0",
