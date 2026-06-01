@@ -8,6 +8,7 @@ import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { Redis } from '@upstash/redis';
+import { setStringIfValid } from '@/lib/redisCache';
 import { gzipOffload, gunzipOffload } from './gzipWorker';
 import { GRAPH_FILE, RECENT_SEEDS_FILE, SEED_BANK_FILE, SEED_PROFILES_FILE, SEEDS_FILE } from './graphDataPaths';
 
@@ -438,7 +439,7 @@ async function saveRecentSeedsToDisk(recentSeeds: RecentSeeds) {
 export async function saveSeedBankToStore(seedBank: SeedBank): Promise<void> {
 	const redis = getRedis();
 	if (redis) {
-		await redis.set(REDIS_SEED_BANK_KEY, JSON.stringify(seedBank));
+		await setStringIfValid(REDIS_SEED_BANK_KEY, JSON.stringify(seedBank));
 		return;
 	}
 	await saveSeedBankToDisk(seedBank);
@@ -448,7 +449,7 @@ export async function saveRecentSeedsToStore(recentSeeds: RecentSeeds): Promise<
 	const normalized = normalizeRecentSeedsPayload(recentSeeds);
 	const redis = getRedis();
 	if (redis) {
-		await redis.set(REDIS_RECENT_SEEDS_KEY, JSON.stringify(normalized));
+		await setStringIfValid(REDIS_RECENT_SEEDS_KEY, JSON.stringify(normalized));
 		return;
 	}
 	await saveRecentSeedsToDisk(normalized);
@@ -520,7 +521,7 @@ async function bootstrapGraphFromDisk(redis: Redis) {
 	try {
 		normalizeGraphLabelsInPlace(diskGraph);
 	} catch (e) {}
-	await redis.set(REDIS_GRAPH_KEY, JSON.stringify(diskGraph));
+	await setStringIfValid(REDIS_GRAPH_KEY, JSON.stringify(diskGraph));
 	await syncSeedBankFromGraph(diskGraph);
 	return diskGraph;
 }
@@ -577,7 +578,7 @@ export async function getFullGraph() {
 						try {
 							normalizeGraphLabelsInPlace(diskGraph);
 						} catch (e) {}
-						await redis.set(REDIS_GRAPH_KEY, JSON.stringify(diskGraph));
+						await setStringIfValid(REDIS_GRAPH_KEY, JSON.stringify(diskGraph));
 						await syncSeedBankFromGraph(diskGraph);
 					} catch (error) {
 						console.warn('Failed to sync rebuilt finra-graph.json into Redis.', error);
@@ -632,10 +633,10 @@ export async function saveGraph(data: any) {
 			const json = JSON.stringify(compact);
 			// Offload gzip to background worker to avoid blocking the event loop
 			const b64 = await gzipOffload(json);
-			await redis.set(REDIS_GRAPH_KEY, b64);
+			await setStringIfValid(REDIS_GRAPH_KEY, b64);
 		} catch (e) {
 			// On any failure, fall back to storing plain JSON
-			await redis.set(REDIS_GRAPH_KEY, JSON.stringify(data));
+			await setStringIfValid(REDIS_GRAPH_KEY, JSON.stringify(data));
 		}
 	} else {
 		await writeJsonFileAtomic(GRAPH_FILE, data);
@@ -725,7 +726,7 @@ export async function getProfilesFromStore(): Promise<any> {
 			const raw = await redis.get<string>(REDIS_PROFILES_KEY);
 			if (raw) return typeof raw === 'string' ? JSON.parse(raw) : raw;
 			const data = JSON.parse(await readFile(SEED_PROFILES_FILE, 'utf-8'));
-			await redis.set(REDIS_PROFILES_KEY, JSON.stringify(data));
+			await setStringIfValid(REDIS_PROFILES_KEY, JSON.stringify(data));
 			return data;
 		} catch {
 			return { profiles: [] };
@@ -741,7 +742,7 @@ export async function getProfilesFromStore(): Promise<any> {
 export async function saveProfilesToStore(data: any): Promise<void> {
 	const redis = getRedis();
 	if (redis) {
-		await redis.set(REDIS_PROFILES_KEY, JSON.stringify(data));
+		await setStringIfValid(REDIS_PROFILES_KEY, JSON.stringify(data));
 	} else {
 		await writeJsonFileAtomic(SEED_PROFILES_FILE, data);
 	}
@@ -755,7 +756,7 @@ export async function getSeedsFromStore(): Promise<string[]> {
 			const raw = await redis.get<string>(REDIS_SEEDS_KEY);
 			if (raw) return typeof raw === 'string' ? JSON.parse(raw) : raw;
 			const data = JSON.parse(await readFile(SEEDS_FILE, 'utf-8'));
-			await redis.set(REDIS_SEEDS_KEY, JSON.stringify(data));
+			await setStringIfValid(REDIS_SEEDS_KEY, JSON.stringify(data));
 			return data;
 		} catch {
 			return [];
@@ -771,7 +772,7 @@ export async function getSeedsFromStore(): Promise<string[]> {
 export async function saveSeedsToStore(seeds: string[]): Promise<void> {
 	const redis = getRedis();
 	if (redis) {
-		await redis.set(REDIS_SEEDS_KEY, JSON.stringify(seeds));
+		await setStringIfValid(REDIS_SEEDS_KEY, JSON.stringify(seeds));
 	} else {
 		await writeJsonFileAtomic(SEEDS_FILE, seeds);
 	}

@@ -9,6 +9,7 @@ import * as crypto from 'node:crypto';
 import * as path from 'node:path';
 import { gunzipOffload } from './gzipWorker';
 import { Redis } from '@upstash/redis';
+import { setStringIfValid } from '@/lib/redisCache';
 import { DATA_DIR, PRIMED_CACHE_DIR } from './constants';
 
 type MemStore = Map<string, { value: unknown; expiresAt: number }>;
@@ -325,7 +326,7 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 			if (raw != null) return JSON.parse(raw) as T;
 			const primed = await getPrimedCacheValue<T>(key);
 			if (primed != null) {
-				await redis.set(key, JSON.stringify(primed), { ex: ttlSeconds });
+				await setStringIfValid(key, JSON.stringify(primed), ttlSeconds);
 				return primed;
 			}
 			// Rate-limit outbound external fetches for FINRA/SEC sources.
@@ -357,7 +358,7 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 				const value = await fetcher();
 				if (service) lastExternalFetch.set(service, Date.now());
 				if (value !== undefined) {
-					await redis.set(key, JSON.stringify(value), { ex: ttlSeconds });
+					await setStringIfValid(key, JSON.stringify(value), ttlSeconds);
 				}
 				return value;
 			} catch (err) {

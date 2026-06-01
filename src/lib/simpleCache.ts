@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { Redis } from '@upstash/redis';
+import { setStringIfValid } from '@/lib/redisCache';
 
 type MemStore = Map<string, { value: unknown; expiresAt: number }>;
 type PrimedBundle = Record<string, unknown>;
@@ -200,7 +201,7 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 			if (raw != null) return JSON.parse(raw) as T;
 			const primed = await getPrimedCacheValue<T>(key);
 			if (primed != null) {
-				await redis.set(key, JSON.stringify(primed), { ex: ttlSeconds });
+				await setStringIfValid(key, JSON.stringify(primed), ttlSeconds);
 				return primed;
 			}
 		} catch {
@@ -230,7 +231,8 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 			memSet(mem, key, value, ttlSeconds);
 			if (redis) {
 				try {
-					await redis.set(key, JSON.stringify(value), { ex: ttlSeconds });
+					// use centralized safe writer to avoid empty-hits and non-string collisions
+					await setStringIfValid(key, JSON.stringify(value), ttlSeconds);
 				} catch {
 					// ignore redis write failures
 				}
