@@ -208,7 +208,14 @@ For runtime performance in production:
 
 ## Cron & revalidation
 
-The Vercel scheduled cron entry has been removed from this repo. Validation and revalidation are no longer run as scheduled or via dedicated cron scripts.
+The app now uses a single Vercel cron job at `/api/finra/external-validity` to keep the internal data source fresh.
+
+That cron job:
+
+- checks higher-number CRDs first
+- backfills older CRDs after the newest range is checked
+- writes fresh upstream detail back into the internal graph/cache
+- pauses for 6–11 minutes after a `429` before resuming
 
 Search behavior remains local-first: the app queries the local graph store first and only reaches external FINRA/SEC search endpoints when local data for the query is missing. That fetched data is then merged into the local graph and persisted.
 
