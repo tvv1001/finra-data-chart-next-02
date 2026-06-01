@@ -84,8 +84,8 @@ export async function GET(request: NextRequest) {
 				const seenIds = new Set<string>();
 
 				for (const hit of allHits) {
-					const src: any = hit._source || hit;
-					let parsed: any = src;
+					const src = (hit && typeof hit === 'object' && '_source' in hit ? (hit as { _source?: Record<string, any> })._source : hit) as Record<string, any>;
+					let parsed: Record<string, any> = src ?? {};
 					if (hasStringContent(src)) {
 						try {
 							parsed = JSON.parse(src.content);
