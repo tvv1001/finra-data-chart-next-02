@@ -7,6 +7,7 @@
 		"dev:clean": "rm -rf .next && next dev -p 4444",
 		"prebuild": "node scripts/prebuild.js",
 		"build:workers": "node scripts/build_workers.js",
+		"build:search-index": "node scripts/build_search_indexes.js",
 		"build": "next build",
 		"start": "next start -p 4444",
 		"lint": "next lint",
