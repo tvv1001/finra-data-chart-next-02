@@ -620,8 +620,9 @@ This keeps the deployment payload smaller while still shipping the consolidated 
 
 1. Refresh cached data / graph artifacts locally
 2. Ensure `data/national/finra-graph.json` and `data/national/finra-seed-bank.json` are current
-3. Ensure `data/national/primed-cache/` is regenerated
-4. Build with:
+3. Ensure `data/national/search-index.*.json` is regenerated
+4. Ensure `data/national/primed-cache/` is regenerated
+5. Build with:
 
 ```bash
 env NODE_OPTIONS=--max-old-space-size=8192 pnpm build

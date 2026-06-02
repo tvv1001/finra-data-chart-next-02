@@ -13,10 +13,13 @@ if (url && token) {
 		console.error(`Invalid UPSTASH_REDIS_REST_URL: ${JSON.stringify(url)}.\n` + 'It must be a real Upstash HTTPS URL like https://<id>.upstash.io');
 		process.exit(1);
 	}
-	console.log('SKIPPING prebuild because remote Redis is configured');
+	console.log('SKIPPING graph rebuild because remote Redis is configured');
+	execSync('node scripts/build_workers.js && node scripts/build_search_indexes.js', {
+		stdio: 'inherit',
+	});
 	process.exit(0);
 }
 
-execSync('node scripts/build_workers.js && node scripts/build_graph_from_cache.js --employment-scope all --no-redis', {
+execSync('node scripts/build_workers.js && node scripts/build_graph_from_cache.js --employment-scope all --no-redis && node scripts/build_search_indexes.js', {
 	stdio: 'inherit',
 });
