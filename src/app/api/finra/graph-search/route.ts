@@ -3,6 +3,7 @@ import { getFullGraph, saveGraph } from '@/lib/graphStore';
 import { Redis as UpstashRedis } from '@upstash/redis';
 import { logger } from '@/lib/logger';
 import { searchLocalIndex } from '@/lib/localSearch';
+import { normalizeIndividualDetailFromSource } from '@/lib/individualDetail';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -85,14 +86,7 @@ export async function GET(request: NextRequest) {
 
 				for (const hit of allHits) {
 					const src = (hit && typeof hit === 'object' && '_source' in hit ? (hit as { _source?: Record<string, any> })._source : hit) as Record<string, any>;
-					let parsed: Record<string, any> = src ?? {};
-					if (hasStringContent(src)) {
-						try {
-							parsed = JSON.parse(src.content);
-						} catch {
-							parsed = src;
-						}
-					}
+					const parsed = normalizeIndividualDetailFromSource(src) as Record<string, any>;
 
 					const crd = String(parsed?.basicInformation?.individualId || src?.ind_source_id || src?.ind_crd || '').trim();
 					if (crd) {
@@ -107,9 +101,42 @@ export async function GET(request: NextRequest) {
 								]
 									.filter(Boolean)
 									.join(' ') || `CRD ${crd}`;
-							newNodes.push({ id: personId, label, group: 'individual', crd, _source: 'local-search' });
+							const personNode: Record<string, any> = {
+								id: personId,
+								label,
+								group: 'individual',
+								crd,
+								_source: 'local-search',
+								basicInformation: parsed?.basicInformation || null,
+								bcScope: parsed?.bcScope ?? parsed?.basicInformation?.bcScope ?? null,
+								iaScope: parsed?.iaScope ?? parsed?.basicInformation?.iaScope ?? null,
+								currentEmployments: Array.isArray(parsed?.currentEmployments) ? parsed.currentEmployments : [],
+								previousEmployments: Array.isArray(parsed?.previousEmployments) ? parsed.previousEmployments : [],
+								currentIAEmployments: Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments : [],
+								previousIAEmployments: Array.isArray(parsed?.previousIAEmployments) ? parsed.previousIAEmployments : [],
+								registrationCount: parsed?.registrationCount || null,
+								disclosures: parsed?.disclosures || null,
+								iaDisclosures: parsed?.iaDisclosures || null,
+								_trustedCurrentRelationshipData: Boolean(
+									(parsed?.currentEmployments && parsed.currentEmployments.length) ||
+									(parsed?.previousEmployments && parsed.previousEmployments.length) ||
+									(parsed?.currentIAEmployments && parsed.currentIAEmployments.length) ||
+									(parsed?.previousIAEmployments && parsed.previousIAEmployments.length) ||
+									parsed?.registrationCount,
+								),
+							};
+							newNodes.push(personNode);
 
-							const emps = src?.ind_current_employments || src?.ind_ia_current_employments || [];
+							const emps = [
+								...(Array.isArray(parsed?.currentEmployments) ? parsed.currentEmployments : []),
+								...(Array.isArray(parsed?.previousEmployments) ? parsed.previousEmployments.map((employment: any) => ({ ...employment, _isCurrent: false })) : []),
+								...(Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments : []),
+								...(Array.isArray(parsed?.previousIAEmployments) ? parsed.previousIAEmployments.map((employment: any) => ({ ...employment, _isCurrent: false })) : []),
+								...(src?.ind_current_employments || []),
+								...(src?.ind_previous_employments || []).map((employment: any) => ({ ...employment, _isCurrent: false })),
+								...(src?.ind_ia_current_employments || []),
+								...(src?.ind_ia_previous_employments || []).map((employment: any) => ({ ...employment, _isCurrent: false })),
+							];
 							for (const e of emps) {
 								const fid = String(e?.firm_id || e?.firmId || '').trim();
 								if (!fid) continue;
@@ -118,7 +145,12 @@ export async function GET(request: NextRequest) {
 									seenIds.add(firmNodeId);
 									newNodes.push({ id: firmNodeId, label: e?.firm_name || e?.firmName || `Firm ${fid}`, group: 'firm', firmId: fid, _source: 'local-search' });
 								}
-								newLinks.push({ source: personId, target: firmNodeId, relationship: 'employed_by', isCurrent: true });
+								newLinks.push({
+									source: personId,
+									target: firmNodeId,
+									relationship: e?._isCurrent === false ? 'previous_employed_by' : 'employed_by',
+									isCurrent: e?._isCurrent !== false,
+								});
 							}
 						}
 						continue;

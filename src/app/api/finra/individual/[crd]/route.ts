@@ -4,24 +4,32 @@ import { DEFAULT_HEADERS } from '@/lib/requestConstants';
 import { rememberRecentSeed } from '@/lib/seedStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
+import { normalizeIndividualDetailFromSource } from '@/lib/individualDetail';
 
 function parseDetailPayload(data: any, contentKey = 'content') {
 	if (!data) return null;
 	if (data?.hits?.hits?.length) {
-		const raw = data.hits.hits[0]?._source?.[contentKey];
+		const source = data.hits.hits[0]?._source || {};
+		const raw = source?.[contentKey];
 		try {
-			return typeof raw === 'string' ? JSON.parse(raw) : raw || null;
+			return normalizeIndividualDetailFromSource({
+				...source,
+				...(typeof raw === 'string' ? JSON.parse(raw) : raw || {}),
+			});
 		} catch {
-			return null;
+			return normalizeIndividualDetailFromSource(source);
 		}
 	}
 
 	const raw = data?.[contentKey];
 	if (raw != null) {
 		try {
-			return typeof raw === 'string' ? JSON.parse(raw) : raw || null;
+			return normalizeIndividualDetailFromSource({
+				...data,
+				...(typeof raw === 'string' ? JSON.parse(raw) : raw || {}),
+			});
 		} catch {
-			return null;
+			return normalizeIndividualDetailFromSource(data);
 		}
 	}
 
@@ -36,7 +44,7 @@ function parseDetailPayload(data: any, contentKey = 'content') {
 			data.disclosures ||
 			data.currentEmployments ||
 			data.previousEmployments;
-		if (looksLikeDetail) return data;
+		if (looksLikeDetail) return normalizeIndividualDetailFromSource(data);
 	}
 
 	return null;
