@@ -167,6 +167,23 @@ let activeLabelZoomThreshold = 0.3;
 let inactiveLabelCompactZoomThreshold = 0.42;
 let inactiveLabelCompactMode = false;
 let graphTickFrameId: number | null = null;
+let networkStatusListenerBound = false;
+const OFFLINE_FETCH_STATUS_MESSAGE = 'Offline — reconnect to load graph data.';
+
+function isBrowserOffline() {
+	return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
+
+function showOfflineFetchStatus() {
+	if (activeFetchStatusMessage === OFFLINE_FETCH_STATUS_MESSAGE) return;
+	activeFetchStatusMessage = OFFLINE_FETCH_STATUS_MESSAGE;
+	applyStatusPresentation(OFFLINE_FETCH_STATUS_MESSAGE, { transient: true, dismissible: true, pinned: activeFetchStatusPinned });
+}
+
+function clearOfflineFetchStatus() {
+	if (activeFetchStatusMessage !== OFFLINE_FETCH_STATUS_MESSAGE) return;
+	clearFetchStatus();
+}
 // Render modes for node labels. compact mode still uses text, but without disabling labels entirely.
 let nodeLabelRenderMode: 'full' | 'compact' = 'full';
 // Canvas renderer mode for very large graphs
@@ -2355,6 +2372,12 @@ function clearGraphData() {
 
 async function loadBaselineGraph(profileName) {
 	isSessionCleared = false;
+	if (isBrowserOffline()) {
+		showOfflineFetchStatus();
+		showEmpty(true);
+		return null;
+	}
+	clearOfflineFetchStatus();
 	const url = makeApiUrl('/api/finra/graph');
 	if (!profileName && INITIAL_SEED_COUNT > 0) {
 		url.searchParams.set('limit', String(INITIAL_SEED_COUNT));
@@ -4041,6 +4064,11 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 	const META_POLL_MS = 15000;
 
 	async function fetchMetaOnce() {
+		if (isBrowserOffline()) {
+			showOfflineFetchStatus();
+			return;
+		}
+		clearOfflineFetchStatus();
 		try {
 			const hasProfileParam = new URLSearchParams(window.location.search).has('profile');
 			const profileName = hasProfileParam ? new URLSearchParams(window.location.search).get('profile') : 'custom';
@@ -4072,6 +4100,22 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 		}, META_POLL_MS);
 	}
 
+	if (typeof window !== 'undefined' && !networkStatusListenerBound) {
+		window.addEventListener('offline', () => {
+			showOfflineFetchStatus();
+		});
+		window.addEventListener('online', () => {
+			clearOfflineFetchStatus();
+			void loadGraph().finally(() => {
+				void fetchMetaOnce();
+				void fetchCacheStats();
+			});
+		});
+		networkStatusListenerBound = true;
+	}
+	if (isBrowserOffline()) {
+		showOfflineFetchStatus();
+	}
 	startMetaPolling();
 }
 
@@ -5101,6 +5145,11 @@ async function filterGraph(rawQuery) {
 // Cache stats are polled and reused for the header and bottom status bar.
 let _cacheStats = null;
 function fetchCacheStats() {
+	if (isBrowserOffline()) {
+		showOfflineFetchStatus();
+		return Promise.resolve();
+	}
+	clearOfflineFetchStatus();
 	return fetch('/api/finra/cache-stats', { cache: 'no-store' })
 		.then((r) => r.json())
 		.then((data) => {
