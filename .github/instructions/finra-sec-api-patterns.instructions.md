@@ -11,6 +11,14 @@ applyTo:
   - 'README.md'
 ---
 
+When working from `data/raw/` or the external imported raw set:
+
+- Treat the imported raw directory as read-only; never edit it in place.
+- Prefer the imported raw files when validating upstream shape or history coverage, then update derived repo data separately.
+- For record inventory tasks, check both top-level individual and firm CRDs, and use `previousEmployments` / `previousIAEmployments` for individuals and `registrations` for firms.
+- When syncing or rebuilding derived caches, use append-safe logic that skips records already present instead of assuming a full rebuild.
+- If a task involves docs or prompts, describe the source as the latest source of truth and avoid implying that local derived caches are canonical.
+
 # FINRA / SEC API pattern guidelines
 
 This instruction supplements `.github/copilot-instructions.md` for work that touches upstream FINRA BrokerCheck and SEC AdviserInfo integrations.
@@ -123,11 +131,3 @@ This is especially important for:
 - selection and highlight behavior
 - sidebar and selection-log interactions
 - any statement about what colors, rings, or path overlays mean
-
-If the implementation and docs disagree, update the docs to match the verified current behavior unless the task explicitly requires changing the implementation too.
-
-## Good examples
-
-- Good: “Use `https://api.adviserinfo.sec.gov/search/firm/<CRD>?wt=json` for SEC firm detail hydration.”
-- Good: “Use `https://api.adviserinfo.sec.gov/search/firm?query=<QUERY>&hl=true&wt=json&nrows=<NROWS>&start=<START>` for firm search.”
-- Avoid: “Use `https://api.adviserinfo.sec.gov/search/firm/<CRD>?hl=true&nrows=12&query=smith&r=25&sort=score+desc&wt=json`” as a generic canonical example.
