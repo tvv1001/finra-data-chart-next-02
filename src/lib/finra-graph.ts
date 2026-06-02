@@ -7141,6 +7141,18 @@ function injectNodesById(ids) {
 // Normalize wrapped detail payloads (e.g. from Elasticsearch/Solr hits)
 function unwrapDetailPayload(detail) {
 	if (!detail) return detail;
+	if (detail?.merged || detail?.finraNode) {
+		const wrapped = detail.merged || detail.finraNode;
+		if (wrapped && typeof wrapped === 'object') {
+			return {
+				...wrapped,
+				found: detail.found ?? wrapped.found,
+				hasFinraData: detail.hasFinraData ?? wrapped.hasFinraData,
+				hasSecData: detail.hasSecData ?? wrapped.hasSecData,
+				sources: detail.sources ?? wrapped.sources,
+			};
+		}
+	}
 	const hit = detail?.hits?.hits?.[0] || detail?.response?.docs?.[0];
 	if (hit) {
 		const src = hit._source || hit;

@@ -103,7 +103,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	if (!/^\d{1,10}$/.test(crd)) {
 		return NextResponse.json({ error: 'Invalid CRD number.' }, { status: 400 });
 	}
-	const isMergedRoute = request.headers.get('x-finra-merged-route') === '1';
+	const isMergedRoute = request.nextUrl.searchParams.get('merged') === '1';
 	void rememberRecentSeed('individual', crd).catch((error) => {
 		logger.warn('failed to remember recent individual seed', { crd, error: error?.message || String(error) });
 	});

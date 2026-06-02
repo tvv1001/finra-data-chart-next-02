@@ -8,8 +8,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		return NextResponse.json({ error: 'Invalid firm id' }, { status: 400 });
 	}
 	try {
-		const response = await fetch(`${request.nextUrl.origin}/api/finra/firm/${encodeURIComponent(id)}`, {
-			headers: { 'Accept': 'application/json', 'x-finra-merged-route': '1' },
+		const targetUrl = new URL(`/api/finra/firm/${encodeURIComponent(id)}`, request.nextUrl.origin);
+		targetUrl.searchParams.set('merged', '1');
+		const response = await fetch(targetUrl, {
+			headers: { 'Accept': 'application/json' },
 			cache: 'no-store',
 		});
 
