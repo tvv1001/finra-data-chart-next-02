@@ -462,12 +462,15 @@ export default function FinraGraph() {
 	useEffect(() => {
 		if (!isMounted) return;
 		const handleFindState = (event: Event) => {
-			const detail = (event as CustomEvent<{
-				query?: string | null;
-				total?: number | null;
-				activeOrdinal?: number | null;
-				activeNodeId?: string | null;
-			}>).detail || {};
+			const detail =
+				(
+					event as CustomEvent<{
+						query?: string | null;
+						total?: number | null;
+						activeOrdinal?: number | null;
+						activeNodeId?: string | null;
+					}>
+				).detail || {};
 			setFindMatchState({
 				total: Number(detail.total || 0),
 				activeOrdinal: Number(detail.activeOrdinal || 0),
@@ -486,12 +489,12 @@ export default function FinraGraph() {
 		if (!isMounted) return;
 		const handleSearchNavigation = (event: KeyboardEvent) => {
 			if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
-				if (isFindBarOpen) return;
-				const target = event.target as Element | null;
-				if (target?.closest('input,textarea,select') || (target instanceof HTMLElement && target.isContentEditable)) return;
-				const nodeId = focusedFindNodeId || activeFindNodeId;
+			if (isFindBarOpen) return;
+			const target = event.target as Element | null;
+			if (target?.closest('input,textarea,select') || (target instanceof HTMLElement && target.isContentEditable)) return;
+			const nodeId = focusedFindNodeId || activeFindNodeId;
 
-				if (event.key === 'Enter' && nodeId) {
+			if (event.key === 'Enter' && nodeId) {
 				routeSidebarNodeSelection({
 					nodeId,
 					searchSuffix,
@@ -503,12 +506,7 @@ export default function FinraGraph() {
 				return;
 			}
 
-			if (
-				event.key === 'ArrowDown' ||
-				event.key === 'ArrowRight' ||
-				event.key === 'ArrowUp' ||
-				event.key === 'ArrowLeft'
-			) {
+			if (event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
 				event.preventDefault();
 				event.stopPropagation();
 				window.dispatchEvent(
@@ -753,72 +751,72 @@ export default function FinraGraph() {
 										</button>
 									</div>
 								</div>
-							<button
-								type='button'
-								className={`fg-fetch-toggle${isLocationPanelOpen ? ' fg-fetch-toggle--active' : ''}`}
-								onClick={() => setIsLocationPanelOpen((open) => !open)}
-								aria-expanded={isLocationPanelOpen}
-								aria-controls='fg-location-panel'
-								title='Toggle location search'
-								aria-label='Toggle location search'>
-								<span aria-hidden='true'>📍</span>
-							</button>
-							<button
-								id='fg-fetch-remote'
-								className='fg-btn-primary fg-action-btn'
-								title='Fetch matching nodes from the server'>
-								Fetch Nodes
-							</button>
-						<div
-							id='fg-location-panel'
-							className={`fg-loc-panel${isLocationPanelOpen ? '' : ' hidden'}`}
-							aria-hidden={!isLocationPanelOpen}>
-							<div className='fg-loc-panel__inputs'>
-								<input
-									id='fg-loc-input'
-									className='fg-loc-input fg-loc-input--primary'
-									type='search'
-									placeholder='City, ZIP, or international place'
-									autoComplete='off'
-									autoCorrect='off'
-									autoCapitalize='off'
-									spellCheck={false}
-									data-gramm='false'
-								/>
-								<input
-									id='fg-loc-state'
-									className='fg-loc-input fg-loc-state'
-									type='text'
-									placeholder='ST/INT'
-									autoComplete='off'
-									autoCorrect='off'
-									autoCapitalize='characters'
-									spellCheck={false}
-									maxLength={3}
-								/>
-							</div>
-							<div className='fg-loc-panel__actions'>
 								<button
-									id='fg-loc-search'
 									type='button'
-									className='fg-loc-btn'
-									title='Search by city, ZIP, or international place'>
-									Search Area
+									className={`fg-fetch-toggle${isLocationPanelOpen ? ' fg-fetch-toggle--active' : ''}`}
+									onClick={() => setIsLocationPanelOpen((open) => !open)}
+									aria-expanded={isLocationPanelOpen}
+									aria-controls='fg-location-panel'
+									title='Toggle location search'
+									aria-label='Toggle location search'>
+									<span aria-hidden='true'>📍</span>
 								</button>
 								<button
-									id='fg-loc-clear'
-									type='button'
-									className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-loc-clear'
-									title='Clear the location search inputs'>
-									Clear
+									id='fg-fetch-remote'
+									className='fg-btn-primary fg-action-btn'
+									title='Fetch matching nodes from the server'>
+									Fetch Nodes
 								</button>
+								<div
+									id='fg-location-panel'
+									className={`fg-loc-panel${isLocationPanelOpen ? '' : ' hidden'}`}
+									aria-hidden={!isLocationPanelOpen}>
+									<div className='fg-loc-panel__inputs'>
+										<input
+											id='fg-loc-input'
+											className='fg-loc-input fg-loc-input--primary'
+											type='search'
+											placeholder='City or ZIP'
+											autoComplete='off'
+											autoCorrect='off'
+											autoCapitalize='off'
+											spellCheck={false}
+											data-gramm='false'
+										/>
+										<input
+											id='fg-loc-state'
+											className='fg-loc-input fg-loc-state'
+											type='text'
+											placeholder='ST'
+											autoComplete='off'
+											autoCorrect='off'
+											autoCapitalize='characters'
+											spellCheck={false}
+											maxLength={2}
+										/>
+									</div>
+									<div className='fg-loc-panel__actions'>
+										<button
+											id='fg-loc-search'
+											type='button'
+											className='fg-loc-btn'
+											title='Search by city or ZIP'>
+											Search Area
+										</button>
+										<button
+											id='fg-loc-clear'
+											type='button'
+											className='fg-loc-clear'
+											title='Clear the location search inputs'>
+											Clear
+										</button>
+									</div>
+									<div
+										id='fg-loc-status'
+										className='fg-loc-status'
+										aria-live='polite'></div>
+								</div>
 							</div>
-							<div
-								id='fg-loc-status'
-								className='fg-loc-status'
-								aria-live='polite'></div>
-						</div>
-						</div>
 							<button
 								id='fg-mobile-menu-toggle'
 								type='button'
@@ -842,7 +840,7 @@ export default function FinraGraph() {
 					id='fg-find-bar'
 					className={`fg-find-bar${isFindBarOpen ? '' : ' hidden'}`}
 					aria-hidden={!isFindBarOpen}
-				inert={!isFindBarOpen}>
+					inert={!isFindBarOpen}>
 					<form
 						className='fg-find-bar__form'
 						onSubmit={(event) => {
@@ -1013,7 +1011,6 @@ export default function FinraGraph() {
 						</button>
 					</div>
 					<div className='fg-sidebar-mobile-actions'>
-
 						<button
 							type='button'
 							data-fg-action='clear-highlights'
