@@ -31,6 +31,7 @@ import {
 import { DEFAULT_EXPANSION_HOPS, DEFAULT_NODE_LABEL_FONT_SIZE, DEFAULT_NODE_LABEL_FONT_WEIGHT, DEFAULT_NODE_LABEL_GAP_PX, DEFAULT_SELECTION_HOPS } from './finra-graph-defaults';
 import * as canvasRenderer from './finra-graph-canvas';
 import * as overlayRenderer from './finra-graph-overlay';
+import { isValidLocationStateFilter, isZipLikeLocationQuery, normalizeLocationStateFilter } from './locationSearch';
 
 // API base. When VITE_API_URL is not set, use relative paths so the dev
 // server proxy (`/api`) is used and we don't hardcode a backend port.
@@ -1240,18 +1241,27 @@ let isSelectionLogEditMode = false;
 let pendingRouteNodeId: string | null = null;
 let pendingRoutePulseDuration: number | null = null; // optional pulse duration (ms) requested with route
 let routeNodeRequestListenerBound = false;
+let findRequestListenersBound = false;
 let traceShortestIds = new Set<string>(); // node and link IDs
 let traceLongestIds = new Set<string>(); // node and link IDs
 let traceLogIds = new Set<string>(); // node and link IDs
 let traceShortestConnectorIds = new Set<string>(); // intermediate nodes only
 let traceLongestConnectorIds = new Set<string>(); // intermediate nodes only
 let traceLogConnectorIds = new Set<string>(); // intermediate nodes only
+let activeFindQuery = '';
+let activeFindMatchIds = new Set<string>();
+let activeFindMatchOrder: string[] = [];
+let activeFindMatchIndex = -1;
 
 const LS_LOG_KEY = 'finra_selection_log';
 const LS_LOG_BOLD_KEY = 'finra_selection_log_bold';
 const SIDEBAR_VIEW_MODE_STORAGE_KEY = 'finra_sidebar_view_mode';
 const ROUTE_NODE_REQUEST_EVENT = 'finra:route-node-request';
 const SELECTED_NODE_ROUTE_EVENT = 'finra:selected-node-route';
+const FIND_QUERY_EVENT = 'finra:find-query';
+const FIND_NEXT_EVENT = 'finra:find-next';
+const FIND_CLOSE_EVENT = 'finra:find-close';
+const FIND_STATE_EVENT = 'finra:find-state';
 const TRACE_LOG_GUARD_WARNING_PREFIX = '[finra-graph] Trace with Log guard:';
 let lastTraceLogGuardWarning = '';
 
@@ -1266,6 +1276,179 @@ function loadPersistedSidebarViewMode(fallback: SidebarViewMode = 'info'): Sideb
 	} catch {
 		return fallback;
 	}
+}
+
+function normalizeSecComparable(value) {
+	const raw = String(value || '')
+		.trim()
+		.toLowerCase();
+	if (!raw) return '';
+	if (/^8-\d+$/.test(raw)) return raw;
+	if (/^\d+$/.test(raw)) return `8-${raw}`;
+	return raw;
+}
+
+function collectSearchableNodeKeys(node) {
+	if (!node || typeof node !== 'object') return [];
+	const basic = node.basicInformation || {};
+	const idSuffix = String(node.id || '')
+		.split(':')
+		.pop();
+	const preferredLabel = getPreferredNodeLabel(node);
+	const keys = [
+		node.id,
+		idSuffix,
+		node.crd,
+		basic.individualId,
+		node.firmId,
+		basic.firmId,
+		node.bdSecNumber,
+		node.iaSecNumber,
+		basic.bdSECNumber,
+		basic.iaSECNumber,
+		preferredLabel,
+		node.label,
+		node.name,
+		basic.name,
+		[basic.firstName, basic.middleName, basic.lastName].filter(Boolean).join(' '),
+		...(Array.isArray(node.otherNames) ? node.otherNames : []),
+		...(Array.isArray(basic.otherNames) ? basic.otherNames : []),
+	];
+	return keys.map((entry) => String(entry || '').trim()).filter(Boolean);
+}
+
+export function rankFindNodeMatches(rawQuery, nodePool = [], liveLinks = []) {
+	const query = String(rawQuery || '').trim();
+	if (!query) return [];
+	const comparableQuery = normalizeComparableName(query);
+	const numericQuery = /^\d+$/.test(query) ? query : '';
+	const normalizedSecQuery = normalizeSecComparable(query);
+	const byId = new Map((Array.isArray(nodePool) ? nodePool : []).filter(Boolean).map((node) => [node.id, node]));
+	const connectionCounts = new Map();
+	for (const link of Array.isArray(liveLinks) ? liveLinks : []) {
+		const sourceId = link?.source?.id ?? link?.source;
+		const targetId = link?.target?.id ?? link?.target;
+		if (sourceId) connectionCounts.set(sourceId, (connectionCounts.get(sourceId) || 0) + 1);
+		if (targetId) connectionCounts.set(targetId, (connectionCounts.get(targetId) || 0) + 1);
+	}
+
+	const scored = [];
+	for (const node of byId.values()) {
+		const keys = collectSearchableNodeKeys(node);
+		if (!keys.length) continue;
+
+		let bestScore = -1;
+		let hasExactMatch = false;
+		if (numericQuery) {
+			const nodeId = String(node?.id || '').trim();
+			if (nodeId.endsWith(`:${numericQuery}`) || nodeId.endsWith(`_${numericQuery}`) || nodeId === numericQuery) {
+				bestScore = Math.max(bestScore, 240);
+				hasExactMatch = true;
+			}
+		}
+
+		for (const rawKey of keys) {
+			const key = String(rawKey || '').trim();
+			if (!key) continue;
+			const keyComparable = normalizeComparableName(key);
+			const keySecComparable = normalizeSecComparable(key);
+
+			if (key === query) {
+				bestScore = Math.max(bestScore, 220);
+				hasExactMatch = true;
+			}
+			if (numericQuery && key === numericQuery) {
+				bestScore = Math.max(bestScore, 220);
+				hasExactMatch = true;
+			}
+			if (normalizedSecQuery && keySecComparable === normalizedSecQuery) {
+				bestScore = Math.max(bestScore, 210);
+				hasExactMatch = true;
+			}
+			if (comparableQuery && keyComparable === comparableQuery) {
+				bestScore = Math.max(bestScore, 185);
+				hasExactMatch = true;
+			}
+			if (comparableQuery && keyComparable.startsWith(comparableQuery)) bestScore = Math.max(bestScore, 150);
+			if (comparableQuery && keyComparable.includes(comparableQuery)) bestScore = Math.max(bestScore, 120);
+		}
+
+		if (bestScore > 0) {
+			scored.push({
+				node,
+				score: bestScore,
+				hasExactMatch,
+				connections: connectionCounts.get(node.id) || 0,
+			});
+		}
+	}
+
+	return scored.sort((a, b) => b.connections - a.connections || b.score - a.score || String(getPreferredNodeLabel(a.node)).localeCompare(String(getPreferredNodeLabel(b.node))));
+}
+
+function emitFindState() {
+	if (typeof window === 'undefined') return;
+	window.dispatchEvent(
+		new CustomEvent(FIND_STATE_EVENT, {
+			detail: {
+				query: activeFindQuery,
+				total: activeFindMatchOrder.length,
+				activeOrdinal: activeFindMatchIndex >= 0 ? activeFindMatchIndex + 1 : 0,
+				activeNodeId: activeFindMatchIndex >= 0 ? activeFindMatchOrder[activeFindMatchIndex] || null : null,
+			},
+		}),
+	);
+}
+
+function clearFindMatches() {
+	const hadMatches = activeFindQuery || activeFindMatchOrder.length || activeFindMatchIds.size;
+	activeFindQuery = '';
+	activeFindMatchIds = new Set<string>();
+	activeFindMatchOrder = [];
+	activeFindMatchIndex = -1;
+	if (hadMatches) {
+		refreshGraphColors();
+	}
+	emitFindState();
+}
+
+function refreshFindMatches(rawQuery, options: { preserveActiveMatch?: boolean } = {}) {
+	const query = String(rawQuery || '').trim();
+	if (!query) {
+		clearFindMatches();
+		return [];
+	}
+	const previousActiveId = options.preserveActiveMatch && activeFindMatchIndex >= 0 ? activeFindMatchOrder[activeFindMatchIndex] || null : null;
+	const nodePool = [...(Array.isArray(layoutNodes) ? layoutNodes : []), ...(Array.isArray(graphData?.nodes) ? graphData.nodes : [])];
+	const matches = rankFindNodeMatches(query, nodePool, Array.isArray(layoutLinks) ? layoutLinks : []);
+	activeFindQuery = query;
+	activeFindMatchIds = new Set(matches.map((match) => match.node.id));
+	activeFindMatchOrder = matches.map((match) => match.node.id);
+	activeFindMatchIndex = previousActiveId && activeFindMatchIds.has(previousActiveId) ? activeFindMatchOrder.indexOf(previousActiveId) : -1;
+	refreshGraphColors();
+	emitFindState();
+	return matches;
+}
+
+function cycleToFindMatch(rawQuery = activeFindQuery) {
+	const matches = refreshFindMatches(rawQuery, { preserveActiveMatch: true });
+	if (!matches.length) return false;
+	activeFindMatchIndex = activeFindMatchIndex >= 0 ? (activeFindMatchIndex + 1) % matches.length : 0;
+	const nextMatch = matches[activeFindMatchIndex] || null;
+	const liveNode = (nextMatch?.node && Array.isArray(layoutNodes) && layoutNodes.find((node) => node.id === nextMatch.node.id)) || nextMatch?.node || null;
+	if (!liveNode) {
+		emitFindState();
+		return false;
+	}
+	selectNode(liveNode, {
+		skipAutoExpand: true,
+		focus: true,
+		pulse: true,
+		focusDuration: 520,
+	});
+	activeFindMatchIndex = activeFindMatchOrder.indexOf(liveNode.id);
+	emitFindState();
+	return true;
 }
 
 let sidebarViewMode: SidebarViewMode = loadPersistedSidebarViewMode();
@@ -2509,7 +2692,34 @@ function clearGraphData() {
 	showEmpty(true);
 }
 
-async function loadBaselineGraph(profileName) {
+function renderBaselineGraphData() {
+	if (!graphData) return null;
+	const hasGraphContent = Boolean((graphData?.nodes?.length || 0) > 0 || (graphData?.links?.length || 0) > 0);
+	updateMeta(graphData.meta);
+	const totalNodes = graphData.meta?.totalNodes ?? graphData.nodes.length;
+	if (totalNodes > graphData.nodes.length) {
+		isSubsetMode = true;
+		updateSubsetInfo(graphData.nodes.length, totalNodes);
+		const sel = document.getElementById('fg-subset-select') as HTMLSelectElement | null;
+		if (sel) sel.value = String(INITIAL_SEED_COUNT);
+		renderGraph(graphData);
+	} else {
+		isSubsetMode = false;
+		clearSubsetInfo();
+		const sel = document.getElementById('fg-subset-select') as HTMLSelectElement | null;
+		if (sel) sel.value = 'all';
+		renderGraph(graphData);
+	}
+	if (!hasGraphContent) {
+		sidebarSelectedNode = null;
+		sidebarViewMode = 'none';
+		showSidebarHint();
+	}
+	showEmpty(!hasGraphContent);
+	return graphData;
+}
+
+async function loadBaselineGraph(profileName, { suppressRender = false }: { suppressRender?: boolean } = {}) {
 	isSessionCleared = false;
 	if (isBrowserOffline()) {
 		showOfflineFetchStatus();
@@ -2538,7 +2748,6 @@ async function loadBaselineGraph(profileName) {
 	graphData = await res.json();
 	sessionPersistenceMode = 'full';
 	normalizeNodeLabelsInPlace(graphData?.nodes || []);
-	const hasGraphContent = Boolean((graphData?.nodes?.length || 0) > 0 || (graphData?.links?.length || 0) > 0);
 	initialServerNodeIds = new Set(graphData.nodes.map((n) => n.id));
 	initialServerLinkKeys = new Set(
 		graphData.links.map((l) => {
@@ -2547,28 +2756,8 @@ async function loadBaselineGraph(profileName) {
 			return `${s}|${t}`;
 		}),
 	);
-	updateMeta(graphData.meta);
-	const totalNodes = graphData.meta?.totalNodes ?? graphData.nodes.length;
-	if (totalNodes > graphData.nodes.length) {
-		isSubsetMode = true;
-		updateSubsetInfo(graphData.nodes.length, totalNodes);
-		const sel = document.getElementById('fg-subset-select') as HTMLSelectElement | null;
-		if (sel) sel.value = String(INITIAL_SEED_COUNT);
-		renderGraph(graphData);
-	} else {
-		isSubsetMode = false;
-		clearSubsetInfo();
-		const sel = document.getElementById('fg-subset-select') as HTMLSelectElement | null;
-		if (sel) sel.value = 'all';
-		renderGraph(graphData);
-	}
-	if (!hasGraphContent) {
-		sidebarSelectedNode = null;
-		sidebarViewMode = 'none';
-		showSidebarHint();
-	}
-	showEmpty(!hasGraphContent);
-	return graphData;
+	if (suppressRender) return graphData;
+	return renderBaselineGraphData();
 }
 
 async function clearPersistedServerGraph() {
@@ -3081,6 +3270,21 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 		routeNodeRequestListenerBound = true;
 	}
 
+	if (!findRequestListenersBound && typeof window !== 'undefined') {
+		window.addEventListener(FIND_QUERY_EVENT, ((event: Event) => {
+			const detail = (event as CustomEvent<{ query?: string | null }>).detail || {};
+			refreshFindMatches(detail.query, { preserveActiveMatch: true });
+		}) as EventListener);
+		window.addEventListener(FIND_NEXT_EVENT, ((event: Event) => {
+			const detail = (event as CustomEvent<{ query?: string | null }>).detail || {};
+			cycleToFindMatch(detail.query || activeFindQuery);
+		}) as EventListener);
+		window.addEventListener(FIND_CLOSE_EVENT, (() => {
+			clearFindMatches();
+		}) as EventListener);
+		findRequestListenersBound = true;
+	}
+
 	if (isSidebarPersistentlyPinned()) {
 		showSidebarHint({ keepOpen: true });
 	}
@@ -3287,115 +3491,10 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 	const fetchBtn = document.getElementById('fg-fetch-remote') as HTMLButtonElement | null;
 	const fetchInput = document.getElementById('fg-fetch-input') as HTMLInputElement | null;
 	if (fetchBtn && fetchInput) {
-		const normalizeSecComparable = (value) => {
-			const raw = String(value || '')
-				.trim()
-				.toLowerCase();
-			if (!raw) return '';
-			if (/^8-\d+$/.test(raw)) return raw;
-			if (/^\d+$/.test(raw)) return `8-${raw}`;
-			return raw;
-		};
-
-		const collectSearchableNodeKeys = (node) => {
-			if (!node || typeof node !== 'object') return [];
-			const basic = node.basicInformation || {};
-			const idSuffix = String(node.id || '')
-				.split(':')
-				.pop();
-			const preferredLabel = getPreferredNodeLabel(node);
-			const keys = [
-				node.id,
-				idSuffix,
-				node.crd,
-				basic.individualId,
-				node.firmId,
-				basic.firmId,
-				node.bdSecNumber,
-				node.iaSecNumber,
-				basic.bdSECNumber,
-				basic.iaSECNumber,
-				preferredLabel,
-				node.label,
-				node.name,
-				basic.name,
-				[basic.firstName, basic.middleName, basic.lastName].filter(Boolean).join(' '),
-				...(Array.isArray(node.otherNames) ? node.otherNames : []),
-				...(Array.isArray(basic.otherNames) ? basic.otherNames : []),
-			];
-			return keys.map((entry) => String(entry || '').trim()).filter(Boolean);
-		};
-
 		const findExistingNodeMatches = (rawQuery, explicitNodePool = null) => {
-			const query = String(rawQuery || '').trim();
-			if (!query) return [];
-			const comparableQuery = normalizeComparableName(query);
-			const numericQuery = /^\d+$/.test(query) ? query : '';
-			const normalizedSecQuery = normalizeSecComparable(query);
 			const nodePool =
 				Array.isArray(explicitNodePool) ? explicitNodePool : [...(Array.isArray(layoutNodes) ? layoutNodes : []), ...(Array.isArray(graphData?.nodes) ? graphData.nodes : [])];
-			const byId = new Map((nodePool || []).filter(Boolean).map((node) => [node.id, node]));
-			const connectionCounts = new Map();
-			for (const link of Array.isArray(layoutLinks) ? layoutLinks : []) {
-				const sourceId = link?.source?.id ?? link?.source;
-				const targetId = link?.target?.id ?? link?.target;
-				if (sourceId) connectionCounts.set(sourceId, (connectionCounts.get(sourceId) || 0) + 1);
-				if (targetId) connectionCounts.set(targetId, (connectionCounts.get(targetId) || 0) + 1);
-			}
-
-			const scored = [];
-			for (const node of byId.values()) {
-				const keys = collectSearchableNodeKeys(node);
-				if (!keys.length) continue;
-
-				let bestScore = -1;
-				let hasExactMatch = false;
-				if (numericQuery) {
-					const nodeId = String(node?.id || '').trim();
-					if (nodeId.endsWith(`:${numericQuery}`) || nodeId.endsWith(`_${numericQuery}`) || nodeId === numericQuery) {
-						bestScore = Math.max(bestScore, 240);
-						hasExactMatch = true;
-					}
-				}
-				for (const rawKey of keys) {
-					const key = String(rawKey || '').trim();
-					if (!key) continue;
-					const keyComparable = normalizeComparableName(key);
-					const keySecComparable = normalizeSecComparable(key);
-
-					if (key === query) {
-						bestScore = Math.max(bestScore, 220);
-						hasExactMatch = true;
-					}
-					if (numericQuery && key === numericQuery) {
-						bestScore = Math.max(bestScore, 220);
-						hasExactMatch = true;
-					}
-					if (normalizedSecQuery && keySecComparable === normalizedSecQuery) {
-						bestScore = Math.max(bestScore, 210);
-						hasExactMatch = true;
-					}
-					if (comparableQuery && keyComparable === comparableQuery) {
-						bestScore = Math.max(bestScore, 185);
-						hasExactMatch = true;
-					}
-					if (comparableQuery && keyComparable.startsWith(comparableQuery)) bestScore = Math.max(bestScore, 150);
-					if (comparableQuery && keyComparable.includes(comparableQuery)) bestScore = Math.max(bestScore, 120);
-				}
-
-				if (bestScore > 0) {
-					scored.push({
-						node,
-						score: bestScore,
-						hasExactMatch,
-						connections: connectionCounts.get(node.id) || 0,
-					});
-				}
-			}
-
-			return scored.sort(
-				(a, b) => b.connections - a.connections || b.score - a.score || String(getPreferredNodeLabel(a.node)).localeCompare(String(getPreferredNodeLabel(b.node))),
-			);
+			return rankFindNodeMatches(rawQuery, nodePool, Array.isArray(layoutLinks) ? layoutLinks : []);
 		};
 
 		const focusExistingNodeMatch = (rawQuery, options: { statusPrefix?: string } = {}) => {
@@ -3947,6 +4046,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 		reapplySelectionState();
 
 		refreshGraphColors();
+		if (activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
 		refreshTraceState();
 
 		// Replace tick handler so it covers the full updated selections.
@@ -3964,6 +4064,10 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 
 	// ── Location search handlers ──────────────────────────────────────────────
 	const locStatus = document.getElementById('fg-loc-status');
+	const locInput = document.getElementById('fg-loc-input') as HTMLInputElement | null;
+	const locStateInput = document.getElementById('fg-loc-state') as HTMLInputElement | null;
+	const locBtn = document.getElementById('fg-loc-search') as HTMLButtonElement | null;
+	const locClearBtn = document.getElementById('fg-loc-clear') as HTMLButtonElement | null;
 
 	function setLocStatus(msg, isErr = false) {
 		if (!locStatus) return;
@@ -3975,223 +4079,109 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			}, 5000);
 	}
 
-	// Shared: process raw FINRA search hits from a location response
-	async function processLocationHits(hits) {
-		if (!hits.length) return { nodes: [], links: [] };
-		const MAX_HITS = 50;
-		const batchNodes = [];
-		const batchLinks = [];
-		await Promise.allSettled(
-			hits.slice(0, MAX_HITS).map(async (hit) => {
-				const src = hit._source || hit;
-				const crd = String(src?.ind_source_id || src?.ind_crd || '').trim();
-				if (crd && /^\d+$/.test(crd)) {
-					try {
-						const r = await fetch(`${BASE}/api/finra/individual/${encodeURIComponent(crd)}`);
-						if (!r.ok) return;
-						const detail = unwrapDetailPayload(await r.json());
-						if (detail?.found === false) return;
-						const personId = `person:${crd}`;
-						const personLabel = normalizePersonLabel(
-							(detail?.basicInformation?.firstName || src?.ind_firstname) +
-								(detail?.basicInformation?.middleName || src?.ind_middlename) +
-								(detail?.basicInformation?.lastName || src?.ind_lastname),
-						);
-
-						if (!batchNodes.some((n) => n.id === personId)) {
-							batchNodes.push({
-								id: personId,
-								label: personLabel,
-								group: 'individual',
-								crd,
-							});
-						}
-						for (const e of [
-							...(detail?.currentEmployments || []).map((e) => ({ ...e, _isCurrent: true })),
-							...(detail?.previousEmployments || []).map((e) => ({ ...e, _isCurrent: false })),
-						]) {
-							const fid = String(e?.firmId || e?.firm_id || e?.firmIdNumber || e?.firmId || '').trim();
-							if (!fid) continue;
-							const firmNodeId = `firm:${fid}`;
-							if (!batchNodes.some((n) => n.id === firmNodeId)) {
-								batchNodes.push({
-									id: firmNodeId,
-									label: e?.firm_name || e?.firmName || `Firm ${fid}`,
-									group: 'firm',
-									firmId: fid,
-									bdSecNumber: e?.firm_bd_sec_number || e?.bdSecNumber,
-									iaSecNumber: e?.firm_ia_sec_number || e?.iaSecNumber,
-								});
-							}
-							batchLinks.push({
-								source: personId,
-								target: firmNodeId,
-								relationship: getEmploymentRelationship(e),
-								isCurrent: e._isCurrent,
-							});
-						}
-					} catch {
-						/* skip */
-					}
-					return;
-				}
-				// Firm hit (from zip search)
-				const firmId = String(src?.firm_id || src?.firmId || src?.firm_source_id || '').trim();
-				if (firmId && /^\d+$/.test(firmId)) {
-					try {
-						const r = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`);
-						if (!r.ok) return;
-						const detail = await r.json();
-						if (detail?.found === false) return;
-						const firmNodeId = `firm:${firmId}`;
-						if (!batchNodes.some((n) => n.id === firmNodeId)) {
-							batchNodes.push({
-								id: firmNodeId,
-								label: detail?.firmName || src?.name || `Firm ${firmId}`,
-								group: 'firm',
-								firmId,
-								bcScope: detail?.firm_bc_scope ?? detail?.bcScope ?? null,
-								disclosureFlag: detail?.disclosureFlag ?? detail?.basicInformation?.disclosureFlag ?? detail?.ind_bc_disclosure_fl,
-								iaDisclosureFlag: detail?.iaDisclosureFlag ?? detail?.basicInformation?.iaDisclosureFlag ?? detail?.ind_bc_disclosure_fl,
-							});
-						}
-						for (const o of detail?.directOwners || []) {
-							const pid = String(o?.crdNumber || o?.crd || o?.personId || '').trim();
-							if (!pid) continue;
-							const personNodeId = `person:${pid}`;
-							if (!batchNodes.some((n) => n.id === personNodeId)) {
-								batchNodes.push({
-									id: personNodeId,
-									label: normalizePersonLabel(o?.legalName || o?.name || `Person ${pid}`),
-									group: 'individual',
-									crd: pid,
-									bcScope: o?.bcScope || null,
-									stub: true,
-								});
-							}
-							batchLinks.push({
-								source: personNodeId,
-								target: firmNodeId,
-								relationship: 'controls',
-							});
-						}
-					} catch {
-						/* skip */
-					}
-				}
-			}),
-		);
-		return { nodes: batchNodes, links: batchLinks };
+	function syncLocationStateInputValue() {
+		if (!locStateInput) return '';
+		const normalized = (locStateInput.value || '')
+			.toUpperCase()
+			.replace(/[^A-Z]/g, '')
+			.slice(0, 3);
+		if (locStateInput.value !== normalized) {
+			locStateInput.value = normalized;
+		}
+		return normalized;
 	}
 
-	// City / State → individual search
-	const cityBtn = document.getElementById('fg-loc-city-search') as HTMLButtonElement | null;
-	if (cityBtn) {
-		cityBtn.addEventListener('click', async () => {
-			const city = ((document.getElementById('fg-loc-city') as HTMLInputElement | null)?.value || '').trim();
-			if (!city) {
-				setLocStatus('Enter a city to search', true);
+	async function runLocationSearch() {
+		const location = (locInput?.value || '').trim();
+		const rawState = syncLocationStateInputValue();
+		const looksLikeZip = isZipLikeLocationQuery(location);
+
+		if (!location) {
+			setLocStatus('Enter a city, ZIP code, or international place.', true);
+			return;
+		}
+		if (rawState && !isValidLocationStateFilter(rawState)) {
+			setLocStatus('State must be a valid two-letter US code or INT.', true);
+			return;
+		}
+
+		const stateFilter = normalizeLocationStateFilter(rawState);
+		if (!looksLikeZip && !stateFilter) {
+			setLocStatus('Enter a two-letter US state or INT for international addresses.', true);
+			return;
+		}
+
+		if (locBtn) {
+			locBtn.disabled = true;
+			locBtn.textContent = 'Searching…';
+		}
+		setLocStatus(`Searching ${location}${stateFilter ? ` (${stateFilter})` : ''}…`);
+
+		try {
+			const u = makeApiUrl('/api/finra/location-search');
+			u.searchParams.set('location', location);
+			if (stateFilter) u.searchParams.set('state', stateFilter);
+			u.searchParams.set('limit', '50');
+
+			const r = await fetch(u.toString(), { headers: { Accept: 'application/json' } });
+			const data = await r.json().catch(() => null);
+			if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+
+			const nodes = Array.isArray(data?.nodes) ? data.nodes : [];
+			const links = Array.isArray(data?.links) ? data.links : [];
+			const matchedIds = Array.isArray(data?.matchedIds) ? data.matchedIds : [];
+			const totalMatches = Number.isFinite(Number(data?.totalMatches)) ? Number(data.totalMatches) : matchedIds.length;
+
+			if (!nodes.length || !matchedIds.length) {
+				setLocStatus(`No results for ${location}${stateFilter ? ` (${stateFilter})` : ''}.`);
 				return;
 			}
-			cityBtn.disabled = true;
-			cityBtn.textContent = 'Searching…';
-			setLocStatus(`Searching people in ${city}…`);
-			try {
-				const u = makeApiUrl('/api/finra/location-search');
-				u.searchParams.set('city', city);
-				const r = await fetch(u.toString());
-				if (!r.ok) throw new Error(`HTTP ${r.status}`);
-				const data = await r.json();
-				const hits = data?.hits?.hits || data?.response?.docs || [];
-				if (!hits.length) {
-					setLocStatus(`No results for ${city}`);
-					return;
-				}
-				const { nodes, links } = await processLocationHits(hits);
-				if (!nodes.length) {
-					setLocStatus('No structured records found');
-					return;
-				}
-				scheduleFirstFetchFocusIfAvailable(
-					nodes.map((node) => node.id),
-					{
-						duration: 700,
-						maxScale: 1.05,
-					},
-				);
-				appendFetched(nodes, links);
-				mergeIntoGraphData(nodes, links);
-				persistToServer(nodes, links);
-				void fetchCacheStats();
-				setLocStatus(`Added ${nodes.length} node${nodes.length !== 1 ? 's' : ''} for ${city}`);
-			} catch (err) {
-				console.error('city search failed', err);
-				setLocStatus(`Error: ${err.message}`, true);
-			} finally {
-				cityBtn.disabled = false;
-				cityBtn.textContent = 'Search People';
+
+			scheduleFirstFetchFocusIfAvailable(matchedIds, {
+				duration: 700,
+				maxScale: 1.05,
+			});
+			appendFetched(nodes, links);
+			mergeIntoGraphData(nodes, links);
+			persistToServer(nodes, links);
+			void fetchCacheStats();
+
+			const shownCount = matchedIds.length;
+			setLocStatus(
+				totalMatches > shownCount
+					? `Added ${shownCount} of ${totalMatches} matching nodes for ${location}${stateFilter ? ` (${stateFilter})` : ''}.`
+					: `Added ${shownCount} matching node${shownCount !== 1 ? 's' : ''} for ${location}${stateFilter ? ` (${stateFilter})` : ''}.`,
+			);
+		} catch (err) {
+			console.error('location search failed', err);
+			setLocStatus(`Error: ${err.message}`, true);
+		} finally {
+			if (locBtn) {
+				locBtn.disabled = false;
+				locBtn.textContent = 'Search Area';
 			}
-		});
+		}
 	}
 
-	// ZIP / radius → firm search
-	const zipBtn = document.getElementById('fg-loc-zip-search') as HTMLButtonElement | null;
-	const radiusInput = document.getElementById('fg-loc-radius') as HTMLInputElement | null;
-	const radiusVal = document.getElementById('fg-loc-radius-val') as HTMLElement | null;
-	if (radiusInput && radiusVal) {
-		radiusInput.addEventListener('input', () => {
-			radiusVal.textContent = `${radiusInput.value} mi`;
-		});
-	}
-	if (zipBtn) {
-		zipBtn.addEventListener('click', async () => {
-			const zip = ((document.getElementById('fg-loc-zip') as HTMLInputElement | null)?.value || '').trim();
-			const radius = Number.parseInt((radiusInput?.value || '25').trim(), 10) || 25;
-			if (!zip) {
-				setLocStatus('Enter a ZIP code', true);
-				return;
-			}
-			zipBtn.disabled = true;
-			zipBtn.textContent = 'Searching…';
-			setLocStatus(`Searching firms within ${radius} mi of ${zip}…`);
-			try {
-				const u = makeApiUrl('/api/finra/location-search');
-				u.searchParams.set('zip', zip);
-				u.searchParams.set('radius', String(radius));
-				const r = await fetch(u.toString());
-				if (!r.ok) throw new Error(`HTTP ${r.status}`);
-				const data = await r.json();
-				const hits = data?.hits?.hits || data?.response?.docs || [];
-				if (!hits.length) {
-					setLocStatus(`No firms found within ${radius} mi of ${zip}`);
-					return;
-				}
-				const { nodes, links } = await processLocationHits(hits);
-				if (!nodes.length) {
-					setLocStatus('No structured firm records found');
-					return;
-				}
-				scheduleFirstFetchFocusIfAvailable(
-					nodes.map((node) => node.id),
-					{
-						duration: 700,
-						maxScale: 1.05,
-					},
-				);
-				appendFetched(nodes, links);
-				mergeIntoGraphData(nodes, links);
-				persistToServer(nodes, links);
-				void fetchCacheStats();
-				setLocStatus(`Added ${nodes.length} node${nodes.length !== 1 ? 's' : ''} within ${radius} mi of ${zip}`);
-			} catch (err) {
-				console.error('zip search failed', err);
-				setLocStatus(`Error: ${err.message}`, true);
-			} finally {
-				zipBtn.disabled = false;
-				zipBtn.textContent = 'Search Firms';
-			}
-		});
-	}
+	locStateInput?.addEventListener('input', syncLocationStateInputValue);
+	locInput?.addEventListener('keydown', (event) => {
+		if (event.key !== 'Enter') return;
+		event.preventDefault();
+		void runLocationSearch();
+	});
+	locStateInput?.addEventListener('keydown', (event) => {
+		if (event.key !== 'Enter') return;
+		event.preventDefault();
+		void runLocationSearch();
+	});
+	locBtn?.addEventListener('click', () => {
+		void runLocationSearch();
+	});
+	locClearBtn?.addEventListener('click', () => {
+		if (locInput) locInput.value = '';
+		if (locStateInput) locStateInput.value = '';
+		setLocStatus('');
+	});
 
 	renderLegend();
 	void fetchCacheStats();
@@ -4858,11 +4848,14 @@ async function loadGraph() {
 			clearGraphData();
 			return;
 		} else {
-			await loadBaselineGraph(profileName);
+			await loadBaselineGraph(profileName, { suppressRender: Boolean(session) });
 			if (!graphData) return;
 
 			if (session) {
-				renderSavedSessionGraph(session);
+				const renderedSavedSession = renderSavedSessionGraph(session);
+				if (!renderedSavedSession) {
+					renderBaselineGraphData();
+				}
 				await restoreSavedSession(session);
 				return;
 			}
@@ -6491,6 +6484,7 @@ function reapplySelectionState() {
 
 	nodeSel
 		.classed('fg-node--selection-log-label', (d) => selectionLogLabelNodeIds.has(d.id))
+		.classed('fg-node--find-match', (d) => activeFindMatchIds.has(d.id))
 		.classed('trace-shortest', (d) => isTraceMode && traceShortestIds.has(d.id) && !traceShortestConnectorIds.has(d.id))
 		.classed('trace-shortest-connector', (d) => isTraceMode && traceShortestConnectorIds.has(d.id))
 		.classed('trace-longest', (d) => isTraceMode && traceLongestIds.has(d.id) && !traceLongestConnectorIds.has(d.id))
@@ -7404,6 +7398,7 @@ function injectNodesById(ids) {
 	}
 
 	refreshGraphColors();
+	if (activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
 	refreshTraceState();
 
 	refreshSoftLocationGroupingForces(layoutNodes);
@@ -9147,6 +9142,7 @@ function revealNeighbors(
 	reapplySelectionState();
 
 	refreshGraphColors();
+	if (activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
 	refreshTraceState();
 
 	simulation.on('tick', () => {

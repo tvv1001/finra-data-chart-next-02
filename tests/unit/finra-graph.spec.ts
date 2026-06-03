@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	ensureSidebarHintContent,
+	formatFindCounter,
 	isSidebarTemporarilyPinned,
+	isFindShortcut,
 	toggleSidebarPin,
 	syncSidebarPinButton,
 	hideSidebar,
@@ -15,6 +17,7 @@ import {
 	loadPersistedSidebarViewMode,
 	loadSelectionLogBoldPreference,
 	normalizeNodeLabelInPlace,
+	rankFindNodeMatches,
 	shouldRenderNodeSelected,
 	upsertSelectionLogEntry,
 } from '../../src/lib/finra-graph';
@@ -322,6 +325,38 @@ describe('FinraGraph DOM helpers (unit)', () => {
 				resolve(null);
 			}, 20),
 		);
+	});
+
+	it('isFindShortcut detects ctrl/cmd+f without alt', () => {
+		expect(isFindShortcut({ key: 'f', ctrlKey: true, metaKey: false, altKey: false, defaultPrevented: false } as KeyboardEvent)).toBe(true);
+		expect(isFindShortcut({ key: 'F', ctrlKey: false, metaKey: true, altKey: false, defaultPrevented: false } as KeyboardEvent)).toBe(true);
+		expect(isFindShortcut({ key: 'f', ctrlKey: true, metaKey: false, altKey: true, defaultPrevented: false } as KeyboardEvent)).toBe(false);
+		expect(isFindShortcut({ key: 'g', ctrlKey: true, metaKey: false, altKey: false, defaultPrevented: false } as KeyboardEvent)).toBe(false);
+	});
+
+	it('formatFindCounter reports totals and current position', () => {
+		expect(formatFindCounter(0, 0)).toBe('0 matches');
+		expect(formatFindCounter(1, 0)).toBe('1 match');
+		expect(formatFindCounter(5, 0)).toBe('5 matches');
+		expect(formatFindCounter(5, 3)).toBe('3/5');
+	});
+
+	it('rankFindNodeMatches ranks loaded matches by score and connection count', () => {
+		const nodes = [
+			{ id: 'person:123', group: 'individual', label: 'Alice Johnson', basicInformation: { firstName: 'Alice', lastName: 'Johnson' } },
+			{ id: 'person:456', group: 'individual', label: 'Alice Jones', basicInformation: { firstName: 'Alice', lastName: 'Jones' } },
+			{ id: 'firm:789', group: 'firm', label: 'Alice Advisors', firmId: '789', basicInformation: { firmName: 'Alice Advisors' } },
+		] as any[];
+		const links = [
+			{ source: 'person:123', target: 'firm:789' },
+			{ source: 'person:123', target: 'person:456' },
+		] as any[];
+
+		const matches = rankFindNodeMatches('Alice', nodes, links);
+
+		expect(matches.map((entry) => entry.node.id)).toEqual(expect.arrayContaining(['person:123', 'person:456', 'firm:789']));
+		expect(matches[0]?.node.id).toBe('person:123');
+		expect(matches[0]?.connections).toBeGreaterThan(matches[1]?.connections ?? 0);
 	});
 
 	it('routeSidebarNodeSelection pushes the node route and dispatches a selection request', () => {

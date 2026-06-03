@@ -9,6 +9,10 @@ const MOBILE_TOUCH_SLOP_PX = 12;
 const MOBILE_TOUCH_CLICK_SUPPRESSION_MS = 250;
 const ROUTE_NODE_REQUEST_EVENT = 'finra:route-node-request';
 const SELECTED_NODE_ROUTE_EVENT = 'finra:selected-node-route';
+const FIND_QUERY_EVENT = 'finra:find-query';
+const FIND_NEXT_EVENT = 'finra:find-next';
+const FIND_CLOSE_EVENT = 'finra:find-close';
+const FIND_STATE_EVENT = 'finra:find-state';
 
 function bindTouchDragClickSuppression(button: HTMLElement | null) {
 	if (!button || button.dataset.touchGuardBound === 'true') return;
@@ -186,21 +190,70 @@ function routeSidebarNodeSelection({
 	window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { nodeId, pulseDuration } }));
 }
 
+function isFindShortcut(event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'altKey' | 'defaultPrevented'>) {
+	return !event.defaultPrevented && !event.altKey && (event.ctrlKey || event.metaKey) && String(event.key || '').toLowerCase() === 'f';
+}
+
+function formatFindCounter(total: number, activeOrdinal = 0) {
+	if (!total) return '0 matches';
+	if (activeOrdinal > 0) return `${activeOrdinal}/${total}`;
+	return `${total} match${total === 1 ? '' : 'es'}`;
+}
+
 export default function FinraGraph() {
 	const mountedRef = useRef(false);
 	const appRef = useRef<HTMLDivElement | null>(null);
+	const findInputRef = useRef<HTMLInputElement | null>(null);
+	const isFindBarOpenRef = useRef(false);
 	const wasGraphEmptyRef = useRef<boolean | null>(null);
 	const [isMounted, setIsMounted] = useState(false);
 	const [graphReady, setGraphReady] = useState(false);
 	const [browserPathname, setBrowserPathname] = useState('');
+	const [isFindBarOpen, setIsFindBarOpen] = useState(false);
+	const [findQuery, setFindQuery] = useState('');
+	const [findMatchState, setFindMatchState] = useState({ total: 0, activeOrdinal: 0 });
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
 	const routeNodeId = useMemo(() => parseNodeIdFromPathname(browserPathname || pathname), [browserPathname, pathname]);
+	const findCounterText = useMemo(() => formatFindCounter(findMatchState.total, findMatchState.activeOrdinal), [findMatchState.activeOrdinal, findMatchState.total]);
 	const searchSuffix = useMemo(() => {
 		const suffix = searchParams.toString();
 		return suffix ? `?${suffix}` : '';
 	}, [searchParams]);
+
+	const closeFindBar = ({ clearQuery = true }: { clearQuery?: boolean } = {}) => {
+		setIsFindBarOpen(false);
+		if (clearQuery) {
+			setFindQuery('');
+		}
+		setFindMatchState({ total: 0, activeOrdinal: 0 });
+		window.dispatchEvent(new CustomEvent(FIND_CLOSE_EVENT));
+	};
+
+	const focusFindInput = () => {
+		window.requestAnimationFrame(() => {
+			const input = findInputRef.current;
+			if (!input) return;
+			input.focus({ preventScroll: true });
+			input.select();
+		});
+	};
+
+	const openFindBar = () => {
+		setIsFindBarOpen(true);
+		focusFindInput();
+	};
+
+	const submitFindQuery = () => {
+		const query = findQuery.trim();
+		if (!query) return;
+		window.dispatchEvent(new CustomEvent(FIND_NEXT_EVENT, { detail: { query } }));
+	};
+
+	useEffect(() => {
+		isFindBarOpenRef.current = isFindBarOpen;
+	}, [isFindBarOpen]);
 
 	// Delegate click handler for CRD links in sidebar
 	useEffect(() => {
@@ -363,6 +416,54 @@ export default function FinraGraph() {
 
 	useEffect(() => {
 		if (!isMounted) return;
+		const handleFindState = (event: Event) => {
+			const detail = (event as CustomEvent<{ total?: number; activeOrdinal?: number }>).detail || {};
+			setFindMatchState({
+				total: Number(detail.total || 0),
+				activeOrdinal: Number(detail.activeOrdinal || 0),
+			});
+		};
+
+		window.addEventListener(FIND_STATE_EVENT, handleFindState as EventListener);
+		return () => {
+			window.removeEventListener(FIND_STATE_EVENT, handleFindState as EventListener);
+		};
+	}, [isMounted]);
+
+	useEffect(() => {
+		if (!isMounted) return;
+		const handleDocumentFindShortcut = (event: KeyboardEvent) => {
+			if (!isFindShortcut(event)) return;
+			event.preventDefault();
+			event.stopPropagation();
+			setIsFindBarOpen(true);
+			focusFindInput();
+		};
+
+		document.addEventListener('keydown', handleDocumentFindShortcut);
+		return () => {
+			document.removeEventListener('keydown', handleDocumentFindShortcut);
+		};
+	}, [isMounted]);
+
+	useEffect(() => {
+		if (!isMounted || !graphReady || !isFindBarOpen) return;
+		const query = findQuery.trim();
+		if (!query) {
+			setFindMatchState({ total: 0, activeOrdinal: 0 });
+			window.dispatchEvent(new CustomEvent(FIND_CLOSE_EVENT));
+			return;
+		}
+		window.dispatchEvent(new CustomEvent(FIND_QUERY_EVENT, { detail: { query } }));
+	}, [findQuery, graphReady, isFindBarOpen, isMounted]);
+
+	useEffect(() => {
+		if (!isMounted || !isFindBarOpen) return;
+		focusFindInput();
+	}, [isFindBarOpen, isMounted]);
+
+	useEffect(() => {
+		if (!isMounted) return;
 		const closeOpenLegendTooltip = (target: EventTarget | null) => {
 			const openLegend = document.querySelector<HTMLDetailsElement>('.fg-mobile-legend-tooltip[open]');
 			if (!openLegend) return;
@@ -394,6 +495,11 @@ export default function FinraGraph() {
 
 		const handleEscapeKey = (event: KeyboardEvent) => {
 			if (event.key !== 'Escape') return;
+			if (isFindBarOpenRef.current) {
+				event.preventDefault();
+				closeFindBar();
+				return;
+			}
 			const openLegend = document.querySelector<HTMLDetailsElement>('.fg-mobile-legend-tooltip[open]');
 			if (openLegend) {
 				openLegend.open = false;
@@ -604,6 +710,56 @@ export default function FinraGraph() {
 						</div>
 					</div>
 				</div>
+
+				<div
+					id='fg-find-bar'
+					className={`fg-find-bar${isFindBarOpen ? '' : ' hidden'}`}
+					aria-hidden={!isFindBarOpen}>
+					<form
+						className='fg-find-bar__form'
+						onSubmit={(event) => {
+							event.preventDefault();
+							submitFindQuery();
+						}}>
+						<label
+							className='fg-find-bar__field'
+							htmlFor='fg-find-input'>
+							<span className='fg-find-bar__label'>Find in graph</span>
+							<input
+								ref={findInputRef}
+								id='fg-find-input'
+								className='fg-search-input fg-find-input'
+								type='search'
+								value={findQuery}
+								onChange={(event) => setFindQuery(event.target.value)}
+								placeholder='Find loaded people or firms'
+								autoComplete='off'
+								autoCorrect='off'
+								autoCapitalize='off'
+								spellCheck={false}
+								data-gramm='false'
+							/>
+						</label>
+						<span
+							id='fg-find-counter'
+							className='fg-find-counter'
+							aria-live='polite'>
+							{findCounterText}
+						</span>
+						<button
+							type='submit'
+							className='fg-ghost-btn fg-find-next'
+							disabled={!findQuery.trim()}>
+							Next
+						</button>
+						<button
+							type='button'
+							className='fg-ghost-btn fg-find-close'
+							onClick={() => closeFindBar()}>
+							Close
+						</button>
+					</form>
+				</div>
 			</header>
 
 			<div className='fg-body'>
@@ -729,6 +885,52 @@ export default function FinraGraph() {
 						</button>
 					</div>
 					<div className='fg-sidebar-mobile-actions'>
+						<div className='fg-loc-panel'>
+							<div className='fg-loc-panel__inputs'>
+								<input
+									id='fg-loc-input'
+									className='fg-loc-input fg-loc-input--primary'
+									type='search'
+									placeholder='City, ZIP, or international place'
+									autoComplete='off'
+									autoCorrect='off'
+									autoCapitalize='off'
+									spellCheck={false}
+									data-gramm='false'
+								/>
+								<input
+									id='fg-loc-state'
+									className='fg-loc-input fg-loc-state'
+									type='text'
+									placeholder='ST/INT'
+									autoComplete='off'
+									autoCorrect='off'
+									autoCapitalize='characters'
+									spellCheck={false}
+									maxLength={3}
+								/>
+							</div>
+							<div className='fg-loc-panel__actions'>
+								<button
+									id='fg-loc-search'
+									type='button'
+									className='fg-loc-btn'
+									title='Search by city, ZIP, or international place'>
+									Search Area
+								</button>
+								<button
+									id='fg-loc-clear'
+									type='button'
+									className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-loc-clear'
+									title='Clear the location search inputs'>
+									Clear
+								</button>
+							</div>
+							<div
+								id='fg-loc-status'
+								className='fg-loc-status'
+								aria-live='polite'></div>
+						</div>
 						<button
 							type='button'
 							data-fg-action='clear-highlights'
@@ -883,4 +1085,6 @@ export {
 	hideSelectionLog,
 	focusFetchInputWhenEmpty,
 	routeSidebarNodeSelection,
+	isFindShortcut,
+	formatFindCounter,
 };

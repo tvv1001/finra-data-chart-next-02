@@ -15,17 +15,6 @@ const HEADERS = {
 	'Accept': 'application/json',
 };
 
-async function ensureDirs() {
-	await fs.mkdir(EXTERNAL_DIR, { recursive: true });
-	await fs.mkdir(SEC_DIR, { recursive: true });
-	await fs.mkdir(FINRA_DIR, { recursive: true });
-	// Always create raw crawl output directories for FINRA and SEC
-	const RAW_FINRA = path.join(NATIONAL, 'brokercheck.finra.org');
-	const RAW_SEC = path.join(NATIONAL, 'adviserinfo.sec.gov');
-	await fs.mkdir(RAW_FINRA, { recursive: true });
-	await fs.mkdir(RAW_SEC, { recursive: true });
-}
-
 function extractIdsFromJson(json) {
 	const firms = new Set();
 	const inds = new Set();
@@ -94,8 +83,14 @@ async function fetchAndSave(url, outExternal, outNationalPath) {
 	try {
 		const { data } = await axios.get(url, { headers: HEADERS, timeout: 20000 });
 		const raw = JSON.stringify(data, null, 2);
-		if (outExternal) await fs.writeFile(path.join(EXTERNAL_DIR, outExternal), raw, 'utf-8');
-		if (outNationalPath) await fs.writeFile(outNationalPath, raw, 'utf-8');
+		if (outExternal) {
+			await fs.mkdir(EXTERNAL_DIR, { recursive: true });
+			await fs.writeFile(path.join(EXTERNAL_DIR, outExternal), raw, 'utf-8');
+		}
+		if (outNationalPath) {
+			await fs.mkdir(path.dirname(outNationalPath), { recursive: true });
+			await fs.writeFile(outNationalPath, raw, 'utf-8');
+		}
 		return data;
 	} catch (err) {
 		console.error('fetch error', url, err.message);
@@ -117,7 +112,6 @@ function finraIndividualUrl(id) {
 }
 
 async function crawl(limit = 500, force = false) {
-	await ensureDirs();
 	const { seenF, seenI } = await seedFromExisting();
 	const queueF = [];
 	const queueI = [];
