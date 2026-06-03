@@ -26,12 +26,6 @@ function secIndividualUrl(id) {
 	return `https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(id)}?hl=true&includePrevious=true&nrows=12&wt=json`;
 }
 
-async function ensureDirs() {
-	await fs.mkdir(EXTERNAL, { recursive: true });
-	await fs.mkdir(FINRA, { recursive: true });
-	await fs.mkdir(SEC, { recursive: true });
-}
-
 async function readJsonSafe(file) {
 	try {
 		return JSON.parse(await fs.readFile(file, 'utf-8'));
@@ -117,8 +111,14 @@ async function fetchAndWrite(url, externalName, nationalPath) {
 	try {
 		const r = await axios.get(url, { headers: HEADERS, timeout: 20000 });
 		const txt = JSON.stringify(r.data, null, 2);
-		if (externalName) await fs.writeFile(path.join(EXTERNAL, externalName), txt, 'utf-8');
-		if (nationalPath) await fs.writeFile(nationalPath, txt, 'utf-8');
+		if (externalName) {
+			await fs.mkdir(EXTERNAL, { recursive: true });
+			await fs.writeFile(path.join(EXTERNAL, externalName), txt, 'utf-8');
+		}
+		if (nationalPath) {
+			await fs.mkdir(path.dirname(nationalPath), { recursive: true });
+			await fs.writeFile(nationalPath, txt, 'utf-8');
+		}
 		return { ok: true };
 	} catch (e) {
 		const status = e?.response?.status;
@@ -136,8 +136,14 @@ async function fetchAndWrite(url, externalName, nationalPath) {
 				console.log('Retrying with http:', httpUrl);
 				const r2 = await axios.get(httpUrl, { headers: HEADERS, timeout: 20000 });
 				const txt2 = JSON.stringify(r2.data, null, 2);
-				if (externalName) await fs.writeFile(path.join(EXTERNAL, externalName), txt2, 'utf-8');
-				if (nationalPath) await fs.writeFile(nationalPath, txt2, 'utf-8');
+				if (externalName) {
+					await fs.mkdir(EXTERNAL, { recursive: true });
+					await fs.writeFile(path.join(EXTERNAL, externalName), txt2, 'utf-8');
+				}
+				if (nationalPath) {
+					await fs.mkdir(path.dirname(nationalPath), { recursive: true });
+					await fs.writeFile(nationalPath, txt2, 'utf-8');
+				}
 				return { ok: true };
 			}
 		} catch (e2) {
@@ -227,13 +233,13 @@ async function validateLocalData() {
 	}
 	// write report
 	try {
+		await fs.mkdir(path.join(ROOT, 'data'), { recursive: true });
 		await fs.writeFile(path.join(ROOT, 'data', 'last_crawl_report.json'), JSON.stringify(report, null, 2), 'utf-8');
 	} catch {}
 	return report;
 }
 
 async function main() {
-	await ensureDirs();
 	const argv = require('minimist')(process.argv.slice(2));
 	const concurrency = Number(argv.concurrency || argv.c || 20);
 	const force = argv.force || argv.f || false;

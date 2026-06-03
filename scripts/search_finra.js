@@ -11,10 +11,6 @@ function secSearchUrl(term, start = 0) {
   return `https://api.adviserinfo.sec.gov/search?q=${encodeURIComponent(term)}&hl=true&nrows=100&start=${start}&wt=json`;
 }
 
-async function ensureDirs() {
-  await fs.mkdir(EXTERNAL, { recursive: true });
-}
-
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function fetchSearchResults(term) {
@@ -24,6 +20,7 @@ async function fetchSearchResults(term) {
     const res = await axios.get(url, { headers: HEADERS, timeout: 20000 });
     const data = res.data;
     const filename = `sec_search_${term.replace(/[^a-z0-9]/gi, '_')}.json`;
+    await fs.mkdir(EXTERNAL, { recursive: true });
     await fs.writeFile(path.join(EXTERNAL, filename), JSON.stringify(data, null, 2), 'utf-8');
     console.log(`Saved ${filename}`);
     return data;
@@ -34,7 +31,6 @@ async function fetchSearchResults(term) {
 }
 
 async function main() {
-  await ensureDirs();
   for (const term of [
     'smith', 'johnson', 'williams', 'brown', 'jones', 'garcia', 'miller', 'davis', 'rodriguez', 'martinez',
     'hernandez', 'lopez', 'gonzalez', 'wilson', 'anderson', 'thomas', 'taylor', 'moore', 'jackson', 'martin',
