@@ -1,6 +1,6 @@
 'use client';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 
 import ThemeToggle from './ThemeToggle';
 import { buildNodeRouteHref, buildNodeRoutePath, parseNodeIdFromPathname } from '@/lib/node-route';
@@ -205,12 +205,14 @@ function formatFindCounter(total: number, activeOrdinal = 0) {
 export default function FinraGraph() {
 	const mountedRef = useRef(false);
 	const appRef = useRef<HTMLDivElement | null>(null);
+	const fetchInputRef = useRef<HTMLInputElement | null>(null);
 	const findInputRef = useRef<HTMLInputElement | null>(null);
 	const isFindBarOpenRef = useRef(false);
 	const wasGraphEmptyRef = useRef<boolean | null>(null);
 	const [isMounted, setIsMounted] = useState(false);
 	const [graphReady, setGraphReady] = useState(false);
 	const [browserPathname, setBrowserPathname] = useState('');
+	const [fetchQuery, setFetchQuery] = useState('');
 	const [isFindBarOpen, setIsFindBarOpen] = useState(false);
 	const [findQuery, setFindQuery] = useState('');
 	const [isLocationPanelOpen, setIsLocationPanelOpen] = useState(false);
@@ -222,10 +224,22 @@ export default function FinraGraph() {
 	const searchParams = useSearchParams();
 	const routeNodeId = useMemo(() => parseNodeIdFromPathname(browserPathname || pathname), [browserPathname, pathname]);
 	const findCounterText = useMemo(() => formatFindCounter(findMatchState.total, findMatchState.activeOrdinal), [findMatchState.activeOrdinal, findMatchState.total]);
+	const fetchQueryTrimmed = fetchQuery.trim();
+	const isLocationToggleEnabled = fetchQueryTrimmed.length >= 3;
+	const locationToggleTitle = isLocationToggleEnabled ? 'Toggle location search' : 'Type at least 3 characters to enable location search';
 	const searchSuffix = useMemo(() => {
 		const suffix = searchParams.toString();
 		return suffix ? `?${suffix}` : '';
 	}, [searchParams]);
+
+	const handleFetchQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
+		setFetchQuery(event.target.value);
+	};
+
+	const handleLocationToggleClick = () => {
+		if (!isLocationToggleEnabled) return;
+		setIsLocationPanelOpen((open) => !open);
+	};
 
 	const closeFindBar = ({ clearQuery = false }: { clearQuery?: boolean } = {}) => {
 		const input = findInputRef.current;
@@ -273,6 +287,21 @@ export default function FinraGraph() {
 	useEffect(() => {
 		isFindBarOpenRef.current = isFindBarOpen;
 	}, [isFindBarOpen]);
+
+	useEffect(() => {
+		const input = fetchInputRef.current;
+		if (!input) return;
+
+		const syncFetchQuery = () => {
+			setFetchQuery(input.value);
+		};
+
+		syncFetchQuery();
+		input.addEventListener('input', syncFetchQuery);
+		return () => {
+			input.removeEventListener('input', syncFetchQuery);
+		};
+	}, [isMounted]);
 
 	// Delegate click handler for CRD links in sidebar
 	useEffect(() => {
@@ -721,9 +750,11 @@ export default function FinraGraph() {
 							<div className='fg-fetch'>
 								<div className='fg-fetch-field'>
 									<input
+										ref={fetchInputRef}
 										id='fg-fetch-input'
 										className='fg-fetch-input'
 										type='search'
+										onChange={handleFetchQueryChange}
 										placeholder='firm, person, CRD/SEC#'
 										autoComplete='off'
 										autoCorrect='off'
@@ -754,11 +785,12 @@ export default function FinraGraph() {
 								<button
 									type='button'
 									className={`fg-fetch-toggle${isLocationPanelOpen ? ' fg-fetch-toggle--active' : ''}`}
-									onClick={() => setIsLocationPanelOpen((open) => !open)}
+									disabled={!isLocationToggleEnabled}
+									onClick={handleLocationToggleClick}
 									aria-expanded={isLocationPanelOpen}
 									aria-controls='fg-location-panel'
-									title='Toggle location search'
-									aria-label='Toggle location search'>
+									title={locationToggleTitle}
+									aria-label={locationToggleTitle}>
 									<span aria-hidden='true'>📍</span>
 								</button>
 								<button
@@ -776,23 +808,26 @@ export default function FinraGraph() {
 											id='fg-loc-input'
 											className='fg-loc-input fg-loc-input--primary'
 											type='search'
-											placeholder='City or ZIP'
+											placeholder='City, State, or ZIP code'
 											autoComplete='off'
 											autoCorrect='off'
 											autoCapitalize='off'
 											spellCheck={false}
 											data-gramm='false'
 										/>
+									</div>
+									<div className='fg-loc-radius-wrap'>
+										<span className='fg-loc-radius-val'>
+											Radius: <span id='fg-loc-radius-val-num'>25</span> miles
+										</span>
 										<input
-											id='fg-loc-state'
-											className='fg-loc-input fg-loc-state'
-											type='text'
-											placeholder='ST'
-											autoComplete='off'
-											autoCorrect='off'
-											autoCapitalize='characters'
-											spellCheck={false}
-											maxLength={2}
+											id='fg-loc-radius'
+											className='fg-loc-radius'
+											type='range'
+											min='5'
+											max='100'
+											step='5'
+											defaultValue='25'
 										/>
 									</div>
 									<div className='fg-loc-panel__actions'>
@@ -800,7 +835,7 @@ export default function FinraGraph() {
 											id='fg-loc-search'
 											type='button'
 											className='fg-loc-btn'
-											title='Search by city or ZIP'>
+											title='Search by city, state, or ZIP code'>
 											Search Area
 										</button>
 										<button

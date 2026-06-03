@@ -1519,8 +1519,10 @@ function getPersistedSessionNodeMap() {
 		const parsed = JSON.parse(raw);
 		const session =
 			parsed && typeof parsed === 'object' ?
-				'data' in parsed ? parsed.data : parsed
-			: null;
+				'data' in parsed ?
+					parsed.data
+				:	parsed
+			:	null;
 		if (!session || session.pointer === 'idb') {
 			cachedPersistedSessionNodeMap = map;
 			return map;
@@ -4220,6 +4222,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				fetchBtn.disabled = false;
 				fetchBtn.textContent = origText;
 				fetchInput.value = '';
+				fetchInput.dispatchEvent(new Event('input', { bubbles: true }));
 				fetchInput.focus();
 			}
 		};
@@ -4333,7 +4336,8 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 	// ── Location search handlers ──────────────────────────────────────────────
 	const locStatus = document.getElementById('fg-loc-status');
 	const locInput = document.getElementById('fg-loc-input') as HTMLInputElement | null;
-	const locStateInput = document.getElementById('fg-loc-state') as HTMLInputElement | null;
+	const locRadiusInput = document.getElementById('fg-loc-radius') as HTMLInputElement | null;
+	const locRadiusValNum = document.getElementById('fg-loc-radius-val-num') as HTMLSpanElement | null;
 	const locBtn = document.getElementById('fg-loc-search') as HTMLButtonElement | null;
 	const locClearBtn = document.getElementById('fg-loc-clear') as HTMLButtonElement | null;
 
@@ -4347,35 +4351,12 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			}, 5000);
 	}
 
-	function syncLocationStateInputValue() {
-		if (!locStateInput) return '';
-		const normalized = (locStateInput.value || '')
-			.toUpperCase()
-			.replace(/[^A-Z]/g, '')
-			.slice(0, 3);
-		if (locStateInput.value !== normalized) {
-			locStateInput.value = normalized;
-		}
-		return normalized;
-	}
-
 	async function runLocationSearch() {
 		const location = (locInput?.value || '').trim();
-		const rawState = syncLocationStateInputValue();
-		const looksLikeZip = isZipLikeLocationQuery(location);
+		const radius = locRadiusInput ? parseFloat(locRadiusInput.value) : 25;
 
 		if (!location) {
 			setLocStatus('Enter a city, ZIP code, or international place.', true);
-			return;
-		}
-		if (rawState && !isValidLocationStateFilter(rawState)) {
-			setLocStatus('State must be a valid two-letter US code or INT.', true);
-			return;
-		}
-
-		const stateFilter = normalizeLocationStateFilter(rawState);
-		if (!looksLikeZip && !stateFilter) {
-			setLocStatus('Enter a two-letter US state or INT for international addresses.', true);
 			return;
 		}
 
@@ -4383,12 +4364,12 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			locBtn.disabled = true;
 			locBtn.textContent = 'Searching…';
 		}
-		setLocStatus(`Searching ${location}${stateFilter ? ` (${stateFilter})` : ''}…`);
+		setLocStatus(`Searching ${location} within ${radius} miles…`);
 
 		try {
 			const u = makeApiUrl('/api/finra/location-search');
 			u.searchParams.set('location', location);
-			if (stateFilter) u.searchParams.set('state', stateFilter);
+			u.searchParams.set('radius', String(radius));
 			u.searchParams.set('limit', '50');
 
 			const r = await fetch(u.toString(), { headers: { Accept: 'application/json' } });
@@ -4401,7 +4382,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			const totalMatches = Number.isFinite(Number(data?.totalMatches)) ? Number(data.totalMatches) : matchedIds.length;
 
 			if (!nodes.length || !matchedIds.length) {
-				setLocStatus(`No results for ${location}${stateFilter ? ` (${stateFilter})` : ''}.`);
+				setLocStatus(`No results for ${location} within ${radius} miles.`);
 				return;
 			}
 
@@ -4417,8 +4398,8 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			const shownCount = matchedIds.length;
 			setLocStatus(
 				totalMatches > shownCount ?
-					`Added ${shownCount} of ${totalMatches} matching nodes for ${location}${stateFilter ? ` (${stateFilter})` : ''}.`
-				:	`Added ${shownCount} matching node${shownCount !== 1 ? 's' : ''} for ${location}${stateFilter ? ` (${stateFilter})` : ''}.`,
+					`Added ${shownCount} of ${totalMatches} matching nodes for ${location} within ${radius} miles.`
+				:	`Added ${shownCount} matching node${shownCount !== 1 ? 's' : ''} for ${location} within ${radius} miles.`,
 			);
 		} catch (err) {
 			console.error('location search failed', err);
@@ -4431,13 +4412,13 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 		}
 	}
 
-	locStateInput?.addEventListener('input', syncLocationStateInputValue);
-	locInput?.addEventListener('keydown', (event) => {
-		if (event.key !== 'Enter') return;
-		event.preventDefault();
-		void runLocationSearch();
+	locRadiusInput?.addEventListener('input', () => {
+		if (locRadiusValNum && locRadiusInput) {
+			locRadiusValNum.textContent = locRadiusInput.value;
+		}
 	});
-	locStateInput?.addEventListener('keydown', (event) => {
+
+	locInput?.addEventListener('keydown', (event) => {
 		if (event.key !== 'Enter') return;
 		event.preventDefault();
 		void runLocationSearch();
@@ -4447,7 +4428,12 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 	});
 	locClearBtn?.addEventListener('click', () => {
 		if (locInput) locInput.value = '';
-		if (locStateInput) locStateInput.value = '';
+		if (locRadiusInput) {
+			locRadiusInput.value = '25';
+			if (locRadiusValNum) {
+				locRadiusValNum.textContent = '25';
+			}
+		}
 		setLocStatus('');
 	});
 

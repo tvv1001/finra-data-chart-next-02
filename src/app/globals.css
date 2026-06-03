@@ -1118,6 +1118,19 @@ body {
 	background: var(--surface-hover);
 }
 
+.fg-fetch-toggle:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+	background: var(--surface);
+	border-color: var(--border);
+}
+
+.fg-fetch-toggle:disabled:hover,
+.fg-fetch-toggle:disabled:focus-visible {
+	background: var(--surface);
+	border-color: var(--border);
+}
+
 .fg-fetch-toggle--active {
 	background: rgba(37, 99, 235, 0.12);
 	border-color: var(--accent);
