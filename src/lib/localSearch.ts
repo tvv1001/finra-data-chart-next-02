@@ -223,26 +223,33 @@ function tokensFuzzyMatch(queryToken: string, candidateToken: string) {
 	return getBoundedEditDistance(queryToken, candidateToken, maxDistance) <= maxDistance;
 }
 
-function isSurnamePriorityQuery(normalizedQuery: string) {
+function isStrictSurnameQuery(rawQuery: string, normalizedQuery: string) {
 	const compactQuery = compactNormalizeText(normalizedQuery);
-	return compactQuery.length >= 4 && (compactQuery.startsWith('mc') || compactQuery.startsWith('o'));
+	const raw = String(rawQuery || '')
+		.trim()
+		.toLowerCase();
+	if (compactQuery.length < 4 || /\s/.test(compactQuery)) return false;
+	return compactQuery.startsWith('mc') || raw.startsWith("o'");
 }
 
-function getSurnameMatchScore(doc: PreparedLocalSearchDoc, normalizedQuery: string) {
+function getSurnameMatchScore(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQuery: string) {
 	if (doc.type !== 'individual') return 0;
 	const compactQuery = compactNormalizeText(normalizedQuery);
 	if (!compactQuery) return 0;
-	const surnamePriority = isSurnamePriorityQuery(normalizedQuery);
+	const strictSurnameQuery = isStrictSurnameQuery(rawQuery, normalizedQuery);
 	let bestScore = 0;
 	for (const candidate of doc.surnameCompactCandidates) {
-		if (candidate === compactQuery) bestScore = Math.max(bestScore, surnamePriority ? 420 : 240);
-		else if (compactQuery.length >= 3 && candidate.startsWith(compactQuery)) bestScore = Math.max(bestScore, surnamePriority ? 320 : 170);
-		else if (compactQuery.length >= 7 && tokensFuzzyMatch(compactQuery, candidate)) bestScore = Math.max(bestScore, surnamePriority ? 220 : 120);
+		if (candidate === compactQuery) bestScore = Math.max(bestScore, strictSurnameQuery ? 420 : 240);
+		else if (compactQuery.length >= 3 && candidate.startsWith(compactQuery)) bestScore = Math.max(bestScore, strictSurnameQuery ? 320 : 170);
+		else if (!strictSurnameQuery && compactQuery.length >= 7 && tokensFuzzyMatch(compactQuery, candidate)) bestScore = Math.max(bestScore, 120);
 	}
 	return bestScore;
 }
 
-function getNameMatchScore(doc: PreparedLocalSearchDoc, normalizedQuery: string, tokens: string[]) {
+function getNameMatchScore(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQuery: string, tokens: string[]) {
+	if (isStrictSurnameQuery(rawQuery, normalizedQuery)) {
+		return getSurnameMatchScore(doc, rawQuery, normalizedQuery);
+	}
 	let bestScore = 0;
 	for (const candidate of doc.nameCandidates) {
 		if (candidate === normalizedQuery) bestScore = Math.max(bestScore, 260);
@@ -255,10 +262,13 @@ function getNameMatchScore(doc: PreparedLocalSearchDoc, normalizedQuery: string,
 			bestScore = Math.max(bestScore, 150 + matchedTokenCount * 20);
 		}
 	}
-	return Math.max(bestScore, getSurnameMatchScore(doc, normalizedQuery));
+	return Math.max(bestScore, getSurnameMatchScore(doc, rawQuery, normalizedQuery));
 }
 
-function getSortScore(doc: PreparedLocalSearchDoc, normalizedQuery: string, tokens: string[]) {
+function getSortScore(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQuery: string, tokens: string[]) {
+	if (isStrictSurnameQuery(rawQuery, normalizedQuery)) {
+		return getSurnameMatchScore(doc, rawQuery, normalizedQuery);
+	}
 	const strictText = doc.normalizedStrictSearchText;
 	const nameText = doc.normalizedNameSearchText;
 	const identifier = getIdentifierText(doc);
@@ -267,7 +277,7 @@ function getSortScore(doc: PreparedLocalSearchDoc, normalizedQuery: string, toke
 	if (doc.id.toLowerCase().endsWith(`:${normalizedQuery}`)) score += 250;
 	if (containsWholePhrase(strictText, normalizedQuery)) score += 100;
 	if (nameText.startsWith(normalizedQuery)) score += 40;
-	score += getNameMatchScore(doc, normalizedQuery, tokens);
+	score += getNameMatchScore(doc, rawQuery, normalizedQuery, tokens);
 	for (const token of tokens) {
 		if (identifier === token) score += 120;
 		if (containsWholePhrase(strictText, token)) score += 20;
@@ -275,9 +285,12 @@ function getSortScore(doc: PreparedLocalSearchDoc, normalizedQuery: string, toke
 	return score;
 }
 
-function matchesQuery(doc: PreparedLocalSearchDoc, normalizedQuery: string, tokens: string[]) {
+function matchesQuery(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQuery: string, tokens: string[]) {
 	if (!tokens.length) return false;
-	if (getNameMatchScore(doc, normalizedQuery, tokens) > 0) return true;
+	if (isStrictSurnameQuery(rawQuery, normalizedQuery)) {
+		return getSurnameMatchScore(doc, rawQuery, normalizedQuery) > 0;
+	}
+	if (getNameMatchScore(doc, rawQuery, normalizedQuery, tokens) > 0) return true;
 	if (hasStrictMatch(doc, normalizedQuery, tokens)) return true;
 	return tokens.every((token) => doc.nameTokens.some((candidateToken) => tokensFuzzyMatch(token, candidateToken)));
 }
@@ -296,9 +309,9 @@ export async function searchLocalIndex(source: LocalSearchSource, type: LocalSea
 		!normalizedQuery || !hasMinimumQuery ?
 			[]
 		:	docs
-				.filter((doc) => matchesQuery(doc, normalizedQuery, tokens))
+				.filter((doc) => matchesQuery(doc, query, normalizedQuery, tokens))
 				.sort((left, right) => {
-					const scoreDiff = getSortScore(right, normalizedQuery, tokens) - getSortScore(left, normalizedQuery, tokens);
+					const scoreDiff = getSortScore(right, query, normalizedQuery, tokens) - getSortScore(left, query, normalizedQuery, tokens);
 					if (scoreDiff !== 0) return scoreDiff;
 					return left.id.localeCompare(right.id);
 				});
