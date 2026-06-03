@@ -1262,6 +1262,7 @@ const SELECTED_NODE_ROUTE_EVENT = 'finra:selected-node-route';
 const FIND_QUERY_EVENT = 'finra:find-query';
 const FIND_NEXT_EVENT = 'finra:find-next';
 const FIND_PREV_EVENT = 'finra:find-prev';
+const FIND_MOVE_EVENT = 'finra:find-move';
 const FIND_CLOSE_EVENT = 'finra:find-close';
 const FIND_STATE_EVENT = 'finra:find-state';
 const TRACE_LOG_GUARD_WARNING_PREFIX = '[finra-graph] Trace with Log guard:';
@@ -1433,19 +1434,32 @@ function refreshFindMatches(rawQuery, options: { preserveActiveMatch?: boolean }
 }
 
 function cycleToFindMatch(rawQuery = activeFindQuery, direction = 1) {
-	const matches = refreshFindMatches(rawQuery, { preserveActiveMatch: true });
-	if (!matches.length) return false;
-	if (activeFindMatchIndex < 0) {
+	const query = String(rawQuery || '').trim();
+	let nodeIds: string[] = [];
+	if (query) {
+		const matches = refreshFindMatches(rawQuery, { preserveActiveMatch: true });
+		if (matches.length) {
+			nodeIds = matches.map((match) => match.node.id);
+		} else {
+			nodeIds = getVisibleNodeIds();
+		}
+	} else {
+		nodeIds = getVisibleNodeIds();
+	}
+	if (!nodeIds.length) return false;
+	if (activeFindMatchIndex < 0 || activeFindMatchIndex >= nodeIds.length) {
 		activeFindMatchIndex = getNearestActiveMatchIndex();
 	} else {
-		activeFindMatchIndex = (activeFindMatchIndex + direction + matches.length) % matches.length;
+		activeFindMatchIndex = (activeFindMatchIndex + direction + nodeIds.length) % nodeIds.length;
 	}
-	const nextMatch = matches[activeFindMatchIndex] || null;
-	const liveNode = (nextMatch?.node && Array.isArray(layoutNodes) && layoutNodes.find((node) => node.id === nextMatch.node.id)) || nextMatch?.node || null;
+	const nodeId = nodeIds[activeFindMatchIndex];
+	const liveNode = Array.isArray(layoutNodes) ? layoutNodes.find((node) => node.id === nodeId) : null;
 	if (!liveNode) {
 		emitFindState();
 		return false;
 	}
+	activeFindMatchOrder = nodeIds;
+	activeFindMatchIds = new Set(nodeIds);
 	activeFindMatchIndex = activeFindMatchOrder.indexOf(liveNode.id);
 	focusNodeForFind(liveNode.id, { duration: 520, minScale: 1.1 });
 	startSearchPulseLoop(liveNode.id, { interval: 1400, immediate: true });
@@ -1485,6 +1499,194 @@ function loadSelectionLogBoldPreference() {
 	} catch {
 		return true;
 	}
+}
+
+let cachedPersistedSessionNodeMap: Map<string, any> | null = null;
+
+function getPersistedSessionNodeMap() {
+	if (cachedPersistedSessionNodeMap) return cachedPersistedSessionNodeMap;
+	const map = new Map<string, any>();
+	if (typeof window === 'undefined' || !window.localStorage) {
+		cachedPersistedSessionNodeMap = map;
+		return map;
+	}
+	try {
+		const raw = localStorage.getItem(LS_SESSION_KEY);
+		if (!raw) {
+			cachedPersistedSessionNodeMap = map;
+			return map;
+		}
+		const parsed = JSON.parse(raw);
+		const session =
+			parsed && typeof parsed === 'object' ?
+				'data' in parsed ? parsed.data : parsed
+			: null;
+		if (!session || session.pointer === 'idb') {
+			cachedPersistedSessionNodeMap = map;
+			return map;
+		}
+
+		const extraNodes = Array.isArray(session.extraNodes) ? session.extraNodes.map((node) => sanitizePersistedNode(node)) : [];
+		const positions = Array.isArray(session.nodePositions) ? session.nodePositions : [];
+		for (const node of extraNodes) {
+			const id = String(node?.id || '').trim();
+			const x = Number(node?.x);
+			const y = Number(node?.y);
+			if (!id || !Number.isFinite(x) || !Number.isFinite(y)) continue;
+			map.set(id, { ...node, x, y });
+		}
+		for (const pos of positions) {
+			const id = String(pos?.id || '').trim();
+			const x = Number(pos?.x);
+			const y = Number(pos?.y);
+			if (!id || !Number.isFinite(x) || !Number.isFinite(y)) continue;
+			if (!map.has(id)) {
+				map.set(id, { id, x, y });
+			}
+		}
+		if (Array.isArray(session.renderedServerIds) && graphData?.nodes) {
+			for (const id of session.renderedServerIds) {
+				const normalizedId = String(id || '').trim();
+				if (!normalizedId || map.has(normalizedId)) continue;
+				const node = Array.isArray(graphData.nodes) ? graphData.nodes.find((n) => n.id === normalizedId) : null;
+				if (node && Number.isFinite(node.x) && Number.isFinite(node.y)) {
+					map.set(normalizedId, node);
+				}
+			}
+		}
+	} catch {
+		// ignore malformed session payloads or storage access failures
+	}
+	cachedPersistedSessionNodeMap = map;
+	return map;
+}
+
+function getArrowableNodes() {
+	const nodesById = new Map<string, any>();
+	if (Array.isArray(layoutNodes) && layoutNodes.length) {
+		for (const node of layoutNodes) {
+			if (!node || !Number.isFinite(node.x) || !Number.isFinite(node.y)) continue;
+			nodesById.set(node.id, node);
+		}
+	}
+
+	const persisted = getPersistedSessionNodeMap();
+	for (const [id, node] of persisted.entries()) {
+		if (!id || !node || !Number.isFinite(node.x) || !Number.isFinite(node.y) || nodesById.has(id)) continue;
+		nodesById.set(id, node);
+	}
+
+	return Array.from(nodesById.values());
+}
+
+function getNearestArrowableNode(currentNode) {
+	const nodes = getArrowableNodes();
+	if (!nodes.length) return null;
+	const metrics = getGraphViewportMetrics();
+	if (!metrics) return nodes[0] || null;
+	const centerX = currentNode && Number.isFinite(currentNode.x) ? currentNode.x * metrics.transform.k + metrics.transform.x : metrics.width / 2;
+	const centerY = currentNode && Number.isFinite(currentNode.y) ? currentNode.y * metrics.transform.k + metrics.transform.y : metrics.height / 2;
+	let nearest = null;
+	let nearestDistance = Number.POSITIVE_INFINITY;
+	for (const node of nodes) {
+		if (!node || !Number.isFinite(node.x) || !Number.isFinite(node.y)) continue;
+		const sx = node.x * metrics.transform.k + metrics.transform.x;
+		const sy = node.y * metrics.transform.k + metrics.transform.y;
+		const dx = sx - centerX;
+		const dy = sy - centerY;
+		const dist = dx * dx + dy * dy;
+		if (dist < nearestDistance) {
+			nearestDistance = dist;
+			nearest = node;
+		}
+	}
+	return nearest;
+}
+
+function moveFindMatch(rawQuery = activeFindQuery, direction = 'ArrowRight') {
+	const arrowable = getArrowableNodes();
+	if (!arrowable.length) return false;
+	const currentNode = activeFindMatchIndex >= 0 && Array.isArray(layoutNodes) ? layoutNodes.find((node) => node.id === activeFindMatchOrder[activeFindMatchIndex]) : null;
+	let nextNode = getDirectionalVisibleNode(currentNode, direction);
+	if (!nextNode) {
+		nextNode = getNearestArrowableNode(currentNode);
+	}
+	if (!nextNode) return false;
+	const nodeIds = arrowable.map((node) => node.id);
+	activeFindMatchOrder = nodeIds;
+	activeFindMatchIds = new Set(nodeIds);
+	activeFindMatchIndex = activeFindMatchOrder.indexOf(nextNode.id);
+	focusNodeForFind(nextNode.id, { duration: 520, minScale: 1.1 });
+	startSearchPulseLoop(nextNode.id, { interval: 1400, immediate: true });
+	refreshGraphColors();
+	emitFindState();
+	return true;
+}
+
+function getVisibleNodeIds() {
+	if (!Array.isArray(layoutNodes) || !layoutNodes.length || !svgSel) return [];
+	const metrics = getGraphViewportMetrics();
+	if (!metrics) return [];
+	const { transform, width, height } = metrics;
+	const { x, y, k } = transform;
+	return layoutNodes
+		.filter((node) => {
+			if (!node || !Number.isFinite(node.x) || !Number.isFinite(node.y)) return false;
+			const radius = (node._vizHalf ?? NODE_R[node.group] ?? 10) * k;
+			const sx = node.x * k + x;
+			const sy = node.y * k + y;
+			return sx + radius >= 0 && sx - radius <= width && sy + radius >= 0 && sy - radius <= height;
+		})
+		.map((node) => node.id);
+}
+
+function getVisibleNodes() {
+	if (!Array.isArray(layoutNodes) || !layoutNodes.length || !svgSel) return [];
+	const metrics = getGraphViewportMetrics();
+	if (!metrics) return [];
+	const { transform, width, height } = metrics;
+	const { x, y, k } = transform;
+	return layoutNodes.filter((node) => {
+		if (!node || !Number.isFinite(node.x) || !Number.isFinite(node.y)) return false;
+		const radius = (node._vizHalf ?? NODE_R[node.group] ?? 10) * k;
+		const sx = node.x * k + x;
+		const sy = node.y * k + y;
+		return sx + radius >= 0 && sx - radius <= width && sy + radius >= 0 && sy - radius <= height;
+	});
+}
+
+function getDirectionalVisibleNode(currentNode, direction) {
+	const visible = getArrowableNodes();
+	if (!visible.length) return null;
+	const directionVector = {
+		ArrowRight: { x: 1, y: 0 },
+		ArrowLeft: { x: -1, y: 0 },
+		ArrowDown: { x: 0, y: 1 },
+		ArrowUp: { x: 0, y: -1 },
+	}[direction];
+	if (!directionVector) return null;
+	const metrics = getGraphViewportMetrics();
+	if (!metrics) return null;
+	const refX = currentNode && Number.isFinite(currentNode.x) ? currentNode.x * metrics.transform.k + metrics.transform.x : metrics.width / 2;
+	const refY = currentNode && Number.isFinite(currentNode.y) ? currentNode.y * metrics.transform.k + metrics.transform.y : metrics.height / 2;
+	let best = null;
+	let bestScore = Number.POSITIVE_INFINITY;
+	for (const node of visible) {
+		if (!node || !Number.isFinite(node.x) || !Number.isFinite(node.y)) continue;
+		const sx = node.x * metrics.transform.k + metrics.transform.x;
+		const sy = node.y * metrics.transform.k + metrics.transform.y;
+		const dx = sx - refX;
+		const dy = sy - refY;
+		const primary = dx * directionVector.x + dy * directionVector.y;
+		if (primary <= 0) continue;
+		const secondary = Math.abs(dx * directionVector.y - dy * directionVector.x);
+		const score = secondary + Math.abs(primary) * 0.15;
+		if (score < bestScore) {
+			bestScore = score;
+			best = node;
+		}
+	}
+	return best;
 }
 
 function saveSelectionLogBoldPreference() {
@@ -3324,6 +3526,10 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 		window.addEventListener(FIND_PREV_EVENT, ((event: Event) => {
 			const detail = (event as CustomEvent<{ query?: string | null }>).detail || {};
 			cycleToFindMatch(detail.query || activeFindQuery, -1);
+		}) as EventListener);
+		window.addEventListener(FIND_MOVE_EVENT, ((event: Event) => {
+			const detail = (event as CustomEvent<{ query?: string | null; direction?: string | null }>).detail || {};
+			moveFindMatch(detail.query || activeFindQuery, String(detail.direction || 'ArrowRight'));
 		}) as EventListener);
 		window.addEventListener(FIND_CLOSE_EVENT, ((event: Event) => {
 			const detail = (event as CustomEvent<{ clearQuery?: boolean }>).detail || {};
