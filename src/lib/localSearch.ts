@@ -12,13 +12,18 @@ type LocalSearchDoc = {
 	type: LocalSearchEntity;
 	source: LocalSearchSource;
 	searchText: string;
+	nameSearchText?: string;
+	strictSearchText?: string;
 	hit: LocalSearchHit;
 };
 
 type PreparedLocalSearchDoc = LocalSearchDoc & {
-	normalizedSearchText: string;
+	normalizedNameSearchText: string;
+	normalizedStrictSearchText: string;
 	nameCandidates: string[];
 	nameTokens: string[];
+	surnameCandidates: string[];
+	surnameCompactCandidates: string[];
 };
 
 type LocalSearchIndex = {
@@ -31,6 +36,8 @@ type LocalSearchOptions = {
 	limit?: number;
 	offset?: number;
 };
+
+const MIN_SEARCH_QUERY_CHARS = 3;
 
 export type LocalSearchResponse = {
 	bucket: LocalSearchBucket;
@@ -62,6 +69,10 @@ function normalizeText(value: unknown) {
 		.replace(/[^a-z0-9]+/g, ' ')
 		.replace(/\s+/g, ' ')
 		.trim();
+}
+
+function compactNormalizeText(value: unknown) {
+	return normalizeText(value).replace(/\s+/g, '');
 }
 
 function uniqueNormalized(values: unknown[]) {
@@ -107,15 +118,25 @@ function collectNameCandidates(doc: LocalSearchDoc) {
 	return uniqueNormalized([primaryIndividualName, primaryFirmName, hit.label, hit.displayName, hit.personName, ...extraNames]);
 }
 
+function collectSurnameCandidates(doc: LocalSearchDoc) {
+	const hit = doc.hit || {};
+	return uniqueNormalized([hit.ind_lastname, hit.lastName, hit.lastname, hit.surname, hit.familyName]);
+}
+
 function prepareDoc(doc: LocalSearchDoc): PreparedLocalSearchDoc {
-	const normalizedSearchText = normalizeText(doc.searchText);
 	const nameCandidates = collectNameCandidates(doc);
+	const surnameCandidates = collectSurnameCandidates(doc);
+	const normalizedNameSearchText = normalizeText(doc.nameSearchText || nameCandidates.join(' '));
+	const normalizedStrictSearchText = normalizeText(doc.strictSearchText || doc.searchText);
 	const nameTokens = Array.from(new Set(nameCandidates.flatMap((candidate) => tokenizeQuery(candidate))));
 	return {
 		...doc,
-		normalizedSearchText,
+		normalizedNameSearchText,
+		normalizedStrictSearchText,
 		nameCandidates,
 		nameTokens,
+		surnameCandidates,
+		surnameCompactCandidates: Array.from(new Set(surnameCandidates.map((candidate) => compactNormalizeText(candidate)).filter(Boolean))),
 	};
 }
 
@@ -124,6 +145,10 @@ function tokenizeQuery(query: string) {
 		.split(' ')
 		.map((token) => token.trim())
 		.filter(Boolean);
+}
+
+export function hasMinimumSearchQuery(query: string) {
+	return normalizeText(query).replace(/\s+/g, '').length >= MIN_SEARCH_QUERY_CHARS;
 }
 
 async function loadIndex(bucket: LocalSearchBucket): Promise<LocalSearchIndex | null> {
@@ -151,6 +176,20 @@ async function loadIndex(bucket: LocalSearchBucket): Promise<LocalSearchIndex | 
 function getIdentifierText(doc: PreparedLocalSearchDoc) {
 	const hit = doc.hit || {};
 	return normalizeText(hit.ind_source_id || hit.ind_crd || hit.firm_id || hit.firmId || hit.firm_source_id || hit.bdSecNumber || hit.iaSecNumber || doc.id);
+}
+
+function containsWholePhrase(text: string, phrase: string) {
+	if (!text || !phrase) return false;
+	return ` ${text} `.includes(` ${phrase} `);
+}
+
+function hasStrictMatch(doc: PreparedLocalSearchDoc, normalizedQuery: string, tokens: string[]) {
+	const strictText = doc.normalizedStrictSearchText;
+	const identifier = getIdentifierText(doc);
+	if (!strictText) return false;
+	if (identifier === normalizedQuery) return true;
+	if (containsWholePhrase(strictText, normalizedQuery)) return true;
+	return tokens.every((token) => containsWholePhrase(strictText, token));
 }
 
 function getBoundedEditDistance(left: string, right: string, maxDistance: number) {
@@ -184,6 +223,25 @@ function tokensFuzzyMatch(queryToken: string, candidateToken: string) {
 	return getBoundedEditDistance(queryToken, candidateToken, maxDistance) <= maxDistance;
 }
 
+function isSurnamePriorityQuery(normalizedQuery: string) {
+	const compactQuery = compactNormalizeText(normalizedQuery);
+	return compactQuery.length >= 4 && (compactQuery.startsWith('mc') || compactQuery.startsWith('o'));
+}
+
+function getSurnameMatchScore(doc: PreparedLocalSearchDoc, normalizedQuery: string) {
+	if (doc.type !== 'individual') return 0;
+	const compactQuery = compactNormalizeText(normalizedQuery);
+	if (!compactQuery) return 0;
+	const surnamePriority = isSurnamePriorityQuery(normalizedQuery);
+	let bestScore = 0;
+	for (const candidate of doc.surnameCompactCandidates) {
+		if (candidate === compactQuery) bestScore = Math.max(bestScore, surnamePriority ? 420 : 240);
+		else if (compactQuery.length >= 3 && candidate.startsWith(compactQuery)) bestScore = Math.max(bestScore, surnamePriority ? 320 : 170);
+		else if (compactQuery.length >= 7 && tokensFuzzyMatch(compactQuery, candidate)) bestScore = Math.max(bestScore, surnamePriority ? 220 : 120);
+	}
+	return bestScore;
+}
+
 function getNameMatchScore(doc: PreparedLocalSearchDoc, normalizedQuery: string, tokens: string[]) {
 	let bestScore = 0;
 	for (const candidate of doc.nameCandidates) {
@@ -197,29 +255,30 @@ function getNameMatchScore(doc: PreparedLocalSearchDoc, normalizedQuery: string,
 			bestScore = Math.max(bestScore, 150 + matchedTokenCount * 20);
 		}
 	}
-	return bestScore;
+	return Math.max(bestScore, getSurnameMatchScore(doc, normalizedQuery));
 }
 
 function getSortScore(doc: PreparedLocalSearchDoc, normalizedQuery: string, tokens: string[]) {
-	const searchText = doc.normalizedSearchText;
+	const strictText = doc.normalizedStrictSearchText;
+	const nameText = doc.normalizedNameSearchText;
 	const identifier = getIdentifierText(doc);
 	let score = 0;
 	if (identifier === normalizedQuery) score += 300;
 	if (doc.id.toLowerCase().endsWith(`:${normalizedQuery}`)) score += 250;
-	if (searchText.startsWith(normalizedQuery)) score += 100;
+	if (containsWholePhrase(strictText, normalizedQuery)) score += 100;
+	if (nameText.startsWith(normalizedQuery)) score += 40;
 	score += getNameMatchScore(doc, normalizedQuery, tokens);
 	for (const token of tokens) {
 		if (identifier === token) score += 120;
-		if (searchText.startsWith(token)) score += 30;
-		if (searchText.includes(token)) score += 10;
+		if (containsWholePhrase(strictText, token)) score += 20;
 	}
 	return score;
 }
 
 function matchesQuery(doc: PreparedLocalSearchDoc, normalizedQuery: string, tokens: string[]) {
 	if (!tokens.length) return false;
-	if (tokens.every((token) => doc.normalizedSearchText.includes(token))) return true;
 	if (getNameMatchScore(doc, normalizedQuery, tokens) > 0) return true;
+	if (hasStrictMatch(doc, normalizedQuery, tokens)) return true;
 	return tokens.every((token) => doc.nameTokens.some((candidateToken) => tokensFuzzyMatch(token, candidateToken)));
 }
 
@@ -231,9 +290,10 @@ export async function searchLocalIndex(source: LocalSearchSource, type: LocalSea
 	const tokens = tokenizeQuery(query);
 	const index = await loadIndex(bucket);
 	const docs = Array.isArray(index?.docs) ? index.docs : [];
+	const hasMinimumQuery = hasMinimumSearchQuery(query);
 
 	const matches =
-		!normalizedQuery ?
+		!normalizedQuery || !hasMinimumQuery ?
 			[]
 		:	docs
 				.filter((doc) => matchesQuery(doc, normalizedQuery, tokens))

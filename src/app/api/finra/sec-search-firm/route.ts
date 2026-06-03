@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { searchLocalIndex } from '@/lib/localSearch';
+import { hasMinimumSearchQuery, searchLocalIndex } from '@/lib/localSearch';
 import { logger } from '@/lib/logger';
 import { searchGraphFallback } from '@/lib/searchGraphFallback';
 
@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
 		if (!params) return NextResponse.json({ hits: { hits: [] } });
 
 		const query = params.get('query') || '';
+		if (!hasMinimumSearchQuery(query)) return NextResponse.json({ hits: { hits: [] }, response: { docs: [], numFound: 0, start: 0 }, results: [], total: 0, currentPage: [], pageNumber: 1, pageSize: 0 });
 		const limit = Number.parseInt(params.get('nrows') || '12', 10) || 12;
 		const offset = Number.parseInt(params.get('start') || '0', 10) || 0;
 		const data = await searchLocalIndex('sec', 'firm', query, { limit, offset });
