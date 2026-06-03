@@ -12,6 +12,7 @@ const SELECTED_NODE_ROUTE_EVENT = 'finra:selected-node-route';
 const FIND_QUERY_EVENT = 'finra:find-query';
 const FIND_NEXT_EVENT = 'finra:find-next';
 const FIND_PREV_EVENT = 'finra:find-prev';
+const FIND_MOVE_EVENT = 'finra:find-move';
 const FIND_CLOSE_EVENT = 'finra:find-close';
 const FIND_STATE_EVENT = 'finra:find-state';
 
@@ -501,17 +502,22 @@ export default function FinraGraph() {
 				return;
 			}
 
-			if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+			if (
+				event.key === 'ArrowDown' ||
+				event.key === 'ArrowRight' ||
+				event.key === 'ArrowUp' ||
+				event.key === 'ArrowLeft'
+			) {
 				event.preventDefault();
 				event.stopPropagation();
-				window.dispatchEvent(new CustomEvent(FIND_NEXT_EVENT, { detail: { query: findQuery.trim() } }));
-				return;
-			}
-
-			if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-				event.preventDefault();
-				event.stopPropagation();
-				window.dispatchEvent(new CustomEvent(FIND_PREV_EVENT, { detail: { query: findQuery.trim() } }));
+				window.dispatchEvent(
+					new CustomEvent(FIND_MOVE_EVENT, {
+						detail: {
+							direction: event.key,
+							query: findQuery.trim(),
+						},
+					}),
+				);
 				return;
 			}
 		};
