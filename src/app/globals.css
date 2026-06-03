@@ -1086,12 +1086,52 @@ body {
 	white-space: normal;
 }
 
+.fg-fetch-toggle {
+	appearance: none;
+	border: 1px solid var(--border);
+	background: var(--surface);
+	color: var(--text);
+	width: 36px;
+	min-width: 36px;
+	height: 36px;
+	border-radius: 10px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	padding: 0;
+	transition: background 0.15s, border-color 0.15s;
+}
+
+.fg-fetch-toggle:hover,
+.fg-fetch-toggle:focus-visible {
+	background: var(--surface-hover);
+}
+
+.fg-fetch-toggle--active {
+	background: rgba(37, 99, 235, 0.12);
+	border-color: var(--accent);
+}
+
 .fg-loc-panel {
 	display: flex;
 	flex: 1 1 100%;
 	flex-direction: column;
 	gap: 8px;
 	padding: 8px 8px 0;
+	border: 1px solid var(--border);
+	border-radius: 14px;
+	background: var(--surface);
+	position: absolute;
+	top: calc(100% + 8px);
+	left: 0;
+	width: min(560px, 100%);
+	z-index: 12;
+	box-shadow: var(--shadow);
+}
+
+.fg-loc-panel.hidden {
+	display: none;
 }
 
 .fg-loc-panel__inputs {

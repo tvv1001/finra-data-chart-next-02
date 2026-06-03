@@ -213,6 +213,7 @@ export default function FinraGraph() {
 	const [browserPathname, setBrowserPathname] = useState('');
 	const [isFindBarOpen, setIsFindBarOpen] = useState(false);
 	const [findQuery, setFindQuery] = useState('');
+	const [isLocationPanelOpen, setIsLocationPanelOpen] = useState(false);
 	const [findMatchState, setFindMatchState] = useState({ total: 0, activeOrdinal: 0 });
 	const [activeFindNodeId, setActiveFindNodeId] = useState<string | null>(null);
 	const [focusedFindNodeId, setFocusedFindNodeId] = useState<string | null>(null);
@@ -752,13 +753,72 @@ export default function FinraGraph() {
 										</button>
 									</div>
 								</div>
+							<button
+								type='button'
+								className={`fg-fetch-toggle${isLocationPanelOpen ? ' fg-fetch-toggle--active' : ''}`}
+								onClick={() => setIsLocationPanelOpen((open) => !open)}
+								aria-expanded={isLocationPanelOpen}
+								aria-controls='fg-location-panel'
+								title='Toggle location search'
+								aria-label='Toggle location search'>
+								<span aria-hidden='true'>📍</span>
+							</button>
+							<button
+								id='fg-fetch-remote'
+								className='fg-btn-primary fg-action-btn'
+								title='Fetch matching nodes from the server'>
+								Fetch Nodes
+							</button>
+						<div
+							id='fg-location-panel'
+							className={`fg-loc-panel${isLocationPanelOpen ? '' : ' hidden'}`}
+							aria-hidden={!isLocationPanelOpen}>
+							<div className='fg-loc-panel__inputs'>
+								<input
+									id='fg-loc-input'
+									className='fg-loc-input fg-loc-input--primary'
+									type='search'
+									placeholder='City, ZIP, or international place'
+									autoComplete='off'
+									autoCorrect='off'
+									autoCapitalize='off'
+									spellCheck={false}
+									data-gramm='false'
+								/>
+								<input
+									id='fg-loc-state'
+									className='fg-loc-input fg-loc-state'
+									type='text'
+									placeholder='ST/INT'
+									autoComplete='off'
+									autoCorrect='off'
+									autoCapitalize='characters'
+									spellCheck={false}
+									maxLength={3}
+								/>
+							</div>
+							<div className='fg-loc-panel__actions'>
 								<button
-									id='fg-fetch-remote'
-									className='fg-btn-primary fg-action-btn'
-									title='Fetch matching nodes from the server'>
-									Fetch Nodes
+									id='fg-loc-search'
+									type='button'
+									className='fg-loc-btn'
+									title='Search by city, ZIP, or international place'>
+									Search Area
+								</button>
+								<button
+									id='fg-loc-clear'
+									type='button'
+									className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-loc-clear'
+									title='Clear the location search inputs'>
+									Clear
 								</button>
 							</div>
+							<div
+								id='fg-loc-status'
+								className='fg-loc-status'
+								aria-live='polite'></div>
+						</div>
+						</div>
 							<button
 								id='fg-mobile-menu-toggle'
 								type='button'
@@ -953,52 +1013,7 @@ export default function FinraGraph() {
 						</button>
 					</div>
 					<div className='fg-sidebar-mobile-actions'>
-						<div className='fg-loc-panel'>
-							<div className='fg-loc-panel__inputs'>
-								<input
-									id='fg-loc-input'
-									className='fg-loc-input fg-loc-input--primary'
-									type='search'
-									placeholder='City, ZIP, or international place'
-									autoComplete='off'
-									autoCorrect='off'
-									autoCapitalize='off'
-									spellCheck={false}
-									data-gramm='false'
-								/>
-								<input
-									id='fg-loc-state'
-									className='fg-loc-input fg-loc-state'
-									type='text'
-									placeholder='ST/INT'
-									autoComplete='off'
-									autoCorrect='off'
-									autoCapitalize='characters'
-									spellCheck={false}
-									maxLength={3}
-								/>
-							</div>
-							<div className='fg-loc-panel__actions'>
-								<button
-									id='fg-loc-search'
-									type='button'
-									className='fg-loc-btn'
-									title='Search by city, ZIP, or international place'>
-									Search Area
-								</button>
-								<button
-									id='fg-loc-clear'
-									type='button'
-									className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-loc-clear'
-									title='Clear the location search inputs'>
-									Clear
-								</button>
-							</div>
-							<div
-								id='fg-loc-status'
-								className='fg-loc-status'
-								aria-live='polite'></div>
-						</div>
+
 						<button
 							type='button'
 							data-fg-action='clear-highlights'
