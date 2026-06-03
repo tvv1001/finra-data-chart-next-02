@@ -47,6 +47,37 @@ describe('location search helpers', () => {
 		expect(nodeMatchesLocationSearch(node, { locationQuery: 'Dallas', stateFilter: 'CA' })).toBe(false);
 	});
 
+	it('matches a current registration state for a person only through the state filter', () => {
+		const node = {
+			group: 'individual',
+			currentEmployments: [
+				{
+					branch_city: 'Seattle',
+					branch_state: 'WA',
+					branch_zip: '98101',
+				},
+			],
+			previousEmployments: [
+				{
+					branch_city: 'Austin',
+					branch_state: 'TX',
+					branch_zip: '73301',
+				},
+			],
+			registeredStates: [
+				{
+					state: 'TX',
+					regScope: 'BC',
+					status: 'approved',
+				},
+			],
+		};
+
+		expect(nodeMatchesLocationSearch(node, { locationQuery: 'Texas' })).toBe(false);
+		expect(nodeMatchesLocationSearch(node, { stateFilter: 'TX' })).toBe(true);
+		expect(nodeMatchesLocationSearch(node, { locationQuery: 'Austin' })).toBe(false);
+	});
+
 	it('treats non-US province and postal formats as international', () => {
 		const node = {
 			firmAddressDetails: {
