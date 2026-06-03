@@ -9,6 +9,16 @@ Related skill: `agent-customization`. Load and follow **instructions.md** for te
 
 Guide the user to create an instructions file.
 
+## Startup data import
+
+When this repository is opened in VS Code or worked on by Copilot:
+
+- check for the latest external raw import at `../Data-finra-sec/data/raw/`
+- treat that sibling raw directory as the startup source of truth for fresh FINRA/SEC imports when the task involves data refreshes, graph rebuilds, cache rebuilds, bundle generation, or deployment prep
+- import or sync from that external raw source into this repository's `data/raw/` directory before rebuilding downstream artifacts
+- after importing, rebuild the local derived deployment artifacts needed for Redis-backed deployment prep, including the graph/cache outputs and any bundled search or primed-cache data the app ships
+- never edit the external raw import in place; keep it read-only and update this repository's local data separately
+
 ## Repo-specific Playwright guidance
 
 When adding or editing browser tests in this repo:

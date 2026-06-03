@@ -13,6 +13,10 @@ applyTo:
 
 When working from `data/raw/` or the external imported raw set:
 
+- On VS Code / Copilot startup for this repository, first check for the latest external import at `../Data-finra-sec/data/raw/`.
+- If that external raw directory exists, prefer it as the freshest import source before relying on this repo's local `data/raw/`.
+- For data refresh, graph rebuild, primed bundle, search-index, or deploy-prep tasks, sync from that external raw directory into this repo's `data/raw/` first.
+- After syncing into `data/raw/`, rebuild the local derived artifacts needed to prep a Redis-backed deployment, including graph outputs and deployment bundle inputs.
 - Treat the imported raw directory as read-only; never edit it in place.
 - Prefer the imported raw files when validating upstream shape or history coverage, then update derived repo data separately.
 - For record inventory tasks, check both top-level individual and firm CRDs, and use `previousEmployments` / `previousIAEmployments` for individuals and `registrations` for firms.
