@@ -38,6 +38,7 @@ type LocalSearchOptions = {
 };
 
 const MIN_SEARCH_QUERY_CHARS = 3;
+const SHORT_QUERY_ALLOWLIST = new Set(['vz']);
 
 export type LocalSearchResponse = {
 	bucket: LocalSearchBucket;
@@ -148,7 +149,8 @@ function tokenizeQuery(query: string) {
 }
 
 export function hasMinimumSearchQuery(query: string) {
-	return normalizeText(query).replace(/\s+/g, '').length >= MIN_SEARCH_QUERY_CHARS;
+	const compactQuery = normalizeText(query).replace(/\s+/g, '');
+	return SHORT_QUERY_ALLOWLIST.has(compactQuery) || compactQuery.length >= MIN_SEARCH_QUERY_CHARS;
 }
 
 async function loadIndex(bucket: LocalSearchBucket): Promise<LocalSearchIndex | null> {
