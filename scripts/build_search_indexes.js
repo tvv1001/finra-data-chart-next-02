@@ -58,6 +58,24 @@ function uniqueTexts(values) {
 	return out;
 }
 
+function collectScalarTexts(value, out = [], seen = new WeakSet()) {
+	if (value == null) return out;
+	if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+		out.push(value);
+		return out;
+	}
+	if (Array.isArray(value)) {
+		for (const entry of value) collectScalarTexts(entry, out, seen);
+		return out;
+	}
+	if (typeof value === 'object') {
+		if (seen.has(value)) return out;
+		seen.add(value);
+		for (const entry of Object.values(value)) collectScalarTexts(entry, out, seen);
+	}
+	return out;
+}
+
 function ensureArray(value) {
 	return Array.isArray(value) ? value : [];
 }
@@ -133,6 +151,12 @@ function buildIndividualDoc(source, detail) {
 	const currentEmployments = normalizeEmployments(detail.currentEmployments);
 	const currentIAEmployments = normalizeEmployments(detail.currentIAEmployments);
 	const registrationCount = getRegistrationCount(detail);
+	const nameTexts = uniqueTexts([
+		basicInformation.firstName,
+		basicInformation.middleName,
+		basicInformation.lastName,
+		...otherNames,
+	]);
 	const hit = {
 		ind_source_id: individualId,
 		ind_crd: individualId,
@@ -157,16 +181,9 @@ function buildIndividualDoc(source, detail) {
 		id: `${source}:individual:${individualId}`,
 		type: 'individual',
 		source,
-		searchText: uniqueTexts([
-			individualId,
-			hit.ind_firstname,
-			hit.ind_middlename,
-			hit.ind_lastname,
-			...otherNames,
-			hit.ind_bc_scope,
-			hit.ind_ia_scope,
-			...getCurrentEmploymentFirmNames(detail),
-		]).join(' ').toLowerCase(),
+		nameSearchText: nameTexts.join(' ').toLowerCase(),
+		strictSearchText: uniqueTexts(collectScalarTexts(detail)).join(' ').toLowerCase(),
+		searchText: uniqueTexts([individualId, ...nameTexts]).join(' ').toLowerCase(),
 		hit,
 	};
 }
@@ -179,6 +196,7 @@ function buildFirmDoc(source, detail) {
 	const firmName = toText(basicInformation.firmName);
 	const otherNames = uniqueTexts(basicInformation.otherNames);
 	const registrationStatuses = ensureArray(detail.registrationStatus).map((status) => toText(status?.status));
+	const nameTexts = uniqueTexts([firmName, ...otherNames]);
 	const hit = {
 		firm_id: firmId,
 		firmId,
@@ -198,16 +216,9 @@ function buildFirmDoc(source, detail) {
 		id: `${source}:firm:${firmId}`,
 		type: 'firm',
 		source,
-		searchText: uniqueTexts([
-			firmId,
-			firmName,
-			...otherNames,
-			hit.bdSecNumber,
-			hit.iaSecNumber,
-			hit.firm_bc_scope,
-			basicInformation.firmStatus,
-			...registrationStatuses,
-		]).join(' ').toLowerCase(),
+		nameSearchText: nameTexts.join(' ').toLowerCase(),
+		strictSearchText: uniqueTexts(collectScalarTexts(detail)).join(' ').toLowerCase(),
+		searchText: uniqueTexts([firmId, ...nameTexts]).join(' ').toLowerCase(),
 		hit,
 	};
 }

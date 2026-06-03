@@ -7,13 +7,6 @@ const ROOT = process.cwd();
 const EXTERNAL = path.join(ROOT, 'data', 'external');
 const HEADERS = { 'User-Agent': 'Mozilla/5.0 (compatible; research-tool/1.0)', Accept: 'application/json' };
 
-// Search terms to try
-const SEARCH_TERMS = [
-  'smith', 'johnson', 'williams', 'brown', 'jones', 'garcia', 'miller', 'davis', 'rodriguez', 'martinez',
-  'hernandez', 'lopez', 'gonzalez', 'wilson', 'anderson', 'thomas', 'taylor', 'moore', 'jackson', 'martin',
-  'lee', 'perez', 'thompson', 'white', 'harris', 'sanchez', 'clark', 'ramirez', 'lewis', 'robinson'
-];
-
 function secSearchUrl(term, start = 0) {
   return `https://api.adviserinfo.sec.gov/search?q=${encodeURIComponent(term)}&hl=true&nrows=100&start=${start}&wt=json`;
 }
@@ -42,7 +35,11 @@ async function fetchSearchResults(term) {
 
 async function main() {
   await ensureDirs();
-  for (const term of SEARCH_TERMS) {
+  for (const term of [
+    'smith', 'johnson', 'williams', 'brown', 'jones', 'garcia', 'miller', 'davis', 'rodriguez', 'martinez',
+    'hernandez', 'lopez', 'gonzalez', 'wilson', 'anderson', 'thomas', 'taylor', 'moore', 'jackson', 'martin',
+    'lee', 'perez', 'thompson', 'white', 'harris', 'sanchez', 'clark', 'ramirez', 'lewis', 'robinson',
+  ]) {
     await fetchSearchResults(term);
     await sleep(1000); // Be polite
   }

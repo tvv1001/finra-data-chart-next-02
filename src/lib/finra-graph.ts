@@ -90,6 +90,145 @@ const GRAPH_COLORS = {
 
 const NODE_STROKE_WIDTH_DEFAULT = 'var(--stroke-width-node-default)';
 const NODE_OPACITY_STUB = 'var(--opacity-node-stub)';
+const SOFT_LOCATION_GROUPING_ENABLED = true;
+
+const STATE_NAME_TO_CODE = {
+	alabama: 'AL',
+	alaska: 'AK',
+	arizona: 'AZ',
+	arkansas: 'AR',
+	california: 'CA',
+	colorado: 'CO',
+	connecticut: 'CT',
+	delaware: 'DE',
+	'district of columbia': 'DC',
+	florida: 'FL',
+	georgia: 'GA',
+	hawaii: 'HI',
+	idaho: 'ID',
+	illinois: 'IL',
+	indiana: 'IN',
+	iowa: 'IA',
+	kansas: 'KS',
+	kentucky: 'KY',
+	louisiana: 'LA',
+	maine: 'ME',
+	maryland: 'MD',
+	massachusetts: 'MA',
+	michigan: 'MI',
+	minnesota: 'MN',
+	mississippi: 'MS',
+	missouri: 'MO',
+	montana: 'MT',
+	nebraska: 'NE',
+	nevada: 'NV',
+	'new hampshire': 'NH',
+	'new jersey': 'NJ',
+	'new mexico': 'NM',
+	'new york': 'NY',
+	'north carolina': 'NC',
+	'north dakota': 'ND',
+	ohio: 'OH',
+	oklahoma: 'OK',
+	oregon: 'OR',
+	pennsylvania: 'PA',
+	'rhode island': 'RI',
+	'south carolina': 'SC',
+	'south dakota': 'SD',
+	tennessee: 'TN',
+	texas: 'TX',
+	utah: 'UT',
+	vermont: 'VT',
+	virginia: 'VA',
+	washington: 'WA',
+	'west virginia': 'WV',
+	wisconsin: 'WI',
+	wyoming: 'WY',
+	'puerto rico': 'PR',
+	'virgin islands': 'VI',
+	guam: 'GU',
+	'american samoa': 'AS',
+	'northern mariana islands': 'MP',
+};
+
+const STATE_CODES = new Set(Object.values(STATE_NAME_TO_CODE));
+
+const LOCATION_REGION_ANCHORS = {
+	west: { x: 0.19, y: 0.43 },
+	midwest: { x: 0.45, y: 0.34 },
+	northeast: { x: 0.73, y: 0.25 },
+	southeast: { x: 0.72, y: 0.66 },
+	southwest: { x: 0.42, y: 0.72 },
+	territory: { x: 0.56, y: 0.82 },
+};
+
+const STATE_REGION_MAP = {
+	WA: 'west',
+	OR: 'west',
+	CA: 'west',
+	NV: 'west',
+	ID: 'west',
+	UT: 'west',
+	AZ: 'west',
+	AK: 'west',
+	HI: 'west',
+	MT: 'west',
+	WY: 'west',
+	CO: 'west',
+	NM: 'southwest',
+	TX: 'southwest',
+	OK: 'southwest',
+	KS: 'midwest',
+	NE: 'midwest',
+	SD: 'midwest',
+	ND: 'midwest',
+	MN: 'midwest',
+	IA: 'midwest',
+	MO: 'midwest',
+	WI: 'midwest',
+	IL: 'midwest',
+	IN: 'midwest',
+	MI: 'midwest',
+	OH: 'midwest',
+	KY: 'southeast',
+	TN: 'southeast',
+	AR: 'southeast',
+	LA: 'southeast',
+	MS: 'southeast',
+	AL: 'southeast',
+	GA: 'southeast',
+	FL: 'southeast',
+	SC: 'southeast',
+	NC: 'southeast',
+	VA: 'southeast',
+	WV: 'southeast',
+	MD: 'northeast',
+	DE: 'northeast',
+	PA: 'northeast',
+	NJ: 'northeast',
+	NY: 'northeast',
+	CT: 'northeast',
+	RI: 'northeast',
+	MA: 'northeast',
+	VT: 'northeast',
+	NH: 'northeast',
+	ME: 'northeast',
+	DC: 'northeast',
+	PR: 'territory',
+	VI: 'territory',
+	GU: 'territory',
+	AS: 'territory',
+	MP: 'territory',
+};
+
+const LOCATION_SOURCE_STRENGTH = {
+	current_office: 0.92,
+	office_address: 0.88,
+	registered_state: 0.72,
+	basic_state: 0.62,
+	formed_state: 0.5,
+	district: 0.46,
+};
 
 const ENABLE_SERVER_PROFILE_SYNC = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_ENABLE_SERVER_PROFILE_SYNC === '1';
 
@@ -3816,6 +3955,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 		});
 
 		// Restart simulation with new nodes/links
+		refreshSoftLocationGroupingForces(layoutNodes);
 		simulation.nodes(layoutNodes);
 		simulation.force('link').links(layoutLinks);
 		simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
@@ -5311,6 +5451,113 @@ function getNodeScatterBoost(node, nodeCount = layoutNodes?.length || 0) {
 	return Math.min(cap, Math.sqrt(degree) * multiplier);
 }
 
+function normalizeStateCode(value) {
+	const text = String(value || '')
+		.replace(/\./g, '')
+		.replace(/\s+/g, ' ')
+		.trim();
+	if (!text) return '';
+	const upper = text.toUpperCase();
+	if (STATE_CODES.has(upper)) return upper;
+	return STATE_NAME_TO_CODE[text.toLowerCase()] || '';
+}
+
+function firstLocationText(...values) {
+	for (const value of values) {
+		const text = String(value || '')
+			.replace(/\s+/g, ' ')
+			.trim();
+		if (text) return text;
+	}
+	return '';
+}
+
+function hashString(value) {
+	const text = String(value || '');
+	let hash = 0;
+	for (let index = 0; index < text.length; index += 1) {
+		hash = (hash * 31 + text.charCodeAt(index)) >>> 0;
+	}
+	return hash;
+}
+
+function inferRegionFromDistrict(district) {
+	const normalized = String(district || '').trim().toLowerCase();
+	if (!normalized) return '';
+	if (/(san francisco|los angeles|seattle|portland|salt lake|phoenix|las vegas|denver|honolulu|anchorage)/.test(normalized)) return 'west';
+	if (/(dallas|houston|austin|oklahoma|new mexico)/.test(normalized)) return 'southwest';
+	if (/(chicago|detroit|minneapolis|st\.?\s*louis|kansas city|milwaukee|omaha|indianapolis|cleveland|columbus)/.test(normalized)) return 'midwest';
+	if (/(new york|boston|philadelphia|newark|jersey|baltimore|washington|pittsburgh|hartford|providence)/.test(normalized)) return 'northeast';
+	if (/(atlanta|miami|charlotte|raleigh|nashville|memphis|new orleans|tampa|orlando|jacksonville|birmingham|louisville|richmond)/.test(normalized)) return 'southeast';
+	return '';
+}
+
+function getLocationRegion(node) {
+	const state = normalizeStateCode(node?.locationState || node?.basicInformation?.state || node?.basicInformation?.stateCode || node?.basicInformation?.formedState);
+	if (state) return STATE_REGION_MAP[state] || '';
+	return inferRegionFromDistrict(node?.locationDistrict || node?.basicInformation?.districtName);
+}
+
+function getLocationSourceStrength(node) {
+	const source = String(node?.locationBiasSource || '').trim().toLowerCase();
+	return LOCATION_SOURCE_STRENGTH[source] ?? (node?.locationDistrict ? LOCATION_SOURCE_STRENGTH.district : 0.55);
+}
+
+function getLocationGroupingBaseStrength(nodeCount = layoutNodes?.length || 0) {
+	if (nodeCount > 1000) return 0.013;
+	if (nodeCount > 300) return 0.015;
+	return 0.018;
+}
+
+function getSoftLocationGroupingTarget(node, width, height, nodeCount = layoutNodes?.length || 0) {
+	if (!SOFT_LOCATION_GROUPING_ENABLED || !node || node.group === 'entity') return null;
+	const region = getLocationRegion(node);
+	if (!region) return null;
+	const anchor = LOCATION_REGION_ANCHORS[region];
+	if (!anchor) return null;
+	const state = normalizeStateCode(node?.locationState || node?.basicInformation?.state || node?.basicInformation?.stateCode || node?.basicInformation?.formedState);
+	const district = firstLocationText(node?.locationDistrict, node?.basicInformation?.districtName);
+	const jitterSeed = state || district || node.id;
+	const jitterHash = hashString(jitterSeed);
+	const jitterX = ((jitterHash % 1000) / 999 - 0.5) * width * 0.08;
+	const jitterY = ((((jitterHash / 1000) | 0) % 1000) / 999 - 0.5) * height * 0.12;
+	const baseStrength = getLocationGroupingBaseStrength(nodeCount);
+	const sourceStrength = getLocationSourceStrength(node);
+	const firmWeight = node.group === 'firm' ? 0.92 : 1;
+	return {
+		x: width * anchor.x + jitterX,
+		y: height * anchor.y + jitterY,
+		strength: baseStrength * sourceStrength * firmWeight,
+	};
+}
+
+function applySoftLocationGroupingTargets(nodeList, width, height) {
+	if (!Array.isArray(nodeList)) return;
+	const nodeCount = nodeList.length;
+	for (const node of nodeList) {
+		const target = getSoftLocationGroupingTarget(node, width, height, nodeCount);
+		if (!target) {
+			delete node._locationBiasX;
+			delete node._locationBiasY;
+			delete node._locationBiasStrength;
+			continue;
+		}
+		node._locationBiasX = target.x;
+		node._locationBiasY = target.y;
+		node._locationBiasStrength = target.strength;
+	}
+}
+
+function refreshSoftLocationGroupingForces(nodeList = layoutNodes) {
+	if (!simulation || !Array.isArray(nodeList)) return;
+	const main = document.getElementById('fg-main');
+	const width = Math.max(1, main?.clientWidth || 1);
+	const height = Math.max(1, main?.clientHeight || 1);
+	applySoftLocationGroupingTargets(nodeList, width, height);
+	simulation.force('location-x')?.x((node) => (Number.isFinite(node?._locationBiasX) ? node._locationBiasX : width / 2)).strength((node) => node?._locationBiasStrength || 0);
+	simulation.force('location-y')?.y((node) => (Number.isFinite(node?._locationBiasY) ? node._locationBiasY : height / 2)).strength((node) => (node?._locationBiasStrength || 0) * 0.85);
+}
+
 function getForceLinkDistance(link, nodeCount = layoutNodes?.length || 0) {
 	const baseDistance =
 		nodeCount > 1000 ? 220
@@ -6446,6 +6693,7 @@ function renderGraph(_data) {
 
 	// ── Per-node degree stats for scaled / tinted nodes ──────────────────────
 	applyGraphDerivedNodeMetrics(nodes, links);
+	applySoftLocationGroupingTargets(nodes, W, H);
 
 	// ── Anchor the two seed nodes on the same horizontal line ─────────────────
 	// When this is the initial subset (one top individual + one top firm), pin
@@ -6814,6 +7062,14 @@ function renderGraph(_data) {
 		// from sliding when the center of mass shifts after adding nodes.
 		.force('x', d3.forceX(W / 2).strength(centeringStrength))
 		.force('y', d3.forceY(H / 2).strength(centeringStrength))
+		.force(
+			'location-x',
+			d3.forceX((node) => (Number.isFinite(node?._locationBiasX) ? node._locationBiasX : W / 2)).strength((node) => node?._locationBiasStrength || 0),
+		)
+		.force(
+			'location-y',
+			d3.forceY((node) => (Number.isFinite(node?._locationBiasY) ? node._locationBiasY : H / 2)).strength((node) => (node?._locationBiasStrength || 0) * 0.85),
+		)
 		// per-node radius so scaled firm squares don't overlap each other
 		.force(
 			'collision',
@@ -7150,6 +7406,7 @@ function injectNodesById(ids) {
 	refreshGraphColors();
 	refreshTraceState();
 
+	refreshSoftLocationGroupingForces(layoutNodes);
 	simulation.nodes(layoutNodes);
 	simulation.force('link').links(layoutLinks);
 	simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
@@ -8901,6 +9158,7 @@ function revealNeighbors(
 		nodeSel.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 	});
 
+	refreshSoftLocationGroupingForces(layoutNodes);
 	simulation.nodes(layoutNodes);
 	simulation.force('link').links(layoutLinks);
 	simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));

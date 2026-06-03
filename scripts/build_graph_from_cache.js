@@ -104,6 +104,214 @@ function getSeedNodeDisplayName(node) {
 	return '';
 }
 
+const STATE_NAME_TO_CODE = {
+	alabama: 'AL',
+	alaska: 'AK',
+	arizona: 'AZ',
+	arkansas: 'AR',
+	california: 'CA',
+	colorado: 'CO',
+	connecticut: 'CT',
+	delaware: 'DE',
+	'district of columbia': 'DC',
+	florida: 'FL',
+	georgia: 'GA',
+	hawaii: 'HI',
+	idaho: 'ID',
+	illinois: 'IL',
+	indiana: 'IN',
+	iowa: 'IA',
+	kansas: 'KS',
+	kentucky: 'KY',
+	louisiana: 'LA',
+	maine: 'ME',
+	maryland: 'MD',
+	massachusetts: 'MA',
+	michigan: 'MI',
+	minnesota: 'MN',
+	mississippi: 'MS',
+	missouri: 'MO',
+	montana: 'MT',
+	nebraska: 'NE',
+	nevada: 'NV',
+	'new hampshire': 'NH',
+	'new jersey': 'NJ',
+	'new mexico': 'NM',
+	'new york': 'NY',
+	'north carolina': 'NC',
+	'north dakota': 'ND',
+	ohio: 'OH',
+	oklahoma: 'OK',
+	oregon: 'OR',
+	pennsylvania: 'PA',
+	'rhode island': 'RI',
+	'south carolina': 'SC',
+	'south dakota': 'SD',
+	tennessee: 'TN',
+	texas: 'TX',
+	utah: 'UT',
+	vermont: 'VT',
+	virginia: 'VA',
+	washington: 'WA',
+	'west virginia': 'WV',
+	wisconsin: 'WI',
+	wyoming: 'WY',
+	'puerto rico': 'PR',
+	'virgin islands': 'VI',
+	guam: 'GU',
+	'american samoa': 'AS',
+	'northern mariana islands': 'MP',
+};
+
+const STATE_CODES = new Set(Object.values(STATE_NAME_TO_CODE));
+
+function normalizeStateCode(value) {
+	const text = String(value || '')
+		.replace(/\./g, '')
+		.replace(/\s+/g, ' ')
+		.trim();
+	if (!text) return '';
+	const upper = text.toUpperCase();
+	if (STATE_CODES.has(upper)) return upper;
+	return STATE_NAME_TO_CODE[text.toLowerCase()] || '';
+}
+
+function extractStateFromAddress(address) {
+	if (!address) return '';
+	if (typeof address === 'object') {
+		return normalizeStateCode(address.state || address.stateCode || address.province || address.region);
+	}
+	const text = String(address).trim();
+	if (!text) return '';
+	const direct = normalizeStateCode(text);
+	if (direct) return direct;
+	const match = text.match(/\b([A-Z]{2})\b(?:\s+\d{5}(?:-\d{4})?)?$/);
+	if (match) return normalizeStateCode(match[1]);
+	return '';
+}
+
+function pickRegisteredState(records) {
+	if (!Array.isArray(records) || records.length === 0) return '';
+	for (const record of records) {
+		const normalized = normalizeStateCode(record?.state || record?.stateCode || record?.jurisdiction);
+		const status = String(record?.status || record?.regStatus || '')
+			.trim()
+			.toLowerCase();
+		if (normalized && /(approved|active|current)/.test(status)) return normalized;
+	}
+	for (const record of records) {
+		const normalized = normalizeStateCode(record?.state || record?.stateCode || record?.jurisdiction);
+		if (normalized) return normalized;
+	}
+	return '';
+}
+
+function getDetailPayload(record) {
+	if (!record || typeof record !== 'object') return null;
+	return record.content || record.iacontent || null;
+}
+
+function getLocationHintsFromDetail(detail, group) {
+	if (!detail || typeof detail !== 'object') return {};
+	const basic = detail.basicInformation || {};
+	const district = firstMeaningfulText(basic.districtName, basic.district, basic.regionName);
+
+	if (group === 'individual') {
+		const currentEmployments = [...(detail.currentEmployments || []), ...(detail.currentIAEmployments || [])];
+		for (const employment of currentEmployments) {
+			const office = employment?.branchOfficeLocations?.[0] || {};
+			const state = normalizeStateCode(employment?.state || office?.state || office?.stateCode);
+			if (state) {
+				return {
+					locationState: state,
+					locationDistrict: firstMeaningfulText(office?.city, district),
+					locationBiasSource: 'current_office',
+				};
+			}
+		}
+
+		const registeredState = pickRegisteredState(detail.registeredStates);
+		if (registeredState) {
+			return {
+				locationState: registeredState,
+				locationDistrict: district,
+				locationBiasSource: 'registered_state',
+			};
+		}
+
+		const basicState = normalizeStateCode(basic.state || basic.stateCode || basic.homeState || basic.residenceState);
+		if (basicState) {
+			return {
+				locationState: basicState,
+				locationDistrict: district,
+				locationBiasSource: 'basic_state',
+			};
+		}
+
+		if (district) {
+			return { locationDistrict: district, locationBiasSource: 'district' };
+		}
+		return {};
+	}
+
+	const officeState = extractStateFromAddress(detail.officeAddress) || extractStateFromAddress(detail.mailingAddress);
+	if (officeState) {
+		return {
+			locationState: officeState,
+			locationDistrict: district,
+			locationBiasSource: 'office_address',
+		};
+	}
+
+	const registrationState =
+		pickRegisteredState(detail.registrations?.stateList) ||
+		pickRegisteredState(detail.registrationStatus) ||
+		pickRegisteredState(detail.noticeFilings);
+	if (registrationState) {
+		return {
+			locationState: registrationState,
+			locationDistrict: district,
+			locationBiasSource: 'registered_state',
+		};
+	}
+
+	const formedState = normalizeStateCode(basic.formedState);
+	if (formedState) {
+		return {
+			locationState: formedState,
+			locationDistrict: district,
+			locationBiasSource: 'formed_state',
+		};
+	}
+
+	if (district) {
+		return { locationDistrict: district, locationBiasSource: 'district' };
+	}
+	return {};
+}
+
+function buildIndividualNode(crd, detail, fallbackLabel = '') {
+	const basic = detail?.basicInformation || {};
+	const fullName = [basic.firstName, basic.middleName, basic.lastName].filter(Boolean).join(' ').trim();
+	return {
+		id: personId(crd),
+		label: fullName || fallbackLabel || String(crd),
+		group: 'individual',
+		...(basic && Object.keys(basic).length ? { basicInformation: basic } : {}),
+		...getLocationHintsFromDetail(detail, 'individual'),
+	};
+}
+
+function buildFirmNode(id, detail, fallbackLabel = '') {
+	const basic = detail?.basicInformation || {};
+	return {
+		id: firmId(id),
+		label: basic.firmName || fallbackLabel || String(id),
+		group: 'firm',
+		...getLocationHintsFromDetail(detail, 'firm'),
+	};
+}
+
 function getNumericSeedNumber(nodeId, group) {
 	const prefix = group === 'individual' ? 'person:' : 'firm:';
 	if (!String(nodeId || '').startsWith(prefix)) return '';
@@ -251,33 +459,81 @@ function extractPeopleAndFirmsFromHits(json, employmentOptions) {
 	const hits = json?.hits?.hits || [];
 	for (const h of hits) {
 		const src = h._source || {};
+		const detail = getDetailPayload(src);
 		const crd =
 			src.ind_source_id ||
 			src.person?.crd ||
-			(src.content &&
+			(detail &&
 				(() => {
 					try {
-						const p = typeof src.content === 'string' ? JSON.parse(src.content) : src.content;
+						const p = detail;
 						return p?.basicInformation?.crd || p?.basicInformation?.individualId;
 					} catch {
 						return null;
 					}
 				})());
 		if (crd) {
-			nodes.people.set(String(crd), { id: personId(crd), label: `${src.ind_firstname || ''} ${src.ind_lastname || ''}`.trim() || String(crd), group: 'individual' });
-			const emps = collectEmploymentRecords(src, employmentOptions);
+			nodes.people.set(
+				String(crd),
+				detail ?
+					buildIndividualNode(crd, detail, `${src.ind_firstname || ''} ${src.ind_lastname || ''}`.trim())
+				:	{ id: personId(crd), label: `${src.ind_firstname || ''} ${src.ind_lastname || ''}`.trim() || String(crd), group: 'individual' },
+			);
+			const emps = detail ? collectEmploymentRecords(detail, employmentOptions) : collectEmploymentRecords(src, employmentOptions);
 			for (const e of emps) {
 				const fid = e.firmId || e.firm_id || e.firmId;
 				if (fid) {
-					nodes.firms.set(String(fid), { id: firmId(fid), label: e.firmName || String(fid), group: 'firm' });
-					nodes.links.push({ source: personId(crd), target: firmId(fid), relationship: 'employed_by' });
+					nodes.firms.set(String(fid), { ...(nodes.firms.get(String(fid)) || {}), id: firmId(fid), label: e.firmName || String(fid), group: 'firm' });
+					nodes.links.push({
+						source: personId(crd),
+						target: firmId(fid),
+						relationship: e._isCurrent === false ? 'previous_employed_by' : 'employed_by',
+						isCurrent: e._isCurrent,
+					});
 				}
 			}
 		}
 		// firms in source
-		if (src.firm_id || src.firm_bd_sec_number || src.firm_bd_full_sec_number) {
-			const fid = src.firm_id || src.firm_bd_sec_number || src.firm_bd_full_sec_number;
-			nodes.firms.set(String(fid), { id: firmId(fid), label: src.firm_name || src.firmName || String(fid), group: 'firm' });
+		const sourceFirmId =
+			src.firm_id ||
+			src.firm_bd_sec_number ||
+			src.firm_bd_full_sec_number ||
+			detail?.basicInformation?.firmId ||
+			detail?.basicInformation?.bdSECNumber;
+		if (sourceFirmId) {
+			const fid = sourceFirmId;
+			nodes.firms.set(
+				String(fid),
+				detail ?
+					buildFirmNode(fid, detail, src.firm_name || src.firmName || String(fid))
+				:	{ id: firmId(fid), label: src.firm_name || src.firmName || String(fid), group: 'firm' },
+			);
+		}
+	}
+
+	const detail = getDetailPayload(json);
+	if (detail?.basicInformation) {
+		const basic = detail.basicInformation || {};
+		const crd = basic.crd || basic.individualId;
+		if (crd) {
+			nodes.people.set(String(crd), { ...(nodes.people.get(String(crd)) || {}), ...buildIndividualNode(crd, detail) });
+			const emps = collectEmploymentRecords(detail, employmentOptions);
+			for (const e of emps) {
+				const fid = e.firmId || e.firm_id || e.firmId;
+				if (!fid) continue;
+				nodes.firms.set(String(fid), { ...(nodes.firms.get(String(fid)) || {}), id: firmId(fid), label: e.firmName || String(fid), group: 'firm' });
+				nodes.links.push({
+					source: personId(crd),
+					target: firmId(fid),
+					relationship: e._isCurrent === false ? 'previous_employed_by' : 'employed_by',
+					isCurrent: e._isCurrent,
+				});
+			}
+		}
+
+		const fid = basic.firmId || basic.bdSECNumber;
+		if (fid) {
+			nodes.firms.set(String(fid), { ...(nodes.firms.get(String(fid)) || {}), ...buildFirmNode(fid, detail) });
 		}
 	}
 	return nodes;

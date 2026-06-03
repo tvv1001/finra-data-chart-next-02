@@ -39,6 +39,14 @@ export function startForceWorker(nodes: any[], links: any[], width = 800, height
                         fx += (dx/dist2) * force;
                         fy += (dy/dist2) * force;
                     }
+                    const locStrength = Number.isFinite(ni.locStrength) ? ni.locStrength : 0;
+                    if (locStrength > 0) {
+                        fx += (Number.isFinite(ni.locX) ? (ni.locX - ni.x) : 0) * locStrength * 2.2;
+                        fy += (Number.isFinite(ni.locY) ? (ni.locY - ni.y) : 0) * locStrength * 1.9;
+                    } else {
+                        fx += (width / 2 - ni.x) * 0.006;
+                        fy += (height / 2 - ni.y) * 0.006;
+                    }
                     ni.vx = (ni.vx || 0) + fx * 0.001;
                     ni.vy = (ni.vy || 0) + fy * 0.001;
                 }
@@ -71,7 +79,7 @@ export function startForceWorker(nodes: any[], links: any[], width = 800, height
             onmessage = function(e) {
                 const m = e.data || {};
                 if (m.type === 'init') {
-                    nodes = m.nodes.map(n => ({ id: n.id, x: n.x || 0, y: n.y || 0 }));
+                    nodes = m.nodes.map(n => ({ id: n.id, x: n.x || 0, y: n.y || 0, locX: n.locX, locY: n.locY, locStrength: n.locStrength || 0 }));
                     links = m.links.map(l => ({ source: l.source, target: l.target }));
                     width = m.width || width;
                     height = m.height || height;
@@ -100,7 +108,14 @@ export function startForceWorker(nodes: any[], links: any[], width = 800, height
 	};
 	_forceWorker.postMessage({
 		type: 'init',
-		nodes: nodes.map((n) => ({ id: n.id, x: n.x, y: n.y })),
+		nodes: nodes.map((n) => ({
+			id: n.id,
+			x: n.x,
+			y: n.y,
+			locX: n._locationBiasX,
+			locY: n._locationBiasY,
+			locStrength: n._locationBiasStrength,
+		})),
 		links: links.map((l) => ({ source: l.source?.id || l.source, target: l.target?.id || l.target })),
 		width,
 		height,

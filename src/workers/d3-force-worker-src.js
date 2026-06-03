@@ -1,4 +1,4 @@
-import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide } from 'd3-force';
+import { forceSimulation, forceLink, forceManyBody, forceCollide, forceX, forceY } from 'd3-force';
 
 let nodes = [];
 let links = [];
@@ -14,7 +14,14 @@ onmessage = function (e) {
 	const m = e.data || {};
 	if (m.type === 'init') {
 		nodes = (m.nodes || []).map(function (n) {
-			return { id: n.id, x: n.x || 0, y: n.y || 0 };
+			return {
+				id: n.id,
+				x: n.x || 0,
+				y: n.y || 0,
+				locX: Number.isFinite(n.locX) ? n.locX : null,
+				locY: Number.isFinite(n.locY) ? n.locY : null,
+				locStrength: Number.isFinite(n.locStrength) ? n.locStrength : 0,
+			};
 		});
 		links = (m.links || []).map(function (l) {
 			return { source: l.source, target: l.target };
@@ -34,7 +41,24 @@ onmessage = function (e) {
 						.strength(0.75),
 				)
 				.force('charge', forceManyBody().strength(-150).theta(0.9))
-				.force('center', forceCenter(width / 2, height / 2))
+				.force('x', forceX(width / 2).strength(0.008))
+				.force('y', forceY(height / 2).strength(0.008))
+				.force(
+					'location-x',
+					forceX(function (d) {
+						return Number.isFinite(d.locX) ? d.locX : width / 2;
+					}).strength(function (d) {
+						return Number.isFinite(d.locX) && d.locStrength ? d.locStrength : 0;
+					}),
+				)
+				.force(
+					'location-y',
+					forceY(function (d) {
+						return Number.isFinite(d.locY) ? d.locY : height / 2;
+					}).strength(function (d) {
+						return Number.isFinite(d.locY) && d.locStrength ? d.locStrength * 0.85 : 0;
+					}),
+				)
 				.force(
 					'collision',
 					forceCollide()
