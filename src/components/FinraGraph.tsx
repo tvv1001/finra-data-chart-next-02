@@ -215,7 +215,6 @@ export default function FinraGraph() {
 	const [fetchQuery, setFetchQuery] = useState('');
 	const [isFindBarOpen, setIsFindBarOpen] = useState(false);
 	const [findQuery, setFindQuery] = useState('');
-	const [isLocationPanelOpen, setIsLocationPanelOpen] = useState(false);
 	const [findMatchState, setFindMatchState] = useState({ total: 0, activeOrdinal: 0 });
 	const [activeFindNodeId, setActiveFindNodeId] = useState<string | null>(null);
 	const [focusedFindNodeId, setFocusedFindNodeId] = useState<string | null>(null);
@@ -224,9 +223,6 @@ export default function FinraGraph() {
 	const searchParams = useSearchParams();
 	const routeNodeId = useMemo(() => parseNodeIdFromPathname(browserPathname || pathname), [browserPathname, pathname]);
 	const findCounterText = useMemo(() => formatFindCounter(findMatchState.total, findMatchState.activeOrdinal), [findMatchState.activeOrdinal, findMatchState.total]);
-	const fetchQueryTrimmed = fetchQuery.trim();
-	const isLocationToggleEnabled = fetchQueryTrimmed.length >= 3;
-	const locationToggleTitle = isLocationToggleEnabled ? 'Toggle location search' : 'Type at least 3 characters to enable location search';
 	const searchSuffix = useMemo(() => {
 		const suffix = searchParams.toString();
 		return suffix ? `?${suffix}` : '';
@@ -234,11 +230,6 @@ export default function FinraGraph() {
 
 	const handleFetchQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
 		setFetchQuery(event.target.value);
-	};
-
-	const handleLocationToggleClick = () => {
-		if (!isLocationToggleEnabled) return;
-		setIsLocationPanelOpen((open) => !open);
 	};
 
 	const closeFindBar = ({ clearQuery = false }: { clearQuery?: boolean } = {}) => {
@@ -783,74 +774,11 @@ export default function FinraGraph() {
 									</div>
 								</div>
 								<button
-									type='button'
-									className={`fg-fetch-toggle${isLocationPanelOpen ? ' fg-fetch-toggle--active' : ''}`}
-									disabled={!isLocationToggleEnabled}
-									onClick={handleLocationToggleClick}
-									aria-expanded={isLocationPanelOpen}
-									aria-controls='fg-location-panel'
-									title={locationToggleTitle}
-									aria-label={locationToggleTitle}>
-									<span aria-hidden='true'>📍</span>
-								</button>
-								<button
 									id='fg-fetch-remote'
 									className='fg-btn-primary fg-action-btn'
 									title='Fetch matching nodes from the server'>
 									Fetch Nodes
 								</button>
-								<div
-									id='fg-location-panel'
-									className={`fg-loc-panel${isLocationPanelOpen ? '' : ' hidden'}`}
-									aria-hidden={!isLocationPanelOpen}>
-									<div className='fg-loc-panel__inputs'>
-										<input
-											id='fg-loc-input'
-											className='fg-loc-input fg-loc-input--primary'
-											type='search'
-											placeholder='City, State, or ZIP code'
-											autoComplete='off'
-											autoCorrect='off'
-											autoCapitalize='off'
-											spellCheck={false}
-											data-gramm='false'
-										/>
-									</div>
-									<div className='fg-loc-radius-wrap'>
-										<span className='fg-loc-radius-val'>
-											Radius: <span id='fg-loc-radius-val-num'>25</span> miles
-										</span>
-										<input
-											id='fg-loc-radius'
-											className='fg-loc-radius'
-											type='range'
-											min='5'
-											max='100'
-											step='5'
-											defaultValue='25'
-										/>
-									</div>
-									<div className='fg-loc-panel__actions'>
-										<button
-											id='fg-loc-search'
-											type='button'
-											className='fg-loc-btn'
-											title='Search by city, state, or ZIP code'>
-											Search Area
-										</button>
-										<button
-											id='fg-loc-clear'
-											type='button'
-											className='fg-loc-clear'
-											title='Clear the location search inputs'>
-											Clear
-										</button>
-									</div>
-									<div
-										id='fg-loc-status'
-										className='fg-loc-status'
-										aria-live='polite'></div>
-								</div>
 							</div>
 							<button
 								id='fg-mobile-menu-toggle'
