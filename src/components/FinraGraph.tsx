@@ -11,6 +11,7 @@ const ROUTE_NODE_REQUEST_EVENT = 'finra:route-node-request';
 const SELECTED_NODE_ROUTE_EVENT = 'finra:selected-node-route';
 const FIND_QUERY_EVENT = 'finra:find-query';
 const FIND_NEXT_EVENT = 'finra:find-next';
+const FIND_PREV_EVENT = 'finra:find-prev';
 const FIND_CLOSE_EVENT = 'finra:find-close';
 const FIND_STATE_EVENT = 'finra:find-state';
 
@@ -212,6 +213,8 @@ export default function FinraGraph() {
 	const [isFindBarOpen, setIsFindBarOpen] = useState(false);
 	const [findQuery, setFindQuery] = useState('');
 	const [findMatchState, setFindMatchState] = useState({ total: 0, activeOrdinal: 0 });
+	const [activeFindNodeId, setActiveFindNodeId] = useState<string | null>(null);
+	const [focusedFindNodeId, setFocusedFindNodeId] = useState<string | null>(null);
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
@@ -222,13 +225,27 @@ export default function FinraGraph() {
 		return suffix ? `?${suffix}` : '';
 	}, [searchParams]);
 
-	const closeFindBar = ({ clearQuery = true }: { clearQuery?: boolean } = {}) => {
+	const closeFindBar = ({ clearQuery = false }: { clearQuery?: boolean } = {}) => {
+		const input = findInputRef.current;
+		if (input && document.activeElement === input) {
+			input.blur();
+			window.requestAnimationFrame(() => {
+				if (appRef.current) {
+					appRef.current.focus({ preventScroll: true });
+				}
+			});
+		}
 		setIsFindBarOpen(false);
 		if (clearQuery) {
 			setFindQuery('');
+			setFindMatchState({ total: 0, activeOrdinal: 0 });
+			setActiveFindNodeId(null);
+			setFocusedFindNodeId(null);
+			window.dispatchEvent(new CustomEvent(FIND_CLOSE_EVENT, { detail: { clearQuery: true } }));
+			return;
 		}
-		setFindMatchState({ total: 0, activeOrdinal: 0 });
-		window.dispatchEvent(new CustomEvent(FIND_CLOSE_EVENT));
+		setFocusedFindNodeId(activeFindNodeId);
+		window.dispatchEvent(new CustomEvent(FIND_CLOSE_EVENT, { detail: { clearQuery: false } }));
 	};
 
 	const focusFindInput = () => {
@@ -416,22 +433,6 @@ export default function FinraGraph() {
 
 	useEffect(() => {
 		if (!isMounted) return;
-		const handleFindState = (event: Event) => {
-			const detail = (event as CustomEvent<{ total?: number; activeOrdinal?: number }>).detail || {};
-			setFindMatchState({
-				total: Number(detail.total || 0),
-				activeOrdinal: Number(detail.activeOrdinal || 0),
-			});
-		};
-
-		window.addEventListener(FIND_STATE_EVENT, handleFindState as EventListener);
-		return () => {
-			window.removeEventListener(FIND_STATE_EVENT, handleFindState as EventListener);
-		};
-	}, [isMounted]);
-
-	useEffect(() => {
-		if (!isMounted) return;
 		const handleDocumentFindShortcut = (event: KeyboardEvent) => {
 			if (!isFindShortcut(event)) return;
 			event.preventDefault();
@@ -451,16 +452,75 @@ export default function FinraGraph() {
 		const query = findQuery.trim();
 		if (!query) {
 			setFindMatchState({ total: 0, activeOrdinal: 0 });
-			window.dispatchEvent(new CustomEvent(FIND_CLOSE_EVENT));
 			return;
 		}
 		window.dispatchEvent(new CustomEvent(FIND_QUERY_EVENT, { detail: { query } }));
 	}, [findQuery, graphReady, isFindBarOpen, isMounted]);
 
 	useEffect(() => {
-		if (!isMounted || !isFindBarOpen) return;
-		focusFindInput();
-	}, [isFindBarOpen, isMounted]);
+		if (!isMounted) return;
+		const handleFindState = (event: Event) => {
+			const detail = (event as CustomEvent<{
+				query?: string | null;
+				total?: number | null;
+				activeOrdinal?: number | null;
+				activeNodeId?: string | null;
+			}>).detail || {};
+			setFindMatchState({
+				total: Number(detail.total || 0),
+				activeOrdinal: Number(detail.activeOrdinal || 0),
+			});
+			setActiveFindNodeId(detail.activeNodeId || null);
+			setFocusedFindNodeId(detail.activeNodeId || null);
+		};
+
+		window.addEventListener(FIND_STATE_EVENT, handleFindState as EventListener);
+		return () => {
+			window.removeEventListener(FIND_STATE_EVENT, handleFindState as EventListener);
+		};
+	}, [isMounted]);
+
+	useEffect(() => {
+		if (!isMounted) return;
+		const handleSearchNavigation = (event: KeyboardEvent) => {
+			if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+				if (isFindBarOpen) return;
+				const target = event.target as Element | null;
+				if (target?.closest('input,textarea,select') || (target instanceof HTMLElement && target.isContentEditable)) return;
+				const nodeId = focusedFindNodeId || activeFindNodeId;
+
+				if (event.key === 'Enter' && nodeId) {
+				routeSidebarNodeSelection({
+					nodeId,
+					searchSuffix,
+					browserPathname,
+					pathname,
+					setBrowserPathname,
+					router,
+				});
+				return;
+			}
+
+			if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+				event.preventDefault();
+				event.stopPropagation();
+				window.dispatchEvent(new CustomEvent(FIND_NEXT_EVENT, { detail: { query: findQuery.trim() } }));
+				return;
+			}
+
+			if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+				event.preventDefault();
+				event.stopPropagation();
+				window.dispatchEvent(new CustomEvent(FIND_PREV_EVENT, { detail: { query: findQuery.trim() } }));
+				return;
+			}
+		};
+
+		document.addEventListener('keydown', handleSearchNavigation);
+		return () => {
+			document.removeEventListener('keydown', handleSearchNavigation);
+		};
+	}, [isMounted, isFindBarOpen, focusedFindNodeId, activeFindNodeId, findQuery, searchSuffix, browserPathname, pathname, router]);
 
 	useEffect(() => {
 		if (!isMounted) return;
@@ -638,6 +698,7 @@ export default function FinraGraph() {
 		<div
 			id='finra-app'
 			ref={appRef}
+			tabIndex={-1}
 			data-sidebar-open='false'
 			data-sidebar-pinned='false'
 			data-legend-open='false'
@@ -714,7 +775,8 @@ export default function FinraGraph() {
 				<div
 					id='fg-find-bar'
 					className={`fg-find-bar${isFindBarOpen ? '' : ' hidden'}`}
-					aria-hidden={!isFindBarOpen}>
+					aria-hidden={!isFindBarOpen}
+				inert={!isFindBarOpen}>
 					<form
 						className='fg-find-bar__form'
 						onSubmit={(event) => {
@@ -755,7 +817,7 @@ export default function FinraGraph() {
 						<button
 							type='button'
 							className='fg-ghost-btn fg-find-close'
-							onClick={() => closeFindBar()}>
+							onClick={() => closeFindBar({ clearQuery: false })}>
 							Close
 						</button>
 					</form>
