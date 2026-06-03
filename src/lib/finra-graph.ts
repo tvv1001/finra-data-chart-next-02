@@ -94,60 +94,60 @@ const NODE_OPACITY_STUB = 'var(--opacity-node-stub)';
 const SOFT_LOCATION_GROUPING_ENABLED = true;
 
 const STATE_NAME_TO_CODE = {
-	alabama: 'AL',
-	alaska: 'AK',
-	arizona: 'AZ',
-	arkansas: 'AR',
-	california: 'CA',
-	colorado: 'CO',
-	connecticut: 'CT',
-	delaware: 'DE',
+	'alabama': 'AL',
+	'alaska': 'AK',
+	'arizona': 'AZ',
+	'arkansas': 'AR',
+	'california': 'CA',
+	'colorado': 'CO',
+	'connecticut': 'CT',
+	'delaware': 'DE',
 	'district of columbia': 'DC',
-	florida: 'FL',
-	georgia: 'GA',
-	hawaii: 'HI',
-	idaho: 'ID',
-	illinois: 'IL',
-	indiana: 'IN',
-	iowa: 'IA',
-	kansas: 'KS',
-	kentucky: 'KY',
-	louisiana: 'LA',
-	maine: 'ME',
-	maryland: 'MD',
-	massachusetts: 'MA',
-	michigan: 'MI',
-	minnesota: 'MN',
-	mississippi: 'MS',
-	missouri: 'MO',
-	montana: 'MT',
-	nebraska: 'NE',
-	nevada: 'NV',
+	'florida': 'FL',
+	'georgia': 'GA',
+	'hawaii': 'HI',
+	'idaho': 'ID',
+	'illinois': 'IL',
+	'indiana': 'IN',
+	'iowa': 'IA',
+	'kansas': 'KS',
+	'kentucky': 'KY',
+	'louisiana': 'LA',
+	'maine': 'ME',
+	'maryland': 'MD',
+	'massachusetts': 'MA',
+	'michigan': 'MI',
+	'minnesota': 'MN',
+	'mississippi': 'MS',
+	'missouri': 'MO',
+	'montana': 'MT',
+	'nebraska': 'NE',
+	'nevada': 'NV',
 	'new hampshire': 'NH',
 	'new jersey': 'NJ',
 	'new mexico': 'NM',
 	'new york': 'NY',
 	'north carolina': 'NC',
 	'north dakota': 'ND',
-	ohio: 'OH',
-	oklahoma: 'OK',
-	oregon: 'OR',
-	pennsylvania: 'PA',
+	'ohio': 'OH',
+	'oklahoma': 'OK',
+	'oregon': 'OR',
+	'pennsylvania': 'PA',
 	'rhode island': 'RI',
 	'south carolina': 'SC',
 	'south dakota': 'SD',
-	tennessee: 'TN',
-	texas: 'TX',
-	utah: 'UT',
-	vermont: 'VT',
-	virginia: 'VA',
-	washington: 'WA',
+	'tennessee': 'TN',
+	'texas': 'TX',
+	'utah': 'UT',
+	'vermont': 'VT',
+	'virginia': 'VA',
+	'washington': 'WA',
 	'west virginia': 'WV',
-	wisconsin: 'WI',
-	wyoming: 'WY',
+	'wisconsin': 'WI',
+	'wyoming': 'WY',
 	'puerto rico': 'PR',
 	'virgin islands': 'VI',
-	guam: 'GU',
+	'guam': 'GU',
 	'american samoa': 'AS',
 	'northern mariana islands': 'MP',
 };
@@ -303,6 +303,7 @@ let traceRefreshTimer: ReturnType<typeof setTimeout> | null = null; // trailing 
 let nodePulseTimer = null; // timer used to pulse the restored node after focus animation
 let nodePulseInterval = null; // interval used to keep the restored node pulsing until interaction
 let nodePulseInteractionCleanup: (() => void) | null = null; // removes reload pulse interaction listeners once the user interacts
+let searchPulseInterval: number | null = null; // interval used to keep the current find-match pulsing until enter
 let activeLabelZoomThreshold = 0.3;
 let inactiveLabelCompactZoomThreshold = 0.42;
 let inactiveLabelCompactMode = false;
@@ -1260,6 +1261,7 @@ const ROUTE_NODE_REQUEST_EVENT = 'finra:route-node-request';
 const SELECTED_NODE_ROUTE_EVENT = 'finra:selected-node-route';
 const FIND_QUERY_EVENT = 'finra:find-query';
 const FIND_NEXT_EVENT = 'finra:find-next';
+const FIND_PREV_EVENT = 'finra:find-prev';
 const FIND_CLOSE_EVENT = 'finra:find-close';
 const FIND_STATE_EVENT = 'finra:find-state';
 const TRACE_LOG_GUARD_WARNING_PREFIX = '[finra-graph] Trace with Log guard:';
@@ -1430,25 +1432,47 @@ function refreshFindMatches(rawQuery, options: { preserveActiveMatch?: boolean }
 	return matches;
 }
 
-function cycleToFindMatch(rawQuery = activeFindQuery) {
+function cycleToFindMatch(rawQuery = activeFindQuery, direction = 1) {
 	const matches = refreshFindMatches(rawQuery, { preserveActiveMatch: true });
 	if (!matches.length) return false;
-	activeFindMatchIndex = activeFindMatchIndex >= 0 ? (activeFindMatchIndex + 1) % matches.length : 0;
+	if (activeFindMatchIndex < 0) {
+		activeFindMatchIndex = getNearestActiveMatchIndex();
+	} else {
+		activeFindMatchIndex = (activeFindMatchIndex + direction + matches.length) % matches.length;
+	}
 	const nextMatch = matches[activeFindMatchIndex] || null;
 	const liveNode = (nextMatch?.node && Array.isArray(layoutNodes) && layoutNodes.find((node) => node.id === nextMatch.node.id)) || nextMatch?.node || null;
 	if (!liveNode) {
 		emitFindState();
 		return false;
 	}
-	selectNode(liveNode, {
-		skipAutoExpand: true,
-		focus: true,
-		pulse: true,
-		focusDuration: 520,
-	});
 	activeFindMatchIndex = activeFindMatchOrder.indexOf(liveNode.id);
+	focusNodeForFind(liveNode.id, { duration: 520, minScale: 1.1 });
+	startSearchPulseLoop(liveNode.id, { interval: 1400, immediate: true });
+	refreshGraphColors();
 	emitFindState();
 	return true;
+}
+
+function getNearestActiveMatchIndex() {
+	const viewport = getVisibleGraphViewport();
+	const centerX = viewport.centerX;
+	const centerY = viewport.centerY;
+	let nearestDistance = Number.POSITIVE_INFINITY;
+	let nearestIndex = 0;
+	for (let index = 0; index < activeFindMatchOrder.length; index += 1) {
+		const nodeId = activeFindMatchOrder[index];
+		const node = Array.isArray(layoutNodes) ? layoutNodes.find((entry) => entry.id === nodeId) : null;
+		if (!node || !Number.isFinite(node.x) || !Number.isFinite(node.y)) continue;
+		const dx = node.x - centerX;
+		const dy = node.y - centerY;
+		const distance = dx * dx + dy * dy;
+		if (distance < nearestDistance) {
+			nearestDistance = distance;
+			nearestIndex = index;
+		}
+	}
+	return nearestIndex;
 }
 
 let sidebarViewMode: SidebarViewMode = loadPersistedSidebarViewMode();
@@ -2186,6 +2210,24 @@ function stopNodePulseLoop() {
 	} catch (e) {
 		/* ignore */
 	}
+}
+
+function stopSearchPulseLoop() {
+	if (searchPulseInterval) {
+		clearInterval(searchPulseInterval);
+		searchPulseInterval = null;
+	}
+}
+
+function startSearchPulseLoop(id, { interval = 1400, immediate = true }: { interval?: number; immediate?: boolean } = {}) {
+	if (!id) return;
+	stopSearchPulseLoop();
+	if (immediate) {
+		pulseNodeHighlightById(id, { duration: 900 });
+	}
+	searchPulseInterval = window.setInterval(() => {
+		pulseNodeHighlightById(id, { duration: 900 });
+	}, interval);
 }
 
 function armNodePulseStopOnInteraction() {
@@ -3277,10 +3319,30 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 		}) as EventListener);
 		window.addEventListener(FIND_NEXT_EVENT, ((event: Event) => {
 			const detail = (event as CustomEvent<{ query?: string | null }>).detail || {};
-			cycleToFindMatch(detail.query || activeFindQuery);
+			cycleToFindMatch(detail.query || activeFindQuery, 1);
 		}) as EventListener);
-		window.addEventListener(FIND_CLOSE_EVENT, (() => {
-			clearFindMatches();
+		window.addEventListener(FIND_PREV_EVENT, ((event: Event) => {
+			const detail = (event as CustomEvent<{ query?: string | null }>).detail || {};
+			cycleToFindMatch(detail.query || activeFindQuery, -1);
+		}) as EventListener);
+		window.addEventListener(FIND_CLOSE_EVENT, ((event: Event) => {
+			const detail = (event as CustomEvent<{ clearQuery?: boolean }>).detail || {};
+			if (detail.clearQuery) {
+				clearFindMatches();
+				stopSearchPulseLoop();
+				return;
+			}
+			if (activeFindMatchIndex >= 0 && activeFindMatchOrder[activeFindMatchIndex]) {
+				startSearchPulseLoop(activeFindMatchOrder[activeFindMatchIndex], { interval: 1400, immediate: true });
+				return;
+			}
+			if (activeFindMatchOrder.length) {
+				activeFindMatchIndex = getNearestActiveMatchIndex();
+				const nodeId = activeFindMatchOrder[activeFindMatchIndex];
+				if (nodeId) {
+					startSearchPulseLoop(nodeId, { interval: 1400, immediate: true });
+				}
+			}
 		}) as EventListener);
 		findRequestListenersBound = true;
 	}
@@ -4148,9 +4210,9 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 
 			const shownCount = matchedIds.length;
 			setLocStatus(
-				totalMatches > shownCount
-					? `Added ${shownCount} of ${totalMatches} matching nodes for ${location}${stateFilter ? ` (${stateFilter})` : ''}.`
-					: `Added ${shownCount} matching node${shownCount !== 1 ? 's' : ''} for ${location}${stateFilter ? ` (${stateFilter})` : ''}.`,
+				totalMatches > shownCount ?
+					`Added ${shownCount} of ${totalMatches} matching nodes for ${location}${stateFilter ? ` (${stateFilter})` : ''}.`
+				:	`Added ${shownCount} matching node${shownCount !== 1 ? 's' : ''} for ${location}${stateFilter ? ` (${stateFilter})` : ''}.`,
 			);
 		} catch (err) {
 			console.error('location search failed', err);
@@ -5475,7 +5537,9 @@ function hashString(value) {
 }
 
 function inferRegionFromDistrict(district) {
-	const normalized = String(district || '').trim().toLowerCase();
+	const normalized = String(district || '')
+		.trim()
+		.toLowerCase();
 	if (!normalized) return '';
 	if (/(san francisco|los angeles|seattle|portland|salt lake|phoenix|las vegas|denver|honolulu|anchorage)/.test(normalized)) return 'west';
 	if (/(dallas|houston|austin|oklahoma|new mexico)/.test(normalized)) return 'southwest';
@@ -5492,7 +5556,9 @@ function getLocationRegion(node) {
 }
 
 function getLocationSourceStrength(node) {
-	const source = String(node?.locationBiasSource || '').trim().toLowerCase();
+	const source = String(node?.locationBiasSource || '')
+		.trim()
+		.toLowerCase();
 	return LOCATION_SOURCE_STRENGTH[source] ?? (node?.locationDistrict ? LOCATION_SOURCE_STRENGTH.district : 0.55);
 }
 
@@ -5547,8 +5613,14 @@ function refreshSoftLocationGroupingForces(nodeList = layoutNodes) {
 	const width = Math.max(1, main?.clientWidth || 1);
 	const height = Math.max(1, main?.clientHeight || 1);
 	applySoftLocationGroupingTargets(nodeList, width, height);
-	simulation.force('location-x')?.x((node) => (Number.isFinite(node?._locationBiasX) ? node._locationBiasX : width / 2)).strength((node) => node?._locationBiasStrength || 0);
-	simulation.force('location-y')?.y((node) => (Number.isFinite(node?._locationBiasY) ? node._locationBiasY : height / 2)).strength((node) => (node?._locationBiasStrength || 0) * 0.85);
+	simulation
+		.force('location-x')
+		?.x((node) => (Number.isFinite(node?._locationBiasX) ? node._locationBiasX : width / 2))
+		.strength((node) => node?._locationBiasStrength || 0);
+	simulation
+		.force('location-y')
+		?.y((node) => (Number.isFinite(node?._locationBiasY) ? node._locationBiasY : height / 2))
+		.strength((node) => (node?._locationBiasStrength || 0) * 0.85);
 }
 
 function getForceLinkDistance(link, nodeCount = layoutNodes?.length || 0) {
@@ -6485,6 +6557,7 @@ function reapplySelectionState() {
 	nodeSel
 		.classed('fg-node--selection-log-label', (d) => selectionLogLabelNodeIds.has(d.id))
 		.classed('fg-node--find-match', (d) => activeFindMatchIds.has(d.id))
+		.classed('fg-node--find-match-active', (d) => activeFindMatchIndex >= 0 && d.id === activeFindMatchOrder[activeFindMatchIndex])
 		.classed('trace-shortest', (d) => isTraceMode && traceShortestIds.has(d.id) && !traceShortestConnectorIds.has(d.id))
 		.classed('trace-shortest-connector', (d) => isTraceMode && traceShortestConnectorIds.has(d.id))
 		.classed('trace-longest', (d) => isTraceMode && traceLongestIds.has(d.id) && !traceLongestConnectorIds.has(d.id))
@@ -8611,6 +8684,7 @@ function selectNode(
 		syncRoute?: boolean;
 	} = {},
 ) {
+	stopSearchPulseLoop();
 	const { persist = true, skipProfileSync = false, skipAutoExpand = false, focus = false, pulse = false, focusDuration = 300, syncRoute = true } = options;
 
 	// Performance: reduce selection camera motion to be minimal (instant) to match
@@ -9515,6 +9589,32 @@ function focusNodeById(
 		}
 	} catch (e) {
 		console.warn('focusNodeById error', e);
+	}
+}
+
+function focusNodeForFind(
+	id,
+	options: {
+		duration?: number;
+		minScale?: number;
+	} = {},
+) {
+	const { duration = 520, minScale = 1.1 } = options;
+	try {
+		if (!zoomBehavior || !svgSel) return;
+		const node = (Array.isArray(layoutNodes) && layoutNodes.find((n) => n.id === id)) || null;
+		if (!node) return;
+		const viewport = getVisibleGraphViewport();
+		const transform = d3.zoomTransform(svgSel.node());
+		const currentScale = transform.k || 1;
+		const targetScale = Math.max(currentScale, minScale);
+		const x = node.x || 0;
+		const y = node.y || 0;
+		const tx = viewport.centerX - x * targetScale;
+		const ty = viewport.centerY - y * targetScale;
+		svgSel.transition().duration(duration).ease(d3.easeCubicInOut).call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(targetScale));
+	} catch (e) {
+		console.warn('focusNodeForFind error', e);
 	}
 }
 
