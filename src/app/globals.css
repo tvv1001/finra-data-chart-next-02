@@ -3251,6 +3251,7 @@ a,
 	stroke: rgb(143, 139, 139) !important;
 	stroke-width: 1px !important;
 }
+
 .fg-node.fg-node--inactive text.fg-label {
 	fill: var(--color-node-inactive-label) !important;
 	opacity: 0.48 !important;
