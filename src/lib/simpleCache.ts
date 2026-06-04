@@ -12,8 +12,8 @@ let upstash: Redis | null = null;
 let memStore: MemStore | null = null;
 const primedBundleCache = new Map<PrimedBundleName, PrimedBundle | null>();
 
-const EXTERNAL_API_MIN_INTERVAL_MS = Number(process.env.EXTERNAL_API_MIN_INTERVAL_MS || 5000);
-const EXTERNAL_API_FAILURE_COOLDOWN_MS = Number(process.env.EXTERNAL_API_FAILURE_COOLDOWN_MS || 600_000);
+const EXTERNAL_API_MIN_INTERVAL_MS = Number(process.env.EXTERNAL_API_MIN_INTERVAL_MS || 1000);
+const EXTERNAL_API_FAILURE_COOLDOWN_MS = Number(process.env.EXTERNAL_API_FAILURE_COOLDOWN_MS || 60_000);
 const EXTERNAL_API_DISABLED = String(process.env.EXTERNAL_API_DISABLED || '').toLowerCase() === '1' || String(process.env.EXTERNAL_API_DISABLED || '').toLowerCase() === 'true';
 
 const DEFAULT_INDIVIDUAL_QUERY = 'hl=true&includePrevious=true&wt=json';
@@ -152,6 +152,45 @@ async function getPrimedCacheValue<T>(key: string): Promise<T | null> {
 	return null;
 }
 
+async function getDiskCacheValue<T>(key: string): Promise<T | null> {
+	try {
+		const parts = key.split(':');
+		if (parts.length < 3) return null;
+		const service = parts[0];
+		const type = parts[1];
+		const id = parts[2];
+
+		if (!/^\d+$/.test(id) && !/^8-\d+$/i.test(id)) return null;
+
+		let folder = '';
+		let filePrefix = '';
+
+		if (service === 'finra') {
+			folder = 'brokercheck.finra.org';
+			filePrefix = 'api.brokercheck.finra.org_search';
+		} else if (service === 'sec') {
+			folder = 'adviserinfo.sec.gov';
+			filePrefix = 'api.adviserinfo.sec.gov_search';
+		} else {
+			return null;
+		}
+
+		const fileName = `${filePrefix}_${type}_${id}.json`;
+		const filePath = path.join(process.cwd(), 'data', 'national', folder, fileName);
+
+		try {
+			await readFile(filePath);
+		} catch {
+			return null;
+		}
+
+		const content = await readFile(filePath, 'utf-8');
+		return JSON.parse(content) as T;
+	} catch {
+		return null;
+	}
+}
+
 function memSet(map: MemStore, key: string, value: unknown, ttlSeconds: number) {
 	const expiresAt = Date.now() + ttlSeconds * 1000;
 	map.set(key, { value, expiresAt });
@@ -200,6 +239,11 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 				await setStringIfValid(key, JSON.stringify(primed), ttlSeconds);
 				return primed;
 			}
+			const disk = await getDiskCacheValue<T>(key);
+			if (disk != null) {
+				await setStringIfValid(key, JSON.stringify(disk), ttlSeconds);
+				return disk;
+			}
 		} catch {
 			// fall through to in-memory cache / fetch
 		}
@@ -213,6 +257,12 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 	if (primed != null) {
 		memSet(mem, key, primed, ttlSeconds);
 		return primed;
+	}
+
+	const diskValue = await getDiskCacheValue<T>(key);
+	if (diskValue != null) {
+		memSet(mem, key, diskValue, ttlSeconds);
+		return diskValue;
 	}
 
 	const service = getExternalService(key);

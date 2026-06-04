@@ -24,30 +24,44 @@ function buildFirmQueryParams(searchParams: URLSearchParams) {
 
 function parseDetailPayload(data: any, contentKey = 'content') {
 	if (!data) return null;
+
+	const extractFromSource = (src: any) => {
+		if (!src) return null;
+		const raw = src[contentKey];
+		let parsed = {};
+		if (typeof raw === 'string') {
+			try {
+				parsed = JSON.parse(raw);
+			} catch {
+				/* ignore */
+			}
+		} else if (raw && typeof raw === 'object') {
+			parsed = raw;
+		}
+
+		const merged = { ...src, ...parsed };
+
+		if (!merged.basicInformation) {
+			const bi: any = {};
+			const fid = merged.firmId || merged.firm_id || merged.id;
+			if (fid) bi.firmId = fid;
+			if (merged.firmName || merged.firm_name || merged.name) bi.firmName = merged.firmName || merged.firm_name || merged.name;
+			if (merged.bcScope || merged.bc_scope) bi.bcScope = merged.bcScope || merged.bc_scope;
+			if (merged.iaScope || merged.ia_scope) bi.iaScope = merged.iaScope || merged.ia_scope;
+			if (merged.bdSECNumber || merged.bd_sec_number) bi.bdSECNumber = merged.bdSECNumber || merged.bd_sec_number;
+			if (merged.iaSECNumber || merged.ia_sec_number) bi.iaSECNumber = merged.iaSECNumber || merged.ia_sec_number;
+			if (Object.keys(bi).length) merged.basicInformation = bi;
+		}
+
+		const looksLikeDetail = merged.basicInformation || merged.firmId || merged.bdSECNumber || merged.firmName || merged.firmStatus || merged.disclosures || merged.directOwners;
+		return looksLikeDetail ? merged : null;
+	};
+
 	if (data?.hits?.hits?.length) {
-		const raw = data.hits.hits[0]?._source?.[contentKey];
-		try {
-			return typeof raw === 'string' ? JSON.parse(raw) : raw || null;
-		} catch {
-			return null;
-		}
+		return extractFromSource(data.hits.hits[0]?._source);
 	}
 
-	const raw = data?.[contentKey];
-	if (raw != null) {
-		try {
-			return typeof raw === 'string' ? JSON.parse(raw) : raw || null;
-		} catch {
-			return null;
-		}
-	}
-
-	if (data && typeof data === 'object' && !Array.isArray(data)) {
-		const looksLikeDetail = data.basicInformation || data.firmId || data.bdSECNumber || data.firmName || data.firmStatus || data.disclosures || data.directOwners;
-		if (looksLikeDetail) return data;
-	}
-
-	return null;
+	return extractFromSource(data);
 }
 
 function extractHtmlMetaContent(html: string, attrName: string) {
