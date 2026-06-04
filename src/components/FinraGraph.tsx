@@ -1,6 +1,6 @@
 'use client';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 
 import ThemeToggle from './ThemeToggle';
 import { buildNodeRouteHref, buildNodeRoutePath, parseNodeIdFromPathname } from '@/lib/node-route';
@@ -175,6 +175,7 @@ function routeSidebarNodeSelection({
 	setBrowserPathname,
 	router,
 	pulseDuration = 5000,
+	autoExpand = false,
 }: {
 	nodeId: string;
 	searchSuffix: string;
@@ -183,6 +184,7 @@ function routeSidebarNodeSelection({
 	setBrowserPathname: (nextPath: string) => void;
 	router: { push: (href: string, options?: { scroll?: boolean }) => void };
 	pulseDuration?: number;
+	autoExpand?: boolean;
 }) {
 	const nextHref = buildNodeRouteHref(nodeId, searchSuffix);
 	const nextPath = buildNodeRoutePath(nodeId);
@@ -191,7 +193,7 @@ function routeSidebarNodeSelection({
 		setBrowserPathname(nextPath);
 		router.push(nextHref, { scroll: false });
 	}
-	window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { nodeId, pulseDuration } }));
+	window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { nodeId, pulseDuration, autoExpand } }));
 }
 
 function isFindShortcut(event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'altKey' | 'defaultPrevented'>) {
@@ -238,9 +240,26 @@ export default function FinraGraph() {
 		setFetchQuery(event.target.value);
 	};
 
-	const isMobileSearchViewport = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches;
+	const isMobileSearchViewport = useCallback(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches, []);
 
-	const reopenFindBarAfterSidebarDismiss = () => {
+	const focusFindInput = useCallback(() => {
+		window.requestAnimationFrame(() => {
+			const input = findInputRef.current;
+			if (!input) return;
+			input.focus({ preventScroll: true });
+			input.select();
+		});
+	}, []);
+
+	const openFindBar = useCallback(() => {
+		if (isMobileSearchViewport()) {
+			window.dispatchEvent(new CustomEvent(MOBILE_SIDEBAR_COLLAPSE_REQUEST_EVENT));
+		}
+		setIsFindBarOpen(true);
+		focusFindInput();
+	}, [focusFindInput, isMobileSearchViewport]);
+
+	const reopenFindBarAfterSidebarDismiss = useCallback(() => {
 		if (!shouldRestoreFindBarAfterSidebarDismissRef.current) return;
 		if (!isMobileSearchViewport()) {
 			shouldRestoreFindBarAfterSidebarDismissRef.current = false;
@@ -250,53 +269,39 @@ export default function FinraGraph() {
 		window.requestAnimationFrame(() => {
 			openFindBar();
 		});
-	};
+	}, [isMobileSearchViewport, openFindBar]);
 
-	const closeFindBar = ({ clearQuery = false, preserveMobileRestore = false }: { clearQuery?: boolean; preserveMobileRestore?: boolean } = {}) => {
-		const input = findInputRef.current;
-		if (input && document.activeElement === input) {
-			input.blur();
-			window.requestAnimationFrame(() => {
-				if (appRef.current) {
-					appRef.current.focus({ preventScroll: true });
-				}
-			});
-		}
-		setIsFindBarOpen(false);
-		if (clearQuery) {
-			setFindQuery('');
-			setFindMatchState({ total: 0, activeOrdinal: 0 });
-			setActiveFindNodeId(null);
-			setFocusedFindNodeId(null);
-			window.dispatchEvent(new CustomEvent(FIND_CLOSE_EVENT, { detail: { clearQuery: true } }));
-			shouldRestoreFindBarAfterSidebarDismissRef.current = false;
-			return;
-		}
-		setFocusedFindNodeId(activeFindNodeId);
-		window.dispatchEvent(new CustomEvent(FIND_CLOSE_EVENT, { detail: { clearQuery: false } }));
-		if (!preserveMobileRestore) {
-			shouldRestoreFindBarAfterSidebarDismissRef.current = false;
-		}
-	};
-
-	const focusFindInput = () => {
-		window.requestAnimationFrame(() => {
+	const closeFindBar = useCallback(
+		({ clearQuery = false, preserveMobileRestore = false }: { clearQuery?: boolean; preserveMobileRestore?: boolean } = {}) => {
 			const input = findInputRef.current;
-			if (!input) return;
-			input.focus({ preventScroll: true });
-			input.select();
-		});
-	};
+			if (input && document.activeElement === input) {
+				input.blur();
+				window.requestAnimationFrame(() => {
+					if (appRef.current) {
+						appRef.current.focus({ preventScroll: true });
+					}
+				});
+			}
+			setIsFindBarOpen(false);
+			if (clearQuery) {
+				setFindQuery('');
+				setFindMatchState({ total: 0, activeOrdinal: 0 });
+				setActiveFindNodeId(null);
+				setFocusedFindNodeId(null);
+				window.dispatchEvent(new CustomEvent(FIND_CLOSE_EVENT, { detail: { clearQuery: true } }));
+				shouldRestoreFindBarAfterSidebarDismissRef.current = false;
+				return;
+			}
+			setFocusedFindNodeId(activeFindNodeId);
+			window.dispatchEvent(new CustomEvent(FIND_CLOSE_EVENT, { detail: { clearQuery: false } }));
+			if (!preserveMobileRestore) {
+				shouldRestoreFindBarAfterSidebarDismissRef.current = false;
+			}
+		},
+		[activeFindNodeId],
+	);
 
-	const openFindBar = () => {
-		if (isMobileSearchViewport()) {
-			window.dispatchEvent(new CustomEvent(MOBILE_SIDEBAR_COLLAPSE_REQUEST_EVENT));
-		}
-		setIsFindBarOpen(true);
-		focusFindInput();
-	};
-
-	const submitFindQuery = () => {
+	const submitFindQuery = useCallback(() => {
 		const query = findQuery.trim();
 		if (!query) return;
 		const nodeId = focusedFindNodeId || activeFindNodeId;
@@ -316,11 +321,12 @@ export default function FinraGraph() {
 				setBrowserPathname,
 				router,
 				pulseDuration: 5000,
+				autoExpand: true,
 			});
 			return;
 		}
 		window.dispatchEvent(new CustomEvent(FIND_NEXT_EVENT, { detail: { query } }));
-	};
+	}, [activeFindNodeId, browserPathname, closeFindBar, findQuery, focusedFindNodeId, pathname, router, searchSuffix]);
 
 	const handleFindInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
 		if (event.key === 'Enter') {
@@ -398,6 +404,7 @@ export default function FinraGraph() {
 					setBrowserPathname,
 					router,
 					pulseDuration: 5000,
+					autoExpand: true,
 				});
 				return;
 			}
@@ -543,7 +550,7 @@ export default function FinraGraph() {
 		return () => {
 			document.removeEventListener('keydown', handleDocumentFindShortcut);
 		};
-	}, [isMounted]);
+	}, [focusFindInput, isMounted]);
 
 	useEffect(() => {
 		if (!isMounted || !graphReady || !isFindBarOpen) return;
@@ -584,7 +591,7 @@ export default function FinraGraph() {
 			window.removeEventListener(FIND_STATE_EVENT, handleFindState as EventListener);
 			window.removeEventListener(MOBILE_FIND_CLOSE_REQUEST_EVENT, handleMobileFindCloseRequest as EventListener);
 		};
-	}, [isMounted]);
+	}, [closeFindBar, isMounted]);
 
 	useEffect(() => {
 		if (!isMounted) return;
@@ -596,6 +603,8 @@ export default function FinraGraph() {
 			const nodeId = focusedFindNodeId || activeFindNodeId;
 
 			if (event.key === 'Enter' && nodeId) {
+				event.preventDefault();
+				event.stopPropagation();
 				routeSidebarNodeSelection({
 					nodeId,
 					searchSuffix,
@@ -603,6 +612,7 @@ export default function FinraGraph() {
 					pathname,
 					setBrowserPathname,
 					router,
+					autoExpand: true,
 				});
 				return;
 			}
@@ -626,7 +636,7 @@ export default function FinraGraph() {
 		return () => {
 			document.removeEventListener('keydown', handleSearchNavigation);
 		};
-	}, [isMounted, isFindBarOpen, focusedFindNodeId, activeFindNodeId, findQuery, searchSuffix, browserPathname, pathname, router]);
+	}, [activeFindNodeId, browserPathname, findQuery, focusedFindNodeId, isFindBarOpen, isMounted, pathname, router, searchSuffix]);
 
 	useEffect(() => {
 		if (!isMounted) return;
@@ -686,7 +696,6 @@ export default function FinraGraph() {
 			hideSidebar();
 			reopenFindBarAfterSidebarDismiss();
 		};
-
 		document.addEventListener('click', handleDocumentClickCapture, true);
 		document.addEventListener('focusin', handleDocumentFocusIn, true);
 		document.addEventListener('keydown', handleEscapeKey);
@@ -696,7 +705,7 @@ export default function FinraGraph() {
 			document.removeEventListener('focusin', handleDocumentFocusIn, true);
 			document.removeEventListener('keydown', handleEscapeKey);
 		};
-	}, [isMounted]);
+	}, [closeFindBar, isMounted, reopenFindBarAfterSidebarDismiss]);
 
 	useEffect(() => {
 		if (!isMounted) return;

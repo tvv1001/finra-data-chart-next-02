@@ -4,7 +4,7 @@
  * pre-primed JSON bundles (stored under data/national/primed-cache) when
  * available to populate Redis on cold starts and avoid first-request latency.
  */
-import { readFile, writeFile, mkdir, access, unlink } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, access, unlink, constants } from 'node:fs/promises';
 import * as crypto from 'node:crypto';
 import * as path from 'node:path';
 import { gunzipOffload } from './gzipWorker';
