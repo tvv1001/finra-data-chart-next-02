@@ -14,7 +14,7 @@ import { DATA_DIR, PRIMED_CACHE_DIR } from './constants';
 
 type MemStore = Map<string, { value: unknown; expiresAt: number }>;
 type PrimedBundle = Record<string, unknown>;
-type PrimedBundleName = 'finra-individual' | 'sec-individual' | 'finra-firm' | 'sec-firm';
+type PrimedBundleName = 'finra-individual' | 'sec-individual';
 
 let upstash: Redis | null = null;
 let memStore: MemStore | null = null;
@@ -61,8 +61,6 @@ function normalizeKey(key: string): string {
 const primedBundleFiles: Record<PrimedBundleName, string> = {
 	'finra-individual': path.join(PRIMED_CACHE_DIR, 'finra-individual.json'),
 	'sec-individual': path.join(PRIMED_CACHE_DIR, 'sec-individual.json'),
-	'finra-firm': path.join(PRIMED_CACHE_DIR, 'finra-firm.json'),
-	'sec-firm': path.join(PRIMED_CACHE_DIR, 'sec-firm.json'),
 };
 
 function getUpstash(): Redis | null {
@@ -298,8 +296,6 @@ function resolvePrimedBundleName(key: string): PrimedBundleName | null {
 	const nk = normalizeKey(key);
 	if (nk.startsWith('finra:individual:') && nk.endsWith(`:${DEFAULT_INDIVIDUAL_QUERY}`)) return 'finra-individual';
 	if (nk.startsWith('sec:individual:') && nk.endsWith(`:${DEFAULT_INDIVIDUAL_QUERY}`)) return 'sec-individual';
-	if (nk.startsWith('finra:firm:') && nk.endsWith(`:${DEFAULT_FIRM_QUERY}`)) return 'finra-firm';
-	if (nk.startsWith('sec:firm:') && !nk.startsWith('sec:firm:summaryHtml:') && nk.split(':').length === 3) return 'sec-firm';
 	return null;
 }
 

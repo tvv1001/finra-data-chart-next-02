@@ -3259,7 +3259,6 @@ a,
 .fg-node.selected text.fg-label,
 .fg-node.fg-node--find-match text.fg-label,
 .fg-node.highlighted-hop text.fg-label {
-	fill: #0f172a !important;
 	font-weight: 400;
 	opacity: 1 !important;
 }

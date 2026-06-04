@@ -50,9 +50,7 @@ async function collectJsonFiles(dir) {
 
 function bucketForKey(key) {
 	if (key.startsWith('finra:individual:')) return 'finra-individual';
-	if (key.startsWith('finra:firm:')) return 'finra-firm';
 	if (key.startsWith('sec:individual:')) return 'sec-individual';
-	if (key.startsWith('sec:firm:')) return 'sec-firm';
 	// fallback by filename patterns
 	if (key.startsWith('api.brokercheck.finra.org')) return 'finra-individual';
 	if (key.startsWith('api.adviserinfo.sec.gov')) return 'sec-individual';
@@ -70,9 +68,7 @@ async function main() {
 
 	const bundles = {
 		'finra-individual': {},
-		'finra-firm': {},
 		'sec-individual': {},
-		'sec-firm': {},
 	};
 	let processed = 0;
 	for (const [full, name] of files) {
@@ -84,9 +80,6 @@ async function main() {
 		if (/^finra-individual-?(\d+)\.json$/i.test(name)) {
 			const id = name.replace(/^finra-individual-?(\d+)\.json$/i, '$1');
 			key = `finra:individual:${id}:hl=true&includePrevious=true&wt=json`;
-		} else if (/^finra-firm-?(\d+)\.json$/i.test(name)) {
-			const id = name.replace(/^finra-firm-?(\d+)\.json$/i, '$1');
-			key = `finra:firm:${id}:hl=true&wt=json`;
 		}
 
 		try {
