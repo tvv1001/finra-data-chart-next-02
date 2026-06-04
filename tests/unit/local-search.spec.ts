@@ -30,6 +30,49 @@ describe('local search indexes', () => {
 		expect(String(result.response.docs[0]?.ind_lastname || '').toLowerCase()).toContain('baccala');
 	});
 
+	it('matches Mason as a whole word in first, middle, or last name', async () => {
+		const result = await searchLocalIndex('sec', 'individual', 'mason', { limit: 1000 });
+
+		expect(result.total).toBeGreaterThan(0);
+		expect(result.response.docs.some((doc) => String(doc.ind_source_id || '') === '1222513')).toBe(true);
+		expect(result.response.docs.some((doc) => String(doc.ind_source_id || '') === '1098656')).toBe(true);
+	});
+
+	it('matches the top-level full name when queried directly', async () => {
+		const result = await searchLocalIndex('sec', 'individual', 'ronald noel mason', { limit: 10 });
+
+		expect(result.total).toBeGreaterThan(0);
+		expect(result.response.docs[0]?.ind_source_id).toBe('1222513');
+		expect(String(result.response.docs[0]?.ind_firstname || '').toUpperCase()).toBe('RONALD');
+		expect(String(result.response.docs[0]?.ind_lastname || '').toUpperCase()).toBe('MASON');
+	});
+
+	it('includes firms whose alias names contain Mason', async () => {
+		const result = await searchLocalIndex('sec', 'firm', 'mason', { limit: 1000 });
+
+		expect(result.total).toBeGreaterThan(0);
+		expect(result.response.docs.some((doc) => String(doc.firm_id || '') === '39914')).toBe(true);
+		expect(
+			result.response.docs.some((doc) => {
+				const aliases = [doc.otherNames, doc.firm_other_names, doc.previousNames, doc.previous_names].flat().filter(Boolean) as string[];
+				return aliases.some((alias) => /\bmason\b/i.test(String(alias)));
+			}),
+		).toBe(true);
+	});
+
+	it('includes individuals whose alias or previous names contain Mason', async () => {
+		const result = await searchLocalIndex('sec', 'individual', 'mason', { limit: 1000 });
+
+		expect(result.total).toBeGreaterThan(0);
+		expect(result.response.docs.some((doc) => String(doc.ind_source_id || '') === '1222513')).toBe(true);
+		expect(
+			result.response.docs.some((doc) => {
+				const aliases = [doc.otherNames, doc.ind_other_names, doc.previousNames, doc.previous_names].flat().filter(Boolean) as string[];
+				return aliases.some((alias) => /\bmason\b/i.test(String(alias)));
+			}),
+		).toBe(true);
+	});
+
 	it('matches past names and aliases for individuals', async () => {
 		const result = await searchLocalIndex('sec', 'individual', 'lisa keverian', { limit: 5 });
 

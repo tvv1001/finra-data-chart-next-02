@@ -310,6 +310,7 @@ let inactiveLabelCompactMode = false;
 let graphTickFrameId: number | null = null;
 let networkStatusListenerBound = false;
 const OFFLINE_FETCH_STATUS_MESSAGE = 'Offline — reconnect to load graph data.';
+const FIND_NODE_MIN_SCALE = 1.35;
 
 function isBrowserOffline() {
 	return typeof navigator !== 'undefined' && navigator.onLine === false;
@@ -1618,7 +1619,7 @@ function moveFindMatch(rawQuery = activeFindQuery, direction = 'ArrowRight') {
 	activeFindMatchOrder = nodeIds;
 	activeFindMatchIds = new Set(nodeIds);
 	activeFindMatchIndex = activeFindMatchOrder.indexOf(nextNode.id);
-	focusNodeForFind(nextNode.id, { duration: 520, minScale: 1.1 });
+	focusNodeForFind(nextNode.id, { duration: 520, minScale: FIND_NODE_MIN_SCALE });
 	startSearchPulseLoop(nextNode.id, { interval: 1400, immediate: true });
 	refreshGraphColors();
 	emitFindState();
@@ -9687,7 +9688,7 @@ function focusNodeForFind(
 		minScale?: number;
 	} = {},
 ) {
-	const { duration = 520, minScale = 1.1 } = options;
+	const { duration = 520, minScale = FIND_NODE_MIN_SCALE } = options;
 	try {
 		if (!zoomBehavior || !svgSel) return;
 		const node = (Array.isArray(layoutNodes) && layoutNodes.find((n) => n.id === id)) || null;
