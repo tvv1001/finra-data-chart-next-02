@@ -15,6 +15,8 @@ const FIND_PREV_EVENT = 'finra:find-prev';
 const FIND_MOVE_EVENT = 'finra:find-move';
 const FIND_CLOSE_EVENT = 'finra:find-close';
 const FIND_STATE_EVENT = 'finra:find-state';
+const MOBILE_SIDEBAR_COLLAPSE_REQUEST_EVENT = 'finra:mobile-sidebar-collapse-request';
+const MOBILE_FIND_CLOSE_REQUEST_EVENT = 'finra:mobile-find-close-request';
 
 function bindTouchDragClickSuppression(button: HTMLElement | null) {
 	if (!button || button.dataset.touchGuardBound === 'true') return;
@@ -208,6 +210,7 @@ export default function FinraGraph() {
 	const fetchInputRef = useRef<HTMLInputElement | null>(null);
 	const findInputRef = useRef<HTMLInputElement | null>(null);
 	const isFindBarOpenRef = useRef(false);
+	const shouldRestoreFindBarAfterSidebarDismissRef = useRef(false);
 	const wasGraphEmptyRef = useRef<boolean | null>(null);
 	const [isMounted, setIsMounted] = useState(false);
 	const [graphReady, setGraphReady] = useState(false);
@@ -223,6 +226,9 @@ export default function FinraGraph() {
 	const searchParams = useSearchParams();
 	const routeNodeId = useMemo(() => parseNodeIdFromPathname(browserPathname || pathname), [browserPathname, pathname]);
 	const findCounterText = useMemo(() => formatFindCounter(findMatchState.total, findMatchState.activeOrdinal), [findMatchState.activeOrdinal, findMatchState.total]);
+	// const findSubmitText = activeFindNodeId || focusedFindNodeId ? 'Select' : 'Find';
+
+	const findSubmitText = 'Select';
 	const searchSuffix = useMemo(() => {
 		const suffix = searchParams.toString();
 		return suffix ? `?${suffix}` : '';
@@ -232,7 +238,21 @@ export default function FinraGraph() {
 		setFetchQuery(event.target.value);
 	};
 
-	const closeFindBar = ({ clearQuery = false }: { clearQuery?: boolean } = {}) => {
+	const isMobileSearchViewport = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches;
+
+	const reopenFindBarAfterSidebarDismiss = () => {
+		if (!shouldRestoreFindBarAfterSidebarDismissRef.current) return;
+		if (!isMobileSearchViewport()) {
+			shouldRestoreFindBarAfterSidebarDismissRef.current = false;
+			return;
+		}
+		shouldRestoreFindBarAfterSidebarDismissRef.current = false;
+		window.requestAnimationFrame(() => {
+			openFindBar();
+		});
+	};
+
+	const closeFindBar = ({ clearQuery = false, preserveMobileRestore = false }: { clearQuery?: boolean; preserveMobileRestore?: boolean } = {}) => {
 		const input = findInputRef.current;
 		if (input && document.activeElement === input) {
 			input.blur();
@@ -249,10 +269,14 @@ export default function FinraGraph() {
 			setActiveFindNodeId(null);
 			setFocusedFindNodeId(null);
 			window.dispatchEvent(new CustomEvent(FIND_CLOSE_EVENT, { detail: { clearQuery: true } }));
+			shouldRestoreFindBarAfterSidebarDismissRef.current = false;
 			return;
 		}
 		setFocusedFindNodeId(activeFindNodeId);
 		window.dispatchEvent(new CustomEvent(FIND_CLOSE_EVENT, { detail: { clearQuery: false } }));
+		if (!preserveMobileRestore) {
+			shouldRestoreFindBarAfterSidebarDismissRef.current = false;
+		}
 	};
 
 	const focusFindInput = () => {
@@ -265,6 +289,9 @@ export default function FinraGraph() {
 	};
 
 	const openFindBar = () => {
+		if (isMobileSearchViewport()) {
+			window.dispatchEvent(new CustomEvent(MOBILE_SIDEBAR_COLLAPSE_REQUEST_EVENT));
+		}
 		setIsFindBarOpen(true);
 		focusFindInput();
 	};
@@ -272,7 +299,54 @@ export default function FinraGraph() {
 	const submitFindQuery = () => {
 		const query = findQuery.trim();
 		if (!query) return;
+		const nodeId = focusedFindNodeId || activeFindNodeId;
+		if (nodeId) {
+			const isMobileSidebar = typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches;
+			if (isMobileSidebar) {
+				shouldRestoreFindBarAfterSidebarDismissRef.current = true;
+				closeFindBar({ clearQuery: false, preserveMobileRestore: true });
+			}
+			routeSidebarNodeSelection({
+				nodeId,
+				searchSuffix,
+				browserPathname,
+				pathname,
+				setBrowserPathname,
+				router,
+				pulseDuration: 5000,
+			});
+			return;
+		}
 		window.dispatchEvent(new CustomEvent(FIND_NEXT_EVENT, { detail: { query } }));
+	};
+
+	const handleFindInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+		if (event.key === 'Enter') {
+			event.preventDefault();
+			submitFindQuery();
+			return;
+		}
+		if (event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+			event.preventDefault();
+			window.dispatchEvent(
+				new CustomEvent(FIND_MOVE_EVENT, {
+					detail: {
+						direction: event.key,
+						query: findQuery.trim(),
+					},
+				}),
+			);
+		}
+	};
+
+	const moveFindMatchByButton = (direction: 'ArrowLeft' | 'ArrowRight') => {
+		const query = findQuery.trim();
+		if (!query) return;
+		window.dispatchEvent(
+			new CustomEvent(FIND_MOVE_EVENT, {
+				detail: { direction, query },
+			}),
+		);
 	};
 
 	useEffect(() => {
@@ -500,8 +574,13 @@ export default function FinraGraph() {
 		};
 
 		window.addEventListener(FIND_STATE_EVENT, handleFindState as EventListener);
+		const handleMobileFindCloseRequest = () => {
+			closeFindBar({ clearQuery: false, preserveMobileRestore: true });
+		};
+		window.addEventListener(MOBILE_FIND_CLOSE_REQUEST_EVENT, handleMobileFindCloseRequest as EventListener);
 		return () => {
 			window.removeEventListener(FIND_STATE_EVENT, handleFindState as EventListener);
+			window.removeEventListener(MOBILE_FIND_CLOSE_REQUEST_EVENT, handleMobileFindCloseRequest as EventListener);
 		};
 	}, [isMounted]);
 
@@ -571,6 +650,7 @@ export default function FinraGraph() {
 			if (graphNode) return;
 			if (target && (!mobileMenuToggle || !mobileMenuToggle.contains(target))) {
 				hideSidebar();
+				reopenFindBarAfterSidebarDismiss();
 			}
 		};
 
@@ -591,6 +671,7 @@ export default function FinraGraph() {
 				return;
 			}
 			hideSidebar();
+			reopenFindBarAfterSidebarDismiss();
 		};
 
 		document.addEventListener('click', handleDocumentClickCapture, true);
@@ -821,6 +902,7 @@ export default function FinraGraph() {
 								type='search'
 								value={findQuery}
 								onChange={(event) => setFindQuery(event.target.value)}
+								onKeyDown={handleFindInputKeyDown}
 								placeholder='Find loaded people or firms'
 								autoComplete='off'
 								autoCorrect='off'
@@ -835,18 +917,36 @@ export default function FinraGraph() {
 							aria-live='polite'>
 							{findCounterText}
 						</span>
-						<button
-							type='submit'
-							className='fg-ghost-btn fg-find-next'
-							disabled={!findQuery.trim()}>
-							Next
-						</button>
-						<button
-							type='button'
-							className='fg-ghost-btn fg-find-close'
-							onClick={() => closeFindBar({ clearQuery: false })}>
-							Close
-						</button>
+						<div className='fg-find-bar__actions'>
+							<button
+								type='button'
+								className='fg-ghost-btn fg-find-arrow fg-find-arrow--left'
+								
+								onClick={() => moveFindMatchByButton('ArrowLeft')}
+								aria-label='Previous match'>
+								←
+							</button>
+							<button
+								type='button'
+								className='fg-ghost-btn fg-find-arrow fg-find-arrow--right'
+								
+								onClick={() => moveFindMatchByButton('ArrowRight')}
+								aria-label='Next match'>
+								→
+							</button>
+							<button
+								type='submit'
+								className='fg-ghost-btn fg-find-next'
+								disabled={!findQuery.trim()}>
+								{findSubmitText}
+							</button>
+							<button
+								type='button'
+								className='fg-ghost-btn fg-find-close'
+								onClick={() => closeFindBar({ clearQuery: false })}>
+								Close
+							</button>
+						</div>
 					</form>
 				</div>
 			</header>
