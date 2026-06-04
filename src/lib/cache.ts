@@ -28,13 +28,13 @@ const DEFAULT_FIRM_QUERY = 'hl=true&wt=json';
 // "finra:" or "sec:" will be rate-limited to at most one fetch per
 // EXTERNAL_API_MIN_INTERVAL_MS (default 5s) to avoid getting blocked by
 // upstream providers during aggressive crawling or high traffic.
-const EXTERNAL_API_MIN_INTERVAL_MS = Number(process.env.EXTERNAL_API_MIN_INTERVAL_MS || 5000);
+const EXTERNAL_API_MIN_INTERVAL_MS = Number(process.env.EXTERNAL_API_MIN_INTERVAL_MS || 1000);
 const lastExternalFetch = new Map<string, number>();
 // When an external API call fails (network error, upstream 5xx, etc.) we
 // back off for a longer cooldown to avoid repeated failing requests. Default
-// cooldown is 10 minutes (600_000 ms) but can be overridden by
+// cooldown is 1 minute (60,000 ms) but can be overridden by
 // EXTERNAL_API_FAILURE_COOLDOWN_MS.
-const EXTERNAL_API_FAILURE_COOLDOWN_MS = Number(process.env.EXTERNAL_API_FAILURE_COOLDOWN_MS || 600_000);
+const EXTERNAL_API_FAILURE_COOLDOWN_MS = Number(process.env.EXTERNAL_API_FAILURE_COOLDOWN_MS || 60_000);
 const lastExternalFailure = new Map<string, number>();
 // Runtime toggle to completely disable external FINRA/SEC lookups when set to
 // '1' or 'true' in the environment. Useful for offline/dev modes.
@@ -312,6 +312,45 @@ async function getPrimedCacheValue<T>(key: string): Promise<T | null> {
 	return null;
 }
 
+async function getDiskCacheValue<T>(key: string): Promise<T | null> {
+	try {
+		const parts = key.split(':');
+		if (parts.length < 3) return null;
+		const service = parts[0];
+		const type = parts[1];
+		const id = parts[2];
+
+		if (!/^\d+$/.test(id) && !/^8-\d+$/i.test(id)) return null;
+
+		let folder = '';
+		let filePrefix = '';
+
+		if (service === 'finra') {
+			folder = 'brokercheck.finra.org';
+			filePrefix = 'api.brokercheck.finra.org_search';
+		} else if (service === 'sec') {
+			folder = 'adviserinfo.sec.gov';
+			filePrefix = 'api.adviserinfo.sec.gov_search';
+		} else {
+			return null;
+		}
+
+		const fileName = `${filePrefix}_${type}_${id}.json`;
+		const filePath = path.join(process.cwd(), 'data', 'national', folder, fileName);
+
+		try {
+			await access(filePath, constants.R_OK);
+		} catch {
+			return null;
+		}
+
+		const content = await readFile(filePath, 'utf-8');
+		return JSON.parse(content) as T;
+	} catch {
+		return null;
+	}
+}
+
 export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher: () => Promise<T>): Promise<T> {
 	const key = normalizeKey(rawKey);
 	const redis = getUpstash();
@@ -324,6 +363,11 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 			if (primed != null) {
 				await setStringIfValid(key, JSON.stringify(primed), ttlSeconds);
 				return primed;
+			}
+			const disk = await getDiskCacheValue<T>(key);
+			if (disk != null) {
+				await setStringIfValid(key, JSON.stringify(disk), ttlSeconds);
+				return disk;
 			}
 			// Rate-limit outbound external fetches for FINRA/SEC sources.
 			const service =
@@ -376,6 +420,11 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 	if (primed != null) {
 		memSet(mem, key, primed, ttlSeconds);
 		return primed;
+	}
+	const diskValue = await getDiskCacheValue<T>(key);
+	if (diskValue != null) {
+		memSet(mem, key, diskValue, ttlSeconds);
+		return diskValue;
 	}
 
 	// Rate-limit outbound external fetches for FINRA/SEC sources (in-memory path).
