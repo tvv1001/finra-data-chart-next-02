@@ -18,8 +18,11 @@ type LocalSearchDoc = {
 };
 
 type PreparedLocalSearchDoc = LocalSearchDoc & {
+	primaryNameSearchText: string;
 	normalizedNameSearchText: string;
 	normalizedStrictSearchText: string;
+	primaryNameCandidates: string[];
+	primaryNameTokens: string[];
 	nameCandidates: string[];
 	nameTokens: string[];
 	surnameCandidates: string[];
@@ -116,7 +119,7 @@ function collectNameCandidates(doc: LocalSearchDoc) {
 	];
 
 	const extraNames = extraNameKeys.flatMap((key) => arrayify(hit[key]));
-	return uniqueNormalized([primaryIndividualName, primaryFirmName, hit.label, hit.displayName, hit.personName, ...extraNames]);
+	return uniqueNormalized([primaryIndividualName, primaryFirmName, hit.name, hit.fullName, hit.full_name, hit.displayName, hit.label, hit.personName, ...extraNames]);
 }
 
 function collectSurnameCandidates(doc: LocalSearchDoc) {
@@ -125,15 +128,23 @@ function collectSurnameCandidates(doc: LocalSearchDoc) {
 }
 
 function prepareDoc(doc: LocalSearchDoc): PreparedLocalSearchDoc {
+	const hit = doc.hit || {};
+	const primaryIndividualName = [hit.ind_firstname, hit.ind_middlename, hit.ind_lastname].filter(Boolean).join(' ');
+	const primaryFirmName = hit.firm_name || hit.firmName || hit.organizationName || hit.organization_name || hit.companyName || hit.legalName || hit.name;
+	const primaryNameCandidates = uniqueNormalized([primaryIndividualName, primaryFirmName, hit.name, hit.fullName, hit.full_name, hit.displayName, hit.label, hit.personName]);
 	const nameCandidates = collectNameCandidates(doc);
 	const surnameCandidates = collectSurnameCandidates(doc);
-	const normalizedNameSearchText = normalizeText(doc.nameSearchText || nameCandidates.join(' '));
+	const normalizedNameSearchText = normalizeText(doc.nameSearchText || primaryNameCandidates.join(' '));
 	const normalizedStrictSearchText = normalizeText(doc.strictSearchText || doc.searchText);
+	const primaryNameTokens = Array.from(new Set(primaryNameCandidates.flatMap((candidate) => tokenizeQuery(candidate))));
 	const nameTokens = Array.from(new Set(nameCandidates.flatMap((candidate) => tokenizeQuery(candidate))));
 	return {
 		...doc,
+		primaryNameSearchText: normalizedNameSearchText,
 		normalizedNameSearchText,
 		normalizedStrictSearchText,
+		primaryNameCandidates,
+		primaryNameTokens,
 		nameCandidates,
 		nameTokens,
 		surnameCandidates,
@@ -186,7 +197,7 @@ function containsWholePhrase(text: string, phrase: string) {
 }
 
 function hasStrictMatch(doc: PreparedLocalSearchDoc, normalizedQuery: string, tokens: string[]) {
-	const strictText = doc.normalizedStrictSearchText;
+	const strictText = doc.primaryNameSearchText || doc.normalizedNameSearchText;
 	const identifier = getIdentifierText(doc);
 	if (!strictText) return false;
 	if (identifier === normalizedQuery) return true;
@@ -218,10 +229,9 @@ function getBoundedEditDistance(left: string, right: string, maxDistance: number
 function tokensFuzzyMatch(queryToken: string, candidateToken: string) {
 	if (!queryToken || !candidateToken) return false;
 	if (queryToken === candidateToken) return true;
-	if (candidateToken.includes(queryToken) || queryToken.includes(candidateToken)) {
-		return Math.min(queryToken.length, candidateToken.length) >= 4;
-	}
-	const maxDistance = queryToken.length >= 8 || candidateToken.length >= 8 ? 2 : 1;
+	const minLength = Math.min(queryToken.length, candidateToken.length);
+	if (minLength < 5) return false;
+	const maxDistance = 1;
 	return getBoundedEditDistance(queryToken, candidateToken, maxDistance) <= maxDistance;
 }
 
@@ -254,14 +264,14 @@ function getNameMatchScore(doc: PreparedLocalSearchDoc, rawQuery: string, normal
 	}
 	let bestScore = 0;
 	for (const candidate of doc.nameCandidates) {
-		if (candidate === normalizedQuery) bestScore = Math.max(bestScore, 260);
-		else if (candidate.startsWith(normalizedQuery)) bestScore = Math.max(bestScore, 180);
-		else if (candidate.includes(normalizedQuery)) bestScore = Math.max(bestScore, 130);
+		const isPrimaryCandidate = doc.primaryNameCandidates.includes(candidate);
+		if (candidate === normalizedQuery) bestScore = Math.max(bestScore, isPrimaryCandidate ? 260 : 220);
+		else if (containsWholePhrase(candidate, normalizedQuery)) bestScore = Math.max(bestScore, isPrimaryCandidate ? 180 : 150);
 
 		const candidateTokens = tokenizeQuery(candidate);
 		const matchedTokenCount = tokens.filter((token) => candidateTokens.some((candidateToken) => tokensFuzzyMatch(token, candidateToken))).length;
 		if (matchedTokenCount === tokens.length && tokens.length > 0) {
-			bestScore = Math.max(bestScore, 150 + matchedTokenCount * 20);
+			bestScore = Math.max(bestScore, (isPrimaryCandidate ? 150 : 130) + matchedTokenCount * 20);
 		}
 	}
 	return Math.max(bestScore, getSurnameMatchScore(doc, rawQuery, normalizedQuery));
@@ -278,7 +288,7 @@ function getSortScore(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQ
 	if (identifier === normalizedQuery) score += 300;
 	if (doc.id.toLowerCase().endsWith(`:${normalizedQuery}`)) score += 250;
 	if (containsWholePhrase(strictText, normalizedQuery)) score += 100;
-	if (nameText.startsWith(normalizedQuery)) score += 40;
+	if (containsWholePhrase(nameText, normalizedQuery)) score += 40;
 	score += getNameMatchScore(doc, rawQuery, normalizedQuery, tokens);
 	for (const token of tokens) {
 		if (identifier === token) score += 120;

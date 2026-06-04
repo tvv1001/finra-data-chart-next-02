@@ -12,6 +12,11 @@ function normalizeText(value: unknown) {
 		.toLowerCase();
 }
 
+function containsWholePhrase(text: string, phrase: string) {
+	if (!text || !phrase) return false;
+	return ` ${text} `.includes(` ${phrase} `);
+}
+
 function collectSearchableNodeKeys(node: any) {
 	const basic = node?.basicInformation || {};
 	return [
@@ -38,7 +43,7 @@ function collectSearchableNodeKeys(node: any) {
 function matchesQuery(node: any, query: string) {
 	const normalizedQuery = normalizeText(query);
 	if (!normalizedQuery) return false;
-	return collectSearchableNodeKeys(node).some((key) => key.includes(normalizedQuery));
+	return collectSearchableNodeKeys(node).some((key) => containsWholePhrase(key, normalizedQuery));
 }
 
 function compareNodes(left: any, right: any, query: string) {
@@ -47,11 +52,11 @@ function compareNodes(left: any, right: any, query: string) {
 	const rightKeys = collectSearchableNodeKeys(right);
 	const leftExact =
 		leftKeys.some((key) => key === normalizedQuery) ? 2
-		: leftKeys.some((key) => key.startsWith(normalizedQuery)) ? 1
+		: leftKeys.some((key) => containsWholePhrase(key, normalizedQuery)) ? 1
 		: 0;
 	const rightExact =
 		rightKeys.some((key) => key === normalizedQuery) ? 2
-		: rightKeys.some((key) => key.startsWith(normalizedQuery)) ? 1
+		: rightKeys.some((key) => containsWholePhrase(key, normalizedQuery)) ? 1
 		: 0;
 	if (rightExact !== leftExact) return rightExact - leftExact;
 	return String(left?.id || '').localeCompare(String(right?.id || ''));
