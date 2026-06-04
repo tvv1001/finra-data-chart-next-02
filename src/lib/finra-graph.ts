@@ -607,12 +607,12 @@ function hasKnownRevealableChildCount(node) {
 
 function getExpectedIndividualRevealableEmployments(node) {
 	if (!node || node.group !== 'individual') return [];
-	const employments = [...(Array.isArray(node.currentEmployments) ? node.currentEmployments : []), ...(Array.isArray(node.currentIAEmployments) ? node.currentIAEmployments : [])];
-	if (isNodeInactive(node)) {
-		employments.push(...(Array.isArray(node.previousEmployments) ? node.previousEmployments : []));
-		employments.push(...(Array.isArray(node.previousIAEmployments) ? node.previousIAEmployments : []));
-	}
-	return employments;
+	return [
+		...(Array.isArray(node.currentEmployments) ? node.currentEmployments : []),
+		...(Array.isArray(node.currentIAEmployments) ? node.currentIAEmployments : []),
+		...(Array.isArray(node.previousEmployments) ? node.previousEmployments : []),
+		...(Array.isArray(node.previousIAEmployments) ? node.previousIAEmployments : []),
+	];
 }
 
 function getKnownCurrentFirmConnectionIds(node) {
@@ -836,6 +836,7 @@ function buildSessionPayload({ compact = false, extraNodeMode = 'full' }: { comp
 			id: entry.id,
 			hops: entry.hops === 'all' ? 'all' : Number(entry.hops) || 1,
 		})),
+		visitedNodeIds: Array.from(visitedNodeIds),
 		nodePositions: getPersistedNodePositions({ compact: shouldCompactLayout }),
 		extraNodes:
 			includeExtraNodeObjects ?
@@ -2872,6 +2873,9 @@ function applyIndividualDetail(targetNode, detail, fallbackCrd = null) {
 async function restoreSavedSession(session) {
 	if (!session || session.cleared) return;
 	const renderedIds = new Set(layoutNodes.map((n) => n.id));
+	if (Array.isArray(session.visitedNodeIds)) {
+		visitedNodeIds = new Set(session.visitedNodeIds);
+	}
 	const missingServerIds = (session.renderedServerIds || []).filter((id) => !renderedIds.has(id));
 	if (missingServerIds.length) {
 		await injectNodesById(missingServerIds);
@@ -6658,6 +6662,7 @@ function reapplySelectionState() {
 			shouldRenderNodeSelected(node, {
 				selectedId,
 				highlightRootIds: highlightState.rootIds,
+				visitedNodeIds,
 				isFetchedLeafNode: (candidateNode) => isFetchedLeafNode(candidateNode),
 				isFetchedExhaustedConnectedNode: (candidateNode) => isFetchedExhaustedConnectedNode(candidateNode),
 			}),
@@ -6693,6 +6698,7 @@ export function shouldRenderNodeSelected(
 	options: {
 		selectedId?: string | null;
 		highlightRootIds?: Set<any>;
+		visitedNodeIds?: Set<any>;
 		isFetchedLeafNode?: (node: any) => boolean;
 		isFetchedExhaustedConnectedNode?: (node: any) => boolean;
 	} = {},
@@ -6701,11 +6707,12 @@ export function shouldRenderNodeSelected(
 	const {
 		selectedId: candidateSelectedId = null,
 		highlightRootIds = new Set<any>(),
+		visitedNodeIds: visitedIds = new Set<any>(),
 		isFetchedLeafNode: isFetchedLeafNodeFn = () => false,
 		isFetchedExhaustedConnectedNode: isFetchedExhaustedConnectedNodeFn = () => false,
 	} = options;
 
-	return node.id === candidateSelectedId || highlightRootIds.has(node.id) || isFetchedLeafNodeFn(node) || isFetchedExhaustedConnectedNodeFn(node);
+	return node.id === candidateSelectedId || highlightRootIds.has(node.id) || visitedIds.has(node.id) || isFetchedLeafNodeFn(node) || isFetchedExhaustedConnectedNodeFn(node);
 }
 
 function markNodeSelected(node, options: { persist?: boolean } = {}) {
