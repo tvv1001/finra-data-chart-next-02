@@ -5,7 +5,7 @@ const { Redis } = require('@upstash/redis');
 
 const ROOT = process.cwd();
 const PRIMED_CACHE_DIR = path.join(ROOT, 'data', 'national', 'primed-cache');
-const BUNDLE_NAMES = ['finra-individual', 'sec-individual', 'finra-firm', 'sec-firm'];
+const BUNDLE_NAMES = ['finra-individual', 'sec-individual'];
 const REDIS_KEY_PREFIX = 'primed:bundle:';
 const REDIS_META_SUFFIX = ':meta';
 const REDIS_PART_SUFFIX = ':part:';

@@ -305,6 +305,8 @@ export default function FinraGraph() {
 			if (isMobileSidebar) {
 				shouldRestoreFindBarAfterSidebarDismissRef.current = true;
 				closeFindBar({ clearQuery: false, preserveMobileRestore: true });
+			} else {
+				closeFindBar({ clearQuery: false });
 			}
 			routeSidebarNodeSelection({
 				nodeId,
@@ -640,11 +642,16 @@ export default function FinraGraph() {
 
 			const sidebar = document.getElementById('fg-sidebar');
 			const bottomStatus = document.getElementById('fg-bottom-status');
-			if (!sidebar || sidebar.classList.contains('hidden')) return;
+			const findBar = document.getElementById('fg-find-bar');
 			const target = event.target as Node | null;
 			const mobileMenuToggle = document.getElementById('fg-mobile-menu-toggle');
 			const graphNode = target instanceof Element ? target.closest('.fg-node') : null;
 
+			if (isFindBarOpenRef.current && findBar && target && !findBar.contains(target)) {
+				closeFindBar({ clearQuery: false });
+			}
+
+			if (!sidebar || sidebar.classList.contains('hidden')) return;
 			if (target && sidebar.contains(target)) return;
 			if (target && bottomStatus?.contains(target)) return;
 			if (graphNode) return;
@@ -656,6 +663,12 @@ export default function FinraGraph() {
 
 		const handleDocumentFocusIn = (event: FocusEvent) => {
 			closeOpenLegendTooltip(event.target);
+
+			const findBar = document.getElementById('fg-find-bar');
+			const target = event.target as Node | null;
+			if (isFindBarOpenRef.current && findBar && target && !findBar.contains(target)) {
+				closeFindBar({ clearQuery: false });
+			}
 		};
 
 		const handleEscapeKey = (event: KeyboardEvent) => {
@@ -921,7 +934,6 @@ export default function FinraGraph() {
 							<button
 								type='button'
 								className='fg-ghost-btn fg-find-arrow fg-find-arrow--left'
-								
 								onClick={() => moveFindMatchByButton('ArrowLeft')}
 								aria-label='Previous match'>
 								←
@@ -929,7 +941,6 @@ export default function FinraGraph() {
 							<button
 								type='button'
 								className='fg-ghost-btn fg-find-arrow fg-find-arrow--right'
-								
 								onClick={() => moveFindMatchByButton('ArrowRight')}
 								aria-label='Next match'>
 								→

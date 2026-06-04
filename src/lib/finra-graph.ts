@@ -3578,6 +3578,17 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 	updateSelectionLogChrome();
 	(document.getElementById('btn-log-close') as HTMLButtonElement | null)?.addEventListener('click', closeLog);
 	document.addEventListener('click', handleDelegatedButtonClicks);
+	const handleFetchStatusDismissal = (event: Event) => {
+		if (!activeFetchStatusMessage || activeFetchStatusPinned) return;
+		const target = event.target as Node | null;
+		if (!target) return;
+		const fetchArea = document.querySelector<HTMLElement>('.fg-fetch');
+		const statusWrap = document.querySelector<HTMLElement>('.fg-toolbar-status--top');
+		if (fetchArea?.contains(target) || statusWrap?.contains(target)) return;
+		clearFetchStatus();
+	};
+	document.addEventListener('click', handleFetchStatusDismissal, true);
+	document.addEventListener('focusin', handleFetchStatusDismissal, true);
 	syncSelectionLogActionButtonStates();
 
 	const refreshLayoutButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-action="refresh-layout"]'));

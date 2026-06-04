@@ -40,29 +40,129 @@ function refreshGraphRouteCaches(graph: any) {
 	return { adj };
 }
 
-async function sampleNodesFromSeedBank(nodes: any[], limit: number) {
+function normalizeStatusString(value: unknown) {
+	return String(value || '')
+		.toLowerCase()
+		.trim();
+}
+
+function hasActiveStatus(value: unknown) {
+	const normalized = normalizeStatusString(value);
+	if (!normalized) return false;
+	const activePattern = /\b(active|approved|current|valid|licensed|registered|effective)\b/;
+	const inactivePattern = /\b(inactive|terminated|revoked|suspended|withdrawn|expired|ceased|closed|not\s*active|not\s*in\s*scope|previous)\b/;
+	return activePattern.test(normalized) && !inactivePattern.test(normalized);
+}
+
+function getNodeNumericValue(node: any) {
+	const id = String(node?.id || '').trim();
+	const match = id.match(/(?:person|firm)[:_]?([0-9]+)$/);
+	return match ? Number(match[1]) : 0;
+}
+
+function collectActiveConnectedIds(adj: Map<string, string[]>, nodes: any[]) {
+	const activeIds = new Set<string>();
+	for (const node of nodes) {
+		if (!node || typeof node !== 'object') continue;
+		const id = String(node?.id || '').trim();
+		if (!id) continue;
+
+		if (node.group === 'firm') {
+			if (
+				hasActiveStatus(node.bcScope) ||
+				hasActiveStatus(node.basicInformation?.bcScope) ||
+				hasActiveStatus(node.firmStatus) ||
+				hasActiveStatus(node.basicInformation?.firmStatus) ||
+				hasActiveStatus(node.iaScope) ||
+				hasActiveStatus(node.basicInformation?.iaScope) ||
+				(Array.isArray(node.activeStates) && node.activeStates.length > 0)
+			) {
+				activeIds.add(id);
+			}
+		} else if (node.group === 'individual') {
+			if (
+				hasActiveStatus(node.bcScope) ||
+				hasActiveStatus(node.basicInformation?.bcScope) ||
+				hasActiveStatus(node.iaScope) ||
+				hasActiveStatus(node.basicInformation?.iaScope) ||
+				(Array.isArray(node.currentEmployments) && node.currentEmployments.length > 0) ||
+				(Array.isArray(node.currentIAEmployments) && node.currentIAEmployments.length > 0) ||
+				(Array.isArray(node.activeStates) && node.activeStates.length > 0) ||
+				Number(node?.registrationCount?.approvedFinraRegistrationCount || 0) > 0 ||
+				Number(node?.registrationCount?.approvedSRORegistrationCount || 0) > 0 ||
+				Number(node?.registrationCount?.approvedStateRegistrationCount || 0) > 0 ||
+				Number(node?.registrationCount?.approvedIAStateRegistrationCount || 0) > 0
+			) {
+				activeIds.add(id);
+			}
+		}
+	}
+
+	if (!activeIds.size) return new Set<string>(activeIds);
+
+	const visited = new Set<string>(activeIds);
+	const queue = Array.from(activeIds);
+	while (queue.length) {
+		const current = queue.shift();
+		if (!current) continue;
+		for (const neighbor of adj.get(current) || []) {
+			if (!visited.has(neighbor)) {
+				visited.add(neighbor);
+				queue.push(neighbor);
+			}
+		}
+	}
+
+	return visited;
+}
+
+async function sampleNodesFromSeedBank(nodes: any[], limit: number, graphAdj: Map<string, string[]>) {
 	try {
 		const seedBank = await getSeedBankFromStore();
-		// Prefer high-degree nodes from the seed bank for a more interesting initial graph
-		const highDegreeIndividuals = (seedBank?.individualIds || []).slice(0, 100);
-		const highDegreeFirms = (seedBank?.firmIds || []).slice(0, 100);
+		const nodeMap = new Map(nodes.map((n) => [String(n?.id || '').trim(), n]));
+		const activeConnectedIds = collectActiveConnectedIds(graphAdj, nodes);
+		const candidateIds = [...(seedBank?.individualIds || []), ...(seedBank?.firmIds || [])].filter((id) => nodeMap.has(id));
 
-		const candidates = [...highDegreeIndividuals, ...highDegreeFirms];
-		if (candidates.length < limit) {
-			return sampleNodesRandomly(nodes, limit);
-		}
+		const scored = candidateIds
+			.map((id) => {
+				const node = nodeMap.get(id)!;
+				return {
+					id,
+					node,
+					numeric: getNodeNumericValue(node),
+					degree: graphAdj.get(id)?.length ?? 0,
+					activeConnected: activeConnectedIds.has(id),
+				};
+			})
+			.filter((item) => item.activeConnected || activeConnectedIds.size === 0);
 
-		const sampledIds = new Set<string>();
-		while (sampledIds.size < limit && candidates.length > 0) {
-			const randomIndex = Math.floor(Math.random() * candidates.length);
-			const randomId = candidates.splice(randomIndex, 1)[0];
-			if (randomId) sampledIds.add(randomId);
-		}
+		scored.sort((a, b) => {
+			if (a.activeConnected !== b.activeConnected) return a.activeConnected ? -1 : 1;
+			if (a.numeric !== b.numeric) return b.numeric - a.numeric;
+			if (a.degree !== b.degree) return b.degree - a.degree;
+			return String(a.id).localeCompare(String(b.id));
+		});
 
-		const nodeMap = new Map(nodes.map((n) => [n.id, n]));
-		return Array.from(sampledIds)
-			.map((id) => nodeMap.get(id))
-			.filter(Boolean);
+		const selected = scored.slice(0, limit).map((entry) => entry.node);
+		if (selected.length >= limit) return selected;
+
+		const selectedIds = new Set(selected.map((node) => String(node.id || '').trim()));
+		const fallback = candidateIds
+			.filter((id) => !selectedIds.has(id))
+			.map((id) => {
+				const node = nodeMap.get(id)!;
+				return {
+					id,
+					node,
+					numeric: getNodeNumericValue(node),
+					degree: graphAdj.get(id)?.length ?? 0,
+				};
+			})
+			.sort((a, b) => b.numeric - a.numeric || b.degree - a.degree || String(a.id).localeCompare(String(b.id)))
+			.slice(0, limit - selected.length)
+			.map((entry) => entry.node);
+
+		return [...selected, ...fallback];
 	} catch {
 		return sampleNodesRandomly(nodes, limit);
 	}
@@ -94,7 +194,7 @@ export async function GET(request: NextRequest) {
 		const { adj: cachedAdj } = refreshGraphRouteCaches(graph);
 
 		// Select seeds from the seed bank for a more deterministic and interesting initial subset.
-		const seeds: any[] = await sampleNodesFromSeedBank(nodes, limit);
+		const seeds: any[] = await sampleNodesFromSeedBank(nodes, limit, cachedAdj);
 		const seedIds = new Set(seeds.map((n) => String(n.id || '').trim()));
 
 		if (profileName) {

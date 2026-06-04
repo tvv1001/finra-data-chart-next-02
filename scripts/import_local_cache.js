@@ -94,9 +94,7 @@ async function main() {
 
 	const primedBundles = {
 		'finra-individual': {},
-		'finra-firm': {},
 		'sec-individual': {},
-		'sec-firm': {},
 	};
 
 	let written = 0;
@@ -120,7 +118,7 @@ async function main() {
 	if (hasBatchFilter) {
 		console.log('Batch filtering is enabled; only matching CRDs will be imported.');
 	}
-	// read top-level national dir for finra-individual-*.json and finra-firm-*.json
+	// read top-level national dir for finra-individual-*.json
 	const entries = await fs.readdir(NATIONAL);
 	for (const name of entries) {
 		const p = path.join(NATIONAL, name);
@@ -147,39 +145,6 @@ async function main() {
 					if (processed % REPORT_INTERVAL === 0) logProgress();
 				} else {
 					primedBundles['finra-individual'][key] = parsed;
-					written++;
-					counts.root++;
-					processed++;
-					if (processed % REPORT_INTERVAL === 0) logProgress();
-				}
-			} catch (err) {
-				console.warn('failed to import', p, err?.message || err);
-			}
-		}
-
-		if (name.startsWith('finra-firm-') && name.endsWith('.json')) {
-			const id = name.replace('finra-firm-', '').replace('.json', '');
-			if (batchFilter && !batchFilter.firms.has(normalizeId(id))) continue;
-			try {
-				const raw = await fs.readFile(p, 'utf-8');
-				const parsed = JSON.parse(raw);
-				const key = finraFirmKey(id);
-				if (useRedis) {
-					const exists = await redis.get(key);
-					if (exists != null) {
-						skipped++;
-						counts.root++;
-						processed++;
-						if (processed % REPORT_INTERVAL === 0) logProgress();
-						continue;
-					}
-					await redis.set(key, JSON.stringify(parsed), { ex: TTL_SECONDS });
-					written++;
-					counts.root++;
-					processed++;
-					if (processed % REPORT_INTERVAL === 0) logProgress();
-				} else {
-					primedBundles['finra-firm'][key] = parsed;
 					written++;
 					counts.root++;
 					processed++;
@@ -218,7 +183,8 @@ async function main() {
 			try {
 				const raw = await fs.readFile(p, 'utf-8');
 				const parsed = JSON.parse(raw);
-				const key = type === 'individual' ? finraIndividualKey(id) : finraFirmKey(id);
+				if (type !== 'individual') continue;
+				const key = finraIndividualKey(id);
 				if (useRedis) {
 					const exists = await redis.get(key);
 					if (exists != null) {
@@ -273,7 +239,8 @@ async function main() {
 			try {
 				const raw = await fs.readFile(p, 'utf-8');
 				const parsed = JSON.parse(raw);
-				const key = type === 'individual' ? `sec:individual:${id}:${DEFAULT_INDIVIDUAL_QUERY}` : `sec:firm:${id}:${DEFAULT_FIRM_QUERY}`;
+				if (type !== 'individual') continue;
+				const key = `sec:individual:${id}:${DEFAULT_INDIVIDUAL_QUERY}`;
 				if (useRedis) {
 					const exists = await redis.get(key);
 					if (exists != null) {

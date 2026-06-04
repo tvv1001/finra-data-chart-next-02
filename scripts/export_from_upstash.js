@@ -86,9 +86,7 @@ async function main() {
 
 	const primedBundles = {
 		'finra-individual': {},
-		'finra-firm': {},
 		'sec-individual': {},
-		'sec-firm': {},
 	};
 
 	let writtenFiles = 0;
@@ -111,68 +109,38 @@ async function main() {
 			}
 
 			if (key.startsWith('finra:individual:')) {
-				const id = normalizeIdFromKey(key);
-				if (!id) continue;
-				const outPath = path.join(NATIONAL, `finra-individual-${id}.json`);
-				let existing = {};
-				if (await fileExists(outPath)) {
-					try {
-						existing = JSON.parse(await fs.readFile(outPath, 'utf-8')) || {};
-					} catch {}
-				}
-				const merged = { ...existing, ...parsed };
-				await fs.writeFile(outPath, JSON.stringify(merged), 'utf-8');
-				primedBundles['finra-individual'][key] = merged;
-				writtenFiles++;
-			} else if (key.startsWith('finra:firm:')) {
-				const id = normalizeIdFromKey(key);
-				if (!id) continue;
-				const outPath = path.join(NATIONAL, `finra-firm-${id}.json`);
-				let existing = {};
-				if (await fileExists(outPath)) {
-					try {
-						existing = JSON.parse(await fs.readFile(outPath, 'utf-8')) || {};
-					} catch {}
-				}
-				const merged = { ...existing, ...parsed };
-				await fs.writeFile(outPath, JSON.stringify(merged), 'utf-8');
-				primedBundles['finra-firm'][key] = merged;
-				writtenFiles++;
-			} else if (key.startsWith('sec:individual:')) {
-				const id = normalizeIdFromKey(key);
-				if (!id) continue;
-				const outDir = path.join(NATIONAL, 'adviserinfo.sec.gov');
-				await fs.mkdir(outDir, { recursive: true });
-				const outPath = path.join(outDir, `individual_${id}.json`);
-				let existing = {};
-				if (await fileExists(outPath)) {
-					try {
-						existing = JSON.parse(await fs.readFile(outPath, 'utf-8')) || {};
-					} catch {}
-				}
-				const merged = { ...existing, ...parsed };
-				await fs.writeFile(outPath, JSON.stringify(merged), 'utf-8');
-				primedBundles['sec-individual'][key] = merged;
-				writtenFiles++;
-			} else if (key.startsWith('sec:firm:')) {
-				const id = normalizeIdFromKey(key);
-				if (!id) continue;
-				const outDir = path.join(NATIONAL, 'adviserinfo.sec.gov');
-				await fs.mkdir(outDir, { recursive: true });
-				const outPath = path.join(outDir, `firm_${id}.json`);
-				let existing = {};
-				if (await fileExists(outPath)) {
-					try {
-						existing = JSON.parse(await fs.readFile(outPath, 'utf-8')) || {};
-					} catch {}
-				}
-				const merged = { ...existing, ...parsed };
-				await fs.writeFile(outPath, JSON.stringify(merged), 'utf-8');
-				primedBundles['sec-firm'][key] = merged;
-				writtenFiles++;
-			} else {
-				// skip unknown key
+			const id = normalizeIdFromKey(key);
+			if (!id) continue;
+			const outPath = path.join(NATIONAL, `finra-individual-${id}.json`);
+			let existing = {};
+			if (await fileExists(outPath)) {
+				try {
+					existing = JSON.parse(await fs.readFile(outPath, 'utf-8')) || {};
+				} catch {}
 			}
+			const merged = { ...existing, ...parsed };
+			await fs.writeFile(outPath, JSON.stringify(merged), 'utf-8');
+			primedBundles['finra-individual'][key] = merged;
+			writtenFiles++;
+		} else if (key.startsWith('sec:individual:')) {
+			const id = normalizeIdFromKey(key);
+			if (!id) continue;
+			const outDir = path.join(NATIONAL, 'adviserinfo.sec.gov');
+			await fs.mkdir(outDir, { recursive: true });
+			const outPath = path.join(outDir, `individual_${id}.json`);
+			let existing = {};
+			if (await fileExists(outPath)) {
+				try {
+					existing = JSON.parse(await fs.readFile(outPath, 'utf-8')) || {};
+				} catch {}
+			}
+			const merged = { ...existing, ...parsed };
+			await fs.writeFile(outPath, JSON.stringify(merged), 'utf-8');
+			primedBundles['sec-individual'][key] = merged;
+			writtenFiles++;
+		} else {
+			// skip unknown key
+		}
 		} catch (err) {
 			console.warn('failed key', key, err?.message || err);
 		}
