@@ -85,4 +85,5 @@ export async function setStringIfValid(
 	}
 }
 
-export default { setIfValid, setStringIfValid, isEmptyHitsObj };
+const redisCache = { setIfValid, setStringIfValid, isEmptyHitsObj };
+export default redisCache;
