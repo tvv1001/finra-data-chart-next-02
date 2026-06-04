@@ -1469,7 +1469,7 @@ function cycleToFindMatch(rawQuery = activeFindQuery, direction = 1) {
 	activeFindMatchOrder = nodeIds;
 	activeFindMatchIds = new Set(nodeIds);
 	activeFindMatchIndex = activeFindMatchOrder.indexOf(liveNode.id);
-	focusNodeForFind(liveNode.id, { duration: 520, minScale: 1.1 });
+	focusNodeById(liveNode.id, { duration: 520 });
 	startSearchPulseLoop(liveNode.id, { interval: 1400, immediate: true });
 	refreshGraphColors();
 	emitFindState();
@@ -1631,7 +1631,7 @@ function moveFindMatch(rawQuery = activeFindQuery, direction = 'ArrowRight') {
 	activeFindMatchOrder = nodeIds;
 	activeFindMatchIds = new Set(nodeIds);
 	activeFindMatchIndex = activeFindMatchOrder.indexOf(nextNode.id);
-	focusNodeForFind(nextNode.id, { duration: 520, minScale: FIND_NODE_MIN_SCALE });
+	focusNodeById(nextNode.id, { duration: 520 });
 	startSearchPulseLoop(nextNode.id, { interval: 1400, immediate: true });
 	refreshGraphColors();
 	emitFindState();
@@ -9721,32 +9721,6 @@ function focusNodeById(
 		}
 	} catch (e) {
 		console.warn('focusNodeById error', e);
-	}
-}
-
-function focusNodeForFind(
-	id,
-	options: {
-		duration?: number;
-		minScale?: number;
-	} = {},
-) {
-	const { duration = 520, minScale = FIND_NODE_MIN_SCALE } = options;
-	try {
-		if (!zoomBehavior || !svgSel) return;
-		const node = (Array.isArray(layoutNodes) && layoutNodes.find((n) => n.id === id)) || null;
-		if (!node) return;
-		const viewport = getVisibleGraphViewport();
-		const transform = d3.zoomTransform(svgSel.node());
-		const currentScale = transform.k || 1;
-		const targetScale = Math.max(currentScale, minScale);
-		const x = node.x || 0;
-		const y = node.y || 0;
-		const tx = viewport.centerX - x * targetScale;
-		const ty = viewport.centerY - y * targetScale;
-		svgSel.transition().duration(duration).ease(d3.easeCubicInOut).call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(targetScale));
-	} catch (e) {
-		console.warn('focusNodeForFind error', e);
 	}
 }
 
