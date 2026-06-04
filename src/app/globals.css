@@ -608,7 +608,7 @@ body {
 	background: var(--surface);
 	border-bottom: 1px solid var(--border);
 	flex-shrink: 0;
-	z-index: 10;
+	z-index: 99999;
 	width: 100%;
 	box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
 }
@@ -659,8 +659,12 @@ body {
 	border: 1px solid rgba(148, 163, 184, 0.2);
 	box-shadow: 0 24px 48px rgba(15, 23, 42, 0.22);
 	border-radius: 14px;
-	padding: 10px 12px;
+	padding: 10px 12px 20px 12px;
+	background: rgb(0, 0, 2);
 	z-index: 30;
+	box-shadow:
+		0 0 10px rgb(0 134 254 / 50%),
+		0 0 40px rgba(0, 242, 254, 0.2);
 }
 
 .fg-find-bar.hidden {
@@ -669,8 +673,8 @@ body {
 
 .fg-find-bar__form {
 	display: flex;
-	align-items: center;
-	gap: 8px;
+	flex-direction: column;
+	gap: 10px;
 	width: 100%;
 	min-width: 0;
 }
@@ -681,6 +685,24 @@ body {
 	gap: 4px;
 	flex: 1 1 auto;
 	min-width: 0;
+}
+
+.fg-find-counter {
+	align-self: flex-end;
+	margin-top: -4px;
+}
+
+.fg-find-bar__actions {
+	display: flex;
+	flex-wrap: nowrap;
+	gap: 8px;
+	align-items: center;
+	justify-content: flex-end;
+}
+
+.fg-find-bar__actions .fg-find-close {
+	padding: 0;
+	width: auto;
 }
 
 .fg-find-bar__label {
@@ -706,9 +728,56 @@ body {
 	white-space: nowrap;
 }
 
+.fg-find-arrow,
 .fg-find-next,
 .fg-find-close {
 	flex: 0 0 auto;
+}
+
+.fg-find-arrow,
+.fg-find-next {
+	width: 40px;
+	height: 40px;
+	min-width: 40px;
+	padding: 0;
+	font-size: 14px;
+	font-weight: 700;
+	border-radius: 8px;
+	border-color: rgba(59, 130, 246, 0.4);
+	background: rgba(59, 130, 246, 0.12);
+	color: #60a5fa;
+}
+
+.fg-find-next {
+	min-width: auto;
+	padding: 0 14px;
+}
+
+.fg-find-arrow:hover,
+.fg-find-next:hover {
+	background: rgba(59, 130, 246, 0.18);
+	border-color: rgba(59, 130, 246, 0.6);
+}
+
+.fg-find-arrow:disabled,
+.fg-find-next:disabled {
+	background: rgba(148, 163, 184, 0.12);
+	border-color: rgba(148, 163, 184, 0.35);
+	color: #9ca3af;
+	cursor: not-allowed;
+}
+
+.fg-find-close {
+	position: relative;
+}
+
+.fg-find-close__icon {
+	position: absolute;
+	right: 8px;
+	bottom: 6px;
+	font-size: 10px;
+	line-height: 1;
+	color: rgba(148, 163, 184, 0.85);
 }
 
 .fg-mobile-menu-toggle {
@@ -808,7 +877,7 @@ body {
 .fg-header-divider {
 	width: 1px;
 	height: 24px;
-	background: rgba(255, 255, 255, 0.1);
+	background: rgb(5 4 30);
 	margin: 0 14px;
 	flex-shrink: 0;
 }
@@ -1466,6 +1535,34 @@ a,
 	transform: translateY(0);
 }
 
+#fg-fetch-remote[data-fetching='true'] {
+	position: relative;
+	padding-right: 28px;
+	background: linear-gradient(180deg, rgba(239, 246, 255, 0.99) 0%, rgba(191, 219, 254, 0.94) 100%);
+	border-color: rgba(37, 99, 235, 0.46);
+	color: #1d4ed8;
+	box-shadow:
+		0 0 0 1px rgba(37, 99, 235, 0.18),
+		0 0 0 5px rgba(37, 99, 235, 0.08),
+		0 8px 22px rgba(37, 99, 235, 0.16);
+}
+
+#fg-fetch-remote[data-fetching='true']::after {
+	content: '';
+	position: absolute;
+	right: 9px;
+	top: 50%;
+	width: 11px;
+	height: 11px;
+	margin-top: -5.5px;
+	border-radius: 50%;
+	border: 2px solid currentColor;
+	border-top-color: transparent;
+	box-sizing: border-box;
+	animation: fg-spin 0.8s linear infinite;
+	filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.45));
+}
+
 /* Ghost utility buttons */
 .fg-ghost-btn {
 	font: 600 11px/1 var(--sans);
@@ -1810,6 +1907,33 @@ a,
 	opacity: 0.55;
 	cursor: not-allowed;
 	box-shadow: none;
+}
+
+.fg-sidebar-action-btn[data-refreshing='true'] {
+	position: relative;
+	padding-right: 26px;
+}
+
+.fg-sidebar-action-btn[data-refreshing='true']::after {
+	content: '';
+	position: absolute;
+	right: 8px;
+	top: 50%;
+	width: 10px;
+	height: 10px;
+	margin-top: -5px;
+	border-radius: 50%;
+	border: 2px solid currentColor;
+	border-top-color: transparent;
+	box-sizing: border-box;
+	animation: fg-spin 0.8s linear infinite;
+	opacity: 0.9;
+}
+
+@keyframes fg-spin {
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 .fg-sidebar-inner {
@@ -3505,7 +3629,7 @@ a,
 
 #finra-app[data-graph-empty='true'] .fg-header {
 	position: relative;
-	z-index: 130;
+	z-index: 99999;
 }
 
 @media (max-width: 860px) {

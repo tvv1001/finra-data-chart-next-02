@@ -1266,6 +1266,8 @@ const FIND_PREV_EVENT = 'finra:find-prev';
 const FIND_MOVE_EVENT = 'finra:find-move';
 const FIND_CLOSE_EVENT = 'finra:find-close';
 const FIND_STATE_EVENT = 'finra:find-state';
+const MOBILE_SIDEBAR_COLLAPSE_REQUEST_EVENT = 'finra:mobile-sidebar-collapse-request';
+const MOBILE_FIND_CLOSE_REQUEST_EVENT = 'finra:mobile-find-close-request';
 const TRACE_LOG_GUARD_WARNING_PREFIX = '[finra-graph] Trace with Log guard:';
 let lastTraceLogGuardWarning = '';
 
@@ -1607,6 +1609,11 @@ function getNearestArrowableNode(currentNode) {
 }
 
 function moveFindMatch(rawQuery = activeFindQuery, direction = 'ArrowRight') {
+	const query = String(rawQuery || '').trim();
+	if (query && activeFindMatchOrder.length && (direction === 'ArrowRight' || direction === 'ArrowLeft')) {
+		return cycleToFindMatch(rawQuery, direction === 'ArrowLeft' ? -1 : 1);
+	}
+
 	const arrowable = getArrowableNodes();
 	if (!arrowable.length) return false;
 	const currentNode = activeFindMatchIndex >= 0 && Array.isArray(layoutNodes) ? layoutNodes.find((node) => node.id === activeFindMatchOrder[activeFindMatchIndex]) : null;
@@ -1865,6 +1872,9 @@ function setSidebarViewMode(mode: SidebarViewMode, options: { expandMobile?: boo
 			sidebar.dataset.mobileExpanded = 'true';
 			sidebar.classList.remove('hidden');
 			document.getElementById('fg-sidebar-backdrop')?.classList.remove('hidden');
+			if (isMobileSidebarViewport() && mode !== 'none') {
+				window.dispatchEvent(new CustomEvent(MOBILE_FIND_CLOSE_REQUEST_EVENT));
+			}
 		}
 	}
 
@@ -2305,11 +2315,6 @@ function copyToClipboard(text, element) {
 			element.style.background = originalBackground;
 		}, 500);
 	});
-}
-
-function toggleSelectionLog() {
-	if (!sidebarSelectedNode) return;
-	setSidebarViewMode(sidebarViewMode === 'log' ? 'none' : 'log', { expandMobile: sidebarViewMode !== 'log' });
 }
 
 function handleDelegatedButtonClicks(event: MouseEvent) {
@@ -3518,6 +3523,10 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 	}
 
 	if (!findRequestListenersBound && typeof window !== 'undefined') {
+		window.addEventListener(MOBILE_SIDEBAR_COLLAPSE_REQUEST_EVENT, (() => {
+			if (!isMobileSidebarViewport()) return;
+			showSidebarHint({ keepOpen: false });
+		}) as EventListener);
 		window.addEventListener(FIND_QUERY_EVENT, ((event: Event) => {
 			const detail = (event as CustomEvent<{ query?: string | null }>).detail || {};
 			refreshFindMatches(detail.query, { preserveActiveMatch: true });
@@ -3578,8 +3587,8 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			const buttons = refreshLayoutButtons;
 			buttons.forEach((button) => {
 				button.disabled = true;
-				button.dataset.originalText = button.textContent || '';
-				button.textContent = 'Refreshing…';
+				button.dataset.refreshing = 'true';
+				button.setAttribute('aria-busy', 'true');
 			});
 			try {
 				refreshNodeLayout();
@@ -3589,9 +3598,9 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			} finally {
 				setTimeout(() => {
 					buttons.forEach((button) => {
-						button.textContent = button.dataset.originalText || 'Refresh node layout';
 						button.disabled = false;
-						delete button.dataset.originalText;
+						delete button.dataset.refreshing;
+						button.removeAttribute('aria-busy');
 					});
 				}, 900);
 			}
@@ -3820,8 +3829,8 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				return;
 			}
 			fetchBtn.disabled = true;
-			const origText = fetchBtn.textContent;
-			fetchBtn.textContent = 'Fetching…';
+			fetchBtn.dataset.fetching = 'true';
+			fetchBtn.setAttribute('aria-busy', 'true');
 			try {
 				// ── 1. Search all three external endpoints in parallel ─────────────
 				// FINRA firm:   https://api.brokercheck.finra.org/search/firm?query=…
@@ -4220,8 +4229,9 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				console.error('remote fetch failed', err);
 				updateFetchStatus(`Fetch error: ${err?.message || err}`);
 			} finally {
+				delete fetchBtn.dataset.fetching;
+				fetchBtn.removeAttribute('aria-busy');
 				fetchBtn.disabled = false;
-				fetchBtn.textContent = origText;
 				fetchInput.value = '';
 				fetchInput.dispatchEvent(new Event('input', { bubbles: true }));
 				fetchInput.focus();
@@ -5475,7 +5485,6 @@ function updateMeta(meta: { totalIndividuals?: number; totalFirms?: number; tota
 			const cacheSeeds = typeof _cacheStats.people === 'number' ? Math.max(_cacheStats.people, dispSeeds) : '–';
 			const cacheFirms = typeof _cacheStats.firms === 'number' ? Math.max(_cacheStats.firms, dispFirms) : '–';
 			const cacheLinks = typeof _cacheStats.links === 'number' ? Math.max(_cacheStats.links, dispLinks) : '–';
-			// parts.push(`redis cache: ${fmt(cacheSeeds)} People ${fmt(cacheFirms)} Firms ${fmt(cacheLinks)} Links`);
 		}
 
 		bottomEl.textContent = parts.join('  / ');
