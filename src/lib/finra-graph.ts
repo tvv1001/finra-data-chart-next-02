@@ -568,12 +568,12 @@ const NON_GRAY_DETAIL_BATCH_SIZE = 6;
 
 function getDefaultSelectionHops(): number {
 	const normalized = normalizeHighlightHops(DEFAULT_SELECTION_HOPS);
-	return normalized === 'all' ? 1 : normalized;
+	return normalized === 'all' ? 100 : normalized;
 }
 
 function getDefaultExpansionHops(): number {
 	const normalized = normalizeHighlightHops(DEFAULT_EXPANSION_HOPS);
-	return normalized === 'all' ? 1 : normalized;
+	return normalized === 'all' ? 100 : normalized;
 }
 
 function hasTrustedCurrentRelationshipData(node) {
@@ -1145,8 +1145,11 @@ async function applyPendingRouteNodeSelection() {
 			pendingRouteNodeId = null;
 		}
 
+		const shouldExpand = pendingRouteAutoExpand;
+		pendingRouteAutoExpand = false;
+
 		selectNode(liveNode, {
-			skipAutoExpand: true,
+			skipAutoExpand: !shouldExpand,
 			skipProfileSync: true,
 			focus: true,
 			focusDuration: 520,
@@ -1242,6 +1245,7 @@ let isSelectionLogBold = false;
 let isSelectionLogEditMode = false;
 let pendingRouteNodeId: string | null = null;
 let pendingRoutePulseDuration: number | null = null; // optional pulse duration (ms) requested with route
+let pendingRouteAutoExpand = false; // optional auto-expand requested with route
 let routeNodeRequestListenerBound = false;
 let findRequestListenersBound = false;
 let traceShortestIds = new Set<string>(); // node and link IDs
@@ -2474,7 +2478,7 @@ function delay(ms: number) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function upsertHighlightedSelection(id, hops = 1) {
+function upsertHighlightedSelection(id, hops = getDefaultSelectionHops()) {
 	if (!id) return;
 	const normalizedHops = normalizeHighlightHops(hops);
 	highlightedSelections = highlightedSelections.filter((entry) => entry.id !== id);
@@ -2489,12 +2493,11 @@ function getLinkKey(link) {
 
 function isNonGrayExpansionLink(link) {
 	if (!link) return false;
-	if (link.relationship === 'controls') return true;
-	if (link.relationship === 'previous_employed_by') return false;
-	if (link.relationship === 'employed_by') {
-		if (link.isCurrent === false) return false;
-		return isCurrentRegistration(link);
-	}
+	const rel = link.relationship;
+	// Always include ownership/control
+	if (rel === 'controls') return true;
+	// Include all employment history (current and previous)
+	if (rel === 'employed_by' || rel === 'previous_employed_by') return true;
 	return false;
 }
 
@@ -2702,7 +2705,7 @@ function pulseNodeHighlightById(id, { duration = 600, stroke = GRAPH_COLORS.node
 function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: number } = {}) {
 	const restoredHighlights =
 		Array.isArray(session?.highlightedNodes) ? session.highlightedNodes
-		: session?.selectedNodeId ? [{ id: session.selectedNodeId, hops: 1 }]
+		: session?.selectedNodeId ? [{ id: session.selectedNodeId, hops: getDefaultSelectionHops() }]
 		: [];
 
 	if (selectionRestoreTimer) {
@@ -3491,7 +3494,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 
 	if (!routeNodeRequestListenerBound && typeof window !== 'undefined') {
 		window.addEventListener(ROUTE_NODE_REQUEST_EVENT, ((event: Event) => {
-			const detail = (event as CustomEvent<{ nodeId?: string | null; searchQuery?: string; pulseDuration?: number | string | null }>).detail || {};
+			const detail = (event as CustomEvent<{ nodeId?: string | null; searchQuery?: string; pulseDuration?: number | string | null; autoExpand?: boolean }>).detail || {};
 			// If caller requested a text search (e.g., firm name), run the search
 			// and attempt to resolve a firm node by label before routing.
 			if (detail.searchQuery && String(detail.searchQuery || '').trim()) {
@@ -3504,6 +3507,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 							pendingRouteNodeId = candidate.id;
 							// preserve any requested pulse duration when resolving via search
 							pendingRoutePulseDuration = Number(detail.pulseDuration) || null;
+							pendingRouteAutoExpand = Boolean(detail.autoExpand);
 							void applyPendingRouteNodeSelection();
 						}
 					} catch (e) {
@@ -3515,6 +3519,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			pendingRouteNodeId = String(detail.nodeId || '').trim() || null;
 			// capture optional pulse duration (ms) requested by the event sender
 			pendingRoutePulseDuration = typeof detail.pulseDuration !== 'undefined' ? Number(detail.pulseDuration) || null : pendingRoutePulseDuration;
+			pendingRouteAutoExpand = Boolean(detail.autoExpand);
 			if (pendingRouteNodeId) {
 				void applyPendingRouteNodeSelection();
 			}
@@ -8402,7 +8407,10 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 		waveCount += 1;
 		await hydrateExpansionFrontierNodes(frontierIds);
 		if (runId !== nonGrayExpandRunId) return;
-		await fetchExpansionDataForNodeIds(frontierIds, 1);
+		const expansion = await fetchExpansionDataForNodeIds(frontierIds, 1);
+		if (expansion.nodes.length || expansion.links.length) {
+			mergeIntoGraphData(expansion.nodes, expansion.links);
+		}
 		if (runId !== nonGrayExpandRunId) return;
 
 		const adjacency = buildLinkAdjacency(graphData?.links || [], isNonGrayExpansionLink);
@@ -8434,6 +8442,11 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 		}
 
 		frontierIds = uniqueNextIds;
+	}
+
+	// Final hydration pass for any newly revealed frontier nodes (leaf nodes of the expansion)
+	if (frontierIds.length && runId === nonGrayExpandRunId) {
+		await hydrateExpansionFrontierNodes(frontierIds);
 	}
 
 	refreshTraceState({ deferMs: 120 });
@@ -8769,7 +8782,7 @@ async function ensureExpansionDataForNode(
 	return normalized;
 }
 
-async function handleNodeOpen(event, d) {
+export async function handleNodeOpen(event, d) {
 	event.stopPropagation();
 	markUserInitiatedGraphExpansion();
 	anchorNode(d);
@@ -8898,6 +8911,8 @@ function selectNode(
 	}
 
 	if (!skipAutoExpand) {
+		markUserInitiatedGraphExpansion();
+		anchorNode(d);
 		lastExpandOriginNode = d;
 		expandNodeThroughNonGrayHops(d, getDefaultExpansionHops()).finally(() => {
 			refreshTraceState({ deferMs: 120 });
@@ -8907,6 +8922,7 @@ function selectNode(
 				/* ignore */
 			}
 		});
+		void fetchCacheStats();
 	}
 }
 

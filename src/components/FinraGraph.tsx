@@ -67,6 +67,7 @@ function bindTouchDragClickSuppression(button: HTMLElement | null) {
 	button.addEventListener(
 		'click',
 		(event) => {
+			// handleNodeOpen(event);
 			if (Date.now() >= suppressClickUntil) return;
 			event.preventDefault();
 			event.stopPropagation();
@@ -332,6 +333,7 @@ export default function FinraGraph() {
 		if (event.key === 'Enter') {
 			event.preventDefault();
 			submitFindQuery();
+
 			return;
 		}
 		if (event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
@@ -605,6 +607,7 @@ export default function FinraGraph() {
 			if (event.key === 'Enter' && nodeId) {
 				event.preventDefault();
 				event.stopPropagation();
+
 				routeSidebarNodeSelection({
 					nodeId,
 					searchSuffix,

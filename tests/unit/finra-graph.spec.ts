@@ -362,9 +362,9 @@ describe('FinraGraph DOM helpers (unit)', () => {
 	it('routeSidebarNodeSelection pushes the node route and dispatches a selection request', () => {
 		const push = vi.fn();
 		const setBrowserPathname = vi.fn();
-		const dispatched: Array<{ nodeId?: string; pulseDuration?: number }> = [];
+		const dispatched: Array<{ nodeId?: string; pulseDuration?: number; autoExpand?: boolean }> = [];
 		const listener = (event: Event) => {
-			dispatched.push(((event as CustomEvent).detail || {}) as { nodeId?: string; pulseDuration?: number });
+			dispatched.push(((event as CustomEvent).detail || {}) as { nodeId?: string; pulseDuration?: number; autoExpand?: boolean });
 		};
 
 		window.addEventListener('finra:route-node-request', listener as EventListener);
@@ -381,7 +381,7 @@ describe('FinraGraph DOM helpers (unit)', () => {
 
 			expect(setBrowserPathname).toHaveBeenCalledWith('/node/person-2632784');
 			expect(push).toHaveBeenCalledWith('/node/person-2632784?panel=info', { scroll: false });
-			expect(dispatched).toEqual([{ nodeId: 'person:2632784', pulseDuration: 5000 }]);
+			expect(dispatched).toEqual([{ nodeId: 'person:2632784', pulseDuration: 5000, autoExpand: false }]);
 		} finally {
 			window.removeEventListener('finra:route-node-request', listener as EventListener);
 		}
