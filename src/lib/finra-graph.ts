@@ -359,6 +359,13 @@ function getCurrentZoomTransform() {
 	}
 }
 
+function getFocusedLabelScale(zoomScale: number | string | null | undefined): number {
+	const normalizedScale = Math.max(0.01, Number(zoomScale) || 1);
+	const baseScale = 1.25;
+	const dynamicScale = normalizedScale < activeLabelZoomThreshold ? baseScale * (activeLabelZoomThreshold / normalizedScale) : baseScale;
+	return Math.min(dynamicScale, 15.0);
+}
+
 function getSelectionLinkEmphasis(zoomScale = getCurrentGraphZoomScale()) {
 	const normalizedScale = Math.max(0.18, Math.min(1, Number(zoomScale) || 1));
 	const zoomWeight = Math.max(0, Math.min(1, (normalizedScale - 0.18) / 0.82));
@@ -379,9 +386,10 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 	if (!rootGroup) return;
 	const traceActive = isAnyTraceModeActive();
 	const normalizedScale = Math.max(0.1, Number(zoomScale) || 1);
-	const globalLabelScale = Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, normalizedScale))));
-	const traceLabelScale = traceActive ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, normalizedScale)))) : 1;
-	const selectionLogLabelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, normalizedScale)))) : 1;
+	const dynamicScale = getFocusedLabelScale(normalizedScale);
+	const globalLabelScale = dynamicScale;
+	const traceLabelScale = traceActive ? dynamicScale : 1;
+	const selectionLogLabelScale = isSelectionLogBold ? dynamicScale : 1;
 
 	rootGroup
 		.classed('fg-trace-labels', traceActive)
@@ -430,7 +438,7 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 		if (pixiModeActive && pixiApi && typeof pixiApi.drawFrame === 'function') {
 			try {
 				const transform = getCurrentZoomTransform();
-				const labelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, transform.k || 1)))) : 1;
+				const labelScale = isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
 				pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale });
 				if (overlayApi && typeof overlayApi.update === 'function') {
 					try {
@@ -445,7 +453,7 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 		if (canvasModeActive && canvasApi) {
 			try {
 				const transform = getCurrentZoomTransform();
-				const labelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, transform.k || 1)))) : 1;
+				const labelScale = isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
 				canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale });
 				if (overlayApi && typeof overlayApi.update === 'function') {
 					try {
@@ -1830,7 +1838,7 @@ function getSelectionLogActionButtons(action: 'trace' | 'copy-all' | 'clear' | '
 
 function syncSelectionLogAuxiliaryRenderers() {
 	const transform = getCurrentZoomTransform();
-	const labelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, transform.k || 1)))) : 1;
+	const labelScale = isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
 	const logLabelNodeIds = getSelectionLogLabelNodeIds();
 	if (overlayApi && typeof overlayApi.update === 'function') {
 		try {
@@ -7152,7 +7160,7 @@ function renderGraph(_data) {
 							const transform = getCurrentZoomTransform();
 							if (pixiModeActive && pixiApi && typeof pixiApi.drawFrame === 'function') {
 								try {
-									const labelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, transform.k || 1)))) : 1;
+									const labelScale = isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
 									const logLabelNodeIds = getSelectionLogLabelNodeIds();
 									pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
 									if (overlayApi && typeof overlayApi.update === 'function') {
@@ -7163,7 +7171,7 @@ function renderGraph(_data) {
 								} catch (e) {}
 							} else if (canvasApi && typeof canvasApi.drawFrame === 'function') {
 								try {
-									const labelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, transform.k || 1)))) : 1;
+									const labelScale = isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
 									const logLabelNodeIds = getSelectionLogLabelNodeIds();
 									canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
 									if (overlayApi && typeof overlayApi.update === 'function') {
