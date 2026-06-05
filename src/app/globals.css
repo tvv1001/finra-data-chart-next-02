@@ -3402,14 +3402,18 @@ a,
 	opacity: 1 !important;
 	stroke-width: 5px !important;
 }
-
+.fg-node.fg-node--inactive text.fg-label {
+	fill: white !important;
+}
+.fg-node.fg-node--inactive.fg-node--find-match text.fg-label {
+	fill: #00fdff !important;
+}
 .fg-node.fg-node-pulse-target text.fg-label {
 	display: block !important;
 	font-size: calc(16px * var(--fg-global-label-scale, 1)) !important;
 	font-weight: 700 !important;
 	opacity: 1 !important;
 	stroke-width: 5px !important;
-	color: white !important;
 }
 
 .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
