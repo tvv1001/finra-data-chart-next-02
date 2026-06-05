@@ -308,6 +308,7 @@ function buildFirmNode(id, detail, fallbackLabel = '') {
 		id: firmId(id),
 		label: basic.firmName || fallbackLabel || String(id),
 		group: 'firm',
+		...(basic && Object.keys(basic).length ? { basicInformation: basic } : {}),
 		...getLocationHintsFromDetail(detail, 'firm'),
 	};
 }
