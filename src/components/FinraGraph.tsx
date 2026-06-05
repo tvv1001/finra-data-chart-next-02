@@ -843,6 +843,10 @@ export default function FinraGraph() {
 					</div>
 
 					<div
+						id='fg-focus-readout'
+						className='fg-focus-readout'></div>
+
+					<div
 						id='fg-header-controls'
 						className='fg-header-controls'>
 						<div className='fg-fetch-status'>

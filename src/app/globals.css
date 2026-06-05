@@ -719,12 +719,48 @@ body {
 	flex: 0 1 auto;
 }
 
+.fg-focus-readout {
+	flex: 1 1 auto;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	font-family: var(--sans);
+	font-size: 14px;
+	font-weight: 500;
+	color: var(--text-muted);
+	padding: 0 16px;
+	min-width: 0;
+	text-align: right;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.2s ease-in-out;
+}
+
+.fg-focus-readout--visible {
+	opacity: 1;
+}
+
+.fg-focus-readout__name {
+	color: var(--text);
+	margin-right: 8px;
+	font-weight: 600;
+}
+
+.fg-focus-readout__crd {
+	font-family: var(--mono);
+	font-size: 12px;
+	opacity: 0.8;
+}
+
 .fg-header-controls {
 	display: flex;
 	width: auto;
-	flex: 1 1 auto;
+	flex: 0 0 auto;
 	min-width: 0;
-	margin-left: auto;
+	margin-left: 0;
 	flex-direction: row;
 	align-items: center;
 	justify-content: flex-end;
