@@ -6313,7 +6313,7 @@ function updateInactiveLabelZoomState(rootSelection, zoomScale, forceExpandedLab
 	rootSelection.classed('fg-inactive-labels-compact', compactInactive);
 	if (inactiveLabelCompactMode === compactInactive) return;
 	inactiveLabelCompactMode = compactInactive;
-	rootSelection.selectAll('.fg-label--inactive').text((node) => (inactiveLabelCompactMode ? getCompactInactiveNodeLabel(node) : getRenderedNodeLabel(node)));
+	rootSelection.selectAll('.fg-label--inactive').text((node) => getNodeVisualLabelText(node));
 }
 
 function rerenderGraphNodesByIds(nodeIds) {
@@ -6437,7 +6437,7 @@ function renderNodeContents(selection) {
 
 		drawDisclosureIndicator(g, d, r);
 
-		const labelText = inactive && inactiveLabelCompactMode ? getCompactInactiveNodeLabel(d) : getRenderedNodeLabel(d);
+		const labelText = getNodeVisualLabelText(d);
 		const labelY = (d._vizHalf != null ? d._vizHalf : r) + DEFAULT_NODE_LABEL_GAP_PX;
 
 		// Check if this node is in the selection log (by id)
@@ -6875,7 +6875,14 @@ function markNodeSelected(node, options: { persist?: boolean } = {}) {
 }
 
 function getNodeVisualLabelText(node) {
-	return isNodeInactive(node) && inactiveLabelCompactMode ? getCompactInactiveNodeLabel(node) : getRenderedNodeLabel(node);
+	const isFocused =
+		node.id === selectedId ||
+		activeFindMatchIds.has(node.id) ||
+		(Array.isArray(highlightedSelections) && highlightedSelections.some((h) => h.id === node.id));
+
+	return isNodeInactive(node) && inactiveLabelCompactMode && !isFocused
+		? getCompactInactiveNodeLabel(node)
+		: getRenderedNodeLabel(node, { skipTruncation: isFocused });
 }
 
 function updateNodeVisuals(selection) {
@@ -8720,12 +8727,12 @@ function clipFirmLabelAtWord(label, maxChars = 44) {
 	return text.slice(0, maxChars).trim();
 }
 
-function getRenderedNodeLabel(node) {
+function getRenderedNodeLabel(node, { skipTruncation = false }: { skipTruncation?: boolean } = {}) {
 	const preferredLabel = getPreferredNodeLabel(node);
 	if (!preferredLabel) return '';
 	if (isPlaceholderExpansionLabel(preferredLabel, node?.group)) return '';
 	if (node?.group === 'firm') {
-		const clippedLabel = clipFirmLabelAtWord(preferredLabel);
+		const clippedLabel = skipTruncation ? formatNodeLabel(preferredLabel) : clipFirmLabelAtWord(preferredLabel);
 		return isPlaceholderExpansionLabel(clippedLabel, node?.group) ? '' : clippedLabel;
 	}
 	const formattedLabel = formatNodeLabel(preferredLabel);
