@@ -229,8 +229,8 @@ function getBoundedEditDistance(left: string, right: string, maxDistance: number
 function tokensFuzzyMatch(queryToken: string, candidateToken: string) {
 	if (!queryToken || !candidateToken) return false;
 	if (queryToken === candidateToken) return true;
-	if (candidateToken.includes(queryToken) && queryToken.length >= 4) return true;
-	if (queryToken.includes(candidateToken) && candidateToken.length >= 4) return true;
+	if (candidateToken.includes(queryToken) && queryToken.length >= 3) return true;
+	if (queryToken.includes(candidateToken) && queryToken.length >= 3) return true;
 	const minLength = Math.min(queryToken.length, candidateToken.length);
 	if (minLength < 4) return false;
 	const maxDistance = Math.max(1, Math.floor(queryToken.length * 0.3));
@@ -270,7 +270,7 @@ function getNameMatchScore(doc: PreparedLocalSearchDoc, rawQuery: string, normal
 		const isPrimaryCandidate = doc.primaryNameCandidates.includes(candidate);
 		if (candidate === normalizedQuery) bestScore = Math.max(bestScore, isPrimaryCandidate ? 260 : 220);
 		else if (containsWholePhrase(candidate, normalizedQuery)) bestScore = Math.max(bestScore, isPrimaryCandidate ? 180 : 150);
-		else if (candidate.includes(normalizedQuery) && normalizedQuery.length >= 4) bestScore = Math.max(bestScore, isPrimaryCandidate ? 140 : 120);
+		else if (candidate.includes(normalizedQuery) && normalizedQuery.length >= 3) bestScore = Math.max(bestScore, isPrimaryCandidate ? 140 : 120);
 
 		const candidateTokens = tokenizeQuery(candidate);
 		const matchedTokenCount = tokens.filter((token) => candidateTokens.some((candidateToken) => tokensFuzzyMatch(token, candidateToken))).length;
