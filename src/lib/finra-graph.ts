@@ -1493,6 +1493,7 @@ function clearFindMatches() {
 	activeFindMatchIds = new Set<string>();
 	activeFindMatchOrder = [];
 	activeFindMatchIndex = -1;
+	updateFocusReadout(null);
 	if (hadMatches) {
 		refreshGraphColors();
 	}
@@ -1547,6 +1548,7 @@ function cycleToFindMatch(rawQuery = activeFindQuery, direction = 1) {
 	activeFindMatchIndex = activeFindMatchOrder.indexOf(liveNode.id);
 	focusNodeById(liveNode.id, { duration: 520 });
 	startSearchPulseLoop(liveNode.id, { interval: 1400, immediate: true });
+	updateFocusReadout(liveNode);
 	refreshGraphColors();
 	emitFindState();
 	return true;
@@ -1712,6 +1714,7 @@ function moveFindMatch(rawQuery = activeFindQuery, direction = 'ArrowRight') {
 	lastArrowNavCoord = null; // Resume normal node-to-node nav after starting from whitespace
 	focusNodeById(nextNode.id, { duration: 520 });
 	startSearchPulseLoop(nextNode.id, { interval: 1400, immediate: true });
+	updateFocusReadout(nextNode);
 	refreshGraphColors();
 	emitFindState();
 	return true;
@@ -2513,7 +2516,28 @@ function stopNodePulseLoop() {
 	}
 }
 
-export function stopSearchPulseLoop() {
+export function updateFocusReadout(node) {
+	const el = document.getElementById('fg-focus-readout');
+	if (!el) return;
+
+	if (!node) {
+		el.classList.remove('fg-focus-readout--visible');
+		return;
+	}
+
+	const label = getRenderedNodeLabel(node);
+	const rawId = String(node.id || '').split(':').pop() || '';
+	const numericId = /^\d+$/.test(rawId) ? rawId : null;
+	const crdLabel = node.group === 'firm' ? 'CRD#' : 'CRD#'; // Always CRD# for now as per request
+
+	el.innerHTML = `
+		<span class="fg-focus-readout__name">${label}</span>
+		${numericId ? `<span class="fg-focus-readout__crd">${crdLabel} ${numericId}</span>` : ''}
+	`;
+	el.classList.add('fg-focus-readout--visible');
+}
+
+function stopSearchPulseLoop() {
 	if (searchPulseInterval) {
 		clearInterval(searchPulseInterval);
 		searchPulseInterval = null;
@@ -8978,6 +9002,7 @@ function selectNode(
 		persist?: boolean;
 		skipProfileSync?: boolean;
 		skipAutoExpand?: boolean;
+		skipLog?: boolean;
 		focus?: boolean;
 		pulse?: boolean;
 		focusDuration?: number; // Default is 300ms
@@ -8986,7 +9011,8 @@ function selectNode(
 ) {
 	lastArrowNavCoord = null;
 	stopSearchPulseLoop();
-	const { persist = true, skipProfileSync = false, skipAutoExpand = false, focus = false, pulse = false, focusDuration = 300, syncRoute = true } = options;
+	updateFocusReadout(null);
+	const { persist = true, skipProfileSync = false, skipAutoExpand = false, skipLog = false, focus = false, pulse = false, focusDuration = 300, syncRoute = true } = options;
 
 	// Performance: reduce selection camera motion to be minimal (instant) to match
 	// the minimal-motion behavior used by the Refresh action. Toggle via env.
@@ -9004,7 +9030,9 @@ function selectNode(
 	if (syncRoute) {
 		emitSelectedNodeRoute(d.id);
 	}
-	addToSelectionLog(d);
+	if (!skipLog) {
+		addToSelectionLog(d);
+	}
 	refreshTraceState();
 	renderSidebar(d);
 	if (persist) {
