@@ -271,7 +271,7 @@ html[data-theme='dark'] .fg-node.fg-node--find-match-active text.fg-label,
 html[data-theme='dark'] .fg-node.fg-node-pulse-target text.fg-label,
 html[data-theme='dark'] .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
 	display: block !important;
-	font-size: clamp(calc(10px / var(--fg-current-zoom, 1)), 1.4ch, calc(80px / var(--fg-current-zoom, 1))) !important;
+	font-size: clamp(calc(6px / var(--fg-current-zoom, 1)), 1.4ch, calc(80px / var(--fg-current-zoom, 1))) !important;
 	font-weight: 700 !important;
 	opacity: 1 !important;
 	stroke-width: calc(5px / var(--fg-current-zoom, 1)) !important;
@@ -316,7 +316,7 @@ html[data-theme='light'] .fg-node.fg-node--find-match-active text.fg-label,
 html[data-theme='light'] .fg-node.fg-node-pulse-target text.fg-label,
 html[data-theme='light'] .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
 	display: block !important;
-	font-size: clamp(calc(10px / var(--fg-current-zoom, 1)), 1.4ch, calc(80px / var(--fg-current-zoom, 1))) !important;
+	font-size: clamp(calc(7px / var(--fg-current-zoom, 1)), 1.4ch, calc(80px / var(--fg-current-zoom, 1))) !important;
 	font-weight: 700 !important;
 	opacity: 1 !important;
 	stroke-width: calc(5px / var(--fg-current-zoom, 1)) !important;
@@ -3303,13 +3303,13 @@ a,
 	display: inline;
 }
 
-.fg-node.fg-node--find-match:not(.selected) .fg-node-selected-ring {
+/* .fg-node.fg-node--find-match:not(.selected) .fg-node-selected-ring {
 	display: inline;
 	stroke: rgba(37, 99, 235, 0.55);
 	stroke-width: 2px;
 	stroke-dasharray: 3 3;
 	opacity: 0.92;
-}
+} */
 
 .fg-node.fg-node--find-match-active:not(.selected) .fg-node-selected-ring {
 	display: inline;
