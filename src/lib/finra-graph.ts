@@ -2974,13 +2974,16 @@ function applyIndividualDetail(targetNode, detail, fallbackCrd = null) {
 
 async function restoreSavedSession(session) {
 	if (!session || session.cleared) return;
+
 	const renderedIds = new Set(layoutNodes.map((n) => n.id));
+
 	if (Array.isArray(session.visitedNodeIds)) {
 		visitedNodeIds = new Set(session.visitedNodeIds);
 	}
+
 	const missingServerIds = (session.renderedServerIds || []).filter((id) => !renderedIds.has(id));
 	if (missingServerIds.length) {
-		await injectNodesById(missingServerIds);
+		injectNodesById(missingServerIds, { skipPersist: true });
 	}
 
 	if (session.extraNodes?.length || session.extraLinks?.length) {
@@ -2991,7 +2994,7 @@ async function restoreSavedSession(session) {
 	} else if (session.extraNodeIds?.length) {
 		const missingExtraNodeIds = session.extraNodeIds.filter((id) => !layoutNodes.some((node) => node.id === id));
 		if (missingExtraNodeIds.length) {
-			await injectNodesById(missingExtraNodeIds);
+			injectNodesById(missingExtraNodeIds, { skipPersist: true });
 		}
 	}
 
@@ -5109,15 +5112,16 @@ async function loadGraph() {
 		const profileName = hasProfileParam ? new URLSearchParams(window.location.search).get('profile') : 'custom';
 		currentProfileName = profileName;
 
-		const profileData = await loadProfile(profileName);
+		// Load profile and session in parallel for faster startup
+		const [profileData, session] = await Promise.all([loadProfile(profileName), loadSessionAsync()]);
+
 		currentProfileEnabled = isProfileEnabled(profileData);
-		const session = await loadSessionAsync();
 		const clearedSession = Boolean(session?.cleared);
 		isSessionCleared = clearedSession;
 		const hasSavedSessionData = Boolean(
 			session &&
-			!clearedSession &&
-			(session.extraNodes?.length || session.extraNodeIds?.length || session.renderedServerIds?.length || session.selectedNodeId || session.highlightedNodes?.length),
+				!clearedSession &&
+				(session.extraNodes?.length || session.extraNodeIds?.length || session.renderedServerIds?.length || session.selectedNodeId || session.highlightedNodes?.length),
 		);
 		const shouldStartEmptyForCustomProfile = profileName === 'custom' && !pendingRouteNodeId && !profileHasExplicitSeedTargets(profileData) && !hasSavedSessionData;
 
@@ -5161,8 +5165,6 @@ async function loadGraph() {
 		}
 
 		// Auto-load the profile specified in ?profile=<name>, or 'custom' by default.
-		// The /api/finra/profile/:name endpoint returns either a profile object or a flat seeds array.
-		// If not found, fall back to /api/finra/seeds (flat array).
 		const prof = profileData;
 
 		if (Array.isArray(prof)) {
@@ -7667,7 +7669,7 @@ function buildNeighborMap(nodes, links) {
 
 // Inject nodes (by id) from the full `graphData` into the live layout and DOM.
 // Safe to call when the graph is already rendered; will skip already-present ids.
-function injectNodesById(ids) {
+function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean } = {}) {
 	if (!graphData || !layoutNodes || !layoutLinks || !nodeGroup || !linkGroup) return;
 	const idSet = new Set(ids || []);
 	const exist = new Set(layoutNodes.map((n) => n.id));
@@ -7710,10 +7712,12 @@ function injectNodesById(ids) {
 	const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen);
 
 	// Persist session so reload restores these server-rendered nodes
-	try {
-		saveSession();
-	} catch (e) {
-		/* ignore */
+	if (!skipPersist) {
+		try {
+			saveSession();
+		} catch (e) {
+			/* ignore */
+		}
 	}
 
 	enteredNodes.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
@@ -8567,9 +8571,21 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 
 		const adjacency = buildLinkAdjacency(graphData?.links || [], isNonGrayExpansionLink);
 		const nextIds = [];
+		const renderedIds = new Set((layoutNodes || []).map((node) => node.id));
+
 		frontierIds.forEach((frontierId) => {
-			(adjacency.get(frontierId) || []).forEach(({ nodeId }) => {
+			(adjacency.get(frontierId) || []).forEach(({ nodeId, link }) => {
 				if (visitedIds.has(nodeId)) return;
+
+				// Special policy: When clicking a firm, only reveal Form BD — Direct Owners & Executive Officers.
+				// This is represented by the 'controls' relationship.
+				// We still connect to any nodes already on screen regardless of relationship.
+				if (clickedNode.group === 'firm' && waveCount === 1) {
+					if (link?.relationship !== 'controls' && !renderedIds.has(nodeId)) {
+						return;
+					}
+				}
+
 				visitedIds.add(nodeId);
 				nextIds.push(nodeId);
 			});
@@ -8578,7 +8594,6 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 		const uniqueNextIds = Array.from(new Set(nextIds));
 		if (!uniqueNextIds.length) break;
 
-		const renderedIds = new Set((layoutNodes || []).map((node) => node.id));
 		const hiddenIds = uniqueNextIds.filter((nodeId) => !renderedIds.has(nodeId));
 		if (hiddenIds.length) {
 			revealNeighbors(clickedNode, 'all', {
