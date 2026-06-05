@@ -1698,9 +1698,8 @@ function moveFindMatch(rawQuery = activeFindQuery, direction = 'ArrowRight') {
 	const arrowable = getArrowableNodes();
 	if (!arrowable.length) return false;
 	const currentNode =
-		(activeFindMatchIndex >= 0 && Array.isArray(layoutNodes) ?
-			layoutNodes.find((node) => node.id === activeFindMatchOrder[activeFindMatchIndex])
-		:	null) || (selectedId ? layoutNodes.find((n) => n.id === selectedId) : null);
+		(activeFindMatchIndex >= 0 && Array.isArray(layoutNodes) ? layoutNodes.find((node) => node.id === activeFindMatchOrder[activeFindMatchIndex]) : null) ||
+		(selectedId ? layoutNodes.find((n) => n.id === selectedId) : null);
 	let nextNode = getDirectionalVisibleNode(currentNode, direction);
 	if (!nextNode) {
 		nextNode = getNearestArrowableNode(currentNode);
@@ -7284,7 +7283,7 @@ function renderGraph(_data) {
 
 	const zoom = d3
 		.zoom()
-		.scaleExtent([0.25, 6])
+		.scaleExtent([0.17, 9.6])
 		.on('zoom', (event) => {
 			root.attr('transform', event.transform);
 			updateTraceStrokeScale(event.transform.k);
