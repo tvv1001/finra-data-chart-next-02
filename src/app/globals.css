@@ -271,7 +271,7 @@ html[data-theme='dark'] .fg-node.fg-node--find-match-active text.fg-label,
 html[data-theme='dark'] .fg-node.fg-node-pulse-target text.fg-label,
 html[data-theme='dark'] .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
 	display: block !important;
-	font-size: clamp(calc(8px / var(--fg-current-zoom, 1)), 2ch, calc(90px / var(--fg-current-zoom, 1))) !important;
+	font-size: clamp(calc(5px / var(--fg-current-zoom, 1)), 3ch, calc(133px / var(--fg-current-zoom, 1))) !important;
 	font-weight: 100 !important;
 	opacity: 1 !important;
 	stroke-width: calc(5px / var(--fg-current-zoom, 1)) !important;
@@ -317,7 +317,7 @@ html[data-theme='light'] .fg-node.fg-node--find-match-active text.fg-label,
 html[data-theme='light'] .fg-node.fg-node-pulse-target text.fg-label,
 html[data-theme='light'] .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
 	display: block !important;
-	font-size: clamp(calc(8px / var(--fg-current-zoom, 1)), 2ch, calc(90px / var(--fg-current-zoom, 1))) !important;
+	font-size: clamp(calc(5px / var(--fg-current-zoom, 1)), 3ch, calc(133px / var(--fg-current-zoom, 1))) !important;
 	font-weight: 100 !important;
 	opacity: 1 !important;
 	stroke-width: calc(5px / var(--fg-current-zoom, 1)) !important;
@@ -1517,8 +1517,14 @@ html[data-theme='dark'] .fg-toolbar-status--top[data-dismissible='true'] {
 .fg-fetch-input {
 	/* 16px prevents iOS Safari auto-zoom on input focus */
 	font: 16px var(--sans);
-	outline: none;
-	border-radius: 5px;
+	width: min(280px, 100%);
+	flex: 1 1 280px;
+	min-width: 0;
+	max-width: 280px;
+	padding-inline: 8px;
+	border: none;
+	outline: 1px solid #3e3b3b7a;
+	border-radius: 2px;
 	color: var(--text-h);
 	border: var(--border);
 	transition:
