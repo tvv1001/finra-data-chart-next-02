@@ -229,9 +229,11 @@ function getBoundedEditDistance(left: string, right: string, maxDistance: number
 function tokensFuzzyMatch(queryToken: string, candidateToken: string) {
 	if (!queryToken || !candidateToken) return false;
 	if (queryToken === candidateToken) return true;
+	if (candidateToken.includes(queryToken) && queryToken.length >= 4) return true;
+	if (queryToken.includes(candidateToken) && candidateToken.length >= 4) return true;
 	const minLength = Math.min(queryToken.length, candidateToken.length);
-	if (minLength < 5) return false;
-	const maxDistance = 1;
+	if (minLength < 4) return false;
+	const maxDistance = Math.max(1, Math.floor(queryToken.length * 0.3));
 	return getBoundedEditDistance(queryToken, candidateToken, maxDistance) <= maxDistance;
 }
 
@@ -253,7 +255,8 @@ function getSurnameMatchScore(doc: PreparedLocalSearchDoc, rawQuery: string, nor
 	for (const candidate of doc.surnameCompactCandidates) {
 		if (candidate === compactQuery) bestScore = Math.max(bestScore, strictSurnameQuery ? 420 : 240);
 		else if (compactQuery.length >= 3 && candidate.startsWith(compactQuery)) bestScore = Math.max(bestScore, strictSurnameQuery ? 320 : 170);
-		else if (!strictSurnameQuery && compactQuery.length >= 7 && tokensFuzzyMatch(compactQuery, candidate)) bestScore = Math.max(bestScore, 120);
+		else if (candidate.includes(compactQuery) && compactQuery.length >= 4) bestScore = Math.max(bestScore, strictSurnameQuery ? 200 : 140);
+		else if (!strictSurnameQuery && compactQuery.length >= 4 && tokensFuzzyMatch(compactQuery, candidate)) bestScore = Math.max(bestScore, 120);
 	}
 	return bestScore;
 }
@@ -267,6 +270,7 @@ function getNameMatchScore(doc: PreparedLocalSearchDoc, rawQuery: string, normal
 		const isPrimaryCandidate = doc.primaryNameCandidates.includes(candidate);
 		if (candidate === normalizedQuery) bestScore = Math.max(bestScore, isPrimaryCandidate ? 260 : 220);
 		else if (containsWholePhrase(candidate, normalizedQuery)) bestScore = Math.max(bestScore, isPrimaryCandidate ? 180 : 150);
+		else if (candidate.includes(normalizedQuery) && normalizedQuery.length >= 4) bestScore = Math.max(bestScore, isPrimaryCandidate ? 140 : 120);
 
 		const candidateTokens = tokenizeQuery(candidate);
 		const matchedTokenCount = tokens.filter((token) => candidateTokens.some((candidateToken) => tokensFuzzyMatch(token, candidateToken))).length;

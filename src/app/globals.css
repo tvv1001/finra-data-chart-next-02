@@ -3402,12 +3402,11 @@ a,
 	opacity: 1 !important;
 	stroke-width: 5px !important;
 }
-.fg-node.fg-node--inactive text.fg-label {
+.fg-node.fg-node--inactive text.fg-label,
+.fg-node.fg-node--inactive.fg-node--find-match text.fg-label {
 	fill: white !important;
 }
-.fg-node.fg-node--inactive.fg-node--find-match text.fg-label {
-	fill: #00fdff !important;
-}
+
 .fg-node.fg-node-pulse-target text.fg-label {
 	display: block !important;
 	font-size: calc(16px * var(--fg-global-label-scale, 1)) !important;

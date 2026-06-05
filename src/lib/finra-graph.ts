@@ -1330,6 +1330,25 @@ function collectSearchableNodeKeys(node) {
 	return keys.map((entry) => String(entry || '').trim()).filter(Boolean);
 }
 
+function getLevenshteinDistance(a: string, b: string): number {
+	if (a === b) return 0;
+	if (a.length === 0) return b.length;
+	if (b.length === 0) return a.length;
+
+	const v0 = new Array(b.length + 1);
+	const v1 = new Array(b.length + 1);
+	for (let i = 0; i <= b.length; i++) v0[i] = i;
+	for (let i = 0; i < a.length; i++) {
+		v1[0] = i + 1;
+		for (let j = 0; j < b.length; j++) {
+			const cost = a[i] === b[j] ? 0 : 1;
+			v1[j + 1] = Math.min(v1[j] + 1, v0[j + 1] + 1, v0[j] + cost);
+		}
+		for (let j = 0; j <= b.length; j++) v0[j] = v1[j];
+	}
+	return v1[b.length];
+}
+
 export function rankFindNodeMatches(rawQuery, nodePool = [], liveLinks = []) {
 	const query = String(rawQuery || '').trim();
 	if (!query) return [];
@@ -1384,6 +1403,51 @@ export function rankFindNodeMatches(rawQuery, nodePool = [], liveLinks = []) {
 			}
 			if (comparableQuery && keyComparable.startsWith(comparableQuery)) bestScore = Math.max(bestScore, 150);
 			if (comparableQuery && keyComparable.includes(comparableQuery)) bestScore = Math.max(bestScore, 120);
+
+			// Word-by-word fuzzy and substring matching
+			if (comparableQuery) {
+				const queryWords = comparableQuery.split(/\s+/).filter((w) => w.length > 0);
+				const keyWords = keyComparable.split(/\s+/).filter((w) => w.length > 0);
+
+				if (queryWords.length > 0 && keyWords.length > 0) {
+					let matchCount = 0;
+					let fuzzyScoreAcc = 0;
+					let validQueryWords = 0;
+
+					for (const qw of queryWords) {
+						if (qw.length <= 2) continue; // Don't enforce matching on tiny words for fuzzy scoring
+						validQueryWords++;
+						let bestKwScore = 0;
+						for (const kw of keyWords) {
+							if (kw === qw) {
+								bestKwScore = Math.max(bestKwScore, 140);
+							} else if (kw.includes(qw)) {
+								bestKwScore = Math.max(bestKwScore, 130);
+							} else if (qw.includes(kw) && kw.length > 3) {
+								bestKwScore = Math.max(bestKwScore, 125);
+							} else if (kw.length > 2) {
+								const dist = getLevenshteinDistance(qw, kw);
+								const maxDist = Math.max(1, Math.floor(qw.length * 0.3));
+								if (dist <= maxDist) {
+									bestKwScore = Math.max(bestKwScore, 110 - dist * 5);
+								}
+							}
+						}
+						if (bestKwScore > 0) {
+							matchCount++;
+							fuzzyScoreAcc += bestKwScore;
+						}
+					}
+
+					if (validQueryWords > 0 && matchCount === validQueryWords) {
+						// All significant query words matched the key
+						bestScore = Math.max(bestScore, Math.floor(fuzzyScoreAcc / matchCount));
+					} else if (matchCount > 0 && queryWords.length === 1) {
+						// Single word query that matched at least one word
+						bestScore = Math.max(bestScore, fuzzyScoreAcc);
+					}
+				}
+			}
 		}
 
 		if (bestScore > 0) {
@@ -2655,7 +2719,7 @@ function pulseNodeHighlightById(id, { duration = 600, stroke = GRAPH_COLORS.node
 		const selectedNode = nodeSel.filter((nodeDatum) => nodeDatum.id === id);
 
 		if (!selectedNode || typeof selectedNode.empty !== 'function' || selectedNode.empty()) return;
-		
+
 		const classDuration = Math.max(duration, 1500);
 		selectedNode.each(function () {
 			const el = this as any;
@@ -5330,6 +5394,26 @@ async function filterGraph(rawQuery) {
 		if (labelLow.includes(ql) || personFull.toLowerCase().includes(ql)) {
 			matched.add(n.id);
 			return;
+		}
+
+		const queryTokens = ql.split(/\s+/).filter((w) => w.length > 0);
+		if (queryTokens.length > 0) {
+			const checkFuzzy = (textTokens) => {
+				return queryTokens.every((qw) => {
+					return textTokens.some((tw) => {
+						if (tw === qw) return true;
+						if (tw.includes(qw) && qw.length >= 4) return true;
+						if (qw.includes(tw) && tw.length >= 4) return true;
+						if (Math.min(qw.length, tw.length) < 4) return false;
+						const maxDist = Math.max(1, Math.floor(qw.length * 0.3));
+						return getLevenshteinDistance(qw, tw) <= maxDist;
+					});
+				});
+			};
+			if (checkFuzzy(labelLow.split(/\s+/).filter(Boolean)) || checkFuzzy(personFull.toLowerCase().split(/\s+/).filter(Boolean))) {
+				matched.add(n.id);
+				return;
+			}
 		}
 
 		// address match for firms: search street/city/state/postal
