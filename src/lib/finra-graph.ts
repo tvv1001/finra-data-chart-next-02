@@ -6532,8 +6532,12 @@ function getNodeRenderPriority(node, highlightState) {
 	if (!node) return 1;
 	const degreeBias = Math.max(0, Math.min(1000, getNodeDegreeValue(node)));
 
-	// Current selected node always on top
-	if (node.id === selectedId) return 10000 + degreeBias;
+	// The absolute active search match (the one with the pulse) gets top priority
+	const activeFindId = activeFindMatchIndex >= 0 ? activeFindMatchOrder[activeFindMatchIndex] : null;
+	if (node.id === activeFindId) return 20000 + degreeBias;
+
+	// Other active search matches or explicitly focused nodes
+	if (node.id === selectedId || activeFindMatchIds.has(node.id)) return 10000 + degreeBias;
 
 	// Nodes on an explicit trace get top priority
 	if (isNodeOnAnyTrace(node.id)) return 4000 + degreeBias;
