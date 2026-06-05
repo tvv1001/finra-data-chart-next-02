@@ -571,16 +571,41 @@ async function build(options = {}) {
 		links: Array.isArray(existingGraph?.links) ? existingGraph.links.map((link) => normalizeLink(link)) : [],
 		meta: existingGraph?.meta && typeof existingGraph.meta === 'object' ? existingGraph.meta : {},
 	};
-	const finraFiles = await readJsonFiles(FINRA);
-	const secFiles = await readJsonFiles(SEC);
+
 	const people = new Map();
 	const firms = new Map();
 	const links = [];
-	const parsedFiles = [...finraFiles, ...secFiles];
 
 	console.log(`build_graph_from_cache: employment scope=${employmentOptions.scope}`);
 
-	if (parsedFiles.length === 0) {
+	async function processDirectory(dir) {
+		try {
+			const files = await fs.readdir(dir);
+			for (const f of files) {
+				if (!f.endsWith('.json')) continue;
+				try {
+					const raw = await fs.readFile(path.join(dir, f), 'utf-8');
+					const json = JSON.parse(raw);
+					const { people: p, firms: fo, links: li } = extractPeopleAndFirmsFromHits(json, employmentOptions);
+					for (const [k, v] of p) people.set(k, v);
+					for (const [k, v] of fo) firms.set(k, v);
+					for (const l of li) links.push(l);
+				} catch (e) {
+					// Skip errors
+				}
+			}
+		} catch (e) {
+			// Skip dir errors
+		}
+	}
+
+	await processDirectory(FINRA);
+	await processDirectory(SEC);
+	if (process.env.EXTERNAL_RAW_DIR) {
+		await processDirectory(process.env.EXTERNAL_RAW_DIR);
+	}
+
+	if (people.size === 0 && firms.size === 0) {
 		try {
 			const existing = existingGraph;
 			if ((Array.isArray(existing?.nodes) && existing.nodes.length) || (Array.isArray(existing?.links) && existing.links.length)) {
@@ -592,14 +617,6 @@ async function build(options = {}) {
 		} catch {
 			// fall through to empty graph generation
 		}
-	}
-
-	// First pass: collect people and firms
-	for (const f of parsedFiles) {
-		const { people: p, firms: fo, links: li } = extractPeopleAndFirmsFromHits(f.json || f, employmentOptions);
-		for (const [k, v] of p) people.set(k, v);
-		for (const [k, v] of fo) firms.set(k, v);
-		for (const l of li) links.push(l);
 	}
 
 	const firmIdSet = new Set(Array.from(firms.keys()));
@@ -646,120 +663,132 @@ async function build(options = {}) {
 		return out;
 	}
 
-	// Second pass: for each parsed file, if it corresponds to a person, look for firm ids in its content
-	for (const f of parsedFiles) {
-		const obj = f.json || f;
-		// try to find a crd for person
-		let crd = null;
+	// Second pass: for each file, if it corresponds to a person, look for firm ids in its content
+	async function secondPass(dir) {
 		try {
-			// Try to extract CRD from the hits
-			const hits = obj?.hits?.hits || [];
-			for (const hit of hits) {
-				const src = hit._source || {};
-				if (src.ind_source_id) crd = String(src.ind_source_id);
-				else if (src.person && src.person.crd) crd = String(src.person.crd);
-				else if (src.content) {
-					const c = typeof src.content === 'string' ? JSON.parse(src.content) : src.content;
-					crd = c?.basicInformation?.crd || c?.basicInformation?.individualId;
-					if (crd) crd = String(crd);
-				}
-				if (crd) break; // Found one, stop looking
-			}
-		} catch (e) {
-			crd = null;
-		}
-		if (crd && people.has(crd)) {
-			if (employmentOptions.enableHeuristicEmploymentLinks) {
-				const found = findFirmIds(obj);
-				for (const fid of found) {
-					links.push({ source: personId(crd), target: firmId(fid), relationship: 'employed_by' });
-					firms.set(fid, firms.get(fid) || { id: firmId(fid), label: String(fid), group: 'firm' });
-				}
-				// Heuristic firm names
-				const names = findFirmNames(obj);
-				for (const nm of names) {
-					const slug = nm
-						.toLowerCase()
-						.replace(/[^a-z0-9]+/g, '_')
-						.replace(/^_|_$/g, '');
-					const fid = `name:${slug}`;
-					links.push({ source: personId(crd), target: firmId(fid), relationship: 'employed_by' });
-					firms.set(fid, firms.get(fid) || { id: firmId(fid), label: nm, group: 'firm' });
-				}
-			}
-			// also try parsing content JSON more deeply for employment arrays
-			try {
-				const hits = obj?.hits?.hits || [];
-				for (const hit of hits) {
-					const src = hit._source || {};
-					let c = null;
-					if (src.content) {
-						c = typeof src.content === 'string' ? JSON.parse(src.content) : src.content;
+			const files = await fs.readdir(dir);
+			for (const f of files) {
+				if (!f.endsWith('.json')) continue;
+				try {
+					const raw = await fs.readFile(path.join(dir, f), 'utf-8');
+					const obj = JSON.parse(raw);
+					// try to find a crd for person
+					let crd = null;
+					try {
+						// Try to extract CRD from the hits
+						const hits = obj?.hits?.hits || [];
+						for (const hit of hits) {
+							const src = hit._source || {};
+							if (src.ind_source_id) crd = String(src.ind_source_id);
+							else if (src.person && src.person.crd) crd = String(src.person.crd);
+							else if (src.content) {
+								const c = typeof src.content === 'string' ? JSON.parse(src.content) : src.content;
+								crd = c?.basicInformation?.crd || c?.basicInformation?.individualId;
+								if (crd) crd = String(crd);
+							}
+							if (crd) break; // Found one, stop looking
+						}
+					} catch (e) {
+						crd = null;
 					}
-					if (c) {
-						const selectedEmps = collectEmploymentRecords(c, employmentOptions);
-						for (const e of selectedEmps) {
-							const fid = e.firmId || e.firm_id || e.firmId;
-							if (fid) {
-								links.push({ source: personId(crd), target: firmId(String(fid)), relationship: 'employed_by' });
-								firms.set(String(fid), firms.get(String(fid)) || { id: firmId(String(fid)), label: e.firmName || String(fid), group: 'firm' });
+					if (crd && people.has(crd)) {
+						if (employmentOptions.enableHeuristicEmploymentLinks) {
+							const found = findFirmIds(obj);
+							for (const fid of found) {
+								links.push({ source: personId(crd), target: firmId(fid), relationship: 'employed_by' });
+								firms.set(fid, firms.get(fid) || { id: firmId(fid), label: String(fid), group: 'firm' });
+							}
+							// Heuristic firm names
+							const names = findFirmNames(obj);
+							for (const nm of names) {
+								const slug = nm
+									.toLowerCase()
+									.replace(/[^a-z0-9]+/g, '_')
+									.replace(/^_|_$/g, '');
+								const fid = `name:${slug}`;
+								links.push({ source: personId(crd), target: firmId(fid), relationship: 'employed_by' });
+								firms.set(fid, firms.get(fid) || { id: firmId(fid), label: nm, group: 'firm' });
 							}
 						}
-					}
-				}
-			} catch (e) {}
-		}
-	}
-
-	// Inspect firm files for directOwners → create 'controls' links
-	for (const f of parsedFiles) {
-		const obj = f.json || f;
-		let targetFirm = null;
-		try {
-			targetFirm =
-				obj.firm_id ||
-				obj.firmId ||
-				obj.firm_bd_sec_number ||
-				obj.bdSECNumber ||
-				(obj.content &&
-					(() => {
+						// also try parsing content JSON more deeply for employment arrays
 						try {
-							const c = typeof obj.content === 'string' ? JSON.parse(obj.content) : obj.content;
-							return c?.basicInformation?.firmId || c?.basicInformation?.bdSECNumber;
-						} catch {
-							return null;
-						}
-					})());
-			if (targetFirm) targetFirm = String(targetFirm);
-		} catch (e) {
-			targetFirm = null;
-		}
-		if (!targetFirm) continue;
-		try {
-			const owners = obj.directOwners || [];
-			if (Array.isArray(owners) && owners.length) {
-				for (const o of owners) {
-					// owner may be a firm or a person/entity
-					if (o.ownerFirmId) {
-						const ofid = String(o.ownerFirmId);
-						firms.set(ofid, firms.get(ofid) || { id: firmId(ofid), label: String(ofid), group: 'firm' });
-						links.push({ source: firmId(ofid), target: firmId(targetFirm), relationship: 'controls' });
-					} else if (o.ownerId || o.ownerPersonId) {
-						const pid = String(o.ownerId || o.ownerPersonId);
-						people.set(pid, people.get(pid) || { id: personId(pid), label: String(pid), group: 'individual' });
-						links.push({ source: personId(pid), target: firmId(targetFirm), relationship: 'controls' });
-					} else if (o.ownerName) {
-						const slug = String(o.ownerName)
-							.toLowerCase()
-							.replace(/[^a-z0-9]+/g, '_')
-							.replace(/^_|_$/g, '');
-						const eid = `entity:${slug}`;
-						firms.set(eid, firms.get(eid) || { id: firmId(eid), label: o.ownerName, group: 'entity' });
-						links.push({ source: firmId(eid), target: firmId(targetFirm), relationship: 'controls' });
+							const hits = obj?.hits?.hits || [];
+							for (const hit of hits) {
+								const src = hit._source || {};
+								let c = null;
+								if (src.content) {
+									c = typeof src.content === 'string' ? JSON.parse(src.content) : src.content;
+								}
+								if (c) {
+									const selectedEmps = collectEmploymentRecords(c, employmentOptions);
+									for (const e of selectedEmps) {
+										const fid = e.firmId || e.firm_id || e.firmId;
+										if (fid) {
+											links.push({ source: personId(crd), target: firmId(String(fid)), relationship: 'employed_by' });
+											firms.set(String(fid), firms.get(String(fid)) || { id: firmId(String(fid)), label: e.firmName || String(fid), group: 'firm' });
+										}
+									}
+								}
+							}
+						} catch (e) {}
 					}
-				}
+
+					// Inspect firm files for directOwners → create 'controls' links
+					let targetFirm = null;
+					try {
+						targetFirm =
+							obj.firm_id ||
+							obj.firmId ||
+							obj.firm_bd_sec_number ||
+							obj.bdSECNumber ||
+							(obj.content &&
+								(() => {
+									try {
+										const c = typeof obj.content === 'string' ? JSON.parse(obj.content) : obj.content;
+										return c?.basicInformation?.firmId || c?.basicInformation?.bdSECNumber;
+									} catch {
+										return null;
+									}
+								})());
+						if (targetFirm) targetFirm = String(targetFirm);
+					} catch (e) {
+						targetFirm = null;
+					}
+					if (targetFirm) {
+						try {
+							const owners = obj.directOwners || [];
+							if (Array.isArray(owners) && owners.length) {
+								for (const o of owners) {
+									if (o.ownerFirmId) {
+										const ofid = String(o.ownerFirmId);
+										firms.set(ofid, firms.get(ofid) || { id: firmId(ofid), label: String(ofid), group: 'firm' });
+										links.push({ source: firmId(ofid), target: firmId(targetFirm), relationship: 'controls' });
+									} else if (o.ownerId || o.ownerPersonId) {
+										const pid = String(o.ownerId || o.ownerPersonId);
+										people.set(pid, people.get(pid) || { id: personId(pid), label: String(pid), group: 'individual' });
+										links.push({ source: personId(pid), target: firmId(targetFirm), relationship: 'controls' });
+									} else if (o.ownerName) {
+										const slug = String(o.ownerName)
+											.toLowerCase()
+											.replace(/[^a-z0-9]+/g, '_')
+											.replace(/^_|_$/g, '');
+										const eid = `entity:${slug}`;
+										firms.set(eid, firms.get(eid) || { id: firmId(eid), label: o.ownerName, group: 'entity' });
+										links.push({ source: firmId(eid), target: firmId(targetFirm), relationship: 'controls' });
+									}
+								}
+							}
+						} catch (e) {}
+					}
+				} catch (e) {}
 			}
 		} catch (e) {}
+	}
+
+	await secondPass(FINRA);
+	await secondPass(SEC);
+	if (process.env.EXTERNAL_RAW_DIR) {
+		await secondPass(process.env.EXTERNAL_RAW_DIR);
 	}
 	// Fallback: if no links discovered, attach first person to a synthetic firm so graph isn't empty
 	if (links.length === 0 && people.size > 0) {
@@ -893,7 +922,7 @@ if (require.main === module) {
 	// Default to incremental unless explicit full requested
 	const useIncremental = !forceFull && !incrementalFlag;
 	const employmentScope = normalizeEmploymentScope(argv['employment-scope'] || argv.employmentScope || 'current');
-	const syncRedis = !(argv['no-redis'] || argv.noRedis);
+	const syncRedis = argv.redis !== false && !(argv['no-redis'] || argv.noRedis);
 	const employmentOptions = getEmploymentScopeOptions(employmentScope);
 
 	const start = process.hrtime.bigint();
