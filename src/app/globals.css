@@ -688,6 +688,7 @@ body {
 
 /* ── Header ────────────────────────────────────────────────────────────── */
 .fg-header {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	padding: 0;
@@ -763,86 +764,120 @@ body {
 	margin-left: 0;
 	flex-direction: row;
 	align-items: center;
-	justify-content: flex-end;
+	justify-content: flex-start;
 	gap: 8px;
 }
 
-.fg-find-bar {
-	position: fixed;
-	top: 16px;
-	left: 50%;
-	transform: translateX(-50%);
-	width: min(420px, calc(100% - 32px));
-	max-width: 92vw;
+.fg-header-right-controls {
 	display: flex;
 	align-items: center;
+	justify-content: flex-end;
 	gap: 8px;
-	z-index: 30;
-	padding: 10px 12px 20px 12px;
-}
-html[data-theme='light'] .fg-find-bar {
-	background: rgba(213, 218, 230, 0.96);
-	border: 1px solid rgba(148, 163, 184, 0.2);
-	box-shadow: 0 24px 48px rgba(15, 23, 42, 0.22);
-}
-html[data-theme='dark'] .fg-find-bar {
-	background: rgba(15, 23, 42, 0.96);
-	border: 1px solid rgba(148, 163, 184, 0.2);
-	border-radius: 14px;
-
-	background: rgb(0, 0, 2);
-
-	box-shadow:
-		0 0 10px rgb(0 134 254 / 50%),
-		0 0 40px rgba(0, 242, 254, 0.2);
+	flex: 0 0 auto;
 }
 
-.fg-find-bar.hidden {
+.fg-find-toggle {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	height: 38px;
+	width: 38px;
+	min-width: 38px;
+	border-radius: 8px;
+	font-size: 16px;
+	background: var(--surface-subtle);
+	border: 1px solid var(--border);
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.fg-find-toggle:hover {
+	background: var(--surface-hover);
+	border-color: var(--border-hover);
+}
+
+.fg-find-toggle.active {
+	background: var(--primary-subtle);
+	border-color: var(--primary);
+	color: var(--primary);
+	box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.fg-find-header {
+	display: flex;
+	align-items: center;
+	height: 38px;
+	background: var(--surface-subtle);
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	padding: 0 4px 0 10px;
+	margin-left: 4px;
+	transition: all 0.2s ease;
+}
+
+.fg-find-header.hidden {
 	display: none !important;
 }
 
-.fg-find-bar__form {
+.fg-find-header__form {
 	display: flex;
-	flex-direction: column;
-	gap: 10px;
+	align-items: center;
+	gap: 8px;
 	width: 100%;
-	min-width: 0;
 }
 
-.fg-find-bar__field {
+.fg-find-header__field-group {
 	display: flex;
-	flex-direction: column;
-	gap: 4px;
+	align-items: center;
+	gap: 6px;
 	flex: 1 1 auto;
 	min-width: 0;
 }
 
-.fg-find-counter {
-	align-self: flex-end;
-	margin-top: -4px;
-}
-
-.fg-find-bar__actions {
-	display: flex;
-	flex-wrap: nowrap;
-	gap: 8px;
-	align-items: center;
-	justify-content: flex-end;
-}
-
-.fg-find-bar__actions .fg-find-close {
+.fg-find-header .fg-find-input {
+	border: none;
+	background: transparent;
 	padding: 0;
-	width: auto;
+	height: 30px;
+	width: 150px;
+	font-size: 14px;
+	box-shadow: none;
 }
 
-.fg-find-bar__label {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	overflow: hidden;
-	clip: rect(0, 0, 0, 0);
-	white-space: nowrap;
+.fg-find-header .fg-find-input:focus {
+	outline: none;
+	box-shadow: none;
 }
+
+.fg-find-header .fg-find-counter {
+	font-family: var(--mono);
+	font-size: 11px;
+	color: var(--text-muted);
+	white-space: nowrap;
+	padding-right: 4px;
+	border-right: 1px solid var(--border);
+}
+
+.fg-find-header__actions {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+}
+
+.fg-find-header .fg-find-arrow {
+	padding: 0;
+	width: 24px;
+	height: 24px;
+	font-size: 14px;
+	border-radius: 4px;
+}
+
+.fg-find-header .fg-find-arrow:hover {
+	background: var(--surface-hover);
+}
+
+/* Remove old find bar styles */
 
 .fg-find-input {
 	width: 100%;
@@ -1437,14 +1472,6 @@ html[data-theme='dark'] .fg-toolbar-status--top[data-dismissible='true'] {
 
 	.fg-toolbar-status--top[data-dismissible='true'] {
 		max-width: calc(100vw - 24px);
-	}
-
-	.fg-find-bar__form {
-		flex-wrap: wrap;
-	}
-
-	.fg-find-bar__field {
-		flex-basis: 100%;
 	}
 
 	.fg-find-counter {
@@ -3769,8 +3796,17 @@ a,
 	.fg-header-controls {
 		display: flex;
 		width: auto;
-		flex: 1 1 auto;
+		flex: 0 1 auto;
 		padding-top: 0;
+		min-width: 0;
+	}
+
+	.fg-header-right-controls {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 6px;
+		flex: 1 1 auto;
 		min-width: 0;
 	}
 
@@ -3801,15 +3837,36 @@ a,
 	}
 
 	.fg-find-toggle {
-		padding-inline: 10px;
-		font-size: 11px;
-		min-height: 30px;
+		padding: 0;
+		height: 30px;
+		width: 30px;
+		min-width: 30px;
+		font-size: 13px;
 	}
 
 	.fg-action-btn {
 		padding-inline: 8px;
 		font-size: 10px;
 		min-height: 30px;
+	}
+
+	.fg-find-header {
+		height: 30px;
+		padding-left: 6px;
+		margin-left: 2px;
+	}
+
+	.fg-find-header .fg-find-input {
+		width: 80px;
+		font-size: 13px;
+	}
+
+	.fg-find-header .fg-find-counter {
+		font-size: 10px;
+	}
+
+	.fg-focus-readout {
+		display: none;
 	}
 
 	.fg-toolbar-actions {
