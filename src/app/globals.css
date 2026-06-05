@@ -271,10 +271,11 @@ html[data-theme='dark'] .fg-node.fg-node--find-match-active text.fg-label,
 html[data-theme='dark'] .fg-node.fg-node-pulse-target text.fg-label,
 html[data-theme='dark'] .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
 	display: block !important;
-	font-size: clamp(calc(6px / var(--fg-current-zoom, 1)), 1.4ch, calc(80px / var(--fg-current-zoom, 1))) !important;
-	font-weight: 700 !important;
+	font-size: clamp(calc(8px / var(--fg-current-zoom, 1)), 2ch, calc(90px / var(--fg-current-zoom, 1))) !important;
+	font-weight: 100 !important;
 	opacity: 1 !important;
 	stroke-width: calc(5px / var(--fg-current-zoom, 1)) !important;
+	letter-spacing: 3px;
 }
 
 html[data-theme='dark'] .fg-node.fg-node-pulse-target text.fg-label {
@@ -316,10 +317,11 @@ html[data-theme='light'] .fg-node.fg-node--find-match-active text.fg-label,
 html[data-theme='light'] .fg-node.fg-node-pulse-target text.fg-label,
 html[data-theme='light'] .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
 	display: block !important;
-	font-size: clamp(calc(7px / var(--fg-current-zoom, 1)), 1.4ch, calc(80px / var(--fg-current-zoom, 1))) !important;
-	font-weight: 700 !important;
+	font-size: clamp(calc(8px / var(--fg-current-zoom, 1)), 2ch, calc(90px / var(--fg-current-zoom, 1))) !important;
+	font-weight: 100 !important;
 	opacity: 1 !important;
 	stroke-width: calc(5px / var(--fg-current-zoom, 1)) !important;
+	letter-spacing: 3px;
 }
 
 /* Clickable sidebar/card rows */
