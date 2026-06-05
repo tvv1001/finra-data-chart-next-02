@@ -255,9 +255,71 @@ html[data-theme='dark'] .fg-toolbar-status--top[data-dismissible='true'] .fg-sub
 html[data-theme='dark'] .fg-sb-note {
 	color: #333;
 }
+
 html[data-theme='dark'] .fg-menu-summary {
 	border-color: rgba(255, 255, 255, 0.16);
 	background: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme='dark'] .fg-node.fg-node--inactive text.fg-label,
+html[data-theme='dark'] .fg-node.fg-node--inactive.fg-node--find-match text.fg-label {
+	fill: white !important;
+}
+
+html[data-theme='dark'] .fg-node.fg-node--selection-log-label text.fg-label.fg-label--logged,
+html[data-theme='dark'] .fg-node.fg-node--find-match-active text.fg-label,
+html[data-theme='dark'] .fg-node.fg-node-pulse-target text.fg-label,
+html[data-theme='dark'] .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
+	display: block !important;
+	font-size: clamp(calc(10px / var(--fg-current-zoom, 1)), 1.4ch, calc(80px / var(--fg-current-zoom, 1))) !important;
+	font-weight: 700 !important;
+	opacity: 1 !important;
+	stroke-width: calc(5px / var(--fg-current-zoom, 1)) !important;
+}
+
+html[data-theme='dark'] .fg-node.fg-node-pulse-target text.fg-label {
+	opacity: 1 !important;
+	fill: rgb(252, 252, 252) !important;
+	/* stroke: rgb(245, 196, 18) !important; */
+	/* stroke-width: calc(1px / var(--fg-current-zoom, 1)) !important; */
+	text-shadow: rgb(156, 253, 0) 1px 1px 0px;
+
+	/* 1. Define the stroke thickness and color */
+	/* -webkit-text-stroke: 3px black; */
+
+	/* 2. Force the stroke to render behind the text fill */
+	/* paint-order: stroke fill; */
+
+	/* 3. Add the drop shadow (X-offset, Y-offset, blur, color) */
+	/* text-shadow: 5px 5px 0px rgba(0, 0, 0, 0.5); */
+}
+
+html[data-theme='light'] .fg-node.fg-node-pulse-target text.fg-label {
+	opacity: 1 !important;
+	fill: rgb(0, 0, 0) !important;
+	/* stroke: rgb(245, 196, 18) !important; */
+	/* stroke-width: calc(1px / var(--fg-current-zoom, 1)) !important; */
+	text-shadow: rgb(156, 253, 0) 1px 1px 0px;
+
+	/* 1. Define the stroke thickness and color */
+	/* -webkit-text-stroke: 3px black; */
+
+	/* 2. Force the stroke to render behind the text fill */
+	/* paint-order: stroke fill; */
+
+	/* 3. Add the drop shadow (X-offset, Y-offset, blur, color) */
+	/* text-shadow: 5px 5px 0px rgba(0, 0, 0, 0.5); */
+}
+
+html[data-theme='light'] .fg-node.fg-node--selection-log-label text.fg-label.fg-label--logged,
+html[data-theme='light'] .fg-node.fg-node--find-match-active text.fg-label,
+html[data-theme='light'] .fg-node.fg-node-pulse-target text.fg-label,
+html[data-theme='light'] .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
+	display: block !important;
+	font-size: clamp(calc(10px / var(--fg-current-zoom, 1)), 1.4ch, calc(80px / var(--fg-current-zoom, 1))) !important;
+	font-weight: 700 !important;
+	opacity: 1 !important;
+	stroke-width: calc(5px / var(--fg-current-zoom, 1)) !important;
 }
 
 /* Clickable sidebar/card rows */
@@ -677,13 +739,21 @@ body {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	background: rgba(15, 23, 42, 0.96);
+	z-index: 30;
+	padding: 10px 12px 20px 12px;
+}
+html[data-theme='light'] .fg-find-bar {
+	background: rgba(213, 218, 230, 0.96);
 	border: 1px solid rgba(148, 163, 184, 0.2);
 	box-shadow: 0 24px 48px rgba(15, 23, 42, 0.22);
+}
+html[data-theme='dark'] .fg-find-bar {
+	background: rgba(15, 23, 42, 0.96);
+	border: 1px solid rgba(148, 163, 184, 0.2);
 	border-radius: 14px;
-	padding: 10px 12px 20px 12px;
+
 	background: rgb(0, 0, 2);
-	z-index: 30;
+
 	box-shadow:
 		0 0 10px rgb(0 134 254 / 50%),
 		0 0 40px rgba(0, 242, 254, 0.2);
@@ -741,6 +811,9 @@ body {
 	max-width: none;
 }
 
+html[data-theme='light'] .fg-find-counter {
+	color: #0b0b0c;
+}
 .fg-find-counter {
 	flex: 0 0 auto;
 	min-width: 64px;
@@ -3396,37 +3469,6 @@ a,
 	stroke-width: calc(5px / var(--fg-current-zoom, 1)) !important;
 } */
 
-.fg-node.fg-node--inactive text.fg-label,
-.fg-node.fg-node--inactive.fg-node--find-match text.fg-label {
-	fill: white !important;
-}
-
-.fg-node.fg-node--selection-log-label text.fg-label.fg-label--logged,
-.fg-node.fg-node--find-match-active text.fg-label,
-.fg-node.fg-node-pulse-target text.fg-label,
-.fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
-	display: block !important;
-	font-size: clamp(calc(10px / var(--fg-current-zoom, 1)), 1.4ch, calc(80px / var(--fg-current-zoom, 1))) !important;
-	font-weight: 700 !important;
-	opacity: 1 !important;
-	stroke-width: calc(5px / var(--fg-current-zoom, 1)) !important;
-}
-.fg-node.fg-node-pulse-target text.fg-label {
-	opacity: 1 !important;
-	fill: rgb(252, 252, 252) !important;
-	/* stroke: rgb(245, 196, 18) !important; */
-	/* stroke-width: calc(1px / var(--fg-current-zoom, 1)) !important; */
-	text-shadow: rgb(156, 253, 0) 1px 1px 0px;
-
-	/* 1. Define the stroke thickness and color */
-	/* -webkit-text-stroke: 3px black; */
-
-	/* 2. Force the stroke to render behind the text fill */
-	/* paint-order: stroke fill; */
-
-	/* 3. Add the drop shadow (X-offset, Y-offset, blur, color) */
-	/* text-shadow: 5px 5px 0px rgba(0, 0, 0, 0.5); */
-}
 .fg-root.fg-trace-labels .fg-node.trace-shortest text.fg-label,
 .fg-root.fg-trace-labels .fg-node.trace-shortest-connector text.fg-label,
 .fg-root.fg-trace-labels .fg-node.trace-longest text.fg-label,
