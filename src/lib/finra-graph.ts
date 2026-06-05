@@ -7283,7 +7283,7 @@ function renderGraph(_data) {
 
 	const zoom = d3
 		.zoom()
-		.scaleExtent([0.17, 9.6])
+		.scaleExtent([0.13, 9.6])
 		.on('zoom', (event) => {
 			root.attr('transform', event.transform);
 			updateTraceStrokeScale(event.transform.k);
