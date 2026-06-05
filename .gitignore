@@ -49,3 +49,4 @@ data/national/**
 data/primed-cache/
 data/raw/
 .vercel
+scripts/import_raw_data.sh

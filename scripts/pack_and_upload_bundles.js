@@ -23,18 +23,25 @@ function chunkBuffer(buf, size) {
 	return parts;
 }
 
-async function uploadParts(redis, baseKey, buf) {
+async function uploadParts(redis, baseKey, buf, isPrimed = false) {
 	const parts = chunkBuffer(buf, MAX_CHUNK);
 	for (let i = 0; i < parts.length; i++) {
 		const key = `${baseKey}:part:${i}`;
 		await redis.set(key, parts[i].toString('base64'));
 	}
-	const manifest = { parts: parts.length, bytes: buf.length, uploadedAt: new Date().toISOString() };
-	await redis.set(`${baseKey}:manifest`, JSON.stringify(manifest));
+	const manifestKey = isPrimed ? `${baseKey}:meta` : `${baseKey}:manifest`;
+	const manifest = {
+		parts: parts.length,
+		chunks: parts.length, // app expects 'chunks'
+		chunked: true, // app expects 'chunked'
+		bytes: buf.length,
+		uploadedAt: new Date().toISOString(),
+	};
+	await redis.set(manifestKey, JSON.stringify(manifest));
 	return manifest;
 }
 
-async function processFile(redis, filePath, keyBase, opts = { useMsgpack: false }) {
+async function processFile(redis, filePath, keyBase, opts = { useMsgpack: false, isPrimed: false }) {
 	const raw = await fs.readFile(filePath);
 	let payloadBuf;
 	if (opts.useMsgpack) {
@@ -44,7 +51,7 @@ async function processFile(redis, filePath, keyBase, opts = { useMsgpack: false 
 		payloadBuf = Buffer.from(raw);
 	}
 	const gz = zlib.gzipSync(payloadBuf);
-	return await uploadParts(redis, keyBase, gz);
+	return await uploadParts(redis, keyBase, gz, opts.isPrimed);
 }
 
 async function main() {
@@ -58,7 +65,7 @@ async function main() {
 	const graphPath = path.join(NATIONAL, 'finra-graph.json');
 	if (await fs.stat(graphPath).catch(() => false)) {
 		console.log('processing graph', graphPath, 'useMsgpack=', useMsgpack);
-		const manifest = await processFile(redis, graphPath, 'finra:graph', { useMsgpack });
+		const manifest = await processFile(redis, graphPath, 'finra:graph', { useMsgpack, isPrimed: false });
 		console.log('uploaded graph manifest', manifest);
 	} else {
 		console.log('no finra-graph.json at', graphPath);
@@ -73,7 +80,8 @@ async function main() {
 			const name = f.replace('.json', '');
 			const p = path.join(primedDir, f);
 			console.log('processing primed bundle', name);
-			const manifest = await processFile(redis, p, `finra:primed:${name}`, { useMsgpack });
+			const baseKey = `primed:bundle:${name}`;
+			const manifest = await processFile(redis, p, baseKey, { useMsgpack, isPrimed: true });
 			console.log('uploaded primed manifest', name, manifest);
 		}
 	} else {

@@ -534,7 +534,25 @@ export async function getFullGraph() {
 	const redis = getRedis();
 	if (redis) {
 		try {
-			const raw = await redis.get<string>(REDIS_GRAPH_KEY);
+			let raw = await redis.get<string>(REDIS_GRAPH_KEY);
+
+			if (!raw) {
+				// check for chunked manifest
+				const manifestKey = `${REDIS_GRAPH_KEY}:manifest`;
+				const rawManifest = await redis.get<string>(manifestKey);
+				if (rawManifest) {
+					const manifest = typeof rawManifest === 'string' ? JSON.parse(rawManifest) : rawManifest;
+					const parts = [];
+					for (let i = 0; i < (manifest.parts || 0); i++) {
+						const part = await redis.get<string>(`${REDIS_GRAPH_KEY}:part:${i}`);
+						if (part) parts.push(part);
+					}
+					if (parts.length === manifest.parts) {
+						raw = parts.join('');
+					}
+				}
+			}
+
 			if (raw) {
 				// Support both legacy JSON string and new gzip+base64 compressed payloads.
 				let parsedRaw: any = raw;
