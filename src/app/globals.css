@@ -3406,7 +3406,7 @@ a,
 .fg-node.fg-node-pulse-target text.fg-label,
 .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
 	display: block !important;
-	font-size: 3ch !important;
+	font-size: 2.2ch !important;
 	font-weight: 700 !important;
 	opacity: 1 !important;
 	stroke-width: 5px !important;

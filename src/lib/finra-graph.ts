@@ -3648,15 +3648,31 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				stopSearchPulseLoop();
 				return;
 			}
+
+			const selectAndOpenMatch = (nodeId: string) => {
+				startSearchPulseLoop(nodeId, { interval: 1400, immediate: true });
+				const liveNode = Array.isArray(layoutNodes) ? layoutNodes.find((n) => n.id === nodeId) : null;
+				if (liveNode) {
+					markUserInitiatedGraphExpansion();
+					anchorNode(liveNode);
+					selectNode(liveNode, { skipAutoExpand: true });
+					void expandNodeThroughNonGrayHops(liveNode).catch((err) => {
+						console.error('Progressive non-gray hop expansion failed:', err);
+						refreshTraceState({ deferMs: 120 });
+					});
+					void fetchCacheStats();
+				}
+			};
+
 			if (activeFindMatchIndex >= 0 && activeFindMatchOrder[activeFindMatchIndex]) {
-				startSearchPulseLoop(activeFindMatchOrder[activeFindMatchIndex], { interval: 1400, immediate: true });
+				selectAndOpenMatch(activeFindMatchOrder[activeFindMatchIndex]);
 				return;
 			}
 			if (activeFindMatchOrder.length) {
 				activeFindMatchIndex = getNearestActiveMatchIndex();
 				const nodeId = activeFindMatchOrder[activeFindMatchIndex];
 				if (nodeId) {
-					startSearchPulseLoop(nodeId, { interval: 1400, immediate: true });
+					selectAndOpenMatch(nodeId);
 				}
 			}
 		}) as EventListener);
