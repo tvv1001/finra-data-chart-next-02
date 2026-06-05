@@ -304,6 +304,7 @@ let nodePulseTimer = null; // timer used to pulse the restored node after focus 
 let nodePulseInterval = null; // interval used to keep the restored node pulsing until interaction
 let nodePulseInteractionCleanup: (() => void) | null = null; // removes reload pulse interaction listeners once the user interacts
 let searchPulseInterval: number | null = null; // interval used to keep the current find-match pulsing until enter
+let lastArrowNavCoord: { x: number; y: number } | null = null; // track last whitespace click for arrow nav origin
 let activeLabelZoomThreshold = 0.3;
 let inactiveLabelCompactZoomThreshold = 0.42;
 let inactiveLabelCompactMode = false;
@@ -1696,7 +1697,10 @@ function moveFindMatch(rawQuery = activeFindQuery, direction = 'ArrowRight') {
 
 	const arrowable = getArrowableNodes();
 	if (!arrowable.length) return false;
-	const currentNode = activeFindMatchIndex >= 0 && Array.isArray(layoutNodes) ? layoutNodes.find((node) => node.id === activeFindMatchOrder[activeFindMatchIndex]) : null;
+	const currentNode =
+		(activeFindMatchIndex >= 0 && Array.isArray(layoutNodes) ?
+			layoutNodes.find((node) => node.id === activeFindMatchOrder[activeFindMatchIndex])
+		:	null) || (selectedId ? layoutNodes.find((n) => n.id === selectedId) : null);
 	let nextNode = getDirectionalVisibleNode(currentNode, direction);
 	if (!nextNode) {
 		nextNode = getNearestArrowableNode(currentNode);
@@ -1706,6 +1710,7 @@ function moveFindMatch(rawQuery = activeFindQuery, direction = 'ArrowRight') {
 	activeFindMatchOrder = nodeIds;
 	activeFindMatchIds = new Set(nodeIds);
 	activeFindMatchIndex = activeFindMatchOrder.indexOf(nextNode.id);
+	lastArrowNavCoord = null; // Resume normal node-to-node nav after starting from whitespace
 	focusNodeById(nextNode.id, { duration: 520 });
 	startSearchPulseLoop(nextNode.id, { interval: 1400, immediate: true });
 	refreshGraphColors();
@@ -1757,8 +1762,14 @@ function getDirectionalVisibleNode(currentNode, direction) {
 	if (!directionVector) return null;
 	const metrics = getGraphViewportMetrics();
 	if (!metrics) return null;
-	const refX = currentNode && Number.isFinite(currentNode.x) ? currentNode.x * metrics.transform.k + metrics.transform.x : metrics.width / 2;
-	const refY = currentNode && Number.isFinite(currentNode.y) ? currentNode.y * metrics.transform.k + metrics.transform.y : metrics.height / 2;
+	const refX =
+		lastArrowNavCoord ? lastArrowNavCoord.x
+		: currentNode && Number.isFinite(currentNode.x) ? currentNode.x * metrics.transform.k + metrics.transform.x
+		: metrics.width / 2;
+	const refY =
+		lastArrowNavCoord ? lastArrowNavCoord.y
+		: currentNode && Number.isFinite(currentNode.y) ? currentNode.y * metrics.transform.k + metrics.transform.y
+		: metrics.height / 2;
 	let best = null;
 	let bestScore = Number.POSITIVE_INFINITY;
 	for (const node of visible) {
@@ -2479,6 +2490,7 @@ function stopNodePulseLoop() {
 		nodePulseInteractionCleanup();
 		nodePulseInteractionCleanup = null;
 	}
+	stopSearchPulseLoop();
 	if (nodePulseInterval) {
 		clearInterval(nodePulseInterval);
 		nodePulseInterval = null;
@@ -2502,7 +2514,7 @@ function stopNodePulseLoop() {
 	}
 }
 
-function stopSearchPulseLoop() {
+export function stopSearchPulseLoop() {
 	if (searchPulseInterval) {
 		clearInterval(searchPulseInterval);
 		searchPulseInterval = null;
@@ -2512,6 +2524,7 @@ function stopSearchPulseLoop() {
 function startSearchPulseLoop(id, { interval = 1400, immediate = true }: { interval?: number; immediate?: boolean } = {}) {
 	if (!id) return;
 	stopSearchPulseLoop();
+	armNodePulseStopOnInteraction();
 	if (immediate) {
 		pulseNodeHighlightById(id, { duration: 900 });
 	}
@@ -6517,12 +6530,16 @@ function isLinkOnAnyTrace(linkKey: string) {
 function getNodeRenderPriority(node, highlightState) {
 	if (!node) return 1;
 	const degreeBias = Math.max(0, Math.min(1000, getNodeDegreeValue(node)));
+
+	// Current selected node always on top
+	if (node.id === selectedId) return 10000 + degreeBias;
+
 	// Nodes on an explicit trace get top priority
 	if (isNodeOnAnyTrace(node.id)) return 4000 + degreeBias;
 
-	// Nodes that have been explicitly selected (current selection or visited selections)
+	// Nodes that have been explicitly selected (visited selections)
 	// should render above ordinary nodes so their labels and connecting lines are visible.
-	if (node.id === selectedId || visitedNodeIds.has(node.id)) return 3000 + degreeBias;
+	if (visitedNodeIds.has(node.id)) return 3000 + degreeBias;
 
 	// Highlight roots/hop nodes (from trace/highlight state) also get high priority
 	if (highlightState?.rootIds?.has(node.id) || highlightState?.hopNodeIds?.has(node.id)) return 3000 + degreeBias;
@@ -7531,7 +7548,10 @@ function renderGraph(_data) {
 	setTimeout(() => simulation.stop(), stopAfterMs);
 
 	// Preserve the current selection on blank click; highlights must be cleared explicitly.
-	svg.on('click', () => {
+	svg.on('click', (event) => {
+		const [px, py] = d3.pointer(event);
+		lastArrowNavCoord = { x: px, y: py };
+
 		if (selectionRestoreTimer) {
 			clearTimeout(selectionRestoreTimer);
 			selectionRestoreTimer = null;
@@ -8939,6 +8959,7 @@ function selectNode(
 		syncRoute?: boolean;
 	} = {},
 ) {
+	lastArrowNavCoord = null;
 	stopSearchPulseLoop();
 	const { persist = true, skipProfileSync = false, skipAutoExpand = false, focus = false, pulse = false, focusDuration = 300, syncRoute = true } = options;
 
