@@ -1359,6 +1359,11 @@ function getLevenshteinDistance(a: string, b: string): number {
 	return v1[b.length];
 }
 
+function containsWholePhrase(text, phrase) {
+	if (!text || !phrase) return false;
+	return ` ${text} `.includes(` ${phrase} `);
+}
+
 export function rankFindNodeMatches(rawQuery, nodePool = [], liveLinks = []) {
 	const query = String(rawQuery || '').trim();
 	if (!query) return [];
@@ -1411,50 +1416,29 @@ export function rankFindNodeMatches(rawQuery, nodePool = [], liveLinks = []) {
 				bestScore = Math.max(bestScore, 185);
 				hasExactMatch = true;
 			}
-			if (comparableQuery && keyComparable.startsWith(comparableQuery)) bestScore = Math.max(bestScore, 150);
-			if (comparableQuery && keyComparable.includes(comparableQuery)) bestScore = Math.max(bestScore, 120);
+			if (comparableQuery && containsWholePhrase(keyComparable, comparableQuery)) {
+				bestScore = Math.max(bestScore, 150);
+			}
 
-			// Word-by-word fuzzy and substring matching
+			// Word-by-word matching
 			if (comparableQuery) {
 				const queryWords = comparableQuery.split(/\s+/).filter((w) => w.length > 0);
 				const keyWords = keyComparable.split(/\s+/).filter((w) => w.length > 0);
 
 				if (queryWords.length > 0 && keyWords.length > 0) {
 					let matchCount = 0;
-					let fuzzyScoreAcc = 0;
 					let validQueryWords = 0;
 
 					for (const qw of queryWords) {
-						if (qw.length <= 2) continue; // Don't enforce matching on tiny words for fuzzy scoring
+						if (qw.length <= 2) continue;
 						validQueryWords++;
-						let bestKwScore = 0;
-						for (const kw of keyWords) {
-							if (kw === qw) {
-								bestKwScore = Math.max(bestKwScore, 140);
-							} else if (kw.includes(qw)) {
-								bestKwScore = Math.max(bestKwScore, 130);
-							} else if (qw.includes(kw) && kw.length > 3) {
-								bestKwScore = Math.max(bestKwScore, 125);
-							} else if (kw.length > 2) {
-								const dist = getLevenshteinDistance(qw, kw);
-								const maxDist = Math.max(1, Math.floor(qw.length * 0.3));
-								if (dist <= maxDist) {
-									bestKwScore = Math.max(bestKwScore, 110 - dist * 5);
-								}
-							}
-						}
-						if (bestKwScore > 0) {
+						if (keyWords.includes(qw)) {
 							matchCount++;
-							fuzzyScoreAcc += bestKwScore;
 						}
 					}
 
 					if (validQueryWords > 0 && matchCount === validQueryWords) {
-						// All significant query words matched the key
-						bestScore = Math.max(bestScore, Math.floor(fuzzyScoreAcc / matchCount));
-					} else if (matchCount > 0 && queryWords.length === 1) {
-						// Single word query that matched at least one word
-						bestScore = Math.max(bestScore, fuzzyScoreAcc);
+						bestScore = Math.max(bestScore, 140);
 					}
 				}
 			}
@@ -3069,6 +3053,7 @@ function clearGraphData() {
 	hasUserInitiatedGraphExpansion = false;
 	selectedId = null;
 	highlightedSelections = [];
+	updateFocusReadout(null);
 	visitedNodeIds.clear();
 	sidebarSelectedNode = null;
 	sidebarViewMode = 'none';
@@ -3683,9 +3668,10 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 		}) as EventListener);
 		window.addEventListener(FIND_CLOSE_EVENT, ((event: Event) => {
 			const detail = (event as CustomEvent<{ clearQuery?: boolean }>).detail || {};
+			stopSearchPulseLoop();
+			updateFocusReadout(null);
 			if (detail.clearQuery) {
 				clearFindMatches();
-				stopSearchPulseLoop();
 				return;
 			}
 
@@ -9650,6 +9636,7 @@ function clearHighlights() {
 	}
 	stopNodePulseLoop();
 	highlightedSelections = [];
+	updateFocusReadout(null);
 	reapplySelectionState();
 	showSidebarHint({ keepOpen: true });
 	try {

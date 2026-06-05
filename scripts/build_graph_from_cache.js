@@ -395,8 +395,56 @@ async function saveGraphArtifacts(graph, { syncRedis = true } = {}) {
 	const redis = getRedis();
 	if (!redis) return { graphFile: GRAPH_FILE, seedBankFile: SEED_BANK_FILE, redisSynced: false };
 
+	console.log('Uploading graph and seed bank to Redis...');
 	await redis.set(REDIS_GRAPH_KEY, JSON.stringify(graph));
 	await redis.set(REDIS_SEED_BANK_KEY, JSON.stringify(seedBank));
+
+	// Precompute and store neighborhoods for the top 100 nodes with most connections
+	try {
+		console.log('Precomputing neighborhoods for high-degree nodes...');
+		const connectionCounts = new Map();
+		for (const link of graph.links || []) {
+			const s = link.source?.id ?? link.source;
+			const t = link.target?.id ?? link.target;
+			if (s) connectionCounts.set(s, (connectionCounts.get(s) || 0) + 1);
+			if (t) connectionCounts.set(t, (connectionCounts.get(t) || 0) + 1);
+		}
+
+		const sortedNodes = [...(graph.nodes || [])]
+			.map((node) => ({ id: node.id, degree: connectionCounts.get(node.id) || 0 }))
+			.sort((a, b) => b.degree - a.degree)
+			.slice(0, 100);
+
+		const adjacency = new Map();
+		for (const link of graph.links || []) {
+			const s = link.source?.id ?? link.source;
+			const t = link.target?.id ?? link.target;
+			if (!adjacency.has(s)) adjacency.set(s, new Set());
+			if (!adjacency.has(t)) adjacency.set(t, new Set());
+			adjacency.get(s).add(t);
+			adjacency.get(t).add(s);
+		}
+
+		const nodeMap = new Map(graph.nodes.map((n) => [n.id, n]));
+
+		for (const { id, degree } of sortedNodes) {
+			if (degree < 5) continue; // Don't bother with small neighborhoods
+			const neighbors = Array.from(adjacency.get(id) || []);
+			const neighborhoodIds = new Set([id, ...neighbors]);
+			const resultNodes = graph.nodes.filter((n) => neighborhoodIds.has(n.id));
+			const resultLinks = graph.links.filter((l) => {
+				const s = l.source?.id ?? l.source;
+				const t = l.target?.id ?? l.target;
+				return neighborhoodIds.has(s) && neighborhoodIds.has(t);
+			});
+
+			await redis.set(`finra:expand:${id}:1`, JSON.stringify({ nodes: resultNodes, links: resultLinks }));
+		}
+		console.log(`Stored ${sortedNodes.length} neighborhood clusters in Redis.`);
+	} catch (e) {
+		console.warn('Failed to precompute neighborhoods:', e.message);
+	}
+
 	return { graphFile: GRAPH_FILE, seedBankFile: SEED_BANK_FILE, redisSynced: true };
 }
 

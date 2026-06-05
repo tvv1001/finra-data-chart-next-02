@@ -657,12 +657,13 @@ export default function FinraGraph() {
 
 			const sidebar = document.getElementById('fg-sidebar');
 			const bottomStatus = document.getElementById('fg-bottom-status');
-			const findBar = document.getElementById('fg-find-bar');
+			const findBar = document.getElementById('fg-find-header');
+			const findToggle = document.getElementById('fg-find-toggle');
 			const target = event.target as Node | null;
 			const mobileMenuToggle = document.getElementById('fg-mobile-menu-toggle');
 			const graphNode = target instanceof Element ? target.closest('.fg-node') : null;
 
-			if (isFindBarOpenRef.current && findBar && target && !findBar.contains(target)) {
+			if (isFindBarOpenRef.current && findBar && target && !findBar.contains(target) && (!findToggle || !findToggle.contains(target))) {
 				closeFindBar({ clearQuery: false });
 			}
 
@@ -679,9 +680,10 @@ export default function FinraGraph() {
 		const handleDocumentFocusIn = (event: FocusEvent) => {
 			closeOpenLegendTooltip(event.target);
 
-			const findBar = document.getElementById('fg-find-bar');
+			const findBar = document.getElementById('fg-find-header');
+			const findToggle = document.getElementById('fg-find-toggle');
 			const target = event.target as Node | null;
-			if (isFindBarOpenRef.current && findBar && target && !findBar.contains(target)) {
+			if (isFindBarOpenRef.current && findBar && target && !findBar.contains(target) && (!findToggle || !findToggle.contains(target))) {
 				closeFindBar({ clearQuery: false });
 			}
 		};
@@ -843,10 +845,6 @@ export default function FinraGraph() {
 					</div>
 
 					<div
-						id='fg-focus-readout'
-						className='fg-focus-readout'></div>
-
-					<div
 						id='fg-header-controls'
 						className='fg-header-controls'>
 						<div className='fg-fetch-status'>
@@ -892,91 +890,94 @@ export default function FinraGraph() {
 									Fetch Nodes
 								</button>
 							</div>
-							<button
-								id='fg-mobile-menu-toggle'
-								type='button'
-								className='fg-mobile-menu-toggle'
-								onClick={toggleMobileMenu}
-								title='Toggle menu'
-								aria-label='Toggle menu'>
-								<span
-									className='fg-mobile-menu-toggle__icon'
-									aria-hidden='true'>
-									<span className='fg-mobile-menu-toggle__bar'></span>
-									<span className='fg-mobile-menu-toggle__bar'></span>
-									<span className='fg-mobile-menu-toggle__bar'></span>
-								</span>
-							</button>
 						</div>
 					</div>
-				</div>
 
-				<div
-					id='fg-find-bar'
-					className={`fg-find-bar${isFindBarOpen ? '' : ' hidden'}`}
-					aria-hidden={!isFindBarOpen}
-					inert={!isFindBarOpen}>
-					<form
-						className='fg-find-bar__form'
-						onSubmit={(event) => {
-							event.preventDefault();
-							submitFindQuery();
-						}}>
-						<label
-							className='fg-find-bar__field'
-							htmlFor='fg-find-input'>
-							<span className='fg-find-bar__label'>Find in graph</span>
-							<input
-								ref={findInputRef}
-								id='fg-find-input'
-								className='fg-search-input fg-find-input'
-								type='search'
-								value={findQuery}
-								onChange={(event) => setFindQuery(event.target.value)}
-								onKeyDown={handleFindInputKeyDown}
-								placeholder='Find loaded people or firms'
-								autoComplete='off'
-								autoCorrect='off'
-								autoCapitalize='off'
-								spellCheck={false}
-								data-gramm='false'
-							/>
-						</label>
-						<span
-							id='fg-find-counter'
-							className='fg-find-counter'
-							aria-live='polite'>
-							{findCounterText}
-						</span>
-						<div className='fg-find-bar__actions'>
-							<button
-								type='button'
-								className='fg-ghost-btn fg-find-arrow fg-find-arrow--left'
-								onClick={() => moveFindMatchByButton('ArrowLeft')}
-								aria-label='Previous match'>
-								←
-							</button>
-							<button
-								type='button'
-								className='fg-ghost-btn fg-find-arrow fg-find-arrow--right'
-								onClick={() => moveFindMatchByButton('ArrowRight')}
-								aria-label='Next match'>
-								→
-							</button>
-							<button
-								type='submit'
-								className='fg-ghost-btn fg-find-next'
-								disabled={!findQuery.trim()}>
-								{findSubmitText}
-							</button>
-							<button
-								type='button'
-								className='fg-ghost-btn fg-find-close'
-								onClick={() => closeFindBar({ clearQuery: false })}>
-								Close
-							</button>
+					<div
+						id='fg-focus-readout'
+						className='fg-focus-readout'></div>
+
+					<div className='fg-header-right-controls'>
+						<button
+							id='fg-find-toggle'
+							type='button'
+							className={`fg-btn-secondary fg-find-toggle${isFindBarOpen ? ' active' : ''}`}
+							onClick={() => (isFindBarOpen ? closeFindBar({ clearQuery: false }) : setIsFindBarOpen(true))}
+							title='Find in graph (Ctrl+F)'
+							aria-label='Find in graph'
+							aria-pressed={isFindBarOpen}>
+							<span className='fg-find-toggle__icon'>🔍</span>
+						</button>
+
+						<div
+							id='fg-find-header'
+							className={`fg-find-header${isFindBarOpen ? '' : ' hidden'}`}
+							aria-hidden={!isFindBarOpen}
+							inert={!isFindBarOpen}>
+							<form
+								className='fg-find-header__form'
+								onSubmit={(event) => {
+									event.preventDefault();
+									submitFindQuery();
+								}}>
+								<div className='fg-find-header__field-group'>
+									<input
+										ref={findInputRef}
+										id='fg-find-input'
+										className='fg-search-input fg-find-input'
+										type='search'
+										value={findQuery}
+										onChange={(event) => setFindQuery(event.target.value)}
+										onKeyDown={handleFindInputKeyDown}
+										placeholder='Find in graph…'
+										autoComplete='off'
+										autoCorrect='off'
+										autoCapitalize='off'
+										spellCheck={false}
+										data-gramm='false'
+									/>
+									<span
+										id='fg-find-counter'
+										className='fg-find-counter'
+										aria-live='polite'>
+										{findCounterText}
+									</span>
+								</div>
+								<div className='fg-find-header__actions'>
+									<button
+										type='button'
+										className='fg-ghost-btn fg-find-arrow'
+										onClick={() => moveFindMatchByButton('ArrowLeft')}
+										aria-label='Previous match'>
+										←
+									</button>
+									<button
+										type='button'
+										className='fg-ghost-btn fg-find-arrow'
+										onClick={() => moveFindMatchByButton('ArrowRight')}
+										aria-label='Next match'>
+										→
+									</button>
+								</div>
+							</form>
 						</div>
-					</form>
+
+						<button
+							id='fg-mobile-menu-toggle'
+							type='button'
+							className='fg-mobile-menu-toggle'
+							onClick={toggleMobileMenu}
+							title='Toggle menu'
+							aria-label='Toggle menu'>
+							<span
+								className='fg-mobile-menu-toggle__icon'
+								aria-hidden='true'>
+								<span className='fg-mobile-menu-toggle__bar'></span>
+								<span className='fg-mobile-menu-toggle__bar'></span>
+								<span className='fg-mobile-menu-toggle__bar'></span>
+							</span>
+						</button>
+					</div>
 				</div>
 			</header>
 

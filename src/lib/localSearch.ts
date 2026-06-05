@@ -228,13 +228,7 @@ function getBoundedEditDistance(left: string, right: string, maxDistance: number
 
 function tokensFuzzyMatch(queryToken: string, candidateToken: string) {
 	if (!queryToken || !candidateToken) return false;
-	if (queryToken === candidateToken) return true;
-	if (candidateToken.includes(queryToken) && queryToken.length >= 3) return true;
-	if (queryToken.includes(candidateToken) && queryToken.length >= 3) return true;
-	const minLength = Math.min(queryToken.length, candidateToken.length);
-	if (minLength < 4) return false;
-	const maxDistance = Math.max(1, Math.floor(queryToken.length * 0.3));
-	return getBoundedEditDistance(queryToken, candidateToken, maxDistance) <= maxDistance;
+	return queryToken === candidateToken;
 }
 
 function isStrictSurnameQuery(rawQuery: string, normalizedQuery: string) {
@@ -256,7 +250,6 @@ function getSurnameMatchScore(doc: PreparedLocalSearchDoc, rawQuery: string, nor
 		if (candidate === compactQuery) bestScore = Math.max(bestScore, strictSurnameQuery ? 420 : 240);
 		else if (compactQuery.length >= 3 && candidate.startsWith(compactQuery)) bestScore = Math.max(bestScore, strictSurnameQuery ? 320 : 170);
 		else if (candidate.includes(compactQuery) && compactQuery.length >= 4) bestScore = Math.max(bestScore, strictSurnameQuery ? 200 : 140);
-		else if (!strictSurnameQuery && compactQuery.length >= 4 && tokensFuzzyMatch(compactQuery, candidate)) bestScore = Math.max(bestScore, 120);
 	}
 	return bestScore;
 }
@@ -270,7 +263,6 @@ function getNameMatchScore(doc: PreparedLocalSearchDoc, rawQuery: string, normal
 		const isPrimaryCandidate = doc.primaryNameCandidates.includes(candidate);
 		if (candidate === normalizedQuery) bestScore = Math.max(bestScore, isPrimaryCandidate ? 260 : 220);
 		else if (containsWholePhrase(candidate, normalizedQuery)) bestScore = Math.max(bestScore, isPrimaryCandidate ? 180 : 150);
-		else if (candidate.includes(normalizedQuery) && normalizedQuery.length >= 3) bestScore = Math.max(bestScore, isPrimaryCandidate ? 140 : 120);
 
 		const candidateTokens = tokenizeQuery(candidate);
 		const matchedTokenCount = tokens.filter((token) => candidateTokens.some((candidateToken) => tokensFuzzyMatch(token, candidateToken))).length;
@@ -306,6 +298,21 @@ function matchesQuery(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQ
 	if (isStrictSurnameQuery(rawQuery, normalizedQuery)) {
 		return getSurnameMatchScore(doc, rawQuery, normalizedQuery) > 0;
 	}
+
+	const identifier = getIdentifierText(doc);
+	if (identifier === normalizedQuery) return true;
+
+	// Must have at least one whole-word match or exact name match
+	let hasSignificantMatch = false;
+	for (const candidate of doc.nameCandidates) {
+		if (candidate === normalizedQuery || containsWholePhrase(candidate, normalizedQuery)) {
+			hasSignificantMatch = true;
+			break;
+		}
+	}
+
+	if (!hasSignificantMatch) return false;
+
 	if (getNameMatchScore(doc, rawQuery, normalizedQuery, tokens) > 0) return true;
 	if (hasStrictMatch(doc, normalizedQuery, tokens)) return true;
 	return tokens.every((token) => doc.nameTokens.some((candidateToken) => tokensFuzzyMatch(token, candidateToken)));

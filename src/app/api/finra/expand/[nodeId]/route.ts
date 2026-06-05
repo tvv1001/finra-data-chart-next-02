@@ -51,6 +51,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	try {
 		const { nodeId } = await params;
 		const hops = normalizeHopsParam(request.nextUrl.searchParams.get('hops'));
+
+		// Check for precomputed neighborhood cache first
+		const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
+		const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+		if (redisUrl && redisToken && hops === 1) {
+			try {
+				const redis = new Redis({ url: redisUrl, token: redisToken });
+				const cached = await redis.get<any>(`finra:expand:${nodeId}:1`);
+				if (cached) {
+					console.log(`Expansion API: Cache hit for node ${nodeId}`);
+					return NextResponse.json(cached, { headers: sharedCacheHeaders(300) });
+				}
+			} catch (e) {
+				console.warn(`Expansion API: Cache check failed for ${nodeId}`, e);
+			}
+		}
+
 		const graph = await getFullGraph();
 		const nodes: any[] = graph.nodes || [];
 		const links: any[] = graph.links || [];
