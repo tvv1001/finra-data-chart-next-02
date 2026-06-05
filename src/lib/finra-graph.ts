@@ -399,7 +399,8 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 		.style('--fg-node-label-font-weight', DEFAULT_NODE_LABEL_FONT_WEIGHT)
 		.style('--fg-global-label-scale', String(globalLabelScale))
 		.style('--fg-trace-label-scale', String(traceLabelScale))
-		.style('--fg-selection-log-label-scale', String(selectionLogLabelScale));
+		.style('--fg-selection-log-label-scale', String(selectionLogLabelScale))
+		.style('--fg-current-zoom', String(normalizedScale));
 
 	// Hide all node labels when zoomed out below threshold.
 	const labelGroup = rootGroup.select('.fg-label-group');

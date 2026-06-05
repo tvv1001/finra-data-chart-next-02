@@ -3380,7 +3380,7 @@ a,
 	display: none;
 }
 
-.fg-root.fg-trace-labels .fg-node.trace-shortest text.fg-label,
+/* .fg-root.fg-trace-labels .fg-node.trace-shortest text.fg-label,
 .fg-root.fg-trace-labels .fg-node.trace-shortest-connector text.fg-label,
 .fg-root.fg-trace-labels .fg-node.trace-longest text.fg-label,
 .fg-root.fg-trace-labels .fg-node.trace-longest-connector text.fg-label,
@@ -3389,12 +3389,13 @@ a,
 .fg-root.fg-trace-labels .fg-node.trace-combined text.fg-label,
 .fg-root.fg-trace-labels .fg-node.trace-combined-connector text.fg-label {
 	font-size: calc(11px * var(--fg-trace-label-scale, 1)) !important;
-}
+	font-size: clamp(calc(20px / var(--fg-current-zoom, 1)), 2.2ch, calc(30px / var(--fg-current-zoom, 1))) !important;
+} */
 
-.fg-root.fg-selection-log-labels text.fg-label {
-	font-size: 8px !important;
-	stroke-width: 5px !important;
-}
+/* .fg-root.fg-selection-log-labels text.fg-label {
+	font-size: clamp(calc(8px / var(--fg-current-zoom, 1)), 1.2ch, calc(12px / var(--fg-current-zoom, 1))) !important;
+	stroke-width: calc(5px / var(--fg-current-zoom, 1)) !important;
+} */
 
 .fg-node.fg-node--inactive text.fg-label,
 .fg-node.fg-node--inactive.fg-node--find-match text.fg-label {
@@ -3406,12 +3407,27 @@ a,
 .fg-node.fg-node-pulse-target text.fg-label,
 .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
 	display: block !important;
-	font-size: 2.2ch !important;
+	font-size: clamp(calc(10px / var(--fg-current-zoom, 1)), 3ch, calc(100px / var(--fg-current-zoom, 1))) !important;
 	font-weight: 700 !important;
 	opacity: 1 !important;
-	stroke-width: 5px !important;
+	stroke-width: calc(5px / var(--fg-current-zoom, 1)) !important;
 }
+.fg-node.fg-node-pulse-target text.fg-label {
+	opacity: 1 !important;
+	fill: rgb(252, 252, 252) !important;
+	/* stroke: rgb(245, 196, 18) !important; */
+	/* stroke-width: calc(1px / var(--fg-current-zoom, 1)) !important; */
+	text-shadow: rgb(156, 253, 0) 1px 1px 0px;
 
+	/* 1. Define the stroke thickness and color */
+	/* -webkit-text-stroke: 3px black; */
+
+	/* 2. Force the stroke to render behind the text fill */
+	/* paint-order: stroke fill; */
+
+	/* 3. Add the drop shadow (X-offset, Y-offset, blur, color) */
+	/* text-shadow: 5px 5px 0px rgba(0, 0, 0, 0.5); */
+}
 .fg-root.fg-trace-labels .fg-node.trace-shortest text.fg-label,
 .fg-root.fg-trace-labels .fg-node.trace-shortest-connector text.fg-label,
 .fg-root.fg-trace-labels .fg-node.trace-longest text.fg-label,
@@ -3421,6 +3437,7 @@ a,
 	fill: #000000 !important;
 	font-weight: 700 !important;
 	opacity: 1 !important;
+	stroke-width: calc(5px / var(--fg-current-zoom, 1)) !important;
 }
 
 .fg-root.fg-trace-labels .fg-node.trace-shortest text.fg-label.fg-label--inactive,
@@ -3449,7 +3466,7 @@ a,
 .fg-root.fg-trace-labels .fg-node.trace-longest-connector text.fg-label,
 .fg-root.fg-trace-labels .fg-node.trace-log text.fg-label,
 .fg-root.fg-trace-labels .fg-node.trace-log-connector text.fg-label {
-	stroke-width: 5px !important;
+	stroke-width: calc(5px / var(--fg-current-zoom, 1)) !important;
 	opacity: 1 !important;
 }
 
