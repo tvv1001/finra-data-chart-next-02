@@ -379,6 +379,7 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 	if (!rootGroup) return;
 	const traceActive = isAnyTraceModeActive();
 	const normalizedScale = Math.max(0.1, Number(zoomScale) || 1);
+	const globalLabelScale = Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, normalizedScale))));
 	const traceLabelScale = traceActive ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, normalizedScale)))) : 1;
 	const selectionLogLabelScale = isSelectionLogBold ? Math.max(1.45, Math.min(2.35, 1 / Math.max(0.45, Math.min(1, normalizedScale)))) : 1;
 
@@ -388,6 +389,7 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 		.classed('fg-labels-hidden', normalizedScale < activeLabelZoomThreshold)
 		.style('--fg-node-label-font-size', DEFAULT_NODE_LABEL_FONT_SIZE)
 		.style('--fg-node-label-font-weight', DEFAULT_NODE_LABEL_FONT_WEIGHT)
+		.style('--fg-global-label-scale', String(globalLabelScale))
 		.style('--fg-trace-label-scale', String(traceLabelScale))
 		.style('--fg-selection-log-label-scale', String(selectionLogLabelScale));
 
@@ -2650,8 +2652,23 @@ function resolveCssColorValue(value, fallback = '#18a0fb') {
 function pulseNodeHighlightById(id, { duration = 600, stroke = GRAPH_COLORS.nodePulse }: { duration?: number; stroke?: string } = {}) {
 	try {
 		if (!nodeSel) return;
-		const selectedNode = nodeSel.filter((node) => node.id === id);
+		const selectedNode = nodeSel.filter((nodeDatum) => nodeDatum.id === id);
+
 		if (!selectedNode || typeof selectedNode.empty !== 'function' || selectedNode.empty()) return;
+		
+		const classDuration = Math.max(duration, 1500);
+		selectedNode.each(function () {
+			const el = this as any;
+			if (el._pulseTargetTimeout) clearTimeout(el._pulseTargetTimeout);
+			d3.select(el).classed('fg-node-pulse-target', true);
+			el._pulseTargetTimeout = setTimeout(() => {
+				try {
+					d3.select(el).classed('fg-node-pulse-target', false);
+					el._pulseTargetTimeout = null;
+				} catch (e) {}
+			}, classDuration);
+		});
+
 		const resolvedStroke = resolveCssColorValue(stroke);
 
 		selectedNode.each(function (nodeDatum) {
