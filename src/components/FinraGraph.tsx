@@ -338,6 +338,7 @@ export default function FinraGraph() {
 		}
 		if (event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
 			event.preventDefault();
+
 			window.dispatchEvent(
 				new CustomEvent(FIND_MOVE_EVENT, {
 					detail: {
@@ -351,6 +352,7 @@ export default function FinraGraph() {
 
 	const moveFindMatchByButton = (direction: 'ArrowLeft' | 'ArrowRight') => {
 		const query = findQuery.trim();
+
 		if (!query) return;
 		window.dispatchEvent(
 			new CustomEvent(FIND_MOVE_EVENT, {
