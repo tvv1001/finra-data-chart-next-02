@@ -49,15 +49,28 @@ function getCandidateRoots(seedRoots: Array<string | null | undefined> = []) {
 export function getSearchIndexFilePath(bucket: SearchIndexBucket, seedRoots: Array<string | null | undefined> = []) {
 	const relativeFilePath = SEARCH_INDEX_RELATIVE_FILES[bucket];
 	const candidates = getCandidateRoots(seedRoots);
+	const attemptedPaths: string[] = [];
 
 	for (const root of candidates) {
 		const candidatePath = path.resolve(root, relativeFilePath);
+		attemptedPaths.push(candidatePath);
 		if (existsSync(candidatePath)) {
 			console.log(`[searchDataPaths] Found ${bucket} at: ${candidatePath}`);
 			return candidatePath;
 		}
 	}
 
-	console.warn(`[searchDataPaths] No file found for ${bucket}. Checked roots:`, candidates.slice(0, 3));
+	// Try common Vercel paths
+	const vercelPaths = [path.resolve('/var/task', relativeFilePath), path.resolve('/var/lang/lib', relativeFilePath), path.resolve('/function', relativeFilePath)];
+
+	for (const vercelPath of vercelPaths) {
+		attemptedPaths.push(vercelPath);
+		if (existsSync(vercelPath)) {
+			console.log(`[searchDataPaths] Found ${bucket} at Vercel path: ${vercelPath}`);
+			return vercelPath;
+		}
+	}
+
+	console.warn(`[searchDataPaths] No file found for ${bucket}. Checked ${attemptedPaths.length} paths. First 3: ${attemptedPaths.slice(0, 3).join(', ')}`);
 	return path.resolve(process.cwd(), relativeFilePath);
 }
