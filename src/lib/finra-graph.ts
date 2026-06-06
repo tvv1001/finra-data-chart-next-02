@@ -4558,8 +4558,12 @@ async function fetchAndInjectQuery(q) {
 	const headers = { Accept: 'application/json' };
 
 	const [finraIndResp, finraFirmResp, secResp] = await Promise.allSettled([
-		fetch(makeApiUrl(`/api/finra/search?query=${encodeURIComponent(q)}&rows=${ROWS}`).toString(), { headers }).then((r) => (r.ok ? r.json() : null)),
-		fetch(makeApiUrl(`/api/finra/search?query=${encodeURIComponent(q)}&firm=1&rows=${ROWS}`).toString(), { headers }).then((r) => (r.ok ? r.json() : null)),
+		fetch(makeApiUrl(`/api/finra/search?query=${encodeURIComponent(q)}&rows=${ROWS}&_=${Date.now()}`).toString(), { headers, cache: 'no-store' }).then((r) =>
+			r.ok ? r.json() : null,
+		),
+		fetch(makeApiUrl(`/api/finra/search?query=${encodeURIComponent(q)}&firm=1&rows=${ROWS}&_=${Date.now()}`).toString(), { headers, cache: 'no-store' }).then((r) =>
+			r.ok ? r.json() : null,
+		),
 		fetch(makeApiUrl(`/api/finra/sec-search?query=${encodeURIComponent(q)}`).toString(), { headers }).then((r) => (r.ok ? r.json() : null)),
 	]);
 
@@ -4710,8 +4714,12 @@ async function fetchQueryBatch(q) {
 	const headers = { Accept: 'application/json' };
 
 	const [finraIndResp, finraFirmResp, secResp] = await Promise.allSettled([
-		fetch(makeApiUrl(`/api/finra/search?query=${encodeURIComponent(q)}&rows=${ROWS}`).toString(), { headers }).then((r) => (r.ok ? r.json() : null)),
-		fetch(makeApiUrl(`/api/finra/search?query=${encodeURIComponent(q)}&firm=1&rows=${ROWS}`).toString(), { headers }).then((r) => (r.ok ? r.json() : null)),
+		fetch(makeApiUrl(`/api/finra/search?query=${encodeURIComponent(q)}&rows=${ROWS}&_=${Date.now()}`).toString(), { headers, cache: 'no-store' }).then((r) =>
+			r.ok ? r.json() : null,
+		),
+		fetch(makeApiUrl(`/api/finra/search?query=${encodeURIComponent(q)}&firm=1&rows=${ROWS}&_=${Date.now()}`).toString(), { headers, cache: 'no-store' }).then((r) =>
+			r.ok ? r.json() : null,
+		),
 		fetch(makeApiUrl(`/api/finra/sec-search?query=${encodeURIComponent(q)}`).toString(), { headers }).then((r) => (r.ok ? r.json() : null)),
 	]);
 

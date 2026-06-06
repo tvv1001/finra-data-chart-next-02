@@ -1,4 +1,6 @@
 import { readFile } from 'node:fs/promises';
+import * as path from 'node:path';
+import { gunzipSync } from 'node:zlib';
 import { getSearchIndexFilePaths } from './searchDataPaths';
 
 async function fetchFromRedis(bucket: string): Promise<any | null> {
@@ -71,6 +73,7 @@ export type LocalSearchIndex = {
 export type LocalSearchOptions = {
 	limit?: number;
 	offset?: number;
+	baseUrl?: string;
 };
 
 export type LocalSearchResponse = {
@@ -300,7 +303,41 @@ export function hasMinimumSearchQuery(query: string) {
 	return SHORT_QUERY_ALLOWLIST.has(compactQuery) || compactQuery.length >= MIN_SEARCH_QUERY_CHARS;
 }
 
-async function loadIndex(bucket: LocalSearchBucket): Promise<LocalSearchIndex | null> {
+async function loadIndex(bucket: LocalSearchBucket, baseUrl?: string): Promise<LocalSearchIndex | null> {
+	async function readIndexPayload(filePath: string) {
+		const raw = await readFile(filePath);
+		const jsonText = filePath.endsWith('.gz') ? gunzipSync(raw).toString('utf-8') : raw.toString('utf-8');
+		return JSON.parse(jsonText) as { generatedAt?: string; bucket?: string; docs?: LocalSearchDoc[] };
+	}
+
+	async function readIndexPayloadFromUrl(url: string) {
+		const response = await fetch(url);
+		if (!response.ok) return null;
+		const raw = Buffer.from(await response.arrayBuffer());
+		const jsonText = url.endsWith('.gz') ? gunzipSync(raw).toString('utf-8') : raw.toString('utf-8');
+		return JSON.parse(jsonText) as { generatedAt?: string; bucket?: string; docs?: LocalSearchDoc[] };
+	}
+
+	function getDeployedStaticIndexUrl(fileName: string, baseUrl?: string) {
+		const url = baseUrl?.trim() || process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || process.env.VERCEL_BRANCH_URL?.trim() || process.env.VERCEL_URL?.trim();
+		if (!url) return null;
+		const origin = /^https?:\/\//i.test(url) ? url.replace(/\/$/, '') : `https://${url.replace(/\/$/, '')}`;
+		return `${origin}/search-indexes/${fileName}`;
+	}
+
+	function getRemoteSearchIndexFileName(targetBucket: LocalSearchBucket) {
+		switch (targetBucket) {
+			case 'finra:individual':
+				return 'search-index.finra.individual.json.gz';
+			case 'finra:firm':
+				return 'search-index.finra.firm.json.gz';
+			case 'sec:individual':
+				return 'search-index.sec.individual.json.gz';
+			case 'sec:firm':
+				return 'search-index.sec.firm.json.gz';
+		}
+	}
+
 	if (!indexPromiseCache.has(bucket)) {
 		indexPromiseCache.set(
 			bucket,
@@ -313,8 +350,7 @@ async function loadIndex(bucket: LocalSearchBucket): Promise<LocalSearchIndex | 
 						let bucketName: string | undefined;
 
 						for (const filePath of filePaths) {
-							const raw = await readFile(filePath, 'utf-8');
-							const parsed = JSON.parse(raw) as { generatedAt?: string; bucket?: string; docs?: LocalSearchDoc[] };
+							const parsed = await readIndexPayload(filePath);
 							if (parsed?.generatedAt) generatedAt = generatedAt || parsed.generatedAt;
 							bucketName = bucketName || parsed?.bucket;
 							if (Array.isArray(parsed?.docs)) allDocs.push(...parsed.docs);
@@ -327,6 +363,22 @@ async function loadIndex(bucket: LocalSearchBucket): Promise<LocalSearchIndex | 
 						};
 					} catch (err: any) {
 						console.warn(`[localSearch] Failed to load local search indexes for ${bucket}, trying Redis...`);
+					}
+				}
+
+				const remoteUrl = getDeployedStaticIndexUrl(getRemoteSearchIndexFileName(bucket), baseUrl);
+				if (remoteUrl) {
+					try {
+						const parsed = await readIndexPayloadFromUrl(remoteUrl);
+						if (parsed) {
+							return {
+								generatedAt: parsed.generatedAt ?? null,
+								bucket: parsed.bucket ?? bucket,
+								docs: Array.isArray(parsed.docs) ? parsed.docs.map(prepareDoc) : [],
+							};
+						}
+					} catch (err: any) {
+						console.warn(`[localSearch] Failed to fetch remote search index for ${bucket} from ${remoteUrl}, trying Redis...`);
 					}
 				}
 
@@ -496,7 +548,7 @@ export async function searchLocalIndex(source: LocalSearchSource, type: LocalSea
 	const offset = Math.max(0, options.offset ?? 0);
 	const normalizedQuery = simplifyName(query);
 	const tokens = tokenizeQuery(query);
-	const index = await loadIndex(bucket);
+	const index = await loadIndex(bucket, options.baseUrl);
 
 	// If index failed to load, return null result to trigger fallback search
 	if (!index) {

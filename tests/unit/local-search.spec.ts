@@ -1,7 +1,22 @@
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import * as os from 'node:os';
 import * as path from 'node:path';
+import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { searchLocalIndex } from '@/lib/localSearch';
 import { getSearchIndexFilePath } from '@/lib/searchDataPaths';
+
+async function withTempSearchIndex(fileName: string, content: string | Buffer, run: (root: string) => Promise<void>) {
+	const root = await mkdtemp(path.join(os.tmpdir(), 'finra-search-index-'));
+	const indexDir = path.join(root, 'data', 'national');
+	await mkdir(indexDir, { recursive: true });
+	await writeFile(path.join(indexDir, fileName), content);
+	try {
+		await run(root);
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+}
 
 describe('local search indexes', () => {
 	it('returns FINRA individual results from the local index', async () => {
@@ -83,9 +98,44 @@ describe('local search indexes', () => {
 		expect(result.response.docs[0]?.otherNames).toContain('LISA ANN KEVERIAN');
 	});
 
-	it('resolves search index files from nested runtime roots', () => {
-		const resolvedPath = getSearchIndexFilePath('finra:individual', [path.join(process.cwd(), 'src', 'lib')]);
+	it('resolves search index files from nested runtime roots', async () => {
+		await withTempSearchIndex(
+			'search-index.finra.individual.json',
+			JSON.stringify({ generatedAt: '2026-06-06T00:00:00.000Z', bucket: 'finra:individual', docs: [] }),
+			async (root) => {
+				const resolvedPath = getSearchIndexFilePath('finra:individual', [path.join(root, 'src', 'lib')]);
+				expect(resolvedPath).toBe(path.join(root, 'data', 'national', 'search-index.finra.individual.json'));
+			},
+		);
+	});
 
-		expect(resolvedPath).toBe(path.join(process.cwd(), 'data', 'national', 'search-index.finra.individual.json'));
+	it('prefers gzip search indexes when they are available', async () => {
+		await withTempSearchIndex(
+			'search-index.finra.individual.json.gz',
+			gzipSync(
+				Buffer.from(
+					JSON.stringify({
+						generatedAt: '2026-06-06T00:00:00.000Z',
+						bucket: 'finra:individual',
+						docs: [],
+					}),
+				),
+			),
+			async (root) => {
+				const resolvedPath = getSearchIndexFilePath('finra:individual', [root]);
+				expect(resolvedPath).toBe(path.join(root, 'data', 'national', 'search-index.finra.individual.json.gz'));
+			},
+		);
+	});
+
+	it('falls back to plain JSON search indexes when gzip is unavailable', async () => {
+		await withTempSearchIndex(
+			'search-index.finra.individual.json',
+			JSON.stringify({ generatedAt: '2026-06-06T00:00:00.000Z', bucket: 'finra:individual', docs: [] }),
+			async (root) => {
+				const resolvedPath = getSearchIndexFilePath('finra:individual', [root]);
+				expect(resolvedPath).toBe(path.join(root, 'data', 'national', 'search-index.finra.individual.json'));
+			},
+		);
 	});
 });
