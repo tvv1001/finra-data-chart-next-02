@@ -50,15 +50,27 @@ function getCandidateRoots(seedRoots: Array<string | null | undefined> = []) {
 
 export function getSearchIndexFilePath(bucket: SearchIndexBucket, seedRoots: Array<string | null | undefined> = []) {
 	const relativeFilePath = SEARCH_INDEX_RELATIVE_FILES[bucket];
+	const fileName = path.basename(relativeFilePath);
 	const candidates = getCandidateRoots(seedRoots);
 	const attemptedPaths: string[] = [];
 
 	for (const root of candidates) {
+		// Try standard relative path first (data/national/...)
 		const candidatePath = path.resolve(root, relativeFilePath);
 		attemptedPaths.push(candidatePath);
 		if (existsSync(candidatePath)) {
 			console.log(`[searchDataPaths] Found ${bucket} at: ${candidatePath}`);
 			return candidatePath;
+		}
+
+		// If root is public/search-indexes or ends with search-indexes, look for file directly
+		if (root.endsWith('search-indexes') || root.includes('public/search-indexes')) {
+			const directPath = path.resolve(root, fileName);
+			attemptedPaths.push(directPath);
+			if (existsSync(directPath)) {
+				console.log(`[searchDataPaths] Found ${bucket} at: ${directPath}`);
+				return directPath;
+			}
 		}
 	}
 
