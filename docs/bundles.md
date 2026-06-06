@@ -45,3 +45,10 @@ Notes
 - Upstash request size limit (~10MB) requires chunking. We use 9MB chunks by default.
 - Keep a small human-readable manifest in Redis so operations can atomically swap bundles by writing new parts then updating manifest.
 - Prefer `msgpack+gzip` for size savings on large artifacts; keep per-CRD flat JSON keys for incremental updates.
+
+People-first clustered primed cache
+
+- `scripts/build_people_clusters.js` emits `people-cluster-####.json` and `people-cluster-####.bin` artifacts under `data/national/primed-cache/`.
+- Each cluster keeps people nodes as the core payload and only includes bridge firms that are shared by multiple people in the cluster and stay under the bridge-firm size cap.
+- `people-cluster-map.json` stores the cluster manifest plus the person-to-cluster map for fast lookup.
+- The upload scripts treat these files the same way as the existing primed bundles, so the cluster family can be deployed without a separate Redis format.

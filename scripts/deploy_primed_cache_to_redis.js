@@ -5,7 +5,6 @@ const { Redis } = require('@upstash/redis');
 
 const ROOT = process.cwd();
 const PRIMED_CACHE_DIR = path.join(ROOT, 'data', 'national', 'primed-cache');
-const BUNDLE_NAMES = ['finra-individual', 'sec-individual'];
 const REDIS_KEY_PREFIX = 'primed:bundle:';
 const REDIS_META_SUFFIX = ':meta';
 const REDIS_PART_SUFFIX = ':part:';
@@ -22,6 +21,10 @@ async function exists(filePath) {
 	} catch {
 		return false;
 	}
+}
+
+function shouldUploadBundleName(bundleName) {
+	return bundleName && !/(?:^|[-_.])(manifest|index|meta)$/i.test(bundleName);
 }
 
 function getBundleKey(bundleName) {
@@ -86,8 +89,15 @@ async function main() {
 	}
 
 	const redis = new Redis({ url, token });
+	const entries = await fs.readdir(PRIMED_CACHE_DIR).catch(() => []);
+	const bundleNames = entries
+		.filter((name) => name.endsWith('.json'))
+		.map((name) => name.replace(/\.json$/i, ''))
+		.filter(shouldUploadBundleName)
+		.sort((a, b) => a.localeCompare(b));
+
 	let uploaded = 0;
-	for (const bundleName of BUNDLE_NAMES) {
+	for (const bundleName of bundleNames) {
 		const binPath = path.join(PRIMED_CACHE_DIR, `${bundleName}.bin`);
 		const jsonPath = path.join(PRIMED_CACHE_DIR, `${bundleName}.json`);
 		if (await exists(binPath)) {
