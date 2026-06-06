@@ -17,6 +17,10 @@ const NATIONAL = path.join(ROOT, 'data', 'national');
 // default chunk size in bytes (base64 expansion can increase payload); use 6MB to be conservative
 const MAX_CHUNK = parseInt(process.env.MAX_CHUNK_BYTES || String(6 * 1024 * 1024)); // 6MB default
 
+function shouldUploadPrimedArtifact(name) {
+	return name.endsWith('.json') && !/(?:^|[-_.])(manifest|index|meta)$/i.test(name.replace(/\.json$/i, ''));
+}
+
 function chunkBuffer(buf, size) {
 	const parts = [];
 	for (let i = 0; i < buf.length; i += size) parts.push(buf.slice(i, i + size));
@@ -76,7 +80,7 @@ async function main() {
 	if (await fs.stat(primedDir).catch(() => false)) {
 		const files = await fs.readdir(primedDir);
 		for (const f of files) {
-			if (!f.endsWith('.json')) continue;
+			if (!shouldUploadPrimedArtifact(f)) continue;
 			const name = f.replace('.json', '');
 			const p = path.join(primedDir, f);
 			console.log('processing primed bundle', name);
