@@ -3,16 +3,12 @@
 
 /data/**
 !/data/national/
-!/data/national/finra-graph.json
 !/data/national/finra-seed-bank.json
-!/data/national/search-index.finra.individual.json
-!/data/national/search-index.finra.firm.json
-!/data/national/search-index.sec.individual.json
-!/data/national/search-index.sec.firm.json
 !/data/seed-profiles.json
 
 # Explicit exclusions for large or local-only artifacts.
-/data/national/primed-cache/**
+/data/national/finra-graph.json
+/data/national/search-index.*.json
 /data/national/finra-recent-seeds.json
 /data/national/*.bak
 /data/cache-binary/**
