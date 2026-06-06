@@ -2537,7 +2537,10 @@ export function updateFocusReadout(node) {
 	}
 
 	const label = getRenderedNodeLabel(node);
-	const rawId = String(node.id || '').split(':').pop() || '';
+	const rawId =
+		String(node.id || '')
+			.split(':')
+			.pop() || '';
 	const numericId = /^\d+$/.test(rawId) ? rawId : null;
 	const crdLabel = node.group === 'firm' ? 'CRD#' : 'CRD#'; // Always CRD# for now as per request
 
@@ -4067,33 +4070,40 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 					}
 				});
 
-				const hitHasIndividualId = (hit) => {
+				const getSearchHitIndividualId = (hit) => {
 					const src = hit?._source || hit || {};
-					if (src?.ind_source_id || src?.ind_crd) return true;
+					const baseId = String(src?.basicInformation?.individualId || src?.ind_source_id || src?.ind_crd || '').trim();
+					if (baseId) return baseId;
+					if (typeof src?.id === 'string' && src.id.startsWith('person:')) return src.id.split(':')[1] || '';
 					if (typeof src?.content === 'string') {
 						try {
 							const parsed = JSON.parse(src.content);
-							return Boolean(parsed?.basicInformation?.individualId);
+							return String(parsed?.basicInformation?.individualId || parsed?.ind_source_id || parsed?.ind_crd || '').trim();
 						} catch {
-							return false;
+							return '';
 						}
 					}
-					return false;
+					return '';
 				};
 
-				const hitHasFirmId = (hit) => {
+				const getSearchHitFirmId = (hit) => {
 					const src = hit?._source || hit || {};
-					if (src?.firm_id || src?.firmId || src?.firm_source_id) return true;
+					const baseId = String(src?.basicInformation?.firmId || src?.firm_id || src?.firmId || src?.firm_source_id || '').trim();
+					if (baseId) return baseId;
+					if (typeof src?.id === 'string' && src.id.startsWith('firm:')) return src.id.split(':')[1] || '';
 					if (typeof src?.content === 'string') {
 						try {
 							const parsed = JSON.parse(src.content);
-							return Boolean(parsed?.basicInformation?.firmId);
+							return String(parsed?.basicInformation?.firmId || parsed?.firm_id || parsed?.firmId || parsed?.firm_source_id || '').trim();
 						} catch {
-							return false;
+							return '';
 						}
 					}
-					return false;
+					return '';
 				};
+
+				const hitHasIndividualId = (hit) => Boolean(getSearchHitIndividualId(hit));
+				const hitHasFirmId = (hit) => Boolean(getSearchHitFirmId(hit));
 
 				// When query is a pure number, always inject synthetic hits so the
 				// direct-by-ID lookup path runs when search could not already identify
@@ -4248,7 +4258,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				}
 
 				function addFirmFromSource(src) {
-					const firmId = String(src?.firm_id || src?.firmId || src?.firm_source_id || '').trim();
+					const firmId = getSearchHitFirmId(src);
 					if (!firmId) return;
 					const firmNodeId = `firm:${firmId}`;
 					const firmLabel = src?.firm_name || src?.firmName || src?.name || `Firm ${firmId}`;
@@ -4274,7 +4284,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 					await Promise.allSettled(
 						allHits.map(async (hit) => {
 							const src = hit._source || hit;
-							const crd = String(src?.ind_source_id || src?.ind_crd || '').trim();
+							const crd = getSearchHitIndividualId(src);
 							if (crd && /^\d+$/.test(crd)) {
 								try {
 									const r = await fetch(`${BASE}/api/finra/individual/${encodeURIComponent(crd)}`);
@@ -4354,12 +4364,12 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 					// Text search — build nodes directly from search _source (fast, no extra fetches)
 					for (const hit of allHits) {
 						const src = hit._source || hit;
-						const crd = String(src?.ind_source_id || src?.ind_crd || '').trim();
+						const crd = getSearchHitIndividualId(src);
 						if (crd) {
 							addIndividualFromSource(src);
 							continue;
 						}
-						const firmId = String(src?.firm_id || src?.firmId || src?.firm_source_id || '').trim();
+						const firmId = getSearchHitFirmId(src);
 						if (firmId) {
 							addFirmFromSource(src);
 							continue;
@@ -5157,8 +5167,8 @@ async function loadGraph() {
 		isSessionCleared = clearedSession;
 		const hasSavedSessionData = Boolean(
 			session &&
-				!clearedSession &&
-				(session.extraNodes?.length || session.extraNodeIds?.length || session.renderedServerIds?.length || session.selectedNodeId || session.highlightedNodes?.length),
+			!clearedSession &&
+			(session.extraNodes?.length || session.extraNodeIds?.length || session.renderedServerIds?.length || session.selectedNodeId || session.highlightedNodes?.length),
 		);
 		const shouldStartEmptyForCustomProfile = profileName === 'custom' && !pendingRouteNodeId && !profileHasExplicitSeedTargets(profileData) && !hasSavedSessionData;
 
@@ -6916,14 +6926,9 @@ function markNodeSelected(node, options: { persist?: boolean } = {}) {
 }
 
 function getNodeVisualLabelText(node) {
-	const isFocused =
-		node.id === selectedId ||
-		activeFindMatchIds.has(node.id) ||
-		(Array.isArray(highlightedSelections) && highlightedSelections.some((h) => h.id === node.id));
+	const isFocused = node.id === selectedId || activeFindMatchIds.has(node.id) || (Array.isArray(highlightedSelections) && highlightedSelections.some((h) => h.id === node.id));
 
-	return isNodeInactive(node) && inactiveLabelCompactMode && !isFocused
-		? getCompactInactiveNodeLabel(node)
-		: getRenderedNodeLabel(node, { skipTruncation: isFocused });
+	return isNodeInactive(node) && inactiveLabelCompactMode && !isFocused ? getCompactInactiveNodeLabel(node) : getRenderedNodeLabel(node, { skipTruncation: isFocused });
 }
 
 function updateNodeVisuals(selection) {
