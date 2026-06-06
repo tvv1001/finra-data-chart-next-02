@@ -1,6 +1,39 @@
 import { readFile } from 'node:fs/promises';
 import { getSearchIndexFilePath } from './searchDataPaths';
 
+async function fetchFromRedis(bucket: string): Promise<any | null> {
+	const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
+	const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+	if (!redisUrl || !redisToken) {
+		return null;
+	}
+
+	try {
+		const response = await fetch(redisUrl, {
+			method: 'POST',
+			headers: {
+				'Authorization': `Bearer ${redisToken}`,
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify(['GET', `search:indexes:${bucket}`]),
+		});
+
+		if (!response.ok) {
+			return null;
+		}
+
+		const result = await response.json();
+		const value = result;
+		if (!value) return null;
+
+		return JSON.parse(value);
+	} catch (err) {
+		console.error(`[localSearch] Failed to fetch index from Redis for ${bucket}:`, err instanceof Error ? err.message : String(err));
+		return null;
+	}
+}
+
 export type LocalSearchSource = 'finra' | 'sec';
 export type LocalSearchEntity = 'individual' | 'firm';
 type LocalSearchBucket = `${LocalSearchSource}:${LocalSearchEntity}`;
@@ -272,6 +305,7 @@ async function loadIndex(bucket: LocalSearchBucket): Promise<LocalSearchIndex | 
 			bucket,
 			(async () => {
 				try {
+					// Try local file first
 					const filePath = getSearchIndexFilePath(bucket);
 					const raw = await readFile(filePath, 'utf-8');
 					const parsed = JSON.parse(raw) as { generatedAt?: string; bucket?: string; docs?: LocalSearchDoc[] };
@@ -281,6 +315,16 @@ async function loadIndex(bucket: LocalSearchBucket): Promise<LocalSearchIndex | 
 						docs: Array.isArray(parsed?.docs) ? parsed.docs.map(prepareDoc) : [],
 					};
 				} catch (err: any) {
+					// Fall back to Redis if local file not found
+					console.warn(`[localSearch] Local file not found for ${bucket}, trying Redis...`);
+					const redisData = await fetchFromRedis(bucket);
+					if (redisData) {
+						return {
+							generatedAt: redisData?.generatedAt,
+							bucket: redisData?.bucket,
+							docs: Array.isArray(redisData?.docs) ? redisData.docs.map(prepareDoc) : [],
+						};
+					}
 					console.error(`[localSearch] Failed to load index for bucket ${bucket}:`, err.message);
 					return null;
 				}

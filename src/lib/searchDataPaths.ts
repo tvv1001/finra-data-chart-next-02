@@ -42,8 +42,8 @@ function getCandidateRoots(seedRoots: Array<string | null | undefined> = []) {
 		addRootAndParents(roots, process.cwd());
 		// Include launcher directory
 		addRootAndParents(roots, process.argv?.[1] ? path.dirname(process.argv[1]) : null);
-		// On Vercel, check .next/data as a potential root (files copied there during build)
-		addRootAndParents(roots, path.join(process.cwd(), '.next', 'data'));
+		// Check public/search-indexes (files copied there during build, preserved on Vercel)
+		addRootAndParents(roots, path.join(process.cwd(), 'public', 'search-indexes'));
 	}
 	return Array.from(roots);
 }

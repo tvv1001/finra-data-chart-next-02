@@ -4,41 +4,37 @@ const path = require('node:path');
 
 const root = process.cwd();
 const dataDir = path.join(root, 'data', 'national');
-const destDataDir = path.join(root, '.next', 'data', 'national');
+const destDir = path.join(root, 'public', 'search-indexes');
 
-// Files to copy
-const filesToCopy = [
+const files = [
 	'search-index.finra.individual.json',
 	'search-index.finra.firm.json',
 	'search-index.sec.individual.json',
 	'search-index.sec.firm.json',
 ];
 
-// Create destination directory
 try {
-	fs.mkdirSync(destDataDir, { recursive: true });
+	fs.mkdirSync(destDir, { recursive: true });
 } catch (err) {
-	console.error(`Failed to create directory ${destDataDir}:`, err.message);
+	console.error(`Failed to create ${destDir}:`, err.message);
 	process.exit(1);
 }
 
-let copiedCount = 0;
-
-for (const file of filesToCopy) {
+let count = 0;
+for (const file of files) {
 	const src = path.join(dataDir, file);
-	const dest = path.join(destDataDir, file);
-	
-	if (fs.existsSync(src)) {
-		try {
+	const dest = path.join(destDir, file);
+	try {
+		if (fs.existsSync(src)) {
 			fs.copyFileSync(src, dest);
 			console.log(`✓ Copied ${file}`);
-			copiedCount++;
-		} catch (err) {
-			console.error(`Failed to copy ${file}:`, err.message);
+			count++;
+		} else {
+			console.warn(`⚠ Source not found: ${src}`);
 		}
-	} else {
-		console.warn(`⚠ Source file not found: ${src}`);
+	} catch (err) {
+		console.error(`✗ Failed to copy ${file}:`, err.message);
 	}
 }
 
-console.log(`Successfully copied ${copiedCount} search index files to .next output.`);
+console.log(`\nSuccessfully copied ${count}/${files.length} search index files to public/search-indexes/`);
