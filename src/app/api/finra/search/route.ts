@@ -65,7 +65,10 @@ export async function GET(request: NextRequest) {
 
 		console.log('[search] Local search returned 0, falling back to graph search...');
 		const fallback = await searchGraphFallback('finra', entity, query, { limit, offset });
-		console.log('[search] Graph fallback result:', { total: fallback.total, hasResults: fallback.results.length > 0 });
+		console.log('[search] Graph fallback result:', { total: fallback.total, hasResults: fallback.results.length > 0, resultsLength: fallback.results?.length });
+		if (fallback.total === 0) {
+			console.log('[search] WARNING: Both local search and graph fallback returned 0 results');
+		}
 		return NextResponse.json(fallback);
 	} catch (err: any) {
 		logger.error('search error', { error: err.message });
