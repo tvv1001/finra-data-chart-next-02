@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFullGraph, saveGraph } from '@/lib/graphStore';
 import { Redis as UpstashRedis } from '@upstash/redis';
 import { logger } from '@/lib/logger';
+import { sharedCacheHeaders } from '@/lib/httpCache';
 import { searchLocalIndex } from '@/lib/localSearch';
 import { normalizeIndividualDetailFromSource } from '@/lib/individualDetail';
 import { tryLoadPersonCluster } from '@/lib/peopleClusterCache';
