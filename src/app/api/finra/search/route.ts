@@ -54,14 +54,18 @@ export async function GET(request: NextRequest) {
 		if (!params) return NextResponse.json({ hits: { hits: [] } });
 
 		const query = params.get('query') || '';
-		if (!hasMinimumSearchQuery(query)) return NextResponse.json({ hits: { hits: [] }, response: { docs: [], numFound: 0, start: 0 }, results: [], total: 0, currentPage: [], pageNumber: 1, pageSize: 0 });
+		if (!hasMinimumSearchQuery(query))
+			return NextResponse.json({ hits: { hits: [] }, response: { docs: [], numFound: 0, start: 0 }, results: [], total: 0, currentPage: [], pageNumber: 1, pageSize: 0 });
 		const limit = Number.parseInt(params.get('nrows') || '12', 10) || 12;
 		const offset = Number.parseInt(params.get('start') || '0', 10) || 0;
 		const entity = type === 'firm' ? 'firm' : 'individual';
 		const data = await searchLocalIndex('finra', entity, query, { limit, offset });
+		console.log('[search] Local index result:', { total: data.total, hasResults: data.results.length > 0 });
 		if (data.total > 0) return NextResponse.json(data);
 
+		console.log('[search] Local search returned 0, falling back to graph search...');
 		const fallback = await searchGraphFallback('finra', entity, query, { limit, offset });
+		console.log('[search] Graph fallback result:', { total: fallback.total, hasResults: fallback.results.length > 0 });
 		return NextResponse.json(fallback);
 	} catch (err: any) {
 		logger.error('search error', { error: err.message });
