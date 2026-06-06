@@ -5,14 +5,14 @@ const path = require('node:path');
 const root = process.cwd();
 const dataDir = path.join(root, 'data', 'national');
 const publicDestDir = path.join(root, 'public', 'search-indexes');
-const nextDestDir = path.join(root, '.next', 'data', 'national');
+const nextServerDestDir = path.join(root, '.next', 'server', 'data', 'national');
 
 const files = ['search-index.finra.individual.json', 'search-index.finra.firm.json', 'search-index.sec.individual.json', 'search-index.sec.firm.json'];
 
 // Create destination directories
 try {
 	fs.mkdirSync(publicDestDir, { recursive: true });
-	fs.mkdirSync(nextDestDir, { recursive: true });
+	fs.mkdirSync(nextServerDestDir, { recursive: true });
 } catch (err) {
 	console.error('Failed to create destination directories:', err.message);
 	process.exit(1);
@@ -22,12 +22,12 @@ let count = 0;
 for (const file of files) {
 	const src = path.join(dataDir, file);
 	const publicDest = path.join(publicDestDir, file);
-	const nextDest = path.join(nextDestDir, file);
+	const nextServerDest = path.join(nextServerDestDir, file);
 
 	try {
 		if (fs.existsSync(src)) {
 			fs.copyFileSync(src, publicDest);
-			fs.copyFileSync(src, nextDest);
+			fs.copyFileSync(src, nextServerDest);
 			console.log(`✓ Copied ${file}`);
 			count++;
 		} else {
@@ -38,4 +38,4 @@ for (const file of files) {
 	}
 }
 
-console.log(`\nSuccessfully copied ${count}/${files.length} search index files to public/search-indexes/ and .next/data/national/`);
+console.log(`\nSuccessfully copied ${count}/${files.length} search index files to public/search-indexes/ and .next/server/data/national/`);
