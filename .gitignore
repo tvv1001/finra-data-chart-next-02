@@ -46,3 +46,7 @@ data/raw/
 data/raw/**
 .vercel
 scripts/import_raw_data.sh
+
+# Generated notes / docs
+generated/
+*.generated.md
