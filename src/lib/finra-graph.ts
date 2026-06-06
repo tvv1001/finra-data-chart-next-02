@@ -1333,6 +1333,7 @@ function collectSearchableNodeKeys(node) {
 		node.label,
 		node.name,
 		basic.name,
+		node.addressSearchText,
 		[basic.firstName, basic.middleName, basic.lastName].filter(Boolean).join(' '),
 		...(Array.isArray(node.otherNames) ? node.otherNames : []),
 		...(Array.isArray(basic.otherNames) ? basic.otherNames : []),
@@ -1419,26 +1420,52 @@ export function rankFindNodeMatches(rawQuery, nodePool = [], liveLinks = []) {
 			if (comparableQuery && containsWholePhrase(keyComparable, comparableQuery)) {
 				bestScore = Math.max(bestScore, 150);
 			}
+			if (comparableQuery && (keyComparable.includes(comparableQuery) || comparableQuery.includes(keyComparable))) {
+				bestScore = Math.max(bestScore, 120);
+			}
 
-			// Word-by-word matching
+			// 7.5 Address match
+			if (comparableQuery && node.addressSearchText && node.addressSearchText.includes(comparableQuery)) {
+				bestScore = Math.max(bestScore, 130);
+			}
+
+			// 8. Word-by-word fuzzy matching
 			if (comparableQuery) {
 				const queryWords = comparableQuery.split(/\s+/).filter((w) => w.length > 0);
 				const keyWords = keyComparable.split(/\s+/).filter((w) => w.length > 0);
 
 				if (queryWords.length > 0 && keyWords.length > 0) {
 					let matchCount = 0;
+					let fuzzyScoreAcc = 0;
 					let validQueryWords = 0;
 
 					for (const qw of queryWords) {
 						if (qw.length <= 2) continue;
 						validQueryWords++;
-						if (keyWords.includes(qw)) {
+						let bestKwScore = 0;
+						for (const kw of keyWords) {
+							if (kw === qw) {
+								bestKwScore = Math.max(bestKwScore, 140);
+							} else if (kw.includes(qw)) {
+								bestKwScore = Math.max(bestKwScore, 130);
+							} else if (kw.length > 2) {
+								const dist = getLevenshteinDistance(qw, kw);
+								const maxDist = Math.max(1, Math.floor(qw.length * 0.3));
+								if (dist <= maxDist) {
+									bestKwScore = Math.max(bestKwScore, 110 - dist * 5);
+								}
+							}
+						}
+						if (bestKwScore > 0) {
 							matchCount++;
+							fuzzyScoreAcc += bestKwScore;
 						}
 					}
 
 					if (validQueryWords > 0 && matchCount === validQueryWords) {
-						bestScore = Math.max(bestScore, 140);
+						bestScore = Math.max(bestScore, Math.floor(fuzzyScoreAcc / matchCount));
+					} else if (matchCount > 0 && queryWords.length === 1) {
+						bestScore = Math.max(bestScore, fuzzyScoreAcc);
 					}
 				}
 			}

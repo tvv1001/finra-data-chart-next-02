@@ -13,28 +13,28 @@ const BUCKETS = [
 		source: 'finra',
 		type: 'individual',
 		dir: FINRA_DIR,
-		filePattern: /^api\.brokercheck\.finra\.org_search_individual_\d+\.json$/,
+		filePattern: /^(?:api\.brokercheck\.finra\.org_search_individual_|finra:individual:)\d+\.json$/,
 	},
 	{
 		name: 'finra:firm',
 		source: 'finra',
 		type: 'firm',
 		dir: FINRA_DIR,
-		filePattern: /^api\.brokercheck\.finra\.org_search_firm_\d+\.json$/,
+		filePattern: /^(?:api\.brokercheck\.finra\.org_search_firm_|finra:firm:)\d+\.json$/,
 	},
 	{
 		name: 'sec:individual',
 		source: 'sec',
 		type: 'individual',
 		dir: SEC_DIR,
-		filePattern: /^api\.adviserinfo\.sec\.gov_search_individual_\d+\.json$/,
+		filePattern: /^(?:api\.adviserinfo\.sec\.gov_search_individual_|sec:individual:)\d+\.json$/,
 	},
 	{
 		name: 'sec:firm',
 		source: 'sec',
 		type: 'firm',
 		dir: SEC_DIR,
-		filePattern: /^api\.adviserinfo\.sec\.gov_search_firm_\d+\.json$/,
+		filePattern: /^(?:api\.adviserinfo\.sec\.gov_search_firm_|sec:firm:)\d+\.json$/,
 	},
 ];
 
@@ -151,12 +151,13 @@ function buildIndividualDoc(source, detail) {
 	const currentEmployments = normalizeEmployments(detail.currentEmployments);
 	const currentIAEmployments = normalizeEmployments(detail.currentIAEmployments);
 	const registrationCount = getRegistrationCount(detail);
-	const nameTexts = uniqueTexts([
-		basicInformation.firstName,
-		basicInformation.middleName,
-		basicInformation.lastName,
-		...otherNames,
+
+	const currentAddressTexts = uniqueTexts([
+		...currentEmployments.flatMap((e) => [e.city, e.state, ...e.branchOfficeLocations.flatMap((l) => [l.street1, l.street2, l.city, l.state])]),
+		...currentIAEmployments.flatMap((e) => [e.city, e.state, ...e.branchOfficeLocations.flatMap((l) => [l.street1, l.street2, l.city, l.state])]),
 	]);
+
+	const nameTexts = uniqueTexts([basicInformation.firstName, basicInformation.middleName, basicInformation.lastName, ...otherNames]);
 	const hit = {
 		ind_source_id: individualId,
 		ind_crd: individualId,
@@ -182,6 +183,7 @@ function buildIndividualDoc(source, detail) {
 		type: 'individual',
 		source,
 		nameSearchText: nameTexts.join(' ').toLowerCase(),
+		addressSearchText: currentAddressTexts.join(' ').toLowerCase(),
 		strictSearchText: uniqueTexts(collectScalarTexts(detail)).join(' ').toLowerCase(),
 		searchText: uniqueTexts([individualId, ...nameTexts]).join(' ').toLowerCase(),
 		hit,
@@ -195,6 +197,12 @@ function buildFirmDoc(source, detail) {
 
 	const firmName = toText(basicInformation.firmName);
 	const otherNames = uniqueTexts(basicInformation.otherNames);
+
+	const addressDetails = detail.firmAddressDetails || {};
+	const office = addressDetails.officeAddress || {};
+	const mailing = addressDetails.mailingAddress || {};
+	const currentAddressTexts = uniqueTexts([office.city, office.state, office.street1, office.street2, mailing.city, mailing.state, mailing.street1, mailing.street2]);
+
 	const registrationStatuses = ensureArray(detail.registrationStatus).map((status) => toText(status?.status));
 	const nameTexts = uniqueTexts([firmName, ...otherNames]);
 	const hit = {
@@ -217,6 +225,7 @@ function buildFirmDoc(source, detail) {
 		type: 'firm',
 		source,
 		nameSearchText: nameTexts.join(' ').toLowerCase(),
+		addressSearchText: currentAddressTexts.join(' ').toLowerCase(),
 		strictSearchText: uniqueTexts(collectScalarTexts(detail)).join(' ').toLowerCase(),
 		searchText: uniqueTexts([firmId, ...nameTexts]).join(' ').toLowerCase(),
 		hit,
