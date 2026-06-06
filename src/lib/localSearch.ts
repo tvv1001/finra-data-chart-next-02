@@ -272,14 +272,16 @@ async function loadIndex(bucket: LocalSearchBucket): Promise<LocalSearchIndex | 
 			bucket,
 			(async () => {
 				try {
-					const raw = await readFile(getSearchIndexFilePath(bucket), 'utf-8');
+					const filePath = getSearchIndexFilePath(bucket);
+					const raw = await readFile(filePath, 'utf-8');
 					const parsed = JSON.parse(raw) as { generatedAt?: string; bucket?: string; docs?: LocalSearchDoc[] };
 					return {
 						generatedAt: parsed?.generatedAt,
 						bucket: parsed?.bucket,
 						docs: Array.isArray(parsed?.docs) ? parsed.docs.map(prepareDoc) : [],
 					};
-				} catch {
+				} catch (err: any) {
+					console.error(`[localSearch] Failed to load index for bucket ${bucket}:`, err.message);
 					return null;
 				}
 			})(),
