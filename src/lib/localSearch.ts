@@ -449,63 +449,31 @@ function getNameMatchScore(doc: PreparedLocalSearchDoc, rawQuery: string, normal
 }
 
 function getSortScore(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQuery: string, tokens: string[]) {
-	if (isStrictSurnameQuery(rawQuery, normalizedQuery)) {
-		return getSurnameMatchScore(doc, rawQuery, normalizedQuery);
-	}
-	const strictText = doc.normalizedStrictSearchText;
-	const nameText = doc.normalizedNameSearchText;
-	const addressText = doc.addressSearchText;
 	const identifier = getIdentifierText(doc);
+	const nameText = doc.normalizedNameSearchText;
 	let score = 0;
 	if (identifier === normalizedQuery) score += 300;
 	if (doc.id.toLowerCase().endsWith(`:${normalizedQuery}`)) score += 250;
-	if (containsWholePhrase(strictText, normalizedQuery)) score += 100;
-	if (containsWholePhrase(nameText, normalizedQuery)) score += 40;
-	if (containsWholePhrase(addressText, normalizedQuery)) score += 80; // High boost for geographic phrase match
-	if (nameText.includes(normalizedQuery)) score += 20;
-	if (addressText.includes(normalizedQuery)) score += 30; // Boost for geographic substring match
-
-	score += getNameMatchScore(doc, rawQuery, normalizedQuery, tokens);
+	if (containsWholePhrase(nameText, normalizedQuery)) score += 100;
+	if (tokens.every((token) => token === normalizedQuery || identifier.includes(token))) score += 40;
 	for (const token of tokens) {
 		if (identifier === token) score += 120;
-		if (containsWholePhrase(strictText, token)) score += 20;
-		if (containsWholePhrase(addressText, token)) score += 40;
 	}
+	score += getNameMatchScore(doc, rawQuery, normalizedQuery, tokens);
 	return score;
 }
 
 function matchesQuery(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQuery: string, tokens: string[]) {
 	if (!tokens.length) return false;
-
 	const identifier = getIdentifierText(doc);
-	if (identifier === normalizedQuery) return true;
-
+	if (!identifier) return false;
+	if (identifier === normalizedQuery || doc.id.toLowerCase().endsWith(`:${normalizedQuery}`) || containsWholePhrase(identifier, normalizedQuery)) return true;
 	if (isStrictSurnameQuery(rawQuery, normalizedQuery)) {
 		return getSurnameMatchScore(doc, rawQuery, normalizedQuery) > 0;
 	}
-
-	// Must match ALL tokens in the query
-	const allTokensMatch = tokens.every((token) => {
-		// Exact word or substring match in any candidate full name (candidate must contain token)
-		if (doc.nameCandidates.some((candidate) => candidate.includes(token))) {
-			return true;
-		}
-		// Match in current address
-		if (doc.addressSearchText.includes(token)) {
-			return true;
-		}
-		// Fuzzy token match (includes nicknames)
-		if (doc.nameTokens.some((nameToken) => tokensFuzzyMatch(token, nameToken))) {
-			return true;
-		}
-		return false;
-	});
-
-	if (allTokensMatch) return true;
-
 	if (getNameMatchScore(doc, rawQuery, normalizedQuery, tokens) > 0) return true;
 	if (hasStrictMatch(doc, normalizedQuery, tokens)) return true;
-	return false;
+	return tokens.every((token) => doc.nameTokens.some((candidateToken) => tokensFuzzyMatch(token, candidateToken)));
 }
 
 export async function searchLocalIndex(source: LocalSearchSource, type: LocalSearchEntity, query: string, options: LocalSearchOptions = {}): Promise<LocalSearchResponse> {

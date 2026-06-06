@@ -38,6 +38,8 @@ function collectSearchableNodeKeys(node: any) {
 		[basic?.firstName, basic?.middleName, basic?.lastName].filter(Boolean).join(' '),
 		...(Array.isArray(node?.otherNames) ? node.otherNames : []),
 		...(Array.isArray(basic?.otherNames) ? basic.otherNames : []),
+		node?.ind_source_id,
+		node?.firm_source_id,
 	]
 		.map((value) => normalizeText(value))
 		.filter(Boolean);
