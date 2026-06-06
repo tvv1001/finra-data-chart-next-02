@@ -7329,7 +7329,7 @@ function renderGraph(_data) {
 	}
 
 	function updateTraceStrokeScale(scale: number) {
-		const minZoom = 0.25;
+		const minZoom = 0.15;
 		const clampedZoom = Math.max(minZoom, Math.min(1, Number(scale) || 1));
 		const normalized = (clampedZoom - minZoom) / (1 - minZoom);
 		const gentleScale = 1.2 - normalized * 0.2;
@@ -7338,7 +7338,7 @@ function renderGraph(_data) {
 
 	const zoom = d3
 		.zoom()
-		.scaleExtent([0.13, 9.6])
+		.scaleExtent([0.02, 2.6])
 		.on('zoom', (event) => {
 			root.attr('transform', event.transform);
 			updateTraceStrokeScale(event.transform.k);

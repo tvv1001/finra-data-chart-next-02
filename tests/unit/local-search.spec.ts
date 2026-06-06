@@ -14,12 +14,12 @@ describe('local search indexes', () => {
 	});
 
 	it('returns SEC firm results from the local index', async () => {
-		const result = await searchLocalIndex('sec', 'firm', 'advest', { limit: 5 });
+		const result = await searchLocalIndex('sec', 'firm', '39914', { limit: 5 });
 
 		expect(result.total).toBeGreaterThan(0);
 		expect(result.hits.hits.length).toBeGreaterThan(0);
-		expect(result.response.docs[0]?.firm_id).toBe('10');
-		expect(String(result.response.docs[0]?.firm_name || '').toLowerCase()).toContain('advest');
+		expect(result.response.docs[0]?.firm_id).toBe('39914');
+		expect(String(result.response.docs[0]?.firm_name || '').toLowerCase()).toContain('westpark');
 	});
 
 	it('supports fuzzy matching on individual names', async () => {
@@ -34,6 +34,7 @@ describe('local search indexes', () => {
 		const result = await searchLocalIndex('sec', 'individual', 'mason', { limit: 1000 });
 
 		expect(result.total).toBeGreaterThan(0);
+		expect(result.total).toBeLessThan(2000);
 		expect(result.response.docs.some((doc) => String(doc.ind_source_id || '') === '1222513')).toBe(true);
 		expect(result.response.docs.some((doc) => String(doc.ind_source_id || '') === '1098656')).toBe(true);
 	});
