@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export const SEARCH_INDEX_RELATIVE_FILES = {
 	'finra:individual': path.join('data', 'national', 'search-index.finra.individual.json'),
@@ -26,7 +27,16 @@ function getCandidateRoots(seedRoots: Array<string | null | undefined> = []) {
 	const roots = new Set<string>();
 	for (const seedRoot of seedRoots) addRootAndParents(roots, seedRoot);
 	if (!seedRoots.length) {
+		// Start from process.cwd()
 		addRootAndParents(roots, process.cwd());
+		// Include module directory (works on Vercel)
+		try {
+			const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+			addRootAndParents(roots, moduleDir);
+		} catch {
+			// Fallback for environments without import.meta.url
+		}
+		// Include launcher directory
 		addRootAndParents(roots, typeof __dirname === 'string' ? __dirname : null);
 		addRootAndParents(roots, process.argv?.[1] ? path.dirname(process.argv[1]) : null);
 	}
