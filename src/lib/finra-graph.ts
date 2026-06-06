@@ -3977,8 +3977,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			const liveNode = layoutNodes.find((node) => node.id === bestNodeId) || matches[0].node;
 			if (!liveNode) return false;
 
-			selectNode(liveNode, {
-				skipAutoExpand: true,
+			openNodeWithExpansion(liveNode, {
 				focus: true,
 				pulse: true,
 				focusDuration: 520,
@@ -4413,6 +4412,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 
 				const newCount = batchAllNodes.length;
 				updateFetchStatus(`Added ${newCount} node${newCount !== 1 ? 's' : ''} for "${q}"`);
+				focusExistingNodeMatch(q, { statusPrefix: 'Opened' });
 			} catch (err) {
 				console.error('remote fetch failed', err);
 				updateFetchStatus(`Fetch error: ${err?.message || err}`);
@@ -9007,9 +9007,27 @@ async function ensureExpansionDataForNode(
 
 export async function handleNodeOpen(event, d) {
 	event.stopPropagation();
+	openNodeWithExpansion(d);
+}
+
+function openNodeWithExpansion(
+	d,
+	options: {
+		focus?: boolean;
+		pulse?: boolean;
+		focusDuration?: number;
+	} = {},
+) {
+	const { focus = false, pulse = false, focusDuration = 300 } = options;
 	markUserInitiatedGraphExpansion();
 	anchorNode(d);
-	selectNode(d, { skipAutoExpand: true });
+	lastExpandOriginNode = d;
+	selectNode(d, {
+		skipAutoExpand: true,
+		focus,
+		pulse,
+		focusDuration,
+	});
 	void expandNodeThroughNonGrayHops(d).catch((err) => {
 		console.error('Progressive non-gray hop expansion failed:', err);
 		refreshTraceState({ deferMs: 120 });

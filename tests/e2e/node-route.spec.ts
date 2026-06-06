@@ -1101,3 +1101,97 @@ test('Local API hits short-circuit external search before page-node reuse', asyn
 	expect(requestSequence).toEqual(['local']);
 	await expect(page.locator('#fg-subset-info')).toContainText('Loaded from local API', { timeout: 5_000 });
 });
+
+test('Pressing Enter on a unique fetch result opens the node and expands additional hops', async ({ page }) => {
+	let expandRequestCount = 0;
+	await page.route('**/api/finra/graph**', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({
+				nodes: [],
+				links: [],
+				meta: {
+					subset: true,
+					profile: 'custom',
+					renderedNodes: 0,
+					totalNodes: 0,
+					totalLinks: 0,
+				},
+			}),
+		});
+	});
+	await page.route('**/api/finra/search**', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({
+				hits: {
+					hits: [
+						{
+							_source: {
+								ind_source_id: '777777',
+								ind_firstname: 'Enter',
+								ind_lastname: 'Expand',
+								ind_current_employments: [],
+							},
+						},
+					],
+				},
+			}),
+		});
+	});
+	await page.route('**/api/finra/sec-search**', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({ hits: { hits: [] } }),
+		});
+	});
+	await page.route('**/api/finra/expand/person%3A777777**', async (route) => {
+		expandRequestCount += 1;
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({
+				nodes: [
+					{
+						id: 'person:777777',
+						label: 'Enter Expand',
+						group: 'individual',
+						crd: '777777',
+					},
+					{
+						id: 'firm:777778',
+						label: 'Expand Advisors',
+						group: 'firm',
+						firmId: '777778',
+					},
+				],
+				links: [
+					{
+						source: 'person:777777',
+						target: 'firm:777778',
+						relationship: 'employed_by',
+						isCurrent: true,
+					},
+				],
+			}),
+		});
+	});
+
+	await page.goto('/');
+	const fetchInput = page.locator('#fg-fetch-input');
+	await expect(page.locator('#fg-empty')).not.toHaveClass(/hidden/);
+	await fetchInput.fill('Enter Expand');
+	await fetchInput.press('Enter');
+
+	await expect
+		.poll(() => expandRequestCount, {
+			timeout: 10_000,
+			message: 'expected Enter to open the matching node and expand its additional hops',
+		})
+		.toBeGreaterThan(0);
+	await expect(page.locator('.fg-node').filter({ hasText: 'Expand Advisors' })).toHaveCount(1);
+	await expect(page.locator('.fg-link')).toHaveCount(1);
+});
