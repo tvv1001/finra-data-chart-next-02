@@ -23,8 +23,8 @@ async function fetchFromRedis(bucket: string): Promise<any | null> {
 			return null;
 		}
 
-		const result = await response.json();
-		const value = result;
+		const apiResponse = await response.json();
+		const value = apiResponse?.result;
 		if (!value) return null;
 
 		return JSON.parse(value);
