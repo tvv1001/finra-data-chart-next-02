@@ -18,6 +18,16 @@ function canRebuildSearchIndexes() {
 	return hasJsonFiles(finraDir) && hasJsonFiles(secDir);
 }
 
+function runPrimedCacheBuild() {
+	execSync('node scripts/build_primed_cache_bundle.js', {
+		stdio: 'inherit',
+		env: {
+			...process.env,
+			ENABLE_PRIMED_CACHE: 'true',
+		},
+	});
+}
+
 const url = process.env.UPSTASH_REDIS_REST_URL;
 const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
@@ -48,6 +58,7 @@ if (url && token) {
 		execSync('node scripts/build_search_indexes.js', {
 			stdio: 'inherit',
 		});
+		runPrimedCacheBuild();
 	} else {
 		console.warn('Skipping search index rebuild because raw source caches are unavailable.');
 	}
@@ -65,6 +76,7 @@ if (canRebuildSearchIndexes()) {
 	execSync('node scripts/build_search_indexes.js', {
 		stdio: 'inherit',
 	});
+	runPrimedCacheBuild();
 } else {
 	console.warn('Skipping search index rebuild because raw source caches are unavailable.');
 }
