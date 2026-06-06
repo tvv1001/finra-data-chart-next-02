@@ -1,8 +1,8 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { fetchGraphQueryWithLinkedResults, resetBrowserGraphState, seedStoredSession } from './helpers/finra-e2e';
 
-async function getRenderedNodeIndex(page: Parameters<typeof test>[0]['page'], matcher: RegExp) {
+async function getRenderedNodeIndex(page: Page, matcher: RegExp) {
 	const index = await page.evaluate((patternSource) => {
 		const pattern = new RegExp(patternSource, 'i');
 		const nodes = Array.from(document.querySelectorAll<Element>('.fg-node'));
