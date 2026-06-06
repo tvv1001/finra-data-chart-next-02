@@ -1,6 +1,5 @@
 import { existsSync } from 'node:fs';
 import * as path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 export const SEARCH_INDEX_RELATIVE_FILES = {
 	'finra:individual': path.join('data', 'national', 'search-index.finra.individual.json'),
@@ -10,6 +9,16 @@ export const SEARCH_INDEX_RELATIVE_FILES = {
 } as const;
 
 type SearchIndexBucket = keyof typeof SEARCH_INDEX_RELATIVE_FILES;
+
+// Get the directory where this module is located
+// This is needed because __dirname is not reliably available in ES modules
+let moduleDir: string;
+try {
+	// Try to use __dirname if available (CommonJS-like)
+	moduleDir = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
+} catch {
+	moduleDir = process.cwd();
+}
 
 function addRootAndParents(roots: Set<string>, startPath?: string | null) {
 	if (!startPath) return;
@@ -27,17 +36,11 @@ function getCandidateRoots(seedRoots: Array<string | null | undefined> = []) {
 	const roots = new Set<string>();
 	for (const seedRoot of seedRoots) addRootAndParents(roots, seedRoot);
 	if (!seedRoots.length) {
-		// Start from process.cwd()
+		// Always start from module directory first (most reliable on Vercel)
+		addRootAndParents(roots, moduleDir);
+		// Then try process.cwd()
 		addRootAndParents(roots, process.cwd());
-		// Include module directory (works on Vercel)
-		try {
-			const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-			addRootAndParents(roots, moduleDir);
-		} catch {
-			// Fallback for environments without import.meta.url
-		}
 		// Include launcher directory
-		addRootAndParents(roots, typeof __dirname === 'string' ? __dirname : null);
 		addRootAndParents(roots, process.argv?.[1] ? path.dirname(process.argv[1]) : null);
 	}
 	return Array.from(roots);
@@ -45,10 +48,16 @@ function getCandidateRoots(seedRoots: Array<string | null | undefined> = []) {
 
 export function getSearchIndexFilePath(bucket: SearchIndexBucket, seedRoots: Array<string | null | undefined> = []) {
 	const relativeFilePath = SEARCH_INDEX_RELATIVE_FILES[bucket];
-	for (const root of getCandidateRoots(seedRoots)) {
+	const candidates = getCandidateRoots(seedRoots);
+
+	for (const root of candidates) {
 		const candidatePath = path.resolve(root, relativeFilePath);
-		if (existsSync(candidatePath)) return candidatePath;
+		if (existsSync(candidatePath)) {
+			console.log(`[searchDataPaths] Found ${bucket} at: ${candidatePath}`);
+			return candidatePath;
+		}
 	}
 
+	console.warn(`[searchDataPaths] No file found for ${bucket}. Checked roots:`, candidates.slice(0, 3));
 	return path.resolve(process.cwd(), relativeFilePath);
 }
