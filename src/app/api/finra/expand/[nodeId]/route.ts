@@ -3,6 +3,7 @@ import { Redis } from '@upstash/redis';
 import { getFullGraph } from '@/lib/graphStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
+import { tryLoadPersonCluster } from '@/lib/peopleClusterCache';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -52,6 +53,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	try {
 		const { nodeId } = await params;
 		const hops = normalizeHopsParam(request.nextUrl.searchParams.get('hops'));
+
+		if (hops === 1 && nodeId.startsWith('person:')) {
+			try {
+				const cluster = await tryLoadPersonCluster(nodeId.slice('person:'.length));
+				if (cluster) {
+					return NextResponse.json({ nodes: cluster.nodes || [], links: cluster.links || [] }, { headers: sharedCacheHeaders(300) });
+				}
+			} catch (error) {
+				console.warn(`Expansion API: people-cluster lookup failed for ${nodeId}`, error);
+			}
+		}
 
 		// Check for precomputed neighborhood cache first
 		const redisUrl = process.env.UPSTASH_REDIS_REST_URL;

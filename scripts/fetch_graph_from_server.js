@@ -6,6 +6,10 @@
 			throw new Error('Global fetch is not available in this Node runtime');
 		}
 		const url = process.env.FINRA_LOCAL_URL || 'http://localhost:4444';
+		if (process.env.VERCEL && (!process.env.FINRA_LOCAL_URL || /^https?:\/\/localhost(?::\d+)?\/?$/i.test(url))) {
+			console.log('Vercel build: skipping local graph fetch.');
+			process.exit(0);
+		}
 		const api = `${url.replace(/\/$/, '')}/api/finra/graph?limit=10000`;
 		console.log('Fetching', api);
 		const controller = new AbortController();

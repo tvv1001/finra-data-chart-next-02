@@ -3,6 +3,7 @@ import { getFullGraph, getSeedBankFromStore } from '@/lib/graphStore';
 import { getProfilesFromStore } from '@/lib/seedStore';
 import { DEFAULT_EXPANSION_HOPS } from '@/lib/finra-graph-defaults';
 import { sharedCacheHeaders } from '@/lib/httpCache';
+import { tryLoadPersonCluster } from '@/lib/peopleClusterCache';
 
 let cachedGraphRouteKey = '';
 let cachedGraphAdj: Map<string, string[]> | null = null;
@@ -196,6 +197,32 @@ export async function GET(request: NextRequest) {
 		// Select seeds from the seed bank for a more deterministic and interesting initial subset.
 		const seeds: any[] = await sampleNodesFromSeedBank(nodes, limit, cachedAdj);
 		const seedIds = new Set(seeds.map((n) => String(n.id || '').trim()));
+
+		if (seeds.length === 1 && String(seeds[0]?.group || '').trim() === 'individual') {
+			try {
+				const cluster = await tryLoadPersonCluster(String(seeds[0].id || '').replace(/^person:/, ''));
+				if (cluster) {
+					return NextResponse.json(
+						{
+							nodes: cluster.nodes || [],
+							links: cluster.links || [],
+							meta: {
+								...(graph.meta || {}),
+								subset: true,
+								subsetSize: cluster.people?.length || seeds.length,
+								totalNodes: nodes.length,
+								totalLinks: links.length,
+								sourceLabel: 'people-cluster',
+								clusterId: cluster.clusterId,
+							},
+						},
+						{ headers: sharedCacheHeaders(120) },
+					);
+				}
+			} catch (error) {
+				console.warn('graph route people-cluster lookup failed; falling back to graph BFS', error);
+			}
+		}
 
 		if (profileName) {
 			const pr = await getProfilesData();

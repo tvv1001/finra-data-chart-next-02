@@ -90,6 +90,10 @@ async function uploadGraph(redis) {
 }
 
 async function main() {
+	if (process.env.VERCEL) {
+		console.log('Vercel build: skipping ensure_remote_graph.js.');
+		return;
+	}
 	const redis = getRedis();
 	const [rawGraph, rawManifest] = await Promise.all([redis.get(GRAPH_KEY), redis.get(MANIFEST_KEY)]);
 
