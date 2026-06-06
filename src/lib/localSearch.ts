@@ -501,6 +501,22 @@ export async function searchLocalIndex(source: LocalSearchSource, type: LocalSea
 	const normalizedQuery = simplifyName(query);
 	const tokens = tokenizeQuery(query);
 	const index = await loadIndex(bucket);
+
+	// If index failed to load, return null result to trigger fallback search
+	if (!index) {
+		return {
+			bucket,
+			generatedAt: null,
+			total: 0,
+			hits: { total: 0, start: offset, hits: [] },
+			response: { numFound: 0, start: offset, docs: [] },
+			results: [],
+			currentPage: [],
+			pageNumber: Math.floor(offset / Math.max(limit, 1)) + 1,
+			pageSize: limit,
+		};
+	}
+
 	const docs = Array.isArray(index?.docs) ? index.docs : [];
 	const hasMinimumQuery = hasMinimumSearchQuery(query);
 
