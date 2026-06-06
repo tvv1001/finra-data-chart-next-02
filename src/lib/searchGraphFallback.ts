@@ -110,8 +110,10 @@ export async function searchGraphFallback(source: LocalSearchSource, type: Local
 	const offset = Math.max(0, options.offset ?? 0);
 	const graph = await getFullGraph();
 	const nodes: any[] = Array.isArray(graph?.nodes) ? graph.nodes : [];
+	console.log('[searchGraphFallback] Graph loaded:', { hasGraph: !!graph, nodeCount: nodes.length, query });
 	const group = type === 'firm' ? 'firm' : 'individual';
 	const matches = nodes.filter((node) => node?.group === group && matchesQuery(node, query)).sort((left, right) => compareNodes(left, right, query));
+	console.log('[searchGraphFallback] Filtered nodes:', { group, totalMatches: matches.length });
 	const pageNodes = limit > 0 ? matches.slice(offset, offset + limit) : [];
 	return {
 		bucket: `${source}:${type}`,
