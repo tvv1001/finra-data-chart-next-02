@@ -29,9 +29,6 @@
 		"prime:all": "node scripts/download_all_api_data.js",
 		"ci:install-browsers": "npx playwright install --with-deps || npx playwright install chromium"
 	},
-	"engines": {
-		"node": ">=18"
-	},
 	"dependencies": {
 		"@upstash/redis": "^1.37.0",
 		"@vercel/analytics": "^2.0.1",
