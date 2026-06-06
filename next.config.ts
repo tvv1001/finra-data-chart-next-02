@@ -15,26 +15,24 @@ const searchRuntimeData = [
 	'./data/national/search-index.sec.firm.json',
 ];
 
-const finraSearchRuntimeData = ['./data/national/search-index.finra.individual.json', './data/national/search-index.finra.firm.json'];
-
-const secSearchRuntimeData = ['./data/national/search-index.sec.individual.json', './data/national/search-index.sec.firm.json'];
-
 const primedBinaryRuntimeData = ['./data/national/primed-cache/finra-individual.bin', './data/national/primed-cache/sec-individual.bin'];
 
 const excludedLargeRuntimeData = [
-	'./data/raw/**',
-	'./data/cache-binary/**',
-	'./data/national/brokercheck.finra.org/**',
-	'./data/national/adviserinfo.sec.gov/**',
-	'./data/national/primed-cache/**',
-	'./data/national/*.jsonl',
-	'./data/national/redis-dump-*.jsonl',
-	'./data/national/nonstring-finra-keys-*.jsonl',
-	'./data/national/api.*.json',
-	'./tests/**',
-	'./test-results/**',
-	'./playwright-report/**',
-	'./coverage/**',
+	'data/raw/**',
+	'data/cache-binary/**',
+	'data/national/brokercheck.finra.org/**',
+	'data/national/adviserinfo.sec.gov/**',
+	'data/national/primed-cache/**',
+	'data/national/*.jsonl',
+	'data/national/redis-dump-*.jsonl',
+	'data/national/nonstring-finra-keys-*.jsonl',
+	'data/national/api.*.json',
+	'data/national/search-index*.json',
+	'public/search-indexes/**',
+	'tests/**',
+	'test-results/**',
+	'playwright-report/**',
+	'coverage/**',
 ];
 
 const nextConfig: NextConfig = {
@@ -56,15 +54,15 @@ const nextConfig: NextConfig = {
 		'/api/finra/firm/[id]': primedBinaryRuntimeData,
 		'/api/finra/graph': graphRuntimeData,
 		'/api/finra/graph-append': ['./data/national/finra-graph.json'],
-		'/api/finra/graph-search': [...graphRuntimeData, ...searchRuntimeData],
+		'/api/finra/graph-search': graphRuntimeData,
 		'/api/finra/nodes-by-ids': ['./data/national/finra-graph.json'],
 		'/api/finra/prime-check': graphRuntimeData,
 		'/api/finra/individual/[crd]': primedBinaryRuntimeData,
 		'/api/finra/profile/[name]': ['./data/seed-profiles.json'],
 		'/api/finra/recompute-meta': ['./data/national/finra-graph.json'],
-		'/api/finra/search': finraSearchRuntimeData,
-		'/api/finra/sec-search': ['./data/national/search-index.sec.individual.json'],
-		'/api/finra/sec-search-firm': ['./data/national/search-index.sec.firm.json'],
+		'/api/finra/search': [],
+		'/api/finra/sec-search': [],
+		'/api/finra/sec-search-firm': [],
 		'/api/finra/seeds': ['./data/national/finra-seeds.json', './data/seed-profiles.json'],
 	},
 	outputFileTracingExcludes: {
