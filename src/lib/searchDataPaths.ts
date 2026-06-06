@@ -8,6 +8,13 @@ export const SEARCH_INDEX_RELATIVE_FILES = {
 	'sec:firm': path.join('data', 'national', 'search-index.sec.firm.json'),
 } as const;
 
+const SEARCH_INDEX_GZ_RELATIVE_FILES = {
+	'finra:individual': `${SEARCH_INDEX_RELATIVE_FILES['finra:individual']}.gz`,
+	'finra:firm': `${SEARCH_INDEX_RELATIVE_FILES['finra:firm']}.gz`,
+	'sec:individual': `${SEARCH_INDEX_RELATIVE_FILES['sec:individual']}.gz`,
+	'sec:firm': `${SEARCH_INDEX_RELATIVE_FILES['sec:firm']}.gz`,
+} as const;
+
 type SearchIndexBucket = keyof typeof SEARCH_INDEX_RELATIVE_FILES;
 
 // Get the directory where this module is located
@@ -67,6 +74,13 @@ export function getSearchIndexFilePaths(bucket: SearchIndexBucket, seedRoots: Ar
 	const attemptedPaths: string[] = [];
 
 	for (const root of candidates) {
+		const gzCandidatePath = path.resolve(root, SEARCH_INDEX_GZ_RELATIVE_FILES[bucket]);
+		attemptedPaths.push(gzCandidatePath);
+		if (existsSync(gzCandidatePath)) {
+			console.log(`[searchDataPaths] Found ${bucket} gzipped index at: ${gzCandidatePath}`);
+			return [gzCandidatePath];
+		}
+
 		// Try standard relative path first (data/national/...)
 		const candidatePath = path.resolve(root, relativeFilePath);
 		attemptedPaths.push(candidatePath);
@@ -77,6 +91,13 @@ export function getSearchIndexFilePaths(bucket: SearchIndexBucket, seedRoots: Ar
 
 		// If root is public/search-indexes or ends with search-indexes, look for chunked files too
 		if (root.endsWith('search-indexes') || root.includes('public/search-indexes')) {
+			const compressedPath = path.resolve(root, `${fileName}.gz`);
+			attemptedPaths.push(compressedPath);
+			if (existsSync(compressedPath)) {
+				console.log(`[searchDataPaths] Found ${bucket} gzipped index at: ${compressedPath}`);
+				return [compressedPath];
+			}
+
 			const directPath = path.resolve(root, fileName);
 			attemptedPaths.push(directPath);
 			if (existsSync(directPath)) {
@@ -93,7 +114,14 @@ export function getSearchIndexFilePaths(bucket: SearchIndexBucket, seedRoots: Ar
 	}
 
 	// Try common Vercel paths
-	const vercelPaths = [path.resolve('/var/task', relativeFilePath), path.resolve('/var/lang/lib', relativeFilePath), path.resolve('/function', relativeFilePath)];
+	const vercelPaths = [
+		path.resolve('/var/task', SEARCH_INDEX_GZ_RELATIVE_FILES[bucket]),
+		path.resolve('/var/lang/lib', SEARCH_INDEX_GZ_RELATIVE_FILES[bucket]),
+		path.resolve('/function', SEARCH_INDEX_GZ_RELATIVE_FILES[bucket]),
+		path.resolve('/var/task', relativeFilePath),
+		path.resolve('/var/lang/lib', relativeFilePath),
+		path.resolve('/function', relativeFilePath),
+	];
 
 	for (const vercelPath of vercelPaths) {
 		attemptedPaths.push(vercelPath);

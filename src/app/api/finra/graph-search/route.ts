@@ -55,6 +55,7 @@ export async function GET(request: NextRequest) {
 	try {
 		const { searchParams } = new URL(request.url);
 		const q = (searchParams.get('q') || '').toLowerCase().trim();
+		const baseUrl = new URL(request.url).origin;
 		const type = searchParams.get('type') || 'all';
 		const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);
 
@@ -102,10 +103,10 @@ export async function GET(request: NextRequest) {
 			try {
 				const allHits = (
 					await Promise.all([
-						searchLocalIndex('finra', 'individual', q, { limit: 1000 }),
-						searchLocalIndex('finra', 'firm', q, { limit: 1000 }),
-						searchLocalIndex('sec', 'individual', q, { limit: 1000 }),
-						searchLocalIndex('sec', 'firm', q, { limit: 1000 }),
+						searchLocalIndex('finra', 'individual', q, { limit: 1000, baseUrl }),
+						searchLocalIndex('finra', 'firm', q, { limit: 1000, baseUrl }),
+						searchLocalIndex('sec', 'individual', q, { limit: 1000, baseUrl }),
+						searchLocalIndex('sec', 'firm', q, { limit: 1000, baseUrl }),
 					])
 				).flatMap((result) => result?.hits?.hits || []);
 				if (!allHits.length) return NextResponse.json({ nodes: [], links: [], matchedIds: [] });

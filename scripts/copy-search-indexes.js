@@ -7,7 +7,7 @@ const dataDir = path.join(root, 'data', 'national');
 const publicDestDir = path.join(root, 'public', 'search-indexes');
 const nextServerDestDir = path.join(root, '.next', 'server', 'data', 'national');
 
-const files = ['search-index.finra.individual.json', 'search-index.finra.firm.json', 'search-index.sec.individual.json', 'search-index.sec.firm.json'];
+const files = ['search-index.finra.individual.json.gz', 'search-index.finra.firm.json.gz', 'search-index.sec.individual.json.gz', 'search-index.sec.firm.json.gz'];
 const maxChunkSize = 90 * 1024 * 1024; // 90 MB
 
 function writeJsonFile(dest, json) {

@@ -3,6 +3,19 @@ import { hasMinimumSearchQuery, searchLocalIndex } from '@/lib/localSearch';
 import { logger } from '@/lib/logger';
 import { searchGraphFallback } from '@/lib/searchGraphFallback';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+function jsonNoStore(data: unknown, init: Parameters<typeof NextResponse.json>[1] = {}) {
+	return NextResponse.json(data, {
+		...init,
+		headers: {
+			'Cache-Control': 'no-store, max-age=0, must-revalidate',
+			...(init?.headers || {}),
+		},
+	});
+}
+
 function buildFinraSearchParams(searchParams: URLSearchParams) {
 	const params = new URLSearchParams();
 	const rawRows = searchParams.get('rows');
@@ -49,19 +62,20 @@ function buildFinraSearchParams(searchParams: URLSearchParams) {
 export async function GET(request: NextRequest) {
 	try {
 		const { searchParams } = new URL(request.url);
+		const baseUrl = new URL(request.url).origin;
 		const type = searchParams.get('type') || (searchParams.get('firm') ? 'firm' : 'individual');
 		const params = buildFinraSearchParams(searchParams);
-		if (!params) return NextResponse.json({ hits: { hits: [] } });
+		if (!params) return jsonNoStore({ hits: { hits: [] } });
 
 		const query = params.get('query') || '';
 		if (!hasMinimumSearchQuery(query))
-			return NextResponse.json({ hits: { hits: [] }, response: { docs: [], numFound: 0, start: 0 }, results: [], total: 0, currentPage: [], pageNumber: 1, pageSize: 0 });
+			return jsonNoStore({ hits: { hits: [] }, response: { docs: [], numFound: 0, start: 0 }, results: [], total: 0, currentPage: [], pageNumber: 1, pageSize: 0 });
 		const limit = Number.parseInt(params.get('nrows') || '12', 10) || 12;
 		const offset = Number.parseInt(params.get('start') || '0', 10) || 0;
 		const entity = type === 'firm' ? 'firm' : 'individual';
-		const data = await searchLocalIndex('finra', entity, query, { limit, offset });
+		const data = await searchLocalIndex('finra', entity, query, { limit, offset, baseUrl });
 		console.log('[search] Local index result:', { total: data.total, hasResults: data.results.length > 0 });
-		if (data.total > 0) return NextResponse.json(data);
+		if (data.total > 0) return jsonNoStore(data);
 
 		console.log('[search] Local search returned 0, falling back to graph search...');
 		const fallback = await searchGraphFallback('finra', entity, query, { limit, offset });
@@ -69,9 +83,9 @@ export async function GET(request: NextRequest) {
 		if (fallback.total === 0) {
 			console.log('[search] WARNING: Both local search and graph fallback returned 0 results');
 		}
-		return NextResponse.json(fallback);
+		return jsonNoStore(fallback);
 	} catch (err: any) {
 		logger.error('search error', { error: err.message });
-		return NextResponse.json({ error: 'Failed to search FINRA.' }, { status: 502 });
+		return jsonNoStore({ error: 'Failed to search FINRA.' }, { status: 502 });
 	}
 }

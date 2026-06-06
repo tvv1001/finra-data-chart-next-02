@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const zlib = require('node:zlib');
 
 const ROOT = process.cwd();
 const NATIONAL_DIR = path.join(ROOT, 'data', 'national');
@@ -185,7 +186,9 @@ function buildIndividualDoc(source, detail) {
 		nameSearchText: nameTexts.join(' ').toLowerCase(),
 		addressSearchText: currentAddressTexts.join(' ').toLowerCase(),
 		strictSearchText: uniqueTexts(collectScalarTexts(detail)).join(' ').toLowerCase(),
-		searchText: uniqueTexts([individualId, ...nameTexts]).join(' ').toLowerCase(),
+		searchText: uniqueTexts([individualId, ...nameTexts])
+			.join(' ')
+			.toLowerCase(),
 		hit,
 	};
 }
@@ -227,7 +230,9 @@ function buildFirmDoc(source, detail) {
 		nameSearchText: nameTexts.join(' ').toLowerCase(),
 		addressSearchText: currentAddressTexts.join(' ').toLowerCase(),
 		strictSearchText: uniqueTexts(collectScalarTexts(detail)).join(' ').toLowerCase(),
-		searchText: uniqueTexts([firmId, ...nameTexts]).join(' ').toLowerCase(),
+		searchText: uniqueTexts([firmId, ...nameTexts])
+			.join(' ')
+			.toLowerCase(),
 		hit,
 	};
 }
@@ -268,9 +273,7 @@ async function readBucketDocs(bucket) {
 			const payload = JSON.parse(await fs.readFile(path.join(bucket.dir, fileName), 'utf8'));
 			const detail = getDetailRoot(bucket, payload);
 			if (!detail) continue;
-			const doc =
-				bucket.type === 'individual' ? buildIndividualDoc(bucket.source, detail)
-				: buildFirmDoc(bucket.source, detail);
+			const doc = bucket.type === 'individual' ? buildIndividualDoc(bucket.source, detail) : buildFirmDoc(bucket.source, detail);
 			if (!doc) continue;
 			docs.push(doc);
 
@@ -302,7 +305,18 @@ async function writeBucket(bucket, docs, generatedAt) {
 		),
 		'utf8',
 	);
+	const gzPath = `${outputPath}.gz`;
+	const gzBuffer = zlib.gzipSync(await fs.readFile(outputPath), { level: 9 });
+	await fs.writeFile(gzPath, gzBuffer);
 	return outputPath;
+}
+
+async function gzipExistingBucket(outputPath) {
+	const gzPath = `${outputPath}.gz`;
+	const raw = await fs.readFile(outputPath);
+	const gzBuffer = zlib.gzipSync(raw, { level: 9 });
+	await fs.writeFile(gzPath, gzBuffer);
+	return gzPath;
 }
 
 async function main() {
@@ -314,12 +328,13 @@ async function main() {
 
 		if (Array.isArray(docs) && docs.length) {
 			await writeBucket(bucket, docs, generatedAt);
-			console.log(`Built ${bucket.name} search index with ${docs.length} docs.`);
+			console.log(`Built ${bucket.name} search index with ${docs.length} docs and gzipped sidecar.`);
 			continue;
 		}
 
 		if (await fileExists(outputPath)) {
-			console.warn(`Preserving existing ${bucket.name} search index because ${reason || 'no docs were generated'}.`);
+			await gzipExistingBucket(outputPath);
+			console.log(`Preserved ${bucket.name} search index and refreshed gzipped sidecar because ${reason || 'no docs were generated'}.`);
 			continue;
 		}
 
