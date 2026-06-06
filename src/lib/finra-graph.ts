@@ -549,7 +549,7 @@ type SessionPersistenceMode = 'full' | 'compact' | 'reduced' | 'minimal';
 let initialServerNodeIds = null; // Set<id>
 let initialServerLinkKeys = null; // Set<"source|target">
 // Shared appender used by both UI actions and load-time session restore.
-let appendFetched = null;
+let appendFetched = appendFetchedImpl;
 // The node that most recently triggered an expand/reveal action.
 // Used to bias placement of newly injected nodes near their parent.
 let lastExpandOriginNode = null;
@@ -4447,90 +4447,9 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 		applyStatusPresentation(msg, { transient: true, dismissible: true, pinned: activeFetchStatusPinned });
 	}
 
-	// Append fetched nodes/links into live layout (reuse revealNeighbors append logic)
-	appendFetched = function appendFetched(newNodes, newLinks) {
-		if (!Array.isArray(newNodes)) newNodes = [];
-		if (!Array.isArray(newLinks)) newLinks = [];
-		normalizeNodeLabelsInPlace(newNodes);
-
-		// avoid duplicates
-		const existIds = new Set(layoutNodes.map((n) => n.id));
-		const uniqNodes = newNodes.filter((n) => !existIds.has(n.id));
-
-		// Place newly-added nodes near the expand origin (parent node) if known,
-		// otherwise fall back to the viewport center so they're visible immediately.
-		if (uniqNodes.length > 0) {
-			const main = document.getElementById('fg-main');
-			const W = main?.clientWidth || 800;
-			const H = main?.clientHeight || 600;
-			const originX = lastExpandOriginNode && Number.isFinite(lastExpandOriginNode.x) ? lastExpandOriginNode.x : W / 2;
-			const originY = lastExpandOriginNode && Number.isFinite(lastExpandOriginNode.y) ? lastExpandOriginNode.y : H / 2;
-			uniqNodes.forEach((n, idx) => {
-				if (n.x == null && n.y == null) {
-					const ringRadius = Math.max(34, 42 + idx * 12);
-					const angle = (idx / uniqNodes.length) * Math.PI * 2;
-					n.x = originX + Math.cos(angle) * ringRadius;
-					n.y = originY + Math.sin(angle) * ringRadius;
-				}
-			});
-		}
-		// push
-		layoutNodes.push(...uniqNodes);
-
-		const currentLayoutNodeIds = new Set(layoutNodes.map((n) => n.id));
-		layoutLinks.push(
-			...newLinks.filter((l) => {
-				const s = l.source?.id ?? l.source;
-				const t = l.target?.id ?? l.target;
-				// only include link if both nodes are currently rendered
-				if (!currentLayoutNodeIds.has(s) || !currentLayoutNodeIds.has(t)) return false;
-				// avoid duplicate link
-				return !layoutLinks.some((el) => (el.source?.id ?? el.source) === s && (el.target?.id ?? el.target) === t);
-			}),
-		);
-		applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
-		setGraphLabelRenderMode(layoutNodes.length);
-
-		// Rebuild neighbor cache and update info
-		neighborMap = buildNeighborMap(layoutNodes, layoutLinks);
-		if (layoutNodes.length || layoutLinks.length) showEmpty(false);
-		if (graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
-		updateMeta();
-
-		// Persist session so reload restores these nodes
-		saveSession();
-
-		refreshLayeredLinkSelections({ enterDuration: 400 });
-
-		const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
-		const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen);
-
-		// Apply initial transform so new nodes appear at their placed position
-		// immediately (the renderGraph tick handler only covers old nodes).
-		enteredNodes.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
-
-		enteredNodes.transition().duration(520).ease(d3.easeCubicOut).attr('opacity', 1);
-		nodeSel = nodeGroup.selectAll('g.fg-node');
-		linkSel = selectRenderedLinkLines();
-		rerenderGraphNodesByIds(getImpactedNodeIds(uniqNodes, newLinks));
-		reapplySelectionState();
-
-		refreshGraphColors();
-		if (activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
-		refreshTraceState();
-
-		// Replace tick handler so it covers the full updated selections.
-		simulation.on('tick', () => {
-			scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
-		});
-
-		// Restart simulation with new nodes/links
-		refreshSoftLocationGroupingForces(layoutNodes);
-		simulation.nodes(layoutNodes);
-		simulation.force('link').links(layoutLinks);
-		simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
-		simulation.alpha(getIncrementalRestartAlpha(layoutNodes.length, uniqNodes.length)).restart();
-	};
+	// Keep the shared fetch appender available even if reset happens before the
+	// next render cycle settles.
+	appendFetched = appendFetchedImpl;
 
 	renderLegend();
 	void fetchCacheStats();
@@ -7035,6 +6954,90 @@ async function fetchAndInjectOrphanNodes(links, knownIds) {
 	} catch {
 		// non-critical — dangling links will simply be invisible
 	}
+}
+
+function appendFetchedImpl(newNodes, newLinks) {
+	if (!Array.isArray(newNodes)) newNodes = [];
+	if (!Array.isArray(newLinks)) newLinks = [];
+	normalizeNodeLabelsInPlace(newNodes);
+
+	// avoid duplicates
+	const existIds = new Set(layoutNodes.map((n) => n.id));
+	const uniqNodes = newNodes.filter((n) => !existIds.has(n.id));
+
+	// Place newly-added nodes near the expand origin (parent node) if known,
+	// otherwise fall back to the viewport center so they're visible immediately.
+	if (uniqNodes.length > 0) {
+		const main = document.getElementById('fg-main');
+		const W = main?.clientWidth || 800;
+		const H = main?.clientHeight || 600;
+		const originX = lastExpandOriginNode && Number.isFinite(lastExpandOriginNode.x) ? lastExpandOriginNode.x : W / 2;
+		const originY = lastExpandOriginNode && Number.isFinite(lastExpandOriginNode.y) ? lastExpandOriginNode.y : H / 2;
+		uniqNodes.forEach((n, idx) => {
+			if (n.x == null && n.y == null) {
+				const ringRadius = Math.max(34, 42 + idx * 12);
+				const angle = (idx / uniqNodes.length) * Math.PI * 2;
+				n.x = originX + Math.cos(angle) * ringRadius;
+				n.y = originY + Math.sin(angle) * ringRadius;
+			}
+		});
+	}
+	// push
+	layoutNodes.push(...uniqNodes);
+
+	const currentLayoutNodeIds = new Set(layoutNodes.map((n) => n.id));
+	layoutLinks.push(
+		...newLinks.filter((l) => {
+			const s = l.source?.id ?? l.source;
+			const t = l.target?.id ?? l.target;
+			// only include link if both nodes are currently rendered
+			if (!currentLayoutNodeIds.has(s) || !currentLayoutNodeIds.has(t)) return false;
+			// avoid duplicate link
+			return !layoutLinks.some((el) => (el.source?.id ?? el.source) === s && (el.target?.id ?? el.target) === t);
+		}),
+	);
+	applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
+	setGraphLabelRenderMode(layoutNodes.length);
+
+	// Rebuild neighbor cache and update info
+	neighborMap = buildNeighborMap(layoutNodes, layoutLinks);
+	if (layoutNodes.length || layoutLinks.length) showEmpty(false);
+	if (graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
+	updateMeta();
+
+	// Persist session so reload restores these nodes
+	saveSession();
+
+	refreshLayeredLinkSelections({ enterDuration: 400 });
+
+	const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
+	const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen);
+
+	// Apply initial transform so new nodes appear at their placed position
+	// immediately (the renderGraph tick handler only covers old nodes).
+	enteredNodes.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
+
+	enteredNodes.transition().duration(520).ease(d3.easeCubicOut).attr('opacity', 1);
+	nodeSel = nodeGroup.selectAll('g.fg-node');
+	linkSel = selectRenderedLinkLines();
+	rerenderGraphNodesByIds(getImpactedNodeIds(uniqNodes, newLinks));
+	reapplySelectionState();
+
+	refreshGraphColors();
+	if (activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
+	refreshTraceState();
+
+	// Replace tick handler so it covers the full updated selections.
+	simulation.on('tick', () => {
+		scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
+	});
+
+	// Restart simulation with new nodes/links
+	refreshSoftLocationGroupingForces(layoutNodes);
+	simulation.nodes(layoutNodes);
+	simulation.force('link').links(layoutLinks);
+	simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
+	simulation.alpha(getIncrementalRestartAlpha(layoutNodes.length, uniqNodes.length)).restart();
 }
 
 function renderGraph(_data) {
