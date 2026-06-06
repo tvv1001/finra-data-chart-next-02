@@ -46,6 +46,8 @@ data/raw/
 data/raw/**
 .vercel
 scripts/import_raw_data.sh
+data/build_manifest.json
+data/last_*_report.json
 
 # Generated notes / docs
 generated/
