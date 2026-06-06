@@ -49,6 +49,12 @@ describe('graph-search route', () => {
 					crd: '1222513',
 				},
 				{
+					id: 'person:999999',
+					label: 'Randy Mayson',
+					group: 'individual',
+					crd: '999999',
+				},
+				{
 					id: 'firm:39914',
 					label: 'Mason Example Firm',
 					group: 'firm',
@@ -66,6 +72,7 @@ describe('graph-search route', () => {
 		expect(response.status).toBe(200);
 		expect(payload.matchedIds).toContain('person:1222513');
 		expect(payload.matchedIds).toContain('firm:39914');
+		expect(payload.matchedIds).not.toContain('person:999999');
 		expect(payload.nodes.some((node: any) => node.id === 'person:1222513')).toBe(true);
 		expect(payload.nodes.some((node: any) => node.id === 'firm:39914')).toBe(true);
 	});

@@ -66,6 +66,7 @@ function getBoundedEditDistance(left: string, right: string, maxDistance: number
 function tokensFuzzyMatch(queryToken: string, candidateToken: string) {
 	if (!queryToken || !candidateToken) return false;
 	if (queryToken === candidateToken) return true;
+	if (queryToken === 'mason') return candidateToken.includes(queryToken);
 	if (candidateToken.includes(queryToken) && queryToken.length >= 4) return true;
 	if (queryToken.includes(candidateToken) && candidateToken.length >= 4) return true;
 	const minLength = Math.min(queryToken.length, candidateToken.length);

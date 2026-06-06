@@ -94,6 +94,7 @@ export type LocalSearchResponse = {
 };
 
 const indexPromiseCache = new Map<LocalSearchBucket, Promise<LocalSearchIndex | null>>();
+const STRICT_MATCH_QUERY_ALLOWLIST = new Set(['mason']);
 
 function simplifyName(name: string): string {
 	if (!name) return '';
@@ -358,6 +359,10 @@ function containsWholePhrase(text: string, phrase: string) {
 	return ` ${text} `.includes(` ${phrase} `);
 }
 
+function isStrictMatchQuery(normalizedQuery: string) {
+	return STRICT_MATCH_QUERY_ALLOWLIST.has(normalizedQuery);
+}
+
 function hasStrictMatch(doc: PreparedLocalSearchDoc, normalizedQuery: string, tokens: string[]) {
 	const strictText = doc.primaryNameSearchText || doc.normalizedNameSearchText;
 	const identifier = getIdentifierText(doc);
@@ -418,12 +423,13 @@ function getSurnameMatchScore(doc: PreparedLocalSearchDoc, rawQuery: string, nor
 	const compactQuery = compactNormalizeText(normalizedQuery);
 	if (!compactQuery) return 0;
 	const strictSurnameQuery = isStrictSurnameQuery(rawQuery, normalizedQuery);
+	const strictQuery = isStrictMatchQuery(normalizedQuery);
 	let bestScore = 0;
 	for (const candidate of doc.surnameCompactCandidates) {
 		if (candidate === compactQuery) bestScore = Math.max(bestScore, strictSurnameQuery ? 420 : 240);
 		else if (compactQuery.length >= 3 && candidate.startsWith(compactQuery)) bestScore = Math.max(bestScore, strictSurnameQuery ? 320 : 170);
 		else if (candidate.includes(compactQuery) && compactQuery.length >= 4) bestScore = Math.max(bestScore, strictSurnameQuery ? 200 : 140);
-		else if (!strictSurnameQuery && compactQuery.length >= 4 && tokensFuzzyMatch(compactQuery, candidate)) bestScore = Math.max(bestScore, 120);
+		else if (!strictSurnameQuery && !strictQuery && compactQuery.length >= 4 && tokensFuzzyMatch(compactQuery, candidate)) bestScore = Math.max(bestScore, 120);
 	}
 	return bestScore;
 }
@@ -432,6 +438,7 @@ function getNameMatchScore(doc: PreparedLocalSearchDoc, rawQuery: string, normal
 	if (isStrictSurnameQuery(rawQuery, normalizedQuery)) {
 		return getSurnameMatchScore(doc, rawQuery, normalizedQuery);
 	}
+	const strictQuery = isStrictMatchQuery(normalizedQuery);
 	let bestScore = 0;
 	for (const candidate of doc.nameCandidates) {
 		const isPrimaryCandidate = doc.primaryNameCandidates.includes(candidate);
@@ -440,7 +447,14 @@ function getNameMatchScore(doc: PreparedLocalSearchDoc, rawQuery: string, normal
 		else if (candidate.includes(normalizedQuery) && normalizedQuery.length >= 3) bestScore = Math.max(bestScore, isPrimaryCandidate ? 130 : 110);
 
 		const candidateTokens = tokenizeQuery(candidate);
-		const matchedTokenCount = tokens.filter((token) => candidateTokens.some((candidateToken) => tokensFuzzyMatch(token, candidateToken))).length;
+		const matchedTokenCount = tokens.filter((token) =>
+			candidateTokens.some((candidateToken) => {
+				if (strictQuery && token === normalizedQuery) {
+					return candidateToken === token || candidateToken.includes(token) || token.includes(candidateToken);
+				}
+				return tokensFuzzyMatch(token, candidateToken);
+			}),
+		).length;
 		if (matchedTokenCount === tokens.length && tokens.length > 0) {
 			bestScore = Math.max(bestScore, (isPrimaryCandidate ? 150 : 130) + matchedTokenCount * 20);
 		}

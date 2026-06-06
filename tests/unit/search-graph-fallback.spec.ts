@@ -18,6 +18,12 @@ describe('graph search fallback', () => {
 					crd: '1222513',
 				},
 				{
+					id: 'person:999999',
+					label: 'Randy Mayson',
+					group: 'individual',
+					crd: '999999',
+				},
+				{
 					id: 'firm:39914',
 					label: 'Mason Example Firm',
 					group: 'firm',
@@ -34,6 +40,7 @@ describe('graph search fallback', () => {
 		expect(result.total).toBeGreaterThan(0);
 		expect(result.hits.total).toBeGreaterThan(0);
 		expect(result.response.docs.some((doc) => String(doc.id || '') === 'person:1222513')).toBe(true);
+		expect(result.response.docs.some((doc) => String(doc.id || '') === 'person:999999')).toBe(false);
 	});
 
 	it('matches only top-level CRDs', async () => {
