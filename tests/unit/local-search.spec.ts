@@ -35,6 +35,7 @@ describe('local search indexes', () => {
 
 		expect(result.total).toBeGreaterThan(0);
 		expect(result.total).toBeLessThan(2000);
+		expect(result.response.docs[0]?.ind_source_id).toBe('1222513');
 		expect(result.response.docs.some((doc) => String(doc.ind_source_id || '') === '1222513')).toBe(true);
 		expect(result.response.docs.some((doc) => String(doc.ind_source_id || '') === '1098656')).toBe(true);
 	});
