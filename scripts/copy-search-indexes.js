@@ -9,6 +9,12 @@ const nextServerDestDir = path.join(root, '.next', 'server', 'data', 'national')
 
 const files = ['search-index.finra.individual.json', 'search-index.finra.firm.json', 'search-index.sec.individual.json', 'search-index.sec.firm.json'];
 
+const shouldSkipCopy = process.env.VERCEL === '1' || process.env.SKIP_COPY_SEARCH_INDEXES === '1';
+if (shouldSkipCopy) {
+	console.log('Skipping search index copy because VERCEL=1 or SKIP_COPY_SEARCH_INDEXES=1.');
+	process.exit(0);
+}
+
 // Create destination directories
 try {
 	fs.mkdirSync(publicDestDir, { recursive: true });
