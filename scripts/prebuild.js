@@ -34,6 +34,9 @@ if (url && token) {
 	execSync('node scripts/build_workers.js', {
 		stdio: 'inherit',
 	});
+	execSync('node scripts/ensure_remote_graph.js', {
+		stdio: 'inherit',
+	});
 	if (canRebuildSearchIndexes()) {
 		execSync('node scripts/build_search_indexes.js', {
 			stdio: 'inherit',
