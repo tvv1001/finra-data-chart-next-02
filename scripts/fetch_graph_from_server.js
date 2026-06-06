@@ -1,11 +1,17 @@
 (async () => {
 	try {
 		const fs = require('fs');
-		const fetch = require('node-fetch');
+		const fetchFn = globalThis.fetch;
+		if (typeof fetchFn !== 'function') {
+			throw new Error('Global fetch is not available in this Node runtime');
+		}
 		const url = process.env.FINRA_LOCAL_URL || 'http://localhost:4444';
 		const api = `${url.replace(/\/$/, '')}/api/finra/graph?limit=10000`;
 		console.log('Fetching', api);
-		const r = await fetch(api, { timeout: 60000 });
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), 60000);
+		const r = await fetchFn(api, { signal: controller.signal });
+		clearTimeout(timeout);
 		if (!r.ok) {
 			console.error('Fetch failed', r.status);
 			process.exit(2);
