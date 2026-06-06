@@ -40,13 +40,9 @@ out/
 .next/cache/*
 data/cache-binary/
 data/national/
-!data/national/
 data/national/**
-!data/national/search-index.finra.individual.json
-!data/national/search-index.finra.firm.json
-!data/national/search-index.sec.individual.json
-!data/national/search-index.sec.firm.json
 data/primed-cache/
 data/raw/
+data/raw/**
 .vercel
 scripts/import_raw_data.sh

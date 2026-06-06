@@ -47,6 +47,30 @@ function resolveId(ref) {
 	return ref ?? null;
 }
 
+function ensureArray(value) {
+	return Array.isArray(value) ? value : [];
+}
+
+function toText(value) {
+	return String(value ?? '')
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+
+function uniqueTexts(values) {
+	const out = [];
+	const seen = new Set();
+	for (const value of values) {
+		const text = toText(value);
+		if (!text) continue;
+		const key = text.toLowerCase();
+		if (seen.has(key)) continue;
+		seen.add(key);
+		out.push(text);
+	}
+	return out;
+}
+
 function uniqueSortedIds(values) {
 	return Array.from(new Set(values.map((value) => String(value || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
 }
@@ -293,10 +317,19 @@ function getLocationHintsFromDetail(detail, group) {
 function buildIndividualNode(crd, detail, fallbackLabel = '') {
 	const basic = detail?.basicInformation || {};
 	const fullName = [basic.firstName, basic.middleName, basic.lastName].filter(Boolean).join(' ').trim();
+
+	const currentEmployments = ensureArray(detail.currentEmployments);
+	const currentIAEmployments = ensureArray(detail.currentIAEmployments);
+	const currentAddressTexts = uniqueTexts([
+		...currentEmployments.flatMap((e) => [e.city, e.state, ...ensureArray(e.branchOfficeLocations).flatMap((l) => [l.street1, l.street2, l.city, l.state])]),
+		...currentIAEmployments.flatMap((e) => [e.city, e.state, ...ensureArray(e.branchOfficeLocations).flatMap((l) => [l.street1, l.street2, l.city, l.state])]),
+	]);
+
 	return {
 		id: personId(crd),
 		label: fullName || fallbackLabel || String(crd),
 		group: 'individual',
+		...(currentAddressTexts.length ? { addressSearchText: currentAddressTexts.join(' ').toLowerCase() } : {}),
 		...(basic && Object.keys(basic).length ? { basicInformation: basic } : {}),
 		...getLocationHintsFromDetail(detail, 'individual'),
 	};
@@ -304,10 +337,17 @@ function buildIndividualNode(crd, detail, fallbackLabel = '') {
 
 function buildFirmNode(id, detail, fallbackLabel = '') {
 	const basic = detail?.basicInformation || {};
+
+	const addressDetails = detail.firmAddressDetails || {};
+	const office = addressDetails.officeAddress || {};
+	const mailing = addressDetails.mailingAddress || {};
+	const currentAddressTexts = uniqueTexts([office.city, office.state, office.street1, office.street2, mailing.city, mailing.state, mailing.street1, mailing.street2]);
+
 	return {
 		id: firmId(id),
 		label: basic.firmName || fallbackLabel || String(id),
 		group: 'firm',
+		...(currentAddressTexts.length ? { addressSearchText: currentAddressTexts.join(' ').toLowerCase() } : {}),
 		...(basic && Object.keys(basic).length ? { basicInformation: basic } : {}),
 		...getLocationHintsFromDetail(detail, 'firm'),
 	};
