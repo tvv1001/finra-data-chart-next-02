@@ -4,6 +4,7 @@ import { Redis as UpstashRedis } from '@upstash/redis';
 import { logger } from '@/lib/logger';
 import { searchLocalIndex } from '@/lib/localSearch';
 import { normalizeIndividualDetailFromSource } from '@/lib/individualDetail';
+import { tryLoadPersonCluster } from '@/lib/peopleClusterCache';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -65,6 +66,33 @@ export async function GET(request: NextRequest) {
 			})
 			.slice(0, limit);
 		const matchedIds = new Set(matchedNodes.map((node) => String(node?.id || '').trim()).filter(Boolean));
+
+		if (matchedIds.size === 1) {
+			const matchedNode = matchedNodes[0];
+			const matchedId = String(matchedNode?.id || '').trim();
+			if (matchedNode && matchedNode.group === 'individual' && matchedId.startsWith('person:')) {
+				try {
+					const cluster = await tryLoadPersonCluster(matchedId.slice('person:'.length));
+					if (cluster) {
+						return NextResponse.json(
+							{
+								nodes: cluster.nodes || [],
+								links: cluster.links || [],
+								matchedIds: [matchedId],
+								meta: {
+									sourceLabel: 'people-cluster',
+									clusterId: cluster.clusterId,
+									clusterSize: cluster.people?.length || 0,
+								},
+							},
+							{ headers: sharedCacheHeaders(300) },
+						);
+					}
+				} catch (error) {
+					console.warn('graph-search people-cluster lookup failed; continuing with graph results', error);
+				}
+			}
+		}
 
 		if (!matchedIds.size) {
 			// No graph matches — search the local FINRA/SEC indexes and persist discovered nodes into the graph cache.

@@ -34,12 +34,16 @@ if (url && token) {
 	execSync('node scripts/build_workers.js', {
 		stdio: 'inherit',
 	});
-	execSync('node scripts/ensure_remote_graph.js', {
-		stdio: 'inherit',
-	});
-	execSync('node scripts/fetch_graph_from_server.js', {
-		stdio: 'inherit',
-	});
+	if (process.env.VERCEL) {
+		console.log('Vercel build: skipping remote graph sync and localhost fetch.');
+	} else {
+		execSync('node scripts/ensure_remote_graph.js', {
+			stdio: 'inherit',
+		});
+		execSync('node scripts/fetch_graph_from_server.js', {
+			stdio: 'inherit',
+		});
+	}
 	if (canRebuildSearchIndexes()) {
 		execSync('node scripts/build_search_indexes.js', {
 			stdio: 'inherit',
