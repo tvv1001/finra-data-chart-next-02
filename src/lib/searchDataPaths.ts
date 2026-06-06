@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import * as path from 'node:path';
 
 export const SEARCH_INDEX_RELATIVE_FILES = {
@@ -48,9 +48,21 @@ function getCandidateRoots(seedRoots: Array<string | null | undefined> = []) {
 	return Array.from(roots);
 }
 
-export function getSearchIndexFilePath(bucket: SearchIndexBucket, seedRoots: Array<string | null | undefined> = []) {
+function collectSearchIndexFiles(dir: string, fileNamePrefix: string) {
+	try {
+		return readdirSync(dir)
+			.filter((name) => name === `${fileNamePrefix}.json` || (name.startsWith(`${fileNamePrefix}.part`) && name.endsWith('.json')))
+			.sort()
+			.map((name) => path.resolve(dir, name));
+	} catch {
+		return [];
+	}
+}
+
+export function getSearchIndexFilePaths(bucket: SearchIndexBucket, seedRoots: Array<string | null | undefined> = []) {
 	const relativeFilePath = SEARCH_INDEX_RELATIVE_FILES[bucket];
 	const fileName = path.basename(relativeFilePath);
+	const fileNamePrefix = fileName.replace(/\.json$/, '');
 	const candidates = getCandidateRoots(seedRoots);
 	const attemptedPaths: string[] = [];
 
@@ -60,16 +72,22 @@ export function getSearchIndexFilePath(bucket: SearchIndexBucket, seedRoots: Arr
 		attemptedPaths.push(candidatePath);
 		if (existsSync(candidatePath)) {
 			console.log(`[searchDataPaths] Found ${bucket} at: ${candidatePath}`);
-			return candidatePath;
+			return [candidatePath];
 		}
 
-		// If root is public/search-indexes or ends with search-indexes, look for file directly
+		// If root is public/search-indexes or ends with search-indexes, look for chunked files too
 		if (root.endsWith('search-indexes') || root.includes('public/search-indexes')) {
 			const directPath = path.resolve(root, fileName);
 			attemptedPaths.push(directPath);
 			if (existsSync(directPath)) {
 				console.log(`[searchDataPaths] Found ${bucket} at: ${directPath}`);
-				return directPath;
+				return [directPath];
+			}
+
+			const chunkFiles = collectSearchIndexFiles(root, fileNamePrefix);
+			if (chunkFiles.length > 0) {
+				console.log(`[searchDataPaths] Found ${bucket} chunked files in: ${root}`);
+				return chunkFiles;
 			}
 		}
 	}
@@ -81,10 +99,18 @@ export function getSearchIndexFilePath(bucket: SearchIndexBucket, seedRoots: Arr
 		attemptedPaths.push(vercelPath);
 		if (existsSync(vercelPath)) {
 			console.log(`[searchDataPaths] Found ${bucket} at Vercel path: ${vercelPath}`);
-			return vercelPath;
+			return [vercelPath];
 		}
 	}
 
-	console.warn(`[searchDataPaths] No file found for ${bucket}. Checked ${attemptedPaths.length} paths. First 3: ${attemptedPaths.slice(0, 3).join(', ')}`);
+	console.warn(`[searchDataPaths] No files found for ${bucket}. Checked ${attemptedPaths.length} paths. First 3: ${attemptedPaths.slice(0, 3).join(', ')}`);
+	return [];
+}
+
+export function getSearchIndexFilePath(bucket: SearchIndexBucket, seedRoots: Array<string | null | undefined> = []) {
+	const filePaths = getSearchIndexFilePaths(bucket, seedRoots);
+	if (filePaths.length > 0) return filePaths[0];
+
+	const relativeFilePath = SEARCH_INDEX_RELATIVE_FILES[bucket];
 	return path.resolve(process.cwd(), relativeFilePath);
 }

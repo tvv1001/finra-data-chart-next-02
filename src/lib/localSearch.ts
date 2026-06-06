@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { getSearchIndexFilePath } from './searchDataPaths';
+import { getSearchIndexFilePaths } from './searchDataPaths';
 
 async function fetchFromRedis(bucket: string): Promise<any | null> {
 	const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
@@ -304,30 +304,44 @@ async function loadIndex(bucket: LocalSearchBucket): Promise<LocalSearchIndex | 
 		indexPromiseCache.set(
 			bucket,
 			(async () => {
-				try {
-					// Try local file first
-					const filePath = getSearchIndexFilePath(bucket);
-					const raw = await readFile(filePath, 'utf-8');
-					const parsed = JSON.parse(raw) as { generatedAt?: string; bucket?: string; docs?: LocalSearchDoc[] };
-					return {
-						generatedAt: parsed?.generatedAt,
-						bucket: parsed?.bucket,
-						docs: Array.isArray(parsed?.docs) ? parsed.docs.map(prepareDoc) : [],
-					};
-				} catch (err: any) {
-					// Fall back to Redis if local file not found
-					console.warn(`[localSearch] Local file not found for ${bucket}, trying Redis...`);
-					const redisData = await fetchFromRedis(bucket);
-					if (redisData) {
+				const filePaths = getSearchIndexFilePaths(bucket);
+				if (filePaths.length > 0) {
+					try {
+						const allDocs: LocalSearchDoc[] = [];
+						let generatedAt: string | undefined;
+						let bucketName: string | undefined;
+
+						for (const filePath of filePaths) {
+							const raw = await readFile(filePath, 'utf-8');
+							const parsed = JSON.parse(raw) as { generatedAt?: string; bucket?: string; docs?: LocalSearchDoc[] };
+							if (parsed?.generatedAt) generatedAt = generatedAt || parsed.generatedAt;
+							bucketName = bucketName || parsed?.bucket;
+							if (Array.isArray(parsed?.docs)) allDocs.push(...parsed.docs);
+						}
+
 						return {
-							generatedAt: redisData?.generatedAt,
-							bucket: redisData?.bucket,
-							docs: Array.isArray(redisData?.docs) ? redisData.docs.map(prepareDoc) : [],
+							generatedAt: generatedAt ?? null,
+							bucket: bucketName ?? bucket,
+							docs: allDocs.map(prepareDoc),
 						};
+					} catch (err: any) {
+						console.warn(`[localSearch] Failed to load local search indexes for ${bucket}, trying Redis...`);
 					}
-					console.error(`[localSearch] Failed to load index for bucket ${bucket}:`, err.message);
-					return null;
 				}
+
+				// Fall back to Redis if local files are unavailable
+				console.warn(`[localSearch] Local files not available for ${bucket}, trying Redis...`);
+				const redisData = await fetchFromRedis(bucket);
+				if (redisData) {
+					return {
+						generatedAt: redisData?.generatedAt,
+						bucket: redisData?.bucket,
+						docs: Array.isArray(redisData?.docs) ? redisData.docs.map(prepareDoc) : [],
+					};
+				}
+
+				console.error(`[localSearch] Failed to load index for bucket ${bucket}.`);
+				return null;
 			})(),
 		);
 	}

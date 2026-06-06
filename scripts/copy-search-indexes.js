@@ -8,11 +8,15 @@ const publicDestDir = path.join(root, 'public', 'search-indexes');
 const nextServerDestDir = path.join(root, '.next', 'server', 'data', 'national');
 
 const files = ['search-index.finra.individual.json', 'search-index.finra.firm.json', 'search-index.sec.individual.json', 'search-index.sec.firm.json'];
+const maxChunkSize = 90 * 1024 * 1024; // 90 MB
 
-const shouldSkipCopy = process.env.VERCEL === '1' || process.env.SKIP_COPY_SEARCH_INDEXES === '1';
-if (shouldSkipCopy) {
-	console.log('Skipping search index copy because VERCEL=1 or SKIP_COPY_SEARCH_INDEXES=1.');
-	process.exit(0);
+function writeJsonFile(dest, json) {
+	fs.writeFileSync(dest, JSON.stringify(json));
+}
+
+function createDestinationDirs() {
+	fs.mkdirSync(publicDestDir, { recursive: true });
+	fs.mkdirSync(nextServerDestDir, { recursive: true });
 }
 
 // Create destination directories
@@ -27,21 +31,51 @@ try {
 let count = 0;
 for (const file of files) {
 	const src = path.join(dataDir, file);
-	const publicDest = path.join(publicDestDir, file);
-	const nextServerDest = path.join(nextServerDestDir, file);
+	const prefix = path.basename(file, '.json');
 
 	try {
-		if (fs.existsSync(src)) {
+		if (!fs.existsSync(src)) {
+			console.warn(`⚠ Source not found: ${src}`);
+			continue;
+		}
+
+		const stats = fs.statSync(src);
+		if (stats.size <= maxChunkSize) {
+			const publicDest = path.join(publicDestDir, file);
+			const nextServerDest = path.join(nextServerDestDir, file);
 			fs.copyFileSync(src, publicDest);
 			fs.copyFileSync(src, nextServerDest);
 			console.log(`✓ Copied ${file}`);
 			count++;
-		} else {
-			console.warn(`⚠ Source not found: ${src}`);
+			continue;
+		}
+
+		console.log(`⚡ Splitting ${file} into chunks for deployment (size ${Math.round(stats.size / 1024 / 1024)} MB)`);
+		const raw = fs.readFileSync(src, 'utf-8');
+		const json = JSON.parse(raw);
+		const docs = Array.isArray(json.docs) ? json.docs : [];
+		const chunkCount = Math.max(1, Math.ceil(stats.size / maxChunkSize));
+		const chunkSize = Math.ceil(docs.length / chunkCount);
+
+		for (let chunkIndex = 0; chunkIndex < chunkCount; chunkIndex += 1) {
+			const chunkDocs = docs.slice(chunkIndex * chunkSize, (chunkIndex + 1) * chunkSize);
+			const chunkFileName = `${prefix}.part${chunkIndex}.json`;
+			const chunkJson = {
+				generatedAt: json.generatedAt,
+				bucket: json.bucket,
+				docs: chunkDocs,
+			};
+			const publicChunkDest = path.join(publicDestDir, chunkFileName);
+			const nextServerChunkDest = path.join(nextServerDestDir, chunkFileName);
+
+			writeJsonFile(publicChunkDest, chunkJson);
+			writeJsonFile(nextServerChunkDest, chunkJson);
+			console.log(`✓ Wrote chunk ${chunkFileName} (${chunkDocs.length} docs)`);
+			count++;
 		}
 	} catch (err) {
-		console.error(`✗ Failed to copy ${file}:`, err.message);
+		console.error(`✗ Failed to copy or chunk ${file}:`, err.message);
 	}
 }
 
-console.log(`\nSuccessfully copied ${count}/${files.length} search index files to public/search-indexes/ and .next/server/data/national/`);
+console.log(`\nSuccessfully copied/wrote ${count} search index files/chunks to public/search-indexes/ and .next/server/data/national/`);
