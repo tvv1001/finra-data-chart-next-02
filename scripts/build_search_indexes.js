@@ -324,6 +324,7 @@ async function main() {
 
 	for (const bucket of BUCKETS) {
 		const outputPath = path.join(NATIONAL_DIR, `search-index.${bucket.source}.${bucket.type}.json`);
+		const gzPath = `${outputPath}.gz`;
 		const { docs, generatedAt, reason } = await readBucketDocs(bucket);
 
 		if (Array.isArray(docs) && docs.length) {
@@ -335,6 +336,11 @@ async function main() {
 		if (await fileExists(outputPath)) {
 			await gzipExistingBucket(outputPath);
 			console.log(`Preserved ${bucket.name} search index and refreshed gzipped sidecar because ${reason || 'no docs were generated'}.`);
+			continue;
+		}
+
+		if (await fileExists(gzPath)) {
+			console.log(`Preserved ${bucket.name} gzipped search index because ${reason || 'no docs were generated'}; raw source is not available in this build environment.`);
 			continue;
 		}
 
