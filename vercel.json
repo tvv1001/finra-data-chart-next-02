@@ -1,4 +1,5 @@
 {
+	"buildCommand": "pnpm run build",
 	"crons": [
 		{
 			"path": "/api/finra/external-validity",
