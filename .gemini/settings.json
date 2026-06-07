@@ -3,6 +3,6 @@
 		"toolSandboxing": false
 	},
 	"devtools": {
-		"openAtStart": false
+		"openAtStart": true
 	}
 }
