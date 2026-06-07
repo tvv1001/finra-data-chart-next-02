@@ -445,14 +445,33 @@ async function readGraphFromDisk() {
 	return parseGraphPayload(raw, GRAPH_FILE);
 }
 
+function isSessionResetEmptyGraph(graph: any) {
+	if (!graph || typeof graph !== 'object') return false;
+	const nodeCount = Array.isArray(graph.nodes) ? graph.nodes.length : 0;
+	const linkCount = Array.isArray(graph.links) ? graph.links.length : 0;
+	const sourceLabel = String(graph.meta?.sourceLabel || '').trim();
+	return nodeCount === 0 && linkCount === 0 && sourceLabel === '(session reset)';
+}
+
 async function ensureGraphFileFromCache() {
-	if (await localGraphFileExists()) return true;
+	let shouldForceFullRebuild = false;
+	if (await localGraphFileExists()) {
+		try {
+			const diskGraph = await readGraphFromDisk();
+			if (diskGraph && !isSessionResetEmptyGraph(diskGraph)) return true;
+			shouldForceFullRebuild = true;
+		} catch {
+			// Fall through to rebuild attempt.
+		}
+	}
 	if (_graphBootstrapPromise) return _graphBootstrapPromise;
 
 	_graphBootstrapPromise = (async () => {
 		try {
 			const scriptPath = path.join(process.cwd(), 'scripts', 'build_graph_from_cache.js');
-			await execFileAsync(process.execPath, [scriptPath, '--employment-scope', 'current', '--no-redis'], {
+			const scriptArgs = [scriptPath, '--employment-scope', 'current', '--no-redis'];
+			if (shouldForceFullRebuild) scriptArgs.push('--full');
+			await execFileAsync(process.execPath, scriptArgs, {
 				cwd: process.cwd(),
 				env: process.env,
 				maxBuffer: 10 * 1024 * 1024,
@@ -776,7 +795,12 @@ export async function clearGraphStore({ clearRecentSeeds = true }: { clearRecent
 		},
 	};
 
-	await saveGraph(emptyGraph);
+	const redis = getRedis();
+	if (redis) {
+		await saveGraph(emptyGraph);
+	} else {
+		invalidateGraphCache();
+	}
 
 	if (clearRecentSeeds) {
 		await saveRecentSeedsToStore(createEmptyRecentSeeds());

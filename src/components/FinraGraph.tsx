@@ -915,6 +915,72 @@ export default function FinraGraph() {
 						id='fg-focus-readout'
 						className='fg-focus-readout'></div>
 
+					<div
+						id='fg-hop-controls'
+						className='fg-hop-controls'
+						style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '0 12px' }}>
+						<label style={{ fontSize: '12px', fontWeight: 500 }}>Hops (1-10):</label>
+						<div style={{ display: 'flex', gap: '6px' }}>
+							<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+								<input
+									id='fg-expansion-hops'
+									type='range'
+									min='1'
+									max='10'
+									defaultValue='1'
+									style={{ width: '60px', height: '20px' }}
+									title='Expansion hops (API initial load)'
+									onChange={(e) => {
+										const val = parseInt(e.target.value, 10);
+										(window as any).setRuntimeHopDefaults?.(val, (window as any).currentClickHops || 4, (window as any).currentSelectionHops || 4);
+									}}
+									onMouseUp={(e) => {
+										(window as any).currentExpansionHops = parseInt((e.target as HTMLInputElement).value, 10);
+									}}
+								/>
+								<span style={{ fontSize: '10px' }}>Exp</span>
+							</div>
+							<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+								<input
+									id='fg-click-hops'
+									type='range'
+									min='1'
+									max='10'
+									defaultValue='4'
+									style={{ width: '60px', height: '20px' }}
+									title='Click expansion hops'
+									onChange={(e) => {
+										const val = parseInt(e.target.value, 10);
+										(window as any).setRuntimeHopDefaults?.((window as any).currentExpansionHops || 1, val, (window as any).currentSelectionHops || 4);
+									}}
+									onMouseUp={(e) => {
+										(window as any).currentClickHops = parseInt((e.target as HTMLInputElement).value, 10);
+									}}
+								/>
+								<span style={{ fontSize: '10px' }}>Click</span>
+							</div>
+							<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+								<input
+									id='fg-selection-hops'
+									type='range'
+									min='1'
+									max='10'
+									defaultValue='4'
+									style={{ width: '60px', height: '20px' }}
+									title='Selection hops'
+									onChange={(e) => {
+										const val = parseInt(e.target.value, 10);
+										(window as any).setRuntimeHopDefaults?.((window as any).currentExpansionHops || 1, (window as any).currentClickHops || 4, val);
+									}}
+									onMouseUp={(e) => {
+										(window as any).currentSelectionHops = parseInt((e.target as HTMLInputElement).value, 10);
+									}}
+								/>
+								<span style={{ fontSize: '10px' }}>Sel</span>
+							</div>
+						</div>
+					</div>
+
 					<div className='fg-header-right-controls'>
 						<button
 							id='fg-find-toggle'
