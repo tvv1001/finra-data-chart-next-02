@@ -7,6 +7,8 @@ const ROOT = process.cwd();
 const NATIONAL_DIR = path.join(ROOT, 'data', 'national');
 const FINRA_DIR = path.join(NATIONAL_DIR, 'brokercheck.finra.org');
 const SEC_DIR = path.join(NATIONAL_DIR, 'adviserinfo.sec.gov');
+const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
+const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 
 const BUCKETS = [
 	{
@@ -38,6 +40,14 @@ const BUCKETS = [
 		filePattern: /^(?:api\.adviserinfo\.sec\.gov_search_firm_|sec:firm:)\d+\.json$/,
 	},
 ];
+
+function isValidUpstashUrl(value) {
+	return typeof value === 'string' && /^https:\/\/[^.].*\.upstash\.io\/?$/.test(value) && !value.includes('...');
+}
+
+function canFallbackToRedis() {
+	return Boolean(REDIS_TOKEN) && isValidUpstashUrl(REDIS_URL);
+}
 
 function toText(value) {
 	return String(value ?? '')
@@ -341,6 +351,13 @@ async function main() {
 
 		if (await fileExists(gzPath)) {
 			console.log(`Preserved ${bucket.name} gzipped search index because ${reason || 'no docs were generated'}; raw source is not available in this build environment.`);
+			continue;
+		}
+
+		if (canFallbackToRedis()) {
+			console.warn(
+				`Skipping ${bucket.name} local search index output because ${reason || 'no docs were generated'}; runtime search can fall back to Redis.`,
+			);
 			continue;
 		}
 

@@ -2872,8 +2872,8 @@ a,
 
 .fg-tl-entry {
 	background: var(--bg);
-	outline: 1px solid 1px solid #30547050;
-	outline-offset: -1px;
+	outline: 1px solid #30547050;
+	outline-offset: -3px;
 	border-radius: 5px;
 	padding: 7px 10px;
 	box-shadow: rgba(0, 0, 0, 0.09) 0px 3px 12px;

@@ -8358,7 +8358,6 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 	}
 
 	if (!newNodes.length && !newLinks.length) return;
-	appendFetched(newNodes, newLinks);
 	mergeIntoGraphData(newNodes, newLinks);
 }
 
@@ -9018,6 +9017,10 @@ export async function handleNodeOpen(event, d) {
 	openNodeWithExpansion(d);
 }
 
+export function shouldAutoRevealNodeConnections(node) {
+	return node?.group !== 'firm';
+}
+
 function openNodeWithExpansion(
 	d,
 	options: {
@@ -9036,7 +9039,15 @@ function openNodeWithExpansion(
 		pulse,
 		focusDuration,
 	});
-	void expandNodeThroughNonGrayHops(d).catch((err) => {
+	void (
+		shouldAutoRevealNodeConnections(d) ?
+			expandNodeThroughNonGrayHops(d)
+		:	ensureExpansionDataForNode(d.id, 1).then(() => {
+				if (selectedId === d.id) {
+					renderSidebar(d);
+				}
+			})
+	).catch((err) => {
 		console.error('Progressive non-gray hop expansion failed:', err);
 		refreshTraceState({ deferMs: 120 });
 	});
@@ -9168,7 +9179,15 @@ function selectNode(
 		markUserInitiatedGraphExpansion();
 		anchorNode(d);
 		lastExpandOriginNode = d;
-		expandNodeThroughNonGrayHops(d, getDefaultExpansionHops()).finally(() => {
+		(
+			shouldAutoRevealNodeConnections(d) ?
+				expandNodeThroughNonGrayHops(d, getDefaultExpansionHops())
+			:	ensureExpansionDataForNode(d.id, 1).then(() => {
+					if (selectedId === d.id) {
+						renderSidebar(d);
+					}
+				})
+		).finally(() => {
 			refreshTraceState({ deferMs: 120 });
 			try {
 				saveSession();
@@ -11126,124 +11145,178 @@ function renderPersonDetail(d: any) {
   `;
 }
 
-// ── Firm detail ──────────────────────────────────────────────────────────────
-function renderFirmDetail(d: any) {
-	const owners = d.directOwners || [];
-	const disclosures = d.disclosures || [];
-	function buildFirmCurrentConnections() {
-		const firmNodeId = String(d?.id || '').trim();
-		if (!firmNodeId) return [];
+function formatFirmConnectionDateText(startDate: string, endDate: string, isCurrent: boolean) {
+	if (startDate && endDate) return `${startDate} → ${endDate}`;
+	if (startDate) return isCurrent ? `Since ${startDate}` : `Started ${startDate}`;
+	if (endDate) return `Until ${endDate}`;
+	return '';
+}
 
-		const nodeLookup = new Map<string, any>();
-		(layoutNodes || []).forEach((node) => {
-			if (node?.id) nodeLookup.set(String(node.id), node);
-		});
-		(graphData?.nodes || []).forEach((node) => {
-			if (node?.id && !nodeLookup.has(String(node.id))) nodeLookup.set(String(node.id), node);
-		});
+export function collectFirmConnectionEntries({
+	firmNode,
+	layoutNodes: liveLayoutNodes = [],
+	graphNodes = [],
+	layoutLinks: liveLayoutLinks = [],
+	graphLinks = [],
+}: {
+	firmNode: any;
+	layoutNodes?: any[];
+	graphNodes?: any[];
+	layoutLinks?: any[];
+	graphLinks?: any[];
+}) {
+	const firmNodeId = String(firmNode?.id || '').trim();
+	if (!firmNodeId) return [];
 
-		const directOwnerByCrd = new Map<string, any>();
-		owners.forEach((owner) => {
-			const ownerCrd = String(owner?.crdNumber || owner?.crd || owner?.personId || '').trim();
-			if (ownerCrd) directOwnerByCrd.set(ownerCrd, owner);
-		});
+	const owners = Array.isArray(firmNode?.directOwners) ? firmNode.directOwners : [];
+	const nodeLookup = new Map<string, any>();
+	liveLayoutNodes.forEach((node) => {
+		if (node?.id) nodeLookup.set(String(node.id), node);
+	});
+	graphNodes.forEach((node) => {
+		if (node?.id && !nodeLookup.has(String(node.id))) nodeLookup.set(String(node.id), node);
+	});
 
-		const seen = new Set<string>();
-		const entries: Array<{
+	const directOwnerByCrd = new Map<string, any>();
+	owners.forEach((owner) => {
+		const ownerCrd = String(owner?.crdNumber || owner?.crd || owner?.personId || '').trim();
+		if (ownerCrd) directOwnerByCrd.set(ownerCrd, owner);
+	});
+
+	const entriesById = new Map<
+		string,
+		{
 			id: string;
 			label: string;
 			group: string;
 			crd: string;
-			relationshipLabel: string;
-			position: string;
-			dateText: string;
-		}> = [];
+			relationshipLabels: Set<string>;
+			positions: Set<string>;
+			dateTexts: Set<string>;
+			sortOrder: number;
+		}
+	>();
 
-		const allLinks = [...(layoutLinks || []), ...(graphData?.links || [])];
-		allLinks.forEach((link) => {
-			const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
-			const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
-			if (!sourceId || !targetId) return;
-			if (sourceId !== firmNodeId && targetId !== firmNodeId) return;
+	const allLinks = [...liveLayoutLinks, ...graphLinks];
+	allLinks.forEach((link) => {
+		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+		if (!sourceId || !targetId) return;
+		if (sourceId !== firmNodeId && targetId !== firmNodeId) return;
 
-			const otherId = sourceId === firmNodeId ? targetId : sourceId;
-			if (!otherId) return;
+		const otherId = sourceId === firmNodeId ? targetId : sourceId;
+		if (!otherId) return;
 
-			const otherNode = nodeLookup.get(otherId) || null;
-			const otherGroup = String(
-				otherNode?.group ||
-					(otherId.startsWith('person:') ? 'individual'
-					: otherId.startsWith('entity:') ? 'entity'
-					: ''),
-			).trim();
-			if (!otherGroup) return;
+		const otherNode = nodeLookup.get(otherId) || null;
+		const otherGroup = String(otherNode?.group || (otherId.startsWith('person:') ? 'individual' : otherId.startsWith('entity:') ? 'entity' : otherId.startsWith('firm:') ? 'firm' : '')).trim();
+		if (!otherGroup) return;
 
-			const otherCrd = otherGroup === 'individual' ? String(otherNode?.crd || otherId.replace(/^(?:person[:_])?/, '')).trim() : '';
+		const otherCrd = otherGroup === 'individual' ? String(otherNode?.crd || otherId.replace(/^(?:person[:_])?/, '')).trim() : '';
+		let relationshipLabel = '';
+		let position = '';
+		let dateText = '';
+		let sortOrder = 4;
 
-			let relationshipLabel = '';
-			let position = '';
+		if (link.relationship === 'controls') {
+			const controlOwner = (otherCrd && directOwnerByCrd.get(otherCrd)) || null;
+			const controlStartDate = String(link?.startDate || link?.registrationBeginDate || link?.fromDate || link?.effectiveDate || link?.date || '').trim();
+			const controlEndDate = String(link?.endDate || link?.registrationEndDate || link?.toDate || '').trim();
+			const isCurrentControl = Boolean(controlOwner) || !controlEndDate;
+			relationshipLabel = isCurrentControl ? 'Control' : 'Former control';
+			position = String(controlOwner?.position || link?.position || link?.title || link?.role || '').trim();
+			dateText = formatFirmConnectionDateText(controlStartDate, controlEndDate, isCurrentControl);
+			sortOrder = isCurrentControl ? 1 : 3;
+		} else if (link.relationship === 'employed_by') {
+			const sourceNode = (typeof link?.source === 'object' && link.source) || nodeLookup.get(sourceId) || null;
+			const targetFirmId = String(firmNode?.firmId || firmNodeId.replace(/^(?:firm[:_])?/, '')).trim();
+			const currentEmployments = [
+				...(Array.isArray(sourceNode?.currentEmployments) ? sourceNode.currentEmployments : []),
+				...(Array.isArray(sourceNode?.currentIAEmployments) ? sourceNode.currentIAEmployments : []),
+			];
+			const previousEmployments = [
+				...(Array.isArray(sourceNode?.previousEmployments) ? sourceNode.previousEmployments : []),
+				...(Array.isArray(sourceNode?.previousIAEmployments) ? sourceNode.previousIAEmployments : []),
+			];
+
 			let isCurrentConnection = false;
-			if (link.relationship === 'controls') {
-				const controlOwner = (otherCrd && directOwnerByCrd.get(otherCrd)) || null;
-				const controlEndDate = String(link?.endDate || link?.registrationEndDate || link?.toDate || '').trim();
-				isCurrentConnection = Boolean(controlOwner) || !controlEndDate;
-				relationshipLabel = 'Control';
-				position = String(controlOwner?.position || link?.position || link?.title || link?.role || '').trim();
-			} else if (link.relationship === 'employed_by') {
-				const sourceNode = (typeof link?.source === 'object' && link.source) || nodeLookup.get(sourceId) || null;
-				const targetFirmId = String(d?.firmId || firmNodeId.replace(/^(?:firm[:_])?/, '')).trim();
-				const currentEmployments = [
-					...(Array.isArray(sourceNode?.currentEmployments) ? sourceNode.currentEmployments : []),
-					...(Array.isArray(sourceNode?.currentIAEmployments) ? sourceNode.currentIAEmployments : []),
-				];
-				const previousEmployments = [
-					...(Array.isArray(sourceNode?.previousEmployments) ? sourceNode.previousEmployments : []),
-					...(Array.isArray(sourceNode?.previousIAEmployments) ? sourceNode.previousIAEmployments : []),
-				];
-				if (link?.isCurrent !== undefined) {
-					isCurrentConnection = Boolean(link.isCurrent);
-				} else if (targetFirmId && currentEmployments.some((employment) => String(employment?.firmId || employment?.firm_id || '').trim() === targetFirmId)) {
-					isCurrentConnection = true;
-				} else if (targetFirmId && previousEmployments.some((employment) => String(employment?.firmId || employment?.firm_id || '').trim() === targetFirmId)) {
-					isCurrentConnection = false;
-				} else {
-					const linkEndDate = String(link?.endDate || link?.registrationEndDate || link?.toDate || '').trim();
-					isCurrentConnection = !linkEndDate;
-				}
-				relationshipLabel = 'Current registration';
+			if (link?.isCurrent !== undefined) {
+				isCurrentConnection = Boolean(link.isCurrent);
+			} else if (targetFirmId && currentEmployments.some((employment) => String(employment?.firmId || employment?.firm_id || '').trim() === targetFirmId)) {
+				isCurrentConnection = true;
+			} else if (targetFirmId && previousEmployments.some((employment) => String(employment?.firmId || employment?.firm_id || '').trim() === targetFirmId)) {
+				isCurrentConnection = false;
+			} else {
+				const linkEndDate = String(link?.endDate || link?.registrationEndDate || link?.toDate || '').trim();
+				isCurrentConnection = !linkEndDate;
 			}
 
-			if (!isCurrentConnection || !relationshipLabel) return;
-
-			const dedupeKey = `${otherId}|${relationshipLabel}`;
-			if (seen.has(dedupeKey)) return;
-			seen.add(dedupeKey);
-
-			const label = String(getPreferredNodeLabel(otherNode) || otherNode?.label || link?.legalName || link?.name || link?.personName || otherId).trim() || otherId;
 			const startDate = String(link?.startDate || link?.registrationBeginDate || link?.fromDate || link?.effectiveDate || '').trim();
-			entries.push({
+			const endDate = String(link?.endDate || link?.registrationEndDate || link?.toDate || '').trim();
+			relationshipLabel = isCurrentConnection ? 'Current registration' : 'Previous registration';
+			dateText = formatFirmConnectionDateText(startDate, endDate, isCurrentConnection);
+			sortOrder = isCurrentConnection ? 0 : 2;
+		} else {
+			const rawRelationship = String(link?.relationship || '').trim();
+			relationshipLabel =
+				rawRelationship ?
+					rawRelationship
+						.replace(/_/g, ' ')
+						.replace(/\b\w/g, (char) => char.toUpperCase())
+				:	'Connected';
+			const startDate = String(link?.startDate || link?.registrationBeginDate || link?.fromDate || link?.effectiveDate || '').trim();
+			const endDate = String(link?.endDate || link?.registrationEndDate || link?.toDate || '').trim();
+			dateText = formatFirmConnectionDateText(startDate, endDate, !endDate);
+		}
+
+		if (!relationshipLabel) return;
+
+		const label = String(getPreferredNodeLabel(otherNode) || otherNode?.label || link?.legalName || link?.name || link?.personName || otherId).trim() || otherId;
+		const existingEntry =
+			entriesById.get(otherId) ||
+			{
 				id: otherId,
 				label,
 				group: otherGroup,
 				crd: otherCrd,
-				relationshipLabel,
-				position,
-				dateText: startDate ? `Since ${startDate}` : '',
-			});
-		});
+				relationshipLabels: new Set<string>(),
+				positions: new Set<string>(),
+				dateTexts: new Set<string>(),
+				sortOrder,
+			};
 
-		return entries.sort((a, b) => {
-			const relationshipOrder = (value: string) =>
-				value === 'Current registration' ? 0
-				: value === 'Control' ? 1
-				: 2;
-			const relationshipDiff = relationshipOrder(a.relationshipLabel) - relationshipOrder(b.relationshipLabel);
-			if (relationshipDiff !== 0) return relationshipDiff;
-			return String(a.label).localeCompare(String(b.label));
-		});
-	}
+		existingEntry.label = existingEntry.label || label;
+		existingEntry.sortOrder = Math.min(existingEntry.sortOrder, sortOrder);
+		existingEntry.relationshipLabels.add(relationshipLabel);
+		if (position) existingEntry.positions.add(position);
+		if (dateText) existingEntry.dateTexts.add(dateText);
+		entriesById.set(otherId, existingEntry);
+	});
 
-	const currentConnections = buildFirmCurrentConnections();
+	return Array.from(entriesById.values())
+		.map((entry) => ({
+			id: entry.id,
+			label: entry.label,
+			group: entry.group,
+			crd: entry.crd,
+			relationshipLabels: Array.from(entry.relationshipLabels),
+			positions: Array.from(entry.positions),
+			dateTexts: Array.from(entry.dateTexts),
+			sortOrder: entry.sortOrder,
+		}))
+		.sort((a, b) => a.sortOrder - b.sortOrder || String(a.label).localeCompare(String(b.label)));
+}
+
+// ── Firm detail ──────────────────────────────────────────────────────────────
+function renderFirmDetail(d: any) {
+	const owners = d.directOwners || [];
+	const disclosures = d.disclosures || [];
+	const connections = collectFirmConnectionEntries({
+		firmNode: d,
+		layoutNodes,
+		graphNodes: graphData?.nodes || [],
+		layoutLinks,
+		graphLinks: graphData?.links || [],
+	});
 	function parseFirmSortDateValue(value: any) {
 		const raw = String(value || '').trim();
 		if (!raw) return Number.NEGATIVE_INFINITY;
@@ -11446,25 +11519,27 @@ function renderFirmDetail(d: any) {
 			)}
       ${row('Regulator', esc(d.regulator || '–'))}
 			${
-				currentConnections.length ?
-					`<div class="fg-section-title fg-section-title--sticky">Current Connections (${currentConnections.length})</div>
+				connections.length ?
+					`<div class="fg-section-title fg-section-title--sticky">Connected Nodes (${connections.length})</div>
 					<div class="fg-timeline">
-						${currentConnections
+						${connections
 							.map((connection) => {
-								const metaBits = [connection.relationshipLabel, connection.position, connection.dateText].filter(Boolean);
+								const metaBits = [
+									connection.relationshipLabels.join(', '),
+									...connection.positions,
+									...connection.dateTexts,
+								].filter(Boolean);
 								const metaHtml = metaBits.length ? `<span class="fg-tl-loc">${esc(metaBits.join(' · '))}</span>` : '';
-								if (connection.group === 'individual' && connection.crd) {
-									return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-crd-link" data-crd="${esc(connection.crd)}" data-crd-type="person"><span class="fg-tl-firm">${esc(connection.label)}${connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>` : ''}</span>${metaHtml}</button>`;
-								}
-								if (connection.group === 'firm') {
-									const connectedFirmId = String(connection.id || '')
-										.replace(/^(?:firm[:_])?/, '')
-										.trim();
-									if (connectedFirmId) {
-										return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-crd-link" data-crd="${esc(connectedFirmId)}" data-crd-type="firm"><span class="fg-tl-firm">${esc(connection.label)} <small>CRD#${esc(connectedFirmId)}</small></span>${metaHtml}</button>`;
-									}
-								}
-								return `<div class="fg-tl-entry active-pos"><span class="fg-tl-firm">${esc(connection.label)}</span>${metaHtml}</div>`;
+								const displaySecondary =
+									connection.group === 'individual' && connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>`
+									: connection.group === 'firm' ? (() => {
+											const connectedFirmId = String(connection.id || '')
+												.replace(/^(?:firm[:_])?/, '')
+												.trim();
+											return connectedFirmId ? ` <small>CRD#${esc(connectedFirmId)}</small>` : '';
+										})()
+									: '';
+								return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}"><span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>${metaHtml}</button>`;
 							})
 							.join('')}
 					</div>`
