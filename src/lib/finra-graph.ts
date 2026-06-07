@@ -8456,6 +8456,7 @@ async function ensureFirmDetail(firmNode) {
 	if (!match) return;
 	const firmId = match[1];
 
+	if (firmNode._detailMissing) return;
 	if (firmNode._detailLoaded && firmNode._detailValidated === true) return;
 
 	try {
@@ -8511,6 +8512,8 @@ async function ensureFirmDetail(firmNode) {
 		}
 
 		if (!detail || (detail.found === false && !detail.basicInformation && !detail.firmName)) {
+			firmNode._detailMissing = true;
+			firmNode._detailValidated = true;
 			console.debug(`Firm ${firmId} not found`);
 			return;
 		}
@@ -8609,6 +8612,7 @@ async function ensureFirmDetail(firmNode) {
 
 		syncFirmConnectionsFromDetail(firmNode, detail);
 		firmNode._detailLoaded = true;
+		firmNode._detailMissing = false;
 		firmNode._detailValidated = true;
 		console.log(`Firm detail loaded for ID ${firmId}: ${firmNode.disclosures?.length || 0} disclosures, ${firmNode.directOwners?.length || 0} owners`);
 	} catch (err) {
@@ -8695,9 +8699,18 @@ async function fetchExpansionDataForNodeIds(
 	return { nodes: mergedNodes, links: mergedLinks };
 }
 
-async function hydrateExpansionFrontierNodes(nodeIds: string[] = []) {
+export function shouldHydrateExpansionFrontierNodeDetail(node, options: { includeFirmDetails?: boolean } = {}) {
+	if (!node || typeof node !== 'object') return false;
+	const { includeFirmDetails = false } = options;
+	if (node.group === 'individual') return true;
+	if (node.group === 'firm') return includeFirmDetails;
+	return false;
+}
+
+async function hydrateExpansionFrontierNodes(nodeIds: string[] = [], options: { includeFirmDetails?: boolean } = {}) {
 	const uniqueIds = Array.from(new Set(nodeIds.filter(Boolean)));
 	if (!uniqueIds.length) return [];
+	const { includeFirmDetails = false } = options;
 
 	const hydratedIds = new Set<string>();
 	for (let index = 0; index < uniqueIds.length; index += NON_GRAY_DETAIL_BATCH_SIZE) {
@@ -8706,6 +8719,7 @@ async function hydrateExpansionFrontierNodes(nodeIds: string[] = []) {
 			chunk.map(async (nodeId) => {
 				const liveNode = layoutNodes?.find((node) => node.id === nodeId) || graphData?.nodes?.find((node) => node.id === nodeId);
 				if (!liveNode) return null;
+				if (!shouldHydrateExpansionFrontierNodeDetail(liveNode, { includeFirmDetails })) return null;
 				if (liveNode.group === 'individual') {
 					await ensureIndividualDetail(liveNode);
 				} else if (liveNode.group === 'firm') {
@@ -8782,7 +8796,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 		}
 
 		// Pass 2: Fetch and hydrate detail for currentWaveIds to discover even MORE neighbors
-		const hydrationPromise = hydrateExpansionFrontierNodes(currentWaveIds);
+		const hydrationPromise = hydrateExpansionFrontierNodes(currentWaveIds, { includeFirmDetails: false });
 		const expansionPromise = fetchExpansionDataForNodeIds(currentWaveIds, 1, { strictHops: true });
 
 		await Promise.all([
@@ -8836,7 +8850,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 
 	// Final hydration pass for any newly revealed frontier nodes (leaf nodes of the expansion)
 	if (currentWaveIds.length && runId === nonGrayExpandRunId) {
-		await hydrateExpansionFrontierNodes(currentWaveIds);
+		await hydrateExpansionFrontierNodes(currentWaveIds, { includeFirmDetails: false });
 	}
 
 	refreshTraceState({ deferMs: 120 });
