@@ -8009,8 +8009,14 @@ function normalizeComparableName(name) {
 	return normalizeComparableNameImpl(name);
 }
 
-async function mergeIndividualOwnerEvidence(personNode) {
+export function shouldFetchFirmDetailForOwnerEvidence(options: { allowFirmDetailFetch?: boolean } = {}) {
+	const { allowFirmDetailFetch = true } = options;
+	return allowFirmDetailFetch;
+}
+
+async function mergeIndividualOwnerEvidence(personNode, options: { allowFirmDetailFetch?: boolean } = {}) {
 	if (!personNode || !graphData) return false;
+	const { allowFirmDetailFetch = true } = options;
 
 	const personId = personNode.id;
 	const personCrd = String(personNode.crd || '').trim();
@@ -8030,7 +8036,7 @@ async function mergeIndividualOwnerEvidence(personNode) {
 		const firmNode = layoutNodes?.find((node) => node.id === firmNodeId) || graphData.nodes?.find((node) => node.id === firmNodeId);
 		if (!firmNode || firmNode.group !== 'firm') continue;
 
-		if (!Array.isArray(firmNode.directOwners) || !firmNode.directOwners.length) {
+		if (shouldFetchFirmDetailForOwnerEvidence({ allowFirmDetailFetch }) && (!Array.isArray(firmNode.directOwners) || !firmNode.directOwners.length)) {
 			try {
 				await ensureFirmDetail(firmNode);
 			} catch {
@@ -8062,15 +8068,16 @@ async function mergeIndividualOwnerEvidence(personNode) {
 
 // Fetch individual detail from API and merge all data into the node.
 // Called when an individual node is selected to hydrate missing data.
-async function ensureIndividualDetail(personNode) {
+async function ensureIndividualDetail(personNode, options: { allowOwnerEvidenceFirmFetch?: boolean } = {}) {
 	if (!personNode || personNode.group !== 'individual') return;
+	const { allowOwnerEvidenceFirmFetch = true } = options;
 
 	// Extract CRD from node ID.
 	// Supports "person:6482604", legacy "person_6482604", and bare numeric ids.
 	const match = personNode.id.match(/^(?:person[:_])?(\d+)$/);
 	const crd = String(personNode.crd || match?.[1] || '').trim();
 	if (!crd) {
-		personNode._ownerEvidenceLoaded = await mergeIndividualOwnerEvidence(personNode);
+		personNode._ownerEvidenceLoaded = await mergeIndividualOwnerEvidence(personNode, { allowFirmDetailFetch: allowOwnerEvidenceFirmFetch });
 		personNode._detailMissing = !personNode._ownerEvidenceLoaded;
 		return;
 	}
@@ -8106,7 +8113,10 @@ async function ensureIndividualDetail(personNode) {
 			// local lookup failed — fall through to live API
 		}
 
-		const ownerEvidenceAvailable = !detail && !localDetail && !hasRichIndividualDetail(personNode) ? await mergeIndividualOwnerEvidence(personNode) : false;
+		const ownerEvidenceAvailable =
+			!detail && !localDetail && !hasRichIndividualDetail(personNode) ?
+				await mergeIndividualOwnerEvidence(personNode, { allowFirmDetailFetch: allowOwnerEvidenceFirmFetch })
+			:	false;
 		if (ownerEvidenceAvailable && isLikelyOwnerOnlyIndividual(personNode)) {
 			personNode.stub = true;
 			personNode._ownerEvidenceLoaded = true;
@@ -8149,7 +8159,7 @@ async function ensureIndividualDetail(personNode) {
 		}
 
 		if (!detail || detail.found === false) {
-			personNode._ownerEvidenceLoaded = await mergeIndividualOwnerEvidence(personNode);
+			personNode._ownerEvidenceLoaded = await mergeIndividualOwnerEvidence(personNode, { allowFirmDetailFetch: allowOwnerEvidenceFirmFetch });
 			if (!detail || detail.found === false) {
 				personNode._detailMissing = !personNode._ownerEvidenceLoaded;
 				return;
@@ -8721,7 +8731,7 @@ async function hydrateExpansionFrontierNodes(nodeIds: string[] = [], options: { 
 				if (!liveNode) return null;
 				if (!shouldHydrateExpansionFrontierNodeDetail(liveNode, { includeFirmDetails })) return null;
 				if (liveNode.group === 'individual') {
-					await ensureIndividualDetail(liveNode);
+					await ensureIndividualDetail(liveNode, { allowOwnerEvidenceFirmFetch: includeFirmDetails });
 				} else if (liveNode.group === 'firm') {
 					await ensureFirmDetail(liveNode);
 				} else {
