@@ -146,7 +146,7 @@ export type LocalSearchResponse = {
 };
 
 const indexPromiseCache = new Map<string, Promise<LocalSearchIndex | null>>();
-const STRICT_MATCH_QUERY_ALLOWLIST = new Set(['mason']);
+const STRICT_MATCH_QUERY_ALLOWLIST = new Set(['mason', 'bryan']);
 
 function simplifyName(name: string): string {
 	if (!name) return '';
@@ -474,6 +474,11 @@ function isStrictMatchQuery(normalizedQuery: string) {
 	return STRICT_MATCH_QUERY_ALLOWLIST.has(normalizedQuery);
 }
 
+function hasStrictTokenMatch(doc: PreparedLocalSearchDoc, tokens: string[]) {
+	if (!tokens.length) return false;
+	return tokens.every((token) => doc.nameTokens.some((candidateToken) => candidateToken === token));
+}
+
 function hasStrictMatch(doc: PreparedLocalSearchDoc, normalizedQuery: string, tokens: string[]) {
 	const strictText = doc.primaryNameSearchText || doc.normalizedNameSearchText;
 	const identifier = getIdentifierText(doc);
@@ -544,10 +549,14 @@ function getSurnameMatchScore(doc: PreparedLocalSearchDoc, rawQuery: string, nor
 	const strictQuery = isStrictMatchQuery(normalizedQuery);
 	let bestScore = 0;
 	for (const candidate of doc.surnameCompactCandidates) {
-		if (candidate === compactQuery) bestScore = Math.max(bestScore, strictSurnameQuery ? 420 : 240);
-		else if (compactQuery.length >= 3 && candidate.startsWith(compactQuery)) bestScore = Math.max(bestScore, strictSurnameQuery ? 320 : 170);
+		if (candidate === compactQuery) {
+			bestScore = Math.max(bestScore, strictSurnameQuery ? 420 : strictQuery ? 320 : 240);
+			continue;
+		}
+		if (strictQuery) continue;
+		if (compactQuery.length >= 3 && candidate.startsWith(compactQuery)) bestScore = Math.max(bestScore, strictSurnameQuery ? 320 : 170);
 		else if (candidate.includes(compactQuery) && compactQuery.length >= 4) bestScore = Math.max(bestScore, strictSurnameQuery ? 200 : 140);
-		else if (!strictSurnameQuery && !strictQuery && compactQuery.length >= 4 && tokensFuzzyMatch(compactQuery, candidate)) bestScore = Math.max(bestScore, 120);
+		else if (!strictSurnameQuery && compactQuery.length >= 4 && tokensFuzzyMatch(compactQuery, candidate)) bestScore = Math.max(bestScore, 120);
 	}
 	return bestScore;
 }
@@ -589,6 +598,22 @@ function getNameMatchScore(doc: PreparedLocalSearchDoc, rawQuery: string, normal
 		return getSurnameMatchScore(doc, rawQuery, normalizedQuery);
 	}
 	const strictQuery = isStrictMatchQuery(normalizedQuery);
+	if (strictQuery) {
+		let bestScore = 0;
+		for (const candidate of doc.nameCandidates) {
+			const isPrimaryCandidate = doc.primaryNameCandidates.includes(candidate);
+			if (candidate === normalizedQuery) bestScore = Math.max(bestScore, isPrimaryCandidate ? 280 : 240);
+			else if (containsWholePhrase(candidate, normalizedQuery)) bestScore = Math.max(bestScore, isPrimaryCandidate ? 220 : 190);
+			else {
+				const candidateTokens = tokenizeQuery(candidate);
+				const matchedTokenCount = tokens.filter((token) => candidateTokens.some((candidateToken) => candidateToken === token)).length;
+				if (matchedTokenCount === tokens.length && tokens.length > 0) {
+					bestScore = Math.max(bestScore, (isPrimaryCandidate ? 200 : 170) + matchedTokenCount * 20);
+				}
+			}
+		}
+		return Math.max(bestScore, getSurnameMatchScore(doc, rawQuery, normalizedQuery));
+	}
 	let bestScore = 0;
 	for (const candidate of doc.nameCandidates) {
 		const isPrimaryCandidate = doc.primaryNameCandidates.includes(candidate);
@@ -648,6 +673,10 @@ function matchesQuery(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQ
 	if (!identifier) return false;
 	if (identifier === normalizedQuery || doc.id.toLowerCase().endsWith(`:${normalizedQuery}`) || containsWholePhrase(identifier, normalizedQuery)) return true;
 	if (getAddressMatchScore(doc, normalizedQuery, tokens) > 0) return true;
+	const strictQuery = isStrictMatchQuery(normalizedQuery);
+	if (strictQuery) {
+		return hasStrictMatch(doc, normalizedQuery, tokens) || hasStrictTokenMatch(doc, tokens);
+	}
 	if (isStrictSurnameQuery(rawQuery, normalizedQuery)) {
 		return getSurnameMatchScore(doc, rawQuery, normalizedQuery) > 0;
 	}
