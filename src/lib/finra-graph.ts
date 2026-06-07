@@ -28,7 +28,14 @@ import {
 	row as rowImpl,
 	truncate as truncateImpl,
 } from './finra-graph/formatters';
-import { DEFAULT_EXPANSION_HOPS, DEFAULT_NODE_LABEL_FONT_SIZE, DEFAULT_NODE_LABEL_FONT_WEIGHT, DEFAULT_NODE_LABEL_GAP_PX, DEFAULT_SELECTION_HOPS } from './finra-graph-defaults';
+import {
+	DEFAULT_CLICK_EXPANSION_HOPS,
+	DEFAULT_EXPANSION_HOPS,
+	DEFAULT_NODE_LABEL_FONT_SIZE,
+	DEFAULT_NODE_LABEL_FONT_WEIGHT,
+	DEFAULT_NODE_LABEL_GAP_PX,
+	DEFAULT_SELECTION_HOPS,
+} from './finra-graph-defaults';
 import * as canvasRenderer from './finra-graph-canvas';
 import * as overlayRenderer from './finra-graph-overlay';
 import { isValidLocationStateFilter, isZipLikeLocationQuery, normalizeLocationStateFilter } from './locationSearch';
@@ -586,6 +593,11 @@ function getDefaultSelectionHops(): number {
 function getDefaultExpansionHops(): number {
 	const normalized = normalizeHighlightHops(DEFAULT_EXPANSION_HOPS);
 	return normalized === 'all' ? 100 : normalized;
+}
+
+function getDefaultClickExpansionHops(): number {
+	const normalized = normalizeHighlightHops(DEFAULT_CLICK_EXPANSION_HOPS);
+	return normalized === 'all' ? 3 : normalized;
 }
 
 function hasTrustedCurrentRelationshipData(node) {
@@ -9041,13 +9053,12 @@ function openNodeWithExpansion(
 	});
 	void (
 		shouldAutoRevealNodeConnections(d) ?
-			expandNodeThroughNonGrayHops(d)
-		:	ensureExpansionDataForNode(d.id, 1).then(() => {
+			expandNodeThroughNonGrayHops(d, getDefaultClickExpansionHops())
+		:	ensureExpansionDataForNode(d.id, getDefaultClickExpansionHops()).then(() => {
 				if (selectedId === d.id) {
 					renderSidebar(d);
 				}
-			})
-	).catch((err) => {
+			})).catch((err) => {
 		console.error('Progressive non-gray hop expansion failed:', err);
 		refreshTraceState({ deferMs: 120 });
 	});
@@ -9179,14 +9190,13 @@ function selectNode(
 		markUserInitiatedGraphExpansion();
 		anchorNode(d);
 		lastExpandOriginNode = d;
-		(
-			shouldAutoRevealNodeConnections(d) ?
-				expandNodeThroughNonGrayHops(d, getDefaultExpansionHops())
-			:	ensureExpansionDataForNode(d.id, 1).then(() => {
-					if (selectedId === d.id) {
-						renderSidebar(d);
-					}
-				})
+		(shouldAutoRevealNodeConnections(d) ?
+			expandNodeThroughNonGrayHops(d, getDefaultClickExpansionHops())
+		:	ensureExpansionDataForNode(d.id, getDefaultClickExpansionHops()).then(() => {
+				if (selectedId === d.id) {
+					renderSidebar(d);
+				}
+			})
 		).finally(() => {
 			refreshTraceState({ deferMs: 120 });
 			try {
@@ -11208,7 +11218,13 @@ export function collectFirmConnectionEntries({
 		if (!otherId) return;
 
 		const otherNode = nodeLookup.get(otherId) || null;
-		const otherGroup = String(otherNode?.group || (otherId.startsWith('person:') ? 'individual' : otherId.startsWith('entity:') ? 'entity' : otherId.startsWith('firm:') ? 'firm' : '')).trim();
+		const otherGroup = String(
+			otherNode?.group ||
+				(otherId.startsWith('person:') ? 'individual'
+				: otherId.startsWith('entity:') ? 'entity'
+				: otherId.startsWith('firm:') ? 'firm'
+				: ''),
+		).trim();
 		if (!otherGroup) return;
 
 		const otherCrd = otherGroup === 'individual' ? String(otherNode?.crd || otherId.replace(/^(?:person[:_])?/, '')).trim() : '';
@@ -11257,12 +11273,7 @@ export function collectFirmConnectionEntries({
 			sortOrder = isCurrentConnection ? 0 : 2;
 		} else {
 			const rawRelationship = String(link?.relationship || '').trim();
-			relationshipLabel =
-				rawRelationship ?
-					rawRelationship
-						.replace(/_/g, ' ')
-						.replace(/\b\w/g, (char) => char.toUpperCase())
-				:	'Connected';
+			relationshipLabel = rawRelationship ? rawRelationship.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()) : 'Connected';
 			const startDate = String(link?.startDate || link?.registrationBeginDate || link?.fromDate || link?.effectiveDate || '').trim();
 			const endDate = String(link?.endDate || link?.registrationEndDate || link?.toDate || '').trim();
 			dateText = formatFirmConnectionDateText(startDate, endDate, !endDate);
@@ -11271,18 +11282,16 @@ export function collectFirmConnectionEntries({
 		if (!relationshipLabel) return;
 
 		const label = String(getPreferredNodeLabel(otherNode) || otherNode?.label || link?.legalName || link?.name || link?.personName || otherId).trim() || otherId;
-		const existingEntry =
-			entriesById.get(otherId) ||
-			{
-				id: otherId,
-				label,
-				group: otherGroup,
-				crd: otherCrd,
-				relationshipLabels: new Set<string>(),
-				positions: new Set<string>(),
-				dateTexts: new Set<string>(),
-				sortOrder,
-			};
+		const existingEntry = entriesById.get(otherId) || {
+			id: otherId,
+			label,
+			group: otherGroup,
+			crd: otherCrd,
+			relationshipLabels: new Set<string>(),
+			positions: new Set<string>(),
+			dateTexts: new Set<string>(),
+			sortOrder,
+		};
 
 		existingEntry.label = existingEntry.label || label;
 		existingEntry.sortOrder = Math.min(existingEntry.sortOrder, sortOrder);
@@ -11524,21 +11533,18 @@ function renderFirmDetail(d: any) {
 					<div class="fg-timeline">
 						${connections
 							.map((connection) => {
-								const metaBits = [
-									connection.relationshipLabels.join(', '),
-									...connection.positions,
-									...connection.dateTexts,
-								].filter(Boolean);
+								const metaBits = [connection.relationshipLabels.join(', '), ...connection.positions, ...connection.dateTexts].filter(Boolean);
 								const metaHtml = metaBits.length ? `<span class="fg-tl-loc">${esc(metaBits.join(' · '))}</span>` : '';
 								const displaySecondary =
 									connection.group === 'individual' && connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>`
-									: connection.group === 'firm' ? (() => {
+									: connection.group === 'firm' ?
+										(() => {
 											const connectedFirmId = String(connection.id || '')
 												.replace(/^(?:firm[:_])?/, '')
 												.trim();
 											return connectedFirmId ? ` <small>CRD#${esc(connectedFirmId)}</small>` : '';
 										})()
-									: '';
+									:	'';
 								return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}"><span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>${metaHtml}</button>`;
 							})
 							.join('')}

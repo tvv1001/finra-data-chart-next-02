@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import { gunzipSync } from 'node:zlib';
@@ -74,6 +75,7 @@ export type LocalSearchOptions = {
 	limit?: number;
 	offset?: number;
 	baseUrl?: string;
+	seedRoots?: Array<string | null | undefined>;
 };
 
 export type LocalSearchResponse = {
@@ -96,8 +98,20 @@ export type LocalSearchResponse = {
 	pageSize: number;
 };
 
-const indexPromiseCache = new Map<LocalSearchBucket, Promise<LocalSearchIndex | null>>();
+const indexPromiseCache = new Map<string, Promise<LocalSearchIndex | null>>();
 const STRICT_MATCH_QUERY_ALLOWLIST = new Set(['mason']);
+type LocationDataset = {
+	countries?: Array<{
+		country?: string;
+		city?: string | Array<unknown>;
+		states?: Array<{
+			state?: string;
+			city?: string | Array<unknown>;
+		}>;
+	}>;
+};
+
+let locationReferenceNamesOverride: string[] | null = null;
 
 function simplifyName(name: string): string {
 	if (!name) return '';
@@ -196,6 +210,104 @@ function uniqueNormalized(values: unknown[]) {
 		normalizedValues.push(normalized);
 	}
 	return normalizedValues;
+}
+
+function normalizeLocationReferenceNames(values: Array<string | null | undefined>) {
+	return Array.from(new Set(values.map((value) => normalizeText(value)).filter(Boolean)));
+}
+
+function collectLocationReferenceValues(value: unknown, values: string[] = []) {
+	if (!value) return values;
+	if (typeof value === 'string') {
+		values.push(value);
+		return values;
+	}
+	if (Array.isArray(value)) {
+		value.forEach((entry) => collectLocationReferenceValues(entry, values));
+		return values;
+	}
+	if (typeof value !== 'object') return values;
+	const record = value as Record<string, unknown>;
+	values.push(String(record.country || ''));
+	values.push(String(record.state || ''));
+	values.push(String(record.name || ''));
+	collectLocationReferenceValues(record.city, values);
+	collectLocationReferenceValues(record.alias, values);
+	collectLocationReferenceValues(record.states, values);
+	return values;
+}
+
+function extractQuotedValues(raw: string) {
+	const values: string[] = [];
+	for (const match of raw.matchAll(/"((?:[^"\\]|\\.)*)"/g)) {
+		values.push(match[1].replace(/\\"/g, '"'));
+	}
+	return values;
+}
+
+function extractLocationReferenceNamesFromText(raw: string) {
+	const values: string[] = [];
+
+	for (const match of raw.matchAll(/"country"\s*:\s*"((?:[^"\\]|\\.)*)"/g)) {
+		values.push(match[1].replace(/\\"/g, '"'));
+	}
+
+	for (const match of raw.matchAll(/"city"\s*:\s*"((?:[^"\\]|\\.)*)"/g)) {
+		values.push(match[1].replace(/\\"/g, '"'));
+	}
+
+	for (const match of raw.matchAll(/"name"\s*:\s*"((?:[^"\\]|\\.)*)"/g)) {
+		values.push(match[1].replace(/\\"/g, '"'));
+	}
+
+	for (const match of raw.matchAll(/"alias"\s*:\s*\[([\s\S]*?)\]/g)) {
+		values.push(...extractQuotedValues(match[1]));
+	}
+
+	return normalizeLocationReferenceNames(values);
+}
+
+function loadLocationReferenceNames() {
+	const locationsPath = path.join(process.cwd(), 'data', 'locations.json');
+	if (!existsSync(locationsPath)) return [];
+	try {
+		const raw = readFileSync(locationsPath, 'utf-8');
+		const parsed = JSON.parse(raw) as LocationDataset;
+		return normalizeLocationReferenceNames((parsed?.countries || []).flatMap((entry) => collectLocationReferenceValues(entry, [])));
+	} catch (err) {
+		try {
+			const raw = readFileSync(locationsPath, 'utf-8');
+			const extractedNames = extractLocationReferenceNamesFromText(raw);
+			if (extractedNames.length > 0) {
+				return extractedNames;
+			}
+		} catch {}
+		console.warn(`[localSearch] Failed to read locations reference data from ${locationsPath}:`, err instanceof Error ? err.message : String(err));
+		return [];
+	}
+}
+
+const DEFAULT_LOCATION_REFERENCE_NAMES = loadLocationReferenceNames();
+
+function getLocationReferenceNames() {
+	return locationReferenceNamesOverride ?? DEFAULT_LOCATION_REFERENCE_NAMES;
+}
+
+export function __setLocationReferenceNamesForTests(values: string[] | null) {
+	locationReferenceNamesOverride = values ? normalizeLocationReferenceNames(values) : null;
+}
+
+export function isLocationReferenceQuery(query: string) {
+	const normalizedQuery = normalizeText(query);
+	if (!normalizedQuery) return false;
+	const locationReferenceNames = getLocationReferenceNames();
+	if (locationReferenceNames.includes(normalizedQuery)) return true;
+	return locationReferenceNames.some((name) => {
+		if (!name) return false;
+		if (containsWholePhrase(normalizedQuery, name) || containsWholePhrase(name, normalizedQuery)) return true;
+		if (normalizedQuery.length >= 5 && name.length >= 5 && getBoundedEditDistance(normalizedQuery, name, 1) <= 1) return true;
+		return false;
+	});
 }
 
 function arrayify(value: unknown) {
@@ -303,7 +415,9 @@ export function hasMinimumSearchQuery(query: string) {
 	return SHORT_QUERY_ALLOWLIST.has(compactQuery) || compactQuery.length >= MIN_SEARCH_QUERY_CHARS;
 }
 
-async function loadIndex(bucket: LocalSearchBucket, baseUrl?: string): Promise<LocalSearchIndex | null> {
+async function loadIndex(bucket: LocalSearchBucket, baseUrl?: string, seedRoots: Array<string | null | undefined> = []): Promise<LocalSearchIndex | null> {
+	const cacheKey = [bucket, baseUrl || '', ...seedRoots.map((root) => String(root || ''))].join('|');
+
 	async function readIndexPayload(filePath: string) {
 		const raw = await readFile(filePath);
 		const jsonText = filePath.endsWith('.gz') ? gunzipSync(raw).toString('utf-8') : raw.toString('utf-8');
@@ -338,11 +452,11 @@ async function loadIndex(bucket: LocalSearchBucket, baseUrl?: string): Promise<L
 		}
 	}
 
-	if (!indexPromiseCache.has(bucket)) {
+	if (!indexPromiseCache.has(cacheKey)) {
 		indexPromiseCache.set(
-			bucket,
+			cacheKey,
 			(async () => {
-				const filePaths = getSearchIndexFilePaths(bucket);
+				const filePaths = getSearchIndexFilePaths(bucket, seedRoots);
 				if (filePaths.length > 0) {
 					try {
 						const allDocs: LocalSearchDoc[] = [];
@@ -398,7 +512,7 @@ async function loadIndex(bucket: LocalSearchBucket, baseUrl?: string): Promise<L
 			})(),
 		);
 	}
-	return (await indexPromiseCache.get(bucket)) ?? null;
+	return (await indexPromiseCache.get(cacheKey)) ?? null;
 }
 
 function getIdentifierText(doc: PreparedLocalSearchDoc) {
@@ -445,6 +559,13 @@ function getBoundedEditDistance(left: string, right: string, maxDistance: number
 	return previous[right.length];
 }
 
+function locationTokensMatch(queryToken: string, candidateToken: string) {
+	if (!queryToken || !candidateToken) return false;
+	if (queryToken === candidateToken) return true;
+	if (queryToken.length < 5 || candidateToken.length < 5) return false;
+	return getBoundedEditDistance(queryToken, candidateToken, 1) <= 1;
+}
+
 function tokensFuzzyMatch(queryToken: string, candidateToken: string) {
 	if (!queryToken || !candidateToken) return false;
 	if (queryToken === candidateToken) return true;
@@ -486,7 +607,39 @@ function getSurnameMatchScore(doc: PreparedLocalSearchDoc, rawQuery: string, nor
 	return bestScore;
 }
 
+function isStrictMcOrOQuery(rawQuery: string, normalizedQuery: string) {
+	const raw = String(rawQuery || '')
+		.trim()
+		.toLowerCase();
+	if (!normalizedQuery) return false;
+	return normalizedQuery.startsWith('mc') || raw.startsWith("o'") || raw.startsWith('o’');
+}
+
+function getStrictNamePatternScore(candidate: string, normalizedQuery: string) {
+	const compactCandidate = compactNormalizeText(candidate);
+	const compactQuery = compactNormalizeText(normalizedQuery);
+	if (!compactCandidate || !compactQuery) return 0;
+
+	const candidateTrimmedS = compactCandidate.endsWith('s') ? compactCandidate.slice(0, -1) : compactCandidate;
+	const queryTrimmedS = compactQuery.endsWith('s') ? compactQuery.slice(0, -1) : compactQuery;
+
+	if (compactCandidate === compactQuery) return 260;
+	if (candidateTrimmedS === compactQuery || compactCandidate === queryTrimmedS) return 245;
+	if (compactCandidate.startsWith(compactQuery) || compactQuery.startsWith(compactCandidate)) return 220;
+	if (candidateTrimmedS.startsWith(queryTrimmedS) || queryTrimmedS.startsWith(candidateTrimmedS)) return 210;
+	if (compactCandidate.includes(compactQuery) || compactQuery.includes(compactCandidate)) return 180;
+	return 0;
+}
+
 function getNameMatchScore(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQuery: string, tokens: string[]) {
+	if (isStrictMcOrOQuery(rawQuery, normalizedQuery)) {
+		let bestScore = 0;
+		for (const candidate of doc.nameCandidates) {
+			const score = getStrictNamePatternScore(candidate, normalizedQuery);
+			if (score > bestScore) bestScore = score;
+		}
+		return Math.max(bestScore, getSurnameMatchScore(doc, rawQuery, normalizedQuery));
+	}
 	if (isStrictSurnameQuery(rawQuery, normalizedQuery)) {
 		return getSurnameMatchScore(doc, rawQuery, normalizedQuery);
 	}
@@ -514,6 +667,22 @@ function getNameMatchScore(doc: PreparedLocalSearchDoc, rawQuery: string, normal
 	return Math.max(bestScore, getSurnameMatchScore(doc, rawQuery, normalizedQuery));
 }
 
+function getLocationFieldMatchScore(text: string, normalizedQuery: string, tokens: string[]) {
+	if (!text) return 0;
+	if (containsWholePhrase(text, normalizedQuery)) return 180;
+	const fieldTokens = tokenizeQuery(text);
+	if (tokens.length > 0 && tokens.every((token) => fieldTokens.some((fieldToken) => locationTokensMatch(token, fieldToken)))) {
+		return 140 + tokens.length * 10;
+	}
+	return 0;
+}
+
+function getLocationMatchScore(doc: PreparedLocalSearchDoc, normalizedQuery: string, tokens: string[]) {
+	const normalizedLocationQuery = normalizeText(normalizedQuery);
+	if (!isLocationReferenceQuery(normalizedLocationQuery)) return 0;
+	return getLocationFieldMatchScore(doc.addressSearchText, normalizedLocationQuery, tokens);
+}
+
 function getSortScore(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQuery: string, tokens: string[]) {
 	const identifier = getIdentifierText(doc);
 	const nameText = doc.normalizedNameSearchText;
@@ -526,6 +695,7 @@ function getSortScore(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQ
 		if (identifier === token) score += 120;
 	}
 	score += getNameMatchScore(doc, rawQuery, normalizedQuery, tokens);
+	score += getLocationMatchScore(doc, normalizedQuery, tokens);
 	return score;
 }
 
@@ -537,6 +707,7 @@ function matchesQuery(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQ
 	if (isStrictSurnameQuery(rawQuery, normalizedQuery)) {
 		return getSurnameMatchScore(doc, rawQuery, normalizedQuery) > 0;
 	}
+	if (getLocationMatchScore(doc, normalizedQuery, tokens) > 0) return true;
 	if (getNameMatchScore(doc, rawQuery, normalizedQuery, tokens) > 0) return true;
 	if (hasStrictMatch(doc, normalizedQuery, tokens)) return true;
 	return tokens.every((token) => doc.nameTokens.some((candidateToken) => tokensFuzzyMatch(token, candidateToken)));
@@ -548,7 +719,7 @@ export async function searchLocalIndex(source: LocalSearchSource, type: LocalSea
 	const offset = Math.max(0, options.offset ?? 0);
 	const normalizedQuery = simplifyName(query);
 	const tokens = tokenizeQuery(query);
-	const index = await loadIndex(bucket, options.baseUrl);
+	const index = await loadIndex(bucket, options.baseUrl, options.seedRoots || []);
 
 	// If index failed to load, return null result to trigger fallback search
 	if (!index) {

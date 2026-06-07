@@ -1,4 +1,5 @@
 import { getFullGraph } from '@/lib/graphStore';
+import { isLocationReferenceQuery } from '@/lib/localSearch';
 import type { LocalSearchEntity, LocalSearchResponse, LocalSearchSource } from '@/lib/localSearch';
 
 type SearchFallbackOptions = {
@@ -17,7 +18,11 @@ function containsWholePhrase(text: string, phrase: string) {
 	return ` ${text} `.includes(` ${phrase} `);
 }
 
-function collectSearchableNodeKeys(node: any) {
+function isIdentifierLikeQuery(value: string) {
+	return /^[0-9-]+$/.test(value);
+}
+
+export function collectSearchableNodeKeys(node: any) {
 	const basic = node?.basicInformation || {};
 	return [
 		node?.id,
@@ -66,6 +71,7 @@ function getBoundedEditDistance(left: string, right: string, maxDistance: number
 function tokensFuzzyMatch(queryToken: string, candidateToken: string) {
 	if (!queryToken || !candidateToken) return false;
 	if (queryToken === candidateToken) return true;
+	if (isIdentifierLikeQuery(queryToken) || isIdentifierLikeQuery(candidateToken)) return false;
 	if (queryToken === 'mason') return candidateToken.includes(queryToken);
 	if (candidateToken.includes(queryToken) && queryToken.length >= 4) return true;
 	if (queryToken.includes(candidateToken) && candidateToken.length >= 4) return true;
@@ -75,12 +81,25 @@ function tokensFuzzyMatch(queryToken: string, candidateToken: string) {
 	return getBoundedEditDistance(queryToken, candidateToken, maxDistance) <= maxDistance;
 }
 
-function matchesQuery(node: any, query: string) {
+export function matchesSearchableNodeQuery(node: any, query: string) {
 	const normalizedQuery = normalizeText(query);
 	if (!normalizedQuery) return false;
+	if (isLocationReferenceQuery(normalizedQuery)) {
+		const addressText = normalizeText(node?.addressSearchText || '');
+		if (!addressText) return false;
+		const queryTokens = normalizedQuery.split(/\s+/).filter(Boolean);
+		if (containsWholePhrase(addressText, normalizedQuery)) return true;
+		if (queryTokens.length > 0) {
+			const addressTokens = addressText.split(/\s+/).filter(Boolean);
+			return queryTokens.every((qt) => addressTokens.some((kt) => tokensFuzzyMatch(qt, kt)));
+		}
+		return false;
+	}
 	const queryTokens = normalizedQuery.split(/\s+/).filter(Boolean);
 	const keys = collectSearchableNodeKeys(node);
-	if (keys.some((key) => containsWholePhrase(key, normalizedQuery) || key.includes(normalizedQuery))) return true;
+	const identifierLikeQuery = isIdentifierLikeQuery(normalizedQuery);
+	if (keys.some((key) => key === normalizedQuery || containsWholePhrase(key, normalizedQuery))) return true;
+	if (!identifierLikeQuery && keys.some((key) => key.includes(normalizedQuery))) return true;
 	if (queryTokens.length > 0) {
 		for (const key of keys) {
 			const keyTokens = key.split(/\s+/).filter(Boolean);
@@ -115,7 +134,7 @@ export async function searchGraphFallback(source: LocalSearchSource, type: Local
 	const nodes: any[] = Array.isArray(graph?.nodes) ? graph.nodes : [];
 	console.log('[searchGraphFallback] Graph loaded:', { hasGraph: !!graph, nodeCount: nodes.length, query });
 	const group = type === 'firm' ? 'firm' : 'individual';
-	const matches = nodes.filter((node) => node?.group === group && matchesQuery(node, query)).sort((left, right) => compareNodes(left, right, query));
+	const matches = nodes.filter((node) => node?.group === group && matchesSearchableNodeQuery(node, query)).sort((left, right) => compareNodes(left, right, query));
 	console.log('[searchGraphFallback] Filtered nodes:', { group, totalMatches: matches.length });
 	const pageNodes = limit > 0 ? matches.slice(offset, offset + limit) : [];
 	return {

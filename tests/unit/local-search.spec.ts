@@ -2,8 +2,8 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { gzipSync } from 'node:zlib';
-import { describe, expect, it } from 'vitest';
-import { searchLocalIndex } from '@/lib/localSearch';
+import { afterEach, describe, expect, it } from 'vitest';
+import { __setLocationReferenceNamesForTests, isLocationReferenceQuery, searchLocalIndex } from '@/lib/localSearch';
 import { getSearchIndexFilePath } from '@/lib/searchDataPaths';
 
 async function withTempSearchIndex(fileName: string, content: string | Buffer, run: (root: string) => Promise<void>) {
@@ -19,6 +19,10 @@ async function withTempSearchIndex(fileName: string, content: string | Buffer, r
 }
 
 describe('local search indexes', () => {
+	afterEach(() => {
+		__setLocationReferenceNamesForTests(null);
+	});
+
 	it('returns FINRA individual results from the local index', async () => {
 		const result = await searchLocalIndex('finra', 'individual', 'paula branum', { limit: 5 });
 
@@ -96,6 +100,161 @@ describe('local search indexes', () => {
 		expect(result.total).toBeGreaterThan(0);
 		expect(result.response.docs[0]?.ind_source_id).toBe('1001173');
 		expect(result.response.docs[0]?.otherNames).toContain('LISA ANN KEVERIAN');
+	});
+
+	it('treats locations.json names as address-driven queries', async () => {
+		__setLocationReferenceNamesForTests(['Sydney', 'Australia']);
+		await withTempSearchIndex(
+			'search-index.finra.individual.json',
+			JSON.stringify({
+				generatedAt: '2026-06-06T00:00:00.000Z',
+				bucket: 'finra:individual',
+				docs: [
+					{
+						id: 'finra:individual:1',
+						type: 'individual',
+						source: 'finra',
+						nameSearchText: 'Alice Example',
+						addressSearchText: '100 market street sydney australia',
+						strictSearchText: 'Alice Example office address 100 Market Street Sydney Australia',
+						searchText: '1 Alice Example',
+						hit: {
+							ind_source_id: '1',
+							ind_crd: '1',
+							ind_firstname: 'Alice',
+							ind_lastname: 'Example',
+						},
+					},
+				],
+			}),
+			async (root) => {
+				const result = await searchLocalIndex('finra', 'individual', 'Sydney', { limit: 5, seedRoots: [root] });
+				expect(result.total).toBe(1);
+				expect(result.response.docs[0]?.ind_source_id).toBe('1');
+			},
+		);
+	});
+
+	it('allows one-character-off location queries when the location name is at least five characters long', async () => {
+		__setLocationReferenceNamesForTests(['Toronto', 'Canada']);
+		expect(isLocationReferenceQuery('Torontp')).toBe(true);
+		await withTempSearchIndex(
+			'search-index.finra.individual.json',
+			JSON.stringify({
+				generatedAt: '2026-06-06T00:00:00.000Z',
+				bucket: 'finra:individual',
+				docs: [
+					{
+						id: 'finra:individual:2',
+						type: 'individual',
+						source: 'finra',
+						nameSearchText: 'Bob Example',
+						addressSearchText: '200 bay street toronto canada',
+						strictSearchText: 'Bob Example office address 200 Bay Street Toronto Canada',
+						searchText: '2 Bob Example',
+						hit: {
+							ind_source_id: '2',
+							ind_crd: '2',
+							ind_firstname: 'Bob',
+							ind_lastname: 'Example',
+						},
+					},
+				],
+			}),
+			async (root) => {
+				const result = await searchLocalIndex('finra', 'individual', 'Torontp', { limit: 5, seedRoots: [root] });
+				expect(result.total).toBe(1);
+				expect(result.response.docs[0]?.ind_source_id).toBe('2');
+			},
+		);
+	});
+
+	it('recognizes airport-code aliases as location queries', () => {
+		__setLocationReferenceNamesForTests(['Sydney', 'Australia', 'LAX']);
+		expect(isLocationReferenceQuery('LAX')).toBe(true);
+	});
+
+	it('keeps Mc and O apostrophe names tightly ranked', async () => {
+		await withTempSearchIndex(
+			'search-index.sec.individual.json',
+			JSON.stringify({
+				generatedAt: '2026-06-06T00:00:00.000Z',
+				bucket: 'sec:individual',
+				docs: [
+					{
+						id: 'sec:individual:1',
+						type: 'individual',
+						source: 'sec',
+						nameSearchText: 'Sean McAdam',
+						addressSearchText: '1 harbor street boston massachusetts',
+						strictSearchText: 'Sean McAdam',
+						searchText: '1 Sean McAdam',
+						hit: {
+							ind_source_id: '1',
+							ind_crd: '1',
+							ind_firstname: 'Sean',
+							ind_lastname: 'McAdam',
+						},
+					},
+					{
+						id: 'sec:individual:2',
+						type: 'individual',
+						source: 'sec',
+						nameSearchText: 'Sean McAdams',
+						addressSearchText: '2 harbor street boston massachusetts',
+						strictSearchText: 'Sean McAdams',
+						searchText: '2 Sean McAdams',
+						hit: {
+							ind_source_id: '2',
+							ind_crd: '2',
+							ind_firstname: 'Sean',
+							ind_lastname: 'McAdams',
+						},
+					},
+					{
+						id: 'sec:individual:3',
+						type: 'individual',
+						source: 'sec',
+						nameSearchText: "Sean O'Reilly",
+						addressSearchText: '3 harbor street boston massachusetts',
+						strictSearchText: "Sean O'Reilly",
+						searchText: "3 Sean O'Reilly",
+						hit: {
+							ind_source_id: '3',
+							ind_crd: '3',
+							ind_firstname: 'Sean',
+							ind_lastname: "O'Reilly",
+						},
+					},
+					{
+						id: 'sec:individual:4',
+						type: 'individual',
+						source: 'sec',
+						nameSearchText: "Sean O'Reillys",
+						addressSearchText: '4 harbor street boston massachusetts',
+						strictSearchText: "Sean O'Reillys",
+						searchText: "4 Sean O'Reillys",
+						hit: {
+							ind_source_id: '4',
+							ind_crd: '4',
+							ind_firstname: 'Sean',
+							ind_lastname: "O'Reillys",
+						},
+					},
+				],
+			}),
+			async (root) => {
+				const mcResult = await searchLocalIndex('sec', 'individual', 'mcadam', { limit: 5, seedRoots: [root] });
+				expect(mcResult.total).toBe(2);
+				expect(mcResult.response.docs[0]?.ind_lastname).toBe('McAdam');
+				expect(mcResult.response.docs[1]?.ind_lastname).toBe('McAdams');
+
+				const oResult = await searchLocalIndex('sec', 'individual', "o'reilly", { limit: 5, seedRoots: [root] });
+				expect(oResult.total).toBe(2);
+				expect(oResult.response.docs[0]?.ind_lastname).toBe("O'Reilly");
+				expect(oResult.response.docs[1]?.ind_lastname).toBe("O'Reillys");
+			},
+		);
 	});
 
 	it('resolves search index files from nested runtime roots', async () => {
