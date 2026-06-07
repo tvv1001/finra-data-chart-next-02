@@ -213,117 +213,121 @@ async function fetchLocalJson(origin: string, path: string) {
 }
 
 export async function GET(request: NextRequest) {
-	if (!isAuthorized(request)) {
-		return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-	}
+	const { setExternalApiContext } = await import('@/lib/externalApiGate');
+	const previousContext = process.env.EXTERNAL_API_CONTEXT;
+	setExternalApiContext('cronjob');
 
-	const { searchParams } = new URL(request.url);
-	const origin = request.nextUrl.origin;
-	const limit = Number(searchParams.get('limit') || DEFAULT_LIMIT);
-	const concurrency = Number(searchParams.get('concurrency') || DEFAULT_CONCURRENCY);
-
-	// measure duration for telemetry
-	const startMs = Date.now();
-
-	// init upstash redis client if configured
-	let upstash: any = null;
 	try {
-		const url = process.env.UPSTASH_REDIS_REST_URL;
-		const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-		if (url && token) upstash = new UpstashRedis({ url, token });
-	} catch (e) {
-		upstash = null;
-	}
-
-	// If Redis contains a graph with >= 70000 nodes, skip warming work
-	try {
-		if (upstash) {
-			const rawGraph = await upstash.get('finra:graph');
-			if (rawGraph) {
-				try {
-					const parsed = typeof rawGraph === 'string' ? JSON.parse(rawGraph) : rawGraph;
-					const totalNodes = Array.isArray(parsed?.nodes) ? parsed.nodes.length : parsed?.nodes?.length || 0;
-					if (totalNodes >= 70000) {
-						return NextResponse.json({ ok: true, reason: 'target-count-reached', totalNodes }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
-					}
-				} catch (e) {
-					// ignore parse errors and continue
-				}
-			}
+		if (!isAuthorized(request)) {
+			return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
 		}
-	} catch (e) {
-		// ignore redis errors and continue
-	}
 
-	// Before normal warm of recent seeds, process any due retry entries (zset 'finra:retry')
-	if (upstash) {
+		const { searchParams } = new URL(request.url);
+		const origin = request.nextUrl.origin;
+		const limit = Number(searchParams.get('limit') || DEFAULT_LIMIT);
+		const concurrency = Number(searchParams.get('concurrency') || DEFAULT_CONCURRENCY);
+
+		// measure duration for telemetry
+		const startMs = Date.now();
+
+		// init upstash redis client if configured
+		let upstash: any = null;
 		try {
-			const now = Date.now();
-			// zrangebyscore returns members with score between -inf and now
-			const due = await upstash.zrangebyscore('finra:retry', 0, now);
-			if (Array.isArray(due) && due.length > 0) {
-				for (const member of due) {
+			const url = process.env.UPSTASH_REDIS_REST_URL;
+			const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+			if (url && token) upstash = new UpstashRedis({ url, token });
+		} catch (e) {
+			upstash = null;
+		}
+
+		// If Redis contains a graph with >= 70000 nodes, skip warming work
+		try {
+			if (upstash) {
+				const rawGraph = await upstash.get('finra:graph');
+				if (rawGraph) {
 					try {
-						const obj = JSON.parse(member);
-						if (obj && obj.type === 'individual' && obj.crd) {
-							// attempt to warm the individual cache (best-effort)
-							try {
-								await warmIndividual(String(obj.crd));
-							} catch (e) {
-								// if 429 again, we'll reschedule below when warming recent seeds normally
-							}
-						} else if (obj && obj.type === 'firm' && obj.id) {
-							try {
-								await warmFirm(String(obj.id));
-							} catch (e) {
-								// ignore
-							}
+						const parsed = typeof rawGraph === 'string' ? JSON.parse(rawGraph) : rawGraph;
+						const totalNodes = Array.isArray(parsed?.nodes) ? parsed.nodes.length : parsed?.nodes?.length || 0;
+						if (totalNodes >= 70000) {
+							return NextResponse.json({ ok: true, reason: 'target-count-reached', totalNodes }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
 						}
 					} catch (e) {
-						// ignore malformed member
+						// ignore parse errors and continue
 					}
-				}
-				// remove processed entries
-				try {
-					await upstash.zrem('finra:retry', ...due);
-				} catch (e) {
-					/* ignore */
 				}
 			}
 		} catch (e) {
-			// ignore redis errors
+			// ignore redis errors and continue
 		}
-	}
 
-	const [beforeGraph, beforeSeedBank, recentSeeds] = await Promise.all([getFullGraph(), getSeedBankFromStore(), getRecentSeedsFromStore()]);
-	const before = summarizeStats(beforeGraph, beforeSeedBank);
+		// Before normal warm of recent seeds, process any due retry entries (zset 'finra:retry')
+		if (upstash) {
+			try {
+				const now = Date.now();
+				// zrangebyscore returns members with score between -inf and now
+				const due = await upstash.zrangebyscore('finra:retry', 0, now);
+				if (Array.isArray(due) && due.length > 0) {
+					for (const member of due) {
+						try {
+							const obj = JSON.parse(member);
+							if (obj && obj.type === 'individual' && obj.crd) {
+								// attempt to warm the individual cache (best-effort)
+								try {
+									await warmIndividual(String(obj.crd));
+								} catch (e) {
+									// if 429 again, we'll reschedule below when warming recent seeds normally
+								}
+							} else if (obj && obj.type === 'firm' && obj.id) {
+								try {
+									await warmFirm(String(obj.id));
+								} catch (e) {
+									// ignore
+								}
+							}
+						} catch (e) {
+							// ignore malformed member
+						}
+					}
+					// remove processed entries
+					try {
+						await upstash.zrem('finra:retry', ...due);
+					} catch (e) {
+						/* ignore */
+					}
+				}
+			} catch (e) {
+				// ignore redis errors
+			}
+		}
 
-	const warmTargets = [
-		...recentSeeds.individualIds.slice(0, limit).map((id) => ({ kind: 'individual' as const, id })),
-		...recentSeeds.firmIds.slice(0, limit).map((id) => ({ kind: 'firm' as const, id })),
-	].slice(0, Math.max(1, limit * 2));
+		const [beforeGraph, beforeSeedBank, recentSeeds] = await Promise.all([getFullGraph(), getSeedBankFromStore(), getRecentSeedsFromStore()]);
+		const before = summarizeStats(beforeGraph, beforeSeedBank);
 
-	const results = {
-		warmedIndividuals: 0,
-		warmedFirms: 0,
-		fdaChecks: {
-			individualsScanned: 0,
-			docketsQueued: 0,
-			docketsChecked: 0,
-			found: 0,
-			blocked: 0,
-			noResults: 0,
-			failures: [] as Array<{ crd: string; docket: string; error: string }>,
-		},
-		failures: [] as Array<{ kind: 'individual' | 'firm' | 'missing'; id: string; error: string }>,
-	};
-	const seenFdaDockets = new Set<string>();
+		const warmTargets = [
+			...recentSeeds.individualIds.slice(0, limit).map((id) => ({ kind: 'individual' as const, id })),
+			...recentSeeds.firmIds.slice(0, limit).map((id) => ({ kind: 'firm' as const, id })),
+		].slice(0, Math.max(1, limit * 2));
 
-	// Expose these variables outside the try block so telemetry can reference them
-	let missingToProcess: string[] = [];
-	let runExternalWarm = false;
+		const results = {
+			warmedIndividuals: 0,
+			warmedFirms: 0,
+			fdaChecks: {
+				individualsScanned: 0,
+				docketsQueued: 0,
+				docketsChecked: 0,
+				found: 0,
+				blocked: 0,
+				noResults: 0,
+				failures: [] as Array<{ crd: string; docket: string; error: string }>,
+			},
+			failures: [] as Array<{ kind: 'individual' | 'firm' | 'missing'; id: string; error: string }>,
+		};
+		const seenFdaDockets = new Set<string>();
 
-	try {
+		// Expose these variables outside the try block so telemetry can reference them
+		let missingToProcess: string[] = [];
+		let runExternalWarm = false;
+
 		// 1) Always check for missing CRDs (present in seed bank but not in graph)
 		const missing: string[] = [];
 		try {
@@ -445,101 +449,12 @@ export async function GET(request: NextRequest) {
 		} else {
 			logger.info('prime-check skipped external warm this run (intermittent)', { prob: EXTERNAL_WARM_PROB });
 		}
-	} catch (error: any) {
-		return NextResponse.json(
-			{ ok: false, error: String(error?.message || error), results, before, recentSeeds },
-			{ status: 500, headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } },
-		);
-	}
 
-	const [afterGraph, afterSeedBank] = await Promise.all([getFullGraph(), getSeedBankFromStore()]);
-	const after = summarizeStats(afterGraph, afterSeedBank);
-	const changed = before.people !== after.people || before.firms !== after.firms || before.links !== after.links || before.totalNodes !== after.totalNodes;
+		const [afterGraph, afterSeedBank] = await Promise.all([getFullGraph(), getSeedBankFromStore()]);
+		const after = summarizeStats(afterGraph, afterSeedBank);
+		const changed = before.people !== after.people || before.firms !== after.firms || before.links !== after.links || before.totalNodes !== after.totalNodes;
 
-	logger.info('prime-check completed', {
-		mode: 'daily-usage-aware-prime-check',
-		limit,
-		concurrency,
-		recentSeeds: {
-			individualsQueued: recentSeeds.individualIds.length,
-			firmsQueued: recentSeeds.firmIds.length,
-			updatedAt: recentSeeds.updatedAt,
-		},
-		results: {
-			warmedIndividuals: results.warmedIndividuals,
-			warmedFirms: results.warmedFirms,
-			failures: results.failures.length,
-			fdaChecks: {
-				individualsScanned: results.fdaChecks.individualsScanned,
-				docketsQueued: results.fdaChecks.docketsQueued,
-				docketsChecked: results.fdaChecks.docketsChecked,
-				found: results.fdaChecks.found,
-				blocked: results.fdaChecks.blocked,
-				noResults: results.fdaChecks.noResults,
-				failures: results.fdaChecks.failures.length,
-			},
-		},
-		changed,
-	});
-
-	// Push a compact telemetry entry to `finra:redis-monitor` for auditing/metrics
-	try {
-		const endMs = Date.now();
-		const durationMs = endMs - startMs;
-		const monitorEntry = {
-			ts: new Date().toISOString(),
-			action: 'prime-check',
-			mode: runExternalWarm ? 'external-warm' : 'missing-only',
-			externalWarmRun: Boolean(runExternalWarm),
-			missingProcessed: Array.isArray(missingToProcess) ? missingToProcess.length : 0,
-			warmedIndividuals: results.warmedIndividuals,
-			warmedFirms: results.warmedFirms,
-			failures: results.failures.length,
-			fdaChecks: {
-				checked: results.fdaChecks.docketsChecked,
-				found: results.fdaChecks.found,
-				blocked: results.fdaChecks.blocked,
-				noResults: results.fdaChecks.noResults,
-				failures: results.fdaChecks.failures.length,
-			},
-			recentSeedsQueued: { individuals: recentSeeds.individualIds.length, firms: recentSeeds.firmIds.length },
-			before: before,
-			after: after,
-			durationMs,
-			source: 'cron',
-		};
-
-		try {
-			if (upstash) {
-				await upstash.lpush('finra:redis-monitor', JSON.stringify(monitorEntry));
-				await upstash.ltrim('finra:redis-monitor', 0, 199);
-			}
-			// Increment lightweight counters for quick metrics aggregation
-			try {
-				if (upstash) {
-					await upstash.incr('finra:metrics:prime-check:total_runs');
-					if (runExternalWarm) await upstash.incr('finra:metrics:prime-check:external_runs');
-					if (Array.isArray(missingToProcess) && missingToProcess.length > 0) await upstash.incrby('finra:metrics:prime-check:missing_processed', missingToProcess.length);
-					if (results.warmedIndividuals) await upstash.incrby('finra:metrics:prime-check:warmed_individuals', results.warmedIndividuals);
-					if (results.warmedFirms) await upstash.incrby('finra:metrics:prime-check:warmed_firms', results.warmedFirms);
-					const totalFailures = results.failures.length + results.fdaChecks.failures.length;
-					if (totalFailures) await upstash.incrby('finra:metrics:prime-check:failures', totalFailures);
-				}
-			} catch (err) {
-				logger.warn('prime-check: failed to increment metric counters', { error: String(err?.message || err) });
-			}
-		} catch (err) {
-			logger.warn('prime-check: failed to push monitor entry to redis', { error: String(err?.message || err) });
-		}
-		logger.info('prime-check: monitor entry', monitorEntry);
-	} catch (e) {
-		// non-fatal telemetry error
-		logger.warn('prime-check: telemetry error', { error: String(e?.message || e) });
-	}
-
-	return NextResponse.json(
-		{
-			ok: true,
+		logger.info('prime-check completed', {
 			mode: 'daily-usage-aware-prime-check',
 			limit,
 			concurrency,
@@ -548,15 +463,106 @@ export async function GET(request: NextRequest) {
 				firmsQueued: recentSeeds.firmIds.length,
 				updatedAt: recentSeeds.updatedAt,
 			},
-			results,
-			before,
-			after,
-			changed,
-		},
-		{
-			headers: {
-				'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+			results: {
+				warmedIndividuals: results.warmedIndividuals,
+				warmedFirms: results.warmedFirms,
+				failures: results.failures.length,
+				fdaChecks: {
+					individualsScanned: results.fdaChecks.individualsScanned,
+					docketsQueued: results.fdaChecks.docketsQueued,
+					docketsChecked: results.fdaChecks.docketsChecked,
+					found: results.fdaChecks.found,
+					blocked: results.fdaChecks.blocked,
+					noResults: results.fdaChecks.noResults,
+					failures: results.fdaChecks.failures.length,
+				},
 			},
-		},
-	);
+			changed,
+		});
+
+		// Push a compact telemetry entry to `finra:redis-monitor` for auditing/metrics
+		try {
+			const endMs = Date.now();
+			const durationMs = endMs - startMs;
+			const monitorEntry = {
+				ts: new Date().toISOString(),
+				action: 'prime-check',
+				mode: runExternalWarm ? 'external-warm' : 'missing-only',
+				externalWarmRun: Boolean(runExternalWarm),
+				missingProcessed: Array.isArray(missingToProcess) ? missingToProcess.length : 0,
+				warmedIndividuals: results.warmedIndividuals,
+				warmedFirms: results.warmedFirms,
+				failures: results.failures.length,
+				fdaChecks: {
+					checked: results.fdaChecks.docketsChecked,
+					found: results.fdaChecks.found,
+					blocked: results.fdaChecks.blocked,
+					noResults: results.fdaChecks.noResults,
+					failures: results.fdaChecks.failures.length,
+				},
+				recentSeedsQueued: { individuals: recentSeeds.individualIds.length, firms: recentSeeds.firmIds.length },
+				before: before,
+				after: after,
+				durationMs,
+				source: 'cron',
+			};
+
+			try {
+				if (upstash) {
+					await upstash.lpush('finra:redis-monitor', JSON.stringify(monitorEntry));
+					await upstash.ltrim('finra:redis-monitor', 0, 199);
+				}
+				// Increment lightweight counters for quick metrics aggregation
+				try {
+					if (upstash) {
+						await upstash.incr('finra:metrics:prime-check:total_runs');
+						if (runExternalWarm) await upstash.incr('finra:metrics:prime-check:external_runs');
+						if (Array.isArray(missingToProcess) && missingToProcess.length > 0) await upstash.incrby('finra:metrics:prime-check:missing_processed', missingToProcess.length);
+						if (results.warmedIndividuals) await upstash.incrby('finra:metrics:prime-check:warmed_individuals', results.warmedIndividuals);
+						if (results.warmedFirms) await upstash.incrby('finra:metrics:prime-check:warmed_firms', results.warmedFirms);
+						const totalFailures = results.failures.length + results.fdaChecks.failures.length;
+						if (totalFailures) await upstash.incrby('finra:metrics:prime-check:failures', totalFailures);
+					}
+				} catch (err) {
+					logger.warn('prime-check: failed to increment metric counters', { error: String(err?.message || err) });
+				}
+			} catch (err) {
+				logger.warn('prime-check: failed to push monitor entry to redis', { error: String(err?.message || err) });
+			}
+			logger.info('prime-check: monitor entry', monitorEntry);
+		} catch (e) {
+			// non-fatal telemetry error
+			logger.warn('prime-check: telemetry error', { error: String(e?.message || e) });
+		}
+
+		return NextResponse.json(
+			{
+				ok: true,
+				mode: 'daily-usage-aware-prime-check',
+				limit,
+				concurrency,
+				recentSeeds: {
+					individualsQueued: recentSeeds.individualIds.length,
+					firmsQueued: recentSeeds.firmIds.length,
+					updatedAt: recentSeeds.updatedAt,
+				},
+				results,
+				before,
+				after,
+				changed,
+			},
+			{
+				headers: {
+					'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+				},
+			},
+		);
+	} catch (error: any) {
+		return NextResponse.json(
+			{ ok: false, error: String(error?.message || error), results: {}, before: {}, recentSeeds: {} },
+			{ status: 500, headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } },
+		);
+	} finally {
+		setExternalApiContext(previousContext || null);
+	}
 }

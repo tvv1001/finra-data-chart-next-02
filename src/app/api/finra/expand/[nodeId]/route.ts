@@ -1,40 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
-import { getFullGraph } from '@/lib/graphStore';
+import { getNeighborsForNodes } from '@/lib/graphStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
 import { tryLoadPersonCluster } from '@/lib/peopleClusterCache';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-let cachedGraphKey = '';
-let cachedGraphAdj: Map<string, Set<string>> | null = null;
-
-function getGraphCacheKey(graph: any) {
-	return `${String(graph?.meta?.generated || '')}|${Number(graph?.nodes?.length || 0)}|${Number(graph?.links?.length || 0)}`;
-}
-
-function getAdjacency(graph: any): Map<string, Set<string>> {
-	const key = getGraphCacheKey(graph);
-	if (cachedGraphKey === key && cachedGraphAdj) {
-		return cachedGraphAdj;
-	}
-
-	const adjacency = new Map<string, Set<string>>();
-	for (const link of graph.links || []) {
-		const sourceId = link.source?.id ?? link.source;
-		const targetId = link.target?.id ?? link.target;
-		if (!sourceId || !targetId) continue;
-		if (!adjacency.has(sourceId)) adjacency.set(sourceId, new Set());
-		if (!adjacency.has(targetId)) adjacency.set(targetId, new Set());
-		adjacency.get(sourceId)?.add(targetId);
-		adjacency.get(targetId)?.add(sourceId);
-	}
-	cachedGraphKey = key;
-	cachedGraphAdj = adjacency;
-	return adjacency;
-}
 
 function normalizeHopsParam(value: string | null): number | 'all' {
 	if (typeof value === 'string' && value.trim().toLowerCase() === 'all') {
@@ -49,12 +21,24 @@ function normalizeHopsParam(value: string | null): number | 'all' {
 	return Math.floor(parsed);
 }
 
+function isStrictExpansionRequest(value: string | null): boolean {
+	if (typeof value !== 'string') return false;
+	const normalized = value.trim().toLowerCase();
+	return normalized === '1' || normalized === 'true' || normalized === 'yes';
+}
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ nodeId: string }> }) {
 	try {
 		const { nodeId } = await params;
 		const hops = normalizeHopsParam(request.nextUrl.searchParams.get('hops'));
+		const strictExpansion = isStrictExpansionRequest(request.nextUrl.searchParams.get('strict'));
 
-		if (hops === 1 && nodeId.startsWith('person:')) {
+		// Support multiple node IDs via query param 'ids' (comma-separated)
+		const extraIds = request.nextUrl.searchParams.get('ids')?.split(',').filter(Boolean) || [];
+		const allIds = Array.from(new Set([nodeId, ...extraIds]));
+
+		// Fast path for single person expansion (cluster lookup)
+		if (!strictExpansion && allIds.length === 1 && hops === 1 && nodeId.startsWith('person:')) {
 			try {
 				const cluster = await tryLoadPersonCluster(nodeId.slice('person:'.length));
 				if (cluster) {
@@ -65,15 +49,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			}
 		}
 
-		// Check for precomputed neighborhood cache first
+		// Fast path for single node (Redis cache check)
 		const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
 		const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-		if (redisUrl && redisToken && hops === 1) {
+		if (!strictExpansion && allIds.length === 1 && redisUrl && redisToken && hops === 1) {
 			try {
 				const redis = new Redis({ url: redisUrl, token: redisToken });
 				const cached = await redis.get<any>(`finra:expand:${nodeId}:1`);
 				if (cached) {
-					console.log(`Expansion API: Cache hit for node ${nodeId}`);
 					return NextResponse.json(cached, { headers: sharedCacheHeaders(300) });
 				}
 			} catch (e) {
@@ -81,37 +64,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			}
 		}
 
-		const graph = await getFullGraph();
-		const nodes: any[] = graph.nodes || [];
-		const links: any[] = graph.links || [];
-
-		const adjacency = getAdjacency(graph);
-
-		const visitedIds = new Set<string>([nodeId]);
-		const distanceById = new Map<string, number>([[nodeId, 0]]);
-		const queue: string[] = [nodeId];
-
-		for (let index = 0; index < queue.length; index += 1) {
-			const currentId = queue[index];
-			const currentDistance = distanceById.get(currentId) ?? 0;
-			if (hops !== 'all' && currentDistance >= hops) continue;
-
-			for (const neighborId of adjacency.get(currentId) || []) {
-				if (visitedIds.has(neighborId)) continue;
-				visitedIds.add(neighborId);
-				distanceById.set(neighborId, currentDistance + 1);
-				queue.push(neighborId);
-			}
-		}
-
-		const resultNodes = nodes.filter((node) => visitedIds.has(node.id));
-		const resultLinks = links.filter((link) => {
-			const sourceId = link.source?.id ?? link.source;
-			const targetId = link.target?.id ?? link.target;
-			return visitedIds.has(sourceId) && visitedIds.has(targetId);
-		});
-
-		return NextResponse.json({ nodes: resultNodes, links: resultLinks }, { headers: sharedCacheHeaders(300) });
+		const result = await getNeighborsForNodes(allIds, hops);
+		return NextResponse.json(result, { headers: sharedCacheHeaders(300) });
 	} catch (err: any) {
 		logger.error('expand error', { error: err.message });
 		return NextResponse.json({ error: 'Failed to expand node.' }, { status: 500 });

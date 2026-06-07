@@ -127,7 +127,7 @@ test('Reset Session still allows a fresh fetch after clearing the graph', async 
 
 	await page.goto('/');
 	const fetchInput = page.locator('#fg-fetch-input');
-	const fetchButton = page.locator('#fg-fetch-remote');
+	const fetchButton = page.locator('#fg-database-search');
 
 	await seedStoredSession(page, {
 		selectedNodeId: 'person:3102054',

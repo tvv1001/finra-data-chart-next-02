@@ -61,7 +61,7 @@ export async function resetBrowserGraphState(page: Page) {
 export async function fetchGraphQueryWithLinkedResults(page: Page, query: string, options: { timeout?: number } = {}) {
 	const { timeout = 45_000 } = options;
 	const fetchInput = page.locator('#fg-fetch-input');
-	const fetchButton = page.locator('#fg-fetch-remote');
+	const fetchButton = page.locator('#fg-database-search');
 
 	await fetchInput.fill(query);
 	await expect(fetchButton).toBeEnabled();
