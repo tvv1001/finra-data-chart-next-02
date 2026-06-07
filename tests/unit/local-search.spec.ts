@@ -57,6 +57,92 @@ describe('local search indexes', () => {
 		expect(result.response.docs.some((doc) => String(doc.ind_source_id || '') === '1098656')).toBe(true);
 	});
 
+	it('treats Mason as a strict term instead of fuzzy matching close spellings', async () => {
+		await withTempSearchIndex(
+			'search-index.sec.individual.json',
+			JSON.stringify({
+				generatedAt: '2026-06-07T00:00:00.000Z',
+				bucket: 'sec:individual',
+				docs: [
+					{
+						id: 'sec:individual:1',
+						type: 'individual',
+						source: 'sec',
+						nameSearchText: 'Ronald Mason',
+						strictSearchText: 'Ronald Mason',
+						searchText: '1 Ronald Mason',
+						hit: {
+							ind_source_id: '1',
+							ind_firstname: 'Ronald',
+							ind_lastname: 'Mason',
+						},
+					},
+					{
+						id: 'sec:individual:2',
+						type: 'individual',
+						source: 'sec',
+						nameSearchText: 'Randy Mayson',
+						strictSearchText: 'Randy Mayson',
+						searchText: '2 Randy Mayson',
+						hit: {
+							ind_source_id: '2',
+							ind_firstname: 'Randy',
+							ind_lastname: 'Mayson',
+						},
+					},
+				],
+			}),
+			async (root) => {
+				const result = await searchLocalIndex('sec', 'individual', 'mason', { limit: 10, seedRoots: [root] });
+				expect(result.total).toBe(1);
+				expect(result.response.docs[0]?.ind_source_id).toBe('1');
+			},
+		);
+	});
+
+	it('treats Bryan as a strict term instead of fuzzy matching close spellings', async () => {
+		await withTempSearchIndex(
+			'search-index.sec.individual.json',
+			JSON.stringify({
+				generatedAt: '2026-06-07T00:00:00.000Z',
+				bucket: 'sec:individual',
+				docs: [
+					{
+						id: 'sec:individual:3',
+						type: 'individual',
+						source: 'sec',
+						nameSearchText: 'Michael Bryan',
+						strictSearchText: 'Michael Bryan',
+						searchText: '3 Michael Bryan',
+						hit: {
+							ind_source_id: '3',
+							ind_firstname: 'Michael',
+							ind_lastname: 'Bryan',
+						},
+					},
+					{
+						id: 'sec:individual:4',
+						type: 'individual',
+						source: 'sec',
+						nameSearchText: 'Michele Bryanne',
+						strictSearchText: 'Michele Bryanne',
+						searchText: '4 Michele Bryanne',
+						hit: {
+							ind_source_id: '4',
+							ind_firstname: 'Michele',
+							ind_lastname: 'Bryanne',
+						},
+					},
+				],
+			}),
+			async (root) => {
+				const result = await searchLocalIndex('sec', 'individual', 'bryan', { limit: 10, seedRoots: [root] });
+				expect(result.total).toBe(1);
+				expect(result.response.docs[0]?.ind_source_id).toBe('3');
+			},
+		);
+	});
+
 	it('matches the top-level full name when queried directly', async () => {
 		const result = await searchLocalIndex('sec', 'individual', 'ronald noel mason', { limit: 10 });
 

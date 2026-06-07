@@ -6,6 +6,8 @@ type SearchFallbackOptions = {
 	offset?: number;
 };
 
+const STRICT_MATCH_QUERY_ALLOWLIST = new Set(['mason', 'bryan']);
+
 function normalizeText(value: unknown) {
 	return String(value || '')
 		.trim()
@@ -19,6 +21,10 @@ function containsWholePhrase(text: string, phrase: string) {
 
 function isIdentifierLikeQuery(value: string) {
 	return /^[0-9-]+$/.test(value);
+}
+
+function isStrictMatchQuery(value: string) {
+	return STRICT_MATCH_QUERY_ALLOWLIST.has(value);
 }
 
 export function collectSearchableNodeKeys(node: any) {
@@ -72,7 +78,6 @@ function tokensFuzzyMatch(queryToken: string, candidateToken: string) {
 	if (!queryToken || !candidateToken) return false;
 	if (queryToken === candidateToken) return true;
 	if (isIdentifierLikeQuery(queryToken) || isIdentifierLikeQuery(candidateToken)) return false;
-	if (queryToken === 'mason') return candidateToken.includes(queryToken);
 	if (candidateToken.includes(queryToken) && queryToken.length >= 4) return true;
 	if (queryToken.includes(candidateToken) && candidateToken.length >= 4) return true;
 	const minLength = Math.min(queryToken.length, candidateToken.length);
@@ -87,7 +92,14 @@ export function matchesSearchableNodeQuery(node: any, query: string) {
 	const queryTokens = normalizedQuery.split(/\s+/).filter(Boolean);
 	const keys = collectSearchableNodeKeys(node);
 	const identifierLikeQuery = isIdentifierLikeQuery(normalizedQuery);
+	const strictQuery = isStrictMatchQuery(normalizedQuery);
 	if (keys.some((key) => key === normalizedQuery || containsWholePhrase(key, normalizedQuery))) return true;
+	if (strictQuery) {
+		return queryTokens.length > 0 && keys.some((key) => {
+			const keyTokens = key.split(/\s+/).filter(Boolean);
+			return queryTokens.every((qt) => keyTokens.some((kt) => kt === qt));
+		});
+	}
 	if (!identifierLikeQuery && keys.some((key) => key.includes(normalizedQuery))) return true;
 	if (queryTokens.length > 0) {
 		for (const key of keys) {
