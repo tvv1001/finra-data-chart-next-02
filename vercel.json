@@ -1,5 +1,5 @@
 {
-	"buildCommand": "pnpm run build",
+	"buildCommand": "pnpm run vercel-build",
 	"crons": [
 		{
 			"path": "/api/finra/external-validity",

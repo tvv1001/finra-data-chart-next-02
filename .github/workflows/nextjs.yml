@@ -86,3 +86,23 @@ jobs:
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Smoke test production search
+        run: |
+          node - <<'NODE'
+          (async () => {
+            const url = 'https://finra-data-chart-next-02.vercel.app/api/finra/search?q=mason&limit=5';
+            const response = await fetch(url);
+            const payload = await response.json();
+            if (!response.ok) {
+              throw new Error(`Search smoke test failed with HTTP ${response.status}`);
+            }
+            if (!payload || typeof payload.total !== 'number' || payload.total <= 0) {
+              throw new Error(`Search smoke test failed: expected results for mason, got ${JSON.stringify(payload)}`);
+            }
+            console.log(`Production search smoke test passed with total=${payload.total}`);
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
