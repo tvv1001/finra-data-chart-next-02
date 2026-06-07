@@ -20,6 +20,7 @@ import {
 	loadSelectionLogBoldPreference,
 	normalizeNodeLabelInPlace,
 	rankFindNodeMatches,
+	shouldFetchFirmDetailForOwnerEvidence,
 	shouldHydrateExpansionFrontierNodeDetail,
 	shouldAutoExpandRouteSelection,
 	shouldAutoRevealNodeConnections,
@@ -352,6 +353,11 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(shouldHydrateExpansionFrontierNodeDetail({ id: 'person:123', group: 'individual' })).toBe(true);
 		expect(shouldHydrateExpansionFrontierNodeDetail({ id: 'firm:456', group: 'firm' })).toBe(false);
 		expect(shouldHydrateExpansionFrontierNodeDetail({ id: 'firm:456', group: 'firm' }, { includeFirmDetails: true })).toBe(true);
+	});
+
+	it('shouldFetchFirmDetailForOwnerEvidence disables firm detail lookups for background owner-evidence hydration', () => {
+		expect(shouldFetchFirmDetailForOwnerEvidence()).toBe(true);
+		expect(shouldFetchFirmDetailForOwnerEvidence({ allowFirmDetailFetch: false })).toBe(false);
 	});
 
 	it('focusFetchInputWhenEmpty focuses when empty and not active', () => {
