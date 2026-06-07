@@ -387,6 +387,22 @@ export default function FinraGraph() {
 		if (!sidebar) return;
 		const handler = (e: MouseEvent) => {
 			const target = e.target as HTMLElement;
+			const nodeBtn = target.closest('[data-node-id]') as HTMLElement | null;
+			if (nodeBtn && nodeBtn.dataset.nodeId) {
+				e.preventDefault();
+				e.stopPropagation();
+				routeSidebarNodeSelection({
+					nodeId: String(nodeBtn.dataset.nodeId || '').trim(),
+					searchSuffix,
+					browserPathname,
+					pathname,
+					setBrowserPathname,
+					router,
+					pulseDuration: 5000,
+					autoExpand: true,
+				});
+				return;
+			}
 			const crdBtn = target.closest('.fg-crd-link') as HTMLElement | null;
 			if (crdBtn && crdBtn.dataset.crd) {
 				e.preventDefault();

@@ -53,3 +53,4 @@ data/last_*_report.json
 generated/
 *.generated.md
 public/search-indexes/
+finra-data-chart-next-02.code-workspace

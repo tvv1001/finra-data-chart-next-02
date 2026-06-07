@@ -15,9 +15,11 @@ import {
 	isNodeInactive,
 	isRevealableChainExhausted,
 	loadPersistedSidebarViewMode,
+	collectFirmConnectionEntries,
 	loadSelectionLogBoldPreference,
 	normalizeNodeLabelInPlace,
 	rankFindNodeMatches,
+	shouldAutoRevealNodeConnections,
 	shouldRenderNodeSelected,
 	upsertSelectionLogEntry,
 } from '../../src/lib/finra-graph';
@@ -310,6 +312,11 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		).toBe(true);
 	});
 
+	it('shouldAutoRevealNodeConnections keeps firm connections hidden by default', () => {
+		expect(shouldAutoRevealNodeConnections({ id: 'person:123', group: 'individual' })).toBe(true);
+		expect(shouldAutoRevealNodeConnections({ id: 'firm:456', group: 'firm' })).toBe(false);
+	});
+
 	it('focusFetchInputWhenEmpty focuses when empty and not active', () => {
 		const input = document.getElementById('fg-fetch-input') as HTMLInputElement;
 		const empty = document.getElementById('fg-empty')!;
@@ -357,6 +364,41 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(matches.map((entry) => entry.node.id)).toEqual(expect.arrayContaining(['person:123', 'person:456', 'firm:789']));
 		expect(matches[0]?.node.id).toBe('person:123');
 		expect(matches[0]?.connections).toBeGreaterThan(matches[1]?.connections ?? 0);
+	});
+
+	it('collectFirmConnectionEntries includes all connected nodes and aggregates relationships', () => {
+		const firmNode = {
+			id: 'firm:789',
+			group: 'firm',
+			firmId: '789',
+			directOwners: [{ crdNumber: '123', position: 'CEO' }],
+		} as any;
+		const nodes = [
+			firmNode,
+			{ id: 'person:123', group: 'individual', crd: '123', label: 'Alice Johnson' },
+			{ id: 'person:456', group: 'individual', crd: '456', label: 'Bob Jones' },
+			{ id: 'entity:1', group: 'entity', label: 'Holding Co LLC' },
+		] as any[];
+		const links = [
+			{ source: 'person:123', target: 'firm:789', relationship: 'controls', startDate: '2020-01-01' },
+			{ source: 'person:123', target: 'firm:789', relationship: 'employed_by', isCurrent: true, startDate: '2021-01-01' },
+			{ source: 'person:456', target: 'firm:789', relationship: 'employed_by', isCurrent: false, startDate: '2018-01-01', endDate: '2020-01-01' },
+			{ source: 'entity:1', target: 'firm:789', relationship: 'controls', endDate: '2022-01-01' },
+		] as any[];
+
+		const entries = collectFirmConnectionEntries({
+			firmNode,
+			layoutNodes: nodes,
+			graphNodes: nodes,
+			layoutLinks: links,
+			graphLinks: [],
+		});
+
+		expect(entries.map((entry) => entry.id)).toEqual(['person:123', 'person:456', 'entity:1']);
+		expect(entries[0]?.relationshipLabels).toEqual(expect.arrayContaining(['Current registration', 'Control']));
+		expect(entries[0]?.positions).toEqual(expect.arrayContaining(['CEO']));
+		expect(entries[1]?.relationshipLabels).toEqual(['Previous registration']);
+		expect(entries[2]?.relationshipLabels).toEqual(['Former control']);
 	});
 
 	it('routeSidebarNodeSelection pushes the node route and dispatches a selection request', () => {
