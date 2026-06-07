@@ -3,6 +3,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { Redis } from '@upstash/redis';
 import { setStringIfValid } from '@/lib/redisCache';
+import { canCallExternalApis } from '@/lib/externalApiGate';
 
 type MemStore = Map<string, { value: unknown; expiresAt: number }>;
 type PrimedBundle = Record<string, unknown>;
@@ -14,8 +15,6 @@ const primedBundleCache = new Map<PrimedBundleName, PrimedBundle | null>();
 
 const EXTERNAL_API_MIN_INTERVAL_MS = Number(process.env.EXTERNAL_API_MIN_INTERVAL_MS || 1000);
 const EXTERNAL_API_FAILURE_COOLDOWN_MS = Number(process.env.EXTERNAL_API_FAILURE_COOLDOWN_MS || 60_000);
-const EXTERNAL_API_DISABLED = String(process.env.EXTERNAL_API_DISABLED || '').toLowerCase() === '1' || String(process.env.EXTERNAL_API_DISABLED || '').toLowerCase() === 'true';
-
 const DEFAULT_INDIVIDUAL_QUERY = 'hl=true&includePrevious=true&wt=json';
 const DEFAULT_FIRM_QUERY = 'hl=true&wt=json';
 
@@ -221,7 +220,7 @@ function shouldSkipExternalFetch(service: string) {
 	const now = Date.now();
 	const lastFailureAt = lastExternalFailure.get(service) || 0;
 	if (now - lastFailureAt < EXTERNAL_API_FAILURE_COOLDOWN_MS) return true;
-	if (EXTERNAL_API_DISABLED) return true;
+	if (!canCallExternalApis()) return true;
 	const lastFetchAt = lastExternalFetch.get(service) || 0;
 	return now - lastFetchAt < EXTERNAL_API_MIN_INTERVAL_MS;
 }

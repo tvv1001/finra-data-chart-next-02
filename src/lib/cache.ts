@@ -11,6 +11,7 @@ import { gunzipOffload } from './gzipWorker';
 import { Redis } from '@upstash/redis';
 import { setStringIfValid } from '@/lib/redisCache';
 import { DATA_DIR, PRIMED_CACHE_DIR } from './constants';
+import { canCallExternalApis } from '@/lib/externalApiGate';
 
 type MemStore = Map<string, { value: unknown; expiresAt: number }>;
 type PrimedBundle = Record<string, unknown>;
@@ -36,10 +37,6 @@ const lastExternalFetch = new Map<string, number>();
 // EXTERNAL_API_FAILURE_COOLDOWN_MS.
 const EXTERNAL_API_FAILURE_COOLDOWN_MS = Number(process.env.EXTERNAL_API_FAILURE_COOLDOWN_MS || 60_000);
 const lastExternalFailure = new Map<string, number>();
-// Runtime toggle to completely disable external FINRA/SEC lookups when set to
-// '1' or 'true' in the environment. Useful for offline/dev modes.
-const EXTERNAL_API_DISABLED = String(process.env.EXTERNAL_API_DISABLED || '').toLowerCase() === '1' || String(process.env.EXTERNAL_API_DISABLED || '').toLowerCase() === 'true';
-
 /** Strip nrows from a cache key so keys are stable regardless of the nrows parameter.
  *  Cache keys have the form `prefix:crd:querystring` — we target the last segment. */
 function normalizeKey(key: string): string {
@@ -385,7 +382,7 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 					console.warn(`External API recently failed; skipping fetch for service=${service} until cooldown`);
 					return undefined as unknown as T;
 				}
-				if (EXTERNAL_API_DISABLED) {
+				if (!canCallExternalApis()) {
 					console.info(`External API disabled; skipping external fetch for service=${service} key=${key}`);
 					return undefined as unknown as T;
 				}
@@ -443,7 +440,7 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 			console.warn(`External API recently failed; skipping fetch for service=${service} until cooldown`);
 			return undefined as unknown as T;
 		}
-		if (EXTERNAL_API_DISABLED) {
+		if (!canCallExternalApis()) {
 			console.info(`External API disabled; skipping external fetch for service=${service} key=${key}`);
 			return undefined as unknown as T;
 		}
