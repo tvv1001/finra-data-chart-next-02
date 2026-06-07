@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runExternalValidityCron } from '@/lib/externalValidityCron';
+import { setExternalApiContext } from '@/lib/externalApiGate';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -19,12 +20,18 @@ export async function GET(request: NextRequest) {
 	}
 
 	try {
-		const result = await runExternalValidityCron();
-		return NextResponse.json(result, {
-			headers: {
-				'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-			},
-		});
+		const previousContext = process.env.EXTERNAL_API_CONTEXT;
+		setExternalApiContext('cronjob');
+		try {
+			const result = await runExternalValidityCron();
+			return NextResponse.json(result, {
+				headers: {
+					'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+				},
+			});
+		} finally {
+			setExternalApiContext(previousContext || null);
+		}
 	} catch (error: any) {
 		return NextResponse.json(
 			{ ok: false, error: String(error?.message || error) },
