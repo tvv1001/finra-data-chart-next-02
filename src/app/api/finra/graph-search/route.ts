@@ -6,49 +6,13 @@ import { sharedCacheHeaders } from '@/lib/httpCache';
 import { searchLocalIndex } from '@/lib/localSearch';
 import { normalizeIndividualDetailFromSource } from '@/lib/individualDetail';
 import { tryLoadPersonCluster } from '@/lib/peopleClusterCache';
+import { matchesSearchableNodeQuery } from '@/lib/searchGraphFallback';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-function normalizeText(value: unknown) {
-	return String(value || '')
-		.trim()
-		.toLowerCase();
-}
-
 function hasStringContent(hit: unknown): hit is { content: string } {
 	return typeof hit === 'object' && hit !== null && typeof (hit as any).content === 'string';
-}
-
-function collectSearchableNodeKeys(node: any) {
-	const basic = node?.basicInformation || {};
-	return [
-		node?.id,
-		node?.label,
-		node?.name,
-		node?.crd,
-		node?.firmId,
-		node?.bdSecNumber,
-		node?.iaSecNumber,
-		basic?.individualId,
-		basic?.firmId,
-		basic?.name,
-		basic?.bdSECNumber,
-		basic?.iaSECNumber,
-		[basic?.firstName, basic?.middleName, basic?.lastName].filter(Boolean).join(' '),
-		...(Array.isArray(node?.otherNames) ? node.otherNames : []),
-		...(Array.isArray(basic?.otherNames) ? basic.otherNames : []),
-		node?.ind_source_id,
-		node?.firm_source_id,
-	]
-		.map((value) => normalizeText(value))
-		.filter(Boolean);
-}
-
-function nodeMatchesQuery(node: any, query: string) {
-	const normalizedQuery = normalizeText(query);
-	if (!normalizedQuery) return false;
-	return collectSearchableNodeKeys(node).some((key) => key.includes(normalizedQuery));
 }
 
 export async function GET(request: NextRequest) {
@@ -58,6 +22,12 @@ export async function GET(request: NextRequest) {
 		const baseUrl = new URL(request.url).origin;
 		const type = searchParams.get('type') || 'all';
 		const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);
+		const rawStart = searchParams.get('start');
+		const rawPageNumber = searchParams.get('pageNumber');
+		const offset =
+			rawStart != null ? Math.max(0, Number.parseInt(rawStart, 10) || 0)
+			: rawPageNumber != null ? Math.max(0, (Math.max(1, Number.parseInt(rawPageNumber, 10) || 1) - 1) * limit)
+			: 0;
 
 		if (!q) return NextResponse.json({ nodes: [], links: [], matchedIds: [] });
 
@@ -66,7 +36,7 @@ export async function GET(request: NextRequest) {
 		const matchedNodes = nodes
 			.filter((node) => {
 				if (type !== 'all' && node.group !== type) return false;
-				return nodeMatchesQuery(node, q);
+				return matchesSearchableNodeQuery(node, q);
 			})
 			.slice(0, limit);
 		const matchedIds = new Set(matchedNodes.map((node) => String(node?.id || '').trim()).filter(Boolean));
@@ -103,12 +73,14 @@ export async function GET(request: NextRequest) {
 			try {
 				const allHits = (
 					await Promise.all([
-						searchLocalIndex('finra', 'individual', q, { limit: 1000, baseUrl }),
-						searchLocalIndex('finra', 'firm', q, { limit: 1000, baseUrl }),
-						searchLocalIndex('sec', 'individual', q, { limit: 1000, baseUrl }),
-						searchLocalIndex('sec', 'firm', q, { limit: 1000, baseUrl }),
+						searchLocalIndex('finra', 'individual', q, { limit, offset, baseUrl }),
+						searchLocalIndex('finra', 'firm', q, { limit, offset, baseUrl }),
+						searchLocalIndex('sec', 'individual', q, { limit, offset, baseUrl }),
+						searchLocalIndex('sec', 'firm', q, { limit, offset, baseUrl }),
 					])
-				).flatMap((result) => result?.hits?.hits || []);
+				)
+					.flatMap((result) => result?.hits?.hits || [])
+					.slice(0, limit);
 				if (!allHits.length) return NextResponse.json({ nodes: [], links: [], matchedIds: [] });
 
 				// Build nodes/links from hits (similar to client-side logic)

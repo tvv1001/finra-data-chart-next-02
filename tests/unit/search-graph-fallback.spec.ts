@@ -49,4 +49,10 @@ describe('graph search fallback', () => {
 		expect(result.total).toBe(1);
 		expect(result.response.docs[0]?.id).toBe('person:1222513');
 	});
+
+	it('does not substring-match numeric identifiers in graph fallback', async () => {
+		const result = await searchGraphFallback('finra', 'individual', '122251', { limit: 1000 });
+
+		expect(result.total).toBe(0);
+	});
 });
