@@ -20,6 +20,7 @@ import {
 	loadSelectionLogBoldPreference,
 	normalizeNodeLabelInPlace,
 	rankFindNodeMatches,
+	shouldHydrateExpansionFrontierNodeDetail,
 	shouldAutoExpandRouteSelection,
 	shouldAutoRevealNodeConnections,
 	shouldRenderNodeSelected,
@@ -345,6 +346,12 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		} as any;
 
 		expect(getAutoExpansionHopsForNode(node, 2)).toBe(2);
+	});
+
+	it('shouldHydrateExpansionFrontierNodeDetail skips background firm hydration unless explicitly enabled', () => {
+		expect(shouldHydrateExpansionFrontierNodeDetail({ id: 'person:123', group: 'individual' })).toBe(true);
+		expect(shouldHydrateExpansionFrontierNodeDetail({ id: 'firm:456', group: 'firm' })).toBe(false);
+		expect(shouldHydrateExpansionFrontierNodeDetail({ id: 'firm:456', group: 'firm' }, { includeFirmDetails: true })).toBe(true);
 	});
 
 	it('focusFetchInputWhenEmpty focuses when empty and not active', () => {
