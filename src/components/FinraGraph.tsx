@@ -759,6 +759,7 @@ export default function FinraGraph() {
 			new CustomEvent(ROUTE_NODE_REQUEST_EVENT, {
 				detail: {
 					nodeId: routeNodeId,
+					autoExpand: true,
 				},
 			}),
 		);
@@ -780,6 +781,7 @@ export default function FinraGraph() {
 				new CustomEvent(ROUTE_NODE_REQUEST_EVENT, {
 					detail: {
 						nodeId: routeNodeId,
+						autoExpand: true,
 					},
 				}),
 			);
@@ -900,10 +902,10 @@ export default function FinraGraph() {
 									</div>
 								</div>
 								<button
-									id='fg-fetch-remote'
+									id='fg-database-search'
 									className='fg-btn-primary fg-action-btn'
-									title='Fetch matching nodes from the server'>
-									Fetch Nodes
+									title='Search all records in the local database'>
+									Search Database
 								</button>
 							</div>
 						</div>

@@ -1450,7 +1450,7 @@ html[data-theme='dark'] .fg-toolbar-status--top[data-dismissible='true'] {
 		min-width: 0;
 	}
 
-	#fg-fetch-remote {
+	#fg-database-search {
 		flex: 0 0 auto;
 		min-width: 0;
 		padding-inline: 8px;
@@ -1701,7 +1701,7 @@ a,
 	transform: translateY(0);
 }
 
-#fg-fetch-remote[data-fetching='true'] {
+#fg-database-search[data-fetching='true'] {
 	position: relative;
 	padding-right: 28px;
 	background: linear-gradient(180deg, rgba(239, 246, 255, 0.99) 0%, rgba(191, 219, 254, 0.94) 100%);
@@ -1713,7 +1713,7 @@ a,
 		0 8px 22px rgba(37, 99, 235, 0.16);
 }
 
-#fg-fetch-remote[data-fetching='true']::after {
+#fg-database-search[data-fetching='true']::after {
 	content: '';
 	position: absolute;
 	right: 9px;
@@ -4052,7 +4052,7 @@ a,
 		0 10px 24px rgba(15, 23, 42, 0.18);
 }
 
-#finra-app[data-graph-empty='true'] #fg-fetch-remote {
+#finra-app[data-graph-empty='true'] #fg-database-search {
 	position: relative;
 	z-index: 140;
 }

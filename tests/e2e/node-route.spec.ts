@@ -914,7 +914,7 @@ test('A direct node route keeps a fetched inactive leaf node both selected and v
 test('Partial fetch queries still hit remote search even when a loosely matching node is already loaded', async ({ page }) => {
 	const requestSequence: string[] = [];
 	let localSearchRequestCount = 0;
-	let remoteSearchRequestCount = 0;
+	let serverSearchRequestCount = 0;
 	await page.route('**/api/finra/graph-search**', async (route) => {
 		localSearchRequestCount += 1;
 		requestSequence.push('local');
@@ -925,7 +925,7 @@ test('Partial fetch queries still hit remote search even when a loosely matching
 		});
 	});
 	await page.route('**/api/finra/search**', async (route) => {
-		remoteSearchRequestCount += 1;
+		serverSearchRequestCount += 1;
 		requestSequence.push('external-finra');
 		await route.fulfill({
 			status: 200,
@@ -979,7 +979,7 @@ test('Partial fetch queries still hit remote search even when a loosely matching
 		.toBeGreaterThan(0);
 
 	const fetchInput = page.locator('#fg-fetch-input');
-	const fetchButton = page.locator('#fg-fetch-remote');
+	const fetchButton = page.locator('#fg-database-search');
 	await fetchInput.fill('Regression');
 	await fetchButton.click();
 	await expect(fetchButton).toBeEnabled({ timeout: 10_000 });
@@ -992,9 +992,9 @@ test('Partial fetch queries still hit remote search even when a loosely matching
 		.toBeGreaterThan(0);
 
 	await expect
-		.poll(() => remoteSearchRequestCount, {
+		.poll(() => serverSearchRequestCount, {
 			timeout: 10_000,
-			message: 'expected a local miss to continue on to remote search before any page-node fallback',
+			message: 'expected a local miss to continue on to server search before any page-node fallback',
 		})
 		.toBeGreaterThan(0);
 
@@ -1005,7 +1005,7 @@ test('Partial fetch queries still hit remote search even when a loosely matching
 test('Local API hits short-circuit external search before page-node reuse', async ({ page }) => {
 	const requestSequence: string[] = [];
 	let localSearchRequestCount = 0;
-	let remoteSearchRequestCount = 0;
+	let serverSearchRequestCount = 0;
 	await page.route('**/api/finra/graph-search**', async (route) => {
 		localSearchRequestCount += 1;
 		requestSequence.push('local');
@@ -1079,7 +1079,7 @@ test('Local API hits short-circuit external search before page-node reuse', asyn
 		.toBeGreaterThan(0);
 
 	const fetchInput = page.locator('#fg-fetch-input');
-	const fetchButton = page.locator('#fg-fetch-remote');
+	const fetchButton = page.locator('#fg-database-search');
 	await fetchInput.fill('3102054');
 	await fetchButton.click();
 	await expect(fetchButton).toBeEnabled({ timeout: 10_000 });
@@ -1092,7 +1092,7 @@ test('Local API hits short-circuit external search before page-node reuse', asyn
 		.toBeGreaterThan(0);
 
 	await expect
-		.poll(() => remoteSearchRequestCount, {
+		.poll(() => serverSearchRequestCount, {
 			timeout: 10_000,
 			message: 'expected a local API hit to short-circuit the external search endpoints',
 		})

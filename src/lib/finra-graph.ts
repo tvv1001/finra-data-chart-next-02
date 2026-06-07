@@ -285,6 +285,7 @@ let nodeSel = null; // current <g.fg-node> selection
 let arrowSel = null; // current top-line marker selection
 let layoutNodes = null; // node objects with x/y positions
 let layoutLinks = null; // link objects (source/target resolved to objects)
+let fullAdjacencyMap = null; // Map<nodeId, Array<{ nodeId, link }>> — cached full graph adjacency
 let spreadAnimId = null; // rAF handle for neighbor spread animation
 let isSubsetMode = false; // true when only a random sample is rendered
 let neighborMap = null; // Map<nodeId, Set<nodeId>> — rebuilt each renderGraph
@@ -3667,7 +3668,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 							pendingRouteNodeId = candidate.id;
 							// preserve any requested pulse duration when resolving via search
 							pendingRoutePulseDuration = Number(detail.pulseDuration) || null;
-							pendingRouteAutoExpand = Boolean(detail.autoExpand);
+							pendingRouteAutoExpand = detail.autoExpand !== false;
 							void applyPendingRouteNodeSelection();
 						}
 					} catch (e) {
@@ -3679,7 +3680,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			pendingRouteNodeId = String(detail.nodeId || '').trim() || null;
 			// capture optional pulse duration (ms) requested by the event sender
 			pendingRoutePulseDuration = typeof detail.pulseDuration !== 'undefined' ? Number(detail.pulseDuration) || null : pendingRoutePulseDuration;
-			pendingRouteAutoExpand = Boolean(detail.autoExpand);
+			pendingRouteAutoExpand = detail.autoExpand !== false;
 			if (pendingRouteNodeId) {
 				void applyPendingRouteNodeSelection();
 			}
@@ -3960,8 +3961,8 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 	}
 	window.addEventListener('resize', onResize);
 
-	// Remote fetch button – search ALL results, inject every hit, persist to server
-	const fetchBtn = document.getElementById('fg-fetch-remote') as HTMLButtonElement | null;
+	// Database search button – search ALL results, inject every hit, persist to server
+	const fetchBtn = document.getElementById('fg-database-search') as HTMLButtonElement | null;
 	const fetchInput = document.getElementById('fg-fetch-input') as HTMLInputElement | null;
 	if (fetchBtn && fetchInput) {
 		const findExistingNodeMatches = (rawQuery, explicitNodePool = null) => {
@@ -4013,7 +4014,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			return Boolean(graphData && Array.isArray(layoutNodes) && Array.isArray(layoutLinks) && typeof appendFetched === 'function');
 		};
 
-		const runRemoteFetch = async () => {
+		const runDatabaseSearch = async () => {
 			const q = String(fetchInput.value || '').trim();
 			if (!q) return;
 			if (!(await ensureFetchRuntimeReady())) {
@@ -4024,10 +4025,8 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			fetchBtn.dataset.fetching = 'true';
 			fetchBtn.setAttribute('aria-busy', 'true');
 			try {
-				// ── 1. Search all three external endpoints in parallel ─────────────
-				// FINRA firm:   https://api.brokercheck.finra.org/search/firm?query=…
-				// FINRA indiv:  https://api.brokercheck.finra.org/search/individual?query=…
-				// SEC indiv:    https://api.adviserinfo.sec.gov/search/individual?firm=…
+				// ── 1. Search local indexed endpoints in parallel ─────────────
+				// These hit /api/finra/search and /api/finra/sec-search which query local indexes.
 				const PAGE_SIZE = 100; // FINRA Solr supports up to 100 per page
 				const fetchFinraAll = async (useFirm) => {
 					const hits = [];
@@ -4050,7 +4049,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 							if (page.length < PAGE_SIZE) break;
 						} while (start < total);
 					} catch (err) {
-						console.warn('FINRA remote search request failed', err);
+						console.warn('Database search request failed', err);
 					}
 					return hits;
 				};
@@ -4066,7 +4065,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 						const sj = await sr.json();
 						return sj?.hits?.hits || sj?.response?.docs || sj?.currentPage || sj?.results || [];
 					} catch (err) {
-						console.warn('SEC remote search request failed', err);
+						console.warn('SEC database search request failed', err);
 						return [];
 					}
 				};
@@ -4077,7 +4076,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 					if (result.status === 'fulfilled') {
 						allHits.push(...result.value);
 					} else {
-						console.warn(`Remote search request ${index} failed`, result.reason);
+						console.warn(`Database search request ${index} failed`, result.reason);
 					}
 				});
 
@@ -4130,7 +4129,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				}
 
 				if (!allHits.length) {
-					updateFetchStatus(`No remote results for "${q}"`);
+					updateFetchStatus(`No database results for "${q}"`);
 					return;
 				}
 
@@ -4389,7 +4388,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 						const label = normalizePersonLabel(src?.name || [src?.ind_firstname, src?.ind_middlename, src?.ind_lastname].filter(Boolean).join(' ') || '');
 						if (label)
 							batchAllNodes.push({
-								id: `remote:${Date.now()}:${Math.random()}`,
+								id: `database:${Date.now()}:${Math.random()}`,
 								label,
 								group: 'individual',
 							});
@@ -4426,8 +4425,8 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				updateFetchStatus(`Added ${newCount} node${newCount !== 1 ? 's' : ''} for "${q}"`);
 				focusExistingNodeMatch(q, { statusPrefix: 'Opened' });
 			} catch (err) {
-				console.error('remote fetch failed', err);
-				updateFetchStatus(`Fetch error: ${err?.message || err}`);
+				console.error('database search failed', err);
+				updateFetchStatus(`Search error: ${err?.message || err}`);
 			} finally {
 				delete fetchBtn.dataset.fetching;
 				fetchBtn.removeAttribute('aria-busy');
@@ -4438,11 +4437,11 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			}
 		};
 
-		fetchBtn.addEventListener('click', runRemoteFetch);
+		fetchBtn.addEventListener('click', runDatabaseSearch);
 		fetchInput.addEventListener('keydown', (ev) => {
 			if (ev.key === 'Enter') {
 				ev.preventDefault();
-				runRemoteFetch();
+				runDatabaseSearch();
 			}
 		});
 	}
@@ -4549,20 +4548,20 @@ async function fetchAndInjectLocalQuery(q) {
 		mergeIntoGraphData(nodes, links);
 		return true;
 	} catch (err) {
-		console.log(`Local data not found for "${q}". Fetching from APIs to update local data...`);
+		console.log(`Local data not found for "${q}". Searching database to update graph...`);
 		try {
 			await fetchAndInjectQuery(q);
 			return true;
-		} catch (remoteErr) {
-			console.error(`Remote fetch also failed for "${q}":`, remoteErr);
+		} catch (dbErr) {
+			console.error(`Database search also failed for "${q}":`, dbErr);
 			return false;
 		}
 	}
 }
 
 /**
- * Search FINRA + SEC for a text query and inject every result hit as a node.
- * This is the programmatic equivalent of pressing the "Fetch" button.
+ * Search local database for a text query and inject every result hit as a node.
+ * This is the programmatic equivalent of pressing the "Search Database" button.
  * Called during profile seed auto-loading on page load.
  */
 async function fetchAndInjectQuery(q) {
@@ -4865,6 +4864,7 @@ function updateGraphMeta() {
 
 function mergeIntoGraphData(newNodes, newLinks) {
 	if (!graphData) return;
+	invalidateFullAdjacencyMap();
 	normalizeNodeLabelsInPlace(newNodes);
 	// Track which nodes are newly added so renderGraph can pulse them.
 	const addedIds = [];
@@ -7062,6 +7062,7 @@ function appendFetchedImpl(newNodes, newLinks) {
 
 function renderGraph(_data) {
 	let data = _data;
+	invalidateFullAdjacencyMap();
 	if (simulation) simulation.stop();
 	cancelGraphTickPositions();
 	if (spreadAnimId) {
@@ -7729,6 +7730,30 @@ function getNodeById(nodeId) {
 		return Array.isArray(graphData.nodes) ? graphData.nodes.find((entry) => entry.id === normalizedNodeId) || null : null;
 	}
 	return null;
+}
+
+function invalidateFullAdjacencyMap() {
+	fullAdjacencyMap = null;
+}
+
+function getFullAdjacencyMap() {
+	if (fullAdjacencyMap && graphData) return fullAdjacencyMap;
+	if (!graphData) return new Map();
+
+	const adjacency = new Map();
+	(graphData.nodes || []).forEach((n) => adjacency.set(n.id, []));
+	(graphData.links || []).forEach((link) => {
+		const sourceId = link.source?.id ?? link.source;
+		const targetId = link.target?.id ?? link.target;
+		if (!sourceId || !targetId) return;
+		if (!adjacency.has(sourceId)) adjacency.set(sourceId, []);
+		if (!adjacency.has(targetId)) adjacency.set(targetId, []);
+		adjacency.get(sourceId).push({ nodeId: targetId, link });
+		adjacency.get(targetId).push({ nodeId: sourceId, link });
+	});
+
+	fullAdjacencyMap = adjacency;
+	return adjacency;
 }
 
 // Build a bidirectional adjacency map for O(1) neighbor lookups
@@ -8552,27 +8577,71 @@ function anchorNode(node) {
 	}
 }
 
-async function fetchExpansionDataForNodeIds(nodeIds: string[] = [], hops: number | 'all' = getDefaultExpansionHops()) {
+async function fetchExpansionDataForNodeIds(
+	nodeIds: string[] = [],
+	hops: number | 'all' = getDefaultExpansionHops(),
+	options: {
+		strictHops?: boolean;
+	} = {},
+) {
 	const uniqueIds = Array.from(new Set<string>(nodeIds.filter(Boolean)));
 	if (!uniqueIds.length) return { nodes: [], links: [] };
 	const normalizedHops = normalizeHighlightHops(hops);
+	const { strictHops = false } = options;
 
-	const results = await Promise.allSettled(
-		uniqueIds.map(async (nodeId) => {
-			const url = makeApiUrl(`/api/finra/expand/${encodeURIComponent(nodeId)}`);
-			url.searchParams.set('hops', String(normalizedHops));
+	// Batch IDs into chunks to avoid hitting URL length limits
+	const BATCH_SIZE = 100;
+	const results = [];
+
+	for (let i = 0; i < uniqueIds.length; i += BATCH_SIZE) {
+		const chunk = uniqueIds.slice(i, i + BATCH_SIZE);
+		const primaryId = chunk[0];
+		const otherIds = chunk.slice(1);
+
+		const url = makeApiUrl(`/api/finra/expand/${encodeURIComponent(primaryId)}`);
+		url.searchParams.set('hops', String(normalizedHops));
+		if (strictHops) {
+			url.searchParams.set('strict', '1');
+		}
+		if (otherIds.length > 0) {
+			url.searchParams.set('ids', otherIds.join(','));
+		}
+
+		try {
 			const response = await fetch(url.toString());
-			if (!response.ok) throw new Error(`expand ${nodeId} HTTP ${response.status}`);
-			return response.json();
-		}),
-	);
+			if (response.ok) {
+				const data = await response.json();
+				results.push({ status: 'fulfilled', value: data });
+			} else {
+				results.push({ status: 'rejected', reason: `HTTP ${response.status}` });
+			}
+		} catch (err) {
+			results.push({ status: 'rejected', reason: err });
+		}
+	}
 
 	const mergedNodes = [];
 	const mergedLinks = [];
-	results.forEach((result) => {
+	const seenNodeIds = new Set<string>();
+	const seenLinkKeys = new Set<string>();
+
+	results.forEach((result: any) => {
 		if (result.status !== 'fulfilled' || !result.value) return;
-		mergedNodes.push(...(result.value.nodes || []));
-		mergedLinks.push(...(result.value.links || []));
+		(result.value.nodes || []).forEach((n) => {
+			if (!seenNodeIds.has(n.id)) {
+				seenNodeIds.add(n.id);
+				mergedNodes.push(n);
+			}
+		});
+		(result.value.links || []).forEach((l) => {
+			const s = l.source?.id ?? l.source;
+			const t = l.target?.id ?? l.target;
+			const k = `${s}|${t}`;
+			if (!seenLinkKeys.has(k)) {
+				seenLinkKeys.add(k);
+				mergedLinks.push(l);
+			}
+		});
 	});
 
 	return { nodes: mergedNodes, links: mergedLinks };
@@ -8629,47 +8698,31 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 	const runId = ++nonGrayExpandRunId;
 	lastExpandOriginNode = clickedNode;
 	const normalizedHops = normalizeHighlightHops(hops);
-	const maxWaves = normalizedHops === 'all' ? 100 : Math.max(1, Number(normalizedHops) || 1);
+	const maxHops = normalizedHops === 'all' ? 100 : Math.max(1, Number(normalizedHops) || 1);
+
 	const visitedIds = new Set([clickedNode.id]);
-	let frontierIds = [clickedNode.id];
-	let waveCount = 0;
+	let currentWaveIds = [clickedNode.id];
 
-	while (frontierIds.length && waveCount < maxWaves) {
-		waveCount += 1;
-		await hydrateExpansionFrontierNodes(frontierIds);
-		if (runId !== nonGrayExpandRunId) return;
-		const expansion = await fetchExpansionDataForNodeIds(frontierIds, 1);
-		if (expansion.nodes.length || expansion.links.length) {
-			mergeIntoGraphData(expansion.nodes, expansion.links);
-		}
+	for (let wave = 1; wave <= maxHops; wave++) {
 		if (runId !== nonGrayExpandRunId) return;
 
-		const adjacency = buildLinkAdjacency(graphData?.links || [], isNonGrayExpansionLink);
-		const nextIds = [];
+		// Pass 1: Reveal already-known neighbors in graphData
+		const fullAdj = getFullAdjacencyMap();
+		const waveFoundIds = [];
 		const renderedIds = new Set((layoutNodes || []).map((node) => node.id));
 
-		frontierIds.forEach((frontierId) => {
-			(adjacency.get(frontierId) || []).forEach(({ nodeId, link }) => {
+		currentWaveIds.forEach((fId) => {
+			(fullAdj.get(fId) || []).forEach(({ nodeId, link }) => {
+				if (!isNonGrayExpansionLink(link)) return;
 				if (visitedIds.has(nodeId)) return;
-
-				// Special policy: When clicking a firm, only reveal Form BD — Direct Owners & Executive Officers.
-				// This is represented by the 'controls' relationship.
-				// We still connect to any nodes already on screen regardless of relationship.
-				if (clickedNode.group === 'firm' && waveCount === 1) {
-					if (link?.relationship !== 'controls' && !renderedIds.has(nodeId)) {
-						return;
-					}
-				}
-
 				visitedIds.add(nodeId);
-				nextIds.push(nodeId);
+				waveFoundIds.push(nodeId);
 			});
 		});
 
-		const uniqueNextIds = Array.from(new Set(nextIds));
-		if (!uniqueNextIds.length) break;
+		const uniqueWaveFoundIds = Array.from(new Set(waveFoundIds));
+		const hiddenIds = uniqueWaveFoundIds.filter((id) => !renderedIds.has(id));
 
-		const hiddenIds = uniqueNextIds.filter((nodeId) => !renderedIds.has(nodeId));
 		if (hiddenIds.length) {
 			revealNeighbors(clickedNode, 'all', {
 				linkFilter: isNonGrayExpansionLink,
@@ -8677,18 +8730,65 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 				markSelected: true,
 			});
 			if (runId !== nonGrayExpandRunId) return;
-
 			spreadNeighbors(clickedNode, new Set(hiddenIds), { duration: NON_GRAY_HOP_ANIMATION_MS });
+		}
+
+		// Pass 2: Fetch and hydrate detail for currentWaveIds to discover even MORE neighbors
+		const hydrationPromise = hydrateExpansionFrontierNodes(currentWaveIds);
+		const expansionPromise = fetchExpansionDataForNodeIds(currentWaveIds, 1, { strictHops: true });
+
+		await Promise.all([
+			hydrationPromise,
+			expansionPromise.then(async (expansion) => {
+				if (expansion.nodes.length || expansion.links.length) {
+					mergeIntoGraphData(expansion.nodes, expansion.links);
+				}
+			}),
+		]);
+
+		if (runId !== nonGrayExpandRunId) return;
+
+		// Pass 3: Reveal any newly discovered neighbors after fetch
+		const postFetchAdj = getFullAdjacencyMap();
+		const newlyFoundIds = [];
+		const postRenderedIds = new Set((layoutNodes || []).map((node) => node.id));
+
+		currentWaveIds.forEach((fId) => {
+			(postFetchAdj.get(fId) || []).forEach(({ nodeId, link }) => {
+				if (!isNonGrayExpansionLink(link)) return;
+				if (visitedIds.has(nodeId)) return;
+				visitedIds.add(nodeId);
+				newlyFoundIds.push(nodeId);
+			});
+		});
+
+		const uniqueNewlyFoundIds = Array.from(new Set(newlyFoundIds));
+		const hiddenAfterFetchIds = uniqueNewlyFoundIds.filter((id) => !postRenderedIds.has(id));
+
+		if (hiddenAfterFetchIds.length) {
+			revealNeighbors(clickedNode, 'all', {
+				linkFilter: isNonGrayExpansionLink,
+				restrictToIds: new Set(hiddenAfterFetchIds),
+				markSelected: true,
+			});
+			if (runId !== nonGrayExpandRunId) return;
+			spreadNeighbors(clickedNode, new Set(hiddenAfterFetchIds), { duration: NON_GRAY_HOP_ANIMATION_MS });
+		}
+
+		const nextWaveIds = Array.from(new Set([...uniqueWaveFoundIds, ...uniqueNewlyFoundIds]));
+		if (nextWaveIds.length === 0) break;
+
+		if (hiddenIds.length || hiddenAfterFetchIds.length) {
 			await delay(NON_GRAY_HOP_DELAY_MS);
 			if (runId !== nonGrayExpandRunId) return;
 		}
 
-		frontierIds = uniqueNextIds;
+		currentWaveIds = nextWaveIds;
 	}
 
 	// Final hydration pass for any newly revealed frontier nodes (leaf nodes of the expansion)
-	if (frontierIds.length && runId === nonGrayExpandRunId) {
-		await hydrateExpansionFrontierNodes(frontierIds);
+	if (currentWaveIds.length && runId === nonGrayExpandRunId) {
+		await hydrateExpansionFrontierNodes(currentWaveIds);
 	}
 
 	refreshTraceState({ deferMs: 120 });
@@ -9054,12 +9154,17 @@ function openNodeWithExpansion(
 	void (
 		shouldAutoRevealNodeConnections(d) ?
 			expandNodeThroughNonGrayHops(d, getDefaultClickExpansionHops())
-		:	ensureExpansionDataForNode(d.id, getDefaultClickExpansionHops()).then(() => {
+		:	ensureExpansionDataForNode(d.id, getDefaultClickExpansionHops()).then((fetched) => {
+				if (fetched && (fetched.nodes?.length || fetched.links?.length)) {
+					revealNeighbors(d, getDefaultClickExpansionHops(), {
+						markSelected: true,
+					});
+				}
 				if (selectedId === d.id) {
 					renderSidebar(d);
 				}
 			})).catch((err) => {
-		console.error('Progressive non-gray hop expansion failed:', err);
+		console.error('Node expansion failed:', err);
 		refreshTraceState({ deferMs: 120 });
 	});
 	void fetchCacheStats();
@@ -9192,7 +9297,12 @@ function selectNode(
 		lastExpandOriginNode = d;
 		(shouldAutoRevealNodeConnections(d) ?
 			expandNodeThroughNonGrayHops(d, getDefaultClickExpansionHops())
-		:	ensureExpansionDataForNode(d.id, getDefaultClickExpansionHops()).then(() => {
+		:	ensureExpansionDataForNode(d.id, getDefaultClickExpansionHops()).then((fetched) => {
+				if (fetched && (fetched.nodes?.length || fetched.links?.length)) {
+					revealNeighbors(d, getDefaultClickExpansionHops(), {
+						markSelected: true,
+					});
+				}
 				if (selectedId === d.id) {
 					renderSidebar(d);
 				}
@@ -9479,7 +9589,7 @@ async function expandLoadedSeedNodes() {
 // the live graph without a full re-render.
 function revealNeighbors(
 	clickedNode,
-	hops: number | 'all' = 1,
+	hops: number | 'all' = getDefaultExpansionHops(),
 	options: {
 		linkFilter?: ((link: any) => boolean) | null;
 		restrictToIds?: Set<string> | null;
@@ -9492,18 +9602,9 @@ function revealNeighbors(
 	const renderedIds = new Set(layoutNodes.map((n) => n.id));
 	const parentNodeId = getRevealParentNodeId(clickedNode, renderedIds);
 
-	// Build adjacency from the full graph data (cached per call)
-	const adj = new Map<string, Set<string>>();
-	graphData.nodes.forEach((n) => adj.set(n.id, new Set<string>()));
+	// Use cached adjacency from the full graph data
+	const fullAdj = getFullAdjacencyMap();
 	const candidateLinks = (graphData.links || []).filter((link) => (typeof linkFilter === 'function' ? linkFilter(link) : true));
-	candidateLinks.forEach((l) => {
-		const srcId = l.source?.id ?? l.source;
-		const tgtId = l.target?.id ?? l.target;
-		if (!adj.has(srcId)) adj.set(srcId, new Set());
-		if (!adj.has(tgtId)) adj.set(tgtId, new Set());
-		adj.get(srcId).add(tgtId);
-		adj.get(tgtId).add(srcId);
-	});
 
 	// BFS to collect ids up to `hops` away; hops === 'all' means unlimited
 	const dist = new Map<string, number>();
@@ -9513,7 +9614,10 @@ function revealNeighbors(
 		const id = q[i];
 		const d = dist.get(id);
 		if (hops !== 'all' && d >= hops) continue;
-		(adj.get(id) || []).forEach((nid) => {
+
+		const neighbors = fullAdj.get(id) || [];
+		neighbors.forEach(({ nodeId: nid, link }) => {
+			if (typeof linkFilter === 'function' && !linkFilter(link)) return;
 			if (!dist.has(nid)) {
 				dist.set(nid, d + 1);
 				q.push(nid);

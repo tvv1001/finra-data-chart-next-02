@@ -56,9 +56,16 @@ function getRedis(): Redis | null {
 
 export let _graphCache: any = null;
 let _graphCacheAt = 0;
+let _graphAdjacency: Map<string, Set<string>> | null = null;
 const GRAPH_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
 let _graphBootstrapPromise: Promise<boolean> | null = null;
 const execFileAsync = promisify(execFile);
+
+export function invalidateGraphCache() {
+	_graphCache = null;
+	_graphCacheAt = 0;
+	_graphAdjacency = null;
+}
 
 if (process.env.NODE_ENV !== 'test') {
 	import('chokidar')
@@ -66,15 +73,83 @@ if (process.env.NODE_ENV !== 'test') {
 			chokidar
 				.watch(GRAPH_FILE, { ignoreInitial: true, awaitWriteFinish: { stabilityThreshold: 300, pollInterval: 100 } })
 				.on('change', () => {
-					_graphCache = null;
-					_graphCacheAt = 0;
+					invalidateGraphCache();
 				})
 				.on('unlink', () => {
-					_graphCache = null;
-					_graphCacheAt = 0;
+					invalidateGraphCache();
 				});
 		})
 		.catch(() => {});
+}
+
+export function getGraphAdjacency(graph: any): Map<string, Set<string>> {
+	if (_graphAdjacency && _graphCache === graph) {
+		return _graphAdjacency;
+	}
+
+	const adjacency = new Map<string, Set<string>>();
+	const links = Array.isArray(graph.links) ? graph.links : [];
+
+	for (const link of links) {
+		const sourceId = resolveId(link.source);
+		const targetId = resolveId(link.target);
+		if (!sourceId || !targetId) continue;
+
+		if (!adjacency.has(sourceId)) adjacency.set(sourceId, new Set());
+		if (!adjacency.has(targetId)) adjacency.set(targetId, new Set());
+
+		adjacency.get(sourceId)!.add(targetId);
+		adjacency.get(targetId)!.add(sourceId);
+	}
+
+	_graphAdjacency = adjacency;
+	return adjacency;
+}
+
+export async function getNeighborsForNodes(nodeIds: string[], hops: number | 'all' = 1) {
+	const graph = await getFullGraph();
+	const adjacency = getGraphAdjacency(graph);
+
+	const visitedIds = new Set<string>();
+	const distanceById = new Map<string, number>();
+	const queue: string[] = [];
+
+	nodeIds.forEach((id) => {
+		if (id && adjacency.has(id)) {
+			visitedIds.add(id);
+			distanceById.set(id, 0);
+			queue.push(id);
+		}
+	});
+
+	for (let index = 0; index < queue.length; index += 1) {
+		const currentId = queue[index];
+		const currentDistance = distanceById.get(currentId) ?? 0;
+		if (hops !== 'all' && currentDistance >= hops) continue;
+
+		for (const neighborId of adjacency.get(currentId) || []) {
+			if (visitedIds.has(neighborId)) continue;
+			visitedIds.add(neighborId);
+			distanceById.set(neighborId, currentDistance + 1);
+			queue.push(neighborId);
+		}
+	}
+
+	const nodes: any[] = graph.nodes || [];
+	const links: any[] = graph.links || [];
+
+	const resultNodes = nodes.filter((node) => visitedIds.has(node.id));
+	const resultLinks = links.filter((link) => {
+		const sourceId = resolveId(link.source);
+		const targetId = resolveId(link.target);
+		return visitedIds.has(sourceId!) && visitedIds.has(targetId!);
+	});
+
+	return { nodes: resultNodes, links: resultLinks };
+}
+
+export async function getNeighborsForNode(nodeId: string, hops: number | 'all' = 1) {
+	return getNeighborsForNodes([nodeId], hops);
 }
 
 function normalizeGraphPayload(data: any) {
@@ -706,11 +781,6 @@ export async function clearGraphStore({ clearRecentSeeds = true }: { clearRecent
 	if (clearRecentSeeds) {
 		await saveRecentSeedsToStore(createEmptyRecentSeeds());
 	}
-}
-
-export function invalidateGraphCache() {
-	_graphCache = null;
-	_graphCacheAt = 0;
 }
 
 export async function graphFileExists() {
