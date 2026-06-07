@@ -7,13 +7,6 @@ vi.mock('@/lib/graphStore', () => ({
 }));
 
 vi.mock('@/lib/localSearch', () => ({
-	isLocationReferenceQuery: vi.fn((query: string) => {
-		const normalized = String(query || '')
-			.trim()
-			.toLowerCase();
-		return ['sydney', 'australia'].includes(normalized);
-	}),
-	__setLocationReferenceNamesForTests: vi.fn(),
 	searchLocalIndex: vi.fn(async () => ({
 		bucket: 'finra:individual',
 		generatedAt: null,
@@ -43,13 +36,12 @@ vi.mock('@upstash/redis', () => ({
 }));
 
 import { getFullGraph } from '@/lib/graphStore';
-import { __setLocationReferenceNamesForTests, searchLocalIndex } from '@/lib/localSearch';
+import { searchLocalIndex } from '@/lib/localSearch';
 import { GET } from '@/app/api/finra/graph-search/route';
 
 describe('graph-search route', () => {
 	beforeEach(() => {
 		vi.mocked(searchLocalIndex).mockClear();
-		__setLocationReferenceNamesForTests?.(null);
 		vi.mocked(getFullGraph).mockResolvedValue({
 			nodes: [
 				{
@@ -106,11 +98,11 @@ describe('graph-search route', () => {
 		}
 	});
 
-	it('only matches graph-search location queries on address text', async () => {
+	it('matches graph-search queries against address text', async () => {
 		vi.mocked(getFullGraph).mockResolvedValueOnce({
 			nodes: [
-				{ id: 'person:1', label: 'Sydney Example', group: 'individual', crd: '1' },
-				{ id: 'person:2', label: 'Alice Example', group: 'individual', crd: '2', addressSearchText: '100 george street sydney australia' },
+				{ id: 'person:1', label: 'Alice Example', group: 'individual', crd: '1', addressSearchText: '10 king street melbourne australia' },
+				{ id: 'person:2', label: 'Bob Example', group: 'individual', crd: '2', addressSearchText: '100 george street sydney australia' },
 			],
 			links: [],
 		});

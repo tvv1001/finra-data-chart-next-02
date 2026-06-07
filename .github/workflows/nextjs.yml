@@ -1,5 +1,7 @@
 # Deploy Next.js app to Vercel
 #
+# Deploy Next.js app to Vercel after search-focused validation passes.
+#
 # Required GitHub repository secrets:
 #   VERCEL_TOKEN      – personal access token from vercel.com/account/tokens
 #   VERCEL_ORG_ID     – from .vercel/project.json (teamId) after `vercel link`
@@ -8,35 +10,23 @@
 # Required Vercel environment variables (set in Vercel project settings):
 #   UPSTASH_REDIS_REST_URL
 #   UPSTASH_REDIS_REST_TOKEN
-#
-
-
-
-
-
-#   VERCEL_ORG_ID     – from .vercel/project.json (teamId) after `vercel link`
-#   VERCEL_PROJECT_ID – from .vercel/project.json (projectId) after `vercel link`
-
-
-
-
 
 name: Deploy to Vercel
 
 on:
   push:
-    branches: ["main"]
+    branches: ['main']
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: "vercel-production"
+  group: 'vercel-production'
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  search-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -45,8 +35,36 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run search regression tests
+        run: pnpm exec vitest run tests/unit/local-search.spec.ts tests/unit/graph-search-route.spec.ts
+
+  deploy:
+    needs: search-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Install Vercel CLI
         run: npm install --global vercel@latest

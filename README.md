@@ -254,7 +254,21 @@ Notes:
 
 3. CI
 
-The repository already contains a GitHub Actions workflow to run Playwright on `ubuntu-latest`. Opening a PR will trigger tests.
+The repository already contains GitHub Actions workflows for CI and deployment:
+
+- Pull requests trigger the Playwright suite on `ubuntu-latest`
+- Pushes to `main` run the search regression tests first, then deploy to Vercel if they pass
+
+To make the main-branch deploy work, set these GitHub repository secrets:
+
+- `VERCEL_TOKEN`
+- `VERCEL_ORG_ID`
+- `VERCEL_PROJECT_ID`
+
+If you are using shared Redis-backed search data in production, also set the required Vercel environment variables in the project settings:
+
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
 
 4. Troubleshooting & tips
 

@@ -3,7 +3,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { afterEach, describe, expect, it } from 'vitest';
-import { __setLocationReferenceNamesForTests, isLocationReferenceQuery, searchLocalIndex } from '@/lib/localSearch';
+import { searchLocalIndex } from '@/lib/localSearch';
 import { getSearchIndexFilePath } from '@/lib/searchDataPaths';
 
 async function withTempSearchIndex(fileName: string, content: string | Buffer, run: (root: string) => Promise<void>) {
@@ -19,9 +19,7 @@ async function withTempSearchIndex(fileName: string, content: string | Buffer, r
 }
 
 describe('local search indexes', () => {
-	afterEach(() => {
-		__setLocationReferenceNamesForTests(null);
-	});
+	afterEach(() => {});
 
 	it('returns FINRA individual results from the local index', async () => {
 		const result = await searchLocalIndex('finra', 'individual', 'paula branum', { limit: 5 });
@@ -102,8 +100,7 @@ describe('local search indexes', () => {
 		expect(result.response.docs[0]?.otherNames).toContain('LISA ANN KEVERIAN');
 	});
 
-	it('treats locations.json names as address-driven queries', async () => {
-		__setLocationReferenceNamesForTests(['Sydney', 'Australia']);
+	it('matches address text for regular queries', async () => {
 		await withTempSearchIndex(
 			'search-index.finra.individual.json',
 			JSON.stringify({
@@ -135,9 +132,7 @@ describe('local search indexes', () => {
 		);
 	});
 
-	it('allows one-character-off location queries when the location name is at least five characters long', async () => {
-		__setLocationReferenceNamesForTests(['Toronto', 'Canada']);
-		expect(isLocationReferenceQuery('Torontp')).toBe(true);
+	it('matches a one-character-off address word when the address contains it', async () => {
 		await withTempSearchIndex(
 			'search-index.finra.individual.json',
 			JSON.stringify({
@@ -169,9 +164,36 @@ describe('local search indexes', () => {
 		);
 	});
 
-	it('recognizes airport-code aliases as location queries', () => {
-		__setLocationReferenceNamesForTests(['Sydney', 'Australia', 'LAX']);
-		expect(isLocationReferenceQuery('LAX')).toBe(true);
+	it('matches airport-code words in address text', async () => {
+		await withTempSearchIndex(
+			'search-index.finra.individual.json',
+			JSON.stringify({
+				generatedAt: '2026-06-06T00:00:00.000Z',
+				bucket: 'finra:individual',
+				docs: [
+					{
+						id: 'finra:individual:3',
+						type: 'individual',
+						source: 'finra',
+						nameSearchText: 'Casey Example',
+						addressSearchText: '10 LAX airport road los angeles california',
+						strictSearchText: 'Casey Example',
+						searchText: '3 Casey Example',
+						hit: {
+							ind_source_id: '3',
+							ind_crd: '3',
+							ind_firstname: 'Casey',
+							ind_lastname: 'Example',
+						},
+					},
+				],
+			}),
+			async (root) => {
+				const result = await searchLocalIndex('finra', 'individual', 'LAX', { limit: 5, seedRoots: [root] });
+				expect(result.total).toBe(1);
+				expect(result.response.docs[0]?.ind_source_id).toBe('3');
+			},
+		);
 	});
 
 	it('keeps Mc and O apostrophe names tightly ranked', async () => {
