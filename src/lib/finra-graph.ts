@@ -590,6 +590,12 @@ const NON_GRAY_HOP_ANIMATION_MS = 420;
 const NON_GRAY_HOP_DELAY_MS = 520;
 const NON_GRAY_DETAIL_BATCH_SIZE = 6;
 const AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT = 16;
+const PROFILE_SEED_FETCH_CONCURRENCY = 4;
+const SEED_QUERY_FETCH_CONCURRENCY = 4;
+
+const individualDetailRequestCache = new Map<string, Promise<void>>();
+const firmDetailRequestCache = new Map<string, Promise<void>>();
+const expansionRequestCache = new Map<string, Promise<any>>();
 
 function getDefaultSelectionHops(): number {
 	const runtime = getRuntimeHopDefaults();
@@ -619,7 +625,11 @@ function getCurrentHopDefaultsSnapshot() {
 
 // Expose hop controls to window for UI sliders
 if (typeof window !== 'undefined') {
-	(window as any).setRuntimeHopDefaults = setRuntimeHopDefaults;
+	(window as any).setRuntimeHopDefaults = (expansion, click, selection) => {
+		setRuntimeHopDefaults(expansion, click, selection);
+		refreshTraceState();
+		refreshGraphColors();
+	};
 	(window as any).getRuntimeHopDefaults = getRuntimeHopDefaults;
 }
 
@@ -1181,6 +1191,13 @@ async function applyPendingRouteNodeSelection() {
 
 	const selectionSeq = ++routeNodeSelectionState.seq;
 	routeNodeSelectionState.inFlightId = targetNodeId;
+
+	// Export in-flight state to DOM so React UI can prevent redundant route requests
+	const sidebar = document.getElementById('fg-sidebar');
+	if (sidebar) {
+		sidebar.dataset.inFlightId = targetNodeId;
+	}
+
 	const selectionPromise = (async () => {
 		const liveNode = await ensureRouteNodeAvailable(targetNodeId);
 		if (!liveNode) return false;
@@ -1198,7 +1215,7 @@ async function applyPendingRouteNodeSelection() {
 		const shouldExpand = pendingRouteAutoExpand && !targetAlreadySelected;
 		pendingRouteAutoExpand = false;
 
-		selectNode(liveNode, {
+		await selectNode(liveNode, {
 			skipAutoExpand: !shouldExpand,
 			skipProfileSync: true,
 			skipLog: targetAlreadySelected,
@@ -1216,6 +1233,10 @@ async function applyPendingRouteNodeSelection() {
 		if (routeNodeSelectionState.promise === selectionPromise) {
 			routeNodeSelectionState.promise = null;
 			routeNodeSelectionState.inFlightId = null;
+			const sidebar = document.getElementById('fg-sidebar');
+			if (sidebar && sidebar.dataset.inFlightId === targetNodeId) {
+				delete sidebar.dataset.inFlightId;
+			}
 		}
 	}
 }
@@ -2648,6 +2669,29 @@ function delay(ms: number) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function mapWithConcurrency<T, R>(items: T[], concurrency: number, worker: (item: T) => Promise<R>): Promise<PromiseSettledResult<R>[]> {
+	const settledResults: PromiseSettledResult<R>[] = new Array(items.length);
+	if (!items.length) return settledResults;
+
+	const maxConcurrent = Math.max(1, Math.min(concurrency, items.length));
+	let nextIndex = 0;
+
+	const runWorker = async () => {
+		while (nextIndex < items.length) {
+			const currentIndex = nextIndex++;
+			try {
+				const value = await worker(items[currentIndex]);
+				settledResults[currentIndex] = { status: 'fulfilled', value };
+			} catch (reason) {
+				settledResults[currentIndex] = { status: 'rejected', reason };
+			}
+		}
+	};
+
+	await Promise.all(Array.from({ length: maxConcurrent }, () => runWorker()));
+	return settledResults;
+}
+
 function upsertHighlightedSelection(id, hops = getDefaultSelectionHops()) {
 	if (!id) return;
 	const normalizedHops = normalizeHighlightHops(hops);
@@ -2673,45 +2717,38 @@ function isNonGrayExpansionLink(link) {
 
 function isAutoExpansionLink(link) {
 	if (!link) return false;
-	if (link.relationship === 'controls') {
-		const endDate = String(link?.endDate || link?.registrationEndDate || link?.toDate || '').trim();
-		return !endDate;
-	}
-	return isCurrentRegistration(link);
+	const rel = String(link.relationship || '').trim().toLowerCase();
+	// Ownership/control (include both current and previous)
+	if (rel === 'controls' || rel === 'controlled_by' || rel === 'owner' || rel === 'officer' || rel === 'associated_with') return true;
+	// Employment history (include both current and previous)
+	if (rel.includes('employed')) return true;
+	// Direct entity relationships
+	if (rel === 'subsidiary_of' || rel === 'parent_of') return true;
+	// General fallback for neutral or unlabeled links
+	if (!rel || rel === 'neutral') return true;
+	return false;
 }
 
 function getDirectAutoExpansionNeighborCount(node) {
 	if (!node || typeof node !== 'object') return 0;
-	if (node.group === 'individual') {
-		const firmIds = new Set<string>();
-		const employments = [
-			...(Array.isArray(node.currentEmployments) ? node.currentEmployments : []),
-			...(Array.isArray(node.currentIAEmployments) ? node.currentIAEmployments : []),
-		];
-		employments.forEach((employment) => {
-			const firmId = String(employment?.firmId || employment?.firm_id || employment?.firmIdNumber || employment?.organizationId || employment?.orgId || '').trim();
-			const firmName = String(
-				employment?.firmName || employment?.firm_name || employment?.organizationName || employment?.firm || employment?.name || employment?.legalName || '',
-			).trim();
-			if (firmId) {
-				firmIds.add(`firm:${firmId}`);
-				return;
-			}
-			if (firmName) {
-				firmIds.add(buildSyntheticFirmNodeId(firmName));
-			}
-		});
-		return firmIds.size;
-	}
-	if (node.group === 'firm') {
-		const connectionIds = getKnownCurrentFirmConnectionIds(node);
-		for (const owner of node.directOwners || []) {
+	const id = node.id;
+	const fullAdj = getFullAdjacencyMap();
+	const neighbors = fullAdj.get(id) || [];
+	let count = 0;
+	neighbors.forEach(({ link }) => {
+		if (isAutoExpansionLink(link)) count++;
+	});
+
+	// If node is a firm, also count potential owners not yet in graph links
+	if (node.group === 'firm' && Array.isArray(node.directOwners)) {
+		const seenIds = new Set(neighbors.map(({ nodeId }) => nodeId));
+		for (const owner of node.directOwners) {
 			const personId = String(owner?.crdNumber || owner?.crd || owner?.personId || '').trim();
-			if (personId) connectionIds.add(`person:${personId}`);
+			if (personId && !seenIds.has(`person:${personId}`)) count++;
 		}
-		return connectionIds.size;
 	}
-	return 0;
+
+	return count;
 }
 
 function buildLinkAdjacency(links, linkFilter: ((link: any) => boolean) | null = null) {
@@ -2760,7 +2797,11 @@ function computeHighlightState() {
 
 		if (!adjacency.has(entry.id)) return;
 
-		const maxHops = normalizeHighlightHops(entry.hops);
+		// Use the entry's stored hops if they were explicitly requested (e.g. from an API expansion)
+		// but default to the global RUNTIME setting if we want the sliders to control existing highlights.
+		const runtime = getRuntimeHopDefaults();
+		const baseHops = Number(entry.hops || runtime.selection);
+		const maxHops = normalizeHighlightHops(baseHops);
 		const dist = new Map<string, number>([[entry.id, 0]]);
 		const queue = [entry.id];
 
@@ -5247,7 +5288,7 @@ async function loadGraph() {
 			const firmIds = normalizeProfileIds(prof.firms);
 			const seedQueries = getNormalizedProfileSeedQueries(prof);
 
-			const indivPromises = indCrds.map(async (c) => {
+			const indivResults = await mapWithConcurrency(indCrds, PROFILE_SEED_FETCH_CONCURRENCY, async (c) => {
 				if (layoutNodes.some((n) => n.id === `person:${c}`)) return { nodes: [], links: [] };
 				try {
 					return await fetchIndividualBatch(c);
@@ -5255,7 +5296,7 @@ async function loadGraph() {
 					return { nodes: [], links: [] };
 				}
 			});
-			const firmPromises = firmIds.map(async (f) => {
+			const firmResults = await mapWithConcurrency(firmIds, PROFILE_SEED_FETCH_CONCURRENCY, async (f) => {
 				if (layoutNodes.some((n) => n.id === `firm:${f}`)) return { nodes: [], links: [] };
 				try {
 					return await fetchFirmBatch(f);
@@ -5263,9 +5304,6 @@ async function loadGraph() {
 					return { nodes: [], links: [] };
 				}
 			});
-
-			const indivResults = await Promise.allSettled(indivPromises);
-			const firmResults = await Promise.allSettled(firmPromises);
 
 			const batchAllNodes = [];
 			const batchAllLinks = [];
@@ -5290,25 +5328,21 @@ async function loadGraph() {
 			}
 
 			if (seedQueries.length) {
-				const CONCURRENCY = 6;
 				const seedBatchNodes = [];
 				const seedBatchLinks = [];
-				for (let i = 0; i < seedQueries.length; i += CONCURRENCY) {
-					const chunk = seedQueries.slice(i, i + CONCURRENCY);
-					const promises = chunk.map(async (s) => {
-						try {
-							const local = await fetchLocalQueryBatch(s);
-							if (local.nodes && local.nodes.length) return local;
-							return await fetchQueryBatch(s);
-						} catch {
-							return { nodes: [], links: [] };
-						}
-					});
-					const results = await Promise.all(promises);
-					for (const r of results) {
-						if (r.nodes?.length) seedBatchNodes.push(...r.nodes);
-						if (r.links?.length) seedBatchLinks.push(...r.links);
+				const seedResults = await mapWithConcurrency(seedQueries, SEED_QUERY_FETCH_CONCURRENCY, async (s) => {
+					try {
+						const local = await fetchLocalQueryBatch(s);
+						if (local.nodes && local.nodes.length) return local;
+						return await fetchQueryBatch(s);
+					} catch {
+						return { nodes: [], links: [] };
 					}
+				});
+				for (const result of seedResults) {
+					if (result.status !== 'fulfilled' || !result.value) continue;
+					if (result.value.nodes?.length) seedBatchNodes.push(...result.value.nodes);
+					if (result.value.links?.length) seedBatchLinks.push(...result.value.links);
 				}
 				if (seedBatchNodes.length) {
 					appendFetched(seedBatchNodes, seedBatchLinks);
@@ -8121,7 +8155,15 @@ async function ensureIndividualDetail(personNode, options: { allowOwnerEvidenceF
 		return;
 	}
 
-	try {
+	const requestCacheKey = `${crd}|ownerEvidence:${allowOwnerEvidenceFirmFetch ? '1' : '0'}`;
+	const existingRequest = individualDetailRequestCache.get(requestCacheKey);
+	if (existingRequest) {
+		await existingRequest;
+		return;
+	}
+
+	const requestPromise = (async () => {
+		try {
 		// First try the local merged record (fast, no external call)
 		let detail = null;
 		let localDetail = null;
@@ -8210,6 +8252,16 @@ async function ensureIndividualDetail(personNode, options: { allowOwnerEvidenceF
 		if (typeof refreshGraphColors === 'function') refreshGraphColors();
 	} catch (err) {
 		console.error(`Error fetching individual detail for ${crd}:`, err);
+	}
+	})();
+
+	individualDetailRequestCache.set(requestCacheKey, requestPromise);
+	try {
+		await requestPromise;
+	} finally {
+		if (individualDetailRequestCache.get(requestCacheKey) === requestPromise) {
+			individualDetailRequestCache.delete(requestCacheKey);
+		}
 	}
 }
 
@@ -8500,7 +8552,14 @@ async function ensureFirmDetail(firmNode) {
 	if (firmNode._detailMissing) return;
 	if (firmNode._detailLoaded && firmNode._detailValidated === true) return;
 
-	try {
+	const existingRequest = firmDetailRequestCache.get(firmId);
+	if (existingRequest) {
+		await existingRequest;
+		return;
+	}
+
+	const requestPromise = (async () => {
+		try {
 		// First try the local merged record (fast, no external call)
 		let detail = null;
 		try {
@@ -8659,6 +8718,16 @@ async function ensureFirmDetail(firmNode) {
 	} catch (err) {
 		console.error(`Error fetching firm detail for ${firmId}:`, err);
 	}
+	})();
+
+	firmDetailRequestCache.set(firmId, requestPromise);
+	try {
+		await requestPromise;
+	} finally {
+		if (firmDetailRequestCache.get(firmId) === requestPromise) {
+			firmDetailRequestCache.delete(firmId);
+		}
+	}
 }
 
 function anchorNode(node) {
@@ -8699,16 +8768,26 @@ async function fetchExpansionDataForNodeIds(
 		if (otherIds.length > 0) {
 			url.searchParams.set('ids', otherIds.join(','));
 		}
+		const requestCacheKey = url.toString();
 
 		try {
-			const response = await fetch(url.toString());
-			if (response.ok) {
-				const data = await response.json();
-				results.push({ status: 'fulfilled', value: data });
-			} else {
-				results.push({ status: 'rejected', reason: `HTTP ${response.status}` });
+			let requestPromise = expansionRequestCache.get(requestCacheKey);
+			if (!requestPromise) {
+				requestPromise = fetch(requestCacheKey).then(async (response) => {
+					if (!response.ok) {
+						throw new Error(`HTTP ${response.status}`);
+					}
+					return response.json();
+				});
+				expansionRequestCache.set(requestCacheKey, requestPromise);
 			}
+			const data = await requestPromise;
+			if (expansionRequestCache.get(requestCacheKey) === requestPromise) {
+				expansionRequestCache.delete(requestCacheKey);
+			}
+			results.push({ status: 'fulfilled', value: data });
 		} catch (err) {
+			expansionRequestCache.delete(requestCacheKey);
 			results.push({ status: 'rejected', reason: err });
 		}
 	}
@@ -8815,6 +8894,13 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 		const renderedIds = new Set((layoutNodes || []).map((node) => node.id));
 
 		currentWaveIds.forEach((fId) => {
+			// If this is NOT the root node, and it is already dense, skip expanding FROM it
+			// for auto-expansion waves to prevent exponential graph explosions.
+			// We only allow "dense expansion" for the actual node the user clicked.
+			if (fId !== clickedNode.id && getDirectAutoExpansionNeighborCount({ id: fId }) > AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT) {
+				return;
+			}
+
 			(fullAdj.get(fId) || []).forEach(({ nodeId, link }) => {
 				if (!isAutoExpansionLink(link)) return;
 				if (visitedIds.has(nodeId)) return;
@@ -8857,6 +8943,11 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 		const postRenderedIds = new Set((layoutNodes || []).map((node) => node.id));
 
 		currentWaveIds.forEach((fId) => {
+			// Prevent "dense bridges" after fetch as well
+			if (fId !== clickedNode.id && getDirectAutoExpansionNeighborCount({ id: fId }) > AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT) {
+				return;
+			}
+
 			(postFetchAdj.get(fId) || []).forEach(({ nodeId, link }) => {
 				if (!isAutoExpansionLink(link)) return;
 				if (visitedIds.has(nodeId)) return;
@@ -9246,12 +9337,12 @@ export function getAutoExpansionHopsForNode(node, requestedHops = getDefaultClic
 	const normalizedHops = normalizeHighlightHops(requestedHops);
 	if (normalizedHops === 'all') return normalizedHops;
 	if (normalizedHops <= 1) return normalizedHops;
-	if (node?.group !== 'individual') return normalizedHops;
 
-	// Only throttle to 1 hop for dense nodes if the requested hops is low (2).
-	// If the user (or runtime config) requested 3+ hops, we respect that even for dense nodes.
-	if (normalizedHops <= 2 && getDirectAutoExpansionNeighborCount(node) > AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT) {
-		return 1;
+	if (node?.group === 'individual') {
+		const directNeighborCount = Math.max(getDirectAutoExpansionNeighborCount(node), getExpectedRevealableNeighborIds(node).size);
+		if (directNeighborCount > AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT) {
+			return 1;
+		}
 	}
 
 	return normalizedHops;
@@ -9417,24 +9508,26 @@ function selectNode(
 			});
 	}
 
+	let expansionPromise = Promise.resolve();
 	if (!skipAutoExpand) {
 		const clickExpansionHops = getAutoExpansionHopsForNode(d);
 		markUserInitiatedGraphExpansion();
 		anchorNode(d);
 		lastExpandOriginNode = d;
-		(shouldAutoRevealNodeConnections(d) ?
-			expandNodeThroughNonGrayHops(d, clickExpansionHops)
-		:	ensureExpansionDataForNode(d.id, clickExpansionHops).then((fetched) => {
-				if (fetched && (fetched.nodes?.length || fetched.links?.length)) {
-					revealNeighbors(d, clickExpansionHops, {
-						linkFilter: isAutoExpansionLink,
-						markSelected: true,
-					});
-				}
-				if (selectedId === d.id) {
-					renderSidebar(d);
-				}
-			})
+		expansionPromise = (
+			shouldAutoRevealNodeConnections(d) ?
+				expandNodeThroughNonGrayHops(d, clickExpansionHops)
+			:	ensureExpansionDataForNode(d.id, clickExpansionHops).then((fetched) => {
+					if (fetched && (fetched.nodes?.length || fetched.links?.length)) {
+						revealNeighbors(d, clickExpansionHops, {
+							linkFilter: isAutoExpansionLink,
+							markSelected: true,
+						});
+					}
+					if (selectedId === d.id) {
+						renderSidebar(d);
+					}
+				})
 		).finally(() => {
 			refreshTraceState({ deferMs: 120 });
 			try {
@@ -9445,6 +9538,8 @@ function selectNode(
 		});
 		void fetchCacheStats();
 	}
+
+	return expansionPromise;
 }
 
 function getAlternatingSlotOffset(slotIndex) {

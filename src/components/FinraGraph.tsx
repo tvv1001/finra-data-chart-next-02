@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } f
 
 import ThemeToggle from './ThemeToggle';
 import { buildNodeRouteHref, buildNodeRoutePath, parseNodeIdFromPathname } from '@/lib/node-route';
+import { RUNTIME_CLICK_EXPANSION_HOPS, RUNTIME_EXPANSION_HOPS, RUNTIME_SELECTION_HOPS } from '@/lib/finra-graph-defaults';
 
 const MOBILE_TOUCH_SLOP_PX = 12;
 const MOBILE_TOUCH_CLICK_SUPPRESSION_MS = 250;
@@ -774,8 +775,11 @@ export default function FinraGraph() {
 
 		const requestRouteNodeSelection = () => {
 			if (cancelled) return;
-			const displayedId = document.getElementById('fg-sidebar')?.dataset?.displayedId || '';
-			if (displayedId === routeNodeId || attempts >= 6) return;
+			const sidebar = document.getElementById('fg-sidebar');
+			const displayedId = sidebar?.dataset?.displayedId || '';
+			const inFlightId = sidebar?.dataset?.inFlightId || '';
+
+			if (displayedId === routeNodeId || inFlightId === routeNodeId || attempts >= 6) return;
 			attempts += 1;
 			window.dispatchEvent(
 				new CustomEvent(ROUTE_NODE_REQUEST_EVENT, {
@@ -785,7 +789,7 @@ export default function FinraGraph() {
 					},
 				}),
 			);
-			retryTimer = window.setTimeout(requestRouteNodeSelection, 350);
+			retryTimer = window.setTimeout(requestRouteNodeSelection, 500);
 		};
 
 		retryTimer = window.setTimeout(requestRouteNodeSelection, 150);
@@ -880,6 +884,7 @@ export default function FinraGraph() {
 										autoCapitalize='off'
 										spellCheck={false}
 										data-gramm='false'
+										value={'beaton'}
 									/>
 									<div className='fg-toolbar-group fg-toolbar-status fg-toolbar-status--top'>
 										<span
@@ -919,63 +924,66 @@ export default function FinraGraph() {
 						id='fg-hop-controls'
 						className='fg-hop-controls'
 						style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '0 12px' }}>
-						<label style={{ fontSize: '12px', fontWeight: 500 }}>Hops (1-10):</label>
+						<label style={{ fontSize: '12px', fontWeight: 500 }}>Hops (1-5):</label>
 						<div style={{ display: 'flex', gap: '6px' }}>
 							<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-								<input
+								<select
 									id='fg-expansion-hops'
-									type='range'
-									min='1'
-									max='10'
-									defaultValue='1'
-									style={{ width: '60px', height: '20px' }}
+									defaultValue={String(RUNTIME_EXPANSION_HOPS)}
+									style={{ width: '60px', height: '24px' }}
 									title='Expansion hops (API initial load)'
 									onChange={(e) => {
 										const val = parseInt(e.target.value, 10);
-										(window as any).setRuntimeHopDefaults?.(val, (window as any).currentClickHops || 4, (window as any).currentSelectionHops || 4);
+										const cur = (window as any).getRuntimeHopDefaults?.() || { expansion: 1, click: 3, selection: 3 };
+										(window as any).setRuntimeHopDefaults?.(val, cur.click, cur.selection);
 									}}
-									onMouseUp={(e) => {
-										(window as any).currentExpansionHops = parseInt((e.target as HTMLInputElement).value, 10);
-									}}
-								/>
+								>
+									<option value='1'>1</option>
+									<option value='2'>2</option>
+									<option value='3'>3</option>
+									<option value='4'>4</option>
+									<option value='5'>5</option>
+								</select>
 								<span style={{ fontSize: '10px' }}>Exp</span>
 							</div>
 							<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-								<input
+								<select
 									id='fg-click-hops'
-									type='range'
-									min='1'
-									max='10'
-									defaultValue='4'
-									style={{ width: '60px', height: '20px' }}
+									defaultValue={String(RUNTIME_CLICK_EXPANSION_HOPS)}
+									style={{ width: '60px', height: '24px' }}
 									title='Click expansion hops'
 									onChange={(e) => {
 										const val = parseInt(e.target.value, 10);
-										(window as any).setRuntimeHopDefaults?.((window as any).currentExpansionHops || 1, val, (window as any).currentSelectionHops || 4);
+										const cur = (window as any).getRuntimeHopDefaults?.() || { expansion: 1, click: 3, selection: 3 };
+										(window as any).setRuntimeHopDefaults?.(cur.expansion, val, cur.selection);
 									}}
-									onMouseUp={(e) => {
-										(window as any).currentClickHops = parseInt((e.target as HTMLInputElement).value, 10);
-									}}
-								/>
+								>
+									<option value='1'>1</option>
+									<option value='2'>2</option>
+									<option value='3'>3</option>
+									<option value='4'>4</option>
+									<option value='5'>5</option>
+								</select>
 								<span style={{ fontSize: '10px' }}>Click</span>
 							</div>
 							<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-								<input
+								<select
 									id='fg-selection-hops'
-									type='range'
-									min='1'
-									max='10'
-									defaultValue='4'
-									style={{ width: '60px', height: '20px' }}
+									defaultValue={String(RUNTIME_SELECTION_HOPS)}
+									style={{ width: '60px', height: '24px' }}
 									title='Selection hops'
 									onChange={(e) => {
 										const val = parseInt(e.target.value, 10);
-										(window as any).setRuntimeHopDefaults?.((window as any).currentExpansionHops || 1, (window as any).currentClickHops || 4, val);
+										const cur = (window as any).getRuntimeHopDefaults?.() || { expansion: 1, click: 3, selection: 3 };
+										(window as any).setRuntimeHopDefaults?.(cur.expansion, cur.click, val);
 									}}
-									onMouseUp={(e) => {
-										(window as any).currentSelectionHops = parseInt((e.target as HTMLInputElement).value, 10);
-									}}
-								/>
+								>
+									<option value='1'>1</option>
+									<option value='2'>2</option>
+									<option value='3'>3</option>
+									<option value='4'>4</option>
+									<option value='5'>5</option>
+								</select>
 								<span style={{ fontSize: '10px' }}>Sel</span>
 							</div>
 						</div>
