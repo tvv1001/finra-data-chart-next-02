@@ -35,6 +35,8 @@ import {
 	DEFAULT_NODE_LABEL_FONT_WEIGHT,
 	DEFAULT_NODE_LABEL_GAP_PX,
 	DEFAULT_SELECTION_HOPS,
+	getRuntimeHopDefaults,
+	setRuntimeHopDefaults,
 } from './finra-graph-defaults';
 import * as canvasRenderer from './finra-graph-canvas';
 import * as overlayRenderer from './finra-graph-overlay';
@@ -95,6 +97,8 @@ const GRAPH_COLORS = {
 	nodeFirmEmployedStroke: 'var(--color-node-firm-employed-stroke)',
 	nodeFirmControlsStroke: 'var(--color-node-firm-controls-stroke)',
 };
+
+const ENABLE_DETAIL_LOAD_DEBUG_LOGS = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_FINRA_GRAPH_DEBUG === '1';
 
 const NODE_STROKE_WIDTH_DEFAULT = 'var(--stroke-width-node-default)';
 const NODE_OPACITY_STUB = 'var(--opacity-node-stub)';
@@ -588,18 +592,35 @@ const NON_GRAY_DETAIL_BATCH_SIZE = 6;
 const AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT = 16;
 
 function getDefaultSelectionHops(): number {
-	const normalized = normalizeHighlightHops(DEFAULT_SELECTION_HOPS);
+	const runtime = getRuntimeHopDefaults();
+	const normalized = normalizeHighlightHops(runtime.selection);
 	return normalized === 'all' ? 100 : normalized;
 }
 
 function getDefaultExpansionHops(): number {
-	const normalized = normalizeHighlightHops(DEFAULT_EXPANSION_HOPS);
+	const runtime = getRuntimeHopDefaults();
+	const normalized = normalizeHighlightHops(runtime.expansion);
 	return normalized === 'all' ? 100 : normalized;
 }
 
 function getDefaultClickExpansionHops(): number {
-	const normalized = normalizeHighlightHops(DEFAULT_CLICK_EXPANSION_HOPS);
-	return normalized === 'all' ? 3 : normalized;
+	const runtime = getRuntimeHopDefaults();
+	const normalized = normalizeHighlightHops(runtime.click);
+	return normalized === 'all' ? 10 : normalized;
+}
+
+function getCurrentHopDefaultsSnapshot() {
+	return {
+		selection: getDefaultSelectionHops(),
+		expansion: getDefaultExpansionHops(),
+		click: getDefaultClickExpansionHops(),
+	};
+}
+
+// Expose hop controls to window for UI sliders
+if (typeof window !== 'undefined') {
+	(window as any).setRuntimeHopDefaults = setRuntimeHopDefaults;
+	(window as any).getRuntimeHopDefaults = getRuntimeHopDefaults;
 }
 
 function hasTrustedCurrentRelationshipData(node) {
@@ -855,6 +876,7 @@ function buildSessionPayload({ compact = false, extraNodeMode = 'full' }: { comp
 
 	return {
 		cleared: effectiveCleared,
+		hopDefaults: getCurrentHopDefaultsSnapshot(),
 		renderedServerIds,
 		selectedNodeId: selectedId || null,
 		sidebarViewMode: sidebarViewMode,
@@ -1837,6 +1859,12 @@ function isDevelopmentRuntime() {
 		return /(?:localhost|127\.0\.0\.1)$/i.test(location.hostname);
 	}
 	return false;
+}
+
+function logDetailLoadDebug(...args: any[]) {
+	if (!ENABLE_DETAIL_LOAD_DEBUG_LOGS) return;
+	if (!isDevelopmentRuntime()) return;
+	console.info('[finra-graph]', ...args);
 }
 
 function warnTraceLogGuard(message: string) {
@@ -2903,9 +2931,12 @@ function pulseNodeHighlightById(id, { duration = 600, stroke = GRAPH_COLORS.node
 }
 
 function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: number } = {}) {
+	const currentHopDefaults = getCurrentHopDefaultsSnapshot();
+	const storedSelectionDefault = session?.hopDefaults && typeof session.hopDefaults === 'object' ? normalizeHighlightHops(session.hopDefaults.selection) : null;
+	const shouldReuseStoredSelectionHops = storedSelectionDefault === currentHopDefaults.selection;
 	const restoredHighlights =
 		Array.isArray(session?.highlightedNodes) ? session.highlightedNodes
-		: session?.selectedNodeId ? [{ id: session.selectedNodeId, hops: getDefaultSelectionHops() }]
+		: session?.selectedNodeId ? [{ id: session.selectedNodeId, hops: currentHopDefaults.selection }]
 		: [];
 
 	if (selectionRestoreTimer) {
@@ -2947,7 +2978,7 @@ function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: 
 		highlightedSelections = restoredHighlights
 			.map((entry) => ({
 				id: entry?.id,
-				hops: normalizeHighlightHops(entry?.hops ?? getDefaultSelectionHops()),
+				hops: shouldReuseStoredSelectionHops ? normalizeHighlightHops(entry?.hops ?? currentHopDefaults.selection) : currentHopDefaults.selection,
 			}))
 			.filter((entry) => entry.id && Array.isArray(layoutNodes) && layoutNodes.some((node) => node.id === entry.id));
 
@@ -5300,7 +5331,7 @@ async function loadGraph() {
 }
 
 // Build a subgraph from `seedCount` random nodes plus all their N-hop neighbors.
-function subsetGraph(data, seedCount, hops = DEFAULT_EXPANSION_HOPS) {
+function subsetGraph(data, seedCount, hops = getDefaultExpansionHops()) {
 	const adj = new Map<string, string[]>();
 	data.links.forEach((l) => {
 		const srcId = l.source?.id ?? l.source;
@@ -8175,7 +8206,7 @@ async function ensureIndividualDetail(personNode, options: { allowOwnerEvidenceF
 		} catch (e) {
 			console.warn('Failed to merge individual detail:', e);
 		}
-		console.log(`Detail loaded for CRD ${crd}: ${personNode.disclosures?.length || 0} BC disclosures, ${personNode.iaDisclosures?.length || 0} IA disclosures`);
+		logDetailLoadDebug(`Detail loaded for CRD ${crd}: ${personNode.disclosures?.length || 0} BC disclosures, ${personNode.iaDisclosures?.length || 0} IA disclosures`);
 		if (typeof refreshGraphColors === 'function') refreshGraphColors();
 	} catch (err) {
 		console.error(`Error fetching individual detail for ${crd}:`, err);
@@ -8624,7 +8655,7 @@ async function ensureFirmDetail(firmNode) {
 		firmNode._detailLoaded = true;
 		firmNode._detailMissing = false;
 		firmNode._detailValidated = true;
-		console.log(`Firm detail loaded for ID ${firmId}: ${firmNode.disclosures?.length || 0} disclosures, ${firmNode.directOwners?.length || 0} owners`);
+		logDetailLoadDebug(`Firm detail loaded for ID ${firmId}: ${firmNode.disclosures?.length || 0} disclosures, ${firmNode.directOwners?.length || 0} owners`);
 	} catch (err) {
 		console.error(`Error fetching firm detail for ${firmId}:`, err);
 	}
@@ -9215,7 +9246,15 @@ export function getAutoExpansionHopsForNode(node, requestedHops = getDefaultClic
 	const normalizedHops = normalizeHighlightHops(requestedHops);
 	if (normalizedHops === 'all') return normalizedHops;
 	if (normalizedHops <= 1) return normalizedHops;
-	return getDirectAutoExpansionNeighborCount(node) > AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT ? 1 : normalizedHops;
+	if (node?.group !== 'individual') return normalizedHops;
+
+	// Only throttle to 1 hop for dense nodes if the requested hops is low (2).
+	// If the user (or runtime config) requested 3+ hops, we respect that even for dense nodes.
+	if (normalizedHops <= 2 && getDirectAutoExpansionNeighborCount(node) > AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT) {
+		return 1;
+	}
+
+	return normalizedHops;
 }
 
 function openNodeWithExpansion(

@@ -243,9 +243,8 @@ export async function GET(request: NextRequest) {
 
 		const neighborIds = new Set(seedIds);
 		const graphAdj = cachedAdj || new Map<string, string[]>();
-		// For initial load, reduce hop count to speed up server response and reduce payload size.
-		// The default of 3 can create a very large subset from a few seeds.
-		const initialLoadHops = 1;
+		// Respect the shared graph default instead of silently pinning initial load to 1 hop.
+		const initialLoadHops = Math.max(1, Math.floor(Number(DEFAULT_EXPANSION_HOPS) || 1));
 		let frontier = new Set(seedIds);
 		for (let h = 0; h < initialLoadHops; h++) {
 			const next = new Set<string>();

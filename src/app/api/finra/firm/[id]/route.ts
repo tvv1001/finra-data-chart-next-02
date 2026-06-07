@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cachedFetch } from '@/lib/simpleCache';
-import { DEFAULT_HEADERS } from '@/lib/requestConstants';
 import { rememberRecentSeed } from '@/lib/seedStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
@@ -64,35 +63,6 @@ function parseDetailPayload(data: any, contentKey = 'content') {
 	return extractFromSource(data);
 }
 
-function extractHtmlMetaContent(html: string, attrName: string) {
-	const regex = new RegExp(`<meta[^>]+(?:name|property)=["']${attrName}["'][^>]+content=["']([^"']+)["']`, 'i');
-	const match = html.match(regex);
-	return match ? match[1] : null;
-}
-
-function extractHtmlTitle(html: string) {
-	const match = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-	return match ? match[1].trim() : null;
-}
-
-function isValidSecFirmSummaryPage(html: string, id: string) {
-	if (!html || !id) return false;
-	const invalidPatterns = [/page not found/i, /404/i, /not found/i, /access denied/i, /unauthorized/i];
-	if (invalidPatterns.some((rx) => rx.test(html))) return false;
-	const title = extractHtmlTitle(html);
-	if (title && /firm summary|advisorinfo|adviserinfo/i.test(title)) return true;
-	const bodyContains = /Firm Summary|AdvisorInfo|Firm Detail|SEC Investment Adviser/;
-	return bodyContains.test(html);
-}
-
-function normalizeUrl(href: string, base = 'https://adviserinfo.sec.gov') {
-	try {
-		return new URL(href, base).toString();
-	} catch {
-		return href;
-	}
-}
-
 function buildSecDocumentLinks(id: string) {
 	if (!id) return [];
 	return [
@@ -138,35 +108,6 @@ function hasPublicFinraFirmDetail(detail: any, basicInformation: Record<string, 
 	return false;
 }
 
-function extractSecDocumentLinks(html: string, id: string) {
-	if (!html || !id) return [];
-	const links = new Map<string, string>();
-	const regex = /href=["']([^"']+)["']/gi;
-	let match;
-
-	while ((match = regex.exec(html)) !== null) {
-		const href = normalizeUrl(match[1]);
-		if (
-			href.includes(`/firm/summary/${id}`) ||
-			href.includes(`/firm/brochure/${id}`) ||
-			href.includes(`/reports.adviserinfo.sec.gov/reports/ADV/${id}/PDF/${id}.pdf`) ||
-			href.includes(`/reports.adviserinfo.sec.gov/crs/crs_${id}.pdf`)
-		) {
-			links.set(href, href);
-		}
-	}
-
-	return Array.from(links.keys()).map((href) => {
-		const label =
-			href.includes(`/firm/summary/${id}`) ? 'SEC AdvisorInfo Summary'
-			: href.includes(`/reports.adviserinfo.sec.gov/reports/ADV/${id}/PDF/${id}.pdf`) ? 'Latest Form ADV filed'
-			: href.includes(`/firm/brochure/${id}`) ? 'SEC firm brochure'
-			: href.includes(`/reports.adviserinfo.sec.gov/crs/crs_${id}.pdf`) ? 'SEC Form CRS'
-			: href;
-		return { label, href };
-	});
-}
-
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
 	const { id } = await params;
 	if (!/^\d{1,10}$/.test(id)) {
@@ -178,29 +119,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	});
 
 	try {
-		const { default: axios } = await import('axios');
 		const params = buildFirmQueryParams(new URL(request.url).searchParams);
 		const queryString = params.toString();
 
-		const bcUrl =
-			queryString ?
-				`https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(id)}?${queryString}`
-			:	`https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(id)}`;
-		const secUrl = `https://api.adviserinfo.sec.gov/search/firm/${encodeURIComponent(id)}?wt=json`;
-		const secPageUrl = `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(id)}`;
-
 		const [bcData, secData, secPageData] = await Promise.allSettled([
 			cachedFetch(`finra:firm:${id}:${queryString}`, 60 * 60 * 24, async () => {
-				const r = await axios.get(bcUrl, { headers: DEFAULT_HEADERS, timeout: 15000 });
-				return r.data;
+				return undefined as unknown as any;
 			}),
 			cachedFetch(`sec:firm:${id}`, 60 * 60 * 24, async () => {
-				const r = await axios.get(secUrl, { headers: DEFAULT_HEADERS, timeout: 15000 });
-				return r.data;
+				return undefined as unknown as any;
 			}),
 			cachedFetch(`sec:firm:summaryHtml:${id}`, 60 * 60 * 24, async () => {
-				const r = await axios.get(secPageUrl, { headers: DEFAULT_HEADERS, timeout: 15000 });
-				return r.data;
+				return undefined as unknown as any;
 			}),
 		]);
 
@@ -256,34 +186,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		const secFirmId = normalizeSecFirmId(detail?.basicInformation?.bdSECNumber || detail?.basicInformation?.bdSecNumber || detail?.bdSECNumber || detail?.bdSecNumber || id);
 
-		let secHtml = secPageData?.status === 'fulfilled' ? secPageData.value : null;
-		let secPageValid = isValidSecFirmSummaryPage(secHtml, id);
+		const secHtml = secPageData?.status === 'fulfilled' ? secPageData.value : null;
+		const secPageValid = false;
 		detail.hasFinraData = hasPublicFinraFirmDetail(bcDetail, bcDetail?.basicInformation || {});
 
-		if (!secPageValid && secFirmId && secFirmId !== id) {
-			const normalizedSecPageUrl = `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(secFirmId)}`;
-			const normalizedSecHtml = await cachedFetch(`sec:firm:summaryHtml:${secFirmId}`, 60 * 60 * 24, async () => {
-				const r = await axios.get(normalizedSecPageUrl, { headers: DEFAULT_HEADERS, timeout: 15000 });
-				return r.data;
-			});
-			secHtml = normalizedSecHtml;
-			secPageValid = isValidSecFirmSummaryPage(secHtml, secFirmId);
-		}
-
 		const suppressSecLinks = SUPPRESSED_SEC_FIRM_IDS.has(id);
-		detail.hasSecData = !suppressSecLinks && Boolean(secFirmId) && Boolean(secDetail || secPageValid);
+		detail.hasSecData = !suppressSecLinks && Boolean(secFirmId) && Boolean(secDetail || detail?.hasSecData);
 
-		if (!suppressSecLinks && secPageValid) {
-			const summaryDescription =
-				extractHtmlMetaContent(secHtml, 'description') || extractHtmlMetaContent(secHtml, 'og:description') || extractHtmlMetaContent(secHtml, 'twitter:description');
-			if (summaryDescription) {
-				detail.secSummaryDescription = summaryDescription;
-			}
-			const pageLinks = extractSecDocumentLinks(secHtml, secFirmId);
-			if (pageLinks.length) detail.secDocumentLinks = pageLinks;
+		if (!suppressSecLinks && typeof detail.secSummaryDescription === 'string' && !detail.secSummaryDescription.trim()) {
+			delete detail.secSummaryDescription;
 		}
 
-		if (!suppressSecLinks && detail.hasSecData && (!Array.isArray(detail.secDocumentLinks) || !detail.secDocumentLinks.length)) {
+		if (!suppressSecLinks && Boolean(secFirmId) && (!Array.isArray(detail.secDocumentLinks) || !detail.secDocumentLinks.length)) {
 			detail.secDocumentLinks = buildSecDocumentLinks(secFirmId);
 		}
 
@@ -312,7 +226,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		return NextResponse.json(detail, { headers: sharedCacheHeaders(3600) });
 	} catch (err: any) {
-		logger.error('firm proxy error', { id, error: err.message });
-		return NextResponse.json({ error: 'Failed to fetch from FINRA.' }, { status: 502 });
+		logger.error('firm local detail route error', { id, error: err.message });
+		return NextResponse.json({ error: 'Failed to load local detail.' }, { status: 500 });
 	}
 }

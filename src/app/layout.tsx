@@ -107,6 +107,8 @@ const themeLoaderScript = `
 })();
 `;
 
+const shouldRenderSpeedInsights = process.env.NODE_ENV === 'production';
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
 	return (
 		<html
@@ -119,7 +121,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 				<ViewportDebugOverlay />
 				{children}
 				<AnalyticsRouteBridge />
-				<SpeedInsights />
+				{shouldRenderSpeedInsights ?
+					<SpeedInsights />
+				:	null}
 			</body>
 		</html>
 	);

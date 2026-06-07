@@ -27,14 +27,30 @@ function isStrictExpansionRequest(value: string | null): boolean {
 	return normalized === '1' || normalized === 'true' || normalized === 'yes';
 }
 
+function decodeNodeId(value: string | null | undefined): string {
+	const raw = String(value || '').trim();
+	if (!raw) return '';
+	try {
+		return decodeURIComponent(raw);
+	} catch {
+		return raw;
+	}
+}
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ nodeId: string }> }) {
 	try {
-		const { nodeId } = await params;
+		const { nodeId: rawNodeId } = await params;
+		const nodeId = decodeNodeId(rawNodeId);
 		const hops = normalizeHopsParam(request.nextUrl.searchParams.get('hops'));
 		const strictExpansion = isStrictExpansionRequest(request.nextUrl.searchParams.get('strict'));
 
 		// Support multiple node IDs via query param 'ids' (comma-separated)
-		const extraIds = request.nextUrl.searchParams.get('ids')?.split(',').filter(Boolean) || [];
+		const extraIds =
+			request.nextUrl.searchParams
+				.get('ids')
+				?.split(',')
+				.map((id) => decodeNodeId(id))
+				.filter(Boolean) || [];
 		const allIds = Array.from(new Set([nodeId, ...extraIds]));
 
 		// Fast path for single person expansion (cluster lookup)

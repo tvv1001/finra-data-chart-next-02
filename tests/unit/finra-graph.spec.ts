@@ -349,6 +349,16 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(getAutoExpansionHopsForNode(node, 2)).toBe(2);
 	});
 
+	it('getAutoExpansionHopsForNode preserves requested hops for firms even when they have many connections', () => {
+		const node = {
+			id: 'firm:11469',
+			group: 'firm',
+			directOwners: Array.from({ length: 30 }, (_, index) => ({ crdNumber: String(4000000 + index) })),
+		} as any;
+
+		expect(getAutoExpansionHopsForNode(node, 2)).toBe(2);
+	});
+
 	it('shouldHydrateExpansionFrontierNodeDetail skips background firm hydration unless explicitly enabled', () => {
 		expect(shouldHydrateExpansionFrontierNodeDetail({ id: 'person:123', group: 'individual' })).toBe(true);
 		expect(shouldHydrateExpansionFrontierNodeDetail({ id: 'firm:456', group: 'firm' })).toBe(false);

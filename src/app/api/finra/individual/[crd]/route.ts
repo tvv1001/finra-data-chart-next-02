@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cachedFetch } from '@/lib/simpleCache';
-import { DEFAULT_HEADERS } from '@/lib/requestConstants';
 import { rememberRecentSeed } from '@/lib/seedStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
@@ -109,26 +108,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	});
 
 	try {
-		const { default: axios } = await import('axios');
 		const params = buildIndividualQueryParams(new URL(request.url).searchParams);
 		const queryString = params.toString();
 
 		const requests = await Promise.allSettled([
 			cachedFetch(`finra:individual:${crd}:${queryString}`, 60 * 60 * 24, async () => {
-				const finraUrl =
-					queryString ?
-						`https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?${queryString}`
-					:	`https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}`;
-				const r = await axios.get(finraUrl, { headers: DEFAULT_HEADERS, timeout: 15000 });
-				return r.data;
+				return undefined as unknown as any;
 			}),
 			cachedFetch(`sec:individual:${crd}:${queryString}`, 60 * 60 * 24, async () => {
-				const secUrl =
-					queryString ?
-						`https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?${queryString}`
-					:	`https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?wt=json`;
-				const r = await axios.get(secUrl, { headers: DEFAULT_HEADERS, timeout: 15000 });
-				return r.data;
+				return undefined as unknown as any;
 			}),
 		]);
 
@@ -136,13 +124,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		const secData = requests[1].status === 'fulfilled' ? requests[1].value : null;
 
 		if (requests[0].status === 'rejected') {
-			logger.warn('individual FINRA fetch failed', {
+			logger.warn('individual FINRA local cache lookup failed', {
 				crd,
 				error: requests[0].reason?.message || String(requests[0].reason || 'unknown error'),
 			});
 		}
 		if (requests[1].status === 'rejected') {
-			logger.warn('individual SEC fetch failed', {
+			logger.warn('individual SEC local cache lookup failed', {
 				crd,
 				error: requests[1].reason?.message || String(requests[1].reason || 'unknown error'),
 			});
@@ -210,7 +198,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		return NextResponse.json(detail, { headers: sharedCacheHeaders(3600) });
 	} catch (err: any) {
-		logger.error('individual proxy error', { crd, error: err.message });
-		return NextResponse.json({ error: 'Failed to fetch from FINRA.' }, { status: 502 });
+		logger.error('individual local detail route error', { crd, error: err.message });
+		return NextResponse.json({ error: 'Failed to load local detail.' }, { status: 500 });
 	}
 }
