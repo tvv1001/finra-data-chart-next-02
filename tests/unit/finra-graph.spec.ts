@@ -16,9 +16,11 @@ import {
 	isRevealableChainExhausted,
 	loadPersistedSidebarViewMode,
 	collectFirmConnectionEntries,
+	getAutoExpansionHopsForNode,
 	loadSelectionLogBoldPreference,
 	normalizeNodeLabelInPlace,
 	rankFindNodeMatches,
+	shouldAutoExpandRouteSelection,
 	shouldAutoRevealNodeConnections,
 	shouldRenderNodeSelected,
 	upsertSelectionLogEntry,
@@ -315,6 +317,34 @@ describe('FinraGraph DOM helpers (unit)', () => {
 	it('shouldAutoRevealNodeConnections keeps firm connections hidden by default', () => {
 		expect(shouldAutoRevealNodeConnections({ id: 'person:123', group: 'individual' })).toBe(true);
 		expect(shouldAutoRevealNodeConnections({ id: 'firm:456', group: 'firm' })).toBe(false);
+	});
+
+	it('shouldAutoExpandRouteSelection skips duplicate route expansion for the already selected node', () => {
+		expect(shouldAutoExpandRouteSelection('person:4240769', 'person:4240769')).toBe(false);
+		expect(shouldAutoExpandRouteSelection('person:4240769', 'person:1111111')).toBe(true);
+		expect(shouldAutoExpandRouteSelection('person:4240769', null)).toBe(true);
+	});
+
+	it('getAutoExpansionHopsForNode caps very high-degree individual expansion to one hop', () => {
+		const node = {
+			id: 'person:4240769',
+			group: 'individual',
+			currentEmployments: Array.from({ length: 20 }, (_, index) => ({ firmId: String(1000 + index) })),
+			currentIAEmployments: [],
+		} as any;
+
+		expect(getAutoExpansionHopsForNode(node, 2)).toBe(1);
+	});
+
+	it('getAutoExpansionHopsForNode preserves requested hops for smaller neighborhoods', () => {
+		const node = {
+			id: 'person:123',
+			group: 'individual',
+			currentEmployments: [{ firmId: '1' }, { firmId: '2' }],
+			currentIAEmployments: [],
+		} as any;
+
+		expect(getAutoExpansionHopsForNode(node, 2)).toBe(2);
 	});
 
 	it('focusFetchInputWhenEmpty focuses when empty and not active', () => {
