@@ -585,6 +585,7 @@ const SESSION_FULL_LAYOUT_NODE_LIMIT = 100000; // above this, store only compact
 const NON_GRAY_HOP_ANIMATION_MS = 420;
 const NON_GRAY_HOP_DELAY_MS = 520;
 const NON_GRAY_DETAIL_BATCH_SIZE = 6;
+const AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT = 16;
 
 function getDefaultSelectionHops(): number {
 	const normalized = normalizeHighlightHops(DEFAULT_SELECTION_HOPS);
@@ -1097,7 +1098,7 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 	if (liveNode) return liveNode;
 
 	try {
-		const expansion = await fetchExpansionDataForNodeIds([normalizedNodeId], getDefaultExpansionHops());
+		const expansion = await fetchExpansionDataForNodeIds([normalizedNodeId], getDefaultExpansionHops(), { strictHops: true });
 		if (expansion.nodes.length || expansion.links.length) {
 			mergeIntoGraphData(expansion.nodes, expansion.links);
 			appendFetched?.(expansion.nodes, expansion.links);
@@ -1126,7 +1127,7 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 	if (rawNodeId && /^[0-9]+$/.test(rawNodeId)) {
 		try {
 			const fetchedBatch =
-				nodePrefix === 'person' ? await fetchIndividualBatch(rawNodeId)
+				nodePrefix === 'person' ? await fetchIndividualBatch(rawNodeId, null, { includePreviousEmployments: false })
 				: nodePrefix === 'firm' ? await fetchFirmBatch(rawNodeId)
 				: { nodes: [], links: [] };
 			if (fetchedBatch.nodes.length || fetchedBatch.links.length) {
@@ -1171,12 +1172,14 @@ async function applyPendingRouteNodeSelection() {
 			pendingRouteNodeId = null;
 		}
 
-		const shouldExpand = pendingRouteAutoExpand;
+		const targetAlreadySelected = !shouldAutoExpandRouteSelection(targetNodeId, selectedId);
+		const shouldExpand = pendingRouteAutoExpand && !targetAlreadySelected;
 		pendingRouteAutoExpand = false;
 
 		selectNode(liveNode, {
 			skipAutoExpand: !shouldExpand,
 			skipProfileSync: true,
+			skipLog: targetAlreadySelected,
 			focus: true,
 			focusDuration: 520,
 			syncRoute: false,
@@ -2638,6 +2641,49 @@ function isNonGrayExpansionLink(link) {
 	// Include all employment history (current and previous)
 	if (rel === 'employed_by' || rel === 'previous_employed_by') return true;
 	return false;
+}
+
+function isAutoExpansionLink(link) {
+	if (!link) return false;
+	if (link.relationship === 'controls') {
+		const endDate = String(link?.endDate || link?.registrationEndDate || link?.toDate || '').trim();
+		return !endDate;
+	}
+	return isCurrentRegistration(link);
+}
+
+function getDirectAutoExpansionNeighborCount(node) {
+	if (!node || typeof node !== 'object') return 0;
+	if (node.group === 'individual') {
+		const firmIds = new Set<string>();
+		const employments = [
+			...(Array.isArray(node.currentEmployments) ? node.currentEmployments : []),
+			...(Array.isArray(node.currentIAEmployments) ? node.currentIAEmployments : []),
+		];
+		employments.forEach((employment) => {
+			const firmId = String(employment?.firmId || employment?.firm_id || employment?.firmIdNumber || employment?.organizationId || employment?.orgId || '').trim();
+			const firmName = String(
+				employment?.firmName || employment?.firm_name || employment?.organizationName || employment?.firm || employment?.name || employment?.legalName || '',
+			).trim();
+			if (firmId) {
+				firmIds.add(`firm:${firmId}`);
+				return;
+			}
+			if (firmName) {
+				firmIds.add(buildSyntheticFirmNodeId(firmName));
+			}
+		});
+		return firmIds.size;
+	}
+	if (node.group === 'firm') {
+		const connectionIds = getKnownCurrentFirmConnectionIds(node);
+		for (const owner of node.directOwners || []) {
+			const personId = String(owner?.crdNumber || owner?.crd || owner?.personId || '').trim();
+			if (personId) connectionIds.add(`person:${personId}`);
+		}
+		return connectionIds.size;
+	}
+	return 0;
 }
 
 function buildLinkAdjacency(links, linkFilter: ((link: any) => boolean) | null = null) {
@@ -4988,10 +5034,11 @@ function persistToServer(nodes, links) {
 	})();
 }
 
-async function fetchIndividualBatch(crd, queryLabel = null) {
+async function fetchIndividualBatch(crd, queryLabel = null, options: { includePreviousEmployments?: boolean } = {}) {
 	if (!/^[0-9]+$/.test(String(crd))) {
 		throw new Error(`invalid individual id ${crd}`);
 	}
+	const { includePreviousEmployments = true } = options;
 
 	const nodes = [];
 	const links = [];
@@ -5021,7 +5068,7 @@ async function fetchIndividualBatch(crd, queryLabel = null) {
 		),
 	);
 
-	const emps = flattenEmploymentRecords(detail, { includeGeneric: true });
+	const emps = flattenEmploymentRecords(detail, { includeGeneric: true }).filter((employment) => includePreviousEmployments || employment?._isCurrent !== false);
 
 	for (const e of emps) {
 		const fid = e?.firmId || e?.firm_id || e?.firmIdNumber || e?.firmId || null;
@@ -8395,6 +8442,7 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 	}
 
 	if (!newNodes.length && !newLinks.length) return;
+	appendFetched(newNodes, newLinks);
 	mergeIntoGraphData(newNodes, newLinks);
 }
 
@@ -8713,7 +8761,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 
 		currentWaveIds.forEach((fId) => {
 			(fullAdj.get(fId) || []).forEach(({ nodeId, link }) => {
-				if (!isNonGrayExpansionLink(link)) return;
+				if (!isAutoExpansionLink(link)) return;
 				if (visitedIds.has(nodeId)) return;
 				visitedIds.add(nodeId);
 				waveFoundIds.push(nodeId);
@@ -8725,7 +8773,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 
 		if (hiddenIds.length) {
 			revealNeighbors(clickedNode, 'all', {
-				linkFilter: isNonGrayExpansionLink,
+				linkFilter: isAutoExpansionLink,
 				restrictToIds: new Set(hiddenIds),
 				markSelected: true,
 			});
@@ -8755,7 +8803,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 
 		currentWaveIds.forEach((fId) => {
 			(postFetchAdj.get(fId) || []).forEach(({ nodeId, link }) => {
-				if (!isNonGrayExpansionLink(link)) return;
+				if (!isAutoExpansionLink(link)) return;
 				if (visitedIds.has(nodeId)) return;
 				visitedIds.add(nodeId);
 				newlyFoundIds.push(nodeId);
@@ -8767,7 +8815,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 
 		if (hiddenAfterFetchIds.length) {
 			revealNeighbors(clickedNode, 'all', {
-				linkFilter: isNonGrayExpansionLink,
+				linkFilter: isAutoExpansionLink,
 				restrictToIds: new Set(hiddenAfterFetchIds),
 				markSelected: true,
 			});
@@ -9133,6 +9181,19 @@ export function shouldAutoRevealNodeConnections(node) {
 	return node?.group !== 'firm';
 }
 
+export function shouldAutoExpandRouteSelection(targetNodeId: string | null | undefined, currentSelectedId: string | null | undefined) {
+	const normalizedTargetNodeId = String(targetNodeId || '').trim();
+	if (!normalizedTargetNodeId) return false;
+	return normalizedTargetNodeId !== String(currentSelectedId || '').trim();
+}
+
+export function getAutoExpansionHopsForNode(node, requestedHops = getDefaultClickExpansionHops()) {
+	const normalizedHops = normalizeHighlightHops(requestedHops);
+	if (normalizedHops === 'all') return normalizedHops;
+	if (normalizedHops <= 1) return normalizedHops;
+	return getDirectAutoExpansionNeighborCount(node) > AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT ? 1 : normalizedHops;
+}
+
 function openNodeWithExpansion(
 	d,
 	options: {
@@ -9142,6 +9203,7 @@ function openNodeWithExpansion(
 	} = {},
 ) {
 	const { focus = false, pulse = false, focusDuration = 300 } = options;
+	const clickExpansionHops = getAutoExpansionHopsForNode(d);
 	markUserInitiatedGraphExpansion();
 	anchorNode(d);
 	lastExpandOriginNode = d;
@@ -9153,10 +9215,11 @@ function openNodeWithExpansion(
 	});
 	void (
 		shouldAutoRevealNodeConnections(d) ?
-			expandNodeThroughNonGrayHops(d, getDefaultClickExpansionHops())
-		:	ensureExpansionDataForNode(d.id, getDefaultClickExpansionHops()).then((fetched) => {
+			expandNodeThroughNonGrayHops(d, clickExpansionHops)
+		:	ensureExpansionDataForNode(d.id, clickExpansionHops).then((fetched) => {
 				if (fetched && (fetched.nodes?.length || fetched.links?.length)) {
-					revealNeighbors(d, getDefaultClickExpansionHops(), {
+					revealNeighbors(d, clickExpansionHops, {
+						linkFilter: isAutoExpansionLink,
 						markSelected: true,
 					});
 				}
@@ -9292,14 +9355,16 @@ function selectNode(
 	}
 
 	if (!skipAutoExpand) {
+		const clickExpansionHops = getAutoExpansionHopsForNode(d);
 		markUserInitiatedGraphExpansion();
 		anchorNode(d);
 		lastExpandOriginNode = d;
 		(shouldAutoRevealNodeConnections(d) ?
-			expandNodeThroughNonGrayHops(d, getDefaultClickExpansionHops())
-		:	ensureExpansionDataForNode(d.id, getDefaultClickExpansionHops()).then((fetched) => {
+			expandNodeThroughNonGrayHops(d, clickExpansionHops)
+		:	ensureExpansionDataForNode(d.id, clickExpansionHops).then((fetched) => {
 				if (fetched && (fetched.nodes?.length || fetched.links?.length)) {
-					revealNeighbors(d, getDefaultClickExpansionHops(), {
+					revealNeighbors(d, clickExpansionHops, {
+						linkFilter: isAutoExpansionLink,
 						markSelected: true,
 					});
 				}
