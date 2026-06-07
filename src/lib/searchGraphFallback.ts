@@ -1,5 +1,4 @@
 import { getFullGraph } from '@/lib/graphStore';
-import { isLocationReferenceQuery } from '@/lib/localSearch';
 import type { LocalSearchEntity, LocalSearchResponse, LocalSearchSource } from '@/lib/localSearch';
 
 type SearchFallbackOptions = {
@@ -28,6 +27,7 @@ export function collectSearchableNodeKeys(node: any) {
 		node?.id,
 		node?.label,
 		node?.name,
+		node?.addressSearchText,
 		node?.crd,
 		node?.firmId,
 		node?.bdSecNumber,
@@ -84,17 +84,6 @@ function tokensFuzzyMatch(queryToken: string, candidateToken: string) {
 export function matchesSearchableNodeQuery(node: any, query: string) {
 	const normalizedQuery = normalizeText(query);
 	if (!normalizedQuery) return false;
-	if (isLocationReferenceQuery(normalizedQuery)) {
-		const addressText = normalizeText(node?.addressSearchText || '');
-		if (!addressText) return false;
-		const queryTokens = normalizedQuery.split(/\s+/).filter(Boolean);
-		if (containsWholePhrase(addressText, normalizedQuery)) return true;
-		if (queryTokens.length > 0) {
-			const addressTokens = addressText.split(/\s+/).filter(Boolean);
-			return queryTokens.every((qt) => addressTokens.some((kt) => tokensFuzzyMatch(qt, kt)));
-		}
-		return false;
-	}
 	const queryTokens = normalizedQuery.split(/\s+/).filter(Boolean);
 	const keys = collectSearchableNodeKeys(node);
 	const identifierLikeQuery = isIdentifierLikeQuery(normalizedQuery);
