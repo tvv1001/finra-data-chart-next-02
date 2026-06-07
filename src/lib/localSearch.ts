@@ -11,14 +11,29 @@ async function fetchFromRedis(bucket: string): Promise<any | null> {
 		return null;
 	}
 
+	function parseStoredIndexPayload(value: unknown) {
+		if (typeof value !== 'string' || !value.trim()) return null;
+		const trimmed = value.trim();
+		try {
+			if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+				return JSON.parse(trimmed);
+			}
+			const decoded = gunzipSync(Buffer.from(trimmed, 'base64')).toString('utf-8');
+			return JSON.parse(decoded);
+		} catch {
+			return null;
+		}
+	}
+
 	try {
+		const key = `search:indexes:${bucket}`;
 		const response = await fetch(redisUrl, {
 			method: 'POST',
 			headers: {
 				'Authorization': `Bearer ${redisToken}`,
 				'Content-Type': 'application/json',
 			},
-			body: JSON.stringify(['GET', `search:indexes:${bucket}`]),
+			body: JSON.stringify(['GET', key]),
 		});
 
 		if (!response.ok) {
@@ -26,10 +41,43 @@ async function fetchFromRedis(bucket: string): Promise<any | null> {
 		}
 
 		const apiResponse = await response.json();
-		const value = apiResponse?.result;
-		if (!value) return null;
+		const parsedValue = parseStoredIndexPayload(apiResponse?.result);
+		if (parsedValue) return parsedValue;
 
-		return JSON.parse(value);
+		const metaResponse = await fetch(redisUrl, {
+			method: 'POST',
+			headers: {
+				'Authorization': `Bearer ${redisToken}`,
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify(['GET', `${key}:meta`]),
+		});
+		if (!metaResponse.ok) return null;
+
+		const metaPayload = await metaResponse.json();
+		const meta = parseStoredIndexPayload(metaPayload?.result) ?? (typeof metaPayload?.result === 'string' ? JSON.parse(metaPayload.result) : metaPayload?.result);
+		const chunkCount = Number(meta?.chunks ?? meta?.parts ?? 0);
+		if (!chunkCount || chunkCount < 1) return null;
+
+		const chunks: string[] = [];
+		for (let index = 0; index < chunkCount; index += 1) {
+			const partResponse = await fetch(redisUrl, {
+				method: 'POST',
+				headers: {
+					'Authorization': `Bearer ${redisToken}`,
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify(['GET', `${key}:part:${index}`]),
+			});
+			if (!partResponse.ok) return null;
+			const partPayload = await partResponse.json();
+			const part = partPayload?.result;
+			if (typeof part !== 'string' || !part) return null;
+			chunks.push(part);
+		}
+
+		if (!chunks.length) return null;
+		return parseStoredIndexPayload(chunks.join(''));
 	} catch (err) {
 		console.error(`[localSearch] Failed to fetch index from Redis for ${bucket}:`, err instanceof Error ? err.message : String(err));
 		return null;
