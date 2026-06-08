@@ -1,8 +1,8 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { readStoredSession, readStoredSessionState, seedStoredSession } from './helpers/finra-e2e';
 
-async function setClearedSession(page: Parameters<typeof test>[0]['page']) {
+async function setClearedSession(page: Page) {
 	await page.evaluate(() => {
 		const envelope = {
 			expiresAt: Date.now() + 60_000,

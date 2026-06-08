@@ -934,7 +934,7 @@ test('Partial fetch queries still hit remote search even when a loosely matching
 		});
 	});
 	await page.route('**/api/finra/sec-search**', async (route) => {
-		remoteSearchRequestCount += 1;
+		serverSearchRequestCount += 1;
 		requestSequence.push('external-sec');
 		await route.fulfill({
 			status: 200,
@@ -1040,7 +1040,7 @@ test('Local API hits short-circuit external search before page-node reuse', asyn
 		});
 	});
 	await page.route('**/api/finra/search**', async (route) => {
-		remoteSearchRequestCount += 1;
+		serverSearchRequestCount += 1;
 		requestSequence.push('external-finra');
 		await route.fulfill({
 			status: 200,
@@ -1049,7 +1049,7 @@ test('Local API hits short-circuit external search before page-node reuse', asyn
 		});
 	});
 	await page.route('**/api/finra/sec-search**', async (route) => {
-		remoteSearchRequestCount += 1;
+		serverSearchRequestCount += 1;
 		requestSequence.push('external-sec');
 		await route.fulfill({
 			status: 200,
