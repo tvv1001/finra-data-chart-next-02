@@ -268,6 +268,15 @@ function collectNameCandidates(doc: LocalSearchDoc) {
 
 	const rawNames = [primaryIndividualName, primaryFirmName, hit.name, hit.fullName, hit.full_name, hit.displayName, hit.label, hit.personName];
 
+	// For individuals, also include their current firm names as searchable name candidates
+	if (doc.type === 'individual') {
+		const emps = [...(hit.ind_current_employments || []), ...(hit.ind_ia_current_employments || [])];
+		emps.forEach((e: any) => {
+			if (e.firmName) rawNames.push(e.firmName);
+			if (e.firm_name) rawNames.push(e.firm_name);
+		});
+	}
+
 	const extraNameKeys = [
 		'otherNames',
 		'ind_other_names',

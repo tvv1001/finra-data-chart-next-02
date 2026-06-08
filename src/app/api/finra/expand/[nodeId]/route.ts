@@ -4,6 +4,7 @@ import { getNeighborsForNodes } from '@/lib/graphStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
 import { tryLoadPersonCluster } from '@/lib/peopleClusterCache';
+import { searchLocalIndex } from '@/lib/localSearch';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -43,6 +44,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		const nodeId = decodeNodeId(rawNodeId);
 		const hops = normalizeHopsParam(request.nextUrl.searchParams.get('hops'));
 		const strictExpansion = isStrictExpansionRequest(request.nextUrl.searchParams.get('strict'));
+		const baseUrl = new URL(request.url).origin;
 
 		// Support multiple node IDs via query param 'ids' (comma-separated)
 		const extraIds =
@@ -81,6 +83,62 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		}
 
 		const result = await getNeighborsForNodes(allIds, hops);
+
+		// If expanding a firm, also search for individuals who work there
+		if (nodeId.startsWith('firm:') && hops === 1) {
+			try {
+				const firmId = nodeId.replace(/^firm:/, '');
+				// First try searching by firm ID (more accurate if indexed)
+				const searchById = await searchLocalIndex('finra', 'individual', firmId, { limit: 100, baseUrl });
+				
+				const hits = searchById.results || [];
+				
+				// If no hits by ID, try by firm name from the firm node itself
+				if (hits.length === 0) {
+					const firmNode = result.nodes.find(n => n.id === nodeId);
+					if (firmNode && firmNode.label) {
+						const searchByName = await searchLocalIndex('finra', 'individual', firmNode.label, { limit: 100, baseUrl });
+						hits.push(...(searchByName.results || []));
+					}
+				}
+
+				const seenNodeIds = new Set(result.nodes.map(n => n.id));
+				
+				for (const hit of hits) {
+					const crd = String(hit.ind_source_id || hit.ind_crd || '').trim();
+					if (!crd) continue;
+					const personId = `person:${crd}`;
+					if (!seenNodeIds.has(personId)) {
+						const label = [hit.ind_firstname, hit.ind_middlename, hit.ind_lastname].filter(Boolean).join(' ') || `CRD ${crd}`;
+						result.nodes.push({
+							id: personId,
+							label,
+							group: 'individual',
+							crd,
+							_source: 'expansion-search'
+						});
+						seenNodeIds.add(personId);
+					}
+					
+					const linkExists = result.links.some(l => 
+						(l.source?.id ?? l.source) === personId && 
+						(l.target?.id ?? l.target) === nodeId
+					);
+					
+					if (!linkExists) {
+						result.links.push({
+							source: personId,
+							target: nodeId,
+							relationship: 'employed_by',
+							isCurrent: true
+						});
+					}
+				}
+			} catch (e) {
+				console.warn(`Expansion API: firm employee search failed for ${nodeId}`, e);
+			}
+		}
+
 		return NextResponse.json(result, { headers: sharedCacheHeaders(300) });
 	} catch (err: any) {
 		logger.error('expand error', { error: err.message });

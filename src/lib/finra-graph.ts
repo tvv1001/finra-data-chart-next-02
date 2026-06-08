@@ -5220,6 +5220,41 @@ async function fetchFirmBatch(firmId, queryLabel = null) {
 		});
 	}
 
+	// Also search for some employees to show more connections for this firm
+	try {
+		const searchUrl = `${BASE}/api/finra/search?query=${encodeURIComponent(firmId)}&nrows=30`;
+		const searchRes = await fetch(searchUrl);
+		if (searchRes.ok) {
+			const searchData = await searchRes.json();
+			const hits = searchData?.hits?.hits || searchData?.results || [];
+			for (const hit of hits) {
+				const src = hit._source || hit;
+				const pid = src.ind_source_id || src.ind_crd || src.individualId || null;
+				if (!pid) continue;
+				const personNodeId = `person:${pid}`;
+				if (!nodes.some((n) => n.id === personNodeId) && !findExistingPersonNode(pid)) {
+					const label = normalizePersonLabel([src.ind_firstname || src.firstName, src.ind_middlename || src.middleName, src.ind_lastname || src.lastName].filter(Boolean).join(' ') || `Person ${pid}`);
+					nodes.push({
+						id: personNodeId,
+						label,
+						group: 'individual',
+						crd: pid,
+						bcScope: src.ind_bc_scope || src.bcScope || null,
+						stub: true,
+					});
+				}
+				links.push({
+					source: personNodeId,
+					target: firmNodeId,
+					relationship: 'employed_by',
+					isCurrent: true,
+				});
+			}
+		}
+	} catch (e) {
+		console.warn(`Failed to fetch additional employees for firm ${firmId}:`, e);
+	}
+
 	return { nodes, links };
 }
 
@@ -9448,7 +9483,7 @@ export async function handleNodeOpen(event, d) {
 }
 
 export function shouldAutoRevealNodeConnections(node) {
-	return node?.group !== 'firm';
+	return true;
 }
 
 export function shouldAutoExpandRouteSelection(targetNodeId: string | null | undefined, currentSelectedId: string | null | undefined) {
@@ -9462,7 +9497,7 @@ export function getAutoExpansionHopsForNode(node, requestedHops = getDefaultClic
 	if (normalizedHops === 'all') return normalizedHops;
 	if (normalizedHops <= 1) return normalizedHops;
 
-	if (node?.group === 'individual') {
+	if (node?.group === 'individual' || node?.group === 'firm') {
 		const directNeighborCount = Math.max(getDirectAutoExpansionNeighborCount(node), getExpectedRevealableNeighborIds(node).size);
 		if (directNeighborCount > AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT) {
 			return Math.min(normalizedHops, 2);
