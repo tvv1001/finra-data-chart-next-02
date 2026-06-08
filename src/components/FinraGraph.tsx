@@ -225,6 +225,7 @@ export default function FinraGraph() {
 	const [findMatchState, setFindMatchState] = useState({ total: 0, activeOrdinal: 0 });
 	const [activeFindNodeId, setActiveFindNodeId] = useState<string | null>(null);
 	const [focusedFindNodeId, setFocusedFindNodeId] = useState<string | null>(null);
+	const [isMobileNativeSearchHelperOpen, setIsMobileNativeSearchHelperOpen] = useState(false);
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
@@ -761,6 +762,7 @@ export default function FinraGraph() {
 				detail: {
 					nodeId: routeNodeId,
 					autoExpand: true,
+					forceAutoExpand: true,
 				},
 			}),
 		);
@@ -786,6 +788,7 @@ export default function FinraGraph() {
 					detail: {
 						nodeId: routeNodeId,
 						autoExpand: true,
+						forceAutoExpand: true,
 					},
 				}),
 			);
@@ -920,7 +923,7 @@ export default function FinraGraph() {
 						id='fg-focus-readout'
 						className='fg-focus-readout'></div>
 
-					<div
+					{/* <div
 						id='fg-hop-controls'
 						className='fg-hop-controls'
 						style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '0 12px' }}>
@@ -987,72 +990,25 @@ export default function FinraGraph() {
 								<span style={{ fontSize: '10px' }}>Sel</span>
 							</div>
 						</div>
-					</div>
+					</div> */}
 
 					<div className='fg-header-right-controls'>
 						<button
 							id='fg-find-toggle'
 							type='button'
 							className={`fg-btn-secondary fg-find-toggle${isFindBarOpen ? ' active' : ''}`}
-							onClick={() => (isFindBarOpen ? closeFindBar({ clearQuery: false }) : setIsFindBarOpen(true))}
+							onClick={() => {
+								if (isMobileSearchViewport()) {
+									setIsMobileNativeSearchHelperOpen(true);
+								} else {
+									isFindBarOpen ? closeFindBar({ clearQuery: false }) : setIsFindBarOpen(true);
+								}
+							}}
 							title='Find in graph (Ctrl+F)'
 							aria-label='Find in graph'
 							aria-pressed={isFindBarOpen}>
 							<span className='fg-find-toggle__icon'>🔍</span>
 						</button>
-
-						<div
-							id='fg-find-header'
-							className={`fg-find-header${isFindBarOpen ? '' : ' hidden'}`}
-							aria-hidden={!isFindBarOpen}
-							inert={!isFindBarOpen}>
-							<form
-								className='fg-find-header__form'
-								onSubmit={(event) => {
-									event.preventDefault();
-									submitFindQuery();
-								}}>
-								<div className='fg-find-header__field-group'>
-									<input
-										ref={findInputRef}
-										id='fg-find-input'
-										className='fg-search-input fg-find-input'
-										type='search'
-										value={findQuery}
-										onChange={(event) => setFindQuery(event.target.value)}
-										onKeyDown={handleFindInputKeyDown}
-										placeholder='Find in graph…'
-										autoComplete='off'
-										autoCorrect='off'
-										autoCapitalize='off'
-										spellCheck={false}
-										data-gramm='false'
-									/>
-									<span
-										id='fg-find-counter'
-										className='fg-find-counter'
-										aria-live='polite'>
-										{findCounterText}
-									</span>
-								</div>
-								<div className='fg-find-header__actions'>
-									<button
-										type='button'
-										className='fg-ghost-btn fg-find-arrow'
-										onClick={() => moveFindMatchByButton('ArrowLeft')}
-										aria-label='Previous match'>
-										←
-									</button>
-									<button
-										type='button'
-										className='fg-ghost-btn fg-find-arrow'
-										onClick={() => moveFindMatchByButton('ArrowRight')}
-										aria-label='Next match'>
-										→
-									</button>
-								</div>
-							</form>
-						</div>
 
 						<button
 							id='fg-mobile-menu-toggle'
@@ -1074,6 +1030,59 @@ export default function FinraGraph() {
 			</header>
 
 			<div className='fg-body'>
+				<div
+					id='fg-find-header'
+					className={`fg-find-header${isFindBarOpen ? '' : ' hidden'}`}
+					aria-hidden={!isFindBarOpen}
+					inert={!isFindBarOpen}>
+					<form
+						className='fg-find-header__form'
+						onSubmit={(event) => {
+							event.preventDefault();
+							submitFindQuery();
+						}}>
+						<div className='fg-find-header__field-group'>
+							<input
+								ref={findInputRef}
+								id='fg-find-input'
+								className='fg-search-input fg-find-input'
+								type='search'
+								value={findQuery}
+								onChange={(event) => setFindQuery(event.target.value)}
+								onKeyDown={handleFindInputKeyDown}
+								placeholder='Find in graph…'
+								autoComplete='off'
+								autoCorrect='off'
+								autoCapitalize='off'
+								spellCheck={false}
+								data-gramm='false'
+							/>
+							<span
+								id='fg-find-counter'
+								className='fg-find-counter'
+								aria-live='polite'>
+								{findCounterText}
+							</span>
+						</div>
+						<div className='fg-find-header__actions'>
+							<button
+								type='button'
+								className='fg-ghost-btn fg-find-arrow'
+								onClick={() => moveFindMatchByButton('ArrowLeft')}
+								aria-label='Previous match'>
+								←
+							</button>
+							<button
+								type='button'
+								className='fg-ghost-btn fg-find-arrow'
+								onClick={() => moveFindMatchByButton('ArrowRight')}
+								aria-label='Next match'>
+								→
+							</button>
+						</div>
+					</form>
+				</div>
+
 				<div
 					id='fg-sidebar-backdrop'
 					className='fg-sidebar-backdrop hidden'
@@ -1332,6 +1341,78 @@ export default function FinraGraph() {
 					className='fg-bottom-status__indicator'
 					aria-hidden='true'></span>
 			</button>
+			{/* Native Search Helper for Mobile */}
+			{isMobileNativeSearchHelperOpen && (
+				<div
+					className='fg-mobile-native-search-overlay'
+					onClick={() => setIsMobileNativeSearchHelperOpen(false)}>
+					<div
+						className='fg-mobile-native-search-card'
+						onClick={(e) => e.stopPropagation()}>
+						<div className='fg-mns-header'>
+							<div className='fg-mns-icon'>🔍</div>
+							<h4 className='fg-mns-title'>Use Native Search</h4>
+						</div>
+
+						<p className='fg-mns-text'>This graph supports your browser's built-in search for best performance.</p>
+
+						<div className='fg-mns-steps'>
+							<div className='fg-mns-step'>
+								<span className='fg-mns-step-num'>1</span>
+								<div className='fg-mns-step-content'>
+									<strong>Open Menu</strong>
+									<span>
+										Tap the <strong>Share</strong> icon (iOS) or <strong>⋮</strong> menu (Android).
+									</span>
+								</div>
+							</div>
+							<div className='fg-mns-step'>
+								<span className='fg-mns-step-num'>2</span>
+								<div className='fg-mns-step-content'>
+									<strong>Find on Page</strong>
+									<span>Select "Find on Page" and type any name.</span>
+								</div>
+							</div>
+						</div>
+
+						<div className='fg-mns-quick-search'>
+							<p className='fg-mns-small'>Or try a Quick Jump:</p>
+							<div className='fg-mns-input-group'>
+								<input
+									type='text'
+									className='fg-mns-input'
+									placeholder='Search labels...'
+									onKeyDown={(e) => {
+										if (e.key === 'Enter') {
+											const val = (e.target as HTMLInputElement).value;
+											if (val && typeof window !== 'undefined' && (window as any).find) {
+												(window as any).find(val);
+											}
+										}
+									}}
+								/>
+								<button
+									className='fg-mns-go'
+									onClick={(e) => {
+										const input = (e.currentTarget.previousSibling as HTMLInputElement);
+										const val = input.value;
+										if (val && typeof window !== 'undefined' && (window as any).find) {
+											(window as any).find(val);
+										}
+									}}>
+									Jump
+								</button>
+							</div>
+						</div>
+
+						<button
+							className='fg-btn-primary fg-mns-close'
+							onClick={() => setIsMobileNativeSearchHelperOpen(false)}>
+							Got it
+						</button>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }
