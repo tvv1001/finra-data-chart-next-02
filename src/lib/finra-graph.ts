@@ -28,7 +28,16 @@ import {
 	row as rowImpl,
 	truncate as truncateImpl,
 } from './finra-graph/formatters';
-import { DEFAULT_NODE_LABEL_FONT_SIZE, DEFAULT_NODE_LABEL_FONT_WEIGHT, DEFAULT_NODE_LABEL_GAP_PX, getRuntimeHopDefaults, setRuntimeHopDefaults } from './finra-graph-defaults';
+import {
+	DEFAULT_CLICK_EXPANSION_HOPS,
+	DEFAULT_EXPANSION_HOPS,
+	DEFAULT_NODE_LABEL_FONT_SIZE,
+	DEFAULT_NODE_LABEL_FONT_WEIGHT,
+	DEFAULT_NODE_LABEL_GAP_PX,
+	DEFAULT_SELECTION_HOPS,
+	getRuntimeHopDefaults,
+	setRuntimeHopDefaults,
+} from './finra-graph-defaults';
 import * as canvasRenderer from './finra-graph-canvas';
 import * as overlayRenderer from './finra-graph-overlay';
 import { isValidLocationStateFilter, isZipLikeLocationQuery, normalizeLocationStateFilter } from './locationSearch';
@@ -9362,83 +9371,6 @@ async function materializeRouteSelectionNeighborhood(node, hops: number = getDef
 	}
 }
 
-async function expandThroughDirectNeighbors(rootNode, hops: number | 'all' = getDefaultClickExpansionHops()) {
-	if (!rootNode?.id || !graphData) return;
-
-	const normalizedHops = normalizeHighlightHops(hops);
-	const maxHops = normalizedHops === 'all' ? 2 : Math.max(1, Number(normalizedHops) || 1);
-
-	markUserInitiatedGraphExpansion();
-	anchorNode(rootNode);
-	lastExpandOriginNode = rootNode;
-
-	try {
-		await ensureIndividualDetail(rootNode, { allowOwnerEvidenceFirmFetch: true });
-	} catch (error) {
-		console.warn('Failed to hydrate root node before expansion:', error);
-	}
-
-	try {
-		await ensureExpansionDataForNode(rootNode.id, 1);
-	} catch (error) {
-		console.warn('Failed to fetch first-hop expansion for root node:', error);
-	}
-
-	revealNeighbors(rootNode, 1, {
-		linkFilter: isAutoExpansionLink,
-		markSelected: true,
-	});
-
-	if (maxHops <= 1) {
-		refreshTraceState({ deferMs: 120 });
-		try {
-			saveSession();
-		} catch (error) {
-			/* ignore */
-		}
-		return;
-	}
-
-	const directNeighborIds = Array.from(getFullAdjacencyMap().get(rootNode.id) || [])
-		.filter(({ link, nodeId }) => isAutoExpansionLink(link) && nodeId && nodeId !== rootNode.id)
-		.map(({ nodeId }) => nodeId);
-
-	if (!directNeighborIds.length) {
-		refreshTraceState({ deferMs: 120 });
-		try {
-			saveSession();
-		} catch (error) {
-			/* ignore */
-		}
-		return;
-	}
-
-	try {
-		const expansion = await fetchExpansionDataForNodeIds(directNeighborIds, 1, { strictHops: true });
-		if (expansion.nodes.length || expansion.links.length) {
-			mergeIntoGraphData(expansion.nodes, expansion.links);
-		}
-	} catch (error) {
-		console.warn('Failed to fetch second-hop expansion from direct neighbors:', error);
-	}
-
-	for (const neighborId of directNeighborIds) {
-		const liveNeighbor = layoutNodes?.find((node) => node.id === neighborId) || graphData?.nodes?.find((node) => node.id === neighborId);
-		if (!liveNeighbor) continue;
-		revealNeighbors(liveNeighbor, 1, {
-			linkFilter: isAutoExpansionLink,
-			markSelected: false,
-		});
-	}
-
-	refreshTraceState({ deferMs: 120 });
-	try {
-		saveSession();
-	} catch (error) {
-		/* ignore */
-	}
-}
-
 export async function handleNodeOpen(event, d) {
 	event.stopPropagation();
 	openNodeWithExpansion(d);
@@ -9490,7 +9422,7 @@ function openNodeWithExpansion(
 	});
 	void (
 		shouldAutoRevealNodeConnections(d) ?
-			expandThroughDirectNeighbors(d, clickExpansionHops)
+			expandNodeThroughNonGrayHops(d, clickExpansionHops)
 		:	ensureExpansionDataForNode(d.id, clickExpansionHops).then((fetched) => {
 				if (fetched && (fetched.nodes?.length || fetched.links?.length)) {
 					revealNeighbors(d, clickExpansionHops, {
@@ -9637,7 +9569,7 @@ function selectNode(
 		lastExpandOriginNode = d;
 		expansionPromise = (
 			shouldAutoRevealNodeConnections(d) ?
-				expandThroughDirectNeighbors(d, clickExpansionHops)
+				expandNodeThroughNonGrayHops(d, clickExpansionHops)
 			:	ensureExpansionDataForNode(d.id, clickExpansionHops).then((fetched) => {
 					if (fetched && (fetched.nodes?.length || fetched.links?.length)) {
 						revealNeighbors(d, clickExpansionHops, {
