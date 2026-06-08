@@ -15,7 +15,12 @@ const searchRuntimeData = [
 	'./data/national/search-index.sec.firm.json.gz',
 ];
 
-const primedBinaryRuntimeData = ['./data/national/primed-cache/finra-individual.bin', './data/national/primed-cache/sec-individual.bin'];
+const primedBinaryRuntimeData = [
+	'./data/national/primed-cache/finra-individual.bin',
+	'./data/national/primed-cache/sec-individual.bin',
+	'./data/national/primed-cache/finra-firm.bin',
+	'./data/national/primed-cache/sec-firm.bin',
+];
 
 const excludedLargeRuntimeData = [
 	'data/raw/**',

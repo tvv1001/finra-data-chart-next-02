@@ -14,6 +14,8 @@ const FIRM_QUERY = 'hl=true&wt=json';
 const bundles = {
 	'finra-individual': {},
 	'sec-individual': {},
+	'finra-firm': {},
+	'sec-firm': {},
 };
 
 const patterns = [
@@ -28,6 +30,18 @@ const patterns = [
 		regex: /^api\.adviserinfo\.sec\.gov_search_individual_(\d+)\.json$/,
 		bundle: 'sec-individual',
 		key: (id) => `sec:individual:${id}:${INDIVIDUAL_QUERY}`,
+	},
+	{
+		dir: FINRA_DIR,
+		regex: /^api\.brokercheck\.finra\.org_search_firm_(\d+)\.json$/,
+		bundle: 'finra-firm',
+		key: (id) => `finra:firm:${id}:${FIRM_QUERY}`,
+	},
+	{
+		dir: SEC_DIR,
+		regex: /^api\.adviserinfo\.sec\.gov_search_firm_(\d+)\.json$/,
+		bundle: 'sec-firm',
+		key: (id) => `sec:firm:${id}:${FIRM_QUERY}`,
 	},
 ];
 
