@@ -2713,13 +2713,7 @@ function getLinkKey(link) {
 }
 
 function isNonGrayExpansionLink(link) {
-	if (!link) return false;
-	const rel = link.relationship;
-	// Always include ownership/control
-	if (rel === 'controls') return true;
-	// Include all employment history (current and previous)
-	if (rel === 'employed_by' || rel === 'previous_employed_by') return true;
-	return false;
+	return isAutoExpansionLink(link);
 }
 
 function isAutoExpansionLink(link) {
@@ -2729,8 +2723,8 @@ function isAutoExpansionLink(link) {
 		.toLowerCase();
 	// Ownership/control (include both current and previous)
 	if (rel === 'controls' || rel === 'controlled_by' || rel === 'owner' || rel === 'officer' || rel === 'associated_with') return true;
-	// Employment history (include both current and previous)
-	if (rel.includes('employed')) return true;
+	// Employment/Registration history (include both current and previous)
+	if (rel.includes('employed') || rel.includes('registered')) return true;
 	// Direct entity relationships
 	if (rel === 'subsidiary_of' || rel === 'parent_of') return true;
 	// General fallback for neutral or unlabeled links
@@ -5823,8 +5817,11 @@ function applyGraphDerivedNodeMetrics(nodes, links) {
 	linkList.forEach((link) => {
 		const sourceId = link.source?.id ?? link.source;
 		const targetId = link.target?.id ?? link.target;
-		const isCurrentLink = !isPreviousEmploymentLink(link);
-		if (!isCurrentLink) return;
+
+		// Include ALL auto-expansion links (current and historical) in the degree count
+		// to ensure nodes remain visible and correctly scaled in the expansive layout.
+		if (!isAutoExpansionLink(link)) return;
+
 		[sourceId, targetId].forEach((id) => {
 			const entry = degMap.get(id);
 			if (!entry) return;
@@ -6040,7 +6037,7 @@ function getForceLinkDistance(link, nodeCount = layoutNodes?.length || 0) {
 		: link?.relationship === 'previous_employed_by' ? 16
 		: 0;
 
-	return baseDistance * densityMultiplier + (scatterBoost * 1.5) + relationshipBoost;
+	return baseDistance * densityMultiplier + scatterBoost * 1.5 + relationshipBoost;
 }
 
 function getNodeCollisionRadius(node, nodeCount = layoutNodes?.length || 0) {
@@ -6430,7 +6427,9 @@ function isPreviousEmploymentLink(link) {
 
 function isControlRelationship(link) {
 	if (!link) return false;
-	const rel = String(link.relationship || '').trim().toLowerCase();
+	const rel = String(link.relationship || '')
+		.trim()
+		.toLowerCase();
 	return rel === 'controls' || rel === 'controlled_by' || rel === 'owner' || rel === 'officer' || rel === 'associated_with';
 }
 
@@ -6645,28 +6644,30 @@ function isCurrentRegistration(d) {
 }
 
 function getLinkColor(d) {
-	if (hasInactiveEndpoint(d)) return GRAPH_COLORS.linePreviousEmployment;
-	if (d.relationship === 'controls') return GRAPH_COLORS.lineControls;
+	if (hasInactiveEndpoint(d)) return GRAPH_COLORS.nodeInactiveStroke;
+	if (isControlRelationship(d)) return GRAPH_COLORS.lineControls;
+	if (isPreviousEmploymentLink(d)) return GRAPH_COLORS.nodeInactiveStroke;
 	if (usesCurrentEmploymentStyling(d)) return GRAPH_COLORS.lineEmployedBy;
 	return LINK_COLOR[d.relationship] || DEFAULT_LINK_COLOR;
 }
 
 function getLinkMarker(d) {
-	if (hasInactiveEndpoint(d)) return 'url(#arrow-previous_employed_by)';
-	if (d.relationship === 'controls') return `url(#arrow-controls)`;
+	if (hasInactiveEndpoint(d)) return 'url(#arrow-inactive)';
+	if (isControlRelationship(d)) return `url(#arrow-controls)`;
+	if (isPreviousEmploymentLink(d)) return 'url(#arrow-previous_employed_by)';
 	if (usesCurrentEmploymentStyling(d)) return `url(#arrow-current_employed_by)`;
 	return `url(#arrow-${d.relationship})`;
 }
 
 function getLinkDash(d) {
-	if (hasInactiveEndpoint(d)) return '5 3';
-	if (usesCurrentEmploymentStyling(d)) return null;
+	if (hasInactiveEndpoint(d)) return '5 8';
+	if (isPreviousEmploymentLink(d)) return '5 8';
 	return null;
 }
 
 function getLinkWidth(d) {
-	if (hasInactiveEndpoint(d)) return 0.5;
-	if (usesCurrentEmploymentStyling(d)) return DEFAULT_LINK_WIDTH;
+	if (hasInactiveEndpoint(d)) return 'calc(0.6px * var(--fg-inactive-link-scale, 1))';
+	if (isPreviousEmploymentLink(d)) return 'calc(0.6px * var(--fg-inactive-link-scale, 1))';
 	return DEFAULT_LINK_WIDTH;
 }
 
@@ -7519,7 +7520,7 @@ function renderGraph(_data) {
 	const labelZoomThreshold =
 		isHuge ? 1.75
 		: isLarge ? 1.6
-		: 0.9;
+		: 0.6;
 	activeLabelZoomThreshold = labelZoomThreshold;
 	inactiveLabelCompactZoomThreshold = labelZoomThreshold * 1.35;
 	inactiveLabelCompactMode = initialScaleForCompactState(nodeCount) < inactiveLabelCompactZoomThreshold;
@@ -7536,12 +7537,23 @@ function renderGraph(_data) {
 		svg.style('--fg-trace-stroke-scale', String(gentleScale));
 	}
 
+	function updateInactiveLinkScale(scale: number) {
+		const minZoom = 0.05;
+		const maxZoom = 0.8;
+		const clamped = Math.max(minZoom, Math.min(maxZoom, Number(scale) || 1));
+		const normalized = (clamped - minZoom) / (maxZoom - minZoom);
+		// Scale from 0.18 (very zoomed out) to 1.0 (approaching normal zoom)
+		const factor = 0.18 + normalized * 0.82;
+		svg.style('--fg-inactive-link-scale', String(factor.toFixed(3)));
+	}
+
 	const zoom = d3
 		.zoom()
 		.scaleExtent([0.02, 2.6])
 		.on('zoom', (event) => {
 			root.attr('transform', event.transform);
 			updateTraceStrokeScale(event.transform.k);
+			updateInactiveLinkScale(event.transform.k);
 			syncTraceLabelPresentation(event.transform.k);
 			if (zoomSaveTimer) clearTimeout(zoomSaveTimer);
 			zoomSaveTimer = setTimeout(() => {
@@ -7566,6 +7578,7 @@ function renderGraph(_data) {
 		: isLarge ? 0.25
 		: 0.25;
 	updateTraceStrokeScale(initialScale);
+	updateInactiveLinkScale(initialScale);
 	try {
 		// Use immediate transition to set scale centered on the viewport
 		svg.transition().duration(0).call(zoom.scaleTo, initialScale);
@@ -7600,8 +7613,8 @@ function renderGraph(_data) {
 			.attr(
 				'fill',
 				rel === 'controls' ? GRAPH_COLORS.lineControls
-				: rel === 'inactive' ? GRAPH_COLORS.lineInactive
-				: rel === 'previous_employed_by' ? GRAPH_COLORS.linePreviousEmployment
+				: rel === 'inactive' ? GRAPH_COLORS.nodeInactiveStroke
+				: rel === 'previous_employed_by' ? GRAPH_COLORS.nodeInactiveStroke
 				: GRAPH_COLORS.lineEmployedBy,
 			);
 	});
@@ -7631,7 +7644,10 @@ function renderGraph(_data) {
 					const sourceDeg = (link.source as any)?._deg?.total || 0;
 					const targetDeg = (link.target as any)?._deg?.total || 0;
 					const maxDeg = Math.max(sourceDeg, targetDeg);
-					const baseStrength = isHuge ? 0.35 : isLarge ? 0.45 : 0.55;
+					const baseStrength =
+						isHuge ? 0.35
+						: isLarge ? 0.45
+						: 0.55;
 					return maxDeg > 20 ? baseStrength * 0.6 : baseStrength;
 				}),
 		)
@@ -7640,7 +7656,10 @@ function renderGraph(_data) {
 			d3
 				.forceManyBody()
 				.strength((d: any) => {
-					const base = isHuge ? -900 : isLarge ? -750 : -600;
+					const base =
+						isHuge ? -900
+						: isLarge ? -750
+						: -600;
 					const deg = d._deg?.total || 0;
 					// Boost repulsion for dense nodes to give them more breathing room
 					return deg > 20 ? base * 1.65 : base;
@@ -12153,7 +12172,7 @@ function renderLegend() {
 			} else if (shape === 'ring') {
 				svg = `<svg width="16" height="16"><circle cx="8" cy="8" r="6" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="3 2"/></svg>`;
 			} else if (shape === 'line-dashed') {
-				svg = `<svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="${color}" stroke-width="1.5" stroke-dasharray="4 3"/></svg>`;
+				svg = `<svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="${color}" stroke-width="1.5" stroke-dasharray="5 8"/></svg>`;
 			} else {
 				svg = `<svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="${color}" stroke-width="1.5"/></svg>`;
 			}

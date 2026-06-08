@@ -20,7 +20,7 @@ export function getRuntimeHopDefaults() {
 export const DEFAULT_EXPANSION_HOPS = 1;
 export const DEFAULT_CLICK_EXPANSION_HOPS = 1;
 export const DEFAULT_SELECTION_HOPS = 1;
-export const DEFAULT_NODE_LABEL_FONT_SIZE_PX = 9;
+export const DEFAULT_NODE_LABEL_FONT_SIZE_PX = 16;
 export const DEFAULT_NODE_LABEL_FONT_SIZE = `${DEFAULT_NODE_LABEL_FONT_SIZE_PX}px`;
 export const DEFAULT_NODE_LABEL_FONT_WEIGHT = '400';
 export const DEFAULT_NODE_LABEL_GAP_PX = 0;

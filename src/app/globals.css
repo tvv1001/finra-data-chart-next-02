@@ -52,7 +52,7 @@
 	/* Selected state */
 	--color-node-selected-stroke: rgb(0, 7, 21);
 	--color-node-selected-ring: #022764;
-	--color-node-firm-selected-stroke: #eb5d25;
+	--color-node-firm-selected-stroke: #952525;
 	--color-node-firm-selected-overlay: rgba(59, 130, 246, 0.22);
 	--color-node-depth-overlay: rgba(255, 255, 255, 0.96);
 	--opacity-node-selected: 1;
@@ -4708,13 +4708,23 @@ text.fg-label {
 }
 
 @keyframes fg-fade-in {
-	from { opacity: 0; }
-	to { opacity: 1; }
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
 }
 
 @keyframes fg-slide-up {
-	from { transform: translateY(20px); opacity: 0; }
-	to { transform: translateY(0); opacity: 1; }
+	from {
+		transform: translateY(20px);
+		opacity: 0;
+	}
+	to {
+		transform: translateY(0);
+		opacity: 1;
+	}
 }
 
 html[data-theme='dark'] .fg-mns-steps {
