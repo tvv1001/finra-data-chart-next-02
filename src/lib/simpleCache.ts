@@ -7,7 +7,7 @@ import { canCallExternalApis } from '@/lib/externalApiGate';
 
 type MemStore = Map<string, { value: unknown; expiresAt: number }>;
 type PrimedBundle = Record<string, unknown>;
-type PrimedBundleName = 'finra-individual' | 'sec-individual';
+type PrimedBundleName = 'finra-individual' | 'sec-individual' | 'finra-firm' | 'sec-firm';
 
 let upstash: Redis | null = null;
 let memStore: MemStore | null = null;
@@ -21,6 +21,8 @@ const DEFAULT_FIRM_QUERY = 'hl=true&wt=json';
 const primedBundleBinFiles: Record<PrimedBundleName, string> = {
 	'finra-individual': path.resolve(process.cwd(), 'data', 'national', 'primed-cache', 'finra-individual.bin'),
 	'sec-individual': path.resolve(process.cwd(), 'data', 'national', 'primed-cache', 'sec-individual.bin'),
+	'finra-firm': path.resolve(process.cwd(), 'data', 'national', 'primed-cache', 'finra-firm.bin'),
+	'sec-firm': path.resolve(process.cwd(), 'data', 'national', 'primed-cache', 'sec-firm.bin'),
 };
 
 const lastExternalFetch = new Map<string, number>();
@@ -137,6 +139,8 @@ async function loadPrimedBundle(name: PrimedBundleName): Promise<PrimedBundle | 
 function resolvePrimedBundleName(key: string): PrimedBundleName | null {
 	if (key.startsWith('finra:individual:') && key.endsWith(`:${DEFAULT_INDIVIDUAL_QUERY}`)) return 'finra-individual';
 	if (key.startsWith('sec:individual:') && key.endsWith(`:${DEFAULT_INDIVIDUAL_QUERY}`)) return 'sec-individual';
+	if (key.startsWith('finra:firm:') && key.endsWith(`:${DEFAULT_FIRM_QUERY}`)) return 'finra-firm';
+	if (key.startsWith('sec:firm:') && key.endsWith(`:${DEFAULT_FIRM_QUERY}`)) return 'sec-firm';
 	return null;
 }
 
