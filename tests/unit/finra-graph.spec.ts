@@ -327,7 +327,7 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(shouldAutoExpandRouteSelection('person:4240769', null)).toBe(true);
 	});
 
-	it('getAutoExpansionHopsForNode caps very high-degree individual expansion to one hop', () => {
+	it('getAutoExpansionHopsForNode caps very high-degree individual expansion to two hops', () => {
 		const node = {
 			id: 'person:4240769',
 			group: 'individual',
@@ -335,7 +335,7 @@ describe('FinraGraph DOM helpers (unit)', () => {
 			currentIAEmployments: [],
 		} as any;
 
-		expect(getAutoExpansionHopsForNode(node, 2)).toBe(1);
+		expect(getAutoExpansionHopsForNode(node, 2)).toBe(2);
 	});
 
 	it('getAutoExpansionHopsForNode preserves requested hops for smaller neighborhoods', () => {
