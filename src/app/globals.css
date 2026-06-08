@@ -4724,3 +4724,10 @@ html[data-theme='dark'] .fg-mns-steps {
 html[data-theme='dark'] .fg-mns-input {
 	background: rgba(0, 0, 0, 0.2);
 }
+
+/* ── Control Position Nodes ────────────────────────────────────────────── */
+.fg-node.\--color-highlight-controls:not(.fg-node--inactive) .fg-node-shape--circle,
+.fg-node.\--color-highlight-controls:not(.fg-node--inactive) .fg-node-shape--firm,
+.fg-node.\--color-highlight-controls:not(.fg-node--inactive) .fg-node-shape--entity {
+	fill: var(--color-highlight-controls) !important;
+}

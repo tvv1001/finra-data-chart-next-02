@@ -26,6 +26,11 @@ describe('graph route default expansion hops', () => {
 		vi.mocked(getSeedBankFromStore).mockResolvedValue({
 			individualIds: ['person:1'],
 			firmIds: [],
+			entityIds: [],
+			otherIds: [],
+			allNodeIds: ['person:1'],
+			nameByNumber: { individual: {}, firm: {} },
+			counts: { individuals: 1, firms: 0, entities: 0, others: 0, totalNodes: 1 },
 			updatedAt: new Date().toISOString(),
 		});
 

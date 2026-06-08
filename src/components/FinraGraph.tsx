@@ -1438,6 +1438,3 @@ export {
 	isFindShortcut,
 	formatFindCounter,
 };
-sFindShortcut,
-	formatFindCounter,
-};

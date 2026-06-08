@@ -87,6 +87,7 @@ const GRAPH_COLORS = {
 	nodeLabel: '#1e293b',
 	nodeLabelHalo: 'rgba(246,248,252,0.92)',
 	nodePulse: 'var(--color-node-pulse)',
+	nodeControls: 'var(--color-highlight-controls)',
 	lineEmployedBy: 'var(--color-highlight-employed)',
 	lineControls: 'var(--color-highlight-controls)',
 	lineControlsHighlight: '#ff2222',
@@ -5827,11 +5828,10 @@ function applyGraphDerivedNodeMetrics(nodes, links) {
 			const entry = degMap.get(id);
 			if (!entry) return;
 			entry.total += 1;
-			if (link.relationship === 'controls') entry.controls += 1;
+			if (isControlRelationship(link)) entry.controls += 1;
 			else entry.employed += 1;
 		});
 	});
-
 	const maxFirmDeg = Math.max(1, ...nodeList.filter((node) => node.group === 'firm').map((node) => degMap.get(node.id)?.total || 0));
 	const maxIndDeg = Math.max(1, ...nodeList.filter((node) => node.group === 'individual').map((node) => degMap.get(node.id)?.total || 0));
 
@@ -6393,6 +6393,12 @@ function hasInactiveEndpoint(link) {
 function isPreviousEmploymentLink(link) {
 	if (!link) return false;
 	return link.relationship === 'previous_employed_by' || (link.relationship === 'employed_by' && link.isCurrent === false);
+}
+
+function isControlRelationship(link) {
+	if (!link) return false;
+	const rel = String(link.relationship || '').trim().toLowerCase();
+	return rel === 'controls' || rel === 'controlled_by' || rel === 'owner' || rel === 'officer' || rel === 'associated_with';
 }
 
 function usesCurrentEmploymentStyling(link) {
@@ -7003,12 +7009,21 @@ function updateNodeVisuals(selection) {
 	selection.each(function (d) {
 		const g = d3.select(this);
 		const inactive = isNodeInactive(d);
+		const deg = d._deg || { total: 0, controls: 0, employed: 0 };
+		const isControlNode = deg.controls > 0;
+
 		g.classed('fg-node--inactive', inactive)
 			.classed('fg-node--individual', d.group === 'individual')
 			.classed('fg-node--firm', d.group === 'firm')
 			.classed('fg-node--entity', d.group === 'entity')
-			.classed('fg-node--stub', d.group === 'individual' && Boolean(d.stub));
+			.classed('fg-node--stub', d.group === 'individual' && Boolean(d.stub))
+			.classed('--color-highlight-controls', isControlNode);
+
 		let color = inactive ? GRAPH_COLORS.nodeInactive : NODE_COLOR[d.group] || GRAPH_COLORS.nodeDefault;
+
+		if (isControlNode && !inactive) {
+			color = GRAPH_COLORS.nodeControls;
+		}
 		let nodeOpacity: number | string = inactive ? 0.82 : 1;
 		let nodeStroke = inactive ? GRAPH_COLORS.nodeInactiveStroke : GRAPH_COLORS.nodeBorder;
 		let nodeLabelColor = inactive ? GRAPH_COLORS.nodeInactiveLabel : GRAPH_COLORS.nodeLabel;
@@ -12063,6 +12078,10 @@ function renderLegend() {
 		{
 			color: 'var(--c-individual)',
 			label: 'Individual',
+		},
+		{
+			color: 'var(--color-highlight-controls)',
+			label: 'Owner/Officer (Red)',
 		},
 		{
 			color: GRAPH_COLORS.nodeInactive,
