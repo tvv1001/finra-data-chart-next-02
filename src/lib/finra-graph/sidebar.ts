@@ -995,6 +995,28 @@ export function renderFirmDetail(d: any) {
 				: 'N/A',
 			)}
       ${row('Regulator', esc(d.regulator || '–'))}
+      ${
+				Array.isArray(d.directOwners) && d.directOwners.length ?
+					`
+      <div class='fg-section-title'>Direct Owners &amp; Executive Officers (${d.directOwners.length})</div>
+      <div class='fg-timeline'>
+        ${d.directOwners
+					.map((owner: any) => {
+						const name = owner.legalName || owner.name || `Person ${owner.crdNumber || owner.crd || ''}`;
+						const position = owner.position || '';
+						const ownership = owner.ownershipCode || owner.ownership || '';
+						const crd = owner.crdNumber || owner.crd || '';
+						return `<div class='fg-tl-entry'>
+            <span class='fg-tl-firm'>${esc(name)}${crd ? ` <small>(CRD# ${esc(String(crd))})</small>` : ''}</span>
+            ${position ? `<span class='fg-tl-dates'>${esc(position)}</span>` : ''}
+            ${ownership ? `<span class='fg-tl-loc'>Ownership: ${esc(ownership)}</span>` : ''}
+          </div>`;
+					})
+					.join('')}
+      </div>
+      `
+				:	''
+			}
       <div class='fg-section-title'>General Information</div>
       ${row('Established in', d.formedState ? `${esc(d.formedState)}${d.formedDate ? ' since ' + d.formedDate : ''}` : '–')}
       ${row('Type', esc(d.firmType || '–'))}

@@ -161,6 +161,10 @@ function buildIndividualDoc(source, detail) {
 	const otherNames = uniqueTexts(basicInformation.otherNames);
 	const currentEmployments = normalizeEmployments(detail.currentEmployments);
 	const currentIAEmployments = normalizeEmployments(detail.currentIAEmployments);
+	const firmIds = uniqueTexts([
+		...currentEmployments.map((e) => e.firmId),
+		...currentIAEmployments.map((e) => e.firmId),
+	]);
 	const registrationCount = getRegistrationCount(detail);
 
 	const currentAddressTexts = uniqueTexts([
@@ -196,7 +200,7 @@ function buildIndividualDoc(source, detail) {
 		nameSearchText: nameTexts.join(' ').toLowerCase(),
 		addressSearchText: currentAddressTexts.join(' ').toLowerCase(),
 		strictSearchText: uniqueTexts(collectScalarTexts(detail)).join(' ').toLowerCase(),
-		searchText: uniqueTexts([individualId, ...nameTexts])
+		searchText: uniqueTexts([individualId, ...nameTexts, ...firmIds])
 			.join(' ')
 			.toLowerCase(),
 		hit,
