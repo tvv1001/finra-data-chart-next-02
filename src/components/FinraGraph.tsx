@@ -887,7 +887,6 @@ export default function FinraGraph() {
 										autoCapitalize='off'
 										spellCheck={false}
 										data-gramm='false'
-										value={'beaton'}
 									/>
 									<div className='fg-toolbar-group fg-toolbar-status fg-toolbar-status--top'>
 										<span
@@ -1398,7 +1397,7 @@ export default function FinraGraph() {
 								<button
 									className='fg-mns-go'
 									onClick={(e) => {
-										const input = (e.currentTarget.previousSibling as HTMLInputElement);
+										const input = e.currentTarget.previousSibling as HTMLInputElement;
 										const val = input.value;
 										if (val && typeof window !== 'undefined' && (window as any).find) {
 											(window as any).find(val);

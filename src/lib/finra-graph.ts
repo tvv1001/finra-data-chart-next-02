@@ -587,8 +587,9 @@ const LS_SESSION_KEY = 'finra_session'; // storage key for persisted session nod
 const SESSION_TTL_MS = 365 * 24 * 60 * 60 * 1000; // 1 year
 const SESSION_STORAGE_SOFT_LIMIT_BYTES = 4 * 1024 * 1024; // stay comfortably below common browser quotas
 const SESSION_FULL_LAYOUT_NODE_LIMIT = 100000; // above this, store only compact positioning data
-const NON_GRAY_HOP_ANIMATION_MS = 420;
-const NON_GRAY_HOP_DELAY_MS = 520;
+const NON_GRAY_HOP_ANIMATION_MS = 1200;
+const NON_GRAY_HOP_DELAY_MS = 850;
+
 const NON_GRAY_DETAIL_BATCH_SIZE = 6;
 const AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT = 16;
 const PROFILE_SEED_FETCH_CONCURRENCY = 4;
@@ -5832,25 +5833,43 @@ function applyGraphDerivedNodeMetrics(nodes, links) {
 			else entry.employed += 1;
 		});
 	});
-	const maxFirmDeg = Math.max(1, ...nodeList.filter((node) => node.group === 'firm').map((node) => degMap.get(node.id)?.total || 0));
-	const maxIndDeg = Math.max(1, ...nodeList.filter((node) => node.group === 'individual').map((node) => degMap.get(node.id)?.total || 0));
 
-	const MIN_INDIV = 6; // minimum radius for individuals
-	const MIN_FIRM = 7; // minimum half-size for firms
+	// Use actual degree distribution for scaling instead of assuming max ranges
+	const indDegs = nodeList.filter((n) => n.group === 'individual').map((n) => degMap.get(n.id)?.total || 0);
+	const firmDegs = nodeList.filter((n) => n.group === 'firm').map((n) => degMap.get(n.id)?.total || 0);
+	const maxIndDeg = Math.max(1, ...indDegs);
+	const maxFirmDeg = Math.max(1, ...firmDegs);
+
+	const MIN_INDIV = 6;
+	const MIN_FIRM = 7;
+
 	nodeList.forEach((node) => {
 		const deg = degMap.get(node.id) || { total: 0, controls: 0, employed: 0 };
 		node._deg = deg;
+
 		if (node.group === 'individual') {
-			const scale = 1 + (Math.sqrt(deg.total) / Math.sqrt(maxIndDeg)) * 2.5;
+			// Square root scale for more natural growth.
+			// Nodes with "several" (3+) connections get significantly larger.
+			const scale = 1 + (Math.sqrt(deg.total) / Math.sqrt(maxIndDeg)) * 2.8;
 			let half = (NODE_R.individual * 1.7 * scale) / 2;
 			if (!deg.total || !isFinite(half) || half < MIN_INDIV) half = MIN_INDIV;
+
+			// Extra boost for nodes with high active degree relative to the cluster
+			if (deg.total >= 3) half *= 1.15;
+			if (deg.total >= 8) half *= 1.1;
+
 			node._vizHalf = half;
 			return;
 		}
+
 		if (node.group === 'firm') {
-			const scale = 1 + (Math.sqrt(deg.total) / Math.sqrt(maxFirmDeg)) * 1.9;
+			const scale = 1 + (Math.sqrt(deg.total) / Math.sqrt(maxFirmDeg)) * 2.2;
 			let half = (NODE_R.firm * 1.7 * scale) / 2;
 			if (!deg.total || !isFinite(half) || half < MIN_FIRM) half = MIN_FIRM;
+
+			if (deg.total >= 5) half *= 1.1;
+			if (deg.total >= 20) half *= 1.1;
+
 			node._vizHalf = half;
 			return;
 		}
@@ -5866,15 +5885,15 @@ function getNodeScatterBoost(node, nodeCount = layoutNodes?.length || 0) {
 	const degree = getNodeDegreeValue(node);
 	if (!degree) return 0;
 	const multiplier =
-		nodeCount > 1000 ? 7.5
-		: nodeCount > 600 ? 6.4
-		: nodeCount > 300 ? 5.5
-		: 4.5;
+		nodeCount > 1000 ? 10.5
+		: nodeCount > 600 ? 9.2
+		: nodeCount > 300 ? 8.0
+		: 6.5;
 	const cap =
-		nodeCount > 1000 ? 180
-		: nodeCount > 600 ? 155
-		: nodeCount > 300 ? 130
-		: 100;
+		nodeCount > 1000 ? 250
+		: nodeCount > 600 ? 210
+		: nodeCount > 300 ? 180
+		: 140;
 	return Math.min(cap, Math.sqrt(degree) * multiplier);
 }
 
@@ -5997,33 +6016,47 @@ function refreshSoftLocationGroupingForces(nodeList = layoutNodes) {
 
 function getForceLinkDistance(link, nodeCount = layoutNodes?.length || 0) {
 	const baseDistance =
-		nodeCount > 1000 ? 220
-		: nodeCount > 300 ? 175
-		: 110;
+		nodeCount > 1000 ? 320
+		: nodeCount > 300 ? 260
+		: 180;
+
 	const sourceNode = typeof link?.source === 'object' ? link.source : layoutNodes?.find((node) => node.id === link?.source);
 	const targetNode = typeof link?.target === 'object' ? link.target : layoutNodes?.find((node) => node.id === link?.target);
+
+	// Multiplier for dense nodes to spread them out further
+	const sourceDeg = sourceNode?._deg?.total || 0;
+	const targetDeg = targetNode?._deg?.total || 0;
+	const maxDeg = Math.max(sourceDeg, targetDeg);
+
+	const densityMultiplier =
+		maxDeg > 100 ? 1.85
+		: maxDeg > 50 ? 1.6
+		: maxDeg > 20 ? 1.35
+		: 1.1;
+
 	const scatterBoost = Math.max(getNodeScatterBoost(sourceNode, nodeCount), getNodeScatterBoost(targetNode, nodeCount));
 	const relationshipBoost =
-		link?.relationship === 'controls' ? 22
-		: link?.relationship === 'previous_employed_by' ? 10
+		link?.relationship === 'controls' ? 32
+		: link?.relationship === 'previous_employed_by' ? 16
 		: 0;
-	return baseDistance + scatterBoost + relationshipBoost;
+
+	return baseDistance * densityMultiplier + (scatterBoost * 1.5) + relationshipBoost;
 }
 
 function getNodeCollisionRadius(node, nodeCount = layoutNodes?.length || 0) {
 	const padding =
-		nodeCount > 1000 ? 12
-		: nodeCount > 600 ? 14
-		: nodeCount > 300 ? 16
-		: nodeCount > 120 ? 18
-		: 20;
+		nodeCount > 1000 ? 16
+		: nodeCount > 600 ? 20
+		: nodeCount > 300 ? 24
+		: nodeCount > 120 ? 28
+		: 32;
 	const labelPadding =
-		nodeCount > 1000 ? 18
-		: nodeCount > 600 ? 15
-		: nodeCount > 300 ? 12
-		: 9;
-	const scatterPadding = Math.min(nodeCount > 1000 ? 42 : 34, getNodeScatterBoost(node, nodeCount) * 0.24);
-	const labelLengthPadding = Math.min(10, Math.max(0, formatNodeLabel(node?.label || '').length - 10) * 0.24);
+		nodeCount > 1000 ? 24
+		: nodeCount > 600 ? 20
+		: nodeCount > 300 ? 16
+		: 14;
+	const scatterPadding = Math.min(nodeCount > 1000 ? 56 : 48, getNodeScatterBoost(node, nodeCount) * 0.35);
+	const labelLengthPadding = Math.min(15, Math.max(0, formatNodeLabel(node?.label || '').length - 10) * 0.4);
 	return (node?._vizHalf != null ? node._vizHalf : NODE_R[node?.group] || 10) + padding + labelPadding + scatterPadding + labelLengthPadding;
 }
 
@@ -7576,39 +7609,43 @@ function renderGraph(_data) {
 	// ── Force simulation ──────────────────────────────────────────────────────
 	// Scale simulation aggressiveness with graph size so large graphs converge faster
 	const centeringStrength =
-		isHuge ? 0.006
-		: isLarge ? 0.009
-		: 0.015;
+		isHuge ? 0.004
+		: isLarge ? 0.006
+		: 0.01;
 	simulation = d3
 		.forceSimulation(nodes)
 		.alphaDecay(
-			isHuge ? 0.09
-			: isLarge ? 0.045
-			: 0.025,
+			isHuge ? 0.06
+			: isLarge ? 0.03
+			: 0.012,
 		)
-		.velocityDecay(isLarge ? 0.62 : 0.48)
+		.velocityDecay(isLarge ? 0.72 : 0.64)
 		.force(
 			'link',
 			d3
 				.forceLink(links)
 				.id((d) => d.id)
 				.distance((link) => getForceLinkDistance(link, nodeCount))
-				.strength(
-					isHuge ? 0.52
-					: isLarge ? 0.62
-					: 0.7,
-				),
+				.strength((link) => {
+					// Reduce link strength for dense nodes to allow charge/collision to spread them out
+					const sourceDeg = (link.source as any)?._deg?.total || 0;
+					const targetDeg = (link.target as any)?._deg?.total || 0;
+					const maxDeg = Math.max(sourceDeg, targetDeg);
+					const baseStrength = isHuge ? 0.35 : isLarge ? 0.45 : 0.55;
+					return maxDeg > 20 ? baseStrength * 0.6 : baseStrength;
+				}),
 		)
 		.force(
 			'charge',
 			d3
 				.forceManyBody()
-				.strength(
-					isHuge ? -600
-					: isLarge ? -450
-					: -300,
-				)
-				.theta(isLarge ? 0.9 : 0.81),
+				.strength((d: any) => {
+					const base = isHuge ? -900 : isLarge ? -750 : -600;
+					const deg = d._deg?.total || 0;
+					// Boost repulsion for dense nodes to give them more breathing room
+					return deg > 20 ? base * 1.65 : base;
+				})
+				.theta(isLarge ? 0.9 : 0.8),
 		)
 		// Use gentle forceX/Y instead of forceCenter — prevents the entire graph
 		// from sliding when the center of mass shifts after adding nodes.
