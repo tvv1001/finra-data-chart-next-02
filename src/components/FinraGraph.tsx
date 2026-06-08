@@ -1001,7 +1001,11 @@ export default function FinraGraph() {
 								if (isMobileSearchViewport()) {
 									setIsMobileNativeSearchHelperOpen(true);
 								} else {
-									isFindBarOpen ? closeFindBar({ clearQuery: false }) : setIsFindBarOpen(true);
+									if (isFindBarOpen) {
+										closeFindBar({ clearQuery: false });
+									} else {
+										setIsFindBarOpen(true);
+									}
 								}
 							}}
 							title='Find in graph (Ctrl+F)'
@@ -1354,7 +1358,7 @@ export default function FinraGraph() {
 							<h4 className='fg-mns-title'>Use Native Search</h4>
 						</div>
 
-						<p className='fg-mns-text'>This graph supports your browser's built-in search for best performance.</p>
+						<p className='fg-mns-text'>This graph supports your browser&apos;s built-in search for best performance.</p>
 
 						<div className='fg-mns-steps'>
 							<div className='fg-mns-step'>
@@ -1370,7 +1374,7 @@ export default function FinraGraph() {
 								<span className='fg-mns-step-num'>2</span>
 								<div className='fg-mns-step-content'>
 									<strong>Find on Page</strong>
-									<span>Select "Find on Page" and type any name.</span>
+									<span>Select &quot;Find on Page&quot; and type any name.</span>
 								</div>
 							</div>
 						</div>
@@ -1432,5 +1436,8 @@ export {
 	focusFetchInputWhenEmpty,
 	routeSidebarNodeSelection,
 	isFindShortcut,
+	formatFindCounter,
+};
+sFindShortcut,
 	formatFindCounter,
 };
