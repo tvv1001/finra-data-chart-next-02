@@ -22,7 +22,7 @@
 	--opacity-node-entity-inactive: 0.7;
 
 	/* Legend: relationships */
-	--color-highlight-controls: #e50909;
+	--color-highlight-controls: #ef4444;
 	--color-highlight-employed: #004cb6;
 	--color-node-disclosure-stroke: #f97316;
 	--color-node-pulse: #18a0fb !important;
@@ -122,7 +122,7 @@
 	--c-individual: #2563eb;
 	--c-firm: #d97706;
 	--c-entity: #ff4d8d;
-	--c-controls: #61e509;
+	--c-controls: #ef4444;
 	--c-employed: #1061db;
 	--c-default-gray: #2e3744;
 	--c-default-line-gray: #9a9ea381;
