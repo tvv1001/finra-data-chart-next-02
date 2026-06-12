@@ -7712,6 +7712,10 @@ function renderGraph(_data) {
 	svg.on('click', (event) => {
 		const [px, py] = d3.pointer(event);
 		lastArrowNavCoord = { x: px, y: py };
+		window.requestAnimationFrame(() => {
+			const app = document.getElementById('finra-app');
+			app?.focus({ preventScroll: true });
+		});
 
 		if (selectionRestoreTimer) {
 			clearTimeout(selectionRestoreTimer);
