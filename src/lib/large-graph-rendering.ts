@@ -11,7 +11,10 @@ type GraphNode = {
 };
 type GraphLink = { source?: GraphNode | string | number; target?: GraphNode | string | number; relationship?: string };
 
-function toId(value: string | number | undefined) {
+function toId(value: string | number | GraphNode | undefined) {
+	if (typeof value === 'object' && value && 'id' in value) {
+		return String(value.id ?? '').trim();
+	}
 	return String(value ?? '').trim();
 }
 
@@ -86,8 +89,8 @@ export function buildLargeGraphRenderPlan(
 	const visibleNodes = nodes.filter((node) => chosen.has(toId(node.id)));
 	const visibleNodeIds = new Set(visibleNodes.map((node) => toId(node.id)));
 	const visibleLinks = links.filter((link) => {
-		const sourceId = toId((link.source as GraphNode | undefined)?.id ?? link.source);
-		const targetId = toId((link.target as GraphNode | undefined)?.id ?? link.target);
+		const sourceId = toId(link.source);
+		const targetId = toId(link.target);
 		return Boolean(sourceId && targetId && (visibleNodeIds.has(sourceId) || visibleNodeIds.has(targetId)));
 	});
 
