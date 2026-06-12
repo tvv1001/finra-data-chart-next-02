@@ -213,6 +213,10 @@ export function shouldTriggerLiveSearch(query: string) {
 	return query.trim().length >= LIVE_SEARCH_MIN_CHARS;
 }
 
+export function getArrowNavQuery({ isFindBarOpen, findQuery }: { isFindBarOpen: boolean; findQuery: string }) {
+	return isFindBarOpen ? findQuery.trim() : '';
+}
+
 export default function FinraGraph() {
 	const mountedRef = useRef(false);
 	const appRef = useRef<HTMLDivElement | null>(null);
@@ -299,12 +303,12 @@ export default function FinraGraph() {
 			const input = findInputRef.current;
 			if (input && document.activeElement === input) {
 				input.blur();
-				window.requestAnimationFrame(() => {
-					if (appRef.current) {
-						appRef.current.focus({ preventScroll: true });
-					}
-				});
 			}
+			window.requestAnimationFrame(() => {
+				if (appRef.current) {
+					appRef.current.focus({ preventScroll: true });
+				}
+			});
 			setIsFindBarOpen(false);
 			if (isMobileSearchViewport()) {
 				setIsMobileSearchOpen(false);
@@ -368,7 +372,7 @@ export default function FinraGraph() {
 				new CustomEvent(FIND_MOVE_EVENT, {
 					detail: {
 						direction: event.key,
-						query: findQuery.trim(),
+						query: getArrowNavQuery({ isFindBarOpen, findQuery }),
 					},
 				}),
 			);
@@ -671,7 +675,7 @@ export default function FinraGraph() {
 					new CustomEvent(FIND_MOVE_EVENT, {
 						detail: {
 							direction: event.key,
-							query: findQuery.trim(),
+							query: getArrowNavQuery({ isFindBarOpen, findQuery }),
 						},
 					}),
 				);

@@ -11,6 +11,7 @@ import {
 	focusFetchInputWhenEmpty,
 	routeSidebarNodeSelection,
 	shouldTriggerLiveSearch,
+	getArrowNavQuery,
 } from '../../src/components/FinraGraph';
 import {
 	isNodeInactive,
@@ -145,6 +146,11 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(shouldTriggerLiveSearch('abc')).toBe(false);
 		expect(shouldTriggerLiveSearch('abcd')).toBe(true);
 		expect(shouldTriggerLiveSearch('  abcd  ')).toBe(true);
+	});
+
+	it('getArrowNavQuery falls back to normal graph nav once the search input is closed', () => {
+		expect(getArrowNavQuery({ isFindBarOpen: false, findQuery: '  alpha  ' })).toBe('');
+		expect(getArrowNavQuery({ isFindBarOpen: true, findQuery: '  alpha  ' })).toBe('alpha');
 	});
 
 	it('normalizeNodeLabelInPlace falls back to Node <id> for placeholder-only labels', () => {
