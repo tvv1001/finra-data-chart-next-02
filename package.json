@@ -1,5 +1,5 @@
 {
-	"name": "finra-data-chart-next",
+	"name": "finra-data-chart-next-02",
 	"version": "0.1.0",
 	"private": true,
 	"scripts": {
@@ -7,6 +7,7 @@
 		"dev:clean": "rm -rf .next && next dev -p 4444",
 		"prebuild": "node scripts/prebuild.js",
 		"build:workers": "node scripts/build_workers.js",
+		"build:wasm": "cd rust/graph-layout && wasm-pack build --target web --out-dir ../../public/wasm/graph-layout",
 		"build:search-index": "node scripts/build_search_indexes.js",
 		"build:deploy-artifacts": "node scripts/build_graph_from_cache.js --employment-scope all --no-redis && node scripts/build_search_indexes.js && ENABLE_PRIMED_CACHE=true node scripts/build_primed_cache_bundle.js",
 		"build": "node scripts/build_search_indexes.js && next build && node scripts/copy-search-indexes.js",
@@ -44,16 +45,15 @@
 		"d3": "^7.9.0",
 		"d3-force": "^3.0.0",
 		"minimist": "^1.2.8",
-		"msgpack-lite": "^0.1.26",
 		"next": "^15.1.0",
 		"pixi.js": "^8.4.0",
 		"playwright-extra-plugin-stealth": "^0.0.1",
 		"react": "^19.0.0",
 		"react-dom": "^19.0.0",
-		"winston": "^3.13.0"
+		"winston": "^3.13.0",
+		"msgpack-lite": "^0.1.26"
 	},
 	"devDependencies": {
-		"@napi-rs/cli": "^3.7.1",
 		"@playwright/test": "^1.60.0",
 		"@testing-library/dom": "^9.0.0",
 		"@types/d3": "^7.4.3",

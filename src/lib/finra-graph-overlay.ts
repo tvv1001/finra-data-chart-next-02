@@ -21,6 +21,7 @@ const detailCache = new Map<string, any>();
 let hoverTimerGlobal: number | null = null;
 let activeTooltipIdGlobal: string | null = null;
 const OVERLAY_LABEL_ZOOM_THRESHOLD = 1.6;
+const MAX_OVERLAY_LABELS = 30;
 
 function worldToScreen(x: number, y: number, transform: { x: number; y: number; k: number }) {
 	return { x: transform.x + x * transform.k, y: transform.y + y * transform.k };
@@ -198,7 +199,7 @@ export function updateOverlay(
 		// sort by degree-ish if present, else leave order
 		const withDegree = visible.map((n) => ({ n, deg: n._deg || n.degree || 0 }));
 		withDegree.sort((a, b) => b.deg - a.deg);
-		for (const item of withDegree.slice(0, 60)) {
+		for (const item of withDegree.slice(0, MAX_OVERLAY_LABELS)) {
 			if (!toLabel.find((x) => String(x.id) === String(item.n.id))) toLabel.push(item.n);
 		}
 	}

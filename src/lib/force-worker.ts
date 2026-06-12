@@ -2,8 +2,6 @@
  * Provides startForceWorker(nodes, links, width, height, onTick) and stopForceWorker()
  */
 
-import { computeNativeGraphLayoutSnapshot } from './native-graph-layout';
-
 export let _forceWorker: Worker | null = null;
 
 export function startForceWorker(nodes: any[], links: any[], width = 800, height = 600, onTick?: (nodes: any[]) => void) {
@@ -18,9 +16,12 @@ export function startForceWorker(nodes: any[], links: any[], width = 800, height
 		_forceWorker = null;
 	}
 	try {
-		_forceWorker = new Worker('/workers/d3-force-worker.js');
+		_forceWorker = new Worker('/workers/d3-force-worker-wasm.js', { type: 'module' });
 	} catch (err) {
-		const workerCode = `
+		try {
+			_forceWorker = new Worker('/workers/d3-force-worker.js');
+		} catch (fallbackErr) {
+			const workerCode = `
             let nodes = [];
             let links = [];
             let running = false;
@@ -86,10 +87,6 @@ export function startForceWorker(nodes: any[], links: any[], width = 800, height
                     width = m.width || width;
                     height = m.height || height;
                     postMessage({ type: 'ready' });
-                } else if (m.type === 'seedPositions') {
-                    for (const p of m.positions || []) {
-                        const n = nodes.find(x => String(x.id) === String(p.id)); if (n) { n.x = p.x; n.y = p.y; }
-                    }
                 } else if (m.type === 'start') { running = true; stepSim(); }
                 else if (m.type === 'stop') { running = false; }
                 else if (m.type === 'updateNodes') {
@@ -99,8 +96,9 @@ export function startForceWorker(nodes: any[], links: any[], width = 800, height
                 }
             };
         `;
-		const blob = new Blob([workerCode], { type: 'application/javascript' });
-		_forceWorker = new Worker(URL.createObjectURL(blob));
+			const blob = new Blob([workerCode], { type: 'application/javascript' });
+			_forceWorker = new Worker(URL.createObjectURL(blob));
+		}
 	}
 	_forceWorker.onmessage = (ev) => {
 		const msg = ev.data || {};
@@ -112,8 +110,8 @@ export function startForceWorker(nodes: any[], links: any[], width = 800, height
 			}
 		}
 	};
-	const initialConfig = {
-		type: 'init' as const,
+	_forceWorker.postMessage({
+		type: 'init',
 		nodes: nodes.map((n) => ({
 			id: n.id,
 			x: n.x,
@@ -125,14 +123,7 @@ export function startForceWorker(nodes: any[], links: any[], width = 800, height
 		links: links.map((l) => ({ source: l.source?.id || l.source, target: l.target?.id || l.target })),
 		width,
 		height,
-	};
-	_forceWorker.postMessage(initialConfig);
-	void Promise.resolve(computeNativeGraphLayoutSnapshot(nodes, links))
-		.then((snapshot) => {
-			if (!snapshot?.positions || !_forceWorker) return;
-			_forceWorker.postMessage({ type: 'seedPositions', positions: snapshot.positions });
-		})
-		.catch(() => undefined);
+	});
 	_forceWorker.postMessage({ type: 'start' });
 	return _forceWorker;
 }

@@ -40,12 +40,22 @@ import {
 } from './finra-graph-defaults';
 import * as canvasRenderer from './finra-graph-canvas';
 import * as overlayRenderer from './finra-graph-overlay';
+import { buildLargeGraphRenderPlan, getLargeGraphRenderBudget, getProgressiveLoadBudget } from './large-graph-rendering';
 import { isValidLocationStateFilter, isZipLikeLocationQuery, normalizeLocationStateFilter } from './locationSearch';
-import { shouldSuppressFinraLink, shouldSuppressSecLink } from './finra-graph/linkSuppression';
 
 // API base. When VITE_API_URL is not set, use relative paths so the dev
 // server proxy (`/api`) is used and we don't hardcode a backend port.
 const BASE = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) || '';
+
+// Firms known to have broken or unreachable FINRA/BrokerCheck summary pages.
+// Add CRD numbers here to suppress FINRA links for those firms.
+const BROKEN_FINRA_FIRM_IDS = new Set(['134139', '298880', '314694']);
+// Individual IDs for which SEC AdvisorInfo links should be suppressed.
+// Add numeric individual CRD-like ids (no prefix) here when upstream SEC pages are incorrect or undesirable.
+const SUPPRESSED_SEC_INDIV_IDS = new Set(['18040']);
+// Firm IDs for which SEC AdvisorInfo links should be suppressed.
+// Add numeric firm CRD-like ids (no prefix) here when upstream SEC pages are unavailable or incorrect.
+const SUPPRESSED_SEC_FIRM_IDS = new Set(['4039']);
 
 // Simple once-only logger sets to avoid spamming the console during render loops.
 const _loggedBadNodeCoords = new Set<string | number>();
@@ -339,6 +349,9 @@ let canvasApi: any = null;
 let pixiModeActive = false;
 let pixiApi: any = null;
 let overlayApi: any = null;
+let overlayRefreshFrameCounter = 0;
+let progressiveRevealPhase = 0;
+let progressiveRevealTimer: ReturnType<typeof setTimeout> | null = null;
 let sessionPersistenceMode: 'full' | 'compact' | 'reduced' | 'minimal' = 'full';
 
 function isAnyTraceModeActive() {
@@ -352,15 +365,6 @@ function getCurrentGraphZoomScale() {
 	} catch {
 		return 1;
 	}
-}
-
-export function shouldUseCanvasRenderer(nodeCount: number) {
-	const lowCoreCount = typeof navigator !== 'undefined' && typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency <= 4;
-	// Switch to the canvas overlay path earlier for dense subsets so the graph
-	// avoids the SVG DOM cost that turns into visible slowdown around 2k+ nodes.
-	// Use the canvas path aggressively for medium-to-large subsets so the graph
-	// stays responsive well before the 2k–3k node range where SVG paint cost spikes.
-	return nodeCount >= 80 || lowCoreCount;
 }
 
 function getCurrentZoomTransform() {
@@ -446,6 +450,41 @@ function updateGraphTickPositions(linkSelection, nodeSelection, arrowSelection) 
 	nodeSelection.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 }
 
+function shouldRefreshOverlayLabels(nodeCount = layoutNodes?.length || 0) {
+	if (nodeCount <= 1200) return true;
+	const interval = 2;
+	const shouldUpdate = overlayRefreshFrameCounter % interval === 0;
+	overlayRefreshFrameCounter += 1;
+	return shouldUpdate;
+}
+
+function resetProgressiveRevealState() {
+	progressiveRevealPhase = 0;
+	if (progressiveRevealTimer) {
+		clearTimeout(progressiveRevealTimer);
+		progressiveRevealTimer = null;
+	}
+}
+
+function startProgressiveRevealForGraph(nodeCount = layoutNodes?.length || 0) {
+	if (!Number.isFinite(nodeCount) || nodeCount <= 1200) return;
+	resetProgressiveRevealState();
+
+	const scheduleNextPhase = () => {
+		progressiveRevealTimer = setTimeout(() => {
+			progressiveRevealPhase = Math.min(progressiveRevealPhase + 1, 4);
+			scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
+			if (progressiveRevealPhase < 4) {
+				scheduleNextPhase();
+			} else {
+				progressiveRevealTimer = null;
+			}
+		}, 120);
+	};
+
+	scheduleNextPhase();
+}
+
 function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection) {
 	if (graphTickFrameId != null) return;
 	graphTickFrameId = requestAnimationFrame(() => {
@@ -455,7 +494,7 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 				const transform = getCurrentZoomTransform();
 				const labelScale = isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
 				pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale });
-				if (overlayApi && typeof overlayApi.update === 'function') {
+				if (shouldRefreshOverlayLabels(layoutNodes?.length) && overlayApi && typeof overlayApi.update === 'function') {
 					try {
 						overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale });
 					} catch (e) {}
@@ -470,7 +509,7 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 				const transform = getCurrentZoomTransform();
 				const labelScale = isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
 				canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale });
-				if (overlayApi && typeof overlayApi.update === 'function') {
+				if (shouldRefreshOverlayLabels(layoutNodes?.length) && overlayApi && typeof overlayApi.update === 'function') {
 					try {
 						overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale });
 					} catch (e) {}
@@ -851,36 +890,6 @@ function buildPersistedNodePosition(node) {
 	};
 }
 
-export function snapshotPinnedNodePositions(nodes = layoutNodes) {
-	if (!Array.isArray(nodes) || !nodes.length) return [];
-
-	return nodes
-		.filter((node) => Number.isFinite(node?.fx) && Number.isFinite(node?.fy))
-		.map((node) => ({
-			id: node.id,
-			x: Number.isFinite(node.x) ? node.x : null,
-			y: Number.isFinite(node.y) ? node.y : null,
-			fx: Number.isFinite(node.fx) ? node.fx : null,
-			fy: Number.isFinite(node.fy) ? node.fy : null,
-		}));
-}
-
-export function restorePinnedNodePositions(nodes = layoutNodes, snapshot = []) {
-	if (!Array.isArray(nodes) || !Array.isArray(snapshot) || !snapshot.length) return;
-
-	const byId = new Map(snapshot.map((entry) => [entry.id, entry]));
-	for (const node of nodes) {
-		const entry = byId.get(node.id);
-		if (!entry) continue;
-		if (Number.isFinite(entry.x)) node.x = entry.x;
-		if (Number.isFinite(entry.y)) node.y = entry.y;
-		if (Number.isFinite(entry.fx)) node.fx = entry.fx;
-		else node.fx = null;
-		if (Number.isFinite(entry.fy)) node.fy = entry.fy;
-		else node.fy = null;
-	}
-}
-
 function getPersistedNodePositions({ compact = false } = {}) {
 	if (!Array.isArray(layoutNodes) || !layoutNodes.length) return [];
 	if (!compact) return layoutNodes.map((node) => buildPersistedNodePosition(node));
@@ -1252,7 +1261,7 @@ async function applyPendingRouteNodeSelection() {
 			skipAutoExpand: true,
 			skipProfileSync: true,
 			skipLog: targetAlreadySelected,
-			focus: shouldFocusRouteSelection(),
+			focus: true,
 			focusDuration: 520,
 			syncRoute: false,
 		});
@@ -1967,7 +1976,7 @@ function syncSelectionLogAuxiliaryRenderers() {
 	const transform = getCurrentZoomTransform();
 	const labelScale = isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
 	const logLabelNodeIds = getSelectionLogLabelNodeIds();
-	if (overlayApi && typeof overlayApi.update === 'function') {
+	if (shouldRefreshOverlayLabels(layoutNodes?.length) && overlayApi && typeof overlayApi.update === 'function') {
 		try {
 			overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale, logLabelNodeIds });
 		} catch {}
@@ -3697,8 +3706,6 @@ function refreshNodeLayout() {
 		: 18;
 	const refreshDurationMs = getRefreshLayoutDurationMs(nodeCount);
 
-	const pinnedNodeSnapshot = snapshotPinnedNodePositions(layoutNodes);
-
 	layoutNodes.forEach((node, index) => {
 		node.fx = null;
 		node.fy = null;
@@ -3717,8 +3724,6 @@ function refreshNodeLayout() {
 			node.y += Math.sin(angle) * jitter + (Math.random() - 0.5) * 16;
 		}
 	});
-
-	restorePinnedNodePositions(layoutNodes, pinnedNodeSnapshot);
 
 	if (refreshLayoutStopTimer) {
 		clearTimeout(refreshLayoutStopTimer);
@@ -4155,7 +4160,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			if (!liveNode) return false;
 
 			openNodeWithExpansion(liveNode, {
-				focus: shouldFocusRouteSelection(),
+				focus: true,
 				pulse: true,
 				focusDuration: 520,
 			});
@@ -6315,7 +6320,12 @@ function hasIndividualSecPresence(node: any) {
 	)
 		return false;
 
-	if (shouldSuppressSecLink(node, 'individual')) return false;
+	// Per-id suppression: if the node's id/crd is known to be invalid for SEC links, suppress.
+	const rawId = String(node?.crd || node?.basicInformation?.individualId || node?.individualId || node?.id || '')
+		.replace(/^person[:_]/, '')
+		.replace(/^node[:_]/, '')
+		.trim();
+	if (rawId && SUPPRESSED_SEC_INDIV_IDS.has(rawId)) return false;
 	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
 	if (node.hasSecData === true) return true;
 	if (hasPublicSecIndividualPage(node, node.basicInformation || {})) return true;
@@ -6344,7 +6354,12 @@ function hasFirmFinraPresence(node: any) {
 	)
 		return false;
 
-	if (shouldSuppressFinraLink(node)) return false;
+	// if this firm is explicitly blacklisted, treat as no FINRA presence
+	const rawFirmId = String(node?.firmId || node?.id || '')
+		.replace(/^firm[:_]/, '')
+		.replace(/^node[:_]/, '')
+		.trim();
+	if (rawFirmId && BROKEN_FINRA_FIRM_IDS.has(rawFirmId)) return false;
 	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
 	if (node.hasFinraData === true) return true;
 	if (node.isLegacy === 'Y') return true;
@@ -6367,7 +6382,11 @@ function hasFirmSecPresence(node: any) {
 		)
 	)
 		return false;
-	if (shouldSuppressSecLink(node, 'firm')) return false;
+	const rawFirmId = String(node?.firmId || node?.id || '')
+		.replace(/^firm[:_]/, '')
+		.replace(/^node[:_]/, '')
+		.trim();
+	if (rawFirmId && SUPPRESSED_SEC_FIRM_IDS.has(rawFirmId)) return false;
 	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
 	if (node.hasSecData === true) return true;
 	if (Boolean(String(node?.iaSecNumber || node?.basicInformation?.iaSECNumber || node?.basicInformation?.iaSecNumber || '').trim())) return true;
@@ -6708,20 +6727,12 @@ function getLinkColor(d) {
 	return LINK_COLOR[d.relationship] || DEFAULT_LINK_COLOR;
 }
 
-function getLinkMarkerId(d) {
-	if (hasInactiveEndpoint(d)) return 'arrow-inactive';
-	if (isControlRelationship(d)) return 'arrow-controls';
-	if (isPreviousEmploymentLink(d)) return 'arrow-previous_employed_by';
-	if (usesCurrentEmploymentStyling(d)) return 'arrow-current_employed_by';
-	return `arrow-${
-		String(d?.relationship || 'default')
-			.trim()
-			.toLowerCase() || 'default'
-	}`;
-}
-
 function getLinkMarker(d) {
-	return `url(#${getLinkMarkerId(d)})`;
+	if (hasInactiveEndpoint(d)) return 'url(#arrow-inactive)';
+	if (isControlRelationship(d)) return `url(#arrow-controls)`;
+	if (isPreviousEmploymentLink(d)) return 'url(#arrow-previous_employed_by)';
+	if (usesCurrentEmploymentStyling(d)) return `url(#arrow-current_employed_by)`;
+	return `url(#arrow-${d.relationship})`;
 }
 
 function getLinkDash(d) {
@@ -7183,7 +7194,10 @@ function refreshGraphColors() {
 
 	updateNodeVisuals(nodeSel);
 
-	linkSel.attr('stroke', (d) => getLinkColor(d)).attr('stroke-dasharray', (d) => getLinkDash(d));
+	linkSel
+		.attr('stroke', (d) => getLinkColor(d))
+		.attr('stroke-dasharray', (d) => getLinkDash(d))
+		.attr('marker-end', (d) => getLinkMarker(d));
 
 	highlightLinks(computeHighlightState());
 }
@@ -7362,70 +7376,236 @@ function renderGraph(_data) {
 	const isHuge = nodeCount > 1000;
 	setGraphLabelRenderMode(nodeCount);
 
-	// Mirror the reference app’s renderer threshold so large subsets switch to
-	// the lightweight canvas path earlier, which cuts SVG DOM cost on busy views.
-	canvasModeActive = shouldUseCanvasRenderer(nodeCount);
+	// Prefer the lightweight canvas/WebGL path for medium and large graphs to keep
+	// the render surface cheap and avoid expensive SVG node/label churn.
+	canvasModeActive = nodeCount > 300;
+	let pixiModeActive = false;
+	let pixiApi: any = null;
 	if (canvasModeActive) {
 		const mainEl = document.getElementById('fg-main');
 		if (mainEl) {
-			try {
-				canvasApi = canvasRenderer.createCanvasOverlay(mainEl);
-				try {
-					overlayApi = overlayRenderer.createOverlay(mainEl, {
-						onClick: (node) => {
-							try {
-								selectNode(node);
-							} catch (e) {}
-						},
-						onHover: (node) => {
-							try {
-								document.dispatchEvent(new CustomEvent('finra:overlay-hover', { detail: { id: String(node.id) } }));
-							} catch (e) {}
-						},
-					});
-				} catch (e) {
-					_logOnce(_loggedBadTransforms, 'overlay-init-failed', 'warn', 'Failed to create HTML overlay', e);
-				}
+			// Try to initialize Pixi (WebGL). If that fails, fall back to lightweight canvas.
+			import('pixi.js')
+				.then((PIXI) => {
+					// create a canvas for Pixi
+					const existing = document.getElementById('fg-pixi-canvas');
+					if (existing && existing.parentElement === mainEl) {
+						// reuse
+					} else {
+						const c = document.createElement('canvas');
+						c.id = 'fg-pixi-canvas';
+						c.style.position = 'absolute';
+						c.style.left = '0';
+						c.style.top = '0';
+						c.style.width = '100%';
+						c.style.height = '100%';
+						c.style.zIndex = '1';
+						mainEl.appendChild(c);
+					}
+					const canvasEl = document.getElementById('fg-pixi-canvas') as HTMLCanvasElement;
+					const Application = (PIXI as any).Application || (PIXI as any).default?.Application;
+					const Graphics = (PIXI as any).Graphics || (PIXI as any).default?.Graphics;
+					const Container = (PIXI as any).Container || (PIXI as any).default?.Container;
+					if (!Application || !Graphics || !Container) throw new Error('Missing Pixi classes');
+					const app = new Application({ view: canvasEl, resizeTo: mainEl, backgroundAlpha: 0, antialias: false, powerPreference: 'high-performance' });
+					const linkLayerPixi = new Graphics();
+					const nodeLayerPixi = new Container();
+					app.stage.addChild(linkLayerPixi);
+					app.stage.addChild(nodeLayerPixi);
 
-				try {
-					const nodeIndex = new Map<string, any>((layoutNodes || nodes).map((n: any) => [String(n.id), n]));
-					canvasRenderer.startForceWorker(layoutNodes || nodes, layoutLinks || resolvedLinks, W, H, (tickNodes) => {
-						for (const p of tickNodes) {
-							const n = nodeIndex.get(String(p.id));
-							if (n) {
-								n.x = p.x;
-								n.y = p.y;
+					const nodeSpriteMap = new Map();
+					function drawPixiFrame(nodesArr, linksArr, transform, opts = {}) {
+						const width = mainEl?.clientWidth || 1200;
+						const height = mainEl?.clientHeight || 800;
+						const renderPlan = buildLargeGraphRenderPlan(nodesArr, linksArr, transform, {
+							width,
+							height,
+							selectedId,
+							logLabelNodeIds: opts.logLabelNodeIds,
+							maxVisibleNodes: getProgressiveLoadBudget(nodesArr.length, transform.k, progressiveRevealPhase),
+						});
+						const useSimplifiedLargeGraphShapes = nodesArr.length > 1500;
+						const visibleNodes = renderPlan.visibleNodes;
+						const visibleLinks = renderPlan.visibleLinks;
+						const visibleNodeIds = renderPlan.visibleNodeIds;
+
+						// Remove sprites that are no longer in the visible slice to keep the render budget bounded.
+						for (const [id, sprite] of Array.from(nodeSpriteMap.entries())) {
+							if (!visibleNodeIds.has(id)) {
+								sprite.destroy?.();
+								nodeLayerPixi.removeChild(sprite);
+								nodeSpriteMap.delete(id);
 							}
 						}
-						const transform = getCurrentZoomTransform();
-						try {
-							const labelScale = isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
-							const logLabelNodeIds = getSelectionLogLabelNodeIds();
-							canvasApi?.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
-							if (overlayApi && typeof overlayApi.update === 'function') {
+
+						linkLayerPixi.clear();
+						linkLayerPixi.lineStyle(useSimplifiedLargeGraphShapes ? 0.8 : 1, 0x708090, useSimplifiedLargeGraphShapes ? 0.12 : 0.18);
+						for (const l of visibleLinks) {
+							const a = l.source;
+							const b = l.target;
+							if (!a || !b) continue;
+							linkLayerPixi.moveTo(a.x, a.y);
+							linkLayerPixi.lineTo(b.x, b.y);
+						}
+						for (const n of visibleNodes) {
+							let g = nodeSpriteMap.get(String(n.id));
+							if (!g) {
+								g = new Graphics();
+								nodeLayerPixi.addChild(g);
+								nodeSpriteMap.set(String(n.id), g);
+							}
+							g.clear();
+							const color = 0x4a90e2;
+							const radius =
+								useSimplifiedLargeGraphShapes ?
+									n.group === 'firm' ?
+										4.5
+									:	3.2
+								: n.group === 'firm' ? 6
+								: 4;
+							g.beginFill(color);
+							g.drawCircle(0, 0, radius);
+							g.endFill();
+							g.position.set(n.x, n.y);
+							// ensure interactive handlers for selection and drag
+							if (!g.interactive) {
+								g.interactive = true;
+								g.buttonMode = true;
+								g.cursor = 'pointer';
+								g.on('pointerdown', (evt) => {
+									evt.stopPropagation();
+									try {
+										selectNode(n);
+									} catch (e) {
+										/* ignore */
+									}
+									// start dragging
+									const pos = evt.data.global;
+									g._drag = { offsetX: pos.x - n.x, offsetY: pos.y - n.y };
+									if (typeof simulation?.alphaTarget === 'function') simulation.alphaTarget(0.3).restart?.();
+								});
+								g.on('pointermove', (evt) => {
+									if (!g._drag) return;
+									const pos = evt.data.global;
+									n.x = pos.x - g._drag.offsetX;
+									n.y = pos.y - g._drag.offsetY;
+									n.fx = n.x;
+									n.fy = n.y;
+									if (pixiApi && pixiApi.app && pixiApi.app.renderer) {
+										try {
+											pixiApi.app.renderer.render(pixiApi.app.stage);
+										} catch (e) {
+											/* ignore */
+										}
+									}
+								});
+								g.on('pointerup', () => {
+									if (g._drag) {
+										delete g._drag;
+										n.fx = null;
+										n.fy = null;
+										if (typeof simulation?.alphaTarget === 'function') simulation.alphaTarget(0);
+									}
+								});
+							}
+						}
+						app.renderer.render(app.stage);
+					}
+
+					pixiApi = {
+						app,
+						drawFrame: drawPixiFrame,
+						destroy: () => {
+							try {
+								app.destroy(true, { children: true, texture: true, baseTexture: true });
+							} catch {}
+						},
+					};
+					pixiModeActive = true;
+					canvasApi = null;
+					// Create HTML overlay for labels/tooltips
+					try {
+						overlayApi = overlayRenderer.createOverlay(mainEl, {
+							onClick: (node) => {
 								try {
-									overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale, logLabelNodeIds });
+									selectNode(node);
+								} catch (e) {}
+							},
+							onHover: (node) => {
+								try {
+									document.dispatchEvent(new CustomEvent('finra:overlay-hover', { detail: { id: String(node.id) } }));
+								} catch (e) {}
+							},
+						});
+					} catch (e) {
+						_logOnce(_loggedBadTransforms, 'overlay-init-failed', 'warn', 'Failed to create HTML overlay', e);
+					}
+					startProgressiveRevealForGraph(layoutNodes?.length || 0);
+					// Start a layout worker to compute positions off the main thread
+					try {
+						canvasRenderer.startForceWorker(layoutNodes || nodes, layoutLinks || resolvedLinks, W, H, (tickNodes) => {
+							for (const p of tickNodes) {
+								const n = layoutNodes.find((x) => String(x.id) === String(p.id));
+								if (n) {
+									n.x = p.x;
+									n.y = p.y;
+								}
+							}
+							const transform = getCurrentZoomTransform();
+							if (pixiModeActive && pixiApi && typeof pixiApi.drawFrame === 'function') {
+								try {
+									const labelScale = isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
+									const logLabelNodeIds = getSelectionLogLabelNodeIds();
+									pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
+									if (shouldRefreshOverlayLabels(layoutNodes?.length) && overlayApi && typeof overlayApi.update === 'function') {
+										try {
+											overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale, logLabelNodeIds });
+										} catch (e) {}
+									}
+								} catch (e) {}
+							} else if (canvasApi && typeof canvasApi.drawFrame === 'function') {
+								try {
+									const labelScale = isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
+									const logLabelNodeIds = getSelectionLogLabelNodeIds();
+									canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
+									if (shouldRefreshOverlayLabels(layoutNodes?.length) && overlayApi && typeof overlayApi.update === 'function') {
+										try {
+											overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale, logLabelNodeIds });
+										} catch (e) {}
+									}
 								} catch (e) {}
 							}
-						} catch (e) {}
-					});
-				} catch (e) {
-					_logOnce(_loggedBadTransforms, 'worker-start-failed', 'warn', 'Failed to start layout worker', e);
-				}
-			} catch (e) {
-				_logOnce(_loggedBadTransforms, 'canvas-init-failed', 'warn', 'Failed to initialize canvas renderer', e);
-			}
-		}
+						});
+					} catch (e) {
+						_logOnce(_loggedBadTransforms, 'worker-start-failed', 'warn', 'Failed to start layout worker', e);
+					}
+				})
+				.catch((err) => {
+					_logOnce(_loggedBadTransforms, 'pixi-init-failed', 'warn', 'Pixi init failed; falling back to SVG rendering for this graph', err);
+					canvasModeActive = false;
+					pixiModeActive = false;
+					try {
+						if (pixiApi && pixiApi.destroy) pixiApi.destroy();
+						pixiApi = null;
+					} catch (e) {}
+					try {
+						canvasRenderer.stopForceWorker();
+					} catch (e) {}
+				});
+		} // mainEl
 	} else {
-		// Tear down any existing canvas overlay
+		// Tear down any existing pixi or canvas overlays
 		try {
+			if (pixiApi && pixiApi.destroy) pixiApi.destroy();
 			if (canvasApi && canvasApi.destroy) canvasApi.destroy();
 			if (overlayApi && overlayApi.destroy) overlayApi.destroy();
 		} catch (e) {}
 		try {
 			canvasRenderer.stopForceWorker();
 		} catch (e) {}
+		pixiApi = null;
 		canvasApi = null;
+		pixiModeActive = false;
 	}
 
 	// ── Zoom ──────────────────────────────────────────────────────────────────
@@ -7509,20 +7689,8 @@ function renderGraph(_data) {
 
 	// ── Arrow markers ─────────────────────────────────────────────────────────
 	const defs = svg.append('defs');
-	const markerRelationships = new Set(['employed_by', 'previous_employed_by', 'controls', 'current_employed_by', 'inactive']);
-	for (const link of links || []) {
-		const rel = String(link?.relationship || '')
-			.trim()
-			.toLowerCase();
-		if (rel) markerRelationships.add(rel);
-	}
 
-	for (const rel of markerRelationships) {
-		const fill =
-			rel === 'controls' ? GRAPH_COLORS.lineControls
-			: rel === 'inactive' || rel === 'previous_employed_by' ? GRAPH_COLORS.nodeInactiveStroke
-			: LINK_COLOR[rel] || DEFAULT_LINK_COLOR;
-
+	['employed_by', 'previous_employed_by', 'controls', 'current_employed_by', 'inactive'].forEach((rel) => {
 		defs
 			.append('marker')
 			.attr('id', `arrow-${rel}`)
@@ -7535,8 +7703,14 @@ function renderGraph(_data) {
 			.attr('orient', 'auto')
 			.append('path')
 			.attr('d', 'M0,-4L8,0L0,4')
-			.attr('fill', fill);
-	}
+			.attr(
+				'fill',
+				rel === 'controls' ? GRAPH_COLORS.lineControls
+				: rel === 'inactive' ? GRAPH_COLORS.nodeInactiveStroke
+				: rel === 'previous_employed_by' ? GRAPH_COLORS.nodeInactiveStroke
+				: GRAPH_COLORS.lineEmployedBy,
+			);
+	});
 
 	// ── Force simulation ──────────────────────────────────────────────────────
 	// Scale simulation aggressiveness with graph size so large graphs converge faster
@@ -7633,7 +7807,8 @@ function renderGraph(_data) {
 			.attr('stroke', (d) => getLinkColor(d))
 			.attr('stroke-opacity', defaultLinkOpacity)
 			.attr('stroke-width', (d) => getLinkWidth(d))
-			.attr('stroke-dasharray', (d) => getLinkDash(d));
+			.attr('stroke-dasharray', (d) => getLinkDash(d))
+			.attr('marker-end', (d) => getLinkMarker(d));
 	}
 
 	joinLinkSelection(linkBottomGroup, bottomLinks);
@@ -7746,10 +7921,6 @@ function renderGraph(_data) {
 	svg.on('click', (event) => {
 		const [px, py] = d3.pointer(event);
 		lastArrowNavCoord = { x: px, y: py };
-		window.requestAnimationFrame(() => {
-			const app = document.getElementById('finra-app');
-			app?.focus({ preventScroll: true });
-		});
 
 		if (selectionRestoreTimer) {
 			clearTimeout(selectionRestoreTimer);
@@ -9377,11 +9548,6 @@ export function shouldAutoExpandRouteSelection(targetNodeId: string | null | und
 	const normalizedTargetNodeId = String(targetNodeId || '').trim();
 	if (!normalizedTargetNodeId) return false;
 	return normalizedTargetNodeId !== String(currentSelectedId || '').trim();
-}
-
-export function shouldFocusRouteSelection() {
-	if (typeof window === 'undefined' || typeof window.innerWidth !== 'number') return true;
-	return window.innerWidth > 900;
 }
 
 export function getAutoExpansionHopsForNode(node, requestedHops = getDefaultClickExpansionHops()) {
@@ -11584,35 +11750,6 @@ export function collectFirmConnectionEntries({
 		}
 	>();
 
-	function ensureEntry(otherId: string, otherNode: any, relationshipLabel: string, position = '', dateText = '', sortOrder = 4) {
-		const otherGroup = String(
-			otherNode?.group ||
-				(otherId.startsWith('person:') ? 'individual'
-				: otherId.startsWith('entity:') ? 'entity'
-				: otherId.startsWith('firm:') ? 'firm'
-				: ''),
-		).trim();
-		if (!otherGroup) return;
-		const otherCrd = otherGroup === 'individual' ? String(otherNode?.crd || otherId.replace(/^(?:person[:_])?/, '')).trim() : '';
-		const label = String(getPreferredNodeLabel(otherNode) || otherNode?.label || otherNode?.legalName || otherNode?.name || otherNode?.personName || otherId).trim() || otherId;
-		const existingEntry = entriesById.get(otherId) || {
-			id: otherId,
-			label,
-			group: otherGroup,
-			crd: otherCrd,
-			relationshipLabels: new Set<string>(),
-			positions: new Set<string>(),
-			dateTexts: new Set<string>(),
-			sortOrder,
-		};
-		existingEntry.label = existingEntry.label || label;
-		existingEntry.sortOrder = Math.min(existingEntry.sortOrder, sortOrder);
-		existingEntry.relationshipLabels.add(relationshipLabel);
-		if (position) existingEntry.positions.add(position);
-		if (dateText) existingEntry.dateTexts.add(dateText);
-		entriesById.set(otherId, existingEntry);
-	}
-
 	const allLinks = [...liveLayoutLinks, ...graphLinks];
 	allLinks.forEach((link) => {
 		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
@@ -11687,23 +11824,24 @@ export function collectFirmConnectionEntries({
 
 		if (!relationshipLabel) return;
 
-		ensureEntry(otherId, otherNode, relationshipLabel, position, dateText, sortOrder);
-	});
-
-	owners.forEach((owner) => {
-		const ownerCrd = String(owner?.crdNumber || owner?.crd || owner?.personId || '').trim();
-		if (!ownerCrd) return;
-		const ownerId = `person:${ownerCrd}`;
-		const ownerNode = nodeLookup.get(ownerId) || {
-			id: ownerId,
-			label: owner?.legalName || owner?.name || `Person ${ownerCrd}`,
-			group: 'individual',
-			crd: ownerCrd,
+		const label = String(getPreferredNodeLabel(otherNode) || otherNode?.label || link?.legalName || link?.name || link?.personName || otherId).trim() || otherId;
+		const existingEntry = entriesById.get(otherId) || {
+			id: otherId,
+			label,
+			group: otherGroup,
+			crd: otherCrd,
+			relationshipLabels: new Set<string>(),
+			positions: new Set<string>(),
+			dateTexts: new Set<string>(),
+			sortOrder,
 		};
-		const relationshipLabel = 'Control';
-		const position = String(owner?.position || '').trim();
-		const dateText = '';
-		ensureEntry(ownerId, ownerNode, relationshipLabel, position, dateText, 1);
+
+		existingEntry.label = existingEntry.label || label;
+		existingEntry.sortOrder = Math.min(existingEntry.sortOrder, sortOrder);
+		existingEntry.relationshipLabels.add(relationshipLabel);
+		if (position) existingEntry.positions.add(position);
+		if (dateText) existingEntry.dateTexts.add(dateText);
+		entriesById.set(otherId, existingEntry);
 	});
 
 	return Array.from(entriesById.values())
