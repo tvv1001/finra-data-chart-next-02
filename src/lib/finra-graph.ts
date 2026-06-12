@@ -7414,7 +7414,18 @@ function renderGraph(_data) {
 					app.stage.addChild(nodeLayerPixi);
 
 					const nodeSpriteMap = new Map();
-					function drawPixiFrame(nodesArr, linksArr, transform, opts = {}) {
+					type PixiFrameOptions = {
+						logLabelNodeIds?: Array<string | number>;
+					};
+					function getLinkPoint(nodeLike: unknown) {
+						if (!nodeLike || typeof nodeLike !== 'object') return null;
+						const candidate = nodeLike as { x?: number; y?: number };
+						if (typeof candidate.x === 'number' && typeof candidate.y === 'number') {
+							return { x: candidate.x, y: candidate.y };
+						}
+						return null;
+					}
+					function drawPixiFrame(nodesArr, linksArr, transform, opts: PixiFrameOptions = {}) {
 						const width = mainEl?.clientWidth || 1200;
 						const height = mainEl?.clientHeight || 800;
 						const renderPlan = buildLargeGraphRenderPlan(nodesArr, linksArr, transform, {
@@ -7441,8 +7452,8 @@ function renderGraph(_data) {
 						linkLayerPixi.clear();
 						linkLayerPixi.lineStyle(useSimplifiedLargeGraphShapes ? 0.8 : 1, 0x708090, useSimplifiedLargeGraphShapes ? 0.12 : 0.18);
 						for (const l of visibleLinks) {
-							const a = l.source;
-							const b = l.target;
+							const a = getLinkPoint(l.source);
+							const b = getLinkPoint(l.target);
 							if (!a || !b) continue;
 							linkLayerPixi.moveTo(a.x, a.y);
 							linkLayerPixi.lineTo(b.x, b.y);

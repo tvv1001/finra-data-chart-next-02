@@ -1,6 +1,14 @@
 type Transform = { x: number; y: number; k: number };
 
-type GraphNode = { id: string | number; x?: number; y?: number; group?: string; _deg?: { total?: number } };
+type GraphNode = {
+	id: string | number;
+	x?: number;
+	y?: number;
+	fx?: number;
+	fy?: number;
+	group?: string;
+	_deg?: { total?: number };
+};
 type GraphLink = { source?: GraphNode | string | number; target?: GraphNode | string | number; relationship?: string };
 
 function toId(value: string | number | undefined) {
