@@ -2,6 +2,8 @@
  * Provides startForceWorker(nodes, links, width, height, onTick) and stopForceWorker()
  */
 
+import { computeNativeGraphLayoutSnapshot } from './native-graph-layout';
+
 export let _forceWorker: Worker | null = null;
 
 export function startForceWorker(nodes: any[], links: any[], width = 800, height = 600, onTick?: (nodes: any[]) => void) {
@@ -84,6 +86,10 @@ export function startForceWorker(nodes: any[], links: any[], width = 800, height
                     width = m.width || width;
                     height = m.height || height;
                     postMessage({ type: 'ready' });
+                } else if (m.type === 'seedPositions') {
+                    for (const p of m.positions || []) {
+                        const n = nodes.find(x => String(x.id) === String(p.id)); if (n) { n.x = p.x; n.y = p.y; }
+                    }
                 } else if (m.type === 'start') { running = true; stepSim(); }
                 else if (m.type === 'stop') { running = false; }
                 else if (m.type === 'updateNodes') {
@@ -106,8 +112,8 @@ export function startForceWorker(nodes: any[], links: any[], width = 800, height
 			}
 		}
 	};
-	_forceWorker.postMessage({
-		type: 'init',
+	const initialConfig = {
+		type: 'init' as const,
 		nodes: nodes.map((n) => ({
 			id: n.id,
 			x: n.x,
@@ -119,7 +125,14 @@ export function startForceWorker(nodes: any[], links: any[], width = 800, height
 		links: links.map((l) => ({ source: l.source?.id || l.source, target: l.target?.id || l.target })),
 		width,
 		height,
-	});
+	};
+	_forceWorker.postMessage(initialConfig);
+	void Promise.resolve(computeNativeGraphLayoutSnapshot(nodes, links))
+		.then((snapshot) => {
+			if (!snapshot?.positions || !_forceWorker) return;
+			_forceWorker.postMessage({ type: 'seedPositions', positions: snapshot.positions });
+		})
+		.catch(() => undefined);
 	_forceWorker.postMessage({ type: 'start' });
 	return _forceWorker;
 }

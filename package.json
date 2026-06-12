@@ -44,15 +44,16 @@
 		"d3": "^7.9.0",
 		"d3-force": "^3.0.0",
 		"minimist": "^1.2.8",
+		"msgpack-lite": "^0.1.26",
 		"next": "^15.1.0",
 		"pixi.js": "^8.4.0",
 		"playwright-extra-plugin-stealth": "^0.0.1",
 		"react": "^19.0.0",
 		"react-dom": "^19.0.0",
-		"winston": "^3.13.0",
-		"msgpack-lite": "^0.1.26"
+		"winston": "^3.13.0"
 	},
 	"devDependencies": {
+		"@napi-rs/cli": "^3.7.1",
 		"@playwright/test": "^1.60.0",
 		"@testing-library/dom": "^9.0.0",
 		"@types/d3": "^7.4.3",

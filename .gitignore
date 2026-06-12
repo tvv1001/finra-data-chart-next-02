@@ -28,6 +28,7 @@ Desktop.ini
 .idea/
 *.sublime-workspace
 *.sublime-project
+native/
 
 # Test/coverage
 coverage/

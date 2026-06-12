@@ -64,14 +64,6 @@
 	--stroke-opacity-node-selected: 1;
 	--stroke-width-node-selected: 1.5;
 	--stroke-width-node-firm-selected: 2.2;
-	/* --shadow-node-selected: drop-shadow(2px 3px 4px rgba(10, 18, 38, 0.36)) drop-shadow(0 0 8px rgba(54, 61, 75, 0.5));
-	--shadow-node-firm-selected: drop-shadow(2px 3px 4px rgba(10, 18, 38, 0.36)) drop-shadow(0 0 10px rgba(37, 99, 235, 0.26)) drop-shadow(0 0 20px rgba(29, 78, 216, 0.18));
-	--shadow-link: drop-shadow(0 1px 1px rgba(15, 23, 42, 0.18));
-	--shadow-link-active: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.28));
-	--shadow-link-trace-shortest: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.45)) drop-shadow(0 0 5px rgba(34, 197, 94, 0.28));
-	--shadow-link-trace-longest: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.48)) drop-shadow(0 0 6px rgba(204, 0, 255, 0.26));
-	--shadow-link-trace-log: drop-shadow(0 1px 0 rgba(15, 23, 42, 0.7)) drop-shadow(0 0 4px rgba(251, 191, 36, 0.24)); */
-
 	--shadow-node-selected: none;
 	--shadow-node-firm-selected: none;
 	--shadow-link: none;
@@ -79,11 +71,6 @@
 	--shadow-link-trace-shortest: none;
 	--shadow-link-trace-longest: none;
 	--shadow-link-trace-log: none;
-
-	/* Directional perspective shadow — consistent light from upper-left for all nodes and labels */
-	/* --shadow-node: drop-shadow(2px 3px 4px rgba(10, 18, 38, 0.32));
-	--shadow-node-inactive: drop-shadow(1px 2px 3px rgba(10, 18, 38, 0.16));
-	--shadow-label: drop-shadow(1px 2px 2px rgba(10, 18, 38, 0.28)); */
 
 	/* Directional perspective shadow — consistent light from upper-left for all nodes and labels */
 	--shadow-node: none;
@@ -98,7 +85,6 @@
 	--stroke-opacity-node-highlighted: 1;
 	--stroke-width-node-highlighted: 2.4;
 	--stroke-width-node-firm-highlighted: var(--stroke-width-node-firm-connected);
-	/* --shadow-node-highlighted: drop-shadow(2px 3px 4px rgba(10, 18, 38, 0.32)) drop-shadow(0 0 6px rgba(142, 47, 9, 0.42)); */
 	--shadow-node-highlighted: none;
 
 	/* App surface + typography */
@@ -3259,9 +3245,8 @@ a,
 .fg-node .fg-node-shape--firm {
 	stroke: #ffffff;
 	stroke-width: 0.5px;
-	transition:
-		filter 180ms ease,
-		transform 180ms ease;
+	filter: none;
+	transition: transform 180ms ease;
 }
 
 .fg-node.fg-node--inactive .fg-node-shape--circle,
@@ -3523,6 +3508,13 @@ a,
 	stroke-linecap: round;
 	stroke-linejoin: round;
 	vector-effect: non-scaling-stroke;
+	filter: none;
+}
+
+.fg-node .fg-node-shape--circle,
+.fg-node .fg-node-shape--entity,
+.fg-node .fg-node-shape--firm,
+.fg-label {
 	filter: none;
 }
 
@@ -3855,15 +3847,19 @@ a,
 	}
 
 	.fg-fetch {
-		width: auto;
+		width: 100%;
 		max-height: none;
 		flex: 1 1 auto;
 	}
 
 	.fg-fetch-input {
-		width: min(160px, 100%);
+		width: 100%;
 		min-width: 0;
-		max-width: 160px;
+		max-width: none;
+	}
+
+	#fg-database-search {
+		display: none;
 	}
 
 	.fg-find-toggle {
@@ -4112,7 +4108,7 @@ a,
 	fill-opacity: 1 !important;
 	stroke: #166534 !important;
 	stroke-width: 2.75px !important;
-	filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+	filter: none;
 }
 
 .fg-node.trace-longest circle,
@@ -4122,7 +4118,7 @@ a,
 	fill-opacity: 1 !important;
 	stroke: #7e22ce !important;
 	stroke-width: 2.75px !important;
-	filter: drop-shadow(0 0 8px rgba(204, 0, 255, 0.24));
+	filter: none;
 }
 
 .fg-node.trace-log circle,
@@ -4130,7 +4126,7 @@ a,
 .fg-node.trace-log polygon {
 	stroke: #1af4ff !important;
 	stroke-width: 2.5px !important;
-	filter: drop-shadow(0 0 0 rgba(15, 23, 42, 0.92)) drop-shadow(0 0 8px rgba(232, 255, 26, 0.68));
+	filter: none;
 }
 
 .fg-node.trace-combined circle,
@@ -4138,7 +4134,7 @@ a,
 .fg-node.trace-combined polygon {
 	fill: #22c55e !important;
 	stroke: #14532d !important;
-	filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+	filter: none;
 }
 
 .fg-node.trace-combined text.fg-label {
@@ -4196,7 +4192,7 @@ text.fg-label {
 .fg-node.trace-log-connector polygon {
 	stroke: #e8ff1a !important;
 	stroke-width: 1.5px !important;
-	filter: drop-shadow(0 0 0 rgba(15, 23, 42, 0.88)) drop-shadow(0 0 6px rgba(232, 255, 26, 0.55));
+	filter: none;
 }
 
 .fg-links line.trace-shortest,
@@ -4207,7 +4203,7 @@ text.fg-label {
 	stroke-linecap: round;
 	stroke-linejoin: round;
 	vector-effect: non-scaling-stroke;
-	filter: var(--shadow-link-trace-shortest);
+	filter: none;
 }
 
 .fg-links line.trace-longest,
@@ -4218,7 +4214,7 @@ text.fg-label {
 	stroke-linecap: round;
 	stroke-linejoin: round;
 	vector-effect: non-scaling-stroke;
-	filter: var(--shadow-link-trace-longest);
+	filter: none;
 }
 
 .fg-links line.trace-combined,
@@ -4555,184 +4551,6 @@ text.fg-label {
 	font-size: 12.5px;
 	min-height: 18px;
 	color: var(--text-m, #94a3b8);
-}
-
-/* ── Mobile Native Search Bridge ────────────────────────────────────────── */
-.fg-mobile-native-search-overlay {
-	position: fixed;
-	inset: 0;
-	background: rgba(15, 23, 42, 0.65);
-	backdrop-filter: blur(4px);
-	-webkit-backdrop-filter: blur(4px);
-	z-index: 999999;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 20px;
-	animation: fg-fade-in 0.2s ease-out;
-}
-
-.fg-mobile-native-search-card {
-	background: var(--surface);
-	width: 100%;
-	max-width: 340px;
-	border-radius: 16px;
-	padding: 24px;
-	box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
-	border: 1px solid var(--border);
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
-	animation: fg-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.fg-mns-header {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-}
-
-.fg-mns-icon {
-	font-size: 24px;
-	background: var(--accent-bg);
-	width: 44px;
-	height: 44px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	border-radius: 12px;
-	color: var(--accent);
-}
-
-.fg-mns-title {
-	margin: 0;
-	font-size: 18px;
-	font-weight: 700;
-	color: var(--text-h);
-}
-
-.fg-mns-text {
-	margin: 0;
-	font-size: 14px;
-	line-height: 1.5;
-	color: var(--text-m);
-}
-
-.fg-mns-steps {
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
-	background: var(--bg);
-	padding: 16px;
-	border-radius: 12px;
-}
-
-.fg-mns-step {
-	display: flex;
-	gap: 12px;
-	align-items: flex-start;
-}
-
-.fg-mns-step-num {
-	width: 20px;
-	height: 20px;
-	background: var(--accent);
-	color: white;
-	border-radius: 50%;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 11px;
-	font-weight: 800;
-	flex-shrink: 0;
-	margin-top: 2px;
-}
-
-.fg-mns-step-content {
-	display: flex;
-	flex-direction: column;
-	font-size: 13px;
-	line-height: 1.4;
-}
-
-.fg-mns-step-content strong {
-	color: var(--text-h);
-}
-
-.fg-mns-quick-search {
-	border-top: 1px solid var(--border);
-	padding-top: 16px;
-}
-
-.fg-mns-small {
-	font-size: 11px;
-	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	color: var(--text-muted);
-	margin: 0 0 8px 0;
-}
-
-.fg-mns-input-group {
-	display: flex;
-	gap: 8px;
-}
-
-.fg-mns-input {
-	flex: 1;
-	height: 38px;
-	background: var(--bg);
-	border: 1px solid var(--border);
-	border-radius: 8px;
-	padding: 0 12px;
-	font-size: 14px;
-	color: var(--text);
-}
-
-.fg-mns-go {
-	height: 38px;
-	padding: 0 16px;
-	background: var(--accent);
-	color: white;
-	border: none;
-	border-radius: 8px;
-	font-weight: 600;
-	font-size: 13px;
-}
-
-.fg-mns-close {
-	width: 100%;
-	height: 44px;
-	font-size: 15px;
-	margin-top: 8px;
-}
-
-@keyframes fg-fade-in {
-	from {
-		opacity: 0;
-	}
-	to {
-		opacity: 1;
-	}
-}
-
-@keyframes fg-slide-up {
-	from {
-		transform: translateY(20px);
-		opacity: 0;
-	}
-	to {
-		transform: translateY(0);
-		opacity: 1;
-	}
-}
-
-html[data-theme='dark'] .fg-mns-steps {
-	background: rgba(255, 255, 255, 0.03);
-}
-
-html[data-theme='dark'] .fg-mns-input {
-	background: rgba(0, 0, 0, 0.2);
 }
 
 /* ── Control Position Nodes ────────────────────────────────────────────── */
