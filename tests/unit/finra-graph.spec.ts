@@ -10,6 +10,7 @@ import {
 	hideSelectionLog,
 	focusFetchInputWhenEmpty,
 	routeSidebarNodeSelection,
+	shouldTriggerLiveSearch,
 } from '../../src/components/FinraGraph';
 import {
 	isNodeInactive,
@@ -24,7 +25,9 @@ import {
 	shouldHydrateExpansionFrontierNodeDetail,
 	shouldAutoExpandRouteSelection,
 	shouldAutoRevealNodeConnections,
+	shouldFocusRouteSelection,
 	shouldRenderNodeSelected,
+	shouldUseCanvasRenderer,
 	upsertSelectionLogEntry,
 } from '../../src/lib/finra-graph';
 
@@ -136,6 +139,12 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		log.classList.remove('hidden');
 		hideSelectionLog();
 		expect(log.classList.contains('hidden')).toBe(true);
+	});
+
+	it('shouldTriggerLiveSearch only activates after 4 characters', () => {
+		expect(shouldTriggerLiveSearch('abc')).toBe(false);
+		expect(shouldTriggerLiveSearch('abcd')).toBe(true);
+		expect(shouldTriggerLiveSearch('  abcd  ')).toBe(true);
 	});
 
 	it('normalizeNodeLabelInPlace falls back to Node <id> for placeholder-only labels', () => {
@@ -401,6 +410,31 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(formatFindCounter(5, 3)).toBe('3/5');
 	});
 
+	it('shouldUseCanvasRenderer switches to the lightweight path for dense subsets', () => {
+		expect(shouldUseCanvasRenderer(80)).toBe(true);
+		expect(shouldUseCanvasRenderer(60)).toBe(false);
+	});
+
+	it('shouldFocusRouteSelection keeps focus off on mobile while preserving desktop behavior', () => {
+		const originalInnerWidth = window.innerWidth;
+		Object.defineProperty(window, 'innerWidth', {
+			configurable: true,
+			value: 390,
+		});
+		expect(shouldFocusRouteSelection()).toBe(false);
+
+		Object.defineProperty(window, 'innerWidth', {
+			configurable: true,
+			value: 1280,
+		});
+		expect(shouldFocusRouteSelection()).toBe(true);
+
+		Object.defineProperty(window, 'innerWidth', {
+			configurable: true,
+			value: originalInnerWidth,
+		});
+	});
+
 	it('rankFindNodeMatches ranks loaded matches by score and connection count', () => {
 		const nodes = [
 			{ id: 'person:123', group: 'individual', label: 'Alice Johnson', basicInformation: { firstName: 'Alice', lastName: 'Johnson' } },
@@ -417,6 +451,30 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(matches.map((entry) => entry.node.id)).toEqual(expect.arrayContaining(['person:123', 'person:456', 'firm:789']));
 		expect(matches[0]?.node.id).toBe('person:123');
 		expect(matches[0]?.connections).toBeGreaterThan(matches[1]?.connections ?? 0);
+	});
+
+	it('collectFirmConnectionEntries falls back to direct owner metadata when links are missing', () => {
+		const firmNode = {
+			id: 'firm:789',
+			group: 'firm',
+			firmId: '789',
+			directOwners: [{ crdNumber: '123', position: 'CEO', legalName: 'Alice Johnson' }],
+		} as any;
+		const nodes = [firmNode, { id: 'person:123', group: 'individual', crd: '123', label: 'Alice Johnson' }] as any[];
+
+		const entries = collectFirmConnectionEntries({
+			firmNode,
+			layoutNodes: nodes,
+			graphNodes: nodes,
+			layoutLinks: [],
+			graphLinks: [],
+		});
+
+		expect(entries).toHaveLength(1);
+		expect(entries[0]?.id).toBe('person:123');
+		expect(entries[0]?.label).toBe('Alice Johnson');
+		expect(entries[0]?.relationshipLabels).toEqual(expect.arrayContaining(['Control']));
+		expect(entries[0]?.positions).toEqual(['CEO']);
 	});
 
 	it('collectFirmConnectionEntries includes all connected nodes and aggregates relationships', () => {

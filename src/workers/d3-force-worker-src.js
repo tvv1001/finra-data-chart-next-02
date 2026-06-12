@@ -76,6 +76,17 @@ onmessage = function (e) {
 		} catch (err) {
 			postMessage({ type: 'error', error: String(err) });
 		}
+	} else if (m.type === 'seedPositions') {
+		const seeded = Array.isArray(m.positions) ? m.positions : [];
+		for (const entry of seeded) {
+			const n = nodes.find(function (x) {
+				return String(x.id) === String(entry.id);
+			});
+			if (n) {
+				n.x = Number.isFinite(entry.x) ? entry.x : n.x;
+				n.y = Number.isFinite(entry.y) ? entry.y : n.y;
+			}
+		}
 	} else if (m.type === 'start') {
 		if (sim) sim.alpha(1).restart();
 	} else if (m.type === 'stop') {
