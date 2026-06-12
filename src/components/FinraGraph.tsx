@@ -268,10 +268,18 @@ export default function FinraGraph() {
 
 	const openFindBar = useCallback(() => {
 		if (isMobileSearchViewport()) {
+			hideSidebar({ force: true });
+			setIsMobileSearchOpen(true);
 			window.dispatchEvent(new CustomEvent(MOBILE_SIDEBAR_COLLAPSE_REQUEST_EVENT));
 		}
 		setIsFindBarOpen(true);
-		focusFindInput();
+		window.requestAnimationFrame(() => {
+			const input = findInputRef.current ?? (document.getElementById('fg-find-input') as HTMLInputElement | null);
+			if (input) {
+				input.focus({ preventScroll: true });
+				input.select();
+			}
+		});
 	}, [focusFindInput, isMobileSearchViewport]);
 
 	const reopenFindBarAfterSidebarDismiss = useCallback(() => {
@@ -298,6 +306,9 @@ export default function FinraGraph() {
 				});
 			}
 			setIsFindBarOpen(false);
+			if (isMobileSearchViewport()) {
+				setIsMobileSearchOpen(false);
+			}
 			if (clearQuery) {
 				setFindQuery('');
 				setFindMatchState({ total: 0, activeOrdinal: 0 });
@@ -1011,21 +1022,14 @@ export default function FinraGraph() {
 							className={`fg-btn-secondary fg-find-toggle${isFindBarOpen || isMobileSearchOpen ? ' active' : ''}`}
 							onClick={() => {
 								if (isMobileSearchViewport()) {
-									const nextOpen = !isMobileSearchOpen;
-									setIsMobileSearchOpen(nextOpen);
-									if (nextOpen) {
-										hideSidebar({ force: true });
-										window.requestAnimationFrame(() => {
-											const input = document.getElementById('fg-fetch-input') as HTMLInputElement | null;
-											if (input) {
-												input.focus({ preventScroll: true });
-												input.select();
-											}
-										});
-									} else {
-										window.dispatchEvent(new CustomEvent(FIND_CLOSE_EVENT, { detail: { clearQuery: false } }));
+									if (isMobileSearchOpen) {
+										closeFindBar({ clearQuery: false, preserveMobileRestore: true });
+										return;
 									}
-								} else if (isFindBarOpen) {
+									openFindBar();
+									return;
+								}
+								if (isFindBarOpen) {
 									closeFindBar({ clearQuery: false });
 								} else {
 									setIsFindBarOpen(true);
