@@ -17,6 +17,7 @@ import {
 	loadPersistedSidebarViewMode,
 	collectFirmConnectionEntries,
 	getAutoExpansionHopsForNode,
+	getLinkIdentityKey,
 	loadSelectionLogBoldPreference,
 	normalizeNodeLabelInPlace,
 	rankFindNodeMatches,
@@ -320,6 +321,13 @@ describe('FinraGraph DOM helpers (unit)', () => {
 	it('shouldAutoRevealNodeConnections keeps firm connections hidden by default', () => {
 		expect(shouldAutoRevealNodeConnections({ id: 'person:123', group: 'individual' })).toBe(true);
 		expect(shouldAutoRevealNodeConnections({ id: 'firm:456', group: 'firm' })).toBe(false);
+	});
+
+	it('getLinkIdentityKey distinguishes current and previous employment links on the same firm pair', () => {
+		const currentLink = { source: 'person:1', target: 'firm:9', relationship: 'employed_by', isCurrent: true };
+		const previousLink = { source: 'person:1', target: 'firm:9', relationship: 'employed_by', isCurrent: false };
+
+		expect(getLinkIdentityKey(currentLink)).not.toBe(getLinkIdentityKey(previousLink));
 	});
 
 	it('getLargeGraphRenderBudget caps the render surface for very large graphs', () => {

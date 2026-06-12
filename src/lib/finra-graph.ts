@@ -2745,10 +2745,23 @@ function upsertHighlightedSelection(id, hops = getDefaultSelectionHops()) {
 	highlightedSelections.push({ id, hops: normalizedHops });
 }
 
+export function getLinkIdentityKey(link) {
+	const sourceId = String(link?.source?.id ?? link?.source ?? '');
+	const targetId = String(link?.target?.id ?? link?.target ?? '');
+	const relationship = String(link?.relationship || '');
+	const currentState =
+		typeof link?.isCurrent === 'boolean' ?
+			link.isCurrent ?
+				'1'
+			:	'0'
+		:	'u';
+	const startDate = String(link?.startDate ?? '');
+	const endDate = String(link?.endDate ?? '');
+	return `${sourceId}|${targetId}|${relationship}|${currentState}|${startDate}|${endDate}`;
+}
+
 function getLinkKey(link) {
-	const sourceId = link.source?.id ?? link.source;
-	const targetId = link.target?.id ?? link.target;
-	return `${sourceId}|${targetId}|${link.relationship || ''}`;
+	return getLinkIdentityKey(link);
 }
 
 function isNonGrayExpansionLink(link) {
@@ -4425,7 +4438,11 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 								iaSecNumber: e?.firm_ia_sec_number || e?.iaSecNumber,
 							});
 						}
-						if (!batchAllLinks.some((l) => (l.source?.id ?? l.source) === personId && (l.target?.id ?? l.target) === firmNodeId)) {
+						if (
+							!batchAllLinks.some(
+								(l) => getLinkIdentityKey(l) === getLinkIdentityKey({ source: personId, target: firmNodeId, relationship: getEmploymentRelationship(e), isCurrent: e._isCurrent }),
+							)
+						) {
 							batchAllLinks.push({
 								source: personId,
 								target: firmNodeId,
@@ -5038,13 +5055,7 @@ function mergeIntoGraphData(newNodes, newLinks) {
 	// Track which nodes are newly added so renderGraph can pulse them.
 	const addedIds = [];
 	const gIds = new Set(graphData.nodes.map((n) => n.id));
-	const gLinkKeys = new Set(
-		graphData.links.map((l) => {
-			const s = l.source?.id ?? l.source;
-			const t = l.target?.id ?? l.target;
-			return `${s}|${t}`;
-		}),
-	);
+	const gLinkKeys = new Set(graphData.links.map((l) => getLinkIdentityKey(l)));
 	newNodes
 		.filter((n) => !gIds.has(n.id))
 		.forEach((n) => {
@@ -5071,9 +5082,7 @@ function mergeIntoGraphData(newNodes, newLinks) {
 	normalizeNodeLabelsInPlace(graphData.nodes);
 	newLinks
 		.filter((l) => {
-			const s = l.source?.id ?? l.source;
-			const t = l.target?.id ?? l.target;
-			const k = `${s}|${t}`;
+			const k = getLinkIdentityKey(l);
 			if (gLinkKeys.has(k)) return false;
 			gLinkKeys.add(k);
 			return true;
@@ -6856,10 +6865,7 @@ function joinLayeredArrowGroup(groupSel, data) {
 	bound.exit().remove();
 	const entered = bound.enter().append('line').attr('stroke', 'none').attr('fill', 'none');
 	const merged = entered.merge(bound);
-	merged
-		.attr('stroke', 'none')
-		.attr('fill', 'none')
-		.attr('marker-end', (d) => getLinkMarker(d));
+	merged.attr('stroke', 'none').attr('fill', 'none');
 	return merged;
 }
 
@@ -7194,10 +7200,7 @@ function refreshGraphColors() {
 
 	updateNodeVisuals(nodeSel);
 
-	linkSel
-		.attr('stroke', (d) => getLinkColor(d))
-		.attr('stroke-dasharray', (d) => getLinkDash(d))
-		.attr('marker-end', (d) => getLinkMarker(d));
+	linkSel.attr('stroke', (d) => getLinkColor(d)).attr('stroke-dasharray', (d) => getLinkDash(d));
 
 	highlightLinks(computeHighlightState());
 }
@@ -7265,7 +7268,10 @@ function appendFetchedImpl(newNodes, newLinks) {
 			// only include link if both nodes are currently rendered
 			if (!currentLayoutNodeIds.has(s) || !currentLayoutNodeIds.has(t)) return false;
 			// avoid duplicate link
-			return !layoutLinks.some((el) => (el.source?.id ?? el.source) === s && (el.target?.id ?? el.target) === t);
+			return !layoutLinks.some(
+				(el) =>
+					getLinkIdentityKey(el) === getLinkIdentityKey({ source: s, target: t, relationship: l.relationship, isCurrent: l.isCurrent, startDate: l.startDate, endDate: l.endDate }),
+			);
 		}),
 	);
 	applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
@@ -8097,7 +8103,15 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 		.filter((l) => {
 			const s = l.source?.id ?? l.source;
 			const t = l.target?.id ?? l.target;
-			return nowIds.has(s) && nowIds.has(t) && !layoutLinks.some((el) => (el.source?.id ?? el.source) === s && (el.target?.id ?? el.target) === t);
+			return (
+				nowIds.has(s) &&
+				nowIds.has(t) &&
+				!layoutLinks.some(
+					(el) =>
+						getLinkIdentityKey(el) ===
+						getLinkIdentityKey({ source: s, target: t, relationship: l.relationship, isCurrent: l.isCurrent, startDate: l.startDate, endDate: l.endDate }),
+				)
+			);
 		})
 		.map((l) => ({ ...l }));
 
@@ -8488,16 +8502,16 @@ function syncIndividualConnectionsFromDetail(personNode, detail) {
 			});
 		}
 
-		const hasLayoutLink = layoutLinks.some((link) => {
-			const sourceId = link.source?.id ?? link.source;
-			const targetId = link.target?.id ?? link.target;
-			return sourceId === personId && targetId === firmNodeId && ['employed_by', 'previous_employed_by'].includes(link.relationship);
-		});
-		const hasPendingLink = newLinks.some((link) => {
-			const sourceId = link.source?.id ?? link.source;
-			const targetId = link.target?.id ?? link.target;
-			return sourceId === personId && targetId === firmNodeId && ['employed_by', 'previous_employed_by'].includes(link.relationship);
-		});
+		const candidateLink = {
+			source: personId,
+			target: firmNodeId,
+			relationship: getEmploymentRelationship(employment),
+			isCurrent: employment._isCurrent,
+			startDate: employment?.registrationBeginDate || employment?.startDate || employment?.fromDate || null,
+			endDate: employment._isCurrent ? null : employment?.registrationEndDate || employment?.endDate || employment?.toDate || null,
+		};
+		const hasLayoutLink = layoutLinks.some((link) => getLinkIdentityKey(link) === getLinkIdentityKey(candidateLink));
+		const hasPendingLink = newLinks.some((link) => getLinkIdentityKey(link) === getLinkIdentityKey(candidateLink));
 		if (!hasLayoutLink && !hasPendingLink) {
 			newLinks.push({
 				source: personId,
