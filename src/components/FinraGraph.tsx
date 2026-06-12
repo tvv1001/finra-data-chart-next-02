@@ -225,7 +225,6 @@ export default function FinraGraph() {
 	const [findMatchState, setFindMatchState] = useState({ total: 0, activeOrdinal: 0 });
 	const [activeFindNodeId, setActiveFindNodeId] = useState<string | null>(null);
 	const [focusedFindNodeId, setFocusedFindNodeId] = useState<string | null>(null);
-	const [isMobileNativeSearchHelperOpen, setIsMobileNativeSearchHelperOpen] = useState(false);
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
@@ -557,22 +556,6 @@ export default function FinraGraph() {
 			window.removeEventListener('resize', syncEmptyStateTarget);
 		};
 	}, [isMounted]);
-
-	useEffect(() => {
-		if (!isMounted) return;
-		const handleDocumentFindShortcut = (event: KeyboardEvent) => {
-			if (!isFindShortcut(event)) return;
-			event.preventDefault();
-			event.stopPropagation();
-			setIsFindBarOpen(true);
-			focusFindInput();
-		};
-
-		document.addEventListener('keydown', handleDocumentFindShortcut);
-		return () => {
-			document.removeEventListener('keydown', handleDocumentFindShortcut);
-		};
-	}, [focusFindInput, isMounted]);
 
 	useEffect(() => {
 		if (!isMounted || !graphReady || !isFindBarOpen) return;
@@ -912,7 +895,7 @@ export default function FinraGraph() {
 									id='fg-database-search'
 									className='fg-btn-primary fg-action-btn'
 									title='Search all records in the local database'>
-									Search Database
+									Search
 								</button>
 							</div>
 						</div>
@@ -998,13 +981,16 @@ export default function FinraGraph() {
 							className={`fg-btn-secondary fg-find-toggle${isFindBarOpen ? ' active' : ''}`}
 							onClick={() => {
 								if (isMobileSearchViewport()) {
-									setIsMobileNativeSearchHelperOpen(true);
-								} else {
 									if (isFindBarOpen) {
 										closeFindBar({ clearQuery: false });
 									} else {
-										setIsFindBarOpen(true);
+										openFindBar();
 									}
+								} else if (isFindBarOpen) {
+									closeFindBar({ clearQuery: false });
+								} else {
+									setIsFindBarOpen(true);
+									focusFindInput();
 								}
 							}}
 							title='Find in graph (Ctrl+F)'
@@ -1344,78 +1330,6 @@ export default function FinraGraph() {
 					className='fg-bottom-status__indicator'
 					aria-hidden='true'></span>
 			</button>
-			{/* Native Search Helper for Mobile */}
-			{isMobileNativeSearchHelperOpen && (
-				<div
-					className='fg-mobile-native-search-overlay'
-					onClick={() => setIsMobileNativeSearchHelperOpen(false)}>
-					<div
-						className='fg-mobile-native-search-card'
-						onClick={(e) => e.stopPropagation()}>
-						<div className='fg-mns-header'>
-							<div className='fg-mns-icon'>🔍</div>
-							<h4 className='fg-mns-title'>Use Native Search</h4>
-						</div>
-
-						<p className='fg-mns-text'>This graph supports your browser&apos;s built-in search for best performance.</p>
-
-						<div className='fg-mns-steps'>
-							<div className='fg-mns-step'>
-								<span className='fg-mns-step-num'>1</span>
-								<div className='fg-mns-step-content'>
-									<strong>Open Menu</strong>
-									<span>
-										Tap the <strong>Share</strong> icon (iOS) or <strong>⋮</strong> menu (Android).
-									</span>
-								</div>
-							</div>
-							<div className='fg-mns-step'>
-								<span className='fg-mns-step-num'>2</span>
-								<div className='fg-mns-step-content'>
-									<strong>Find on Page</strong>
-									<span>Select &quot;Find on Page&quot; and type any name.</span>
-								</div>
-							</div>
-						</div>
-
-						<div className='fg-mns-quick-search'>
-							<p className='fg-mns-small'>Or try a Quick Jump:</p>
-							<div className='fg-mns-input-group'>
-								<input
-									type='text'
-									className='fg-mns-input'
-									placeholder='Search labels...'
-									onKeyDown={(e) => {
-										if (e.key === 'Enter') {
-											const val = (e.target as HTMLInputElement).value;
-											if (val && typeof window !== 'undefined' && (window as any).find) {
-												(window as any).find(val);
-											}
-										}
-									}}
-								/>
-								<button
-									className='fg-mns-go'
-									onClick={(e) => {
-										const input = e.currentTarget.previousSibling as HTMLInputElement;
-										const val = input.value;
-										if (val && typeof window !== 'undefined' && (window as any).find) {
-											(window as any).find(val);
-										}
-									}}>
-									Jump
-								</button>
-							</div>
-						</div>
-
-						<button
-							className='fg-btn-primary fg-mns-close'
-							onClick={() => setIsMobileNativeSearchHelperOpen(false)}>
-							Got it
-						</button>
-					</div>
-				</div>
-			)}
 		</div>
 	);
 }

@@ -10865,6 +10865,9 @@ function renderSidebarSelectionLogBody() {
 function renderSidebar(d) {
 	const el = document.getElementById('fg-sidebar-inner');
 	const side = document.getElementById('fg-sidebar');
+	if (!el || !side) {
+		return;
+	}
 	const previousDisplayedId = side?.dataset.displayedId || '';
 	sidebarSelectedNode = d;
 	if (sidebarViewMode === 'none') {
