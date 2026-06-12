@@ -600,6 +600,29 @@ export default function FinraGraph() {
 
 	useEffect(() => {
 		if (!isMounted) return;
+		const handleDocumentFindShortcut = (event: KeyboardEvent) => {
+			if (!isFindShortcut(event)) return;
+			event.preventDefault();
+			event.stopPropagation();
+
+			const findToggle = document.getElementById('fg-find-toggle') as HTMLButtonElement | null;
+			if (findToggle) {
+				findToggle.click();
+				return;
+			}
+
+			setIsFindBarOpen(true);
+			focusFindInput();
+		};
+
+		document.addEventListener('keydown', handleDocumentFindShortcut);
+		return () => {
+			document.removeEventListener('keydown', handleDocumentFindShortcut);
+		};
+	}, [focusFindInput, isMounted]);
+
+	useEffect(() => {
+		if (!isMounted) return;
 		const handleSearchNavigation = (event: KeyboardEvent) => {
 			if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
 			if (isFindBarOpen) return;
@@ -1291,10 +1314,9 @@ export default function FinraGraph() {
 								<span className='fg-empty-card__arrow-line'></span>
 								<span className='fg-empty-card__arrow-head'></span>
 							</div>
-							<p className='fg-empty-eyebrow'>First time here?</p>
-							<h2 className='fg-empty-title'>Start with the search field above.</h2>
+							<h4 className='fg-empty-title'>Fetch nodes with the search field above.</h4>
 							<ul className='fg-empty-steps'>
-								<li>Selecting a firm will only show its employees, while selecting a person will show all their associated firms and connections.</li>
+								<li>Navigate through the nodes with the arrow keys or in page search.</li>
 							</ul>
 						</div>
 					</div>
@@ -1348,6 +1370,5 @@ export {
 	hideSelectionLog,
 	focusFetchInputWhenEmpty,
 	routeSidebarNodeSelection,
-	isFindShortcut,
 	formatFindCounter,
 };

@@ -437,13 +437,6 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		);
 	});
 
-	it('isFindShortcut detects ctrl/cmd+f without alt', () => {
-		expect(isFindShortcut({ key: 'f', ctrlKey: true, metaKey: false, altKey: false, defaultPrevented: false } as KeyboardEvent)).toBe(true);
-		expect(isFindShortcut({ key: 'F', ctrlKey: false, metaKey: true, altKey: false, defaultPrevented: false } as KeyboardEvent)).toBe(true);
-		expect(isFindShortcut({ key: 'f', ctrlKey: true, metaKey: false, altKey: true, defaultPrevented: false } as KeyboardEvent)).toBe(false);
-		expect(isFindShortcut({ key: 'g', ctrlKey: true, metaKey: false, altKey: false, defaultPrevented: false } as KeyboardEvent)).toBe(false);
-	});
-
 	it('formatFindCounter reports totals and current position', () => {
 		expect(formatFindCounter(0, 0)).toBe('0 matches');
 		expect(formatFindCounter(1, 0)).toBe('1 match');

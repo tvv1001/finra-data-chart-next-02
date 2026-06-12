@@ -3737,7 +3737,7 @@ a,
 
 .fg-empty-title {
 	margin: 0 0 12px;
-	font: 700 22px/1.15 var(--sans);
+	font: 700 18px/1.15 var(--sans);
 	letter-spacing: -0.03em;
 	color: #f8fafc;
 }
