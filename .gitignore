@@ -28,7 +28,6 @@ Desktop.ini
 .idea/
 *.sublime-workspace
 *.sublime-project
-native/
 
 # Test/coverage
 coverage/
@@ -39,6 +38,10 @@ test-results/
 # Production
 out/
 .next/cache/*
+public/wasm/
+public/workers/
+rust/target/
+rust/graph-layout/target/
 data/cache-binary/
 data/national/
 data/national/**
@@ -55,4 +58,4 @@ generated/
 *.generated.md
 public/search-indexes/
 
-finra-data-chart-next-02.code-workspace
+finra-data-large-view.code-workspace

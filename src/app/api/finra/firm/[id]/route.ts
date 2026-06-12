@@ -3,10 +3,11 @@ import { cachedFetch } from '@/lib/simpleCache';
 import { rememberRecentSeed } from '@/lib/seedStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
-import { shouldSuppressSecLink } from '@/lib/finra-graph/linkSuppression';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+const SUPPRESSED_SEC_FIRM_IDS = new Set(['4039']);
 
 function buildFirmQueryParams(searchParams: URLSearchParams) {
 	const params = new URLSearchParams();
@@ -189,7 +190,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		const secPageValid = false;
 		detail.hasFinraData = hasPublicFinraFirmDetail(bcDetail, bcDetail?.basicInformation || {});
 
-		const suppressSecLinks = shouldSuppressSecLink({ firmId: id, group: 'firm' }, 'firm');
+		const suppressSecLinks = SUPPRESSED_SEC_FIRM_IDS.has(id);
 		detail.hasSecData = !suppressSecLinks && Boolean(secFirmId) && Boolean(secDetail || detail?.hasSecData);
 
 		if (!suppressSecLinks && typeof detail.secSummaryDescription === 'string' && !detail.secSummaryDescription.trim()) {

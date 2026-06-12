@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { capitalize, esc, firmSizeLabel, formatLocationText, formatUiText, normalizePersonLabel, row } from './formatters';
-import { shouldSuppressFinraLink, shouldSuppressSecLink } from './linkSuppression';
 
 type RenderContext = {
 	graphData?: any;
@@ -64,6 +63,14 @@ function toNodeSourceCoverage(finra: boolean, sec: boolean): NodeSourceCoverage 
 
 // Firms known to have broken or unreachable FINRA/BrokerCheck summary pages.
 // Add CRD numbers here to suppress FINRA links for those firms.
+const BROKEN_FINRA_FIRM_IDS = new Set(['134139', '298880', '314694']);
+
+// Individual IDs for which SEC AdvisorInfo links should be suppressed.
+// Add numeric individual CRD-like ids (no prefix) here when upstream SEC pages are incorrect or undesirable.
+const SUPPRESSED_SEC_INDIV_IDS = new Set(['18040']);
+// Firm IDs for which SEC AdvisorInfo links should be suppressed.
+// Add numeric firm CRD-like ids (no prefix) here when upstream SEC pages are unavailable or incorrect.
+const SUPPRESSED_SEC_FIRM_IDS = new Set(['4039']);
 
 function isNotInScopeValue(value) {
 	return (
@@ -110,7 +117,12 @@ function hasIndividualSecPresence(node) {
 	)
 		return false;
 
-	if (shouldSuppressSecLink(node, 'individual')) return false;
+	// Per-id suppression: if the node's id/crd is known to be invalid for SEC links, suppress.
+	const rawId = String(node?.crd || node?.basicInformation?.individualId || node?.individualId || node?.id || '')
+		.replace(/^person[:_]/, '')
+		.replace(/^node[:_]/, '')
+		.trim();
+	if (rawId && SUPPRESSED_SEC_INDIV_IDS.has(rawId)) return false;
 	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
 	if (node.hasSecData === true) return true;
 	if (hasPublicSecIndividualPage(node, node.basicInformation || {})) return true;
@@ -147,7 +159,12 @@ function hasFirmFinraPresence(node: any) {
 	)
 		return false;
 
-	if (shouldSuppressFinraLink(node)) return false;
+	// if this firm is explicitly blacklisted, treat as no FINRA presence
+	const rawFirmId = String(node?.firmId || node?.id || '')
+		.replace(/^firm[:_]/, '')
+		.replace(/^node[:_]/, '')
+		.trim();
+	if (rawFirmId && BROKEN_FINRA_FIRM_IDS.has(rawFirmId)) return false;
 	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
 	if (node.hasFinraData === true) return true;
 	if (node.isLegacy === 'Y') return true;
@@ -173,7 +190,11 @@ function hasFirmSecPresence(node: any) {
 		)
 	)
 		return false;
-	if (shouldSuppressSecLink(node, 'firm')) return false;
+	const rawFirmId = String(node?.firmId || node?.id || '')
+		.replace(/^firm[:_]/, '')
+		.replace(/^node[:_]/, '')
+		.trim();
+	if (rawFirmId && SUPPRESSED_SEC_FIRM_IDS.has(rawFirmId)) return false;
 	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
 	if (node.hasSecData === true) return true;
 	if (Boolean(String(node?.iaSecNumber || node?.basicInformation?.iaSECNumber || node?.basicInformation?.iaSecNumber || '').trim())) return true;

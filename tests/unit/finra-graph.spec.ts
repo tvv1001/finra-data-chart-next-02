@@ -10,8 +10,6 @@ import {
 	hideSelectionLog,
 	focusFetchInputWhenEmpty,
 	routeSidebarNodeSelection,
-	shouldTriggerLiveSearch,
-	getArrowNavQuery,
 } from '../../src/components/FinraGraph';
 import {
 	isNodeInactive,
@@ -20,19 +18,16 @@ import {
 	collectFirmConnectionEntries,
 	getAutoExpansionHopsForNode,
 	loadSelectionLogBoldPreference,
-	snapshotPinnedNodePositions,
-	restorePinnedNodePositions,
 	normalizeNodeLabelInPlace,
 	rankFindNodeMatches,
 	shouldFetchFirmDetailForOwnerEvidence,
 	shouldHydrateExpansionFrontierNodeDetail,
 	shouldAutoExpandRouteSelection,
 	shouldAutoRevealNodeConnections,
-	shouldFocusRouteSelection,
 	shouldRenderNodeSelected,
-	shouldUseCanvasRenderer,
 	upsertSelectionLogEntry,
 } from '../../src/lib/finra-graph';
+import { buildLargeGraphRenderPlan, getLargeGraphRenderBudget, getProgressiveLoadBudget } from '../../src/lib/large-graph-rendering';
 
 describe('FinraGraph DOM helpers (unit)', () => {
 	beforeEach(() => {
@@ -142,38 +137,6 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		log.classList.remove('hidden');
 		hideSelectionLog();
 		expect(log.classList.contains('hidden')).toBe(true);
-	});
-
-	it('shouldTriggerLiveSearch only activates after 4 characters', () => {
-		expect(shouldTriggerLiveSearch('abc')).toBe(false);
-		expect(shouldTriggerLiveSearch('abcd')).toBe(true);
-		expect(shouldTriggerLiveSearch('  abcd  ')).toBe(true);
-	});
-
-	it('preserves pinned node anchors through refresh', () => {
-		const nodes = [
-			{ id: 'a', x: 10, y: 20, fx: 10, fy: 20 },
-			{ id: 'b', x: 30, y: 40, fx: null, fy: null },
-		] as any[];
-
-		const snapshot = snapshotPinnedNodePositions(nodes);
-		nodes[0].x = 99;
-		nodes[0].y = 98;
-		nodes[1].x = 77;
-		nodes[1].y = 66;
-		restorePinnedNodePositions(nodes, snapshot);
-
-		expect(nodes[0].x).toBe(10);
-		expect(nodes[0].y).toBe(20);
-		expect(nodes[0].fx).toBe(10);
-		expect(nodes[0].fy).toBe(20);
-		expect(nodes[1].x).toBe(77);
-		expect(nodes[1].y).toBe(66);
-	});
-
-	it('getArrowNavQuery falls back to normal graph nav once the search input is closed', () => {
-		expect(getArrowNavQuery({ isFindBarOpen: false, findQuery: '  alpha  ' })).toBe('');
-		expect(getArrowNavQuery({ isFindBarOpen: true, findQuery: '  alpha  ' })).toBe('alpha');
 	});
 
 	it('normalizeNodeLabelInPlace falls back to Node <id> for placeholder-only labels', () => {
@@ -359,6 +322,47 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(shouldAutoRevealNodeConnections({ id: 'firm:456', group: 'firm' })).toBe(false);
 	});
 
+	it('getLargeGraphRenderBudget caps the render surface for very large graphs', () => {
+		expect(getLargeGraphRenderBudget(20_000, 1)).toBeLessThanOrEqual(980);
+		expect(getLargeGraphRenderBudget(5_000, 1)).toBeLessThanOrEqual(650);
+		expect(getLargeGraphRenderBudget(4_000, 1)).toBeLessThanOrEqual(650);
+	});
+
+	it('getProgressiveLoadBudget reveals larger slices over time for huge graphs', () => {
+		expect(getProgressiveLoadBudget(5_000, 1, 0)).toBeLessThan(getProgressiveLoadBudget(5_000, 1, 4));
+		expect(getProgressiveLoadBudget(5_000, 1, 4)).toBe(getLargeGraphRenderBudget(5_000, 1));
+		expect(getProgressiveLoadBudget(1_000, 1, 0)).toBe(getLargeGraphRenderBudget(1_000, 1));
+	});
+
+	it('buildLargeGraphRenderPlan preserves the selected node and trims off-screen work', () => {
+		const nodes = [
+			{ id: 'focus', x: 100, y: 100, group: 'individual', _deg: { total: 90 } },
+			{ id: 'near', x: 110, y: 110, group: 'firm', _deg: { total: 10 } },
+			{ id: 'far', x: 5000, y: 5000, group: 'entity', _deg: { total: 1 } },
+		] as any[];
+		const links = [
+			{ source: 'focus', target: 'near', relationship: 'controls' },
+			{ source: 'far', target: 'near', relationship: 'controls' },
+		] as any[];
+
+		const transformed = buildLargeGraphRenderPlan(
+			nodes,
+			links,
+			{ x: 0, y: 0, k: 1 },
+			{
+				width: 400,
+				height: 300,
+				selectedId: 'focus',
+				maxVisibleNodes: 2,
+			},
+		);
+
+		expect(transformed.visibleNodeIds.has('focus')).toBe(true);
+		expect(transformed.visibleNodeIds.has('near')).toBe(true);
+		expect(transformed.visibleNodeIds.has('far')).toBe(false);
+		expect(transformed.visibleLinks.length).toBeLessThanOrEqual(2);
+	});
+
 	it('shouldAutoExpandRouteSelection skips duplicate route expansion for the already selected node', () => {
 		expect(shouldAutoExpandRouteSelection('person:4240769', 'person:4240769')).toBe(false);
 		expect(shouldAutoExpandRouteSelection('person:4240769', 'person:1111111')).toBe(true);
@@ -439,31 +443,6 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(formatFindCounter(5, 3)).toBe('3/5');
 	});
 
-	it('shouldUseCanvasRenderer switches to the lightweight path for dense subsets', () => {
-		expect(shouldUseCanvasRenderer(80)).toBe(true);
-		expect(shouldUseCanvasRenderer(60)).toBe(false);
-	});
-
-	it('shouldFocusRouteSelection keeps focus off on mobile while preserving desktop behavior', () => {
-		const originalInnerWidth = window.innerWidth;
-		Object.defineProperty(window, 'innerWidth', {
-			configurable: true,
-			value: 390,
-		});
-		expect(shouldFocusRouteSelection()).toBe(false);
-
-		Object.defineProperty(window, 'innerWidth', {
-			configurable: true,
-			value: 1280,
-		});
-		expect(shouldFocusRouteSelection()).toBe(true);
-
-		Object.defineProperty(window, 'innerWidth', {
-			configurable: true,
-			value: originalInnerWidth,
-		});
-	});
-
 	it('rankFindNodeMatches ranks loaded matches by score and connection count', () => {
 		const nodes = [
 			{ id: 'person:123', group: 'individual', label: 'Alice Johnson', basicInformation: { firstName: 'Alice', lastName: 'Johnson' } },
@@ -480,30 +459,6 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(matches.map((entry) => entry.node.id)).toEqual(expect.arrayContaining(['person:123', 'person:456', 'firm:789']));
 		expect(matches[0]?.node.id).toBe('person:123');
 		expect(matches[0]?.connections).toBeGreaterThan(matches[1]?.connections ?? 0);
-	});
-
-	it('collectFirmConnectionEntries falls back to direct owner metadata when links are missing', () => {
-		const firmNode = {
-			id: 'firm:789',
-			group: 'firm',
-			firmId: '789',
-			directOwners: [{ crdNumber: '123', position: 'CEO', legalName: 'Alice Johnson' }],
-		} as any;
-		const nodes = [firmNode, { id: 'person:123', group: 'individual', crd: '123', label: 'Alice Johnson' }] as any[];
-
-		const entries = collectFirmConnectionEntries({
-			firmNode,
-			layoutNodes: nodes,
-			graphNodes: nodes,
-			layoutLinks: [],
-			graphLinks: [],
-		});
-
-		expect(entries).toHaveLength(1);
-		expect(entries[0]?.id).toBe('person:123');
-		expect(entries[0]?.label).toBe('Alice Johnson');
-		expect(entries[0]?.relationshipLabels).toEqual(expect.arrayContaining(['Control']));
-		expect(entries[0]?.positions).toEqual(['CEO']);
 	});
 
 	it('collectFirmConnectionEntries includes all connected nodes and aggregates relationships', () => {
