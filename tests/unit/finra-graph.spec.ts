@@ -20,6 +20,8 @@ import {
 	collectFirmConnectionEntries,
 	getAutoExpansionHopsForNode,
 	loadSelectionLogBoldPreference,
+	snapshotPinnedNodePositions,
+	restorePinnedNodePositions,
 	normalizeNodeLabelInPlace,
 	rankFindNodeMatches,
 	shouldFetchFirmDetailForOwnerEvidence,
@@ -146,6 +148,27 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(shouldTriggerLiveSearch('abc')).toBe(false);
 		expect(shouldTriggerLiveSearch('abcd')).toBe(true);
 		expect(shouldTriggerLiveSearch('  abcd  ')).toBe(true);
+	});
+
+	it('preserves pinned node anchors through refresh', () => {
+		const nodes = [
+			{ id: 'a', x: 10, y: 20, fx: 10, fy: 20 },
+			{ id: 'b', x: 30, y: 40, fx: null, fy: null },
+		] as any[];
+
+		const snapshot = snapshotPinnedNodePositions(nodes);
+		nodes[0].x = 99;
+		nodes[0].y = 98;
+		nodes[1].x = 77;
+		nodes[1].y = 66;
+		restorePinnedNodePositions(nodes, snapshot);
+
+		expect(nodes[0].x).toBe(10);
+		expect(nodes[0].y).toBe(20);
+		expect(nodes[0].fx).toBe(10);
+		expect(nodes[0].fy).toBe(20);
+		expect(nodes[1].x).toBe(77);
+		expect(nodes[1].y).toBe(66);
 	});
 
 	it('getArrowNavQuery falls back to normal graph nav once the search input is closed', () => {

@@ -851,6 +851,36 @@ function buildPersistedNodePosition(node) {
 	};
 }
 
+export function snapshotPinnedNodePositions(nodes = layoutNodes) {
+	if (!Array.isArray(nodes) || !nodes.length) return [];
+
+	return nodes
+		.filter((node) => Number.isFinite(node?.fx) && Number.isFinite(node?.fy))
+		.map((node) => ({
+			id: node.id,
+			x: Number.isFinite(node.x) ? node.x : null,
+			y: Number.isFinite(node.y) ? node.y : null,
+			fx: Number.isFinite(node.fx) ? node.fx : null,
+			fy: Number.isFinite(node.fy) ? node.fy : null,
+		}));
+}
+
+export function restorePinnedNodePositions(nodes = layoutNodes, snapshot = []) {
+	if (!Array.isArray(nodes) || !Array.isArray(snapshot) || !snapshot.length) return;
+
+	const byId = new Map(snapshot.map((entry) => [entry.id, entry]));
+	for (const node of nodes) {
+		const entry = byId.get(node.id);
+		if (!entry) continue;
+		if (Number.isFinite(entry.x)) node.x = entry.x;
+		if (Number.isFinite(entry.y)) node.y = entry.y;
+		if (Number.isFinite(entry.fx)) node.fx = entry.fx;
+		else node.fx = null;
+		if (Number.isFinite(entry.fy)) node.fy = entry.fy;
+		else node.fy = null;
+	}
+}
+
 function getPersistedNodePositions({ compact = false } = {}) {
 	if (!Array.isArray(layoutNodes) || !layoutNodes.length) return [];
 	if (!compact) return layoutNodes.map((node) => buildPersistedNodePosition(node));
@@ -3667,6 +3697,8 @@ function refreshNodeLayout() {
 		: 18;
 	const refreshDurationMs = getRefreshLayoutDurationMs(nodeCount);
 
+	const pinnedNodeSnapshot = snapshotPinnedNodePositions(layoutNodes);
+
 	layoutNodes.forEach((node, index) => {
 		node.fx = null;
 		node.fy = null;
@@ -3685,6 +3717,8 @@ function refreshNodeLayout() {
 			node.y += Math.sin(angle) * jitter + (Math.random() - 0.5) * 16;
 		}
 	});
+
+	restorePinnedNodePositions(layoutNodes, pinnedNodeSnapshot);
 
 	if (refreshLayoutStopTimer) {
 		clearTimeout(refreshLayoutStopTimer);
