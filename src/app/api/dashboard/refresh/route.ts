@@ -13,7 +13,7 @@ const DEFAULT_FIRM_QUERY = 'hl=true&wt=json';
 const DEFAULT_EXTERNAL_RAW_DIR = '/home/lenny/Dev/webDev/Data-finra-sec/data/raw';
 const PRIMED_REDIS_CHUNK_CHARS = Number(process.env.PRIMED_REDIS_CHUNK_CHARS || 700_000);
 
-type DashboardAction = 'fetch-crds' | 'sync-and-deploy-primed';
+type DashboardAction = 'fetch-crds' | 'sync-and-deploy-primed' | 'list-cache-cards';
 
 type RefreshRequestBody = {
 	action?: DashboardAction;
@@ -21,6 +21,8 @@ type RefreshRequestBody = {
 	queries?: string[] | string;
 	externalRawDir?: string;
 	maxCrds?: number;
+	includePayload?: boolean;
+	maxCards?: number;
 };
 
 type FetchResultItem = {
@@ -33,12 +35,25 @@ type FetchResultItem = {
 	status: 'ok' | 'error';
 	redisWrite: string;
 	error?: string;
+	payload?: unknown;
 };
 
 type FetchTarget = {
 	crd: string;
 	source: 'finra' | 'sec';
 	type: 'individual' | 'firm';
+};
+
+type CacheCardSource = {
+	source: 'finra' | 'sec';
+	status: 'ok' | 'unknown';
+};
+
+type CacheCard = {
+	id: string;
+	entity: 'individual' | 'firm';
+	files: number;
+	sources: CacheCardSource[];
 };
 
 function isObject(value: unknown): value is Record<string, any> {
@@ -245,6 +260,98 @@ function bundlePartKey(bundleName: string, index: number) {
 	return `${bundleKey(bundleName)}:part:${index}`;
 }
 
+async function scanKeys(redis: Redis, pattern: string, limit: number) {
+	let cursor = '0';
+	const keys: string[] = [];
+	let loops = 0;
+
+	do {
+		const [nextCursor, batch] = await redis.scan(cursor, {
+			match: pattern,
+			count: 500,
+		});
+
+		for (const key of batch || []) {
+			keys.push(String(key));
+			if (keys.length >= limit) return keys;
+		}
+
+		cursor = String(nextCursor || '0');
+		loops += 1;
+	} while (cursor !== '0' && loops < 200);
+
+	return keys;
+}
+
+function parseCacheKey(key: string): { source: 'finra' | 'sec'; entity: 'individual' | 'firm'; id: string } | null {
+	const match = /^(finra|sec):(individual|firm):(\d{1,10})(?::.*)?$/i.exec(String(key || '').trim());
+	if (!match) return null;
+	const source = match[1].toLowerCase() as 'finra' | 'sec';
+	const entity = match[2].toLowerCase() as 'individual' | 'firm';
+	const id = match[3];
+	return { source, entity, id };
+}
+
+async function listCacheCards(maxCards = 200) {
+	const redis = ensureRedisClient();
+	if (!redis) {
+		return {
+			ok: false,
+			error: 'no-redis-client',
+			cards: [] as CacheCard[],
+		};
+	}
+
+	const patterns = ['finra:individual:*', 'sec:individual:*', 'finra:firm:*', 'sec:firm:*'];
+
+	const perPatternLimit = Math.max(100, maxCards * 4);
+	const keySet = new Set<string>();
+	for (const pattern of patterns) {
+		const keys = await scanKeys(redis, pattern, perPatternLimit);
+		for (const key of keys) keySet.add(key);
+	}
+
+	const cardMap = new Map<string, CacheCard>();
+	for (const key of keySet) {
+		if (key.startsWith('sec:firm:summaryHtml:')) continue;
+		if (key.startsWith('primed:bundle:')) continue;
+
+		const parsed = parseCacheKey(key);
+		if (!parsed) continue;
+
+		const cardKey = `${parsed.entity}:${parsed.id}`;
+		const existing = cardMap.get(cardKey) || {
+			id: parsed.id,
+			entity: parsed.entity,
+			files: 0,
+			sources: [],
+		};
+
+		existing.files += 1;
+		if (!existing.sources.some((entry) => entry.source === parsed.source)) {
+			existing.sources.push({ source: parsed.source, status: 'ok' });
+		}
+
+		cardMap.set(cardKey, existing);
+	}
+
+	const cards = Array.from(cardMap.values())
+		.sort((left, right) => {
+			if (left.entity !== right.entity) return left.entity === 'individual' ? -1 : 1;
+			return Number(right.id) - Number(left.id);
+		})
+		.slice(0, maxCards)
+		.map((card) => ({
+			...card,
+			sources: card.sources.sort((a, b) => a.source.localeCompare(b.source)),
+		}));
+
+	return {
+		ok: true,
+		cards,
+	};
+}
+
 async function uploadBundle(redis: Redis, bundleName: string, payloadBase64: string) {
 	const key = bundleKey(bundleName);
 	const metaKey = bundleMetaKey(bundleName);
@@ -319,7 +426,8 @@ async function syncExternalRawToLocal(externalRawDir: string) {
 	return stats;
 }
 
-async function fetchCrdsToCacheAndRedis(targets: FetchTarget[]) {
+async function fetchCrdsToCacheAndRedis(targets: FetchTarget[], options: { includePayload?: boolean } = {}) {
+	const { includePayload = false } = options;
 	const results: FetchResultItem[] = [];
 	const nationalRoot = path.join(process.cwd(), 'data', 'national');
 	const rawRoot = path.join(process.cwd(), 'data', 'raw');
@@ -335,7 +443,11 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[]) {
 			: `https://api.adviserinfo.sec.gov/search/firm/${crd}?wt=json`;
 		const cacheFileName = `api.${isFinra ? 'brokercheck.finra.org' : 'adviserinfo.sec.gov'}_search_${target.type}_${crd}.json`;
 		const cacheDir = isFinra ? 'brokercheck.finra.org' : 'adviserinfo.sec.gov';
-		const redisKey = target.type === 'individual' ? `${target.source}:individual:${crd}:${DEFAULT_INDIVIDUAL_QUERY}` : `${target.source}:firm:${crd}:${DEFAULT_FIRM_QUERY}`;
+		const redisKey =
+			target.type === 'individual' ? `${target.source}:individual:${crd}:${DEFAULT_INDIVIDUAL_QUERY}`
+			: target.source === 'finra' ? `finra:firm:${crd}:${DEFAULT_FIRM_QUERY}`
+			: `sec:firm:${crd}`;
+		const redisAliases = target.type === 'firm' && target.source === 'sec' ? [`sec:firm:${crd}:${DEFAULT_FIRM_QUERY}`] : [];
 
 		try {
 			const payload = await fetchJson(url);
@@ -356,9 +468,19 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[]) {
 
 			const nationalFile = path.join(nationalRoot, cacheDir, cacheFileName);
 			const rawFile = path.join(rawRoot, cacheDir, cacheFileName);
-			await Promise.all([writeJsonFile(nationalFile, payload), writeJsonFile(rawFile, payload)]);
+			let fileWriteError = '';
+			try {
+				await Promise.all([writeJsonFile(nationalFile, payload), writeJsonFile(rawFile, payload)]);
+			} catch (writeErr: any) {
+				fileWriteError = writeErr?.message || String(writeErr);
+			}
 
-			const redisWrite = await setStringIfValid(redisKey, JSON.stringify(payload), 60 * 60 * 24);
+			const redisWriteResults = [await setStringIfValid(redisKey, JSON.stringify(payload), 60 * 60 * 24)];
+			for (const aliasKey of redisAliases) {
+				redisWriteResults.push(await setStringIfValid(aliasKey, JSON.stringify(payload), 60 * 60 * 24));
+			}
+			const redisWrite = redisWriteResults.join(',');
+			const persisted = redisWriteResults.some((status) => status === 'written') || !fileWriteError;
 
 			results.push({
 				crd,
@@ -366,9 +488,11 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[]) {
 				type: target.type,
 				url,
 				cacheFile: nationalFile,
-				redisKey,
-				status: 'ok',
+				redisKey: [redisKey, ...redisAliases].join('|'),
+				status: persisted ? 'ok' : 'error',
 				redisWrite,
+				error: persisted ? undefined : `persist-failed:${fileWriteError || redisWrite}`,
+				...(includePayload ? { payload } : {}),
 			});
 		} catch (error: any) {
 			results.push({
@@ -381,6 +505,7 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[]) {
 				status: 'error',
 				redisWrite: 'not-attempted',
 				error: error?.message || String(error),
+				...(includePayload ? { payload: null } : {}),
 			});
 		}
 	}
@@ -447,11 +572,20 @@ export async function POST(request: NextRequest) {
 	}
 
 	const action = body.action;
-	if (!action || !['fetch-crds', 'sync-and-deploy-primed'].includes(action)) {
+	if (!action || !['fetch-crds', 'sync-and-deploy-primed', 'list-cache-cards'].includes(action)) {
 		return NextResponse.json({ ok: false, error: 'invalid-action' }, { status: 400 });
 	}
 
 	try {
+		if (action === 'list-cache-cards') {
+			const maxCards = Math.max(1, Math.min(1000, Number(body.maxCards || 300)));
+			const listed = await listCacheCards(maxCards);
+			if (!listed.ok) {
+				return NextResponse.json({ ok: false, error: listed.error, cards: [] }, { status: 200 });
+			}
+			return NextResponse.json({ ok: true, action, cards: listed.cards, count: listed.cards.length, at: new Date().toISOString() });
+		}
+
 		if (action === 'fetch-crds') {
 			const maxCrds = Number(body.maxCrds || 30);
 			const queries = parseQueries(body.queries ?? body.crds, maxCrds);
@@ -484,7 +618,7 @@ export async function POST(request: NextRequest) {
 				);
 			}
 
-			const fetched = await fetchCrdsToCacheAndRedis(targets);
+			const fetched = await fetchCrdsToCacheAndRedis(targets, { includePayload: Boolean(body.includePayload) });
 			return NextResponse.json({
 				ok: true,
 				action,

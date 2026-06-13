@@ -113,23 +113,7 @@ export default function DashboardPage() {
 	const [queueQueryLines, setQueueQueryLines] = useState<string[]>(['target - | crd - | updated —']);
 	const [queueElapsedSec, setQueueElapsedSec] = useState(0);
 	const [queueRunItems, setQueueRunItems] = useState<QueueRunItem[]>([]);
-	const [queueCards, setQueueCards] = useState<QueueCard[]>([
-		{ id: '7723718', files: 1, entity: 'individual', sources: [{ source: 'finra', status: 'ok' }], since: '6/14/2023' },
-		{ id: '7340947', files: 1, entity: 'individual', sources: [{ source: 'finra', status: 'ok' }], since: '6/26/2021' },
-		{ id: '2245410', files: 1, entity: 'individual', sources: [{ source: 'finra', status: 'ok' }], since: '6/14/1992' },
-		{ id: '5572027', files: 1, entity: 'individual', sources: [{ source: 'finra', status: 'ok' }], since: '2/8/2011' },
-		{ id: '2527669', files: 1, entity: 'individual', sources: [{ source: 'finra', status: 'ok' }], since: '3/15/2000' },
-		{
-			id: '7474983',
-			files: 2,
-			entity: 'individual',
-			sources: [
-				{ source: 'finra', status: 'ok' },
-				{ source: 'sec', status: 'ok' },
-			],
-			since: '2/22/2022',
-		},
-	]);
+	const [queueCards, setQueueCards] = useState<QueueCard[]>([]);
 
 	const queueQueries = useMemo(() => parseQueueQueries(crdInput), [crdInput]);
 	const parsedCrds = useMemo(() => queueQueries.filter((value) => /^\d{1,10}$/.test(value)), [queueQueries]);
@@ -349,6 +333,34 @@ export default function DashboardPage() {
 		return detail?.sources?.sec ?? detail?.merged ?? detail?.finraNode ?? null;
 	}
 
+	async function loadQueueCardsFromRedis() {
+		try {
+			const response = await fetch('/api/dashboard/refresh', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					action: 'list-cache-cards',
+					maxCards: 600,
+				}),
+			});
+
+			const payload = await response.json().catch(() => null);
+			const cards = Array.isArray(payload?.cards) ? payload.cards : [];
+			if (cards.length > 0) {
+				setQueueCards(cards as QueueCard[]);
+			}
+		} catch {
+			// keep existing cards on load errors
+		}
+	}
+
+	useEffect(() => {
+		void loadQueueCardsFromRedis();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
 	async function fetchMergedDetail(card: QueueCard) {
 		const route = card.entity === 'firm' ? `/api/finra/merged/firm/${card.id}` : `/api/finra/merged/individual/${card.id}`;
 		const response = await fetch(route, {
@@ -361,39 +373,14 @@ export default function DashboardPage() {
 
 	async function loadQueueSourceJson(card: QueueCard, source: SearchResultSource) {
 		try {
-			let detail = await fetchMergedDetail(card);
-			let payload = extractPayloadFromDetail(detail, source);
+			const detail = await fetchMergedDetail(card);
+			const payload = extractPayloadFromDetail(detail, source);
 
 			if (!payload) {
-				// Cache may not have been hydrated for this CRD on deployed environments.
-				await fetch('/api/dashboard/refresh', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						action: 'fetch-crds',
-						queries: [card.id],
-						crds: [card.id],
-						maxCrds: 1,
-					}),
+				setResult({
+					ok: false,
+					error: `No cached ${String(source).toUpperCase()} payload found for ${card.entity} ${card.id}. Run Queue to fetch from external APIs and update Redis.`,
 				});
-
-				detail = await fetchMergedDetail(card);
-				payload = extractPayloadFromDetail(detail, source);
-			}
-
-			if (!payload) {
-				const fallback = detail?.merged ?? detail?.finraNode ?? detail?.sources?.finra ?? detail?.sources?.sec ?? null;
-				if (fallback) {
-					setMainJson(normalizePayloadForCleanView(fallback) as Record<string, any>);
-					setMainJsonLabel(`fallback:${card.entity}:${card.id}`);
-					setResult({
-						ok: false,
-						error: `No ${String(source).toUpperCase()} payload found for ${card.entity} ${card.id}; showing fallback payload`,
-					});
-					return;
-				}
-
-				setResult({ ok: false, error: `No ${String(source).toUpperCase()} payload found for ${card.entity} ${card.id} after refresh` });
 				return;
 			}
 
@@ -502,6 +489,7 @@ export default function DashboardPage() {
 				const fetchedItems = Array.isArray((payload as any)?.results) ? (payload as any).results : [];
 				const nextCards = buildQueueCardsFromFetchResults(fetchedItems);
 				if (nextCards.length > 0) setQueueCards(nextCards);
+				void loadQueueCardsFromRedis();
 			}
 		} catch (error: any) {
 			if (action === 'fetch-crds') {
