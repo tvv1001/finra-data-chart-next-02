@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import styles from './dashboard.module.css';
 
 type DashboardAction = 'fetch-crds' | 'sync-and-deploy-primed';
@@ -25,6 +25,35 @@ type SearchResultCard = {
 	payload: SearchResult;
 };
 
+type QueueCardSourceEntry = {
+	source: SearchResultSource;
+	status: 'ok' | 'error' | 'unknown';
+	error?: string;
+};
+
+type QueueCard = {
+	id: string;
+	entity: 'individual' | 'firm';
+	files: number;
+	sources: QueueCardSourceEntry[];
+	since?: string;
+};
+
+type QueueRunItem = {
+	query: string;
+	status: 'queued' | 'running' | 'complete' | 'nomatch' | 'error';
+	elapsedSec: number;
+	message?: string;
+	crdCount?: number;
+};
+
+type UrlSelectionInput = {
+	entity: 'individual' | 'firm';
+	id: string;
+	source: SearchResultSource;
+	availableSources?: SearchResultSource[];
+};
+
 function parseQueueQueries(input: string) {
 	return input
 		.split(/[\n,;]+/g)
@@ -45,21 +74,62 @@ export default function DashboardPage() {
 	const [searchError, setSearchError] = useState<string | null>(null);
 	const [searchResults, setSearchResults] = useState<SearchResultCard[]>([]);
 	const [searchSkippedCount, setSearchSkippedCount] = useState(0);
+	const [queueStatusLine, setQueueStatusLine] = useState('Idle | - | queue - | elapsed 0s');
+	const [queueQueryLines, setQueueQueryLines] = useState<string[]>(['target - | crd - | updated —']);
+	const [queueElapsedSec, setQueueElapsedSec] = useState(0);
+	const [queueRunItems, setQueueRunItems] = useState<QueueRunItem[]>([]);
+	const [queueCards, setQueueCards] = useState<QueueCard[]>([
+		{ id: '7723718', files: 1, entity: 'individual', sources: [{ source: 'finra', status: 'ok' }], since: '6/14/2023' },
+		{ id: '7340947', files: 1, entity: 'individual', sources: [{ source: 'finra', status: 'ok' }], since: '6/26/2021' },
+		{ id: '2245410', files: 1, entity: 'individual', sources: [{ source: 'finra', status: 'ok' }], since: '6/14/1992' },
+		{ id: '5572027', files: 1, entity: 'individual', sources: [{ source: 'finra', status: 'ok' }], since: '2/8/2011' },
+		{ id: '2527669', files: 1, entity: 'individual', sources: [{ source: 'finra', status: 'ok' }], since: '3/15/2000' },
+		{
+			id: '7474983',
+			files: 2,
+			entity: 'individual',
+			sources: [
+				{ source: 'finra', status: 'ok' },
+				{ source: 'sec', status: 'ok' },
+			],
+			since: '2/22/2022',
+		},
+	]);
 
 	const queueQueries = useMemo(() => parseQueueQueries(crdInput), [crdInput]);
 	const parsedCrds = useMemo(() => queueQueries.filter((value) => /^\d{1,10}$/.test(value)), [queueQueries]);
 
-	const recentCards = useMemo(
-		() => [
-			{ id: '7723718', files: 1, scopes: ['FINRA'], since: '6/14/2023', active: ['FINRA'] },
-			{ id: '7340947', files: 1, scopes: ['FINRA'], since: '6/26/2021', active: [] },
-			{ id: '2245410', files: 1, scopes: ['FINRA'], since: '6/14/1992', active: ['FINRA'] },
-			{ id: '5572027', files: 1, scopes: ['FINRA'], since: '2/8/2011', active: ['FINRA'] },
-			{ id: '2527669', files: 1, scopes: ['FINRA'], since: '3/15/2000', active: ['FINRA'] },
-			{ id: '7474983', files: 2, scopes: ['FINRA', 'SEC'], since: '2/22/2022', active: ['FINRA', 'SEC'] },
-		],
-		[],
-	);
+	useEffect(() => {
+		if (busyAction !== 'fetch-crds') return;
+
+		const timer = window.setInterval(() => {
+			setQueueElapsedSec((current) => current + 1);
+			setQueueRunItems((items) =>
+				items.map((item) =>
+					item.status === 'running' ?
+						{
+							...item,
+							elapsedSec: item.elapsedSec + 1,
+						}
+					:	item,
+				),
+			);
+		}, 1000);
+
+		return () => {
+			window.clearInterval(timer);
+		};
+	}, [busyAction]);
+
+	useEffect(() => {
+		if (busyAction !== 'fetch-crds') return;
+		setQueueStatusLine((prev) => {
+			if (/elapsed\s+\d+s/i.test(prev)) {
+				return prev.replace(/elapsed\s+\d+s/i, `elapsed ${queueElapsedSec}s`);
+			}
+			return `Searching | Queue | queue 1/${Math.max(1, queueQueries.length)} | elapsed ${queueElapsedSec}s`;
+		});
+	}, [busyAction, queueElapsedSec, queueQueries.length]);
 
 	const newCrds = useMemo(
 		() => [
@@ -152,11 +222,136 @@ export default function DashboardPage() {
 	function setMainViewFromSearch(card: SearchResultCard, sourceLabel: string) {
 		setMainJson(card.payload);
 		setMainJsonLabel(`${String(card.source).toUpperCase()} ${card.entity.toUpperCase()} • ${sourceLabel}`);
+		syncSelectionToUrl({
+			entity: card.entity,
+			id: card.id,
+			source: card.source,
+			availableSources: [card.source],
+		});
+	}
+
+	function syncSelectionToUrl({ entity, id, source, availableSources = [source] }: UrlSelectionInput) {
+		if (typeof window === 'undefined') return;
+		if (!/^\d{1,10}$/.test(String(id || '').trim())) return;
+
+		const url = new URL(window.location.href);
+		const params = url.searchParams;
+		const recordId = String(id).trim();
+		const hasFinra = availableSources.includes('finra');
+		const hasSec = availableSources.includes('sec');
+
+		if (entity === 'firm') {
+			params.set('CRD_firm', recordId);
+			params.delete('CRD_individual');
+		} else {
+			params.set('CRD_individual', recordId);
+			params.delete('CRD_firm');
+		}
+
+		params.set('source', source);
+		if (hasFinra) params.set('finra', '1');
+		else params.delete('finra');
+		if (hasSec) params.set('sec', '1');
+		else params.delete('sec');
+
+		window.history.replaceState({}, '', `${url.pathname}?${params.toString()}${url.hash}`);
+	}
+
+	function buildQueueCardsFromFetchResults(items: any[]): QueueCard[] {
+		const map = new Map<string, QueueCard>();
+		for (const item of items) {
+			const id = String(item?.crd || '').trim();
+			const source = String(item?.source || '')
+				.trim()
+				.toLowerCase() as SearchResultSource;
+			const entity =
+				(
+					String(item?.type || '')
+						.trim()
+						.toLowerCase() === 'firm'
+				) ?
+					'firm'
+				:	'individual';
+			if (!/^\d{1,10}$/.test(id)) continue;
+			if (source !== 'finra' && source !== 'sec') continue;
+
+			const key = `${entity}:${id}`;
+			const existing = map.get(key) || {
+				id,
+				entity,
+				files: 0,
+				sources: [],
+			};
+
+			existing.files += 1;
+			const nextSource: QueueCardSourceEntry = {
+				source,
+				status:
+					item?.status === 'error' ? 'error'
+					: item?.status === 'ok' ? 'ok'
+					: 'unknown',
+				error: item?.error ? String(item.error) : undefined,
+			};
+
+			const sourceIndex = existing.sources.findIndex((entry) => entry.source === source);
+			if (sourceIndex >= 0) existing.sources[sourceIndex] = nextSource;
+			else existing.sources.push(nextSource);
+
+			map.set(key, existing);
+		}
+
+		return Array.from(map.values()).sort((left, right) => {
+			if (left.entity !== right.entity) return left.entity === 'individual' ? -1 : 1;
+			return right.id.localeCompare(left.id);
+		});
+	}
+
+	async function loadQueueSourceJson(card: QueueCard, source: SearchResultSource) {
+		try {
+			const route = card.entity === 'firm' ? `/api/finra/merged/firm/${card.id}` : `/api/finra/merged/individual/${card.id}`;
+			const response = await fetch(route, {
+				method: 'GET',
+				headers: { Accept: 'application/json' },
+				cache: 'no-store',
+			});
+
+			const detail = await response.json();
+			const payload = source === 'finra' ? (detail?.sources?.finra ?? detail?.finraNode ?? detail?.merged) : (detail?.sources?.sec ?? detail?.merged ?? detail?.finraNode);
+
+			if (!payload) {
+				setResult({ ok: false, error: `No ${String(source).toUpperCase()} payload found for ${card.entity} ${card.id}` });
+				return;
+			}
+
+			setMainJson(payload);
+			setMainJsonLabel(`${source}:${card.entity}:${card.id}`);
+			syncSelectionToUrl({
+				entity: card.entity,
+				id: card.id,
+				source,
+				availableSources: card.sources.map((entry) => entry.source),
+			});
+		} catch (error: any) {
+			setResult({ ok: false, error: error?.message || String(error) });
+		}
 	}
 
 	async function runAction(action: DashboardAction) {
 		setBusyAction(action);
 		setResult(null);
+		const startedAt = Date.now();
+		if (action === 'fetch-crds') {
+			setQueueElapsedSec(0);
+			setQueueRunItems(
+				queueQueries.map((query, index) => ({
+					query,
+					status: index === 0 ? 'running' : 'queued',
+					elapsedSec: 0,
+				})),
+			);
+			setQueueStatusLine(`Searching | Queue | queue 1/${Math.max(1, queueQueries.length)} | elapsed 0s`);
+			setQueueQueryLines(['target - | crd - | updated —', `last Starting search for "${queueQueries[0] || '-'}"`]);
+		}
 
 		try {
 			const body =
@@ -182,7 +377,70 @@ export default function DashboardPage() {
 
 			const payload = (await response.json()) as ApiResponse;
 			setResult(payload);
+
+			if (action === 'fetch-crds') {
+				const resolution = Array.isArray((payload as any)?.resolution) ? (payload as any).resolution : [];
+				const matched = resolution.filter((entry: any) => Number(entry?.crdCount || 0) > 0).length;
+				const elapsedSec = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+				setQueueStatusLine(`Done | ${matched}/${resolution.length || queueQueries.length} matched | queue ${queueQueries.length} | elapsed ${elapsedSec}s`);
+				setQueueRunItems((current) =>
+					current.map((item) => {
+						const resolved = resolution.find((entry: any) => String(entry?.query || '').trim() === item.query);
+						const crdCount = Number(resolved?.crdCount || 0);
+						if (!resolved) {
+							return {
+								...item,
+								status: 'nomatch',
+								message: `${item.query} • NO MATCH`,
+							};
+						}
+
+						if (crdCount > 0) {
+							return {
+								...item,
+								status: 'complete',
+								crdCount,
+								message: `${item.query} • COMPLETE ${crdCount} matches`,
+							};
+						}
+
+						return {
+							...item,
+							status: 'nomatch',
+							crdCount,
+							message: `${item.query} • NO MATCH`,
+						};
+					}),
+				);
+
+				const summary = (payload as any)?.summary;
+				const successCount = Number(summary?.successCount || 0);
+				const errorCount = Number(summary?.errorCount || 0);
+				const nextQueryLines: string[] = [];
+				for (const entry of resolution.slice(0, 8)) {
+					const queryText = String(entry?.query || '').trim() || '-';
+					const crdCount = Number(entry?.crdCount || 0);
+					nextQueryLines.push(`target ${queryText} | crd ${crdCount} | updated ${crdCount > 0 ? 'yes' : 'no'}`);
+				}
+				nextQueryLines.push(`match F/S requests ok ${successCount} | err ${errorCount}`);
+				setQueueQueryLines(nextQueryLines.length ? nextQueryLines : ['target - | crd - | updated —']);
+
+				const fetchedItems = Array.isArray((payload as any)?.results) ? (payload as any).results : [];
+				const nextCards = buildQueueCardsFromFetchResults(fetchedItems);
+				if (nextCards.length > 0) setQueueCards(nextCards);
+			}
 		} catch (error: any) {
+			if (action === 'fetch-crds') {
+				const elapsedSec = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+				setQueueStatusLine(`Error | query failed | queue ${queueQueries.length} | elapsed ${elapsedSec}s`);
+				setQueueRunItems((current) =>
+					current.map((item) => ({
+						...item,
+						status: item.status === 'complete' ? 'complete' : 'error',
+						message: item.message || `${item.query} • ERROR`,
+					})),
+				);
+			}
 			setResult({ ok: false, error: error?.message || String(error) });
 		} finally {
 			setBusyAction(null);
@@ -317,21 +575,49 @@ export default function DashboardPage() {
 						{busyAction === 'fetch-crds' ? 'Running…' : 'Run Queue'}
 					</button>
 
+					{queueRunItems.length > 0 && (
+						<div className={styles.queueRunList}>
+							{queueRunItems.map((item) => (
+								<div
+									key={item.query}
+									className={styles.queueRunItem}>
+									<div className={styles.queueRunTop}>
+										<span className={styles.queueRunQuery}>{item.query}</span>
+										<span className={`${styles.queueRunBadge} ${styles[`queueRunBadge_${item.status}`]}`}>{item.status}</span>
+									</div>
+									<div className={styles.queueRunMeta}>{item.message || `${item.query} • ${item.status} ${item.elapsedSec}s`}</div>
+								</div>
+							))}
+						</div>
+					)}
+
 					<div className={styles.queueSectionTitle}>Run Queue</div>
 					<div className={styles.queueMeta}>Showing recent results from 1,000 loaded files (100,316 total).</div>
 					<div className={styles.cardList}>
-						{recentCards.map((card) => (
+						{queueCards.map((card) => (
 							<div
-								key={card.id}
+								key={`${card.entity}:${card.id}`}
 								className={styles.card}>
 								<div className={styles.cardTop}>
 									<strong>{card.id}</strong>
-									<span>Individual • {card.files} file</span>
+									<span>
+										{card.entity === 'firm' ? 'Firm' : 'Individual'} • {card.files} file
+									</span>
 								</div>
-								<div className={styles.cardScopes}>{card.scopes.join('  ')}</div>
-								<div className={styles.cardKey}>finra:individual:{card.id}</div>
-								<div className={styles.cardMeta}>In industry since: {card.since}</div>
-								{!!card.active.length && <div className={styles.activeTags}>● {card.active.join(' active ● ')} active</div>}
+								<div className={styles.cardScopes}>{card.sources.map((entry) => String(entry.source).toUpperCase()).join('  ')}</div>
+								<div className={styles.cardSourceRow}>
+									{card.sources.map((entry) => (
+										<button
+											key={`${card.entity}:${card.id}:${entry.source}`}
+											type='button'
+											className={styles.cardSourceKeyBtn}
+											onClick={() => loadQueueSourceJson(card, entry.source)}>
+											{entry.source}:{card.entity}:{card.id}
+										</button>
+									))}
+								</div>
+								{card.since && <div className={styles.cardMeta}>In industry since: {card.since}</div>}
+								{card.sources.some((entry) => entry.status === 'error') && <div className={styles.cardError}>One or more source fetches failed</div>}
 							</div>
 						))}
 					</div>
@@ -348,9 +634,9 @@ export default function DashboardPage() {
 					<div className={styles.statusLine}>Local sync: 14 new • 0 updated • 0 repaired • 0 already current</div>
 
 					<div className={styles.consoleLine}>
-						target - | crd - | updated —
+						{queueStatusLine}
 						<br />
-						match F:0 S:0 | seeds 0 | saved 0 | sync +0/~0/!0/=0 | err 0
+						{queueQueryLines.join(' • ')}
 					</div>
 
 					<div className={styles.jsonPanel}>
