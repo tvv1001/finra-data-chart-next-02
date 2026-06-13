@@ -40,7 +40,10 @@ import { searchLocalIndex } from '@/lib/localSearch';
 import { GET } from '@/app/api/finra/graph-search/route';
 
 describe('graph-search route', () => {
+	const originalFetch = global.fetch;
+
 	beforeEach(() => {
+		global.fetch = originalFetch;
 		vi.mocked(searchLocalIndex).mockClear();
 		vi.mocked(getFullGraph).mockResolvedValue({
 			nodes: [
@@ -113,5 +116,88 @@ describe('graph-search route', () => {
 		expect(payload.matchedIds).toEqual(['person:2']);
 		expect(payload.nodes.some((node: any) => node.id === 'person:1')).toBe(false);
 		expect(payload.nodes.some((node: any) => node.id === 'person:2')).toBe(true);
+	});
+
+	it('hydrates numeric CRD via direct detail fallback when local index has no hits', async () => {
+		vi.mocked(getFullGraph).mockResolvedValueOnce({ nodes: [], links: [] });
+		const fetchMock = vi.fn(async (input: string | URL) => {
+			const url = String(input);
+			if (url.includes('/api/finra/individual/8164723')) {
+				return {
+					ok: true,
+					json: async () => ({
+						found: true,
+						merged: {
+							basicInformation: {
+								individualId: '8164723',
+								firstName: 'TEST',
+								lastName: 'PERSON',
+							},
+							currentEmployments: [{ firm_id: '12345', firm_name: 'Fallback Firm' }],
+						},
+					}),
+				} as any;
+			}
+			if (url.includes('/api/finra/firm/8164723')) {
+				return {
+					ok: true,
+					json: async () => ({ found: false }),
+				} as any;
+			}
+			throw new Error(`Unexpected fetch URL: ${url}`);
+		});
+		global.fetch = fetchMock as any;
+
+		const response = await GET(new NextRequest('http://localhost/api/finra/graph-search?q=8164723'));
+		const payload = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(payload.matchedIds).toContain('person:8164723');
+		expect(payload.nodes.some((node: any) => node.id === 'person:8164723')).toBe(true);
+		expect(payload.nodes.some((node: any) => node.id === 'firm:12345')).toBe(true);
+		expect(fetchMock).toHaveBeenCalled();
+	});
+
+	it('hydrates numeric CRD via cache-card fallback when detail routes return found:false', async () => {
+		vi.mocked(getFullGraph).mockResolvedValueOnce({ nodes: [], links: [] });
+		const fetchMock = vi.fn(async (input: string | URL) => {
+			const url = String(input);
+			if (url.includes('/api/finra/individual/8164723')) {
+				return { ok: true, json: async () => ({ found: false }) } as any;
+			}
+			if (url.includes('/api/finra/firm/8164723')) {
+				return { ok: true, json: async () => ({ found: false }) } as any;
+			}
+			if (url.includes('/api/dashboard/refresh')) {
+				return {
+					ok: true,
+					json: async () => ({
+						ok: true,
+						cards: [
+							{
+								id: '8164723',
+								entity: 'individual',
+								files: 2,
+								sources: [
+									{ source: 'finra', status: 'ok' },
+									{ source: 'sec', status: 'ok' },
+								],
+							},
+						],
+					}),
+				} as any;
+			}
+			throw new Error(`Unexpected fetch URL: ${url}`);
+		});
+		global.fetch = fetchMock as any;
+
+		const response = await GET(new NextRequest('http://localhost/api/finra/graph-search?q=8164723'));
+		const payload = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(payload.matchedIds).toContain('person:8164723');
+		expect(payload.nodes.some((node: any) => node.id === 'person:8164723')).toBe(true);
+		expect(payload.nodes.some((node: any) => node._source === 'cache-card-fallback')).toBe(true);
+		expect(fetchMock).toHaveBeenCalled();
 	});
 });

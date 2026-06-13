@@ -79,21 +79,27 @@ function normalizePayloadForCleanView(payload: unknown) {
 		if (source && typeof source === 'object') {
 			const parsedContent = safeParseJson((source as any).content);
 			const parsedIaContent = safeParseJson((source as any).iacontent);
-			return {
+			const merged = {
 				...(source as Record<string, any>),
 				...(parsedContent && typeof parsedContent === 'object' ? (parsedContent as Record<string, any>) : {}),
 				...(parsedIaContent && typeof parsedIaContent === 'object' ? (parsedIaContent as Record<string, any>) : {}),
-			};
+			} as Record<string, any>;
+			if (parsedContent && typeof parsedContent === 'object') delete merged.content;
+			if (parsedIaContent && typeof parsedIaContent === 'object') delete merged.iacontent;
+			return merged;
 		}
 	}
 
 	const parsedContent = safeParseJson(obj.content);
 	const parsedIaContent = safeParseJson(obj.iacontent);
-	return {
+	const merged = {
 		...obj,
 		...(parsedContent && typeof parsedContent === 'object' ? (parsedContent as Record<string, any>) : {}),
 		...(parsedIaContent && typeof parsedIaContent === 'object' ? (parsedIaContent as Record<string, any>) : {}),
-	};
+	} as Record<string, any>;
+	if (parsedContent && typeof parsedContent === 'object') delete merged.content;
+	if (parsedIaContent && typeof parsedIaContent === 'object') delete merged.iacontent;
+	return merged;
 }
 
 export default function DashboardPage() {
@@ -104,6 +110,10 @@ export default function DashboardPage() {
 	const [mainJson, setMainJson] = useState<Record<string, any> | null>(null);
 	const [mainJsonLabel, setMainJsonLabel] = useState('');
 	const [dismissedNewCrds, setDismissedNewCrds] = useState(false);
+	const [newCrds, setNewCrds] = useState<Array<{ id: string; type: string; found: string; scopes: string[]; date: string }>>([]);
+	const [newCrdsLoading, setNewCrdsLoading] = useState(false);
+	const [newCrdsLastChecked, setNewCrdsLastChecked] = useState<string | null>(null);
+	const [newCrdsDetectedCount, setNewCrdsDetectedCount] = useState(0);
 	const [searchQuery, setSearchQuery] = useState('');
 	const [searchBusy, setSearchBusy] = useState(false);
 	const [searchError, setSearchError] = useState<string | null>(null);
@@ -130,6 +140,7 @@ export default function DashboardPage() {
 	const [activeCardSourceKey, setActiveCardSourceKey] = useState<string | null>(null);
 	const [jsonRenderBusy, setJsonRenderBusy] = useState(false);
 	const [codeBlock, setCodeBlock] = useState('');
+	const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
 	const mergedDetailCacheRef = useRef(new Map<string, any>());
 	const jsonStringCacheRef = useRef(new Map<string, string>());
 
@@ -168,23 +179,25 @@ export default function DashboardPage() {
 		});
 	}, [busyAction, queueElapsedSec, queueQueries.length]);
 
-	const newCrds = useMemo(
-		() => [
-			{ id: '8266846', type: 'INDIVIDUAL', found: '12d ago', scopes: ['FINRA', 'SEC'], date: '2026-05-13' },
-			{ id: '8266825', type: 'INDIVIDUAL', found: '13d ago', scopes: ['FINRA', 'SEC'], date: '2026-05-11' },
-			{ id: '8266820', type: 'INDIVIDUAL', found: '13d ago', scopes: ['FINRA', 'SEC'], date: '' },
-			{ id: '8266804', type: 'INDIVIDUAL', found: '13d ago', scopes: ['FINRA'], date: '2026-05-28' },
-			{ id: '341273', type: 'FIRM', found: '12d ago', scopes: ['SEC'], date: '' },
-			{ id: '341272', type: 'FIRM', found: '12d ago', scopes: ['SEC'], date: '' },
-			{ id: '341270', type: 'FIRM', found: '12d ago', scopes: ['SEC'], date: '' },
-			{ id: '341268', type: 'FIRM', found: '12d ago', scopes: ['SEC'], date: '' },
-			{ id: '341266', type: 'FIRM', found: '12d ago', scopes: ['SEC'], date: '' },
-			{ id: '341265', type: 'FIRM', found: '12d ago', scopes: ['SEC'], date: '' },
-			{ id: '341264', type: 'FIRM', found: '12d ago', scopes: ['SEC'], date: '' },
-			{ id: '341262', type: 'FIRM', found: '12d ago', scopes: ['SEC'], date: '' },
-		],
-		[],
-	);
+	// Load new CRDs on mount
+	useEffect(() => {
+		setNewCrdsLoading(true);
+		fetch('/api/dashboard/refresh', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ action: 'list-new-crds' }),
+		})
+			.then((res) => res.json())
+			.then((data) => {
+				if (data.ok) {
+					setNewCrds(data.newCrds || []);
+					setNewCrdsLastChecked(data.lastChecked);
+					setNewCrdsDetectedCount(data.detectedCount || 0);
+				}
+			})
+			.catch((err) => console.error('Failed to load new CRDs:', err))
+			.finally(() => setNewCrdsLoading(false));
+	}, []);
 
 	const hasCurrentRecord = Boolean(mainJson || result);
 
@@ -252,9 +265,28 @@ export default function DashboardPage() {
 		const shown = Number(queueMetaStats.shownCount || queueCards.length || 0);
 		const total = Number(queueMetaStats.totalCount || shown);
 		const filteredTotal = Number(queueMetaStats.filteredTotalCount || shown);
-		const filterSuffix = queueCrdFilter.trim().length > 0 ? ` Filtered: ${filteredTotal.toLocaleString()} matched.` : '';
+		const filterSuffix = queueCrdFilter.trim().length > 0 ? ` Filtered: ${filteredTotal.toLocaleString()} matched.${filteredTotal === 0 ? ' (No cached match yet)' : ''}` : '';
 		return `Showing recent results from ${shown.toLocaleString()} loaded records (${total.toLocaleString()} total cached records).${filterSuffix}`;
 	}, [queueCards.length, queueMetaStats, queueCrdFilter]);
+
+	const filteredNewCrds = useMemo(() => {
+		const token = queueCrdFilter.trim();
+		if (!token) return [] as Array<(typeof newCrds)[number]>;
+		const tokens = token
+			.split(/[\s,;]+/g)
+			.map((value) => value.trim())
+			.filter(Boolean);
+		return newCrds.filter((item) => tokens.some((value) => item.id === value || item.id.includes(value)));
+	}, [newCrds, queueCrdFilter]);
+
+	function markRecordUpdatedAt(value?: unknown) {
+		const raw = typeof value === 'string' ? value.trim() : '';
+		if (raw) {
+			setRecordUpdatedAt(raw);
+			return;
+		}
+		setRecordUpdatedAt(new Date().toISOString());
+	}
 
 	function extractValidCrd(item: SearchResult, entity: 'individual' | 'firm') {
 		const candidateKeys =
@@ -294,6 +326,7 @@ export default function DashboardPage() {
 	function setMainViewFromSearch(card: SearchResultCard, sourceLabel: string) {
 		setMainJson(normalizePayloadForCleanView(card.payload) as Record<string, any>);
 		setMainJsonLabel(`${String(card.source).toUpperCase()} ${card.entity.toUpperCase()} • ${sourceLabel}`);
+		markRecordUpdatedAt();
 		syncSelectionToUrl({
 			entity: card.entity,
 			id: card.id,
@@ -454,6 +487,35 @@ export default function DashboardPage() {
 		return response.json();
 	}
 
+	async function refreshSingleCardRecord(card: QueueCard, source: SearchResultSource) {
+		const response = await fetch('/api/dashboard/refresh', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({
+				action: 'fetch-crds',
+				queries: [card.id],
+				crds: [card.id],
+				maxCrds: 1,
+				includePayload: true,
+			}),
+		});
+
+		const payload = await response.json().catch(() => null);
+		const items = Array.isArray(payload?.results) ? payload.results : [];
+		const match = items.find(
+			(item: any) =>
+				String(item?.crd || '') === card.id &&
+				String(item?.source || '').toLowerCase() === source &&
+				String(item?.type || '').toLowerCase() === card.entity &&
+				item?.status === 'ok' &&
+				item?.payload,
+		);
+
+		return match?.payload ?? null;
+	}
+
 	async function loadQueueSourceJson(card: QueueCard, source: SearchResultSource) {
 		const sourceKey = `${card.entity}:${card.id}:${source}`;
 		setActiveCardSourceKey(sourceKey);
@@ -470,16 +532,40 @@ export default function DashboardPage() {
 			}
 
 			if (!payload) {
+				const directRefreshedPayload = await refreshSingleCardRecord(card, source);
+				if (directRefreshedPayload) {
+					payload = directRefreshedPayload;
+				}
+
+				mergedDetailCacheRef.current.delete(`${card.entity}:${card.id}`);
+				if (!payload) {
+					const refreshedDetail = await fetchMergedDetail(card);
+					payload = extractPayloadFromDetail(refreshedDetail, source);
+				}
+
+				if (!payload) {
+					const refreshedFallbackDetail = await fetchFallbackDetail(card);
+					payload = extractPayloadFromDetail(refreshedFallbackDetail, source);
+					if (payload) {
+						mergedDetailCacheRef.current.set(`${card.entity}:${card.id}`, refreshedFallbackDetail);
+					}
+				}
+
+				void loadQueueCardsFromRedis(queueCrdFilter);
+			}
+
+			if (!payload) {
 				setMainJsonLabel(`${source}:${card.entity}:${card.id}`);
 				setResult({
 					ok: false,
-					error: `No ${String(source).toUpperCase()} payload found for ${card.entity} ${card.id} in merged or fallback detail routes. Run Queue to fetch from external APIs and update cache.`,
+					error: `No ${String(source).toUpperCase()} payload found for ${card.entity} ${card.id} after merged/fallback lookup and auto-refresh retry.`,
 				});
 				return;
 			}
 
 			setMainJson(normalizePayloadForCleanView(payload) as Record<string, any>);
 			setMainJsonLabel(`${source}:${card.entity}:${card.id}`);
+			markRecordUpdatedAt();
 			syncSelectionToUrl({
 				entity: card.entity,
 				id: card.id,
@@ -493,21 +579,30 @@ export default function DashboardPage() {
 		}
 	}
 
-	async function runAction(action: DashboardAction) {
+	async function runAction(action: DashboardAction, overrideQueries?: string[]) {
 		setBusyAction(action);
 		setResult(null);
+		setRecordUpdatedAt(null);
 		const startedAt = Date.now();
+		const effectiveQueries =
+			action === 'fetch-crds' ?
+				overrideQueries && overrideQueries.length > 0 ?
+					overrideQueries
+				:	queueQueries
+			:	[];
+		const effectiveParsedCrds = action === 'fetch-crds' ? effectiveQueries.filter((value) => /^\d{1,10}$/.test(String(value).trim())) : [];
+
 		if (action === 'fetch-crds') {
 			setQueueElapsedSec(0);
 			setQueueRunItems(
-				queueQueries.map((query, index) => ({
+				effectiveQueries.map((query, index) => ({
 					query,
 					status: index === 0 ? 'running' : 'queued',
 					elapsedSec: 0,
 				})),
 			);
-			setQueueStatusLine(`Searching | Queue | queue 1/${Math.max(1, queueQueries.length)} | elapsed 0s`);
-			setQueueQueryLines(['target - | crd - | updated —', `last Starting search for "${queueQueries[0] || '-'}"`]);
+			setQueueStatusLine(`Searching | Queue | queue 1/${Math.max(1, effectiveQueries.length)} | elapsed 0s`);
+			setQueueQueryLines(['target - | crd - | updated —', `last Starting search for "${effectiveQueries[0] || '-'}"`]);
 		}
 
 		try {
@@ -515,8 +610,8 @@ export default function DashboardPage() {
 				action === 'fetch-crds' ?
 					{
 						action,
-						queries: queueQueries,
-						crds: parsedCrds,
+						queries: effectiveQueries,
+						crds: effectiveParsedCrds,
 						maxCrds: 100,
 					}
 				:	{
@@ -534,6 +629,7 @@ export default function DashboardPage() {
 
 			const payload = (await response.json()) as ApiResponse;
 			setResult(payload);
+			markRecordUpdatedAt((payload as any)?.at);
 
 			if (action === 'fetch-crds') {
 				mergedDetailCacheRef.current.clear();
@@ -541,7 +637,7 @@ export default function DashboardPage() {
 				const resolution = Array.isArray((payload as any)?.resolution) ? (payload as any).resolution : [];
 				const matched = resolution.filter((entry: any) => Number(entry?.crdCount || 0) > 0).length;
 				const elapsedSec = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
-				setQueueStatusLine(`Done | ${matched}/${resolution.length || queueQueries.length} matched | queue ${queueQueries.length} | elapsed ${elapsedSec}s`);
+				setQueueStatusLine(`Done | ${matched}/${resolution.length || effectiveQueries.length} matched | queue ${effectiveQueries.length} | elapsed ${elapsedSec}s`);
 				setQueueRunItems((current) =>
 					current.map((item) => {
 						const resolved = resolution.find((entry: any) => String(entry?.query || '').trim() === item.query);
@@ -597,7 +693,7 @@ export default function DashboardPage() {
 		} catch (error: any) {
 			if (action === 'fetch-crds') {
 				const elapsedSec = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
-				setQueueStatusLine(`Error | query failed | queue ${queueQueries.length} | elapsed ${elapsedSec}s`);
+				setQueueStatusLine(`Error | query failed | queue ${effectiveQueries.length} | elapsed ${elapsedSec}s`);
 				setSyncBannerText(null);
 				setQueueRunItems((current) =>
 					current.map((item) => ({
@@ -608,6 +704,7 @@ export default function DashboardPage() {
 				);
 			}
 			setResult({ ok: false, error: error?.message || String(error) });
+			markRecordUpdatedAt();
 		} finally {
 			setBusyAction(null);
 		}
@@ -787,6 +884,24 @@ export default function DashboardPage() {
 								{card.sources.some((entry) => entry.status === 'error') && <div className={styles.cardError}>One or more source fetches failed</div>}
 							</div>
 						))}
+
+						{queueCards.length === 0 && queueCrdFilter.trim().length > 0 && filteredNewCrds.length > 0 && filteredNewCrds[0].scopes.length > 0 && (
+							<div className={styles.card}>
+								<div className={styles.cardTop}>
+									<strong>{filteredNewCrds[0].id}</strong>
+									<span>Not cached yet • New CRD match</span>
+								</div>
+								<div className={styles.cardScopes}>{filteredNewCrds[0].scopes.join('  ')}</div>
+								<div className={styles.cardMeta}>Use Run Queue to fetch this CRD into cache.</div>
+								<button
+									type='button'
+									className={styles.primaryBtn}
+									onClick={() => runAction('fetch-crds', [filteredNewCrds[0].id])}
+									disabled={busyAction !== null}>
+									{busyAction === 'fetch-crds' ? 'Running…' : `Run Queue for ${filteredNewCrds[0].id}`}
+								</button>
+							</div>
+						)}
 					</div>
 
 					<div className={styles.leftFilterWrap}>
@@ -805,20 +920,11 @@ export default function DashboardPage() {
 						<>
 							<div className={styles.recordHeader}>CURRENT RECORD</div>
 							<h2 className={styles.recordTitle}>{mainJsonLabel}</h2>
-							<div className={styles.recordPills}>
-								<span>FINRA raw JSON</span>
-								<span>SEC raw JSON</span>
-							</div>
+							{recordUpdatedAt && <div className={styles.searchSummary}>Updated: {new Date(recordUpdatedAt).toLocaleString()}</div>}
 						</>
 					)}
 
 					{syncBannerText && <div className={styles.statusLine}>{syncBannerText}</div>}
-
-					<div className={styles.consoleLine}>
-						{queueStatusLine}
-						<br />
-						{queueQueryLines.join(' • ')}
-					</div>
 
 					{hasCurrentRecord && (
 						<div className={styles.jsonPanel}>
@@ -864,8 +970,20 @@ export default function DashboardPage() {
 						disabled={busyAction !== null}>
 						{busyAction === 'sync-and-deploy-primed' ? 'Checking…' : 'Check for Latest'}
 					</button>
-					<div className={styles.detected}>48 new CRDs detected</div>
-					<div className={styles.lastChecked}>Last checked: 5h ago</div>
+					<div className={styles.detected}>{newCrdsDetectedCount} new CRDs detected</div>
+					<div className={styles.lastChecked}>
+						Last checked:{' '}
+						{newCrdsLastChecked ?
+							(() => {
+								const date = new Date(newCrdsLastChecked);
+								const now = new Date();
+								const diffMs = now.getTime() - date.getTime();
+								const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+								const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+								return diffHours > 0 ? `${diffHours}h ${diffMins}m ago` : `${diffMins}m ago`;
+							})()
+						:	'never'}
+					</div>
 
 					{!dismissedNewCrds && (
 						<div className={styles.newCrdsList}>
