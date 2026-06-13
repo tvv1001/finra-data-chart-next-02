@@ -18,6 +18,7 @@ type DashboardAction = 'fetch-crds' | 'sync-and-deploy-primed';
 type RefreshRequestBody = {
 	action?: DashboardAction;
 	crds?: string[] | string;
+	queries?: string[] | string;
 	externalRawDir?: string;
 	maxCrds?: number;
 };
@@ -46,6 +47,97 @@ function parseCrds(input: RefreshRequestBody['crds'], maxCrds = 50): string[] {
 
 	const unique = Array.from(new Set(tokens.filter((value) => /^\d{1,10}$/.test(value))));
 	return unique.slice(0, Math.max(1, Math.min(500, maxCrds)));
+}
+
+function parseQueries(input: RefreshRequestBody['queries'] | RefreshRequestBody['crds'], maxQueries = 50): string[] {
+	const tokens =
+		typeof input === 'string' ?
+			input
+				.split(/[\n,;]+/g)
+				.map((value) => value.trim())
+				.filter(Boolean)
+		: Array.isArray(input) ? input.map((value) => String(value || '').trim()).filter(Boolean)
+		: [];
+
+	const unique = Array.from(new Set(tokens));
+	return unique.slice(0, Math.max(1, Math.min(200, maxQueries)));
+}
+
+function collectSearchItems(payload: any) {
+	if (Array.isArray(payload?.results)) return payload.results;
+	if (Array.isArray(payload?.currentPage)) return payload.currentPage;
+	if (Array.isArray(payload?.hits?.hits)) return payload.hits.hits.map((hit: any) => hit?._source ?? hit);
+	return [];
+}
+
+function extractNumericId(item: any, keys: string[]) {
+	for (const key of keys) {
+		const raw = item?.[key];
+		if (raw == null) continue;
+		const value = String(raw).trim();
+		if (/^\d{1,10}$/.test(value)) return value;
+	}
+	return '';
+}
+
+async function resolveCrdsFromQueries(queries: string[], maxCrds = 50) {
+	const resolved = new Set<string>();
+	const resolution: Array<{ query: string; crdCount: number; crds: string[] }> = [];
+
+	for (const query of queries) {
+		if (resolved.size >= maxCrds) break;
+		if (/^\d{1,10}$/.test(query)) {
+			resolved.add(query);
+			resolution.push({ query, crdCount: 1, crds: [query] });
+			continue;
+		}
+
+		try {
+			const encoded = encodeURIComponent(query);
+			const [finraIndividual, finraFirm, secIndividual, secFirm] = await Promise.all([
+				fetchJson(`https://api.brokercheck.finra.org/search/individual?query=${encoded}&hl=true&wt=json&nrows=12&start=0`),
+				fetchJson(`https://api.brokercheck.finra.org/search/firm?query=${encoded}&hl=true&wt=json&nrows=12&start=0`),
+				fetchJson(`https://api.adviserinfo.sec.gov/search/individual?query=${encoded}&hl=true&wt=json&nrows=12&start=0`),
+				fetchJson(`https://api.adviserinfo.sec.gov/search/firm?query=${encoded}&hl=true&wt=json&nrows=12&start=0`),
+			]);
+
+			const crdsForQuery = new Set<string>();
+			const individualKeys = ['individualId', 'individual_id', 'crd', 'ind_crd', 'ind_source_id', 'sourceId', 'id'];
+			const firmKeys = ['firmId', 'firm_id', 'crd', 'firm_crd', 'firm_source_id', 'bdSecNumber', 'iaSecNumber', 'sourceId', 'id'];
+
+			for (const item of collectSearchItems(finraIndividual)) {
+				const id = extractNumericId(item, individualKeys);
+				if (id) crdsForQuery.add(id);
+			}
+			for (const item of collectSearchItems(finraFirm)) {
+				const id = extractNumericId(item, firmKeys);
+				if (id) crdsForQuery.add(id);
+			}
+			for (const item of collectSearchItems(secIndividual)) {
+				const id = extractNumericId(item, individualKeys);
+				if (id) crdsForQuery.add(id);
+			}
+			for (const item of collectSearchItems(secFirm)) {
+				const id = extractNumericId(item, firmKeys);
+				if (id) crdsForQuery.add(id);
+			}
+
+			const crds = Array.from(crdsForQuery);
+			for (const crd of crds) {
+				if (resolved.size >= maxCrds) break;
+				resolved.add(crd);
+			}
+
+			resolution.push({ query, crdCount: crds.length, crds: crds.slice(0, 25) });
+		} catch {
+			resolution.push({ query, crdCount: 0, crds: [] });
+		}
+	}
+
+	return {
+		crds: Array.from(resolved).slice(0, maxCrds),
+		resolution,
+	};
 }
 
 function ensureRedisClient() {
@@ -321,15 +413,30 @@ export async function POST(request: NextRequest) {
 	try {
 		if (action === 'fetch-crds') {
 			const maxCrds = Number(body.maxCrds || 30);
-			const crds = parseCrds(body.crds, maxCrds);
+			const queries = parseQueries(body.queries ?? body.crds, maxCrds);
+			const providedCrds = parseCrds(body.crds, maxCrds);
+			const resolvedFromQueries = await resolveCrdsFromQueries(queries, maxCrds);
+			const crds = Array.from(new Set([...providedCrds, ...resolvedFromQueries.crds])).slice(0, Math.max(1, Math.min(500, maxCrds)));
 			if (!crds.length) {
-				return NextResponse.json({ ok: false, error: 'no-valid-crds' }, { status: 400 });
+				return NextResponse.json(
+					{
+						ok: false,
+						error: 'no-valid-crds',
+						queries,
+						resolvedQueryCount: resolvedFromQueries.resolution.filter((entry) => entry.crdCount > 0).length,
+						resolution: resolvedFromQueries.resolution,
+					},
+					{ status: 400 },
+				);
 			}
 
 			const fetched = await fetchCrdsToCacheAndRedis(crds);
 			return NextResponse.json({
 				ok: true,
 				action,
+				queries,
+				resolvedQueryCount: resolvedFromQueries.resolution.filter((entry) => entry.crdCount > 0).length,
+				resolution: resolvedFromQueries.resolution,
 				...fetched,
 				at: new Date().toISOString(),
 			});
