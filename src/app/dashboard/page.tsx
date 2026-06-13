@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 type DashboardAction = 'fetch-crds' | 'sync-and-deploy-primed';
@@ -75,11 +76,11 @@ export default function DashboardPage() {
 						<h1 className='fg-title'>FINRA Dashboard</h1>
 					</div>
 					<div className='fg-header-right-controls'>
-						<a
+						<Link
 							href='/'
 							className='fg-home-link'>
 							Back to Graph
-						</a>
+						</Link>
 					</div>
 				</div>
 			</header>
