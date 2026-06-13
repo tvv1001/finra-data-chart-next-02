@@ -96,7 +96,6 @@
 }
 
 .cardList {
-	flex: 1;
 	overflow: auto;
 	display: grid;
 	gap: 7px;
@@ -310,7 +309,6 @@
 }
 
 .newCrdsList {
-	flex: 1;
 	min-height: 0;
 	overflow: auto;
 	display: grid;
