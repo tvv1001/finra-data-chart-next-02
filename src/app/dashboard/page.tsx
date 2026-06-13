@@ -885,7 +885,7 @@ export default function DashboardPage() {
 							</div>
 						))}
 
-						{queueCards.length === 0 && queueCrdFilter.trim().length > 0 && filteredNewCrds.length > 0 && filteredNewCrds[0].scopes.length > 0 && (
+						{queueCards.length === 0 && queueCrdFilter.trim().length > 0 && filteredNewCrds.length > 0 && (
 							<div className={styles.card}>
 								<div className={styles.cardTop}>
 									<strong>{filteredNewCrds[0].id}</strong>
