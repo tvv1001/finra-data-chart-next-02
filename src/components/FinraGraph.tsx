@@ -1002,7 +1002,7 @@ export default function FinraGraph() {
 							href='/dashboard'
 							className='fg-home-link'
 							title='Open dashboard'>
-							Dashboard
+							add
 						</a>
 						<button
 							id='fg-find-toggle'
