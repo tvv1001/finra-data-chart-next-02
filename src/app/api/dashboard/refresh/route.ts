@@ -23,6 +23,7 @@ type RefreshRequestBody = {
 	maxCrds?: number;
 	includePayload?: boolean;
 	maxCards?: number;
+	crdFilter?: string;
 };
 
 type FetchResultItem = {
@@ -54,6 +55,10 @@ type CacheCard = {
 	entity: 'individual' | 'firm';
 	files: number;
 	sources: CacheCardSource[];
+};
+
+type CacheCardWithMeta = CacheCard & {
+	updatedAt: number;
 };
 
 function isObject(value: unknown): value is Record<string, any> {
@@ -292,14 +297,117 @@ function parseCacheKey(key: string): { source: 'finra' | 'sec'; entity: 'individ
 	return { source, entity, id };
 }
 
-async function listCacheCards(maxCards = 200) {
+function buildLocalCacheFilePath(source: 'finra' | 'sec', entity: 'individual' | 'firm', id: string) {
+	const cacheDir = source === 'finra' ? 'brokercheck.finra.org' : 'adviserinfo.sec.gov';
+	const fileName = `api.${source === 'finra' ? 'brokercheck.finra.org' : 'adviserinfo.sec.gov'}_search_${entity}_${id}.json`;
+	return path.join(process.cwd(), 'data', 'national', cacheDir, fileName);
+}
+
+async function getCardUpdatedAt(card: CacheCard): Promise<number> {
+	let newest = 0;
+	for (const sourceEntry of card.sources) {
+		const targetPath = buildLocalCacheFilePath(sourceEntry.source, card.entity, card.id);
+		try {
+			const stat = await fs.stat(targetPath);
+			newest = Math.max(newest, Number(stat.mtimeMs || 0));
+		} catch {
+			// ignore missing local file
+		}
+	}
+	return newest;
+}
+
+function parseFilterTokens(crdFilter: string) {
+	return String(crdFilter || '')
+		.trim()
+		.split(/[\s,;]+/g)
+		.map((value) => value.trim())
+		.filter(Boolean);
+}
+
+function applyCardFilter(cards: CacheCardWithMeta[], filterTokens: string[]) {
+	if (!filterTokens.length) return cards;
+	const exact = cards.filter((card) => filterTokens.some((token) => card.id === token));
+	const partial = cards.filter((card) => filterTokens.some((token) => card.id.includes(token)) && !filterTokens.some((token) => card.id === token));
+	return [...exact, ...partial];
+}
+
+async function listLocalNewestCards(maxCards = 10, crdFilter = '') {
+	const sources: Array<{ source: 'finra' | 'sec'; dir: string; prefix: string }> = [
+		{ source: 'finra', dir: path.join(process.cwd(), 'data', 'national', 'brokercheck.finra.org'), prefix: 'api.brokercheck.finra.org_search_' },
+		{ source: 'sec', dir: path.join(process.cwd(), 'data', 'national', 'adviserinfo.sec.gov'), prefix: 'api.adviserinfo.sec.gov_search_' },
+	];
+
+	const cardMap = new Map<string, CacheCardWithMeta>();
+	for (const sourceDef of sources) {
+		let entries: string[] = [];
+		try {
+			entries = await fs.readdir(sourceDef.dir);
+		} catch {
+			entries = [];
+		}
+
+		for (const fileName of entries) {
+			if (!fileName.startsWith(sourceDef.prefix) || !fileName.endsWith('.json')) continue;
+			const match = /^api\.(?:brokercheck\.finra\.org|adviserinfo\.sec\.gov)_search_(individual|firm)_(\d{1,10})\.json$/i.exec(fileName);
+			if (!match) continue;
+
+			const entity = match[1].toLowerCase() as 'individual' | 'firm';
+			const id = match[2];
+			const filePath = path.join(sourceDef.dir, fileName);
+
+			let updatedAt = 0;
+			try {
+				const stat = await fs.stat(filePath);
+				updatedAt = Number(stat.mtimeMs || 0);
+			} catch {
+				updatedAt = 0;
+			}
+
+			const key = `${entity}:${id}`;
+			const existing = cardMap.get(key) || {
+				id,
+				entity,
+				files: 0,
+				sources: [],
+				updatedAt: 0,
+			};
+
+			existing.files += 1;
+			existing.updatedAt = Math.max(existing.updatedAt, updatedAt);
+			if (!existing.sources.some((entry) => entry.source === sourceDef.source)) {
+				existing.sources.push({ source: sourceDef.source, status: 'ok' });
+			}
+
+			cardMap.set(key, existing);
+		}
+	}
+
+	const allCards = Array.from(cardMap.values())
+		.sort((left, right) => right.updatedAt - left.updatedAt || Number(right.id) - Number(left.id))
+		.map((card) => ({
+			...card,
+			sources: card.sources.sort((a, b) => a.source.localeCompare(b.source)),
+		}));
+
+	const filterTokens = parseFilterTokens(crdFilter);
+	const filteredCards = applyCardFilter(allCards, filterTokens);
+	const shownCards = filteredCards.slice(0, maxCards).map(({ updatedAt, ...card }) => card);
+
+	return {
+		ok: true,
+		cards: shownCards,
+		totalCards: allCards.length,
+		totalCacheKeys: allCards.reduce((sum, card) => sum + card.files, 0),
+		filteredTotalCards: filteredCards.length,
+		sourceMode: 'local-fallback' as const,
+	};
+}
+
+async function listCacheCards(maxCards = 200, crdFilter = '') {
 	const redis = ensureRedisClient();
 	if (!redis) {
-		return {
-			ok: false,
-			error: 'no-redis-client',
-			cards: [] as CacheCard[],
-		};
+		return listLocalNewestCards(maxCards, crdFilter);
 	}
 
 	const patterns = ['finra:individual:*', 'sec:individual:*', 'finra:firm:*', 'sec:firm:*'];
@@ -335,20 +443,41 @@ async function listCacheCards(maxCards = 200) {
 		cardMap.set(cardKey, existing);
 	}
 
-	const cards = Array.from(cardMap.values())
-		.sort((left, right) => {
-			if (left.entity !== right.entity) return left.entity === 'individual' ? -1 : 1;
-			return Number(right.id) - Number(left.id);
-		})
-		.slice(0, maxCards)
+	const cardsWithMeta: CacheCardWithMeta[] = await Promise.all(
+		Array.from(cardMap.values()).map(async (card) => ({
+			...card,
+			updatedAt: await getCardUpdatedAt(card),
+		})),
+	);
+
+	const cards = cardsWithMeta
+		.sort((left, right) => right.updatedAt - left.updatedAt || Number(right.id) - Number(left.id))
 		.map((card) => ({
 			...card,
 			sources: card.sources.sort((a, b) => a.source.localeCompare(b.source)),
 		}));
 
+	const filterTokens = parseFilterTokens(crdFilter);
+	const filteredCards = applyCardFilter(cards, filterTokens);
+
+	if (!cards.length) {
+		return listLocalNewestCards(maxCards, crdFilter);
+	}
+
+	const shownCards = filteredCards.slice(0, maxCards).map((card) => ({
+		id: card.id,
+		entity: card.entity,
+		files: card.files,
+		sources: card.sources,
+	}));
+
 	return {
 		ok: true,
-		cards,
+		cards: shownCards,
+		totalCards: cardMap.size,
+		totalCacheKeys: keySet.size,
+		filteredTotalCards: filteredCards.length,
+		sourceMode: 'redis' as const,
 	};
 }
 
@@ -437,9 +566,9 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[], options: { inclu
 		const isFinra = target.source === 'finra';
 		const isIndividual = target.type === 'individual';
 		const url =
-			isFinra && isIndividual ? `https://api.brokercheck.finra.org/search/individual/${crd}?hl=true&wt=json`
+			isFinra && isIndividual ? `https://api.brokercheck.finra.org/search/individual/${crd}?hl=true&includePrevious=true&wt=json`
 			: isFinra && !isIndividual ? `https://api.brokercheck.finra.org/search/firm/${crd}?hl=true&wt=json`
-			: !isFinra && isIndividual ? `https://api.adviserinfo.sec.gov/search/individual/${crd}?wt=json`
+			: !isFinra && isIndividual ? `https://api.adviserinfo.sec.gov/search/individual/${crd}?hl=true&includePrevious=true&wt=json`
 			: `https://api.adviserinfo.sec.gov/search/firm/${crd}?wt=json`;
 		const cacheFileName = `api.${isFinra ? 'brokercheck.finra.org' : 'adviserinfo.sec.gov'}_search_${target.type}_${crd}.json`;
 		const cacheDir = isFinra ? 'brokercheck.finra.org' : 'adviserinfo.sec.gov';
@@ -578,12 +707,25 @@ export async function POST(request: NextRequest) {
 
 	try {
 		if (action === 'list-cache-cards') {
-			const maxCards = Math.max(1, Math.min(1000, Number(body.maxCards || 300)));
-			const listed = await listCacheCards(maxCards);
-			if (!listed.ok) {
-				return NextResponse.json({ ok: false, error: listed.error, cards: [] }, { status: 200 });
+			const maxCards = Math.max(1, Math.min(1000, Number(body.maxCards || 10)));
+			const listed = await listCacheCards(maxCards, String(body.crdFilter || ''));
+			if ((listed as any).ok === false) {
+				return NextResponse.json(
+					{ ok: false, error: (listed as any).error || 'list-cache-cards-failed', cards: [], shownCount: 0, totalCount: 0, totalCacheKeys: 0 },
+					{ status: 200 },
+				);
 			}
-			return NextResponse.json({ ok: true, action, cards: listed.cards, count: listed.cards.length, at: new Date().toISOString() });
+			return NextResponse.json({
+				ok: true,
+				action,
+				cards: listed.cards,
+				shownCount: listed.cards.length,
+				totalCount: listed.totalCards,
+				totalCacheKeys: listed.totalCacheKeys,
+				filteredTotalCount: listed.filteredTotalCards,
+				sourceMode: listed.sourceMode,
+				at: new Date().toISOString(),
+			});
 		}
 
 		if (action === 'fetch-crds') {

@@ -166,10 +166,20 @@
 }
 
 .cardList {
+	flex: 1;
+	min-height: 0;
 	overflow: auto;
 	display: grid;
 	gap: 7px;
 	padding-right: 2px;
+}
+
+.leftFilterWrap {
+	margin-top: auto;
+	padding-top: 6px;
+	border-top: 1px solid #d3dbe7;
+	display: grid;
+	gap: 6px;
 }
 
 .card {

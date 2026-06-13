@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import styles from './dashboard.module.css';
 
 type DashboardAction = 'fetch-crds' | 'sync-and-deploy-primed';
@@ -102,7 +102,7 @@ export default function DashboardPage() {
 	const [busyAction, setBusyAction] = useState<DashboardAction | null>(null);
 	const [result, setResult] = useState<ApiResponse | null>(null);
 	const [mainJson, setMainJson] = useState<Record<string, any> | null>(null);
-	const [mainJsonLabel, setMainJsonLabel] = useState('finra:individual:7362778');
+	const [mainJsonLabel, setMainJsonLabel] = useState('');
 	const [dismissedNewCrds, setDismissedNewCrds] = useState(false);
 	const [searchQuery, setSearchQuery] = useState('');
 	const [searchBusy, setSearchBusy] = useState(false);
@@ -114,6 +114,24 @@ export default function DashboardPage() {
 	const [queueElapsedSec, setQueueElapsedSec] = useState(0);
 	const [queueRunItems, setQueueRunItems] = useState<QueueRunItem[]>([]);
 	const [queueCards, setQueueCards] = useState<QueueCard[]>([]);
+	const [queueCrdFilter, setQueueCrdFilter] = useState('');
+	const [queueMetaStats, setQueueMetaStats] = useState<{
+		shownCount: number;
+		totalCount: number;
+		totalCacheKeys: number;
+		filteredTotalCount?: number;
+		sourceMode?: string;
+	}>({
+		shownCount: 0,
+		totalCount: 0,
+		totalCacheKeys: 0,
+	});
+	const [syncBannerText, setSyncBannerText] = useState<string | null>(null);
+	const [activeCardSourceKey, setActiveCardSourceKey] = useState<string | null>(null);
+	const [jsonRenderBusy, setJsonRenderBusy] = useState(false);
+	const [codeBlock, setCodeBlock] = useState('');
+	const mergedDetailCacheRef = useRef(new Map<string, any>());
+	const jsonStringCacheRef = useRef(new Map<string, string>());
 
 	const queueQueries = useMemo(() => parseQueueQueries(crdInput), [crdInput]);
 	const parsedCrds = useMemo(() => queueQueries.filter((value) => /^\d{1,10}$/.test(value)), [queueQueries]);
@@ -168,29 +186,56 @@ export default function DashboardPage() {
 		[],
 	);
 
-	const codeBlock = useMemo(() => {
-		if (mainJson) return JSON.stringify(mainJson, null, 2);
-		if (result) return JSON.stringify(result, null, 2);
-		return `{
-  "content": {
-    "basicInformation": {
-      "individualId": "7362778",
-      "firstName": "fazio",
-      "lastName": "taffarello",
-      "bcScope": "Active",
-      "iaScope": "Active"
-    },
-    "currentEmployments": [
-      {
-        "firmId": "79",
-        "firmName": "J.P. MORGAN SECURITIES LLC",
-        "registrationBeginDate": "5/6/2025",
-        "firmScope": "ACTIVE"
-      }
-    ]
-  }
-}`;
-	}, [mainJson, result]);
+	const hasCurrentRecord = Boolean(mainJson || result);
+
+	useEffect(() => {
+		const payload = mainJson || result;
+		if (!payload) {
+			setCodeBlock('');
+			setJsonRenderBusy(false);
+			return;
+		}
+
+		const cacheKey = mainJson ? `main:${mainJsonLabel}` : `result:${String((result as any)?.ok)}:${String((result as any)?.error || '')}`;
+		const cached = jsonStringCacheRef.current.get(cacheKey);
+		if (cached != null) {
+			setCodeBlock(cached);
+			setJsonRenderBusy(false);
+			return;
+		}
+
+		setJsonRenderBusy(true);
+		let cancelled = false;
+
+		const compute = () => {
+			if (cancelled) return;
+			try {
+				const text = JSON.stringify(payload, null, 2);
+				jsonStringCacheRef.current.set(cacheKey, text);
+				if (!cancelled) setCodeBlock(text);
+			} catch (error: any) {
+				if (!cancelled) setCodeBlock(String(error?.message || error || 'Failed to render JSON'));
+			} finally {
+				if (!cancelled) setJsonRenderBusy(false);
+			}
+		};
+
+		if (typeof window !== 'undefined' && typeof (window as any).requestIdleCallback === 'function') {
+			const idleId = (window as any).requestIdleCallback(compute, { timeout: 180 });
+			return () => {
+				cancelled = true;
+				if (typeof (window as any).cancelIdleCallback === 'function') {
+					(window as any).cancelIdleCallback(idleId);
+				}
+			};
+		}
+
+		const timeoutId = window.setTimeout(compute, 0);
+		return () => {
+			cancelled = true;
+			window.clearTimeout(timeoutId);
+		};
+	}, [mainJson, result, mainJsonLabel]);
 
 	const searchSummary = useMemo(() => {
 		if (!searchQuery.trim()) return 'Search saved records by name';
@@ -202,6 +247,14 @@ export default function DashboardPage() {
 		}
 		return `${searchResults.length} Redis result${searchResults.length === 1 ? '' : 's'} found`;
 	}, [searchBusy, searchError, searchQuery, searchResults.length, searchSkippedCount]);
+
+	const queueMetaText = useMemo(() => {
+		const shown = Number(queueMetaStats.shownCount || queueCards.length || 0);
+		const total = Number(queueMetaStats.totalCount || shown);
+		const filteredTotal = Number(queueMetaStats.filteredTotalCount || shown);
+		const filterSuffix = queueCrdFilter.trim().length > 0 ? ` Filtered: ${filteredTotal.toLocaleString()} matched.` : '';
+		return `Showing recent results from ${shown.toLocaleString()} loaded records (${total.toLocaleString()} total cached records).${filterSuffix}`;
+	}, [queueCards.length, queueMetaStats, queueCrdFilter]);
 
 	function extractValidCrd(item: SearchResult, entity: 'individual' | 'firm') {
 		const candidateKeys =
@@ -333,7 +386,7 @@ export default function DashboardPage() {
 		return detail?.sources?.sec ?? detail?.merged ?? detail?.finraNode ?? null;
 	}
 
-	async function loadQueueCardsFromRedis() {
+	async function loadQueueCardsFromRedis(filter = '') {
 		try {
 			const response = await fetch('/api/dashboard/refresh', {
 				method: 'POST',
@@ -342,36 +395,56 @@ export default function DashboardPage() {
 				},
 				body: JSON.stringify({
 					action: 'list-cache-cards',
-					maxCards: 600,
+					maxCards: filter.trim() ? 200 : 10,
+					crdFilter: filter,
 				}),
 			});
 
 			const payload = await response.json().catch(() => null);
-			const cards = Array.isArray(payload?.cards) ? payload.cards : [];
-			if (cards.length > 0) {
-				setQueueCards(cards as QueueCard[]);
+			if (payload?.ok === false) {
+				setQueueCards([]);
+				setQueueMetaStats({ shownCount: 0, totalCount: 0, totalCacheKeys: 0, filteredTotalCount: 0 });
+				return;
 			}
+
+			const cards = Array.isArray(payload?.cards) ? payload.cards : [];
+			setQueueCards(cards as QueueCard[]);
+			setQueueMetaStats({
+				shownCount: Number(payload?.shownCount || cards.length || 0),
+				totalCount: Number(payload?.totalCount || cards.length || 0),
+				totalCacheKeys: Number(payload?.totalCacheKeys || 0),
+				...(payload?.filteredTotalCount != null ? { filteredTotalCount: Number(payload.filteredTotalCount || 0) } : {}),
+				...(payload?.sourceMode ? { sourceMode: String(payload.sourceMode) } : {}),
+			});
 		} catch {
 			// keep existing cards on load errors
 		}
 	}
 
 	useEffect(() => {
-		void loadQueueCardsFromRedis();
+		void loadQueueCardsFromRedis(queueCrdFilter);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [queueCrdFilter]);
 
 	async function fetchMergedDetail(card: QueueCard) {
+		const cacheKey = `${card.entity}:${card.id}`;
+		const cached = mergedDetailCacheRef.current.get(cacheKey);
+		if (cached) return cached;
+
 		const route = card.entity === 'firm' ? `/api/finra/merged/firm/${card.id}` : `/api/finra/merged/individual/${card.id}`;
 		const response = await fetch(route, {
 			method: 'GET',
 			headers: { Accept: 'application/json' },
 			cache: 'no-store',
 		});
-		return response.json();
+		const detail = await response.json();
+		mergedDetailCacheRef.current.set(cacheKey, detail);
+		return detail;
 	}
 
 	async function loadQueueSourceJson(card: QueueCard, source: SearchResultSource) {
+		const sourceKey = `${card.entity}:${card.id}:${source}`;
+		setActiveCardSourceKey(sourceKey);
 		try {
 			const detail = await fetchMergedDetail(card);
 			const payload = extractPayloadFromDetail(detail, source);
@@ -394,6 +467,8 @@ export default function DashboardPage() {
 			});
 		} catch (error: any) {
 			setResult({ ok: false, error: error?.message || String(error) });
+		} finally {
+			setActiveCardSourceKey((current) => (current === sourceKey ? null : current));
 		}
 	}
 
@@ -440,6 +515,8 @@ export default function DashboardPage() {
 			setResult(payload);
 
 			if (action === 'fetch-crds') {
+				mergedDetailCacheRef.current.clear();
+				jsonStringCacheRef.current.clear();
 				const resolution = Array.isArray((payload as any)?.resolution) ? (payload as any).resolution : [];
 				const matched = resolution.filter((entry: any) => Number(entry?.crdCount || 0) > 0).length;
 				const elapsedSec = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
@@ -477,6 +554,11 @@ export default function DashboardPage() {
 				const summary = (payload as any)?.summary;
 				const successCount = Number(summary?.successCount || 0);
 				const errorCount = Number(summary?.errorCount || 0);
+				if (successCount > 0) {
+					setSyncBannerText(`Local sync: ${successCount.toLocaleString()} new fetch${successCount === 1 ? '' : 'es'} • ${errorCount.toLocaleString()} errors`);
+				} else {
+					setSyncBannerText(null);
+				}
 				const nextQueryLines: string[] = [];
 				for (const entry of resolution.slice(0, 8)) {
 					const queryText = String(entry?.query || '').trim() || '-';
@@ -489,12 +571,13 @@ export default function DashboardPage() {
 				const fetchedItems = Array.isArray((payload as any)?.results) ? (payload as any).results : [];
 				const nextCards = buildQueueCardsFromFetchResults(fetchedItems);
 				if (nextCards.length > 0) setQueueCards(nextCards);
-				void loadQueueCardsFromRedis();
+				void loadQueueCardsFromRedis(queueCrdFilter);
 			}
 		} catch (error: any) {
 			if (action === 'fetch-crds') {
 				const elapsedSec = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
 				setQueueStatusLine(`Error | query failed | queue ${queueQueries.length} | elapsed ${elapsedSec}s`);
+				setSyncBannerText(null);
 				setQueueRunItems((current) =>
 					current.map((item) => ({
 						...item,
@@ -654,7 +737,7 @@ export default function DashboardPage() {
 					)}
 
 					<div className={styles.queueSectionTitle}>Run Queue</div>
-					<div className={styles.queueMeta}>Showing recent results from 1,000 loaded files (100,316 total).</div>
+					<div className={styles.queueMeta}>{queueMetaText}</div>
 					<div className={styles.cardList}>
 						{queueCards.map((card) => (
 							<div
@@ -673,7 +756,8 @@ export default function DashboardPage() {
 											key={`${card.entity}:${card.id}:${entry.source}`}
 											type='button'
 											className={styles.cardSourceKeyBtn}
-											onClick={() => loadQueueSourceJson(card, entry.source)}>
+											onClick={() => loadQueueSourceJson(card, entry.source)}
+											disabled={activeCardSourceKey === `${card.entity}:${card.id}:${entry.source}`}>
 											{entry.source}:{card.entity}:{card.id}
 										</button>
 									))}
@@ -683,17 +767,31 @@ export default function DashboardPage() {
 							</div>
 						))}
 					</div>
+
+					<div className={styles.leftFilterWrap}>
+						<div className={styles.queueSectionTitle}>Filter Cached CRDs</div>
+						<input
+							value={queueCrdFilter}
+							onChange={(event) => setQueueCrdFilter(event.target.value)}
+							className={styles.input}
+							placeholder='Filter CRD(s), comma separated'
+						/>
+					</div>
 				</aside>
 
 				<section className={styles.centerPane}>
-					<div className={styles.recordHeader}>CURRENT RECORD</div>
-					<h2 className={styles.recordTitle}>{mainJsonLabel}</h2>
-					<div className={styles.recordPills}>
-						<span>FINRA raw JSON</span>
-						<span>SEC raw JSON</span>
-					</div>
+					{hasCurrentRecord && (
+						<>
+							<div className={styles.recordHeader}>CURRENT RECORD</div>
+							<h2 className={styles.recordTitle}>{mainJsonLabel}</h2>
+							<div className={styles.recordPills}>
+								<span>FINRA raw JSON</span>
+								<span>SEC raw JSON</span>
+							</div>
+						</>
+					)}
 
-					<div className={styles.statusLine}>Local sync: 14 new • 0 updated • 0 repaired • 0 already current</div>
+					{syncBannerText && <div className={styles.statusLine}>{syncBannerText}</div>}
 
 					<div className={styles.consoleLine}>
 						{queueStatusLine}
@@ -701,9 +799,12 @@ export default function DashboardPage() {
 						{queueQueryLines.join(' • ')}
 					</div>
 
-					<div className={styles.jsonPanel}>
-						<pre>{codeBlock}</pre>
-					</div>
+					{hasCurrentRecord && (
+						<div className={styles.jsonPanel}>
+							{jsonRenderBusy && <div className={styles.searchSummary}>Rendering JSON…</div>}
+							<pre>{codeBlock}</pre>
+						</div>
+					)}
 
 					<div className={styles.searchBarWrap}>
 						<div className={styles.searchTitle}>Local Name Search</div>
