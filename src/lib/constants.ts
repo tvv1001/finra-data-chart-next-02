@@ -1,6 +1,11 @@
+import { existsSync } from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 
-export const DATA_DIR = path.resolve(process.cwd(), 'data');
+const DEFAULT_DATA_DIR = path.resolve(process.cwd(), 'data');
+const FALLBACK_DATA_DIR = path.join(os.tmpdir(), 'finra-data-chart-next-02', 'data');
+
+export const DATA_DIR = existsSync(DEFAULT_DATA_DIR) ? DEFAULT_DATA_DIR : FALLBACK_DATA_DIR;
 export const GRAPH_FILE = path.join(DATA_DIR, 'national', 'finra-graph.json');
 export const SEEDS_FILE = path.join(DATA_DIR, 'national', 'finra-seeds.json');
 export const SEED_BANK_FILE = path.join(DATA_DIR, 'national', 'finra-seed-bank.json');

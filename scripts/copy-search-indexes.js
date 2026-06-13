@@ -5,7 +5,6 @@ const path = require('node:path');
 const root = process.cwd();
 const dataDir = path.join(root, 'data', 'national');
 const publicDestDir = path.join(root, 'public', 'search-indexes');
-const nextServerDestDir = path.join(root, '.next', 'server', 'data', 'national');
 
 const files = ['search-index.finra.individual.json.gz', 'search-index.finra.firm.json.gz', 'search-index.sec.individual.json.gz', 'search-index.sec.firm.json.gz'];
 const maxChunkSize = 90 * 1024 * 1024; // 90 MB
@@ -14,15 +13,9 @@ function writeJsonFile(dest, json) {
 	fs.writeFileSync(dest, JSON.stringify(json));
 }
 
-function createDestinationDirs() {
-	fs.mkdirSync(publicDestDir, { recursive: true });
-	fs.mkdirSync(nextServerDestDir, { recursive: true });
-}
-
 // Create destination directories
 try {
 	fs.mkdirSync(publicDestDir, { recursive: true });
-	fs.mkdirSync(nextServerDestDir, { recursive: true });
 } catch (err) {
 	console.error('Failed to create destination directories:', err.message);
 	process.exit(1);
@@ -42,9 +35,7 @@ for (const file of files) {
 		const stats = fs.statSync(src);
 		if (stats.size <= maxChunkSize) {
 			const publicDest = path.join(publicDestDir, file);
-			const nextServerDest = path.join(nextServerDestDir, file);
 			fs.copyFileSync(src, publicDest);
-			fs.copyFileSync(src, nextServerDest);
 			console.log(`✓ Copied ${file}`);
 			count++;
 			continue;
@@ -66,10 +57,8 @@ for (const file of files) {
 				docs: chunkDocs,
 			};
 			const publicChunkDest = path.join(publicDestDir, chunkFileName);
-			const nextServerChunkDest = path.join(nextServerDestDir, chunkFileName);
 
 			writeJsonFile(publicChunkDest, chunkJson);
-			writeJsonFile(nextServerChunkDest, chunkJson);
 			console.log(`✓ Wrote chunk ${chunkFileName} (${chunkDocs.length} docs)`);
 			count++;
 		}
@@ -78,4 +67,4 @@ for (const file of files) {
 	}
 }
 
-console.log(`\nSuccessfully copied/wrote ${count} search index files/chunks to public/search-indexes/ and .next/server/data/national/`);
+console.log(`\nSuccessfully copied/wrote ${count} search index files/chunks to public/search-indexes/`);
