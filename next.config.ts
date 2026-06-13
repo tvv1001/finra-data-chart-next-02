@@ -8,26 +8,17 @@ const graphRuntimeData = [
 	'./data/seed-profiles.json',
 ];
 
-const searchRuntimeData = [
-	'./data/national/search-index.finra.individual.json.gz',
-	'./data/national/search-index.finra.firm.json.gz',
-	'./data/national/search-index.sec.individual.json.gz',
-	'./data/national/search-index.sec.firm.json.gz',
-];
-
-const primedBinaryRuntimeData = [
-	'./data/national/primed-cache/finra-individual.bin',
-	'./data/national/primed-cache/sec-individual.bin',
-	'./data/national/primed-cache/finra-firm.bin',
-	'./data/national/primed-cache/sec-firm.bin',
-];
-
 const excludedLargeRuntimeData = [
 	'data/raw/**',
 	'data/cache-binary/**',
+	'data/build_manifest.json',
 	'data/national/brokercheck.finra.org/**',
 	'data/national/adviserinfo.sec.gov/**',
 	'data/national/primed-cache/**',
+	'data/national/finra-graph*.json*',
+	'data/national/finra-seed-bank.json',
+	'data/national/finra-seeds.json',
+	'data/national/finra-recent-seeds.json',
 	'data/national/*.jsonl',
 	'data/national/redis-dump-*.jsonl',
 	'data/national/nonstring-finra-keys-*.jsonl',
@@ -56,22 +47,22 @@ const nextConfig: NextConfig = {
 		'/api/finra/add-to-profile': ['./data/seed-profiles.json'],
 		'/api/finra/cache-stats': ['./data/national/finra-graph.json', './data/national/finra-seed-bank.json'],
 		'/api/finra/expand/[nodeId]': ['./data/national/finra-graph.json'],
-		'/api/finra/firm/[id]': primedBinaryRuntimeData,
+		'/api/finra/firm/[id]': ['./data/seed-profiles.json'],
 		'/api/finra/graph': graphRuntimeData,
 		'/api/finra/graph-append': ['./data/national/finra-graph.json'],
 		'/api/finra/graph-search': graphRuntimeData,
 		'/api/finra/graph-search/route': graphRuntimeData,
 		'/api/finra/nodes-by-ids': ['./data/national/finra-graph.json'],
 		'/api/finra/prime-check': graphRuntimeData,
-		'/api/finra/individual/[crd]': primedBinaryRuntimeData,
+		'/api/finra/individual/[crd]': ['./data/seed-profiles.json'],
 		'/api/finra/profile/[name]': ['./data/seed-profiles.json'],
 		'/api/finra/recompute-meta': ['./data/national/finra-graph.json'],
-		'/api/finra/search': searchRuntimeData,
-		'/api/finra/search/route': searchRuntimeData,
-		'/api/finra/sec-search': searchRuntimeData,
-		'/api/finra/sec-search/route': searchRuntimeData,
-		'/api/finra/sec-search-firm': searchRuntimeData,
-		'/api/finra/sec-search-firm/route': searchRuntimeData,
+		'/api/finra/search': ['./data/seed-profiles.json'],
+		'/api/finra/search/route': ['./data/seed-profiles.json'],
+		'/api/finra/sec-search': ['./data/seed-profiles.json'],
+		'/api/finra/sec-search/route': ['./data/seed-profiles.json'],
+		'/api/finra/sec-search-firm': ['./data/seed-profiles.json'],
+		'/api/finra/sec-search-firm/route': ['./data/seed-profiles.json'],
 		'/api/finra/seeds': ['./data/national/finra-seeds.json', './data/seed-profiles.json'],
 	},
 	outputFileTracingExcludes: {

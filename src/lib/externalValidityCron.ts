@@ -58,6 +58,75 @@ function uniqueSortedNumericIds(values: unknown[]) {
 	return Array.from(new Set(values.map(normalizeId).filter(isNumericId))).sort(numericSortDesc);
 }
 
+export function extractCandidateIdsFromSearchPayload(payload: any, kind: 'individual' | 'firm') {
+	const ids = new Set<string>();
+	const hits = Array.isArray(payload?.hits?.hits) ? payload.hits.hits : [];
+
+	for (const hit of hits) {
+		const source = hit?._source || {};
+		const parsedContent = (() => {
+			if (!source.content) return null;
+			try {
+				return typeof source.content === 'string' ? JSON.parse(source.content) : source.content;
+			} catch {
+				return null;
+			}
+		})();
+
+		if (kind === 'individual') {
+			const directId = source.ind_source_id || source.person?.crd || parsedContent?.basicInformation?.crd || parsedContent?.basicInformation?.individualId;
+			if (directId) ids.add(String(directId));
+		} else {
+			const directId = source.firm_id || source.firmId || source.firm_bd_sec_number || parsedContent?.basicInformation?.firmId || parsedContent?.basicInformation?.bdSECNumber;
+			if (directId) ids.add(String(directId));
+		}
+	}
+
+	return uniqueSortedNumericIds(Array.from(ids));
+}
+
+function normalizeDiscoveryTerm(value: string) {
+	return String(value || '')
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, ' ')
+		.trim()
+		.split(/\s+/)
+		.filter(Boolean);
+}
+
+export function buildNameQueryCandidates(seedBank: {
+	individualIds?: string[];
+	firmIds?: string[];
+	nameByNumber?: { individual?: Record<string, string>; firm?: Record<string, string> };
+}) {
+	const terms = new Set<string>();
+
+	const seedNames = [
+		...(seedBank?.individualIds || []),
+		...(seedBank?.firmIds || []),
+		...Object.values(seedBank?.nameByNumber?.individual || {}),
+		...Object.values(seedBank?.nameByNumber?.firm || {}),
+	];
+
+	for (const raw of seedNames) {
+		const words = normalizeDiscoveryTerm(String(raw || ''));
+		for (const word of words) {
+			if (word.length >= 3 && word.length <= 10) terms.add(word);
+			for (let start = 0; start < word.length - 2; start += 1) {
+				for (let end = start + 3; end <= Math.min(word.length, 10); end += 1) {
+					terms.add(word.slice(start, end));
+				}
+			}
+		}
+		const joined = words.join(' ');
+		if (joined.length >= 3 && joined.length <= 10) terms.add(joined);
+	}
+
+	return Array.from(terms)
+		.filter((term) => term.length >= 3 && term.length <= 10)
+		.sort((a, b) => a.localeCompare(b));
+}
+
 function maxNumericId(values: string[]) {
 	if (!values.length) return 0;
 	return Math.max(...values.map((v) => Number(v)).filter((n) => Number.isFinite(n)));
@@ -155,6 +224,23 @@ async function fetchUpstreamJson(url: string) {
 		throw error;
 	}
 	return response.data;
+}
+
+async function fetchSearchCandidates(kind: 'individual' | 'firm', query: string) {
+	const normalized = String(query || '').trim();
+	if (!normalized) return [];
+
+	const finraUrl =
+		kind === 'individual' ?
+			`https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(normalized)}?hl=true&includePrevious=true&nrows=12&wt=json`
+		:	`https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(normalized)}?hl=true&nrows=12&wt=json`;
+	const secUrl =
+		kind === 'individual' ?
+			`https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(normalized)}?hl=true&includePrevious=true&nrows=12&wt=json`
+		:	`https://api.adviserinfo.sec.gov/search/firm/${encodeURIComponent(normalized)}?hl=true&nrows=12&wt=json`;
+
+	const [finra, sec] = await Promise.all([fetchUpstreamJson(finraUrl), fetchUpstreamJson(secUrl)]);
+	return [...extractCandidateIdsFromSearchPayload(finra, kind), ...extractCandidateIdsFromSearchPayload(sec, kind)];
 }
 
 async function fetchRecord(kind: 'individual' | 'firm', id: string) {
@@ -256,6 +342,28 @@ function addEmploymentLinks(node: any, merged: any, existingNodes: Map<string, a
 	}
 
 	return links;
+}
+
+function snapshotRecordForComparison(node: any) {
+	return {
+		id: String(node?.id || ''),
+		label: String(node?.label || ''),
+		group: node?.group,
+		basicInformation: node?.basicInformation || null,
+		bcScope: node?.bcScope ?? null,
+		iaScope: node?.iaScope ?? null,
+		firmStatus: node?.firmStatus ?? null,
+		firmStatusDate: node?.firmStatusDate ?? null,
+		disclosures: node?.disclosures ?? null,
+		currentEmployments: node?.currentEmployments ?? null,
+		currentIAEmployments: node?.currentIAEmployments ?? null,
+		directOwners: node?.directOwners ?? null,
+	};
+}
+
+function hasRecordChanged(graph: any, node: any) {
+	const current = Array.isArray(graph?.nodes) ? graph.nodes.find((entry: any) => String(entry?.id || '') === String(node?.id || '')) : null;
+	return JSON.stringify(snapshotRecordForComparison(current)) !== JSON.stringify(snapshotRecordForComparison(node));
 }
 
 function mergeIntoGraph(graph: any, node: any, links: any[]) {
@@ -393,6 +501,10 @@ async function processCandidate(
 	const node = buildRecordNode(kind, id, finra, sec);
 	if (!node) return { found: false, discovered: false, updated: false, 429: false };
 
+	if (!hasRecordChanged(graph, node)) {
+		return { found: true, discovered: false, updated: false, 429: false };
+	}
+
 	const linksAccumulator: any[] & { _extraNodes?: any[] } = [] as any;
 	const tempNodes = new Map<string, any>();
 	const extraLinks = addEmploymentLinks(node, node, tempNodes);
@@ -428,8 +540,22 @@ export async function runExternalValidityCron() {
 	const seedBank = await getSeedBankFromStore();
 	const individualIds = uniqueSortedNumericIds(seedBank?.individualIds || []);
 	const firmIds = uniqueSortedNumericIds(seedBank?.firmIds || []);
-	const maxIndividual = maxNumericId(individualIds);
-	const maxFirm = maxNumericId(firmIds);
+	const discoveryTerms = buildNameQueryCandidates(seedBank);
+	const discoveredNameIds = new Set<string>();
+
+	for (const term of discoveryTerms) {
+		try {
+			for (const id of await fetchSearchCandidates('individual', term)) discoveredNameIds.add(id);
+			for (const id of await fetchSearchCandidates('firm', term)) discoveredNameIds.add(id);
+		} catch {
+			// best effort: name-based discovery should not block the run
+		}
+	}
+
+	const enrichedIndividuals = uniqueSortedNumericIds([...individualIds, ...discoveredNameIds]);
+	const enrichedFirms = uniqueSortedNumericIds([...firmIds, ...discoveredNameIds]);
+	const maxIndividual = maxNumericId(enrichedIndividuals);
+	const maxFirm = maxNumericId(enrichedFirms);
 	const state = await loadState(redis, maxIndividual, maxFirm);
 	const now = Date.now();
 	if (state.backoffUntil && now < state.backoffUntil) {
@@ -506,8 +632,8 @@ export async function runExternalValidityCron() {
 	if (result) return result;
 
 	// 2) Backfill existing CRDs from high to low.
-	const descendingIndividuals = [...individualIds].sort(numericSortDesc);
-	const descendingFirms = [...firmIds].sort(numericSortDesc);
+	const descendingIndividuals = [...enrichedIndividuals].sort(numericSortDesc);
+	const descendingFirms = [...enrichedFirms].sort(numericSortDesc);
 	const updateIndividuals = buildUpdateCandidates(descendingIndividuals, state.updateIndex.individual, updateBatch);
 	const updateFirms = buildUpdateCandidates(descendingFirms, state.updateIndex.firm, updateBatch);
 	result = await processList('individual', updateIndividuals, false);
