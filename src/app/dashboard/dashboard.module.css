@@ -95,6 +95,76 @@
 	line-height: 1.3;
 }
 
+.queueRunList {
+	display: grid;
+	gap: 6px;
+	max-height: 150px;
+	overflow: auto;
+	padding-right: 2px;
+}
+
+.queueRunItem {
+	border: 1px solid #c8d2df;
+	border-radius: 8px;
+	background: #fff;
+	padding: 6px;
+	font-size: 11px;
+}
+
+.queueRunTop {
+	display: flex;
+	justify-content: space-between;
+	gap: 6px;
+	align-items: center;
+}
+
+.queueRunQuery {
+	font-weight: 600;
+	color: #0f172a;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.queueRunBadge {
+	border-radius: 999px;
+	padding: 1px 7px;
+	font-size: 10px;
+	font-weight: 700;
+	text-transform: uppercase;
+}
+
+.queueRunBadge_running {
+	background: #dbeafe;
+	color: #1d4ed8;
+}
+
+.queueRunBadge_queued {
+	background: #e2e8f0;
+	color: #334155;
+}
+
+.queueRunBadge_complete {
+	background: #dcfce7;
+	color: #166534;
+}
+
+.queueRunBadge_nomatch {
+	background: #fef3c7;
+	color: #92400e;
+}
+
+.queueRunBadge_error {
+	background: #fee2e2;
+	color: #b91c1c;
+}
+
+.queueRunMeta {
+	margin-top: 3px;
+	font-size: 10px;
+	color: #64748b;
+}
+
 .cardList {
 	overflow: auto;
 	display: grid;
@@ -135,6 +205,29 @@
 	word-break: break-word;
 }
 
+.cardSourceRow {
+	margin-top: 4px;
+	display: grid;
+	gap: 4px;
+}
+
+.cardSourceKeyBtn {
+	text-align: left;
+	padding: 4px 6px;
+	border-radius: 6px;
+	border: 1px solid #c7d3e5;
+	background: #eef2ff;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	font-size: 10px;
+	color: #1d4ed8;
+	cursor: pointer;
+	word-break: break-word;
+}
+
+.cardSourceKeyBtn:hover {
+	background: #dde8ff;
+}
+
 .cardMeta {
 	margin-top: 4px;
 	color: #64748b;
@@ -145,6 +238,13 @@
 	color: #16a34a;
 	font-size: 10px;
 	font-weight: 600;
+}
+
+.cardError {
+	margin-top: 4px;
+	font-size: 10px;
+	font-weight: 600;
+	color: #b91c1c;
 }
 
 .centerPane {
