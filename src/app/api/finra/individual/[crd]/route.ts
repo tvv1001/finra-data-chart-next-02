@@ -204,8 +204,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					hasSecData: detail.hasSecData,
 					finraNode: detail,
 					sources: {
-						finra: finraDetail,
-						sec: secDetail,
+						finra: finraDetail ? { bccontent: finraDetail } : null,
+						sec: secDetail ? { iacontent: secDetail } : null,
 					},
 					merged: detail,
 				},
@@ -213,7 +213,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			);
 		}
 
-		return NextResponse.json(detail, { headers: sharedCacheHeaders(3600) });
+		// For non-merged route, return with bccontent wrapper to match SEC's iacontent naming
+		const responseData: any = {};
+		if (finraDetail) {
+			responseData.bccontent = finraDetail;
+		}
+		if (secDetail) {
+			responseData.iacontent = secDetail;
+		}
+		if (Object.keys(responseData).length === 0) {
+			return NextResponse.json({ found: false }, { status: 200, headers: sharedCacheHeaders(3600) });
+		}
+
+		return NextResponse.json(responseData, { headers: sharedCacheHeaders(3600) });
 	} catch (err: any) {
 		logger.error('individual local detail route error', { crd, error: err.message });
 		return NextResponse.json({ error: 'Failed to load local detail.' }, { status: 500 });

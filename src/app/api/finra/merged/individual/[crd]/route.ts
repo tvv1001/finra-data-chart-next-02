@@ -125,7 +125,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				hasFinraData: !!finraDetail,
 				hasSecData: !!secDetail,
 				finraNode: finraDetail,
-				sources: { finra: finraDetail, sec: secDetail },
+				sources: { 
+					finra: finraDetail ? { bccontent: finraDetail } : null, 
+					sec: secDetail ? { iacontent: secDetail } : null 
+				},
 				merged: normalizedMergedDetail,
 			},
 			{ headers: sharedCacheHeaders(3600) },
