@@ -932,7 +932,8 @@ async function listNewCrds() {
 
 	const formatted = await Promise.all(
 		displayCards.map(async (card) => {
-			const normalized = await normalizeCardForDisplay(await normalizeCardSourcesForDisplay(card));
+			// Skip semantic normalization for dashboard to avoid Redis lookups
+			const normalized = normalizeCardForDisplay(card);
 			const updatedDate = new Date(card.updatedAt);
 			const daysAgo = Math.floor((todayMs - card.updatedAt) / (1000 * 60 * 60 * 24));
 			const found =
