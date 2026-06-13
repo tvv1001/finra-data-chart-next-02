@@ -61,6 +61,41 @@ function parseQueueQueries(input: string) {
 		.filter(Boolean);
 }
 
+function safeParseJson(value: unknown) {
+	if (typeof value !== 'string') return value;
+	try {
+		return JSON.parse(value);
+	} catch {
+		return value;
+	}
+}
+
+function normalizePayloadForCleanView(payload: unknown) {
+	if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload;
+
+	const obj = payload as Record<string, any>;
+	if (Array.isArray(obj?.hits?.hits) && obj.hits.hits.length) {
+		const source = obj.hits.hits[0]?._source ?? obj.hits.hits[0];
+		if (source && typeof source === 'object') {
+			const parsedContent = safeParseJson((source as any).content);
+			const parsedIaContent = safeParseJson((source as any).iacontent);
+			return {
+				...(source as Record<string, any>),
+				...(parsedContent && typeof parsedContent === 'object' ? (parsedContent as Record<string, any>) : {}),
+				...(parsedIaContent && typeof parsedIaContent === 'object' ? (parsedIaContent as Record<string, any>) : {}),
+			};
+		}
+	}
+
+	const parsedContent = safeParseJson(obj.content);
+	const parsedIaContent = safeParseJson(obj.iacontent);
+	return {
+		...obj,
+		...(parsedContent && typeof parsedContent === 'object' ? (parsedContent as Record<string, any>) : {}),
+		...(parsedIaContent && typeof parsedIaContent === 'object' ? (parsedIaContent as Record<string, any>) : {}),
+	};
+}
+
 export default function DashboardPage() {
 	const [crdInput, setCrdInput] = useState('');
 	const [externalRawDir, setExternalRawDir] = useState('/home/lenny/Dev/webDev/Data-finra-sec/data/raw');
@@ -220,7 +255,7 @@ export default function DashboardPage() {
 	}
 
 	function setMainViewFromSearch(card: SearchResultCard, sourceLabel: string) {
-		setMainJson(card.payload);
+		setMainJson(normalizePayloadForCleanView(card.payload) as Record<string, any>);
 		setMainJsonLabel(`${String(card.source).toUpperCase()} ${card.entity.toUpperCase()} • ${sourceLabel}`);
 		syncSelectionToUrl({
 			entity: card.entity,
@@ -323,7 +358,7 @@ export default function DashboardPage() {
 				return;
 			}
 
-			setMainJson(payload);
+			setMainJson(normalizePayloadForCleanView(payload) as Record<string, any>);
 			setMainJsonLabel(`${source}:${card.entity}:${card.id}`);
 			syncSelectionToUrl({
 				entity: card.entity,
