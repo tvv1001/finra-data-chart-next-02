@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
 import { cachedFetch } from '@/lib/simpleCache';
 import { rememberRecentSeed } from '@/lib/seedStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
@@ -113,10 +114,26 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		const requests = await Promise.allSettled([
 			cachedFetch(`finra:individual:${crd}:${queryString}`, 60 * 60 * 24, async () => {
-				return undefined as unknown as any;
+				try {
+					const res = await axios.get(`https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?${queryString}`, {
+						timeout: 10000,
+					});
+					return res.data;
+				} catch (err) {
+					logger.warn('FINRA external fetch failed', { crd, error: err instanceof Error ? err.message : 'unknown' });
+					return undefined;
+				}
 			}),
 			cachedFetch(`sec:individual:${crd}:${queryString}`, 60 * 60 * 24, async () => {
-				return undefined as unknown as any;
+				try {
+					const res = await axios.get(`https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?${queryString}`, {
+						timeout: 10000,
+					});
+					return res.data;
+				} catch (err) {
+					logger.warn('SEC external fetch failed', { crd, error: err instanceof Error ? err.message : 'unknown' });
+					return undefined;
+				}
 			}),
 		]);
 
