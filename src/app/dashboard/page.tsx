@@ -12,6 +12,19 @@ type ApiResponse = {
 	[key: string]: unknown;
 };
 
+type SearchResult = Record<string, any>;
+
+type SearchResultSource = 'finra' | 'sec';
+
+type SearchResultCard = {
+	id: string;
+	label: string;
+	scope: string;
+	source: SearchResultSource;
+	entity: 'individual' | 'firm';
+	payload: SearchResult;
+};
+
 function parseCrds(input: string) {
 	return input
 		.split(/[\s,]+/g)
@@ -21,12 +34,17 @@ function parseCrds(input: string) {
 }
 
 export default function DashboardPage() {
-	const [adminSecret, setAdminSecret] = useState('');
 	const [crdInput, setCrdInput] = useState('');
 	const [externalRawDir, setExternalRawDir] = useState('/home/lenny/Dev/webDev/Data-finra-sec/data/raw');
 	const [busyAction, setBusyAction] = useState<DashboardAction | null>(null);
 	const [result, setResult] = useState<ApiResponse | null>(null);
+	const [mainJson, setMainJson] = useState<Record<string, any> | null>(null);
+	const [mainJsonLabel, setMainJsonLabel] = useState('finra:individual:7362778');
 	const [dismissedNewCrds, setDismissedNewCrds] = useState(false);
+	const [searchQuery, setSearchQuery] = useState('');
+	const [searchBusy, setSearchBusy] = useState(false);
+	const [searchError, setSearchError] = useState<string | null>(null);
+	const [searchResults, setSearchResults] = useState<SearchResultCard[]>([]);
 
 	const parsedCrds = useMemo(() => parseCrds(crdInput), [crdInput]);
 
@@ -61,6 +79,7 @@ export default function DashboardPage() {
 	);
 
 	const codeBlock = useMemo(() => {
+		if (mainJson) return JSON.stringify(mainJson, null, 2);
 		if (result) return JSON.stringify(result, null, 2);
 		return `{
   "content": {
@@ -81,14 +100,22 @@ export default function DashboardPage() {
     ]
   }
 }`;
-	}, [result]);
+	}, [mainJson, result]);
+
+	const searchSummary = useMemo(() => {
+		if (!searchQuery.trim()) return 'Search saved records by name';
+		if (searchBusy) return 'Searching Redis...';
+		if (searchError) return searchError;
+		if (!searchResults.length) return 'No Redis results yet';
+		return `${searchResults.length} Redis result${searchResults.length === 1 ? '' : 's'} found`;
+	}, [searchBusy, searchError, searchQuery, searchResults.length]);
+
+	function setMainViewFromSearch(card: SearchResultCard, sourceLabel: string) {
+		setMainJson(card.payload);
+		setMainJsonLabel(`${String(card.source).toUpperCase()} ${card.entity.toUpperCase()} • ${sourceLabel}`);
+	}
 
 	async function runAction(action: DashboardAction) {
-		if (!adminSecret.trim()) {
-			setResult({ ok: false, error: 'Enter ADMIN_SECRET first.' });
-			return;
-		}
-
 		setBusyAction(action);
 		setResult(null);
 
@@ -109,7 +136,6 @@ export default function DashboardPage() {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
-					'x-admin-secret': adminSecret,
 				},
 				body: JSON.stringify(body),
 			});
@@ -123,24 +149,92 @@ export default function DashboardPage() {
 		}
 	}
 
+	async function runRedisSearch() {
+		const query = searchQuery.trim();
+		if (!query) {
+			setSearchResults([]);
+			setSearchError(null);
+			return;
+		}
+
+		setSearchBusy(true);
+		setSearchError(null);
+		setSearchResults([]);
+
+		try {
+			const [finraIndividualRes, finraFirmRes, secIndividualRes, secFirmRes] = await Promise.all([
+				fetch(`/api/finra/search?type=individual&query=${encodeURIComponent(query)}&rows=8`),
+				fetch(`/api/finra/search?type=firm&query=${encodeURIComponent(query)}&rows=8`),
+				fetch(`/api/finra/sec-search?query=${encodeURIComponent(query)}&rows=8`),
+				fetch(`/api/finra/sec-search-firm?query=${encodeURIComponent(query)}&rows=8`),
+			]);
+
+			const [finraIndividualJson, finraFirmJson, secIndividualJson, secFirmJson] = await Promise.all([
+				finraIndividualRes.json(),
+				finraFirmRes.json(),
+				secIndividualRes.json(),
+				secFirmRes.json(),
+			]);
+
+			const getItems = (payload: any) =>
+				Array.isArray(payload?.results) ? payload.results
+				: Array.isArray(payload?.currentPage) ? payload.currentPage
+				: Array.isArray(payload?.hits?.hits) ? payload.hits.hits.map((hit: any) => hit?._source ?? hit)
+				: [];
+
+			const normalize = (items: SearchResult[], source: SearchResultSource, entity: 'individual' | 'firm'): SearchResultCard[] =>
+				items.map((item, index) => {
+					const id = String(item?.individualId || item?.firmId || item?.crd || item?.sourceId || item?.id || `${source}-${entity}-${index}`);
+					const label = String(item?.name || item?.fullName || item?.firmName || item?.firstName || item?.lastName || item?.title || 'Result').trim();
+					const scope = String(item?.bcScope || item?.iaScope || item?.status || item?.registrationStatus || '').trim();
+					return { id, label, scope, source, entity, payload: item };
+				});
+
+			setSearchResults([
+				...normalize(getItems(finraIndividualJson), 'finra', 'individual'),
+				...normalize(getItems(finraFirmJson), 'finra', 'firm'),
+				...normalize(getItems(secIndividualJson), 'sec', 'individual'),
+				...normalize(getItems(secFirmJson), 'sec', 'firm'),
+			]);
+		} catch (error: any) {
+			setSearchError(error?.message || String(error));
+		} finally {
+			setSearchBusy(false);
+		}
+	}
+
+	function renderSearchResult(card: SearchResultCard, index: number) {
+		const sourceLabel = card.source === 'finra' ? 'FINRA' : 'SEC';
+
+		return (
+			<div
+				key={`${card.id}-${index}`}
+				className={styles.searchResultCard}>
+				<div className={styles.searchResultTop}>
+					<strong>{card.id}</strong>
+					<button
+						type='button'
+						className={styles.searchSourceBtn}
+						onClick={() => setMainViewFromSearch(card, sourceLabel)}>
+						{sourceLabel}
+					</button>
+				</div>
+				<div className={styles.searchResultLabel}>{card.label}</div>
+				{card.scope && <div className={styles.searchResultScope}>{card.scope}</div>}
+				<div className={styles.searchResultPayloadHint}>Click {sourceLabel} to open JSON in the main view</div>
+			</div>
+		);
+	}
+
 	return (
 		<div className={styles.page}>
 			<div className={styles.layout}>
 				<aside className={styles.leftPane}>
-					<div className={styles.secretRow}>
-						<input
-							type='password'
-							placeholder='ADMIN_SECRET'
-							value={adminSecret}
-							onChange={(event) => setAdminSecret(event.target.value)}
-							className={styles.input}
-						/>
-						<Link
-							href='/'
-							className={styles.backLink}>
-							← Graph
-						</Link>
-					</div>
+					<Link
+						href='/'
+						className={styles.backLink}>
+						← Graph
+					</Link>
 
 					<textarea
 						className={styles.queueInput}
@@ -173,16 +267,11 @@ export default function DashboardPage() {
 							</div>
 						))}
 					</div>
-
-					<div className={styles.leftFooter}>
-						<button className={styles.linkPill}>📊 Insights</button>
-						<button className={styles.linkPill}>✨ AI Q&amp;A</button>
-					</div>
 				</aside>
 
 				<section className={styles.centerPane}>
 					<div className={styles.recordHeader}>CURRENT RECORD</div>
-					<h2 className={styles.recordTitle}>finra:individual:7362778</h2>
+					<h2 className={styles.recordTitle}>{mainJsonLabel}</h2>
 					<div className={styles.recordPills}>
 						<span>FINRA raw JSON</span>
 						<span>SEC raw JSON</span>
@@ -204,11 +293,27 @@ export default function DashboardPage() {
 						<div className={styles.searchTitle}>Local Name Search</div>
 						<div className={styles.searchRow}>
 							<input
+								value={searchQuery}
+								onChange={(event) => setSearchQuery(event.target.value)}
+								onKeyDown={(event) => {
+									if (event.key === 'Enter') {
+										event.preventDefault();
+										runRedisSearch();
+									}
+								}}
 								className={styles.input}
-								placeholder='Search saved records by name...'
+								placeholder='Search Redis records by name...'
 							/>
-							<button className={styles.primaryBtn}>Search</button>
+							<button
+								type='button'
+								className={styles.primaryBtn}
+								onClick={runRedisSearch}
+								disabled={searchBusy}>
+								{searchBusy ? 'Searching…' : 'Search'}
+							</button>
 						</div>
+						<div className={styles.searchSummary}>{searchSummary}</div>
+						{searchResults.length > 0 && <div className={styles.searchResultsList}>{searchResults.map(renderSearchResult)}</div>}
 					</div>
 				</section>
 

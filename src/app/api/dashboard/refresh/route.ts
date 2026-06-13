@@ -8,7 +8,6 @@ import { setStringIfValid } from '@/lib/redisCache';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
 const DEFAULT_INDIVIDUAL_QUERY = 'hl=true&includePrevious=true&wt=json';
 const DEFAULT_FIRM_QUERY = 'hl=true&wt=json';
 const DEFAULT_EXTERNAL_RAW_DIR = '/home/lenny/Dev/webDev/Data-finra-sec/data/raw';
@@ -34,10 +33,6 @@ type FetchResultItem = {
 	redisWrite: string;
 	error?: string;
 };
-
-function unauthorized() {
-	return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
-}
 
 function parseCrds(input: RefreshRequestBody['crds'], maxCrds = 50): string[] {
 	const tokens =
@@ -311,11 +306,6 @@ async function deployPrimedBundlesToRedis() {
 }
 
 export async function POST(request: NextRequest) {
-	const incomingSecret = request.headers.get('x-admin-secret') || '';
-	if (!ADMIN_SECRET || incomingSecret !== ADMIN_SECRET) {
-		return unauthorized();
-	}
-
 	let body: RefreshRequestBody;
 	try {
 		body = (await request.json()) as RefreshRequestBody;
