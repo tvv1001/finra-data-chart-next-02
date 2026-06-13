@@ -3,6 +3,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { Redis } from '@upstash/redis';
+import { cachedFetch } from '@/lib/simpleCache';
+import { normalizeIndividualDetailPayload } from '@/lib/individualDetail';
 import { setStringIfValid } from '@/lib/redisCache';
 
 export const runtime = 'nodejs';
@@ -12,8 +14,17 @@ const DEFAULT_INDIVIDUAL_QUERY = 'hl=true&includePrevious=true&wt=json';
 const DEFAULT_FIRM_QUERY = 'hl=true&wt=json';
 const DEFAULT_EXTERNAL_RAW_DIR = '/home/lenny/Dev/webDev/Data-finra-sec/data/raw';
 const PRIMED_REDIS_CHUNK_CHARS = Number(process.env.PRIMED_REDIS_CHUNK_CHARS || 700_000);
+const DASHBOARD_REDIS_SCAN_CARD_LIMIT_PER_PATTERN = Number(process.env.DASHBOARD_REDIS_SCAN_CARD_LIMIT_PER_PATTERN || 120_000);
+const DASHBOARD_RECENCY_MTIME_SAMPLE_LIMIT = Number(process.env.DASHBOARD_RECENCY_MTIME_SAMPLE_LIMIT || 2_000);
+const DASHBOARD_REDIS_MIN_CARD_COUNT = Math.max(1_000, Number(process.env.DASHBOARD_REDIS_MIN_CARD_COUNT || 1_000) || 1_000);
+const BUILD_MANIFEST_PATH = path.join(process.cwd(), 'data', 'build_manifest.json');
 
-type DashboardAction = 'fetch-crds' | 'sync-and-deploy-primed' | 'list-cache-cards';
+let manifestTotalsCache: { totalCards: number; totalCacheKeys: number } | null = null;
+let primedBundleTotalsCache: { totalCards: number; totalCacheKeys: number } | null = null;
+let manifestCardIndexCache: Map<string, CacheCard> | null = null;
+let primedBundleCardIndexCache: Map<string, CacheCard> | null = null;
+
+type DashboardAction = 'fetch-crds' | 'sync-and-deploy-primed' | 'list-cache-cards' | 'list-new-crds';
 
 type RefreshRequestBody = {
 	action?: DashboardAction;
@@ -61,8 +72,236 @@ type CacheCardWithMeta = CacheCard & {
 	updatedAt: number;
 };
 
-function isObject(value: unknown): value is Record<string, any> {
+function hasAnyItems(list: unknown) {
+	return Array.isArray(list) && list.length > 0;
+}
+
+function isPlainObject(value: unknown): value is Record<string, any> {
 	return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isObject(value: unknown): value is Record<string, any> {
+	return isPlainObject(value);
+}
+
+function normalizeScopeValue(value: unknown) {
+	return String(value || '')
+		.trim()
+		.toLowerCase()
+		.replace(/\s+/g, '');
+}
+
+function isNotInScopeValue(value: unknown) {
+	return normalizeScopeValue(value) === 'notinscope';
+}
+
+function collectNodeActivityFlags(values: unknown[]) {
+	let hasActive = false;
+	let hasInactive = false;
+	for (const value of values) {
+		const normalized = normalizeScopeValue(value);
+		if (!normalized || normalized === 'notinscope') continue;
+		if (/inactive|terminated|revoked|suspended|withdrawn|barred|expelled|denied|ceased|closed|previouslyregistered|nolongerregistered|notregistered/.test(normalized)) {
+			hasInactive = true;
+			continue;
+		}
+		if (/active|approved|current|registered/.test(normalized)) {
+			hasActive = true;
+			continue;
+		}
+		hasInactive = true;
+	}
+	return { hasActive, hasInactive };
+}
+
+function hasApprovedSro(list: unknown) {
+	return Array.isArray(list) && list.some((entry) => /approved|active|current|registered/i.test(String(entry?.registrationStatus || entry?.status || entry?.scope || '')));
+}
+
+function hasActiveRegisteredStates(list: unknown, allowedScopes: string[]) {
+	if (!Array.isArray(list)) return false;
+	const allowed = new Set(
+		allowedScopes.map((scope) =>
+			String(scope || '')
+				.trim()
+				.toLowerCase(),
+		),
+	);
+	return list.some((entry) => {
+		const scope = String(entry?.regScope || entry?.scope || '')
+			.trim()
+			.toLowerCase();
+		if (!scope || !allowed.has(scope)) return false;
+		const status = normalizeScopeValue(entry?.registrationStatus || entry?.status || entry?.regStatus || 'active');
+		return !status || (!/inactive|terminated|revoked|suspended|withdrawn|notregistered|notinscope/.test(status) && /active|approved|current|registered/.test(status));
+	});
+}
+
+function hasPublicFinraIndividualPage(detail: any, basicInformation: Record<string, any> = {}) {
+	const bcScope = normalizeScopeValue(detail?.bcScope || basicInformation?.bcScope || '');
+	if (bcScope === 'notinscope') return false;
+	if (bcScope) return true;
+
+	const registrationCount = detail?.registrationCount || {};
+	if (Number(registrationCount.approvedFinraRegistrationCount || 0) > 0) return true;
+	if (Number(registrationCount.approvedSRORegistrationCount || 0) > 0) return true;
+	if (hasAnyItems(detail?.registeredSROs)) return true;
+
+	return false;
+}
+
+function hasPublicSecIndividualPage(detail: any, basicInformation: Record<string, any> = {}) {
+	const iaScope = normalizeScopeValue(detail?.iaScope || basicInformation?.iaScope || '');
+	if (iaScope && iaScope !== 'notinscope') return true;
+
+	const registrationCount = detail?.registrationCount || {};
+	if (Number(registrationCount.approvedIAStateRegistrationCount || 0) > 0) return true;
+	if (hasAnyItems(detail?.currentIAEmployments)) return true;
+	if (hasAnyItems(detail?.iaDisclosures)) return true;
+	if (
+		Array.isArray(detail?.registeredStates) &&
+		detail.registeredStates.some(
+			(entry: any) =>
+				String(entry?.regScope || '')
+					.trim()
+					.toLowerCase() === 'ia',
+		)
+	)
+		return true;
+
+	return false;
+}
+
+function hasIndividualFinraPresence(node: any) {
+	if (!node || typeof node !== 'object') return false;
+	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
+	if (node.hasFinraData === true) return true;
+	if (hasPublicFinraIndividualPage(node, node.basicInformation || {})) return true;
+	if (hasAnyItems(node?.currentEmployments)) return true;
+	if (hasAnyItems(node?.previousEmployments)) return true;
+	if (hasApprovedSro(node?.registeredSROs)) return true;
+	if (hasActiveRegisteredStates(node?.registeredStates, ['bc', 'b', 'broker'])) return true;
+	const bcScopeFlags = collectNodeActivityFlags([node?.bcScope, node?.basicInformation?.bcScope]);
+	return bcScopeFlags.hasActive || bcScopeFlags.hasInactive;
+}
+
+function hasIndividualSecPresence(node: any) {
+	if (!node || typeof node !== 'object') return false;
+	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
+	if (node.hasSecData === true) return true;
+	if (hasPublicSecIndividualPage(node, node.basicInformation || {})) return true;
+	if (Number(node?.registrationCount?.approvedIAStateRegistrationCount || 0) > 0) return true;
+	if (hasAnyItems(node?.currentIAEmployments)) return true;
+	if (hasAnyItems(node?.previousIAEmployments)) return true;
+	if (hasAnyItems(node?.iaDisclosures)) return true;
+	if (hasActiveRegisteredStates(node?.registeredStates, ['ia'])) return true;
+	const iaScopeFlags = collectNodeActivityFlags([node?.iaScope, node?.basicInformation?.iaScope]);
+	return iaScopeFlags.hasActive || iaScopeFlags.hasInactive;
+}
+
+function parseIndividualDetailPayload(data: unknown, contentKey: 'content' | 'iacontent', fallbackCrd = '') {
+	if (!data) return null;
+
+	const normalizeCandidate = (candidate: unknown) => {
+		if (!isPlainObject(candidate)) return null;
+		return normalizeIndividualDetailPayload(candidate, fallbackCrd);
+	};
+
+	if (isPlainObject(data) && Array.isArray(data?.hits?.hits) && data.hits.hits.length > 0) {
+		const source = data.hits.hits[0]?._source || {};
+		const raw = source?.[contentKey];
+		try {
+			return normalizeCandidate({
+				...source,
+				...(typeof raw === 'string' ? JSON.parse(raw) : raw || {}),
+			});
+		} catch {
+			return normalizeCandidate(source);
+		}
+	}
+
+	if (isPlainObject(data)) {
+		const raw = data?.[contentKey];
+		if (raw != null) {
+			try {
+				return normalizeCandidate({
+					...data,
+					...(typeof raw === 'string' ? JSON.parse(raw) : raw || {}),
+				});
+			} catch {
+				return normalizeCandidate(data);
+			}
+		}
+
+		const looksLikeDetail =
+			data.basicInformation ||
+			data.individualId ||
+			data.firstName ||
+			data.lastName ||
+			data.bcScope ||
+			data.iaScope ||
+			data.disclosures ||
+			data.currentEmployments ||
+			data.previousEmployments ||
+			data.currentIAEmployments ||
+			data.previousIAEmployments;
+		if (looksLikeDetail) return normalizeCandidate(data);
+	}
+
+	return null;
+}
+
+async function loadCachedIndividualPayload(source: 'finra' | 'sec', id: string) {
+	const key = `${source}:individual:${id}:${DEFAULT_INDIVIDUAL_QUERY}`;
+	const payload = await cachedFetch<any>(key, 60 * 60 * 24, async () => undefined as unknown as any);
+	return parseIndividualDetailPayload(payload, source === 'finra' ? 'content' : 'iacontent', id);
+}
+
+async function normalizeCardSourcesForDisplay(card: CacheCard): Promise<CacheCard> {
+	if (card.entity !== 'individual' || card.sources.length <= 1) return card;
+
+	const normalizedSources: CacheCardSource[] = [];
+	let evaluatedSourceCount = 0;
+
+	for (const sourceEntry of card.sources) {
+		const detail = await loadCachedIndividualPayload(sourceEntry.source, card.id);
+		if (!detail) continue;
+		evaluatedSourceCount += 1;
+
+		const includeSource = sourceEntry.source === 'finra' ? hasIndividualFinraPresence(detail) : hasIndividualSecPresence(detail);
+		if (includeSource) normalizedSources.push(sourceEntry);
+	}
+
+	if (evaluatedSourceCount === 0 || normalizedSources.length === 0) return card;
+	return {
+		...card,
+		files: normalizedSources.length,
+		sources: normalizedSources,
+	};
+}
+
+function upsertCardIndexEntry(index: Map<string, CacheCard>, hit: { source: 'finra' | 'sec'; entity: 'individual' | 'firm'; id: string }) {
+	const key = `${hit.entity}:${hit.id}`;
+	const existing = index.get(key) || {
+		id: hit.id,
+		entity: hit.entity,
+		files: 0,
+		sources: [],
+	};
+	existing.files += 1;
+	if (!existing.sources.some((entry) => entry.source === hit.source)) {
+		existing.sources.push({ source: hit.source, status: 'ok' });
+	}
+	index.set(key, existing);
+}
+
+function normalizeCardForDisplay(card: CacheCard) {
+	return {
+		id: card.id,
+		entity: card.entity,
+		files: Math.max(1, card.sources.length),
+		sources: [...card.sources].sort((a, b) => a.source.localeCompare(b.source)),
+	};
 }
 
 function isValidFetchedPayload(payload: unknown): boolean {
@@ -269,6 +508,7 @@ async function scanKeys(redis: Redis, pattern: string, limit: number) {
 	let cursor = '0';
 	const keys: string[] = [];
 	let loops = 0;
+	const maxLoops = Math.max(200, Math.ceil(Math.max(1, limit) / 500) + 20);
 
 	do {
 		const [nextCursor, batch] = await redis.scan(cursor, {
@@ -283,7 +523,7 @@ async function scanKeys(redis: Redis, pattern: string, limit: number) {
 
 		cursor = String(nextCursor || '0');
 		loops += 1;
-	} while (cursor !== '0' && loops < 200);
+	} while (cursor !== '0' && loops < maxLoops);
 
 	return keys;
 }
@@ -325,7 +565,7 @@ function parseFilterTokens(crdFilter: string) {
 		.filter(Boolean);
 }
 
-function applyCardFilter(cards: CacheCardWithMeta[], filterTokens: string[]) {
+function applyCardFilter<T extends { id: string }>(cards: T[], filterTokens: string[]) {
 	if (!filterTokens.length) return cards;
 	const exact = cards.filter((card) => filterTokens.some((token) => card.id === token));
 	const partial = cards.filter((card) => filterTokens.some((token) => card.id.includes(token)) && !filterTokens.some((token) => card.id === token));
@@ -404,15 +644,117 @@ async function listLocalNewestCards(maxCards = 10, crdFilter = '') {
 	};
 }
 
+async function readBuildManifestTotals() {
+	if (manifestTotalsCache) return manifestTotalsCache;
+
+	try {
+		const raw = await fs.readFile(BUILD_MANIFEST_PATH, 'utf8');
+		const parsed = JSON.parse(raw) as Record<string, number>;
+		const cardIds = new Set<string>();
+		const cardIndex = new Map<string, CacheCard>();
+		let cacheKeys = 0;
+
+		for (const entryPath of Object.keys(parsed)) {
+			const match = /api\.(brokercheck\.finra\.org|adviserinfo\.sec\.gov)_search_(individual|firm)_(\d{1,10})\.json$/i.exec(entryPath);
+			if (!match) continue;
+			const host = match[1].toLowerCase();
+			const entity = match[2].toLowerCase() as 'individual' | 'firm';
+			const id = match[3];
+			const source = host === 'brokercheck.finra.org' ? 'finra' : 'sec';
+			cardIds.add(`${entity}:${id}`);
+			upsertCardIndexEntry(cardIndex, { source, entity, id });
+			cacheKeys += 1;
+		}
+
+		manifestCardIndexCache = cardIndex;
+		manifestTotalsCache = {
+			totalCards: cardIds.size,
+			totalCacheKeys: cacheKeys,
+		};
+		return manifestTotalsCache;
+	} catch {
+		return null;
+	}
+}
+
+async function readPrimedBundleTotals(redis: Redis, forceRefresh = false) {
+	if (primedBundleTotalsCache && !forceRefresh) return primedBundleTotalsCache;
+
+	const bundleNames = ['finra-individual', 'sec-individual', 'finra-firm', 'sec-firm'] as const;
+	const cardIds = new Set<string>();
+	const cardIndex = new Map<string, CacheCard>();
+	let cacheKeys = 0;
+
+	const decodeAndCount = (base64Gzip: string) => {
+		try {
+			const json = zlib.gunzipSync(Buffer.from(base64Gzip, 'base64')).toString('utf8');
+			const parsed = JSON.parse(json) as Record<string, unknown>;
+			for (const key of Object.keys(parsed)) {
+				const hit = parseCacheKey(key);
+				if (!hit) continue;
+				cardIds.add(`${hit.entity}:${hit.id}`);
+				upsertCardIndexEntry(cardIndex, hit);
+				cacheKeys += 1;
+			}
+		} catch {
+			// ignore malformed bundle payloads
+		}
+	};
+
+	for (const bundleName of bundleNames) {
+		const bundleKey = `primed:bundle:${bundleName}`;
+		const raw = await redis.get<string>(bundleKey).catch(() => null);
+		if (raw) {
+			decodeAndCount(raw);
+			continue;
+		}
+
+		const metaRaw = await redis.get<string>(`${bundleKey}:meta`).catch(() => null);
+		if (!metaRaw) continue;
+
+		let chunkCount = 0;
+		try {
+			const meta = typeof metaRaw === 'string' ? JSON.parse(metaRaw) : metaRaw;
+			chunkCount = Number(meta?.chunks || 0);
+		} catch {
+			chunkCount = 0;
+		}
+
+		if (!Number.isFinite(chunkCount) || chunkCount <= 0) continue;
+		const parts: string[] = [];
+		for (let index = 0; index < chunkCount; index += 1) {
+			const part = await redis.get<string>(`${bundleKey}:part:${index}`).catch(() => null);
+			if (!part) {
+				parts.length = 0;
+				break;
+			}
+			parts.push(part);
+		}
+
+		if (parts.length) decodeAndCount(parts.join(''));
+	}
+
+	if (!cardIds.size && cacheKeys === 0) return null;
+
+	primedBundleCardIndexCache = cardIndex;
+	primedBundleTotalsCache = {
+		totalCards: cardIds.size,
+		totalCacheKeys: cacheKeys,
+	};
+	return primedBundleTotalsCache;
+}
+
 async function listCacheCards(maxCards = 200, crdFilter = '') {
 	const redis = ensureRedisClient();
 	if (!redis) {
 		return listLocalNewestCards(maxCards, crdFilter);
 	}
 
+	const filterTokens = parseFilterTokens(crdFilter);
+
 	const patterns = ['finra:individual:*', 'sec:individual:*', 'finra:firm:*', 'sec:firm:*'];
 
-	const perPatternLimit = Math.max(100, maxCards * 4);
+	const perPatternLimit = Math.max(100, DASHBOARD_REDIS_SCAN_CARD_LIMIT_PER_PATTERN);
 	const keySet = new Set<string>();
 	for (const pattern of patterns) {
 		const keys = await scanKeys(redis, pattern, perPatternLimit);
@@ -443,41 +785,176 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 		cardMap.set(cardKey, existing);
 	}
 
-	const cardsWithMeta: CacheCardWithMeta[] = await Promise.all(
-		Array.from(cardMap.values()).map(async (card) => ({
+	const cards = Array.from(cardMap.values()).map((card) => ({
+		...card,
+		sources: card.sources.sort((a, b) => a.source.localeCompare(b.source)),
+	}));
+
+	let fallbackManifestTotals: { totalCards: number; totalCacheKeys: number } | null = null;
+	if (cardMap.size < DASHBOARD_REDIS_MIN_CARD_COUNT) {
+		const localListed = await listLocalNewestCards(maxCards, crdFilter);
+		if ((localListed as any)?.totalCards > 0) {
+			return localListed;
+		}
+		fallbackManifestTotals = await readBuildManifestTotals();
+		if (!fallbackManifestTotals) {
+			fallbackManifestTotals = await readPrimedBundleTotals(redis, filterTokens.length > 0);
+		}
+	}
+	let filteredCards = applyCardFilter(cards, filterTokens);
+
+	if (filterTokens.length > 0 && filteredCards.length === 0) {
+		const fallbackIndex =
+			manifestCardIndexCache && manifestCardIndexCache.size > 0 ? manifestCardIndexCache
+			: primedBundleCardIndexCache && primedBundleCardIndexCache.size > 0 ? primedBundleCardIndexCache
+			: null;
+		if (fallbackIndex && fallbackIndex.size > 0) {
+			const fallbackMatches = applyCardFilter(
+				Array.from(fallbackIndex.values()).map((card) => ({
+					...card,
+					sources: card.sources.sort((a, b) => a.source.localeCompare(b.source)),
+				})),
+				filterTokens,
+			);
+			if (fallbackMatches.length > 0) {
+				filteredCards = fallbackMatches;
+			}
+		}
+	}
+
+	if (filterTokens.length > 0 && filteredCards.length > 0) {
+		const fallbackIndex =
+			manifestCardIndexCache && manifestCardIndexCache.size > 0 ? manifestCardIndexCache
+			: primedBundleCardIndexCache && primedBundleCardIndexCache.size > 0 ? primedBundleCardIndexCache
+			: null;
+		if (fallbackIndex && fallbackIndex.size > 0) {
+			const normalizedFiltered = filteredCards.map((card) => {
+				const fallbackCard = fallbackIndex.get(`${card.entity}:${card.id}`);
+				return fallbackCard ? { ...fallbackCard } : card;
+			});
+			if (normalizedFiltered.length > 0) {
+				filteredCards = normalizedFiltered;
+			}
+		}
+	}
+
+	const recencyBase =
+		filteredCards.length <= DASHBOARD_RECENCY_MTIME_SAMPLE_LIMIT ?
+			filteredCards
+		:	[...filteredCards].sort((left, right) => Number(right.id) - Number(left.id)).slice(0, DASHBOARD_RECENCY_MTIME_SAMPLE_LIMIT);
+
+	const recencyCards: CacheCardWithMeta[] = await Promise.all(
+		recencyBase.map(async (card) => ({
 			...card,
 			updatedAt: await getCardUpdatedAt(card),
 		})),
 	);
 
-	const cards = cardsWithMeta
-		.sort((left, right) => right.updatedAt - left.updatedAt || Number(right.id) - Number(left.id))
-		.map((card) => ({
-			...card,
-			sources: card.sources.sort((a, b) => a.source.localeCompare(b.source)),
-		}));
-
-	const filterTokens = parseFilterTokens(crdFilter);
-	const filteredCards = applyCardFilter(cards, filterTokens);
+	const sortedForDisplay = recencyCards.sort((left, right) => right.updatedAt - left.updatedAt || Number(right.id) - Number(left.id));
 
 	if (!cards.length) {
 		return listLocalNewestCards(maxCards, crdFilter);
 	}
 
-	const shownCards = filteredCards.slice(0, maxCards).map((card) => ({
-		id: card.id,
-		entity: card.entity,
-		files: card.files,
-		sources: card.sources,
-	}));
+	const shownCards = await Promise.all(sortedForDisplay.slice(0, maxCards).map(async (card) => normalizeCardForDisplay(await normalizeCardSourcesForDisplay(card))));
 
 	return {
 		ok: true,
 		cards: shownCards,
-		totalCards: cardMap.size,
-		totalCacheKeys: keySet.size,
+		totalCards: fallbackManifestTotals?.totalCards ?? cardMap.size,
+		totalCacheKeys: fallbackManifestTotals?.totalCacheKeys ?? keySet.size,
 		filteredTotalCards: filteredCards.length,
-		sourceMode: 'redis' as const,
+		sourceMode: fallbackManifestTotals ? 'redis+manifest' : 'redis',
+	};
+}
+
+async function listNewCrds() {
+	const redis = ensureRedisClient();
+	if (!redis) {
+		return { ok: true, newCrds: [], isToday: false, lastChecked: null };
+	}
+
+	const patterns = ['finra:individual:*', 'sec:individual:*', 'finra:firm:*', 'sec:firm:*'];
+	const perPatternLimit = Math.max(100, DASHBOARD_REDIS_SCAN_CARD_LIMIT_PER_PATTERN);
+	const keySet = new Set<string>();
+
+	for (const pattern of patterns) {
+		const keys = await scanKeys(redis, pattern, perPatternLimit);
+		for (const key of keys) keySet.add(key);
+	}
+
+	const cardMap = new Map<string, CacheCardWithMeta>();
+
+	for (const key of keySet) {
+		if (key.startsWith('sec:firm:summaryHtml:')) continue;
+		if (key.startsWith('primed:bundle:')) continue;
+
+		const parsed = parseCacheKey(key);
+		if (!parsed) continue;
+
+		const cardKey = `${parsed.entity}:${parsed.id}`;
+		const existing = cardMap.get(cardKey) || {
+			id: parsed.id,
+			entity: parsed.entity,
+			files: 0,
+			sources: [],
+			updatedAt: 0,
+		};
+
+		existing.files += 1;
+		if (!existing.sources.some((entry) => entry.source === parsed.source)) {
+			existing.sources.push({ source: parsed.source, status: 'ok' });
+		}
+
+		const updatedAt = await getCardUpdatedAt({ id: parsed.id, entity: parsed.entity, files: 0, sources: [] });
+		if (updatedAt > existing.updatedAt) {
+			existing.updatedAt = updatedAt;
+		}
+
+		cardMap.set(cardKey, existing);
+	}
+
+	const today = new Date();
+	today.setHours(0, 0, 0, 0);
+	const todayMs = today.getTime();
+
+	const todayCards = Array.from(cardMap.values())
+		.filter((card) => card.updatedAt >= todayMs)
+		.sort((a, b) => b.updatedAt - a.updatedAt || Number(b.id) - Number(a.id));
+
+	const displayCards =
+		todayCards.length > 0 ?
+			todayCards
+		:	Array.from(cardMap.values())
+				.sort((a, b) => b.updatedAt - a.updatedAt || Number(b.id) - Number(a.id))
+				.slice(0, 20);
+
+	const formatted = await Promise.all(
+		displayCards.map(async (card) => {
+			const normalized = await normalizeCardForDisplay(await normalizeCardSourcesForDisplay(card));
+			const updatedDate = new Date(card.updatedAt);
+			const daysAgo = Math.floor((todayMs - card.updatedAt) / (1000 * 60 * 60 * 24));
+			const found =
+				daysAgo === 0 ? 'today'
+				: daysAgo === 1 ? 'yesterday'
+				: `${daysAgo}d ago`;
+
+			return {
+				id: normalized.id,
+				type: normalized.entity === 'individual' ? 'INDIVIDUAL' : 'FIRM',
+				found,
+				scopes: normalized.sources.map((s) => s.source.toUpperCase()).sort(),
+				date: updatedDate.toISOString().split('T')[0],
+			};
+		}),
+	);
+
+	return {
+		ok: true,
+		newCrds: formatted,
+		isToday: todayCards.length > 0,
+		lastChecked: new Date().toISOString(),
+		detectedCount: cardMap.size,
 	};
 }
 
@@ -701,11 +1178,21 @@ export async function POST(request: NextRequest) {
 	}
 
 	const action = body.action;
-	if (!action || !['fetch-crds', 'sync-and-deploy-primed', 'list-cache-cards'].includes(action)) {
+	if (!action || !['fetch-crds', 'sync-and-deploy-primed', 'list-cache-cards', 'list-new-crds'].includes(action)) {
 		return NextResponse.json({ ok: false, error: 'invalid-action' }, { status: 400 });
 	}
 
 	try {
+		if (action === 'list-new-crds') {
+			const listed = await listNewCrds();
+			return NextResponse.json({
+				ok: true,
+				action,
+				...listed,
+				at: new Date().toISOString(),
+			});
+		}
+
 		if (action === 'list-cache-cards') {
 			const maxCards = Math.max(1, Math.min(1000, Number(body.maxCards || 10)));
 			const listed = await listCacheCards(maxCards, String(body.crdFilter || ''));
