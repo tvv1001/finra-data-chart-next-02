@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import styles from './dashboard.module.css';
 
-type DashboardAction = 'fetch-crds' | 'sync-and-deploy-primed';
+type DashboardAction = 'fetch-crds' | 'list-new-crds';
 
 type ApiResponse = {
 	ok: boolean;
@@ -614,6 +614,10 @@ export default function DashboardPage() {
 						crds: effectiveParsedCrds,
 						maxCrds: 100,
 					}
+				: action === 'list-new-crds' ?
+					{
+						action,
+					}
 				:	{
 						action,
 						externalRawDir,
@@ -689,6 +693,14 @@ export default function DashboardPage() {
 				const nextCards = buildQueueCardsFromFetchResults(fetchedItems);
 				if (nextCards.length > 0) setQueueCards(nextCards);
 				void loadQueueCardsFromRedis(queueCrdFilter);
+			} else if (action === 'list-new-crds') {
+				// Handle refresh response
+				const newCrdsData = (payload as any)?.newCrds || [];
+				const detectedCount = (payload as any)?.detectedCount || 0;
+				const lastChecked = (payload as any)?.lastChecked;
+				setNewCrds(newCrdsData);
+				setNewCrdsDetectedCount(detectedCount);
+				setNewCrdsLastChecked(lastChecked);
 			}
 		} catch (error: any) {
 			if (action === 'fetch-crds') {
@@ -966,11 +978,11 @@ export default function DashboardPage() {
 					<button
 						type='button'
 						className={styles.checkBtn}
-						onClick={() => runAction('sync-and-deploy-primed')}
+						onClick={() => runAction('list-new-crds')}
 						disabled={busyAction !== null}>
-						{busyAction === 'sync-and-deploy-primed' ? 'Checking…' : 'Check for Latest'}
+						{busyAction === 'list-new-crds' ? 'Refreshing…' : 'Refresh Cache'}
 					</button>
-					<div className={styles.detected}>{newCrdsDetectedCount} new CRDs detected</div>
+					<div className={styles.detected}>{newCrdsDetectedCount} CRDs in Redis cache</div>
 					<div className={styles.lastChecked}>
 						Last checked:{' '}
 						{newCrdsLastChecked ?
@@ -990,7 +1002,21 @@ export default function DashboardPage() {
 							{newCrds.map((item) => (
 								<div
 									key={item.id}
-									className={styles.newCrdItem}>
+									className={styles.newCrdItem}
+									onClick={() => {
+										// For each scope, create a SearchResultCard and display the first available
+										const firstScope = (item.scopes[0] || 'finra').toLowerCase();
+										const searchCard: SearchResultCard = {
+											id: item.id,
+											label: item.id,
+											scope: firstScope,
+											source: (firstScope === 'finra' ? 'finra' : 'sec') as SearchResultSource,
+											entity: item.type === 'INDIVIDUAL' ? 'individual' : 'firm',
+											payload: {},
+										};
+										setMainViewFromSearch(searchCard, firstScope.toUpperCase());
+									}}
+									style={{ cursor: 'pointer' }}>
 									<div className={styles.newCrdTop}>
 										<strong>{item.id}</strong>
 										<span>{item.type}</span>
