@@ -22,7 +22,7 @@ function parseCrds(input: string) {
 
 export default function DashboardPage() {
 	const [adminSecret, setAdminSecret] = useState('');
-	const [crdInput, setCrdInput] = useState('fazio, eufarello, taffarello');
+	const [crdInput, setCrdInput] = useState('');
 	const [externalRawDir, setExternalRawDir] = useState('/home/lenny/Dev/webDev/Data-finra-sec/data/raw');
 	const [busyAction, setBusyAction] = useState<DashboardAction | null>(null);
 	const [result, setResult] = useState<ApiResponse | null>(null);
@@ -186,7 +186,6 @@ export default function DashboardPage() {
 					<div className={styles.recordPills}>
 						<span>FINRA raw JSON</span>
 						<span>SEC raw JSON</span>
-						<span>✨ Analyze with Gemini</span>
 					</div>
 
 					<div className={styles.statusLine}>Local sync: 14 new • 0 updated • 0 repaired • 0 already current</div>
