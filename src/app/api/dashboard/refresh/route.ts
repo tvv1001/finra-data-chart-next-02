@@ -35,6 +35,12 @@ type FetchResultItem = {
 	error?: string;
 };
 
+type FetchTarget = {
+	crd: string;
+	source: 'finra' | 'sec';
+	type: 'individual' | 'firm';
+};
+
 function parseCrds(input: RefreshRequestBody['crds'], maxCrds = 50): string[] {
 	const tokens =
 		typeof input === 'string' ?
@@ -82,12 +88,29 @@ function extractNumericId(item: any, keys: string[]) {
 
 async function resolveCrdsFromQueries(queries: string[], maxCrds = 50) {
 	const resolved = new Set<string>();
+	const targetMap = new Map<string, FetchTarget>();
 	const resolution: Array<{ query: string; crdCount: number; crds: string[] }> = [];
+
+	const addTarget = (target: FetchTarget) => {
+		targetMap.set(`${target.source}:${target.type}:${target.crd}`, target);
+	};
+
+	const canIncludeCrd = (crd: string) => {
+		if (resolved.has(crd)) return true;
+		if (resolved.size >= maxCrds) return false;
+		resolved.add(crd);
+		return true;
+	};
 
 	for (const query of queries) {
 		if (resolved.size >= maxCrds) break;
 		if (/^\d{1,10}$/.test(query)) {
-			resolved.add(query);
+			if (canIncludeCrd(query)) {
+				addTarget({ crd: query, source: 'finra', type: 'individual' });
+				addTarget({ crd: query, source: 'sec', type: 'individual' });
+				addTarget({ crd: query, source: 'finra', type: 'firm' });
+				addTarget({ crd: query, source: 'sec', type: 'firm' });
+			}
 			resolution.push({ query, crdCount: 1, crds: [query] });
 			continue;
 		}
@@ -107,27 +130,30 @@ async function resolveCrdsFromQueries(queries: string[], maxCrds = 50) {
 
 			for (const item of collectSearchItems(finraIndividual)) {
 				const id = extractNumericId(item, individualKeys);
-				if (id) crdsForQuery.add(id);
+				if (!id || !canIncludeCrd(id)) continue;
+				crdsForQuery.add(id);
+				addTarget({ crd: id, source: 'finra', type: 'individual' });
 			}
 			for (const item of collectSearchItems(finraFirm)) {
 				const id = extractNumericId(item, firmKeys);
-				if (id) crdsForQuery.add(id);
+				if (!id || !canIncludeCrd(id)) continue;
+				crdsForQuery.add(id);
+				addTarget({ crd: id, source: 'finra', type: 'firm' });
 			}
 			for (const item of collectSearchItems(secIndividual)) {
 				const id = extractNumericId(item, individualKeys);
-				if (id) crdsForQuery.add(id);
+				if (!id || !canIncludeCrd(id)) continue;
+				crdsForQuery.add(id);
+				addTarget({ crd: id, source: 'sec', type: 'individual' });
 			}
 			for (const item of collectSearchItems(secFirm)) {
 				const id = extractNumericId(item, firmKeys);
-				if (id) crdsForQuery.add(id);
+				if (!id || !canIncludeCrd(id)) continue;
+				crdsForQuery.add(id);
+				addTarget({ crd: id, source: 'sec', type: 'firm' });
 			}
 
 			const crds = Array.from(crdsForQuery);
-			for (const crd of crds) {
-				if (resolved.size >= maxCrds) break;
-				resolved.add(crd);
-			}
-
 			resolution.push({ query, crdCount: crds.length, crds: crds.slice(0, 25) });
 		} catch {
 			resolution.push({ query, crdCount: 0, crds: [] });
@@ -136,6 +162,7 @@ async function resolveCrdsFromQueries(queries: string[], maxCrds = 50) {
 
 	return {
 		crds: Array.from(resolved).slice(0, maxCrds),
+		targets: Array.from(targetMap.values()),
 		resolution,
 	};
 }
@@ -269,88 +296,64 @@ async function syncExternalRawToLocal(externalRawDir: string) {
 	return stats;
 }
 
-async function fetchCrdsToCacheAndRedis(crds: string[]) {
+async function fetchCrdsToCacheAndRedis(targets: FetchTarget[]) {
 	const results: FetchResultItem[] = [];
 	const nationalRoot = path.join(process.cwd(), 'data', 'national');
 	const rawRoot = path.join(process.cwd(), 'data', 'raw');
 
-	for (const crd of crds) {
-		const targets = [
-			{
-				source: 'finra' as const,
-				type: 'individual' as const,
-				url: `https://api.brokercheck.finra.org/search/individual/${crd}?hl=true&wt=json`,
-				cacheFileName: `api.brokercheck.finra.org_search_individual_${crd}.json`,
-				cacheDir: 'brokercheck.finra.org',
-				redisKey: `finra:individual:${crd}:${DEFAULT_INDIVIDUAL_QUERY}`,
-			},
-			{
-				source: 'sec' as const,
-				type: 'individual' as const,
-				url: `https://api.adviserinfo.sec.gov/search/individual/${crd}?wt=json`,
-				cacheFileName: `api.adviserinfo.sec.gov_search_individual_${crd}.json`,
-				cacheDir: 'adviserinfo.sec.gov',
-				redisKey: `sec:individual:${crd}:${DEFAULT_INDIVIDUAL_QUERY}`,
-			},
-			{
-				source: 'finra' as const,
-				type: 'firm' as const,
-				url: `https://api.brokercheck.finra.org/search/firm/${crd}?hl=true&wt=json`,
-				cacheFileName: `api.brokercheck.finra.org_search_firm_${crd}.json`,
-				cacheDir: 'brokercheck.finra.org',
-				redisKey: `finra:firm:${crd}:${DEFAULT_FIRM_QUERY}`,
-			},
-			{
-				source: 'sec' as const,
-				type: 'firm' as const,
-				url: `https://api.adviserinfo.sec.gov/search/firm/${crd}?wt=json`,
-				cacheFileName: `api.adviserinfo.sec.gov_search_firm_${crd}.json`,
-				cacheDir: 'adviserinfo.sec.gov',
-				redisKey: `sec:firm:${crd}:${DEFAULT_FIRM_QUERY}`,
-			},
-		];
+	for (const target of targets) {
+		const crd = target.crd;
+		const isFinra = target.source === 'finra';
+		const isIndividual = target.type === 'individual';
+		const url =
+			isFinra && isIndividual ? `https://api.brokercheck.finra.org/search/individual/${crd}?hl=true&wt=json`
+			: isFinra && !isIndividual ? `https://api.brokercheck.finra.org/search/firm/${crd}?hl=true&wt=json`
+			: !isFinra && isIndividual ? `https://api.adviserinfo.sec.gov/search/individual/${crd}?wt=json`
+			: `https://api.adviserinfo.sec.gov/search/firm/${crd}?wt=json`;
+		const cacheFileName = `api.${isFinra ? 'brokercheck.finra.org' : 'adviserinfo.sec.gov'}_search_${target.type}_${crd}.json`;
+		const cacheDir = isFinra ? 'brokercheck.finra.org' : 'adviserinfo.sec.gov';
+		const redisKey = target.type === 'individual' ? `${target.source}:individual:${crd}:${DEFAULT_INDIVIDUAL_QUERY}` : `${target.source}:firm:${crd}:${DEFAULT_FIRM_QUERY}`;
 
-		for (const target of targets) {
-			try {
-				const payload = await fetchJson(target.url);
-				const nationalFile = path.join(nationalRoot, target.cacheDir, target.cacheFileName);
-				const rawFile = path.join(rawRoot, target.cacheDir, target.cacheFileName);
-				await Promise.all([writeJsonFile(nationalFile, payload), writeJsonFile(rawFile, payload)]);
+		try {
+			const payload = await fetchJson(url);
+			const nationalFile = path.join(nationalRoot, cacheDir, cacheFileName);
+			const rawFile = path.join(rawRoot, cacheDir, cacheFileName);
+			await Promise.all([writeJsonFile(nationalFile, payload), writeJsonFile(rawFile, payload)]);
 
-				const redisWrite = await setStringIfValid(target.redisKey, JSON.stringify(payload), 60 * 60 * 24);
+			const redisWrite = await setStringIfValid(redisKey, JSON.stringify(payload), 60 * 60 * 24);
 
-				results.push({
-					crd,
-					source: target.source,
-					type: target.type,
-					url: target.url,
-					cacheFile: nationalFile,
-					redisKey: target.redisKey,
-					status: 'ok',
-					redisWrite,
-				});
-			} catch (error: any) {
-				results.push({
-					crd,
-					source: target.source,
-					type: target.type,
-					url: target.url,
-					cacheFile: path.join(nationalRoot, target.cacheDir, target.cacheFileName),
-					redisKey: target.redisKey,
-					status: 'error',
-					redisWrite: 'not-attempted',
-					error: error?.message || String(error),
-				});
-			}
+			results.push({
+				crd,
+				source: target.source,
+				type: target.type,
+				url,
+				cacheFile: nationalFile,
+				redisKey,
+				status: 'ok',
+				redisWrite,
+			});
+		} catch (error: any) {
+			results.push({
+				crd,
+				source: target.source,
+				type: target.type,
+				url,
+				cacheFile: path.join(nationalRoot, cacheDir, cacheFileName),
+				redisKey,
+				status: 'error',
+				redisWrite: 'not-attempted',
+				error: error?.message || String(error),
+			});
 		}
 	}
 
 	const successCount = results.filter((item) => item.status === 'ok').length;
 	const errorCount = results.length - successCount;
+	const uniqueCrds = new Set(results.map((item) => item.crd));
 
 	return {
 		summary: {
-			crdCount: crds.length,
+			crdCount: uniqueCrds.size,
 			requests: results.length,
 			successCount,
 			errorCount,
@@ -416,8 +419,21 @@ export async function POST(request: NextRequest) {
 			const queries = parseQueries(body.queries ?? body.crds, maxCrds);
 			const providedCrds = parseCrds(body.crds, maxCrds);
 			const resolvedFromQueries = await resolveCrdsFromQueries(queries, maxCrds);
-			const crds = Array.from(new Set([...providedCrds, ...resolvedFromQueries.crds])).slice(0, Math.max(1, Math.min(500, maxCrds)));
-			if (!crds.length) {
+
+			const targetMap = new Map<string, FetchTarget>();
+			for (const target of resolvedFromQueries.targets) {
+				targetMap.set(`${target.source}:${target.type}:${target.crd}`, target);
+			}
+
+			for (const crd of providedCrds) {
+				targetMap.set(`finra:individual:${crd}`, { crd, source: 'finra', type: 'individual' });
+				targetMap.set(`sec:individual:${crd}`, { crd, source: 'sec', type: 'individual' });
+				targetMap.set(`finra:firm:${crd}`, { crd, source: 'finra', type: 'firm' });
+				targetMap.set(`sec:firm:${crd}`, { crd, source: 'sec', type: 'firm' });
+			}
+
+			const targets = Array.from(targetMap.values());
+			if (!targets.length) {
 				return NextResponse.json(
 					{
 						ok: false,
@@ -430,7 +446,7 @@ export async function POST(request: NextRequest) {
 				);
 			}
 
-			const fetched = await fetchCrdsToCacheAndRedis(crds);
+			const fetched = await fetchCrdsToCacheAndRedis(targets);
 			return NextResponse.json({
 				ok: true,
 				action,
