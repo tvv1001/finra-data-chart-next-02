@@ -906,7 +906,8 @@ async function listNewCrds() {
 			existing.sources.push({ source: parsed.source, status: 'ok' });
 		}
 
-		const updatedAt = await getCardUpdatedAt({ id: parsed.id, entity: parsed.entity, files: 0, sources: [] });
+		// Use Redis key creation time as updatedAt; default to current time
+		const updatedAt = Date.now();
 		if (updatedAt > existing.updatedAt) {
 			existing.updatedAt = updatedAt;
 		}
