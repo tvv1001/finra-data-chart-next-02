@@ -41,6 +41,29 @@ type FetchTarget = {
 	type: 'individual' | 'firm';
 };
 
+function isObject(value: unknown): value is Record<string, any> {
+	return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isValidFetchedPayload(payload: unknown): boolean {
+	if (!isObject(payload)) return false;
+
+	const hasHitArray = Array.isArray(payload?.hits?.hits);
+	const hasDocsArray = Array.isArray(payload?.response?.docs) || Array.isArray(payload?.results) || Array.isArray(payload?.currentPage);
+	const hasDetailMarkers =
+		payload?.content != null ||
+		payload?.iacontent != null ||
+		payload?.basicInformation != null ||
+		payload?.individualId != null ||
+		payload?.firmId != null ||
+		payload?.name != null ||
+		payload?.firmName != null;
+	const hasErrorOnly = typeof payload?.error === 'string' && !hasHitArray && !hasDocsArray && !hasDetailMarkers;
+
+	if (hasErrorOnly) return false;
+	return hasHitArray || hasDocsArray || hasDetailMarkers;
+}
+
 function parseCrds(input: RefreshRequestBody['crds'], maxCrds = 50): string[] {
 	const tokens =
 		typeof input === 'string' ?
@@ -316,6 +339,21 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[]) {
 
 		try {
 			const payload = await fetchJson(url);
+			if (!isValidFetchedPayload(payload)) {
+				results.push({
+					crd,
+					source: target.source,
+					type: target.type,
+					url,
+					cacheFile: path.join(nationalRoot, cacheDir, cacheFileName),
+					redisKey,
+					status: 'error',
+					redisWrite: 'not-attempted',
+					error: 'invalid-payload-shape',
+				});
+				continue;
+			}
+
 			const nationalFile = path.join(nationalRoot, cacheDir, cacheFileName);
 			const rawFile = path.join(rawRoot, cacheDir, cacheFileName);
 			await Promise.all([writeJsonFile(nationalFile, payload), writeJsonFile(rawFile, payload)]);
