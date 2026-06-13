@@ -25,12 +25,11 @@ type SearchResultCard = {
 	payload: SearchResult;
 };
 
-function parseCrds(input: string) {
+function parseQueueQueries(input: string) {
 	return input
-		.split(/[\s,]+/g)
+		.split(/[\n,;]+/g)
 		.map((value) => value.trim())
-		.filter(Boolean)
-		.filter((value) => /^\d{1,10}$/.test(value));
+		.filter(Boolean);
 }
 
 export default function DashboardPage() {
@@ -45,8 +44,10 @@ export default function DashboardPage() {
 	const [searchBusy, setSearchBusy] = useState(false);
 	const [searchError, setSearchError] = useState<string | null>(null);
 	const [searchResults, setSearchResults] = useState<SearchResultCard[]>([]);
+	const [searchSkippedCount, setSearchSkippedCount] = useState(0);
 
-	const parsedCrds = useMemo(() => parseCrds(crdInput), [crdInput]);
+	const queueQueries = useMemo(() => parseQueueQueries(crdInput), [crdInput]);
+	const parsedCrds = useMemo(() => queueQueries.filter((value) => /^\d{1,10}$/.test(value)), [queueQueries]);
 
 	const recentCards = useMemo(
 		() => [
@@ -107,8 +108,46 @@ export default function DashboardPage() {
 		if (searchBusy) return 'Searching Redis...';
 		if (searchError) return searchError;
 		if (!searchResults.length) return 'No Redis results yet';
+		if (searchSkippedCount > 0) {
+			return `${searchResults.length} Redis result${searchResults.length === 1 ? '' : 's'} found • ${searchSkippedCount} skipped (missing CRD or corrupt)`;
+		}
 		return `${searchResults.length} Redis result${searchResults.length === 1 ? '' : 's'} found`;
-	}, [searchBusy, searchError, searchQuery, searchResults.length]);
+	}, [searchBusy, searchError, searchQuery, searchResults.length, searchSkippedCount]);
+
+	function extractValidCrd(item: SearchResult, entity: 'individual' | 'firm') {
+		const candidateKeys =
+			entity === 'individual' ?
+				['individualId', 'individual_id', 'crd', 'ind_crd', 'ind_source_id', 'sourceId', 'id']
+			:	['firmId', 'firm_id', 'crd', 'firm_crd', 'firm_source_id', 'bdSecNumber', 'iaSecNumber', 'sourceId', 'id'];
+
+		for (const key of candidateKeys) {
+			const raw = item?.[key];
+			if (raw == null) continue;
+			const value = String(raw).trim();
+			if (/^\d{1,10}$/.test(value)) return value;
+		}
+
+		return '';
+	}
+
+	function isCorruptSearchItem(item: unknown) {
+		if (!item || typeof item !== 'object' || Array.isArray(item)) return true;
+		const obj = item as SearchResult;
+		const hasSignalField = [
+			obj.individualId,
+			obj.firmId,
+			obj.crd,
+			obj.ind_crd,
+			obj.firm_crd,
+			obj.ind_source_id,
+			obj.firm_source_id,
+			obj.name,
+			obj.fullName,
+			obj.firmName,
+			obj.status,
+		].some((value) => value != null && String(value).trim().length > 0);
+		return !hasSignalField;
+	}
 
 	function setMainViewFromSearch(card: SearchResultCard, sourceLabel: string) {
 		setMainJson(card.payload);
@@ -124,6 +163,7 @@ export default function DashboardPage() {
 				action === 'fetch-crds' ?
 					{
 						action,
+						queries: queueQueries,
 						crds: parsedCrds,
 						maxCrds: 100,
 					}
@@ -154,12 +194,14 @@ export default function DashboardPage() {
 		if (!query) {
 			setSearchResults([]);
 			setSearchError(null);
+			setSearchSkippedCount(0);
 			return;
 		}
 
 		setSearchBusy(true);
 		setSearchError(null);
 		setSearchResults([]);
+		setSearchSkippedCount(0);
 
 		try {
 			const [finraIndividualRes, finraFirmRes, secIndividualRes, secFirmRes] = await Promise.all([
@@ -182,20 +224,45 @@ export default function DashboardPage() {
 				: Array.isArray(payload?.hits?.hits) ? payload.hits.hits.map((hit: any) => hit?._source ?? hit)
 				: [];
 
-			const normalize = (items: SearchResult[], source: SearchResultSource, entity: 'individual' | 'firm'): SearchResultCard[] =>
-				items.map((item, index) => {
-					const id = String(item?.individualId || item?.firmId || item?.crd || item?.sourceId || item?.id || `${source}-${entity}-${index}`);
+			const normalize = (items: SearchResult[], source: SearchResultSource, entity: 'individual' | 'firm') => {
+				let skipped = 0;
+				const cards: SearchResultCard[] = [];
+
+				for (const item of items) {
+					if (isCorruptSearchItem(item)) {
+						skipped += 1;
+						continue;
+					}
+
+					const id = extractValidCrd(item, entity);
+					if (!id) {
+						skipped += 1;
+						continue;
+					}
+
 					const label = String(item?.name || item?.fullName || item?.firmName || item?.firstName || item?.lastName || item?.title || 'Result').trim();
 					const scope = String(item?.bcScope || item?.iaScope || item?.status || item?.registrationStatus || '').trim();
-					return { id, label, scope, source, entity, payload: item };
-				});
+					cards.push({ id, label, scope, source, entity, payload: item });
+				}
 
-			setSearchResults([
-				...normalize(getItems(finraIndividualJson), 'finra', 'individual'),
-				...normalize(getItems(finraFirmJson), 'finra', 'firm'),
-				...normalize(getItems(secIndividualJson), 'sec', 'individual'),
-				...normalize(getItems(secFirmJson), 'sec', 'firm'),
-			]);
+				return { cards, skipped };
+			};
+
+			const finraIndividuals = normalize(getItems(finraIndividualJson), 'finra', 'individual');
+			const finraFirms = normalize(getItems(finraFirmJson), 'finra', 'firm');
+			const secIndividuals = normalize(getItems(secIndividualJson), 'sec', 'individual');
+			const secFirms = normalize(getItems(secFirmJson), 'sec', 'firm');
+
+			const skippedTotal = finraIndividuals.skipped + finraFirms.skipped + secIndividuals.skipped + secFirms.skipped;
+			if (skippedTotal > 0) {
+				console.warn('[dashboard] skipped search records due to missing CRD or corrupt payload', {
+					query,
+					skippedTotal,
+				});
+			}
+
+			setSearchSkippedCount(skippedTotal);
+			setSearchResults([...finraIndividuals.cards, ...finraFirms.cards, ...secIndividuals.cards, ...secFirms.cards]);
 		} catch (error: any) {
 			setSearchError(error?.message || String(error));
 		} finally {
@@ -240,12 +307,13 @@ export default function DashboardPage() {
 						className={styles.queueInput}
 						value={crdInput}
 						onChange={(event) => setCrdInput(event.target.value)}
+						placeholder='Enter CRD(s) or name query(ies), comma separated'
 					/>
 					<button
 						type='button'
 						className={styles.primaryBtn}
 						onClick={() => runAction('fetch-crds')}
-						disabled={busyAction !== null || parsedCrds.length === 0}>
+						disabled={busyAction !== null || queueQueries.length === 0}>
 						{busyAction === 'fetch-crds' ? 'Running…' : 'Run Queue'}
 					</button>
 
