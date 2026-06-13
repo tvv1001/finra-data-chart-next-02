@@ -442,17 +442,38 @@ export default function DashboardPage() {
 		return detail;
 	}
 
+	async function fetchFallbackDetail(card: QueueCard) {
+		const route = card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
+
+		const response = await fetch(route, {
+			method: 'GET',
+			headers: { Accept: 'application/json' },
+			cache: 'no-store',
+		});
+
+		return response.json();
+	}
+
 	async function loadQueueSourceJson(card: QueueCard, source: SearchResultSource) {
 		const sourceKey = `${card.entity}:${card.id}:${source}`;
 		setActiveCardSourceKey(sourceKey);
 		try {
 			const detail = await fetchMergedDetail(card);
-			const payload = extractPayloadFromDetail(detail, source);
+			let payload = extractPayloadFromDetail(detail, source);
 
 			if (!payload) {
+				const fallbackDetail = await fetchFallbackDetail(card);
+				payload = extractPayloadFromDetail(fallbackDetail, source);
+				if (payload) {
+					mergedDetailCacheRef.current.set(`${card.entity}:${card.id}`, fallbackDetail);
+				}
+			}
+
+			if (!payload) {
+				setMainJsonLabel(`${source}:${card.entity}:${card.id}`);
 				setResult({
 					ok: false,
-					error: `No cached ${String(source).toUpperCase()} payload found for ${card.entity} ${card.id}. Run Queue to fetch from external APIs and update Redis.`,
+					error: `No ${String(source).toUpperCase()} payload found for ${card.entity} ${card.id} in merged or fallback detail routes. Run Queue to fetch from external APIs and update cache.`,
 				});
 				return;
 			}
