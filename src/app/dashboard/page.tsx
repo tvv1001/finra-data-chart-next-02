@@ -341,20 +341,59 @@ export default function DashboardPage() {
 		});
 	}
 
+	function extractPayloadFromDetail(detail: any, source: SearchResultSource) {
+		if (!detail || typeof detail !== 'object') return null;
+		if (source === 'finra') {
+			return detail?.sources?.finra ?? detail?.finraNode ?? detail?.merged ?? null;
+		}
+		return detail?.sources?.sec ?? detail?.merged ?? detail?.finraNode ?? null;
+	}
+
+	async function fetchMergedDetail(card: QueueCard) {
+		const route = card.entity === 'firm' ? `/api/finra/merged/firm/${card.id}` : `/api/finra/merged/individual/${card.id}`;
+		const response = await fetch(route, {
+			method: 'GET',
+			headers: { Accept: 'application/json' },
+			cache: 'no-store',
+		});
+		return response.json();
+	}
+
 	async function loadQueueSourceJson(card: QueueCard, source: SearchResultSource) {
 		try {
-			const route = card.entity === 'firm' ? `/api/finra/merged/firm/${card.id}` : `/api/finra/merged/individual/${card.id}`;
-			const response = await fetch(route, {
-				method: 'GET',
-				headers: { Accept: 'application/json' },
-				cache: 'no-store',
-			});
-
-			const detail = await response.json();
-			const payload = source === 'finra' ? (detail?.sources?.finra ?? detail?.finraNode ?? detail?.merged) : (detail?.sources?.sec ?? detail?.merged ?? detail?.finraNode);
+			let detail = await fetchMergedDetail(card);
+			let payload = extractPayloadFromDetail(detail, source);
 
 			if (!payload) {
-				setResult({ ok: false, error: `No ${String(source).toUpperCase()} payload found for ${card.entity} ${card.id}` });
+				// Cache may not have been hydrated for this CRD on deployed environments.
+				await fetch('/api/dashboard/refresh', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						action: 'fetch-crds',
+						queries: [card.id],
+						crds: [card.id],
+						maxCrds: 1,
+					}),
+				});
+
+				detail = await fetchMergedDetail(card);
+				payload = extractPayloadFromDetail(detail, source);
+			}
+
+			if (!payload) {
+				const fallback = detail?.merged ?? detail?.finraNode ?? detail?.sources?.finra ?? detail?.sources?.sec ?? null;
+				if (fallback) {
+					setMainJson(normalizePayloadForCleanView(fallback) as Record<string, any>);
+					setMainJsonLabel(`fallback:${card.entity}:${card.id}`);
+					setResult({
+						ok: false,
+						error: `No ${String(source).toUpperCase()} payload found for ${card.entity} ${card.id}; showing fallback payload`,
+					});
+					return;
+				}
+
+				setResult({ ok: false, error: `No ${String(source).toUpperCase()} payload found for ${card.entity} ${card.id} after refresh` });
 				return;
 			}
 
