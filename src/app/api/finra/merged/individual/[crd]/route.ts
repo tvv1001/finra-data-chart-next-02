@@ -100,7 +100,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		const targetUrl = new URL(`/api/finra/individual/${encodeURIComponent(crd)}`, request.nextUrl.origin);
 		targetUrl.searchParams.set('merged', '1');
 		const response = await fetch(targetUrl, {
-			headers: { 'Accept': 'application/json' },
+			headers: { Accept: 'application/json' },
 			cache: 'no-store',
 		});
 
@@ -125,9 +125,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				hasFinraData: !!finraDetail,
 				hasSecData: !!secDetail,
 				finraNode: finraDetail,
-				sources: { 
-					finra: finraDetail ? { bccontent: finraDetail } : null, 
-					sec: secDetail ? { iacontent: secDetail } : null 
+				sources: {
+					finra: finraDetail ? { bccontent: finraDetail } : null,
+					sec: secDetail ? { iacontent: secDetail } : null,
 				},
 				merged: normalizedMergedDetail,
 			},
