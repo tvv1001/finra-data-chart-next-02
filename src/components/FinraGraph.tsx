@@ -998,6 +998,12 @@ export default function FinraGraph() {
 					</div> */}
 
 					<div className='fg-header-right-controls'>
+						<a
+							href='/dashboard'
+							className='fg-home-link'
+							title='Open dashboard'>
+							Dashboard
+						</a>
 						<button
 							id='fg-find-toggle'
 							type='button'
@@ -1360,6 +1366,7 @@ export default function FinraGraph() {
 export {
 	bindTouchDragClickSuppression,
 	ensureSidebarHintContent,
+	isFindShortcut,
 	isSidebarTemporarilyPinned,
 	isSidebarPersistentlyPinned,
 	syncSidebarPinButton,
