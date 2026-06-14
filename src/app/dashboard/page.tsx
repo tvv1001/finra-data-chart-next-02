@@ -269,6 +269,23 @@ export default function DashboardPage() {
 		return `Showing recent results from ${shown.toLocaleString()} loaded records (${total.toLocaleString()} total cached records).${filterSuffix}`;
 	}, [queueCards.length, queueMetaStats, queueCrdFilter]);
 
+	const uniqueCrdCounts = useMemo(() => {
+		const individuals = new Set<string>();
+		const firms = new Set<string>();
+		queueCards.forEach((card) => {
+			if (card.entity === 'individual') {
+				individuals.add(card.id);
+			} else if (card.entity === 'firm') {
+				firms.add(card.id);
+			}
+		});
+		return {
+			individuals: individuals.size,
+			firms: firms.size,
+			total: individuals.size + firms.size,
+		};
+	}, [queueCards]);
+
 	const filteredNewCrds = useMemo(() => {
 		const token = queueCrdFilter.trim();
 		if (!token) return [] as Array<(typeof newCrds)[number]>;
@@ -849,6 +866,15 @@ export default function DashboardPage() {
 						disabled={busyAction !== null || queueQueries.length === 0}>
 						{busyAction === 'fetch-crds' ? 'Running…' : 'Run Queue'}
 					</button>
+
+					{(uniqueCrdCounts.individuals > 0 || uniqueCrdCounts.firms > 0) && (
+						<div className={styles.uniqueCrdCount}>
+							<span className={styles.countLabel}>Unique CRDs in cache:</span>
+							<span className={styles.countValue}>
+								{uniqueCrdCounts.individuals} people • {uniqueCrdCounts.firms} firms
+							</span>
+						</div>
+					)}
 
 					{queueRunItems.length > 0 && (
 						<div className={styles.queueRunList}>
