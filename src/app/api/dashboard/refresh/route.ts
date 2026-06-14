@@ -10,8 +10,6 @@ import { setStringIfValid } from '@/lib/redisCache';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const DEFAULT_INDIVIDUAL_QUERY = 'hl=true&includePrevious=true&wt=json';
-const DEFAULT_FIRM_QUERY = 'hl=true&wt=json';
 const DEFAULT_EXTERNAL_RAW_DIR = '/home/lenny/Dev/webDev/Data-finra-sec/data/raw';
 const PRIMED_REDIS_CHUNK_CHARS = Number(process.env.PRIMED_REDIS_CHUNK_CHARS || 700_000);
 const DASHBOARD_REDIS_SCAN_CARD_LIMIT_PER_PATTERN = Number(process.env.DASHBOARD_REDIS_SCAN_CARD_LIMIT_PER_PATTERN || 5_000);
@@ -252,7 +250,7 @@ function parseIndividualDetailPayload(data: unknown, contentKey: 'content' | 'ia
 }
 
 async function loadCachedIndividualPayload(source: 'finra' | 'sec', id: string) {
-	const key = `${source}:individual:${id}:${DEFAULT_INDIVIDUAL_QUERY}`;
+	const key = `${source}:individual:${id}`;
 	const payload = await cachedFetch<any>(key, 60 * 60 * 24, async () => undefined as unknown as any);
 	return parseIndividualDetailPayload(payload, source === 'finra' ? 'content' : 'iacontent', id);
 }
@@ -1052,10 +1050,10 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[], options: { inclu
 		const cacheFileName = `api.${isFinra ? 'brokercheck.finra.org' : 'adviserinfo.sec.gov'}_search_${target.type}_${crd}.json`;
 		const cacheDir = isFinra ? 'brokercheck.finra.org' : 'adviserinfo.sec.gov';
 		const redisKey =
-			target.type === 'individual' ? `${target.source}:individual:${crd}:${DEFAULT_INDIVIDUAL_QUERY}`
-			: target.source === 'finra' ? `finra:firm:${crd}:${DEFAULT_FIRM_QUERY}`
+			target.type === 'individual' ? `${target.source}:individual:${crd}`
+			: target.source === 'finra' ? `finra:firm:${crd}`
 			: `sec:firm:${crd}`;
-		const redisAliases = target.type === 'firm' && target.source === 'sec' ? [`sec:firm:${crd}:${DEFAULT_FIRM_QUERY}`] : [];
+		const redisAliases: string[] = [];
 
 		try {
 			const payload = await fetchJson(url);

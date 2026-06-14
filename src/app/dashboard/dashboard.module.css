@@ -187,6 +187,52 @@
 	color: #64748b;
 }
 
+.queueRunDetail {
+	margin: 4px 0;
+	padding: 4px;
+	background: #f8fafc;
+	border-radius: 4px;
+	border-left: 2px solid #6366f1;
+}
+
+.queueRunDetailId {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin-bottom: 2px;
+}
+
+.queueRunDetailId strong {
+	font-size: 12px;
+	color: #0f172a;
+	font-weight: 700;
+}
+
+.queueRunDetailId span {
+	font-size: 10px;
+	color: #64748b;
+	text-transform: uppercase;
+}
+
+.queueRunDetailName {
+	font-size: 11px;
+	color: #1e293b;
+	margin: 2px 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.queueRunDetailContent {
+	font-size: 10px;
+	color: #475569;
+	margin: 2px 0;
+	max-height: 60px;
+	overflow: auto;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
 .cardList {
 	flex: 1;
 	min-height: 0;
@@ -287,17 +333,46 @@
 	gap: 8px;
 }
 
+.recordHeaderRow {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 4px;
+}
+
 .recordHeader {
 	font-size: 11px;
 	color: #93c5fd;
 	font-weight: 700;
 }
 
+.recordBadge {
+	display: inline-block;
+	border-radius: 4px;
+	padding: 2px 8px;
+	font-size: 10px;
+	font-weight: 700;
+	background: #1d4ed8;
+	color: #fff;
+}
+
 .recordTitle {
-	margin: 0;
+	margin: 0 0 8px 0;
 	font-size: 20px;
 	line-height: 1.15;
 	color: #eaf2ff;
+}
+
+.recordKeyLabel {
+	font-size: 12px;
+	color: #94a3b8;
+	margin-bottom: 6px;
+}
+
+.recordDescription {
+	font-size: 11px;
+	color: #64748b;
+	margin-bottom: 12px;
 }
 
 .recordPills {
@@ -356,14 +431,15 @@
 }
 
 .searchBarWrap {
-	border-top: 1px solid #2d456d;
+	border-top: 1px solid #cdd6e1;
 	padding-top: 8px;
+	margin-top: 8px;
 }
 
 .searchTitle {
-	font-size: 11px;
+	font-size: 12px;
 	font-weight: 700;
-	color: #dbeafe;
+	color: #334155;
 	margin-bottom: 6px;
 }
 
@@ -376,7 +452,7 @@
 .searchSummary {
 	margin-top: 6px;
 	font-size: 11px;
-	color: #cfe3ff;
+	color: #64748b;
 	line-height: 1.3;
 }
 

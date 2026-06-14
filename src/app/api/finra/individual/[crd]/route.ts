@@ -109,13 +109,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	});
 
 	try {
-		const params = buildIndividualQueryParams(new URL(request.url).searchParams);
-		const queryString = params.toString();
+		// Always fetch with includePrevious so previous employments are included in the payload.
+		// Store under the plain key (no query suffix) so dashboard scans match it.
+		const fetchQuery = 'hl=true&includePrevious=true&wt=json';
 
 		const requests = await Promise.allSettled([
-			cachedFetch(`finra:individual:${crd}:${queryString}`, 60 * 60 * 24, async () => {
+			cachedFetch(`finra:individual:${crd}`, 60 * 60 * 24, async () => {
 				try {
-					const res = await axios.get(`https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?${queryString}`, {
+					const res = await axios.get(`https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`, {
 						timeout: 10000,
 					});
 					return res.data;
@@ -124,9 +125,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					return undefined;
 				}
 			}),
-			cachedFetch(`sec:individual:${crd}:${queryString}`, 60 * 60 * 24, async () => {
+			cachedFetch(`sec:individual:${crd}`, 60 * 60 * 24, async () => {
 				try {
-					const res = await axios.get(`https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?${queryString}`, {
+					const res = await axios.get(`https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`, {
 						timeout: 10000,
 					});
 					return res.data;

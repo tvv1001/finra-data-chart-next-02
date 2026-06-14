@@ -22,8 +22,6 @@ let memStore: MemStore | null = null;
 const primedBundleCache = new Map<PrimedBundleName, PrimedBundle | null>();
 const BINARY_CACHE_DIR = path.join(DATA_DIR, 'cache-binary');
 
-const DEFAULT_INDIVIDUAL_QUERY = 'hl=true&includePrevious=true&wt=json';
-const DEFAULT_FIRM_QUERY = 'hl=true&wt=json';
 
 // Rate-limit protections for external API fetches. Keys that begin with
 // "finra:" or "sec:" will be rate-limited to at most one fetch per
@@ -37,22 +35,12 @@ const lastExternalFetch = new Map<string, number>();
 // EXTERNAL_API_FAILURE_COOLDOWN_MS.
 const EXTERNAL_API_FAILURE_COOLDOWN_MS = Number(process.env.EXTERNAL_API_FAILURE_COOLDOWN_MS || 60_000);
 const lastExternalFailure = new Map<string, number>();
-/** Strip nrows from a cache key so keys are stable regardless of the nrows parameter.
- *  Cache keys have the form `prefix:crd:querystring` — we target the last segment. */
+// Strip any query-string suffix from finra/sec record keys so Redis keys are
+// always plain "source:type:id" regardless of how they were originally requested.
 function normalizeKey(key: string): string {
-	const lastColon = key.lastIndexOf(':');
-	if (lastColon === -1) return key;
-	const suffix = key.slice(lastColon + 1);
-	if (!suffix.includes('=')) return key;
-	const qs = new URLSearchParams(suffix);
-	qs.delete('nrows');
-	// Canonicalize parameter ordering so keys match regardless of original
-	// querystring param order in upstream dumps or Redis exports.
-	const entries: [string, string][] = [];
-	for (const [k, v] of qs.entries()) entries.push([k, v]);
-	entries.sort((a, b) => a[0].localeCompare(b[0]));
-	const canonical = new URLSearchParams(entries as any).toString();
-	return key.slice(0, lastColon + 1) + canonical;
+	const match = /^(finra|sec):(individual|firm):(\d{1,10}|8-\d+)(?::.+)?$/i.exec(key);
+	if (match) return `${match[1].toLowerCase()}:${match[2].toLowerCase()}:${match[3]}`;
+	return key;
 }
 
 const primedBundleFiles: Record<PrimedBundleName, string> = {
@@ -293,10 +281,10 @@ async function loadPrimedBundle(name: PrimedBundleName): Promise<PrimedBundle | 
 
 function resolvePrimedBundleName(key: string): PrimedBundleName | null {
 	const nk = normalizeKey(key);
-	if (nk.startsWith('finra:individual:') && nk.endsWith(`:${DEFAULT_INDIVIDUAL_QUERY}`)) return 'finra-individual';
-	if (nk.startsWith('sec:individual:') && nk.endsWith(`:${DEFAULT_INDIVIDUAL_QUERY}`)) return 'sec-individual';
-	if (nk.startsWith('finra:firm:') && nk.endsWith(`:${DEFAULT_FIRM_QUERY}`)) return 'finra-firm';
-	if (nk.startsWith('sec:firm:') && nk.endsWith(`:${DEFAULT_FIRM_QUERY}`)) return 'sec-firm';
+	if (/^finra:individual:\d+$/.test(nk)) return 'finra-individual';
+	if (/^sec:individual:\d+$/.test(nk)) return 'sec-individual';
+	if (/^finra:firm:\d+$/.test(nk)) return 'finra-firm';
+	if (/^sec:firm:\d+$/.test(nk)) return 'sec-firm';
 	return null;
 }
 

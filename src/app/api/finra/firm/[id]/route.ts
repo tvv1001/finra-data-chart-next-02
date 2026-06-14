@@ -123,7 +123,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		const queryString = params.toString();
 
 		const [bcData, secData, secPageData] = await Promise.allSettled([
-			cachedFetch(`finra:firm:${id}:${queryString}`, 60 * 60 * 24, async () => {
+			cachedFetch(`finra:firm:${id}`, 60 * 60 * 24, async () => {
 				return undefined as unknown as any;
 			}),
 			cachedFetch(`sec:firm:${id}`, 60 * 60 * 24, async () => {
