@@ -1025,10 +1025,12 @@ export default function DashboardPage() {
 
 					{(uniqueCrdCounts.individuals > 0 || uniqueCrdCounts.firms > 0) && (
 						<div className={styles.uniqueCrdCount}>
-							<span className={styles.countLabel}>Full inventory totals:</span>
-							<span className={styles.countValue}>
-								{uniqueCrdCounts.individuals.toLocaleString()} people • {uniqueCrdCounts.firms.toLocaleString()} firms • {uniqueCrdCounts.total.toLocaleString()} unique
-							</span>
+							<div className={styles.countLabel}>People</div>
+							<div className={styles.countValue}>{uniqueCrdCounts.individuals.toLocaleString()}</div>
+							<div className={styles.countLabel}>Firms</div>
+							<div className={styles.countValue}>{uniqueCrdCounts.firms.toLocaleString()}</div>
+							<div className={styles.countLabel}>Unique</div>
+							<div className={styles.countValue}>{uniqueCrdCounts.total.toLocaleString()}</div>
 						</div>
 					)}
 

@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 
 const DEFAULT_EXTERNAL_RAW_DIR = '/home/lenny/Dev/webDev/Data-finra-sec/data/raw';
 const PRIMED_REDIS_CHUNK_CHARS = Number(process.env.PRIMED_REDIS_CHUNK_CHARS || 700_000);
-const DASHBOARD_REDIS_SCAN_CARD_LIMIT_PER_PATTERN = Number(process.env.DASHBOARD_REDIS_SCAN_CARD_LIMIT_PER_PATTERN || 5_000);
+const DASHBOARD_REDIS_SCAN_CARD_LIMIT_PER_PATTERN = Number(process.env.DASHBOARD_REDIS_SCAN_CARD_LIMIT_PER_PATTERN || 100_000);
 const DASHBOARD_RECENCY_MTIME_SAMPLE_LIMIT = Number(process.env.DASHBOARD_RECENCY_MTIME_SAMPLE_LIMIT || 2_000);
 const DASHBOARD_REDIS_MIN_CARD_COUNT = Math.max(1_000, Number(process.env.DASHBOARD_REDIS_MIN_CARD_COUNT || 1_000) || 1_000);
 const BUILD_MANIFEST_PATH = path.join(process.cwd(), 'data', 'build_manifest.json');
@@ -78,8 +78,44 @@ type InventoryTotals = {
 	people: number;
 	firms: number;
 	unique: number;
-	source: 'external-raw' | 'local-raw';
+	source: 'external-raw' | 'local-raw' | 'redis';
 };
+
+export function buildInventoryTotalsFromCards(cards: Array<{ id: string; entity: 'individual' | 'firm' }>, source: InventoryTotals['source'] = 'redis'): InventoryTotals {
+	const people = new Set<string>();
+	const firms = new Set<string>();
+
+	for (const card of cards) {
+		if (card.entity === 'individual') people.add(card.id);
+		else firms.add(card.id);
+	}
+
+	return {
+		people: people.size,
+		firms: firms.size,
+		unique: people.size + firms.size,
+		source,
+	};
+}
+
+export function collectInventoryTotalsFromCacheKeys(keys: string[], source: InventoryTotals['source'] = 'redis'): InventoryTotals {
+	const people = new Set<string>();
+	const firms = new Set<string>();
+
+	for (const key of keys) {
+		const parsed = parseCacheKey(key);
+		if (!parsed) continue;
+		if (parsed.entity === 'individual') people.add(parsed.id);
+		else firms.add(parsed.id);
+	}
+
+	return {
+		people: people.size,
+		firms: firms.size,
+		unique: people.size + firms.size,
+		source,
+	};
+}
 
 function hasAnyItems(list: unknown) {
 	return Array.isArray(list) && list.length > 0;
@@ -918,6 +954,7 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 		...card,
 		sources: card.sources.sort((a, b) => a.source.localeCompare(b.source)),
 	}));
+	const inventoryTotals = collectInventoryTotalsFromCacheKeys(Array.from(keySet), 'redis');
 
 	const fallbackManifestTotals = null;
 	if (shouldUseLocalFallback(cardMap.size, filterTokens.length > 0)) {
@@ -968,7 +1005,7 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 		totalCards: fallbackManifestTotals?.totalCards ?? cardMap.size,
 		totalCacheKeys: fallbackManifestTotals?.totalCacheKeys ?? keySet.size,
 		filteredTotalCards: filteredCards.length,
-		inventoryTotals: await countInventoryTotals(),
+		inventoryTotals,
 		sourceMode: 'redis',
 	};
 }
