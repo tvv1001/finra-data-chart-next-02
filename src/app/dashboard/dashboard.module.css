@@ -185,10 +185,8 @@
 }
 
 .uniqueCrdCount {
-	display: flex;
-	flex-wrap: nowrap;
-	align-items: center;
-	justify-content: space-between;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
 	gap: 10px;
 	padding: 8px;
 	background: #f0f4ff;
@@ -197,15 +195,29 @@
 	font-size: 12px;
 }
 
+.countItem {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 4px;
+	padding: 6px 8px;
+	border-radius: 6px;
+	background: rgba(255, 255, 255, 0.72);
+	border: 1px solid rgba(191, 219, 254, 0.9);
+}
+
 .countLabel {
 	font-weight: 600;
 	color: #475569;
+	font-size: 11px;
+	line-height: 1.2;
 }
 
 .countValue {
-	font-weight: 500;
+	font-weight: 700;
 	color: #2f65ea;
-	font-size: 13px;
+	font-size: 18px;
+	line-height: 1.1;
 }
 
 .queueRunList {

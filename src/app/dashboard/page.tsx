@@ -52,6 +52,8 @@ type QueueRunItem = {
 	crdCount?: number;
 	savedRecordCount?: number;
 	savedSourceCount?: number;
+	updatedExistingRecordCount?: number;
+	updatedExistingSourceCount?: number;
 	detailContent?: string; // rendered HTML/text content for the card
 	fetchedEntity?: {
 		id: string;
@@ -124,7 +126,17 @@ export function computeQuerySaveStats(
 	resolution: Array<{ query?: string; crds?: string[] }>,
 	fetchedItems: Array<{ crd?: string; type?: string; status?: string; cardKey?: string; newSourceSaved?: boolean; newRecordSaved?: boolean }>,
 ) {
-	const stats = new Map<string, { fetchedCount: number; savedSourceCount: number; savedRecordCount: number; errorCount: number }>();
+	const stats = new Map<
+		string,
+		{
+			fetchedCount: number;
+			savedSourceCount: number;
+			savedRecordCount: number;
+			updatedExistingSourceCount: number;
+			updatedExistingRecordCount: number;
+			errorCount: number;
+		}
+	>();
 
 	for (const entry of resolution) {
 		const query = String(entry?.query || '').trim();
@@ -137,16 +149,43 @@ export function computeQuerySaveStats(
 				.filter((item) => item?.newRecordSaved === true)
 				.map((item) => String(item?.cardKey || `${String(item?.type || 'individual')}:${String(item?.crd || '').trim()}`)),
 		);
+		const updatedExistingRecordKeys = new Set(
+			matchingItems
+				.filter((item) => item?.newSourceSaved === true && item?.newRecordSaved !== true)
+				.map((item) => String(item?.cardKey || `${String(item?.type || 'individual')}:${String(item?.crd || '').trim()}`)),
+		);
 
 		stats.set(query, {
 			fetchedCount: matchingItems.filter((item) => String(item?.status || '') === 'ok').length,
 			savedSourceCount: matchingItems.filter((item) => item?.newSourceSaved === true).length,
 			savedRecordCount: savedRecordKeys.size,
+			updatedExistingSourceCount: matchingItems.filter((item) => item?.newSourceSaved === true && item?.newRecordSaved !== true).length,
+			updatedExistingRecordCount: updatedExistingRecordKeys.size,
 			errorCount: matchingItems.filter((item) => String(item?.status || '') === 'error').length,
 		});
 	}
 
 	return Object.fromEntries(stats.entries());
+}
+
+export function describeQuerySaveChange(stats?: { savedRecordCount?: number; updatedExistingRecordCount?: number; updatedExistingSourceCount?: number }) {
+	const newRecordCount = Number(stats?.savedRecordCount || 0);
+	const updatedExistingRecordCount = Number(stats?.updatedExistingRecordCount || 0);
+	const updatedExistingSourceCount = Number(stats?.updatedExistingSourceCount || 0);
+
+	if (newRecordCount > 0 && updatedExistingRecordCount > 0) {
+		return `${newRecordCount} new CRD${newRecordCount === 1 ? '' : 's'} • ${updatedExistingRecordCount} existing CRD${updatedExistingRecordCount === 1 ? '' : 's'} gained ${updatedExistingSourceCount} new source${updatedExistingSourceCount === 1 ? '' : 's'}`;
+	}
+
+	if (newRecordCount > 0) {
+		return `${newRecordCount} new CRD${newRecordCount === 1 ? '' : 's'}`;
+	}
+
+	if (updatedExistingRecordCount > 0) {
+		return `${updatedExistingRecordCount} existing CRD${updatedExistingRecordCount === 1 ? '' : 's'} gained ${updatedExistingSourceCount} new source${updatedExistingSourceCount === 1 ? '' : 's'}`;
+	}
+
+	return 'no new data saved';
 }
 
 function normalizePayloadForCleanView(payload: unknown) {
@@ -257,7 +296,6 @@ export default function DashboardPage() {
 		totalCacheKeys: 0,
 	});
 	const [syncBannerText, setSyncBannerText] = useState<string | null>(null);
-	const [inventoryCounter, setInventoryCounter] = useState(0);
 	const [activeCardSourceKey, setActiveCardSourceKey] = useState<string | null>(null);
 	const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
 	const [rightPaneNotice, setRightPaneNotice] = useState<string | null>(null);
@@ -268,23 +306,6 @@ export default function DashboardPage() {
 	const mergedDetailCacheRef = useRef(new Map<string, any>());
 	const jsonStringCacheRef = useRef(new Map<string, string>());
 	const previousNewCrdsCountRef = useRef(0);
-
-	useEffect(() => {
-		let cancelled = false;
-		void fetch('/api/dashboard/refresh', {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ action: 'get-inventory-counter' }),
-		})
-			.then((res) => res.json())
-			.then((data) => {
-				if (!cancelled) setInventoryCounter(Number(data?.count || 0));
-			})
-			.catch(() => undefined);
-		return () => {
-			cancelled = true;
-		};
-	}, []);
 
 	const queueQueries = useMemo(() => parseQueueQueries(crdInput), [crdInput]);
 	const parsedCrds = useMemo(() => queueQueries.filter((value) => /^\d{1,10}$/.test(value)), [queueQueries]);
@@ -937,8 +958,11 @@ export default function DashboardPage() {
 							fetchedCount: 0,
 							savedSourceCount: 0,
 							savedRecordCount: 0,
+							updatedExistingSourceCount: 0,
+							updatedExistingRecordCount: 0,
 							errorCount: 0,
 						};
+						const saveChangeLabel = describeQuerySaveChange(queryStats);
 
 						// Find fetched results for this query/CRD to extract detail info
 						const fetchedResult = fetchedItems.find((result: any) => String(result?.crd || '') === item.query);
@@ -960,7 +984,9 @@ export default function DashboardPage() {
 								crdCount,
 								savedRecordCount: queryStats.savedRecordCount,
 								savedSourceCount: queryStats.savedSourceCount,
-								message: `${item.query} • COMPLETE ${crdCount} matches • saved ${queryStats.savedRecordCount} record${queryStats.savedRecordCount === 1 ? '' : 's'}`,
+								updatedExistingRecordCount: queryStats.updatedExistingRecordCount,
+								updatedExistingSourceCount: queryStats.updatedExistingSourceCount,
+								message: `${item.query} • COMPLETE ${crdCount} matches • ${saveChangeLabel}`,
 								fetchedEntity: entityDetail || undefined,
 								detailContent: entityDetail?.status || undefined,
 							};
@@ -982,9 +1008,6 @@ export default function DashboardPage() {
 						body: JSON.stringify({ action: 'increment-inventory-counter', amount: newRecordCount }),
 					})
 						.then((res) => res.json())
-						.then((data) => {
-							if (Number.isFinite(Number(data?.count))) setInventoryCounter(Number(data.count));
-						})
 						.catch(() => undefined);
 				}
 				if (successCount > 0 || newRecordCount > 0 || newSourceCount > 0) {
@@ -1001,10 +1024,14 @@ export default function DashboardPage() {
 					const queryText = String(entry?.query || '').trim() || '-';
 					const crdCount = Number(entry?.crdCount || 0);
 					const addedCount = Number(perQueryAddedCounts[queryText] || 0);
-					const saveStats = perQuerySaveStats[queryText] || { savedRecordCount: 0, savedSourceCount: 0 };
-					const updated = saveStats.savedRecordCount > 0 || saveStats.savedSourceCount > 0 ? 'yes' : 'no';
+					const saveStats = perQuerySaveStats[queryText] || {
+						savedRecordCount: 0,
+						savedSourceCount: 0,
+						updatedExistingRecordCount: 0,
+						updatedExistingSourceCount: 0,
+					};
 					nextQueryLines.push(
-						`target ${queryText} | crd ${crdCount} | saved ${saveStats.savedRecordCount} rec / ${saveStats.savedSourceCount} src | fetched ${addedCount} | updated ${updated}`,
+						`target ${queryText} | crd ${crdCount} | new ${saveStats.savedRecordCount} CRD | existing+new-source ${saveStats.updatedExistingRecordCount} CRD / ${saveStats.updatedExistingSourceCount} src | fetched ${addedCount}`,
 					);
 				}
 				nextQueryLines.push(`match F/S requests ok ${successCount} | new records ${newRecordCount} | new sources ${newSourceCount} | err ${errorCount}`);
@@ -1174,15 +1201,6 @@ export default function DashboardPage() {
 						{busyAction === 'fetch-crds' ? 'Running…' : 'Run Queue'}
 					</button>
 
-					{inventoryCounter > 0 && (
-						<div className={styles.uniqueCrdCount}>
-							<div className={styles.countLabel}>Inventory counter</div>
-							<div className={styles.countValue}>{inventoryCounter.toLocaleString()}</div>
-							<div className={styles.countLabel}>Added over time</div>
-							<div className={styles.countValue}>Monotonic</div>
-						</div>
-					)}
-
 					<div className={styles.queueStatusPanel}>
 						<div className={styles.statusLine}>{queueStatusLine}</div>
 						<div className={styles.queueStatusList}>
@@ -1198,12 +1216,18 @@ export default function DashboardPage() {
 
 					{hasInventorySummary && (
 						<div className={styles.uniqueCrdCount}>
-							<div className={styles.countLabel}>People</div>
-							<div className={styles.countValue}>{uniqueCrdCounts.individuals.toLocaleString()}</div>
-							<div className={styles.countLabel}>Firms</div>
-							<div className={styles.countValue}>{uniqueCrdCounts.firms.toLocaleString()}</div>
-							<div className={styles.countLabel}>Unique</div>
-							<div className={styles.countValue}>{uniqueCrdCounts.total.toLocaleString()}</div>
+							<div className={styles.countItem}>
+								<div className={styles.countLabel}>People</div>
+								<div className={styles.countValue}>{uniqueCrdCounts.individuals.toLocaleString()}</div>
+							</div>
+							<div className={styles.countItem}>
+								<div className={styles.countLabel}>Firms</div>
+								<div className={styles.countValue}>{uniqueCrdCounts.firms.toLocaleString()}</div>
+							</div>
+							<div className={styles.countItem}>
+								<div className={styles.countLabel}>Total CRDs</div>
+								<div className={styles.countValue}>{uniqueCrdCounts.total.toLocaleString()}</div>
+							</div>
 						</div>
 					)}
 
@@ -1221,7 +1245,8 @@ export default function DashboardPage() {
 										{item.message && <div className={styles.queueRunMeta}>{item.message}</div>}
 										{(item.savedRecordCount != null || item.savedSourceCount != null) && (
 											<div className={styles.queueRunStats}>
-												saved {Number(item.savedRecordCount || 0)} record{Number(item.savedRecordCount || 0) === 1 ? '' : 's'} • {Number(item.savedSourceCount || 0)} source
+												new {Number(item.savedRecordCount || 0)} CRD • existing+new-source {Number(item.updatedExistingRecordCount || 0)} CRD /{' '}
+												{Number(item.updatedExistingSourceCount || 0)} src
 											</div>
 										)}
 										{item.fetchedEntity && (

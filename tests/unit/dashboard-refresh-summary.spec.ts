@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildPrimedBundleInventoryTotals, extractCardSummaryFields, summarizeFetchResults } from '../../src/app/api/dashboard/refresh/route';
-import { computeQueryFetchCounts, computeQuerySaveStats, parseDashboardSelectionFromUrl } from '../../src/app/dashboard/page';
+import { computeQueryFetchCounts, computeQuerySaveStats, describeQuerySaveChange, parseDashboardSelectionFromUrl } from '../../src/app/dashboard/page';
 
 describe('parseDashboardSelectionFromUrl', () => {
 	it('reads an individual SEC selection from dashboard query params', () => {
@@ -76,15 +76,45 @@ describe('computeQuerySaveStats', () => {
 				fetchedCount: 2,
 				savedSourceCount: 2,
 				savedRecordCount: 1,
+				updatedExistingSourceCount: 1,
+				updatedExistingRecordCount: 1,
 				errorCount: 1,
 			},
 			beta: {
 				fetchedCount: 1,
 				savedSourceCount: 0,
 				savedRecordCount: 0,
+				updatedExistingSourceCount: 0,
+				updatedExistingRecordCount: 0,
 				errorCount: 0,
 			},
 		});
+	});
+});
+
+describe('describeQuerySaveChange', () => {
+	it('describes mixed new and existing-record source growth', () => {
+		expect(
+			describeQuerySaveChange({
+				savedRecordCount: 11,
+				updatedExistingRecordCount: 1,
+				updatedExistingSourceCount: 1,
+			}),
+		).toBe('11 new CRDs • 1 existing CRD gained 1 new source');
+	});
+
+	it('describes pure existing-record source expansion', () => {
+		expect(
+			describeQuerySaveChange({
+				savedRecordCount: 0,
+				updatedExistingRecordCount: 2,
+				updatedExistingSourceCount: 3,
+			}),
+		).toBe('2 existing CRDs gained 3 new sources');
+	});
+
+	it('describes no newly saved data', () => {
+		expect(describeQuerySaveChange({ savedRecordCount: 0, updatedExistingRecordCount: 0, updatedExistingSourceCount: 0 })).toBe('no new data saved');
 	});
 });
 
