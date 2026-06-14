@@ -1296,6 +1296,16 @@ export function shouldUseLocalFallback(cardCount: number, hasFilterTokens: boole
 	return false;
 }
 
+function countInventoryTotalsFromCrdLog(): InventoryTotals {
+	const log = loadCrdLog();
+	return {
+		people: log.individuals.length,
+		firms: log.firms.length,
+		unique: log.individuals.length + log.firms.length,
+		source: 'local-raw',
+	};
+}
+
 async function countInventoryTotals(rawDir = DEFAULT_EXTERNAL_RAW_DIR): Promise<InventoryTotals> {
 	const rawCandidates = [path.resolve(rawDir), path.resolve(process.cwd(), 'data', 'raw')];
 	const baseDir =
@@ -1404,7 +1414,7 @@ async function listLocalNewestCards(maxCards = 10, crdFilter = '') {
 		totalCards: allCards.length,
 		totalCacheKeys: allCards.reduce((sum, card) => sum + card.files, 0),
 		filteredTotalCards: filteredCards.length,
-		inventoryTotals: await countInventoryTotals(),
+		inventoryTotals: countInventoryTotalsFromCrdLog(),
 		sourceMode: 'local-fallback' as const,
 	};
 }
@@ -1516,7 +1526,7 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 	}));
 	const inventoryTotals = collectInventoryTotalsFromCacheKeys(Array.from(keySet), 'redis');
 	const cachedDedupedTotals = await readPrimedBundleTotals(redis, true).catch(() => null);
-	const rawFallbackTotals = await countInventoryTotals().catch(() => null);
+	const rawFallbackTotals = countInventoryTotalsFromCrdLog();
 	const effectiveInventoryTotals = resolveDashboardInventoryTotals(
 		inventoryTotals,
 		cachedDedupedTotals ?
