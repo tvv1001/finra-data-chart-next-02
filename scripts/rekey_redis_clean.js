@@ -7,8 +7,6 @@
  */
 'use strict';
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '.env.local') });
-
 const { Redis } = require('@upstash/redis');
 
 const isDryRun = process.argv.includes('--dry-run');
