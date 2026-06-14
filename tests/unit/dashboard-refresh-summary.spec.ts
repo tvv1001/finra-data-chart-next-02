@@ -3,6 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { buildPrimedBundleInventoryTotals, extractCardSummaryFields, fetchedPayloadHasSourceCoverage, summarizeFetchResults } from '../../src/app/api/dashboard/refresh/route';
 import { computeQueryFetchCounts, computeQuerySaveStats, describeQuerySaveChange, parseDashboardSelectionFromUrl } from '../../src/app/dashboard/page';
 
+const TEST_FINRA_ONLY_CRD = '9100001';
+const TEST_DUAL_SOURCE_CRD = '9100002';
+const TEST_FIRM_ID = '88001';
+const TEST_PREVIOUS_FIRM_ID = '88002';
+
 describe('parseDashboardSelectionFromUrl', () => {
 	it('reads an individual SEC selection from dashboard query params', () => {
 		expect(parseDashboardSelectionFromUrl('https://example.com/dashboard?source=sec&CRD_individual=6655996&sec=1')).toEqual({
@@ -41,8 +46,8 @@ describe('buildPrimedBundleInventoryTotals', () => {
 describe('computeQueryFetchCounts', () => {
 	it('counts how many fetches were added for each query', () => {
 		const resolution = [
-			{ query: 'alpha', crds: ['100', '101'] },
-			{ query: 'beta', crds: ['200'] },
+			{ query: '100', crds: ['100', '101'] },
+			{ query: '200', crds: ['200'] },
 		];
 		const fetchedItems = [
 			{ crd: '100', status: 'ok' },
@@ -52,8 +57,8 @@ describe('computeQueryFetchCounts', () => {
 		];
 
 		expect(computeQueryFetchCounts(resolution, fetchedItems)).toEqual({
-			alpha: 2,
-			beta: 1,
+			'100': 2,
+			'200': 1,
 		});
 	});
 });
@@ -61,8 +66,8 @@ describe('computeQueryFetchCounts', () => {
 describe('computeQuerySaveStats', () => {
 	it('counts newly saved records and source saves per query', () => {
 		const resolution = [
-			{ query: 'alpha', crds: ['100', '101'] },
-			{ query: 'beta', crds: ['200'] },
+			{ query: '100', crds: ['100', '101'] },
+			{ query: '200', crds: ['200'] },
 		];
 		const fetchedItems = [
 			{ crd: '100', type: 'individual', status: 'ok', cardKey: 'individual:100', newSourceSaved: true, newRecordSaved: true },
@@ -72,7 +77,7 @@ describe('computeQuerySaveStats', () => {
 		];
 
 		expect(computeQuerySaveStats(resolution, fetchedItems)).toEqual({
-			alpha: {
+			'100': {
 				fetchedCount: 2,
 				savedSourceCount: 2,
 				savedRecordCount: 1,
@@ -80,7 +85,7 @@ describe('computeQuerySaveStats', () => {
 				updatedExistingRecordCount: 1,
 				errorCount: 1,
 			},
-			beta: {
+			'200': {
 				fetchedCount: 1,
 				savedSourceCount: 0,
 				savedRecordCount: 0,
@@ -184,7 +189,7 @@ describe('fetchedPayloadHasSourceCoverage', () => {
 						_source: {
 							iacontent: JSON.stringify({
 								basicInformation: {
-									individualId: 5564669,
+									individualId: Number(TEST_FINRA_ONLY_CRD),
 									bcScope: 'Active',
 									iaScope: 'NotInScope',
 								},
@@ -192,9 +197,9 @@ describe('fetchedPayloadHasSourceCoverage', () => {
 									approvedFinraRegistrationCount: 1,
 									approvedIAStateRegistrationCount: 0,
 								},
-								currentEmployments: [{ firmId: 154957 }],
+								currentEmployments: [{ firmId: Number(TEST_FIRM_ID) }],
 								currentIAEmployments: [],
-								previousEmployments: [{ firmId: 25567 }],
+								previousEmployments: [{ firmId: Number(TEST_PREVIOUS_FIRM_ID) }],
 								previousIAEmployments: [],
 							}),
 						},
@@ -209,7 +214,7 @@ describe('fetchedPayloadHasSourceCoverage', () => {
 						_source: {
 							content: JSON.stringify({
 								basicInformation: {
-									individualId: 5564669,
+									individualId: Number(TEST_FINRA_ONLY_CRD),
 									bcScope: 'Active',
 									iaScope: 'NotInScope',
 								},
@@ -217,9 +222,9 @@ describe('fetchedPayloadHasSourceCoverage', () => {
 									approvedFinraRegistrationCount: 1,
 									approvedIAStateRegistrationCount: 0,
 								},
-								currentEmployments: [{ firmId: 154957 }],
+								currentEmployments: [{ firmId: Number(TEST_FIRM_ID) }],
 								currentIAEmployments: [],
-								previousEmployments: [{ firmId: 25567 }],
+								previousEmployments: [{ firmId: Number(TEST_PREVIOUS_FIRM_ID) }],
 								previousIAEmployments: [],
 							}),
 						},
@@ -228,8 +233,8 @@ describe('fetchedPayloadHasSourceCoverage', () => {
 			},
 		};
 
-		expect(fetchedPayloadHasSourceCoverage(secPayload, { source: 'sec', type: 'individual', crd: '5564669' })).toBe(false);
-		expect(fetchedPayloadHasSourceCoverage(finraPayload, { source: 'finra', type: 'individual', crd: '5564669' })).toBe(true);
+		expect(fetchedPayloadHasSourceCoverage(secPayload, { source: 'sec', type: 'individual', crd: TEST_FINRA_ONLY_CRD })).toBe(false);
+		expect(fetchedPayloadHasSourceCoverage(finraPayload, { source: 'finra', type: 'individual', crd: TEST_FINRA_ONLY_CRD })).toBe(true);
 	});
 
 	it('accepts a truly dual-source individual payload', () => {
@@ -240,7 +245,7 @@ describe('fetchedPayloadHasSourceCoverage', () => {
 						_source: {
 							iacontent: JSON.stringify({
 								basicInformation: {
-									individualId: 5740531,
+									individualId: Number(TEST_DUAL_SOURCE_CRD),
 									bcScope: 'Active',
 									iaScope: 'Active',
 								},
@@ -248,8 +253,8 @@ describe('fetchedPayloadHasSourceCoverage', () => {
 									approvedFinraRegistrationCount: 1,
 									approvedIAStateRegistrationCount: 1,
 								},
-								currentEmployments: [{ firmId: 7691 }],
-								currentIAEmployments: [{ firmId: 7691 }],
+								currentEmployments: [{ firmId: Number(TEST_FIRM_ID) }],
+								currentIAEmployments: [{ firmId: Number(TEST_FIRM_ID) }],
 								previousEmployments: [],
 								previousIAEmployments: [],
 							}),
@@ -265,7 +270,7 @@ describe('fetchedPayloadHasSourceCoverage', () => {
 						_source: {
 							content: JSON.stringify({
 								basicInformation: {
-									individualId: 5740531,
+									individualId: Number(TEST_DUAL_SOURCE_CRD),
 									bcScope: 'Active',
 									iaScope: 'Active',
 								},
@@ -273,8 +278,8 @@ describe('fetchedPayloadHasSourceCoverage', () => {
 									approvedFinraRegistrationCount: 1,
 									approvedIAStateRegistrationCount: 1,
 								},
-								currentEmployments: [{ firmId: 7691 }],
-								currentIAEmployments: [{ firmId: 7691 }],
+								currentEmployments: [{ firmId: Number(TEST_FIRM_ID) }],
+								currentIAEmployments: [{ firmId: Number(TEST_FIRM_ID) }],
 								previousEmployments: [],
 								previousIAEmployments: [],
 							}),
@@ -284,8 +289,8 @@ describe('fetchedPayloadHasSourceCoverage', () => {
 			},
 		};
 
-		expect(fetchedPayloadHasSourceCoverage(secPayload, { source: 'sec', type: 'individual', crd: '5740531' })).toBe(true);
-		expect(fetchedPayloadHasSourceCoverage(finraPayload, { source: 'finra', type: 'individual', crd: '5740531' })).toBe(true);
+		expect(fetchedPayloadHasSourceCoverage(secPayload, { source: 'sec', type: 'individual', crd: TEST_DUAL_SOURCE_CRD })).toBe(true);
+		expect(fetchedPayloadHasSourceCoverage(finraPayload, { source: 'finra', type: 'individual', crd: TEST_DUAL_SOURCE_CRD })).toBe(true);
 	});
 });
 
@@ -294,7 +299,7 @@ describe('extractCardSummaryFields', () => {
 		const summary = extractCardSummaryFields(
 			{
 				basicInformation: {
-					name: 'Jane Doe',
+					name: 'Generic Record',
 					bcScope: 'active',
 					iaScope: 'inactive',
 				},
@@ -308,7 +313,7 @@ describe('extractCardSummaryFields', () => {
 			'12345',
 		);
 
-		expect(summary.name).toBe('Jane Doe');
+		expect(summary.name).toBe('Generic Record');
 		expect(summary.memberSince).toBe('2020-01-01');
 		expect(summary.statusText).toContain('FINRA Active');
 		expect(summary.statusText).toContain('SEC Inactive');
@@ -318,7 +323,7 @@ describe('extractCardSummaryFields', () => {
 		const summary = extractCardSummaryFields(
 			{
 				basicInformation: {
-					name: 'Jane Doe',
+					name: 'Generic Record',
 					bcScope: 'active',
 					iaScope: 'inactive',
 				},
