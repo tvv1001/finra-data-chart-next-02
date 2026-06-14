@@ -31,7 +31,7 @@
 		"redis:prune-invalid-sources": "node scripts/prune_invalid_source_cache.js",
 		"redis:prune-invalid-sources:apply": "node scripts/prune_invalid_source_cache.js --apply",
 		"vercel:pull": "vercel pull --yes --environment=production",
-		"vercel:build": "vercel build --prod",
+		"vercel:build": "NODE_OPTIONS=--max-old-space-size=8192 vercel build --prod",
 		"vercel:deploy:prebuilt": "vercel deploy --prebuilt --prod",
 		"vercel:deploy": "pnpm run vercel:pull && pnpm run vercel:build && pnpm run vercel:deploy:prebuilt",
 		"vercel-build": "pnpm run build",
