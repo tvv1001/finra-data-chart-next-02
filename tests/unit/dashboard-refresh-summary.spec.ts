@@ -1,7 +1,27 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildPrimedBundleInventoryTotals, extractCardSummaryFields } from '../../src/app/api/dashboard/refresh/route';
-import { computeQueryFetchCounts } from '../../src/app/dashboard/page';
+import { computeQueryFetchCounts, parseDashboardSelectionFromUrl } from '../../src/app/dashboard/page';
+
+describe('parseDashboardSelectionFromUrl', () => {
+	it('reads an individual SEC selection from dashboard query params', () => {
+		expect(parseDashboardSelectionFromUrl('https://example.com/dashboard?source=sec&CRD_individual=6655996&sec=1')).toEqual({
+			entity: 'individual',
+			id: '6655996',
+			source: 'sec',
+			availableSources: ['sec'],
+		});
+	});
+
+	it('preserves both source flags for a shared dashboard link', () => {
+		expect(parseDashboardSelectionFromUrl('https://example.com/dashboard?source=sec&CRD_individual=6655996&sec=1&finra=1')).toEqual({
+			entity: 'individual',
+			id: '6655996',
+			source: 'sec',
+			availableSources: ['finra', 'sec'],
+		});
+	});
+});
 
 describe('buildPrimedBundleInventoryTotals', () => {
 	it('does not double-count the same people or firms across FINRA and SEC primed bundles', () => {

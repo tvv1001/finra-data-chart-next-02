@@ -5,20 +5,13 @@ import { rememberRecentSeed } from '@/lib/seedStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
 import { normalizeIndividualDetailFromSource } from '@/lib/individualDetail';
+import { hasIndividualSourceCoverage, resolveIndividualSourceDetail } from '@/lib/sourceTruth';
 
 function parseDetailPayload(data: any, contentKey = 'content') {
 	if (!data) return null;
 	if (data?.hits?.hits?.length) {
 		const source = data.hits.hits[0]?._source || {};
-		const raw = source?.[contentKey];
-		try {
-			return normalizeIndividualDetailFromSource({
-				...source,
-				...(typeof raw === 'string' ? JSON.parse(raw) : raw || {}),
-			});
-		} catch {
-			return normalizeIndividualDetailFromSource(source);
-		}
+		return resolveIndividualSourceDetail(source)?.detail;
 	}
 
 	const raw = data?.[contentKey];
@@ -193,8 +186,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		const finraNumeric = finraDetail ? findNumericId(finraDetail, ['individualId', 'individual_id', 'crd', 'ind_crd', 'ind_source_id']) : '';
 		const secNumeric = secDetail ? findNumericId(secDetail, ['individualId', 'individual_id', 'crd', 'ind_crd', 'ind_source_id']) : '';
 
-		detail.hasFinraData = !!finraDetail && !!finraNumeric;
-		detail.hasSecData = !!secDetail && !!secNumeric;
+		detail.hasFinraData = !!finraDetail && !!finraNumeric && hasIndividualSourceCoverage(finraDetail, 'finra');
+		detail.hasSecData = !!secDetail && !!secNumeric && hasIndividualSourceCoverage(secDetail, 'sec');
 
 		if (isMergedRoute) {
 			return NextResponse.json(

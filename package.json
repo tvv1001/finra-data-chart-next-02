@@ -27,6 +27,8 @@
 		"deploy:upstash-artifacts": "pnpm run build:deploy-artifacts && pnpm run deploy:graph && pnpm run deploy:search-indexes && node scripts/deploy_primed_cache_to_redis.js",
 		"deploy:redis-cache": "node scripts/import_local_cache.js",
 		"deploy:redis-cache:batch": "node scripts/import_local_cache.js --crd-file \"$CRD_BATCH_FILE\"",
+		"redis:prune-invalid-sources": "node scripts/prune_invalid_source_cache.js",
+		"redis:prune-invalid-sources:apply": "node scripts/prune_invalid_source_cache.js --apply",
 		"vercel:pull": "vercel pull --yes --environment=production",
 		"vercel:build": "vercel build --prod",
 		"vercel:deploy:prebuilt": "vercel deploy --prebuilt --prod",

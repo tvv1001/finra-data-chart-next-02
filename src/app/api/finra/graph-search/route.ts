@@ -5,6 +5,7 @@ import { logger } from '@/lib/logger';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { searchLocalIndex } from '@/lib/localSearch';
 import { normalizeIndividualDetailFromSource } from '@/lib/individualDetail';
+import { resolveIndividualSourceDetail } from '@/lib/sourceTruth';
 import { tryLoadPersonCluster } from '@/lib/peopleClusterCache';
 import { matchesSearchableNodeQuery } from '@/lib/searchGraphFallback';
 
@@ -339,7 +340,8 @@ export async function GET(request: NextRequest) {
 
 				for (const hit of allHits) {
 					const src = (hit && typeof hit === 'object' && '_source' in hit ? (hit as { _source?: Record<string, any> })._source : hit) as Record<string, any>;
-					const parsed = normalizeIndividualDetailFromSource(src) as Record<string, any>;
+					const resolved = resolveIndividualSourceDetail(src);
+					const parsed = (resolved.detail || normalizeIndividualDetailFromSource(src)) as Record<string, any>;
 
 					const crd = String(parsed?.basicInformation?.individualId || src?.ind_source_id || src?.ind_crd || '').trim();
 					if (crd) {
@@ -363,33 +365,35 @@ export async function GET(request: NextRequest) {
 								basicInformation: parsed?.basicInformation || null,
 								bcScope: parsed?.bcScope ?? parsed?.basicInformation?.bcScope ?? null,
 								iaScope: parsed?.iaScope ?? parsed?.basicInformation?.iaScope ?? null,
-								currentEmployments: Array.isArray(parsed?.currentEmployments) ? parsed.currentEmployments : [],
-								previousEmployments: Array.isArray(parsed?.previousEmployments) ? parsed.previousEmployments : [],
-								currentIAEmployments: Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments : [],
-								previousIAEmployments: Array.isArray(parsed?.previousIAEmployments) ? parsed.previousIAEmployments : [],
+								currentEmployments: resolved.hasEmbeddedDetail && Array.isArray(parsed?.currentEmployments) ? parsed.currentEmployments : [],
+								previousEmployments: resolved.hasEmbeddedDetail && Array.isArray(parsed?.previousEmployments) ? parsed.previousEmployments : [],
+								currentIAEmployments: resolved.hasEmbeddedDetail && Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments : [],
+								previousIAEmployments: resolved.hasEmbeddedDetail && Array.isArray(parsed?.previousIAEmployments) ? parsed.previousIAEmployments : [],
 								registrationCount: parsed?.registrationCount || null,
 								disclosures: parsed?.disclosures || null,
 								iaDisclosures: parsed?.iaDisclosures || null,
+								hasFinraData: resolved.hasFinraData,
+								hasSecData: resolved.hasSecData,
 								_trustedCurrentRelationshipData: Boolean(
-									(parsed?.currentEmployments && parsed.currentEmployments.length) ||
-									(parsed?.previousEmployments && parsed.previousEmployments.length) ||
-									(parsed?.currentIAEmployments && parsed.currentIAEmployments.length) ||
-									(parsed?.previousIAEmployments && parsed.previousIAEmployments.length) ||
-									parsed?.registrationCount,
+									resolved.hasEmbeddedDetail &&
+									((parsed?.currentEmployments && parsed.currentEmployments.length) ||
+										(parsed?.previousEmployments && parsed.previousEmployments.length) ||
+										(parsed?.currentIAEmployments && parsed.currentIAEmployments.length) ||
+										(parsed?.previousIAEmployments && parsed.previousIAEmployments.length) ||
+										parsed?.registrationCount),
 								),
 							};
 							newNodes.push(personNode);
 
-							const emps = [
-								...(Array.isArray(parsed?.currentEmployments) ? parsed.currentEmployments : []),
-								...(Array.isArray(parsed?.previousEmployments) ? parsed.previousEmployments.map((employment: any) => ({ ...employment, _isCurrent: false })) : []),
-								...(Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments : []),
-								...(Array.isArray(parsed?.previousIAEmployments) ? parsed.previousIAEmployments.map((employment: any) => ({ ...employment, _isCurrent: false })) : []),
-								...(src?.ind_current_employments || []),
-								...(src?.ind_previous_employments || []).map((employment: any) => ({ ...employment, _isCurrent: false })),
-								...(src?.ind_ia_current_employments || []),
-								...(src?.ind_ia_previous_employments || []).map((employment: any) => ({ ...employment, _isCurrent: false })),
-							];
+							const emps =
+								resolved.hasEmbeddedDetail ?
+									[
+										...(Array.isArray(parsed?.currentEmployments) ? parsed.currentEmployments : []),
+										...(Array.isArray(parsed?.previousEmployments) ? parsed.previousEmployments.map((employment: any) => ({ ...employment, _isCurrent: false })) : []),
+										...(Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments : []),
+										...(Array.isArray(parsed?.previousIAEmployments) ? parsed.previousIAEmployments.map((employment: any) => ({ ...employment, _isCurrent: false })) : []),
+									]
+								:	[];
 							for (const e of emps) {
 								const fid = String(e?.firm_id || e?.firmId || '').trim();
 								if (!fid) continue;
