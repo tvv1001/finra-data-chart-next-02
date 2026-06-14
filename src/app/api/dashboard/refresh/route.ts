@@ -307,6 +307,42 @@ function hasIndividualSecPresence(node: any) {
 	return iaScopeFlags.hasActive || iaScopeFlags.hasInactive;
 }
 
+function hasFirmFinraPresence(node: any) {
+	if (!node || typeof node !== 'object') return false;
+	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
+	const basic = node.basicInformation || {};
+	if (node.hasFinraData === true) return true;
+	const bcScope = normalizeScopeValue(node?.bcScope || basic?.bcScope || '');
+	if (bcScope) return true;
+	if (Boolean(String(node?.bdSECNumber || node?.bdSecNumber || basic?.bdSECNumber || basic?.bdSecNumber || '').trim())) return true;
+	if (Boolean(String(node?.districtName || basic?.districtName || '').trim())) return true;
+	if (hasApprovedSro(node?.registeredSROs) || hasApprovedSro(node?.registrations)) return true;
+	if (
+		String(node?.isLegacy || '')
+			.trim()
+			.toUpperCase() === 'Y'
+	)
+		return true;
+	return false;
+}
+
+function hasFirmSecPresence(node: any) {
+	if (!node || typeof node !== 'object') return false;
+	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
+	const basic = node.basicInformation || {};
+	if (node.hasSecData === true) return true;
+	const iaScope = normalizeScopeValue(node?.iaScope || basic?.iaScope || node?.firmStatus || basic?.firmStatus || '');
+	if (iaScope) return true;
+	if (Boolean(String(node?.iaSECNumber || node?.iaSecNumber || basic?.iaSECNumber || basic?.iaSecNumber || '').trim())) return true;
+	if (
+		Array.isArray(node?.registrations) &&
+		node.registrations.some((entry: any) => /approved|active|current|registered/i.test(String(entry?.registrationStatus || entry?.status || '')))
+	) {
+		return true;
+	}
+	return false;
+}
+
 function parseIndividualDetailPayload(data: unknown, contentKey: 'content' | 'iacontent', fallbackCrd = '') {
 	if (!data) return null;
 
@@ -357,6 +393,59 @@ function parseIndividualDetailPayload(data: unknown, contentKey: 'content' | 'ia
 	}
 
 	return null;
+}
+
+function parseFirmDetailPayload(data: unknown, contentKey: 'content' | 'iacontent') {
+	if (!data) return null;
+
+	const normalizeCandidate = (candidate: unknown) => {
+		if (!isPlainObject(candidate)) return null;
+		return candidate as Record<string, any>;
+	};
+
+	if (isPlainObject(data) && Array.isArray(data?.hits?.hits) && data.hits.hits.length > 0) {
+		const source = data.hits.hits[0]?._source || {};
+		const raw = source?.[contentKey];
+		try {
+			return normalizeCandidate({
+				...source,
+				...(typeof raw === 'string' ? JSON.parse(raw) : raw || {}),
+			});
+		} catch {
+			return normalizeCandidate(source);
+		}
+	}
+
+	if (isPlainObject(data)) {
+		const raw = data?.[contentKey];
+		if (raw != null) {
+			try {
+				return normalizeCandidate({
+					...data,
+					...(typeof raw === 'string' ? JSON.parse(raw) : raw || {}),
+				});
+			} catch {
+				return normalizeCandidate(data);
+			}
+		}
+
+		const looksLikeDetail = data.basicInformation || data.firmId || data.iaSECNumber || data.iaSecNumber || data.bdSECNumber || data.bdSecNumber || data.bcScope || data.iaScope;
+		if (looksLikeDetail) return normalizeCandidate(data);
+	}
+
+	return null;
+}
+
+export function fetchedPayloadHasSourceCoverage(payload: unknown, target: { source: 'finra' | 'sec'; type: 'individual' | 'firm'; crd?: string }) {
+	if (target.type === 'individual') {
+		const detail = parseIndividualDetailPayload(payload, target.source === 'finra' ? 'content' : 'iacontent', String(target.crd || '').trim());
+		if (!detail) return false;
+		return target.source === 'finra' ? hasIndividualFinraPresence(detail) : hasIndividualSecPresence(detail);
+	}
+
+	const detail = parseFirmDetailPayload(payload, target.source === 'finra' ? 'content' : 'iacontent');
+	if (!detail) return false;
+	return target.source === 'finra' ? hasFirmFinraPresence(detail) : hasFirmSecPresence(detail);
 }
 
 async function loadCachedIndividualPayload(source: 'finra' | 'sec', id: string) {
@@ -1376,6 +1465,23 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[], options: { inclu
 					status: 'error',
 					redisWrite: 'not-attempted',
 					error: 'invalid-payload-shape',
+				});
+				continue;
+			}
+
+			if (!fetchedPayloadHasSourceCoverage(payload, target)) {
+				results.push({
+					crd,
+					source: target.source,
+					type: target.type,
+					url,
+					cacheFile: path.join(nationalRoot, cacheDir, cacheFileName),
+					redisKey,
+					cardKey,
+					status: 'error',
+					redisWrite: 'skipped-out-of-scope',
+					error: 'out-of-scope-source-payload',
+					...(includePayload ? { payload } : {}),
 				});
 				continue;
 			}
