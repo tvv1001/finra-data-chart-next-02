@@ -1036,17 +1036,16 @@ export default function DashboardPage() {
 															detail = await response.json();
 														}
 
-														// If still not found, fetch from external FINRA API
+														// If still not found, fetch from external FINRA API via proxy
 														if (!detail?.found && !detail?.basicInformation) {
-															const externalUrl = `https://api.brokercheck.finra.org/search/${entity}/${item.id}?hl=true&wt=json`;
-															response = await fetch(externalUrl, {
+															response = await fetch(`/api/search/finra/${entity}/${item.id}`, {
 																method: 'GET',
 																headers: { Accept: 'application/json' },
 																cache: 'no-store',
 															});
 															if (response.ok) {
 																const searchResult = await response.json();
-																detail = searchResult?.response?.docs?.[0] ?? searchResult?.docs?.[0] ?? searchResult?.response ?? searchResult;
+																detail = searchResult?.doc ?? searchResult;
 															}
 														}
 
@@ -1091,17 +1090,16 @@ export default function DashboardPage() {
 															detail = await response.json();
 														}
 
-														// If still not found, fetch from external SEC API
+														// If still not found, fetch from external SEC API via proxy
 														if (!detail?.found && !detail?.basicInformation) {
-															const externalUrl = `https://api.adviserinfo.sec.gov/search/${entity}/${item.id}?wt=json`;
-															response = await fetch(externalUrl, {
+															response = await fetch(`/api/search/sec/${entity}/${item.id}`, {
 																method: 'GET',
 																headers: { Accept: 'application/json' },
 																cache: 'no-store',
 															});
 															if (response.ok) {
 																const searchResult = await response.json();
-																detail = searchResult?.response?.docs?.[0] ?? searchResult?.docs?.[0] ?? searchResult?.response ?? searchResult;
+																detail = searchResult?.doc ?? searchResult;
 															}
 														}
 
