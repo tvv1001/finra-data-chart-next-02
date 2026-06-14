@@ -50,6 +50,8 @@ type QueueRunItem = {
 	elapsedSec: number;
 	message?: string;
 	crdCount?: number;
+	savedRecordCount?: number;
+	savedSourceCount?: number;
 	detailContent?: string; // rendered HTML/text content for the card
 	fetchedEntity?: {
 		id: string;
@@ -116,6 +118,35 @@ export function computeQueryFetchCounts(resolution: Array<{ query?: string; crds
 	}
 
 	return Object.fromEntries(counts.entries());
+}
+
+export function computeQuerySaveStats(
+	resolution: Array<{ query?: string; crds?: string[] }>,
+	fetchedItems: Array<{ crd?: string; type?: string; status?: string; cardKey?: string; newSourceSaved?: boolean; newRecordSaved?: boolean }>,
+) {
+	const stats = new Map<string, { fetchedCount: number; savedSourceCount: number; savedRecordCount: number; errorCount: number }>();
+
+	for (const entry of resolution) {
+		const query = String(entry?.query || '').trim();
+		if (!query) continue;
+
+		const crdSet = new Set((Array.isArray(entry?.crds) ? entry.crds : []).map((value) => String(value || '').trim()).filter(Boolean));
+		const matchingItems = fetchedItems.filter((item) => crdSet.has(String(item?.crd || '').trim()));
+		const savedRecordKeys = new Set(
+			matchingItems
+				.filter((item) => item?.newRecordSaved === true)
+				.map((item) => String(item?.cardKey || `${String(item?.type || 'individual')}:${String(item?.crd || '').trim()}`)),
+		);
+
+		stats.set(query, {
+			fetchedCount: matchingItems.filter((item) => String(item?.status || '') === 'ok').length,
+			savedSourceCount: matchingItems.filter((item) => item?.newSourceSaved === true).length,
+			savedRecordCount: savedRecordKeys.size,
+			errorCount: matchingItems.filter((item) => String(item?.status || '') === 'error').length,
+		});
+	}
+
+	return Object.fromEntries(stats.entries());
 }
 
 function normalizePayloadForCleanView(payload: unknown) {
@@ -208,7 +239,7 @@ export default function DashboardPage() {
 	const [searchResults, setSearchResults] = useState<SearchResultCard[]>([]);
 	const [searchSkippedCount, setSearchSkippedCount] = useState(0);
 	const [queueStatusLine, setQueueStatusLine] = useState('Idle | - | queue - | elapsed 0s');
-	const [queueQueryLines, setQueueQueryLines] = useState<string[]>(['target - | crd - | updated —']);
+	const [queueQueryLines, setQueueQueryLines] = useState<string[]>(['target - | crd - | saved - | updated —']);
 	const [queueElapsedSec, setQueueElapsedSec] = useState(0);
 	const [queueRunItems, setQueueRunItems] = useState<QueueRunItem[]>([]);
 	const [queueCards, setQueueCards] = useState<QueueCard[]>([]);
@@ -580,6 +611,10 @@ export default function DashboardPage() {
 		window.history.replaceState({}, '', `${url.pathname}?${params.toString()}${url.hash}`);
 	}
 
+	function isSelectedCardSource(card: QueueCard, source: SearchResultSource) {
+		return currentRecordId === card.id && currentRecordEntity === card.entity && currentRecordSource === source;
+	}
+
 	function buildQueueCardsFromFetchResults(items: any[]): QueueCard[] {
 		const map = new Map<string, QueueCard>();
 		for (const item of items) {
@@ -827,7 +862,7 @@ export default function DashboardPage() {
 				})),
 			);
 			setQueueStatusLine(`Searching | Queue | queue 1/${Math.max(1, effectiveQueries.length)} | elapsed 0s`);
-			setQueueQueryLines(['target - | crd - | updated —', `last Starting search for "${effectiveQueries[0] || '-'}"`]);
+			setQueueQueryLines(['target - | crd - | saved - | updated —', `last Starting search for "${effectiveQueries[0] || '-'}"`]);
 		}
 
 		try {
@@ -867,12 +902,43 @@ export default function DashboardPage() {
 				const fetchedItems = Array.isArray((payload as any)?.results) ? (payload as any).results : [];
 				const matched = resolution.filter((entry: any) => Number(entry?.crdCount || 0) > 0).length;
 				const elapsedSec = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
-				setQueueStatusLine(`Done | ${matched}/${resolution.length || effectiveQueries.length} matched | queue ${effectiveQueries.length} | elapsed ${elapsedSec}s`);
+				const summary = (payload as any)?.summary;
+				const successCount = Number(summary?.successCount || 0);
+				const errorCount = Number(summary?.errorCount || 0);
+				const newRecordCount = Number(summary?.newRecordCount || 0);
+				const newSourceCount = Number(summary?.newSourceCount || 0);
+				const newPeopleCount = Number(summary?.newPeopleCount || 0);
+				const newFirmCount = Number(summary?.newFirmCount || 0);
+				setQueueStatusLine(
+					`Done | ${matched}/${resolution.length || effectiveQueries.length} matched | saved ${newRecordCount} record${newRecordCount === 1 ? '' : 's'} | elapsed ${elapsedSec}s`,
+				);
+
+				if (newRecordCount > 0) {
+					setQueueMetaStats((current) => {
+						const currentTotals = current.inventoryTotals;
+						if (!currentTotals) return current;
+						return {
+							...current,
+							inventoryTotals: {
+								...currentTotals,
+								people: Number(currentTotals.people || 0) + newPeopleCount,
+								firms: Number(currentTotals.firms || 0) + newFirmCount,
+								unique: Number(currentTotals.unique || 0) + newRecordCount,
+							},
+						};
+					});
+				}
 
 				setQueueRunItems((current) =>
 					current.map((item) => {
 						const resolved = resolution.find((entry: any) => String(entry?.query || '').trim() === item.query);
 						const crdCount = Number(resolved?.crdCount || 0);
+						const queryStats = computeQuerySaveStats(resolution, fetchedItems)[item.query] || {
+							fetchedCount: 0,
+							savedSourceCount: 0,
+							savedRecordCount: 0,
+							errorCount: 0,
+						};
 
 						// Find fetched results for this query/CRD to extract detail info
 						const fetchedResult = fetchedItems.find((result: any) => String(result?.crd || '') === item.query);
@@ -892,7 +958,9 @@ export default function DashboardPage() {
 								...item,
 								status: 'complete',
 								crdCount,
-								message: `${item.query} • COMPLETE ${crdCount} matches`,
+								savedRecordCount: queryStats.savedRecordCount,
+								savedSourceCount: queryStats.savedSourceCount,
+								message: `${item.query} • COMPLETE ${crdCount} matches • saved ${queryStats.savedRecordCount} record${queryStats.savedRecordCount === 1 ? '' : 's'}`,
 								fetchedEntity: entityDetail || undefined,
 								detailContent: entityDetail?.status || undefined,
 							};
@@ -907,15 +975,11 @@ export default function DashboardPage() {
 						};
 					}),
 				);
-
-				const summary = (payload as any)?.summary;
-				const successCount = Number(summary?.successCount || 0);
-				const errorCount = Number(summary?.errorCount || 0);
-				if (successCount > 0) {
+				if (newRecordCount > 0) {
 					void fetch('/api/dashboard/refresh', {
 						method: 'POST',
 						headers: { 'content-type': 'application/json' },
-						body: JSON.stringify({ action: 'increment-inventory-counter', amount: successCount }),
+						body: JSON.stringify({ action: 'increment-inventory-counter', amount: newRecordCount }),
 					})
 						.then((res) => res.json())
 						.then((data) => {
@@ -923,25 +987,32 @@ export default function DashboardPage() {
 						})
 						.catch(() => undefined);
 				}
-				if (successCount > 0) {
-					setSyncBannerText(`Local sync: ${successCount.toLocaleString()} new fetch${successCount === 1 ? '' : 'es'} • ${errorCount.toLocaleString()} errors`);
+				if (successCount > 0 || newRecordCount > 0 || newSourceCount > 0) {
+					setSyncBannerText(
+						`Local sync: ${newRecordCount.toLocaleString()} new record${newRecordCount === 1 ? '' : 's'} • ${newSourceCount.toLocaleString()} new source save${newSourceCount === 1 ? '' : 's'} • ${errorCount.toLocaleString()} errors`,
+					);
 				} else {
 					setSyncBannerText(null);
 				}
 				const perQueryAddedCounts = computeQueryFetchCounts(resolution, fetchedItems);
+				const perQuerySaveStats = computeQuerySaveStats(resolution, fetchedItems);
 				const nextQueryLines: string[] = [];
 				for (const entry of resolution.slice(0, 8)) {
 					const queryText = String(entry?.query || '').trim() || '-';
 					const crdCount = Number(entry?.crdCount || 0);
 					const addedCount = Number(perQueryAddedCounts[queryText] || 0);
-					nextQueryLines.push(`target ${queryText} | crd ${crdCount} | added ${addedCount} | updated ${crdCount > 0 ? 'yes' : 'no'}`);
+					const saveStats = perQuerySaveStats[queryText] || { savedRecordCount: 0, savedSourceCount: 0 };
+					const updated = saveStats.savedRecordCount > 0 || saveStats.savedSourceCount > 0 ? 'yes' : 'no';
+					nextQueryLines.push(
+						`target ${queryText} | crd ${crdCount} | saved ${saveStats.savedRecordCount} rec / ${saveStats.savedSourceCount} src | fetched ${addedCount} | updated ${updated}`,
+					);
 				}
-				nextQueryLines.push(`match F/S requests ok ${successCount} | err ${errorCount}`);
-				setQueueQueryLines(nextQueryLines.length ? nextQueryLines : ['target - | crd - | updated —']);
+				nextQueryLines.push(`match F/S requests ok ${successCount} | new records ${newRecordCount} | new sources ${newSourceCount} | err ${errorCount}`);
+				setQueueQueryLines(nextQueryLines.length ? nextQueryLines : ['target - | crd - | saved - | updated —']);
 
 				const nextCards = buildQueueCardsFromFetchResults(fetchedItems);
 				if (nextCards.length > 0) setQueueCards(nextCards);
-				void loadQueueCardsFromRedis(queueCrdFilter);
+				await loadQueueCardsFromRedis(queueCrdFilter);
 
 				// Auto-dismiss temporary queue cards after 3 seconds.
 				window.setTimeout(() => {
@@ -1090,6 +1161,9 @@ export default function DashboardPage() {
 						className={styles.queueInput}
 						value={crdInput}
 						onChange={(event) => setCrdInput(event.target.value)}
+						spellCheck={false}
+						autoCorrect='off'
+						autoCapitalize='none'
 						placeholder='Enter CRD(s) or name query(ies), comma separated'
 					/>
 					<button
@@ -1108,6 +1182,19 @@ export default function DashboardPage() {
 							<div className={styles.countValue}>Monotonic</div>
 						</div>
 					)}
+
+					<div className={styles.queueStatusPanel}>
+						<div className={styles.statusLine}>{queueStatusLine}</div>
+						<div className={styles.queueStatusList}>
+							{queueQueryLines.map((line, index) => (
+								<div
+									key={`${line}-${index}`}
+									className={styles.queueStatusRow}>
+									{line}
+								</div>
+							))}
+						</div>
+					</div>
 
 					{hasInventorySummary && (
 						<div className={styles.uniqueCrdCount}>
@@ -1131,6 +1218,12 @@ export default function DashboardPage() {
 											<span className={styles.queueRunQuery}>{item.query}</span>
 											<span className={[styles.queueRunBadge, styles['queueRunBadge_' + item.status]].filter(Boolean).join(' ')}>{item.status}</span>
 										</div>
+										{item.message && <div className={styles.queueRunMeta}>{item.message}</div>}
+										{(item.savedRecordCount != null || item.savedSourceCount != null) && (
+											<div className={styles.queueRunStats}>
+												saved {Number(item.savedRecordCount || 0)} record{Number(item.savedRecordCount || 0) === 1 ? '' : 's'} • {Number(item.savedSourceCount || 0)} source
+											</div>
+										)}
 										{item.fetchedEntity && (
 											<div className={styles.queueRunDetail}>
 												<div className={styles.queueRunDetailId}>
@@ -1168,7 +1261,7 @@ export default function DashboardPage() {
 										<button
 											key={`${card.entity}:${card.id}:${entry.source}`}
 											type='button'
-											className={styles.cardSourceKeyBtn}
+											className={[styles.cardSourceKeyBtn, isSelectedCardSource(card, entry.source) ? styles.cardSourceKeyBtnActive : ''].filter(Boolean).join(' ')}
 											onClick={() => loadQueueSourceJson(card, entry.source)}
 											disabled={activeCardSourceKey === `${card.entity}:${card.id}:${entry.source}`}>
 											{entry.source}:{card.entity}:{card.id}
@@ -1205,6 +1298,9 @@ export default function DashboardPage() {
 						<input
 							value={queueCrdFilter}
 							onChange={(event) => setQueueCrdFilter(event.target.value)}
+							spellCheck={false}
+							autoCorrect='off'
+							autoCapitalize='none'
 							className={styles.input}
 							placeholder='Filter CRD(s), comma separated'
 						/>
@@ -1240,6 +1336,9 @@ export default function DashboardPage() {
 							<input
 								value={searchQuery}
 								onChange={(event) => setSearchQuery(event.target.value)}
+								spellCheck={false}
+								autoCorrect='off'
+								autoCapitalize='none'
 								onKeyDown={(event) => {
 									if (event.key === 'Enter') {
 										event.preventDefault();
