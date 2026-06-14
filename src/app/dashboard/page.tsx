@@ -1017,22 +1017,37 @@ export default function DashboardPage() {
 												className={styles.searchSourceBtn}
 												onClick={async () => {
 													const entity = item.type === 'INDIVIDUAL' ? 'individual' : 'firm';
-													const route = entity === 'firm' ? `/api/finra/merged/firm/${item.id}` : `/api/finra/merged/individual/${item.id}`;
-													const response = await fetch(route, {
-														method: 'GET',
-														headers: { Accept: 'application/json' },
-														cache: 'no-store',
-													});
-													const detail = await response.json();
-													const searchCard: SearchResultCard = {
-														id: item.id,
-														label: item.id,
-														scope: 'finra',
-														source: 'finra',
-														entity,
-														payload: detail?.sources?.finra ?? detail?.finraNode ?? detail?.merged ?? detail ?? {},
-													};
-													setMainViewFromSearch(searchCard, 'FINRA');
+													try {
+														// Try merged endpoint first
+														let response = await fetch(entity === 'firm' ? `/api/finra/merged/firm/${item.id}` : `/api/finra/merged/individual/${item.id}`, {
+															method: 'GET',
+															headers: { Accept: 'application/json' },
+															cache: 'no-store',
+														});
+														let detail = await response.json();
+
+														// If not found, try the direct endpoint with search
+														if (!detail?.found) {
+															response = await fetch(entity === 'firm' ? `/api/finra/firm/${item.id}?merged=1` : `/api/finra/individual/${item.id}?merged=1&includePrevious=true`, {
+																method: 'GET',
+																headers: { Accept: 'application/json' },
+																cache: 'no-store',
+															});
+															detail = await response.json();
+														}
+
+														const searchCard: SearchResultCard = {
+															id: item.id,
+															label: item.id,
+															scope: 'finra',
+															source: 'finra',
+															entity,
+															payload: detail?.sources?.finra ?? detail?.finraNode ?? detail?.merged ?? detail?.bccontent ?? detail ?? {},
+														};
+														setMainViewFromSearch(searchCard, 'FINRA');
+													} catch (err) {
+														console.error('Failed to load FINRA data:', err);
+													}
 												}}>
 												FINRA
 											</button>
@@ -1043,22 +1058,37 @@ export default function DashboardPage() {
 												className={styles.searchSourceBtn}
 												onClick={async () => {
 													const entity = item.type === 'INDIVIDUAL' ? 'individual' : 'firm';
-													const route = entity === 'firm' ? `/api/finra/merged/firm/${item.id}` : `/api/finra/merged/individual/${item.id}`;
-													const response = await fetch(route, {
-														method: 'GET',
-														headers: { Accept: 'application/json' },
-														cache: 'no-store',
-													});
-													const detail = await response.json();
-													const searchCard: SearchResultCard = {
-														id: item.id,
-														label: item.id,
-														scope: 'sec',
-														source: 'sec',
-														entity,
-														payload: detail?.sources?.sec ?? detail?.merged ?? detail?.finraNode ?? detail ?? {},
-													};
-													setMainViewFromSearch(searchCard, 'SEC');
+													try {
+														// Try merged endpoint first
+														let response = await fetch(entity === 'firm' ? `/api/finra/merged/firm/${item.id}` : `/api/finra/merged/individual/${item.id}`, {
+															method: 'GET',
+															headers: { Accept: 'application/json' },
+															cache: 'no-store',
+														});
+														let detail = await response.json();
+
+														// If not found, try the direct endpoint with search
+														if (!detail?.found) {
+															response = await fetch(entity === 'firm' ? `/api/finra/firm/${item.id}?merged=1` : `/api/finra/individual/${item.id}?merged=1&includePrevious=true`, {
+																method: 'GET',
+																headers: { Accept: 'application/json' },
+																cache: 'no-store',
+															});
+															detail = await response.json();
+														}
+
+														const searchCard: SearchResultCard = {
+															id: item.id,
+															label: item.id,
+															scope: 'sec',
+															source: 'sec',
+															entity,
+															payload: detail?.sources?.sec ?? detail?.merged ?? detail?.finraNode ?? detail?.iacontent ?? detail ?? {},
+														};
+														setMainViewFromSearch(searchCard, 'SEC');
+													} catch (err) {
+														console.error('Failed to load SEC data:', err);
+													}
 												}}>
 												SEC
 											</button>
