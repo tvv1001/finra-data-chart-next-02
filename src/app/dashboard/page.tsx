@@ -520,9 +520,9 @@ export default function DashboardPage() {
 	function extractPayloadFromDetail(detail: any, source: SearchResultSource) {
 		if (!detail || typeof detail !== 'object') return null;
 		if (source === 'finra') {
-			return detail?.sources?.finra ?? detail?.finraNode ?? detail?.merged ?? null;
+			return detail?.sources?.finra?.bccontent ?? detail?.sources?.finra ?? detail?.finraNode ?? detail?.merged ?? detail?.bccontent ?? null;
 		}
-		return detail?.sources?.sec ?? detail?.merged ?? detail?.finraNode ?? null;
+		return detail?.sources?.sec?.iacontent ?? detail?.sources?.sec ?? detail?.finraNode ?? detail?.merged ?? detail?.iacontent ?? null;
 	}
 
 	async function loadQueueCardsFromRedis(filter = '') {
@@ -1234,7 +1234,7 @@ export default function DashboardPage() {
 															scope: 'finra',
 															source: 'finra',
 															entity,
-															payload: detail?.sources?.finra ?? detail?.finraNode ?? detail?.merged ?? detail?.bccontent ?? detail ?? {},
+															payload: extractPayloadFromDetail(detail, 'finra') ?? detail?.bccontent ?? detail ?? {},
 														};
 														setMainViewFromSearch(searchCard, 'FINRA');
 													} catch (err) {
@@ -1288,7 +1288,7 @@ export default function DashboardPage() {
 															scope: 'sec',
 															source: 'sec',
 															entity,
-															payload: detail?.sources?.sec ?? detail?.merged ?? detail?.finraNode ?? detail?.iacontent ?? detail ?? {},
+															payload: extractPayloadFromDetail(detail, 'sec') ?? detail?.iacontent ?? detail ?? {},
 														};
 														setMainViewFromSearch(searchCard, 'SEC');
 													} catch (err) {
