@@ -515,6 +515,12 @@
 	color: #6b7280;
 }
 
+.newCrdButtons {
+	display: flex;
+	gap: 6px;
+	margin-top: 6px;
+}
+
 .rightFooterRow {
 	display: flex;
 	justify-content: flex-end;
