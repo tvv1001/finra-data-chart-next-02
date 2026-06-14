@@ -45,6 +45,13 @@ type QueueRunItem = {
 	elapsedSec: number;
 	message?: string;
 	crdCount?: number;
+	detailContent?: string; // rendered HTML/text content for the card
+	fetchedEntity?: {
+		id: string;
+		entity: 'individual' | 'firm';
+		name?: string;
+		[key: string]: any;
+	};
 };
 
 type UrlSelectionInput = {
@@ -102,6 +109,65 @@ function normalizePayloadForCleanView(payload: unknown) {
 	return merged;
 }
 
+function extractEntityDetailFromPayload(payload: any, entity: 'individual' | 'firm', crd: string) {
+	if (!payload || typeof payload !== 'object') return null;
+
+	// Handle nested Elasticsearch response structure (hits.hits[0]._source)
+	let data = payload;
+	if (Array.isArray(payload?.hits?.hits) && payload.hits.hits.length > 0) {
+		data = payload.hits.hits[0]?._source || {};
+	}
+
+	// Normalize payload structure - handle raw API responses with content/iacontent wrappers
+	let normalized = data;
+	if (typeof data.content === 'string') {
+		try {
+			normalized = JSON.parse(data.content);
+		} catch {
+			// If parse fails, continue with the original data
+		}
+	}
+	if (typeof data.iacontent === 'string') {
+		try {
+			normalized = { ...normalized, ...JSON.parse(data.iacontent) };
+		} catch {
+			// If parse fails, continue with the current normalized data
+		}
+	}
+
+	// For individuals
+	if (entity === 'individual') {
+		const firstName = normalized.bc?.firstName || normalized.ia?.firstName || normalized.basicInformation?.firstName || '';
+		const lastName = normalized.bc?.lastName || normalized.ia?.lastName || normalized.basicInformation?.lastName || '';
+		const name = [firstName, lastName].filter(Boolean).join(' ').trim();
+		const bcScope = normalized.bc?.bcScope || normalized.basicInformation?.bcScope || 'N/A';
+		const iaScope = normalized.ia?.iaScope || normalized.basicInformation?.iaScope || 'N/A';
+
+		return {
+			id: crd,
+			entity,
+			name: name || `Individual ${crd}`,
+			status: [bcScope, iaScope].filter((s) => s && s !== 'N/A').join(' • ') || 'No status',
+		};
+	}
+
+	// For firms
+	if (entity === 'firm') {
+		const legalName = normalized.legalName || normalized.basicInformation?.legalName || '';
+		const doingBusinessAs = normalized.doingBusinessAs || normalized.basicInformation?.doingBusinessAs || '';
+		const name = legalName || doingBusinessAs || `Firm ${crd}`;
+
+		return {
+			id: crd,
+			entity,
+			name,
+			status: 'Firm',
+		};
+	}
+
+	return null;
+}
+
 export default function DashboardPage() {
 	const [crdInput, setCrdInput] = useState('');
 	const [externalRawDir, setExternalRawDir] = useState('/home/lenny/Dev/webDev/Data-finra-sec/data/raw');
@@ -109,6 +175,9 @@ export default function DashboardPage() {
 	const [result, setResult] = useState<ApiResponse | null>(null);
 	const [mainJson, setMainJson] = useState<Record<string, any> | null>(null);
 	const [mainJsonLabel, setMainJsonLabel] = useState('');
+	const [currentRecordSource, setCurrentRecordSource] = useState<'finra' | 'sec' | null>(null);
+	const [currentRecordEntity, setCurrentRecordEntity] = useState<'individual' | 'firm' | null>(null);
+	const [currentRecordId, setCurrentRecordId] = useState<string | null>(null);
 	const [dismissedNewCrds, setDismissedNewCrds] = useState(false);
 	const [newCrds, setNewCrds] = useState<Array<{ id: string; type: string; found: string; scopes: string[]; date: string }>>([]);
 	const [newCrdsLoading, setNewCrdsLoading] = useState(false);
@@ -359,6 +428,9 @@ export default function DashboardPage() {
 
 	function setMainViewFromSearch(card: SearchResultCard, sourceLabel: string) {
 		setMainJson(normalizePayloadForCleanView(card.payload) as Record<string, any>);
+		setCurrentRecordSource(card.source);
+		setCurrentRecordEntity(card.entity);
+		setCurrentRecordId(card.id);
 		setMainJsonLabel(`${String(card.source).toUpperCase()} ${card.entity.toUpperCase()} • ${sourceLabel}`);
 		markRecordUpdatedAt();
 		syncSelectionToUrl({
@@ -590,6 +662,9 @@ export default function DashboardPage() {
 
 			if (!payload) {
 				setMainJsonLabel(`${source}:${card.entity}:${card.id}`);
+				setCurrentRecordSource(source);
+				setCurrentRecordEntity(card.entity);
+				setCurrentRecordId(card.id);
 				setResult({
 					ok: false,
 					error: `No ${String(source).toUpperCase()} payload found for ${card.entity} ${card.id} after merged/fallback lookup and auto-refresh retry.`,
@@ -598,6 +673,9 @@ export default function DashboardPage() {
 			}
 
 			setMainJson(normalizePayloadForCleanView(payload) as Record<string, any>);
+			setCurrentRecordSource(source);
+			setCurrentRecordEntity(card.entity);
+			setCurrentRecordId(card.id);
 			setMainJsonLabel(`${source}:${card.entity}:${card.id}`);
 			markRecordUpdatedAt();
 			syncSelectionToUrl({
@@ -673,18 +751,26 @@ export default function DashboardPage() {
 				mergedDetailCacheRef.current.clear();
 				jsonStringCacheRef.current.clear();
 				const resolution = Array.isArray((payload as any)?.resolution) ? (payload as any).resolution : [];
+				const fetchedItems = Array.isArray((payload as any)?.results) ? (payload as any).results : [];
 				const matched = resolution.filter((entry: any) => Number(entry?.crdCount || 0) > 0).length;
 				const elapsedSec = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
 				setQueueStatusLine(`Done | ${matched}/${resolution.length || effectiveQueries.length} matched | queue ${effectiveQueries.length} | elapsed ${elapsedSec}s`);
+
 				setQueueRunItems((current) =>
 					current.map((item) => {
 						const resolved = resolution.find((entry: any) => String(entry?.query || '').trim() === item.query);
 						const crdCount = Number(resolved?.crdCount || 0);
+
+						// Find fetched results for this query/CRD to extract detail info
+						const fetchedResult = fetchedItems.find((result: any) => String(result?.crd || '') === item.query);
+						const entityDetail = fetchedResult?.payload ? extractEntityDetailFromPayload(fetchedResult.payload, fetchedResult.type, item.query) : null;
+
 						if (!resolved) {
 							return {
 								...item,
 								status: 'nomatch',
 								message: `${item.query} • NO MATCH`,
+								fetchedEntity: entityDetail || undefined,
 							};
 						}
 
@@ -694,6 +780,8 @@ export default function DashboardPage() {
 								status: 'complete',
 								crdCount,
 								message: `${item.query} • COMPLETE ${crdCount} matches`,
+								fetchedEntity: entityDetail || undefined,
+								detailContent: entityDetail?.status || undefined,
 							};
 						}
 
@@ -702,6 +790,7 @@ export default function DashboardPage() {
 							status: 'nomatch',
 							crdCount,
 							message: `${item.query} • NO MATCH`,
+							fetchedEntity: entityDetail || undefined,
 						};
 					}),
 				);
@@ -723,10 +812,15 @@ export default function DashboardPage() {
 				nextQueryLines.push(`match F/S requests ok ${successCount} | err ${errorCount}`);
 				setQueueQueryLines(nextQueryLines.length ? nextQueryLines : ['target - | crd - | updated —']);
 
-				const fetchedItems = Array.isArray((payload as any)?.results) ? (payload as any).results : [];
 				const nextCards = buildQueueCardsFromFetchResults(fetchedItems);
 				if (nextCards.length > 0) setQueueCards(nextCards);
 				void loadQueueCardsFromRedis(queueCrdFilter);
+
+				// Auto-dismiss temporary queue cards after 3 seconds
+				const dismissTimer = window.setTimeout(() => {
+					setQueueRunItems([]);
+				}, 3000);
+				return () => window.clearTimeout(dismissTimer);
 			} else if (action === 'list-new-crds') {
 				// Handle refresh response
 				const newCrdsData = (payload as any)?.newCrds || [];
@@ -894,25 +988,31 @@ export default function DashboardPage() {
 					)}
 
 					{queueRunItems.length > 0 && (
-						<div className={styles.queueRunList}>
-							{queueRunItems.map((item) => (
-								<div
-									key={item.query}
-									className={styles.queueRunItem}>
-									<div className={styles.queueRunTop}>
-										<span className={styles.queueRunQuery}>{item.query}</span>
-										<span className={`${styles.queueRunBadge} ${styles[`queueRunBadge_${item.status}`]}`}>{item.status}</span>
-									</div>
-									<div className={styles.queueRunMeta}>{item.message || `${item.query} • ${item.status} ${item.elapsedSec}s`}</div>
-								</div>
-							))}
-						</div>
-					)}
-
-					{top10Latest.length > 0 && (
 						<>
-							<div className={styles.queueSectionTitle}>Top 10 Latest Fetched</div>
-							<div className={styles.cardList}>
+							<div className={styles.queueRunList}>
+								{queueRunItems.map((item) => (
+									<div
+										key={item.query}
+										className={styles.queueRunItem}>
+										<div className={styles.queueRunTop}>
+											<span className={styles.queueRunQuery}>{item.query}</span>
+											<span className={[styles.queueRunBadge, styles['queueRunBadge_' + item.status]].filter(Boolean).join(' ')}>{item.status}</span>
+										</div>
+										{item.fetchedEntity && (
+											<div className={styles.queueRunDetail}>
+												<div className={styles.queueRunDetailId}>
+													<strong>{item.fetchedEntity.id}</strong>
+													<span>{item.fetchedEntity.entity === 'firm' ? 'Firm' : 'Individual'}</span>
+												</div>
+												{item.fetchedEntity.name && <div className={styles.queueRunDetailName}>{item.fetchedEntity.name}</div>}
+												{item.detailContent && <div className={styles.queueRunDetailContent}>{item.detailContent}</div>}
+											</div>
+										)}
+									</div>
+								))}
+							</div>
+							<div className={styles.queueSectionTitle}>Latest Fetched</div>
+							<div className={styles.queueRunList}>
 								{top10Latest.map((item) => (
 									<div
 										key={`top10:${item.entity}:${item.id}`}
@@ -991,9 +1091,14 @@ export default function DashboardPage() {
 				<section className={styles.centerPane}>
 					{hasCurrentRecord && (
 						<>
-							<div className={styles.recordHeader}>CURRENT RECORD</div>
+							<div className={styles.recordHeaderRow}>
+								<div className={styles.recordHeader}>{currentRecordEntity ? String(currentRecordEntity).toUpperCase() : 'RECORD'}</div>
+								<div className={styles.recordBadge}>{currentRecordSource ? String(currentRecordSource).toUpperCase() : 'UNKNOWN'}</div>
+							</div>
 							<h2 className={styles.recordTitle}>{mainJsonLabel}</h2>
+							{currentRecordId && <div className={styles.recordKeyLabel}>CRD {currentRecordId}:</div>}
 							{recordUpdatedAt && <div className={styles.searchSummary}>Updated: {new Date(recordUpdatedAt).toLocaleString()}</div>}
+							<div className={styles.recordDescription}>Showing recent saved files with full details.</div>
 						</>
 					)}
 
@@ -1030,7 +1135,20 @@ export default function DashboardPage() {
 							</button>
 						</div>
 						<div className={styles.searchSummary}>{searchSummary}</div>
-						{searchResults.length > 0 && <div className={styles.searchResultsList}>{searchResults.map(renderSearchResult)}</div>}
+						{searchResults.length > 0 && (
+							<>
+								<button
+									type='button'
+									className={styles.primaryBtn}
+									onClick={() => {
+										const crds = searchResults.map((r) => r.id).join('\n');
+										setCrdInput(crds);
+									}}>
+									Fetch All {searchResults.length} Results
+								</button>
+								<div className={styles.searchResultsList}>{searchResults.map(renderSearchResult)}</div>
+							</>
+						)}
 					</div>
 				</section>
 

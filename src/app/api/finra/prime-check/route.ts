@@ -69,16 +69,16 @@ async function runWithConcurrency<T>(items: T[], concurrency: number, worker: (i
 
 async function warmIndividual(crd: string) {
 	const { default: axios } = await import('axios');
+	const fetchQuery = INDIVIDUAL_QUERY; // still use includePrevious=true when hitting the API
 	await Promise.allSettled([
-		cachedFetch(`finra:individual:${crd}:${INDIVIDUAL_QUERY}`, 60 * 60 * 24, async () => {
+		cachedFetch(`finra:individual:${crd}`, 60 * 60 * 24, async () => {
 			try {
-				const response = await axios.get(`https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?${INDIVIDUAL_QUERY}`, {
+				const response = await axios.get(`https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`, {
 					headers: DEFAULT_HEADERS,
 					timeout: 15000,
 				});
 				return response.data;
 			} catch (err: any) {
-				// If upstream rate-limited, schedule a retry 10 minutes from now
 				if (err?.response?.status === 429) {
 					try {
 						const r = getUpstashClient();
@@ -90,9 +90,9 @@ async function warmIndividual(crd: string) {
 				throw err;
 			}
 		}),
-		cachedFetch(`sec:individual:${crd}:${INDIVIDUAL_QUERY}`, 60 * 60 * 24, async () => {
+		cachedFetch(`sec:individual:${crd}`, 60 * 60 * 24, async () => {
 			try {
-				const response = await axios.get(`https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?${INDIVIDUAL_QUERY}`, {
+				const response = await axios.get(`https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`, {
 					headers: DEFAULT_HEADERS,
 					timeout: 15000,
 				});
@@ -115,7 +115,7 @@ async function warmIndividual(crd: string) {
 async function warmFirm(id: string) {
 	const { default: axios } = await import('axios');
 	await Promise.allSettled([
-		cachedFetch(`finra:firm:${id}:${FIRM_QUERY}`, 60 * 60 * 24, async () => {
+		cachedFetch(`finra:firm:${id}`, 60 * 60 * 24, async () => {
 			try {
 				const response = await axios.get(`https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(id)}?${FIRM_QUERY}`, {
 					headers: DEFAULT_HEADERS,

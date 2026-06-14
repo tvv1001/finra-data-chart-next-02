@@ -15,8 +15,6 @@ const primedBundleCache = new Map<PrimedBundleName, PrimedBundle | null>();
 
 const EXTERNAL_API_MIN_INTERVAL_MS = Number(process.env.EXTERNAL_API_MIN_INTERVAL_MS || 1000);
 const EXTERNAL_API_FAILURE_COOLDOWN_MS = Number(process.env.EXTERNAL_API_FAILURE_COOLDOWN_MS || 60_000);
-const DEFAULT_INDIVIDUAL_QUERY = 'hl=true&includePrevious=true&wt=json';
-const DEFAULT_FIRM_QUERY = 'hl=true&wt=json';
 
 const primedBundleBinFiles: Record<PrimedBundleName, string> = {
 	'finra-individual': path.resolve(process.cwd(), 'data', 'national', 'primed-cache', 'finra-individual.bin'),
@@ -28,17 +26,12 @@ const primedBundleBinFiles: Record<PrimedBundleName, string> = {
 const lastExternalFetch = new Map<string, number>();
 const lastExternalFailure = new Map<string, number>();
 
+// Strip any query-string suffix from finra/sec record keys so Redis keys are
+// always plain "source:type:id" regardless of how they were originally requested.
 function normalizeKey(key: string): string {
-	const lastColon = key.lastIndexOf(':');
-	if (lastColon === -1) return key;
-	const suffix = key.slice(lastColon + 1);
-	if (!suffix.includes('=')) return key;
-	const qs = new URLSearchParams(suffix);
-	qs.delete('nrows');
-	const entries: [string, string][] = [];
-	for (const [k, v] of qs.entries()) entries.push([k, v]);
-	entries.sort((a, b) => a[0].localeCompare(b[0]));
-	return `${key.slice(0, lastColon + 1)}${new URLSearchParams(entries).toString()}`;
+	const match = /^(finra|sec):(individual|firm):(\d{1,10}|8-\d+)(?::.+)?$/i.exec(key);
+	if (match) return `${match[1].toLowerCase()}:${match[2].toLowerCase()}:${match[3]}`;
+	return key;
 }
 
 function getUpstash(): Redis | null {
@@ -137,10 +130,10 @@ async function loadPrimedBundle(name: PrimedBundleName): Promise<PrimedBundle | 
 }
 
 function resolvePrimedBundleName(key: string): PrimedBundleName | null {
-	if (key.startsWith('finra:individual:') && key.endsWith(`:${DEFAULT_INDIVIDUAL_QUERY}`)) return 'finra-individual';
-	if (key.startsWith('sec:individual:') && key.endsWith(`:${DEFAULT_INDIVIDUAL_QUERY}`)) return 'sec-individual';
-	if (key.startsWith('finra:firm:') && key.endsWith(`:${DEFAULT_FIRM_QUERY}`)) return 'finra-firm';
-	if (key.startsWith('sec:firm:') && key.endsWith(`:${DEFAULT_FIRM_QUERY}`)) return 'sec-firm';
+	if (/^finra:individual:\d+$/.test(key)) return 'finra-individual';
+	if (/^sec:individual:\d+$/.test(key)) return 'sec-individual';
+	if (/^finra:firm:\d+$/.test(key)) return 'finra-firm';
+	if (/^sec:firm:\d+$/.test(key)) return 'sec-firm';
 	return null;
 }
 
