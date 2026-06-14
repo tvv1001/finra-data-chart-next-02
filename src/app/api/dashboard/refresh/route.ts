@@ -78,7 +78,7 @@ type InventoryTotals = {
 	people: number;
 	firms: number;
 	unique: number;
-	source: 'external-raw' | 'local-raw' | 'redis';
+	source: 'external-raw' | 'local-raw' | 'redis' | 'primed-bundle';
 };
 
 export function buildInventoryTotalsFromCards(cards: Array<Pick<CacheCard, 'id' | 'entity'> & Partial<CacheCard>>, source: InventoryTotals['source'] = 'redis'): InventoryTotals {
@@ -114,6 +114,24 @@ export function collectInventoryTotalsFromCacheKeys(keys: string[], source: Inve
 		firms: firms.size,
 		unique: people.size + firms.size,
 		source,
+	};
+}
+
+export function buildPrimedBundleInventoryTotals(bundleCounts: Array<{ bundleName: string; recordCount: number }>): InventoryTotals {
+	let people = 0;
+	let firms = 0;
+
+	for (const entry of bundleCounts) {
+		const bundleName = String(entry.bundleName || '').toLowerCase();
+		if (bundleName.includes('individual')) people += Number(entry.recordCount || 0);
+		if (bundleName.includes('firm')) firms += Number(entry.recordCount || 0);
+	}
+
+	return {
+		people,
+		firms,
+		unique: people + firms,
+		source: 'primed-bundle',
 	};
 }
 
@@ -392,7 +410,7 @@ function findFirstDate(value: unknown): string | null {
 	return null;
 }
 
-export function extractCardSummaryFields(detail: Record<string, any>, fallbackCrd = '') {
+export function extractCardSummaryFields(detail: Record<string, any>, fallbackCrd = '', sourceHint?: 'finra' | 'sec') {
 	const basic = (detail?.basicInformation || {}) as Record<string, any>;
 	const candidateName =
 		String(basic.name || '').trim() ||
@@ -403,12 +421,13 @@ export function extractCardSummaryFields(detail: Record<string, any>, fallbackCr
 		'';
 
 	const memberSince = findFirstDate(detail) || findFirstDate(basic) || null;
-	const finraStatus = classifyStatusText(detail?.bcScope || basic?.bcScope || detail?.registrationStatus || detail?.status);
-	const secStatus = classifyStatusText(detail?.iaScope || basic?.iaScope || detail?.registrationStatus || detail?.status);
+	const finraStatus = sourceHint === 'sec' ? null : classifyStatusText(detail?.bcScope || basic?.bcScope || detail?.registrationStatus || detail?.status);
+	const secStatus = sourceHint === 'finra' ? null : classifyStatusText(detail?.iaScope || basic?.iaScope || detail?.registrationStatus || detail?.status);
 
 	return {
 		name: candidateName || (fallbackCrd ? `Record ${fallbackCrd}` : ''),
-		statusText: [finraStatus ? 'FINRA ' + finraStatus : null, secStatus ? 'SEC ' + secStatus : null].filter(Boolean).join(' • ') || null,
+		statusText:
+			[sourceHint !== 'sec' && finraStatus ? 'FINRA ' + finraStatus : null, sourceHint !== 'finra' && secStatus ? 'SEC ' + secStatus : null].filter(Boolean).join(' • ') || null,
 		memberSince,
 	};
 }
@@ -421,7 +440,7 @@ async function buildCardSummary(card: CacheCard) {
 		if (!detail) continue;
 
 		const normalized = normalizeIndividualDetailPayload(detail, card.id) as Record<string, any>;
-		const extracted = extractCardSummaryFields(normalized, card.id);
+		const extracted = extractCardSummaryFields(normalized, card.id, sourceEntry.source);
 
 		if (extracted.name && !summary.name) summary.name = extracted.name;
 		if (extracted.memberSince && !summary.memberSince) summary.memberSince = extracted.memberSince;
@@ -883,10 +902,10 @@ async function readPrimedBundleTotals(redis: Redis, forceRefresh = false) {
 
 	const bundleNames = ['finra-individual', 'sec-individual', 'finra-firm', 'sec-firm'] as const;
 	const cardIndex = new Map<string, CacheCard>();
+	const bundleCounts: Array<{ bundleName: string; recordCount: number }> = [];
 	let totalCards = 0;
 	let totalCacheKeys = 0;
 
-	// Fast path: read only the 4 meta keys (each stores recordCount written at upload time)
 	for (const bundleName of bundleNames) {
 		const bundleKey = `primed:bundle:${bundleName}`;
 		const metaRaw = await redis.get(`${bundleKey}:meta`).catch(() => null);
@@ -894,19 +913,19 @@ async function readPrimedBundleTotals(redis: Redis, forceRefresh = false) {
 		const meta = typeof metaRaw === 'string' ? JSON.parse(metaRaw) : metaRaw;
 		const recordCount = Number(meta?.recordCount || 0);
 		if (recordCount > 0) {
+			bundleCounts.push({ bundleName, recordCount });
 			totalCards += recordCount;
 			totalCacheKeys += recordCount;
-			// Build a minimal card index from bundle name (source + entity)
 			const [source, entity] = bundleName.split('-') as ['finra' | 'sec', 'individual' | 'firm'];
-			// Synthetic placeholder so filter logic has a fallback index entry type
 			upsertCardIndexEntry(cardIndex, { source, entity, id: `__${bundleName}__` });
 		}
 	}
 
 	if (totalCards === 0) return null;
 
+	const inventoryTotals = buildPrimedBundleInventoryTotals(bundleCounts);
 	primedBundleCardIndexCache = cardIndex;
-	primedBundleTotalsCache = { totalCards, totalCacheKeys };
+	primedBundleTotalsCache = { totalCards, totalCacheKeys, ...inventoryTotals };
 	return primedBundleTotalsCache;
 }
 
@@ -956,6 +975,16 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 		sources: card.sources.sort((a, b) => a.source.localeCompare(b.source)),
 	}));
 	const inventoryTotals = collectInventoryTotalsFromCacheKeys(Array.from(keySet), 'redis');
+	const primedTotals = await readPrimedBundleTotals(redis).catch(() => null);
+	const effectiveInventoryTotals =
+		primedTotals?.people || primedTotals?.firms ?
+			{
+				people: primedTotals.people,
+				firms: primedTotals.firms,
+				unique: primedTotals.unique,
+				source: 'primed-bundle' as const,
+			}
+		:	inventoryTotals;
 
 	const fallbackManifestTotals = null;
 	if (shouldUseLocalFallback(cardMap.size, filterTokens.length > 0)) {
@@ -1006,7 +1035,7 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 		totalCards: fallbackManifestTotals?.totalCards ?? cardMap.size,
 		totalCacheKeys: fallbackManifestTotals?.totalCacheKeys ?? keySet.size,
 		filteredTotalCards: filteredCards.length,
-		inventoryTotals,
+		inventoryTotals: effectiveInventoryTotals,
 		sourceMode: 'redis',
 	};
 }
