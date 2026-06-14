@@ -19,6 +19,7 @@ const DASHBOARD_REDIS_SCAN_CARD_LIMIT_PER_PATTERN = Number(process.env.DASHBOARD
 const DASHBOARD_RECENCY_MTIME_SAMPLE_LIMIT = Number(process.env.DASHBOARD_RECENCY_MTIME_SAMPLE_LIMIT || 2_000);
 const DASHBOARD_REDIS_MIN_CARD_COUNT = Math.max(1_000, Number(process.env.DASHBOARD_REDIS_MIN_CARD_COUNT || 1_000) || 1_000);
 const BUILD_MANIFEST_PATH = path.join(process.cwd(), 'data', 'build_manifest.json');
+const CRD_LOG_PATH = path.join(process.cwd(), 'data', 'crd-log.json');
 
 let manifestTotalsCache: { totalCards: number; totalCacheKeys: number } | null = null;
 let primedBundleTotalsCache: { totalCards: number; totalCacheKeys: number } | null = null;
@@ -26,6 +27,63 @@ let primedBundleTotalsCache: { totalCards: number; totalCacheKeys: number } | nu
 export function resetDashboardInventoryCaches() {
 	manifestTotalsCache = null;
 	primedBundleTotalsCache = null;
+}
+
+type CrdLogEntry = { id: number; name: string };
+type CrdLog = { firms: CrdLogEntry[]; individuals: CrdLogEntry[] };
+
+let crdLogCache: CrdLog | null = null;
+let crdLogNameMapCache: Map<string, string> | null = null;
+
+export function resetCrdLogCache() {
+	crdLogCache = null;
+	crdLogNameMapCache = null;
+}
+
+function loadCrdLog(): CrdLog {
+	if (crdLogCache) return crdLogCache;
+	try {
+		const raw = fsSync.readFileSync(CRD_LOG_PATH, 'utf8');
+		const parsed = JSON.parse(raw);
+		const normEntries = (arr: unknown[]): CrdLogEntry[] =>
+			(Array.isArray(arr) ? arr : [])
+				.map((entry) =>
+					typeof entry === 'object' && entry !== null ?
+						{ id: Number((entry as any).id), name: String((entry as any).name || '') }
+					:	{ id: Number(entry), name: '' },
+				)
+				.filter((e) => Number.isFinite(e.id) && e.id > 0);
+		crdLogCache = {
+			firms: normEntries(parsed.firms),
+			individuals: normEntries(parsed.individuals),
+		};
+	} catch {
+		crdLogCache = { firms: [], individuals: [] };
+	}
+	return crdLogCache;
+}
+
+function getCrdLogNameMap(): Map<string, string> {
+	if (crdLogNameMapCache) return crdLogNameMapCache;
+	const log = loadCrdLog();
+	crdLogNameMapCache = new Map<string, string>();
+	for (const entry of log.firms) if (entry.name) crdLogNameMapCache.set(`firm:${entry.id}`, entry.name);
+	for (const entry of log.individuals) if (entry.name) crdLogNameMapCache.set(`individual:${entry.id}`, entry.name);
+	return crdLogNameMapCache;
+}
+
+function buildKeySetFromCrdLog(): Set<string> {
+	const log = loadCrdLog();
+	const keySet = new Set<string>();
+	for (const entry of log.individuals) {
+		keySet.add(`finra:individual:${entry.id}`);
+		keySet.add(`sec:individual:${entry.id}`);
+	}
+	for (const entry of log.firms) {
+		keySet.add(`finra:firm:${entry.id}`);
+		keySet.add(`sec:firm:${entry.id}`);
+	}
+	return keySet;
 }
 let manifestCardIndexCache: Map<string, CacheCard> | null = null;
 let primedBundleCardIndexCache: Map<string, CacheCard> | null = null;
@@ -846,6 +904,10 @@ async function buildCardSummary(card: CacheCard) {
 		if (!summary.statusText && extracted.statusText) summary.statusText = extracted.statusText;
 	}
 
+	if (!summary.name) {
+		const logName = getCrdLogNameMap().get(`${card.entity}:${card.id}`);
+		if (logName) summary.name = logName;
+	}
 	if (!summary.name && card.entity === 'individual') summary.name = `Individual ${card.id}`;
 	if (!summary.name && card.entity === 'firm') summary.name = `Firm ${card.id}`;
 	if (!summary.statusText) {
@@ -1213,10 +1275,20 @@ function parseFilterTokens(crdFilter: string) {
 		.filter(Boolean);
 }
 
-function applyCardFilter<T extends { id: string }>(cards: T[], filterTokens: string[]) {
+function applyCardFilter<T extends { id: string; name?: string; entity?: string }>(cards: T[], filterTokens: string[]) {
 	if (!filterTokens.length) return cards;
+	const lower = filterTokens.map((t) => t.toLowerCase());
 	const exact = cards.filter((card) => filterTokens.some((token) => card.id === token));
-	const partial = cards.filter((card) => filterTokens.some((token) => card.id.includes(token)) && !filterTokens.some((token) => card.id === token));
+	const partial = cards.filter(
+		(card) =>
+			!filterTokens.some((token) => card.id === token) &&
+			lower.some(
+				(token) =>
+					card.id.includes(token) ||
+					(card.name || '').toLowerCase().includes(token) ||
+					(card.entity || '').toLowerCase().startsWith(token),
+			),
+	);
 	return [...exact, ...partial];
 }
 
@@ -1410,16 +1482,10 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 
 	const filterTokens = parseFilterTokens(crdFilter);
 
-	const patterns = ['finra:individual:*', 'sec:individual:*', 'finra:firm:*', 'sec:firm:*'];
-
-	const perPatternLimit = Math.max(100, DASHBOARD_REDIS_SCAN_CARD_LIMIT_PER_PATTERN);
-	const keySet = new Set<string>();
-	for (const pattern of patterns) {
-		const keys = await scanKeys(redis, pattern, perPatternLimit);
-		for (const key of keys) keySet.add(key);
-	}
+	const keySet = buildKeySetFromCrdLog();
 
 	const cardMap = new Map<string, CacheCard>();
+	const nameMap = getCrdLogNameMap();
 	for (const key of keySet) {
 		if (key.startsWith('sec:firm:summaryHtml:')) continue;
 		if (key.startsWith('primed:bundle:')) continue;
@@ -1433,6 +1499,7 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 			entity: parsed.entity,
 			files: 0,
 			sources: [],
+			name: nameMap.get(`${parsed.entity}:${parsed.id}`) || undefined,
 		};
 
 		existing.files += 1;
@@ -1523,14 +1590,7 @@ async function listNewCrds() {
 		return { ok: true, newCrds: [], isToday: false, lastChecked: null };
 	}
 
-	const patterns = ['finra:individual:*', 'sec:individual:*', 'finra:firm:*', 'sec:firm:*'];
-	const perPatternLimit = Math.max(100, DASHBOARD_REDIS_SCAN_CARD_LIMIT_PER_PATTERN);
-	const keySet = new Set<string>();
-
-	for (const pattern of patterns) {
-		const keys = await scanKeys(redis, pattern, perPatternLimit);
-		for (const key of keys) keySet.add(key);
-	}
+	const keySet = buildKeySetFromCrdLog();
 
 	const cardMap = new Map<string, CacheCardWithMeta>();
 
