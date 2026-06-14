@@ -679,66 +679,31 @@ async function readPrimedBundleTotals(redis: Redis, forceRefresh = false) {
 	if (primedBundleTotalsCache && !forceRefresh) return primedBundleTotalsCache;
 
 	const bundleNames = ['finra-individual', 'sec-individual', 'finra-firm', 'sec-firm'] as const;
-	const cardIds = new Set<string>();
 	const cardIndex = new Map<string, CacheCard>();
-	let cacheKeys = 0;
+	let totalCards = 0;
+	let totalCacheKeys = 0;
 
-	const decodeAndCount = (base64Gzip: string) => {
-		try {
-			const json = zlib.gunzipSync(Buffer.from(base64Gzip, 'base64')).toString('utf8');
-			const parsed = JSON.parse(json) as Record<string, unknown>;
-			for (const key of Object.keys(parsed)) {
-				const hit = parseCacheKey(key);
-				if (!hit) continue;
-				cardIds.add(`${hit.entity}:${hit.id}`);
-				upsertCardIndexEntry(cardIndex, hit);
-				cacheKeys += 1;
-			}
-		} catch {
-			// ignore malformed bundle payloads
-		}
-	};
-
+	// Fast path: read only the 4 meta keys (each stores recordCount written at upload time)
 	for (const bundleName of bundleNames) {
 		const bundleKey = `primed:bundle:${bundleName}`;
-		const raw = await redis.get<string>(bundleKey).catch(() => null);
-		if (raw) {
-			decodeAndCount(raw);
-			continue;
-		}
-
-		const metaRaw = await redis.get<string>(`${bundleKey}:meta`).catch(() => null);
+		const metaRaw = await redis.get(`${bundleKey}:meta`).catch(() => null);
 		if (!metaRaw) continue;
-
-		let chunkCount = 0;
-		try {
-			const meta = typeof metaRaw === 'string' ? JSON.parse(metaRaw) : metaRaw;
-			chunkCount = Number(meta?.chunks || 0);
-		} catch {
-			chunkCount = 0;
+		const meta = typeof metaRaw === 'string' ? JSON.parse(metaRaw) : metaRaw;
+		const recordCount = Number(meta?.recordCount || 0);
+		if (recordCount > 0) {
+			totalCards += recordCount;
+			totalCacheKeys += recordCount;
+			// Build a minimal card index from bundle name (source + entity)
+			const [source, entity] = bundleName.split('-') as ['finra' | 'sec', 'individual' | 'firm'];
+			// Synthetic placeholder so filter logic has a fallback index entry type
+			upsertCardIndexEntry(cardIndex, { source, entity, id: `__${bundleName}__` });
 		}
-
-		if (!Number.isFinite(chunkCount) || chunkCount <= 0) continue;
-		const parts: string[] = [];
-		for (let index = 0; index < chunkCount; index += 1) {
-			const part = await redis.get<string>(`${bundleKey}:part:${index}`).catch(() => null);
-			if (!part) {
-				parts.length = 0;
-				break;
-			}
-			parts.push(part);
-		}
-
-		if (parts.length) decodeAndCount(parts.join(''));
 	}
 
-	if (!cardIds.size && cacheKeys === 0) return null;
+	if (totalCards === 0) return null;
 
 	primedBundleCardIndexCache = cardIndex;
-	primedBundleTotalsCache = {
-		totalCards: cardIds.size,
-		totalCacheKeys: cacheKeys,
-	};
+	primedBundleTotalsCache = { totalCards, totalCacheKeys };
 	return primedBundleTotalsCache;
 }
 
@@ -958,7 +923,7 @@ async function listNewCrds() {
 	};
 }
 
-async function uploadBundle(redis: Redis, bundleName: string, payloadBase64: string) {
+async function uploadBundle(redis: Redis, bundleName: string, payloadBase64: string, recordCount = 0) {
 	const key = bundleKey(bundleName);
 	const metaKey = bundleMetaKey(bundleName);
 	const chunks = splitIntoChunks(payloadBase64, PRIMED_REDIS_CHUNK_CHARS);
@@ -980,6 +945,7 @@ async function uploadBundle(redis: Redis, bundleName: string, payloadBase64: str
 			chunked: true,
 			chunks: chunks.length,
 			chunkChars: PRIMED_REDIS_CHUNK_CHARS,
+			recordCount,
 			updatedAt: new Date().toISOString(),
 		}),
 	);
@@ -1152,14 +1118,22 @@ async function deployPrimedBundlesToRedis() {
 
 		if (await exists(binPath)) {
 			const payload = await fs.readFile(binPath);
-			uploads.push(await uploadBundle(redis, bundleName, payload.toString('base64')));
+			// Decode to count records for the meta key
+			let recordCount = 0;
+			try {
+				const json = zlib.gunzipSync(payload).toString('utf8');
+				recordCount = Object.keys(JSON.parse(json)).length;
+			} catch { /* ignore */ }
+			uploads.push(await uploadBundle(redis, bundleName, payload.toString('base64'), recordCount));
 			continue;
 		}
 
 		if (await exists(jsonPath)) {
 			const jsonRaw = await fs.readFile(jsonPath, 'utf8');
+			let recordCount = 0;
+			try { recordCount = Object.keys(JSON.parse(jsonRaw)).length; } catch { /* ignore */ }
 			const gz = zlib.gzipSync(Buffer.from(jsonRaw, 'utf8'));
-			uploads.push(await uploadBundle(redis, bundleName, gz.toString('base64')));
+			uploads.push(await uploadBundle(redis, bundleName, gz.toString('base64'), recordCount));
 		}
 	}
 

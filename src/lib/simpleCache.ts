@@ -34,6 +34,16 @@ function normalizeKey(key: string): string {
 	return key;
 }
 
+/** Safely parse a Redis value — Upstash auto-deserialises JSON so the value may
+ *  already be a plain object rather than a JSON string. */
+function parseRedisValue<T>(raw: unknown): T | null {
+	if (raw == null) return null;
+	if (typeof raw === 'string') {
+		try { return JSON.parse(raw) as T; } catch { return null; }
+	}
+	return raw as T;
+}
+
 function getUpstash(): Redis | null {
 	if (upstash !== null) return upstash;
 	const url = process.env.UPSTASH_REDIS_REST_URL;
@@ -228,8 +238,11 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 
 	if (redis) {
 		try {
-			const raw = await redis.get<string>(key);
-			if (raw != null) return JSON.parse(raw) as T;
+			const raw = await redis.get(key);
+			if (raw != null) {
+				const parsed = parseRedisValue<T>(raw);
+				if (parsed != null) return parsed;
+			}
 			const primed = await getPrimedCacheValue<T>(key);
 			if (primed != null) {
 				await setStringIfValid(key, JSON.stringify(primed), ttlSeconds);
@@ -273,8 +286,13 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 			memSet(mem, key, value, ttlSeconds);
 			if (redis) {
 				try {
-					// use centralized safe writer to avoid empty-hits and non-string collisions
-					await setStringIfValid(key, JSON.stringify(value), ttlSeconds);
+					const newJson = JSON.stringify(value);
+					// Only write to Redis if the value has actually changed
+					const existing = await redis.get(key).catch(() => null);
+					const existingJson = existing != null ? (typeof existing === 'string' ? existing : JSON.stringify(existing)) : null;
+					if (existingJson !== newJson) {
+						await setStringIfValid(key, newJson, ttlSeconds);
+					}
 				} catch {
 					// ignore redis write failures
 				}
