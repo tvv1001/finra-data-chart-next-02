@@ -527,7 +527,7 @@ function buildEmploymentGraphArtifacts(detail: Record<string, any>, personId: st
 
 export function buildMainAppGraphArtifactsFromFetchedPayload(payload: unknown, target: FetchTarget): MainAppGraphArtifacts {
 	if (target.type === 'individual') {
-		const detail = parseIndividualDetailPayload(payload, target.source === 'finra' ? 'content' : 'iacontent', target.crd);
+		const detail = parseIndividualDetailPayload(payload, target.source === 'finra' ? 'content' : 'iacontent', target.crd) as Record<string, any> | null;
 		if (!detail) return { nodes: [], links: [] };
 		const basic = detail?.basicInformation || {};
 		const personId = `person:${target.crd}`;
@@ -564,7 +564,7 @@ export function buildMainAppGraphArtifactsFromFetchedPayload(payload: unknown, t
 		};
 	}
 
-	const detail = parseFirmDetailPayload(payload, target.source === 'finra' ? 'content' : 'iacontent');
+	const detail = parseFirmDetailPayload(payload, target.source === 'finra' ? 'content' : 'iacontent') as Record<string, any> | null;
 	if (!detail) return { nodes: [], links: [] };
 	const basic = detail?.basicInformation || {};
 	const firmNodeId = `firm:${target.crd}`;

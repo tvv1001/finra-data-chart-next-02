@@ -28,6 +28,30 @@ function runPrimedCacheBuild() {
 	});
 }
 
+function hasLocalGraphArtifact() {
+	const graphFile = path.join(process.cwd(), 'data', 'national', 'finra-graph.json');
+	return hasJsonFiles(path.dirname(graphFile)) && fs.existsSync(graphFile);
+}
+
+function ensureLocalGraphArtifact(reason) {
+	if (hasLocalGraphArtifact()) {
+		console.log(`Using existing local graph artifact (${reason}).`);
+		return;
+	}
+
+	console.warn(`No local finra-graph.json available (${reason}); rebuilding graph from local cache instead.`);
+	execSync('node scripts/build_graph_from_cache.js --employment-scope all --no-redis', {
+		stdio: 'inherit',
+	});
+}
+
+function shouldSkipRemoteGraphSync() {
+	if (process.env.VERCEL) return true;
+	const explicitUrl = String(process.env.FINRA_LOCAL_URL || '').trim();
+	const usingDefaultLocalhost = !explicitUrl || /^https?:\/\/localhost(?::\d+)?\/?$/i.test(explicitUrl);
+	return Boolean(process.env.CI) && usingDefaultLocalhost;
+}
+
 const url = process.env.UPSTASH_REDIS_REST_URL;
 const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
@@ -44,15 +68,21 @@ if (url && token) {
 	execSync('node scripts/build_workers.js', {
 		stdio: 'inherit',
 	});
-	if (process.env.VERCEL) {
-		console.log('Vercel build: skipping remote graph sync and localhost fetch.');
+	if (shouldSkipRemoteGraphSync()) {
+		console.log('Skipping remote graph sync and localhost fetch in this build environment.');
+		ensureLocalGraphArtifact(process.env.VERCEL ? 'Vercel build' : 'CI build without FINRA_LOCAL_URL');
 	} else {
-		execSync('node scripts/ensure_remote_graph.js', {
-			stdio: 'inherit',
-		});
-		execSync('node scripts/fetch_graph_from_server.js', {
-			stdio: 'inherit',
-		});
+		try {
+			execSync('node scripts/ensure_remote_graph.js', {
+				stdio: 'inherit',
+			});
+			execSync('node scripts/fetch_graph_from_server.js', {
+				stdio: 'inherit',
+			});
+		} catch (error) {
+			console.warn('Remote graph sync failed; falling back to local graph artifact handling.');
+			ensureLocalGraphArtifact('remote graph sync failure');
+		}
 	}
 	if (canRebuildSearchIndexes()) {
 		execSync('node scripts/build_search_indexes.js', {
