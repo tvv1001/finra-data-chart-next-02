@@ -20,6 +20,11 @@ const BUILD_MANIFEST_PATH = path.join(process.cwd(), 'data', 'build_manifest.jso
 
 let manifestTotalsCache: { totalCards: number; totalCacheKeys: number } | null = null;
 let primedBundleTotalsCache: { totalCards: number; totalCacheKeys: number } | null = null;
+
+export function resetDashboardInventoryCaches() {
+	manifestTotalsCache = null;
+	primedBundleTotalsCache = null;
+}
 let manifestCardIndexCache: Map<string, CacheCard> | null = null;
 let primedBundleCardIndexCache: Map<string, CacheCard> | null = null;
 
@@ -117,6 +122,24 @@ export function collectInventoryTotalsFromCacheKeys(keys: string[], source: Inve
 	};
 }
 
+export function filterRecentCardsForDisplay<T extends { updatedAt?: number }>(cards: T[], options: { now?: number; lookbackDays?: number } = {}): T[] {
+	const now = Number(options.now ?? Date.now());
+	const lookbackDays = Math.max(1, Number(options.lookbackDays ?? 7));
+	const cutoff = now - lookbackDays * 24 * 60 * 60 * 1000;
+
+	return [...cards]
+		.filter((card) => Number(card.updatedAt || 0) >= cutoff)
+		.sort((left, right) => Number(right.updatedAt || 0) - Number(left.updatedAt || 0) || String(right as any).localeCompare(String(left as any)));
+}
+
+export function sortLatestCardsForDisplay<T extends { updatedAt?: number; id?: string }>(cards: T[], options: { maxCards?: number } = {}): T[] {
+	const maxCards = Math.max(1, Number(options.maxCards ?? 20));
+
+	return [...cards]
+		.sort((left, right) => Number(right.updatedAt || 0) - Number(left.updatedAt || 0) || String(right.id || '').localeCompare(String(left.id || '')))
+		.slice(0, maxCards);
+}
+
 export function buildPrimedBundleInventoryTotals(bundleCounts: Array<{ bundleName: string; recordCount: number }>): InventoryTotals {
 	let people = 0;
 	let firms = 0;
@@ -133,6 +156,24 @@ export function buildPrimedBundleInventoryTotals(bundleCounts: Array<{ bundleNam
 		unique: people + firms,
 		source: 'primed-bundle',
 	};
+}
+
+function hasMeaningfulInventoryTotals(totals: InventoryTotals | null | undefined) {
+	return Number(totals?.people || 0) > 0 || Number(totals?.firms || 0) > 0 || Number(totals?.unique || 0) > 0;
+}
+
+export function resolveDashboardInventoryTotals(
+	redisTotals: InventoryTotals,
+	cachedDedupedTotals: InventoryTotals | null,
+	rawFallbackTotals: InventoryTotals | null,
+): InventoryTotals {
+	if (hasMeaningfulInventoryTotals(redisTotals)) return redisTotals;
+	if (hasMeaningfulInventoryTotals(cachedDedupedTotals)) return cachedDedupedTotals ?? redisTotals;
+	return rawFallbackTotals ?? cachedDedupedTotals ?? redisTotals;
+}
+
+export function chooseDisplayInventoryTotals(redisTotals: InventoryTotals, primedTotals: InventoryTotals | null): InventoryTotals {
+	return resolveDashboardInventoryTotals(redisTotals, primedTotals, null);
 }
 
 function hasAnyItems(list: unknown) {
@@ -975,16 +1016,20 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 		sources: card.sources.sort((a, b) => a.source.localeCompare(b.source)),
 	}));
 	const inventoryTotals = collectInventoryTotalsFromCacheKeys(Array.from(keySet), 'redis');
-	const primedTotals = await readPrimedBundleTotals(redis).catch(() => null);
-	const effectiveInventoryTotals =
-		primedTotals?.people || primedTotals?.firms ?
+	const cachedDedupedTotals = await readPrimedBundleTotals(redis, true).catch(() => null);
+	const rawFallbackTotals = await countInventoryTotals().catch(() => null);
+	const effectiveInventoryTotals = resolveDashboardInventoryTotals(
+		inventoryTotals,
+		cachedDedupedTotals ?
 			{
-				people: primedTotals.people,
-				firms: primedTotals.firms,
-				unique: primedTotals.unique,
+				people: cachedDedupedTotals.people,
+				firms: cachedDedupedTotals.firms,
+				unique: cachedDedupedTotals.unique,
 				source: 'primed-bundle' as const,
 			}
-		:	inventoryTotals;
+		: null,
+		rawFallbackTotals,
+	);
 
 	const fallbackManifestTotals = null;
 	if (shouldUseLocalFallback(cardMap.size, filterTokens.length > 0)) {
@@ -1087,27 +1132,16 @@ async function listNewCrds() {
 		cardMap.set(cardKey, existing);
 	}
 
-	const today = new Date();
-	today.setHours(0, 0, 0, 0);
-	const todayMs = today.getTime();
-
-	const todayCards = Array.from(cardMap.values())
-		.filter((card) => card.updatedAt >= todayMs)
-		.sort((a, b) => b.updatedAt - a.updatedAt || Number(b.id) - Number(a.id));
-
-	const displayCards =
-		todayCards.length > 0 ?
-			todayCards
-		:	Array.from(cardMap.values())
-				.sort((a, b) => b.updatedAt - a.updatedAt || Number(b.id) - Number(a.id))
-				.slice(0, 20);
+	const now = Date.now();
+	const latestCards = sortLatestCardsForDisplay(Array.from(cardMap.values()), { maxCards: 20 });
 
 	const formatted = await Promise.all(
-		displayCards.map(async (card) => {
+		latestCards.map(async (card) => {
 			// Skip semantic normalization for dashboard to avoid Redis lookups
 			const normalized = normalizeCardForDisplay(card);
-			const updatedDate = new Date(card.updatedAt);
-			const daysAgo = Math.floor((todayMs - card.updatedAt) / (1000 * 60 * 60 * 24));
+			const updatedAt = Number(card.updatedAt || now);
+			const updatedDate = new Date(updatedAt);
+			const daysAgo = Math.max(0, Math.floor((now - updatedAt) / (1000 * 60 * 60 * 24)));
 			const found =
 				daysAgo === 0 ? 'today'
 				: daysAgo === 1 ? 'yesterday'
@@ -1126,9 +1160,10 @@ async function listNewCrds() {
 	return {
 		ok: true,
 		newCrds: formatted,
-		isToday: todayCards.length > 0,
+		isToday: latestCards.some((card) => Number(card.updatedAt || 0) >= now - 24 * 60 * 60 * 1000),
 		lastChecked: new Date().toISOString(),
 		detectedCount: cardMap.size,
+		shownCount: latestCards.length,
 	};
 }
 
@@ -1438,6 +1473,7 @@ export async function POST(request: NextRequest) {
 			}
 
 			const fetched = await fetchCrdsToCacheAndRedis(targets, { includePayload: Boolean(body.includePayload) });
+			resetDashboardInventoryCaches();
 			return NextResponse.json({
 				ok: true,
 				action,
@@ -1452,6 +1488,7 @@ export async function POST(request: NextRequest) {
 		const externalRawDir = String(body.externalRawDir || process.env.EXTERNAL_RAW_DIR || DEFAULT_EXTERNAL_RAW_DIR).trim();
 		const syncResult = await syncExternalRawToLocal(externalRawDir);
 		const deployResult = await deployPrimedBundlesToRedis();
+		resetDashboardInventoryCaches();
 
 		return NextResponse.json({
 			ok: true,

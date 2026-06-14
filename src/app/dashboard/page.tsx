@@ -156,11 +156,7 @@ export default function DashboardPage() {
 	const [currentRecordSource, setCurrentRecordSource] = useState<'finra' | 'sec' | null>(null);
 	const [currentRecordEntity, setCurrentRecordEntity] = useState<'individual' | 'firm' | null>(null);
 	const [currentRecordId, setCurrentRecordId] = useState<string | null>(null);
-	const [dismissedNewCrds, setDismissedNewCrds] = useState(false);
 	const [newCrds, setNewCrds] = useState<Array<{ id: string; type: string; found: string; scopes: string[]; date: string }>>([]);
-	const [newCrdsLoading, setNewCrdsLoading] = useState(false);
-	const [newCrdsLastChecked, setNewCrdsLastChecked] = useState<string | null>(null);
-	const [newCrdsDetectedCount, setNewCrdsDetectedCount] = useState(0);
 	const [searchQuery, setSearchQuery] = useState('');
 	const [searchBusy, setSearchBusy] = useState(false);
 	const [searchError, setSearchError] = useState<string | null>(null);
@@ -186,12 +182,15 @@ export default function DashboardPage() {
 	});
 	const [syncBannerText, setSyncBannerText] = useState<string | null>(null);
 	const [activeCardSourceKey, setActiveCardSourceKey] = useState<string | null>(null);
+	const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
+	const [rightPaneNotice, setRightPaneNotice] = useState<string | null>(null);
 	const [jsonRenderBusy, setJsonRenderBusy] = useState(false);
 	const [codeBlock, setCodeBlock] = useState('');
 	const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
 	const [top10Latest, setTop10Latest] = useState<Array<{ id: string; entity: 'individual' | 'firm'; fetchedAt: string; files?: number; sources?: QueueCardSourceEntry[] }>>([]);
 	const mergedDetailCacheRef = useRef(new Map<string, any>());
 	const jsonStringCacheRef = useRef(new Map<string, string>());
+	const previousNewCrdsCountRef = useRef(0);
 
 	const queueQueries = useMemo(() => parseQueueQueries(crdInput), [crdInput]);
 	const parsedCrds = useMemo(() => queueQueries.filter((value) => /^\d{1,10}$/.test(value)), [queueQueries]);
@@ -228,9 +227,8 @@ export default function DashboardPage() {
 		});
 	}, [busyAction, queueElapsedSec, queueQueries.length]);
 
-	// Load new CRDs on mount
+	// Load recent CRDs on mount
 	useEffect(() => {
-		setNewCrdsLoading(true);
 		fetch('/api/dashboard/refresh', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
@@ -240,12 +238,9 @@ export default function DashboardPage() {
 			.then((data) => {
 				if (data.ok) {
 					setNewCrds(data.newCrds || []);
-					setNewCrdsLastChecked(data.lastChecked);
-					setNewCrdsDetectedCount(data.detectedCount || 0);
 				}
 			})
-			.catch((err) => console.error('Failed to load new CRDs:', err))
-			.finally(() => setNewCrdsLoading(false));
+			.catch((err) => console.error('Failed to load new CRDs:', err));
 	}, []);
 
 	const hasCurrentRecord = Boolean(mainJson || result);
@@ -298,6 +293,18 @@ export default function DashboardPage() {
 			window.clearTimeout(timeoutId);
 		};
 	}, [mainJson, result, mainJsonLabel]);
+
+	useEffect(() => {
+		if (newCrds.length > previousNewCrdsCountRef.current) {
+			const delta = newCrds.length - previousNewCrdsCountRef.current;
+			setRightPaneNotice(`${delta} new CRD${delta === 1 ? '' : 's'} available in the right panel.`);
+		} else if (previousNewCrdsCountRef.current === 0 && newCrds.length > 0) {
+			setRightPaneNotice('New CRDs are ready in the right panel.');
+		} else if (newCrds.length === 0) {
+			setRightPaneNotice(null);
+		}
+		previousNewCrdsCountRef.current = newCrds.length;
+	}, [newCrds.length]);
 
 	useEffect(() => {
 		if (queueCards.length > 0) {
@@ -846,11 +853,7 @@ export default function DashboardPage() {
 			} else if (action === 'list-new-crds') {
 				// Handle refresh response
 				const newCrdsData = (payload as any)?.newCrds || [];
-				const detectedCount = (payload as any)?.detectedCount || 0;
-				const lastChecked = (payload as any)?.lastChecked;
 				setNewCrds(newCrdsData);
-				setNewCrdsDetectedCount(detectedCount);
-				setNewCrdsLastChecked(lastChecked);
 			}
 		} catch (error: any) {
 			if (action === 'fetch-crds') {
@@ -978,7 +981,7 @@ export default function DashboardPage() {
 
 	return (
 		<div className={styles.page}>
-			<div className={styles.layout}>
+			<div className={`${styles.layout} ${rightPaneCollapsed ? styles.layoutCollapsedRight : ''}`}>
 				<aside className={styles.leftPane}>
 					<Link
 						href='/'
@@ -1165,33 +1168,25 @@ export default function DashboardPage() {
 						)}
 					</div>
 				</section>
-
-				<aside className={styles.rightPane}>
-					<div className={styles.newCrdsHeader}>New CRDs</div>
-					<button
-						type='button'
-						className={styles.checkBtn}
-						onClick={() => runAction('list-new-crds')}
-						disabled={busyAction !== null}>
-						{busyAction === 'list-new-crds' ? 'Refreshing…' : 'Refresh Cache'}
-					</button>
-					<div className={styles.detected}>{newCrdsDetectedCount} CRDs in Redis cache</div>
-					<div className={styles.lastChecked}>
-						Last checked:{' '}
-						{newCrdsLastChecked ?
-							(() => {
-								const date = new Date(newCrdsLastChecked);
-								const now = new Date();
-								const diffMs = now.getTime() - date.getTime();
-								const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-								const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-								return diffHours > 0 ? `${diffHours}h ${diffMins}m ago` : `${diffMins}m ago`;
-							})()
-						:	'never'}
+				<aside className={`${styles.rightPane} ${rightPaneCollapsed ? styles.rightPaneCollapsed : ''}`}>
+					<div className={styles.rightPaneHeader}>
+						<div>
+							<div className={styles.newCrdsHeader}>New CRDs</div>
+							<div className={styles.detected}>Newest 20 cached CRDs</div>
+						</div>
+						<button
+							type='button'
+							className={styles.rightPaneToggle}
+							onClick={() => setRightPaneCollapsed((prev) => !prev)}>
+							{rightPaneCollapsed ? 'Show' : 'Hide'}
+						</button>
 					</div>
-
-					{!dismissedNewCrds && (
-						<div className={styles.newCrdsList}>
+					{rightPaneNotice && <div className={styles.rightPaneNotice}>{rightPaneNotice}</div>}
+					{rightPaneCollapsed ?
+						<div className={styles.rightPaneCollapsedSummary}>
+							Newest {newCrds.length} CRD{newCrds.length === 1 ? '' : 's'} ready
+						</div>
+					:	<div className={styles.newCrdsList}>
 							{newCrds.map((item) => (
 								<div
 									key={`${item.type}:${item.id}:${item.scopes.join('|')}`}
@@ -1203,129 +1198,10 @@ export default function DashboardPage() {
 									<div className={styles.newCrdMeta}>Found {item.found} • record</div>
 									<div className={styles.newCrdScopes}>{item.scopes.join('  ')}</div>
 									{item.date && <div className={styles.newCrdDate}>{item.date}</div>}
-									<div className={styles.newCrdButtons}>
-										{item.scopes.includes('FINRA') && (
-											<button
-												type='button'
-												className={styles.searchSourceBtn}
-												onClick={async () => {
-													const entity = item.type === 'INDIVIDUAL' ? 'individual' : 'firm';
-													try {
-														// Try merged endpoint first
-														let response = await fetch(entity === 'firm' ? `/api/finra/merged/firm/${item.id}` : `/api/finra/merged/individual/${item.id}`, {
-															method: 'GET',
-															headers: { Accept: 'application/json' },
-															cache: 'no-store',
-														});
-														let detail = await response.json();
-
-														// If not found, try the direct endpoint with search
-														if (!detail?.found) {
-															response = await fetch(entity === 'firm' ? `/api/finra/firm/${item.id}?merged=1` : `/api/finra/individual/${item.id}?merged=1&includePrevious=true`, {
-																method: 'GET',
-																headers: { Accept: 'application/json' },
-																cache: 'no-store',
-															});
-															detail = await response.json();
-														}
-
-														// If still not found, fetch from external FINRA API via proxy
-														if (!detail?.found && !detail?.basicInformation) {
-															response = await fetch(`/api/search/finra/${entity}/${item.id}`, {
-																method: 'GET',
-																headers: { Accept: 'application/json' },
-																cache: 'no-store',
-															});
-															if (response.ok) {
-																const searchResult = await response.json();
-																detail = searchResult?.doc ?? searchResult;
-															}
-														}
-
-														const searchCard: SearchResultCard = {
-															id: item.id,
-															label: item.id,
-															scope: 'finra',
-															source: 'finra',
-															entity,
-															payload: extractPayloadFromDetail(detail, 'finra') ?? detail?.bccontent ?? detail ?? {},
-														};
-														setMainViewFromSearch(searchCard, 'FINRA');
-													} catch (err) {
-														console.error('Failed to load FINRA data:', err);
-													}
-												}}>
-												FINRA
-											</button>
-										)}
-										{item.scopes.includes('SEC') && (
-											<button
-												type='button'
-												className={styles.searchSourceBtn}
-												onClick={async () => {
-													const entity = item.type === 'INDIVIDUAL' ? 'individual' : 'firm';
-													try {
-														// Try merged endpoint first
-														let response = await fetch(entity === 'firm' ? `/api/finra/merged/firm/${item.id}` : `/api/finra/merged/individual/${item.id}`, {
-															method: 'GET',
-															headers: { Accept: 'application/json' },
-															cache: 'no-store',
-														});
-														let detail = await response.json();
-
-														// If not found, try the direct endpoint with search
-														if (!detail?.found) {
-															response = await fetch(entity === 'firm' ? `/api/finra/firm/${item.id}?merged=1` : `/api/finra/individual/${item.id}?merged=1&includePrevious=true`, {
-																method: 'GET',
-																headers: { Accept: 'application/json' },
-																cache: 'no-store',
-															});
-															detail = await response.json();
-														}
-
-														// If still not found, fetch from external SEC API via proxy
-														if (!detail?.found && !detail?.basicInformation) {
-															response = await fetch(`/api/search/sec/${entity}/${item.id}`, {
-																method: 'GET',
-																headers: { Accept: 'application/json' },
-																cache: 'no-store',
-															});
-															if (response.ok) {
-																const searchResult = await response.json();
-																detail = searchResult?.doc ?? searchResult;
-															}
-														}
-
-														const searchCard: SearchResultCard = {
-															id: item.id,
-															label: item.id,
-															scope: 'sec',
-															source: 'sec',
-															entity,
-															payload: extractPayloadFromDetail(detail, 'sec') ?? detail?.iacontent ?? detail ?? {},
-														};
-														setMainViewFromSearch(searchCard, 'SEC');
-													} catch (err) {
-														console.error('Failed to load SEC data:', err);
-													}
-												}}>
-												SEC
-											</button>
-										)}
-									</div>
 								</div>
 							))}
 						</div>
-					)}
-
-					<div className={styles.rightFooterRow}>
-						<button
-							type='button'
-							className={styles.dismissBtn}
-							onClick={() => setDismissedNewCrds(true)}>
-							Dismiss all
-						</button>
-					</div>
+					}
 				</aside>
 			</div>
 
