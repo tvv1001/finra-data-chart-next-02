@@ -73,6 +73,22 @@ function parseQueueQueries(input: string) {
 		.filter(Boolean);
 }
 
+export function computeQueryFetchCounts(resolution: Array<{ query?: string; crds?: string[] }>, fetchedItems: Array<{ crd?: string; status?: string }>) {
+	const counts = new Map<string, number>();
+
+	for (const entry of resolution) {
+		const query = String(entry?.query || '').trim();
+		if (!query) continue;
+
+		const crdSet = new Set((Array.isArray(entry?.crds) ? entry.crds : []).map((value) => String(value || '').trim()).filter(Boolean));
+
+		const addedCount = fetchedItems.filter((item) => crdSet.has(String(item?.crd || '').trim()) && String(item?.status || '') === 'ok').length;
+		counts.set(query, addedCount);
+	}
+
+	return Object.fromEntries(counts.entries());
+}
+
 function normalizePayloadForCleanView(payload: unknown) {
 	if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload;
 
@@ -181,6 +197,7 @@ export default function DashboardPage() {
 		totalCacheKeys: 0,
 	});
 	const [syncBannerText, setSyncBannerText] = useState<string | null>(null);
+	const [inventoryCounter, setInventoryCounter] = useState(0);
 	const [activeCardSourceKey, setActiveCardSourceKey] = useState<string | null>(null);
 	const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
 	const [rightPaneNotice, setRightPaneNotice] = useState<string | null>(null);
@@ -191,6 +208,23 @@ export default function DashboardPage() {
 	const mergedDetailCacheRef = useRef(new Map<string, any>());
 	const jsonStringCacheRef = useRef(new Map<string, string>());
 	const previousNewCrdsCountRef = useRef(0);
+
+	useEffect(() => {
+		let cancelled = false;
+		void fetch('/api/dashboard/refresh', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ action: 'get-inventory-counter' }),
+		})
+			.then((res) => res.json())
+			.then((data) => {
+				if (!cancelled) setInventoryCounter(Number(data?.count || 0));
+			})
+			.catch(() => undefined);
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
 	const queueQueries = useMemo(() => parseQueueQueries(crdInput), [crdInput]);
 	const parsedCrds = useMemo(() => queueQueries.filter((value) => /^\d{1,10}$/.test(value)), [queueQueries]);
@@ -829,15 +863,29 @@ export default function DashboardPage() {
 				const successCount = Number(summary?.successCount || 0);
 				const errorCount = Number(summary?.errorCount || 0);
 				if (successCount > 0) {
+					void fetch('/api/dashboard/refresh', {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify({ action: 'increment-inventory-counter', amount: successCount }),
+					})
+						.then((res) => res.json())
+						.then((data) => {
+							if (Number.isFinite(Number(data?.count))) setInventoryCounter(Number(data.count));
+						})
+						.catch(() => undefined);
+				}
+				if (successCount > 0) {
 					setSyncBannerText(`Local sync: ${successCount.toLocaleString()} new fetch${successCount === 1 ? '' : 'es'} • ${errorCount.toLocaleString()} errors`);
 				} else {
 					setSyncBannerText(null);
 				}
+				const perQueryAddedCounts = computeQueryFetchCounts(resolution, fetchedItems);
 				const nextQueryLines: string[] = [];
 				for (const entry of resolution.slice(0, 8)) {
 					const queryText = String(entry?.query || '').trim() || '-';
 					const crdCount = Number(entry?.crdCount || 0);
-					nextQueryLines.push(`target ${queryText} | crd ${crdCount} | updated ${crdCount > 0 ? 'yes' : 'no'}`);
+					const addedCount = Number(perQueryAddedCounts[queryText] || 0);
+					nextQueryLines.push(`target ${queryText} | crd ${crdCount} | added ${addedCount} | updated ${crdCount > 0 ? 'yes' : 'no'}`);
 				}
 				nextQueryLines.push(`match F/S requests ok ${successCount} | err ${errorCount}`);
 				setQueueQueryLines(nextQueryLines.length ? nextQueryLines : ['target - | crd - | updated —']);
@@ -1002,6 +1050,15 @@ export default function DashboardPage() {
 						disabled={busyAction !== null || queueQueries.length === 0}>
 						{busyAction === 'fetch-crds' ? 'Running…' : 'Run Queue'}
 					</button>
+
+					{inventoryCounter > 0 && (
+						<div className={styles.uniqueCrdCount}>
+							<div className={styles.countLabel}>Inventory counter</div>
+							<div className={styles.countValue}>{inventoryCounter.toLocaleString()}</div>
+							<div className={styles.countLabel}>Added over time</div>
+							<div className={styles.countValue}>Monotonic</div>
+						</div>
+					)}
 
 					{hasInventorySummary && (
 						<div className={styles.uniqueCrdCount}>

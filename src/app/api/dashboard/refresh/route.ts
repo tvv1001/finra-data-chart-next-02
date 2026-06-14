@@ -28,7 +28,7 @@ export function resetDashboardInventoryCaches() {
 let manifestCardIndexCache: Map<string, CacheCard> | null = null;
 let primedBundleCardIndexCache: Map<string, CacheCard> | null = null;
 
-type DashboardAction = 'fetch-crds' | 'sync-and-deploy-primed' | 'list-cache-cards' | 'list-new-crds';
+type DashboardAction = 'fetch-crds' | 'sync-and-deploy-primed' | 'list-cache-cards' | 'list-new-crds' | 'get-inventory-counter' | 'increment-inventory-counter';
 
 type RefreshRequestBody = {
 	action?: DashboardAction;
@@ -672,6 +672,25 @@ function ensureRedisClient() {
 	return new Redis({ url, token });
 }
 
+const DASHBOARD_INVENTORY_COUNTER_KEY = 'dashboard:inventory-counter';
+
+async function getInventoryCounterFromRedis() {
+	const redis = ensureRedisClient();
+	if (!redis) return 0;
+	const value = await redis.get(DASHBOARD_INVENTORY_COUNTER_KEY).catch(() => null);
+	const numericValue = Number(value ?? 0);
+	return Number.isFinite(numericValue) ? numericValue : 0;
+}
+
+async function incrementInventoryCounterInRedis(amount = 1) {
+	const redis = ensureRedisClient();
+	if (!redis) return { ok: false, count: 0 };
+	const safeAmount = Math.max(1, Math.floor(Number(amount) || 1));
+	const nextCount = await redis.incrby(DASHBOARD_INVENTORY_COUNTER_KEY, safeAmount).catch(() => null);
+	const numericCount = Number(nextCount ?? 0);
+	return { ok: true, count: Number.isFinite(numericCount) ? numericCount : 0 };
+}
+
 async function exists(targetPath: string) {
 	try {
 		await fs.access(targetPath);
@@ -1027,7 +1046,7 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 				unique: cachedDedupedTotals.unique,
 				source: 'primed-bundle' as const,
 			}
-		: null,
+		:	null,
 		rawFallbackTotals,
 	);
 
@@ -1402,11 +1421,20 @@ export async function POST(request: NextRequest) {
 	}
 
 	const action = body.action;
-	if (!action || !['fetch-crds', 'sync-and-deploy-primed', 'list-cache-cards', 'list-new-crds'].includes(action)) {
+	if (!action || !['fetch-crds', 'sync-and-deploy-primed', 'list-cache-cards', 'list-new-crds', 'get-inventory-counter', 'increment-inventory-counter'].includes(action)) {
 		return NextResponse.json({ ok: false, error: 'invalid-action' }, { status: 400 });
 	}
 
 	try {
+		if (action === 'get-inventory-counter') {
+			return NextResponse.json({ ok: true, action, count: await getInventoryCounterFromRedis(), at: new Date().toISOString() });
+		}
+
+		if (action === 'increment-inventory-counter') {
+			const amount = Math.max(1, Number(body.amount || 1));
+			return NextResponse.json({ ok: true, action, ...(await incrementInventoryCounterInRedis(amount)), at: new Date().toISOString() });
+		}
+
 		if (action === 'list-new-crds') {
 			const listed = await listNewCrds();
 			return NextResponse.json({
