@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { normalizeRenderablePayload, renderJsonForDisplay } from '../../lib/dashboard-json';
 import styles from './dashboard.module.css';
 
 type DashboardAction = 'fetch-crds' | 'list-new-crds';
@@ -72,15 +73,6 @@ function parseQueueQueries(input: string) {
 		.filter(Boolean);
 }
 
-function safeParseJson(value: unknown) {
-	if (typeof value !== 'string') return value;
-	try {
-		return JSON.parse(value);
-	} catch {
-		return value;
-	}
-}
-
 function normalizePayloadForCleanView(payload: unknown) {
 	if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload;
 
@@ -88,29 +80,11 @@ function normalizePayloadForCleanView(payload: unknown) {
 	if (Array.isArray(obj?.hits?.hits) && obj.hits.hits.length) {
 		const source = obj.hits.hits[0]?._source ?? obj.hits.hits[0];
 		if (source && typeof source === 'object') {
-			const parsedContent = safeParseJson((source as any).content);
-			const parsedIaContent = safeParseJson((source as any).iacontent);
-			const merged = {
-				...(source as Record<string, any>),
-				...(parsedContent && typeof parsedContent === 'object' ? (parsedContent as Record<string, any>) : {}),
-				...(parsedIaContent && typeof parsedIaContent === 'object' ? (parsedIaContent as Record<string, any>) : {}),
-			} as Record<string, any>;
-			if (parsedContent && typeof parsedContent === 'object') delete merged.content;
-			if (parsedIaContent && typeof parsedIaContent === 'object') delete merged.iacontent;
-			return merged;
+			return normalizeRenderablePayload(source);
 		}
 	}
 
-	const parsedContent = safeParseJson(obj.content);
-	const parsedIaContent = safeParseJson(obj.iacontent);
-	const merged = {
-		...obj,
-		...(parsedContent && typeof parsedContent === 'object' ? (parsedContent as Record<string, any>) : {}),
-		...(parsedIaContent && typeof parsedIaContent === 'object' ? (parsedIaContent as Record<string, any>) : {}),
-	} as Record<string, any>;
-	if (parsedContent && typeof parsedContent === 'object') delete merged.content;
-	if (parsedIaContent && typeof parsedIaContent === 'object') delete merged.iacontent;
-	return merged;
+	return normalizeRenderablePayload(obj);
 }
 
 function extractEntityDetailFromPayload(payload: any, entity: 'individual' | 'firm', crd: string) {
@@ -298,7 +272,7 @@ export default function DashboardPage() {
 		const compute = () => {
 			if (cancelled) return;
 			try {
-				const text = JSON.stringify(payload, null, 2);
+				const text = renderJsonForDisplay(payload);
 				jsonStringCacheRef.current.set(cacheKey, text);
 				if (!cancelled) setCodeBlock(text);
 			} catch (error: any) {
@@ -387,6 +361,10 @@ export default function DashboardPage() {
 			total: individuals.size + firms.size,
 		};
 	}, [queueCards, queueMetaStats.inventoryTotals]);
+
+	const hasInventorySummary = useMemo(() => {
+		return queueMetaStats.totalCount > 0 || queueMetaStats.totalCacheKeys > 0 || queueCards.length > 0 || uniqueCrdCounts.individuals > 0 || uniqueCrdCounts.firms > 0;
+	}, [queueCards.length, queueMetaStats.totalCacheKeys, queueMetaStats.totalCount, uniqueCrdCounts.firms, uniqueCrdCounts.individuals]);
 
 	const mergedQueueCards = useMemo(() => {
 		const merged = new Map<string, QueueCard>();
@@ -1022,7 +1000,7 @@ export default function DashboardPage() {
 						{busyAction === 'fetch-crds' ? 'Running…' : 'Run Queue'}
 					</button>
 
-					{(uniqueCrdCounts.individuals > 0 || uniqueCrdCounts.firms > 0) && (
+					{hasInventorySummary && (
 						<div className={styles.uniqueCrdCount}>
 							<div className={styles.countLabel}>People</div>
 							<div className={styles.countValue}>{uniqueCrdCounts.individuals.toLocaleString()}</div>
