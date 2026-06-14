@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildPrimedBundleInventoryTotals, extractCardSummaryFields } from '../../src/app/api/dashboard/refresh/route';
-import { computeQueryFetchCounts, parseDashboardSelectionFromUrl } from '../../src/app/dashboard/page';
+import { buildPrimedBundleInventoryTotals, extractCardSummaryFields, summarizeFetchResults } from '../../src/app/api/dashboard/refresh/route';
+import { computeQueryFetchCounts, computeQuerySaveStats, parseDashboardSelectionFromUrl } from '../../src/app/dashboard/page';
 
 describe('parseDashboardSelectionFromUrl', () => {
 	it('reads an individual SEC selection from dashboard query params', () => {
@@ -54,6 +54,93 @@ describe('computeQueryFetchCounts', () => {
 		expect(computeQueryFetchCounts(resolution, fetchedItems)).toEqual({
 			alpha: 2,
 			beta: 1,
+		});
+	});
+});
+
+describe('computeQuerySaveStats', () => {
+	it('counts newly saved records and source saves per query', () => {
+		const resolution = [
+			{ query: 'alpha', crds: ['100', '101'] },
+			{ query: 'beta', crds: ['200'] },
+		];
+		const fetchedItems = [
+			{ crd: '100', type: 'individual', status: 'ok', cardKey: 'individual:100', newSourceSaved: true, newRecordSaved: true },
+			{ crd: '100', type: 'individual', status: 'ok', cardKey: 'individual:100', newSourceSaved: true, newRecordSaved: false },
+			{ crd: '101', type: 'firm', status: 'error', cardKey: 'firm:101', newSourceSaved: false, newRecordSaved: false },
+			{ crd: '200', type: 'individual', status: 'ok', cardKey: 'individual:200', newSourceSaved: false, newRecordSaved: false },
+		];
+
+		expect(computeQuerySaveStats(resolution, fetchedItems)).toEqual({
+			alpha: {
+				fetchedCount: 2,
+				savedSourceCount: 2,
+				savedRecordCount: 1,
+				errorCount: 1,
+			},
+			beta: {
+				fetchedCount: 1,
+				savedSourceCount: 0,
+				savedRecordCount: 0,
+				errorCount: 0,
+			},
+		});
+	});
+});
+
+describe('summarizeFetchResults', () => {
+	it('reports actual new source and unique record counts separately', () => {
+		const summary = summarizeFetchResults([
+			{
+				crd: '100',
+				source: 'finra',
+				type: 'individual',
+				url: '',
+				cacheFile: '',
+				redisKey: '',
+				status: 'ok',
+				redisWrite: 'written',
+				cardKey: 'individual:100',
+				newSourceSaved: true,
+				newRecordSaved: true,
+			},
+			{
+				crd: '100',
+				source: 'sec',
+				type: 'individual',
+				url: '',
+				cacheFile: '',
+				redisKey: '',
+				status: 'ok',
+				redisWrite: 'written',
+				cardKey: 'individual:100',
+				newSourceSaved: true,
+				newRecordSaved: false,
+			},
+			{
+				crd: '200',
+				source: 'finra',
+				type: 'firm',
+				url: '',
+				cacheFile: '',
+				redisKey: '',
+				status: 'error',
+				redisWrite: 'error',
+				cardKey: 'firm:200',
+				newSourceSaved: false,
+				newRecordSaved: false,
+			},
+		]);
+
+		expect(summary).toEqual({
+			crdCount: 2,
+			requests: 3,
+			successCount: 2,
+			errorCount: 1,
+			newSourceCount: 2,
+			newRecordCount: 1,
+			newPeopleCount: 1,
+			newFirmCount: 0,
 		});
 	});
 });

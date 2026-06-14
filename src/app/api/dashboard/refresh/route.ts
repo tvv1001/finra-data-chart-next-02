@@ -51,6 +51,9 @@ type FetchResultItem = {
 	redisKey: string;
 	status: 'ok' | 'error';
 	redisWrite: string;
+	cardKey?: string;
+	newSourceSaved?: boolean;
+	newRecordSaved?: boolean;
 	error?: string;
 	payload?: unknown;
 };
@@ -720,6 +723,71 @@ async function fetchJson(url: string) {
 	return response.json();
 }
 
+async function keyExistsInRedis(redis: Redis | null, key: string) {
+	if (!redis || !key) return false;
+	try {
+		const type = await redis.type(key);
+		return Boolean(type && type !== 'none');
+	} catch {
+		return false;
+	}
+}
+
+async function cacheArtifactExists(paths: string[]) {
+	for (const targetPath of paths) {
+		if (!targetPath) continue;
+		if (await exists(targetPath)) return true;
+	}
+	return false;
+}
+
+async function recordExistsBeforeFetch(redis: Redis | null, entity: 'individual' | 'firm', crd: string) {
+	const sourcePairs: Array<{ source: 'finra' | 'sec'; redisKey: string; files: string[] }> = [
+		{
+			source: 'finra',
+			redisKey: entity === 'individual' ? `finra:individual:${crd}` : `finra:firm:${crd}`,
+			files: [
+				buildLocalCacheFilePath('finra', entity, crd),
+				path.join(process.cwd(), 'data', 'raw', 'brokercheck.finra.org', `api.brokercheck.finra.org_search_${entity}_${crd}.json`),
+			],
+		},
+		{
+			source: 'sec',
+			redisKey: entity === 'individual' ? `sec:individual:${crd}` : `sec:firm:${crd}`,
+			files: [buildLocalCacheFilePath('sec', entity, crd), path.join(process.cwd(), 'data', 'raw', 'adviserinfo.sec.gov', `api.adviserinfo.sec.gov_search_${entity}_${crd}.json`)],
+		},
+	];
+
+	for (const pair of sourcePairs) {
+		if (await cacheArtifactExists(pair.files)) return true;
+		if (await keyExistsInRedis(redis, pair.redisKey)) return true;
+	}
+
+	return false;
+}
+
+export function summarizeFetchResults(results: FetchResultItem[]) {
+	const successCount = results.filter((item) => item.status === 'ok').length;
+	const errorCount = results.length - successCount;
+	const uniqueCrds = new Set(results.map((item) => item.crd));
+	const newSourceCount = results.filter((item) => item.newSourceSaved === true).length;
+	const newRecordItems = results.filter((item) => item.newRecordSaved === true);
+	const newRecordKeys = new Set(newRecordItems.map((item) => String(item.cardKey || `${item.type}:${item.crd}`)));
+	const newPeopleCount = new Set(newRecordItems.filter((item) => item.type === 'individual').map((item) => item.crd)).size;
+	const newFirmCount = new Set(newRecordItems.filter((item) => item.type === 'firm').map((item) => item.crd)).size;
+
+	return {
+		crdCount: uniqueCrds.size,
+		requests: results.length,
+		successCount,
+		errorCount,
+		newSourceCount,
+		newRecordCount: newRecordKeys.size,
+		newPeopleCount,
+		newFirmCount,
+	};
+}
+
 function splitIntoChunks(value: string, maxChunkChars: number) {
 	const chunks: string[] = [];
 	for (let index = 0; index < value.length; index += maxChunkChars) {
@@ -1267,11 +1335,15 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[], options: { inclu
 	const results: FetchResultItem[] = [];
 	const nationalRoot = path.join(process.cwd(), 'data', 'national');
 	const rawRoot = path.join(process.cwd(), 'data', 'raw');
+	const redis = ensureRedisClient();
+	const recordExistenceCache = new Map<string, Promise<boolean>>();
+	const awardedNewRecordKeys = new Set<string>();
 
 	for (const target of targets) {
 		const crd = target.crd;
 		const isFinra = target.source === 'finra';
 		const isIndividual = target.type === 'individual';
+		const cardKey = `${target.type}:${crd}`;
 		const url =
 			isFinra && isIndividual ? `https://api.brokercheck.finra.org/search/individual/${crd}?hl=true&includePrevious=true&wt=json`
 			: isFinra && !isIndividual ? `https://api.brokercheck.finra.org/search/firm/${crd}?hl=true&wt=json`
@@ -1284,8 +1356,13 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[], options: { inclu
 			: target.source === 'finra' ? `finra:firm:${crd}`
 			: `sec:firm:${crd}`;
 		const redisAliases: string[] = [];
+		const recordExistedBeforePromise = recordExistenceCache.get(cardKey) || (async () => recordExistsBeforeFetch(redis, target.type, crd))();
+		recordExistenceCache.set(cardKey, recordExistedBeforePromise);
 
 		try {
+			const sourceExistedBefore =
+				(await cacheArtifactExists([path.join(nationalRoot, cacheDir, cacheFileName), path.join(rawRoot, cacheDir, cacheFileName)])) || (await keyExistsInRedis(redis, redisKey));
+			const recordExistedBefore = await recordExistedBeforePromise;
 			const payload = await fetchJson(url);
 			if (!isValidFetchedPayload(payload)) {
 				results.push({
@@ -1295,6 +1372,7 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[], options: { inclu
 					url,
 					cacheFile: path.join(nationalRoot, cacheDir, cacheFileName),
 					redisKey,
+					cardKey,
 					status: 'error',
 					redisWrite: 'not-attempted',
 					error: 'invalid-payload-shape',
@@ -1317,6 +1395,9 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[], options: { inclu
 			}
 			const redisWrite = redisWriteResults.join(',');
 			const persisted = redisWriteResults.some((status) => status === 'written') || !fileWriteError;
+			const newSourceSaved = persisted && !sourceExistedBefore;
+			const newRecordSaved = persisted && !recordExistedBefore && !awardedNewRecordKeys.has(cardKey);
+			if (newRecordSaved) awardedNewRecordKeys.add(cardKey);
 
 			results.push({
 				crd,
@@ -1325,8 +1406,11 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[], options: { inclu
 				url,
 				cacheFile: nationalFile,
 				redisKey: [redisKey, ...redisAliases].join('|'),
+				cardKey,
 				status: persisted ? 'ok' : 'error',
 				redisWrite,
+				newSourceSaved,
+				newRecordSaved,
 				error: persisted ? undefined : `persist-failed:${fileWriteError || redisWrite}`,
 				...(includePayload ? { payload } : {}),
 			});
@@ -1338,6 +1422,7 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[], options: { inclu
 				url,
 				cacheFile: path.join(nationalRoot, cacheDir, cacheFileName),
 				redisKey,
+				cardKey,
 				status: 'error',
 				redisWrite: 'not-attempted',
 				error: error?.message || String(error),
@@ -1346,17 +1431,8 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[], options: { inclu
 		}
 	}
 
-	const successCount = results.filter((item) => item.status === 'ok').length;
-	const errorCount = results.length - successCount;
-	const uniqueCrds = new Set(results.map((item) => item.crd));
-
 	return {
-		summary: {
-			crdCount: uniqueCrds.size,
-			requests: results.length,
-			successCount,
-			errorCount,
-		},
+		summary: summarizeFetchResults(results),
 		results,
 	};
 }
