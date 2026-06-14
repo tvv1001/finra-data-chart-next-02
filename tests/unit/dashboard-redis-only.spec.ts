@@ -1,6 +1,97 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildInventoryTotalsFromCards, collectInventoryTotalsFromCacheKeys, shouldUseLocalFallback } from '../../src/app/api/dashboard/refresh/route';
+import {
+	buildInventoryTotalsFromCards,
+	chooseDisplayInventoryTotals,
+	collectInventoryTotalsFromCacheKeys,
+	filterRecentCardsForDisplay,
+	resolveDashboardInventoryTotals,
+	shouldUseLocalFallback,
+	sortLatestCardsForDisplay,
+} from '../../src/app/api/dashboard/refresh/route';
+
+describe('filterRecentCardsForDisplay', () => {
+	it('keeps only CRDs from the last 7 days when a recency window is requested', () => {
+		const now = Date.now();
+		const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+		const cards = [
+			{ id: '100', entity: 'individual', updatedAt: now },
+			{ id: '101', entity: 'individual', updatedAt: sevenDaysAgo + 60_000 },
+			{ id: '102', entity: 'firm', updatedAt: sevenDaysAgo - 60_000 },
+		];
+
+		expect(filterRecentCardsForDisplay(cards, { now, lookbackDays: 7 })).toEqual([
+			{ id: '100', entity: 'individual', updatedAt: now },
+			{ id: '101', entity: 'individual', updatedAt: sevenDaysAgo + 60_000 },
+		]);
+	});
+});
+
+describe('sortLatestCardsForDisplay', () => {
+	it('keeps the newest 20 cards without enforcing a 7-day recency window', () => {
+		const cards = Array.from({ length: 25 }, (_, index) => ({
+			id: String(100 + index),
+			entity: index % 2 === 0 ? 'individual' : 'firm',
+			updatedAt: 1_000_000 + (24 - index) * 60_000,
+		}));
+
+		const sorted = sortLatestCardsForDisplay(cards, { maxCards: 20 });
+
+		expect(sorted).toHaveLength(20);
+		expect(sorted[0]).toEqual({
+			id: '100',
+			entity: 'individual',
+			updatedAt: 1_000_000 + 24 * 60_000,
+		});
+		expect(sorted.at(-1)).toEqual({
+			id: '119',
+			entity: 'firm',
+			updatedAt: 1_000_000 + 5 * 60_000,
+		});
+	});
+});
+
+describe('chooseDisplayInventoryTotals', () => {
+	it('prefers deduplicated Redis totals over raw primed-bundle counts', () => {
+		const redisTotals = { people: 54_115, firms: 12_834, unique: 66_949, source: 'redis' as const };
+		const primedTotals = { people: 40_940, firms: 23_503, unique: 64_443, source: 'primed-bundle' as const };
+
+		expect(chooseDisplayInventoryTotals(redisTotals, primedTotals)).toEqual(redisTotals);
+	});
+
+	it('falls back to primed-bundle totals only when Redis totals are empty', () => {
+		const redisTotals = { people: 0, firms: 0, unique: 0, source: 'redis' as const };
+		const primedTotals = { people: 10, firms: 5, unique: 15, source: 'primed-bundle' as const };
+
+		expect(chooseDisplayInventoryTotals(redisTotals, primedTotals)).toEqual(primedTotals);
+	});
+});
+
+describe('resolveDashboardInventoryTotals', () => {
+	it('prefers live Redis deduped counts over stale raw snapshots', () => {
+		const redisTotals = { people: 54_115, firms: 12_834, unique: 66_949, source: 'redis' as const };
+		const cachedDeduped = { people: 54_115, firms: 12_834, unique: 66_949, source: 'redis' as const };
+		const staleRaw = { people: 40_940, firms: 23_503, unique: 64_443, source: 'primed-bundle' as const };
+
+		expect(resolveDashboardInventoryTotals(redisTotals, cachedDeduped, staleRaw)).toEqual(redisTotals);
+	});
+
+	it('falls back to the deduped cache snapshot when live Redis counts are empty', () => {
+		const redisTotals = { people: 0, firms: 0, unique: 0, source: 'redis' as const };
+		const cachedDeduped = { people: 54_115, firms: 12_834, unique: 66_949, source: 'redis' as const };
+		const staleRaw = { people: 40_940, firms: 23_503, unique: 64_443, source: 'primed-bundle' as const };
+
+		expect(resolveDashboardInventoryTotals(redisTotals, cachedDeduped, staleRaw)).toEqual(cachedDeduped);
+	});
+
+	it('uses the raw snapshot only when no deduped cache exists', () => {
+		const redisTotals = { people: 0, firms: 0, unique: 0, source: 'redis' as const };
+		const cachedDeduped = { people: 0, firms: 0, unique: 0, source: 'redis' as const };
+		const rawSnapshot = { people: 40_940, firms: 23_503, unique: 64_443, source: 'primed-bundle' as const };
+
+		expect(resolveDashboardInventoryTotals(redisTotals, cachedDeduped, rawSnapshot)).toEqual(rawSnapshot);
+	});
+});
 
 describe('shouldUseLocalFallback', () => {
 	it('never falls back to local cache cards for dashboard card listings', () => {
