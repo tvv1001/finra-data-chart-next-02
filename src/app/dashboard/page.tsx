@@ -38,6 +38,9 @@ type QueueCard = {
 	sources: QueueCardSourceEntry[];
 	since?: string;
 	kind?: 'recent';
+	name?: string | null;
+	statusText?: string | null;
+	memberSince?: string | null;
 };
 
 type QueueRunItem = {
@@ -201,6 +204,7 @@ export default function DashboardPage() {
 		totalCacheKeys: number;
 		filteredTotalCount?: number;
 		sourceMode?: string;
+		inventoryTotals?: { people: number; firms: number; unique: number; source?: string };
 	}>({
 		shownCount: 0,
 		totalCount: 0,
@@ -211,7 +215,7 @@ export default function DashboardPage() {
 	const [jsonRenderBusy, setJsonRenderBusy] = useState(false);
 	const [codeBlock, setCodeBlock] = useState('');
 	const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
-	const [top10Latest, setTop10Latest] = useState<Array<{ id: string; entity: 'individual' | 'firm'; fetchedAt: string }>>([]);
+	const [top10Latest, setTop10Latest] = useState<Array<{ id: string; entity: 'individual' | 'firm'; fetchedAt: string; files?: number; sources?: QueueCardSourceEntry[] }>>([]);
 	const mergedDetailCacheRef = useRef(new Map<string, any>());
 	const jsonStringCacheRef = useRef(new Map<string, string>());
 
@@ -324,10 +328,13 @@ export default function DashboardPage() {
 	useEffect(() => {
 		if (queueCards.length > 0) {
 			const now = new Date().toISOString();
-			const newItems = queueCards.slice(0, 10).map((card) => ({
+			const realCards = queueCards.filter((card) => (card.sources?.length ?? 0) > 0 || card.files > 0);
+			const newItems = realCards.slice(0, 10).map((card) => ({
 				id: card.id,
 				entity: card.entity,
 				fetchedAt: now,
+				files: card.files,
+				sources: card.sources,
 			}));
 			setTop10Latest((prev) => {
 				const combined = [...newItems, ...prev];
@@ -357,6 +364,14 @@ export default function DashboardPage() {
 	}, [queueCards.length, queueMetaStats, queueCrdFilter]);
 
 	const uniqueCrdCounts = useMemo(() => {
+		if (queueMetaStats.inventoryTotals) {
+			return {
+				individuals: queueMetaStats.inventoryTotals.people,
+				firms: queueMetaStats.inventoryTotals.firms,
+				total: queueMetaStats.inventoryTotals.unique,
+			};
+		}
+
 		const individuals = new Set<string>();
 		const firms = new Set<string>();
 		queueCards.forEach((card) => {
@@ -371,7 +386,7 @@ export default function DashboardPage() {
 			firms: firms.size,
 			total: individuals.size + firms.size,
 		};
-	}, [queueCards]);
+	}, [queueCards, queueMetaStats.inventoryTotals]);
 
 	const mergedQueueCards = useMemo(() => {
 		const merged = new Map<string, QueueCard>();
@@ -380,17 +395,19 @@ export default function DashboardPage() {
 			merged.set(`${card.entity}:${card.id}`, card);
 		}
 
-		for (const item of top10Latest) {
-			const key = `${item.entity}:${item.id}`;
-			if (merged.has(key)) continue;
-			merged.set(key, {
-				id: item.id,
-				entity: item.entity,
-				files: 1,
-				sources: [],
-				since: item.fetchedAt ? `Recently fetched ${new Date(item.fetchedAt).toLocaleString()}` : 'Recently fetched',
-				kind: 'recent',
-			});
+		if (!queueCrdFilter.trim()) {
+			for (const item of top10Latest.filter((entry) => (entry.sources?.length ?? 0) > 0)) {
+				const key = `${item.entity}:${item.id}`;
+				if (merged.has(key)) continue;
+				merged.set(key, {
+					id: item.id,
+					entity: item.entity,
+					files: item.files ?? 1,
+					sources: item.sources ?? [],
+					since: item.fetchedAt ? `Recently fetched ${new Date(item.fetchedAt).toLocaleString()}` : 'Recently fetched',
+					kind: 'recent',
+				});
+			}
 		}
 
 		return Array.from(merged.values()).sort((left, right) => {
@@ -561,7 +578,7 @@ export default function DashboardPage() {
 				},
 				body: JSON.stringify({
 					action: 'list-cache-cards',
-					maxCards: filter.trim() ? 200 : 10,
+					maxCards: filter.trim() ? 200 : 20,
 					crdFilter: filter,
 				}),
 			});
@@ -581,6 +598,7 @@ export default function DashboardPage() {
 				totalCacheKeys: Number(payload?.totalCacheKeys || 0),
 				...(payload?.filteredTotalCount != null ? { filteredTotalCount: Number(payload.filteredTotalCount || 0) } : {}),
 				...(payload?.sourceMode ? { sourceMode: String(payload.sourceMode) } : {}),
+				...(payload?.inventoryTotals ? { inventoryTotals: payload.inventoryTotals } : {}),
 			});
 		} catch {
 			// keep existing cards on load errors
@@ -963,7 +981,7 @@ export default function DashboardPage() {
 
 		return (
 			<div
-				key={`${card.id}-${index}`}
+				key={`${card.entity}:${card.id}:${card.source}:${index}`}
 				className={styles.searchResultCard}>
 				<div className={styles.searchResultTop}>
 					<strong>{card.id}</strong>
@@ -1007,9 +1025,9 @@ export default function DashboardPage() {
 
 					{(uniqueCrdCounts.individuals > 0 || uniqueCrdCounts.firms > 0) && (
 						<div className={styles.uniqueCrdCount}>
-							<span className={styles.countLabel}>Unique CRDs in cache:</span>
+							<span className={styles.countLabel}>Full inventory totals:</span>
 							<span className={styles.countValue}>
-								{uniqueCrdCounts.individuals} people • {uniqueCrdCounts.firms} firms
+								{uniqueCrdCounts.individuals.toLocaleString()} people • {uniqueCrdCounts.firms.toLocaleString()} firms • {uniqueCrdCounts.total.toLocaleString()} unique
 							</span>
 						</div>
 					)}
@@ -1049,12 +1067,13 @@ export default function DashboardPage() {
 								key={`${card.entity}:${card.id}`}
 								className={styles.card}>
 								<div className={styles.cardTop}>
-									<strong>{card.id}</strong>
+									<strong>{card.name || (card.entity === 'firm' ? `Firm ${card.id}` : `Individual ${card.id}`)}</strong>
 									<span>
-										{card.entity === 'firm' ? 'Firm' : 'Individual'} • {card.files} file
+										{card.id} • {card.entity === 'firm' ? 'Firm' : 'Individual'} • {card.files} file
 										{card.kind === 'recent' ? ' • Recently fetched' : ''}
 									</span>
 								</div>
+								{card.statusText && <div className={styles.cardMeta}>{card.statusText}</div>}
 								<div className={styles.cardScopes}>{card.sources.map((entry) => String(entry.source).toUpperCase()).join('  ') || (card.kind === 'recent' ? 'RECENT' : '')}</div>
 								<div className={styles.cardSourceRow}>
 									{card.sources.map((entry) => (
@@ -1068,6 +1087,7 @@ export default function DashboardPage() {
 										</button>
 									))}
 								</div>
+								{card.memberSince && <div className={styles.cardMeta}>Member since: {card.memberSince}</div>}
 								{card.since && <div className={styles.cardMeta}>{card.kind === 'recent' ? card.since : `In industry since: ${card.since}`}</div>}
 								{card.sources.some((entry) => entry.status === 'error') && <div className={styles.cardError}>One or more source fetches failed</div>}
 							</div>
@@ -1195,7 +1215,7 @@ export default function DashboardPage() {
 						<div className={styles.newCrdsList}>
 							{newCrds.map((item) => (
 								<div
-									key={item.id}
+									key={`${item.type}:${item.id}:${item.scopes.join('|')}`}
 									className={styles.newCrdItem}>
 									<div className={styles.newCrdTop}>
 										<strong>{item.id}</strong>

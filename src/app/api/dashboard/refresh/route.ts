@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { Redis } from '@upstash/redis';
@@ -64,10 +65,20 @@ type CacheCard = {
 	entity: 'individual' | 'firm';
 	files: number;
 	sources: CacheCardSource[];
+	name?: string;
+	statusText?: string;
+	memberSince?: string;
 };
 
 type CacheCardWithMeta = CacheCard & {
 	updatedAt: number;
+};
+
+type InventoryTotals = {
+	people: number;
+	firms: number;
+	unique: number;
+	source: 'external-raw' | 'local-raw';
 };
 
 function hasAnyItems(list: unknown) {
@@ -293,12 +304,122 @@ function upsertCardIndexEntry(index: Map<string, CacheCard>, hit: { source: 'fin
 	index.set(key, existing);
 }
 
+function classifyStatusText(value: unknown) {
+	const normalized = String(value || '')
+		.trim()
+		.toLowerCase();
+	if (!normalized) return 'Unknown';
+	if (/inactive|terminated|revoked|suspended|withdrawn|denied|ceased|notinscope|not\s*active|previously\s*registered/.test(normalized)) return 'Inactive';
+	if (/active|approved|current|registered|effective/.test(normalized)) return 'Active';
+	return 'Unknown';
+}
+
+function findFirstDate(value: unknown): string | null {
+	if (value == null) return null;
+	if (typeof value === 'string') {
+		const trimmed = value.trim();
+		if (/\d{4}-\d{2}-\d{2}/.test(trimmed) || /^\d{4}$/.test(trimmed) || /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(trimmed)) {
+			return trimmed;
+		}
+		return null;
+	}
+	if (Array.isArray(value)) {
+		for (const entry of value) {
+			const found = findFirstDate(entry);
+			if (found) return found;
+		}
+		return null;
+	}
+	if (isPlainObject(value)) {
+		for (const key of [
+			'memberSince',
+			'member_since',
+			'registeredSince',
+			'registered_since',
+			'registrationDate',
+			'registration_date',
+			'dateRegistered',
+			'date_registered',
+			'startDate',
+			'start_date',
+			'start',
+			'effectiveDate',
+			'effective_date',
+			'since',
+		]) {
+			if (key in value) {
+				const found = findFirstDate(value[key]);
+				if (found) return found;
+			}
+		}
+	}
+	return null;
+}
+
+export function extractCardSummaryFields(detail: Record<string, any>, fallbackCrd = '') {
+	const basic = (detail?.basicInformation || {}) as Record<string, any>;
+	const candidateName =
+		String(basic.name || '').trim() ||
+		[basic.firstName, basic.middleName, basic.lastName].filter(Boolean).join(' ').trim() ||
+		String(detail?.legalName || '').trim() ||
+		String(detail?.firmName || '').trim() ||
+		String(detail?.name || '').trim() ||
+		'';
+
+	const memberSince = findFirstDate(detail) || findFirstDate(basic) || null;
+	const finraStatus = classifyStatusText(detail?.bcScope || basic?.bcScope || detail?.registrationStatus || detail?.status);
+	const secStatus = classifyStatusText(detail?.iaScope || basic?.iaScope || detail?.registrationStatus || detail?.status);
+
+	return {
+		name: candidateName || (fallbackCrd ? `Record ${fallbackCrd}` : ''),
+		statusText: [finraStatus ? 'FINRA ' + finraStatus : null, secStatus ? 'SEC ' + secStatus : null].filter(Boolean).join(' • ') || null,
+		memberSince,
+	};
+}
+
+async function buildCardSummary(card: CacheCard) {
+	const summary: Pick<CacheCard, 'name' | 'statusText' | 'memberSince'> = {};
+
+	for (const sourceEntry of card.sources) {
+		const detail = await loadCachedIndividualPayload(sourceEntry.source, card.id);
+		if (!detail) continue;
+
+		const normalized = normalizeIndividualDetailPayload(detail, card.id) as Record<string, any>;
+		const extracted = extractCardSummaryFields(normalized, card.id);
+		if (extracted.name && !summary.name) summary.name = extracted.name;
+		if (extracted.memberSince && !summary.memberSince) summary.memberSince = extracted.memberSince;
+
+		const statusParts = [
+			sourceEntry.source === 'finra' ?
+				`FINRA ${classifyStatusText(normalized.bcScope || normalized.basicInformation?.bcScope || normalized.registrationStatus || normalized.status)}`
+			:	null,
+			sourceEntry.source === 'sec' ?
+				`SEC ${classifyStatusText(normalized.iaScope || normalized.basicInformation?.iaScope || normalized.registrationStatus || normalized.status)}`
+			:	null,
+		].filter(Boolean);
+		if (!summary.statusText && statusParts.length) summary.statusText = statusParts.join(' • ');
+		if (!summary.statusText && extracted.statusText) summary.statusText = extracted.statusText;
+	}
+
+	if (!summary.name && card.entity === 'individual') summary.name = `Individual ${card.id}`;
+	if (!summary.name && card.entity === 'firm') summary.name = `Firm ${card.id}`;
+	if (!summary.statusText) {
+		const statusParts = card.sources.map((entry) => `${entry.source.toUpperCase()} ${entry.status === 'ok' ? 'Available' : 'Pending'}`);
+		summary.statusText = statusParts.join(' • ');
+	}
+
+	return summary;
+}
+
 function normalizeCardForDisplay(card: CacheCard) {
 	return {
 		id: card.id,
 		entity: card.entity,
 		files: Math.max(1, card.sources.length),
 		sources: [...card.sources].sort((a, b) => a.source.localeCompare(b.source)),
+		name: card.name || null,
+		statusText: card.statusText || null,
+		memberSince: card.memberSince || null,
 	};
 }
 
@@ -570,6 +691,50 @@ function applyCardFilter<T extends { id: string }>(cards: T[], filterTokens: str
 	return [...exact, ...partial];
 }
 
+export function shouldUseLocalFallback(cardCount: number, hasFilterTokens: boolean) {
+	return false;
+}
+
+async function countInventoryTotals(rawDir = DEFAULT_EXTERNAL_RAW_DIR): Promise<InventoryTotals> {
+	const rawCandidates = [path.resolve(rawDir), path.resolve(process.cwd(), 'data', 'raw')];
+	const baseDir =
+		rawCandidates.find((candidate) => {
+			try {
+				return fsSync.existsSync(candidate);
+			} catch {
+				return false;
+			}
+		}) || rawCandidates[0];
+
+	const people = new Set<string>();
+	const firms = new Set<string>();
+
+	async function walk(dir: string) {
+		const entries = await fs.readdir(dir, { withFileTypes: true });
+		for (const entry of entries) {
+			const entryPath = path.join(dir, entry.name);
+			if (entry.isDirectory()) {
+				await walk(entryPath);
+				continue;
+			}
+			if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
+			const match = /(?:finra|sec):(individual|firm):(\d+)/i.exec(entryPath);
+			if (!match) continue;
+			if (match[1].toLowerCase() === 'individual') people.add(match[2]);
+			else firms.add(match[2]);
+		}
+	}
+
+	await walk(baseDir);
+
+	return {
+		people: people.size,
+		firms: firms.size,
+		unique: people.size + firms.size,
+		source: baseDir === path.resolve(DEFAULT_EXTERNAL_RAW_DIR) ? 'external-raw' : 'local-raw',
+	};
+}
+
 async function listLocalNewestCards(maxCards = 10, crdFilter = '') {
 	const sources: Array<{ source: 'finra' | 'sec'; dir: string; prefix: string }> = [
 		{ source: 'finra', dir: path.join(process.cwd(), 'data', 'national', 'brokercheck.finra.org'), prefix: 'api.brokercheck.finra.org_search_' },
@@ -638,6 +803,7 @@ async function listLocalNewestCards(maxCards = 10, crdFilter = '') {
 		totalCards: allCards.length,
 		totalCacheKeys: allCards.reduce((sum, card) => sum + card.files, 0),
 		filteredTotalCards: filteredCards.length,
+		inventoryTotals: await countInventoryTotals(),
 		sourceMode: 'local-fallback' as const,
 	};
 }
@@ -753,52 +919,21 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 		sources: card.sources.sort((a, b) => a.source.localeCompare(b.source)),
 	}));
 
-	let fallbackManifestTotals: { totalCards: number; totalCacheKeys: number } | null = null;
-	if (cardMap.size < DASHBOARD_REDIS_MIN_CARD_COUNT) {
+	const fallbackManifestTotals = null;
+	if (shouldUseLocalFallback(cardMap.size, filterTokens.length > 0)) {
 		const localListed = await listLocalNewestCards(maxCards, crdFilter);
 		if ((localListed as any)?.totalCards > 0) {
 			return localListed;
-		}
-		fallbackManifestTotals = await readBuildManifestTotals();
-		if (!fallbackManifestTotals) {
-			fallbackManifestTotals = await readPrimedBundleTotals(redis, filterTokens.length > 0);
 		}
 	}
 	let filteredCards = applyCardFilter(cards, filterTokens);
 
 	if (filterTokens.length > 0 && filteredCards.length === 0) {
-		const fallbackIndex =
-			manifestCardIndexCache && manifestCardIndexCache.size > 0 ? manifestCardIndexCache
-			: primedBundleCardIndexCache && primedBundleCardIndexCache.size > 0 ? primedBundleCardIndexCache
-			: null;
-		if (fallbackIndex && fallbackIndex.size > 0) {
-			const fallbackMatches = applyCardFilter(
-				Array.from(fallbackIndex.values()).map((card) => ({
-					...card,
-					sources: card.sources.sort((a, b) => a.source.localeCompare(b.source)),
-				})),
-				filterTokens,
-			);
-			if (fallbackMatches.length > 0) {
-				filteredCards = fallbackMatches;
-			}
-		}
+		filteredCards = [];
 	}
 
 	if (filterTokens.length > 0 && filteredCards.length > 0) {
-		const fallbackIndex =
-			manifestCardIndexCache && manifestCardIndexCache.size > 0 ? manifestCardIndexCache
-			: primedBundleCardIndexCache && primedBundleCardIndexCache.size > 0 ? primedBundleCardIndexCache
-			: null;
-		if (fallbackIndex && fallbackIndex.size > 0) {
-			const normalizedFiltered = filteredCards.map((card) => {
-				const fallbackCard = fallbackIndex.get(`${card.entity}:${card.id}`);
-				return fallbackCard ? { ...fallbackCard } : card;
-			});
-			if (normalizedFiltered.length > 0) {
-				filteredCards = normalizedFiltered;
-			}
-		}
+		filteredCards = filteredCards;
 	}
 
 	const recencyBase =
@@ -819,7 +954,13 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 		return listLocalNewestCards(maxCards, crdFilter);
 	}
 
-	const shownCards = await Promise.all(sortedForDisplay.slice(0, maxCards).map(async (card) => normalizeCardForDisplay(await normalizeCardSourcesForDisplay(card))));
+	const shownCards = await Promise.all(
+		sortedForDisplay.slice(0, maxCards).map(async (card) => {
+			const normalized = await normalizeCardSourcesForDisplay(card);
+			const summary = await buildCardSummary(normalized);
+			return normalizeCardForDisplay({ ...normalized, ...summary });
+		}),
+	);
 
 	return {
 		ok: true,
@@ -827,7 +968,8 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 		totalCards: fallbackManifestTotals?.totalCards ?? cardMap.size,
 		totalCacheKeys: fallbackManifestTotals?.totalCacheKeys ?? keySet.size,
 		filteredTotalCards: filteredCards.length,
-		sourceMode: fallbackManifestTotals ? 'redis+manifest' : 'redis',
+		inventoryTotals: await countInventoryTotals(),
+		sourceMode: 'redis',
 	};
 }
 
@@ -1123,7 +1265,9 @@ async function deployPrimedBundlesToRedis() {
 			try {
 				const json = zlib.gunzipSync(payload).toString('utf8');
 				recordCount = Object.keys(JSON.parse(json)).length;
-			} catch { /* ignore */ }
+			} catch {
+				/* ignore */
+			}
 			uploads.push(await uploadBundle(redis, bundleName, payload.toString('base64'), recordCount));
 			continue;
 		}
@@ -1131,7 +1275,11 @@ async function deployPrimedBundlesToRedis() {
 		if (await exists(jsonPath)) {
 			const jsonRaw = await fs.readFile(jsonPath, 'utf8');
 			let recordCount = 0;
-			try { recordCount = Object.keys(JSON.parse(jsonRaw)).length; } catch { /* ignore */ }
+			try {
+				recordCount = Object.keys(JSON.parse(jsonRaw)).length;
+			} catch {
+				/* ignore */
+			}
 			const gz = zlib.gzipSync(Buffer.from(jsonRaw, 'utf8'));
 			uploads.push(await uploadBundle(redis, bundleName, gz.toString('base64'), recordCount));
 		}
