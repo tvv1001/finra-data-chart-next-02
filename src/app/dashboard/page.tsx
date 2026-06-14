@@ -37,6 +37,7 @@ type QueueCard = {
 	files: number;
 	sources: QueueCardSourceEntry[];
 	since?: string;
+	kind?: 'recent';
 };
 
 type QueueRunItem = {
@@ -371,6 +372,32 @@ export default function DashboardPage() {
 			total: individuals.size + firms.size,
 		};
 	}, [queueCards]);
+
+	const mergedQueueCards = useMemo(() => {
+		const merged = new Map<string, QueueCard>();
+
+		for (const card of queueCards) {
+			merged.set(`${card.entity}:${card.id}`, card);
+		}
+
+		for (const item of top10Latest) {
+			const key = `${item.entity}:${item.id}`;
+			if (merged.has(key)) continue;
+			merged.set(key, {
+				id: item.id,
+				entity: item.entity,
+				files: 1,
+				sources: [],
+				since: item.fetchedAt ? `Recently fetched ${new Date(item.fetchedAt).toLocaleString()}` : 'Recently fetched',
+				kind: 'recent',
+			});
+		}
+
+		return Array.from(merged.values()).sort((left, right) => {
+			if (left.entity !== right.entity) return left.entity === 'individual' ? -1 : 1;
+			return left.id.localeCompare(right.id);
+		});
+	}, [queueCards, top10Latest]);
 
 	const filteredNewCrds = useMemo(() => {
 		const token = queueCrdFilter.trim();
@@ -1011,26 +1038,13 @@ export default function DashboardPage() {
 									</div>
 								))}
 							</div>
-							<div className={styles.queueSectionTitle}>Latest Fetched</div>
-							<div className={styles.queueRunList}>
-								{top10Latest.map((item) => (
-									<div
-										key={`top10:${item.entity}:${item.id}`}
-										className={styles.card}>
-										<div className={styles.cardTop}>
-											<strong>{item.id}</strong>
-											<span>{item.entity === 'individual' ? 'Individual' : 'Firm'}</span>
-										</div>
-									</div>
-								))}
-							</div>
 						</>
 					)}
 
 					<div className={styles.queueSectionTitle}>Run Queue</div>
 					<div className={styles.queueMeta}>{queueMetaText}</div>
 					<div className={styles.cardList}>
-						{queueCards.map((card) => (
+						{mergedQueueCards.map((card) => (
 							<div
 								key={`${card.entity}:${card.id}`}
 								className={styles.card}>
@@ -1038,9 +1052,10 @@ export default function DashboardPage() {
 									<strong>{card.id}</strong>
 									<span>
 										{card.entity === 'firm' ? 'Firm' : 'Individual'} • {card.files} file
+										{card.kind === 'recent' ? ' • Recently fetched' : ''}
 									</span>
 								</div>
-								<div className={styles.cardScopes}>{card.sources.map((entry) => String(entry.source).toUpperCase()).join('  ')}</div>
+								<div className={styles.cardScopes}>{card.sources.map((entry) => String(entry.source).toUpperCase()).join('  ') || (card.kind === 'recent' ? 'RECENT' : '')}</div>
 								<div className={styles.cardSourceRow}>
 									{card.sources.map((entry) => (
 										<button
@@ -1053,7 +1068,7 @@ export default function DashboardPage() {
 										</button>
 									))}
 								</div>
-								{card.since && <div className={styles.cardMeta}>In industry since: {card.since}</div>}
+								{card.since && <div className={styles.cardMeta}>{card.kind === 'recent' ? card.since : `In industry since: ${card.since}`}</div>}
 								{card.sources.some((entry) => entry.status === 'error') && <div className={styles.cardError}>One or more source fetches failed</div>}
 							</div>
 						))}
