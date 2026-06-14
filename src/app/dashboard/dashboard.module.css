@@ -29,11 +29,70 @@
 	display: flex;
 	flex-direction: column;
 	min-height: 0;
+	scrollbar-width: thin;
+	scrollbar-color: #94a3b8 #edf2f7;
+}
+
+.leftPane,
+.rightPane {
+	overflow-y: auto;
+}
+
+.centerPane {
+	overflow-y: auto;
+	scrollbar-color: #1f4fd8 #07111f;
+}
+
+.leftPane::-webkit-scrollbar,
+.rightPane::-webkit-scrollbar,
+.centerPane::-webkit-scrollbar,
+.cardList::-webkit-scrollbar,
+.queueRunList::-webkit-scrollbar,
+.searchResultsList::-webkit-scrollbar,
+.newCrdsList::-webkit-scrollbar,
+.jsonPanel::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+
+.leftPane::-webkit-scrollbar-track,
+.rightPane::-webkit-scrollbar-track,
+.cardList::-webkit-scrollbar-track,
+.queueRunList::-webkit-scrollbar-track,
+.searchResultsList::-webkit-scrollbar-track,
+.newCrdsList::-webkit-scrollbar-track {
+	background: #edf2f7;
+}
+
+.centerPane::-webkit-scrollbar-track,
+.jsonPanel::-webkit-scrollbar-track {
+	background: #07111f;
+}
+
+.leftPane::-webkit-scrollbar-thumb,
+.rightPane::-webkit-scrollbar-thumb,
+.cardList::-webkit-scrollbar-thumb,
+.queueRunList::-webkit-scrollbar-thumb,
+.searchResultsList::-webkit-scrollbar-thumb,
+.newCrdsList::-webkit-scrollbar-thumb {
+	background: linear-gradient(180deg, #b7c5d8 0%, #94a3b8 100%);
+	border-radius: 999px;
+	border: 2px solid #edf2f7;
+}
+
+.centerPane::-webkit-scrollbar-thumb,
+.jsonPanel::-webkit-scrollbar-thumb {
+	background: linear-gradient(180deg, #2b4b93 0%, #1e3a8a 100%);
+	border-radius: 999px;
+	border: 2px solid #07111f;
 }
 
 .leftPane {
 	padding: 10px;
 	gap: 8px;
+	overflow-x: hidden;
+	overflow-y: auto;
+	min-height: 0;
 }
 
 .secretRow {
@@ -123,7 +182,7 @@
 	display: grid;
 	gap: 6px;
 	max-height: 150px;
-	overflow: auto;
+	overflow-y: auto;
 	padding-right: 2px;
 }
 
@@ -236,10 +295,12 @@
 }
 
 .cardList {
-	flex: 1;
+	flex: 1 1 auto;
 	min-height: 0;
 	gap: 7px;
 	padding-right: 2px;
+	overflow-y: auto;
+	overflow-x: hidden;
 }
 
 .leftFilterWrap {
@@ -462,7 +523,7 @@
 	gap: 7px;
 	margin-top: 8px;
 	max-height: 220px;
-	overflow: auto;
+	overflow-y: auto;
 }
 
 .searchResultCard {
@@ -574,7 +635,7 @@
 
 .newCrdsList {
 	min-height: 0;
-	overflow: auto;
+	overflow-y: auto;
 	display: grid;
 	gap: 7px;
 	padding-right: 2px;

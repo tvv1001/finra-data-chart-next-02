@@ -1370,6 +1370,7 @@ export async function POST(request: NextRequest) {
 				totalCount: listed.totalCards,
 				totalCacheKeys: listed.totalCacheKeys,
 				filteredTotalCount: listed.filteredTotalCards,
+				inventoryTotals: listed.inventoryTotals,
 				sourceMode: listed.sourceMode,
 				at: new Date().toISOString(),
 			});
