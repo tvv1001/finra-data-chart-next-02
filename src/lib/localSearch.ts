@@ -1,13 +1,19 @@
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { gunzipSync } from 'node:zlib';
+import { Redis } from '@upstash/redis';
 import { getSearchIndexFilePaths } from './searchDataPaths';
 
-async function fetchFromRedis(bucket: string): Promise<any | null> {
-	const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
-	const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+function getUpstashClient() {
+	const url = process.env.UPSTASH_REDIS_REST_URL;
+	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+	if (!url || !token) return null;
+	return new Redis({ url, token });
+}
 
-	if (!redisUrl || !redisToken) {
+async function fetchFromRedis(bucket: string): Promise<any | null> {
+	const redis = getUpstashClient();
+	if (!redis) {
 		return null;
 	}
 
@@ -27,51 +33,18 @@ async function fetchFromRedis(bucket: string): Promise<any | null> {
 
 	try {
 		const key = `search:indexes:${bucket}`;
-		const response = await fetch(redisUrl, {
-			method: 'POST',
-			headers: {
-				'Authorization': `Bearer ${redisToken}`,
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify(['GET', key]),
-		});
-
-		if (!response.ok) {
-			return null;
-		}
-
-		const apiResponse = await response.json();
-		const parsedValue = parseStoredIndexPayload(apiResponse?.result);
+		const parsedValue = parseStoredIndexPayload(await redis.get(key));
 		if (parsedValue) return parsedValue;
 
-		const metaResponse = await fetch(redisUrl, {
-			method: 'POST',
-			headers: {
-				'Authorization': `Bearer ${redisToken}`,
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify(['GET', `${key}:meta`]),
-		});
-		if (!metaResponse.ok) return null;
+		const metaPayload = await redis.get(`${key}:meta`);
 
-		const metaPayload = await metaResponse.json();
-		const meta = parseStoredIndexPayload(metaPayload?.result) ?? (typeof metaPayload?.result === 'string' ? JSON.parse(metaPayload.result) : metaPayload?.result);
+		const meta = parseStoredIndexPayload(metaPayload) ?? (typeof metaPayload === 'string' ? JSON.parse(metaPayload) : metaPayload);
 		const chunkCount = Number(meta?.chunks ?? meta?.parts ?? 0);
 		if (!chunkCount || chunkCount < 1) return null;
 
 		const chunks: string[] = [];
 		for (let index = 0; index < chunkCount; index += 1) {
-			const partResponse = await fetch(redisUrl, {
-				method: 'POST',
-				headers: {
-					'Authorization': `Bearer ${redisToken}`,
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify(['GET', `${key}:part:${index}`]),
-			});
-			if (!partResponse.ok) return null;
-			const partPayload = await partResponse.json();
-			const part = partPayload?.result;
+			const part = await redis.get<string>(`${key}:part:${index}`);
 			if (typeof part !== 'string' || !part) return null;
 			chunks.push(part);
 		}
@@ -559,7 +532,12 @@ function getSurnameMatchScore(doc: PreparedLocalSearchDoc, rawQuery: string, nor
 	let bestScore = 0;
 	for (const candidate of doc.surnameCompactCandidates) {
 		if (candidate === compactQuery) {
-			bestScore = Math.max(bestScore, strictSurnameQuery ? 420 : strictQuery ? 320 : 240);
+			bestScore = Math.max(
+				bestScore,
+				strictSurnameQuery ? 420
+				: strictQuery ? 320
+				: 240,
+			);
 			continue;
 		}
 		if (strictQuery) continue;
