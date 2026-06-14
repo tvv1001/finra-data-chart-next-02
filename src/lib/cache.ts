@@ -346,8 +346,8 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 
 	if (redis) {
 		try {
-			const raw = await redis.get<string>(key);
-			if (raw != null) return JSON.parse(raw) as T;
+			const raw = await redis.get(key);
+			if (raw != null) return (typeof raw === 'string' ? JSON.parse(raw) : raw) as T;
 			const primed = await getPrimedCacheValue<T>(key);
 			if (primed != null) {
 				await setStringIfValid(key, JSON.stringify(primed), ttlSeconds);
