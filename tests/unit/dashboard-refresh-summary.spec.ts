@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildPrimedBundleInventoryTotals, extractCardSummaryFields, summarizeFetchResults } from '../../src/app/api/dashboard/refresh/route';
+import { buildPrimedBundleInventoryTotals, extractCardSummaryFields, fetchedPayloadHasSourceCoverage, summarizeFetchResults } from '../../src/app/api/dashboard/refresh/route';
 import { computeQueryFetchCounts, computeQuerySaveStats, describeQuerySaveChange, parseDashboardSelectionFromUrl } from '../../src/app/dashboard/page';
 
 describe('parseDashboardSelectionFromUrl', () => {
@@ -172,6 +172,120 @@ describe('summarizeFetchResults', () => {
 			newPeopleCount: 1,
 			newFirmCount: 0,
 		});
+	});
+});
+
+describe('fetchedPayloadHasSourceCoverage', () => {
+	it('rejects a SEC individual payload that is explicitly not in SEC scope', () => {
+		const secPayload = {
+			hits: {
+				hits: [
+					{
+						_source: {
+							iacontent: JSON.stringify({
+								basicInformation: {
+									individualId: 5564669,
+									bcScope: 'Active',
+									iaScope: 'NotInScope',
+								},
+								registrationCount: {
+									approvedFinraRegistrationCount: 1,
+									approvedIAStateRegistrationCount: 0,
+								},
+								currentEmployments: [{ firmId: 154957 }],
+								currentIAEmployments: [],
+								previousEmployments: [{ firmId: 25567 }],
+								previousIAEmployments: [],
+							}),
+						},
+					},
+				],
+			},
+		};
+		const finraPayload = {
+			hits: {
+				hits: [
+					{
+						_source: {
+							content: JSON.stringify({
+								basicInformation: {
+									individualId: 5564669,
+									bcScope: 'Active',
+									iaScope: 'NotInScope',
+								},
+								registrationCount: {
+									approvedFinraRegistrationCount: 1,
+									approvedIAStateRegistrationCount: 0,
+								},
+								currentEmployments: [{ firmId: 154957 }],
+								currentIAEmployments: [],
+								previousEmployments: [{ firmId: 25567 }],
+								previousIAEmployments: [],
+							}),
+						},
+					},
+				],
+			},
+		};
+
+		expect(fetchedPayloadHasSourceCoverage(secPayload, { source: 'sec', type: 'individual', crd: '5564669' })).toBe(false);
+		expect(fetchedPayloadHasSourceCoverage(finraPayload, { source: 'finra', type: 'individual', crd: '5564669' })).toBe(true);
+	});
+
+	it('accepts a truly dual-source individual payload', () => {
+		const secPayload = {
+			hits: {
+				hits: [
+					{
+						_source: {
+							iacontent: JSON.stringify({
+								basicInformation: {
+									individualId: 5740531,
+									bcScope: 'Active',
+									iaScope: 'Active',
+								},
+								registrationCount: {
+									approvedFinraRegistrationCount: 1,
+									approvedIAStateRegistrationCount: 1,
+								},
+								currentEmployments: [{ firmId: 7691 }],
+								currentIAEmployments: [{ firmId: 7691 }],
+								previousEmployments: [],
+								previousIAEmployments: [],
+							}),
+						},
+					},
+				],
+			},
+		};
+		const finraPayload = {
+			hits: {
+				hits: [
+					{
+						_source: {
+							content: JSON.stringify({
+								basicInformation: {
+									individualId: 5740531,
+									bcScope: 'Active',
+									iaScope: 'Active',
+								},
+								registrationCount: {
+									approvedFinraRegistrationCount: 1,
+									approvedIAStateRegistrationCount: 1,
+								},
+								currentEmployments: [{ firmId: 7691 }],
+								currentIAEmployments: [{ firmId: 7691 }],
+								previousEmployments: [],
+								previousIAEmployments: [],
+							}),
+						},
+					},
+				],
+			},
+		};
+
+		expect(fetchedPayloadHasSourceCoverage(secPayload, { source: 'sec', type: 'individual', crd: '5740531' })).toBe(true);
+		expect(fetchedPayloadHasSourceCoverage(finraPayload, { source: 'finra', type: 'individual', crd: '5740531' })).toBe(true);
 	});
 });
 
