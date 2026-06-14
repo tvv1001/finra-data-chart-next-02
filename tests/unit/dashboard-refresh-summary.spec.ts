@@ -26,4 +26,21 @@ describe('extractCardSummaryFields', () => {
 		expect(summary.statusText).toContain('FINRA Active');
 		expect(summary.statusText).toContain('SEC Inactive');
 	});
+
+	it('keeps status text scoped to the selected source when a source hint is provided', () => {
+		const summary = extractCardSummaryFields(
+			{
+				basicInformation: {
+					name: 'Jane Doe',
+					bcScope: 'active',
+					iaScope: 'inactive',
+				},
+			},
+			'12345',
+			'finra',
+		);
+
+		expect(summary.statusText).toBe('FINRA Active');
+		expect(summary.statusText).not.toContain('SEC');
+	});
 });
