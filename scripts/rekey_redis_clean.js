@@ -5,13 +5,11 @@
  * Usage:
  *   node scripts/rekey_redis_clean.js [--dry-run]
  */
-import { Redis } from '@upstash/redis';
-import { config } from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
+'use strict';
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env.local') });
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-config({ path: path.join(__dirname, '..', '.env.local') });
+const { Redis } = require('@upstash/redis');
 
 const isDryRun = process.argv.includes('--dry-run');
 
@@ -20,7 +18,7 @@ const redis = new Redis({
 	token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
-// Matches keys with a query-string suffix after the CRD, e.g. finra:individual:123456:hl=true&wt=json
+// Matches keys with a query-string suffix after the CRD
 const SUFFIXED_KEY_RE = /^(finra|sec):(individual|firm):(\d{1,10}|8-\d+):(.+)$/;
 
 async function scan(pattern) {
@@ -28,7 +26,7 @@ async function scan(pattern) {
 	let cursor = 0;
 	do {
 		const [nextCursor, batch] = await redis.scan(cursor, { match: pattern, count: 500 });
-		cursor = typeof nextCursor === 'string' ? parseInt(nextCursor, 10) : nextCursor;
+		cursor = typeof nextCursor === 'string' ? parseInt(nextCursor, 10) : Number(nextCursor);
 		keys.push(...batch);
 	} while (cursor !== 0);
 	return keys;
@@ -62,28 +60,24 @@ async function main() {
 			}
 			const cleanKey = `${match[1]}:${match[2]}:${match[3]}`;
 
-			// Check if clean key already exists — if so, prefer it (don't overwrite newer data)
-			let value;
 			try {
-				// Check clean key first
 				const existing = await redis.exists(cleanKey);
 				if (existing) {
-					// Clean key already exists — safe to delete the suffixed duplicate
+					// Clean key already exists — just delete the suffixed duplicate
 					if (!isDryRun) await redis.del(key);
 					console.log(`  [dup-del] ${key} → ${cleanKey} (clean key already existed)`);
 					totalMigrated++;
 					continue;
 				}
 
-				// Clean key doesn't exist: copy the value then delete the old key
+				// Get the value from the old suffixed key
 				const raw = await redis.get(key);
 				if (raw === null) {
 					totalSkipped++;
 					continue;
 				}
-				// TTL preservation
 				const ttl = await redis.ttl(key);
-				value = typeof raw === 'string' ? raw : JSON.stringify(raw);
+				const value = typeof raw === 'string' ? raw : JSON.stringify(raw);
 				if (!isDryRun) {
 					if (ttl > 0) {
 						await redis.set(cleanKey, value, { ex: ttl });
