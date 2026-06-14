@@ -1,6 +1,42 @@
 import { describe, expect, it } from 'vitest';
 
-import { extractCardSummaryFields } from '../../src/app/api/dashboard/refresh/route';
+import { buildPrimedBundleInventoryTotals, extractCardSummaryFields } from '../../src/app/api/dashboard/refresh/route';
+import { computeQueryFetchCounts } from '../../src/app/dashboard/page';
+
+describe('buildPrimedBundleInventoryTotals', () => {
+	it('does not double-count the same people or firms across FINRA and SEC primed bundles', () => {
+		const totals = buildPrimedBundleInventoryTotals([
+			{ bundleName: 'finra-individual', recordCount: 10 },
+			{ bundleName: 'sec-individual', recordCount: 8 },
+			{ bundleName: 'finra-firm', recordCount: 6 },
+			{ bundleName: 'sec-firm', recordCount: 4 },
+		]);
+
+		expect(totals.people).toBe(10);
+		expect(totals.firms).toBe(6);
+		expect(totals.unique).toBe(16);
+	});
+});
+
+describe('computeQueryFetchCounts', () => {
+	it('counts how many fetches were added for each query', () => {
+		const resolution = [
+			{ query: 'alpha', crds: ['100', '101'] },
+			{ query: 'beta', crds: ['200'] },
+		];
+		const fetchedItems = [
+			{ crd: '100', status: 'ok' },
+			{ crd: '100', status: 'ok' },
+			{ crd: '200', status: 'ok' },
+			{ crd: '999', status: 'ok' },
+		];
+
+		expect(computeQueryFetchCounts(resolution, fetchedItems)).toEqual({
+			alpha: 2,
+			beta: 1,
+		});
+	});
+});
 
 describe('extractCardSummaryFields', () => {
 	it('prefers concise, explicit metadata over deep nested JSON-like values', () => {
