@@ -81,7 +81,7 @@ type InventoryTotals = {
 	source: 'external-raw' | 'local-raw' | 'redis';
 };
 
-export function buildInventoryTotalsFromCards(cards: Array<{ id: string; entity: 'individual' | 'firm' }>, source: InventoryTotals['source'] = 'redis'): InventoryTotals {
+export function buildInventoryTotalsFromCards(cards: Array<Pick<CacheCard, 'id' | 'entity'> & Partial<CacheCard>>, source: InventoryTotals['source'] = 'redis'): InventoryTotals {
 	const people = new Set<string>();
 	const firms = new Set<string>();
 
@@ -422,6 +422,7 @@ async function buildCardSummary(card: CacheCard) {
 
 		const normalized = normalizeIndividualDetailPayload(detail, card.id) as Record<string, any>;
 		const extracted = extractCardSummaryFields(normalized, card.id);
+
 		if (extracted.name && !summary.name) summary.name = extracted.name;
 		if (extracted.memberSince && !summary.memberSince) summary.memberSince = extracted.memberSince;
 

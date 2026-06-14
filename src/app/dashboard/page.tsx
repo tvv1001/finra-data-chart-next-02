@@ -861,11 +861,10 @@ export default function DashboardPage() {
 				if (nextCards.length > 0) setQueueCards(nextCards);
 				void loadQueueCardsFromRedis(queueCrdFilter);
 
-				// Auto-dismiss temporary queue cards after 3 seconds
-				const dismissTimer = window.setTimeout(() => {
+				// Auto-dismiss temporary queue cards after 3 seconds.
+				window.setTimeout(() => {
 					setQueueRunItems([]);
 				}, 3000);
-				return () => window.clearTimeout(dismissTimer);
 			} else if (action === 'list-new-crds') {
 				// Handle refresh response
 				const newCrdsData = (payload as any)?.newCrds || [];
@@ -1037,9 +1036,9 @@ export default function DashboardPage() {
 					{queueRunItems.length > 0 && (
 						<>
 							<div className={styles.queueRunList}>
-								{queueRunItems.map((item) => (
+								{queueRunItems.map((item, index) => (
 									<div
-										key={item.query}
+										key={`${item.query}-${index}-${item.status}`}
 										className={styles.queueRunItem}>
 										<div className={styles.queueRunTop}>
 											<span className={styles.queueRunQuery}>{item.query}</span>
@@ -1064,9 +1063,9 @@ export default function DashboardPage() {
 					<div className={styles.queueSectionTitle}>Run Queue</div>
 					<div className={styles.queueMeta}>{queueMetaText}</div>
 					<div className={styles.cardList}>
-						{mergedQueueCards.map((card) => (
+						{mergedQueueCards.map((card, index) => (
 							<div
-								key={`${card.entity}:${card.id}`}
+								key={`${card.entity}:${card.id}:${index}`}
 								className={styles.card}>
 								<div className={styles.cardTop}>
 									<strong>{card.name || (card.entity === 'firm' ? `Firm ${card.id}` : `Individual ${card.id}`)}</strong>
