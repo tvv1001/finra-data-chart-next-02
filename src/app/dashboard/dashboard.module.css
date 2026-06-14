@@ -236,8 +236,6 @@
 .cardList {
 	flex: 1;
 	min-height: 0;
-	overflow: auto;
-	display: grid;
 	gap: 7px;
 	padding-right: 2px;
 }
@@ -257,6 +255,7 @@
 	padding: 8px;
 	font-size: 11px;
 	line-height: 1.35;
+	height: fit-content;
 }
 
 .cardTop {
