@@ -141,6 +141,7 @@ export default function DashboardPage() {
 	const [jsonRenderBusy, setJsonRenderBusy] = useState(false);
 	const [codeBlock, setCodeBlock] = useState('');
 	const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
+	const [top10Latest, setTop10Latest] = useState<Array<{ id: string; entity: 'individual' | 'firm'; fetchedAt: string }>>([]);
 	const mergedDetailCacheRef = useRef(new Map<string, any>());
 	const jsonStringCacheRef = useRef(new Map<string, string>());
 
@@ -249,6 +250,21 @@ export default function DashboardPage() {
 			window.clearTimeout(timeoutId);
 		};
 	}, [mainJson, result, mainJsonLabel]);
+
+	useEffect(() => {
+		if (queueCards.length > 0) {
+			const newItems = queueCards.slice(0, 10).map((card) => ({
+				id: card.id,
+				entity: card.entity,
+				fetchedAt: card.since || new Date().toISOString(),
+			}));
+			setTop10Latest((prev) => {
+				const combined = [...newItems, ...prev];
+				const deduped = Array.from(new Map(combined.map((item) => [`${item.entity}:${item.id}`, item])).values());
+				return deduped.slice(0, 10);
+			});
+		}
+	}, [queueCards]);
 
 	const searchSummary = useMemo(() => {
 		if (!searchQuery.trim()) return 'Search saved records by name';
@@ -890,6 +906,24 @@ export default function DashboardPage() {
 								</div>
 							))}
 						</div>
+					)}
+
+					{top10Latest.length > 0 && (
+						<>
+							<div className={styles.queueSectionTitle}>Top 10 Latest Fetched</div>
+							<div className={styles.cardList}>
+								{top10Latest.map((item) => (
+									<div
+										key={`top10:${item.entity}:${item.id}`}
+										className={styles.card}>
+										<div className={styles.cardTop}>
+											<strong>{item.id}</strong>
+											<span>{item.entity === 'individual' ? 'Individual' : 'Firm'}</span>
+										</div>
+									</div>
+								))}
+							</div>
+						</>
 					)}
 
 					<div className={styles.queueSectionTitle}>Run Queue</div>
