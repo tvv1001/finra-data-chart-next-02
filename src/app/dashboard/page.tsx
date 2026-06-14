@@ -1015,14 +1015,22 @@ export default function DashboardPage() {
 											<button
 												type='button'
 												className={styles.searchSourceBtn}
-												onClick={() => {
+												onClick={async () => {
+													const entity = item.type === 'INDIVIDUAL' ? 'individual' : 'firm';
+													const route = entity === 'firm' ? `/api/finra/merged/firm/${item.id}` : `/api/finra/merged/individual/${item.id}`;
+													const response = await fetch(route, {
+														method: 'GET',
+														headers: { Accept: 'application/json' },
+														cache: 'no-store',
+													});
+													const detail = await response.json();
 													const searchCard: SearchResultCard = {
 														id: item.id,
 														label: item.id,
 														scope: 'finra',
 														source: 'finra',
-														entity: item.type === 'INDIVIDUAL' ? 'individual' : 'firm',
-														payload: {},
+														entity,
+														payload: detail?.sources?.finra ?? detail?.finraNode ?? detail?.merged ?? detail ?? {},
 													};
 													setMainViewFromSearch(searchCard, 'FINRA');
 												}}>
@@ -1033,14 +1041,22 @@ export default function DashboardPage() {
 											<button
 												type='button'
 												className={styles.searchSourceBtn}
-												onClick={() => {
+												onClick={async () => {
+													const entity = item.type === 'INDIVIDUAL' ? 'individual' : 'firm';
+													const route = entity === 'firm' ? `/api/finra/merged/firm/${item.id}` : `/api/finra/merged/individual/${item.id}`;
+													const response = await fetch(route, {
+														method: 'GET',
+														headers: { Accept: 'application/json' },
+														cache: 'no-store',
+													});
+													const detail = await response.json();
 													const searchCard: SearchResultCard = {
 														id: item.id,
 														label: item.id,
 														scope: 'sec',
 														source: 'sec',
-														entity: item.type === 'INDIVIDUAL' ? 'individual' : 'firm',
-														payload: {},
+														entity,
+														payload: detail?.sources?.sec ?? detail?.merged ?? detail?.finraNode ?? detail ?? {},
 													};
 													setMainViewFromSearch(searchCard, 'SEC');
 												}}>
