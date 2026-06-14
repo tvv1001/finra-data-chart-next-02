@@ -1107,8 +1107,8 @@ export default function DashboardPage() {
 					{hasCurrentRecord && (
 						<>
 							<div className={styles.recordHeaderRow}>
-								<div className={styles.recordHeader}>{currentRecordEntity ? String(currentRecordEntity).toUpperCase() : 'RECORD'}</div>
-								<div className={styles.recordBadge}>{currentRecordSource ? String(currentRecordSource).toUpperCase() : 'UNKNOWN'}</div>
+								<div className={styles.recordHeader}>{currentRecordSource ? String(currentRecordSource).toUpperCase() : 'RECORD'}</div>
+								<div className={styles.recordBadge}>{currentRecordEntity ? String(currentRecordEntity).toUpperCase() : 'UNKNOWN'}</div>
 							</div>
 							<h2 className={styles.recordTitle}>{mainJsonLabel}</h2>
 							{currentRecordId && <div className={styles.recordKeyLabel}>CRD {currentRecordId}:</div>}

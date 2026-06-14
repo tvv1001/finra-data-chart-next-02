@@ -10,7 +10,7 @@
 		"build:wasm": "cd rust/graph-layout && wasm-pack build --target web --out-dir ../../public/wasm/graph-layout",
 		"build:search-index": "node scripts/build_search_indexes.js",
 		"build:deploy-artifacts": "node scripts/build_graph_from_cache.js --employment-scope all --no-redis && node scripts/build_search_indexes.js && ENABLE_PRIMED_CACHE=true node scripts/build_primed_cache_bundle.js",
-		"build": "NODE_OPTIONS=--max-old-space-size=8192 node scripts/build_search_indexes.js && NODE_OPTIONS=--max-old-space-size=8192 next build && node scripts/copy-search-indexes.js",
+		"build": "NODE_OPTIONS=--max-old-space-size=8192 node scripts/build_search_indexes.js && NODE_OPTIONS=--max-old-space-size=8192 next build --webpack && node scripts/copy-search-indexes.js",
 		"start": "NODE_OPTIONS=--max-old-space-size=8192 next start -p 4444",
 		"lint": "next lint",
 		"test:e2e": "playwright test",
