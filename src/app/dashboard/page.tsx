@@ -1002,21 +1002,7 @@ export default function DashboardPage() {
 							{newCrds.map((item) => (
 								<div
 									key={item.id}
-									className={styles.newCrdItem}
-									onClick={() => {
-										// For each scope, create a SearchResultCard and display the first available
-										const firstScope = (item.scopes[0] || 'finra').toLowerCase();
-										const searchCard: SearchResultCard = {
-											id: item.id,
-											label: item.id,
-											scope: firstScope,
-											source: (firstScope === 'finra' ? 'finra' : 'sec') as SearchResultSource,
-											entity: item.type === 'INDIVIDUAL' ? 'individual' : 'firm',
-											payload: {},
-										};
-										setMainViewFromSearch(searchCard, firstScope.toUpperCase());
-									}}
-									style={{ cursor: 'pointer' }}>
+									className={styles.newCrdItem}>
 									<div className={styles.newCrdTop}>
 										<strong>{item.id}</strong>
 										<span>{item.type}</span>
@@ -1024,6 +1010,44 @@ export default function DashboardPage() {
 									<div className={styles.newCrdMeta}>Found {item.found} • record</div>
 									<div className={styles.newCrdScopes}>{item.scopes.join('  ')}</div>
 									{item.date && <div className={styles.newCrdDate}>{item.date}</div>}
+									<div className={styles.newCrdButtons}>
+										{item.scopes.includes('FINRA') && (
+											<button
+												type='button'
+												className={styles.searchSourceBtn}
+												onClick={() => {
+													const searchCard: SearchResultCard = {
+														id: item.id,
+														label: item.id,
+														scope: 'finra',
+														source: 'finra',
+														entity: item.type === 'INDIVIDUAL' ? 'individual' : 'firm',
+														payload: {},
+													};
+													setMainViewFromSearch(searchCard, 'FINRA');
+												}}>
+												FINRA
+											</button>
+										)}
+										{item.scopes.includes('SEC') && (
+											<button
+												type='button'
+												className={styles.searchSourceBtn}
+												onClick={() => {
+													const searchCard: SearchResultCard = {
+														id: item.id,
+														label: item.id,
+														scope: 'sec',
+														source: 'sec',
+														entity: item.type === 'INDIVIDUAL' ? 'individual' : 'firm',
+														payload: {},
+													};
+													setMainViewFromSearch(searchCard, 'SEC');
+												}}>
+												SEC
+											</button>
+										)}
+									</div>
 								</div>
 							))}
 						</div>
