@@ -20,6 +20,7 @@
 		"build:graph": "node scripts/build_graph_from_cache.js --employment-scope all",
 		"build:primed-cache": "ENABLE_PRIMED_CACHE=true node scripts/build_primed_cache_bundle.js",
 		"build:people-clusters": "node scripts/build_people_clusters.js",
+		"crd-log": "node scripts/generate-crd-log.js",
 		"split:crds": "node scripts/split_crds_into_batches.js",
 		"deploy:primed-cache": "pnpm run build:primed-cache && PEOPLE_CLUSTER_ALLOW_MISSING_GRAPH=true pnpm run build:people-clusters && node scripts/deploy_primed_cache_to_redis.js",
 		"deploy:graph": "node scripts/deploy_graph_upstash.js",

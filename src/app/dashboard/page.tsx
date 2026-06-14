@@ -278,7 +278,7 @@ export default function DashboardPage() {
 	const [searchResults, setSearchResults] = useState<SearchResultCard[]>([]);
 	const [searchSkippedCount, setSearchSkippedCount] = useState(0);
 	const [queueStatusLine, setQueueStatusLine] = useState('Idle | - | queue - | elapsed 0s');
-	const [queueQueryLines, setQueueQueryLines] = useState<string[]>(['target - | crd - | saved - | updated —']);
+	const [queueQueryLines, setQueueQueryLines] = useState<string[]>([]);
 	const [queueElapsedSec, setQueueElapsedSec] = useState(0);
 	const [queueRunItems, setQueueRunItems] = useState<QueueRunItem[]>([]);
 	const [queueCards, setQueueCards] = useState<QueueCard[]>([]);
@@ -883,7 +883,7 @@ export default function DashboardPage() {
 				})),
 			);
 			setQueueStatusLine(`Searching | Queue | queue 1/${Math.max(1, effectiveQueries.length)} | elapsed 0s`);
-			setQueueQueryLines(['target - | crd - | saved - | updated —', `last Starting search for "${effectiveQueries[0] || '-'}"`]);
+			setQueueQueryLines([`last Starting search for "${effectiveQueries[0] || '-'}"`]);
 		}
 
 		try {
@@ -1035,7 +1035,7 @@ export default function DashboardPage() {
 					);
 				}
 				nextQueryLines.push(`match F/S requests ok ${successCount} | new records ${newRecordCount} | new sources ${newSourceCount} | err ${errorCount}`);
-				setQueueQueryLines(nextQueryLines.length ? nextQueryLines : ['target - | crd - | saved - | updated —']);
+				setQueueQueryLines(nextQueryLines);
 
 				const nextCards = buildQueueCardsFromFetchResults(fetchedItems);
 				if (nextCards.length > 0) setQueueCards(nextCards);
