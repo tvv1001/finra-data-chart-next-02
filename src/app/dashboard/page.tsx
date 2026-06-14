@@ -253,10 +253,11 @@ export default function DashboardPage() {
 
 	useEffect(() => {
 		if (queueCards.length > 0) {
+			const now = new Date().toISOString();
 			const newItems = queueCards.slice(0, 10).map((card) => ({
 				id: card.id,
 				entity: card.entity,
-				fetchedAt: card.since || new Date().toISOString(),
+				fetchedAt: now,
 			}));
 			setTop10Latest((prev) => {
 				const combined = [...newItems, ...prev];
