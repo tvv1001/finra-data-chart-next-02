@@ -7,6 +7,8 @@ import { Redis } from '@upstash/redis';
 import { cachedFetch } from '@/lib/simpleCache';
 import { normalizeIndividualDetailPayload } from '@/lib/individualDetail';
 import { setStringIfValid } from '@/lib/redisCache';
+import { getFullGraph, saveGraph } from '@/lib/graphStore';
+import { rememberRecentSeed } from '@/lib/seedStore';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -62,6 +64,18 @@ type FetchTarget = {
 	crd: string;
 	source: 'finra' | 'sec';
 	type: 'individual' | 'firm';
+};
+
+type MainAppGraphArtifacts = {
+	nodes: Record<string, any>[];
+	links: Record<string, any>[];
+};
+
+type MainAppPublishSummary = {
+	rememberedSeeds: number;
+	nodesAdded: number;
+	nodesUpdated: number;
+	linksAdded: number;
 };
 
 type CacheCardSource = {
@@ -434,6 +448,247 @@ function parseFirmDetailPayload(data: unknown, contentKey: 'content' | 'iaconten
 	}
 
 	return null;
+}
+
+function mergeUniqueGraphArrays(existingValue: unknown[], incomingValue: unknown[]) {
+	const merged = [...existingValue];
+	const seen = new Set(existingValue.map((entry) => JSON.stringify(entry)));
+	for (const entry of incomingValue) {
+		const key = JSON.stringify(entry);
+		if (seen.has(key)) continue;
+		seen.add(key);
+		merged.push(entry);
+	}
+	return merged;
+}
+
+function mergeGraphValue(existingValue: unknown, incomingValue: unknown): unknown {
+	if (incomingValue == null || incomingValue === '') return existingValue;
+	if (Array.isArray(incomingValue)) {
+		if (!incomingValue.length) return existingValue;
+		return Array.isArray(existingValue) ? mergeUniqueGraphArrays(existingValue, incomingValue) : incomingValue;
+	}
+	if (isPlainObject(incomingValue)) {
+		if (isPlainObject(existingValue)) {
+			const merged: Record<string, any> = { ...existingValue };
+			for (const [key, value] of Object.entries(incomingValue)) {
+				merged[key] = mergeGraphValue(merged[key], value);
+			}
+			return merged;
+		}
+		return incomingValue;
+	}
+	return incomingValue;
+}
+
+function mergeGraphNode(existingNode: Record<string, any>, incomingNode: Record<string, any>) {
+	const merged: Record<string, any> = { ...existingNode };
+	for (const [key, value] of Object.entries(incomingNode)) {
+		merged[key] = mergeGraphValue(merged[key], value);
+	}
+	return merged;
+}
+
+function buildEmploymentGraphArtifacts(detail: Record<string, any>, personId: string): MainAppGraphArtifacts {
+	const nodes: Record<string, any>[] = [];
+	const links: Record<string, any>[] = [];
+	const seenFirmIds = new Set<string>();
+	const employments = [
+		...(Array.isArray(detail?.currentEmployments) ? detail.currentEmployments : []),
+		...(Array.isArray(detail?.previousEmployments) ? detail.previousEmployments.map((employment: any) => ({ ...employment, _isCurrent: false })) : []),
+		...(Array.isArray(detail?.currentIAEmployments) ? detail.currentIAEmployments : []),
+		...(Array.isArray(detail?.previousIAEmployments) ? detail.previousIAEmployments.map((employment: any) => ({ ...employment, _isCurrent: false })) : []),
+	];
+
+	for (const employment of employments) {
+		const firmId = String(employment?.firm_id || employment?.firmId || employment?.firmIdNumber || '').trim();
+		if (!firmId) continue;
+		const firmNodeId = `firm:${firmId}`;
+		if (!seenFirmIds.has(firmNodeId)) {
+			seenFirmIds.add(firmNodeId);
+			nodes.push({
+				id: firmNodeId,
+				label: employment?.firm_name || employment?.firmName || `Firm ${firmId}`,
+				group: 'firm',
+				firmId,
+				_source: 'dashboard-fetch',
+			});
+		}
+		links.push({
+			source: personId,
+			target: firmNodeId,
+			relationship: employment?._isCurrent === false ? 'previous_employed_by' : 'employed_by',
+			isCurrent: employment?._isCurrent !== false,
+		});
+	}
+
+	return { nodes, links };
+}
+
+export function buildMainAppGraphArtifactsFromFetchedPayload(payload: unknown, target: FetchTarget): MainAppGraphArtifacts {
+	if (target.type === 'individual') {
+		const detail = parseIndividualDetailPayload(payload, target.source === 'finra' ? 'content' : 'iacontent', target.crd);
+		if (!detail) return { nodes: [], links: [] };
+		const basic = detail?.basicInformation || {};
+		const personId = `person:${target.crd}`;
+		const personNode: Record<string, any> = {
+			id: personId,
+			label: [basic?.firstName, basic?.middleName, basic?.lastName].filter(Boolean).join(' ') || basic?.name || detail?.name || `CRD ${target.crd}`,
+			group: 'individual',
+			crd: target.crd,
+			_source: 'dashboard-fetch',
+			basicInformation: basic || null,
+			bcScope: detail?.bcScope ?? basic?.bcScope ?? null,
+			iaScope: detail?.iaScope ?? basic?.iaScope ?? null,
+			currentEmployments: Array.isArray(detail?.currentEmployments) ? detail.currentEmployments : [],
+			previousEmployments: Array.isArray(detail?.previousEmployments) ? detail.previousEmployments : [],
+			currentIAEmployments: Array.isArray(detail?.currentIAEmployments) ? detail.currentIAEmployments : [],
+			previousIAEmployments: Array.isArray(detail?.previousIAEmployments) ? detail.previousIAEmployments : [],
+			registrationCount: detail?.registrationCount || null,
+			disclosures: detail?.disclosures || null,
+			iaDisclosures: detail?.iaDisclosures || null,
+			hasFinraData: hasIndividualFinraPresence(detail),
+			hasSecData: hasIndividualSecPresence(detail),
+			_trustedCurrentRelationshipData: Boolean(
+				(Array.isArray(detail?.currentEmployments) && detail.currentEmployments.length) ||
+				(Array.isArray(detail?.previousEmployments) && detail.previousEmployments.length) ||
+				(Array.isArray(detail?.currentIAEmployments) && detail.currentIAEmployments.length) ||
+				(Array.isArray(detail?.previousIAEmployments) && detail.previousIAEmployments.length) ||
+				detail?.registrationCount,
+			),
+		};
+		const employmentArtifacts = buildEmploymentGraphArtifacts(detail as Record<string, any>, personId);
+		return {
+			nodes: [personNode, ...employmentArtifacts.nodes],
+			links: employmentArtifacts.links,
+		};
+	}
+
+	const detail = parseFirmDetailPayload(payload, target.source === 'finra' ? 'content' : 'iacontent');
+	if (!detail) return { nodes: [], links: [] };
+	const basic = detail?.basicInformation || {};
+	const firmNodeId = `firm:${target.crd}`;
+	const nodes: Record<string, any>[] = [
+		{
+			id: firmNodeId,
+			label: basic?.firmName || detail?.firmName || detail?.name || `Firm ${target.crd}`,
+			group: 'firm',
+			firmId: target.crd,
+			_source: 'dashboard-fetch',
+			basicInformation: basic || null,
+			bcScope: detail?.bcScope ?? basic?.bcScope ?? null,
+			iaScope: detail?.iaScope ?? basic?.iaScope ?? detail?.firmStatus ?? basic?.firmStatus ?? null,
+			firmStatus: detail?.firmStatus ?? basic?.firmStatus ?? null,
+			registrations: Array.isArray(detail?.registrations) ? detail.registrations : [],
+			registeredSROs: Array.isArray(detail?.registeredSROs) ? detail.registeredSROs : [],
+			hasFinraData: hasFirmFinraPresence(detail),
+			hasSecData: hasFirmSecPresence(detail),
+		},
+	];
+	const links: Record<string, any>[] = [];
+	const seenOwnerIds = new Set<string>();
+	for (const owner of Array.isArray(detail?.directOwners) ? detail.directOwners : []) {
+		const ownerCrd = String(owner?.crdNumber || owner?.crd || owner?.personId || '').trim();
+		if (!ownerCrd) continue;
+		const personId = `person:${ownerCrd}`;
+		if (!seenOwnerIds.has(personId)) {
+			seenOwnerIds.add(personId);
+			nodes.push({
+				id: personId,
+				label: owner?.legalName || owner?.name || `Person ${ownerCrd}`,
+				group: 'individual',
+				crd: ownerCrd,
+				_source: 'dashboard-fetch',
+				stub: true,
+			});
+		}
+		links.push({ source: personId, target: firmNodeId, relationship: 'controls' });
+	}
+	return { nodes, links };
+}
+
+function getGraphLinkKey(link: Record<string, any>) {
+	const source = String(link?.source?.id ?? link?.source ?? '').trim();
+	const target = String(link?.target?.id ?? link?.target ?? '').trim();
+	const relationship = String(link?.relationship || '').trim();
+	const startDate = String(link?.startDate || link?.start || '').trim();
+	const endDate = String(link?.endDate || link?.end || '').trim();
+	const isCurrent = String(link?.isCurrent ?? '').trim();
+	return [source, target, relationship, startDate, endDate, isCurrent].join('|');
+}
+
+export async function publishFetchedRecordsToMainApp(
+	records: Array<Pick<FetchResultItem, 'crd' | 'type' | 'status' | 'payload'> & { source: 'finra' | 'sec' }>,
+): Promise<MainAppPublishSummary> {
+	const successfulRecords = records.filter((record) => record.status === 'ok' && record.payload);
+	if (!successfulRecords.length) {
+		return { rememberedSeeds: 0, nodesAdded: 0, nodesUpdated: 0, linksAdded: 0 };
+	}
+
+	let rememberedSeeds = 0;
+	for (const record of successfulRecords) {
+		try {
+			await rememberRecentSeed(record.type, record.crd);
+			rememberedSeeds += 1;
+		} catch {
+			// ignore seed-store write failures so fetch results still succeed
+		}
+	}
+
+	const graph = await getFullGraph();
+	const nodes = Array.isArray(graph?.nodes) ? [...graph.nodes] : [];
+	const links = Array.isArray(graph?.links) ? [...graph.links] : [];
+	const nodeIndex = new Map<string, number>(nodes.map((node: any, index: number) => [String(node?.id || '').trim(), index]));
+	const linkKeys = new Set(links.map((link: any) => getGraphLinkKey(link)));
+	let nodesAdded = 0;
+	let nodesUpdated = 0;
+	let linksAdded = 0;
+
+	for (const record of successfulRecords) {
+		const artifacts = buildMainAppGraphArtifactsFromFetchedPayload(record.payload, {
+			crd: record.crd,
+			source: record.source,
+			type: record.type,
+		});
+
+		for (const node of artifacts.nodes) {
+			const nodeId = String(node?.id || '').trim();
+			if (!nodeId) continue;
+			const existingIndex = nodeIndex.get(nodeId);
+			if (existingIndex == null) {
+				nodeIndex.set(nodeId, nodes.push(node) - 1);
+				nodesAdded += 1;
+				continue;
+			}
+			const mergedNode = mergeGraphNode(nodes[existingIndex] || {}, node);
+			if (JSON.stringify(mergedNode) !== JSON.stringify(nodes[existingIndex])) {
+				nodes[existingIndex] = mergedNode;
+				nodesUpdated += 1;
+			}
+		}
+
+		for (const link of artifacts.links) {
+			const linkKey = getGraphLinkKey(link);
+			if (!linkKey || linkKeys.has(linkKey)) continue;
+			linkKeys.add(linkKey);
+			links.push(link);
+			linksAdded += 1;
+		}
+	}
+
+	if (nodesAdded || nodesUpdated || linksAdded) {
+		await saveGraph({
+			...graph,
+			nodes,
+			links,
+			meta: {
+				...(graph?.meta || {}),
+				updatedAt: new Date().toISOString(),
+			},
+		});
+	}
+
+	return { rememberedSeeds, nodesAdded, nodesUpdated, linksAdded };
 }
 
 export function fetchedPayloadHasSourceCoverage(payload: unknown, target: { source: 'finra' | 'sec'; type: 'individual' | 'firm'; crd?: string }) {
@@ -1422,6 +1677,7 @@ async function syncExternalRawToLocal(externalRawDir: string) {
 async function fetchCrdsToCacheAndRedis(targets: FetchTarget[], options: { includePayload?: boolean } = {}) {
 	const { includePayload = false } = options;
 	const results: FetchResultItem[] = [];
+	const mainAppPublishQueue: Array<Pick<FetchResultItem, 'crd' | 'type' | 'status' | 'payload'> & { source: 'finra' | 'sec' }> = [];
 	const nationalRoot = path.join(process.cwd(), 'data', 'national');
 	const rawRoot = path.join(process.cwd(), 'data', 'raw');
 	const redis = ensureRedisClient();
@@ -1520,6 +1776,15 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[], options: { inclu
 				error: persisted ? undefined : `persist-failed:${fileWriteError || redisWrite}`,
 				...(includePayload ? { payload } : {}),
 			});
+			if (persisted) {
+				mainAppPublishQueue.push({
+					crd,
+					source: target.source,
+					type: target.type,
+					status: 'ok',
+					payload,
+				});
+			}
 		} catch (error: any) {
 			results.push({
 				crd,
@@ -1537,8 +1802,16 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[], options: { inclu
 		}
 	}
 
+	const mainAppSync = await publishFetchedRecordsToMainApp(mainAppPublishQueue).catch(() => ({
+		rememberedSeeds: 0,
+		nodesAdded: 0,
+		nodesUpdated: 0,
+		linksAdded: 0,
+	}));
+
 	return {
 		summary: summarizeFetchResults(results),
+		mainAppSync,
 		results,
 	};
 }
