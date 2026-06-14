@@ -39,6 +39,7 @@ type RefreshRequestBody = {
 	includePayload?: boolean;
 	maxCards?: number;
 	crdFilter?: string;
+	amount?: number;
 };
 
 type FetchResultItem = {
@@ -146,8 +147,8 @@ export function buildPrimedBundleInventoryTotals(bundleCounts: Array<{ bundleNam
 
 	for (const entry of bundleCounts) {
 		const bundleName = String(entry.bundleName || '').toLowerCase();
-		if (bundleName.includes('individual')) people += Number(entry.recordCount || 0);
-		if (bundleName.includes('firm')) firms += Number(entry.recordCount || 0);
+		if (bundleName.includes('individual')) people = Math.max(people, Number(entry.recordCount || 0));
+		if (bundleName.includes('firm')) firms = Math.max(firms, Number(entry.recordCount || 0));
 	}
 
 	return {

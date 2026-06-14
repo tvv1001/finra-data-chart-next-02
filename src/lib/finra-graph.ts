@@ -42,6 +42,7 @@ import * as canvasRenderer from './finra-graph-canvas';
 import * as overlayRenderer from './finra-graph-overlay';
 import { buildLargeGraphRenderPlan, getLargeGraphRenderBudget, getProgressiveLoadBudget } from './large-graph-rendering';
 import { isValidLocationStateFilter, isZipLikeLocationQuery, normalizeLocationStateFilter } from './locationSearch';
+import { resolveIndividualSourceDetail } from './sourceTruth';
 
 // API base. When VITE_API_URL is not set, use relative paths so the dev
 // server proxy (`/api`) is used and we don't hardcode a backend port.
@@ -4326,15 +4327,8 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				const isDirectId = /^\d+$/.test(q);
 
 				function addIndividualFromSource(src) {
-					// Handle FINRA search results where data is in content JSON string
-					let parsed = src;
-					if (typeof src?.content === 'string') {
-						try {
-							parsed = JSON.parse(src.content);
-						} catch {
-							// fallback to src
-						}
-					}
+					const resolved = resolveIndividualSourceDetail(src);
+					const parsed = resolved.detail || src;
 
 					const crd = String(parsed?.basicInformation?.individualId || parsed?.ind_source_id || parsed?.ind_crd || '').trim();
 					if (!crd) return;
@@ -4349,9 +4343,12 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 					);
 
 					if (existingGraphNode) {
-						existingGraphNode._trustedCurrentRelationshipData = existingGraphNode._trustedCurrentRelationshipData === true || hasRichIndividualDetail(parsed);
+						existingGraphNode._trustedCurrentRelationshipData =
+							existingGraphNode._trustedCurrentRelationshipData === true || (resolved.hasEmbeddedDetail && hasRichIndividualDetail(parsed));
 						existingGraphNode.bcScope = src?.ind_bc_scope ?? parsed?.basicInformation?.bcScope ?? parsed?.bcScope ?? existingGraphNode.bcScope ?? null;
 						existingGraphNode.iaScope = src?.ind_ia_scope ?? parsed?.basicInformation?.iaScope ?? parsed?.iaScope ?? existingGraphNode.iaScope ?? null;
+						existingGraphNode.hasFinraData = resolved.hasFinraData;
+						existingGraphNode.hasSecData = resolved.hasSecData;
 						existingGraphNode.registrationCount = {
 							...(existingGraphNode.registrationCount || {}),
 							approvedFinraRegistrationCount:
@@ -4376,13 +4373,9 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 								0,
 						};
 						existingGraphNode.currentEmployments =
-							Array.isArray(src?.ind_current_employments) ? src.ind_current_employments
-							: Array.isArray(parsed?.currentEmployments) ? parsed.currentEmployments
-							: (existingGraphNode.currentEmployments ?? []);
+							resolved.hasEmbeddedDetail && Array.isArray(parsed?.currentEmployments) ? parsed.currentEmployments : (existingGraphNode.currentEmployments ?? []);
 						existingGraphNode.currentIAEmployments =
-							Array.isArray(src?.ind_ia_current_employments) ? src.ind_ia_current_employments
-							: Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments
-							: (existingGraphNode.currentIAEmployments ?? []);
+							resolved.hasEmbeddedDetail && Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments : (existingGraphNode.currentIAEmployments ?? []);
 						applyIndividualDetail(existingGraphNode, parsed, crd);
 						updatedExistingNodeIds.add(existingGraphNode.id);
 					} else if (!batchAllNodes.some((n) => n.id === personId)) {
@@ -4404,11 +4397,13 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 										approvedStateRegistrationCount: src?.ind_approved_state_registration_count ?? parsed?.registrationCount?.approvedStateRegistrationCount ?? 0,
 										approvedIAStateRegistrationCount: src?.ind_approved_ia_state_registration_count ?? parsed?.registrationCount?.approvedIAStateRegistrationCount ?? 0,
 									},
-									currentEmployments: Array.isArray(src?.ind_current_employments) ? src.ind_current_employments : (parsed?.currentEmployments ?? []),
-									currentIAEmployments: Array.isArray(src?.ind_ia_current_employments) ? src.ind_ia_current_employments : (parsed?.currentIAEmployments ?? []),
+									currentEmployments: resolved.hasEmbeddedDetail && Array.isArray(parsed?.currentEmployments) ? parsed.currentEmployments : [],
+									currentIAEmployments: resolved.hasEmbeddedDetail && Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments : [],
 									disclosureFlag,
 									iaDisclosureFlag,
-									_trustedCurrentRelationshipData: hasRichIndividualDetail(parsed),
+									hasFinraData: resolved.hasFinraData,
+									hasSecData: resolved.hasSecData,
+									_trustedCurrentRelationshipData: resolved.hasEmbeddedDetail && hasRichIndividualDetail(parsed),
 								},
 								parsed,
 								crd,
@@ -4416,13 +4411,15 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 						);
 					}
 					// Build firm connections from embedded employment data
-					const emps = [
-						...(parsed?.currentEmployments || []).map((e) => ({ ...e, _isCurrent: true })),
-						...(parsed?.currentIAEmployments || []).map((e) => ({ ...e, _isCurrent: true })),
-						...(parsed?.previousEmployments || []).map((e) => ({ ...e, _isCurrent: false })),
-						...(parsed?.previousIAEmployments || []).map((e) => ({ ...e, _isCurrent: false })),
-						...(src?.ind_current_employments || []).map((e) => ({ ...e, _isCurrent: true })),
-					];
+					const emps =
+						resolved.hasEmbeddedDetail ?
+							[
+								...(parsed?.currentEmployments || []).map((e) => ({ ...e, _isCurrent: true })),
+								...(parsed?.currentIAEmployments || []).map((e) => ({ ...e, _isCurrent: true })),
+								...(parsed?.previousEmployments || []).map((e) => ({ ...e, _isCurrent: false })),
+								...(parsed?.previousIAEmployments || []).map((e) => ({ ...e, _isCurrent: false })),
+							]
+						:	[];
 					for (const e of emps) {
 						const fid = String(e?.firmId || e?.firm_id || e?.firmIdNumber || e?.firmId || '').trim();
 						if (!fid) continue;
@@ -4779,16 +4776,8 @@ async function fetchAndInjectQuery(q) {
 
 	for (const hit of allHits) {
 		const src = hit._source || hit;
-
-		// Parse embedded content blob if present
-		let parsed = src;
-		if (typeof src?.content === 'string') {
-			try {
-				parsed = JSON.parse(src.content);
-			} catch {
-				parsed = src;
-			}
-		}
+		const resolved = resolveIndividualSourceDetail(src);
+		const parsed = resolved.detail || src;
 
 		const crd = String(parsed?.basicInformation?.individualId || src?.ind_source_id || src?.ind_crd || '').trim();
 
@@ -4815,22 +4804,24 @@ async function fetchAndInjectQuery(q) {
 					crd,
 					bcScope: src?.ind_bc_scope ?? parsed?.basicInformation?.bcScope ?? null,
 					iaScope: src?.ind_ia_scope ?? parsed?.basicInformation?.iaScope ?? null,
+					hasFinraData: resolved.hasFinraData,
+					hasSecData: resolved.hasSecData,
 					registrationCount: {
 						approvedFinraRegistrationCount: src?.ind_approved_finra_registration_count ?? parsed?.registrationCount?.approvedFinraRegistrationCount ?? 0,
 						approvedSRORegistrationCount: src?.ind_approved_sro_registration_count ?? parsed?.registrationCount?.approvedSRORegistrationCount ?? 0,
 						approvedStateRegistrationCount: src?.ind_approved_state_registration_count ?? parsed?.registrationCount?.approvedStateRegistrationCount ?? 0,
 						approvedIAStateRegistrationCount: src?.ind_approved_ia_state_registration_count ?? parsed?.registrationCount?.approvedIAStateRegistrationCount ?? 0,
 					},
-					currentEmployments: Array.isArray(src?.ind_current_employments) ? src.ind_current_employments : (parsed?.currentEmployments ?? []),
-					currentIAEmployments: Array.isArray(src?.ind_ia_current_employments) ? src.ind_ia_current_employments : (parsed?.currentIAEmployments ?? []),
+					currentEmployments: resolved.hasEmbeddedDetail && Array.isArray(parsed?.currentEmployments) ? parsed.currentEmployments : [],
+					currentIAEmployments: resolved.hasEmbeddedDetail && Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments : [],
 					disclosureFlag,
 					iaDisclosureFlag,
-					_trustedCurrentRelationshipData: hasRichIndividualDetail(parsed),
+					_trustedCurrentRelationshipData: resolved.hasEmbeddedDetail && hasRichIndividualDetail(parsed),
 					_source: 'finra',
 				});
 
-				// Link to current employments
-				const emps = src?.ind_current_employments || src?.ind_ia_current_employments || [];
+				// Link only from embedded full detail, never from search-hit summaries.
+				const emps = resolved.hasEmbeddedDetail ? [...(parsed?.currentEmployments || []), ...(parsed?.currentIAEmployments || [])] : [];
 				for (const e of emps) {
 					const fid = String(e?.firm_id || e?.firmId || '').trim();
 					if (!fid) continue;
@@ -4935,15 +4926,8 @@ async function fetchQueryBatch(q) {
 
 	for (const hit of allHits) {
 		const src = hit._source || hit;
-
-		let parsed = src;
-		if (typeof src?.content === 'string') {
-			try {
-				parsed = JSON.parse(src.content);
-			} catch {
-				parsed = src;
-			}
-		}
+		const resolved = resolveIndividualSourceDetail(src);
+		const parsed = resolved.detail || src;
 
 		const crd = String(parsed?.basicInformation?.individualId || src?.ind_source_id || src?.ind_crd || '').trim();
 
@@ -4970,20 +4954,22 @@ async function fetchQueryBatch(q) {
 					crd,
 					bcScope: src?.ind_bc_scope ?? parsed?.basicInformation?.bcScope ?? null,
 					iaScope: src?.ind_ia_scope ?? parsed?.basicInformation?.iaScope ?? null,
+					hasFinraData: resolved.hasFinraData,
+					hasSecData: resolved.hasSecData,
 					registrationCount: {
 						approvedFinraRegistrationCount: src?.ind_approved_finra_registration_count ?? parsed?.registrationCount?.approvedFinraRegistrationCount ?? 0,
 						approvedSRORegistrationCount: src?.ind_approved_sro_registration_count ?? parsed?.registrationCount?.approvedSRORegistrationCount ?? 0,
 						approvedStateRegistrationCount: src?.ind_approved_state_registration_count ?? parsed?.registrationCount?.approvedStateRegistrationCount ?? 0,
 						approvedIAStateRegistrationCount: src?.ind_approved_ia_state_registration_count ?? parsed?.registrationCount?.approvedIAStateRegistrationCount ?? 0,
 					},
-					currentEmployments: Array.isArray(src?.ind_current_employments) ? src.ind_current_employments : (parsed?.currentEmployments ?? []),
-					currentIAEmployments: Array.isArray(src?.ind_ia_current_employments) ? src.ind_ia_current_employments : (parsed?.currentIAEmployments ?? []),
+					currentEmployments: resolved.hasEmbeddedDetail && Array.isArray(parsed?.currentEmployments) ? parsed.currentEmployments : [],
+					currentIAEmployments: resolved.hasEmbeddedDetail && Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments : [],
 					disclosureFlag,
 					iaDisclosureFlag,
 					_source: 'finra',
 				});
 
-				const emps = src?.ind_current_employments || src?.ind_ia_current_employments || [];
+				const emps = resolved.hasEmbeddedDetail ? [...(parsed?.currentEmployments || []), ...(parsed?.currentIAEmployments || [])] : [];
 				for (const e of emps) {
 					const fid = String(e?.firmId || e?.firm_id || e?.firmIdNumber || e?.firmId || '').trim();
 					if (!fid) continue;

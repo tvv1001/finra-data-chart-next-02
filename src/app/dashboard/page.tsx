@@ -66,6 +66,35 @@ type UrlSelectionInput = {
 	availableSources?: SearchResultSource[];
 };
 
+export function parseDashboardSelectionFromUrl(urlString: string): UrlSelectionInput | null {
+	try {
+		const url = new URL(urlString, 'http://localhost');
+		const params = url.searchParams;
+		const firmId = String(params.get('CRD_firm') || '').trim();
+		const individualId = String(params.get('CRD_individual') || '').trim();
+		const id = firmId || individualId;
+		if (!/^\d{1,10}$/.test(id)) return null;
+
+		const sourceParam = String(params.get('source') || '')
+			.trim()
+			.toLowerCase();
+		const source: SearchResultSource = sourceParam === 'sec' ? 'sec' : 'finra';
+		const availableSources: SearchResultSource[] = [];
+		if (params.get('finra') === '1') availableSources.push('finra');
+		if (params.get('sec') === '1') availableSources.push('sec');
+		if (!availableSources.includes(source)) availableSources.push(source);
+
+		return {
+			entity: firmId ? 'firm' : 'individual',
+			id,
+			source,
+			availableSources,
+		};
+	} catch {
+		return null;
+	}
+}
+
 function parseQueueQueries(input: string) {
 	return input
 		.split(/[\n,;]+/g)
@@ -358,6 +387,26 @@ export default function DashboardPage() {
 			});
 		}
 	}, [queueCards]);
+
+	useEffect(() => {
+		if (typeof window === 'undefined') return;
+		if (currentRecordId) return;
+
+		const selection = parseDashboardSelectionFromUrl(window.location.href);
+		if (!selection) return;
+
+		const card: QueueCard = {
+			id: selection.id,
+			entity: selection.entity,
+			files: Math.max(1, selection.availableSources?.length || 1),
+			sources: (selection.availableSources || [selection.source]).map((source) => ({
+				source,
+				status: 'unknown',
+			})),
+		};
+
+		void loadQueueSourceJson(card, selection.source);
+	}, [currentRecordId]);
 
 	const searchSummary = useMemo(() => {
 		if (!searchQuery.trim()) return 'Search saved records by name';
@@ -1226,22 +1275,32 @@ export default function DashboardPage() {
 					</div>
 				</section>
 				<aside className={`${styles.rightPane} ${rightPaneCollapsed ? styles.rightPaneCollapsed : ''}`}>
-					<div className={styles.rightPaneHeader}>
-						<div>
-							<div className={styles.newCrdsHeader}>New CRDs</div>
-							<div className={styles.detected}>Newest 20 cached CRDs</div>
+					{!rightPaneCollapsed && (
+						<div className={styles.rightPaneHeader}>
+							<div>
+								<div className={styles.newCrdsHeader}>New CRDs</div>
+								<div className={styles.detected}>Newest 20 cached CRDs</div>
+							</div>
+							<button
+								type='button'
+								className={styles.rightPaneToggle}
+								onClick={() => setRightPaneCollapsed(true)}>
+								Hide
+							</button>
 						</div>
-						<button
-							type='button'
-							className={styles.rightPaneToggle}
-							onClick={() => setRightPaneCollapsed((prev) => !prev)}>
-							{rightPaneCollapsed ? 'Show' : 'Hide'}
-						</button>
-					</div>
-					{rightPaneNotice && <div className={styles.rightPaneNotice}>{rightPaneNotice}</div>}
+					)}
+					{rightPaneNotice && !rightPaneCollapsed && <div className={styles.rightPaneNotice}>{rightPaneNotice}</div>}
 					{rightPaneCollapsed ?
-						<div className={styles.rightPaneCollapsedSummary}>
-							Newest {newCrds.length} CRD{newCrds.length === 1 ? '' : 's'} ready
+						<div className={styles.rightPaneCollapsedContent}>
+							<button
+								type='button'
+								className={styles.rightPaneToggle}
+								onClick={() => setRightPaneCollapsed(false)}>
+								Show
+							</button>
+							<div className={styles.rightPaneCollapsedSummary}>
+								Newest {newCrds.length} CRD{newCrds.length === 1 ? '' : 's'}
+							</div>
 						</div>
 					:	<div className={styles.newCrdsList}>
 							{newCrds.map((item) => (
