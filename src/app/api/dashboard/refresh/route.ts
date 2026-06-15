@@ -19,12 +19,12 @@ const PRIMED_REDIS_CHUNK_CHARS = Number(process.env.PRIMED_REDIS_CHUNK_CHARS || 
 const DASHBOARD_REDIS_SCAN_CARD_LIMIT_PER_PATTERN = Number(process.env.DASHBOARD_REDIS_SCAN_CARD_LIMIT_PER_PATTERN || 100_000);
 const DASHBOARD_RECENCY_MTIME_SAMPLE_LIMIT = Number(process.env.DASHBOARD_RECENCY_MTIME_SAMPLE_LIMIT || 2_000);
 const DASHBOARD_REDIS_MIN_CARD_COUNT = Math.max(1_000, Number(process.env.DASHBOARD_REDIS_MIN_CARD_COUNT || 1_000) || 1_000);
-const DASHBOARD_QUERY_RESOLVE_CONCURRENCY = Math.max(1, Number(process.env.DASHBOARD_QUERY_RESOLVE_CONCURRENCY || 2) || 2);
-const DASHBOARD_DETAIL_FETCH_CONCURRENCY = Math.max(1, Number(process.env.DASHBOARD_DETAIL_FETCH_CONCURRENCY || 2) || 2);
-const DASHBOARD_DETAIL_FETCH_DELAY_MS = Math.max(0, Number(process.env.DASHBOARD_DETAIL_FETCH_DELAY_MS || 1200) || 1200);
-const DASHBOARD_DETAIL_FETCH_JITTER_MS = Math.max(250, Number(process.env.DASHBOARD_DETAIL_FETCH_JITTER_MS || 1800) || 1800);
-const DASHBOARD_429_COOLDOWN_MIN_MS = Math.max(5 * 60 * 1000, Number(process.env.DASHBOARD_429_COOLDOWN_MIN_MS || 5 * 60 * 1000) || 5 * 60 * 1000);
-const DASHBOARD_429_COOLDOWN_MAX_MS = Math.max(DASHBOARD_429_COOLDOWN_MIN_MS, Number(process.env.DASHBOARD_429_COOLDOWN_MAX_MS || 8 * 60 * 1000) || 8 * 60 * 1000);
+const DASHBOARD_QUERY_RESOLVE_CONCURRENCY = 1;
+const DASHBOARD_DETAIL_FETCH_CONCURRENCY = 1;
+const DASHBOARD_DETAIL_FETCH_DELAY_MS = Math.max(2000, Number(process.env.DASHBOARD_DETAIL_FETCH_DELAY_MS || 2000) || 2000);
+const DASHBOARD_DETAIL_FETCH_JITTER_MS = Math.max(3000, Number(process.env.DASHBOARD_DETAIL_FETCH_JITTER_MS || 5000) || 5000);
+const DASHBOARD_429_COOLDOWN_MIN_MS = 6 * 60 * 1000;
+const DASHBOARD_429_COOLDOWN_MAX_MS = 9 * 60 * 1000;
 const DASHBOARD_SEARCH_FETCH_TIMEOUT_MS = Math.max(2_000, Number(process.env.DASHBOARD_SEARCH_FETCH_TIMEOUT_MS || 8_000) || 8_000);
 const DASHBOARD_DETAIL_FETCH_TIMEOUT_MS = Math.max(2_000, Number(process.env.DASHBOARD_DETAIL_FETCH_TIMEOUT_MS || 12_000) || 12_000);
 const DASHBOARD_NATIVE_REDIS_KEY_CACHE_MS = Math.max(0, Number(process.env.DASHBOARD_NATIVE_REDIS_KEY_CACHE_MS || 15_000) || 15_000);
@@ -581,6 +581,7 @@ function buildEmploymentGraphArtifacts(detail: Record<string, any>, personId: st
 				group: 'firm',
 				firmId,
 				_source: 'dashboard-fetch',
+				discovered_by_crd: personId,
 			});
 		}
 		links.push({
@@ -669,6 +670,7 @@ export function buildMainAppGraphArtifactsFromFetchedPayload(payload: unknown, t
 				crd: ownerCrd,
 				_source: 'dashboard-fetch',
 				stub: true,
+				discovered_by_crd: firmNodeId,
 			});
 		}
 		links.push({ source: personId, target: firmNodeId, relationship: 'controls' });
@@ -1893,7 +1895,7 @@ async function syncExternalRawToLocal(externalRawDir: string) {
 	return stats;
 }
 
-async function fetchCrdsToCacheAndRedis(targets: FetchTarget[], options: { includePayload?: boolean } = {}) {
+async function fetchCrdsToCacheAndRedis(initialTargets: FetchTarget[], options: { includePayload?: boolean } = {}) {
 	const { includePayload = false } = options;
 	const mainAppPublishQueue: Array<Pick<FetchResultItem, 'crd' | 'type' | 'status' | 'payload'> & { source: 'finra' | 'sec' }> = [];
 	const nationalRoot = path.join(process.cwd(), 'data', 'national');
@@ -1904,19 +1906,29 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[], options: { inclu
 	const allResults: FetchResultItem[] = [];
 	const processedKeys = new Set<string>();
 	let upstreamCooldownUntil = 0;
+	const targetQueue: FetchTarget[] = [...initialTargets];
+	let depth = 0;
+	const MAX_DEPTH = 3; // "and so on" but with a safety break
 
-	async function runFetchPass(currentTargets: FetchTarget[]) {
-		const passResults = await mapWithConcurrency(currentTargets, 1, async (target) => {
+	while (targetQueue.length > 0 && depth < MAX_DEPTH) {
+		const currentTargets = [...targetQueue];
+		targetQueue.length = 0;
+		depth += 1;
+
+		for (const target of currentTargets) {
 			const crd = target.crd;
 			const key = `${target.source}:${target.type}:${crd}`;
-			if (processedKeys.has(key)) return null;
+			if (processedKeys.has(key)) continue;
 			processedKeys.add(key);
 
 			const now = Date.now();
 			if (now < upstreamCooldownUntil) {
-				await sleep(upstreamCooldownUntil - now);
+				const waitMs = upstreamCooldownUntil - now;
+				console.log(`[fetch-crds] Sequential pause for 429 cooldown: ${(waitMs / 60000).toFixed(2)} minutes`);
+				await sleep(waitMs);
 			}
 
+			// Random jittered delay between EVERY request as requested
 			await sleep(randomBetween(DASHBOARD_DETAIL_FETCH_DELAY_MS, DASHBOARD_DETAIL_FETCH_DELAY_MS + DASHBOARD_DETAIL_FETCH_JITTER_MS));
 
 			const isFinra = target.source === 'finra';
@@ -1927,201 +1939,91 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[], options: { inclu
 				: isFinra && !isIndividual ? `https://api.brokercheck.finra.org/search/firm/${crd}?hl=true&wt=json`
 				: !isFinra && isIndividual ? `https://api.adviserinfo.sec.gov/search/individual/${crd}?hl=true&includePrevious=true&wt=json`
 				: `https://api.adviserinfo.sec.gov/search/firm/${crd}?wt=json`;
+			
 			const cacheFileName = `api.${isFinra ? 'brokercheck.finra.org' : 'adviserinfo.sec.gov'}_search_${target.type}_${crd}.json`;
 			const cacheDir = isFinra ? 'brokercheck.finra.org' : 'adviserinfo.sec.gov';
-			const redisKey =
-				target.type === 'individual' ? `${target.source}:individual:${crd}`
-				: target.source === 'finra' ? `finra:firm:${crd}`
-				: `sec:firm:${crd}`;
-			const redisAliases: string[] = [];
-			const recordExistedBeforePromise = recordExistenceCache.get(cardKey) || (async () => recordExistsBeforeFetch(redis, target.type, crd))();
-			recordExistenceCache.set(cardKey, recordExistedBeforePromise);
+			const redisKey = target.type === 'individual' ? `${target.source}:individual:${crd}` : `${target.source}:firm:${crd}`;
+			
 			const nationalFile = path.join(nationalRoot, cacheDir, cacheFileName);
 			const rawFile = path.join(rawRoot, cacheDir, cacheFileName);
 
 			try {
 				const sourceExistedBefore = (await cacheArtifactExists([nationalFile, rawFile])) || (await keyExistsInRedis(redis, redisKey));
+				const recordExistedBeforePromise = recordExistenceCache.get(cardKey) || (async () => recordExistsBeforeFetch(redis, target.type, crd))();
+				recordExistenceCache.set(cardKey, recordExistedBeforePromise);
 				const recordExistedBefore = await recordExistedBeforePromise;
+
 				let payload: any;
 				try {
 					payload = await fetchJson(url, { timeoutMs: DASHBOARD_DETAIL_FETCH_TIMEOUT_MS });
 				} catch (error: any) {
 					if (isTooManyRequestsError(error)) {
-						const cooldownMs = createUpstreamCooldownMs();
+						const cooldownMs = randomBetween(6 * 60 * 1000, 9 * 60 * 1000); // 6-9 minutes
 						upstreamCooldownUntil = Date.now() + cooldownMs;
-						console.warn(`[fetch-crds] 429 from ${url}; sleeping ${(cooldownMs / 60000).toFixed(2)} minutes before resuming`);
+						console.warn(`[fetch-crds] 429 from ${url}; pausing for ${(cooldownMs / 60000).toFixed(2)} minutes`);
 						await sleep(cooldownMs);
 						payload = await fetchJson(url, { timeoutMs: DASHBOARD_DETAIL_FETCH_TIMEOUT_MS });
 					} else {
 						throw error;
 					}
 				}
+
 				const outcome = classifyFetchedPayloadOutcome(payload, target);
 				if (outcome.status === 'error') {
-					return {
-						result: {
-							crd,
-							source: target.source,
-							type: target.type,
-							url,
-							cacheFile: nationalFile,
-							redisKey,
-							cardKey,
-							status: 'error' as const,
-							redisWrite: 'not-attempted',
-							error: outcome.error || 'invalid-payload-shape',
-						},
-						sourceExistedBefore,
-						recordExistedBefore,
-					};
+					allResults.push({
+						crd, source: target.source, type: target.type, url, cacheFile: nationalFile, redisKey, cardKey,
+						status: 'error', redisWrite: 'not-attempted', error: outcome.error || 'invalid-payload-shape',
+					});
+					continue;
 				}
 
 				if (outcome.status === 'skipped') {
-					return {
-						result: buildSkippedFetchResult(
-							target,
-							{ url, cacheFile: nationalFile, redisKey, cardKey },
-							outcome.skipReason || 'out-of-scope-source-payload',
-							includePayload ? payload : undefined,
-						),
-						sourceExistedBefore,
-						recordExistedBefore,
-					};
+					allResults.push(buildSkippedFetchResult(target, { url, cacheFile: nationalFile, redisKey, cardKey }, outcome.skipReason || 'out-of-scope-source-payload', includePayload ? payload : undefined));
+					continue;
 				}
 
-				let fileWriteError = '';
-				try {
-					await Promise.all([writeJsonFile(nationalFile, payload), writeJsonFile(rawFile, payload)]);
-				} catch (writeErr: any) {
-					fileWriteError = writeErr?.message || String(writeErr);
-				}
+				// Success: Save and Discover
+				await Promise.all([writeJsonFile(nationalFile, payload), writeJsonFile(rawFile, payload)]);
+				await setStringIfValid(redisKey, JSON.stringify(payload), 0);
 
-				const redisWriteResults = [await setStringIfValid(redisKey, JSON.stringify(payload), 0)];
-				for (const aliasKey of redisAliases) {
-					redisWriteResults.push(await setStringIfValid(aliasKey, JSON.stringify(payload), 0));
-				}
-				const redisWrite = redisWriteResults.join(',');
-				const persisted = redisWriteResults.some((status) => status === 'written') || !fileWriteError;
+				const newSourceSaved = !sourceExistedBefore;
+				const newRecordSaved = !recordExistedBefore;
 
-				return {
-					result: {
-						crd,
-						source: target.source,
-						type: target.type,
-						url,
-						cacheFile: nationalFile,
-						redisKey: [redisKey, ...redisAliases].join('|'),
-						cardKey,
-						status: persisted ? ('ok' as const) : ('error' as const),
-						redisWrite,
-						error: persisted ? undefined : `persist-failed:${fileWriteError || redisWrite}`,
-						payload,
-					},
-					sourceExistedBefore,
-					recordExistedBefore,
+				mainAppPublishQueue.push({ crd, source: target.source, type: target.type, status: 'ok', payload });
+
+				const fetchResult: FetchResultItem = {
+					crd, source: target.source, type: target.type, url, cacheFile: nationalFile, redisKey, cardKey,
+					status: 'ok', redisWrite: 'written', newSourceSaved, newRecordSaved,
 				};
+				if (includePayload) fetchResult.payload = payload;
+				allResults.push(fetchResult);
+
+				// Discovery logic: find more CRDs to fetch sequentially
+				const artifacts = buildMainAppGraphArtifactsFromFetchedPayload(payload, target);
+				for (const node of artifacts.nodes) {
+					const discoveredCrd = node.crd || node.firmId;
+					if (!discoveredCrd || discoveredCrd === crd) continue;
+					const discoveredType = node.group === 'firm' ? 'firm' : 'individual';
+					targetQueue.push({ crd: discoveredCrd, source: 'finra', type: discoveredType });
+					targetQueue.push({ crd: discoveredCrd, source: 'sec', type: discoveredType });
+				}
+
 			} catch (error: any) {
-				return {
-					result: {
-						crd,
-						source: target.source,
-						type: target.type,
-						url,
-						cacheFile: nationalFile,
-						redisKey,
-						cardKey,
-						status: 'error' as const,
-						redisWrite: 'not-attempted',
-						error: error?.message || String(error),
-						payload: null,
-					},
-					sourceExistedBefore: false,
-					recordExistedBefore: false,
-				};
-			}
-		});
-
-		const validResults = passResults.filter(Boolean) as Array<{ result: FetchResultItem & { payload?: any }; sourceExistedBefore: boolean; recordExistedBefore: boolean }>;
-		const awardedNewRecordKeys = new Set<string>();
-
-		const processedBatchResults: FetchResultItem[] = validResults.map(({ result, sourceExistedBefore, recordExistedBefore }) => {
-			const persisted = result.status === 'ok';
-			const newSourceSaved = persisted && !sourceExistedBefore;
-			const newRecordSaved = persisted && !recordExistedBefore && !awardedNewRecordKeys.has(String(result.cardKey || ''));
-			if (newRecordSaved && result.cardKey) awardedNewRecordKeys.add(result.cardKey);
-
-			if (persisted && result.payload) {
-				mainAppPublishQueue.push({
-					crd: result.crd,
-					source: result.source,
-					type: result.type,
-					status: 'ok',
-					payload: result.payload,
+				allResults.push({
+					crd, source: target.source, type: target.type, url, cacheFile: nationalFile, redisKey, cardKey,
+					status: 'error', redisWrite: 'not-attempted', error: error?.message || String(error),
 				});
-			}
-
-			const fetchResult: FetchResultItem = {
-				...result,
-				...(persisted ? { newSourceSaved, newRecordSaved } : {}),
-			};
-			if (!includePayload) delete (fetchResult as any).payload;
-
-			return fetchResult;
-		});
-
-		allResults.push(...processedBatchResults);
-		return validResults;
-	}
-
-	// First pass
-	const firstPassResults = await runFetchPass(targets);
-
-	// Discovery for second pass (one level deep)
-	const discoveredTargets: FetchTarget[] = [];
-	for (const item of firstPassResults) {
-		if (item.result.status !== 'ok' || !item.result.payload) continue;
-
-		const artifacts = buildMainAppGraphArtifactsFromFetchedPayload(item.result.payload, {
-			crd: item.result.crd,
-			source: item.result.source,
-			type: item.result.type,
-		});
-
-		for (const node of artifacts.nodes) {
-			if (node.stub !== true && node.crd === item.result.crd) continue; // skip self
-			const crd = node.crd || node.firmId;
-			if (!crd || !/^\d+$/.test(crd)) continue;
-
-			const type = node.group === 'firm' ? 'firm' : 'individual';
-			// Add both finra and sec sources for discovered items to ensure depth
-			const sources: Array<'finra' | 'sec'> = ['finra', 'sec'];
-			for (const source of sources) {
-				const key = `${source}:${type}:${crd}`;
-				if (!processedKeys.has(key)) {
-					discoveredTargets.push({ crd, source, type });
-				}
 			}
 		}
 	}
 
-	// Second pass (limited to a reasonable number to avoid long runtimes)
-	if (discoveredTargets.length > 0) {
-		const limitedDiscovery = discoveredTargets.slice(0, 20);
-		await runFetchPass(limitedDiscovery);
-	}
-
 	const mainAppSync = await publishFetchedRecordsToMainApp(mainAppPublishQueue).catch(() => ({
-		rememberedSeeds: 0,
-		nodesAdded: 0,
-		nodesUpdated: 0,
-		linksAdded: 0,
+		rememberedSeeds: 0, nodesAdded: 0, nodesUpdated: 0, linksAdded: 0,
 	}));
 
 	return {
 		summary: summarizeFetchResults(allResults),
 		mainAppSync,
-		persistenceNotice:
-			redis ? null : 'Durable Redis cache is unavailable in this environment. Results were fetched, but saved cards may only be temporary until Redis is configured.',
 		results: allResults,
 	};
 }

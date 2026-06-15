@@ -1431,25 +1431,11 @@ export default function DashboardPage() {
 								<div className={styles.cardTop}>
 									<strong>{card.name || (card.entity === 'firm' ? `Firm ${card.id}` : `Individual ${card.id}`)}</strong>
 									<span>
-										{card.id} • {card.entity === 'firm' ? 'Firm' : 'Individual'} • {card.files} file
+										{card.id} • {card.entity === 'firm' ? 'Firm' : 'Individual'}
 										{card.kind === 'recent' ? ' • Recently fetched' : ''}
 									</span>
 								</div>
 								{card.statusText && <div className={styles.cardMeta}>{card.statusText}</div>}
-								<div className={styles.cardStatsRow}>
-									<div className={styles.cardStatPill}>
-										<span>Files</span>
-										<strong>{card.files}</strong>
-									</div>
-									<div className={styles.cardStatPill}>
-										<span>New</span>
-										<strong>{Number(card.savedRecordCount || 0)}</strong>
-									</div>
-									<div className={styles.cardStatPill}>
-										<span>Updated</span>
-										<strong>{Number(card.updatedExistingRecordCount || 0)}</strong>
-									</div>
-								</div>
 								<div className={styles.cardScopes}>{card.sources.map((entry) => String(entry.source).toUpperCase()).join('  ') || (card.kind === 'recent' ? 'RECENT' : '')}</div>
 								<div className={styles.cardSourceRow}>
 									{card.sources.map((entry) => (
@@ -1459,30 +1445,11 @@ export default function DashboardPage() {
 											className={[styles.cardSourceKeyBtn, isSelectedCardSource(card, entry.source) ? styles.cardSourceKeyBtnActive : ''].filter(Boolean).join(' ')}
 											onClick={() => loadQueueSourceJson(card, entry.source)}
 											disabled={activeCardSourceKey === `${card.entity}:${card.id}:${entry.source}`}>
-											{entry.source}:{card.entity}:{card.id}
+											{entry.source}:{card.id}
 										</button>
 									))}
 								</div>
-								{card.memberSince && <div className={styles.cardMeta}>Member since: {card.memberSince}</div>}
-								{card.since && <div className={styles.cardMeta}>{card.kind === 'recent' ? card.since : `In industry since: ${card.since}`}</div>}
-								<div className={styles.cardDetailGrid}>
-									<div className={styles.cardDetailItem}>
-										<span>Skipped</span>
-										<strong>{Number(card.skippedSourceCount || 0)}</strong>
-									</div>
-									<div className={styles.cardDetailItem}>
-										<span>Errors</span>
-										<strong>{Number(card.trueErrorCount || 0)}</strong>
-									</div>
-									<div className={styles.cardDetailItem}>
-										<span>Sources</span>
-										<strong>{card.sources.length}</strong>
-									</div>
-								</div>
-								{shouldShowQueueCardError(card) && <div className={styles.cardError}>One or more source fetches failed</div>}
-								{shouldShowQueueCardSkipped(card) && (
-									<div className={styles.cardMeta}>Some sources were skipped because the upstream payload was out of scope for that entity/source.</div>
-								)}
+								{shouldShowQueueCardError(card) && <div className={styles.cardError}>Fetch failed</div>}
 							</div>
 						))}
 
