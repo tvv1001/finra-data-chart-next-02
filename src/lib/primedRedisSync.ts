@@ -110,6 +110,13 @@ function clampMaxRecords(maxRecords: number | undefined) {
 	return Math.max(1, Math.min(5_000, Math.floor(numeric)));
 }
 
+export function normalizeBackfillTtlSeconds(ttlSeconds?: number | null) {
+	if (ttlSeconds == null) return 0;
+	const numeric = Number(ttlSeconds);
+	if (!Number.isFinite(numeric) || numeric <= 0) return 0;
+	return Math.floor(numeric);
+}
+
 function normalizePrimedBundle(bundle: PrimedBundle): PrimedBundle {
 	const normalized: PrimedBundle = {};
 	for (const [key, value] of Object.entries(bundle || {})) {
@@ -170,7 +177,7 @@ export async function backfillPrimedCacheToRedis(options: PrimedBackfillOptions 
 	const cursor = clampCursor(options.cursor);
 	const overwrite = options.overwrite === true;
 	const dryRun = options.dryRun === true;
-	const ttlSeconds = Math.max(1, Math.floor(Number(options.ttlSeconds || DEFAULT_TTL_SECONDS) || DEFAULT_TTL_SECONDS));
+	const ttlSeconds = normalizeBackfillTtlSeconds(options.ttlSeconds);
 	const loadBundle = deps.loadBundle ?? loadPrimedBundleFromDisk;
 	const redis = deps.redis ?? createPrimedBackfillRedisClient();
 	const hasExistingKey =

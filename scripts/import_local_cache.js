@@ -23,17 +23,22 @@ try {
 	NATIONAL = path.join(ROOT, 'data', 'national');
 }
 const PRIMED_DIR = path.join(NATIONAL, 'primed-cache');
-const TTL_SECONDS = 60 * 60 * 24; // 1 day
+const TTL_SECONDS = Math.max(0, Number(process.env.REDIS_NATIVE_CACHE_TTL_SECONDS || 0));
 const REPORT_INTERVAL = 500;
 
-const DEFAULT_INDIVIDUAL_QUERY = 'hl=true&includePrevious=true&wt=json';
-const DEFAULT_FIRM_QUERY = 'hl=true&wt=json';
-
 function finraIndividualKey(id) {
-	return `finra:individual:${id}:${DEFAULT_INDIVIDUAL_QUERY}`;
+	return `finra:individual:${id}`;
 }
 function finraFirmKey(id) {
-	return `finra:firm:${id}:${DEFAULT_FIRM_QUERY}`;
+	return `finra:firm:${id}`;
+}
+
+function secIndividualKey(id) {
+	return `sec:individual:${id}`;
+}
+
+function secFirmKey(id) {
+	return `sec:firm:${id}`;
 }
 
 function normalizeId(value) {
@@ -81,6 +86,15 @@ async function fileExists(p) {
 	}
 }
 
+async function setRedisJson(redis, key, payload) {
+	const raw = JSON.stringify(payload);
+	if (TTL_SECONDS > 0) {
+		await redis.set(key, raw, { ex: TTL_SECONDS });
+		return;
+	}
+	await redis.set(key, raw);
+}
+
 async function main() {
 	const url = process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -95,6 +109,8 @@ async function main() {
 	const primedBundles = {
 		'finra-individual': {},
 		'sec-individual': {},
+		'finra-firm': {},
+		'sec-firm': {},
 	};
 
 	let written = 0;
@@ -138,7 +154,7 @@ async function main() {
 						if (processed % REPORT_INTERVAL === 0) logProgress();
 						continue;
 					}
-					await redis.set(key, JSON.stringify(parsed), { ex: TTL_SECONDS });
+					await setRedisJson(redis, key, parsed);
 					written++;
 					counts.root++;
 					processed++;
@@ -183,8 +199,7 @@ async function main() {
 			try {
 				const raw = await fs.readFile(p, 'utf-8');
 				const parsed = JSON.parse(raw);
-				if (type !== 'individual') continue;
-				const key = finraIndividualKey(id);
+				const key = type === 'individual' ? finraIndividualKey(id) : finraFirmKey(id);
 				if (useRedis) {
 					const exists = await redis.get(key);
 					if (exists != null) {
@@ -194,7 +209,7 @@ async function main() {
 						if (processed % REPORT_INTERVAL === 0) logProgress();
 						continue;
 					}
-					await redis.set(key, JSON.stringify(parsed), { ex: TTL_SECONDS });
+					await setRedisJson(redis, key, parsed);
 					written++;
 					counts.brokercheck++;
 					processed++;
@@ -239,8 +254,7 @@ async function main() {
 			try {
 				const raw = await fs.readFile(p, 'utf-8');
 				const parsed = JSON.parse(raw);
-				if (type !== 'individual') continue;
-				const key = `sec:individual:${id}:${DEFAULT_INDIVIDUAL_QUERY}`;
+				const key = type === 'individual' ? secIndividualKey(id) : secFirmKey(id);
 				if (useRedis) {
 					const exists = await redis.get(key);
 					if (exists != null) {
@@ -250,7 +264,7 @@ async function main() {
 						if (processed % REPORT_INTERVAL === 0) logProgress();
 						continue;
 					}
-					await redis.set(key, JSON.stringify(parsed), { ex: TTL_SECONDS });
+					await setRedisJson(redis, key, parsed);
 					written++;
 					counts.adviserinfo++;
 					processed++;

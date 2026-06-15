@@ -92,7 +92,7 @@ export async function getProfilesFromStore(): Promise<any> {
 	}
 	try {
 		profilesCache = JSON.parse(await readFile(SEED_PROFILES_FILE, 'utf-8'));
-		if (redis) await setStringIfValid(REDIS_PROFILES_KEY, JSON.stringify(profilesCache));
+		if (redis) await setStringIfValid(REDIS_PROFILES_KEY, JSON.stringify(profilesCache), 0);
 		return profilesCache;
 	} catch {
 		profilesCache = { profiles: [] };
@@ -103,7 +103,7 @@ export async function getProfilesFromStore(): Promise<any> {
 export async function saveProfilesToStore(data: any): Promise<void> {
 	const redis = getRedis();
 	if (redis) {
-		await setStringIfValid(REDIS_PROFILES_KEY, JSON.stringify(data));
+		await setStringIfValid(REDIS_PROFILES_KEY, JSON.stringify(data), 0);
 	} else {
 		await writeJsonFileAtomic(SEED_PROFILES_FILE, data);
 	}
@@ -126,7 +126,7 @@ export async function getSeedsFromStore(): Promise<string[]> {
 	}
 	try {
 		seedsCache = JSON.parse(await readFile(SEEDS_FILE, 'utf-8'));
-		if (redis) await setStringIfValid(REDIS_SEEDS_KEY, JSON.stringify(seedsCache));
+		if (redis) await setStringIfValid(REDIS_SEEDS_KEY, JSON.stringify(seedsCache), 0);
 		return seedsCache;
 	} catch {
 		seedsCache = [];
@@ -137,7 +137,7 @@ export async function getSeedsFromStore(): Promise<string[]> {
 export async function saveSeedsToStore(seeds: string[]): Promise<void> {
 	const redis = getRedis();
 	if (redis) {
-		await setStringIfValid(REDIS_SEEDS_KEY, JSON.stringify(seeds));
+		await setStringIfValid(REDIS_SEEDS_KEY, JSON.stringify(seeds), 0);
 	} else {
 		await writeJsonFileAtomic(SEEDS_FILE, seeds);
 	}
@@ -165,7 +165,7 @@ export async function saveRecentSeedsToStore(recentSeeds: RecentSeeds): Promise<
 	const normalized = normalizeRecentSeedsPayload(recentSeeds);
 	const redis = getRedis();
 	if (redis) {
-		await setStringIfValid(REDIS_RECENT_SEEDS_KEY, JSON.stringify(normalized));
+		await setStringIfValid(REDIS_RECENT_SEEDS_KEY, JSON.stringify(normalized), 0);
 	} else {
 		await writeJsonFileAtomic(RECENT_SEEDS_FILE, normalized);
 	}

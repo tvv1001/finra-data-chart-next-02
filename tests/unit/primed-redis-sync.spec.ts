@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { backfillPrimedCacheToRedis, buildPrimedBackfillEntries, normalizePrimedRedisRecordKey, resolvePrimedBundleNames } from '../../src/lib/primedRedisSync';
+import {
+	backfillPrimedCacheToRedis,
+	buildPrimedBackfillEntries,
+	normalizeBackfillTtlSeconds,
+	normalizePrimedRedisRecordKey,
+	resolvePrimedBundleNames,
+} from '../../src/lib/primedRedisSync';
 
 describe('normalizePrimedRedisRecordKey', () => {
 	it('strips search-query suffixes from cached record keys', () => {
@@ -13,6 +19,15 @@ describe('resolvePrimedBundleNames', () => {
 	it('keeps only supported bundle names and falls back to all when input is empty', () => {
 		expect(resolvePrimedBundleNames(['finra-individual', 'SEC-FIRM', 'nope'])).toEqual(['finra-individual', 'sec-firm']);
 		expect(resolvePrimedBundleNames('')).toEqual(['finra-individual', 'sec-individual', 'finra-firm', 'sec-firm']);
+	});
+});
+
+describe('normalizeBackfillTtlSeconds', () => {
+	it('defaults native backfill writes to persistent Redis records', () => {
+		expect(normalizeBackfillTtlSeconds()).toBe(0);
+		expect(normalizeBackfillTtlSeconds(null)).toBe(0);
+		expect(normalizeBackfillTtlSeconds(-1)).toBe(0);
+		expect(normalizeBackfillTtlSeconds(3600)).toBe(3600);
 	});
 });
 
@@ -89,7 +104,7 @@ describe('backfillPrimedCacheToRedis', () => {
 		expect(result.skippedExisting).toBe(1);
 		expect(result.failed).toBe(0);
 		expect(writeRecord).toHaveBeenCalledTimes(1);
-		expect(writeRecord).toHaveBeenCalledWith('finra:individual:101', JSON.stringify({ name: 'B' }), 86400);
+		expect(writeRecord).toHaveBeenCalledWith('finra:individual:101', JSON.stringify({ name: 'B' }), 0);
 	});
 
 	it('overwrites existing keys when requested', async () => {

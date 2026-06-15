@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+	buildCacheCardsFromRedisKeys,
 	buildInventoryTotalsFromCards,
 	chooseDisplayInventoryTotals,
 	collectInventoryTotalsFromCacheKeys,
@@ -127,5 +128,35 @@ describe('shouldUseLocalFallback', () => {
 			unique: 3,
 			source: 'redis',
 		});
+	});
+
+	it('builds dashboard cards from native Redis keys and collapses query-suffixed duplicates', () => {
+		const cards = buildCacheCardsFromRedisKeys(
+			['finra:individual:1:hl=true&includePrevious=true&wt=json', 'sec:individual:1', 'finra:individual:1', 'finra:firm:10:wt=json'],
+			new Map([
+				['individual:1', 'Ada Broker'],
+				['firm:10', 'Example Capital'],
+			]),
+		);
+
+		expect(cards).toEqual([
+			{
+				id: '1',
+				entity: 'individual',
+				files: 2,
+				sources: [
+					{ source: 'finra', status: 'ok' },
+					{ source: 'sec', status: 'ok' },
+				],
+				name: 'Ada Broker',
+			},
+			{
+				id: '10',
+				entity: 'firm',
+				files: 1,
+				sources: [{ source: 'finra', status: 'ok' }],
+				name: 'Example Capital',
+			},
+		]);
 	});
 });
