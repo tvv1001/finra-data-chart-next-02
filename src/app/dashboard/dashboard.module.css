@@ -229,11 +229,11 @@
 }
 
 .queueRunItem {
-	border: 1px solid #c8d2df;
-	border-radius: 8px;
+	border: 1px solid #b8c7da;
+	border-radius: 12px;
 	background: #fff;
-	padding: 6px;
-	font-size: 11px;
+	padding: 10px;
+	font-size: 12px;
 }
 
 .queueRunTop {
@@ -286,15 +286,22 @@
 
 .queueRunMeta {
 	margin-top: 3px;
-	font-size: 10px;
+	font-size: 11px;
 	color: #64748b;
 }
 
 .queueRunStats {
 	margin-top: 4px;
-	font-size: 10px;
+	font-size: 11px;
 	font-weight: 600;
 	color: #1d4ed8;
+}
+
+.queueRunCrds {
+	margin-top: 4px;
+	font-size: 11px;
+	font-weight: 700;
+	color: #0f172a;
 }
 
 .queueRunDetail {
@@ -361,13 +368,14 @@
 }
 
 .card {
-	border-radius: 8px;
-	border: 1px solid #c8d2df;
+	border-radius: 14px;
+	border: 1px solid #b9c8da;
 	background: #fff;
-	padding: 8px;
-	font-size: 11px;
-	line-height: 1.35;
+	padding: 12px;
+	font-size: 12px;
+	line-height: 1.45;
 	height: fit-content;
+	box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
 }
 
 .cardTop {
@@ -433,6 +441,47 @@
 .cardMeta {
 	margin-top: 4px;
 	color: #64748b;
+}
+
+.cardStatsRow {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 8px;
+	margin-top: 8px;
+}
+
+.cardStatPill,
+.cardDetailItem {
+	border-radius: 10px;
+	border: 1px solid #d8e4f7;
+	background: #f8fbff;
+	padding: 8px 10px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.cardStatPill span,
+.cardDetailItem span {
+	font-size: 10px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: #64748b;
+}
+
+.cardStatPill strong,
+.cardDetailItem strong {
+	font-size: 16px;
+	line-height: 1;
+	color: #0f172a;
+}
+
+.cardDetailGrid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 8px;
+	margin-top: 8px;
 }
 
 .activeTags {
