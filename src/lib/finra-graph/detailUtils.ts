@@ -3,6 +3,7 @@ import { normalizePersonLabel } from './formatters';
 function isPlaceholderNodeLabel(label, group) {
 	const text = String(label || '').trim();
 	if (!text) return true;
+	if (/^Node\s+(?:person|firm|entity)[:_][a-z0-9:-]+$/i.test(text)) return true;
 	if (/^\d+$/.test(text)) return true;
 	if (/^\d+-\d+$/.test(text)) return true;
 	if (/^(?:crd|sec)#?\s*\d+$/i.test(text)) return true;
