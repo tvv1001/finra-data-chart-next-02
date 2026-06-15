@@ -26,7 +26,7 @@ export function isEmptyHitsObj(obj: any): boolean {
 export async function setIfValid(
 	key: string,
 	value: unknown,
-	ttlSeconds = DEFAULT_TTL_SECONDS,
+	ttlSeconds: number | null = DEFAULT_TTL_SECONDS,
 ): Promise<'written' | 'skipped-empty' | 'skipped-nonstring' | 'no-client' | 'error'> {
 	try {
 		if (isEmptyHitsObj(value)) return 'skipped-empty';
@@ -42,8 +42,13 @@ export async function setIfValid(
 		}
 		if (t && t !== 'none' && t !== 'string') return 'skipped-nonstring';
 
+		const normalizedTtlSeconds = Number(ttlSeconds);
 		await limiter.schedule(async () => {
-			await redis.set(key, JSON.stringify(value), { ex: ttlSeconds });
+			if (ttlSeconds == null || !Number.isFinite(normalizedTtlSeconds) || normalizedTtlSeconds <= 0) {
+				await redis.set(key, JSON.stringify(value));
+				return;
+			}
+			await redis.set(key, JSON.stringify(value), { ex: Math.floor(normalizedTtlSeconds) });
 		});
 		return 'written';
 	} catch (e) {
@@ -57,7 +62,7 @@ export async function setIfValid(
 export async function setStringIfValid(
 	key: string,
 	raw: string,
-	ttlSeconds = DEFAULT_TTL_SECONDS,
+	ttlSeconds: number | null = DEFAULT_TTL_SECONDS,
 ): Promise<'written' | 'skipped-empty' | 'skipped-nonstring' | 'no-client' | 'error'> {
 	try {
 		let parsed;
@@ -74,8 +79,13 @@ export async function setStringIfValid(
 			t = await redis.type(key);
 		} catch {}
 		if (t && t !== 'none' && t !== 'string') return 'skipped-nonstring';
+		const normalizedTtlSeconds = Number(ttlSeconds);
 		await limiter.schedule(async () => {
-			await redis.set(key, raw, { ex: ttlSeconds });
+			if (ttlSeconds == null || !Number.isFinite(normalizedTtlSeconds) || normalizedTtlSeconds <= 0) {
+				await redis.set(key, raw);
+				return;
+			}
+			await redis.set(key, raw, { ex: Math.floor(normalizedTtlSeconds) });
 		});
 		return 'written';
 	} catch (e) {

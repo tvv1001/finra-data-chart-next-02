@@ -8,7 +8,7 @@ import { cachedFetch } from '@/lib/simpleCache';
 import { normalizeIndividualDetailPayload } from '@/lib/individualDetail';
 import { setStringIfValid } from '@/lib/redisCache';
 import { getFullGraph, saveGraph } from '@/lib/graphStore';
-import { rememberRecentSeed } from '@/lib/seedStore';
+import { getRecentSeedsFromStore, rememberRecentSeed } from '@/lib/seedStore';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,15 +22,18 @@ const DASHBOARD_QUERY_RESOLVE_CONCURRENCY = Math.max(1, Number(process.env.DASHB
 const DASHBOARD_DETAIL_FETCH_CONCURRENCY = Math.max(1, Number(process.env.DASHBOARD_DETAIL_FETCH_CONCURRENCY || 6) || 6);
 const DASHBOARD_SEARCH_FETCH_TIMEOUT_MS = Math.max(2_000, Number(process.env.DASHBOARD_SEARCH_FETCH_TIMEOUT_MS || 8_000) || 8_000);
 const DASHBOARD_DETAIL_FETCH_TIMEOUT_MS = Math.max(2_000, Number(process.env.DASHBOARD_DETAIL_FETCH_TIMEOUT_MS || 12_000) || 12_000);
+const DASHBOARD_NATIVE_REDIS_KEY_CACHE_MS = Math.max(0, Number(process.env.DASHBOARD_NATIVE_REDIS_KEY_CACHE_MS || 15_000) || 15_000);
 const BUILD_MANIFEST_PATH = path.join(process.cwd(), 'data', 'build_manifest.json');
 const CRD_LOG_PATH = path.join(process.cwd(), 'data', 'crd-log.json');
 
 let manifestTotalsCache: { totalCards: number; totalCacheKeys: number } | null = null;
 let primedBundleTotalsCache: { totalCards: number; totalCacheKeys: number } | null = null;
+let nativeRedisKeyCache: { keys: string[]; fetchedAt: number } | null = null;
 
 export function resetDashboardInventoryCaches() {
 	manifestTotalsCache = null;
 	primedBundleTotalsCache = null;
+	nativeRedisKeyCache = null;
 }
 
 type CrdLogEntry = { id: number; name: string };
@@ -808,6 +811,43 @@ function upsertCardIndexEntry(index: Map<string, CacheCard>, hit: { source: 'fin
 	index.set(key, existing);
 }
 
+export function buildCacheCardsFromRedisKeys(keys: string[], nameMap: Map<string, string> = new Map()) {
+	const cardMap = new Map<string, CacheCard>();
+	const seenRecordKeys = new Set<string>();
+
+	for (const key of keys) {
+		if (String(key || '').startsWith('sec:firm:summaryHtml:')) continue;
+		if (String(key || '').startsWith('primed:bundle:')) continue;
+
+		const parsed = parseCacheKey(key);
+		if (!parsed) continue;
+		const normalizedRecordKey = `${parsed.source}:${parsed.entity}:${parsed.id}`;
+		if (seenRecordKeys.has(normalizedRecordKey)) continue;
+		seenRecordKeys.add(normalizedRecordKey);
+
+		const cardKey = `${parsed.entity}:${parsed.id}`;
+		const existing = cardMap.get(cardKey) || {
+			id: parsed.id,
+			entity: parsed.entity,
+			files: 0,
+			sources: [],
+			name: nameMap.get(cardKey) || undefined,
+		};
+
+		existing.files += 1;
+		if (!existing.sources.some((entry) => entry.source === parsed.source)) {
+			existing.sources.push({ source: parsed.source, status: 'ok' });
+		}
+
+		cardMap.set(cardKey, existing);
+	}
+
+	return Array.from(cardMap.values()).map((card) => ({
+		...card,
+		sources: card.sources.sort((a, b) => a.source.localeCompare(b.source)),
+	}));
+}
+
 function classifyStatusText(value: unknown) {
 	const normalized = String(value || '')
 		.trim()
@@ -1319,12 +1359,13 @@ async function scanKeys(redis: Redis, pattern: string, limit: number) {
 	let cursor = '0';
 	const keys: string[] = [];
 	let loops = 0;
-	const maxLoops = 20; // Reduced from 200+ to avoid timeouts on production
+	const count = Math.max(500, Math.min(5_000, Math.floor(limit / 8) || 2_000));
+	const maxLoops = Math.max(20, Math.ceil(limit / Math.max(1, count)) + 8);
 
 	do {
 		const [nextCursor, batch] = await redis.scan(cursor, {
 			match: pattern,
-			count: 500,
+			count,
 		});
 
 		for (const key of batch || []) {
@@ -1336,6 +1377,29 @@ async function scanKeys(redis: Redis, pattern: string, limit: number) {
 		loops += 1;
 	} while (cursor !== '0' && loops < maxLoops);
 
+	return keys;
+}
+
+async function collectNativeRedisRecordKeys(redis: Redis, forceRefresh = false) {
+	const now = Date.now();
+	if (!forceRefresh && nativeRedisKeyCache && now - nativeRedisKeyCache.fetchedAt <= DASHBOARD_NATIVE_REDIS_KEY_CACHE_MS) {
+		return nativeRedisKeyCache.keys;
+	}
+
+	const patterns = ['finra:individual:*', 'sec:individual:*', 'finra:firm:*', 'sec:firm:*'];
+	const scannedGroups = await Promise.all(patterns.map((pattern) => scanKeys(redis, pattern, DASHBOARD_REDIS_SCAN_CARD_LIMIT_PER_PATTERN)));
+	const dedupedKeys = new Set<string>();
+
+	for (const scannedKeys of scannedGroups) {
+		for (const key of scannedKeys) {
+			const parsed = parseCacheKey(key);
+			if (!parsed) continue;
+			dedupedKeys.add(`${parsed.source}:${parsed.entity}:${parsed.id}`);
+		}
+	}
+
+	const keys = Array.from(dedupedKeys.values());
+	nativeRedisKeyCache = { keys, fetchedAt: now };
 	return keys;
 }
 
@@ -1588,40 +1652,10 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 	}
 
 	const filterTokens = parseFilterTokens(crdFilter);
-
-	const keySet = buildKeySetFromCrdLog();
-
-	const cardMap = new Map<string, CacheCard>();
 	const nameMap = getCrdLogNameMap();
-	for (const key of keySet) {
-		if (key.startsWith('sec:firm:summaryHtml:')) continue;
-		if (key.startsWith('primed:bundle:')) continue;
-
-		const parsed = parseCacheKey(key);
-		if (!parsed) continue;
-
-		const cardKey = `${parsed.entity}:${parsed.id}`;
-		const existing = cardMap.get(cardKey) || {
-			id: parsed.id,
-			entity: parsed.entity,
-			files: 0,
-			sources: [],
-			name: nameMap.get(`${parsed.entity}:${parsed.id}`) || undefined,
-		};
-
-		existing.files += 1;
-		if (!existing.sources.some((entry) => entry.source === parsed.source)) {
-			existing.sources.push({ source: parsed.source, status: 'ok' });
-		}
-
-		cardMap.set(cardKey, existing);
-	}
-
-	const cards = Array.from(cardMap.values()).map((card) => ({
-		...card,
-		sources: card.sources.sort((a, b) => a.source.localeCompare(b.source)),
-	}));
-	const inventoryTotals = collectInventoryTotalsFromCacheKeys(Array.from(keySet), 'redis');
+	const nativeKeys = await collectNativeRedisRecordKeys(redis);
+	const cards = buildCacheCardsFromRedisKeys(nativeKeys, nameMap);
+	const inventoryTotals = collectInventoryTotalsFromCacheKeys(nativeKeys, 'redis');
 	const cachedDedupedTotals = await readPrimedBundleTotals(redis, true).catch(() => null);
 	const rawFallbackTotals = countInventoryTotalsFromCrdLog();
 	const effectiveInventoryTotals = resolveDashboardInventoryTotals(
@@ -1638,7 +1672,7 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 	);
 
 	const fallbackManifestTotals = null;
-	if (shouldUseLocalFallback(cardMap.size, filterTokens.length > 0)) {
+	if (shouldUseLocalFallback(cards.length, filterTokens.length > 0)) {
 		const localListed = await listLocalNewestCards(maxCards, crdFilter);
 		if ((localListed as any)?.totalCards > 0) {
 			return localListed;
@@ -1669,7 +1703,19 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 	const sortedForDisplay = recencyCards.sort((left, right) => right.updatedAt - left.updatedAt || Number(right.id) - Number(left.id));
 
 	if (!cards.length) {
-		return listLocalNewestCards(maxCards, crdFilter);
+		return {
+			ok: true,
+			cards: [],
+			totalCards: fallbackManifestTotals?.totalCards ?? 0,
+			totalCacheKeys: fallbackManifestTotals?.totalCacheKeys ?? nativeKeys.length,
+			filteredTotalCards: 0,
+			inventoryTotals: effectiveInventoryTotals,
+			sourceMode: 'redis' as const,
+			persistenceNotice:
+				cachedDedupedTotals ?
+					'Redis primed bundles are present, but native record keys are empty. Backfill the primed bundles into native finra:/sec: record keys to populate dashboard cards.'
+				:	null,
+		};
 	}
 
 	const shownCards = await Promise.all(
@@ -1683,8 +1729,8 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 	return {
 		ok: true,
 		cards: shownCards,
-		totalCards: fallbackManifestTotals?.totalCards ?? cardMap.size,
-		totalCacheKeys: fallbackManifestTotals?.totalCacheKeys ?? keySet.size,
+		totalCards: fallbackManifestTotals?.totalCards ?? cards.length,
+		totalCacheKeys: fallbackManifestTotals?.totalCacheKeys ?? nativeKeys.length,
 		filteredTotalCards: filteredCards.length,
 		inventoryTotals: effectiveInventoryTotals,
 		sourceMode: 'redis',
@@ -1697,49 +1743,26 @@ async function listNewCrds() {
 	if (!redis) {
 		return { ok: true, newCrds: [], isToday: false, lastChecked: null };
 	}
+	const nativeKeys = await collectNativeRedisRecordKeys(redis);
+	const cards = buildCacheCardsFromRedisKeys(nativeKeys, getCrdLogNameMap());
+	const cardMap = new Map(cards.map((card) => [`${card.entity}:${card.id}`, card]));
+	const recentSeeds = await getRecentSeedsFromStore().catch(() => ({ individualIds: [], firmIds: [], updatedAt: new Date(0).toISOString() }));
+	const recentTargets = [...recentSeeds.individualIds.map((id) => ({ entity: 'individual' as const, id })), ...recentSeeds.firmIds.map((id) => ({ entity: 'firm' as const, id }))]
+		.sort((left, right) => Number(right.id) - Number(left.id))
+		.slice(0, 20);
 
-	const keySet = buildKeySetFromCrdLog();
-
-	const cardMap = new Map<string, CacheCardWithMeta>();
-
-	for (const key of keySet) {
-		if (key.startsWith('sec:firm:summaryHtml:')) continue;
-		if (key.startsWith('primed:bundle:')) continue;
-
-		const parsed = parseCacheKey(key);
-		if (!parsed) continue;
-
-		const cardKey = `${parsed.entity}:${parsed.id}`;
-		const existing = cardMap.get(cardKey) || {
-			id: parsed.id,
-			entity: parsed.entity,
-			files: 0,
-			sources: [],
-			updatedAt: 0,
-		};
-
-		existing.files += 1;
-		if (!existing.sources.some((entry) => entry.source === parsed.source)) {
-			existing.sources.push({ source: parsed.source, status: 'ok' });
-		}
-
-		// Use Redis key creation time as updatedAt; default to current time
-		const updatedAt = Date.now();
-		if (updatedAt > existing.updatedAt) {
-			existing.updatedAt = updatedAt;
-		}
-
-		cardMap.set(cardKey, existing);
-	}
-
+	const fallbackCards = cards
+		.slice()
+		.sort((left, right) => Number(right.id) - Number(left.id))
+		.slice(0, 20);
+	const latestCards = recentTargets.length > 0 ? recentTargets.map(({ entity, id }) => cardMap.get(`${entity}:${id}`) || { id, entity, files: 0, sources: [] }) : fallbackCards;
+	const updatedAt = Date.parse(String(recentSeeds.updatedAt || '')) || Date.now();
 	const now = Date.now();
-	const latestCards = sortLatestCardsForDisplay(Array.from(cardMap.values()), { maxCards: 20 });
 
 	const formatted = await Promise.all(
 		latestCards.map(async (card) => {
 			// Skip semantic normalization for dashboard to avoid Redis lookups
 			const normalized = normalizeCardForDisplay(card);
-			const updatedAt = Number(card.updatedAt || now);
 			const updatedDate = new Date(updatedAt);
 			const daysAgo = Math.max(0, Math.floor((now - updatedAt) / (1000 * 60 * 60 * 24)));
 			const found =
@@ -1760,9 +1783,9 @@ async function listNewCrds() {
 	return {
 		ok: true,
 		newCrds: formatted,
-		isToday: latestCards.some((card) => Number(card.updatedAt || 0) >= now - 24 * 60 * 60 * 1000),
+		isToday: updatedAt >= now - 24 * 60 * 60 * 1000,
 		lastChecked: new Date().toISOString(),
-		detectedCount: cardMap.size,
+		detectedCount: cards.length,
 		shownCount: latestCards.length,
 	};
 }
@@ -1916,9 +1939,9 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[], options: { inclu
 				fileWriteError = writeErr?.message || String(writeErr);
 			}
 
-			const redisWriteResults = [await setStringIfValid(redisKey, JSON.stringify(payload), 60 * 60 * 24)];
+			const redisWriteResults = [await setStringIfValid(redisKey, JSON.stringify(payload), 0)];
 			for (const aliasKey of redisAliases) {
-				redisWriteResults.push(await setStringIfValid(aliasKey, JSON.stringify(payload), 60 * 60 * 24));
+				redisWriteResults.push(await setStringIfValid(aliasKey, JSON.stringify(payload), 0));
 			}
 			const redisWrite = redisWriteResults.join(',');
 			const persisted = redisWriteResults.some((status) => status === 'written') || !fileWriteError;
