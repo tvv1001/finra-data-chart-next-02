@@ -226,7 +226,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		return NextResponse.json(detail, { headers: sharedCacheHeaders(3600) });
 	} catch (err: any) {
-		logger.error('firm local detail route error', { id, error: err.message });
-		return NextResponse.json({ error: 'Failed to load local detail.' }, { status: 500 });
+		logger.error('firm local detail route error', { 
+			id, 
+			error: err.message,
+			stack: err.stack,
+			isMergedRoute: request.nextUrl.searchParams.get('merged') === '1'
+		});
+		return NextResponse.json({ error: 'Failed to load local detail.', message: err.message }, { status: 500 });
 	}
 }
