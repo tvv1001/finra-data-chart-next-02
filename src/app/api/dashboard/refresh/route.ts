@@ -1165,12 +1165,15 @@ async function fetchJson(url: string, options: { timeoutMs?: number } = {}) {
 	const response = await fetch(url, {
 		headers: {
 			'Accept': 'application/json',
-			'User-Agent': 'finra-dashboard-refresh/1.0',
+			'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+			'Referer': 'https://brokercheck.finra.org/',
 		},
 		signal: AbortSignal.timeout(timeoutMs),
 		next: { revalidate: 0 },
 	});
 	if (!response.ok) {
+		const text = await response.text().catch(() => '');
+		console.warn(`fetchJson failed: ${url} -> HTTP ${response.status}`, text.slice(0, 200));
 		throw new Error(`HTTP ${response.status}`);
 	}
 	return response.json();
@@ -1313,17 +1316,18 @@ type QuerySearchBundle = {
 async function resolveQuerySearchBundle(query: string): Promise<QuerySearchBundle> {
 	const encoded = encodeURIComponent(query);
 	try {
+		// Use a slightly lower concurrency for individual search requests to avoid hitting limits early
 		const [finraIndividual, finraFirm, secIndividual, secFirm] = await Promise.all([
-			fetchJson(`https://api.brokercheck.finra.org/search/individual?query=${encoded}&hl=true&wt=json&nrows=12&start=0`, {
+			fetchJson(`https://api.brokercheck.finra.org/search/individual?query=${encoded}&filter=bcScope:B,iaScope:IA,iaScope:BOTH&hl=true&nrows=12&start=0&wt=json`, {
 				timeoutMs: DASHBOARD_SEARCH_FETCH_TIMEOUT_MS,
 			}),
-			fetchJson(`https://api.brokercheck.finra.org/search/firm?query=${encoded}&hl=true&wt=json&nrows=12&start=0`, {
+			fetchJson(`https://api.brokercheck.finra.org/search/firm?query=${encoded}&hl=true&nrows=12&start=0&wt=json`, {
 				timeoutMs: DASHBOARD_SEARCH_FETCH_TIMEOUT_MS,
 			}),
-			fetchJson(`https://api.adviserinfo.sec.gov/search/individual?query=${encoded}&hl=true&wt=json&nrows=12&start=0`, {
+			fetchJson(`https://api.adviserinfo.sec.gov/search/individual?query=${encoded}&hl=true&nrows=12&start=0&wt=json`, {
 				timeoutMs: DASHBOARD_SEARCH_FETCH_TIMEOUT_MS,
 			}),
-			fetchJson(`https://api.adviserinfo.sec.gov/search/firm?query=${encoded}&hl=true&wt=json&nrows=12&start=0`, {
+			fetchJson(`https://api.adviserinfo.sec.gov/search/firm?query=${encoded}&hl=true&nrows=12&start=0&wt=json`, {
 				timeoutMs: DASHBOARD_SEARCH_FETCH_TIMEOUT_MS,
 			}),
 		]);
@@ -1336,6 +1340,7 @@ async function resolveQuerySearchBundle(query: string): Promise<QuerySearchBundl
 			secFirm,
 		};
 	} catch (error: any) {
+		console.error(`resolveQuerySearchBundle failed for "${query}":`, error.message);
 		return {
 			query,
 			error: error?.message || String(error),
@@ -2136,7 +2141,14 @@ export async function POST(request: NextRequest) {
 			const maxCrds = Number(body.maxCrds || 30);
 			const queries = parseQueries(body.queries ?? body.crds, maxCrds);
 			const providedCrds = parseCrds(body.crds, maxCrds);
+			
+			console.log(`[fetch-crds] Processing ${queries.length} queries and ${providedCrds.length} direct CRDs`);
+			
 			const resolvedFromQueries = await resolveCrdsFromQueries(queries, maxCrds);
+			
+			if (resolvedFromQueries.resolution.every(r => r.crdCount === 0) && providedCrds.length === 0 && queries.length > 0) {
+				console.warn('[fetch-crds] No CRDs resolved from queries:', queries);
+			}
 
 			const targetMap = new Map<string, FetchTarget>();
 			for (const target of resolvedFromQueries.targets) {
@@ -2152,18 +2164,20 @@ export async function POST(request: NextRequest) {
 
 			const targets = Array.from(targetMap.values());
 			if (!targets.length) {
+				const hasErrors = resolvedFromQueries.resolution.some(r => (r as any).error);
 				return NextResponse.json(
 					{
 						ok: false,
-						error: 'no-valid-crds',
+						error: hasErrors ? 'search-failed' : 'no-valid-crds',
 						queries,
 						resolvedQueryCount: resolvedFromQueries.resolution.filter((entry) => entry.crdCount > 0).length,
 						resolution: resolvedFromQueries.resolution,
 					},
-					{ status: 400 },
+					{ status: hasErrors ? 502 : 400 },
 				);
 			}
 
+			console.log(`[fetch-crds] Fetching ${targets.length} targets...`);
 			const fetched = await fetchCrdsToCacheAndRedis(targets, { includePayload: Boolean(body.includePayload) });
 			resetDashboardInventoryCaches();
 			return NextResponse.json({
