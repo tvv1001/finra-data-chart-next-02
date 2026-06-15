@@ -3,6 +3,8 @@ const fs = require('fs/promises');
 const path = require('path');
 const axios = require('axios');
 
+const { spawnSync } = require('child_process');
+
 const ROOT = process.cwd();
 const DATA_DIR = path.join(ROOT, 'data');
 const NATIONAL = path.join(DATA_DIR, 'national');
@@ -11,7 +13,36 @@ const FINRA = path.join(NATIONAL, 'brokercheck.finra.org');
 const SEC = path.join(NATIONAL, 'adviserinfo.sec.gov');
 const GRAPH_FILE = path.join(NATIONAL, 'finra-graph.json');
 
-const HEADERS = { 'User-Agent': 'Mozilla/5.0 (compatible; research-tool/1.0)', 'Accept': 'application/json' };
+const HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36', 'Accept': 'application/json' };
+
+async function fetchWithScrapy(url) {
+	const SCRAPY = path.join(ROOT, 'scripts', 'scrapy.py');
+	console.log('[parallel_crawler] Falling back to scrapy.py for:', url);
+	try {
+		const result = spawnSync('python3', [SCRAPY, url], { encoding: 'utf-8' });
+		if (result.status !== 0) {
+			console.warn('[parallel_crawler] scrapy.py process failed:', result.stderr);
+			return { ok: false };
+		}
+		const payload = JSON.parse(result.stdout);
+		if (!payload.ok) {
+			console.warn('[parallel_crawler] scrapy.py reported error:', payload.error);
+			return { ok: false, status: payload.status };
+		}
+		// Try to parse people payload if it's there
+		if (payload.peoplePayload) {
+			try {
+				return { ok: true, data: JSON.parse(payload.peoplePayload) };
+			} catch (e) {
+				return { ok: true, data: payload.html };
+			}
+		}
+		return { ok: true, data: payload.html };
+	} catch (e) {
+		console.warn('[parallel_crawler] scrapy.py execution failed:', e.message);
+		return { ok: false };
+	}
+}
 
 function finraFirmUrl(id) {
 	return `https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(id)}?hl=true&nrows=12&wt=json`;
@@ -109,7 +140,7 @@ async function sleep(ms) {
 
 async function fetchAndWrite(url, externalName, nationalPath) {
 	try {
-		const r = await axios.get(url, { headers: HEADERS, timeout: 20000 });
+		const r = await axios.get(url, { headers: HEADERS, timeout: 25000 });
 		const txt = JSON.stringify(r.data, null, 2);
 		if (externalName) {
 			await fs.mkdir(EXTERNAL, { recursive: true });
@@ -122,87 +153,119 @@ async function fetchAndWrite(url, externalName, nationalPath) {
 		return { ok: true };
 	} catch (e) {
 		const status = e?.response?.status;
-		const retryAfter = e?.response?.headers?.['retry-after'];
-		if (status === 429) {
-			const ra = retryAfter ? Number(retryAfter) : null;
-			console.warn('fetch rate-limited (429)', url, retryAfter ? `(Retry-After: ${retryAfter}s)` : '');
-			return { ok: false, retryAfter: ra };
-		}
-		console.warn('fetch failed', url, e.message);
-		// If https failed, try falling back to http (some endpoints may accept http)
-		try {
-			if (url.startsWith('https://')) {
-				const httpUrl = 'http://' + url.slice(8);
-				console.log('Retrying with http:', httpUrl);
-				const r2 = await axios.get(httpUrl, { headers: HEADERS, timeout: 20000 });
-				const txt2 = JSON.stringify(r2.data, null, 2);
+		if (status === 429 || status === 403 || status === 401) {
+			console.warn(`fetch blocked (${status})`, url);
+			// Try scrapy fallback
+			const res = await fetchWithScrapy(url);
+			if (res.ok && res.data) {
+				const txt = typeof res.data === 'string' ? res.data : JSON.stringify(res.data, null, 2);
 				if (externalName) {
 					await fs.mkdir(EXTERNAL, { recursive: true });
-					await fs.writeFile(path.join(EXTERNAL, externalName), txt2, 'utf-8');
+					await fs.writeFile(path.join(EXTERNAL, externalName), txt, 'utf-8');
 				}
 				if (nationalPath) {
 					await fs.mkdir(path.dirname(nationalPath), { recursive: true });
-					await fs.writeFile(nationalPath, txt2, 'utf-8');
+					await fs.writeFile(nationalPath, txt, 'utf-8');
 				}
 				return { ok: true };
 			}
-		} catch (e2) {
-			console.warn('http fallback failed', url, e2.message);
+			return { ok: false, status };
 		}
-		return { ok: false };
+		console.warn('fetch failed', url, e.message);
+		return { ok: false, status };
 	}
 }
 
-async function parallelFetch(tasks, concurrency = 10, delayMs = 80, maxRetries = 3) {
-	let idx = 0;
+async function parallelFetch(tasks, concurrency = 1, delayMs = 4000, maxRetries = 2) {
 	let fetched = 0;
 	const failed = [];
+	let upstreamCooldownUntil = 0;
 
-	const jitterMs = Math.max(20, Math.floor(delayMs * 0.5));
-
-	async function worker(id) {
-		while (true) {
-			const i = idx++;
-			if (i >= tasks.length) break;
+	// Strictly sequential if concurrency is 1
+	if (concurrency === 1) {
+		for (let i = 0; i < tasks.length; i++) {
 			const t = tasks[i];
 			let attempt = 0;
 			let success = false;
-			let lastRetryAfter = null;
+
 			while (attempt <= maxRetries && !success) {
 				attempt++;
+				
+				const now = Date.now();
+				if (now < upstreamCooldownUntil) {
+					const waitMs = upstreamCooldownUntil - now;
+					console.log(`[parallel_crawler] Sequential pause for 429 cooldown: ${(waitMs / 60000).toFixed(2)} minutes remaining...`);
+					await sleep(waitMs);
+				}
+
+				// Steady jittered delay
+				await sleep(delayMs + Math.floor(Math.random() * 2000));
+
 				const res = await fetchAndWrite(t.url, t.external, t.national);
 				if (res.ok) {
 					success = true;
 					fetched++;
 					break;
 				}
-				if (res.retryAfter) {
-					lastRetryAfter = res.retryAfter;
-					const waitMs = Math.max(1000, Math.round(res.retryAfter * 1000));
-					const jitter = Math.floor(Math.random() * 1000);
-					console.log(`Worker ${id}: 429 => sleeping ${waitMs + jitter}ms before retrying ${t.url}`);
-					await sleep(waitMs + jitter);
+
+				if (res.status === 429) {
+					const cooldownMs = 6 * 60 * 1000 + Math.random() * 3 * 60 * 1000; // 6-9 minutes
+					upstreamCooldownUntil = Date.now() + cooldownMs;
+					console.warn(`[parallel_crawler] 429 Hit. Pausing for ${(cooldownMs / 60000).toFixed(2)} minutes.`);
+					await sleep(cooldownMs);
 					continue;
 				}
-				// exponential backoff with jitter
-				const backoff = Math.min(1000 * Math.pow(2, attempt), 30000);
-				const jitter = Math.floor(Math.random() * jitterMs);
-				await sleep(backoff + jitter);
-			}
-			if (!success) {
-				failed.push(t);
-				if (lastRetryAfter) {
-					console.warn(`Worker ${id}: Giving up on ${t.url} after ${attempt - 1} tries (last Retry-After ${lastRetryAfter}s)`);
-				}
-			}
-			// polite pause between requests (add jitter)
-			const extra = Math.floor(Math.random() * jitterMs);
-			await sleep(delayMs + extra);
-		}
-	}
 
-	const workers = Array.from({ length: Math.max(1, Math.min(concurrency, tasks.length)) }, (_, i) => worker(i + 1));
-	await Promise.all(workers);
+				// Exponential backoff for other errors
+				await sleep(5000 * attempt);
+			}
+
+			if (!success) failed.push(t);
+		}
+	} else {
+		// Existing parallel logic but with 429 awareness
+		let idx = 0;
+		const jitterMs = Math.max(500, Math.floor(delayMs * 0.5));
+
+		async function worker(id) {
+			while (true) {
+				const i = idx++;
+				if (i >= tasks.length) break;
+				const t = tasks[i];
+				let attempt = 0;
+				let success = false;
+				while (attempt <= maxRetries && !success) {
+					attempt++;
+
+					const now = Date.now();
+					if (now < upstreamCooldownUntil) {
+						await sleep(upstreamCooldownUntil - now);
+					}
+
+					const res = await fetchAndWrite(t.url, t.external, t.national);
+					if (res.ok) {
+						success = true;
+						fetched++;
+						break;
+					}
+					if (res.status === 429) {
+						const cooldownMs = 6 * 60 * 1000 + Math.random() * 3 * 60 * 1000;
+						upstreamCooldownUntil = Date.now() + cooldownMs;
+						console.warn(`Worker ${id}: 429 => sleeping ${(cooldownMs / 60000).toFixed(2)}m`);
+						await sleep(cooldownMs);
+						continue;
+					}
+					const backoff = Math.min(2000 * Math.pow(2, attempt), 30000);
+					await sleep(backoff + Math.floor(Math.random() * jitterMs));
+				}
+				if (!success) failed.push(t);
+				await sleep(delayMs + Math.floor(Math.random() * jitterMs));
+			}
+		}
+
+		const workers = Array.from({ length: Math.max(1, Math.min(concurrency, tasks.length)) }, (_, i) => worker(i + 1));
+		await Promise.all(workers);
+	}
 
 	if (failed.length) console.warn('Some tasks still failed after retries:', failed.length);
 	return fetched;
@@ -241,9 +304,9 @@ async function validateLocalData() {
 
 async function main() {
 	const argv = require('minimist')(process.argv.slice(2));
-	const concurrency = Number(argv.concurrency || argv.c || 20);
+	const concurrency = Number(argv.concurrency || argv.c || 1); // Default to sequential
 	const force = argv.force || argv.f || false;
-	const limit = Number(argv.limit || 2000);
+	const limit = Number(argv.limit || 100); // Steady small batches
 
 	const { firms, inds } = await gatherSeedIds();
 	// augment with seed-profiles individuals as extra
@@ -283,7 +346,7 @@ async function main() {
 	}
 
 	console.log('Prepared', tasks.length, 'tasks; running with concurrency=', concurrency);
-	const delay = Number(argv.delay || argv.d || 80);
+	const delay = Number(argv.delay || argv.d || 4000); // 4s steady delay
 	const fetched = await parallelFetch(tasks, concurrency, delay);
 	console.log('Parallel crawl complete. fetched=', fetched);
 	console.log('Validating local JSON files...');

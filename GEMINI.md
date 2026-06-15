@@ -56,6 +56,10 @@ This project is an interactive relationship explorer for FINRA BrokerCheck and S
 
 - **Upstream Integration**: Proxied via `/api/finra/**`. Data is cached in Redis upon fetch.
 - **Synchronization Flow**: Dashboard Fetch -> Redis Record Save -> Main Graph Merge -> Seed Bank Update.
+- **Crawling Stability**:
+  - **Sequential Only**: All crawling and fetching (Dashboard & Scripts) must be strictly sequential (concurrency=1).
+  - **429 Handling**: If a 429 error is hit, the system MUST pause for 6-9 minutes before resuming.
+  - **Scrapy Integration**: `scripts/scrapy.py` (Playwright-based) is used as a fallback for anti-bot detection, featuring human-like pacing and randomized jitter.
 - **Chunked Data**: Large keys in Redis are automatically handled via `manifest` and `part` keys.
 
 ## Troubleshooting
