@@ -28,8 +28,9 @@ type SearchResultCard = {
 
 type QueueCardSourceEntry = {
 	source: SearchResultSource;
-	status: 'ok' | 'error' | 'unknown';
+	status: 'ok' | 'skipped' | 'error' | 'unknown';
 	error?: string;
+	skipReason?: string;
 };
 
 type QueueCard = {
@@ -50,6 +51,8 @@ type QueueRunItem = {
 	elapsedSec: number;
 	message?: string;
 	crdCount?: number;
+	skippedSourceCount?: number;
+	trueErrorCount?: number;
 	savedRecordCount?: number;
 	savedSourceCount?: number;
 	updatedExistingRecordCount?: number;
@@ -130,6 +133,7 @@ export function computeQuerySaveStats(
 		string,
 		{
 			fetchedCount: number;
+			skippedCount: number;
 			savedSourceCount: number;
 			savedRecordCount: number;
 			updatedExistingSourceCount: number;
@@ -157,6 +161,7 @@ export function computeQuerySaveStats(
 
 		stats.set(query, {
 			fetchedCount: matchingItems.filter((item) => String(item?.status || '') === 'ok').length,
+			skippedCount: matchingItems.filter((item) => String(item?.status || '') === 'skipped').length,
 			savedSourceCount: matchingItems.filter((item) => item?.newSourceSaved === true).length,
 			savedRecordCount: savedRecordKeys.size,
 			updatedExistingSourceCount: matchingItems.filter((item) => item?.newSourceSaved === true && item?.newRecordSaved !== true).length,
@@ -186,6 +191,97 @@ export function describeQuerySaveChange(stats?: { savedRecordCount?: number; upd
 	}
 
 	return 'no new data saved';
+}
+
+export function shouldShowQueueCardError(card: { sources?: Array<{ source?: string; status?: string; error?: string; skipReason?: string }> }) {
+	return Array.isArray(card.sources) && card.sources.some((entry) => String(entry?.status || '') === 'error');
+}
+
+export function shouldShowQueueCardSkipped(card: { sources?: Array<{ source?: string; status?: string; error?: string; skipReason?: string }> }) {
+	return Array.isArray(card.sources) && !shouldShowQueueCardError(card) && card.sources.some((entry) => String(entry?.status || '') === 'skipped');
+}
+
+export function describeDashboardRequestFailure(options: { status?: number; contentType?: string | null; bodyText?: string; errorMessage?: string; elapsedSec?: number }) {
+	const status = Number(options.status || 0);
+	const contentType = String(options.contentType || '').toLowerCase();
+	const bodyText = String(options.bodyText || '');
+	const errorMessage = String(options.errorMessage || '');
+	const elapsedSec = Math.max(0, Number(options.elapsedSec || 0));
+	const combined = `${bodyText}\n${errorMessage}`.toLowerCase();
+	const timeoutLike =
+		status === 408 ||
+		status === 504 ||
+		status === 524 ||
+		combined.includes('timed out') ||
+		combined.includes('timeout') ||
+		combined.includes('function invocation') ||
+		combined.includes('gateway') ||
+		combined.includes('body exceeded');
+
+	if (timeoutLike) {
+		return `Queue likely timed out after ${elapsedSec || 30}s. Try fewer names or rerun in smaller chunks.`;
+	}
+
+	if (status >= 500 && !contentType.includes('application/json')) {
+		return 'Queue failed before the dashboard received JSON. The server likely returned an HTML or gateway error page.';
+	}
+
+	if (status >= 400 && bodyText.trim()) {
+		return bodyText.trim().slice(0, 240);
+	}
+
+	return errorMessage || 'Queue request failed.';
+}
+
+export function buildQueueCardsFromFetchResults(items: any[]): QueueCard[] {
+	const map = new Map<string, QueueCard>();
+	for (const item of items) {
+		const id = String(item?.crd || '').trim();
+		const source = String(item?.source || '')
+			.trim()
+			.toLowerCase() as SearchResultSource;
+		const entity =
+			(
+				String(item?.type || '')
+					.trim()
+					.toLowerCase() === 'firm'
+			) ?
+				'firm'
+			:	'individual';
+		if (!/^\d{1,10}$/.test(id)) continue;
+		if (source !== 'finra' && source !== 'sec') continue;
+
+		const key = `${entity}:${id}`;
+		const existing = map.get(key) || {
+			id,
+			entity,
+			files: 0,
+			sources: [],
+		};
+
+		existing.files += 1;
+		const nextSource: QueueCardSourceEntry = {
+			source,
+			status:
+				item?.status === 'error' ? 'error'
+				: item?.status === 'skipped' ? 'skipped'
+				: item?.status === 'ok' ? 'ok'
+				: 'unknown',
+			error: item?.error ? String(item.error) : undefined,
+			skipReason: item?.skipReason ? String(item.skipReason) : undefined,
+		};
+
+		const sourceIndex = existing.sources.findIndex((entry) => entry.source === source);
+		if (sourceIndex >= 0) existing.sources[sourceIndex] = nextSource;
+		else existing.sources.push(nextSource);
+
+		map.set(key, existing);
+	}
+
+	return Array.from(map.values()).sort((left, right) => {
+		if (left.entity !== right.entity) return left.entity === 'individual' ? -1 : 1;
+		return right.id.localeCompare(left.id);
+	});
 }
 
 function normalizePayloadForCleanView(payload: unknown) {
@@ -289,6 +385,7 @@ export default function DashboardPage() {
 		totalCacheKeys: number;
 		filteredTotalCount?: number;
 		sourceMode?: string;
+		persistenceNotice?: string | null;
 		inventoryTotals?: { people: number; firms: number; unique: number; source?: string };
 	}>({
 		shownCount: 0,
@@ -479,6 +576,14 @@ export default function DashboardPage() {
 		return `Showing recent results from ${shown.toLocaleString()} loaded records (${total.toLocaleString()} total cached records).${filterSuffix}`;
 	}, [queueCards.length, queueMetaStats, queueCrdFilter]);
 
+	const persistenceNotice = useMemo(() => {
+		if (queueMetaStats.persistenceNotice) return queueMetaStats.persistenceNotice;
+		if (queueMetaStats.sourceMode === 'local-fallback') {
+			return 'Durable Redis persistence is unavailable here, so recent fetches may be temporary and not reload as saved cache cards.';
+		}
+		return null;
+	}, [queueMetaStats.persistenceNotice, queueMetaStats.sourceMode]);
+
 	const uniqueCrdCounts = useMemo(() => {
 		if (queueMetaStats.inventoryTotals) {
 			return {
@@ -636,55 +741,6 @@ export default function DashboardPage() {
 		return currentRecordId === card.id && currentRecordEntity === card.entity && currentRecordSource === source;
 	}
 
-	function buildQueueCardsFromFetchResults(items: any[]): QueueCard[] {
-		const map = new Map<string, QueueCard>();
-		for (const item of items) {
-			const id = String(item?.crd || '').trim();
-			const source = String(item?.source || '')
-				.trim()
-				.toLowerCase() as SearchResultSource;
-			const entity =
-				(
-					String(item?.type || '')
-						.trim()
-						.toLowerCase() === 'firm'
-				) ?
-					'firm'
-				:	'individual';
-			if (!/^\d{1,10}$/.test(id)) continue;
-			if (source !== 'finra' && source !== 'sec') continue;
-
-			const key = `${entity}:${id}`;
-			const existing = map.get(key) || {
-				id,
-				entity,
-				files: 0,
-				sources: [],
-			};
-
-			existing.files += 1;
-			const nextSource: QueueCardSourceEntry = {
-				source,
-				status:
-					item?.status === 'error' ? 'error'
-					: item?.status === 'ok' ? 'ok'
-					: 'unknown',
-				error: item?.error ? String(item.error) : undefined,
-			};
-
-			const sourceIndex = existing.sources.findIndex((entry) => entry.source === source);
-			if (sourceIndex >= 0) existing.sources[sourceIndex] = nextSource;
-			else existing.sources.push(nextSource);
-
-			map.set(key, existing);
-		}
-
-		return Array.from(map.values()).sort((left, right) => {
-			if (left.entity !== right.entity) return left.entity === 'individual' ? -1 : 1;
-			return right.id.localeCompare(left.id);
-		});
-	}
-
 	function extractPayloadFromDetail(detail: any, source: SearchResultSource) {
 		if (!detail || typeof detail !== 'object') return null;
 		if (source === 'finra') {
@@ -710,18 +766,25 @@ export default function DashboardPage() {
 			const payload = await response.json().catch(() => null);
 			if (payload?.ok === false) {
 				setQueueCards([]);
-				setQueueMetaStats({ shownCount: 0, totalCount: 0, totalCacheKeys: 0, filteredTotalCount: 0 });
+				setQueueMetaStats({ shownCount: 0, totalCount: 0, totalCacheKeys: 0, filteredTotalCount: 0, persistenceNotice: null });
 				return;
 			}
 
 			const cards = Array.isArray(payload?.cards) ? payload.cards : [];
-			setQueueCards(cards as QueueCard[]);
+			setQueueCards((current) => {
+				const sourceMode = String(payload?.sourceMode || '');
+				if (cards.length === 0 && sourceMode === 'local-fallback' && current.length > 0) {
+					return current;
+				}
+				return cards as QueueCard[];
+			});
 			setQueueMetaStats({
 				shownCount: Number(payload?.shownCount || cards.length || 0),
 				totalCount: Number(payload?.totalCount || cards.length || 0),
 				totalCacheKeys: Number(payload?.totalCacheKeys || 0),
 				...(payload?.filteredTotalCount != null ? { filteredTotalCount: Number(payload.filteredTotalCount || 0) } : {}),
 				...(payload?.sourceMode ? { sourceMode: String(payload.sourceMode) } : {}),
+				...(payload?.persistenceNotice !== undefined ? { persistenceNotice: payload.persistenceNotice ? String(payload.persistenceNotice) : null } : {}),
 				...(payload?.inventoryTotals ? { inventoryTotals: payload.inventoryTotals } : {}),
 			});
 		} catch {
@@ -911,8 +974,34 @@ export default function DashboardPage() {
 				},
 				body: JSON.stringify(body),
 			});
+			const contentType = response.headers.get('content-type');
+			const rawText = await response.text();
+			let payload: ApiResponse | null = null;
+			if (contentType?.includes('application/json')) {
+				payload = JSON.parse(rawText) as ApiResponse;
+			}
 
-			const payload = (await response.json()) as ApiResponse;
+			if (!response.ok || !payload) {
+				throw new Error(
+					describeDashboardRequestFailure({
+						status: response.status,
+						contentType,
+						bodyText: rawText,
+						elapsedSec: Math.max(0, Math.round((Date.now() - startedAt) / 1000)),
+					}),
+				);
+			}
+
+			if (payload.ok === false) {
+				throw new Error(
+					describeDashboardRequestFailure({
+						status: response.status,
+						contentType,
+						bodyText: String(payload.error || rawText || ''),
+						elapsedSec: Math.max(0, Math.round((Date.now() - startedAt) / 1000)),
+					}),
+				);
+			}
 			setResult(payload);
 			markRecordUpdatedAt((payload as any)?.at);
 
@@ -925,13 +1014,15 @@ export default function DashboardPage() {
 				const elapsedSec = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
 				const summary = (payload as any)?.summary;
 				const successCount = Number(summary?.successCount || 0);
+				const skippedCount = Number(summary?.skippedCount || 0);
 				const errorCount = Number(summary?.errorCount || 0);
 				const newRecordCount = Number(summary?.newRecordCount || 0);
 				const newSourceCount = Number(summary?.newSourceCount || 0);
 				const newPeopleCount = Number(summary?.newPeopleCount || 0);
 				const newFirmCount = Number(summary?.newFirmCount || 0);
+				const persistenceMessage = typeof (payload as any)?.persistenceNotice === 'string' ? String((payload as any).persistenceNotice) : null;
 				setQueueStatusLine(
-					`Done | ${matched}/${resolution.length || effectiveQueries.length} matched | saved ${newRecordCount} record${newRecordCount === 1 ? '' : 's'} | elapsed ${elapsedSec}s`,
+					`Done | ${matched}/${resolution.length || effectiveQueries.length} matched | ok ${successCount} | skipped ${skippedCount} | err ${errorCount} | elapsed ${elapsedSec}s`,
 				);
 
 				if (newRecordCount > 0) {
@@ -956,6 +1047,7 @@ export default function DashboardPage() {
 						const crdCount = Number(resolved?.crdCount || 0);
 						const queryStats = computeQuerySaveStats(resolution, fetchedItems)[item.query] || {
 							fetchedCount: 0,
+							skippedCount: 0,
 							savedSourceCount: 0,
 							savedRecordCount: 0,
 							updatedExistingSourceCount: 0,
@@ -963,6 +1055,9 @@ export default function DashboardPage() {
 							errorCount: 0,
 						};
 						const saveChangeLabel = describeQuerySaveChange(queryStats);
+						const resultSuffix = [queryStats.skippedCount > 0 ? `${queryStats.skippedCount} skipped` : null, queryStats.errorCount > 0 ? `${queryStats.errorCount} errors` : null]
+							.filter(Boolean)
+							.join(' • ');
 
 						// Find fetched results for this query/CRD to extract detail info
 						const fetchedResult = fetchedItems.find((result: any) => String(result?.crd || '') === item.query);
@@ -982,11 +1077,13 @@ export default function DashboardPage() {
 								...item,
 								status: 'complete',
 								crdCount,
+								skippedSourceCount: queryStats.skippedCount,
+								trueErrorCount: queryStats.errorCount,
 								savedRecordCount: queryStats.savedRecordCount,
 								savedSourceCount: queryStats.savedSourceCount,
 								updatedExistingRecordCount: queryStats.updatedExistingRecordCount,
 								updatedExistingSourceCount: queryStats.updatedExistingSourceCount,
-								message: `${item.query} • COMPLETE ${crdCount} matches • ${saveChangeLabel}`,
+								message: `${item.query} • COMPLETE ${crdCount} matches • ${saveChangeLabel}${resultSuffix ? ` • ${resultSuffix}` : ''}`,
 								fetchedEntity: entityDetail || undefined,
 								detailContent: entityDetail?.status || undefined,
 							};
@@ -1010,9 +1107,17 @@ export default function DashboardPage() {
 						.then((res) => res.json())
 						.catch(() => undefined);
 				}
-				if (successCount > 0 || newRecordCount > 0 || newSourceCount > 0) {
+				if (successCount > 0 || skippedCount > 0 || newRecordCount > 0 || newSourceCount > 0 || persistenceMessage) {
 					setSyncBannerText(
-						`Local sync: ${newRecordCount.toLocaleString()} new record${newRecordCount === 1 ? '' : 's'} • ${newSourceCount.toLocaleString()} new source save${newSourceCount === 1 ? '' : 's'} • ${errorCount.toLocaleString()} errors`,
+						[
+							`Local sync: ${newRecordCount.toLocaleString()} new record${newRecordCount === 1 ? '' : 's'}`,
+							`${newSourceCount.toLocaleString()} new source save${newSourceCount === 1 ? '' : 's'}`,
+							`${skippedCount.toLocaleString()} skipped`,
+							`${errorCount.toLocaleString()} errors`,
+							persistenceMessage,
+						]
+							.filter(Boolean)
+							.join(' • '),
 					);
 				} else {
 					setSyncBannerText(null);
@@ -1025,16 +1130,18 @@ export default function DashboardPage() {
 					const crdCount = Number(entry?.crdCount || 0);
 					const addedCount = Number(perQueryAddedCounts[queryText] || 0);
 					const saveStats = perQuerySaveStats[queryText] || {
+						skippedCount: 0,
 						savedRecordCount: 0,
 						savedSourceCount: 0,
 						updatedExistingRecordCount: 0,
 						updatedExistingSourceCount: 0,
+						errorCount: 0,
 					};
 					nextQueryLines.push(
-						`target ${queryText} | crd ${crdCount} | new ${saveStats.savedRecordCount} CRD | existing+new-source ${saveStats.updatedExistingRecordCount} CRD / ${saveStats.updatedExistingSourceCount} src | fetched ${addedCount}`,
+						`target ${queryText} | crd ${crdCount} | new ${saveStats.savedRecordCount} CRD | existing+new-source ${saveStats.updatedExistingRecordCount} CRD / ${saveStats.updatedExistingSourceCount} src | fetched ${addedCount} | skipped ${saveStats.skippedCount} | err ${saveStats.errorCount}`,
 					);
 				}
-				nextQueryLines.push(`match F/S requests ok ${successCount} | new records ${newRecordCount} | new sources ${newSourceCount} | err ${errorCount}`);
+				nextQueryLines.push(`match F/S requests ok ${successCount} | skipped ${skippedCount} | new records ${newRecordCount} | new sources ${newSourceCount} | err ${errorCount}`);
 				setQueueQueryLines(nextQueryLines);
 
 				const nextCards = buildQueueCardsFromFetchResults(fetchedItems);
@@ -1053,13 +1160,14 @@ export default function DashboardPage() {
 		} catch (error: any) {
 			if (action === 'fetch-crds') {
 				const elapsedSec = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
-				setQueueStatusLine(`Error | query failed | queue ${effectiveQueries.length} | elapsed ${elapsedSec}s`);
+				const requestMessage = describeDashboardRequestFailure({ errorMessage: error?.message || String(error), elapsedSec });
+				setQueueStatusLine(`Error | ${requestMessage} | queue ${effectiveQueries.length} | elapsed ${elapsedSec}s`);
 				setSyncBannerText(null);
 				setQueueRunItems((current) =>
 					current.map((item) => ({
 						...item,
 						status: item.status === 'complete' ? 'complete' : 'error',
-						message: item.message || `${item.query} • ERROR`,
+						message: item.message || `${item.query} • ${requestMessage}`,
 					})),
 				);
 			}
@@ -1249,6 +1357,11 @@ export default function DashboardPage() {
 												{Number(item.updatedExistingSourceCount || 0)} src
 											</div>
 										)}
+										{(item.skippedSourceCount != null || item.trueErrorCount != null) && (
+											<div className={styles.queueRunStats}>
+												skipped {Number(item.skippedSourceCount || 0)} • errors {Number(item.trueErrorCount || 0)}
+											</div>
+										)}
 										{item.fetchedEntity && (
 											<div className={styles.queueRunDetail}>
 												<div className={styles.queueRunDetailId}>
@@ -1267,6 +1380,7 @@ export default function DashboardPage() {
 
 					<div className={styles.queueSectionTitle}>Run Queue</div>
 					<div className={styles.queueMeta}>{queueMetaText}</div>
+					{persistenceNotice && <div className={styles.searchSummary}>{persistenceNotice}</div>}
 					<div className={styles.cardList}>
 						{mergedQueueCards.map((card, index) => (
 							<div
@@ -1295,7 +1409,10 @@ export default function DashboardPage() {
 								</div>
 								{card.memberSince && <div className={styles.cardMeta}>Member since: {card.memberSince}</div>}
 								{card.since && <div className={styles.cardMeta}>{card.kind === 'recent' ? card.since : `In industry since: ${card.since}`}</div>}
-								{card.sources.some((entry) => entry.status === 'error') && <div className={styles.cardError}>One or more source fetches failed</div>}
+								{shouldShowQueueCardError(card) && <div className={styles.cardError}>One or more source fetches failed</div>}
+								{shouldShowQueueCardSkipped(card) && (
+									<div className={styles.cardMeta}>Some sources were skipped because the upstream payload was out of scope for that entity/source.</div>
+								)}
 							</div>
 						))}
 

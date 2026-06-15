@@ -1,7 +1,22 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildPrimedBundleInventoryTotals, extractCardSummaryFields, fetchedPayloadHasSourceCoverage, summarizeFetchResults } from '../../src/app/api/dashboard/refresh/route';
-import { computeQueryFetchCounts, computeQuerySaveStats, describeQuerySaveChange, parseDashboardSelectionFromUrl } from '../../src/app/dashboard/page';
+import {
+	buildPrimedBundleInventoryTotals,
+	classifyFetchedPayloadOutcome,
+	extractCardSummaryFields,
+	fetchedPayloadHasSourceCoverage,
+	summarizeFetchResults,
+} from '../../src/app/api/dashboard/refresh/route';
+import {
+	buildQueueCardsFromFetchResults,
+	computeQueryFetchCounts,
+	computeQuerySaveStats,
+	describeDashboardRequestFailure,
+	describeQuerySaveChange,
+	parseDashboardSelectionFromUrl,
+	shouldShowQueueCardError,
+	shouldShowQueueCardSkipped,
+} from '../../src/app/dashboard/page';
 
 const TEST_FINRA_ONLY_CRD = '9100001';
 const TEST_DUAL_SOURCE_CRD = '9100002';
@@ -79,6 +94,7 @@ describe('computeQuerySaveStats', () => {
 		expect(computeQuerySaveStats(resolution, fetchedItems)).toEqual({
 			'100': {
 				fetchedCount: 2,
+				skippedCount: 0,
 				savedSourceCount: 2,
 				savedRecordCount: 1,
 				updatedExistingSourceCount: 1,
@@ -87,6 +103,7 @@ describe('computeQuerySaveStats', () => {
 			},
 			'200': {
 				fetchedCount: 1,
+				skippedCount: 0,
 				savedSourceCount: 0,
 				savedRecordCount: 0,
 				updatedExistingSourceCount: 0,
@@ -153,6 +170,17 @@ describe('summarizeFetchResults', () => {
 				newRecordSaved: false,
 			},
 			{
+				crd: '100',
+				source: 'sec',
+				type: 'firm',
+				url: '',
+				cacheFile: '',
+				redisKey: '',
+				status: 'skipped',
+				redisWrite: 'skipped:out-of-scope-source-payload',
+				skipReason: 'out-of-scope-source-payload',
+			},
+			{
 				crd: '200',
 				source: 'finra',
 				type: 'firm',
@@ -169,8 +197,9 @@ describe('summarizeFetchResults', () => {
 
 		expect(summary).toEqual({
 			crdCount: 2,
-			requests: 3,
+			requests: 4,
 			successCount: 2,
+			skippedCount: 1,
 			errorCount: 1,
 			newSourceCount: 2,
 			newRecordCount: 1,
@@ -235,6 +264,10 @@ describe('fetchedPayloadHasSourceCoverage', () => {
 
 		expect(fetchedPayloadHasSourceCoverage(secPayload, { source: 'sec', type: 'individual', crd: TEST_FINRA_ONLY_CRD })).toBe(false);
 		expect(fetchedPayloadHasSourceCoverage(finraPayload, { source: 'finra', type: 'individual', crd: TEST_FINRA_ONLY_CRD })).toBe(true);
+		expect(classifyFetchedPayloadOutcome(secPayload, { source: 'sec', type: 'individual', crd: TEST_FINRA_ONLY_CRD })).toEqual({
+			status: 'skipped',
+			skipReason: 'out-of-scope-source-payload',
+		});
 	});
 
 	it('accepts a truly dual-source individual payload', () => {
@@ -334,5 +367,84 @@ describe('extractCardSummaryFields', () => {
 
 		expect(summary.statusText).toBe('FINRA Active');
 		expect(summary.statusText).not.toContain('SEC');
+	});
+});
+
+describe('buildQueueCardsFromFetchResults', () => {
+	it('preserves skipped and error state per source', () => {
+		const cards = buildQueueCardsFromFetchResults([
+			{ crd: '7506710', source: 'finra', type: 'individual', status: 'ok' },
+			{ crd: '7506710', source: 'sec', type: 'individual', status: 'skipped', skipReason: 'out-of-scope-source-payload' },
+			{ crd: '7506710', source: 'finra', type: 'firm', status: 'error', error: 'HTTP 500' },
+		]);
+
+		expect(cards).toEqual([
+			{
+				id: '7506710',
+				entity: 'individual',
+				files: 2,
+				sources: [
+					{ source: 'finra', status: 'ok', error: undefined, skipReason: undefined },
+					{ source: 'sec', status: 'skipped', error: undefined, skipReason: 'out-of-scope-source-payload' },
+				],
+			},
+			{
+				id: '7506710',
+				entity: 'firm',
+				files: 1,
+				sources: [{ source: 'finra', status: 'error', error: 'HTTP 500', skipReason: undefined }],
+			},
+		]);
+	});
+});
+
+describe('queue card banners', () => {
+	it('shows the red error banner only for true failures', () => {
+		expect(
+			shouldShowQueueCardError({
+				sources: [
+					{ source: 'finra', status: 'ok' },
+					{ source: 'sec', status: 'skipped' },
+				],
+			}),
+		).toBe(false);
+		expect(
+			shouldShowQueueCardSkipped({
+				sources: [
+					{ source: 'finra', status: 'ok' },
+					{ source: 'sec', status: 'skipped' },
+				],
+			}),
+		).toBe(true);
+		expect(
+			shouldShowQueueCardError({
+				sources: [
+					{ source: 'finra', status: 'ok' },
+					{ source: 'sec', status: 'error' },
+				],
+			}),
+		).toBe(true);
+	});
+});
+
+describe('describeDashboardRequestFailure', () => {
+	it('surfaces a clearer timeout message for likely Vercel duration failures', () => {
+		expect(
+			describeDashboardRequestFailure({
+				status: 504,
+				bodyText: 'Gateway Timeout',
+				elapsedSec: 30,
+			}),
+		).toContain('Queue likely timed out after 30s');
+	});
+
+	it('explains non-JSON gateway failures', () => {
+		expect(
+			describeDashboardRequestFailure({
+				status: 500,
+				contentType: 'text/html',
+				bodyText: '<html>server exploded</html>',
+			}),
+		).toContain('received JSON');
 	});
 });
