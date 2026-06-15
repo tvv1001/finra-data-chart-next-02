@@ -1,41 +1,36 @@
 import type { NextConfig } from 'next';
 
-const graphRuntimeData = [
-	'./data/national/finra-graph.json',
-	'./data/national/finra-seed-bank.json',
-	'./data/national/finra-recent-seeds.json',
-	'./data/national/finra-seeds.json',
-	'./data/seed-profiles.json',
-];
+const seedRuntimeData = ['./data/national/finra-seed-bank.json', './data/national/finra-recent-seeds.json', './data/national/finra-seeds.json', './data/seed-profiles.json'];
 
-const excludedLargeRuntimeData = [
-	'data/raw/**',
-	'data/cache-binary/**',
-	'data/build_manifest.json',
-	'data/national/brokercheck.finra.org/**',
-	'data/national/adviserinfo.sec.gov/**',
-	'data/national/primed-cache/**',
-	'data/national/finra-graph*.json*',
-	'data/national/finra-seed-bank.json',
-	'data/national/finra-seeds.json',
-	'data/national/finra-recent-seeds.json',
-	'data/national/*.jsonl',
-	'data/national/redis-dump-*.jsonl',
-	'data/national/nonstring-finra-keys-*.jsonl',
-	'data/national/api.*.json',
-	'data/national/search-index*.json',
-	'public/search-indexes/**',
-	'tests/**',
-	'test-results/**',
-	'playwright-report/**',
-	'coverage/**',
-];
+const graphRuntimeData = ['./data/national/finra-graph.json', ...seedRuntimeData];
+const profileRuntimeData = ['./data/seed-profiles.json'];
+const recentSeedRuntimeData = ['./data/national/finra-recent-seeds.json'];
+const dashboardRuntimeData = ['./data/crd-log.json', ...graphRuntimeData];
 
 const nextConfig: NextConfig = {
 	output: 'standalone',
 	// output: "export",
 	// Compress API + page responses with gzip/brotli
 	compress: true,
+	outputFileTracingIncludes: {
+		'/api/finra/graph': graphRuntimeData,
+		'/api/finra/graph-append': graphRuntimeData,
+		'/api/finra/graph-search': graphRuntimeData,
+		'/api/finra/prime-check': graphRuntimeData,
+		'/api/finra/location-search': graphRuntimeData,
+		'/api/finra/nodes-by-ids': graphRuntimeData,
+		'/api/finra/cache-stats': graphRuntimeData,
+		'/api/finra/recompute-meta': graphRuntimeData,
+		'/api/finra/graph-reset': graphRuntimeData,
+		'/api/finra/expand/**': graphRuntimeData,
+		'/api/finra/health': ['./data/national/finra-graph.json'],
+		'/api/finra/seeds': seedRuntimeData,
+		'/api/finra/profile/**': profileRuntimeData,
+		'/api/finra/add-to-profile': profileRuntimeData,
+		'/api/finra/individual/**': recentSeedRuntimeData,
+		'/api/finra/firm/**': recentSeedRuntimeData,
+		'/api/dashboard/refresh': dashboardRuntimeData,
+	},
 	async rewrites() {
 		return [
 			{
