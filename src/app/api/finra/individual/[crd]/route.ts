@@ -105,27 +105,31 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		// Always fetch with includePrevious so previous employments are included in the payload.
 		// Store under the plain key (no query suffix) so dashboard scans match it.
 		const fetchQuery = 'hl=true&includePrevious=true&wt=json';
+		const axiosConfig = {
+			timeout: 12000,
+			headers: {
+				'Accept': 'application/json',
+				'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+				'Referer': 'https://brokercheck.finra.org/',
+			},
+		};
 
 		const requests = await Promise.allSettled([
 			cachedFetch(`finra:individual:${crd}`, 60 * 60 * 24, async () => {
 				try {
-					const res = await axios.get(`https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`, {
-						timeout: 10000,
-					});
+					const res = await axios.get(`https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`, axiosConfig);
 					return res.data;
-				} catch (err) {
-					logger.warn('FINRA external fetch failed', { crd, error: err instanceof Error ? err.message : 'unknown' });
+				} catch (err: any) {
+					logger.warn('FINRA external fetch failed', { crd, status: err?.response?.status, error: err.message });
 					return undefined;
 				}
 			}),
 			cachedFetch(`sec:individual:${crd}`, 60 * 60 * 24, async () => {
 				try {
-					const res = await axios.get(`https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`, {
-						timeout: 10000,
-					});
+					const res = await axios.get(`https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`, axiosConfig);
 					return res.data;
-				} catch (err) {
-					logger.warn('SEC external fetch failed', { crd, error: err instanceof Error ? err.message : 'unknown' });
+				} catch (err: any) {
+					logger.warn('SEC external fetch failed', { crd, status: err?.response?.status, error: err.message });
 					return undefined;
 				}
 			}),
@@ -183,6 +187,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			return '';
 		}
 
+		if (!isPlainObject(detail)) {
+			logger.warn('parsed individual detail is not an object', { crd, type: typeof detail });
+			return NextResponse.json({ found: false }, { status: 200, headers: sharedCacheHeaders(3600) });
+		}
+
 		const finraNumeric = finraDetail ? findNumericId(finraDetail, ['individualId', 'individual_id', 'crd', 'ind_crd', 'ind_source_id']) : '';
 		const secNumeric = secDetail ? findNumericId(secDetail, ['individualId', 'individual_id', 'crd', 'ind_crd', 'ind_source_id']) : '';
 
@@ -221,7 +230,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		return NextResponse.json(responseData, { headers: sharedCacheHeaders(3600) });
 	} catch (err: any) {
-		logger.error('individual local detail route error', { crd, error: err.message });
-		return NextResponse.json({ error: 'Failed to load local detail.' }, { status: 500 });
+		logger.error('individual local detail route error', { 
+			crd, 
+			error: err.message,
+			stack: err.stack,
+			isMergedRoute: request.nextUrl.searchParams.get('merged') === '1'
+		});
+		return NextResponse.json({ error: 'Failed to load local detail.', message: err.message }, { status: 500 });
 	}
 }
