@@ -1,8 +1,0 @@
-{
-	"security": {
-		"toolSandboxing": false
-	},
-	"devtools": {
-		"openAtStart": true
-	}
-}

@@ -6687,13 +6687,14 @@ function getLinkHighlightColor(link) {
 function getCompactInactiveNodeLabel(node) {
 	const preferredLabel = getPreferredNodeLabel(node);
 	if (!preferredLabel) return '';
+	const isNodeIdLabel = /^Node\s+/i.test(preferredLabel);
 	if (node?.group === 'firm') {
 		const clippedLabel = clipFirmLabelAtWord(preferredLabel, 26);
-		return isPlaceholderExpansionLabel(clippedLabel, node?.group) ? '' : clippedLabel;
+		return !isNodeIdLabel && isPlaceholderExpansionLabel(clippedLabel, node?.group) ? '' : clippedLabel;
 	}
 	const formattedLabel = formatNodeLabel(preferredLabel);
 	const compactLabel = truncate(formattedLabel, 18);
-	return isPlaceholderExpansionLabel(compactLabel, node?.group) ? '' : compactLabel;
+	return !isNodeIdLabel && isPlaceholderExpansionLabel(compactLabel, node?.group) ? '' : compactLabel;
 }
 
 function updateInactiveLabelZoomState(rootSelection, zoomScale, forceExpandedLabels = false) {
@@ -7780,9 +7781,9 @@ function renderGraph(_data) {
 	// ── Zoom ──────────────────────────────────────────────────────────────────
 	// LOD threshold: hide labels when zoomed out (less DOM paint, higher props)
 	const labelZoomThreshold =
-		isHuge ? 1.75
-		: isLarge ? 1.6
-		: 0.6;
+		isHuge ? 1.5
+		: isLarge ? 1.4
+		: 0.5;
 	activeLabelZoomThreshold = labelZoomThreshold;
 	inactiveLabelCompactZoomThreshold = labelZoomThreshold * 1.35;
 	inactiveLabelCompactMode = initialScaleForCompactState(nodeCount) < inactiveLabelCompactZoomThreshold;
@@ -9399,7 +9400,6 @@ function getExpansionNodeMatchLabel(node) {
 function isPlaceholderExpansionLabel(label, group) {
 	const text = String(label || '').trim();
 	if (!text) return true;
-	if (/^Node\s+(?:person|firm|entity)[:_][a-z0-9:-]+$/i.test(text)) return true;
 	if (/^\d+$/.test(text)) return true;
 	if (/^\d+-\d+$/.test(text)) return true;
 	if (/^(?:crd|sec)#?\s*\d+$/i.test(text)) return true;
@@ -9490,13 +9490,14 @@ function clipFirmLabelAtWord(label, maxChars = 44) {
 function getRenderedNodeLabel(node, { skipTruncation = false }: { skipTruncation?: boolean } = {}) {
 	const preferredLabel = getPreferredNodeLabel(node);
 	if (!preferredLabel) return '';
-	if (isPlaceholderExpansionLabel(preferredLabel, node?.group)) return '';
+	const isNodeIdLabel = /^Node\s+/i.test(preferredLabel);
+	if (!isNodeIdLabel && isPlaceholderExpansionLabel(preferredLabel, node?.group)) return '';
 	if (node?.group === 'firm') {
 		const clippedLabel = skipTruncation ? formatNodeLabel(preferredLabel) : clipFirmLabelAtWord(preferredLabel);
-		return isPlaceholderExpansionLabel(clippedLabel, node?.group) ? '' : clippedLabel;
+		return !isNodeIdLabel && isPlaceholderExpansionLabel(clippedLabel, node?.group) ? '' : clippedLabel;
 	}
 	const formattedLabel = formatNodeLabel(preferredLabel);
-	return isPlaceholderExpansionLabel(formattedLabel, node?.group) ? '' : formattedLabel;
+	return !isNodeIdLabel && isPlaceholderExpansionLabel(formattedLabel, node?.group) ? '' : formattedLabel;
 }
 
 function normalizeNodeLabelInPlace(node) {

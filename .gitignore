@@ -42,6 +42,7 @@ public/wasm/
 public/workers/
 rust/target/
 rust/graph-layout/target/
+native/graph-layout/target/
 data/cache-binary/
 data/national/
 data/national/**
@@ -57,5 +58,9 @@ data/last_*_report.json
 generated/
 *.generated.md
 public/search-indexes/
+
+# AI tool settings (local only)
+.gemini/
+SESSION-HANDOFF.md
 
 finra-data-large-view.code-workspace

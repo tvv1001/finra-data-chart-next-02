@@ -967,13 +967,18 @@ export default function DashboardPage() {
 						externalRawDir,
 					};
 
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 60000);
+
 			const response = await fetch('/api/dashboard/refresh', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 				},
 				body: JSON.stringify(body),
+				signal: controller.signal,
 			});
+			clearTimeout(timeoutId);
 			const contentType = response.headers.get('content-type');
 			const rawText = await response.text();
 			let payload: ApiResponse | null = null;

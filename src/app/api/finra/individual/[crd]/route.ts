@@ -91,6 +91,30 @@ function buildIndividualQueryParams(searchParams: URLSearchParams) {
 	return params;
 }
 
+// determine whether parsed details contain a usable numeric identifier
+function findNumericId(obj: any, candidates: string[]) {
+	if (!obj || typeof obj !== 'object') return '';
+	for (const key of candidates) {
+		const v = obj[key];
+		if (v == null) continue;
+		const s = String(v).trim();
+		if (/^\d+$/.test(s)) return s;
+		if (/^8-\d+$/i.test(s)) return s;
+	}
+	// try nested basicInformation
+	const bi = obj.basicInformation || obj.basic_information || obj.basic || null;
+	if (bi && typeof bi === 'object') {
+		for (const key of candidates) {
+			const v = bi[key];
+			if (v == null) continue;
+			const s = String(v).trim();
+			if (/^\d+$/.test(s)) return s;
+			if (/^8-\d+$/i.test(s)) return s;
+		}
+	}
+	return '';
+}
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ crd: string }> }) {
 	const { crd } = await params;
 	if (!/^\d{1,10}$/.test(crd)) {
@@ -102,34 +126,36 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	});
 
 	try {
-		// Always fetch with includePrevious so previous employments are included in the payload.
-		// Store under the plain key (no query suffix) so dashboard scans match it.
 		const fetchQuery = 'hl=true&includePrevious=true&wt=json';
-		const axiosConfig = {
-			timeout: 12000,
+		const fetchOptions = {
 			headers: {
 				'Accept': 'application/json',
 				'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
 				'Referer': 'https://brokercheck.finra.org/',
 			},
+			next: { revalidate: 3600 },
 		};
 
 		const requests = await Promise.allSettled([
 			cachedFetch(`finra:individual:${crd}`, 60 * 60 * 24, async () => {
 				try {
-					const res = await axios.get(`https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`, axiosConfig);
-					return res.data;
+					const url = `https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`;
+					const res = await fetch(url, fetchOptions);
+					if (!res.ok) throw new Error(`HTTP ${res.status}`);
+					return res.json();
 				} catch (err: any) {
-					logger.warn('FINRA external fetch failed', { crd, status: err?.response?.status, error: err.message });
+					logger.warn('FINRA external fetch failed', { crd, error: err.message });
 					return undefined;
 				}
 			}),
 			cachedFetch(`sec:individual:${crd}`, 60 * 60 * 24, async () => {
 				try {
-					const res = await axios.get(`https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`, axiosConfig);
-					return res.data;
+					const url = `https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`;
+					const res = await fetch(url, fetchOptions);
+					if (!res.ok) throw new Error(`HTTP ${res.status}`);
+					return res.json();
 				} catch (err: any) {
-					logger.warn('SEC external fetch failed', { crd, status: err?.response?.status, error: err.message });
+					logger.warn('SEC external fetch failed', { crd, error: err.message });
 					return undefined;
 				}
 			}),
@@ -138,23 +164,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		const finraData = requests[0].status === 'fulfilled' ? requests[0].value : null;
 		const secData = requests[1].status === 'fulfilled' ? requests[1].value : null;
 
-		if (requests[0].status === 'rejected') {
-			logger.warn('individual FINRA local cache lookup failed', {
-				crd,
-				error: requests[0].reason?.message || String(requests[0].reason || 'unknown error'),
-			});
-		}
-		if (requests[1].status === 'rejected') {
-			logger.warn('individual SEC local cache lookup failed', {
-				crd,
-				error: requests[1].reason?.message || String(requests[1].reason || 'unknown error'),
-			});
-		}
-
 		const finraDetail = parseDetailPayload(finraData, 'content');
 		const secDetail = parseDetailPayload(secData, 'iacontent');
+
 		if (!finraDetail && !secDetail) {
-			return NextResponse.json({ found: false }, { status: 200, headers: sharedCacheHeaders(3600) });
+			return NextResponse.json({ found: false, crd }, { status: 200, headers: sharedCacheHeaders(3600) });
 		}
 
 		const detail: any =
@@ -163,33 +177,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				:	finraDetail
 			:	secDetail;
 
-		// determine whether parsed details contain a usable numeric identifier
-		function findNumericId(obj: any, candidates: string[]) {
-			if (!obj || typeof obj !== 'object') return '';
-			for (const key of candidates) {
-				const v = obj[key];
-				if (v == null) continue;
-				const s = String(v).trim();
-				if (/^\d+$/.test(s)) return s;
-				if (/^8-\d+$/i.test(s)) return s;
-			}
-			// try nested basicInformation
-			const bi = obj.basicInformation || obj.basic_information || obj.basic || null;
-			if (bi && typeof bi === 'object') {
-				for (const key of candidates) {
-					const v = bi[key];
-					if (v == null) continue;
-					const s = String(v).trim();
-					if (/^\d+$/.test(s)) return s;
-					if (/^8-\d+$/i.test(s)) return s;
-				}
-			}
-			return '';
-		}
-
 		if (!isPlainObject(detail)) {
 			logger.warn('parsed individual detail is not an object', { crd, type: typeof detail });
-			return NextResponse.json({ found: false }, { status: 200, headers: sharedCacheHeaders(3600) });
+			return NextResponse.json({ found: false, crd, error: 'invalid-detail-shape' }, { status: 200, headers: sharedCacheHeaders(3600) });
 		}
 
 		const finraNumeric = finraDetail ? findNumericId(finraDetail, ['individualId', 'individual_id', 'crd', 'ind_crd', 'ind_source_id']) : '';
@@ -216,17 +206,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			);
 		}
 
-		// For non-merged route, return with bccontent wrapper to match SEC's iacontent naming
-		const responseData: any = {};
-		if (finraDetail) {
-			responseData.bccontent = finraDetail;
-		}
-		if (secDetail) {
-			responseData.iacontent = secDetail;
-		}
-		if (Object.keys(responseData).length === 0) {
-			return NextResponse.json({ found: false }, { status: 200, headers: sharedCacheHeaders(3600) });
-		}
+		const responseData: any = { found: true, crd };
+		if (finraDetail) responseData.bccontent = finraDetail;
+		if (secDetail) responseData.iacontent = secDetail;
 
 		return NextResponse.json(responseData, { headers: sharedCacheHeaders(3600) });
 	} catch (err: any) {
@@ -234,8 +216,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			crd, 
 			error: err.message,
 			stack: err.stack,
-			isMergedRoute: request.nextUrl.searchParams.get('merged') === '1'
 		});
-		return NextResponse.json({ error: 'Failed to load local detail.', message: err.message }, { status: 500 });
+		return NextResponse.json({ 
+			error: 'Failed to load individual detail.', 
+			message: err.message,
+			crd 
+		}, { status: 500 });
 	}
 }
