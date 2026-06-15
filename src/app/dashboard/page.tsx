@@ -213,6 +213,9 @@ export function describeDashboardRequestFailure(options: { status?: number; cont
 	const errorMessage = String(options.errorMessage || '');
 	const elapsedSec = Math.max(0, Number(options.elapsedSec || 0));
 	const combined = `${bodyText}\n${errorMessage}`.toLowerCase();
+	if (combined.includes('aborted without reason') || combined.includes('request aborted') || combined.includes('aborterror')) {
+		return 'Queue request was cancelled by the browser timeout. The crawl may still be running; please wait a bit longer and try again.';
+	}
 	const timeoutLike =
 		status === 408 ||
 		status === 504 ||
@@ -973,7 +976,7 @@ export default function DashboardPage() {
 					};
 
 			const controller = new AbortController();
-			const timeoutId = setTimeout(() => controller.abort(), 60000);
+			const timeoutId = setTimeout(() => controller.abort('dashboard-request-timeout'), 15 * 60 * 1000);
 
 			const response = await fetch('/api/dashboard/refresh', {
 				method: 'POST',
