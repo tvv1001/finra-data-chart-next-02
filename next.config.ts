@@ -14,7 +14,6 @@ const nextConfig: NextConfig = {
 			'./data/primed-cache/**',
 			'./data/cache-binary/**',
 			'./data/build_manifest.json',
-			'./data/crd-log.json',
 			'./data/locations.json',
 		],
 	},
