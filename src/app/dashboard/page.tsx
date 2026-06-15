@@ -43,6 +43,11 @@ type QueueCard = {
 	name?: string | null;
 	statusText?: string | null;
 	memberSince?: string | null;
+	savedRecordCount?: number;
+	updatedExistingRecordCount?: number;
+	updatedExistingSourceCount?: number;
+	skippedSourceCount?: number;
+	trueErrorCount?: number;
 };
 
 type QueueRunItem = {
@@ -1150,8 +1155,36 @@ export default function DashboardPage() {
 				setQueueQueryLines(nextQueryLines);
 
 				const nextCards = buildQueueCardsFromFetchResults(fetchedItems);
-				if (nextCards.length > 0) setQueueCards(nextCards);
-				await loadQueueCardsFromRedis(queueCrdFilter);
+				if (nextCards.length > 0) {
+					const countsByCardKey = new Map<
+						string,
+						{ savedRecordCount: number; updatedExistingRecordCount: number; updatedExistingSourceCount: number; skippedSourceCount: number; trueErrorCount: number }
+					>();
+					for (const item of fetchedItems) {
+						const cardKey = String(item?.cardKey || `${String(item?.type || 'individual')}:${String(item?.crd || '').trim()}`);
+						const current = countsByCardKey.get(cardKey) || {
+							savedRecordCount: 0,
+							updatedExistingRecordCount: 0,
+							updatedExistingSourceCount: 0,
+							skippedSourceCount: 0,
+							trueErrorCount: 0,
+						};
+						if (item?.newRecordSaved === true) current.savedRecordCount += 1;
+						if (item?.newRecordSaved !== true && item?.newSourceSaved === true) {
+							current.updatedExistingRecordCount += 1;
+							current.updatedExistingSourceCount += 1;
+						}
+						if (String(item?.status || '') === 'skipped') current.skippedSourceCount += 1;
+						if (String(item?.status || '') === 'error') current.trueErrorCount += 1;
+						countsByCardKey.set(cardKey, current);
+					}
+					setQueueCards(
+						nextCards.map((card) => ({
+							...card,
+							...(countsByCardKey.get(`${card.entity}:${card.id}`) || {}),
+						})),
+					);
+				}
 
 				// Auto-dismiss temporary queue cards after 3 seconds.
 				window.setTimeout(() => {
@@ -1355,11 +1388,12 @@ export default function DashboardPage() {
 											<span className={styles.queueRunQuery}>{item.query}</span>
 											<span className={[styles.queueRunBadge, styles['queueRunBadge_' + item.status]].filter(Boolean).join(' ')}>{item.status}</span>
 										</div>
+										{item.crdCount != null && <div className={styles.queueRunCrds}>Matched CRDs: {Number(item.crdCount || 0)}</div>}
 										{item.message && <div className={styles.queueRunMeta}>{item.message}</div>}
 										{(item.savedRecordCount != null || item.savedSourceCount != null) && (
 											<div className={styles.queueRunStats}>
-												new {Number(item.savedRecordCount || 0)} CRD • existing+new-source {Number(item.updatedExistingRecordCount || 0)} CRD /{' '}
-												{Number(item.updatedExistingSourceCount || 0)} src
+												new {Number(item.savedRecordCount || 0)} CRD • updated {Number(item.updatedExistingRecordCount || 0)} CRD / {Number(item.updatedExistingSourceCount || 0)}{' '}
+												source(s)
 											</div>
 										)}
 										{(item.skippedSourceCount != null || item.trueErrorCount != null) && (
@@ -1399,6 +1433,20 @@ export default function DashboardPage() {
 									</span>
 								</div>
 								{card.statusText && <div className={styles.cardMeta}>{card.statusText}</div>}
+								<div className={styles.cardStatsRow}>
+									<div className={styles.cardStatPill}>
+										<span>Files</span>
+										<strong>{card.files}</strong>
+									</div>
+									<div className={styles.cardStatPill}>
+										<span>New</span>
+										<strong>{Number(card.savedRecordCount || 0)}</strong>
+									</div>
+									<div className={styles.cardStatPill}>
+										<span>Updated</span>
+										<strong>{Number(card.updatedExistingRecordCount || 0)}</strong>
+									</div>
+								</div>
 								<div className={styles.cardScopes}>{card.sources.map((entry) => String(entry.source).toUpperCase()).join('  ') || (card.kind === 'recent' ? 'RECENT' : '')}</div>
 								<div className={styles.cardSourceRow}>
 									{card.sources.map((entry) => (
@@ -1414,6 +1462,20 @@ export default function DashboardPage() {
 								</div>
 								{card.memberSince && <div className={styles.cardMeta}>Member since: {card.memberSince}</div>}
 								{card.since && <div className={styles.cardMeta}>{card.kind === 'recent' ? card.since : `In industry since: ${card.since}`}</div>}
+								<div className={styles.cardDetailGrid}>
+									<div className={styles.cardDetailItem}>
+										<span>Skipped</span>
+										<strong>{Number(card.skippedSourceCount || 0)}</strong>
+									</div>
+									<div className={styles.cardDetailItem}>
+										<span>Errors</span>
+										<strong>{Number(card.trueErrorCount || 0)}</strong>
+									</div>
+									<div className={styles.cardDetailItem}>
+										<span>Sources</span>
+										<strong>{card.sources.length}</strong>
+									</div>
+								</div>
 								{shouldShowQueueCardError(card) && <div className={styles.cardError}>One or more source fetches failed</div>}
 								{shouldShowQueueCardSkipped(card) && (
 									<div className={styles.cardMeta}>Some sources were skipped because the upstream payload was out of scope for that entity/source.</div>

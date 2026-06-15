@@ -22,6 +22,9 @@ const DASHBOARD_REDIS_MIN_CARD_COUNT = Math.max(1_000, Number(process.env.DASHBO
 const DASHBOARD_QUERY_RESOLVE_CONCURRENCY = Math.max(1, Number(process.env.DASHBOARD_QUERY_RESOLVE_CONCURRENCY || 2) || 2);
 const DASHBOARD_DETAIL_FETCH_CONCURRENCY = Math.max(1, Number(process.env.DASHBOARD_DETAIL_FETCH_CONCURRENCY || 2) || 2);
 const DASHBOARD_DETAIL_FETCH_DELAY_MS = Math.max(0, Number(process.env.DASHBOARD_DETAIL_FETCH_DELAY_MS || 1200) || 1200);
+const DASHBOARD_DETAIL_FETCH_JITTER_MS = Math.max(250, Number(process.env.DASHBOARD_DETAIL_FETCH_JITTER_MS || 1800) || 1800);
+const DASHBOARD_429_COOLDOWN_MIN_MS = Math.max(5 * 60 * 1000, Number(process.env.DASHBOARD_429_COOLDOWN_MIN_MS || 5 * 60 * 1000) || 5 * 60 * 1000);
+const DASHBOARD_429_COOLDOWN_MAX_MS = Math.max(DASHBOARD_429_COOLDOWN_MIN_MS, Number(process.env.DASHBOARD_429_COOLDOWN_MAX_MS || 8 * 60 * 1000) || 8 * 60 * 1000);
 const DASHBOARD_SEARCH_FETCH_TIMEOUT_MS = Math.max(2_000, Number(process.env.DASHBOARD_SEARCH_FETCH_TIMEOUT_MS || 8_000) || 8_000);
 const DASHBOARD_DETAIL_FETCH_TIMEOUT_MS = Math.max(2_000, Number(process.env.DASHBOARD_DETAIL_FETCH_TIMEOUT_MS || 12_000) || 12_000);
 const DASHBOARD_NATIVE_REDIS_KEY_CACHE_MS = Math.max(0, Number(process.env.DASHBOARD_NATIVE_REDIS_KEY_CACHE_MS || 15_000) || 15_000);
@@ -1022,6 +1025,25 @@ function parseQueries(input: RefreshRequestBody['queries'] | RefreshRequestBody[
 	return unique.slice(0, Math.max(1, Math.min(200, maxQueries)));
 }
 
+function sleep(ms: number) {
+	return new Promise((resolve) => setTimeout(resolve, Math.max(0, Math.floor(ms))));
+}
+
+function randomBetween(minMs: number, maxMs: number) {
+	const floor = Math.max(0, Math.floor(minMs));
+	const ceil = Math.max(floor, Math.floor(maxMs));
+	return floor + Math.floor(Math.random() * (ceil - floor + 1));
+}
+
+function isTooManyRequestsError(error: unknown) {
+	const status = Number((error as any)?.status || (error as any)?.response?.status || 0);
+	return status === 429 || /\b429\b/.test(String((error as any)?.message || error || ''));
+}
+
+function createUpstreamCooldownMs() {
+	return randomBetween(DASHBOARD_429_COOLDOWN_MIN_MS, DASHBOARD_429_COOLDOWN_MAX_MS);
+}
+
 function collectSearchItems(payload: any) {
 	if (Array.isArray(payload?.results)) return payload.results;
 	if (Array.isArray(payload?.currentPage)) return payload.currentPage;
@@ -1176,7 +1198,10 @@ async function fetchJson(url: string, options: { timeoutMs?: number } = {}) {
 	if (!response.ok) {
 		const text = await response.text().catch(() => '');
 		console.warn(`fetchJson failed: ${url} -> HTTP ${response.status}`, text.slice(0, 200));
-		throw new Error(`HTTP ${response.status}`);
+		const error = new Error(`HTTP ${response.status}`) as Error & { status?: number; bodyText?: string };
+		error.status = response.status;
+		error.bodyText = text;
+		throw error;
 	}
 	return response.json();
 }
@@ -1318,21 +1343,17 @@ type QuerySearchBundle = {
 async function resolveQuerySearchBundle(query: string): Promise<QuerySearchBundle> {
 	const encoded = encodeURIComponent(query);
 	try {
-		// Use a slightly lower concurrency for individual search requests to avoid hitting limits early
-		const [finraIndividual, finraFirm, secIndividual, secFirm] = await Promise.all([
-			fetchJson(`https://api.brokercheck.finra.org/search/individual?query=${encoded}&filter=bcScope:B,iaScope:IA,iaScope:BOTH&hl=true&nrows=12&start=0&wt=json`, {
-				timeoutMs: DASHBOARD_SEARCH_FETCH_TIMEOUT_MS,
-			}),
-			fetchJson(`https://api.brokercheck.finra.org/search/firm?query=${encoded}&hl=true&nrows=12&start=0&wt=json`, {
-				timeoutMs: DASHBOARD_SEARCH_FETCH_TIMEOUT_MS,
-			}),
-			fetchJson(`https://api.adviserinfo.sec.gov/search/individual?query=${encoded}&hl=true&nrows=12&start=0&wt=json`, {
-				timeoutMs: DASHBOARD_SEARCH_FETCH_TIMEOUT_MS,
-			}),
-			fetchJson(`https://api.adviserinfo.sec.gov/search/firm?query=${encoded}&hl=true&nrows=12&start=0&wt=json`, {
-				timeoutMs: DASHBOARD_SEARCH_FETCH_TIMEOUT_MS,
-			}),
-		]);
+		const fetchWithPacing = async (url: string) => {
+			await sleep(randomBetween(250, DASHBOARD_DETAIL_FETCH_JITTER_MS));
+			return fetchJson(url, { timeoutMs: DASHBOARD_SEARCH_FETCH_TIMEOUT_MS });
+		};
+
+		const finraIndividual = await fetchWithPacing(
+			`https://api.brokercheck.finra.org/search/individual?query=${encoded}&filter=bcScope:B,iaScope:IA,iaScope:BOTH&hl=true&nrows=12&start=0&wt=json`,
+		);
+		const finraFirm = await fetchWithPacing(`https://api.brokercheck.finra.org/search/firm?query=${encoded}&hl=true&nrows=12&start=0&wt=json`);
+		const secIndividual = await fetchWithPacing(`https://api.adviserinfo.sec.gov/search/individual?query=${encoded}&hl=true&nrows=12&start=0&wt=json`);
+		const secFirm = await fetchWithPacing(`https://api.adviserinfo.sec.gov/search/firm?query=${encoded}&hl=true&nrows=12&start=0&wt=json`);
 
 		return {
 			query,
@@ -1882,18 +1903,21 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[], options: { inclu
 
 	const allResults: FetchResultItem[] = [];
 	const processedKeys = new Set<string>();
+	let upstreamCooldownUntil = 0;
 
 	async function runFetchPass(currentTargets: FetchTarget[]) {
-		const passResults = await mapWithConcurrency(currentTargets, DASHBOARD_DETAIL_FETCH_CONCURRENCY, async (target) => {
+		const passResults = await mapWithConcurrency(currentTargets, 1, async (target) => {
 			const crd = target.crd;
 			const key = `${target.source}:${target.type}:${crd}`;
 			if (processedKeys.has(key)) return null;
 			processedKeys.add(key);
 
-			// Polite delay to prevent 429
-			if (DASHBOARD_DETAIL_FETCH_DELAY_MS > 0) {
-				await new Promise((r) => setTimeout(r, DASHBOARD_DETAIL_FETCH_DELAY_MS));
+			const now = Date.now();
+			if (now < upstreamCooldownUntil) {
+				await sleep(upstreamCooldownUntil - now);
 			}
+
+			await sleep(randomBetween(DASHBOARD_DETAIL_FETCH_DELAY_MS, DASHBOARD_DETAIL_FETCH_DELAY_MS + DASHBOARD_DETAIL_FETCH_JITTER_MS));
 
 			const isFinra = target.source === 'finra';
 			const isIndividual = target.type === 'individual';
@@ -1918,7 +1942,20 @@ async function fetchCrdsToCacheAndRedis(targets: FetchTarget[], options: { inclu
 			try {
 				const sourceExistedBefore = (await cacheArtifactExists([nationalFile, rawFile])) || (await keyExistsInRedis(redis, redisKey));
 				const recordExistedBefore = await recordExistedBeforePromise;
-				const payload = await fetchJson(url, { timeoutMs: DASHBOARD_DETAIL_FETCH_TIMEOUT_MS });
+				let payload: any;
+				try {
+					payload = await fetchJson(url, { timeoutMs: DASHBOARD_DETAIL_FETCH_TIMEOUT_MS });
+				} catch (error: any) {
+					if (isTooManyRequestsError(error)) {
+						const cooldownMs = createUpstreamCooldownMs();
+						upstreamCooldownUntil = Date.now() + cooldownMs;
+						console.warn(`[fetch-crds] 429 from ${url}; sleeping ${(cooldownMs / 60000).toFixed(2)} minutes before resuming`);
+						await sleep(cooldownMs);
+						payload = await fetchJson(url, { timeoutMs: DASHBOARD_DETAIL_FETCH_TIMEOUT_MS });
+					} else {
+						throw error;
+					}
+				}
 				const outcome = classifyFetchedPayloadOutcome(payload, target);
 				if (outcome.status === 'error') {
 					return {
@@ -2202,12 +2239,12 @@ export async function POST(request: NextRequest) {
 			const maxCrds = Number(body.maxCrds || 30);
 			const queries = parseQueries(body.queries ?? body.crds, maxCrds);
 			const providedCrds = parseCrds(body.crds, maxCrds);
-			
+
 			console.log(`[fetch-crds] Processing ${queries.length} queries and ${providedCrds.length} direct CRDs`);
-			
+
 			const resolvedFromQueries = await resolveCrdsFromQueries(queries, maxCrds);
-			
-			if (resolvedFromQueries.resolution.every(r => r.crdCount === 0) && providedCrds.length === 0 && queries.length > 0) {
+
+			if (resolvedFromQueries.resolution.every((r) => r.crdCount === 0) && providedCrds.length === 0 && queries.length > 0) {
 				console.warn('[fetch-crds] No CRDs resolved from queries:', queries);
 			}
 
@@ -2225,7 +2262,7 @@ export async function POST(request: NextRequest) {
 
 			const targets = Array.from(targetMap.values());
 			if (!targets.length) {
-				const hasErrors = resolvedFromQueries.resolution.some(r => (r as any).error);
+				const hasErrors = resolvedFromQueries.resolution.some((r) => (r as any).error);
 				return NextResponse.json(
 					{
 						ok: false,
