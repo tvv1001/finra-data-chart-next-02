@@ -74,6 +74,22 @@ export function buildIndividualSearchHitStub(source: unknown, fallbackCrd = ''):
 	const disclosureFlag = source.ind_bc_disclosure_fl ?? source.disclosureFlag ?? null;
 	const iaDisclosureFlag = source.ind_ia_disclosure_fl ?? source.iaDisclosureFlag ?? null;
 	const registrationCount = buildIndividualRegistrationCount(source);
+	const currentEmployments =
+		Array.isArray(source.ind_current_employments) ? source.ind_current_employments
+		: Array.isArray(source.currentEmployments) ? source.currentEmployments
+		: [];
+	const currentIAEmployments =
+		Array.isArray(source.ind_ia_current_employments) ? source.ind_ia_current_employments
+		: Array.isArray(source.currentIAEmployments) ? source.currentIAEmployments
+		: [];
+	const previousEmployments =
+		Array.isArray(source.ind_previous_employments) ? source.ind_previous_employments
+		: Array.isArray(source.previousEmployments) ? source.previousEmployments
+		: [];
+	const previousIAEmployments =
+		Array.isArray(source.ind_ia_previous_employments) ? source.ind_ia_previous_employments
+		: Array.isArray(source.previousIAEmployments) ? source.previousIAEmployments
+		: [];
 	const name = [firstName, middleName, lastName].filter(Boolean).join(' ').trim();
 
 	return {
@@ -83,6 +99,10 @@ export function buildIndividualSearchHitStub(source: unknown, fallbackCrd = ''):
 		disclosureFlag,
 		iaDisclosureFlag,
 		registrationCount,
+		currentEmployments,
+		currentIAEmployments,
+		previousEmployments,
+		previousIAEmployments,
 		basicInformation: {
 			individualId: crd,
 			firstName: firstName || undefined,

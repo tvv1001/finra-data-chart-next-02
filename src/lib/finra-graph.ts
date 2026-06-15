@@ -634,6 +634,8 @@ const NON_GRAY_DETAIL_BATCH_SIZE = 6;
 const AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT = 16;
 const PROFILE_SEED_FETCH_CONCURRENCY = 4;
 const SEED_QUERY_FETCH_CONCURRENCY = 4;
+const TEXT_SEARCH_DETAIL_HYDRATION_LIMIT = 24;
+const TEXT_SEARCH_DETAIL_HYDRATION_CONCURRENCY = 4;
 
 const individualDetailRequestCache = new Map<string, Promise<void>>();
 const firmDetailRequestCache = new Map<string, Promise<void>>();
@@ -1469,6 +1471,31 @@ function getLevenshteinDistance(a: string, b: string): number {
 function containsWholePhrase(text, phrase) {
 	if (!text || !phrase) return false;
 	return ` ${text} `.includes(` ${phrase} `);
+}
+
+export function selectTextSearchHydrationTargets(
+	candidates: Array<{ nodeId?: string | null; group?: string | null; hasEmbeddedDetail?: boolean | null }> = [],
+	limit = TEXT_SEARCH_DETAIL_HYDRATION_LIMIT,
+) {
+	const normalizedLimit = Math.max(0, Number(limit) || 0);
+	if (!normalizedLimit) return [];
+
+	const selected: Array<{ nodeId: string; group: 'individual' | 'firm' }> = [];
+	const seen = new Set<string>();
+
+	for (const candidate of Array.isArray(candidates) ? candidates : []) {
+		if (!candidate || candidate.hasEmbeddedDetail) continue;
+		const nodeId = String(candidate.nodeId || '').trim();
+		if (!nodeId) continue;
+		const group = candidate.group === 'firm' ? 'firm' : 'individual';
+		const key = `${group}:${nodeId}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		selected.push({ nodeId, group });
+		if (selected.length >= normalizedLimit) break;
+	}
+
+	return selected;
 }
 
 export function rankFindNodeMatches(rawQuery, nodePool = [], liveLinks = []) {
@@ -4323,6 +4350,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				const batchAllNodes = [];
 				const batchAllLinks = [];
 				const updatedExistingNodeIds = new Set<string>();
+				const textSearchHydrationCandidates: Array<{ nodeId?: string | null; group?: string | null; hasEmbeddedDetail?: boolean | null }> = [];
 
 				const isDirectId = /^\d+$/.test(q);
 
@@ -4372,10 +4400,8 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 								existingGraphNode.registrationCount?.approvedIAStateRegistrationCount ??
 								0,
 						};
-						existingGraphNode.currentEmployments =
-							resolved.hasEmbeddedDetail && Array.isArray(parsed?.currentEmployments) ? parsed.currentEmployments : (existingGraphNode.currentEmployments ?? []);
-						existingGraphNode.currentIAEmployments =
-							resolved.hasEmbeddedDetail && Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments : (existingGraphNode.currentIAEmployments ?? []);
+						existingGraphNode.currentEmployments = Array.isArray(parsed?.currentEmployments) ? parsed.currentEmployments : (existingGraphNode.currentEmployments ?? []);
+						existingGraphNode.currentIAEmployments = Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments : (existingGraphNode.currentIAEmployments ?? []);
 						applyIndividualDetail(existingGraphNode, parsed, crd);
 						updatedExistingNodeIds.add(existingGraphNode.id);
 					} else if (!batchAllNodes.some((n) => n.id === personId)) {
@@ -4397,8 +4423,8 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 										approvedStateRegistrationCount: src?.ind_approved_state_registration_count ?? parsed?.registrationCount?.approvedStateRegistrationCount ?? 0,
 										approvedIAStateRegistrationCount: src?.ind_approved_ia_state_registration_count ?? parsed?.registrationCount?.approvedIAStateRegistrationCount ?? 0,
 									},
-									currentEmployments: resolved.hasEmbeddedDetail && Array.isArray(parsed?.currentEmployments) ? parsed.currentEmployments : [],
-									currentIAEmployments: resolved.hasEmbeddedDetail && Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments : [],
+									currentEmployments: Array.isArray(parsed?.currentEmployments) ? parsed.currentEmployments : [],
+									currentIAEmployments: Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments : [],
 									disclosureFlag,
 									iaDisclosureFlag,
 									hasFinraData: resolved.hasFinraData,
@@ -4411,15 +4437,12 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 						);
 					}
 					// Build firm connections from embedded employment data
-					const emps =
-						resolved.hasEmbeddedDetail ?
-							[
-								...(parsed?.currentEmployments || []).map((e) => ({ ...e, _isCurrent: true })),
-								...(parsed?.currentIAEmployments || []).map((e) => ({ ...e, _isCurrent: true })),
-								...(parsed?.previousEmployments || []).map((e) => ({ ...e, _isCurrent: false })),
-								...(parsed?.previousIAEmployments || []).map((e) => ({ ...e, _isCurrent: false })),
-							]
-						:	[];
+					const emps = [
+						...(parsed?.currentEmployments || []).map((e) => ({ ...e, _isCurrent: true })),
+						...(parsed?.currentIAEmployments || []).map((e) => ({ ...e, _isCurrent: true })),
+						...(parsed?.previousEmployments || []).map((e) => ({ ...e, _isCurrent: false })),
+						...(parsed?.previousIAEmployments || []).map((e) => ({ ...e, _isCurrent: false })),
+					];
 					for (const e of emps) {
 						const fid = String(e?.firmId || e?.firm_id || e?.firmIdNumber || e?.firmId || '').trim();
 						if (!fid) continue;
@@ -4557,14 +4580,27 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 					// Text search — build nodes directly from search _source (fast, no extra fetches)
 					for (const hit of allHits) {
 						const src = hit._source || hit;
+						const resolved = resolveIndividualSourceDetail(src);
+						const parsed = resolved.detail || src;
 						const crd = getSearchHitIndividualId(src);
 						if (crd) {
 							addIndividualFromSource(src);
+							textSearchHydrationCandidates.push({
+								nodeId: `person:${crd}`,
+								group: 'individual',
+								hasEmbeddedDetail: resolved.hasEmbeddedDetail,
+							});
 							continue;
 						}
 						const firmId = getSearchHitFirmId(src);
 						if (firmId) {
 							addFirmFromSource(src);
+							textSearchHydrationCandidates.push({
+								nodeId: `firm:${firmId}`,
+								group: 'firm',
+								hasEmbeddedDetail:
+									Array.isArray(parsed?.directOwners) || Array.isArray(parsed?.owners) || Array.isArray(parsed?.disclosures) || Array.isArray(parsed?.activeStates),
+							});
 							continue;
 						}
 						// stub for hits with no ID
@@ -4598,6 +4634,60 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 					rerenderGraphNodesByIds(Array.from(updatedExistingNodeIds));
 					refreshGraphColors();
 					refreshTraceState();
+				}
+
+				if (!isDirectId) {
+					const textSearchHydrationTargets = selectTextSearchHydrationTargets(textSearchHydrationCandidates, TEXT_SEARCH_DETAIL_HYDRATION_LIMIT);
+					if (textSearchHydrationTargets.length) {
+						const hydratedResults = await mapWithConcurrency(textSearchHydrationTargets, TEXT_SEARCH_DETAIL_HYDRATION_CONCURRENCY, async (target) => {
+							const targetId = String(target.nodeId || '').trim();
+							if (!targetId) return null;
+							const rawId = targetId.split(':').pop() || '';
+							if (!rawId) return null;
+							const batch = target.group === 'firm' ? await fetchFirmBatch(rawId) : await fetchIndividualBatch(rawId);
+							return { targetId, batch };
+						});
+
+						const hydratedNodes = [];
+						const hydratedLinks = [];
+						const hydratedNodeIds = new Set<string>();
+						const hydratedLinkKeys = new Set<string>();
+						const hydratedIds: string[] = [];
+
+						for (const result of hydratedResults) {
+							if (result.status !== 'fulfilled' || !result.value?.batch) continue;
+							const { targetId, batch } = result.value;
+							if (targetId) hydratedIds.push(targetId);
+							const liveTargetNode = layoutNodes?.find((node) => node.id === targetId) || null;
+							const primaryNode = Array.isArray(batch?.nodes) ? batch.nodes.find((node) => node?.id === targetId) || null : null;
+							if (liveTargetNode && primaryNode && typeof primaryNode === 'object') {
+								Object.assign(liveTargetNode, primaryNode);
+								normalizeNodeLabelInPlace(liveTargetNode);
+							}
+							for (const node of batch?.nodes || []) {
+								if (!node?.id || hydratedNodeIds.has(node.id)) continue;
+								hydratedNodeIds.add(node.id);
+								hydratedNodes.push(node);
+							}
+							for (const link of batch?.links || []) {
+								const linkKey = getLinkIdentityKey(link);
+								if (hydratedLinkKeys.has(linkKey)) continue;
+								hydratedLinkKeys.add(linkKey);
+								hydratedLinks.push(link);
+							}
+						}
+
+						if (hydratedNodes.length || hydratedLinks.length) {
+							appendFetched(hydratedNodes, hydratedLinks);
+							mergeIntoGraphData(hydratedNodes, hydratedLinks);
+						}
+
+						if (hydratedIds.length) {
+							rerenderGraphNodesByIds(hydratedIds);
+							refreshGraphColors();
+							refreshTraceState();
+						}
+					}
 				}
 
 				// ── 6. Persist to server so data survives page reload ──────────────
@@ -4812,16 +4902,15 @@ async function fetchAndInjectQuery(q) {
 						approvedStateRegistrationCount: src?.ind_approved_state_registration_count ?? parsed?.registrationCount?.approvedStateRegistrationCount ?? 0,
 						approvedIAStateRegistrationCount: src?.ind_approved_ia_state_registration_count ?? parsed?.registrationCount?.approvedIAStateRegistrationCount ?? 0,
 					},
-					currentEmployments: resolved.hasEmbeddedDetail && Array.isArray(parsed?.currentEmployments) ? parsed.currentEmployments : [],
-					currentIAEmployments: resolved.hasEmbeddedDetail && Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments : [],
+					currentEmployments: Array.isArray(parsed?.currentEmployments) ? parsed.currentEmployments : [],
+					currentIAEmployments: Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments : [],
 					disclosureFlag,
 					iaDisclosureFlag,
 					_trustedCurrentRelationshipData: resolved.hasEmbeddedDetail && hasRichIndividualDetail(parsed),
 					_source: 'finra',
 				});
 
-				// Link only from embedded full detail, never from search-hit summaries.
-				const emps = resolved.hasEmbeddedDetail ? [...(parsed?.currentEmployments || []), ...(parsed?.currentIAEmployments || [])] : [];
+				const emps = [...(parsed?.currentEmployments || []), ...(parsed?.currentIAEmployments || [])];
 				for (const e of emps) {
 					const fid = String(e?.firm_id || e?.firmId || '').trim();
 					if (!fid) continue;
@@ -4962,14 +5051,14 @@ async function fetchQueryBatch(q) {
 						approvedStateRegistrationCount: src?.ind_approved_state_registration_count ?? parsed?.registrationCount?.approvedStateRegistrationCount ?? 0,
 						approvedIAStateRegistrationCount: src?.ind_approved_ia_state_registration_count ?? parsed?.registrationCount?.approvedIAStateRegistrationCount ?? 0,
 					},
-					currentEmployments: resolved.hasEmbeddedDetail && Array.isArray(parsed?.currentEmployments) ? parsed.currentEmployments : [],
-					currentIAEmployments: resolved.hasEmbeddedDetail && Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments : [],
+					currentEmployments: Array.isArray(parsed?.currentEmployments) ? parsed.currentEmployments : [],
+					currentIAEmployments: Array.isArray(parsed?.currentIAEmployments) ? parsed.currentIAEmployments : [],
 					disclosureFlag,
 					iaDisclosureFlag,
 					_source: 'finra',
 				});
 
-				const emps = resolved.hasEmbeddedDetail ? [...(parsed?.currentEmployments || []), ...(parsed?.currentIAEmployments || [])] : [];
+				const emps = [...(parsed?.currentEmployments || []), ...(parsed?.currentIAEmployments || [])];
 				for (const e of emps) {
 					const fid = String(e?.firmId || e?.firm_id || e?.firmIdNumber || e?.firmId || '').trim();
 					if (!fid) continue;
@@ -5876,7 +5965,80 @@ function getEmploymentRelationship(entry) {
 	return getEmploymentRelationshipImpl(entry);
 }
 
-function applyGraphDerivedNodeMetrics(nodes, links) {
+function resolveEmploymentConnectionFirmNodeId(employment) {
+	const firmId = String(employment?.firmId || employment?.firm_id || employment?.firmIdNumber || employment?.organizationId || employment?.orgId || '').trim();
+	const firmName = String(
+		employment?.firmName || employment?.firm_name || employment?.organizationName || employment?.firm || employment?.name || employment?.legalName || '',
+	).trim();
+	const existingFirmNode = findExistingFirmNode(firmId, { label: firmName });
+	const syntheticFirmNodeId = !firmId && !existingFirmNode && firmName ? buildSyntheticFirmNodeId(firmName) : null;
+	return existingFirmNode?.id || (firmId ? `firm:${firmId}` : syntheticFirmNodeId) || null;
+}
+
+function resolveControlConnectionFirmNodeId(controlRecord) {
+	const firmId = String(controlRecord?.firmId || controlRecord?.firm_id || controlRecord?.organizationId || controlRecord?.orgId || '').trim();
+	const firmName = String(controlRecord?.firmName || controlRecord?.organizationName || controlRecord?.firm || controlRecord?.name || controlRecord?.legalName || '').trim();
+	const existingFirmNode = findExistingFirmNode(firmId, { label: firmName });
+	const syntheticFirmNodeId = !firmId && !existingFirmNode && firmName ? buildSyntheticFirmNodeId(firmName) : null;
+	return existingFirmNode?.id || (firmId ? `firm:${firmId}` : syntheticFirmNodeId) || null;
+}
+
+function getKnownNodeConnectionFloor(node) {
+	const counts = { total: 0, controls: 0, employed: 0 };
+	if (!node || typeof node !== 'object') return counts;
+
+	const seenConnectionKeys = new Set<string>();
+	const addConnection = (bucket: 'controls' | 'employed', key: string | null | undefined) => {
+		const normalizedKey = String(key || '').trim();
+		if (!normalizedKey || seenConnectionKeys.has(normalizedKey)) return;
+		seenConnectionKeys.add(normalizedKey);
+		counts.total += 1;
+		if (bucket === 'controls') counts.controls += 1;
+		else counts.employed += 1;
+	};
+
+	if (node.group === 'individual') {
+		for (const employment of Array.isArray(node.currentEmployments) ? node.currentEmployments : []) {
+			const firmNodeId = resolveEmploymentConnectionFirmNodeId(employment);
+			addConnection('employed', firmNodeId ? `current|${firmNodeId}` : null);
+		}
+		for (const employment of Array.isArray(node.currentIAEmployments) ? node.currentIAEmployments : []) {
+			const firmNodeId = resolveEmploymentConnectionFirmNodeId(employment);
+			addConnection('employed', firmNodeId ? `current|${firmNodeId}` : null);
+		}
+		for (const employment of Array.isArray(node.previousEmployments) ? node.previousEmployments : []) {
+			const firmNodeId = resolveEmploymentConnectionFirmNodeId(employment);
+			addConnection('employed', firmNodeId ? `previous|${firmNodeId}` : null);
+		}
+		for (const employment of Array.isArray(node.previousIAEmployments) ? node.previousIAEmployments : []) {
+			const firmNodeId = resolveEmploymentConnectionFirmNodeId(employment);
+			addConnection('employed', firmNodeId ? `previous|${firmNodeId}` : null);
+		}
+
+		const controlRecords = [
+			...(Array.isArray(node.controlPositions) ? node.controlPositions : []),
+			...(Array.isArray(node.controlPositionList) ? node.controlPositionList : []),
+			...(Array.isArray(node.controlRelationships) ? node.controlRelationships : []),
+			...(Array.isArray(node.brokerDetails?.controlPositions) ? node.brokerDetails.controlPositions : []),
+		];
+		for (const controlRecord of controlRecords) {
+			const firmNodeId = resolveControlConnectionFirmNodeId(controlRecord);
+			addConnection('controls', firmNodeId ? `controls|${firmNodeId}` : null);
+		}
+		return counts;
+	}
+
+	if (node.group === 'firm') {
+		for (const owner of Array.isArray(node.directOwners) ? node.directOwners : []) {
+			const personId = String(owner?.crdNumber || owner?.crd || owner?.personId || '').trim();
+			addConnection('controls', personId ? `controls|person:${personId}` : null);
+		}
+	}
+
+	return counts;
+}
+
+export function applyGraphDerivedNodeMetrics(nodes, links) {
 	const nodeList = Array.isArray(nodes) ? nodes : [];
 	const linkList = Array.isArray(links) ? links : [];
 	const degMap = new Map<string, { total: number; controls: number; employed: number }>();
@@ -5913,6 +6075,10 @@ function applyGraphDerivedNodeMetrics(nodes, links) {
 
 	nodeList.forEach((node) => {
 		const deg = degMap.get(node.id) || { total: 0, controls: 0, employed: 0 };
+		const knownFloor = getKnownNodeConnectionFloor(node);
+		deg.controls = Math.max(deg.controls, knownFloor.controls);
+		deg.employed = Math.max(deg.employed, knownFloor.employed);
+		deg.total = Math.max(deg.total, knownFloor.total, deg.controls + deg.employed);
 		node._deg = deg;
 
 		if (node.group === 'individual') {
@@ -8188,9 +8354,34 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 
 // Normalize wrapped detail payloads (e.g. from Elasticsearch/Solr hits)
 function unwrapDetailPayload(detail) {
+	const parseWrappedContent = (container, meta: { found?: boolean; hasFinraData?: boolean; hasSecData?: boolean; sources?: any } = {}) => {
+		if (!container || typeof container !== 'object') return null;
+		const rawContent = container?.content || container?.iacontent || container?.bccontent?.content || container?.seccontent?.content;
+		if (typeof rawContent !== 'string') return null;
+		try {
+			const parsed = JSON.parse(rawContent);
+			if (meta.found !== undefined) parsed.found = meta.found;
+			if (meta.hasFinraData !== undefined) parsed.hasFinraData = meta.hasFinraData;
+			if (meta.hasSecData !== undefined) parsed.hasSecData = meta.hasSecData;
+			if (meta.sources !== undefined) parsed.sources = meta.sources;
+			return parsed;
+		} catch {
+			return null;
+		}
+	};
+
 	if (!detail) return detail;
 	if (detail?.merged || detail?.finraNode) {
 		const wrapped = detail.merged || detail.finraNode;
+		const parsedWrapped = parseWrappedContent(wrapped, {
+			found: detail.found,
+			hasFinraData: detail.hasFinraData,
+			hasSecData: detail.hasSecData,
+			sources: detail.sources,
+		});
+		if (parsedWrapped) {
+			return parsedWrapped;
+		}
 		if (wrapped && typeof wrapped === 'object') {
 			return {
 				...wrapped,
@@ -8201,6 +8392,13 @@ function unwrapDetailPayload(detail) {
 			};
 		}
 	}
+	const parsedDetail = parseWrappedContent(detail, {
+		found: detail?.found,
+		hasFinraData: detail?.hasFinraData,
+		hasSecData: detail?.hasSecData,
+		sources: detail?.sources,
+	});
+	if (parsedDetail) return parsedDetail;
 	const hit = detail?.hits?.hits?.[0] || detail?.response?.docs?.[0];
 	if (hit) {
 		const src = hit._source || hit;
@@ -8668,6 +8866,9 @@ function syncIndividualConnectionsFromDetail(personNode, detail) {
 	}
 
 	if (!newNodes.length && !newLinks.length) {
+		applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
+		rerenderGraphNodesByIds([personId]);
+		refreshGraphColors();
 		if (updatedExistingControlData) {
 			try {
 				saveSession();
@@ -8725,7 +8926,12 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 		});
 	}
 
-	if (!newNodes.length && !newLinks.length) return;
+	if (!newNodes.length && !newLinks.length) {
+		applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
+		rerenderGraphNodesByIds([firmNodeId]);
+		refreshGraphColors();
+		return;
+	}
 	appendFetched(newNodes, newLinks);
 	mergeIntoGraphData(newNodes, newLinks);
 }
@@ -9193,6 +9399,7 @@ function getExpansionNodeMatchLabel(node) {
 function isPlaceholderExpansionLabel(label, group) {
 	const text = String(label || '').trim();
 	if (!text) return true;
+	if (/^Node\s+(?:person|firm|entity)[:_][a-z0-9:-]+$/i.test(text)) return true;
 	if (/^\d+$/.test(text)) return true;
 	if (/^\d+-\d+$/.test(text)) return true;
 	if (/^(?:crd|sec)#?\s*\d+$/i.test(text)) return true;

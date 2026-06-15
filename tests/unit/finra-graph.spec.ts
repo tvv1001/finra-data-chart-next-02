@@ -12,6 +12,7 @@ import {
 	routeSidebarNodeSelection,
 } from '../../src/components/FinraGraph';
 import {
+	applyGraphDerivedNodeMetrics,
 	isNodeInactive,
 	isRevealableChainExhausted,
 	loadPersistedSidebarViewMode,
@@ -21,6 +22,7 @@ import {
 	loadSelectionLogBoldPreference,
 	normalizeNodeLabelInPlace,
 	rankFindNodeMatches,
+	selectTextSearchHydrationTargets,
 	shouldFetchFirmDetailForOwnerEvidence,
 	shouldHydrateExpansionFrontierNodeDetail,
 	shouldAutoExpandRouteSelection,
@@ -28,6 +30,7 @@ import {
 	shouldRenderNodeSelected,
 	upsertSelectionLogEntry,
 } from '../../src/lib/finra-graph';
+import { applyIndividualDetail as applyIndividualDetailFromDetailUtils } from '../../src/lib/finra-graph/detailUtils';
 import { buildLargeGraphRenderPlan, getLargeGraphRenderBudget, getProgressiveLoadBudget } from '../../src/lib/large-graph-rendering';
 
 describe('FinraGraph DOM helpers (unit)', () => {
@@ -144,6 +147,49 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		const node = { id: 'person:123', label: 'CRD 123456', group: 'individual' } as any;
 		normalizeNodeLabelInPlace(node);
 		expect(node.label).toBe('Node person:123');
+	});
+
+	it('normalizeNodeLabelInPlace upgrades Node person placeholders to fetched individual names', () => {
+		const node = {
+			id: 'person:5825353',
+			label: 'Node person:5825353',
+			group: 'individual',
+			basicInformation: {
+				firstName: 'MARK',
+				middleName: 'DANIEL',
+				lastName: 'MCADAM',
+			},
+		} as any;
+
+		normalizeNodeLabelInPlace(node);
+
+		expect(node.label).toBe('Mark Daniel Mcadam');
+	});
+
+	it('applyIndividualDetail replaces Node person placeholders with fetched names', () => {
+		const node = {
+			id: 'person:5825353',
+			label: 'Node person:5825353',
+			group: 'individual',
+			crd: '5825353',
+		} as any;
+
+		applyIndividualDetailFromDetailUtils(
+			node,
+			{
+				basicInformation: {
+					individualId: 5825353,
+					firstName: 'MARK',
+					middleName: 'DANIEL',
+					lastName: 'MCADAM',
+				},
+				previousEmployments: [{ firmId: 35513, firmName: 'CG CAPITAL MARKETS, LLC' }],
+			},
+			'5825353',
+		);
+
+		expect(node.label).toBe('Mark Daniel Mcadam');
+		expect(node.previousEmployments).toHaveLength(1);
 	});
 
 	it('isNodeInactive marks fetched inactive individuals as inactive immediately', () => {
@@ -418,6 +464,60 @@ describe('FinraGraph DOM helpers (unit)', () => {
 	it('shouldFetchFirmDetailForOwnerEvidence disables firm detail lookups for background owner-evidence hydration', () => {
 		expect(shouldFetchFirmDetailForOwnerEvidence()).toBe(true);
 		expect(shouldFetchFirmDetailForOwnerEvidence({ allowFirmDetailFetch: false })).toBe(false);
+	});
+
+	it('selectTextSearchHydrationTargets dedupes summary hits and caps hydration work', () => {
+		expect(
+			selectTextSearchHydrationTargets(
+				[
+					{ nodeId: 'person:1', group: 'individual', hasEmbeddedDetail: false },
+					{ nodeId: 'person:1', group: 'individual', hasEmbeddedDetail: false },
+					{ nodeId: 'firm:2', group: 'firm', hasEmbeddedDetail: false },
+					{ nodeId: 'person:3', group: 'individual', hasEmbeddedDetail: true },
+					{ nodeId: 'person:4', group: 'individual', hasEmbeddedDetail: false },
+				],
+				2,
+			),
+		).toEqual([
+			{ nodeId: 'person:1', group: 'individual' },
+			{ nodeId: 'firm:2', group: 'firm' },
+		]);
+	});
+
+	it('applyGraphDerivedNodeMetrics gives fetched individuals a connection count before links are rendered', () => {
+		const nodes = [
+			{
+				id: 'person:123',
+				group: 'individual',
+				label: 'Alice Example',
+				currentEmployments: [{ firmId: '10', firmName: 'Alpha Capital' }],
+				currentIAEmployments: [{ firmId: '20', firmName: 'Beta Advisors' }],
+				previousEmployments: [{ firmId: '30', firmName: 'Gamma Securities' }],
+				previousIAEmployments: [],
+				controlPositions: [{ firmId: '40', firmName: 'Delta Holdings' }],
+			},
+		] as any[];
+
+		applyGraphDerivedNodeMetrics(nodes, []);
+
+		expect(nodes[0]?._deg).toMatchObject({ total: 4, employed: 3, controls: 1 });
+		expect(nodes[0]?._vizHalf).toBeGreaterThan(6);
+	});
+
+	it('applyGraphDerivedNodeMetrics gives fetched firms a control count before owner links are rendered', () => {
+		const nodes = [
+			{
+				id: 'firm:789',
+				group: 'firm',
+				label: 'Example Firm',
+				directOwners: [{ crdNumber: '123' }, { crd: '456' }],
+			},
+		] as any[];
+
+		applyGraphDerivedNodeMetrics(nodes, []);
+
+		expect(nodes[0]?._deg).toMatchObject({ total: 2, controls: 2, employed: 0 });
+		expect(nodes[0]?._vizHalf).toBeGreaterThan(7);
 	});
 
 	it('focusFetchInputWhenEmpty focuses when empty and not active', () => {
