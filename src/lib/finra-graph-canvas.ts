@@ -147,8 +147,10 @@ export function drawCanvasFrame(
 
 	// node LOD: if zoomed out, draw small dots; zoomed in show larger and highlight selected
 	const scale = transform.k || 1;
-	const selectedCanvasLabelZoomThreshold = 1.6;
+	const globalCanvasLabelZoomThreshold = 2.4;
+	const selectedCanvasLabelZoomThreshold = 1.4;
 	const forcedLabelIds = new Set((opts.logLabelNodeIds || []).map((id) => String(id)));
+
 	for (const n of visibleNodes) {
 		const col = getColorForGroup(n.group);
 		const baseSize = n.group === 'firm' ? 6 : 4;
@@ -161,11 +163,15 @@ export function drawCanvasFrame(
 		);
 		ctx.fillStyle = col;
 		drawNode(ctx, n, transform, size, col);
+		const isSelected = opts.selectedId && String(opts.selectedId) === String(n.id);
 		const isForcedLabel = forcedLabelIds.has(String(n.id));
-		if (((opts.selectedId && String(opts.selectedId) === String(n.id)) || isForcedLabel) && scale > 0.5) {
-			// highlight selected with halo and label
+		const shouldShowLabel = isForcedLabel || isSelected || scale >= globalCanvasLabelZoomThreshold;
+
+		if (shouldShowLabel && scale > 0.4) {
 			const p = worldToScreen(n.x, n.y, transform);
-			if (opts.selectedId && String(opts.selectedId) === String(n.id)) {
+			
+			// highlight selected with halo
+			if (isSelected) {
 				ctx.beginPath();
 				ctx.arc(p.x, p.y, Math.max(8, size * 3), 0, Math.PI * 2);
 				ctx.fillStyle = 'rgba(255,200,60,0.08)';
@@ -174,13 +180,15 @@ export function drawCanvasFrame(
 				ctx.lineWidth = 2;
 				ctx.stroke();
 			}
-			if (isForcedLabel || scale >= selectedCanvasLabelZoomThreshold) {
+
+			if (isForcedLabel || isSelected || scale >= selectedCanvasLabelZoomThreshold) {
 				// label
 				ctx.font = `${DEFAULT_NODE_LABEL_FONT_WEIGHT} ${DEFAULT_NODE_LABEL_FONT_SIZE_PX * Math.min(2.6, Math.max(0.9, scale) * Math.max(1, Number(opts.labelScale) || 1))}px Inter, system-ui, sans-serif`;
 				ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-default-text') || '#0f172a';
 				ctx.textAlign = 'center';
 				ctx.textBaseline = 'top';
-				ctx.fillText(n.label || n.name || String(n.id), p.x, p.y + Math.max(1, size * transform.k) + DEFAULT_NODE_LABEL_GAP_PX);
+				const labelText = getNodeLabel(n);
+				ctx.fillText(labelText || String(n.id), p.x, p.y + Math.max(1, size * transform.k) + DEFAULT_NODE_LABEL_GAP_PX);
 				ctx.textAlign = 'start';
 				ctx.textBaseline = 'alphabetic';
 			}

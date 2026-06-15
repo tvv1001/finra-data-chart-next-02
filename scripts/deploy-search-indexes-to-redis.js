@@ -25,6 +25,7 @@ function isValidUpstashUrl(value) {
 
 const envVars = {
 	...loadEnv(path.join(root, '.env')),
+	...loadEnv(path.join(root, '.env.local')),
 	...loadEnv(path.join(root, '.env.production')),
 };
 const redisUrl = process.env.UPSTASH_REDIS_REST_URL || envVars.UPSTASH_REDIS_REST_URL;
