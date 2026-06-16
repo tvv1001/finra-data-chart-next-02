@@ -1918,124 +1918,108 @@ async function fetchCrdsToCacheAndRedis(initialTargets: FetchTarget[], options: 
 	const recordExistenceCache = new Map<string, Promise<boolean>>();
 
 	const allResults: FetchResultItem[] = [];
-	const processedKeys = new Set<string>();
+	const discoveredCrds = new Set<string>();
+
 	let upstreamCooldownUntil = 0;
-	const targetQueue: FetchTarget[] = [...initialTargets];
-	let depth = 0;
-	const MAX_DEPTH = 3; // "and so on" but with a safety break
 
-	while (targetQueue.length > 0 && depth < MAX_DEPTH) {
-		const currentTargets = [...targetQueue];
-		targetQueue.length = 0;
-		depth += 1;
+	// Process initial targets only (non-recursive to avoid 504 timeouts)
+	for (const target of initialTargets) {
+		const crd = target.crd;
+		const now = Date.now();
+		if (now < upstreamCooldownUntil) {
+			const waitMs = upstreamCooldownUntil - now;
+			await sleep(waitMs);
+		}
 
-		for (const target of currentTargets) {
-			const crd = target.crd;
-			const key = `${target.source}:${target.type}:${crd}`;
-			if (processedKeys.has(key)) continue;
-			processedKeys.add(key);
+		// Random jittered delay between requests
+		await sleep(randomBetween(1000, 2500));
 
-			const now = Date.now();
-			if (now < upstreamCooldownUntil) {
-				const waitMs = upstreamCooldownUntil - now;
-				console.log(`[fetch-crds] Sequential pause for 429 cooldown: ${(waitMs / 60000).toFixed(2)} minutes`);
-				await sleep(waitMs);
+		const isFinra = target.source === 'finra';
+		const isIndividual = target.type === 'individual';
+		const cardKey = `${target.type}:${crd}`;
+		const url =
+			isFinra && isIndividual ? `https://api.brokercheck.finra.org/search/individual/${crd}?hl=true&includePrevious=true&wt=json`
+			: isFinra && !isIndividual ? `https://api.brokercheck.finra.org/search/firm/${crd}?hl=true&wt=json`
+			: !isFinra && isIndividual ? `https://api.adviserinfo.sec.gov/search/individual/${crd}?hl=true&includePrevious=true&wt=json`
+			: `https://api.adviserinfo.sec.gov/search/firm/${crd}?wt=json`;
+		
+		const cacheFileName = `api.${isFinra ? 'brokercheck.finra.org' : 'adviserinfo.sec.gov'}_search_${target.type}_${crd}.json`;
+		const cacheDir = isFinra ? 'brokercheck.finra.org' : 'adviserinfo.sec.gov';
+		const redisKey = target.type === 'individual' ? `${target.source}:individual:${crd}` : `${target.source}:firm:${crd}`;
+		
+		const nationalFile = path.join(nationalRoot, cacheDir, cacheFileName);
+		const rawFile = path.join(rawRoot, cacheDir, cacheFileName);
+
+		try {
+			const sourceExistedBefore = (await cacheArtifactExists([nationalFile, rawFile])) || (await keyExistsInRedis(redis, redisKey));
+			const recordExistedBeforePromise = recordExistenceCache.get(cardKey) || (async () => recordExistsBeforeFetch(redis, target.type, crd))();
+			recordExistenceCache.set(cardKey, recordExistedBeforePromise);
+			const recordExistedBefore = await recordExistedBeforePromise;
+
+			let payload: any;
+			try {
+				payload = await fetchJson(url, { timeoutMs: DASHBOARD_DETAIL_FETCH_TIMEOUT_MS });
+			} catch (error: any) {
+				if (isTooManyRequestsError(error)) {
+					const retryAfterHeader = error?.response?.headers?.['retry-after'] || error?.headers?.['retry-after'];
+					const retryAfter = Number.isFinite(Number(retryAfterHeader)) && Number(retryAfterHeader) > 0 ? Number(retryAfterHeader) * 1000 : null;
+					const cooldownMs = retryAfter || randomBetween(2 * 60 * 1000, 4 * 60 * 1000); 
+					upstreamCooldownUntil = Date.now() + cooldownMs;
+					await sleep(cooldownMs);
+					payload = await fetchJson(url, { timeoutMs: DASHBOARD_DETAIL_FETCH_TIMEOUT_MS });
+				} else {
+					throw error;
+				}
 			}
 
-			// Random jittered delay between EVERY request as requested
-			await sleep(randomBetween(DASHBOARD_DETAIL_FETCH_DELAY_MS, DASHBOARD_DETAIL_FETCH_DELAY_MS + DASHBOARD_DETAIL_FETCH_JITTER_MS));
-
-			const isFinra = target.source === 'finra';
-			const isIndividual = target.type === 'individual';
-			const cardKey = `${target.type}:${crd}`;
-			const url =
-				isFinra && isIndividual ? `https://api.brokercheck.finra.org/search/individual/${crd}?hl=true&includePrevious=true&wt=json`
-				: isFinra && !isIndividual ? `https://api.brokercheck.finra.org/search/firm/${crd}?hl=true&wt=json`
-				: !isFinra && isIndividual ? `https://api.adviserinfo.sec.gov/search/individual/${crd}?hl=true&includePrevious=true&wt=json`
-				: `https://api.adviserinfo.sec.gov/search/firm/${crd}?wt=json`;
-			
-			const cacheFileName = `api.${isFinra ? 'brokercheck.finra.org' : 'adviserinfo.sec.gov'}_search_${target.type}_${crd}.json`;
-			const cacheDir = isFinra ? 'brokercheck.finra.org' : 'adviserinfo.sec.gov';
-			const redisKey = target.type === 'individual' ? `${target.source}:individual:${crd}` : `${target.source}:firm:${crd}`;
-			
-			const nationalFile = path.join(nationalRoot, cacheDir, cacheFileName);
-			const rawFile = path.join(rawRoot, cacheDir, cacheFileName);
-
-			try {
-				const sourceExistedBefore = (await cacheArtifactExists([nationalFile, rawFile])) || (await keyExistsInRedis(redis, redisKey));
-				const recordExistedBeforePromise = recordExistenceCache.get(cardKey) || (async () => recordExistsBeforeFetch(redis, target.type, crd))();
-				recordExistenceCache.set(cardKey, recordExistedBeforePromise);
-				const recordExistedBefore = await recordExistedBeforePromise;
-
-				let payload: any;
-				try {
-					payload = await fetchJson(url, { timeoutMs: DASHBOARD_DETAIL_FETCH_TIMEOUT_MS });
-				} catch (error: any) {
-					if (isTooManyRequestsError(error)) {
-						const retryAfterHeader = error?.response?.headers?.['retry-after'] || error?.headers?.['retry-after'];
-						const retryAfter = Number.isFinite(Number(retryAfterHeader)) && Number(retryAfterHeader) > 0 ? Number(retryAfterHeader) * 1000 : null;
-						
-						// Respect retryAfter if present, otherwise 2-4 minutes like the reference app
-						const cooldownMs = retryAfter || randomBetween(2 * 60 * 1000, 4 * 60 * 1000); 
-						upstreamCooldownUntil = Date.now() + cooldownMs;
-						console.warn(`[fetch-crds] 429 from ${url}; pausing for ${(cooldownMs / 60000).toFixed(2)} minutes`);
-						await sleep(cooldownMs);
-						payload = await fetchJson(url, { timeoutMs: DASHBOARD_DETAIL_FETCH_TIMEOUT_MS });
-					} else {
-						throw error;
-					}
-				}
-
-				const outcome = classifyFetchedPayloadOutcome(payload, target);
-				if (outcome.status === 'error') {
-					allResults.push({
-						crd, source: target.source, type: target.type, url, cacheFile: nationalFile, redisKey, cardKey,
-						status: 'error', redisWrite: 'not-attempted', error: outcome.error || 'invalid-payload-shape',
-					});
-					continue;
-				}
-
-				if (outcome.status === 'skipped') {
-					allResults.push(buildSkippedFetchResult(target, { url, cacheFile: nationalFile, redisKey, cardKey }, outcome.skipReason || 'out-of-scope-source-payload', includePayload ? payload : undefined));
-					continue;
-				}
-
-				// Success: Save and Discover
-				try {
-					await Promise.all([writeJsonFile(nationalFile, payload), writeJsonFile(rawFile, payload)]);
-				} catch (fileErr: any) {
-					console.warn(`[fetch-crds] Skipping local file write (expected in Vercel): ${fileErr.message}`);
-				}
-				await setStringIfValid(redisKey, JSON.stringify(payload), 0);
-
-				const newSourceSaved = !sourceExistedBefore;
-				const newRecordSaved = !recordExistedBefore;
-
-				mainAppPublishQueue.push({ crd, source: target.source, type: target.type, status: 'ok', payload });
-
-				const fetchResult: FetchResultItem = {
-					crd, source: target.source, type: target.type, url, cacheFile: nationalFile, redisKey, cardKey,
-					status: 'ok', redisWrite: 'written', newSourceSaved, newRecordSaved,
-				};
-				if (includePayload) fetchResult.payload = payload;
-				allResults.push(fetchResult);
-
-				// Discovery logic: find more CRDs to fetch sequentially
-				const artifacts = buildMainAppGraphArtifactsFromFetchedPayload(payload, target);
-				for (const node of artifacts.nodes) {
-					const discoveredCrd = node.crd || node.firmId;
-					if (!discoveredCrd || discoveredCrd === crd) continue;
-					const discoveredType = node.group === 'firm' ? 'firm' : 'individual';
-					targetQueue.push({ crd: discoveredCrd, source: 'finra', type: discoveredType });
-					targetQueue.push({ crd: discoveredCrd, source: 'sec', type: discoveredType });
-				}
-
-			} catch (error: any) {
+			const outcome = classifyFetchedPayloadOutcome(payload, target);
+			if (outcome.status === 'error') {
 				allResults.push({
 					crd, source: target.source, type: target.type, url, cacheFile: nationalFile, redisKey, cardKey,
-					status: 'error', redisWrite: 'not-attempted', error: error?.message || String(error),
+					status: 'error', redisWrite: 'not-attempted', error: outcome.error || 'invalid-payload-shape',
 				});
+				continue;
 			}
+
+			if (outcome.status === 'skipped') {
+				allResults.push(buildSkippedFetchResult(target, { url, cacheFile: nationalFile, redisKey, cardKey }, outcome.skipReason || 'out-of-scope-source-payload', includePayload ? payload : undefined));
+				continue;
+			}
+
+			// Success: Save to Redis
+			try {
+				await Promise.all([writeJsonFile(nationalFile, payload), writeJsonFile(rawFile, payload)]);
+			} catch (fileErr: any) {
+				console.warn(`[fetch-crds] Skipping local file write: ${fileErr.message}`);
+			}
+			await setStringIfValid(redisKey, JSON.stringify(payload), 0);
+
+			const newSourceSaved = !sourceExistedBefore;
+			const newRecordSaved = !recordExistedBefore;
+
+			mainAppPublishQueue.push({ crd, source: target.source, type: target.type, status: 'ok', payload });
+
+			const fetchResult: FetchResultItem = {
+				crd, source: target.source, type: target.type, url, cacheFile: nationalFile, redisKey, cardKey,
+				status: 'ok', redisWrite: 'written', newSourceSaved, newRecordSaved,
+			};
+			if (includePayload) fetchResult.payload = payload;
+			allResults.push(fetchResult);
+
+			// Discover new CRDs from this page
+			const artifacts = buildMainAppGraphArtifactsFromFetchedPayload(payload, target);
+			for (const node of artifacts.nodes) {
+				const discoveredCrd = node.crd || node.firmId;
+				if (discoveredCrd && discoveredCrd !== crd) {
+					discoveredCrds.add(String(discoveredCrd));
+				}
+			}
+
+		} catch (error: any) {
+			allResults.push({
+				crd, source: target.source, type: target.type, url, cacheFile: nationalFile, redisKey, cardKey,
+				status: 'error', redisWrite: 'not-attempted', error: error?.message || String(error),
+			});
 		}
 	}
 
@@ -2047,6 +2031,7 @@ async function fetchCrdsToCacheAndRedis(initialTargets: FetchTarget[], options: 
 		summary: summarizeFetchResults(allResults),
 		mainAppSync,
 		results: allResults,
+		discovered: Array.from(discoveredCrds),
 	};
 }
 

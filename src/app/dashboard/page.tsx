@@ -934,24 +934,37 @@ export default function DashboardPage() {
 		if (action === 'fetch-crds') {
 			setQueueElapsedSec(0);
 			setTerminalLogs([]);
-			setCrawlProgress({ active: true, current: 0, total: effectiveQueries.length, query: '', ok: 0, new: 0, updated: 0, err: 0 });
+			
+			const initialQueue = [...effectiveQueries];
+			const processed = new Set<string>();
+			
+			setCrawlProgress({ active: true, current: 0, total: initialQueue.length, query: '', ok: 0, new: 0, updated: 0, err: 0 });
 
 			let totalSuccess = 0;
 			let totalError = 0;
 			let totalNew = 0;
 			let totalUpdated = 0;
+			let itemsProcessed = 0;
 
-			for (let i = 0; i < effectiveQueries.length; i++) {
-				const query = effectiveQueries[i];
-				setCrawlProgress(p => p ? { ...p, current: i + 1, query } : null);
+			const queue = [...initialQueue];
+
+			while (queue.length > 0) {
+				const query = queue.shift()!;
+				if (processed.has(query)) continue;
+				processed.add(query);
 				
-				setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${i}-start`, text: `>[${i + 1}/${effectiveQueries.length}] Fetching ${query}...`, type: 'info' }]);
+				itemsProcessed++;
+				// Update progress based on current queue length
+				setCrawlProgress(p => p ? { ...p, current: itemsProcessed, total: processed.size + queue.length, query } : null);
+				
+				setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${itemsProcessed}-start`, text: `>[${itemsProcessed}/${processed.size + queue.length}] Fetching ${query}...`, type: 'info' }]);
 
 				try {
 					const response = await fetch('/api/dashboard/refresh', {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ action: 'fetch-crds', queries: [query], maxCrds: 50, includePayload: true }),
+						// maxCrds: 1 ensures each request is lightweight
+						body: JSON.stringify({ action: 'fetch-crds', queries: [query], maxCrds: 1, includePayload: true }),
 					});
 					const payload = await response.json().catch(() => null);
 					if (!response.ok || !payload?.ok) throw new Error(payload?.error || `HTTP ${response.status}`);
@@ -965,10 +978,7 @@ export default function DashboardPage() {
 
 					for (const r of results) {
 						let type: 'info' | 'error' | 'warn' | 'success' = 'info';
-						
-						// Map 'finra' or 'sec' to the correct external API domain names
 						const domain = r.source === 'finra' ? 'api.brokercheck.finra.org' : 'api.adviserinfo.sec.gov';
-						
 						let msg = `  - ${domain} (${r.type}): `;
 						
 						if (r.status === 'error') {
@@ -992,7 +1002,7 @@ export default function DashboardPage() {
 								msg += `Unchanged`;
 							}
 						}
-						newLogs.push({ id: `${Date.now()}-${i}-${r.crd}-${r.source}`, text: msg, type });
+						newLogs.push({ id: `${Date.now()}-${itemsProcessed}-${r.crd}-${r.source}`, text: msg, type });
 					}
 
 					setTerminalLogs(prev => [...prev, ...newLogs]);
@@ -1004,8 +1014,29 @@ export default function DashboardPage() {
 
 					setCrawlProgress(p => p ? { ...p, ok: totalSuccess, new: totalNew, updated: totalUpdated, err: totalError } : null);
 
+					// Discover and queue new CRDs (recursion)
+					const discovered = payload.discovered || [];
+					const resolution = payload.resolution || [];
+					
+					// Also check resolution in case a string query found more CRDs than were fetched
+					for (const res of resolution) {
+						if (Array.isArray(res.crds)) {
+							for (const c of res.crds) {
+								if (!processed.has(c) && !queue.includes(c)) queue.push(c);
+							}
+						}
+					}
+
+					for (const dCrd of discovered) {
+						if (!processed.has(dCrd) && !queue.includes(dCrd)) {
+							// Basic recursion limit: only add if we haven't processed a huge amount already
+							if (processed.size < 200) {
+								queue.push(dCrd);
+							}
+						}
+					}
+
 					if (qNew > 0) {
-						// Optimistic UI counter update
 						setQueueMetaStats(current => {
 							const t = current.inventoryTotals;
 							if (!t) return current;
@@ -1020,7 +1051,6 @@ export default function DashboardPage() {
 							};
 						});
 						
-						// Fire backend sync
 						void fetch('/api/dashboard/refresh', {
 							method: 'POST',
 							headers: { 'content-type': 'application/json' },
@@ -1030,17 +1060,16 @@ export default function DashboardPage() {
 						void loadQueueCardsFromRedis(queueCrdFilter);
 					}
 
-					setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${i}-done`, text: `  -> Query complete: ${qNew} new, ${qUpd} updated, ${qErr} errors`, type: qErr > 0 ? 'warn' : 'info' }]);
+					setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${itemsProcessed}-done`, text: `  -> Query complete: ${qNew} new, ${qUpd} updated, ${qErr} errors`, type: qErr > 0 ? 'warn' : 'info' }]);
 
 				} catch (err: any) {
 					totalError++;
 					setCrawlProgress(p => p ? { ...p, err: totalError } : null);
-					
 					const errText = String(err.message || err);
 					if (errText.includes('no-valid-crds') || errText.includes('No valid CRDs')) {
-						setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${i}-err`, text: `  -> no valid CRDs`, type: 'warn' }]);
+						setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${itemsProcessed}-err`, text: `  -> no valid CRDs`, type: 'warn' }]);
 					} else {
-						setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${i}-err`, text: `  -> Request Failed: ${errText}`, type: 'error' }]);
+						setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${itemsProcessed}-err`, text: `  -> Request Failed: ${errText}`, type: 'error' }]);
 					}
 				}
 			}
