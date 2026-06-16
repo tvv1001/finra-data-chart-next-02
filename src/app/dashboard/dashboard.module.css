@@ -223,8 +223,6 @@
 .queueRunList {
 	display: grid;
 	gap: 6px;
-	max-height: 400px;
-	overflow-y: auto;
 	padding-right: 2px;
 }
 
@@ -234,10 +232,37 @@
 	background: #fff;
 	padding: 10px;
 	font-size: 12px;
-	min-height: 110px;
+	min-height: 64px;
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
+}
+
+.crawlBanner {
+	background: linear-gradient(90deg, #1e3a8a 0%, #172554 100%);
+	color: #dbeafe;
+	padding: 10px 14px;
+	border-radius: 8px;
+	border: 1px solid #3b82f6;
+	font-size: 13px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 10px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.crawlBannerStats {
+	display: flex;
+	gap: 8px;
+	font-weight: 600;
+}
+
+.crawlBannerStats span {
+	background: #2563eb;
+	padding: 3px 8px;
+	border-radius: 999px;
+	font-size: 11px;
 }
 
 .queueRunTop {

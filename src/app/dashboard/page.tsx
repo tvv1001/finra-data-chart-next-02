@@ -55,20 +55,9 @@ type QueueRunItem = {
 	status: 'queued' | 'running' | 'complete' | 'nomatch' | 'error';
 	elapsedSec: number;
 	message?: string;
-	crdCount?: number;
-	skippedSourceCount?: number;
-	trueErrorCount?: number;
-	savedRecordCount?: number;
-	savedSourceCount?: number;
-	updatedExistingRecordCount?: number;
-	updatedExistingSourceCount?: number;
-	detailContent?: string; // rendered HTML/text content for the card
-	fetchedEntity?: {
-		id: string;
-		entity: 'individual' | 'firm';
-		name?: string;
-		[key: string]: any;
-	};
+	newRec?: number;
+	updatedRec?: number;
+	errRec?: number;
 };
 
 type UrlSelectionInput = {
@@ -378,6 +367,7 @@ export default function DashboardPage() {
 	const [searchError, setSearchError] = useState<string | null>(null);
 	const [searchResults, setSearchResults] = useState<SearchResultCard[]>([]);
 	const [searchSkippedCount, setSearchSkippedCount] = useState(0);
+	const [crawlProgress, setCrawlProgress] = useState<{ active: boolean; current: number; total: number; query: string; ok: number; new: number; updated: number; err: number } | null>(null);
 	const [queueStatusLine, setQueueStatusLine] = useState('Idle | - | queue - | elapsed 0s');
 	const [queueQueryLines, setQueueQueryLines] = useState<string[]>([]);
 	const [queueElapsedSec, setQueueElapsedSec] = useState(0);
@@ -948,16 +938,17 @@ export default function DashboardPage() {
 		if (action === 'fetch-crds') {
 			setQueueElapsedSec(0);
 			setQueueRunItems(effectiveQueries.map(q => ({ query: q, status: 'queued', elapsedSec: 0 })));
-			setQueueStatusLine(`Starting sequential crawl of ${effectiveQueries.length} queries...`);
+			setCrawlProgress({ active: true, current: 0, total: effectiveQueries.length, query: '', ok: 0, new: 0, updated: 0, err: 0 });
 
 			let totalSuccess = 0;
-			let totalSkipped = 0;
 			let totalError = 0;
-			let totalSaved = 0;
+			let totalNew = 0;
+			let totalUpdated = 0;
 
 			for (let i = 0; i < effectiveQueries.length; i++) {
 				const query = effectiveQueries[i];
 				setQueueRunItems(prev => prev.map((item, idx) => idx === i ? { ...item, status: 'running' } : item));
+				setCrawlProgress(p => p ? { ...p, current: i + 1, query } : null);
 				
 				try {
 					const response = await fetch('/api/dashboard/refresh', {
@@ -969,37 +960,76 @@ export default function DashboardPage() {
 					if (!response.ok || !payload?.ok) throw new Error(payload?.error || `HTTP ${response.status}`);
 
 					const summary = payload.summary || {};
+					const results = payload.results || [];
+					let qNew = 0, qUpd = 0, qErr = 0;
+					let qNewPeople = 0, qNewFirms = 0;
+					
+					for (const r of results) {
+						if (r.status === 'error') {
+							qErr++;
+						} else if (r.newRecordSaved) {
+							qNew++;
+							if (String(r.type).toLowerCase() === 'firm') qNewFirms++;
+							else qNewPeople++;
+						} else if (r.newSourceSaved) {
+							qUpd++;
+						}
+					}
+
+					totalNew += qNew;
+					totalUpdated += qUpd;
 					totalSuccess += summary.successCount || 0;
-					totalSkipped += summary.skippedCount || 0;
-					totalError += summary.errorCount || 0;
-					totalSaved += summary.newRecordCount || 0;
+					totalError += qErr;
+
+					setCrawlProgress(p => p ? { ...p, ok: totalSuccess, new: totalNew, updated: totalUpdated, err: totalError } : null);
+
+					if (qNew > 0) {
+						// Optimistic UI counter update
+						setQueueMetaStats(current => {
+							const t = current.inventoryTotals;
+							if (!t) return current;
+							return { 
+								...current, 
+								inventoryTotals: { 
+									...t, 
+									unique: Number(t.unique || 0) + qNew,
+									people: Number(t.people || 0) + qNewPeople,
+									firms: Number(t.firms || 0) + qNewFirms
+								} 
+							};
+						});
+						
+						// Fire backend sync
+						void fetch('/api/dashboard/refresh', {
+							method: 'POST',
+							headers: { 'content-type': 'application/json' },
+							body: JSON.stringify({ action: 'increment-inventory-counter', amount: qNew }),
+						}).then(() => loadQueueCardsFromRedis(queueCrdFilter));
+					} else if (qUpd > 0) {
+						void loadQueueCardsFromRedis(queueCrdFilter);
+					}
 
 					setQueueRunItems(prev => prev.map((item, idx) => {
 						if (idx !== i) return item;
 						const resolved = (payload.resolution || []).find((r: any) => String(r.query).trim() === String(query).trim());
-						const fetchedResult = (payload.results || []).find((r: any) => String(r.crd) === String(query).trim());
-						const entityDetail = fetchedResult?.payload ? extractEntityDetailFromPayload(fetchedResult.payload, fetchedResult.type, query) : null;
 						return {
 							...item,
 							status: (resolved?.crdCount || 0) > 0 ? 'complete' : 'nomatch',
-							message: (resolved?.crdCount || 0) > 0 ? `Matched ${resolved.crdCount} CRDs` : 'No match found',
-							fetchedEntity: entityDetail || undefined,
-							detailContent: entityDetail?.status || undefined,
+							message: '',
+							newRec: qNew,
+							updatedRec: qUpd,
+							errRec: qErr
 						};
 					}));
 
-					if (summary.newRecordCount > 0) {
-						void loadQueueCardsFromRedis(queueCrdFilter);
-					}
 				} catch (err: any) {
 					totalError++;
+					setCrawlProgress(p => p ? { ...p, err: totalError } : null);
 					setQueueRunItems(prev => prev.map((item, idx) => idx === i ? { ...item, status: 'error', message: err.message } : item));
 				}
-				
-				setQueueStatusLine(`Processing ${i + 1}/${effectiveQueries.length} | ${query} | ok ${totalSuccess} | err ${totalError} | elapsed ${Math.round((Date.now() - startedAt) / 1000)}s`);
 			}
 
-			setQueueStatusLine(`Finished | ok ${totalSuccess} | saved ${totalSaved} | err ${totalError} | elapsed ${Math.round((Date.now() - startedAt) / 1000)}s`);
+			setCrawlProgress(p => p ? { ...p, active: false } : null);
 			setBusyAction(null);
 			window.setTimeout(() => setQueueRunItems([]), 10000);
 			return;
@@ -1262,18 +1292,18 @@ export default function DashboardPage() {
 											<span className={styles.queueRunQuery}>{item.query}</span>
 											<span className={[styles.queueRunBadge, styles['queueRunBadge_' + item.status]].filter(Boolean).join(' ')}>{item.status}</span>
 										</div>
-										{item.crdCount != null && <div className={styles.queueRunCrds}>Matched CRDs: {Number(item.crdCount || 0)}</div>}
-										{item.message && <div className={styles.queueRunMeta}>{item.message}</div>}
-										{item.fetchedEntity && (
-											<div className={styles.queueRunDetail}>
-												<div className={styles.queueRunDetailId}>
-													<strong>{item.fetchedEntity.id}</strong>
-													<span>{item.fetchedEntity.entity === 'firm' ? 'Firm' : 'Individual'}</span>
-												</div>
-												{item.fetchedEntity.name && <div className={styles.queueRunDetailName}>{item.fetchedEntity.name}</div>}
-												{item.detailContent && <div className={styles.queueRunDetailContent}>{item.detailContent}</div>}
+										{item.status === 'complete' && (
+											<div className={styles.queueRunMeta}>
+												{[
+													item.newRec ? `${item.newRec} new` : null,
+													item.updatedRec ? `${item.updatedRec} updated` : null,
+													item.errRec ? `${item.errRec} errors` : null,
+													(!item.newRec && !item.updatedRec && !item.errRec) ? 'No changes' : null
+												].filter(Boolean).join(' • ')}
 											</div>
 										)}
+										{item.status === 'nomatch' && <div className={styles.queueRunMeta}>No match</div>}
+										{item.status === 'error' && <div className={styles.queueRunMeta}>{item.message}</div>}
 									</div>
 								) : (
 									<div key={`empty-${index}`} className={styles.queueRunItem} style={{ opacity: 0.3, borderStyle: 'dashed' }}>
@@ -1357,6 +1387,19 @@ export default function DashboardPage() {
 				</aside>
 
 				<section className={styles.centerPane}>
+					{crawlProgress && crawlProgress.active && (
+						<div className={styles.crawlBanner}>
+							<div>
+								<strong>Sequential Crawl:</strong> {crawlProgress.current} / {crawlProgress.total} 
+								<span style={{ opacity: 0.7, marginLeft: 8 }}>({crawlProgress.query})</span>
+							</div>
+							<div className={styles.crawlBannerStats}>
+								<span>{crawlProgress.new} new</span>
+								<span>{crawlProgress.updated} updated</span>
+								<span>{crawlProgress.err} errors</span>
+							</div>
+						</div>
+					)}
 					{hasCurrentRecord && (
 						<>
 							<div className={styles.recordHeaderRow}>
