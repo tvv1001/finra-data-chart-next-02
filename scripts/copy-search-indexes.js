@@ -28,7 +28,9 @@ for (const file of files) {
 
 	try {
 		if (!fs.existsSync(src)) {
-			console.warn(`⚠ Source not found: ${src}`);
+			if (!process.env.VERCEL) {
+				console.warn(`⚠ Source not found: ${src}`);
+			}
 			continue;
 		}
 
