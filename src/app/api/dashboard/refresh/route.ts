@@ -1793,12 +1793,12 @@ async function listNewCrds() {
 	const recentSeeds = await getRecentSeedsFromStore().catch(() => ({ individualIds: [], firmIds: [], updatedAt: new Date(0).toISOString() }));
 	const recentTargets = [...recentSeeds.individualIds.map((id) => ({ entity: 'individual' as const, id })), ...recentSeeds.firmIds.map((id) => ({ entity: 'firm' as const, id }))]
 		.sort((left, right) => Number(right.id) - Number(left.id))
-		.slice(0, 20);
+		.slice(0, 30);
 
 	const fallbackCards = cards
 		.slice()
 		.sort((left, right) => Number(right.id) - Number(left.id))
-		.slice(0, 20);
+		.slice(0, 30);
 	const latestCards = recentTargets.length > 0 ? recentTargets.map(({ entity, id }) => cardMap.get(`${entity}:${id}`) || { id, entity, files: 0, sources: [] }) : fallbackCards;
 	const updatedAt = Date.parse(String(recentSeeds.updatedAt || '')) || Date.now();
 	const now = Date.now();

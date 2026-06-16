@@ -351,6 +351,16 @@ function extractEntityDetailFromPayload(payload: any, entity: 'individual' | 'fi
 	return null;
 }
 
+const LOCAL_HISTORY_KEY = 'finra_dashboard_history';
+const LOCAL_HISTORY_MAX = 100;
+
+type LocalHistoryEntry = {
+	id: string;
+	entity: 'individual' | 'firm';
+	sources: QueueCardSourceEntry[];
+	fetchedAt: string;
+};
+
 export default function DashboardPage() {
 	const [crdInput, setCrdInput] = useState('');
 	const [externalRawDir, setExternalRawDir] = useState('/home/lenny/Dev/webDev/Data-finra-sec/data/raw');
@@ -396,6 +406,15 @@ export default function DashboardPage() {
 	const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
 	const [top10Latest, setTop10Latest] = useState<Array<{ id: string; entity: 'individual' | 'firm'; fetchedAt: string; files?: number; sources?: QueueCardSourceEntry[] }>>([]);
 	const [sessionHasFetched, setSessionHasFetched] = useState(false);
+	const [localHistory, setLocalHistory] = useState<LocalHistoryEntry[]>(() => {
+		if (typeof window === 'undefined') return [];
+		try {
+			const raw = localStorage.getItem(LOCAL_HISTORY_KEY);
+			return raw ? (JSON.parse(raw) as LocalHistoryEntry[]) : [];
+		} catch {
+			return [];
+		}
+	});
 	const mergedDetailCacheRef = useRef(new Map<string, any>());
 	const jsonStringCacheRef = useRef(new Map<string, string>());
 	const previousNewCrdsCountRef = useRef(0);
@@ -505,25 +524,6 @@ export default function DashboardPage() {
 	}, [newCrds.length]);
 
 	useEffect(() => {
-		if (queueCards.length > 0) {
-			const now = new Date().toISOString();
-			const realCards = queueCards.filter((card) => (card.sources?.length ?? 0) > 0 || card.files > 0);
-			const newItems = realCards.slice(0, 10).map((card) => ({
-				id: card.id,
-				entity: card.entity,
-				fetchedAt: now,
-				files: card.files,
-				sources: card.sources,
-			}));
-			setTop10Latest((prev) => {
-				const combined = [...newItems, ...prev];
-				const deduped = Array.from(new Map(combined.map((item) => [`${item.entity}:${item.id}`, item])).values());
-				return deduped.slice(0, 10);
-			});
-		}
-	}, [queueCards]);
-
-	useEffect(() => {
 		if (typeof window === 'undefined') return;
 		if (currentRecordId) return;
 
@@ -596,41 +596,28 @@ export default function DashboardPage() {
 	}, [queueCards, queueMetaStats.inventoryTotals]);
 
 	const hasInventorySummary = useMemo(() => {
-		return queueMetaStats.totalCount > 0 || queueMetaStats.totalCacheKeys > 0 || queueCards.length > 0 || uniqueCrdCounts.individuals > 0 || uniqueCrdCounts.firms > 0;
-	}, [queueCards.length, queueMetaStats.totalCacheKeys, queueMetaStats.totalCount, uniqueCrdCounts.firms, uniqueCrdCounts.individuals]);
+		return queueMetaStats.totalCount > 0 || queueMetaStats.totalCacheKeys > 0 || localHistory.length > 0 || uniqueCrdCounts.individuals > 0 || uniqueCrdCounts.firms > 0;
+	}, [localHistory.length, queueMetaStats.totalCacheKeys, queueMetaStats.totalCount, uniqueCrdCounts.firms, uniqueCrdCounts.individuals]);
 
-	const mergedQueueCards = useMemo(() => {
-		const merged = new Map<string, QueueCard>();
-
-		// 1. Absolute recency priority: Top 10 latest from session memory
-		if (!queueCrdFilter.trim()) {
-			for (const item of top10Latest.filter((entry) => (entry.sources?.length ?? 0) > 0)) {
-				const key = `${item.entity}:${item.id}`;
-				merged.set(key, {
-					id: item.id,
-					entity: item.entity,
-					files: item.files ?? 1,
-					sources: item.sources ?? [],
-					since: item.fetchedAt ? `Recently fetched ${new Date(item.fetchedAt).toLocaleString()}` : 'Recently fetched',
-					kind: 'recent',
-				});
-			}
-		}
-
-		// 2. Queue cards (current session results or Redis inventory)
-		for (const card of queueCards) {
-			const key = `${card.entity}:${card.id}`;
-			if (merged.has(key)) {
-				const existing = merged.get(key)!;
-				// Merge properties, keeping the 'recent' status/label from top10Latest if it was there
-				merged.set(key, { ...card, ...existing });
-			} else {
-				merged.set(key, card);
-			}
-		}
-
-		return Array.from(merged.values());
-	}, [queueCards, top10Latest, queueCrdFilter]);
+	const displayCards = useMemo<QueueCard[]>(() => {
+		const token = queueCrdFilter.trim();
+		const tokens = token ? token.split(/[\s,;]+/g).map((v) => v.trim()).filter(Boolean) : [];
+		const filtered = tokens.length
+			? localHistory.filter((e) => tokens.some((t) => e.id === t || e.id.includes(t)))
+			: localHistory;
+		return filtered
+			.slice()
+			.sort((a, b) => new Date(b.fetchedAt).getTime() - new Date(a.fetchedAt).getTime())
+			.slice(0, 15)
+			.map((e) => ({
+				id: e.id,
+				entity: e.entity,
+				files: e.sources.length,
+				sources: e.sources,
+				kind: 'recent' as const,
+				since: new Date(e.fetchedAt).toLocaleString(),
+			}));
+	}, [localHistory, queueCrdFilter]);
 
 	const filteredNewCrds = useMemo(() => {
 		const token = queueCrdFilter.trim();
@@ -816,6 +803,39 @@ export default function DashboardPage() {
 		return () => clearInterval(intervalId);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [queueCrdFilter, sessionHasFetched]);
+
+	function addCardsToLocalHistory(results: any[]) {
+		if (typeof window === 'undefined') return;
+		const now = new Date().toISOString();
+		const map = new Map<string, LocalHistoryEntry>();
+
+		for (const r of results) {
+			if (r?.status !== 'ok') continue;
+			const id = String(r?.crd || '').trim();
+			const entity: 'individual' | 'firm' = String(r?.type || '').toLowerCase() === 'firm' ? 'firm' : 'individual';
+			const source = String(r?.source || '').toLowerCase() as SearchResultSource;
+			if (!/^\d{1,10}$/.test(id)) continue;
+			if (source !== 'finra' && source !== 'sec') continue;
+
+			const key = `${entity}:${id}`;
+			const existing = map.get(key) ?? { id, entity, sources: [], fetchedAt: now };
+			const srcIdx = existing.sources.findIndex((s) => s.source === source);
+			const srcEntry: QueueCardSourceEntry = { source, status: 'ok' };
+			if (srcIdx >= 0) existing.sources[srcIdx] = srcEntry;
+			else existing.sources.push(srcEntry);
+			map.set(key, existing);
+		}
+
+		if (!map.size) return;
+
+		setLocalHistory((prev) => {
+			const newEntries = Array.from(map.values());
+			const prevFiltered = prev.filter((e) => !map.has(`${e.entity}:${e.id}`));
+			const combined = [...newEntries, ...prevFiltered].slice(0, LOCAL_HISTORY_MAX);
+			try { localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(combined)); } catch { /* ignore */ }
+			return combined;
+		});
+	}
 
 	async function fetchMergedDetail(card: QueueCard) {
 		const cacheKey = `${card.entity}:${card.id}`;
@@ -1035,6 +1055,7 @@ export default function DashboardPage() {
 					}
 
 					setTerminalLogs(prev => [...prev, ...newLogs]);
+				addCardsToLocalHistory(results);
 
 					totalNew += qNew;
 					totalUpdated += qUpd;
@@ -1336,7 +1357,7 @@ export default function DashboardPage() {
 					<div className={styles.queueMeta}>{queueMetaText}</div>
 					{persistenceNotice && <div className={styles.searchSummary}>{persistenceNotice}</div>}
 					<div className={styles.cardList}>
-						{mergedQueueCards.map((card, index) => (
+						{displayCards.map((card, index) => (
 							<div
 								key={`${card.entity}:${card.id}:${index}`}
 								className={styles.card}>
@@ -1344,11 +1365,11 @@ export default function DashboardPage() {
 									<strong>{card.name || (card.entity === 'firm' ? `Firm ${card.id}` : `Individual ${card.id}`)}</strong>
 									<span>
 										{card.id} • {card.entity === 'firm' ? 'Firm' : 'Individual'}
-										{card.kind === 'recent' ? ' • Recently fetched' : ''}
+										{card.since ? ` • ${card.since}` : ''}
 									</span>
 								</div>
 								{card.statusText && <div className={styles.cardMeta}>{card.statusText}</div>}
-								<div className={styles.cardScopes}>{card.sources.map((entry) => String(entry.source).toUpperCase()).join('  ') || (card.kind === 'recent' ? 'RECENT' : '')}</div>
+								<div className={styles.cardScopes}>{card.sources.map((entry) => String(entry.source).toUpperCase()).join('  ')}</div>
 								<div className={styles.cardSourceRow}>
 									{card.sources.map((entry) => (
 										<button
@@ -1365,7 +1386,13 @@ export default function DashboardPage() {
 							</div>
 						))}
 
-						{queueCards.length === 0 && queueCrdFilter.trim().length > 0 && filteredNewCrds.length > 0 && (
+						{displayCards.length === 0 && !queueCrdFilter.trim() && (
+							<div className={styles.cardMeta} style={{ padding: '12px 4px', opacity: 0.6 }}>
+								No fetched CRDs yet. Run the queue to populate your history.
+							</div>
+						)}
+
+						{displayCards.length === 0 && queueCrdFilter.trim().length > 0 && filteredNewCrds.length > 0 && (
 							<div className={styles.card}>
 								<div className={styles.cardTop}>
 									<strong>{filteredNewCrds[0].id}</strong>
@@ -1491,7 +1518,7 @@ export default function DashboardPage() {
 						<div className={styles.rightPaneHeader}>
 							<div>
 								<div className={styles.newCrdsHeader}>New CRDs</div>
-								<div className={styles.detected}>Newest 20 cached CRDs</div>
+								<div className={styles.detected}>Newest 30 cached CRDs</div>
 							</div>
 							<button
 								type='button'
