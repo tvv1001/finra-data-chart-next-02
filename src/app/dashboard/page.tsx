@@ -286,10 +286,7 @@ export function buildQueueCardsFromFetchResults(items: any[]): QueueCard[] {
 		map.set(key, existing);
 	}
 
-	return Array.from(map.values()).sort((left, right) => {
-		if (left.entity !== right.entity) return left.entity === 'individual' ? -1 : 1;
-		return right.id.localeCompare(left.id);
-	});
+	return Array.from(map.values());
 }
 
 function normalizePayloadForCleanView(payload: unknown) {
@@ -624,14 +621,10 @@ export default function DashboardPage() {
 	const mergedQueueCards = useMemo(() => {
 		const merged = new Map<string, QueueCard>();
 
-		for (const card of queueCards) {
-			merged.set(`${card.entity}:${card.id}`, card);
-		}
-
+		// 1. Absolute recency priority: Top 10 latest from session memory
 		if (!queueCrdFilter.trim()) {
 			for (const item of top10Latest.filter((entry) => (entry.sources?.length ?? 0) > 0)) {
 				const key = `${item.entity}:${item.id}`;
-				if (merged.has(key)) continue;
 				merged.set(key, {
 					id: item.id,
 					entity: item.entity,
@@ -643,11 +636,20 @@ export default function DashboardPage() {
 			}
 		}
 
-		return Array.from(merged.values()).sort((left, right) => {
-			if (left.entity !== right.entity) return left.entity === 'individual' ? -1 : 1;
-			return left.id.localeCompare(right.id);
-		});
-	}, [queueCards, top10Latest]);
+		// 2. Queue cards (current session results or Redis inventory)
+		for (const card of queueCards) {
+			const key = `${card.entity}:${card.id}`;
+			if (merged.has(key)) {
+				const existing = merged.get(key)!;
+				// Merge properties, keeping the 'recent' status/label from top10Latest if it was there
+				merged.set(key, { ...card, ...existing });
+			} else {
+				merged.set(key, card);
+			}
+		}
+
+		return Array.from(merged.values());
+	}, [queueCards, top10Latest, queueCrdFilter]);
 
 	const filteredNewCrds = useMemo(() => {
 		const token = queueCrdFilter.trim();
@@ -942,31 +944,70 @@ export default function DashboardPage() {
 					overrideQueries
 				:	queueQueries
 			:	[];
-		const effectiveParsedCrds = action === 'fetch-crds' ? effectiveQueries.filter((value) => /^\d{1,10}$/.test(String(value).trim())) : [];
 
 		if (action === 'fetch-crds') {
 			setQueueElapsedSec(0);
-			setQueueRunItems(
-				effectiveQueries.map((query, index) => ({
-					query,
-					status: index === 0 ? 'running' : 'queued',
-					elapsedSec: 0,
-				})),
-			);
-			setQueueStatusLine(`Searching | Queue | queue 1/${Math.max(1, effectiveQueries.length)} | elapsed 0s`);
-			setQueueQueryLines([`last Starting search for "${effectiveQueries[0] || '-'}"`]);
+			setQueueRunItems(effectiveQueries.map(q => ({ query: q, status: 'queued', elapsedSec: 0 })));
+			setQueueStatusLine(`Starting sequential crawl of ${effectiveQueries.length} queries...`);
+
+			let totalSuccess = 0;
+			let totalSkipped = 0;
+			let totalError = 0;
+			let totalSaved = 0;
+
+			for (let i = 0; i < effectiveQueries.length; i++) {
+				const query = effectiveQueries[i];
+				setQueueRunItems(prev => prev.map((item, idx) => idx === i ? { ...item, status: 'running' } : item));
+				
+				try {
+					const response = await fetch('/api/dashboard/refresh', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ action: 'fetch-crds', queries: [query], maxCrds: 1, includePayload: true }),
+					});
+					const payload = await response.json().catch(() => null);
+					if (!response.ok || !payload?.ok) throw new Error(payload?.error || `HTTP ${response.status}`);
+
+					const summary = payload.summary || {};
+					totalSuccess += summary.successCount || 0;
+					totalSkipped += summary.skippedCount || 0;
+					totalError += summary.errorCount || 0;
+					totalSaved += summary.newRecordCount || 0;
+
+					setQueueRunItems(prev => prev.map((item, idx) => {
+						if (idx !== i) return item;
+						const resolved = (payload.resolution || []).find((r: any) => String(r.query).trim() === String(query).trim());
+						const fetchedResult = (payload.results || []).find((r: any) => String(r.crd) === String(query).trim());
+						const entityDetail = fetchedResult?.payload ? extractEntityDetailFromPayload(fetchedResult.payload, fetchedResult.type, query) : null;
+						return {
+							...item,
+							status: (resolved?.crdCount || 0) > 0 ? 'complete' : 'nomatch',
+							message: (resolved?.crdCount || 0) > 0 ? `Matched ${resolved.crdCount} CRDs` : 'No match found',
+							fetchedEntity: entityDetail || undefined,
+							detailContent: entityDetail?.status || undefined,
+						};
+					}));
+
+					if (summary.newRecordCount > 0) {
+						void loadQueueCardsFromRedis(queueCrdFilter);
+					}
+				} catch (err: any) {
+					totalError++;
+					setQueueRunItems(prev => prev.map((item, idx) => idx === i ? { ...item, status: 'error', message: err.message } : item));
+				}
+				
+				setQueueStatusLine(`Processing ${i + 1}/${effectiveQueries.length} | ${query} | ok ${totalSuccess} | err ${totalError} | elapsed ${Math.round((Date.now() - startedAt) / 1000)}s`);
+			}
+
+			setQueueStatusLine(`Finished | ok ${totalSuccess} | saved ${totalSaved} | err ${totalError} | elapsed ${Math.round((Date.now() - startedAt) / 1000)}s`);
+			setBusyAction(null);
+			window.setTimeout(() => setQueueRunItems([]), 10000);
+			return;
 		}
 
 		try {
 			const body =
-				action === 'fetch-crds' ?
-					{
-						action,
-						queries: effectiveQueries,
-						crds: effectiveParsedCrds,
-						maxCrds: 100,
-					}
-				: action === 'list-new-crds' ?
+				action === 'list-new-crds' ?
 					{
 						action,
 					}
@@ -1018,200 +1059,11 @@ export default function DashboardPage() {
 			setResult(payload);
 			markRecordUpdatedAt((payload as any)?.at);
 
-			if (action === 'fetch-crds') {
-				mergedDetailCacheRef.current.clear();
-				jsonStringCacheRef.current.clear();
-				const resolution = Array.isArray((payload as any)?.resolution) ? (payload as any).resolution : [];
-				const fetchedItems = Array.isArray((payload as any)?.results) ? (payload as any).results : [];
-				const matched = resolution.filter((entry: any) => Number(entry?.crdCount || 0) > 0).length;
-				const elapsedSec = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
-				const summary = (payload as any)?.summary;
-				const successCount = Number(summary?.successCount || 0);
-				const skippedCount = Number(summary?.skippedCount || 0);
-				const errorCount = Number(summary?.errorCount || 0);
-				const newRecordCount = Number(summary?.newRecordCount || 0);
-				const newSourceCount = Number(summary?.newSourceCount || 0);
-				const newPeopleCount = Number(summary?.newPeopleCount || 0);
-				const newFirmCount = Number(summary?.newFirmCount || 0);
-				const persistenceMessage = typeof (payload as any)?.persistenceNotice === 'string' ? String((payload as any).persistenceNotice) : null;
-				setQueueStatusLine(
-					`Done | ${matched}/${resolution.length || effectiveQueries.length} matched | ok ${successCount} | skipped ${skippedCount} | err ${errorCount} | elapsed ${elapsedSec}s`,
-				);
-
-				if (newRecordCount > 0) {
-					setQueueMetaStats((current) => {
-						const currentTotals = current.inventoryTotals;
-						if (!currentTotals) return current;
-						return {
-							...current,
-							inventoryTotals: {
-								...currentTotals,
-								people: Number(currentTotals.people || 0) + newPeopleCount,
-								firms: Number(currentTotals.firms || 0) + newFirmCount,
-								unique: Number(currentTotals.unique || 0) + newRecordCount,
-							},
-						};
-					});
-				}
-
-				setQueueRunItems((current) =>
-					current.map((item) => {
-						const resolved = resolution.find((entry: any) => String(entry?.query || '').trim() === item.query);
-						const crdCount = Number(resolved?.crdCount || 0);
-						const queryStats = computeQuerySaveStats(resolution, fetchedItems)[item.query] || {
-							fetchedCount: 0,
-							skippedCount: 0,
-							savedSourceCount: 0,
-							savedRecordCount: 0,
-							updatedExistingSourceCount: 0,
-							updatedExistingRecordCount: 0,
-							errorCount: 0,
-						};
-						const saveChangeLabel = describeQuerySaveChange(queryStats);
-						const resultSuffix = [queryStats.skippedCount > 0 ? `${queryStats.skippedCount} skipped` : null, queryStats.errorCount > 0 ? `${queryStats.errorCount} errors` : null]
-							.filter(Boolean)
-							.join(' • ');
-
-						// Find fetched results for this query/CRD to extract detail info
-						const fetchedResult = fetchedItems.find((result: any) => String(result?.crd || '') === item.query);
-						const entityDetail = fetchedResult?.payload ? extractEntityDetailFromPayload(fetchedResult.payload, fetchedResult.type, item.query) : null;
-
-						if (!resolved) {
-							return {
-								...item,
-								status: 'nomatch',
-								message: `${item.query} • NO MATCH`,
-								fetchedEntity: entityDetail || undefined,
-							};
-						}
-
-						if (crdCount > 0) {
-							return {
-								...item,
-								status: 'complete',
-								crdCount,
-								skippedSourceCount: queryStats.skippedCount,
-								trueErrorCount: queryStats.errorCount,
-								savedRecordCount: queryStats.savedRecordCount,
-								savedSourceCount: queryStats.savedSourceCount,
-								updatedExistingRecordCount: queryStats.updatedExistingRecordCount,
-								updatedExistingSourceCount: queryStats.updatedExistingSourceCount,
-								message: `${item.query} • COMPLETE ${crdCount} matches • ${saveChangeLabel}${resultSuffix ? ` • ${resultSuffix}` : ''}`,
-								fetchedEntity: entityDetail || undefined,
-								detailContent: entityDetail?.status || undefined,
-							};
-						}
-
-						return {
-							...item,
-							status: 'nomatch',
-							crdCount,
-							message: `${item.query} • NO MATCH`,
-							fetchedEntity: entityDetail || undefined,
-						};
-					}),
-				);
-				if (newRecordCount > 0) {
-					void fetch('/api/dashboard/refresh', {
-						method: 'POST',
-						headers: { 'content-type': 'application/json' },
-						body: JSON.stringify({ action: 'increment-inventory-counter', amount: newRecordCount }),
-					})
-						.then((res) => res.json())
-						.catch(() => undefined);
-				}
-				if (successCount > 0 || skippedCount > 0 || newRecordCount > 0 || newSourceCount > 0 || persistenceMessage) {
-					setSyncBannerText(
-						[
-							`Local sync: ${newRecordCount.toLocaleString()} new record${newRecordCount === 1 ? '' : 's'}`,
-							`${newSourceCount.toLocaleString()} new source save${newSourceCount === 1 ? '' : 's'}`,
-							`${skippedCount.toLocaleString()} skipped`,
-							`${errorCount.toLocaleString()} errors`,
-							persistenceMessage,
-						]
-							.filter(Boolean)
-							.join(' • '),
-					);
-				} else {
-					setSyncBannerText(null);
-				}
-				const perQueryAddedCounts = computeQueryFetchCounts(resolution, fetchedItems);
-				const perQuerySaveStats = computeQuerySaveStats(resolution, fetchedItems);
-				const nextQueryLines: string[] = [];
-				for (const entry of resolution.slice(0, 8)) {
-					const queryText = String(entry?.query || '').trim() || '-';
-					const crdCount = Number(entry?.crdCount || 0);
-					const addedCount = Number(perQueryAddedCounts[queryText] || 0);
-					const saveStats = perQuerySaveStats[queryText] || {
-						skippedCount: 0,
-						savedRecordCount: 0,
-						savedSourceCount: 0,
-						updatedExistingRecordCount: 0,
-						updatedExistingSourceCount: 0,
-						errorCount: 0,
-					};
-					nextQueryLines.push(
-						`target ${queryText} | crd ${crdCount} | new ${saveStats.savedRecordCount} CRD | existing+new-source ${saveStats.updatedExistingRecordCount} CRD / ${saveStats.updatedExistingSourceCount} src | fetched ${addedCount} | skipped ${saveStats.skippedCount} | err ${saveStats.errorCount}`,
-					);
-				}
-				nextQueryLines.push(`match F/S requests ok ${successCount} | skipped ${skippedCount} | new records ${newRecordCount} | new sources ${newSourceCount} | err ${errorCount}`);
-				setQueueQueryLines(nextQueryLines);
-
-				const nextCards = buildQueueCardsFromFetchResults(fetchedItems);
-				if (nextCards.length > 0) {
-					const countsByCardKey = new Map<
-						string,
-						{ savedRecordCount: number; updatedExistingRecordCount: number; updatedExistingSourceCount: number; skippedSourceCount: number; trueErrorCount: number }
-					>();
-					for (const item of fetchedItems) {
-						const cardKey = String(item?.cardKey || `${String(item?.type || 'individual')}:${String(item?.crd || '').trim()}`);
-						const current = countsByCardKey.get(cardKey) || {
-							savedRecordCount: 0,
-							updatedExistingRecordCount: 0,
-							updatedExistingSourceCount: 0,
-							skippedSourceCount: 0,
-							trueErrorCount: 0,
-						};
-						if (item?.newRecordSaved === true) current.savedRecordCount += 1;
-						if (item?.newRecordSaved !== true && item?.newSourceSaved === true) {
-							current.updatedExistingRecordCount += 1;
-							current.updatedExistingSourceCount += 1;
-						}
-						if (String(item?.status || '') === 'skipped') current.skippedSourceCount += 1;
-						if (String(item?.status || '') === 'error') current.trueErrorCount += 1;
-						countsByCardKey.set(cardKey, current);
-					}
-					setQueueCards(
-						nextCards.map((card) => ({
-							...card,
-							...(countsByCardKey.get(`${card.entity}:${card.id}`) || {}),
-						})),
-					);
-				}
-
-				// Auto-dismiss temporary queue cards after 3 seconds.
-				window.setTimeout(() => {
-					setQueueRunItems([]);
-				}, 3000);
-			} else if (action === 'list-new-crds') {
-				// Handle refresh response
+			if (action === 'list-new-crds') {
 				const newCrdsData = (payload as any)?.newCrds || [];
 				setNewCrds(newCrdsData);
 			}
 		} catch (error: any) {
-			if (action === 'fetch-crds') {
-				const elapsedSec = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
-				const requestMessage = describeDashboardRequestFailure({ errorMessage: error?.message || String(error), elapsedSec });
-				setQueueStatusLine(`Error | ${requestMessage} | queue ${effectiveQueries.length} | elapsed ${elapsedSec}s`);
-				setSyncBannerText(null);
-				setQueueRunItems((current) =>
-					current.map((item) => ({
-						...item,
-						status: item.status === 'complete' ? 'complete' : 'error',
-						message: item.message || `${item.query} • ${requestMessage}`,
-					})),
-				);
-			}
 			setResult({ ok: false, error: error?.message || String(error) });
 			markRecordUpdatedAt();
 		} finally {
@@ -1323,6 +1175,25 @@ export default function DashboardPage() {
 		);
 	}
 
+	const visibleRunItems = useMemo(() => {
+		if (queueRunItems.length === 0) return [];
+		const runningIndex = queueRunItems.findIndex((item) => item.status === 'running');
+		
+		let windowIndices: number[] = [];
+		if (runningIndex === -1) {
+			const lastFinished = [...queueRunItems].reverse().findIndex(item => item.status === 'complete' || item.status === 'nomatch' || item.status === 'error');
+			const baseIndex = lastFinished === -1 ? 0 : (queueRunItems.length - 1 - lastFinished);
+			windowIndices = [baseIndex - 1, baseIndex, baseIndex + 1];
+		} else {
+			windowIndices = [runningIndex - 1, runningIndex, runningIndex + 1];
+		}
+
+		return windowIndices.map(idx => {
+			if (idx >= 0 && idx < queueRunItems.length) return queueRunItems[idx];
+			return null;
+		});
+	}, [queueRunItems]);
+
 	return (
 		<div className={styles.page}>
 			<div className={`${styles.layout} ${rightPaneCollapsed ? styles.layoutCollapsedRight : ''}`}>
@@ -1380,12 +1251,12 @@ export default function DashboardPage() {
 						</div>
 					)}
 
-					{queueRunItems.length > 0 && (
-						<>
-							<div className={styles.queueRunList}>
-								{queueRunItems.map((item, index) => (
+					{visibleRunItems.length > 0 && (
+						<div className={styles.queueRunList}>
+							{visibleRunItems.map((item, index) => (
+								item ? (
 									<div
-										key={`${item.query}-${index}-${item.status}`}
+										key={`${item.query}-${index}`}
 										className={styles.queueRunItem}>
 										<div className={styles.queueRunTop}>
 											<span className={styles.queueRunQuery}>{item.query}</span>
@@ -1393,17 +1264,6 @@ export default function DashboardPage() {
 										</div>
 										{item.crdCount != null && <div className={styles.queueRunCrds}>Matched CRDs: {Number(item.crdCount || 0)}</div>}
 										{item.message && <div className={styles.queueRunMeta}>{item.message}</div>}
-										{(item.savedRecordCount != null || item.savedSourceCount != null) && (
-											<div className={styles.queueRunStats}>
-												new {Number(item.savedRecordCount || 0)} CRD • updated {Number(item.updatedExistingRecordCount || 0)} CRD / {Number(item.updatedExistingSourceCount || 0)}{' '}
-												source(s)
-											</div>
-										)}
-										{(item.skippedSourceCount != null || item.trueErrorCount != null) && (
-											<div className={styles.queueRunStats}>
-												skipped {Number(item.skippedSourceCount || 0)} • errors {Number(item.trueErrorCount || 0)}
-											</div>
-										)}
 										{item.fetchedEntity && (
 											<div className={styles.queueRunDetail}>
 												<div className={styles.queueRunDetailId}>
@@ -1415,9 +1275,19 @@ export default function DashboardPage() {
 											</div>
 										)}
 									</div>
-								))}
-							</div>
-						</>
+								) : (
+									<div key={`empty-${index}`} className={styles.queueRunItem} style={{ opacity: 0.3, borderStyle: 'dashed' }}>
+										<div className={styles.queueRunTop}>
+											<span className={styles.queueRunQuery}>-</span>
+											<span className={styles.queueRunBadge}>Empty</span>
+										</div>
+										<div className={styles.queueRunMeta}>
+											{index === 0 ? 'Previous' : index === 2 ? 'Next' : '-'}
+										</div>
+									</div>
+								)
+							))}
+						</div>
 					)}
 
 					<div className={styles.queueSectionTitle}>Run Queue</div>

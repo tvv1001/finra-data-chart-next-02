@@ -223,7 +223,7 @@
 .queueRunList {
 	display: grid;
 	gap: 6px;
-	max-height: 150px;
+	max-height: 400px;
 	overflow-y: auto;
 	padding-right: 2px;
 }
@@ -234,6 +234,10 @@
 	background: #fff;
 	padding: 10px;
 	font-size: 12px;
+	min-height: 110px;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
 }
 
 .queueRunTop {
