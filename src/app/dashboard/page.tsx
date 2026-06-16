@@ -980,7 +980,8 @@ export default function DashboardPage() {
 					for (const r of results) {
 						let type: 'info' | 'error' | 'warn' | 'success' = 'info';
 						const domain = r.source === 'finra' ? 'api.brokercheck.finra.org' : 'api.adviserinfo.sec.gov';
-						let msg = `  - ${domain} (${r.type}): `;
+						
+						let msg = `  - ${domain} (${r.type} ${r.crd}): `;
 						
 						if (r.status === 'error') {
 							qErr++;
