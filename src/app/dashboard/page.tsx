@@ -935,7 +935,8 @@ export default function DashboardPage() {
 			setQueueElapsedSec(0);
 			setTerminalLogs([]);
 			
-			const initialQueue = [...effectiveQueries];
+			type LocalQueueItem = { query: string; depth: number };
+			const initialQueue: LocalQueueItem[] = effectiveQueries.map(q => ({ query: q, depth: 0 }));
 			const processed = new Set<string>();
 			
 			setCrawlProgress({ active: true, current: 0, total: initialQueue.length, query: '', ok: 0, new: 0, updated: 0, err: 0 });
@@ -949,21 +950,21 @@ export default function DashboardPage() {
 			const queue = [...initialQueue];
 
 			while (queue.length > 0) {
-				const query = queue.shift()!;
+				const item = queue.shift()!;
+				const { query, depth } = item;
+
 				if (processed.has(query)) continue;
 				processed.add(query);
 				
 				itemsProcessed++;
-				// Update progress based on current queue length
-				setCrawlProgress(p => p ? { ...p, current: itemsProcessed, total: processed.size + queue.length, query } : null);
+				setCrawlProgress(p => p ? { ...p, current: itemsProcessed, total: itemsProcessed + queue.length, query } : null);
 				
-				setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${itemsProcessed}-start`, text: `>[${itemsProcessed}/${processed.size + queue.length}] Fetching ${query}...`, type: 'info' }]);
+				setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${itemsProcessed}-start`, text: `>[${itemsProcessed}/${itemsProcessed + queue.length}] Depth ${depth} | Fetching ${query}...`, type: 'info' }]);
 
 				try {
 					const response = await fetch('/api/dashboard/refresh', {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
-						// maxCrds: 1 ensures each request is lightweight
 						body: JSON.stringify({ action: 'fetch-crds', queries: [query], maxCrds: 1, includePayload: true }),
 					});
 					const payload = await response.json().catch(() => null);
@@ -1014,24 +1015,28 @@ export default function DashboardPage() {
 
 					setCrawlProgress(p => p ? { ...p, ok: totalSuccess, new: totalNew, updated: totalUpdated, err: totalError } : null);
 
-					// Discover and queue new CRDs (recursion)
-					const discovered = payload.discovered || [];
-					const resolution = payload.resolution || [];
-					
-					// Also check resolution in case a string query found more CRDs than were fetched
-					for (const res of resolution) {
-						if (Array.isArray(res.crds)) {
-							for (const c of res.crds) {
-								if (!processed.has(c) && !queue.includes(c)) queue.push(c);
+					// Recursion logic (Up to 3 levels deep)
+					if (depth < 3) {
+						const discovered = payload.discovered || [];
+						const resolution = payload.resolution || [];
+						
+						const uniqueDiscovered = new Set<string>();
+
+						for (const res of resolution) {
+							if (Array.isArray(res.crds)) {
+								for (const c of res.crds) uniqueDiscovered.add(c);
 							}
 						}
-					}
+						for (const dCrd of discovered) {
+							uniqueDiscovered.add(dCrd);
+						}
 
-					for (const dCrd of discovered) {
-						if (!processed.has(dCrd) && !queue.includes(dCrd)) {
-							// Basic recursion limit: only add if we haven't processed a huge amount already
-							if (processed.size < 200) {
-								queue.push(dCrd);
+						for (const dCrd of uniqueDiscovered) {
+							if (!processed.has(dCrd) && !queue.some(qi => qi.query === dCrd)) {
+								// Global safety break to prevent runaway crawls
+								if (processed.size < 500) {
+									queue.push({ query: dCrd, depth: depth + 1 });
+								}
 							}
 						}
 					}

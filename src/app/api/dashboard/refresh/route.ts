@@ -1063,7 +1063,7 @@ function extractNumericId(item: any, keys: string[]) {
 	return '';
 }
 
-async function resolveCrdsFromQueries(queries: string[], maxCrds = 50) {
+async function resolveCrdsFromQueries(queries: string[], maxCrds = 500) {
 	const resolved = new Set<string>();
 	const targetMap = new Map<string, FetchTarget>();
 	const resolution: Array<{ query: string; crdCount: number; crds: string[] }> = [];
@@ -1133,7 +1133,7 @@ async function resolveCrdsFromQueries(queries: string[], maxCrds = 50) {
 			}
 
 			const crds = Array.from(crdsForQuery);
-			resolution.push({ query, crdCount: crds.length, crds: crds.slice(0, 25) });
+			resolution.push({ query, crdCount: crds.length, crds });
 		} catch {
 			resolution.push({ query, crdCount: 0, crds: [] });
 		}
@@ -2145,7 +2145,7 @@ export async function POST(request: NextRequest) {
 		}
 
 		if (action === 'fetch-crds') {
-			const maxCrds = Number(body.maxCrds || 30);
+			const maxCrds = Number(body.maxCrds || 100);
 			const queries = parseQueries(body.queries ?? body.crds, maxCrds);
 			const providedCrds = parseCrds(body.crds, maxCrds);
 
