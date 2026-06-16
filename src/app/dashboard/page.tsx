@@ -1031,7 +1031,13 @@ export default function DashboardPage() {
 				} catch (err: any) {
 					totalError++;
 					setCrawlProgress(p => p ? { ...p, err: totalError } : null);
-					setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${i}-err`, text: `  -> Request Failed: ${err.message}`, type: 'error' }]);
+					
+					const errText = String(err.message || err);
+					if (errText.includes('no-valid-crds') || errText.includes('No valid CRDs')) {
+						setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${i}-err`, text: `  -> no valid CRDs`, type: 'warn' }]);
+					} else {
+						setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${i}-err`, text: `  -> Request Failed: ${errText}`, type: 'error' }]);
+					}
 				}
 			}
 
