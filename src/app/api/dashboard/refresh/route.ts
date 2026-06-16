@@ -2001,7 +2001,11 @@ async function fetchCrdsToCacheAndRedis(initialTargets: FetchTarget[], options: 
 				}
 
 				// Success: Save and Discover
-				await Promise.all([writeJsonFile(nationalFile, payload), writeJsonFile(rawFile, payload)]);
+				try {
+					await Promise.all([writeJsonFile(nationalFile, payload), writeJsonFile(rawFile, payload)]);
+				} catch (fileErr: any) {
+					console.warn(`[fetch-crds] Skipping local file write (expected in Vercel): ${fileErr.message}`);
+				}
 				await setStringIfValid(redisKey, JSON.stringify(payload), 0);
 
 				const newSourceSaved = !sourceExistedBefore;
