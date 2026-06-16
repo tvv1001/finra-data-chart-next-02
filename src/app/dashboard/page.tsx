@@ -359,6 +359,7 @@ type LocalHistoryEntry = {
 	entity: 'individual' | 'firm';
 	sources: QueueCardSourceEntry[];
 	fetchedAt: string;
+	name?: string;
 };
 
 export default function DashboardPage() {
@@ -614,6 +615,7 @@ export default function DashboardPage() {
 				entity: e.entity,
 				files: e.sources.length,
 				sources: e.sources,
+				name: e.name ?? null,
 				kind: 'recent' as const,
 				since: new Date(e.fetchedAt).toLocaleString(),
 			}));
@@ -824,6 +826,8 @@ export default function DashboardPage() {
 			const srcEntry: QueueCardSourceEntry = { source, status: 'ok' };
 			if (srcIdx >= 0) existing.sources[srcIdx] = srcEntry;
 			else existing.sources.push(srcEntry);
+			// Keep the first non-empty name we find across sources
+			if (!existing.name && r?.name) existing.name = String(r.name).trim() || undefined;
 			map.set(key, existing);
 		}
 
@@ -1005,7 +1009,7 @@ export default function DashboardPage() {
 				itemsProcessed++;
 				setCrawlProgress(p => p ? { ...p, current: itemsProcessed, total: itemsProcessed + queue.length, query } : null);
 				
-				setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${itemsProcessed}-start`, text: `>[${itemsProcessed}/${itemsProcessed + queue.length}] Depth ${depth} | Fetching ${query}...`, type: 'info' }]);
+				setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${itemsProcessed}-start`, text: `>[${itemsProcessed}/${itemsProcessed + queue.length}] Depth ${depth} | Query: "${query}"`, type: 'info' }]);
 
 				try {
 					const response = await fetch('/api/dashboard/refresh', {
@@ -1023,11 +1027,22 @@ export default function DashboardPage() {
 					
 					const newLogs: {id: string, text: string, type: 'info' | 'error' | 'warn' | 'success'}[] = [];
 
+					// Collect best name per CRD across sources
+					const nameMap = new Map<string, string>();
+					for (const r of results) {
+						if (r?.name) {
+							const key = `${r.type}:${r.crd}`;
+							if (!nameMap.has(key)) nameMap.set(key, String(r.name).trim());
+						}
+					}
+
 					for (const r of results) {
 						let type: 'info' | 'error' | 'warn' | 'success' = 'info';
-						const domain = r.source === 'finra' ? 'api.brokercheck.finra.org' : 'api.adviserinfo.sec.gov';
+						const domain = r.source === 'finra' ? 'FINRA' : 'SEC';
+						const nameLabel = nameMap.get(`${r.type}:${r.crd}`);
+						const label = nameLabel ? `${r.crd} "${nameLabel}"` : r.crd;
 						
-						let msg = `  - ${domain} (${r.type} ${r.crd}): `;
+						let msg = `  - ${domain} ${r.type} ${label}: `;
 						
 						if (r.status === 'error') {
 							qErr++;
@@ -1056,7 +1071,7 @@ export default function DashboardPage() {
 					}
 
 					setTerminalLogs(prev => [...prev, ...newLogs]);
-				addCardsToLocalHistory(results);
+					addCardsToLocalHistory(results);
 
 					totalNew += qNew;
 					totalUpdated += qUpd;

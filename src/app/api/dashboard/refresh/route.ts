@@ -122,6 +122,7 @@ type FetchResultItem = {
 	status: 'ok' | 'skipped' | 'error';
 	redisWrite: string;
 	cardKey?: string;
+	name?: string;
 	newSourceSaved?: boolean;
 	newRecordSaved?: boolean;
 	error?: string;
@@ -905,6 +906,30 @@ function findFirstDate(value: unknown): string | null {
 		}
 	}
 	return null;
+}
+
+function extractNameFromRawPayload(payload: unknown, type: 'individual' | 'firm'): string {
+	if (!isPlainObject(payload)) return '';
+	// Handle ES hits wrapper
+	const src = Array.isArray(payload?.hits?.hits) && payload.hits.hits.length > 0
+		? (payload.hits.hits[0]?._source ?? payload)
+		: payload;
+	// Parse content/iacontent string if present
+	let data: Record<string, any> = isPlainObject(src) ? src : {};
+	const contentRaw = data.content ?? data.bccontent ?? data.iacontent;
+	if (typeof contentRaw === 'string') {
+		try { data = { ...data, ...JSON.parse(contentRaw) }; } catch { /* ignore */ }
+	}
+	const bi = isPlainObject(data.basicInformation) ? data.basicInformation as Record<string, any> : {};
+	if (type === 'individual') {
+		return (
+			[bi.firstName, bi.middleName, bi.lastName].filter(Boolean).join(' ').trim() ||
+			String(bi.name || data.firstName || data.name || '').trim()
+		);
+	}
+	return (
+		String(bi.legalName || data.legalName || bi.firmName || data.firmName || data.name || '').trim()
+	);
 }
 
 export function extractCardSummaryFields(detail: Record<string, any>, fallbackCrd = '', sourceHint?: 'finra' | 'sec') {
@@ -2002,6 +2027,7 @@ async function fetchCrdsToCacheAndRedis(initialTargets: FetchTarget[], options: 
 			const fetchResult: FetchResultItem = {
 				crd, source: target.source, type: target.type, url, cacheFile: nationalFile, redisKey, cardKey,
 				status: 'ok', redisWrite: 'written', newSourceSaved, newRecordSaved,
+				name: extractNameFromRawPayload(payload, target.type) || undefined,
 			};
 			if (includePayload) fetchResult.payload = payload;
 			allResults.push(fetchResult);
