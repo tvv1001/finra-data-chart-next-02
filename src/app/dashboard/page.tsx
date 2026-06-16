@@ -371,7 +371,7 @@ export default function DashboardPage() {
 	const [queueStatusLine, setQueueStatusLine] = useState('Idle | - | queue - | elapsed 0s');
 	const [queueQueryLines, setQueueQueryLines] = useState<string[]>([]);
 	const [queueElapsedSec, setQueueElapsedSec] = useState(0);
-	const [queueRunItems, setQueueRunItems] = useState<QueueRunItem[]>([]);
+	const [terminalLogs, setTerminalLogs] = useState<{id: string; text: string; type: 'info' | 'error' | 'warn' | 'success'}[]>([]);
 	const [queueCards, setQueueCards] = useState<QueueCard[]>([]);
 	const [queueCrdFilter, setQueueCrdFilter] = useState('');
 	const [queueMetaStats, setQueueMetaStats] = useState<{
@@ -407,16 +407,6 @@ export default function DashboardPage() {
 
 		const timer = window.setInterval(() => {
 			setQueueElapsedSec((current) => current + 1);
-			setQueueRunItems((items) =>
-				items.map((item) =>
-					item.status === 'running' ?
-						{
-							...item,
-							elapsedSec: item.elapsedSec + 1,
-						}
-					:	item,
-				),
-			);
 		}, 1000);
 
 		return () => {
@@ -943,7 +933,7 @@ export default function DashboardPage() {
 
 		if (action === 'fetch-crds') {
 			setQueueElapsedSec(0);
-			setQueueRunItems(effectiveQueries.map(q => ({ query: q, status: 'queued', elapsedSec: 0 })));
+			setTerminalLogs([]);
 			setCrawlProgress({ active: true, current: 0, total: effectiveQueries.length, query: '', ok: 0, new: 0, updated: 0, err: 0 });
 
 			let totalSuccess = 0;
@@ -953,9 +943,10 @@ export default function DashboardPage() {
 
 			for (let i = 0; i < effectiveQueries.length; i++) {
 				const query = effectiveQueries[i];
-				setQueueRunItems(prev => prev.map((item, idx) => idx === i ? { ...item, status: 'running' } : item));
 				setCrawlProgress(p => p ? { ...p, current: i + 1, query } : null);
 				
+				setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${i}-start`, text: `>[${i + 1}/${effectiveQueries.length}] Fetching ${query}...`, type: 'info' }]);
+
 				try {
 					const response = await fetch('/api/dashboard/refresh', {
 						method: 'POST',
@@ -970,17 +961,37 @@ export default function DashboardPage() {
 					let qNew = 0, qUpd = 0, qErr = 0;
 					let qNewPeople = 0, qNewFirms = 0;
 					
+					const newLogs: {id: string, text: string, type: 'info' | 'error' | 'warn' | 'success'}[] = [];
+
 					for (const r of results) {
+						let type: 'info' | 'error' | 'warn' | 'success' = 'info';
+						let msg = `  - ${String(r.source).toUpperCase()} ${r.type}: `;
+						
 						if (r.status === 'error') {
 							qErr++;
-						} else if (r.newRecordSaved) {
-							qNew++;
-							if (String(r.type).toLowerCase() === 'firm') qNewFirms++;
-							else qNewPeople++;
-						} else if (r.newSourceSaved) {
-							qUpd++;
+							type = 'error';
+							msg += `Error (${r.error})`;
+						} else if (r.status === 'skipped') {
+							type = 'warn';
+							msg += `Skipped (${r.skipReason})`;
+						} else {
+							type = 'success';
+							if (r.newRecordSaved) {
+								qNew++;
+								if (String(r.type).toLowerCase() === 'firm') qNewFirms++;
+								else qNewPeople++;
+								msg += `Saved (New Record)`;
+							} else if (r.newSourceSaved) {
+								qUpd++;
+								msg += `Saved (Updated Source)`;
+							} else {
+								msg += `Unchanged`;
+							}
 						}
+						newLogs.push({ id: `${Date.now()}-${i}-${r.crd}-${r.source}`, text: msg, type });
 					}
+
+					setTerminalLogs(prev => [...prev, ...newLogs]);
 
 					totalNew += qNew;
 					totalUpdated += qUpd;
@@ -1015,29 +1026,18 @@ export default function DashboardPage() {
 						void loadQueueCardsFromRedis(queueCrdFilter);
 					}
 
-					setQueueRunItems(prev => prev.map((item, idx) => {
-						if (idx !== i) return item;
-						const resolved = (payload.resolution || []).find((r: any) => String(r.query).trim() === String(query).trim());
-						return {
-							...item,
-							status: (resolved?.crdCount || 0) > 0 ? 'complete' : 'nomatch',
-							message: '',
-							newRec: qNew,
-							updatedRec: qUpd,
-							errRec: qErr
-						};
-					}));
+					setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${i}-done`, text: `  -> Query complete: ${qNew} new, ${qUpd} updated, ${qErr} errors`, type: qErr > 0 ? 'warn' : 'info' }]);
 
 				} catch (err: any) {
 					totalError++;
 					setCrawlProgress(p => p ? { ...p, err: totalError } : null);
-					setQueueRunItems(prev => prev.map((item, idx) => idx === i ? { ...item, status: 'error', message: err.message } : item));
+					setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${i}-err`, text: `  -> Request Failed: ${err.message}`, type: 'error' }]);
 				}
 			}
 
 			setCrawlProgress(p => p ? { ...p, active: false } : null);
 			setBusyAction(null);
-			window.setTimeout(() => setQueueRunItems([]), 10000);
+			setTerminalLogs(prev => [...prev, { id: `${Date.now()}-finish`, text: `\nFinished. Total OK: ${totalSuccess}, New: ${totalNew}, Err: ${totalError}`, type: 'success' }]);
 			return;
 		}
 
@@ -1211,25 +1211,6 @@ export default function DashboardPage() {
 		);
 	}
 
-	const visibleRunItems = useMemo(() => {
-		if (queueRunItems.length === 0) return [];
-		const runningIndex = queueRunItems.findIndex((item) => item.status === 'running');
-		
-		let windowIndices: number[] = [];
-		if (runningIndex === -1) {
-			const lastFinished = [...queueRunItems].reverse().findIndex(item => item.status === 'complete' || item.status === 'nomatch' || item.status === 'error');
-			const baseIndex = lastFinished === -1 ? 0 : (queueRunItems.length - 1 - lastFinished);
-			windowIndices = [baseIndex - 1, baseIndex, baseIndex + 1];
-		} else {
-			windowIndices = [runningIndex - 1, runningIndex, runningIndex + 1];
-		}
-
-		return windowIndices.map(idx => {
-			if (idx >= 0 && idx < queueRunItems.length) return queueRunItems[idx];
-			return null;
-		});
-	}, [queueRunItems]);
-
 	return (
 		<div className={styles.page}>
 			<div className={`${styles.layout} ${rightPaneCollapsed ? styles.layoutCollapsedRight : ''}`}>
@@ -1284,45 +1265,6 @@ export default function DashboardPage() {
 								<div className={styles.countLabel}>Total CRDs</div>
 								<div className={styles.countValue}>{uniqueCrdCounts.total.toLocaleString()}</div>
 							</div>
-						</div>
-					)}
-
-					{visibleRunItems.length > 0 && (
-						<div className={styles.queueRunList}>
-							{visibleRunItems.map((item, index) => (
-								item ? (
-									<div
-										key={`${item.query}-${index}`}
-										className={styles.queueRunItem}>
-										<div className={styles.queueRunTop}>
-											<span className={styles.queueRunQuery}>{item.query}</span>
-											<span className={[styles.queueRunBadge, styles['queueRunBadge_' + item.status]].filter(Boolean).join(' ')}>{item.status}</span>
-										</div>
-										{item.status === 'complete' && (
-											<div className={styles.queueRunMeta}>
-												{[
-													item.newRec ? `${item.newRec} new` : null,
-													item.updatedRec ? `${item.updatedRec} updated` : null,
-													item.errRec ? `${item.errRec} errors` : null,
-													(!item.newRec && !item.updatedRec && !item.errRec) ? 'No changes' : null
-												].filter(Boolean).join(' • ')}
-											</div>
-										)}
-										{item.status === 'nomatch' && <div className={styles.queueRunMeta}>No match</div>}
-										{item.status === 'error' && <div className={styles.queueRunMeta}>{item.message}</div>}
-									</div>
-								) : (
-									<div key={`empty-${index}`} className={styles.queueRunItem} style={{ opacity: 0.3, borderStyle: 'dashed' }}>
-										<div className={styles.queueRunTop}>
-											<span className={styles.queueRunQuery}>-</span>
-											<span className={styles.queueRunBadge}>Empty</span>
-										</div>
-										<div className={styles.queueRunMeta}>
-											{index === 0 ? 'Previous' : index === 2 ? 'Next' : '-'}
-										</div>
-									</div>
-								)
-							))}
 						</div>
 					)}
 
@@ -1404,6 +1346,15 @@ export default function DashboardPage() {
 								<span>{crawlProgress.updated} updated</span>
 								<span>{crawlProgress.err} errors</span>
 							</div>
+						</div>
+					)}
+					{terminalLogs.length > 0 && (
+						<div className={styles.terminalWindow}>
+							{terminalLogs.map((log) => (
+								<div key={log.id} className={`${styles.terminalLine} ${styles['terminalLine_' + log.type]}`}>
+									{log.text}
+								</div>
+							))}
 						</div>
 					)}
 					{hasCurrentRecord && (
