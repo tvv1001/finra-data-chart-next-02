@@ -794,6 +794,12 @@ export default function DashboardPage() {
 
 	useEffect(() => {
 		void loadQueueCardsFromRedis(queueCrdFilter);
+
+		const intervalId = setInterval(() => {
+			void loadQueueCardsFromRedis(queueCrdFilter);
+		}, 15000);
+
+		return () => clearInterval(intervalId);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [queueCrdFilter]);
 

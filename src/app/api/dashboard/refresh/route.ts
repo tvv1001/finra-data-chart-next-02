@@ -1958,7 +1958,11 @@ async function fetchCrdsToCacheAndRedis(initialTargets: FetchTarget[], options: 
 					payload = await fetchJson(url, { timeoutMs: DASHBOARD_DETAIL_FETCH_TIMEOUT_MS });
 				} catch (error: any) {
 					if (isTooManyRequestsError(error)) {
-						const cooldownMs = randomBetween(6 * 60 * 1000, 9 * 60 * 1000); // 6-9 minutes
+						const retryAfterHeader = error?.response?.headers?.['retry-after'] || error?.headers?.['retry-after'];
+						const retryAfter = Number.isFinite(Number(retryAfterHeader)) && Number(retryAfterHeader) > 0 ? Number(retryAfterHeader) * 1000 : null;
+						
+						// Respect retryAfter if present, otherwise 2-4 minutes like the reference app
+						const cooldownMs = retryAfter || randomBetween(2 * 60 * 1000, 4 * 60 * 1000); 
 						upstreamCooldownUntil = Date.now() + cooldownMs;
 						console.warn(`[fetch-crds] 429 from ${url}; pausing for ${(cooldownMs / 60000).toFixed(2)} minutes`);
 						await sleep(cooldownMs);

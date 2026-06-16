@@ -153,6 +153,9 @@ async function fetchAndWrite(url, externalName, nationalPath) {
 		return { ok: true };
 	} catch (e) {
 		const status = e?.response?.status;
+		const retryAfterHeader = e?.response?.headers?.['retry-after'];
+		const retryAfter = Number.isFinite(Number(retryAfterHeader)) && Number(retryAfterHeader) > 0 ? Number(retryAfterHeader) * 1000 : null;
+
 		if (status === 429 || status === 403 || status === 401) {
 			console.warn(`fetch blocked (${status})`, url);
 			// Try scrapy fallback
@@ -169,14 +172,21 @@ async function fetchAndWrite(url, externalName, nationalPath) {
 				}
 				return { ok: true };
 			}
-			return { ok: false, status };
+			return { ok: false, status, retryAfter };
 		}
 		console.warn('fetch failed', url, e.message);
 		return { ok: false, status };
 	}
 }
 
-async function parallelFetch(tasks, concurrency = 1, delayMs = 4000, maxRetries = 2) {
+function randBetween(min, max) {
+	const lo = Number(min) || 0;
+	const hi = Number(max) || 0;
+	if (hi <= lo) return lo;
+	return Math.round(lo + Math.random() * (hi - lo));
+}
+
+async function parallelFetch(tasks, concurrency = 1, delayMs = 4000, maxRetries = 4) {
 	let fetched = 0;
 	const failed = [];
 	let upstreamCooldownUntil = 0;
@@ -198,8 +208,11 @@ async function parallelFetch(tasks, concurrency = 1, delayMs = 4000, maxRetries 
 					await sleep(waitMs);
 				}
 
-				// Steady jittered delay
-				await sleep(delayMs + Math.floor(Math.random() * 2000));
+				// Exponential backoff base using delayMs
+				const baseDelay = attempt > 1 ? Math.min(30000, delayMs * Math.pow(2, attempt - 2)) : delayMs;
+				// Apply jitter to backoff (0.6x to 1.4x)
+				const jitteredDelay = randBetween(Math.round(baseDelay * 0.6), Math.round(baseDelay * 1.4));
+				await sleep(jitteredDelay);
 
 				const res = await fetchAndWrite(t.url, t.external, t.national);
 				if (res.ok) {
@@ -208,24 +221,21 @@ async function parallelFetch(tasks, concurrency = 1, delayMs = 4000, maxRetries 
 					break;
 				}
 
-				if (res.status === 429) {
-					const cooldownMs = 6 * 60 * 1000 + Math.random() * 3 * 60 * 1000; // 6-9 minutes
+				if (res.status === 429 || res.status === 403) {
+					// 2-4 minutes cooldown like the reference app
+					const cooldownMs = res.retryAfter || randBetween(2 * 60 * 1000, 4 * 60 * 1000); 
 					upstreamCooldownUntil = Date.now() + cooldownMs;
-					console.warn(`[parallel_crawler] 429 Hit. Pausing for ${(cooldownMs / 60000).toFixed(2)} minutes.`);
+					console.warn(`[parallel_crawler] 429/403 Hit. Pausing for ${(cooldownMs / 60000).toFixed(2)} minutes.`);
 					await sleep(cooldownMs);
 					continue;
 				}
-
-				// Exponential backoff for other errors
-				await sleep(5000 * attempt);
 			}
 
 			if (!success) failed.push(t);
 		}
 	} else {
-		// Existing parallel logic but with 429 awareness
+		// Parallel logic with same 429 awareness
 		let idx = 0;
-		const jitterMs = Math.max(500, Math.floor(delayMs * 0.5));
 
 		async function worker(id) {
 			while (true) {
@@ -242,24 +252,27 @@ async function parallelFetch(tasks, concurrency = 1, delayMs = 4000, maxRetries 
 						await sleep(upstreamCooldownUntil - now);
 					}
 
+					// Exponential backoff base using delayMs
+					const baseDelay = attempt > 1 ? Math.min(30000, delayMs * Math.pow(2, attempt - 2)) : delayMs;
+					// Apply jitter to backoff (0.6x to 1.4x)
+					const jitteredDelay = randBetween(Math.round(baseDelay * 0.6), Math.round(baseDelay * 1.4));
+					await sleep(jitteredDelay);
+
 					const res = await fetchAndWrite(t.url, t.external, t.national);
 					if (res.ok) {
 						success = true;
 						fetched++;
 						break;
 					}
-					if (res.status === 429) {
-						const cooldownMs = 6 * 60 * 1000 + Math.random() * 3 * 60 * 1000;
+					if (res.status === 429 || res.status === 403) {
+						const cooldownMs = res.retryAfter || randBetween(2 * 60 * 1000, 4 * 60 * 1000);
 						upstreamCooldownUntil = Date.now() + cooldownMs;
-						console.warn(`Worker ${id}: 429 => sleeping ${(cooldownMs / 60000).toFixed(2)}m`);
+						console.warn(`Worker ${id}: 429/403 => sleeping ${(cooldownMs / 60000).toFixed(2)}m`);
 						await sleep(cooldownMs);
 						continue;
 					}
-					const backoff = Math.min(2000 * Math.pow(2, attempt), 30000);
-					await sleep(backoff + Math.floor(Math.random() * jitterMs));
 				}
 				if (!success) failed.push(t);
-				await sleep(delayMs + Math.floor(Math.random() * jitterMs));
 			}
 		}
 
