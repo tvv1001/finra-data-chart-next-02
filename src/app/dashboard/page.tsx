@@ -395,6 +395,7 @@ export default function DashboardPage() {
 	const [codeBlock, setCodeBlock] = useState('');
 	const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
 	const [top10Latest, setTop10Latest] = useState<Array<{ id: string; entity: 'individual' | 'firm'; fetchedAt: string; files?: number; sources?: QueueCardSourceEntry[] }>>([]);
+	const [sessionHasFetched, setSessionHasFetched] = useState(false);
 	const mergedDetailCacheRef = useRef(new Map<string, any>());
 	const jsonStringCacheRef = useRef(new Map<string, string>());
 	const previousNewCrdsCountRef = useRef(0);
@@ -739,6 +740,22 @@ export default function DashboardPage() {
 		return detail?.sources?.sec?.iacontent ?? detail?.sources?.sec ?? detail?.finraNode ?? detail?.merged ?? detail?.iacontent ?? null;
 	}
 
+	async function loadInventoryOnlyFromRedis() {
+		try {
+			const response = await fetch('/api/dashboard/refresh', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ action: 'list-cache-cards', maxCards: 1, crdFilter: '' }),
+			});
+			const payload = await response.json().catch(() => null);
+			if (payload?.inventoryTotals) {
+				setQueueMetaStats((current) => ({ ...current, inventoryTotals: payload.inventoryTotals }));
+			}
+		} catch {
+			// ignore on mount
+		}
+	}
+
 	async function loadQueueCardsFromRedis(filter = '') {
 		try {
 			const response = await fetch('/api/dashboard/refresh', {
@@ -783,6 +800,13 @@ export default function DashboardPage() {
 	}
 
 	useEffect(() => {
+		void loadInventoryOnlyFromRedis();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	useEffect(() => {
+		if (!sessionHasFetched && !queueCrdFilter.trim()) return;
+
 		void loadQueueCardsFromRedis(queueCrdFilter);
 
 		const intervalId = setInterval(() => {
@@ -791,7 +815,7 @@ export default function DashboardPage() {
 
 		return () => clearInterval(intervalId);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [queueCrdFilter]);
+	}, [queueCrdFilter, sessionHasFetched]);
 
 	async function fetchMergedDetail(card: QueueCard) {
 		const cacheKey = `${card.entity}:${card.id}`;
@@ -932,6 +956,7 @@ export default function DashboardPage() {
 			:	[];
 
 		if (action === 'fetch-crds') {
+			setSessionHasFetched(true);
 			setQueueElapsedSec(0);
 			setTerminalLogs([]);
 			
@@ -1046,8 +1071,7 @@ export default function DashboardPage() {
 
 					if (qNew > 0) {
 						setQueueMetaStats(current => {
-							const t = current.inventoryTotals;
-							if (!t) return current;
+							const t = current.inventoryTotals ?? { people: 0, firms: 0, unique: 0, source: 'redis' as const };
 							return { 
 								...current, 
 								inventoryTotals: { 
@@ -1058,14 +1082,6 @@ export default function DashboardPage() {
 								} 
 							};
 						});
-						
-						void fetch('/api/dashboard/refresh', {
-							method: 'POST',
-							headers: { 'content-type': 'application/json' },
-							body: JSON.stringify({ action: 'increment-inventory-counter', amount: qNew }),
-						}).then(() => loadQueueCardsFromRedis(queueCrdFilter));
-					} else if (qUpd > 0) {
-						void loadQueueCardsFromRedis(queueCrdFilter);
 					}
 
 					setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${itemsProcessed}-done`, text: `  -> Query complete: ${qNew} new, ${qUpd} updated, ${qErr} errors`, type: qErr > 0 ? 'warn' : 'info' }]);
@@ -1083,6 +1099,7 @@ export default function DashboardPage() {
 			}
 
 			setCrawlProgress(p => p ? { ...p, active: false } : null);
+			void loadQueueCardsFromRedis(queueCrdFilter);
 			setBusyAction(null);
 			setTerminalLogs(prev => [...prev, { id: `${Date.now()}-finish`, text: `\nFinished. Total OK: ${totalSuccess}, New: ${totalNew}, Err: ${totalError}`, type: 'success' }]);
 			return;
