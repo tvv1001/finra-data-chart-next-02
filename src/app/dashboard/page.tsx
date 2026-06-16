@@ -811,6 +811,7 @@ export default function DashboardPage() {
 
 		for (const r of results) {
 			if (r?.status !== 'ok') continue;
+			if (!r?.newRecordSaved && !r?.newSourceSaved) continue;
 			const id = String(r?.crd || '').trim();
 			const entity: 'individual' | 'firm' = String(r?.type || '').toLowerCase() === 'firm' ? 'firm' : 'individual';
 			const source = String(r?.source || '').toLowerCase() as SearchResultSource;
