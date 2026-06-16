@@ -991,17 +991,19 @@ export default function DashboardPage() {
 							type = 'warn';
 							msg += `Skipped (${r.skipReason})`;
 						} else {
-							type = 'success';
 							if (r.newRecordSaved) {
 								qNew++;
 								if (String(r.type).toLowerCase() === 'firm') qNewFirms++;
 								else qNewPeople++;
 								msg += `Saved (New Record)`;
+								type = 'success';
 							} else if (r.newSourceSaved) {
 								qUpd++;
 								msg += `Saved (Updated Source)`;
+								type = 'success';
 							} else {
 								msg += `Unchanged`;
+								type = 'info';
 							}
 						}
 						newLogs.push({ id: `${Date.now()}-${itemsProcessed}-${r.crd}-${r.source}`, text: msg, type });
