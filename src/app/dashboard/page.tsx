@@ -965,7 +965,11 @@ export default function DashboardPage() {
 
 					for (const r of results) {
 						let type: 'info' | 'error' | 'warn' | 'success' = 'info';
-						let msg = `  - ${String(r.source).toUpperCase()} ${r.type}: `;
+						
+						// Map 'finra' or 'sec' to the correct external API domain names
+						const domain = r.source === 'finra' ? 'api.brokercheck.finra.org' : 'api.adviserinfo.sec.gov';
+						
+						let msg = `  - ${domain} (${r.type}): `;
 						
 						if (r.status === 'error') {
 							qErr++;
