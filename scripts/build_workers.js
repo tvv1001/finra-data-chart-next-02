@@ -4,13 +4,17 @@ const { execSync } = require('child_process');
 const path = require('path');
 
 async function build() {
-	try {
-		execSync('cd rust/graph-layout && wasm-pack build --target web --out-dir ../../public/wasm/graph-layout', {
-			stdio: 'inherit',
-		});
-		console.log('Built Rust/WASM layout worker');
-	} catch (e) {
-		console.warn('Rust/WASM worker build skipped or failed. Falling back to JS worker only.', e.message || e);
+	if (process.env.VERCEL) {
+		console.log('Running in Vercel: Skipping Rust/WASM worker build (using prebuilt or JS fallback).');
+	} else {
+		try {
+			execSync('cd rust/graph-layout && wasm-pack build --target web --out-dir ../../public/wasm/graph-layout', {
+				stdio: 'inherit',
+			});
+			console.log('Built Rust/WASM layout worker');
+		} catch (e) {
+			console.warn('Rust/WASM worker build skipped or failed. Falling back to JS worker only.', e.message || e);
+		}
 	}
 
 	const entry = path.join(process.cwd(), 'src', 'workers', 'd3-force-worker-src.js');
