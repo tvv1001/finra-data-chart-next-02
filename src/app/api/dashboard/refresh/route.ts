@@ -1039,7 +1039,7 @@ function randomBetween(minMs: number, maxMs: number) {
 
 function isTooManyRequestsError(error: unknown) {
 	const status = Number((error as any)?.status || (error as any)?.response?.status || 0);
-	return status === 429 || /\b429\b/.test(String((error as any)?.message || error || ''));
+	return status === 429 || status === 403 || status === 401 || /\b429\b/.test(String((error as any)?.message || error || ''));
 }
 
 function createUpstreamCooldownMs() {
@@ -1191,8 +1191,6 @@ async function fetchJson(url: string, options: { timeoutMs?: number } = {}) {
 	const response = await fetch(url, {
 		headers: {
 			'Accept': 'application/json',
-			'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-			'Referer': 'https://brokercheck.finra.org/',
 		},
 		signal: AbortSignal.timeout(timeoutMs),
 		next: { revalidate: 0 },
@@ -1345,17 +1343,33 @@ type QuerySearchBundle = {
 async function resolveQuerySearchBundle(query: string): Promise<QuerySearchBundle> {
 	const encoded = encodeURIComponent(query);
 	try {
-		const fetchWithPacing = async (url: string) => {
-			await sleep(randomBetween(250, DASHBOARD_DETAIL_FETCH_JITTER_MS));
-			return fetchJson(url, { timeoutMs: DASHBOARD_SEARCH_FETCH_TIMEOUT_MS });
+		const fetchWithPacingAndRetry = async (url: string) => {
+			let attempt = 0;
+			const maxRetries = 2;
+			while (attempt <= maxRetries) {
+				attempt++;
+				await sleep(randomBetween(2000, DASHBOARD_DETAIL_FETCH_JITTER_MS + 2000));
+				try {
+					return await fetchJson(url, { timeoutMs: DASHBOARD_SEARCH_FETCH_TIMEOUT_MS });
+				} catch (error: any) {
+					if (isTooManyRequestsError(error)) {
+						const retryAfterHeader = error?.response?.headers?.['retry-after'] || error?.headers?.['retry-after'];
+						const retryAfter = Number.isFinite(Number(retryAfterHeader)) && Number(retryAfterHeader) > 0 ? Number(retryAfterHeader) * 1000 : null;
+						const cooldownMs = retryAfter || randomBetween(2 * 60 * 1000, 4 * 60 * 1000); 
+						console.warn(`[resolve-query] 429 from ${url}; pausing for ${(cooldownMs / 60000).toFixed(2)} minutes`);
+						await sleep(cooldownMs);
+						if (attempt > maxRetries) throw error;
+					} else {
+						throw error;
+					}
+				}
+			}
 		};
 
-		const finraIndividual = await fetchWithPacing(
-			`https://api.brokercheck.finra.org/search/individual?query=${encoded}&filter=bcScope:B,iaScope:IA,iaScope:BOTH&hl=true&nrows=12&start=0&wt=json`,
-		);
-		const finraFirm = await fetchWithPacing(`https://api.brokercheck.finra.org/search/firm?query=${encoded}&hl=true&nrows=12&start=0&wt=json`);
-		const secIndividual = await fetchWithPacing(`https://api.adviserinfo.sec.gov/search/individual?query=${encoded}&hl=true&nrows=12&start=0&wt=json`);
-		const secFirm = await fetchWithPacing(`https://api.adviserinfo.sec.gov/search/firm?query=${encoded}&hl=true&nrows=12&start=0&wt=json`);
+		const finraIndividual = await fetchWithPacingAndRetry(`https://api.brokercheck.finra.org/search/individual?query=${encoded}&hl=true&includePrevious=true&nrows=50&start=0&wt=json`);
+		const finraFirm = await fetchWithPacingAndRetry(`https://api.brokercheck.finra.org/search/firm?query=${encoded}&hl=true&nrows=12&start=0&wt=json`);
+		const secIndividual = await fetchWithPacingAndRetry(`https://api.adviserinfo.sec.gov/search/individual?query=${encoded}&hl=true&includePrevious=true&nrows=50&start=0&wt=json`);
+		const secFirm = await fetchWithPacingAndRetry(`https://api.adviserinfo.sec.gov/search/firm?query=${encoded}&hl=true&nrows=12&start=0&wt=json`);
 
 		return {
 			query,

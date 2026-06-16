@@ -58,7 +58,7 @@ This project is an interactive relationship explorer for FINRA BrokerCheck and S
 - **Synchronization Flow**: Dashboard Fetch -> Redis Record Save -> Main Graph Merge -> Seed Bank Update.
 - **Crawling Stability**:
   - **Sequential Only**: All crawling and fetching (Dashboard & Scripts) must be strictly sequential (concurrency=1).
-  - **429 Handling**: If a 429 error is hit, the system MUST pause for 6-9 minutes before resuming.
+  - **429 Handling**: If a 429 error is hit, the system MUST respect the `retry-after` header if present. If absent, it MUST pause for a randomized 2-4 minutes before resuming, using exponential backoff with a 0.6x-1.4x jitter for general network errors.
   - **Scrapy Integration**: `scripts/scrapy.py` (Playwright-based) is used as a fallback for anti-bot detection, featuring human-like pacing and randomized jitter.
 - **Chunked Data**: Large keys in Redis are automatically handled via `manifest` and `part` keys.
 
