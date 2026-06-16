@@ -951,7 +951,7 @@ export default function DashboardPage() {
 					const response = await fetch('/api/dashboard/refresh', {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ action: 'fetch-crds', queries: [query], maxCrds: 1, includePayload: true }),
+						body: JSON.stringify({ action: 'fetch-crds', queries: [query], maxCrds: 50, includePayload: true }),
 					});
 					const payload = await response.json().catch(() => null);
 					if (!response.ok || !payload?.ok) throw new Error(payload?.error || `HTTP ${response.status}`);
