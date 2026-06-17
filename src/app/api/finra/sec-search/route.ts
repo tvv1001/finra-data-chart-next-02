@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { hasMinimumSearchQuery, searchLocalIndex } from '@/lib/localSearch';
 import { logger } from '@/lib/logger';
 import { searchGraphFallback } from '@/lib/searchGraphFallback';
+import { searchDirectRedisFallback } from '@/lib/searchDirectFallback';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -74,6 +75,11 @@ export async function GET(request: NextRequest) {
 		if (data.total > 0) return jsonNoStore(data);
 
 		const fallback = await searchGraphFallback('sec', 'individual', query, { limit, offset });
+		if (fallback.total > 0) return jsonNoStore(fallback);
+
+		const direct = await searchDirectRedisFallback('sec', 'individual', query, { limit, offset });
+		if (direct) return jsonNoStore(direct);
+
 		return jsonNoStore(fallback);
 	} catch (err: any) {
 		logger.error('sec-search error', { error: err.message });

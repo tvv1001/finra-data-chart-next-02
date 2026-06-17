@@ -1,0 +1,58 @@
+import { Redis } from '@upstash/redis';
+import type { LocalSearchEntity, LocalSearchResponse, LocalSearchSource } from './localSearch';
+
+function getUpstashClient() {
+	const url = process.env.UPSTASH_REDIS_REST_URL;
+	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+	if (!url || !token) return null;
+	return new Redis({ url, token });
+}
+
+export async function searchDirectRedisFallback(
+	source: LocalSearchSource,
+	type: LocalSearchEntity,
+	query: string,
+	options: { limit?: number; offset?: number } = {},
+): Promise<LocalSearchResponse | null> {
+	const normalizedQuery = String(query || '').trim();
+	// Only fallback for identifier-like queries (pure numbers or 8-xxx)
+	if (!/^(?:\d{1,10}|8-\d+)$/.test(normalizedQuery)) return null;
+
+	const redis = getUpstashClient();
+	if (!redis) return null;
+
+	try {
+		const key = `${source}:${type}:${normalizedQuery}`;
+		const raw = await redis.get(key);
+		if (!raw) return null;
+
+		const doc = typeof raw === 'string' ? JSON.parse(raw) : raw;
+		const id = type === 'individual' ? `person:${normalizedQuery}` : `firm:${normalizedQuery}`;
+		
+		const limit = options.limit ?? 12;
+		const offset = options.offset ?? 0;
+
+		return {
+			bucket: `${source}:${type}`,
+			generatedAt: new Date().toISOString(),
+			total: 1,
+			hits: {
+				total: 1,
+				start: offset,
+				hits: [{ _id: id, _source: doc }],
+			},
+			response: {
+				numFound: 1,
+				start: offset,
+				docs: [doc],
+			},
+			results: [doc],
+			currentPage: [doc],
+			pageNumber: limit > 0 ? Math.floor(offset / limit) + 1 : 1,
+			pageSize: limit,
+		};
+	} catch (err) {
+		console.warn(`[searchDirectRedisFallback] Failed to fetch direct record from Redis for ${source}:${type}:${normalizedQuery}`, err);
+		return null;
+	}
+}

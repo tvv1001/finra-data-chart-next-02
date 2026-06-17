@@ -13,6 +13,7 @@ import { gzipOffload, gunzipOffload } from './gzipWorker';
 import { GRAPH_FILE, RECENT_SEEDS_FILE, SEED_BANK_FILE, SEED_PROFILES_FILE, SEEDS_FILE } from './graphDataPaths';
 
 const REDIS_GRAPH_KEY = 'finra:graph';
+const REDIS_GRAPH_UPDATED_AT_KEY = 'finra:graph:updated-at';
 const REDIS_SEED_BANK_KEY = 'finra:seed-bank';
 const REDIS_RECENT_SEEDS_KEY = 'finra:recent-seeds';
 const EMPTY_GRAPH = { nodes: [], links: [], meta: {} };
@@ -57,7 +58,7 @@ function getRedis(): Redis | null {
 export let _graphCache: any = null;
 let _graphCacheAt = 0;
 let _graphAdjacency: Map<string, Set<string>> | null = null;
-const GRAPH_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
+const GRAPH_CACHE_TTL_MS = 1 * 60 * 1000; // 1 min (reduced from 5 min)
 let _graphBootstrapPromise: Promise<boolean> | null = null;
 const execFileAsync = promisify(execFile);
 
@@ -102,7 +103,9 @@ export function getGraphAdjacency(graph: any): Map<string, Set<string>> {
 		adjacency.get(targetId)!.add(sourceId);
 	}
 
-	_graphAdjacency = adjacency;
+	if (_graphCache === graph) {
+		_graphAdjacency = adjacency;
+	}
 	return adjacency;
 }
 
@@ -622,10 +625,25 @@ async function bootstrapGraphFromDisk(redis: Redis) {
 
 export async function getFullGraph() {
 	const now = Date.now();
+	const redis = getRedis();
+
+	// Check for remote cache buster if we have a cached graph. This ensures
+	// warm instances detect dashboard updates immediately even before TTL expires.
+	if (_graphCache && redis) {
+		try {
+			const updatedAt = await redis.get<number>(REDIS_GRAPH_UPDATED_AT_KEY);
+			if (updatedAt && Number(updatedAt) > _graphCacheAt) {
+				_graphCache = null;
+				_graphCacheAt = 0;
+			}
+		} catch (e) {
+			// ignore redis error and use cached graph or fallback
+		}
+	}
+
 	if (_graphCache && now - _graphCacheAt < GRAPH_CACHE_TTL_MS) return _graphCache;
 	if (_graphCache && now - _graphCacheAt >= GRAPH_CACHE_TTL_MS) _graphCache = null;
 
-	const redis = getRedis();
 	if (redis) {
 		try {
 			let raw = await redis.get<string>(REDIS_GRAPH_KEY);
@@ -770,9 +788,11 @@ export async function saveGraph(data: any) {
 			// Offload gzip to background worker to avoid blocking the event loop
 			const b64 = await gzipOffload(json);
 			await setStringIfValid(REDIS_GRAPH_KEY, b64);
+			await redis.set(REDIS_GRAPH_UPDATED_AT_KEY, Date.now());
 		} catch (e) {
 			// On any failure, fall back to storing plain JSON
 			await setStringIfValid(REDIS_GRAPH_KEY, JSON.stringify(data));
+			await redis.set(REDIS_GRAPH_UPDATED_AT_KEY, Date.now());
 		}
 	} else {
 		await writeJsonFileAtomic(GRAPH_FILE, data);

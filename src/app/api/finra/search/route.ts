@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { hasMinimumSearchQuery, searchLocalIndex } from '@/lib/localSearch';
 import { logger } from '@/lib/logger';
 import { searchGraphFallback } from '@/lib/searchGraphFallback';
+import { searchDirectRedisFallback } from '@/lib/searchDirectFallback';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -80,9 +81,16 @@ export async function GET(request: NextRequest) {
 		console.log('[search] Local search returned 0, falling back to graph search...');
 		const fallback = await searchGraphFallback('finra', entity, query, { limit, offset });
 		console.log('[search] Graph fallback result:', { total: fallback.total, hasResults: fallback.results.length > 0, resultsLength: fallback.results?.length });
-		if (fallback.total === 0) {
-			console.log('[search] WARNING: Both local search and graph fallback returned 0 results');
+		if (fallback.total > 0) return jsonNoStore(fallback);
+
+		console.log('[search] Graph search returned 0, trying direct Redis record fallback...');
+		const direct = await searchDirectRedisFallback('finra', entity, query, { limit, offset });
+		if (direct) {
+			console.log('[search] Direct Redis fallback succeeded');
+			return jsonNoStore(direct);
 		}
+
+		console.log('[search] WARNING: All search layers returned 0 results');
 		return jsonNoStore(fallback);
 	} catch (err: any) {
 		logger.error('search error', { error: err.message });
