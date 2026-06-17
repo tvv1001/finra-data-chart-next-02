@@ -1846,7 +1846,20 @@ async function listNewCrds() {
 		.slice()
 		.sort((left, right) => Number(right.id) - Number(left.id))
 		.slice(0, 30);
-	const latestCards = recentTargets.length > 0 ? recentTargets.map(({ entity, id }) => cardMap.get(`${entity}:${id}`) || { id, entity, files: 0, sources: [] }) : fallbackCards;
+
+	// Also build an id-only lookup so a seed stored under one entity type still resolves
+	const idToAnyCard = new Map<string, CacheCard>();
+	for (const card of cards) {
+		if (!idToAnyCard.has(card.id)) idToAnyCard.set(card.id, card);
+	}
+
+	const latestCards =
+		recentTargets.length > 0 ?
+			recentTargets
+				.map(({ entity, id }) => cardMap.get(`${entity}:${id}`) ?? idToAnyCard.get(id) ?? null)
+				.filter((card): card is CacheCard => card !== null && card.sources.length > 0)
+				.slice(0, 30)
+		:	fallbackCards;
 	const updatedAt = Date.parse(String(recentSeeds.updatedAt || '')) || Date.now();
 	const now = Date.now();
 
