@@ -378,11 +378,20 @@ export default function DashboardPage() {
 	const [searchError, setSearchError] = useState<string | null>(null);
 	const [searchResults, setSearchResults] = useState<SearchResultCard[]>([]);
 	const [searchSkippedCount, setSearchSkippedCount] = useState(0);
-	const [crawlProgress, setCrawlProgress] = useState<{ active: boolean; current: number; total: number; query: string; ok: number; new: number; updated: number; err: number } | null>(null);
+	const [crawlProgress, setCrawlProgress] = useState<{
+		active: boolean;
+		current: number;
+		total: number;
+		query: string;
+		ok: number;
+		new: number;
+		updated: number;
+		err: number;
+	} | null>(null);
 	const [queueStatusLine, setQueueStatusLine] = useState('Idle | - | queue - | elapsed 0s');
 	const [queueQueryLines, setQueueQueryLines] = useState<string[]>([]);
 	const [queueElapsedSec, setQueueElapsedSec] = useState(0);
-	const [terminalLogs, setTerminalLogs] = useState<{id: string; text: string; type: 'info' | 'error' | 'warn' | 'success'}[]>([]);
+	const [terminalLogs, setTerminalLogs] = useState<{ id: string; text: string; type: 'info' | 'error' | 'warn' | 'success' }[]>([]);
 	const [queueCards, setQueueCards] = useState<QueueCard[]>([]);
 	const [queueCrdFilter, setQueueCrdFilter] = useState('');
 	const [queueMetaStats, setQueueMetaStats] = useState<{
@@ -602,10 +611,14 @@ export default function DashboardPage() {
 
 	const displayCards = useMemo<QueueCard[]>(() => {
 		const token = queueCrdFilter.trim();
-		const tokens = token ? token.split(/[\s,;]+/g).map((v) => v.trim()).filter(Boolean) : [];
-		const filtered = tokens.length
-			? localHistory.filter((e) => tokens.some((t) => e.id === t || e.id.includes(t)))
-			: localHistory;
+		const tokens =
+			token ?
+				token
+					.split(/[\s,;]+/g)
+					.map((v) => v.trim())
+					.filter(Boolean)
+			:	[];
+		const filtered = tokens.length ? localHistory.filter((e) => tokens.some((t) => e.id === t || e.id.includes(t))) : localHistory;
 		return filtered
 			.slice()
 			.sort((a, b) => new Date(b.fetchedAt).getTime() - new Date(a.fetchedAt).getTime())
@@ -837,7 +850,11 @@ export default function DashboardPage() {
 			const newEntries = Array.from(map.values());
 			const prevFiltered = prev.filter((e) => !map.has(`${e.entity}:${e.id}`));
 			const combined = [...newEntries, ...prevFiltered].slice(0, LOCAL_HISTORY_MAX);
-			try { localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(combined)); } catch { /* ignore */ }
+			try {
+				localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(combined));
+			} catch {
+				/* ignore */
+			}
 			return combined;
 		});
 	}
@@ -984,11 +1001,11 @@ export default function DashboardPage() {
 			setSessionHasFetched(true);
 			setQueueElapsedSec(0);
 			setTerminalLogs([]);
-			
+
 			type LocalQueueItem = { query: string; depth: number };
-			const initialQueue: LocalQueueItem[] = effectiveQueries.map(q => ({ query: q, depth: 0 }));
+			const initialQueue: LocalQueueItem[] = effectiveQueries.map((q) => ({ query: q, depth: 0 }));
 			const processed = new Set<string>();
-			
+
 			setCrawlProgress({ active: true, current: 0, total: initialQueue.length, query: '', ok: 0, new: 0, updated: 0, err: 0 });
 
 			let totalSuccess = 0;
@@ -1005,11 +1022,14 @@ export default function DashboardPage() {
 
 				if (processed.has(query)) continue;
 				processed.add(query);
-				
+
 				itemsProcessed++;
-				setCrawlProgress(p => p ? { ...p, current: itemsProcessed, total: itemsProcessed + queue.length, query } : null);
-				
-				setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${itemsProcessed}-start`, text: `>[${itemsProcessed}/${itemsProcessed + queue.length}] Depth ${depth} | Query: "${query}"`, type: 'info' }]);
+				setCrawlProgress((p) => (p ? { ...p, current: itemsProcessed, total: itemsProcessed + queue.length, query } : null));
+
+				setTerminalLogs((prev) => [
+					...prev,
+					{ id: `${Date.now()}-${itemsProcessed}-start`, text: `>[${itemsProcessed}/${itemsProcessed + queue.length}] Depth ${depth} | Query: "${query}"`, type: 'info' },
+				]);
 
 				try {
 					const response = await fetch('/api/dashboard/refresh', {
@@ -1022,10 +1042,13 @@ export default function DashboardPage() {
 
 					const summary = payload.summary || {};
 					const results = payload.results || [];
-					let qNew = 0, qUpd = 0, qErr = 0;
-					let qNewPeople = 0, qNewFirms = 0;
-					
-					const newLogs: {id: string, text: string, type: 'info' | 'error' | 'warn' | 'success'}[] = [];
+					let qNew = 0,
+						qUpd = 0,
+						qErr = 0;
+					let qNewPeople = 0,
+						qNewFirms = 0;
+
+					const newLogs: { id: string; text: string; type: 'info' | 'error' | 'warn' | 'success' }[] = [];
 
 					// Collect best name per CRD across sources
 					const nameMap = new Map<string, string>();
@@ -1041,9 +1064,9 @@ export default function DashboardPage() {
 						const domain = r.source === 'finra' ? 'FINRA' : 'SEC';
 						const nameLabel = nameMap.get(`${r.type}:${r.crd}`);
 						const label = nameLabel ? `${r.crd} "${nameLabel}"` : r.crd;
-						
+
 						let msg = `  - ${domain} ${r.type} ${label}: `;
-						
+
 						if (r.status === 'error') {
 							qErr++;
 							type = 'error';
@@ -1070,7 +1093,7 @@ export default function DashboardPage() {
 						newLogs.push({ id: `${Date.now()}-${itemsProcessed}-${r.crd}-${r.source}`, text: msg, type });
 					}
 
-					setTerminalLogs(prev => [...prev, ...newLogs]);
+					setTerminalLogs((prev) => [...prev, ...newLogs]);
 					addCardsToLocalHistory(results);
 
 					totalNew += qNew;
@@ -1078,13 +1101,13 @@ export default function DashboardPage() {
 					totalSuccess += summary.successCount || 0;
 					totalError += qErr;
 
-					setCrawlProgress(p => p ? { ...p, ok: totalSuccess, new: totalNew, updated: totalUpdated, err: totalError } : null);
+					setCrawlProgress((p) => (p ? { ...p, ok: totalSuccess, new: totalNew, updated: totalUpdated, err: totalError } : null));
 
 					// Recursion logic (Up to 3 levels deep)
 					if (depth < 3) {
 						const discovered = payload.discovered || [];
 						const resolution = payload.resolution || [];
-						
+
 						const uniqueDiscovered = new Set<string>();
 
 						for (const res of resolution) {
@@ -1097,7 +1120,7 @@ export default function DashboardPage() {
 						}
 
 						for (const dCrd of uniqueDiscovered) {
-							if (!processed.has(dCrd) && !queue.some(qi => qi.query === dCrd)) {
+							if (!processed.has(dCrd) && !queue.some((qi) => qi.query === dCrd)) {
 								// Global safety break to prevent runaway crawls
 								if (processed.size < 500) {
 									queue.push({ query: dCrd, depth: depth + 1 });
@@ -1107,38 +1130,40 @@ export default function DashboardPage() {
 					}
 
 					if (qNew > 0) {
-						setQueueMetaStats(current => {
+						setQueueMetaStats((current) => {
 							const t = current.inventoryTotals ?? { people: 0, firms: 0, unique: 0, source: 'redis' as const };
-							return { 
-								...current, 
-								inventoryTotals: { 
-									...t, 
+							return {
+								...current,
+								inventoryTotals: {
+									...t,
 									unique: Number(t.unique || 0) + qNew,
 									people: Number(t.people || 0) + qNewPeople,
-									firms: Number(t.firms || 0) + qNewFirms
-								} 
+									firms: Number(t.firms || 0) + qNewFirms,
+								},
 							};
 						});
 					}
 
-					setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${itemsProcessed}-done`, text: `  -> Query complete: ${qNew} new, ${qUpd} updated, ${qErr} errors`, type: qErr > 0 ? 'warn' : 'info' }]);
-
+					setTerminalLogs((prev) => [
+						...prev,
+						{ id: `${Date.now()}-${itemsProcessed}-done`, text: `  -> Query complete: ${qNew} new, ${qUpd} updated, ${qErr} errors`, type: qErr > 0 ? 'warn' : 'info' },
+					]);
 				} catch (err: any) {
 					totalError++;
-					setCrawlProgress(p => p ? { ...p, err: totalError } : null);
+					setCrawlProgress((p) => (p ? { ...p, err: totalError } : null));
 					const errText = String(err.message || err);
 					if (errText.includes('no-valid-crds') || errText.includes('No valid CRDs')) {
-						setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${itemsProcessed}-err`, text: `  -> no valid CRDs`, type: 'warn' }]);
+						setTerminalLogs((prev) => [...prev, { id: `${Date.now()}-${itemsProcessed}-err`, text: `  -> no valid CRDs`, type: 'warn' }]);
 					} else {
-						setTerminalLogs(prev => [...prev, { id: `${Date.now()}-${itemsProcessed}-err`, text: `  -> Request Failed: ${errText}`, type: 'error' }]);
+						setTerminalLogs((prev) => [...prev, { id: `${Date.now()}-${itemsProcessed}-err`, text: `  -> Request Failed: ${errText}`, type: 'error' }]);
 					}
 				}
 			}
 
-			setCrawlProgress(p => p ? { ...p, active: false } : null);
+			setCrawlProgress((p) => (p ? { ...p, active: false } : null));
 			void loadQueueCardsFromRedis(queueCrdFilter);
 			setBusyAction(null);
-			setTerminalLogs(prev => [...prev, { id: `${Date.now()}-finish`, text: `\nFinished. Total OK: ${totalSuccess}, New: ${totalNew}, Err: ${totalError}`, type: 'success' }]);
+			setTerminalLogs((prev) => [...prev, { id: `${Date.now()}-finish`, text: `\nFinished. Total OK: ${totalSuccess}, New: ${totalNew}, Err: ${totalError}`, type: 'success' }]);
 			return;
 		}
 
@@ -1403,7 +1428,9 @@ export default function DashboardPage() {
 						))}
 
 						{displayCards.length === 0 && !queueCrdFilter.trim() && (
-							<div className={styles.cardMeta} style={{ padding: '12px 4px', opacity: 0.6 }}>
+							<div
+								className={styles.cardMeta}
+								style={{ padding: '12px 4px', opacity: 0.6 }}>
 								No fetched CRDs yet. Run the queue to populate your history.
 							</div>
 						)}
@@ -1445,7 +1472,7 @@ export default function DashboardPage() {
 					{crawlProgress && crawlProgress.active && (
 						<div className={styles.crawlBanner}>
 							<div>
-								<strong>Sequential Crawl:</strong> {crawlProgress.current} / {crawlProgress.total} 
+								<strong>Sequential Crawl:</strong> {crawlProgress.current} / {crawlProgress.total}
 								<span style={{ opacity: 0.7, marginLeft: 8 }}>({crawlProgress.query})</span>
 							</div>
 							<div className={styles.crawlBannerStats}>
@@ -1458,7 +1485,9 @@ export default function DashboardPage() {
 					{terminalLogs.length > 0 && (
 						<div className={styles.terminalWindow}>
 							{terminalLogs.map((log) => (
-								<div key={log.id} className={`${styles.terminalLine} ${styles['terminalLine_' + log.type]}`}>
+								<div
+									key={log.id}
+									className={`${styles.terminalLine} ${styles['terminalLine_' + log.type]}`}>
 									{log.text}
 								</div>
 							))}
@@ -1534,7 +1563,6 @@ export default function DashboardPage() {
 						<div className={styles.rightPaneHeader}>
 							<div>
 								<div className={styles.newCrdsHeader}>New CRDs</div>
-								<div className={styles.detected}>Newest 30 cached CRDs</div>
 							</div>
 							<button
 								type='button'
