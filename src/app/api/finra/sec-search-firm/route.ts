@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { hasMinimumSearchQuery, searchLocalIndex } from '@/lib/localSearch';
 import { logger } from '@/lib/logger';
 import { searchGraphFallback } from '@/lib/searchGraphFallback';
+import { searchDirectRedisFallback } from '@/lib/searchDirectFallback';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -16,7 +17,7 @@ function jsonNoStore(data: unknown, init: Parameters<typeof NextResponse.json>[1
 	});
 }
 
-function buildSecFirmSearchParams(searchParams: URLSearchParams) {
+function buildSecSearchParams(searchParams: URLSearchParams) {
 	const params = new URLSearchParams();
 	const rawRows = searchParams.get('rows');
 	const rawPageSize = searchParams.get('pageSize');
@@ -62,18 +63,23 @@ export async function GET(request: NextRequest) {
 	try {
 		const { searchParams } = new URL(request.url);
 		const baseUrl = new URL(request.url).origin;
-		const params = buildSecFirmSearchParams(searchParams);
+		const params = buildSecSearchParams(searchParams);
 		if (!params) return jsonNoStore({ hits: { hits: [] } });
 
 		const query = params.get('query') || '';
 		if (!hasMinimumSearchQuery(query))
 			return jsonNoStore({ hits: { hits: [] }, response: { docs: [], numFound: 0, start: 0 }, results: [], total: 0, currentPage: [], pageNumber: 1, pageSize: 0 });
-		const limit = Number.parseInt(params.get('nrows') || '12', 10) || 12;
+		const limit = Math.min(Number.parseInt(params.get('nrows') || '12', 10) || 12, 200);
 		const offset = Number.parseInt(params.get('start') || '0', 10) || 0;
 		const data = await searchLocalIndex('sec', 'firm', query, { limit, offset, baseUrl });
 		if (data.total > 0) return jsonNoStore(data);
 
 		const fallback = await searchGraphFallback('sec', 'firm', query, { limit, offset });
+		if (fallback.total > 0) return jsonNoStore(fallback);
+
+		const direct = await searchDirectRedisFallback('sec', 'firm', query, { limit, offset });
+		if (direct) return jsonNoStore(direct);
+
 		return jsonNoStore(fallback);
 	} catch (err: any) {
 		logger.error('sec-search-firm error', { error: err.message });
