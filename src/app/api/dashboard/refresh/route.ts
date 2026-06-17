@@ -415,12 +415,19 @@ function hasFirmSecPresence(node: any) {
 	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
 	const basic = node.basicInformation || {};
 	if (node.hasSecData === true) return true;
-	const iaScope = normalizeScopeValue(node?.iaScope || basic?.iaScope || node?.firmStatus || basic?.firmStatus || '');
+	// Only use iaScope explicitly — firmStatus is a BD field, not IA scope
+	const iaScope = normalizeScopeValue(node?.iaScope || basic?.iaScope || '');
 	if (iaScope) return true;
+	// iaSECNumber is the SEC-assigned IA number (distinct from bdSECNumber for broker-dealers)
 	if (Boolean(String(node?.iaSECNumber || node?.iaSecNumber || basic?.iaSECNumber || basic?.iaSecNumber || '').trim())) return true;
+	// Only match explicitly IA-type registrations, not BD/SRO registrations
 	if (
 		Array.isArray(node?.registrations) &&
-		node.registrations.some((entry: any) => /approved|active|current|registered/i.test(String(entry?.registrationStatus || entry?.status || '')))
+		node.registrations.some((entry: any) => {
+			const regType = String(entry?.registrationType || entry?.type || '').toLowerCase();
+			const isIaType = regType.includes('ia') || regType.includes('adviser') || regType.includes('advisor');
+			return isIaType && /approved|active|current|registered/i.test(String(entry?.registrationStatus || entry?.status || ''));
+		})
 	) {
 		return true;
 	}
@@ -781,18 +788,33 @@ async function loadCachedIndividualPayload(source: 'finra' | 'sec', id: string) 
 	return parseIndividualDetailPayload(payload, source === 'finra' ? 'content' : 'iacontent', id);
 }
 
+async function loadCachedFirmPayload(source: 'finra' | 'sec', id: string) {
+	const key = `${source}:firm:${id}`;
+	const payload = await cachedFetch<any>(key, 60 * 60 * 24, async () => undefined as unknown as any);
+	return parseFirmDetailPayload(payload, source === 'finra' ? 'content' : 'iacontent');
+}
+
 async function normalizeCardSourcesForDisplay(card: CacheCard): Promise<CacheCard> {
-	if (card.entity !== 'individual' || card.sources.length <= 1) return card;
+	if (card.sources.length <= 1) return card;
 
 	const normalizedSources: CacheCardSource[] = [];
 	let evaluatedSourceCount = 0;
 
 	for (const sourceEntry of card.sources) {
-		const detail = await loadCachedIndividualPayload(sourceEntry.source, card.id);
+		let detail: Record<string, any> | null = null;
+		if (card.entity === 'individual') {
+			detail = await loadCachedIndividualPayload(sourceEntry.source, card.id);
+		} else {
+			detail = await loadCachedFirmPayload(sourceEntry.source, card.id);
+		}
 		if (!detail) continue;
 		evaluatedSourceCount += 1;
 
-		const includeSource = sourceEntry.source === 'finra' ? hasIndividualFinraPresence(detail) : hasIndividualSecPresence(detail);
+		const includeSource =
+			card.entity === 'individual' ?
+				sourceEntry.source === 'finra' ? hasIndividualFinraPresence(detail) : hasIndividualSecPresence(detail)
+			:	sourceEntry.source === 'finra' ? hasFirmFinraPresence(detail) : hasFirmSecPresence(detail);
+
 		if (includeSource) normalizedSources.push(sourceEntry);
 	}
 
