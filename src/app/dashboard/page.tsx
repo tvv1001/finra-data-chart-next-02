@@ -416,15 +416,7 @@ export default function DashboardPage() {
 	const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
 	const [top10Latest, setTop10Latest] = useState<Array<{ id: string; entity: 'individual' | 'firm'; fetchedAt: string; files?: number; sources?: QueueCardSourceEntry[] }>>([]);
 	const [sessionHasFetched, setSessionHasFetched] = useState(false);
-	const [localHistory, setLocalHistory] = useState<LocalHistoryEntry[]>(() => {
-		if (typeof window === 'undefined') return [];
-		try {
-			const raw = localStorage.getItem(LOCAL_HISTORY_KEY);
-			return raw ? (JSON.parse(raw) as LocalHistoryEntry[]) : [];
-		} catch {
-			return [];
-		}
-	});
+	const [localHistory, setLocalHistory] = useState<LocalHistoryEntry[]>([]);
 	const mergedDetailCacheRef = useRef(new Map<string, any>());
 	const jsonStringCacheRef = useRef(new Map<string, string>());
 	const previousNewCrdsCountRef = useRef(0);
@@ -456,6 +448,15 @@ export default function DashboardPage() {
 
 	// Load recent CRDs on mount
 	useEffect(() => {
+		try {
+			const raw = localStorage.getItem(LOCAL_HISTORY_KEY);
+			if (raw) {
+				setLocalHistory(JSON.parse(raw) as LocalHistoryEntry[]);
+			}
+		} catch (err) {
+			console.error('Failed to load local history:', err);
+		}
+
 		fetch('/api/dashboard/refresh', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },

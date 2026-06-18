@@ -4741,3 +4741,50 @@ html[data-theme='dark'] .fg-mns-input {
 .fg-node.\--color-highlight-controls:not(.fg-node--inactive) .fg-node-shape--entity {
 	fill: var(--color-highlight-controls) !important;
 }
+
+/* ── Source Toggle for FINRA/SEC ─────────────────────────────────────────── */
+.fg-source-toggle {
+	display: flex;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	padding: 4px;
+	gap: 4px;
+	margin: 8px 0 16px 0;
+	position: relative;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.fg-source-toggle-btn {
+	flex: 1;
+	border: none;
+	background: transparent;
+	padding: 6px 12px;
+	border-radius: 6px;
+	font: 600 12px/1.2 var(--sans);
+	color: var(--text-m);
+	cursor: pointer;
+	text-align: center;
+	transition: all 0.2s ease;
+	outline: none;
+}
+
+.fg-source-toggle-btn:hover {
+	color: var(--text-h);
+	background: var(--surface-hover, rgba(15, 23, 42, 0.04));
+}
+
+.fg-source-toggle-btn.active {
+	background: var(--color-highlight-individual, #2563eb);
+	color: #ffffff;
+	font-weight: 700;
+	box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+}
+
+html[data-theme='dark'] .fg-source-toggle-btn.active {
+	background: var(--color-highlight-individual, #0965e6);
+	color: #ffffff;
+	font-weight: 700;
+	box-shadow: 0 1px 3px rgba(9, 101, 230, 0.4);
+}
+
