@@ -1484,7 +1484,7 @@ export default function DashboardPage() {
 					)}
 					{terminalLogs.length > 0 && (
 						<div className={styles.terminalWindow}>
-							{terminalLogs.map((log) => (
+							{[...terminalLogs].reverse().map((log) => (
 								<div
 									key={log.id}
 									className={`${styles.terminalLine} ${styles['terminalLine_' + log.type]}`}>
