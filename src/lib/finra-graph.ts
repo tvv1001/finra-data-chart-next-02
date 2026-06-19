@@ -9448,12 +9448,15 @@ function getSourceBackedFirmName(node) {
 function getPreferredNodeLabel(node) {
 	if (!node) return '';
 	const basic = node.basicInformation || {};
+	const currentLabel = String(node.label || '').trim();
+	const isNodeIdPlaceholder = node.id && currentLabel.toLowerCase() === `node ${String(node.id).toLowerCase()}`;
+
 	if (node.group === 'individual') {
 		const personName = normalizePersonLabel(
 			[basic.firstName, basic.middleName, basic.lastName].filter(Boolean).join(' ') ||
 				firstMeaningfulText(basic.name, node.name, node.legalName, node.personName, node.displayName, getSourceBackedIndividualName(node)),
 		);
-		if (personName && (isPlaceholderExpansionLabel(node.label, 'individual') || personName.length >= String(node.label || '').length)) {
+		if (personName && (isPlaceholderExpansionLabel(node.label, 'individual') || isNodeIdPlaceholder || personName.length >= currentLabel.length)) {
 			return personName;
 		}
 	}
@@ -9470,7 +9473,7 @@ function getPreferredNodeLabel(node) {
 			node.displayName,
 			getSourceBackedFirmName(node),
 		);
-		if (firmName && (isPlaceholderExpansionLabel(node.label, 'firm') || firmName.length >= String(node.label || '').length)) {
+		if (firmName && (isPlaceholderExpansionLabel(node.label, 'firm') || isNodeIdPlaceholder || firmName.length >= currentLabel.length)) {
 			return firmName;
 		}
 	}

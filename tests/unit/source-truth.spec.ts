@@ -27,8 +27,13 @@ describe('resolveIndividualSourceDetail', () => {
 		expect(resolved.hasEmbeddedDetail).toBe(false);
 		expect(resolved.hasFinraData).toBe(false);
 		expect(resolved.hasSecData).toBe(true);
-		expect(resolved.detail?.currentEmployments ?? []).toEqual([]);
-		expect(resolved.detail?.currentIAEmployments ?? []).toEqual([]);
+		expect(resolved.detail?.currentEmployments).toEqual([
+			{
+				firm_id: '111838',
+				firm_name: 'TOLLESON PRIVATE WEALTH MANAGEMENT',
+			},
+		]);
+		expect(resolved.detail?.currentIAEmployments).toEqual([]);
 	});
 
 	it('keeps embedded detail rich when content is present', () => {
@@ -75,7 +80,7 @@ describe('buildIndividualSearchHitStub', () => {
 				lastName: 'Doe',
 			},
 		});
-		expect(stub?.currentEmployments).toBeUndefined();
+		expect(stub?.currentEmployments).toEqual([]);
 	});
 });
 
