@@ -70,6 +70,7 @@ export type LocalSearchDoc = {
 	type: LocalSearchEntity;
 	source: LocalSearchSource;
 	nameSearchText: string;
+	addressSearchText?: string;
 	strictSearchText: string;
 	searchText: string;
 	hit: LocalSearchHit;
