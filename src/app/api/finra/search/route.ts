@@ -3,6 +3,7 @@ import { hasMinimumSearchQuery, searchLocalIndex } from '@/lib/localSearch';
 import { logger } from '@/lib/logger';
 import { searchGraphFallback } from '@/lib/searchGraphFallback';
 import { searchDirectRedisFallback } from '@/lib/searchDirectFallback';
+import { searchExternalFallback } from '@/lib/searchExternalFallback';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -88,6 +89,13 @@ export async function GET(request: NextRequest) {
 		if (direct) {
 			console.log('[search] Direct Redis fallback succeeded');
 			return jsonNoStore(direct);
+		}
+
+		console.log('[search] Direct Redis fallback returned 0, checking external BrokerCheck search API...');
+		const external = await searchExternalFallback('finra', entity, query, baseUrl);
+		if (external) {
+			console.log('[search] External search fallback succeeded with', external.results.length, 'results');
+			return jsonNoStore(external);
 		}
 
 		console.log('[search] WARNING: All search layers returned 0 results');

@@ -3,6 +3,7 @@ import { hasMinimumSearchQuery, searchLocalIndex } from '@/lib/localSearch';
 import { logger } from '@/lib/logger';
 import { searchGraphFallback } from '@/lib/searchGraphFallback';
 import { searchDirectRedisFallback } from '@/lib/searchDirectFallback';
+import { searchExternalFallback } from '@/lib/searchExternalFallback';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -79,6 +80,13 @@ export async function GET(request: NextRequest) {
 
 		const direct = await searchDirectRedisFallback('sec', 'firm', query, { limit, offset });
 		if (direct) return jsonNoStore(direct);
+
+		console.log('[sec-search-firm] Direct Redis fallback returned 0, checking external AdviserInfo search API...');
+		const external = await searchExternalFallback('sec', 'firm', query, baseUrl);
+		if (external) {
+			console.log('[sec-search-firm] External search fallback succeeded with', external.results.length, 'results');
+			return jsonNoStore(external);
+		}
 
 		return jsonNoStore(fallback);
 	} catch (err: any) {
