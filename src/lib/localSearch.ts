@@ -2,7 +2,10 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { gunzipSync } from 'node:zlib';
 import { Redis } from '@upstash/redis';
-import { getSearchIndexFilePaths } from './searchDataPaths';
+import { getSearchIndexFilePaths, SEARCH_INDEX_RELATIVE_FILES } from './searchDataPaths';
+import * as path from 'node:path';
+import * as fsSync from 'node:fs';
+import * as zlib from 'node:zlib';
 
 function getUpstashClient() {
 	const url = process.env.UPSTASH_REDIS_REST_URL;
@@ -384,6 +387,7 @@ async function loadIndex(bucket: LocalSearchBucket, baseUrl?: string, seedRoots:
 			cacheKey,
 			(async () => {
 				const filePaths = getSearchIndexFilePaths(bucket, seedRoots);
+				let index: LocalSearchIndex | null = null;
 				if (filePaths.length > 0) {
 					try {
 						const allDocs: LocalSearchDoc[] = [];
@@ -397,7 +401,7 @@ async function loadIndex(bucket: LocalSearchBucket, baseUrl?: string, seedRoots:
 							if (Array.isArray(parsed?.docs)) allDocs.push(...parsed.docs);
 						}
 
-						return {
+						index = {
 							generatedAt: generatedAt ?? null,
 							bucket: bucketName ?? bucket,
 							docs: allDocs.map(prepareDoc),
@@ -407,31 +411,63 @@ async function loadIndex(bucket: LocalSearchBucket, baseUrl?: string, seedRoots:
 					}
 				}
 
-				const remoteUrl = getDeployedStaticIndexUrl(getRemoteSearchIndexFileName(bucket), baseUrl);
-				if (remoteUrl) {
-					try {
-						const parsed = await readIndexPayloadFromUrl(remoteUrl);
-						if (parsed) {
-							return {
-								generatedAt: parsed.generatedAt ?? null,
-								bucket: parsed.bucket ?? bucket,
-								docs: Array.isArray(parsed.docs) ? parsed.docs.map(prepareDoc) : [],
-							};
+				if (!index) {
+					const remoteUrl = getDeployedStaticIndexUrl(getRemoteSearchIndexFileName(bucket), baseUrl);
+					if (remoteUrl) {
+						try {
+							const parsed = await readIndexPayloadFromUrl(remoteUrl);
+							if (parsed) {
+								index = {
+									generatedAt: parsed.generatedAt ?? null,
+									bucket: parsed.bucket ?? bucket,
+									docs: Array.isArray(parsed.docs) ? parsed.docs.map(prepareDoc) : [],
+								};
+							}
+						} catch (err: any) {
+							console.warn(`[localSearch] Failed to fetch remote search index for ${bucket} from ${remoteUrl}, trying Redis...`);
 						}
-					} catch (err: any) {
-						console.warn(`[localSearch] Failed to fetch remote search index for ${bucket} from ${remoteUrl}, trying Redis...`);
 					}
 				}
 
-				// Fall back to Redis if local files are unavailable
-				console.warn(`[localSearch] Local files not available for ${bucket}, trying Redis...`);
-				const redisData = await fetchFromRedis(bucket);
-				if (redisData) {
-					return {
-						generatedAt: redisData?.generatedAt,
-						bucket: redisData?.bucket,
-						docs: Array.isArray(redisData?.docs) ? redisData.docs.map(prepareDoc) : [],
-					};
+				if (!index) {
+					// Fall back to Redis if local files are unavailable
+					console.warn(`[localSearch] Local files not available for ${bucket}, trying Redis...`);
+					const redisData = await fetchFromRedis(bucket);
+					if (redisData) {
+						index = {
+							generatedAt: redisData?.generatedAt,
+							bucket: redisData?.bucket,
+							docs: Array.isArray(redisData?.docs) ? redisData.docs.map(prepareDoc) : [],
+						};
+					}
+				}
+
+				if (index) {
+					// Load dynamic extensions from Redis and append them
+					const extensions = await fetchExtensionsFromRedis(bucket);
+					if (extensions.length > 0) {
+						console.log(`[localSearch] Appending ${extensions.length} dynamic extensions from Redis to ${bucket}`);
+						
+						// Avoid duplicates: keep track of IDs in the static index
+						const existingIds = new Set<string>();
+						for (const doc of index.docs) {
+							existingIds.add(doc.id);
+						}
+						
+						for (const extDoc of extensions) {
+							if (!existingIds.has(extDoc.id)) {
+								index.docs.push(prepareDoc(extDoc));
+								existingIds.add(extDoc.id);
+							} else {
+								// Upgrade/overwrite the existing doc in place with the latest dynamic data
+								const pos = index.docs.findIndex((d) => d.id === extDoc.id);
+								if (pos !== -1) {
+									index.docs[pos] = prepareDoc(extDoc);
+								}
+							}
+						}
+					}
+					return index;
 				}
 
 				console.error(`[localSearch] Failed to load index for bucket ${bucket}.`);
@@ -730,4 +766,277 @@ export async function searchLocalIndex(source: LocalSearchSource, type: LocalSea
 		pageNumber: limit > 0 ? Math.floor(offset / limit) + 1 : 1,
 		pageSize: limit,
 	};
+}
+
+async function fetchExtensionsFromRedis(bucket: LocalSearchBucket): Promise<LocalSearchDoc[]> {
+	const redis = getUpstashClient();
+	if (!redis) return [];
+	try {
+		const key = `search:indexes:extensions:${bucket}`;
+		const rawValues = await redis.hvals<string>(key);
+		const docs: LocalSearchDoc[] = [];
+		for (const raw of rawValues || []) {
+			if (!raw) continue;
+			try {
+				const doc = JSON.parse(raw);
+				if (doc && typeof doc === 'object') {
+					docs.push(doc);
+				}
+			} catch {
+				// ignore
+			}
+		}
+		return docs;
+	} catch (err) {
+		console.error(`[localSearch] Failed to fetch extensions from Redis for ${bucket}:`, err);
+		return [];
+	}
+}
+
+export function clearSearchIndexCache() {
+	indexPromiseCache.clear();
+}
+
+function toText(value: any): string {
+	return String(value ?? '')
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+
+function uniqueTexts(values: any[]): string[] {
+	const seen = new Set<string>();
+	const out: string[] = [];
+	for (const value of values) {
+		const text = toText(value);
+		if (!text) continue;
+		const key = text.toLowerCase();
+		if (seen.has(key)) continue;
+		seen.add(key);
+		out.push(text);
+	}
+	return out;
+}
+
+function collectScalarTexts(value: any, out: any[] = [], seen = new WeakSet()): any[] {
+	if (value == null) return out;
+	if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+		out.push(value);
+		return out;
+	}
+	if (Array.isArray(value)) {
+		for (const entry of value) collectScalarTexts(entry, out, seen);
+		return out;
+	}
+	if (typeof value === 'object') {
+		if (seen.has(value)) return out;
+		seen.add(value);
+		for (const entry of Object.values(value)) collectScalarTexts(entry, out, seen);
+	}
+	return out;
+}
+
+function normalizeBranchLocation(location: any) {
+	if (!location || typeof location !== 'object') return null;
+	const normalized = {
+		city: toText(location.city) || null,
+		state: toText(location.state) || null,
+		street1: toText(location.street1) || null,
+		street2: toText(location.street2) || null,
+		zipCode: toText(location.zipCode) || null,
+	};
+	return Object.values(normalized).some(Boolean) ? normalized : null;
+}
+
+function normalizeEmployment(employment: any) {
+	if (!employment || typeof employment !== 'object') return null;
+	const firmId = toText(employment.firmId ?? employment.firm_id ?? employment.firmIdNumber);
+	const firmName = toText(employment.firmName ?? employment.firm_name);
+	const branchOfficeLocations = (Array.isArray(employment.branchOfficeLocations) ? employment.branchOfficeLocations : [])
+		.map(normalizeBranchLocation)
+		.filter(Boolean);
+	const branchLocation = branchOfficeLocations[0] || null;
+	return {
+		firmId: firmId ? Number(firmId) || firmId : null,
+		firm_id: firmId ? Number(firmId) || firmId : null,
+		firmName: firmName || null,
+		firm_name: firmName || null,
+		iaOnly: employment.iaOnly ?? null,
+		registrationBeginDate: employment.registrationBeginDate ?? null,
+		registrationEndDate: employment.registrationEndDate ?? null,
+		employmentStatus: employment.employmentStatus ?? null,
+		firmBCScope: employment.firmBCScope ?? employment.firm_bc_scope ?? null,
+		firmIAScope: employment.firmIAScope ?? employment.firm_ia_scope ?? null,
+		bdSECNumber: toText(employment.bdSECNumber ?? employment.bdSecNumber ?? employment.firm_bd_sec_number) || null,
+		iaSECNumber: toText(employment.iaSECNumber ?? employment.iaSecNumber ?? employment.firm_ia_sec_number) || null,
+		city: toText(employment.city ?? branchLocation?.city) || null,
+		state: toText(employment.state ?? branchLocation?.state) || null,
+		zipCode: toText(employment.zipCode ?? branchLocation?.zipCode) || null,
+		expelledDate: employment.expelledDate ?? null,
+		branchOfficeLocations,
+	};
+}
+
+function getRegistrationCount(detail: any) {
+	const registrations = detail?.registrations && typeof detail.registrations === 'object' ? detail.registrations : {};
+	return {
+		approvedFinraRegistrationCount: registrations.approvedFinraRegistrationCount ?? detail.registrationCount?.approvedFinraRegistrationCount ?? 0,
+		approvedSRORegistrationCount: registrations.approvedSRORegistrationCount ?? detail.registrationCount?.approvedSRORegistrationCount ?? 0,
+		approvedStateRegistrationCount: registrations.approvedStateRegistrationCount ?? detail.registrationCount?.approvedStateRegistrationCount ?? 0,
+		approvedIAStateRegistrationCount: registrations.approvedIAStateRegistrationCount ?? detail.registrationCount?.approvedIAStateRegistrationCount ?? 0,
+	};
+}
+
+export function buildIndividualDoc(source: string, detail: any): LocalSearchDoc | null {
+	const basicInformation = detail?.basicInformation && typeof detail.basicInformation === 'object' ? detail.basicInformation : {};
+	const individualId = toText(basicInformation.individualId ?? detail.individualId);
+	if (!individualId) return null;
+
+	const otherNames = uniqueTexts(basicInformation.otherNames || []);
+	const currentEmployments = (Array.isArray(detail.currentEmployments) ? detail.currentEmployments : []).map(normalizeEmployment).filter(Boolean);
+	const currentIAEmployments = (Array.isArray(detail.currentIAEmployments) ? detail.currentIAEmployments : []).map(normalizeEmployment).filter(Boolean);
+	const firmIds = uniqueTexts([
+		...currentEmployments.map((e: any) => e.firmId),
+		...currentIAEmployments.map((e: any) => e.firmId),
+	]);
+	const registrationCount = getRegistrationCount(detail);
+
+	const currentAddressTexts = uniqueTexts([
+		...currentEmployments.flatMap((e: any) => [e.city, e.state, ...e.branchOfficeLocations.flatMap((l: any) => [l.street1, l.street2, l.city, l.state])]),
+		...currentIAEmployments.flatMap((e: any) => [e.city, e.state, ...e.branchOfficeLocations.flatMap((l: any) => [l.street1, l.street2, l.city, l.state])]),
+	]);
+
+	const nameTexts = uniqueTexts([basicInformation.firstName, basicInformation.middleName, basicInformation.lastName, ...otherNames]);
+	const hit = {
+		ind_source_id: individualId,
+		ind_crd: individualId,
+		ind_firstname: toText(basicInformation.firstName),
+		ind_middlename: toText(basicInformation.middleName),
+		ind_lastname: toText(basicInformation.lastName),
+		ind_other_names: otherNames,
+		otherNames,
+		ind_bc_scope: toText(basicInformation.bcScope),
+		ind_ia_scope: toText(basicInformation.iaScope),
+		ind_approved_finra_registration_count: registrationCount.approvedFinraRegistrationCount,
+		ind_approved_sro_registration_count: registrationCount.approvedSRORegistrationCount,
+		ind_approved_state_registration_count: registrationCount.approvedStateRegistrationCount,
+		ind_approved_ia_state_registration_count: registrationCount.approvedIAStateRegistrationCount,
+		ind_current_employments: currentEmployments,
+		ind_ia_current_employments: currentIAEmployments,
+		disclosureFlag: detail.bdDisclosureFlag ?? detail.disclosureFlag ?? null,
+		iaDisclosureFlag: detail.iaDisclosureFlag ?? null,
+	};
+
+	return {
+		id: `${source}:individual:${individualId}`,
+		type: 'individual',
+		source: source as LocalSearchSource,
+		nameSearchText: nameTexts.join(' ').toLowerCase(),
+		addressSearchText: currentAddressTexts.join(' ').toLowerCase(),
+		strictSearchText: uniqueTexts(collectScalarTexts(detail)).join(' ').toLowerCase(),
+		searchText: uniqueTexts([individualId, ...nameTexts, ...firmIds])
+			.join(' ')
+			.toLowerCase(),
+		hit,
+	};
+}
+
+export function buildFirmDoc(source: string, detail: any): LocalSearchDoc | null {
+	const basicInformation = detail?.basicInformation && typeof detail.basicInformation === 'object' ? detail.basicInformation : {};
+	const firmId = toText(basicInformation.firmId ?? detail.firmId);
+	if (!firmId) return null;
+
+	const firmName = toText(basicInformation.firmName || detail.firmName || detail.name);
+	const otherNames = uniqueTexts(basicInformation.otherNames || []);
+
+	const addressDetails = detail.firmAddressDetails || {};
+	const office = addressDetails.officeAddress || {};
+	const mailing = addressDetails.mailingAddress || {};
+	const currentAddressTexts = uniqueTexts([office.city, office.state, office.street1, office.street2, mailing.city, mailing.state, mailing.street1, mailing.street2]);
+
+	const nameTexts = uniqueTexts([firmName, ...otherNames]);
+	const hit = {
+		firm_id: firmId,
+		firmId,
+		firm_source_id: firmId,
+		firm_name: firmName,
+		firmName,
+		firm_other_names: otherNames,
+		otherNames,
+		firm_bc_scope: toText(basicInformation.bcScope),
+		bdSecNumber: toText(basicInformation.bdSECNumber || detail.bdSecNumber) || null,
+		iaSecNumber: toText(basicInformation.iaSECNumber || detail.iaSecNumber) || null,
+		disclosureFlag: detail.bdDisclosureFlag ?? detail.disclosureFlag ?? null,
+		iaDisclosureFlag: detail.iaDisclosureFlag ?? null,
+	};
+
+	return {
+		id: `${source}:firm:${firmId}`,
+		type: 'firm',
+		source: source as LocalSearchSource,
+		nameSearchText: nameTexts.join(' ').toLowerCase(),
+		addressSearchText: currentAddressTexts.join(' ').toLowerCase(),
+		strictSearchText: uniqueTexts(collectScalarTexts(detail)).join(' ').toLowerCase(),
+		searchText: uniqueTexts([firmId, ...nameTexts])
+			.join(' ')
+			.toLowerCase(),
+		hit,
+	};
+}
+
+export async function addRecordToSearchIndex(
+	source: LocalSearchSource,
+	type: LocalSearchEntity,
+	crd: string,
+	detail: any,
+) {
+	const bucket: LocalSearchBucket = `${source}:${type}`;
+	const doc = type === 'individual' ? buildIndividualDoc(source, detail) : buildFirmDoc(source, detail);
+	if (!doc) return false;
+
+	const redis = getUpstashClient();
+	if (!redis) return false;
+
+	try {
+		const key = `search:indexes:extensions:${bucket}`;
+		await redis.hset(key, { [crd]: JSON.stringify(doc) });
+		console.log(`[localSearch] Successfully saved dynamic search extension for ${bucket}:${crd}`);
+		// Clear local memory cache so subsequent searches reload the index with the new extension
+		indexPromiseCache.clear();
+
+		// Also write to local filesystem if we are running locally and files exist
+		try {
+			const relativeFilePath = SEARCH_INDEX_RELATIVE_FILES[bucket];
+			const absolutePath = path.resolve(process.cwd(), relativeFilePath);
+			if (fsSync.existsSync(absolutePath)) {
+				const raw = fsSync.readFileSync(absolutePath, 'utf8');
+				const parsed = JSON.parse(raw);
+				if (parsed && Array.isArray(parsed.docs)) {
+					const existingPos = parsed.docs.findIndex((d: any) => d.id === doc.id);
+					if (existingPos !== -1) {
+						parsed.docs[existingPos] = doc;
+					} else {
+						parsed.docs.push(doc);
+					}
+					parsed.generatedAt = new Date().toISOString();
+					fsSync.writeFileSync(absolutePath, JSON.stringify(parsed, null, 2), 'utf8');
+					console.log(`[localSearch] Successfully updated local search index file on disk: ${absolutePath}`);
+
+					// Also update gzip sidecar if it exists
+					const gzPath = `${absolutePath}.gz`;
+					if (fsSync.existsSync(gzPath)) {
+						const gzBuffer = zlib.gzipSync(Buffer.from(JSON.stringify(parsed, null, 2), 'utf8'), { level: 9 });
+						fsSync.writeFileSync(gzPath, gzBuffer);
+						console.log(`[localSearch] Successfully updated local search index gzip sidecar: ${gzPath}`);
+					}
+				}
+			}
+		} catch (fileErr: any) {
+			console.warn(`[localSearch] Skipping filesystem update: ${fileErr?.message || fileErr}`);
+		}
+
+		return true;
+	} catch (err) {
+		console.error(`[localSearch] Failed to save dynamic search extension to Redis for ${bucket}:${crd}`, err);
+		return false;
+	}
 }

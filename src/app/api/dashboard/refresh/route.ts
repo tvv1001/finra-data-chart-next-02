@@ -9,6 +9,7 @@ import { normalizeIndividualDetailPayload } from '@/lib/individualDetail';
 import { setStringIfValid } from '@/lib/redisCache';
 import { getFullGraph, saveGraph } from '@/lib/graphStore';
 import { getRecentSeedsFromStore, rememberRecentSeed } from '@/lib/seedStore';
+import { addRecordToSearchIndex } from '@/lib/localSearch';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -2053,6 +2054,18 @@ async function fetchCrdsToCacheAndRedis(initialTargets: FetchTarget[], options: 
 				console.warn(`[fetch-crds] Skipping local file write: ${fileErr.message}`);
 			}
 			await setStringIfValid(redisKey, JSON.stringify(payload), 0);
+
+			const detail = target.type === 'individual'
+				? parseIndividualDetailPayload(payload, target.source === 'finra' ? 'content' : 'iacontent', target.crd)
+				: parseFirmDetailPayload(payload, target.source === 'finra' ? 'content' : 'iacontent');
+
+			if (detail) {
+				try {
+					await addRecordToSearchIndex(target.source, target.type, crd, detail);
+				} catch (searchIndexErr: any) {
+					console.warn(`[fetch-crds] Failed to update search index extension: ${searchIndexErr?.message || searchIndexErr}`);
+				}
+			}
 
 			const newSourceSaved = !sourceExistedBefore;
 			const newRecordSaved = !recordExistedBefore;
