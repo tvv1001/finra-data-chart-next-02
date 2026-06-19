@@ -106,7 +106,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		const detail = await response.json().catch(() => null);
 		if (!response.ok || !detail || detail.found === false) {
-			return NextResponse.json({ found: false }, { headers: sharedCacheHeaders(3600) });
+			return NextResponse.json({ found: false }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
 		}
 
 		const finraDetail = detail?.finraNode || (detail?.hasFinraData ? detail : null);

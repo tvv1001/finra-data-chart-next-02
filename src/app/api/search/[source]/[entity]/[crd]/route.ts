@@ -27,14 +27,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		});
 
 		if (!response.ok) {
-			return NextResponse.json({ found: false }, { headers: sharedCacheHeaders(3600) });
+			return NextResponse.json({ found: false }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
 		}
 
 		const searchResult = await response.json();
 		const doc = searchResult?.response?.docs?.[0] ?? searchResult?.docs?.[0];
 
 		if (!doc) {
-			return NextResponse.json({ found: false }, { headers: sharedCacheHeaders(3600) });
+			return NextResponse.json({ found: false }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
 		}
 
 		return NextResponse.json(
@@ -49,6 +49,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		);
 	} catch (err: any) {
 		console.error(`Failed to fetch ${source} ${entity} ${crd}:`, err?.message);
-		return NextResponse.json({ found: false, error: err?.message }, { headers: sharedCacheHeaders(300) });
+		return NextResponse.json({ found: false, error: err?.message }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
 	}
 }

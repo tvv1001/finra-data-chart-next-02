@@ -145,7 +145,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		}
 
 		if (!bcDetail && !secDetail) {
-			return NextResponse.json({ found: false }, { status: 200, headers: sharedCacheHeaders(3600) });
+			return NextResponse.json({ found: false }, { status: 200, headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
 		}
 
 		let detail: any = bcDetail || secDetail;

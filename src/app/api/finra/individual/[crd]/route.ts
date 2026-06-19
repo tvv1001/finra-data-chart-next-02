@@ -168,7 +168,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		const secDetail = parseDetailPayload(secData, 'iacontent');
 
 		if (!finraDetail && !secDetail) {
-			return NextResponse.json({ found: false, crd }, { status: 200, headers: sharedCacheHeaders(3600) });
+			return NextResponse.json({ found: false, crd }, { status: 200, headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
 		}
 
 		const detail: any =
@@ -179,7 +179,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		if (!isPlainObject(detail)) {
 			logger.warn('parsed individual detail is not an object', { crd, type: typeof detail });
-			return NextResponse.json({ found: false, crd, error: 'invalid-detail-shape' }, { status: 200, headers: sharedCacheHeaders(3600) });
+			return NextResponse.json({ found: false, crd, error: 'invalid-detail-shape' }, { status: 200, headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
 		}
 
 		const finraNumeric = finraDetail ? findNumericId(finraDetail, ['individualId', 'individual_id', 'crd', 'ind_crd', 'ind_source_id']) : '';
