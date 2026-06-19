@@ -3,7 +3,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { afterEach, describe, expect, it } from 'vitest';
-import { searchLocalIndex } from '@/lib/localSearch';
+import { searchLocalIndex, cleanSearchQuery } from '@/lib/localSearch';
 import { getSearchIndexFilePath } from '@/lib/searchDataPaths';
 
 async function withTempSearchIndex(fileName: string, content: string | Buffer, run: (root: string) => Promise<void>) {
@@ -404,5 +404,26 @@ describe('local search indexes', () => {
 				expect(resolvedPath).toBe(path.join(root, 'data', 'national', 'search-index.finra.individual.json'));
 			},
 		);
+	});
+
+	describe('cleanSearchQuery', () => {
+		it('extracts numeric CRD from Name :: CRD# [number] format', () => {
+			expect(cleanSearchQuery('Jeremi C. Holmes :: CRD# 8137832')).toBe('8137832');
+			expect(cleanSearchQuery('Jeremi C. Holmes :: CRD 8137832')).toBe('8137832');
+			expect(cleanSearchQuery('Jeremi C. Holmes :: 8137832')).toBe('8137832');
+			expect(cleanSearchQuery('Jeremi C. Holmes ::   CRD#   8137832')).toBe('8137832');
+		});
+
+		it('extracts numeric CRD from standalone CRD prefix format', () => {
+			expect(cleanSearchQuery('CRD# 8137832')).toBe('8137832');
+			expect(cleanSearchQuery('crd 8137832')).toBe('8137832');
+			expect(cleanSearchQuery('CRD#8137832')).toBe('8137832');
+		});
+
+		it('leaves regular queries unchanged', () => {
+			expect(cleanSearchQuery('Jeremi C. Holmes')).toBe('Jeremi C. Holmes');
+			expect(cleanSearchQuery('8137832')).toBe('8137832');
+			expect(cleanSearchQuery('Goldman Sachs')).toBe('Goldman Sachs');
+		});
 	});
 });

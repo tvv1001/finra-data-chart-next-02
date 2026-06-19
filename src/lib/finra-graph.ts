@@ -6899,14 +6899,14 @@ function getLinkMarker(d) {
 }
 
 function getLinkDash(d) {
-	if (hasInactiveEndpoint(d)) return '5 8';
-	if (isPreviousEmploymentLink(d)) return '5 8';
+	if (hasInactiveEndpoint(d)) return '3 4';
+	if (isPreviousEmploymentLink(d)) return '3 4';
 	return null;
 }
 
 function getLinkWidth(d) {
-	if (hasInactiveEndpoint(d)) return 'calc(0.6px * var(--fg-inactive-link-scale, 1))';
-	if (isPreviousEmploymentLink(d)) return 'calc(0.6px * var(--fg-inactive-link-scale, 1))';
+	if (hasInactiveEndpoint(d)) return 'calc(0.42px * var(--fg-inactive-link-scale, 1))';
+	if (isPreviousEmploymentLink(d)) return 'calc(0.42px * var(--fg-inactive-link-scale, 1))';
 	return DEFAULT_LINK_WIDTH;
 }
 
@@ -12604,7 +12604,7 @@ function renderLegend() {
 			} else if (shape === 'ring') {
 				svg = `<svg width="16" height="16"><circle cx="8" cy="8" r="6" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="3 2"/></svg>`;
 			} else if (shape === 'line-dashed') {
-				svg = `<svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="${color}" stroke-width="1.5" stroke-dasharray="5 8"/></svg>`;
+				svg = `<svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="${color}" stroke-width="1.05" stroke-dasharray="3 4"/></svg>`;
 			} else {
 				svg = `<svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="${color}" stroke-width="1.5"/></svg>`;
 			}

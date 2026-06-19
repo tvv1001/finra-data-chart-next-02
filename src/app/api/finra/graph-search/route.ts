@@ -3,7 +3,7 @@ import { getFullGraph, saveGraph } from '@/lib/graphStore';
 import { Redis as UpstashRedis } from '@upstash/redis';
 import { logger } from '@/lib/logger';
 import { sharedCacheHeaders } from '@/lib/httpCache';
-import { searchLocalIndex } from '@/lib/localSearch';
+import { searchLocalIndex, cleanSearchQuery } from '@/lib/localSearch';
 import { normalizeIndividualDetailFromSource } from '@/lib/individualDetail';
 import { resolveIndividualSourceDetail } from '@/lib/sourceTruth';
 import { tryLoadPersonCluster } from '@/lib/peopleClusterCache';
@@ -209,7 +209,8 @@ function buildNodesFromCacheCards(cards: any[], type: string) {
 export async function GET(request: NextRequest) {
 	try {
 		const { searchParams } = new URL(request.url);
-		const q = (searchParams.get('q') || '').toLowerCase().trim();
+		const rawQ = (searchParams.get('q') || '').trim();
+		const q = cleanSearchQuery(rawQ).toLowerCase();
 		const baseUrl = new URL(request.url).origin;
 		const type = searchParams.get('type') || 'all';
 		const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);

@@ -18,6 +18,7 @@ vi.mock('@/lib/localSearch', () => ({
 		pageNumber: 1,
 		pageSize: 0,
 	})),
+	cleanSearchQuery: vi.fn((q) => q),
 }));
 
 vi.mock('@/lib/individualDetail', () => ({

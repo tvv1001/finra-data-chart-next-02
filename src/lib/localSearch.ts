@@ -1041,3 +1041,18 @@ export async function addRecordToSearchIndex(
 		return false;
 	}
 }
+
+export function cleanSearchQuery(query: string): string {
+	const trimmed = query.trim();
+	// Check for ":: CRD# 8137832" or "CRD# 8137832" or ":: 8137832"
+	const matchCrdMarker = /::\s*(?:crd#|crd)?\s*(\d+)/i.exec(trimmed);
+	if (matchCrdMarker) {
+		return matchCrdMarker[1];
+	}
+	const matchCrdPrefix = /(?:crd#|crd)\s*(\d+)/i.exec(trimmed);
+	if (matchCrdPrefix) {
+		return matchCrdPrefix[1];
+	}
+	return trimmed;
+}
+
