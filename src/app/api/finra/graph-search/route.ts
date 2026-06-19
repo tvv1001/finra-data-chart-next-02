@@ -8,6 +8,7 @@ import { normalizeIndividualDetailFromSource } from '@/lib/individualDetail';
 import { resolveIndividualSourceDetail } from '@/lib/sourceTruth';
 import { tryLoadPersonCluster } from '@/lib/peopleClusterCache';
 import { matchesSearchableNodeQuery } from '@/lib/searchGraphFallback';
+import { searchExternalFallback } from '@/lib/searchExternalFallback';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -261,7 +262,7 @@ export async function GET(request: NextRequest) {
 		if (!matchedIds.size) {
 			// No graph matches — search the local FINRA/SEC indexes and persist discovered nodes into the graph cache.
 			try {
-				const allHits = (
+				let allHits = (
 					await Promise.all([
 						searchLocalIndex('finra', 'individual', q, { limit, offset, baseUrl }),
 						searchLocalIndex('finra', 'firm', q, { limit, offset, baseUrl }),
@@ -271,6 +272,23 @@ export async function GET(request: NextRequest) {
 				)
 					.flatMap((result) => result?.hits?.hits || [])
 					.slice(0, limit);
+
+				if (!allHits.length) {
+					console.log('[graph-search] Local index returned 0, checking external search API fallbacks...');
+					const externalResults = await Promise.all([
+						searchExternalFallback('finra', 'individual', q, baseUrl),
+						searchExternalFallback('finra', 'firm', q, baseUrl),
+						searchExternalFallback('sec', 'individual', q, baseUrl),
+						searchExternalFallback('sec', 'firm', q, baseUrl),
+					]);
+					const extHits = externalResults
+						.flatMap((result) => result?.hits?.hits || [])
+						.slice(0, limit);
+					if (extHits.length) {
+						allHits = extHits;
+					}
+				}
+
 				if (!allHits.length) {
 					// Numeric CRD fallback: hydrate directly from detail routes even when local index is stale.
 					if (/^\d{1,10}$/.test(q)) {

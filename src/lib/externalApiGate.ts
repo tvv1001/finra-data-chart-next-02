@@ -12,6 +12,10 @@ function isExplicitlyEnabled() {
 }
 
 export function canCallExternalApis() {
+	if (process.env.VERCEL === '1') {
+		const raw = String(process.env.EXTERNAL_API_DISABLED || '').trim().toLowerCase();
+		return raw !== '1' && raw !== 'true';
+	}
 	return getExternalApiContext() === 'cronjob' || isExplicitlyEnabled();
 }
 
