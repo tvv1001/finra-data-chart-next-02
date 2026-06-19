@@ -773,7 +773,7 @@ async function fetchExtensionsFromRedis(bucket: LocalSearchBucket): Promise<Loca
 	if (!redis) return [];
 	try {
 		const key = `search:indexes:extensions:${bucket}`;
-		const rawValues = await redis.hvals<string>(key);
+		const rawValues = (await redis.hvals(key)) as string[];
 		const docs: LocalSearchDoc[] = [];
 		for (const raw of rawValues || []) {
 			if (!raw) continue;
