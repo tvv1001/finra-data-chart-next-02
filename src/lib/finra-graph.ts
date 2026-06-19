@@ -42,7 +42,7 @@ import * as canvasRenderer from './finra-graph-canvas';
 import * as overlayRenderer from './finra-graph-overlay';
 import { buildLargeGraphRenderPlan, getLargeGraphRenderBudget, getProgressiveLoadBudget } from './large-graph-rendering';
 import { isValidLocationStateFilter, isZipLikeLocationQuery, normalizeLocationStateFilter } from './locationSearch';
-import { resolveIndividualSourceDetail } from './sourceTruth';
+import { resolveIndividualSourceDetail, hasIndividualSourceCoverage } from './sourceTruth';
 
 // API base. When VITE_API_URL is not set, use relative paths so the dev
 // server proxy (`/api`) is used and we don't hardcode a backend port.
@@ -8356,66 +8356,127 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 
 // Normalize wrapped detail payloads (e.g. from Elasticsearch/Solr hits)
 function unwrapDetailPayload(detail) {
-	const parseWrappedContent = (container, meta: { found?: boolean; hasFinraData?: boolean; hasSecData?: boolean; sources?: any } = {}) => {
-		if (!container || typeof container !== 'object') return null;
-		const rawContent = container?.content || container?.iacontent || container?.bccontent?.content || container?.seccontent?.content;
-		if (typeof rawContent !== 'string') return null;
-		try {
-			const parsed = JSON.parse(rawContent);
-			if (meta.found !== undefined) parsed.found = meta.found;
-			if (meta.hasFinraData !== undefined) parsed.hasFinraData = meta.hasFinraData;
-			if (meta.hasSecData !== undefined) parsed.hasSecData = meta.hasSecData;
-			if (meta.sources !== undefined) parsed.sources = meta.sources;
-			return parsed;
-		} catch {
-			return null;
+	if (!detail) return detail;
+
+	// Helper to recursively parse string/wrapped/object detail content
+	const parseEmbeddedDetail = (val) => {
+		if (!val) return null;
+		if (typeof val === 'string') {
+			try {
+				const parsed = JSON.parse(val);
+				return parseEmbeddedDetail(parsed);
+			} catch {
+				return null;
+			}
 		}
+		if (typeof val === 'object') {
+			if (val.content !== undefined) {
+				return parseEmbeddedDetail(val.content);
+			}
+			return val;
+		}
+		return null;
 	};
 
-	if (!detail) return detail;
+	const isPlainObjectLocal = (value) => {
+		return value != null && typeof value === 'object' && !Array.isArray(value);
+	};
+
+	const mergePreferPrimaryLocal = (primary, secondary) => {
+		if (primary == null || primary === '') return secondary;
+		if (secondary == null || secondary === '') return primary;
+		if (Array.isArray(primary) && Array.isArray(secondary)) {
+			if (!primary.length) return secondary;
+			if (!secondary.length) return primary;
+			const seen = new Set(primary.map((item) => JSON.stringify(item)));
+			return [
+				...primary,
+				...secondary.filter((item) => {
+					const key = JSON.stringify(item);
+					if (seen.has(key)) return false;
+					seen.add(key);
+					return true;
+				}),
+			];
+		}
+		if (isPlainObjectLocal(primary) && isPlainObjectLocal(secondary)) {
+			const merged = { ...primary };
+			for (const [key, value] of Object.entries(secondary)) {
+				merged[key] = key in merged ? mergePreferPrimaryLocal(merged[key], value) : value;
+			}
+			return merged;
+		}
+		return primary;
+	};
+
+	// 1. If it's a merged route response (contains .merged or .finraNode)
 	if (detail?.merged || detail?.finraNode) {
 		const wrapped = detail.merged || detail.finraNode;
-		const parsedWrapped = parseWrappedContent(wrapped, {
-			found: detail.found,
-			hasFinraData: detail.hasFinraData,
-			hasSecData: detail.hasSecData,
-			sources: detail.sources,
-		});
+		const parsedWrapped = parseEmbeddedDetail(wrapped);
 		if (parsedWrapped) {
-			return parsedWrapped;
-		}
-		if (wrapped && typeof wrapped === 'object') {
 			return {
-				...wrapped,
-				found: detail.found ?? wrapped.found,
-				hasFinraData: detail.hasFinraData ?? wrapped.hasFinraData,
-				hasSecData: detail.hasSecData ?? wrapped.hasSecData,
-				sources: detail.sources ?? wrapped.sources,
+				...parsedWrapped,
+				found: detail.found ?? parsedWrapped.found,
+				hasFinraData: detail.hasFinraData ?? parsedWrapped.hasFinraData,
+				hasSecData: detail.hasSecData ?? parsedWrapped.hasSecData,
+				sources: detail.sources ?? parsedWrapped.sources,
 			};
 		}
 	}
-	const parsedDetail = parseWrappedContent(detail, {
-		found: detail?.found,
-		hasFinraData: detail?.hasFinraData,
-		hasSecData: detail?.hasSecData,
-		sources: detail?.sources,
-	});
-	if (parsedDetail) return parsedDetail;
+
+	// 2. If it is an unmerged response with separate bccontent and/or iacontent (either as string or object)
+	if (detail?.bccontent !== undefined || detail?.iacontent !== undefined) {
+		const finraDetail = parseEmbeddedDetail(detail.bccontent);
+		const secDetail = parseEmbeddedDetail(detail.iacontent);
+
+		if (finraDetail || secDetail) {
+			const merged =
+				finraDetail ?
+					secDetail ? mergePreferPrimaryLocal(secDetail, finraDetail)
+					:	finraDetail
+				:	secDetail;
+
+			if (merged && typeof merged === 'object') {
+				// Enrich with metadata
+				const finraNumeric = finraDetail ? (finraDetail.individualId || finraDetail.crd || detail.crd || '') : '';
+				const secNumeric = secDetail ? (secDetail.individualId || secDetail.crd || detail.crd || '') : '';
+				
+				merged.found = detail.found ?? true;
+				merged.hasFinraData = detail.hasFinraData ?? (!!finraDetail && !!finraNumeric && hasIndividualSourceCoverage(finraDetail, 'finra'));
+				merged.hasSecData = detail.hasSecData ?? (!!secDetail && !!secNumeric && hasIndividualSourceCoverage(secDetail, 'sec'));
+				merged.sources = detail.sources ?? {
+					finra: finraDetail ? { bccontent: finraDetail } : null,
+					sec: secDetail ? { iacontent: secDetail } : null,
+				};
+				return merged;
+			}
+		}
+	}
+
+	// 3. Fallback to parsing container directly (like Elasticsearch/Solr structures or top-level content)
+	const parsedDirect = parseEmbeddedDetail(detail);
+	if (parsedDirect && parsedDirect !== detail) {
+		return {
+			...parsedDirect,
+			found: detail.found ?? parsedDirect.found,
+			hasFinraData: detail.hasFinraData ?? parsedDirect.hasFinraData,
+			hasSecData: detail.hasSecData ?? parsedDirect.hasSecData,
+			sources: detail.sources ?? parsedDirect.sources,
+		};
+	}
+
+	// 4. Solr / Elasticsearch search hits fallback
 	const hit = detail?.hits?.hits?.[0] || detail?.response?.docs?.[0];
 	if (hit) {
 		const src = hit._source || hit;
-		const rawContent = src.content || src.iacontent;
-		if (typeof rawContent === 'string') {
-			try {
-				const parsed = JSON.parse(rawContent);
-				if (detail.found !== undefined) parsed.found = detail.found;
-				return parsed;
-			} catch {
-				return src;
-			}
+		const parsedHit = parseEmbeddedDetail(src);
+		if (parsedHit) {
+			if (detail.found !== undefined) parsedHit.found = detail.found;
+			return parsedHit;
 		}
 		return src;
 	}
+
 	return detail;
 }
 

@@ -57,6 +57,26 @@ describe('resolveIndividualSourceDetail', () => {
 		expect(resolved.hasFinraData).toBe(true);
 		expect(resolved.detail?.currentEmployments).toHaveLength(1);
 	});
+
+	it('returns already normalized detail objects as-is', () => {
+		const normalizedDetail = {
+			hasFinraData: true,
+			hasSecData: false,
+			basicInformation: {
+				individualId: '5142052',
+				firstName: 'Jay',
+				lastName: 'Nova',
+			},
+			currentEmployments: [{ firmId: 123, firmName: 'Firm ABC' }],
+		};
+
+		const resolved = resolveIndividualSourceDetail(normalizedDetail);
+
+		expect(resolved.searchHitOnly).toBe(false);
+		expect(resolved.hasEmbeddedDetail).toBe(true);
+		expect(resolved.detail).toBe(normalizedDetail);
+		expect(resolved.detail?.basicInformation?.individualId).toBe('5142052');
+	});
 });
 
 describe('buildIndividualSearchHitStub', () => {

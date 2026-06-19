@@ -145,6 +145,16 @@ export function resolveIndividualSourceDetail(source: unknown, fallbackCrd = '')
 		return { detail: null, hasEmbeddedDetail: false, hasFinraData: false, hasSecData: false, searchHitOnly: false };
 	}
 
+	if (isPlainObject(source.basicInformation)) {
+		return {
+			detail: source as AnyRecord,
+			hasEmbeddedDetail: true,
+			hasFinraData: source.hasFinraData ?? hasIndividualSourceCoverage(source, 'finra'),
+			hasSecData: source.hasSecData ?? hasIndividualSourceCoverage(source, 'sec'),
+			searchHitOnly: false,
+		};
+	}
+
 	const embedded = getEmbeddedContentObject(source, ['content', 'iacontent']);
 	if (embedded) {
 		const detail = normalizeIndividualDetailFromSource({ ...source, ...embedded }, fallbackCrd) as AnyRecord;
