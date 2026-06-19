@@ -11,7 +11,12 @@ function parseDetailPayload(data: any, contentKey = 'content') {
 	if (!data) return null;
 	if (data?.hits?.hits?.length) {
 		const source = data.hits.hits[0]?._source || {};
-		return resolveIndividualSourceDetail(source)?.detail;
+		try {
+			return resolveIndividualSourceDetail(source)?.detail ?? null;
+		} catch (err: any) {
+			logger.warn('failed to resolve individual search hit detail', { error: err?.message || String(err) });
+			return null;
+		}
 	}
 
 	const raw = data?.[contentKey];
@@ -21,8 +26,13 @@ function parseDetailPayload(data: any, contentKey = 'content') {
 				...data,
 				...(typeof raw === 'string' ? JSON.parse(raw) : raw || {}),
 			});
-		} catch {
-			return normalizeIndividualDetailFromSource(data);
+		} catch (error) {
+			try {
+				return normalizeIndividualDetailFromSource(data);
+			} catch (err: any) {
+				logger.warn('failed to normalize individual detail payload', { error: err?.message || String(err) });
+				return null;
+			}
 		}
 	}
 
@@ -37,7 +47,14 @@ function parseDetailPayload(data: any, contentKey = 'content') {
 			data.disclosures ||
 			data.currentEmployments ||
 			data.previousEmployments;
-		if (looksLikeDetail) return normalizeIndividualDetailFromSource(data);
+		if (looksLikeDetail) {
+			try {
+				return normalizeIndividualDetailFromSource(data);
+			} catch (err: any) {
+				logger.warn('failed to normalize individual detail object', { error: err?.message || String(err) });
+				return null;
+			}
+		}
 	}
 
 	return null;
@@ -179,7 +196,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		if (!isPlainObject(detail)) {
 			logger.warn('parsed individual detail is not an object', { crd, type: typeof detail });
-			return NextResponse.json({ found: false, crd, error: 'invalid-detail-shape' }, { status: 200, headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
+			return NextResponse.json(
+				{ found: false, crd, error: 'invalid-detail-shape' },
+				{ status: 200, headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } },
+			);
 		}
 
 		const finraNumeric = finraDetail ? findNumericId(finraDetail, ['individualId', 'individual_id', 'crd', 'ind_crd', 'ind_source_id']) : '';
@@ -212,15 +232,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		return NextResponse.json(responseData, { headers: sharedCacheHeaders(3600) });
 	} catch (err: any) {
-		logger.error('individual local detail route error', { 
-			crd, 
+		logger.error('individual local detail route error', {
+			crd,
 			error: err.message,
 			stack: err.stack,
 		});
-		return NextResponse.json({ 
-			error: 'Failed to load individual detail.', 
-			message: err.message,
-			crd 
-		}, { status: 500 });
+		return NextResponse.json(
+			{
+				error: 'Failed to load individual detail.',
+				message: err.message,
+				crd,
+			},
+			{ status: 500 },
+		);
 	}
 }
