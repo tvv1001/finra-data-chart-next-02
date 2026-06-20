@@ -4228,6 +4228,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 		const runDatabaseSearch = async () => {
 			const q = String(fetchInput.value || '').trim();
 			if (!q) return;
+			clearFetchStatus();
 			if (!(await ensureFetchRuntimeReady())) {
 				updateFetchStatus('Graph is still loading. Please try again.');
 				return;
