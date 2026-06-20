@@ -1081,6 +1081,24 @@ function normalizeExtractedCrd(value: string): string {
 	return /^\d{1,10}$/.test(cleaned) ? cleaned : '';
 }
 
+function collectLineCandidates(line: string): string[] {
+	const cleaned = line.trim();
+	if (!cleaned) return [];
+
+	const candidates: string[] = [];
+	const explicitPatterns = [/\bcrd\s*#?\s*(\d{1,10})\b/gi, /::\s*(?:crd\s*#?)?\s*(\d{1,10})\b/gi];
+	for (const pattern of explicitPatterns) {
+		for (const match of cleaned.matchAll(pattern)) {
+			const normalized = normalizeExtractedCrd(match[1] || '');
+			if (normalized) candidates.push(normalized);
+		}
+	}
+
+	if (candidates.length > 0) return candidates;
+	if (/^\d{1,10}$/.test(cleaned)) return [cleaned];
+	return [];
+}
+
 export function extractSearchQueries(query: string): string[] {
 	const trimmed = query.trim();
 	if (!trimmed) return [];
@@ -1092,16 +1110,8 @@ export function extractSearchQueries(query: string): string[] {
 		.filter(Boolean);
 
 	for (const line of lines) {
-		for (const pattern of [/::\s*(?:crd#|crd)?\s*(\d{1,10})/i, /(?:^|[\s(])(?:crd#|crd)\s*(\d{1,10})/i, /(?:^|[\s:;|,\-–—])(?:crd#|crd)?\s*(\d{1,10})/i]) {
-			const match = pattern.exec(line);
-			const normalized = normalizeExtractedCrd(match?.[1] || '');
-			if (normalized) {
-				candidates.push(normalized);
-				break;
-			}
-		}
-		if (candidates.length === 0 && /^\d{1,10}$/.test(line)) {
-			candidates.push(line);
+		for (const candidate of collectLineCandidates(line)) {
+			if (!candidates.includes(candidate)) candidates.push(candidate);
 		}
 	}
 

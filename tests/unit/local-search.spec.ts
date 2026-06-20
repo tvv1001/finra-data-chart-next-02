@@ -31,6 +31,24 @@ describe('local search indexes', () => {
 		expect(cleanSearchQuery('Alice Example :: CRD# 12345\nBob Example :: CRD# 67890')).toBe('12345');
 	});
 
+	it('extracts CRDs from mixed pasted content with names and punctuation', () => {
+		expect(extractSearchQueries('Brett Godwin :: CRD# 8100932\nAndrew Karp :: CRD# 7647370\nA note with SEC# 44319 and other text')).toEqual(['8100932', '7647370']);
+	});
+
+	it('extracts CRDs from a large pasted block with firm lines and SEC markers', () => {
+		const input = [
+			'John Matthew Godwin :: CRD# 4733934',
+			'MADISON CAPITAL MARKETS LLC :: CRD# 332196',
+			'AMERICAN FRONTEER FINANCIAL CORPORATION :: CRD# 1398 / SEC# 18200',
+			'Node firm:165013 :: CRD# 165013',
+			'ACCESS SECURITIES, LLC :: CRD# 22455 / SEC# 39729',
+			'Danna Beth Fuqua :: CRD# 4774182',
+			'James E Pass :: CRD# 1563352',
+		].join('\n');
+
+		expect(extractSearchQueries(input)).toEqual(['4733934', '332196', '1398', '165013', '22455', '4774182', '1563352']);
+	});
+
 	it('returns FINRA individual results from the local index', async () => {
 		const result = await searchLocalIndex('finra', 'individual', 'paula branum', { limit: 5 });
 
