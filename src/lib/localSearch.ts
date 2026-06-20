@@ -769,6 +769,50 @@ export async function searchLocalIndex(source: LocalSearchSource, type: LocalSea
 	};
 }
 
+export async function searchLocalIndexMany(source: LocalSearchSource, type: LocalSearchEntity, query: string, options: LocalSearchOptions = {}): Promise<LocalSearchResponse> {
+	const bucket = `${source}:${type}` as LocalSearchBucket;
+	const limit = Math.max(0, Math.min(options.limit ?? 12, 1000));
+	const offset = Math.max(0, options.offset ?? 0);
+	const searchQueries = extractSearchQueries(query).filter(Boolean);
+	if (!searchQueries.length) {
+		return searchLocalIndex(source, type, query, options);
+	}
+
+	const perQueryLimit = Math.max(limit, 12);
+	const responses = await Promise.all(searchQueries.map((searchQuery) => searchLocalIndex(source, type, searchQuery, { ...options, limit: perQueryLimit, offset: 0 })));
+	const mergedDocs: any[] = [];
+	const seenIds = new Set<string>();
+	for (const response of responses) {
+		for (const doc of response.results || []) {
+			const docId = String(doc?.id || doc?.ind_source_id || doc?.firm_source_id || '').trim();
+			if (!docId || seenIds.has(docId)) continue;
+			seenIds.add(docId);
+			mergedDocs.push(doc);
+		}
+	}
+
+	const pageDocs = limit > 0 ? mergedDocs.slice(offset, offset + limit) : [];
+	return {
+		bucket,
+		generatedAt: responses.find((response) => response.generatedAt)?.generatedAt ?? null,
+		total: mergedDocs.length,
+		hits: {
+			total: mergedDocs.length,
+			start: offset,
+			hits: pageDocs.map((doc) => ({ _id: String(doc?.id || doc?.ind_source_id || doc?.firm_source_id || ''), _source: doc })),
+		},
+		response: {
+			numFound: mergedDocs.length,
+			start: offset,
+			docs: pageDocs,
+		},
+		results: pageDocs,
+		currentPage: pageDocs,
+		pageNumber: limit > 0 ? Math.floor(offset / limit) + 1 : 1,
+		pageSize: limit,
+	};
+}
+
 async function fetchExtensionsFromRedis(bucket: LocalSearchBucket): Promise<LocalSearchDoc[]> {
 	const redis = getUpstashClient();
 	if (!redis) return [];
@@ -1032,19 +1076,40 @@ export async function addRecordToSearchIndex(source: LocalSearchSource, type: Lo
 	}
 }
 
-export function cleanSearchQuery(query: string): string {
-	const trimmed = query.trim();
-	if (!trimmed) return trimmed;
+function normalizeExtractedCrd(value: string): string {
+	const cleaned = String(value || '').trim();
+	return /^\d{1,10}$/.test(cleaned) ? cleaned : '';
+}
 
-	const hasCrdMarker = /::|(?:crd#|crd)\s*\d/i.test(trimmed);
-	if (hasCrdMarker) {
-		const markerPatterns = [/::\s*(?:crd#|crd)?\s*(\d{1,10})/i, /(?:^|[\s(])(?:crd#|crd)\s*(\d{1,10})/i, /(?:^|[\s:;|,\-–—])(?:crd#|crd)?\s*(\d{1,10})/i];
-		for (const pattern of markerPatterns) {
-			const match = pattern.exec(trimmed);
-			if (match?.[1]) return match[1];
+export function extractSearchQueries(query: string): string[] {
+	const trimmed = query.trim();
+	if (!trimmed) return [];
+
+	const candidates: string[] = [];
+	const lines = trimmed
+		.split(/\r?\n/)
+		.map((line) => line.trim())
+		.filter(Boolean);
+
+	for (const line of lines) {
+		for (const pattern of [/::\s*(?:crd#|crd)?\s*(\d{1,10})/i, /(?:^|[\s(])(?:crd#|crd)\s*(\d{1,10})/i, /(?:^|[\s:;|,\-–—])(?:crd#|crd)?\s*(\d{1,10})/i]) {
+			const match = pattern.exec(line);
+			const normalized = normalizeExtractedCrd(match?.[1] || '');
+			if (normalized) {
+				candidates.push(normalized);
+				break;
+			}
+		}
+		if (candidates.length === 0 && /^\d{1,10}$/.test(line)) {
+			candidates.push(line);
 		}
 	}
 
-	if (/^\d{1,10}$/.test(trimmed)) return trimmed;
-	return trimmed;
+	if (candidates.length > 0) return candidates;
+	return trimmed.length > 0 ? [trimmed] : [];
+}
+
+export function cleanSearchQuery(query: string): string {
+	const queries = extractSearchQueries(query);
+	return queries[0] || query.trim();
 }

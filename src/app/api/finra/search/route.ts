@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { hasMinimumSearchQuery, searchLocalIndex, cleanSearchQuery } from '@/lib/localSearch';
+import { hasMinimumSearchQuery, searchLocalIndexMany, extractSearchQueries } from '@/lib/localSearch';
 import { logger } from '@/lib/logger';
 import { searchGraphFallback } from '@/lib/searchGraphFallback';
 import { searchDirectRedisFallback } from '@/lib/searchDirectFallback';
@@ -69,13 +69,15 @@ export async function GET(request: NextRequest) {
 		const params = buildFinraSearchParams(searchParams);
 		if (!params) return jsonNoStore({ hits: { hits: [] } });
 
-		const query = cleanSearchQuery(params.get('query') || '');
-		if (!hasMinimumSearchQuery(query))
+		const rawQuery = params.get('query') || '';
+		const searchQueries = extractSearchQueries(rawQuery);
+		const query = searchQueries[0] || rawQuery.trim();
+		if (!searchQueries.some((candidate) => hasMinimumSearchQuery(candidate)))
 			return jsonNoStore({ hits: { hits: [] }, response: { docs: [], numFound: 0, start: 0 }, results: [], total: 0, currentPage: [], pageNumber: 1, pageSize: 0 });
 		const limit = Math.min(Number.parseInt(params.get('nrows') || '12', 10) || 12, 200);
 		const offset = Number.parseInt(params.get('start') || '0', 10) || 0;
 		const entity = type === 'firm' ? 'firm' : 'individual';
-		const data = await searchLocalIndex('finra', entity, query, { limit, offset, baseUrl });
+		const data = await searchLocalIndexMany('finra', entity, rawQuery, { limit, offset, baseUrl });
 		console.log('[search] Local index result:', { total: data.total, hasResults: data.results.length > 0 });
 		if (data.total > 0) return jsonNoStore(data);
 

@@ -3,7 +3,7 @@ import { getFullGraph, saveGraph } from '@/lib/graphStore';
 import { Redis as UpstashRedis } from '@upstash/redis';
 import { logger } from '@/lib/logger';
 import { sharedCacheHeaders } from '@/lib/httpCache';
-import { searchLocalIndex, cleanSearchQuery } from '@/lib/localSearch';
+import { searchLocalIndexMany, extractSearchQueries } from '@/lib/localSearch';
 import { normalizeIndividualDetailFromSource } from '@/lib/individualDetail';
 import { resolveIndividualSourceDetail } from '@/lib/sourceTruth';
 import { tryLoadPersonCluster } from '@/lib/peopleClusterCache';
@@ -210,7 +210,10 @@ export async function GET(request: NextRequest) {
 	try {
 		const { searchParams } = new URL(request.url);
 		const rawQ = (searchParams.get('q') || '').trim();
-		const q = cleanSearchQuery(rawQ).toLowerCase();
+		const searchQueries = extractSearchQueries(rawQ)
+			.map((query) => query.toLowerCase())
+			.filter(Boolean);
+		const q = searchQueries[0] || '';
 		const baseUrl = new URL(request.url).origin;
 		const type = searchParams.get('type') || 'all';
 		const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);
@@ -228,7 +231,7 @@ export async function GET(request: NextRequest) {
 		const matchedNodes = nodes
 			.filter((node) => {
 				if (type !== 'all' && node.group !== type) return false;
-				return matchesSearchableNodeQuery(node, q);
+				return searchQueries.length > 0 ? searchQueries.some((query) => matchesSearchableNodeQuery(node, query)) : matchesSearchableNodeQuery(node, q);
 			})
 			.slice(0, limit);
 		const matchedIds = new Set(matchedNodes.map((node) => String(node?.id || '').trim()).filter(Boolean));
@@ -265,10 +268,10 @@ export async function GET(request: NextRequest) {
 			try {
 				let allHits = (
 					await Promise.all([
-						searchLocalIndex('finra', 'individual', q, { limit, offset, baseUrl }),
-						searchLocalIndex('finra', 'firm', q, { limit, offset, baseUrl }),
-						searchLocalIndex('sec', 'individual', q, { limit, offset, baseUrl }),
-						searchLocalIndex('sec', 'firm', q, { limit, offset, baseUrl }),
+						searchLocalIndexMany('finra', 'individual', q, { limit, offset, baseUrl }),
+						searchLocalIndexMany('finra', 'firm', q, { limit, offset, baseUrl }),
+						searchLocalIndexMany('sec', 'individual', q, { limit, offset, baseUrl }),
+						searchLocalIndexMany('sec', 'firm', q, { limit, offset, baseUrl }),
 					])
 				)
 					.flatMap((result) => result?.hits?.hits || [])
@@ -282,9 +285,7 @@ export async function GET(request: NextRequest) {
 						searchExternalFallback('sec', 'individual', q, baseUrl),
 						searchExternalFallback('sec', 'firm', q, baseUrl),
 					]);
-					const extHits = externalResults
-						.flatMap((result) => result?.hits?.hits || [])
-						.slice(0, limit);
+					const extHits = externalResults.flatMap((result) => result?.hits?.hits || []).slice(0, limit);
 					if (extHits.length) {
 						allHits = extHits;
 					}

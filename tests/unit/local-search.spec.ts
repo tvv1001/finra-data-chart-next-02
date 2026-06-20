@@ -3,7 +3,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { afterEach, describe, expect, it } from 'vitest';
-import { searchLocalIndex, cleanSearchQuery } from '@/lib/localSearch';
+import { searchLocalIndex, cleanSearchQuery, extractSearchQueries } from '@/lib/localSearch';
 import { getSearchIndexFilePath } from '@/lib/searchDataPaths';
 
 async function withTempSearchIndex(fileName: string, content: string | Buffer, run: (root: string) => Promise<void>) {
@@ -26,7 +26,8 @@ describe('local search indexes', () => {
 		expect(cleanSearchQuery('Jane Doe :: 12345')).toBe('12345');
 	});
 
-	it('extracts the first CRD from pasted multi-entry lists', () => {
+	it('extracts every CRD from pasted multi-entry lists', () => {
+		expect(extractSearchQueries('Alice Example :: CRD# 12345\nBob Example :: CRD# 67890')).toEqual(['12345', '67890']);
 		expect(cleanSearchQuery('Alice Example :: CRD# 12345\nBob Example :: CRD# 67890')).toBe('12345');
 	});
 
