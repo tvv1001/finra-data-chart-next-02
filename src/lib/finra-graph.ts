@@ -6905,8 +6905,7 @@ function getLinkDash(d) {
 }
 
 function getLinkWidth(d) {
-	if (hasInactiveEndpoint(d)) return 'calc(0.42px * var(--fg-inactive-link-scale, 1))';
-	if (isPreviousEmploymentLink(d)) return 'calc(0.42px * var(--fg-inactive-link-scale, 1))';
+	if (hasInactiveEndpoint(d) || isPreviousEmploymentLink(d)) return '0.42px';
 	return DEFAULT_LINK_WIDTH;
 }
 
@@ -7801,14 +7800,8 @@ function renderGraph(_data) {
 		svg.style('--fg-trace-stroke-scale', String(gentleScale));
 	}
 
-	function updateInactiveLinkScale(scale: number) {
-		const minZoom = 0.05;
-		const maxZoom = 0.8;
-		const clamped = Math.max(minZoom, Math.min(maxZoom, Number(scale) || 1));
-		const normalized = (clamped - minZoom) / (maxZoom - minZoom);
-		// Scale from 0.18 (very zoomed out) to 1.0 (approaching normal zoom)
-		const factor = 0.18 + normalized * 0.82;
-		svg.style('--fg-inactive-link-scale', String(factor.toFixed(3)));
+	function updateInactiveLinkScale(_scale: number) {
+		svg.style('--fg-inactive-link-scale', '1');
 	}
 
 	const zoom = d3
@@ -8438,9 +8431,9 @@ function unwrapDetailPayload(detail) {
 
 			if (merged && typeof merged === 'object') {
 				// Enrich with metadata
-				const finraNumeric = finraDetail ? (finraDetail.individualId || finraDetail.crd || detail.crd || '') : '';
-				const secNumeric = secDetail ? (secDetail.individualId || secDetail.crd || detail.crd || '') : '';
-				
+				const finraNumeric = finraDetail ? finraDetail.individualId || finraDetail.crd || detail.crd || '' : '';
+				const secNumeric = secDetail ? secDetail.individualId || secDetail.crd || detail.crd || '' : '';
+
 				merged.found = detail.found ?? true;
 				merged.hasFinraData = detail.hasFinraData ?? (!!finraDetail && !!finraNumeric && hasIndividualSourceCoverage(finraDetail, 'finra'));
 				merged.hasSecData = detail.hasSecData ?? (!!secDetail && !!secNumeric && hasIndividualSourceCoverage(secDetail, 'sec'));
@@ -11295,18 +11288,20 @@ function renderPersonDetail(d: any) {
 	const scopeBadgesHtml = [
 		showFinra ? formatDomainScopeBadge(finraScopeText, 'finra', 'FINRA') : null,
 		showSec ? formatDomainScopeBadge(secScopeText, 'sec', 'SEC AdvisorInfo') : null,
-	].filter(Boolean).join(' ');
+	]
+		.filter(Boolean)
+		.join(' ');
 
 	// ── All disclosures (BC + IA) ─────────────────────────────────────────────
 	// Deduplicate: for each (type, date) pair keep the entry with the most content.
 	// A blank duplicate (same type, no date/detail/resolution) is dropped when a
 	// richer entry with the same type already exists.
 	const _rawDisclosures = [
-		...(showFinra ? (d.disclosures || []) : []).map((dis) => ({
+		...(showFinra ? d.disclosures || [] : []).map((dis) => ({
 			...dis,
 			_sourceLabel: dis?._sourceLabel || 'FINRA',
 		})),
-		...(showSec ? (d.iaDisclosures || []) : []).map((dis) => ({
+		...(showSec ? d.iaDisclosures || [] : []).map((dis) => ({
 			...dis,
 			_sourceLabel: dis?._sourceLabel || 'SEC AdvisorInfo',
 		})),
@@ -11492,7 +11487,11 @@ function renderPersonDetail(d: any) {
 	const fallbackRoles = [hasBrokerIndicatorSource ? 'B' : null, hasIaIndicatorSource ? 'IA' : null].filter(Boolean);
 	const topRoleIndicators = (topCurrentRegistrationRoles.length ? topCurrentRegistrationRoles : fallbackRoles)
 		.filter((role) => role !== 'B' || hasActiveFinraIndicator)
-		.filter((role) => (role === 'B' ? showFinra : role === 'IA' ? showSec : true))
+		.filter((role) =>
+			role === 'B' ? showFinra
+			: role === 'IA' ? showSec
+			: true,
+		)
 		.sort((a, b) => {
 			const order = (role) =>
 				role === 'B' ? 0
@@ -11529,10 +11528,10 @@ function renderPersonDetail(d: any) {
 	let empEntries = [];
 	if (hasStoredEmps) {
 		empEntries = [
-			...(showFinra ? (d.currentEmployments || []) : []).map((e) => empToEntry(e, true)),
-			...(showSec ? (d.currentIAEmployments || []) : []).map((e) => empToEntry(e, true)),
-			...(showFinra ? (d.previousEmployments || []) : []).map((e) => empToEntry(e, false)),
-			...(showSec ? (d.previousIAEmployments || []) : []).map((e) => empToEntry(e, false)),
+			...(showFinra ? d.currentEmployments || [] : []).map((e) => empToEntry(e, true)),
+			...(showSec ? d.currentIAEmployments || [] : []).map((e) => empToEntry(e, true)),
+			...(showFinra ? d.previousEmployments || [] : []).map((e) => empToEntry(e, false)),
+			...(showSec ? d.previousIAEmployments || [] : []).map((e) => empToEntry(e, false)),
 		];
 		const seen = new Set();
 		empEntries = empEntries.filter((e) => {
@@ -11589,19 +11588,17 @@ function renderPersonDetail(d: any) {
 			if (isIa) return showSec;
 			return showFinra;
 		})
-		.sort((a, b) =>
-			compareCurrentFirstByDates(a, b, { currentKey: '__never', dateKeys: ['examTakenDate'] }),
-		);
+		.sort((a, b) => compareCurrentFirstByDates(a, b, { currentKey: '__never', dateKeys: ['examTakenDate'] }));
 
 	// ── Registered states (raw objects with scope) ─────────────────────────────
-	const regStates = (Array.isArray(d.registeredStates) ? d.registeredStates.filter(Boolean) : [])
-		.filter((s) => {
-			const scope = typeof s === 'object' ? s.regScope || '' : '';
-			const isIa = /^ia$/i.test(String(scope).trim());
-			if (isIa) return showSec;
-			return showFinra;
-		});
-	const licenseCount = regStates.length || (showFinra ? (d.registrationCount?.approvedStateRegistrationCount || 0) : 0) + (showSec ? (d.registrationCount?.approvedIAStateRegistrationCount || 0) : 0);
+	const regStates = (Array.isArray(d.registeredStates) ? d.registeredStates.filter(Boolean) : []).filter((s) => {
+		const scope = typeof s === 'object' ? s.regScope || '' : '';
+		const isIa = /^ia$/i.test(String(scope).trim());
+		if (isIa) return showSec;
+		return showFinra;
+	});
+	const licenseCount =
+		regStates.length || (showFinra ? d.registrationCount?.approvedStateRegistrationCount || 0 : 0) + (showSec ? d.registrationCount?.approvedIAStateRegistrationCount || 0 : 0);
 
 	function disclosureValueToText(value) {
 		if (value == null) return '';
@@ -12310,13 +12307,17 @@ function renderFirmDetail(d: any) {
 	const secSummaryLabel = 'Investment Adviser Firm';
 	const topSummaryRoleHtml = `
 		<div class="fg-firm-summary__roles">
-			${showFinra ? `
+			${
+				showFinra ?
+					`
 			<div class="fg-firm-summary__role">
 				<span class="fg-firm-summary__role-icon fg-firm-summary__role-icon--broker" aria-hidden="true">B</span>
 				<div class="fg-firm-summary__role-copy">
 					<div class="fg-firm-summary__role-title">${esc(finraSummaryLabel)}</div>
 				</div>
-			</div>` : ''}
+			</div>`
+				:	''
+			}
 			${
 				showSec && hasSecPage ?
 					`
@@ -12402,12 +12403,16 @@ function renderFirmDetail(d: any) {
 			${showFinra && d.districtName ? row('FINRA District', esc(d.districtName)) : ''}
 			${showFinra ? row('Company Type', esc(d.firmType || 'N/A')) : ''}
 			${showFinra ? row('Self-Regulatory Orgs', esc(sros)) : ''}
-			${showFinra ? row(
-				'U.S. States &amp; Territories',
-				states !== 'N/A' ? esc(states)
-				: d.activeStates?.length ? `${d.activeStates.length} states/territories`
-				: 'N/A',
-			) : ''}
+			${
+				showFinra ?
+					row(
+						'U.S. States &amp; Territories',
+						states !== 'N/A' ? esc(states)
+						: d.activeStates?.length ? `${d.activeStates.length} states/territories`
+						: 'N/A',
+					)
+				:	''
+			}
       ${row('Regulator', esc(d.regulator || '–'))}
 			${
 				connections.length ?

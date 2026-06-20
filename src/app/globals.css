@@ -4202,7 +4202,7 @@ text.fg-label {
 .fg-links line.trace-shortest,
 .fg-link.trace-shortest {
 	stroke: #00ff00 !important;
-	stroke-width: calc(4px * var(--fg-trace-stroke-scale, 1)) !important;
+	stroke-width: 4px !important;
 	stroke-opacity: 1 !important;
 	stroke-linecap: round;
 	stroke-linejoin: round;
@@ -4213,7 +4213,7 @@ text.fg-label {
 .fg-links line.trace-longest,
 .fg-link.trace-longest {
 	stroke: #cc00ff !important;
-	stroke-width: calc(4px * var(--fg-trace-stroke-scale, 1)) !important;
+	stroke-width: 4px !important;
 	stroke-opacity: 1 !important;
 	stroke-linecap: round;
 	stroke-linejoin: round;
@@ -4224,7 +4224,7 @@ text.fg-label {
 .fg-links line.trace-combined,
 .fg-link.trace-combined {
 	stroke: #22c55e !important;
-	stroke-width: calc(4px * var(--fg-trace-stroke-scale, 1)) !important;
+	stroke-width: 4px !important;
 	stroke-opacity: 1 !important;
 	stroke-linecap: round;
 	stroke-linejoin: round;
@@ -4235,7 +4235,7 @@ text.fg-label {
 .fg-links line.trace-log,
 .fg-link.trace-log {
 	stroke: #fbbf24 !important;
-	stroke-width: calc(2px * var(--fg-trace-stroke-scale, 1)) !important;
+	stroke-width: 2px !important;
 	stroke-opacity: 1 !important;
 	stroke-linecap: round;
 	stroke-linejoin: round;
@@ -4787,4 +4787,3 @@ html[data-theme='dark'] .fg-source-toggle-btn.active {
 	font-weight: 700;
 	box-shadow: 0 1px 3px rgba(9, 101, 230, 0.4);
 }
-
