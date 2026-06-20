@@ -1,9 +1,7 @@
 import { setStringIfValid } from '@/lib/redisCache';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-
-const HYDRATION_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour cooldown per ID to avoid repeated fetches
-const lastHydrated = new Map<string, number>();
+import { Redis } from '@upstash/redis';
 
 interface QueueItem {
 	type: 'individual' | 'firm';
@@ -14,6 +12,12 @@ const hydrationQueue: QueueItem[] = [];
 let isProcessing = false;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function getRedisClient() {
+	const url = process.env.UPSTASH_REDIS_REST_URL;
+	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+	return url && token ? new Redis({ url, token }) : null;
+}
 
 async function fetchAndSave(
 	source: 'finra' | 'sec',
@@ -29,6 +33,10 @@ async function fetchAndSave(
 		: !isFinra && isIndividual ? `https://api.adviserinfo.sec.gov/search/individual/${id}?hl=true&includePrevious=true&wt=json`
 		: `https://api.adviserinfo.sec.gov/search/firm/${id}?wt=json`;
 
+	const domain = isFinra ? 'api.brokercheck.finra.org' : 'api.adviserinfo.sec.gov';
+
+	console.log(`[Validation Check] Time: ${new Date().toISOString()} | Accessing external API: ${url} | Domain: ${domain} | CRDs: [${id}] | Count: 1`);
+
 	const fetchOptions = {
 		headers: {
 			'Accept': 'application/json',
@@ -37,20 +45,42 @@ async function fetchAndSave(
 		},
 	};
 
-	console.log(`[Hydration] Time: ${new Date().toISOString()} | Accessing external API: ${url} | Domain: ${isFinra ? 'api.brokercheck.finra.org' : 'api.adviserinfo.sec.gov'} | CRD: ${id}`);
 	const res = await fetch(url, fetchOptions);
 	if (!res.ok) {
+		console.log(`[Validation Check Failed] Time: ${new Date().toISOString()} | HTTP Error ${res.status} | Domain: ${domain} | CRDs: [${id}]`);
 		throw new Error(`HTTP ${res.status} from ${url}`);
 	}
+
 	const payload = await res.json();
-	if (!payload) return;
+	if (!payload) {
+		console.log(`[Validation Check Failed] Time: ${new Date().toISOString()} | Empty payload | Domain: ${domain} | CRDs: [${id}]`);
+		return;
+	}
 
 	const redisKey = `${source}:${type}:${id}`;
-	const newJson = JSON.stringify(payload);
+	const redis = getRedisClient();
+	let cacheStatus = 'no-redis';
+	let addedCount = 0;
 
-	// Save to Redis (TTL 24 hours)
-	await setStringIfValid(redisKey, newJson, 60 * 60 * 24);
-	console.log(`[Hydration Success] Time: ${new Date().toISOString()} | Saved to Redis | Domain: ${isFinra ? 'api.brokercheck.finra.org' : 'api.adviserinfo.sec.gov'} | CRD: ${id} | Key: ${redisKey}`);
+	if (redis) {
+		try {
+			const existing = await redis.get(redisKey).catch(() => null);
+			const existingJson = existing != null ? (typeof existing === 'string' ? existing : JSON.stringify(existing)) : null;
+			const newJson = JSON.stringify(payload);
+
+			if (existingJson === newJson) {
+				cacheStatus = 'matched-cache';
+			} else {
+				cacheStatus = existingJson ? 'updated-cache' : 'new-cache';
+				await setStringIfValid(redisKey, newJson, 60 * 60 * 24);
+				addedCount = 1;
+			}
+		} catch (redisErr: any) {
+			cacheStatus = `redis-write-error: ${redisErr.message}`;
+		}
+	}
+
+	console.log(`[Validation Check Success] Time: ${new Date().toISOString()} | Domain: ${domain} | CRDs validated: [${id}] | Cache Status: ${cacheStatus} | CRDs added/updated: [${addedCount ? id : ''}] | Count: ${addedCount}`);
 
 	// Save to local cache files if not on Vercel
 	if (process.env.VERCEL !== '1') {
@@ -66,7 +96,7 @@ async function fetchAndSave(
 				await fs.writeFile(f, JSON.stringify(payload, null, 2), 'utf8');
 			}
 		} catch (err: any) {
-			console.warn(`[Hydration] Failed to write local cache files: ${err.message}`);
+			console.warn(`[Validation Check File Write Warning] ${err.message}`);
 		}
 	}
 }
@@ -79,27 +109,18 @@ async function processQueue() {
 		const task = hydrationQueue.shift();
 		if (!task) continue;
 
-		const key = `${task.type}:${task.id}`;
-		const now = Date.now();
-		const lastTime = lastHydrated.get(key) || 0;
-		if (now - lastTime < HYDRATION_COOLDOWN_MS) {
-			continue;
-		}
-
-		lastHydrated.set(key, now);
-
 		try {
-			// Meter requests: wait 5 to 10 seconds before hitting external API
+			// Meter requests slowly: wait 5 to 10 seconds before hitting external API
 			const sleepTime = 5000 + Math.random() * 5000;
 			await delay(sleepTime);
 
-			// Check external API for both FINRA and SEC sources to keep both cache keys updated
+			// Check external API for both FINRA and SEC sources to validate
 			await Promise.allSettled([
 				fetchAndSave('finra', task.type, task.id),
 				fetchAndSave('sec', task.type, task.id)
 			]);
 		} catch (error: any) {
-			console.error(`[Hydration] Error during background check for ${task.type} ${task.id}:`, error.message);
+			console.error(`[Validation Check Queue Error] ${task.type} ${task.id}:`, error.message);
 		}
 	}
 
@@ -110,15 +131,8 @@ export function queueHydration(type: 'individual' | 'firm', id: string) {
 	const alreadyInQueue = hydrationQueue.some((item) => item.type === type && item.id === id);
 	if (alreadyInQueue) return;
 
-	const key = `${type}:${id}`;
-	const now = Date.now();
-	const lastTime = lastHydrated.get(key) || 0;
-	if (now - lastTime < HYDRATION_COOLDOWN_MS) {
-		return;
-	}
-
 	hydrationQueue.push({ type, id });
 	processQueue().catch((err) => {
-		console.error('[Hydration] processQueue failed:', err);
+		console.error('[Validation Check] processQueue failed:', err);
 	});
 }
