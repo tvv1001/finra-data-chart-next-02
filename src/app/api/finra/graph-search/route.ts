@@ -278,7 +278,6 @@ export async function GET(request: NextRequest) {
 					.slice(0, limit);
 
 				if (!allHits.length) {
-					console.log('[graph-search] Local index returned 0, checking external search API fallbacks...');
 					const externalResults = await Promise.all([
 						searchExternalFallback('finra', 'individual', q, baseUrl),
 						searchExternalFallback('finra', 'firm', q, baseUrl),

@@ -78,10 +78,8 @@ export async function GET(request: NextRequest) {
 		const offset = Number.parseInt(params.get('start') || '0', 10) || 0;
 		const entity = type === 'firm' ? 'firm' : 'individual';
 		const data = await searchLocalIndexMany('finra', entity, rawQuery, { limit, offset, baseUrl });
-		console.log('[search] Local index result:', { total: data.total, hasResults: data.results.length > 0 });
 		if (data.total > 0) return jsonNoStore(data);
 
-		console.log('[search] Local search returned 0, falling back to graph search...');
 		const graphResponses = await searchQueriesSequentially(
 			searchQueries,
 			async (candidate) => searchGraphFallback('finra', entity, candidate, { limit, offset }),
@@ -89,22 +87,18 @@ export async function GET(request: NextRequest) {
 		);
 		if (graphResponses.length > 0) {
 			const merged = mergeLocalSearchResponses(graphResponses, { bucket: `finra:${entity}`, limit, offset });
-			console.log('[search] Graph fallback result:', { total: merged.total, hasResults: merged.results.length > 0, resultsLength: merged.results?.length });
 			return jsonNoStore(merged);
 		}
 
-		console.log('[search] Graph search returned 0, trying direct Redis record fallback...');
 		const directResponses = await searchQueriesSequentially(
 			searchQueries,
 			async (candidate) => searchDirectRedisFallback('finra', entity, candidate, { limit, offset }),
 			(value) => Boolean(value),
 		);
 		if (directResponses.length > 0) {
-			console.log('[search] Direct Redis fallback succeeded');
 			return jsonNoStore(mergeLocalSearchResponses(directResponses as any[], { bucket: `finra:${entity}`, limit, offset }));
 		}
 
-		console.log('[search] Direct Redis fallback returned 0, checking external BrokerCheck search API...');
 		const externalResponses = await searchQueriesSequentially(
 			searchQueries,
 			async (candidate) => searchExternalFallback('finra', entity, candidate, baseUrl),
@@ -112,11 +106,8 @@ export async function GET(request: NextRequest) {
 		);
 		if (externalResponses.length > 0) {
 			const merged = mergeLocalSearchResponses(externalResponses as any[], { bucket: `finra:${entity}`, limit, offset });
-			console.log('[search] External search fallback succeeded with', merged.results.length, 'results');
 			return jsonNoStore(merged);
 		}
-
-		console.log('[search] WARNING: All search layers returned 0 results');
 		return jsonNoStore({ hits: { hits: [] }, response: { docs: [], numFound: 0, start: 0 }, results: [], total: 0, currentPage: [], pageNumber: 1, pageSize: 0 });
 	} catch (err: any) {
 		logger.error('search error', { error: err.message });

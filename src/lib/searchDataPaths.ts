@@ -77,7 +77,6 @@ export function getSearchIndexFilePaths(bucket: SearchIndexBucket, seedRoots: Ar
 		const gzCandidatePath = path.resolve(root, SEARCH_INDEX_GZ_RELATIVE_FILES[bucket]);
 		attemptedPaths.push(gzCandidatePath);
 		if (existsSync(gzCandidatePath)) {
-			console.log(`[searchDataPaths] Found ${bucket} gzipped index at: ${gzCandidatePath}`);
 			return [gzCandidatePath];
 		}
 
@@ -85,7 +84,6 @@ export function getSearchIndexFilePaths(bucket: SearchIndexBucket, seedRoots: Ar
 		const candidatePath = path.resolve(root, relativeFilePath);
 		attemptedPaths.push(candidatePath);
 		if (existsSync(candidatePath)) {
-			console.log(`[searchDataPaths] Found ${bucket} at: ${candidatePath}`);
 			return [candidatePath];
 		}
 
@@ -94,20 +92,17 @@ export function getSearchIndexFilePaths(bucket: SearchIndexBucket, seedRoots: Ar
 			const compressedPath = path.resolve(root, `${fileName}.gz`);
 			attemptedPaths.push(compressedPath);
 			if (existsSync(compressedPath)) {
-				console.log(`[searchDataPaths] Found ${bucket} gzipped index at: ${compressedPath}`);
 				return [compressedPath];
 			}
 
 			const directPath = path.resolve(root, fileName);
 			attemptedPaths.push(directPath);
 			if (existsSync(directPath)) {
-				console.log(`[searchDataPaths] Found ${bucket} at: ${directPath}`);
 				return [directPath];
 			}
 
 			const chunkFiles = collectSearchIndexFiles(root, fileNamePrefix);
 			if (chunkFiles.length > 0) {
-				console.log(`[searchDataPaths] Found ${bucket} chunked files in: ${root}`);
 				return chunkFiles;
 			}
 		}
@@ -126,7 +121,6 @@ export function getSearchIndexFilePaths(bucket: SearchIndexBucket, seedRoots: Ar
 	for (const vercelPath of vercelPaths) {
 		attemptedPaths.push(vercelPath);
 		if (existsSync(vercelPath)) {
-			console.log(`[searchDataPaths] Found ${bucket} at Vercel path: ${vercelPath}`);
 			return [vercelPath];
 		}
 	}

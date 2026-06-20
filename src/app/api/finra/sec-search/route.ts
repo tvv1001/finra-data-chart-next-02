@@ -91,7 +91,6 @@ export async function GET(request: NextRequest) {
 		);
 		if (directResponses.length > 0) return jsonNoStore(mergeLocalSearchResponses(directResponses as any[], { bucket: 'sec:individual', limit, offset }));
 
-		console.log('[sec-search] Direct Redis fallback returned 0, checking external AdviserInfo search API...');
 		const externalResponses = await searchQueriesSequentially(
 			searchQueries,
 			async (candidate) => searchExternalFallback('sec', 'individual', candidate, baseUrl),
@@ -99,7 +98,6 @@ export async function GET(request: NextRequest) {
 		);
 		if (externalResponses.length > 0) {
 			const merged = mergeLocalSearchResponses(externalResponses as any[], { bucket: 'sec:individual', limit, offset });
-			console.log('[sec-search] External search fallback succeeded with', merged.results.length, 'results');
 			return jsonNoStore(merged);
 		}
 

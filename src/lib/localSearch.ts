@@ -447,8 +447,6 @@ async function loadIndex(bucket: LocalSearchBucket, baseUrl?: string, seedRoots:
 					// Load dynamic extensions from Redis and append them
 					const extensions = await fetchExtensionsFromRedis(bucket);
 					if (extensions.length > 0) {
-						console.log(`[localSearch] Appending ${extensions.length} dynamic extensions from Redis to ${bucket}`);
-
 						// Avoid duplicates: keep track of IDs in the static index
 						const existingIds = new Set<string>();
 						for (const doc of index.docs) {
@@ -1104,7 +1102,6 @@ export async function addRecordToSearchIndex(source: LocalSearchSource, type: Lo
 	try {
 		const key = `search:indexes:extensions:${bucket}`;
 		await redis.hset(key, { [crd]: JSON.stringify(doc) });
-		console.log(`[localSearch] Successfully saved dynamic search extension for ${bucket}:${crd}`);
 		// Clear local memory cache so subsequent searches reload the index with the new extension
 		indexPromiseCache.clear();
 
@@ -1124,14 +1121,12 @@ export async function addRecordToSearchIndex(source: LocalSearchSource, type: Lo
 					}
 					parsed.generatedAt = new Date().toISOString();
 					fsSync.writeFileSync(absolutePath, JSON.stringify(parsed, null, 2), 'utf8');
-					console.log(`[localSearch] Successfully updated local search index file on disk: ${absolutePath}`);
 
 					// Also update gzip sidecar if it exists
 					const gzPath = `${absolutePath}.gz`;
 					if (fsSync.existsSync(gzPath)) {
 						const gzBuffer = zlib.gzipSync(Buffer.from(JSON.stringify(parsed, null, 2), 'utf8'), { level: 9 });
 						fsSync.writeFileSync(gzPath, gzBuffer);
-						console.log(`[localSearch] Successfully updated local search index gzip sidecar: ${gzPath}`);
 					}
 				}
 			}
