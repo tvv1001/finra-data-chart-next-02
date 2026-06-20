@@ -3,7 +3,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { afterEach, describe, expect, it } from 'vitest';
-import { searchLocalIndex, cleanSearchQuery, extractSearchQueries } from '@/lib/localSearch';
+import { searchLocalIndex, cleanSearchQuery, extractSearchQueries, searchQueriesSequentially } from '@/lib/localSearch';
 import { getSearchIndexFilePath } from '@/lib/searchDataPaths';
 
 async function withTempSearchIndex(fileName: string, content: string | Buffer, run: (root: string) => Promise<void>) {
@@ -47,6 +47,22 @@ describe('local search indexes', () => {
 		].join('\n');
 
 		expect(extractSearchQueries(input)).toEqual(['4733934', '332196', '1398', '165013', '22455', '4774182', '1563352']);
+	});
+
+	it('moves to the next query when an earlier one has no results', async () => {
+		const queries = extractSearchQueries('Jane Doe :: CRD# 11111\nJohn Doe :: CRD# 22222');
+		let attemptedQueries: string[] = [];
+		const result = await searchQueriesSequentially(
+			queries,
+			async (query) => {
+				attemptedQueries.push(query);
+				return query === '11111' ? { total: 0, results: [] } : { total: 1, results: [{ id: query }] };
+			},
+			(value) => Boolean((value as { total?: number } | null | undefined)?.total),
+		);
+
+		expect(attemptedQueries).toEqual(['11111', '22222']);
+		expect(result).toEqual({ total: 1, results: [{ id: '22222' }] });
 	});
 
 	it('returns FINRA individual results from the local index', async () => {

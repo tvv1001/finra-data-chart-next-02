@@ -709,6 +709,18 @@ function matchesQuery(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQ
 	return tokens.every((token) => doc.nameTokens.some((candidateToken) => tokensFuzzyMatch(token, candidateToken)));
 }
 
+function buildQueryMatches(docs: PreparedLocalSearchDoc[], rawQuery: string, normalizedQuery: string, tokens: string[], limit: number) {
+	if (!normalizedQuery || !tokens.length) return [];
+	const matches = docs
+		.filter((doc) => matchesQuery(doc, rawQuery, normalizedQuery, tokens))
+		.sort((left, right) => {
+			const scoreDiff = getSortScore(right, rawQuery, normalizedQuery, tokens) - getSortScore(left, rawQuery, normalizedQuery, tokens);
+			if (scoreDiff !== 0) return scoreDiff;
+			return left.id.localeCompare(right.id);
+		});
+	return limit > 0 ? matches.slice(0, limit) : matches;
+}
+
 export async function searchLocalIndex(source: LocalSearchSource, type: LocalSearchEntity, query: string, options: LocalSearchOptions = {}): Promise<LocalSearchResponse> {
 	const bucket = `${source}:${type}` as LocalSearchBucket;
 	const limit = Math.max(0, Math.min(options.limit ?? 12, 1000));
@@ -734,18 +746,7 @@ export async function searchLocalIndex(source: LocalSearchSource, type: LocalSea
 
 	const docs = Array.isArray(index?.docs) ? index.docs : [];
 	const hasMinimumQuery = hasMinimumSearchQuery(query);
-
-	const matches =
-		!normalizedQuery || !hasMinimumQuery ?
-			[]
-		:	docs
-				.filter((doc) => matchesQuery(doc, query, normalizedQuery, tokens))
-				.sort((left, right) => {
-					const scoreDiff = getSortScore(right, query, normalizedQuery, tokens) - getSortScore(left, query, normalizedQuery, tokens);
-					if (scoreDiff !== 0) return scoreDiff;
-					return left.id.localeCompare(right.id);
-				});
-
+	const matches = !normalizedQuery || !hasMinimumQuery ? [] : buildQueryMatches(docs, query, normalizedQuery, tokens, 0);
 	const pageDocs = limit > 0 ? matches.slice(offset, offset + limit) : [];
 	const resultDocs = pageDocs.map((doc) => doc.hit || {});
 	return {
@@ -769,6 +770,16 @@ export async function searchLocalIndex(source: LocalSearchSource, type: LocalSea
 	};
 }
 
+export async function searchQueriesSequentially<T>(queries: string[], runner: (query: string) => Promise<T>, predicate: (value: T) => boolean): Promise<T | null> {
+	for (const query of queries) {
+		const value = await runner(query);
+		if (predicate(value)) {
+			return value;
+		}
+	}
+	return null;
+}
+
 export async function searchLocalIndexMany(source: LocalSearchSource, type: LocalSearchEntity, query: string, options: LocalSearchOptions = {}): Promise<LocalSearchResponse> {
 	const bucket = `${source}:${type}` as LocalSearchBucket;
 	const limit = Math.max(0, Math.min(options.limit ?? 12, 1000));
@@ -778,23 +789,44 @@ export async function searchLocalIndexMany(source: LocalSearchSource, type: Loca
 		return searchLocalIndex(source, type, query, options);
 	}
 
-	const perQueryLimit = Math.max(limit, 12);
-	const responses = await Promise.all(searchQueries.map((searchQuery) => searchLocalIndex(source, type, searchQuery, { ...options, limit: perQueryLimit, offset: 0 })));
+	const index = await loadIndex(bucket, options.baseUrl, options.seedRoots || []);
+	if (!index) {
+		return {
+			bucket,
+			generatedAt: null,
+			total: 0,
+			hits: { total: 0, start: offset, hits: [] },
+			response: { numFound: 0, start: offset, docs: [] },
+			results: [],
+			currentPage: [],
+			pageNumber: Math.floor(offset / Math.max(limit, 1)) + 1,
+			pageSize: limit,
+		};
+	}
+
+	const docs = Array.isArray(index?.docs) ? index.docs : [];
 	const mergedDocs: any[] = [];
 	const seenIds = new Set<string>();
-	for (const response of responses) {
-		for (const doc of response.results || []) {
-			const docId = String(doc?.id || doc?.ind_source_id || doc?.firm_source_id || '').trim();
+	const successfulQueries = [] as string[];
+	for (const searchQuery of searchQueries) {
+		const normalizedQuery = simplifyName(searchQuery);
+		const tokens = tokenizeQuery(searchQuery);
+		if (!normalizedQuery || !tokens.length || !hasMinimumSearchQuery(searchQuery)) continue;
+		const matches = buildQueryMatches(docs, searchQuery, normalizedQuery, tokens, limit > 0 ? limit : 0);
+		if (!matches.length) continue;
+		successfulQueries.push(searchQuery);
+		for (const match of matches) {
+			const docId = String(match?.hit?.id || match?.id || match?.hit?.ind_source_id || match?.hit?.firm_source_id || '').trim();
 			if (!docId || seenIds.has(docId)) continue;
 			seenIds.add(docId);
-			mergedDocs.push(doc);
+			mergedDocs.push(match.hit || {});
 		}
 	}
 
 	const pageDocs = limit > 0 ? mergedDocs.slice(offset, offset + limit) : [];
 	return {
 		bucket,
-		generatedAt: responses.find((response) => response.generatedAt)?.generatedAt ?? null,
+		generatedAt: index?.generatedAt ?? null,
 		total: mergedDocs.length,
 		hits: {
 			total: mergedDocs.length,
