@@ -21,6 +21,15 @@ async function withTempSearchIndex(fileName: string, content: string | Buffer, r
 describe('local search indexes', () => {
 	afterEach(() => {});
 
+	it('extracts a CRD from pasted name and CRD text', () => {
+		expect(cleanSearchQuery('Jane Doe :: CRD# 12345')).toBe('12345');
+		expect(cleanSearchQuery('Jane Doe :: 12345')).toBe('12345');
+	});
+
+	it('extracts the first CRD from pasted multi-entry lists', () => {
+		expect(cleanSearchQuery('Alice Example :: CRD# 12345\nBob Example :: CRD# 67890')).toBe('12345');
+	});
+
 	it('returns FINRA individual results from the local index', async () => {
 		const result = await searchLocalIndex('finra', 'individual', 'paula branum', { limit: 5 });
 

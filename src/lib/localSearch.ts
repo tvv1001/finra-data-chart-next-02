@@ -448,13 +448,13 @@ async function loadIndex(bucket: LocalSearchBucket, baseUrl?: string, seedRoots:
 					const extensions = await fetchExtensionsFromRedis(bucket);
 					if (extensions.length > 0) {
 						console.log(`[localSearch] Appending ${extensions.length} dynamic extensions from Redis to ${bucket}`);
-						
+
 						// Avoid duplicates: keep track of IDs in the static index
 						const existingIds = new Set<string>();
 						for (const doc of index.docs) {
 							existingIds.add(doc.id);
 						}
-						
+
 						for (const extDoc of extensions) {
 							if (!existingIds.has(extDoc.id)) {
 								index.docs.push(prepareDoc(extDoc));
@@ -852,9 +852,7 @@ function normalizeEmployment(employment: any) {
 	if (!employment || typeof employment !== 'object') return null;
 	const firmId = toText(employment.firmId ?? employment.firm_id ?? employment.firmIdNumber);
 	const firmName = toText(employment.firmName ?? employment.firm_name);
-	const branchOfficeLocations = (Array.isArray(employment.branchOfficeLocations) ? employment.branchOfficeLocations : [])
-		.map(normalizeBranchLocation)
-		.filter(Boolean);
+	const branchOfficeLocations = (Array.isArray(employment.branchOfficeLocations) ? employment.branchOfficeLocations : []).map(normalizeBranchLocation).filter(Boolean);
 	const branchLocation = branchOfficeLocations[0] || null;
 	return {
 		firmId: firmId ? Number(firmId) || firmId : null,
@@ -895,10 +893,7 @@ export function buildIndividualDoc(source: string, detail: any): LocalSearchDoc 
 	const otherNames = uniqueTexts(basicInformation.otherNames || []);
 	const currentEmployments = (Array.isArray(detail.currentEmployments) ? detail.currentEmployments : []).map(normalizeEmployment).filter(Boolean);
 	const currentIAEmployments = (Array.isArray(detail.currentIAEmployments) ? detail.currentIAEmployments : []).map(normalizeEmployment).filter(Boolean);
-	const firmIds = uniqueTexts([
-		...currentEmployments.map((e: any) => e.firmId),
-		...currentIAEmployments.map((e: any) => e.firmId),
-	]);
+	const firmIds = uniqueTexts([...currentEmployments.map((e: any) => e.firmId), ...currentIAEmployments.map((e: any) => e.firmId)]);
 	const registrationCount = getRegistrationCount(detail);
 
 	const currentAddressTexts = uniqueTexts([
@@ -984,12 +979,7 @@ export function buildFirmDoc(source: string, detail: any): LocalSearchDoc | null
 	};
 }
 
-export async function addRecordToSearchIndex(
-	source: LocalSearchSource,
-	type: LocalSearchEntity,
-	crd: string,
-	detail: any,
-) {
+export async function addRecordToSearchIndex(source: LocalSearchSource, type: LocalSearchEntity, crd: string, detail: any) {
 	const bucket: LocalSearchBucket = `${source}:${type}`;
 	const doc = type === 'individual' ? buildIndividualDoc(source, detail) : buildFirmDoc(source, detail);
 	if (!doc) return false;
@@ -1044,15 +1034,17 @@ export async function addRecordToSearchIndex(
 
 export function cleanSearchQuery(query: string): string {
 	const trimmed = query.trim();
-	// Check for ":: CRD# 8137832" or "CRD# 8137832" or ":: 8137832"
-	const matchCrdMarker = /::\s*(?:crd#|crd)?\s*(\d+)/i.exec(trimmed);
-	if (matchCrdMarker) {
-		return matchCrdMarker[1];
+	if (!trimmed) return trimmed;
+
+	const hasCrdMarker = /::|(?:crd#|crd)\s*\d/i.test(trimmed);
+	if (hasCrdMarker) {
+		const markerPatterns = [/::\s*(?:crd#|crd)?\s*(\d{1,10})/i, /(?:^|[\s(])(?:crd#|crd)\s*(\d{1,10})/i, /(?:^|[\s:;|,\-–—])(?:crd#|crd)?\s*(\d{1,10})/i];
+		for (const pattern of markerPatterns) {
+			const match = pattern.exec(trimmed);
+			if (match?.[1]) return match[1];
+		}
 	}
-	const matchCrdPrefix = /(?:crd#|crd)\s*(\d+)/i.exec(trimmed);
-	if (matchCrdPrefix) {
-		return matchCrdPrefix[1];
-	}
+
+	if (/^\d{1,10}$/.test(trimmed)) return trimmed;
 	return trimmed;
 }
-
