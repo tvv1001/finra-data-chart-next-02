@@ -148,6 +148,7 @@ function resolvePrimedBundleName(key: string): PrimedBundleName | null {
 }
 
 async function getPrimedCacheValue<T>(key: string): Promise<T | null> {
+	if (process.env.VERCEL === '1') return null;
 	const normalizedKey = normalizeKey(key);
 	const bundleName = resolvePrimedBundleName(normalizedKey);
 	if (!bundleName) return null;

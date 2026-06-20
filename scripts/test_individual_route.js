@@ -1,6 +1,3 @@
-const { cachedFetch } = require('./src/lib/simpleCache.ts');
-const { parseDetailPayload } = require('./src/app/api/finra/individual/[crd]/route.ts'); // Wait, route is a TS file, we can just inline the parsing logic
-
 const zlib = require('node:zlib');
 const https = require('node:https');
 
