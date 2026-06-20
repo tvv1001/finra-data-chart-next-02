@@ -712,7 +712,7 @@ export async function getFullGraph() {
 					if (!useDiskGraph) {
 						_graphCache = redisGraph;
 						_graphCacheAt = now;
-						if (!(await localGraphFileExists())) {
+						if (process.env.VERCEL !== '1' && !(await localGraphFileExists())) {
 							try {
 								await writeJsonFileAtomic(GRAPH_FILE, _graphCache);
 								await syncSeedBankFromGraph(_graphCache);

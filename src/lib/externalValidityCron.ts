@@ -207,6 +207,28 @@ function getAuthHeaders() {
 }
 
 async function fetchUpstreamJson(url: string) {
+	let domain = 'unknown';
+	let crds: string[] = [];
+	try {
+		const parsedUrl = new URL(url);
+		domain = parsedUrl.hostname;
+		const pathParts = parsedUrl.pathname.split('/');
+		const lastPart = pathParts[pathParts.length - 1];
+		if (/^\d+$/.test(lastPart) || /^8-\d+$/i.test(lastPart)) {
+			crds.push(lastPart);
+		} else {
+			const queryParam = parsedUrl.searchParams.get('query') || parsedUrl.searchParams.get('q');
+			if (queryParam) {
+				const matches = queryParam.match(/\b\d{1,10}\b/g) || [];
+				crds.push(...matches);
+			}
+		}
+	} catch {
+		// ignore
+	}
+
+	console.log(`[External API Access] Time: ${new Date().toISOString()} | Accessing external API: ${url} | Domain: ${domain} | CRDs: [${crds.join(', ')}] | Count: ${crds.length}`);
+
 	const response = await axios.get(url, {
 		headers: getAuthHeaders(),
 		timeout: 15000,
@@ -513,6 +535,9 @@ async function processCandidate(
 
 	const mergedGraph = mergeIntoGraph(graph, node, linksAccumulator);
 	await saveGraph(mergedGraph);
+
+	const domain = kind === 'individual' ? 'api.brokercheck.finra.org' : 'api.adviserinfo.sec.gov';
+	console.log(`[External API Access Success] Time: ${new Date().toISOString()} | Cron Synced and Added CRD | Domain: ${domain} | CRDs added: [${normalizeId(id)}] | Added count: 1`);
 
 	// refresh direct cache keys so the app reads the newest payloads on the next lookup
 	try {

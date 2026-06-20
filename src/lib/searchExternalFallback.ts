@@ -35,6 +35,8 @@ export async function searchExternalFallback(
 	};
 
 	try {
+		const domain = source === 'finra' ? 'api.brokercheck.finra.org' : 'api.adviserinfo.sec.gov';
+		console.log(`[External API Access] Time: ${new Date().toISOString()} | Accessing external API: ${url} | Domain: ${domain} | CRDs: [] | Count: 0`);
 		const res = await fetch(url, fetchOptions);
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
 		const externalData = await res.json();

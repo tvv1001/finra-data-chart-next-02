@@ -279,6 +279,11 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 		return undefined as unknown as T;
 	}
 
+	const domain = service === 'finra' ? 'api.brokercheck.finra.org' : 'api.adviserinfo.sec.gov';
+	const parts = key.split(':');
+	const crd = parts[2] || '';
+	console.log(`[External API Access] Time: ${new Date().toISOString()} | Accessing external API | Domain: ${domain} | CRDs: [${crd}] | Count: 1`);
+
 	try {
 		const value = await fetcher();
 		if (service) lastExternalFetch.set(service, Date.now());
@@ -290,17 +295,25 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 					// Only write to Redis if the value has actually changed
 					const existing = await redis.get(key).catch(() => null);
 					const existingJson = existing != null ? (typeof existing === 'string' ? existing : JSON.stringify(existing)) : null;
+					let isAdded = false;
 					if (existingJson !== newJson) {
 						await setStringIfValid(key, newJson, ttlSeconds);
+						isAdded = true;
 					}
+					console.log(`[External API Access Success] Time: ${new Date().toISOString()} | Domain: ${domain} | CRDs added: [${crd}] | Added count: ${isAdded ? 1 : 0}`);
 				} catch {
-					// ignore redis write failures
+					console.log(`[External API Access Success] Time: ${new Date().toISOString()} | Domain: ${domain} | CRDs added: [${crd}] | Added count: 1 (memory only)`);
 				}
+			} else {
+				console.log(`[External API Access Success] Time: ${new Date().toISOString()} | Domain: ${domain} | CRDs added: [${crd}] | Added count: 1 (memory only)`);
 			}
+		} else {
+			console.log(`[External API Access Warning] Time: ${new Date().toISOString()} | Domain: ${domain} | CRDs added: [] | Added count: 0 (undefined response)`);
 		}
 		return value;
 	} catch (error) {
 		if (service) lastExternalFailure.set(service, Date.now());
+		console.log(`[External API Access Failure] Time: ${new Date().toISOString()} | Domain: ${domain} | CRDs added: [] | Added count: 0`);
 		return undefined as unknown as T;
 	}
 }

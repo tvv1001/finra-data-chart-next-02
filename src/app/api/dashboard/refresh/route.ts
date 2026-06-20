@@ -1236,6 +1236,29 @@ async function writeJsonFile(filePath: string, payload: unknown) {
 
 async function fetchJson(url: string, options: { timeoutMs?: number } = {}) {
 	const timeoutMs = Math.max(1_000, Number(options.timeoutMs || DASHBOARD_DETAIL_FETCH_TIMEOUT_MS));
+
+	let domain = 'unknown';
+	let crds: string[] = [];
+	try {
+		const parsedUrl = new URL(url);
+		domain = parsedUrl.hostname;
+		const pathParts = parsedUrl.pathname.split('/');
+		const lastPart = pathParts[pathParts.length - 1];
+		if (/^\d+$/.test(lastPart) || /^8-\d+$/i.test(lastPart)) {
+			crds.push(lastPart);
+		} else {
+			const queryParam = parsedUrl.searchParams.get('query') || parsedUrl.searchParams.get('q');
+			if (queryParam) {
+				const matches = queryParam.match(/\b\d{1,10}\b/g) || [];
+				crds.push(...matches);
+			}
+		}
+	} catch {
+		// ignore
+	}
+
+	console.log(`[External API Access] Time: ${new Date().toISOString()} | Accessing external API: ${url} | Domain: ${domain} | CRDs: [${crds.join(', ')}] | Count: ${crds.length}`);
+
 	const response = await fetch(url, {
 		headers: {
 			'Accept': 'application/json',
@@ -2069,6 +2092,8 @@ async function fetchCrdsToCacheAndRedis(initialTargets: FetchTarget[], options: 
 
 			const newSourceSaved = !sourceExistedBefore;
 			const newRecordSaved = !recordExistedBefore;
+			const domain = isFinra ? 'api.brokercheck.finra.org' : 'api.adviserinfo.sec.gov';
+			console.log(`[External API Access Success] Time: ${new Date().toISOString()} | Saved CRD to Cache/Redis | Domain: ${domain} | CRDs added: [${crd}] | Added count: ${newRecordSaved ? 1 : 0}`);
 
 			mainAppPublishQueue.push({ crd, source: target.source, type: target.type, status: 'ok', payload });
 
@@ -2100,6 +2125,10 @@ async function fetchCrdsToCacheAndRedis(initialTargets: FetchTarget[], options: 
 	const mainAppSync = await publishFetchedRecordsToMainApp(mainAppPublishQueue).catch(() => ({
 		rememberedSeeds: 0, nodesAdded: 0, nodesUpdated: 0, linksAdded: 0,
 	}));
+
+	const successfulCrds = allResults.filter((r) => r.status === 'ok').map((r) => r.crd);
+	const targetDomain = initialTargets[0]?.source === 'finra' ? 'api.brokercheck.finra.org' : 'api.adviserinfo.sec.gov';
+	console.log(`[External API Access Sync Complete] Time: ${new Date().toISOString()} | Domain: ${targetDomain} | Graph CRD Nodes added count: ${mainAppSync.nodesAdded} | CRD list: [${successfulCrds.join(', ')}]`);
 
 	return {
 		summary: summarizeFetchResults(allResults),
