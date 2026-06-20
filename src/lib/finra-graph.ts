@@ -5954,7 +5954,7 @@ const LINK_OPACITY = {
 	previous_employed_by: 0.42,
 	controls: 0.58,
 };
-const DEFAULT_LINK_WIDTH = 0.75;
+const DEFAULT_LINK_WIDTH = 0.62;
 const INACTIVE_LINK_OPACITY = 0.28;
 const defaultLinkOpacity = (d) => {
 	if (hasInactiveEndpoint(d)) return INACTIVE_LINK_OPACITY;
