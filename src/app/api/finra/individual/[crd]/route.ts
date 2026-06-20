@@ -6,6 +6,7 @@ import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
 import { normalizeIndividualDetailFromSource } from '@/lib/individualDetail';
 import { hasIndividualSourceCoverage, resolveIndividualSourceDetail } from '@/lib/sourceTruth';
+import { queueHydration } from '@/lib/hydration';
 
 function parseDetailPayload(data: any, contentKey = 'content') {
 	if (!data) return null;
@@ -207,6 +208,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		detail.hasFinraData = !!finraDetail && !!finraNumeric && hasIndividualSourceCoverage(finraDetail, 'finra');
 		detail.hasSecData = !!secDetail && !!secNumeric && hasIndividualSourceCoverage(secDetail, 'sec');
+
+		// Queue background hydration of the external API to ensure cache stays hydrated
+		queueHydration('individual', crd);
 
 		if (isMergedRoute) {
 			return NextResponse.json(

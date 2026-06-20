@@ -3,6 +3,7 @@ import { cachedFetch } from '@/lib/simpleCache';
 import { rememberRecentSeed } from '@/lib/seedStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
+import { queueHydration } from '@/lib/hydration';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -205,6 +206,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			detail.secSummaryDescription = undefined;
 			detail.secDocumentLinks = [];
 		}
+
+		// Queue background hydration of the external API to ensure cache stays hydrated
+		queueHydration('firm', id);
 
 		if (isMergedRoute) {
 			return NextResponse.json(
