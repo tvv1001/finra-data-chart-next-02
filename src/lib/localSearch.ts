@@ -770,14 +770,54 @@ export async function searchLocalIndex(source: LocalSearchSource, type: LocalSea
 	};
 }
 
-export async function searchQueriesSequentially<T>(queries: string[], runner: (query: string) => Promise<T>, predicate: (value: T) => boolean): Promise<T | null> {
+export async function searchQueriesSequentially<T>(queries: string[], runner: (query: string) => Promise<T | null>, predicate: (value: T | null) => boolean): Promise<T[]> {
+	const matches: T[] = [];
 	for (const query of queries) {
 		const value = await runner(query);
 		if (predicate(value)) {
-			return value;
+			matches.push(value as T);
 		}
 	}
-	return null;
+	return matches;
+}
+
+export function mergeLocalSearchResponses(
+	responses: LocalSearchResponse[],
+	options: { bucket?: string; generatedAt?: string | null; limit?: number; offset?: number } = {},
+): LocalSearchResponse {
+	const bucket = options.bucket ?? responses[0]?.bucket ?? 'finra:individual';
+	const limit = Math.max(0, Math.min(options.limit ?? 12, 1000));
+	const offset = Math.max(0, options.offset ?? 0);
+	const mergedDocs: any[] = [];
+	const seenIds = new Set<string>();
+	for (const response of responses) {
+		for (const doc of response.results || []) {
+			const docId = String(doc?.id || doc?.ind_source_id || doc?.firm_source_id || '').trim();
+			if (!docId || seenIds.has(docId)) continue;
+			seenIds.add(docId);
+			mergedDocs.push(doc);
+		}
+	}
+	const pageDocs = limit > 0 ? mergedDocs.slice(offset, offset + limit) : [];
+	return {
+		bucket: bucket as LocalSearchBucket,
+		generatedAt: options.generatedAt ?? responses.find((response) => response.generatedAt)?.generatedAt ?? null,
+		total: mergedDocs.length,
+		hits: {
+			total: mergedDocs.length,
+			start: offset,
+			hits: pageDocs.map((doc) => ({ _id: String(doc?.id || doc?.ind_source_id || doc?.firm_source_id || ''), _source: doc })),
+		},
+		response: {
+			numFound: mergedDocs.length,
+			start: offset,
+			docs: pageDocs,
+		},
+		results: pageDocs,
+		currentPage: pageDocs,
+		pageNumber: limit > 0 ? Math.floor(offset / limit) + 1 : 1,
+		pageSize: limit,
+	};
 }
 
 export async function searchLocalIndexMany(source: LocalSearchSource, type: LocalSearchEntity, query: string, options: LocalSearchOptions = {}): Promise<LocalSearchResponse> {
@@ -807,14 +847,12 @@ export async function searchLocalIndexMany(source: LocalSearchSource, type: Loca
 	const docs = Array.isArray(index?.docs) ? index.docs : [];
 	const mergedDocs: any[] = [];
 	const seenIds = new Set<string>();
-	const successfulQueries = [] as string[];
 	for (const searchQuery of searchQueries) {
 		const normalizedQuery = simplifyName(searchQuery);
 		const tokens = tokenizeQuery(searchQuery);
 		if (!normalizedQuery || !tokens.length || !hasMinimumSearchQuery(searchQuery)) continue;
 		const matches = buildQueryMatches(docs, searchQuery, normalizedQuery, tokens, limit > 0 ? limit : 0);
 		if (!matches.length) continue;
-		successfulQueries.push(searchQuery);
 		for (const match of matches) {
 			const docId = String(match?.hit?.id || match?.id || match?.hit?.ind_source_id || match?.hit?.firm_source_id || '').trim();
 			if (!docId || seenIds.has(docId)) continue;

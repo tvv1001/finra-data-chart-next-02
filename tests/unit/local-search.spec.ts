@@ -62,7 +62,7 @@ describe('local search indexes', () => {
 		);
 
 		expect(attemptedQueries).toEqual(['11111', '22222']);
-		expect(result).toEqual({ total: 1, results: [{ id: '22222' }] });
+		expect(result).toEqual([{ total: 1, results: [{ id: '22222' }] }]);
 	});
 
 	it('returns FINRA individual results from the local index', async () => {

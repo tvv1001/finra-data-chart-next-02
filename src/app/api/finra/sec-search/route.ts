@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { hasMinimumSearchQuery, searchLocalIndexMany, extractSearchQueries } from '@/lib/localSearch';
+import { hasMinimumSearchQuery, searchLocalIndexMany, extractSearchQueries, mergeLocalSearchResponses, searchQueriesSequentially } from '@/lib/localSearch';
 import { logger } from '@/lib/logger';
 import { searchGraphFallback } from '@/lib/searchGraphFallback';
 import { searchDirectRedisFallback } from '@/lib/searchDirectFallback';
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
 		if (!params) return jsonNoStore({ hits: { hits: [] } });
 
 		const rawQuery = params.get('query') || '';
-		const searchQueries = extractSearchQueries(rawQuery);
+		const searchQueries = extractSearchQueries(rawQuery).filter(Boolean);
 		const query = searchQueries[0] || rawQuery.trim();
 		if (!searchQueries.some((candidate) => hasMinimumSearchQuery(candidate)))
 			return jsonNoStore({ hits: { hits: [] }, response: { docs: [], numFound: 0, start: 0 }, results: [], total: 0, currentPage: [], pageNumber: 1, pageSize: 0 });
@@ -77,20 +77,33 @@ export async function GET(request: NextRequest) {
 		const data = await searchLocalIndexMany('sec', 'individual', rawQuery, { limit, offset, baseUrl });
 		if (data.total > 0) return jsonNoStore(data);
 
-		const fallback = await searchGraphFallback('sec', 'individual', query, { limit, offset });
-		if (fallback.total > 0) return jsonNoStore(fallback);
+		const graphResponses = await searchQueriesSequentially(
+			searchQueries,
+			async (candidate) => searchGraphFallback('sec', 'individual', candidate, { limit, offset }),
+			(value) => Boolean(value && value.total > 0),
+		);
+		if (graphResponses.length > 0) return jsonNoStore(mergeLocalSearchResponses(graphResponses, { bucket: 'sec:individual', limit, offset }));
 
-		const direct = await searchDirectRedisFallback('sec', 'individual', query, { limit, offset });
-		if (direct) return jsonNoStore(direct);
+		const directResponses = await searchQueriesSequentially(
+			searchQueries,
+			async (candidate) => searchDirectRedisFallback('sec', 'individual', candidate, { limit, offset }),
+			(value) => Boolean(value),
+		);
+		if (directResponses.length > 0) return jsonNoStore(mergeLocalSearchResponses(directResponses as any[], { bucket: 'sec:individual', limit, offset }));
 
 		console.log('[sec-search] Direct Redis fallback returned 0, checking external AdviserInfo search API...');
-		const external = await searchExternalFallback('sec', 'individual', query, baseUrl);
-		if (external) {
-			console.log('[sec-search] External search fallback succeeded with', external.results.length, 'results');
-			return jsonNoStore(external);
+		const externalResponses = await searchQueriesSequentially(
+			searchQueries,
+			async (candidate) => searchExternalFallback('sec', 'individual', candidate, baseUrl),
+			(value) => Boolean(value),
+		);
+		if (externalResponses.length > 0) {
+			const merged = mergeLocalSearchResponses(externalResponses as any[], { bucket: 'sec:individual', limit, offset });
+			console.log('[sec-search] External search fallback succeeded with', merged.results.length, 'results');
+			return jsonNoStore(merged);
 		}
 
-		return jsonNoStore(fallback);
+		return jsonNoStore({ hits: { hits: [] }, response: { docs: [], numFound: 0, start: 0 }, results: [], total: 0, currentPage: [], pageNumber: 1, pageSize: 0 });
 	} catch (err: any) {
 		logger.error('sec-search error', { error: err.message });
 		return jsonNoStore({ error: 'Failed to search SEC.' }, { status: 502 });
