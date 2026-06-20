@@ -95,7 +95,7 @@ async function gatherRedisIds() {
 		cursor = res[0];
 		const keys = res[1] || [];
 		for (const k of keys) {
-			const m = k.match(/finra:individual:(\d+):/);
+			const m = k.match(/finra:individual:(\d+)/);
 			if (m) individualIds.add(m[1]);
 		}
 	} while (cursor !== '0');
@@ -106,7 +106,7 @@ async function gatherRedisIds() {
 		cursor = res[0];
 		const keys = res[1] || [];
 		for (const k of keys) {
-			const m = k.match(/finra:firm:(\d+):/);
+			const m = k.match(/finra:firm:(\d+)/);
 			if (m) firmIds.add(m[1]);
 		}
 	} while (cursor !== '0');
