@@ -123,15 +123,48 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		const params = buildFirmQueryParams(new URL(request.url).searchParams);
 		const queryString = params.toString();
 
+		const fetchOptions = {
+			headers: {
+				'Accept': 'application/json',
+				'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+				'Referer': 'https://brokercheck.finra.org/',
+			},
+			next: { revalidate: 3600 },
+		};
+
 		const [bcData, secData, secPageData] = await Promise.allSettled([
 			cachedFetch(`finra:firm:${id}`, 60 * 60 * 24, async () => {
-				return undefined as unknown as any;
+				try {
+					const url = `https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(id)}?hl=true&wt=json`;
+					const res = await fetch(url, fetchOptions);
+					if (!res.ok) throw new Error(`HTTP ${res.status}`);
+					return res.json();
+				} catch (err: any) {
+					logger.warn('FINRA firm external fetch failed', { id, error: err.message });
+					return undefined;
+				}
 			}),
 			cachedFetch(`sec:firm:${id}`, 60 * 60 * 24, async () => {
-				return undefined as unknown as any;
+				try {
+					const url = `https://api.adviserinfo.sec.gov/search/firm/${encodeURIComponent(id)}?wt=json`;
+					const res = await fetch(url, { ...fetchOptions, headers: { ...fetchOptions.headers, 'Referer': 'https://adviserinfo.sec.gov/' } });
+					if (!res.ok) throw new Error(`HTTP ${res.status}`);
+					return res.json();
+				} catch (err: any) {
+					logger.warn('SEC firm external fetch failed', { id, error: err.message });
+					return undefined;
+				}
 			}),
 			cachedFetch(`sec:firm:summaryHtml:${id}`, 60 * 60 * 24, async () => {
-				return undefined as unknown as any;
+				try {
+					const url = `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(id)}`;
+					const res = await fetch(url, { ...fetchOptions, headers: { ...fetchOptions.headers, 'Referer': 'https://adviserinfo.sec.gov/' } });
+					if (!res.ok) throw new Error(`HTTP ${res.status}`);
+					return res.text();
+				} catch (err: any) {
+					logger.warn('SEC firm summaryHtml fetch failed', { id, error: err.message });
+					return undefined;
+				}
 			}),
 		]);
 
