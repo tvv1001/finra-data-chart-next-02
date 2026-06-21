@@ -12033,7 +12033,10 @@ function renderPersonDetail(d: any) {
 			  ${previousRegistrations
 					.map((reg) => {
 						const crdHtml = reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : '';
-						const locHtml = reg.cityState ? `<span class="fg-tl-loc">${esc(reg.cityState)}</span>` : '';
+						const locHtml =
+							reg.officeAddress ? `<span class="fg-tl-loc">${esc(reg.officeAddress)}</span>`
+							: reg.cityState ? `<span class="fg-tl-loc">${esc(reg.cityState)}</span>`
+							: '';
 						const datesHtml = `<span class="fg-tl-dates">${esc(reg.start || '–')} → ${esc(reg.end || 'present')}</span>`;
 						if (reg.firmId) {
 							return `<button type="button" class="fg-tl-entry fg-card-clickable fg-crd-link" data-crd="${esc(reg.firmId)}" data-crd-type="firm">${esc(reg.firmName)}${crdHtml}${locHtml}${datesHtml}</button>`;
@@ -12193,6 +12196,43 @@ function formatFirmConnectionDateText(startDate: string, endDate: string, isCurr
 	return '';
 }
 
+function parseDateStringToTime(value: any) {
+	const raw = String(value || '').trim();
+	if (!raw) return Number.NEGATIVE_INFINITY;
+	if (/present/i.test(raw)) return Number.POSITIVE_INFINITY;
+	// MM/DD/YYYY
+	const mdy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+	if (mdy) {
+		return Date.UTC(Number(mdy[3]), Number(mdy[1]) - 1, Number(mdy[2]));
+	}
+	// MM/YYYY
+	const my = raw.match(/^(\d{1,2})\/(\d{4})$/);
+	if (my) {
+		return Date.UTC(Number(my[2]), Number(my[1]) - 1, 1);
+	}
+	// YYYY
+	const y = raw.match(/^(\d{4})$/);
+	if (y) {
+		return Date.UTC(Number(y[1]), 0, 1);
+	}
+	const parsed = Date.parse(raw);
+	return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+}
+
+function compareConnectionEntries(a: any, b: any) {
+	const endA = parseDateStringToTime(a.maxEndDate);
+	const endB = parseDateStringToTime(b.maxEndDate);
+	if (endA !== endB) {
+		return endB - endA;
+	}
+	const startA = parseDateStringToTime(a.maxStartDate);
+	const startB = parseDateStringToTime(b.maxStartDate);
+	if (startA !== startB) {
+		return startB - startA;
+	}
+	return String(a.label).localeCompare(String(b.label));
+}
+
 export function collectFirmConnectionEntries({
 	firmNode,
 	layoutNodes: liveLayoutNodes = [],
@@ -12235,6 +12275,9 @@ export function collectFirmConnectionEntries({
 			positions: Set<string>;
 			dateTexts: Set<string>;
 			sortOrder: number;
+			address: string;
+			maxStartDate: string;
+			maxEndDate: string;
 		}
 	>();
 
@@ -12263,16 +12306,21 @@ export function collectFirmConnectionEntries({
 		let position = '';
 		let dateText = '';
 		let sortOrder = 4;
+		let isCurrentConnection = false;
+		let linkStartDate = '';
+		let linkEndDate = '';
 
 		if (link.relationship === 'controls') {
 			const controlOwner = (otherCrd && directOwnerByCrd.get(otherCrd)) || null;
 			const controlStartDate = String(link?.startDate || link?.registrationBeginDate || link?.fromDate || link?.effectiveDate || link?.date || '').trim();
 			const controlEndDate = String(link?.endDate || link?.registrationEndDate || link?.toDate || '').trim();
-			const isCurrentControl = Boolean(controlOwner) || !controlEndDate;
-			relationshipLabel = isCurrentControl ? 'Control' : 'Former control';
+			isCurrentConnection = Boolean(controlOwner) || !controlEndDate;
+			relationshipLabel = isCurrentConnection ? 'Control' : 'Former control';
 			position = String(controlOwner?.position || link?.position || link?.title || link?.role || '').trim();
-			dateText = formatFirmConnectionDateText(controlStartDate, controlEndDate, isCurrentControl);
-			sortOrder = isCurrentControl ? 1 : 3;
+			dateText = formatFirmConnectionDateText(controlStartDate, controlEndDate, isCurrentConnection);
+			sortOrder = isCurrentConnection ? 1 : 3;
+			linkStartDate = controlStartDate;
+			linkEndDate = isCurrentConnection ? 'present' : controlEndDate;
 		} else if (link.relationship === 'employed_by') {
 			const sourceNode = (typeof link?.source === 'object' && link.source) || nodeLookup.get(sourceId) || null;
 			const targetFirmId = String(firmNode?.firmId || firmNodeId.replace(/^(?:firm[:_])?/, '')).trim();
@@ -12285,7 +12333,6 @@ export function collectFirmConnectionEntries({
 				...(Array.isArray(sourceNode?.previousIAEmployments) ? sourceNode.previousIAEmployments : []),
 			];
 
-			let isCurrentConnection = false;
 			if (link?.isCurrent !== undefined) {
 				isCurrentConnection = Boolean(link.isCurrent);
 			} else if (targetFirmId && currentEmployments.some((employment) => String(employment?.firmId || employment?.firm_id || '').trim() === targetFirmId)) {
@@ -12302,15 +12349,63 @@ export function collectFirmConnectionEntries({
 			relationshipLabel = isCurrentConnection ? 'Current registration' : 'Previous registration';
 			dateText = formatFirmConnectionDateText(startDate, endDate, isCurrentConnection);
 			sortOrder = isCurrentConnection ? 0 : 2;
+			linkStartDate = startDate;
+			linkEndDate = isCurrentConnection ? 'present' : endDate;
 		} else {
 			const rawRelationship = String(link?.relationship || '').trim();
 			relationshipLabel = rawRelationship ? rawRelationship.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()) : 'Connected';
 			const startDate = String(link?.startDate || link?.registrationBeginDate || link?.fromDate || link?.effectiveDate || '').trim();
 			const endDate = String(link?.endDate || link?.registrationEndDate || link?.toDate || '').trim();
-			dateText = formatFirmConnectionDateText(startDate, endDate, !endDate);
+			isCurrentConnection = !endDate;
+			dateText = formatFirmConnectionDateText(startDate, endDate, isCurrentConnection);
+			linkStartDate = startDate;
+			linkEndDate = isCurrentConnection ? 'present' : endDate;
 		}
 
 		if (!relationshipLabel) return;
+
+		let address = '';
+		if (otherGroup === 'firm') {
+			address =
+				otherNode?.officeAddress ||
+				otherNode?.address ||
+				link?.officeAddress ||
+				link?.address ||
+				[link?.street1, link?.street2, link?.city, link?.state, link?.postalCode, link?.zipCode, link?.zip, link?.country].filter(Boolean).join(', ');
+		} else if (otherGroup === 'individual') {
+			// Find matching employment on otherNode
+			const targetFirmId = String(firmNode?.firmId || firmNodeId.replace(/^(?:firm[:_])?/, '')).trim();
+			const employments = [
+				...(Array.isArray(otherNode?.currentEmployments) ? otherNode.currentEmployments : []),
+				...(Array.isArray(otherNode?.currentIAEmployments) ? otherNode.currentIAEmployments : []),
+				...(Array.isArray(otherNode?.previousEmployments) ? otherNode.previousEmployments : []),
+				...(Array.isArray(otherNode?.previousIAEmployments) ? otherNode.previousIAEmployments : []),
+			];
+			const match = employments.find((emp) => String(emp?.firmId || emp?.firm_id || '').trim() === targetFirmId);
+			if (match) {
+				const office = match.branchOfficeLocations?.[0];
+				const street1 = match.street1 || office?.street1 || '';
+				const street2 = match.street2 || office?.street2 || '';
+				const city = match.city || office?.city || '';
+				const state = match.state || office?.state || '';
+				const zip = match.zipCode || office?.zipCode || '';
+				address = [street1, street2, city, state, zip].filter(Boolean).join(', ');
+			}
+			if (!address) {
+				address =
+					otherNode?.primaryOffice?.address ||
+					otherNode?.officeAddress ||
+					otherNode?.address ||
+					link?.officeAddress ||
+					link?.address ||
+					[link?.street1, link?.street2, link?.city, link?.state, link?.postalCode, link?.zipCode, link?.zip, link?.country].filter(Boolean).join(', ') ||
+					link?.location ||
+					link?.cityState ||
+					'';
+			}
+		}
+
+		address = formatLocationText(address);
 
 		const label = String(getPreferredNodeLabel(otherNode) || otherNode?.label || link?.legalName || link?.name || link?.personName || otherId).trim() || otherId;
 		const existingEntry = entriesById.get(otherId) || {
@@ -12322,6 +12417,9 @@ export function collectFirmConnectionEntries({
 			positions: new Set<string>(),
 			dateTexts: new Set<string>(),
 			sortOrder,
+			address: '',
+			maxStartDate: '',
+			maxEndDate: '',
 		};
 
 		existingEntry.label = existingEntry.label || label;
@@ -12329,6 +12427,21 @@ export function collectFirmConnectionEntries({
 		existingEntry.relationshipLabels.add(relationshipLabel);
 		if (position) existingEntry.positions.add(position);
 		if (dateText) existingEntry.dateTexts.add(dateText);
+		if (address && (!existingEntry.address || address.length > existingEntry.address.length)) {
+			existingEntry.address = address;
+		}
+
+		if (linkStartDate) {
+			if (!existingEntry.maxStartDate || parseDateStringToTime(linkStartDate) > parseDateStringToTime(existingEntry.maxStartDate)) {
+				existingEntry.maxStartDate = linkStartDate;
+			}
+		}
+		if (linkEndDate) {
+			if (!existingEntry.maxEndDate || parseDateStringToTime(linkEndDate) > parseDateStringToTime(existingEntry.maxEndDate)) {
+				existingEntry.maxEndDate = linkEndDate;
+			}
+		}
+
 		entriesById.set(otherId, existingEntry);
 	});
 
@@ -12342,8 +12455,10 @@ export function collectFirmConnectionEntries({
 			positions: Array.from(entry.positions),
 			dateTexts: Array.from(entry.dateTexts),
 			sortOrder: entry.sortOrder,
-		}))
-		.sort((a, b) => a.sortOrder - b.sortOrder || String(a.label).localeCompare(String(b.label)));
+			address: entry.address || null,
+			maxStartDate: entry.maxStartDate,
+			maxEndDate: entry.maxEndDate,
+		}));
 }
 
 // ── Firm detail ──────────────────────────────────────────────────────────────
@@ -12395,10 +12510,17 @@ function renderFirmDetail(d: any) {
 		if (connName && ownerNameSet.has(connName)) return false;
 
 		return true;
-	});
+	}).sort(compareConnectionEntries);
+
+	const controlConnections = rawConnections.filter((conn) => {
+		if (conn.group !== 'individual') return false;
+		return conn.relationshipLabels.some((r) => r.toLowerCase().includes('control'));
+	}).sort(compareConnectionEntries);
 
 	const previousConnections = rawConnections.filter((conn) => {
 		if (conn.group !== 'individual') return false;
+		const isControl = conn.relationshipLabels.some((r) => r.toLowerCase().includes('control'));
+		if (isControl) return false;
 		return (
 			conn.sortOrder === 2 ||
 			conn.sortOrder === 3 ||
@@ -12406,11 +12528,32 @@ function renderFirmDetail(d: any) {
 				(r) => r.includes('Previous') || r.includes('Former')
 			)
 		);
-	});
+	}).sort(compareConnectionEntries);
 
 	const currentConnections = rawConnections.filter((conn) => {
 		if (conn.group !== 'individual') return false;
+		const isControl = conn.relationshipLabels.some((r) => r.toLowerCase().includes('control'));
+		if (isControl) return false;
 		return !previousConnections.includes(conn);
+	}).sort(compareConnectionEntries);
+
+	const renderedCrdSet = new Set(
+		controlConnections
+			.map((c) => String(c.crd || '').trim())
+			.filter(Boolean)
+	);
+	const renderedNameSet = new Set(
+		controlConnections
+			.map((c) => String(c.label || '').trim().toLowerCase())
+			.filter(Boolean)
+	);
+
+	const staticOwnersToRender = owners.filter((o) => {
+		const oCrd = String(o.crdNumber || o.crd || o.personId || '').trim();
+		if (oCrd && renderedCrdSet.has(oCrd)) return false;
+		const oName = String(o.legalName || o.name || '').trim().toLowerCase();
+		if (oName && renderedNameSet.has(oName)) return false;
+		return true;
 	});
 	const hasFinraPage = hasFirmFinraPresence(d);
 	const hasSecPage = hasFirmSecPresence(d);
@@ -12631,8 +12774,6 @@ function renderFirmDetail(d: any) {
 					<div class="fg-timeline">
 						${connections
 							.map((connection) => {
-								const metaBits = [connection.relationshipLabels.join(', '), ...connection.positions, ...connection.dateTexts].filter(Boolean);
-								const metaHtml = metaBits.length ? `<span class="fg-tl-loc">${esc(metaBits.join(' · '))}</span>` : '';
 								const displaySecondary =
 									connection.group === 'firm' ?
 										(() => {
@@ -12642,7 +12783,18 @@ function renderFirmDetail(d: any) {
 											return connectedFirmId ? ` <small>CRD#${esc(connectedFirmId)}</small>` : '';
 										})()
 									:	'';
-								return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}"><span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>${metaHtml}</button>`;
+								const relHtml = connection.relationshipLabels.length || connection.positions.length ?
+									`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>` : '';
+								const datesHtml = connection.dateTexts.length ?
+									`<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
+								const addrHtml = connection.address ?
+									`<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
+								return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}">
+									<span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>
+									${relHtml}
+									${datesHtml}
+									${addrHtml}
+								</button>`;
 							})
 							.join('')}
 					</div>`
@@ -12654,10 +12806,19 @@ function renderFirmDetail(d: any) {
 					<div class="fg-timeline">
 						${currentConnections
 							.map((connection) => {
-								const metaBits = [connection.relationshipLabels.join(', '), ...connection.positions, ...connection.dateTexts].filter(Boolean);
-								const metaHtml = metaBits.length ? `<span class="fg-tl-loc">${esc(metaBits.join(' · '))}</span>` : '';
 								const displaySecondary = connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>` : '';
-								return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}"><span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>${metaHtml}</button>`;
+								const relHtml = connection.relationshipLabels.length || connection.positions.length ?
+									`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>` : '';
+								const datesHtml = connection.dateTexts.length ?
+									`<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
+								const addrHtml = connection.address ?
+									`<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
+								return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}">
+									<span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>
+									${relHtml}
+									${datesHtml}
+									${addrHtml}
+								</button>`;
 							})
 							.join('')}
 					</div>`
@@ -12669,10 +12830,19 @@ function renderFirmDetail(d: any) {
 					<div class="fg-timeline fg-timeline--previous">
 						${previousConnections
 							.map((connection) => {
-								const metaBits = [connection.relationshipLabels.join(', '), ...connection.positions, ...connection.dateTexts].filter(Boolean);
-								const metaHtml = metaBits.length ? `<span class="fg-tl-loc">${esc(metaBits.join(' · '))}</span>` : '';
 								const displaySecondary = connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>` : '';
-								return `<button type="button" class="fg-tl-entry fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}"><span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>${metaHtml}</button>`;
+								const relHtml = connection.relationshipLabels.length || connection.positions.length ?
+									`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>` : '';
+								const datesHtml = connection.dateTexts.length ?
+									`<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
+								const addrHtml = connection.address ?
+									`<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
+								return `<button type="button" class="fg-tl-entry fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}">
+									<span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>
+									${relHtml}
+									${datesHtml}
+									${addrHtml}
+								</button>`;
 							})
 							.join('')}
 					</div>`
@@ -12740,31 +12910,49 @@ function renderFirmDetail(d: any) {
 			}
 
       ${
-				showFinra && owners.length ?
+				controlConnections.length || (showFinra && staticOwnersToRender.length) ?
 					`
-        <div class="fg-section-title fg-section-title--sticky">Form BD — Direct Owners &amp; Executive Officers</div>
-		${owners
-			.map((o) => {
-				const nameHtml = `<span class="fg-owner-name">${esc(o.legalName || '')}</span>`;
-				const posHtml = `<span class="fg-owner-pos">${esc(o.position || '')}</span>`;
-				if (o.crdNumber) {
+        <div class="fg-section-title fg-section-title--sticky">Form BD — Direct Owners &amp; Executive Officers (${controlConnections.length + (showFinra ? staticOwnersToRender.length : 0)})</div>
+		<div class="fg-timeline">
+			${controlConnections
+				.map((connection) => {
+					const displaySecondary = connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>` : '';
+					const relHtml = connection.relationshipLabels.length || connection.positions.length ?
+						`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>` : '';
+					const datesHtml = connection.dateTexts.length ?
+						`<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
+					const addrHtml = connection.address ?
+						`<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
+					return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}">
+						<span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>
+						${relHtml}
+						${datesHtml}
+						${addrHtml}
+					</button>`;
+				})
+				.join('')}
+			${showFinra ? staticOwnersToRender
+				.map((o) => {
+					const nameHtml = `<span class="fg-owner-name">${esc(o.legalName || '')}</span>`;
+					const posHtml = `<span class="fg-owner-pos">${esc(o.position || '')}</span>`;
+					if (o.crdNumber) {
+						return `
+						<button type="button" class="fg-owner-row fg-card-clickable fg-crd-link" data-crd="${esc(o.crdNumber)}" data-crd-type="person" title="View person ${esc(o.crdNumber)}">
+							${nameHtml}
+							${posHtml}
+						</button>
+						`;
+					}
 					return `
-					<button type="button" class="fg-owner-row fg-card-clickable fg-crd-link" data-crd="${esc(o.crdNumber)}" data-crd-type="person" title="View person ${esc(o.crdNumber)}">
-						${nameHtml}
-						${posHtml}
-					</button>
-		`;
-				}
-				// No CRD: render as static row (not clickable) since there's no node to route to
-				return `
 					<div class="fg-owner-row fg-owner-row--static">
 						${nameHtml}
 						${posHtml}
 					</div>
-			`;
-			})
-			.join('')}
-      `
+					`;
+				})
+				.join('') : ''}
+		</div>
+		`
 				:	''
 			}
     </div>
