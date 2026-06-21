@@ -6906,7 +6906,7 @@ function getLinkDash(d) {
 }
 
 function getLinkWidth(d) {
-	if (hasInactiveEndpoint(d) || isPreviousEmploymentLink(d)) return '0.25px';
+	if (hasInactiveEndpoint(d) || isPreviousEmploymentLink(d)) return '0.15px';
 	return DEFAULT_LINK_WIDTH;
 }
 
@@ -10626,8 +10626,8 @@ function highlightLinks(highlightState = null) {
 				sel.classed('fg-link--depth-active', true);
 				const highlightedStrokeWidth =
 					isGrayLine ?
-						connectedToRoot ? 0.57
-						:	0.47
+						connectedToRoot ? 0.34
+						:	0.28
 					: d.relationship === 'controls' ?
 						connectedToRoot ? 1.9
 						:	1.55
@@ -10648,7 +10648,7 @@ function highlightLinks(highlightState = null) {
 				sel.classed('fg-link--depth-recessed', true);
 				const recessedLinkOpacity = isGrayLine ? 0.42 : 0.56;
 				const recessedStrokeOpacity = isGrayLine ? 0.32 : 0.46;
-				const recessedStrokeWidth = isGrayLine ? 0.41 : 0.82;
+				const recessedStrokeWidth = isGrayLine ? 0.25 : 0.82;
 				sel
 					.style('filter', null)
 					.style('opacity', recessedLinkOpacity)
