@@ -6910,6 +6910,11 @@ function getLinkWidth(d) {
 	return DEFAULT_LINK_WIDTH;
 }
 
+function getLinkWidthPx(d) {
+	const w = getLinkWidth(d);
+	return typeof w === 'number' ? `${w}px` : w;
+}
+
 function isNodeOnAnyTrace(nodeId: string) {
 	return (
 		(isTraceMode && (traceShortestIds.has(nodeId) || traceShortestConnectorIds.has(nodeId) || traceLongestIds.has(nodeId) || traceLongestConnectorIds.has(nodeId))) ||
@@ -7006,6 +7011,7 @@ function joinLayeredLinkGroup(groupSel, data, enterDuration = 0) {
 		.attr('class', 'fg-link')
 		.attr('stroke', (d) => getLinkColor(d))
 		.attr('stroke-width', (d) => getLinkWidth(d))
+		.style('--fg-link-width', (d) => getLinkWidthPx(d))
 		.attr('stroke-dasharray', (d) => getLinkDash(d));
 	if (enterDuration > 0) entered.transition().duration(enterDuration).attr('stroke-opacity', defaultLinkOpacity);
 	else entered.attr('stroke-opacity', defaultLinkOpacity);
@@ -7972,6 +7978,7 @@ function renderGraph(_data) {
 			.attr('stroke', (d) => getLinkColor(d))
 			.attr('stroke-opacity', defaultLinkOpacity)
 			.attr('stroke-width', (d) => getLinkWidth(d))
+			.style('--fg-link-width', (d) => getLinkWidthPx(d))
 			.attr('stroke-dasharray', (d) => getLinkDash(d))
 			.attr('marker-end', (d) => getLinkMarker(d));
 	}
@@ -10575,6 +10582,7 @@ function highlightLinks(highlightState = null) {
 			.attr('stroke', (d) => getLinkColor(d))
 			.attr('stroke-opacity', defaultLinkOpacity)
 			.attr('stroke-width', (d) => getLinkWidth(d))
+			.style('--fg-link-width', (d) => getLinkWidthPx(d))
 			.classed('fg-link--depth-active', false)
 			.classed('fg-link--depth-recessed', false)
 			.classed('trace-shortest', false)
@@ -10632,7 +10640,8 @@ function highlightLinks(highlightState = null) {
 					.style('stroke-opacity', null)
 					.attr('stroke', getLinkHighlightColor(d))
 					.attr('stroke-opacity', selectionLinkEmphasis.strokeOpacity)
-					.attr('stroke-width', highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale);
+					.attr('stroke-width', highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale)
+					.style('--fg-link-width', `${highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale}px`);
 			} else {
 				sel.classed('fg-link--depth-recessed', true);
 				const recessedLinkOpacity = hasInactiveEndpoint(d) ? 0.42 : 0.56;
@@ -10644,7 +10653,8 @@ function highlightLinks(highlightState = null) {
 					.style('stroke-opacity', null)
 					.attr('stroke', getLinkColor(d))
 					.attr('stroke-opacity', recessedStrokeOpacity)
-					.attr('stroke-width', recessedStrokeWidth);
+					.attr('stroke-width', recessedStrokeWidth)
+					.style('--fg-link-width', `${recessedStrokeWidth}px`);
 			}
 		} else if (isTraceMode || isTraceLogMode) {
 			// Keep non-trace links visible during trace mode, just dimmed by ~20%
@@ -10656,7 +10666,8 @@ function highlightLinks(highlightState = null) {
 				.style('stroke-opacity', null)
 				.attr('stroke', getLinkColor(d))
 				.attr('stroke-opacity', Math.max(0.18, baseStrokeOpacity * 0.8))
-				.attr('stroke-width', getLinkWidth(d));
+				.attr('stroke-width', getLinkWidth(d))
+				.style('--fg-link-width', getLinkWidthPx(d));
 		}
 	});
 
