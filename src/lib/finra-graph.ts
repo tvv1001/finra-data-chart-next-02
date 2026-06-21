@@ -574,6 +574,11 @@ function clearFetchStatus() {
 	}
 }
 
+function updateFetchStatus(msg: string) {
+	activeFetchStatusMessage = msg;
+	applyStatusPresentation(msg, { transient: true, dismissible: true, pinned: activeFetchStatusPinned });
+}
+
 function setFetchStatusPinned(pinned: boolean) {
 	activeFetchStatusPinned = pinned;
 	const pinBtn = document.getElementById('fg-subset-info-pin') as HTMLButtonElement | null;
@@ -4877,11 +4882,6 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 		subsetInfoPinBtn.addEventListener('click', () => {
 			clearFetchStatus();
 		});
-	}
-
-	function updateFetchStatus(msg) {
-		activeFetchStatusMessage = msg;
-		applyStatusPresentation(msg, { transient: true, dismissible: true, pinned: activeFetchStatusPinned });
 	}
 
 	// Keep the shared fetch appender available even if reset happens before the
