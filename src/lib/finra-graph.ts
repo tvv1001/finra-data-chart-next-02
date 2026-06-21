@@ -11170,16 +11170,7 @@ function renderSidebar(d) {
 	logToggleButtons.forEach((button) => {
 		bindSidebarToggleInteraction(button, () => (sidebarViewMode === 'log' ? 'none' : 'log'));
 	});
-	const sourceToggles = Array.from(el.querySelectorAll<HTMLButtonElement>('.fg-source-toggle-btn'));
-	sourceToggles.forEach((button) => {
-		button.addEventListener('click', (e) => {
-			const source = button.dataset.source;
-			if (source === 'finra' || source === 'sec') {
-				sidebarSourceToggle = source;
-				renderSidebar(d);
-			}
-		});
-	});
+
 	const touchGuardButtons = Array.from(
 		document.querySelectorAll<HTMLElement>('#fg-sidebar button, #fg-selection-log button, #fg-sidebar details.fg-mobile-legend-tooltip > summary, [data-fg-trace-mode-button]'),
 	);
@@ -11277,9 +11268,8 @@ function renderPersonDetail(d: any) {
 	const bi = d.basicInformation || {};
 	const hasFinraPage = hasIndividualFinraPresence(d);
 	const hasSecPage = hasIndividualSecPresence(d);
-	const hasBoth = hasFinraPage && hasSecPage;
-	const showFinra = !hasBoth || sidebarSourceToggle === 'finra';
-	const showSec = !hasBoth || sidebarSourceToggle === 'sec';
+	const showFinra = hasFinraPage;
+	const showSec = hasSecPage;
 	const showSecReferences = hasSecPage;
 	const links = (graphData?.links || []).filter((l: any) => (l.source?.id || l.source) === d.id || (l.target?.id || l.target) === d.id);
 	const controlLinks = links.filter((l) => l.relationship === 'controls');
@@ -11781,7 +11771,6 @@ function renderPersonDetail(d: any) {
 		</div>
     </div>
     <div class="fg-sb-body fg-sb-body--person">
-			${hasBoth ? renderSourceToggle() : ''}
 			<div class="fg-ext-links">
 				${showFinra && brokerCheckSummaryUrl ? `<a class="fg-ext-link bc" href="${brokerCheckSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
 				${showFinra && brokerCheckReportUrl ? `<a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>` : ''}
@@ -12215,9 +12204,8 @@ function renderFirmDetail(d: any) {
 	});
 	const hasFinraPage = hasFirmFinraPresence(d);
 	const hasSecPage = hasFirmSecPresence(d);
-	const hasBoth = hasFinraPage && hasSecPage;
-	const showFinra = !hasBoth || sidebarSourceToggle === 'finra';
-	const showSec = !hasBoth || sidebarSourceToggle === 'sec';
+	const showFinra = hasFinraPage;
+	const showSec = hasSecPage;
 
 	function parseFirmSortDateValue(value: any) {
 		const raw = String(value || '').trim();
@@ -12372,7 +12360,6 @@ function renderFirmDetail(d: any) {
 			</div>
     </div>
     <div class="fg-sb-body">
-			${hasBoth ? renderSourceToggle() : ''}
 			<div class="fg-firm-summary">
 				<div class="fg-firm-summary__header">
 					${d.otherNames?.length ? `<div class="fg-firm-summary__aliases">${esc(d.otherNames.join(', '))}</div>` : ''}
