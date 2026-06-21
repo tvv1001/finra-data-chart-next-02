@@ -18,7 +18,19 @@ vi.mock('@/lib/localSearch', () => ({
 		pageNumber: 1,
 		pageSize: 0,
 	})),
+	searchLocalIndexMany: vi.fn(async () => ({
+		bucket: 'finra:individual',
+		generatedAt: null,
+		total: 0,
+		hits: { total: 0, start: 0, hits: [] },
+		response: { numFound: 0, start: 0, docs: [] },
+		results: [],
+		currentPage: [],
+		pageNumber: 1,
+		pageSize: 0,
+	})),
 	cleanSearchQuery: vi.fn((q) => q),
+	extractSearchQueries: vi.fn((q) => [q]),
 }));
 
 vi.mock('@/lib/individualDetail', () => ({
@@ -37,7 +49,7 @@ vi.mock('@upstash/redis', () => ({
 }));
 
 import { getFullGraph } from '@/lib/graphStore';
-import { searchLocalIndex } from '@/lib/localSearch';
+import { searchLocalIndex, searchLocalIndexMany } from '@/lib/localSearch';
 import { GET } from '@/app/api/finra/graph-search/route';
 
 describe('graph-search route', () => {
@@ -46,6 +58,7 @@ describe('graph-search route', () => {
 	beforeEach(() => {
 		global.fetch = originalFetch;
 		vi.mocked(searchLocalIndex).mockClear();
+		vi.mocked(searchLocalIndexMany).mockClear();
 		vi.mocked(getFullGraph).mockResolvedValue({
 			nodes: [
 				{
@@ -96,8 +109,8 @@ describe('graph-search route', () => {
 		vi.mocked(getFullGraph).mockResolvedValueOnce({ nodes: [], links: [] });
 		await GET(new NextRequest('http://localhost/api/finra/graph-search?q=abc123&limit=999&start=200'));
 
-		expect(vi.mocked(searchLocalIndex)).toHaveBeenCalled();
-		for (const call of vi.mocked(searchLocalIndex).mock.calls) {
+		expect(vi.mocked(searchLocalIndexMany)).toHaveBeenCalled();
+		for (const call of vi.mocked(searchLocalIndexMany).mock.calls) {
 			expect(call[3]).toMatchObject({ limit: 200, offset: 200 });
 		}
 	});

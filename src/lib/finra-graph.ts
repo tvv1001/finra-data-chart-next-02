@@ -12346,12 +12346,49 @@ export function collectFirmConnectionEntries({
 function renderFirmDetail(d: any) {
 	const owners = d.directOwners || [];
 	const disclosures = d.disclosures || [];
+	const ownerCrdSet = new Set(
+		owners
+			.map((o: any) => String(o?.crdNumber || o?.crd || o?.personId || '').trim())
+			.filter(Boolean)
+	);
+	const ownerNameSet = new Set(
+		owners
+			.map((o: any) => String(o?.legalName || o?.name || '').trim().toLowerCase())
+			.filter(Boolean)
+	);
+
 	const connections = collectFirmConnectionEntries({
 		firmNode: d,
 		layoutNodes,
 		graphNodes: graphData?.nodes || [],
 		layoutLinks,
 		graphLinks: graphData?.links || [],
+	}).filter((conn) => {
+		// Filter out individuals (employees and individual control positions)
+		if (conn.group === 'individual') return false;
+
+		// Filter out control relationships
+		const hasControl = conn.relationshipLabels.some(
+			(r) => r.toLowerCase().includes('control')
+		);
+		if (hasControl) return false;
+
+		// Filter out registration/employment relationships
+		const hasEmployment = conn.relationshipLabels.some(
+			(r) =>
+				r.toLowerCase().includes('registration') ||
+				r.toLowerCase().includes('employed')
+		);
+		if (hasEmployment) return false;
+
+		// Filter out by CRD or name match in Form BD owners list
+		const connCrd = String(conn.crd || conn.id || '').replace(/^(?:person|firm|entity)[:_]/, '').trim();
+		if (connCrd && ownerCrdSet.has(connCrd)) return false;
+
+		const connName = String(conn.label || '').trim().toLowerCase();
+		if (connName && ownerNameSet.has(connName)) return false;
+
+		return true;
 	});
 	const hasFinraPage = hasFirmFinraPresence(d);
 	const hasSecPage = hasFirmSecPresence(d);
