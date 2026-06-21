@@ -340,7 +340,6 @@ html[data-theme='light'] .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-n
 }
 .fg-card-clickable:focus-visible {
 	outline: 3px solid rgba(37, 99, 235, 0.18);
-	outline-offset: 2px;
 	background: var(--surface-hover);
 }
 .fg-card-clickable .fg-tl-dates,
@@ -498,7 +497,6 @@ html[data-theme='dark'] .fg-sb-header.individual .fg-sb-title {
 html[data-theme='dark'] .fg-tl-entry.fg-card-clickable {
 	outline-color: rgb(148 184 152 / 49%);
 	background: rgba(7, 48, 70, 0.32);
-	outline-offset: -2px;
 }
 html[data-theme='dark'] .fg-tl-entry.fg-card-clickable:hover {
 	outline-color: rgba(148, 184, 152, 0.8);
