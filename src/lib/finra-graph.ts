@@ -6906,7 +6906,7 @@ function getLinkDash(d) {
 }
 
 function getLinkWidth(d) {
-	if (hasInactiveEndpoint(d) || isPreviousEmploymentLink(d)) return '0.42px';
+	if (hasInactiveEndpoint(d) || isPreviousEmploymentLink(d)) return '0.25px';
 	return DEFAULT_LINK_WIDTH;
 }
 
@@ -10613,6 +10613,8 @@ function highlightLinks(highlightState = null) {
 			.classed('trace-combined', isTraceShortest && isTraceLongest)
 			.classed('trace-log', isTraceLog);
 
+		const isGrayLine = hasInactiveEndpoint(d) || isPreviousEmploymentLink(d);
+
 		if (isTraceShortest || isTraceLongest || isTraceLog) {
 			sel.style('filter', null).style('opacity', null).style('stroke-opacity', null).attr('stroke-opacity', 1);
 			// CSS classes handle the stroke and width
@@ -10623,9 +10625,9 @@ function highlightLinks(highlightState = null) {
 			if (connected) {
 				sel.classed('fg-link--depth-active', true);
 				const highlightedStrokeWidth =
-					hasInactiveEndpoint(d) ?
-						connectedToRoot ? 0.95
-						:	0.78
+					isGrayLine ?
+						connectedToRoot ? 0.57
+						:	0.47
 					: d.relationship === 'controls' ?
 						connectedToRoot ? 1.9
 						:	1.55
@@ -10644,9 +10646,9 @@ function highlightLinks(highlightState = null) {
 					.style('--fg-link-width', `${highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale}px`);
 			} else {
 				sel.classed('fg-link--depth-recessed', true);
-				const recessedLinkOpacity = hasInactiveEndpoint(d) ? 0.42 : 0.56;
-				const recessedStrokeOpacity = hasInactiveEndpoint(d) ? 0.32 : 0.46;
-				const recessedStrokeWidth = hasInactiveEndpoint(d) ? 0.68 : 0.82;
+				const recessedLinkOpacity = isGrayLine ? 0.42 : 0.56;
+				const recessedStrokeOpacity = isGrayLine ? 0.32 : 0.46;
+				const recessedStrokeWidth = isGrayLine ? 0.41 : 0.82;
 				sel
 					.style('filter', null)
 					.style('opacity', recessedLinkOpacity)
