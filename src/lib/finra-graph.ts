@@ -2490,12 +2490,161 @@ function removeSelectionLogEntry(entryId: string) {
 	if (!selectedNodesLog.length) {
 		isSelectionLogEditMode = false;
 	}
+
+	if (isSelectionLogEditMode && graphData) {
+		// 1. Find all nodes reachable from normalizedEntryId (A)
+		const reachableFromA = new Set<string>([normalizedEntryId]);
+		const aQueue = [normalizedEntryId];
+		while (aQueue.length > 0) {
+			const curr = aQueue.shift()!;
+			for (const l of graphData.links) {
+				const s = String(l.source?.id ?? l.source).trim();
+				const t = String(l.target?.id ?? l.target).trim();
+				if (s === curr && !reachableFromA.has(t)) {
+					reachableFromA.add(t);
+					aQueue.push(t);
+				} else if (t === curr && !reachableFromA.has(s)) {
+					reachableFromA.add(s);
+					aQueue.push(s);
+				}
+			}
+		}
+
+		// 2. Find keep-roots: clicked-on nodes (excluding A) and nodes not reachable from A at all
+		const clickedNodes = Array.from(visitedNodeIds)
+			.map(id => String(id).trim())
+			.filter(id => id !== normalizedEntryId);
+
+		const visited = new Set<string>(clickedNodes);
+		const queue = [...clickedNodes];
+
+		for (const n of graphData.nodes) {
+			const nid = String(n.id).trim();
+			if (!reachableFromA.has(nid) && !visited.has(nid)) {
+				visited.add(nid);
+				queue.push(nid);
+			}
+		}
+
+		// 3. Traverse from keep-roots along all links (excluding those connected to normalizedEntryId) to identify all protected nodes
+		while (queue.length > 0) {
+			const curr = queue.shift()!;
+			for (const l of graphData.links) {
+				const s = String(l.source?.id ?? l.source).trim();
+				const t = String(l.target?.id ?? l.target).trim();
+				if (s === curr && t !== normalizedEntryId && !visited.has(t)) {
+					visited.add(t);
+					queue.push(t);
+				} else if (t === curr && s !== normalizedEntryId && !visited.has(s)) {
+					visited.add(s);
+					queue.push(s);
+				}
+			}
+		}
+
+		// 'visited' set now contains all nodes that should be KEPT.
+		// The nodes to REMOVE are everything else (which includes normalizedEntryId).
+		const removedNodeIds = new Set<string>();
+		for (const n of graphData.nodes) {
+			const nid = String(n.id).trim();
+			if (!visited.has(nid)) {
+				removedNodeIds.add(nid);
+			}
+		}
+
+		// Remove the nodes from graphData.nodes
+		graphData.nodes = graphData.nodes.filter((n) => !removedNodeIds.has(String(n.id).trim()));
+
+		// Remove links connecting to any removed node
+		graphData.links = graphData.links.filter((l) => {
+			const s = String(l.source?.id ?? l.source).trim();
+			const t = String(l.target?.id ?? l.target).trim();
+			return !removedNodeIds.has(s) && !removedNodeIds.has(t);
+		});
+
+		// Clean up selected/highlighted/visited sets for all removed nodes
+		for (const removedId of removedNodeIds) {
+			if (selectedId && String(selectedId).trim() === removedId) {
+				selectedId = null;
+				sidebarSelectedNode = null;
+				sidebarViewMode = 'none';
+				showSidebarHint();
+				emitSelectedNodeRoute(null, { replace: true });
+			}
+			highlightedSelections = highlightedSelections.filter((sel) => String(sel.id).trim() !== removedId);
+			visitedNodeIds.delete(removedId);
+
+			if (initialServerNodeIds instanceof Set) {
+				initialServerNodeIds.delete(removedId);
+			}
+			if (initialServerLinkKeys instanceof Set) {
+				for (const key of Array.from(initialServerLinkKeys)) {
+					if (key.startsWith(`${removedId}|`) || key.endsWith(`|${removedId}`)) {
+						initialServerLinkKeys.delete(key);
+					}
+				}
+			}
+		}
+
+		renderGraph(graphData);
+		updateMeta();
+		saveSession();
+	}
+
 	saveSelectionLog();
 	updateSelectionLogUI();
 	syncSelectionLogActionButtonStates();
 	refreshTraceState();
 	syncTraceLabelPresentation();
 	syncSelectionLogAuxiliaryRenderers();
+}
+
+async function ensureNodeFetchedAndOnScreen(entry: SelectionLogEntry) {
+	const entryId = entry.id;
+	const isOnScreen = Array.isArray(layoutNodes) && layoutNodes.some((n) => String(n.id).trim() === String(entryId).trim());
+	if (isOnScreen) {
+		const liveNode = layoutNodes.find((n) => String(n.id).trim() === String(entryId).trim());
+		if (liveNode) {
+			selectNode(liveNode, { focus: true, pulse: true });
+		}
+		return;
+	}
+
+	if (graphData && Array.isArray(graphData.nodes)) {
+		const nodeInGraph = graphData.nodes.find((n) => String(n.id).trim() === String(entryId).trim());
+		if (nodeInGraph) {
+			injectNodesById([entryId]);
+			const liveNode = layoutNodes.find((n) => String(n.id).trim() === String(entryId).trim());
+			if (liveNode) {
+				selectNode(liveNode, { focus: true, pulse: true });
+			}
+			return;
+		}
+	}
+
+	const crd = entryId.split(':').pop() || '';
+	if (!crd) return;
+
+	updateFetchStatus(`Fetching CRD ${crd} into graph...`);
+	try {
+		const success = await fetchAndInjectLocalQuery(crd);
+		if (success && graphData && Array.isArray(graphData.nodes)) {
+			const nodeInGraph = graphData.nodes.find((n) => String(n.id).trim() === String(entryId).trim());
+			if (nodeInGraph) {
+				injectNodesById([entryId]);
+				const liveNode = layoutNodes.find((n) => String(n.id).trim() === String(entryId).trim());
+				if (liveNode) {
+					selectNode(liveNode, { focus: true, pulse: true });
+					clearFetchStatus();
+					return;
+				}
+			}
+		}
+		updateFetchStatus(`CRD ${crd} could not be found.`);
+	} catch (err) {
+		console.error(`Failed to fetch node for ${entryId}:`, err);
+		updateFetchStatus(`Failed to fetch CRD ${crd}.`);
+	}
 }
 
 function updateSelectionLogUI() {
@@ -2537,6 +2686,7 @@ function updateSelectionLogUI() {
 				if (!isSelectionLogEditMode) {
 					div.querySelector('.fg-log-text')?.addEventListener('click', () => {
 						copyToClipboard(text, div);
+						ensureNodeFetchedAndOnScreen(entry);
 					});
 				}
 				div.querySelector('.fg-log-item-action-btn')?.addEventListener('click', () => {
@@ -2545,6 +2695,7 @@ function updateSelectionLogUI() {
 						return;
 					}
 					copyToClipboard(text, div);
+					ensureNodeFetchedAndOnScreen(entry);
 				});
 				container.appendChild(div);
 			});
