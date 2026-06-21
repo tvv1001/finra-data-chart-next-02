@@ -12357,13 +12357,15 @@ function renderFirmDetail(d: any) {
 			.filter(Boolean)
 	);
 
-	const connections = collectFirmConnectionEntries({
+	const rawConnections = collectFirmConnectionEntries({
 		firmNode: d,
 		layoutNodes,
 		graphNodes: graphData?.nodes || [],
 		layoutLinks,
 		graphLinks: graphData?.links || [],
-	}).filter((conn) => {
+	});
+
+	const connections = rawConnections.filter((conn) => {
 		// Filter out individuals (employees and individual control positions)
 		if (conn.group === 'individual') return false;
 
@@ -12389,6 +12391,22 @@ function renderFirmDetail(d: any) {
 		if (connName && ownerNameSet.has(connName)) return false;
 
 		return true;
+	});
+
+	const previousConnections = rawConnections.filter((conn) => {
+		if (conn.group !== 'individual') return false;
+		return (
+			conn.sortOrder === 2 ||
+			conn.sortOrder === 3 ||
+			conn.relationshipLabels.some(
+				(r) => r.includes('Previous') || r.includes('Former')
+			)
+		);
+	});
+
+	const currentConnections = rawConnections.filter((conn) => {
+		if (conn.group !== 'individual') return false;
+		return !previousConnections.includes(conn);
 	});
 	const hasFinraPage = hasFirmFinraPresence(d);
 	const hasSecPage = hasFirmSecPresence(d);
@@ -12612,8 +12630,7 @@ function renderFirmDetail(d: any) {
 								const metaBits = [connection.relationshipLabels.join(', '), ...connection.positions, ...connection.dateTexts].filter(Boolean);
 								const metaHtml = metaBits.length ? `<span class="fg-tl-loc">${esc(metaBits.join(' · '))}</span>` : '';
 								const displaySecondary =
-									connection.group === 'individual' && connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>`
-									: connection.group === 'firm' ?
+									connection.group === 'firm' ?
 										(() => {
 											const connectedFirmId = String(connection.id || '')
 												.replace(/^(?:firm[:_])?/, '')
@@ -12622,6 +12639,36 @@ function renderFirmDetail(d: any) {
 										})()
 									:	'';
 								return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}"><span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>${metaHtml}</button>`;
+							})
+							.join('')}
+					</div>`
+				:	''
+			}
+			${
+				currentConnections.length ?
+					`<div class="fg-section-title fg-section-title--sticky">Current Connections (${currentConnections.length})</div>
+					<div class="fg-timeline">
+						${currentConnections
+							.map((connection) => {
+								const metaBits = [connection.relationshipLabels.join(', '), ...connection.positions, ...connection.dateTexts].filter(Boolean);
+								const metaHtml = metaBits.length ? `<span class="fg-tl-loc">${esc(metaBits.join(' · '))}</span>` : '';
+								const displaySecondary = connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>` : '';
+								return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}"><span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>${metaHtml}</button>`;
+							})
+							.join('')}
+					</div>`
+				:	''
+			}
+			${
+				previousConnections.length ?
+					`<div class="fg-section-title fg-section-title--sticky">Previous Connections (${previousConnections.length})</div>
+					<div class="fg-timeline fg-timeline--previous">
+						${previousConnections
+							.map((connection) => {
+								const metaBits = [connection.relationshipLabels.join(', '), ...connection.positions, ...connection.dateTexts].filter(Boolean);
+								const metaHtml = metaBits.length ? `<span class="fg-tl-loc">${esc(metaBits.join(' · '))}</span>` : '';
+								const displaySecondary = connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>` : '';
+								return `<button type="button" class="fg-tl-entry fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}"><span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>${metaHtml}</button>`;
 							})
 							.join('')}
 					</div>`
