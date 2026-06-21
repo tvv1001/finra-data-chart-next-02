@@ -370,9 +370,14 @@ html[data-theme='light'] .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-n
 
 .fg-owner-row:hover,
 .fg-crd-link:hover,
-.fg-card-clickable:hover {
+.fg-card-clickable:hover,
+.fg-owner-row:focus-visible,
+.fg-crd-link:focus-visible,
+.fg-card-clickable:focus-visible,
+.fg-owner-row:active,
+.fg-crd-link:active,
+.fg-card-clickable:active {
 	outline: 2px solid rgba(37, 99, 235, 0.18);
-	outline-offset: -2px;
 }
 
 html[data-theme='dark'] .fg-sidebar {
@@ -493,6 +498,7 @@ html[data-theme='dark'] .fg-sb-header.individual .fg-sb-title {
 html[data-theme='dark'] .fg-tl-entry.fg-card-clickable {
 	outline-color: rgb(148 184 152 / 49%);
 	background: rgba(7, 48, 70, 0.32);
+	outline-offset: -2px;
 }
 html[data-theme='dark'] .fg-tl-entry.fg-card-clickable:hover {
 	outline-color: rgba(148, 184, 152, 0.8);

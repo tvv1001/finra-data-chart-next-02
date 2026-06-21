@@ -6812,7 +6812,11 @@ function hasInactiveEndpoint(link) {
 
 function isPreviousEmploymentLink(link) {
 	if (!link) return false;
-	return link.relationship === 'previous_employed_by' || (link.relationship === 'employed_by' && link.isCurrent === false);
+	if (link.relationship === 'previous_employed_by') return true;
+	if (link.relationship === 'employed_by') {
+		return !isCurrentRegistration(link);
+	}
+	return false;
 }
 
 function isControlRelationship(link) {
