@@ -31,6 +31,11 @@ describe('local search indexes', () => {
 		expect(cleanSearchQuery('Alice Example :: CRD# 12345\nBob Example :: CRD# 67890')).toBe('12345');
 	});
 
+	it('extracts numeric CRDs separated by spaces or newlines', () => {
+		expect(extractSearchQueries('4098470 6805343 6149705')).toEqual(['4098470', '6805343', '6149705']);
+		expect(extractSearchQueries('4098470\n6805343\n6149705')).toEqual(['4098470', '6805343', '6149705']);
+	});
+
 	it('extracts CRDs from mixed pasted content with names and punctuation', () => {
 		expect(extractSearchQueries('Brett Godwin :: CRD# 8100932\nAndrew Karp :: CRD# 7647370\nA note with SEC# 44319 and other text')).toEqual(['8100932', '7647370']);
 	});

@@ -1168,6 +1168,12 @@ export function extractSearchQueries(query: string): string[] {
 	const trimmed = query.trim();
 	if (!trimmed) return [];
 
+	// If the query is a whitespace-separated list of numeric CRDs, treat them as separate fetches
+	const tokens = trimmed.split(/\s+/);
+	if (tokens.length > 0 && tokens.every((t) => /^\d{1,10}$/.test(t))) {
+		return tokens;
+	}
+
 	const candidates: string[] = [];
 	const lines = trimmed
 		.split(/\r?\n/)
