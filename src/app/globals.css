@@ -498,12 +498,16 @@ html[data-theme='dark'] .fg-tl-entry.fg-card-clickable {
 	outline-color: rgb(148 184 152 / 49%);
 	background: rgba(7, 48, 70, 0.32);
 }
-html[data-theme='dark'] .fg-tl-entry.fg-card-clickable:hover {
+html[data-theme='dark'] .fg-tl-entry.fg-card-clickable:hover,
+html[data-theme='dark'] .fg-tl-entry.fg-card-clickable:focus-visible,
+html[data-theme='dark'] .fg-tl-entry.fg-card-clickable:active {
 	outline-color: rgba(148, 184, 152, 0.8);
 	background: rgba(7, 48, 70, 0.32);
 	opacity: 1;
 }
-html[data-theme='dark'] .fg-log-entry.fg-card-clickable:hover {
+html[data-theme='dark'] .fg-log-entry.fg-card-clickable:hover,
+html[data-theme='dark'] .fg-log-entry.fg-card-clickable:focus-visible,
+html[data-theme='dark'] .fg-log-entry.fg-card-clickable:active {
 	background: rgba(18, 49, 125, 0.898);
 	border-top-color: rgba(81, 94, 113, 0.898);
 	border-right-color: rgba(81, 94, 113, 0.898);
