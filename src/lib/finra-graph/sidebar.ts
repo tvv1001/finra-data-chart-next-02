@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { capitalize, esc, firmSizeLabel, formatLocationText, formatUiText, normalizePersonLabel, row } from './formatters';
+import { buildParentFirmSummaryLinks } from './externalLinks';
 
 type RenderContext = {
 	graphData?: any;
@@ -605,6 +606,7 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 	const brokerCheckSummaryUrl = crd && hasFinraPage ? `https://brokercheck.finra.org/individual/summary/${encodeURIComponent(crd)}` : null;
 	const brokerCheckReportUrl = crd && hasFinraPage ? `https://files.brokercheck.finra.org/individual/individual_${encodeURIComponent(crd)}.pdf` : null;
 	const secSummaryUrl = crd && hasSecPage ? `https://adviserinfo.sec.gov/individual/summary/${encodeURIComponent(crd)}` : null;
+	const parentFirmSummaryLinks = buildParentFirmSummaryLinks(d, currentEmploymentEntries);
 
 	return `
     <div class='fg-sb-header individual'>
@@ -620,6 +622,7 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
         ${brokerCheckSummaryUrl ? `<a class='fg-ext-link bc' href='${brokerCheckSummaryUrl}' target='_blank' rel='noopener noreferrer'>&#x2197; FINRA Summary</a>` : ''}
         ${brokerCheckReportUrl ? `<a class='fg-ext-link bc' href='${brokerCheckReportUrl}' target='_blank' rel='noopener noreferrer'>&#x2197; FINRA Detailed Report (PDF)</a>` : ''}
         ${secSummaryUrl ? `<a class='fg-ext-link sec' href='${secSummaryUrl}' target='_blank' rel='noopener noreferrer'>&#x2197; SEC AdvisorInfo Summary</a>` : ''}
+        ${parentFirmSummaryLinks.map((link) => `<a class='fg-ext-link ${link.className}' href='${esc(link.href)}' target='_blank' rel='noopener noreferrer'>&#x2197; ${esc(link.label)}</a>`).join('')}
       </div>
 
       ${bi.individualId ? row('CRD', `<code>${bi.individualId}</code>`) : ''}

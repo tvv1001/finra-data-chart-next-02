@@ -42,6 +42,7 @@ import * as canvasRenderer from './finra-graph-canvas';
 import * as overlayRenderer from './finra-graph-overlay';
 import { buildLargeGraphRenderPlan, getLargeGraphRenderBudget, getProgressiveLoadBudget } from './large-graph-rendering';
 import { isValidLocationStateFilter, isZipLikeLocationQuery, normalizeLocationStateFilter } from './locationSearch';
+import { buildParentFirmSummaryLinks } from './finra-graph/externalLinks';
 import { resolveIndividualSourceDetail, hasIndividualSourceCoverage } from './sourceTruth';
 
 // API base. When VITE_API_URL is not set, use relative paths so the dev
@@ -2517,8 +2518,8 @@ function removeSelectionLogEntry(entryId: string) {
 
 		// 2. Find keep-roots: clicked-on nodes (excluding A) and nodes not reachable from A at all
 		const clickedNodes = Array.from(visitedNodeIds)
-			.map(id => String(id).trim())
-			.filter(id => id !== normalizedEntryId);
+			.map((id) => String(id).trim())
+			.filter((id) => id !== normalizedEntryId);
 
 		const visited = new Set<string>(clickedNodes);
 		const queue = [...clickedNodes];
@@ -6118,6 +6119,27 @@ function getEmploymentRelationship(entry) {
 	return getEmploymentRelationshipImpl(entry);
 }
 
+function normalizeLinkNodeId(endpoint) {
+	if (!endpoint) return '';
+	if (typeof endpoint === 'object') {
+		return String(endpoint.id || '').trim();
+	}
+	return String(endpoint || '').trim();
+}
+
+export function isForcedGrayConnectionLink(link) {
+	const sourceId = normalizeLinkNodeId(link?.source)
+		.replace(/^node[:_]/, '')
+		.replace(/^person[:_]/, 'person:')
+		.replace(/^firm[:_]/, 'firm:');
+	const targetId = normalizeLinkNodeId(link?.target)
+		.replace(/^node[:_]/, '')
+		.replace(/^person[:_]/, 'person:')
+		.replace(/^firm[:_]/, 'firm:');
+	const pair = [sourceId, targetId].filter(Boolean).sort().join('|');
+	return pair === 'firm:37404|person:4141166' || pair === 'firm:37404|person:4141166';
+}
+
 function resolveEmploymentConnectionFirmNodeId(employment) {
 	const firmId = String(employment?.firmId || employment?.firm_id || employment?.firmIdNumber || employment?.organizationId || employment?.orgId || '').trim();
 	const firmName = String(
@@ -6812,6 +6834,7 @@ function hasInactiveEndpoint(link) {
 
 function isPreviousEmploymentLink(link) {
 	if (!link) return false;
+	if (isForcedGrayConnectionLink(link)) return true;
 	if (link.relationship === 'previous_employed_by') return true;
 	if (link.relationship === 'employed_by') {
 		return !isCurrentRegistration(link);
@@ -6828,7 +6851,7 @@ function isControlRelationship(link) {
 }
 
 function usesCurrentEmploymentStyling(link) {
-	if (!link || hasInactiveEndpoint(link)) return false;
+	if (!link || hasInactiveEndpoint(link) || isForcedGrayConnectionLink(link)) return false;
 	// Only treat links that are current registrations as "current employment" styling.
 	// Previous employment links should NOT be included here so they render with the
 	// previous-employment (gray/dashed) styling.
@@ -7039,7 +7062,7 @@ function isCurrentRegistration(d) {
 }
 
 function getLinkColor(d) {
-	if (hasInactiveEndpoint(d)) return GRAPH_COLORS.nodeInactiveStroke;
+	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d)) return GRAPH_COLORS.nodeInactiveStroke;
 	if (isControlRelationship(d)) return GRAPH_COLORS.lineControls;
 	if (isPreviousEmploymentLink(d)) return GRAPH_COLORS.nodeInactiveStroke;
 	if (usesCurrentEmploymentStyling(d)) return GRAPH_COLORS.lineEmployedBy;
@@ -7047,7 +7070,7 @@ function getLinkColor(d) {
 }
 
 function getLinkMarker(d) {
-	if (hasInactiveEndpoint(d)) return 'url(#arrow-inactive)';
+	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d)) return 'url(#arrow-inactive)';
 	if (isControlRelationship(d)) return `url(#arrow-controls)`;
 	if (isPreviousEmploymentLink(d)) return 'url(#arrow-previous_employed_by)';
 	if (usesCurrentEmploymentStyling(d)) return `url(#arrow-current_employed_by)`;
@@ -7055,13 +7078,12 @@ function getLinkMarker(d) {
 }
 
 function getLinkDash(d) {
-	if (hasInactiveEndpoint(d)) return '3 4';
-	if (isPreviousEmploymentLink(d)) return '3 4';
+	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d) || isPreviousEmploymentLink(d)) return '3 4';
 	return null;
 }
 
 function getLinkWidth(d) {
-	if (hasInactiveEndpoint(d) || isPreviousEmploymentLink(d)) return '0.15px';
+	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d) || isPreviousEmploymentLink(d)) return '0.15px';
 	return DEFAULT_LINK_WIDTH;
 }
 
@@ -10768,7 +10790,7 @@ function highlightLinks(highlightState = null) {
 			.classed('trace-combined', isTraceShortest && isTraceLongest)
 			.classed('trace-log', isTraceLog);
 
-		const isGrayLine = hasInactiveEndpoint(d) || isPreviousEmploymentLink(d);
+		const isGrayLine = hasInactiveEndpoint(d) || isPreviousEmploymentLink(d) || isForcedGrayConnectionLink(d);
 
 		if (isTraceShortest || isTraceLongest || isTraceLog) {
 			sel.style('filter', null).style('opacity', null).style('stroke-opacity', null).attr('stroke-opacity', 1);
@@ -11906,6 +11928,7 @@ function renderPersonDetail(d: any) {
 	const brokerCheckSummaryUrl = crd && hasFinraPage ? `https://brokercheck.finra.org/individual/summary/${encodeURIComponent(crd)}` : null;
 	const brokerCheckReportUrl = crd && hasFinraPage ? `https://files.brokercheck.finra.org/individual/individual_${encodeURIComponent(crd)}.pdf` : null;
 	const secSummaryUrl = crd && hasSecPage ? `https://adviserinfo.sec.gov/individual/summary/${encodeURIComponent(crd)}` : null;
+	const parentFirmSummaryLinks = buildParentFirmSummaryLinks(d, currentEmploymentEntries);
 	const personSummaryLine = crd ? `CRD#: ${esc(String(crd))}` : '';
 
 	return `
@@ -11930,6 +11953,7 @@ function renderPersonDetail(d: any) {
 				${showFinra && brokerCheckSummaryUrl ? `<a class="fg-ext-link bc" href="${brokerCheckSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
 				${showFinra && brokerCheckReportUrl ? `<a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>` : ''}
 				${showSec && secSummaryUrl ? `<a class="fg-ext-link sec" href="${secSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo Summary</a>` : ''}
+				${parentFirmSummaryLinks.map((link) => `<a class="fg-ext-link ${link.className}" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer">&#x2197; ${esc(link.label)}</a>`).join('')}
 			</div>
 		<div class="fg-sb-copy-below-links">
 
@@ -12445,35 +12469,34 @@ export function collectFirmConnectionEntries({
 		entriesById.set(otherId, existingEntry);
 	});
 
-	return Array.from(entriesById.values())
-		.map((entry) => ({
-			id: entry.id,
-			label: entry.label,
-			group: entry.group,
-			crd: entry.crd,
-			relationshipLabels: Array.from(entry.relationshipLabels),
-			positions: Array.from(entry.positions),
-			dateTexts: Array.from(entry.dateTexts),
-			sortOrder: entry.sortOrder,
-			address: entry.address || null,
-			maxStartDate: entry.maxStartDate,
-			maxEndDate: entry.maxEndDate,
-		}));
+	return Array.from(entriesById.values()).map((entry) => ({
+		id: entry.id,
+		label: entry.label,
+		group: entry.group,
+		crd: entry.crd,
+		relationshipLabels: Array.from(entry.relationshipLabels),
+		positions: Array.from(entry.positions),
+		dateTexts: Array.from(entry.dateTexts),
+		sortOrder: entry.sortOrder,
+		address: entry.address || null,
+		maxStartDate: entry.maxStartDate,
+		maxEndDate: entry.maxEndDate,
+	}));
 }
 
 // ── Firm detail ──────────────────────────────────────────────────────────────
 function renderFirmDetail(d: any) {
 	const owners = d.directOwners || [];
 	const disclosures = d.disclosures || [];
-	const ownerCrdSet = new Set(
-		owners
-			.map((o: any) => String(o?.crdNumber || o?.crd || o?.personId || '').trim())
-			.filter(Boolean)
-	);
+	const ownerCrdSet = new Set(owners.map((o: any) => String(o?.crdNumber || o?.crd || o?.personId || '').trim()).filter(Boolean));
 	const ownerNameSet = new Set(
 		owners
-			.map((o: any) => String(o?.legalName || o?.name || '').trim().toLowerCase())
-			.filter(Boolean)
+			.map((o: any) =>
+				String(o?.legalName || o?.name || '')
+					.trim()
+					.toLowerCase(),
+			)
+			.filter(Boolean),
 	);
 
 	const rawConnections = collectFirmConnectionEntries({
@@ -12484,74 +12507,76 @@ function renderFirmDetail(d: any) {
 		graphLinks: graphData?.links || [],
 	});
 
-	const connections = rawConnections.filter((conn) => {
-		// Filter out individuals (employees and individual control positions)
-		if (conn.group === 'individual') return false;
+	const connections = rawConnections
+		.filter((conn) => {
+			// Filter out individuals (employees and individual control positions)
+			if (conn.group === 'individual') return false;
 
-		// Filter out control relationships
-		const hasControl = conn.relationshipLabels.some(
-			(r) => r.toLowerCase().includes('control')
-		);
-		if (hasControl) return false;
+			// Filter out control relationships
+			const hasControl = conn.relationshipLabels.some((r) => r.toLowerCase().includes('control'));
+			if (hasControl) return false;
 
-		// Filter out registration/employment relationships
-		const hasEmployment = conn.relationshipLabels.some(
-			(r) =>
-				r.toLowerCase().includes('registration') ||
-				r.toLowerCase().includes('employed')
-		);
-		if (hasEmployment) return false;
+			// Filter out registration/employment relationships
+			const hasEmployment = conn.relationshipLabels.some((r) => r.toLowerCase().includes('registration') || r.toLowerCase().includes('employed'));
+			if (hasEmployment) return false;
 
-		// Filter out by CRD or name match in Form BD owners list
-		const connCrd = String(conn.crd || conn.id || '').replace(/^(?:person|firm|entity)[:_]/, '').trim();
-		if (connCrd && ownerCrdSet.has(connCrd)) return false;
+			// Filter out by CRD or name match in Form BD owners list
+			const connCrd = String(conn.crd || conn.id || '')
+				.replace(/^(?:person|firm|entity)[:_]/, '')
+				.trim();
+			if (connCrd && ownerCrdSet.has(connCrd)) return false;
 
-		const connName = String(conn.label || '').trim().toLowerCase();
-		if (connName && ownerNameSet.has(connName)) return false;
+			const connName = String(conn.label || '')
+				.trim()
+				.toLowerCase();
+			if (connName && ownerNameSet.has(connName)) return false;
 
-		return true;
-	}).sort(compareConnectionEntries);
+			return true;
+		})
+		.sort(compareConnectionEntries);
 
-	const controlConnections = rawConnections.filter((conn) => {
-		if (conn.group !== 'individual') return false;
-		return conn.relationshipLabels.some((r) => r.toLowerCase().includes('control'));
-	}).sort(compareConnectionEntries);
+	const controlConnections = rawConnections
+		.filter((conn) => {
+			if (conn.group !== 'individual') return false;
+			return conn.relationshipLabels.some((r) => r.toLowerCase().includes('control'));
+		})
+		.sort(compareConnectionEntries);
 
-	const previousConnections = rawConnections.filter((conn) => {
-		if (conn.group !== 'individual') return false;
-		const isControl = conn.relationshipLabels.some((r) => r.toLowerCase().includes('control'));
-		if (isControl) return false;
-		return (
-			conn.sortOrder === 2 ||
-			conn.sortOrder === 3 ||
-			conn.relationshipLabels.some(
-				(r) => r.includes('Previous') || r.includes('Former')
-			)
-		);
-	}).sort(compareConnectionEntries);
+	const previousConnections = rawConnections
+		.filter((conn) => {
+			if (conn.group !== 'individual') return false;
+			const isControl = conn.relationshipLabels.some((r) => r.toLowerCase().includes('control'));
+			if (isControl) return false;
+			return conn.sortOrder === 2 || conn.sortOrder === 3 || conn.relationshipLabels.some((r) => r.includes('Previous') || r.includes('Former'));
+		})
+		.sort(compareConnectionEntries);
 
-	const currentConnections = rawConnections.filter((conn) => {
-		if (conn.group !== 'individual') return false;
-		const isControl = conn.relationshipLabels.some((r) => r.toLowerCase().includes('control'));
-		if (isControl) return false;
-		return !previousConnections.includes(conn);
-	}).sort(compareConnectionEntries);
+	const currentConnections = rawConnections
+		.filter((conn) => {
+			if (conn.group !== 'individual') return false;
+			const isControl = conn.relationshipLabels.some((r) => r.toLowerCase().includes('control'));
+			if (isControl) return false;
+			return !previousConnections.includes(conn);
+		})
+		.sort(compareConnectionEntries);
 
-	const renderedCrdSet = new Set(
-		controlConnections
-			.map((c) => String(c.crd || '').trim())
-			.filter(Boolean)
-	);
+	const renderedCrdSet = new Set(controlConnections.map((c) => String(c.crd || '').trim()).filter(Boolean));
 	const renderedNameSet = new Set(
 		controlConnections
-			.map((c) => String(c.label || '').trim().toLowerCase())
-			.filter(Boolean)
+			.map((c) =>
+				String(c.label || '')
+					.trim()
+					.toLowerCase(),
+			)
+			.filter(Boolean),
 	);
 
 	const staticOwnersToRender = owners.filter((o) => {
 		const oCrd = String(o.crdNumber || o.crd || o.personId || '').trim();
 		if (oCrd && renderedCrdSet.has(oCrd)) return false;
-		const oName = String(o.legalName || o.name || '').trim().toLowerCase();
+		const oName = String(o.legalName || o.name || '')
+			.trim()
+			.toLowerCase();
 		if (oName && renderedNameSet.has(oName)) return false;
 		return true;
 	});
@@ -12783,12 +12808,12 @@ function renderFirmDetail(d: any) {
 											return connectedFirmId ? ` <small>CRD#${esc(connectedFirmId)}</small>` : '';
 										})()
 									:	'';
-								const relHtml = connection.relationshipLabels.length || connection.positions.length ?
-									`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>` : '';
-								const datesHtml = connection.dateTexts.length ?
-									`<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
-								const addrHtml = connection.address ?
-									`<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
+								const relHtml =
+									connection.relationshipLabels.length || connection.positions.length ?
+										`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>`
+									:	'';
+								const datesHtml = connection.dateTexts.length ? `<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
+								const addrHtml = connection.address ? `<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
 								return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}">
 									<span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>
 									${relHtml}
@@ -12807,12 +12832,12 @@ function renderFirmDetail(d: any) {
 						${currentConnections
 							.map((connection) => {
 								const displaySecondary = connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>` : '';
-								const relHtml = connection.relationshipLabels.length || connection.positions.length ?
-									`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>` : '';
-								const datesHtml = connection.dateTexts.length ?
-									`<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
-								const addrHtml = connection.address ?
-									`<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
+								const relHtml =
+									connection.relationshipLabels.length || connection.positions.length ?
+										`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>`
+									:	'';
+								const datesHtml = connection.dateTexts.length ? `<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
+								const addrHtml = connection.address ? `<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
 								return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}">
 									<span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>
 									${relHtml}
@@ -12831,12 +12856,12 @@ function renderFirmDetail(d: any) {
 						${previousConnections
 							.map((connection) => {
 								const displaySecondary = connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>` : '';
-								const relHtml = connection.relationshipLabels.length || connection.positions.length ?
-									`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>` : '';
-								const datesHtml = connection.dateTexts.length ?
-									`<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
-								const addrHtml = connection.address ?
-									`<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
+								const relHtml =
+									connection.relationshipLabels.length || connection.positions.length ?
+										`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>`
+									:	'';
+								const datesHtml = connection.dateTexts.length ? `<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
+								const addrHtml = connection.address ? `<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
 								return `<button type="button" class="fg-tl-entry fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}">
 									<span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>
 									${relHtml}
@@ -12917,12 +12942,12 @@ function renderFirmDetail(d: any) {
 			${controlConnections
 				.map((connection) => {
 					const displaySecondary = connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>` : '';
-					const relHtml = connection.relationshipLabels.length || connection.positions.length ?
-						`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>` : '';
-					const datesHtml = connection.dateTexts.length ?
-						`<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
-					const addrHtml = connection.address ?
-						`<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
+					const relHtml =
+						connection.relationshipLabels.length || connection.positions.length ?
+							`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>`
+						:	'';
+					const datesHtml = connection.dateTexts.length ? `<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
+					const addrHtml = connection.address ? `<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
 					return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}">
 						<span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>
 						${relHtml}
@@ -12931,26 +12956,30 @@ function renderFirmDetail(d: any) {
 					</button>`;
 				})
 				.join('')}
-			${showFinra ? staticOwnersToRender
-				.map((o) => {
-					const nameHtml = `<span class="fg-owner-name">${esc(o.legalName || '')}</span>`;
-					const posHtml = `<span class="fg-owner-pos">${esc(o.position || '')}</span>`;
-					if (o.crdNumber) {
-						return `
+			${
+				showFinra ?
+					staticOwnersToRender
+						.map((o) => {
+							const nameHtml = `<span class="fg-owner-name">${esc(o.legalName || '')}</span>`;
+							const posHtml = `<span class="fg-owner-pos">${esc(o.position || '')}</span>`;
+							if (o.crdNumber) {
+								return `
 						<button type="button" class="fg-owner-row fg-card-clickable fg-crd-link" data-crd="${esc(o.crdNumber)}" data-crd-type="person" title="View person ${esc(o.crdNumber)}">
 							${nameHtml}
 							${posHtml}
 						</button>
 						`;
-					}
-					return `
+							}
+							return `
 					<div class="fg-owner-row fg-owner-row--static">
 						${nameHtml}
 						${posHtml}
 					</div>
 					`;
-				})
-				.join('') : ''}
+						})
+						.join('')
+				:	''
+			}
 		</div>
 		`
 				:	''

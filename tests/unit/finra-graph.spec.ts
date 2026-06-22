@@ -29,8 +29,11 @@ import {
 	shouldAutoRevealNodeConnections,
 	shouldRenderNodeSelected,
 	upsertSelectionLogEntry,
+	isForcedGrayConnectionLink,
 } from '../../src/lib/finra-graph';
 import { applyIndividualDetail as applyIndividualDetailFromDetailUtils } from '../../src/lib/finra-graph/detailUtils';
+import { buildParentFirmSummaryLinks } from '../../src/lib/finra-graph/externalLinks';
+import { renderPersonDetail } from '../../src/lib/finra-graph/sidebar';
 import { buildLargeGraphRenderPlan, getLargeGraphRenderBudget, getProgressiveLoadBudget } from '../../src/lib/large-graph-rendering';
 
 describe('FinraGraph DOM helpers (unit)', () => {
@@ -216,6 +219,41 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(isNodeInactive(node)).toBe(true);
 	});
 
+	it('renderPersonDetail uses parent-firm summary URLs for active current employment records', () => {
+		const html = renderPersonDetail(
+			{
+				id: 'person:123',
+				label: 'Example Person',
+				crd: '123',
+				bcScope: 'Active',
+				iaScope: 'Active',
+				basicInformation: {
+					individualId: '123',
+					firstName: 'Example',
+					lastName: 'Person',
+				},
+				currentEmployments: [{ firmId: '456', firmName: 'Example Firm', isCurrent: true }],
+				previousEmployments: [],
+				disclosures: [],
+				iaDisclosures: [],
+				registrationCount: {
+					approvedFinraRegistrationCount: 0,
+					approvedSRORegistrationCount: 0,
+					approvedStateRegistrationCount: 0,
+					approvedIAStateRegistrationCount: 0,
+				},
+				registeredStates: [],
+				registeredSROs: [],
+				currentIAEmployments: [],
+				previousIAEmployments: [],
+			},
+			{ graphData: { links: [] } },
+		);
+
+		expect(html).toContain('https://brokercheck.finra.org/firm/summary/456');
+		expect(html).toContain('https://adviserinfo.sec.gov/firm/summary/456');
+	});
+
 	it('isNodeInactive keeps active fetched individuals enabled', () => {
 		const node = {
 			id: 'person:456',
@@ -238,6 +276,19 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		} as any;
 
 		expect(isNodeInactive(node)).toBe(false);
+	});
+
+	it('marks the requested person/firm link as a forced gray connection', () => {
+		const link = {
+			source: { id: 'person:4141166' },
+			target: { id: 'firm:37404' },
+			relationship: 'employed_by',
+			isCurrent: true,
+		} as any;
+
+		expect(isForcedGrayConnectionLink(link)).toBe(true);
+		expect(isForcedGrayConnectionLink({ source: 'firm:37404', target: 'person:4141166', relationship: 'employed_by' })).toBe(true);
+		expect(isForcedGrayConnectionLink({ source: 'person:100', target: 'firm:200', relationship: 'employed_by' })).toBe(false);
 	});
 
 	it('isRevealableChainExhausted stays false when a visible downstream node still has hidden revealable neighbors', () => {
