@@ -725,34 +725,38 @@ export async function publishFetchedRecordsToMainApp(
 	let linksAdded = 0;
 
 	for (const record of successfulRecords) {
-		const artifacts = buildMainAppGraphArtifactsFromFetchedPayload(record.payload, {
-			crd: record.crd,
-			source: record.source,
-			type: record.type,
-		});
+		try {
+			const artifacts = buildMainAppGraphArtifactsFromFetchedPayload(record.payload, {
+				crd: record.crd,
+				source: record.source,
+				type: record.type,
+			});
 
-		for (const node of artifacts.nodes) {
-			const nodeId = String(node?.id || '').trim();
-			if (!nodeId) continue;
-			const existingIndex = nodeIndex.get(nodeId);
-			if (existingIndex == null) {
-				nodeIndex.set(nodeId, nodes.push(node) - 1);
-				nodesAdded += 1;
-				continue;
+			for (const node of artifacts.nodes) {
+				const nodeId = String(node?.id || '').trim();
+				if (!nodeId) continue;
+				const existingIndex = nodeIndex.get(nodeId);
+				if (existingIndex == null) {
+					nodeIndex.set(nodeId, nodes.push(node) - 1);
+					nodesAdded += 1;
+					continue;
+				}
+				const mergedNode = mergeGraphNode(nodes[existingIndex] || {}, node);
+				if (JSON.stringify(mergedNode) !== JSON.stringify(nodes[existingIndex])) {
+					nodes[existingIndex] = mergedNode;
+					nodesUpdated += 1;
+				}
 			}
-			const mergedNode = mergeGraphNode(nodes[existingIndex] || {}, node);
-			if (JSON.stringify(mergedNode) !== JSON.stringify(nodes[existingIndex])) {
-				nodes[existingIndex] = mergedNode;
-				nodesUpdated += 1;
-			}
-		}
 
-		for (const link of artifacts.links) {
-			const linkKey = getGraphLinkKey(link);
-			if (!linkKey || linkKeys.has(linkKey)) continue;
-			linkKeys.add(linkKey);
-			links.push(link);
-			linksAdded += 1;
+			for (const link of artifacts.links) {
+				const linkKey = getGraphLinkKey(link);
+				if (!linkKey || linkKeys.has(linkKey)) continue;
+				linkKeys.add(linkKey);
+				links.push(link);
+				linksAdded += 1;
+			}
+		} catch (error: any) {
+			console.error(`[publishFetchedRecordsToMainApp] Failed processing CRD ${record.crd} (${record.type}) from source ${record.source}:`, error?.message || error);
 		}
 	}
 
@@ -1047,7 +1051,7 @@ function isValidFetchedPayload(payload: unknown): boolean {
 	return hasHitArray || hasDocsArray || hasDetailMarkers;
 }
 
-function parseCrds(input: RefreshRequestBody['crds'], maxCrds = 50): string[] {
+export function parseCrds(input: RefreshRequestBody['crds'], maxCrds = 50): string[] {
 	const tokens =
 		typeof input === 'string' ?
 			input
@@ -1061,17 +1065,40 @@ function parseCrds(input: RefreshRequestBody['crds'], maxCrds = 50): string[] {
 	return unique.slice(0, Math.max(1, Math.min(500, maxCrds)));
 }
 
-function parseQueries(input: RefreshRequestBody['queries'] | RefreshRequestBody['crds'], maxQueries = 50): string[] {
-	const tokens =
+export function parseQueries(input: RefreshRequestBody['queries'] | RefreshRequestBody['crds'], maxQueries = 50): string[] {
+	const HEADER_REGEX = /^(crd|crd\s*#|crd\s*number|crd\s*id|individual\s*crd|firm\s*crd|individual\s*id|firm\s*id|id|crd_number|crd_id|individual_id|firm_id|individual_crd|firm_crd|representative\s*crd|rep\s*crd|name|individual\s*name|firm\s*name|representative\s*name|rep\s*name)$/i;
+	const PREFIX_NUMERIC_REGEX = /^(?:crd|crd\s*#|crd\s*id|individual\s*crd|firm\s*crd|individual\s*crd\s*:|firm\s*crd\s*:)\s*(\d{1,10})$/i;
+
+	const rawTokens =
 		typeof input === 'string' ?
 			input
-				.split(/[\n,;]+/g)
+				.split(/[\n\r,;\t]+/g)
 				.map((value) => value.trim())
 				.filter(Boolean)
 		: Array.isArray(input) ? input.map((value) => String(value || '').trim()).filter(Boolean)
 		: [];
 
-	const unique = Array.from(new Set(tokens));
+	const processedTokens: string[] = [];
+	for (const rawToken of rawTokens) {
+		if (HEADER_REGEX.test(rawToken)) {
+			continue;
+		}
+
+		const prefixMatch = rawToken.match(PREFIX_NUMERIC_REGEX);
+		if (prefixMatch) {
+			processedTokens.push(prefixMatch[1]);
+			continue;
+		}
+
+		if (/^[\d\s]+$/.test(rawToken) && /\s/.test(rawToken)) {
+			const parts = rawToken.split(/\s+/).map((v) => v.trim()).filter(Boolean);
+			processedTokens.push(...parts);
+		} else {
+			processedTokens.push(rawToken);
+		}
+	}
+
+	const unique = Array.from(new Set(processedTokens));
 	return unique.slice(0, Math.max(1, Math.min(200, maxQueries)));
 }
 
@@ -2106,12 +2133,16 @@ async function fetchCrdsToCacheAndRedis(initialTargets: FetchTarget[], options: 
 			allResults.push(fetchResult);
 
 			// Discover new CRDs from this page
-			const artifacts = buildMainAppGraphArtifactsFromFetchedPayload(payload, target);
-			for (const node of artifacts.nodes) {
-				const discoveredCrd = node.crd || node.firmId;
-				if (discoveredCrd && discoveredCrd !== crd) {
-					discoveredCrds.add(String(discoveredCrd));
+			try {
+				const artifacts = buildMainAppGraphArtifactsFromFetchedPayload(payload, target);
+				for (const node of artifacts.nodes) {
+					const discoveredCrd = node.crd || node.firmId;
+					if (discoveredCrd && discoveredCrd !== crd) {
+						discoveredCrds.add(String(discoveredCrd));
+					}
 				}
+			} catch (discoverErr: any) {
+				console.warn(`[fetch-crds] Failed to parse artifacts for discovery on CRD ${crd}:`, discoverErr?.message || discoverErr);
 			}
 
 		} catch (error: any) {

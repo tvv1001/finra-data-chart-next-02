@@ -97,11 +97,37 @@ export function parseDashboardSelectionFromUrl(urlString: string): UrlSelectionI
 }
 
 function parseQueueQueries(input: string) {
-	return input
-		.split(/[\n,;]+/g)
+	const HEADER_REGEX = /^(crd|crd\s*#|crd\s*number|crd\s*id|individual\s*crd|firm\s*crd|individual\s*id|firm\s*id|id|crd_number|crd_id|individual_id|firm_id|individual_crd|firm_crd|representative\s*crd|rep\s*crd|name|individual\s*name|firm\s*name|representative\s*name|rep\s*name)$/i;
+	const PREFIX_NUMERIC_REGEX = /^(?:crd|crd\s*#|crd\s*id|individual\s*crd|firm\s*crd|individual\s*crd\s*:|firm\s*crd\s*:)\s*(\d{1,10})$/i;
+
+	const rawTokens = input
+		.split(/[\n\r,;\t]+/g)
 		.map((value) => value.trim())
 		.filter(Boolean);
+
+	const processedTokens: string[] = [];
+	for (const rawToken of rawTokens) {
+		if (HEADER_REGEX.test(rawToken)) {
+			continue;
+		}
+
+		const prefixMatch = rawToken.match(PREFIX_NUMERIC_REGEX);
+		if (prefixMatch) {
+			processedTokens.push(prefixMatch[1]);
+			continue;
+		}
+
+		if (/^[\d\s]+$/.test(rawToken) && /\s/.test(rawToken)) {
+			const parts = rawToken.split(/\s+/).map((v) => v.trim()).filter(Boolean);
+			processedTokens.push(...parts);
+		} else {
+			processedTokens.push(rawToken);
+		}
+	}
+
+	return Array.from(new Set(processedTokens));
 }
+
 
 export function computeQueryFetchCounts(resolution: Array<{ query?: string; crds?: string[] }>, fetchedItems: Array<{ crd?: string; status?: string }>) {
 	const counts = new Map<string, number>();
@@ -388,8 +414,6 @@ export default function DashboardPage() {
 		updated: number;
 		err: number;
 	} | null>(null);
-	const [queueStatusLine, setQueueStatusLine] = useState('Idle | - | queue - | elapsed 0s');
-	const [queueQueryLines, setQueueQueryLines] = useState<string[]>([]);
 	const [queueElapsedSec, setQueueElapsedSec] = useState(0);
 	const [terminalLogs, setTerminalLogs] = useState<{ id: string; text: string; type: 'info' | 'error' | 'warn' | 'success' }[]>([]);
 	const [queueCards, setQueueCards] = useState<QueueCard[]>([]);
@@ -423,6 +447,19 @@ export default function DashboardPage() {
 
 	const queueQueries = useMemo(() => parseQueueQueries(crdInput), [crdInput]);
 	const parsedCrds = useMemo(() => queueQueries.filter((value) => /^\d{1,10}$/.test(value)), [queueQueries]);
+	const queueQueryLines = queueQueries;
+
+	const queueStatusLine = useMemo(() => {
+		if (busyAction === 'fetch-crds') {
+			const current = crawlProgress?.current ?? 1;
+			const total = crawlProgress?.total ?? queueQueries.length;
+			return `Searching | Queue | queue ${current}/${Math.max(1, total)} | elapsed ${queueElapsedSec}s`;
+		}
+		if (sessionHasFetched) {
+			return `Finished | queue - | elapsed ${queueElapsedSec}s`;
+		}
+		return 'Idle | - | queue - | elapsed 0s';
+	}, [busyAction, crawlProgress?.current, crawlProgress?.total, queueQueries.length, queueElapsedSec, sessionHasFetched]);
 
 	useEffect(() => {
 		if (busyAction !== 'fetch-crds') return;
@@ -436,15 +473,6 @@ export default function DashboardPage() {
 		};
 	}, [busyAction]);
 
-	useEffect(() => {
-		if (busyAction !== 'fetch-crds') return;
-		setQueueStatusLine((prev) => {
-			if (/elapsed\s+\d+s/i.test(prev)) {
-				return prev.replace(/elapsed\s+\d+s/i, `elapsed ${queueElapsedSec}s`);
-			}
-			return `Searching | Queue | queue 1/${Math.max(1, queueQueries.length)} | elapsed ${queueElapsedSec}s`;
-		});
-	}, [busyAction, queueElapsedSec, queueQueries.length]);
 
 	// Load recent CRDs on mount
 	useEffect(() => {

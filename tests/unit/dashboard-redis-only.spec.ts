@@ -9,6 +9,8 @@ import {
 	resolveDashboardInventoryTotals,
 	shouldUseLocalFallback,
 	sortLatestCardsForDisplay,
+	parseQueries,
+	parseCrds,
 } from '../../src/app/api/dashboard/refresh/route';
 
 describe('filterRecentCardsForDisplay', () => {
@@ -157,6 +159,36 @@ describe('shouldUseLocalFallback', () => {
 				sources: [{ source: 'finra', status: 'ok' }],
 				name: 'Example Capital',
 			},
+		]);
+	});
+});
+
+describe('parseQueries', () => {
+	it('filters out column headers like CRD or Name and handles prefixes', () => {
+		const rawInput = `CRD
+5020981
+crd #7432624
+Individual CRD: 2619791
+2385092 4490863
+John Smith`;
+		expect(parseQueries(rawInput)).toEqual([
+			'5020981',
+			'7432624',
+			'2619791',
+			'2385092',
+			'4490863',
+			'John Smith',
+		]);
+	});
+
+	it('splits space separated numeric tokens but keeps spaced name queries', () => {
+		const rawInput = '5020981 7432624\t2619791\r\nJohn Smith\n12345';
+		expect(parseQueries(rawInput)).toEqual([
+			'5020981',
+			'7432624',
+			'2619791',
+			'John Smith',
+			'12345',
 		]);
 	});
 });
