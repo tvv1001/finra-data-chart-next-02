@@ -94,15 +94,41 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				const hits = searchById.results || [];
 				
 				// If no hits by ID, try by firm name from the firm node itself
-				if (hits.length === 0) {
-					const firmNode = result.nodes.find(n => n.id === nodeId);
-					if (firmNode && firmNode.label) {
-						const searchByName = await searchLocalIndex('finra', 'individual', firmNode.label, { limit: 100, baseUrl });
-						hits.push(...(searchByName.results || []));
-					}
+				let firmNode = result.nodes.find(n => n.id === nodeId);
+				if (hits.length === 0 && firmNode && firmNode.label) {
+					const searchByName = await searchLocalIndex('finra', 'individual', firmNode.label, { limit: 100, baseUrl });
+					hits.push(...(searchByName.results || []));
 				}
 
 				const seenNodeIds = new Set(result.nodes.map(n => n.id));
+				
+				// Ensure the firm node itself is present in result.nodes
+				if (!seenNodeIds.has(nodeId)) {
+					let firmLabel = `Firm ${firmId}`;
+					if (redisUrl && redisToken) {
+						try {
+							const redis = new Redis({ url: redisUrl, token: redisToken });
+							const cachedFirm = await redis.get<any>(`finra:firm:${firmId}`);
+							if (cachedFirm) {
+								const cachedHits = cachedFirm?.hits?.hits || [];
+								const rawDetail = cachedHits.length > 0 ? (cachedHits[0]?._source?.content || cachedHits[0]?._source) : cachedFirm;
+								const parsed = typeof rawDetail === 'string' ? JSON.parse(rawDetail) : rawDetail;
+								const bi = parsed?.basicInformation || parsed || {};
+								firmLabel = bi.firmName || bi.name || firmLabel;
+							}
+						} catch (e) {
+							console.warn(`Expansion API: Failed to load firm details for node label`, e);
+						}
+					}
+					firmNode = {
+						id: nodeId,
+						label: firmLabel,
+						group: 'firm',
+						firmId
+					};
+					result.nodes.push(firmNode);
+					seenNodeIds.add(nodeId);
+				}
 				
 				for (const hit of hits) {
 					const crd = String(hit.ind_source_id || hit.ind_crd || '').trim();

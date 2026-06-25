@@ -852,8 +852,8 @@ async function build(options = {}) {
 										const ofid = String(o.ownerFirmId);
 										firms.set(ofid, firms.get(ofid) || { id: firmId(ofid), label: String(ofid), group: 'firm' });
 										links.push({ source: firmId(ofid), target: firmId(targetFirm), relationship: 'controls' });
-									} else if (o.ownerId || o.ownerPersonId) {
-										const pid = String(o.ownerId || o.ownerPersonId);
+									} else if (o.ownerId || o.ownerPersonId || o.crdNumber || o.crd) {
+										const pid = String(o.ownerId || o.ownerPersonId || o.crdNumber || o.crd);
 										people.set(pid, people.get(pid) || { id: personId(pid), label: String(pid), group: 'individual' });
 										links.push({ source: personId(pid), target: firmId(targetFirm), relationship: 'controls' });
 									} else if (o.ownerName) {
