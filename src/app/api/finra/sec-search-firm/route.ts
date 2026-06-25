@@ -77,22 +77,24 @@ export async function GET(request: NextRequest) {
 		const data = await searchLocalIndexMany('sec', 'firm', rawQuery, { limit, offset, baseUrl });
 		if (data.total > 0) return jsonNoStore(data);
 
+		const fallbackQueries = searchQueries.slice(0, 5);
+
 		const graphResponses = await searchQueriesSequentially(
-			searchQueries,
+			fallbackQueries,
 			async (candidate) => searchGraphFallback('sec', 'firm', candidate, { limit, offset }),
 			(value) => Boolean(value && value.total > 0),
 		);
 		if (graphResponses.length > 0) return jsonNoStore(mergeLocalSearchResponses(graphResponses, { bucket: 'sec:firm', limit, offset }));
 
 		const directResponses = await searchQueriesSequentially(
-			searchQueries,
+			fallbackQueries,
 			async (candidate) => searchDirectRedisFallback('sec', 'firm', candidate, { limit, offset }),
 			(value) => Boolean(value),
 		);
 		if (directResponses.length > 0) return jsonNoStore(mergeLocalSearchResponses(directResponses as any[], { bucket: 'sec:firm', limit, offset }));
 
 		const externalResponses = await searchQueriesSequentially(
-			searchQueries,
+			fallbackQueries,
 			async (candidate) => searchExternalFallback('sec', 'firm', candidate, baseUrl),
 			(value) => Boolean(value),
 		);

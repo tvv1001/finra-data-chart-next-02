@@ -4385,6 +4385,10 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 		const runDatabaseSearch = async () => {
 			const q = String(fetchInput.value || '').trim();
 			if (!q) return;
+
+			const tokens = q.split(/[\s,;\t]+/g).map(t => t.trim()).filter(Boolean);
+			const isCrdList = tokens.length > 1 && tokens.every(t => /^\d{1,10}$/.test(t));
+
 			clearFetchStatus();
 			if (!(await ensureFetchRuntimeReady())) {
 				updateFetchStatus('Graph is still loading. Please try again.');
@@ -4397,6 +4401,45 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				// ── 1. Search local indexed endpoints in parallel ─────────────
 				// These hit /api/finra/search and /api/finra/sec-search which query local indexes.
 				const PAGE_SIZE = 100; // FINRA Solr supports up to 100 per page
+
+				const fetchSingleCrd = async (crd) => {
+					const SINGLE_PAGE_SIZE = 12;
+					const finraIndUrl = makeApiUrl('/api/finra/search');
+					finraIndUrl.searchParams.set('query', crd);
+					finraIndUrl.searchParams.set('rows', String(SINGLE_PAGE_SIZE));
+					finraIndUrl.searchParams.set('start', '0');
+
+					const finraFirmUrl = makeApiUrl('/api/finra/search');
+					finraFirmUrl.searchParams.set('query', crd);
+					finraFirmUrl.searchParams.set('rows', String(SINGLE_PAGE_SIZE));
+					finraFirmUrl.searchParams.set('start', '0');
+					finraFirmUrl.searchParams.set('firm', '1');
+
+					const secUrl = makeApiUrl('/api/finra/sec-search');
+					secUrl.searchParams.set('query', crd);
+					secUrl.searchParams.set('pageSize', String(SINGLE_PAGE_SIZE));
+					secUrl.searchParams.set('pageNumber', '1');
+
+					const headers = { Accept: 'application/json' };
+					const [r1, r2, r3] = await Promise.allSettled([
+						fetch(finraIndUrl.toString(), { headers }).then((r) => r.ok ? r.json() : null),
+						fetch(finraFirmUrl.toString(), { headers }).then((r) => r.ok ? r.json() : null),
+						fetch(secUrl.toString(), { headers }).then((r) => r.ok ? r.json() : null),
+					]);
+
+					const extractHits = (res) => {
+						const d = res.status === 'fulfilled' ? res.value : null;
+						return d?.hits?.hits || d?.response?.docs || d?.results || d?.currentPage || [];
+					};
+
+					const hits = [...extractHits(r1), ...extractHits(r2), ...extractHits(r3)];
+
+					if (!hits.length) {
+						hits.push({ _source: { ind_source_id: crd } }, { _source: { firm_id: crd } });
+					}
+					return hits;
+				};
+
 				const fetchFinraAll = async (useFirm) => {
 					const hits = [];
 					let start = 0;
@@ -4439,15 +4482,26 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 					}
 				};
 
-				const results = await Promise.allSettled([fetchFinraAll(false), fetchFinraAll(true), fetchSec()]);
 				const allHits = [];
-				results.forEach((result, index) => {
-					if (result.status === 'fulfilled') {
-						allHits.push(...result.value);
-					} else {
-						console.warn(`Database search request ${index} failed`, result.reason);
+				if (isCrdList) {
+					const batchSize = 5;
+					for (let i = 0; i < tokens.length; i += batchSize) {
+						const batch = tokens.slice(i, i + batchSize);
+						const batchResults = await Promise.all(batch.map(t => fetchSingleCrd(t)));
+						for (const hits of batchResults) {
+							allHits.push(...hits);
+						}
 					}
-				});
+				} else {
+					const results = await Promise.allSettled([fetchFinraAll(false), fetchFinraAll(true), fetchSec()]);
+					results.forEach((result, index) => {
+						if (result.status === 'fulfilled') {
+							allHits.push(...result.value);
+						} else {
+							console.warn(`Database search request ${index} failed`, result.reason);
+						}
+					});
+				}
 
 				const getSearchHitIndividualId = (hit) => {
 					const src = hit?._source || hit || {};
@@ -4511,7 +4565,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 				const updatedExistingNodeIds = new Set<string>();
 				const textSearchHydrationCandidates: Array<{ nodeId?: string | null; group?: string | null; hasEmbeddedDetail?: boolean | null }> = [];
 
-				const isDirectId = /^\d+$/.test(q);
+				const isDirectId = /^\d+$/.test(q) || isCrdList;
 
 				function addIndividualFromSource(src) {
 					const resolved = resolveIndividualSourceDetail(src);

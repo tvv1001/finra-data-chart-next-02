@@ -80,8 +80,10 @@ export async function GET(request: NextRequest) {
 		const data = await searchLocalIndexMany('finra', entity, rawQuery, { limit, offset, baseUrl });
 		if (data.total > 0) return jsonNoStore(data);
 
+		const fallbackQueries = searchQueries.slice(0, 5);
+
 		const graphResponses = await searchQueriesSequentially(
-			searchQueries,
+			fallbackQueries,
 			async (candidate) => searchGraphFallback('finra', entity, candidate, { limit, offset }),
 			(value) => Boolean(value && value.total > 0),
 		);
@@ -91,7 +93,7 @@ export async function GET(request: NextRequest) {
 		}
 
 		const directResponses = await searchQueriesSequentially(
-			searchQueries,
+			fallbackQueries,
 			async (candidate) => searchDirectRedisFallback('finra', entity, candidate, { limit, offset }),
 			(value) => Boolean(value),
 		);
@@ -100,7 +102,7 @@ export async function GET(request: NextRequest) {
 		}
 
 		const externalResponses = await searchQueriesSequentially(
-			searchQueries,
+			fallbackQueries,
 			async (candidate) => searchExternalFallback('finra', entity, candidate, baseUrl),
 			(value) => Boolean(value),
 		);
