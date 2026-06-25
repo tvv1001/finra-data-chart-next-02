@@ -388,6 +388,12 @@ type LocalHistoryEntry = {
 	name?: string;
 };
 
+type SavedTemplate = {
+	id: string;
+	name: string;
+	queries: string;
+};
+
 export default function DashboardPage() {
 	const [crdInput, setCrdInput] = useState('');
 	const [externalRawDir, setExternalRawDir] = useState('/home/lenny/Dev/webDev/Data-finra-sec/data/raw');
@@ -441,6 +447,13 @@ export default function DashboardPage() {
 	const [top10Latest, setTop10Latest] = useState<Array<{ id: string; entity: 'individual' | 'firm'; fetchedAt: string; files?: number; sources?: QueueCardSourceEntry[] }>>([]);
 	const [sessionHasFetched, setSessionHasFetched] = useState(false);
 	const [localHistory, setLocalHistory] = useState<LocalHistoryEntry[]>([]);
+	const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
+	const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+	const [newTemplateName, setNewTemplateName] = useState('');
+	const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+	const [editTemplateName, setEditTemplateName] = useState('');
+	const [editTemplateQueries, setEditTemplateQueries] = useState('');
+
 	const mergedDetailCacheRef = useRef(new Map<string, any>());
 	const jsonStringCacheRef = useRef(new Map<string, string>());
 	const previousNewCrdsCountRef = useRef(0);
@@ -473,6 +486,58 @@ export default function DashboardPage() {
 		};
 	}, [busyAction]);
 
+	const handleSaveTemplate = () => {
+		setIsSavingTemplate(true);
+		setNewTemplateName(`Template ${savedTemplates.length + 1}`);
+	};
+
+	const handleConfirmSaveTemplate = () => {
+		const name = newTemplateName.trim() || `Template ${savedTemplates.length + 1}`;
+		const queries = crdInput.trim();
+		if (!queries) return;
+
+		const newTemplate: SavedTemplate = {
+			id: `${Date.now()}`,
+			name,
+			queries,
+		};
+		const updated = [...savedTemplates, newTemplate];
+		setSavedTemplates(updated);
+		localStorage.setItem('finra_dashboard_templates', JSON.stringify(updated));
+		setIsSavingTemplate(false);
+		setNewTemplateName('');
+	};
+
+	const handleDeleteTemplate = (id: string) => {
+		const updated = savedTemplates.filter((t) => t.id !== id);
+		setSavedTemplates(updated);
+		localStorage.setItem('finra_dashboard_templates', JSON.stringify(updated));
+		if (editingTemplateId === id) {
+			setEditingTemplateId(null);
+		}
+	};
+
+	const handleStartEditTemplate = (tpl: SavedTemplate) => {
+		setEditingTemplateId(tpl.id);
+		setEditTemplateName(tpl.name);
+		setEditTemplateQueries(tpl.queries);
+	};
+
+	const handleSaveEditTemplate = (id: string) => {
+		const name = editTemplateName.trim() || `Template`;
+		const queries = editTemplateQueries.trim();
+		if (!queries) return;
+
+		const updated = savedTemplates.map((t) => {
+			if (t.id === id) {
+				return { ...t, name, queries };
+			}
+			return t;
+		});
+		setSavedTemplates(updated);
+		localStorage.setItem('finra_dashboard_templates', JSON.stringify(updated));
+		setEditingTemplateId(null);
+	};
 
 	// Load recent CRDs on mount
 	useEffect(() => {
@@ -483,6 +548,15 @@ export default function DashboardPage() {
 			}
 		} catch (err) {
 			console.error('Failed to load local history:', err);
+		}
+
+		try {
+			const templatesRaw = localStorage.getItem('finra_dashboard_templates');
+			if (templatesRaw) {
+				setSavedTemplates(JSON.parse(templatesRaw) as SavedTemplate[]);
+			}
+		} catch (err) {
+			console.error('Failed to load saved templates:', err);
 		}
 
 		fetch('/api/dashboard/refresh', {
@@ -1393,8 +1467,134 @@ export default function DashboardPage() {
 						{busyAction === 'fetch-crds' ? 'Running…' : 'Run Queue'}
 					</button>
 
+					{savedTemplates.length > 0 && (
+						<div className={styles.templatesSection}>
+							<div className={styles.queueSectionTitle}>Saved Templates</div>
+							<div className={styles.templatesList}>
+								{savedTemplates.map((tpl) => (
+									<div
+										key={tpl.id}
+										className={styles.templateCard}
+										onClick={() => setCrdInput(tpl.queries)}
+									>
+										{editingTemplateId === tpl.id ? (
+											<div
+												className={styles.templateEditForm}
+												onClick={(e) => e.stopPropagation()}
+											>
+												<input
+													type="text"
+													className={styles.templateEditInput}
+													value={editTemplateName}
+													onChange={(e) => setEditTemplateName(e.target.value)}
+													placeholder="Template name"
+												/>
+												<textarea
+													className={styles.templateEditTextarea}
+													value={editTemplateQueries}
+													onChange={(e) => setEditTemplateQueries(e.target.value)}
+													placeholder="CRDs or queries, comma separated"
+												/>
+												<div className={styles.templateActions}>
+													<button
+														type="button"
+														className={styles.templateBtn}
+														onClick={() => handleSaveEditTemplate(tpl.id)}
+													>
+														Save
+													</button>
+													<button
+														type="button"
+														className={styles.templateBtn}
+														onClick={() => setEditingTemplateId(null)}
+													>
+														Cancel
+													</button>
+												</div>
+											</div>
+										) : (
+											<>
+												<div className={styles.templateCardTitle}>
+													<strong>{tpl.name}</strong>
+												</div>
+												<div className={styles.templateQueries} title={tpl.queries}>
+													{tpl.queries}
+												</div>
+												<div className={styles.templateActions}>
+													<button
+														type="button"
+														className={styles.templateBtn}
+														onClick={(e) => {
+															e.stopPropagation();
+															handleStartEditTemplate(tpl);
+														}}
+													>
+														Edit
+													</button>
+													<button
+														type="button"
+														className={styles.templateDeleteBtn}
+														onClick={(e) => {
+															e.stopPropagation();
+															if (window.confirm('Delete this template?')) {
+																handleDeleteTemplate(tpl.id);
+															}
+														}}
+													>
+														Delete
+													</button>
+												</div>
+											</>
+										)}
+									</div>
+								))}
+							</div>
+						</div>
+					)}
+
 					<div className={styles.queueStatusPanel}>
-						<div className={styles.statusLine}>{queueStatusLine}</div>
+						<div className={styles.queueStatusHeader}>
+							<div className={styles.statusLine}>{queueStatusLine}</div>
+							{queueQueries.length > 0 && !isSavingTemplate && (
+								<button
+									type="button"
+									className={styles.templateBtn}
+									onClick={handleSaveTemplate}
+								>
+									💾 Save List
+								</button>
+							)}
+						</div>
+
+						{isSavingTemplate && (
+							<div className={styles.saveTemplateForm}>
+								<input
+									type="text"
+									className={styles.templateEditInput}
+									value={newTemplateName}
+									onChange={(e) => setNewTemplateName(e.target.value)}
+									placeholder="Template Name..."
+									autoFocus
+								/>
+								<div className={styles.templateActions}>
+									<button
+										type="button"
+										className={styles.templateBtn}
+										onClick={handleConfirmSaveTemplate}
+									>
+										Save
+									</button>
+									<button
+										type="button"
+										className={styles.templateBtn}
+										onClick={() => setIsSavingTemplate(false)}
+									>
+										Cancel
+									</button>
+								</div>
+							</div>
+						)}
+
 						<div className={styles.queueStatusList}>
 							{queueQueryLines.map((line, index) => (
 								<div
