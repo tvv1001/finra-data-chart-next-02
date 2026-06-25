@@ -244,7 +244,14 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 		...(d.iaDisclosures || []).map((dis) => ({ ...dis, _sourceLabel: dis?._sourceLabel || 'SEC AdvisorInfo' })),
 	];
 	const allDisclosures = (() => {
-		function disHasContent(dis) {
+		function normalizeTypeForKey(val: any) {
+			return String(val || '')
+				.toLowerCase()
+				.replace(/[^a-z0-9]+/g, ' ')
+				.trim();
+		}
+
+		function disHasContent(dis: any) {
 			return !!(
 				(dis.eventDate || dis.date || '').trim() ||
 				(dis.disclosureResolution || dis.resolution || '').trim() ||
@@ -254,24 +261,37 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 
 		const byType = new Map();
 		for (const dis of rawDisclosures) {
-			const dtype = (dis.disclosureType || dis.type || '').trim();
+			const dtype = normalizeTypeForKey(dis.disclosureType || dis.type || '');
 			if (!byType.has(dtype)) byType.set(dtype, false);
 			if (disHasContent(dis)) byType.set(dtype, true);
 		}
 
 		const seen = new Map();
 		for (const dis of rawDisclosures) {
-			const dtype = (dis.disclosureType || dis.type || '').trim();
-			const ddate = (dis.eventDate || dis.date || '').trim();
+			const dtype = normalizeTypeForKey(dis.disclosureType || dis.type || '');
+			const ddate = normalizeDateForKey(dis.eventDate || dis.date || '');
 			const key = `${dtype}||${ddate}`;
 			const hasContent = disHasContent(dis);
 
 			if (!hasContent && byType.get(dtype)) continue;
 
 			if (!seen.has(key)) {
-				seen.set(key, dis);
-			} else if (hasContent && !disHasContent(seen.get(key))) {
-				seen.set(key, dis);
+				seen.set(key, { ...dis });
+			} else {
+				const existing = seen.get(key);
+				if (existing._sourceLabel && dis._sourceLabel && existing._sourceLabel !== dis._sourceLabel) {
+					const sources = new Set([
+						...existing._sourceLabel.split(',').map((s: string) => s.trim()),
+						...dis._sourceLabel.split(',').map((s: string) => s.trim())
+					]);
+					existing._sourceLabel = Array.from(sources).join(', ');
+				}
+				if (hasContent && !disHasContent(existing)) {
+					const mergedLabel = existing._sourceLabel;
+					const updated = { ...dis };
+					updated._sourceLabel = mergedLabel;
+					seen.set(key, updated);
+				}
 			}
 		}
 		return Array.from(seen.values()).sort((a, b) => compareCurrentFirstByDates(a, b, { currentKey: '__never', dateKeys: ['eventDate', 'date'] }));
@@ -334,10 +354,23 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 		};
 	}
 
+	function normalizeDateForKey(val: any) {
+		const parsed = parseSortDateValue(val);
+		return parsed !== Number.NEGATIVE_INFINITY ? new Date(parsed).toISOString().split('T')[0] : String(val).trim().toLowerCase();
+	}
+
 	function dedupeRegs(items) {
 		const seen = new Set();
 		return items.filter((item) => {
-			const key = [item.role, item.firmId, item.start, item.end || 'present', item.cityState].join('|');
+			const normStart = item.start ? normalizeDateForKey(item.start) : '';
+			const normEnd = item.end ? normalizeDateForKey(item.end) : 'present';
+			const key = [
+				item.role,
+				String(item.firmId || '').trim(),
+				normStart,
+				normEnd,
+				String(item.cityState || '').trim().toLowerCase()
+			].join('|');
 			if (seen.has(key)) return false;
 			seen.add(key);
 			return true;
@@ -409,7 +442,8 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 		];
 		const seen = new Set();
 		empEntries = empEntries.filter((e) => {
-			const key = `${e.firmId || e.firmName}|${e.start}`;
+			const normStart = e.start ? normalizeDateForKey(e.start) : '';
+			const key = `${String(e.firmId || e.firmName).trim().toLowerCase()}|${normStart}`;
 			if (seen.has(key)) return false;
 			seen.add(key);
 			return true;
@@ -585,7 +619,7 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
       <div class='fg-disclosure'>
         <div class='fg-dis-header'>
           <span class='fg-dis-type'>${esc(dtype)}</span>
-          ${dsource ? `<span class='fg-badge inactive'>${esc(dsource)}</span>` : ''}
+          ${dsource ? dsource.split(',').map(s => `<span class='fg-badge inactive'>${esc(s.trim())}</span>`).join(' ') : ''}
           ${ddate ? `<span class='fg-dis-date'>${esc(ddate)}</span>` : ''}
           ${dres ? `<span class='fg-dis-res ${/final|settled/i.test(dres) ? 'final' : 'pending'}'>${esc(dres)}</span>` : ''}
           ${isIAExcl || isBCExcl ? `<span class='fg-badge inactive' title='Excluded from count'>${isIAExcl ? 'IA-excl' : ''}${isIAExcl && isBCExcl ? ' ' : ''}${isBCExcl ? 'FINRA-excl' : ''}</span>` : ''}
