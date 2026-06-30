@@ -309,7 +309,7 @@ let arrowBottomGroup = null;
 let arrowMidGroup = null;
 let arrowTopGroup = null;
 let rootGroup = null; // <g.fg-root> selection — for zoom/state-driven graph styling
-let allowFirstFetchZoom = true; // only auto-zoom on the first user fetch into an empty graph
+let allowFirstFetchZoom = false; // only auto-zoom on the first user fetch into an empty graph
 // D3 references needed for restoring zoom state
 let svgSel = null; // d3 selection for #fg-svg
 let zoomBehavior = null; // d3.zoom() instance

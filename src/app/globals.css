@@ -163,8 +163,8 @@ html[data-theme='dark'] {
 	--text-m: #cbd5e1;
 	--text-l: #fff;
 	--btn-active: #0059b5;
-	--bg: #020617;
-	--surface: #111827;
+	--bg: #000106;
+	--surface: #000106;
 	--border: rgba(148, 163, 184, 0.2);
 	--border-strong: rgba(148, 163, 184, 0.32);
 	--accent-bg: rgba(37, 99, 235, 0.14);
@@ -272,7 +272,7 @@ html[data-theme='dark'] .fg-node.fg-node-pulse-target text.fg-label,
 html[data-theme='dark'] .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
 	display: block !important;
 	font-size: clamp(calc(5px / var(--fg-current-zoom, 1)), 3ch, calc(133px / var(--fg-current-zoom, 1))) !important;
-	font-weight: 100 !important;
+	font-weight: 600 !important;
 	opacity: 1 !important;
 	stroke-width: calc(5px / var(--fg-current-zoom, 1)) !important;
 	letter-spacing: 3px;
@@ -1686,7 +1686,6 @@ a,
 }
 .fg-btn:focus,
 .fg-node:focus {
-	border: none;
 	outline: none;
 	-webkit-tap-highlight-color: transparent;
 }
