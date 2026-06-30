@@ -2958,14 +2958,14 @@ function setHoveredNode(id) {
 	const nextId = id ? String(id).trim() : null;
 	if (hoveredNodeId === nextId) return;
 	hoveredNodeId = nextId;
-	highlightLinks(computeHighlightState());
+	reapplySelectionState();
 }
 
 function setFocusedNode(id) {
 	const nextId = id ? String(id).trim() : null;
 	if (focusedNodeId === nextId) return;
 	focusedNodeId = nextId;
-	highlightLinks(computeHighlightState());
+	reapplySelectionState();
 }
 
 function bindHoverAndFocus(selection) {
@@ -6983,6 +6983,11 @@ function usesCurrentEmploymentStyling(link) {
 	return isCurrentRegistration(link);
 }
 
+function isCurrentActiveConnection(link) {
+	if (!link || hasInactiveEndpoint(link) || isForcedGrayConnectionLink(link)) return false;
+	return usesCurrentEmploymentStyling(link) || isControlRelationship(link);
+}
+
 function getLinkHighlightColor(link) {
 	if (hasInactiveEndpoint(link)) return getLinkColor(link);
 	if (link?.relationship === 'controls') return GRAPH_COLORS.lineControlsHighlight;
@@ -7422,44 +7427,19 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 		// Non-fatal — DOM move failures should not break rendering
 	}
 
-	// If highlight mode is active, ensure linkTopGroup is placed below nodeGroup
-	// so highlighted connecting lines do not visually occlude node labels. When
-	// no highlight is active, keep top links appended after nodes so they can
-	// render above nodes as originally intended.
+	// Ensure linkTopGroup and arrowTopGroup are always placed below nodeGroup
+	// so that lines are always beneath the nodes.
 	try {
 		if (nodeGroup && nodeGroup.node()) {
 			const nodesEl = nodeGroup.node();
 			const parent = nodesEl.parentNode;
 			if (parent) {
-				// handle both linkTopGroup and arrowTopGroup positioning so neither
-				// the highlighted link strokes nor arrowheads occlude node labels
 				const topGroups = [];
 				if (linkTopGroup && linkTopGroup.node()) topGroups.push(linkTopGroup.node());
 				if (arrowTopGroup && arrowTopGroup.node()) topGroups.push(arrowTopGroup.node());
-				// Treat highlight as active when any root/link/hop nodes are present.
-				const highlightActive = Boolean(
-					highlightState &&
-					((highlightState.rootIds && highlightState.rootIds.size) ||
-						(highlightState.linkKeys && highlightState.linkKeys.size) ||
-						(highlightState.hopNodeIds && highlightState.hopNodeIds.size)),
-				);
-				if (highlightActive) {
-					// move top groups to render before nodes (under labels)
-					for (const tg of topGroups) {
-						if (tg.parentNode === parent && tg === nodesEl.previousSibling) continue;
-						parent.insertBefore(tg, nodesEl);
-					}
-				} else {
-					// ensure top groups render after nodes
-					let insertBeforeNode = nodesEl.nextSibling;
-					for (const tg of topGroups) {
-						if (tg.parentNode === parent && tg === insertBeforeNode) {
-							insertBeforeNode = tg.nextSibling;
-							continue;
-						}
-						parent.insertBefore(tg, insertBeforeNode);
-						insertBeforeNode = tg.nextSibling;
-					}
+				for (const tg of topGroups) {
+					if (tg.parentNode === parent && tg === nodesEl.previousSibling) continue;
+					parent.insertBefore(tg, nodesEl);
 				}
 			}
 		}
@@ -7522,6 +7502,43 @@ function reapplySelectionState() {
 			}),
 		)
 		.classed('highlighted-hop', (node) => node.id !== selectedId && !highlightState.rootIds.has(node.id) && highlightState.hopNodeIds.has(node.id));
+
+	// Compute which nodes have ANY current/active connection in the graph
+	const activeConnectedIds = new Set<string>();
+	(layoutLinks || []).forEach((link) => {
+		if (!isCurrentActiveConnection(link)) return;
+		const sId = String(link.source?.id ?? link.source);
+		const tId = String(link.target?.id ?? link.target);
+		activeConnectedIds.add(sId);
+		activeConnectedIds.add(tId);
+	});
+
+	// Compute which nodes have a current/active connection to a highlight root
+	const activeParentConnectedIds = new Set<string>();
+	const hasHighlights = highlightState.rootIds.size > 0;
+	if (hasHighlights) {
+		(layoutLinks || []).forEach((link) => {
+			if (!isCurrentActiveConnection(link)) return;
+			const sId = String(link.source?.id ?? link.source);
+			const tId = String(link.target?.id ?? link.target);
+			const sRoot = highlightState.rootIds.has(sId);
+			const tRoot = highlightState.rootIds.has(tId);
+			if (sRoot && !tRoot) {
+				activeParentConnectedIds.add(tId);
+			} else if (tRoot && !sRoot) {
+				activeParentConnectedIds.add(sId);
+			}
+		});
+	}
+
+	if (svgSel) {
+		svgSel.classed('fg-svg--has-highlights', hasHighlights);
+	}
+
+	nodeSel
+		.classed('fg-node--active-connected', (d) => activeConnectedIds.has(String(d.id)))
+		.classed('fg-node--active-parent-connected', (d) => activeParentConnectedIds.has(String(d.id)));
+
 	const isOnShortestTrace = (id: string) => traceShortestIds.has(id) || traceShortestConnectorIds.has(id);
 	const isOnLongestTrace = (id: string) => traceLongestIds.has(id) || traceLongestConnectorIds.has(id);
 	const isOnLogTrace = (id: string) => traceLogIds.has(id) || traceLogConnectorIds.has(id);
@@ -10180,7 +10197,48 @@ export function getAutoExpansionHopsForNode(node, requestedHops = getDefaultClic
 	return normalizedHops;
 }
 
+const nodeExpansionQueue: Array<{
+	node: any;
+	options: {
+		focus?: boolean;
+		pulse?: boolean;
+		focusDuration?: number;
+	};
+}> = [];
+let isProcessingNodeExpansion = false;
+const NODE_EXPANSION_COOLDOWN_MS = 250; // Delay to prevent CPU overloading on low-powered machines
+
+async function enqueueNodeExpansion(node: any, options: any = {}) {
+	nodeExpansionQueue.push({ node, options });
+	if (isProcessingNodeExpansion) return;
+
+	isProcessingNodeExpansion = true;
+	while (nodeExpansionQueue.length > 0) {
+		const task = nodeExpansionQueue.shift();
+		if (task) {
+			try {
+				await openNodeWithExpansionTask(task.node, task.options);
+				await new Promise((resolve) => setTimeout(resolve, NODE_EXPANSION_COOLDOWN_MS));
+			} catch (e) {
+				console.error('Sequenced node expansion failed:', e);
+			}
+		}
+	}
+	isProcessingNodeExpansion = false;
+}
+
 function openNodeWithExpansion(
+	d,
+	options: {
+		focus?: boolean;
+		pulse?: boolean;
+		focusDuration?: number;
+	} = {},
+) {
+	enqueueNodeExpansion(d, options);
+}
+
+async function openNodeWithExpansionTask(
 	d,
 	options: {
 		focus?: boolean;
@@ -10199,23 +10257,26 @@ function openNodeWithExpansion(
 		pulse,
 		focusDuration,
 	});
-	void (
-		shouldAutoRevealNodeConnections(d) ?
-			expandNodeThroughNonGrayHops(d, clickExpansionHops)
-		:	ensureExpansionDataForNode(d.id, clickExpansionHops).then((fetched) => {
-				if (fetched && (fetched.nodes?.length || fetched.links?.length)) {
-					revealNeighbors(d, clickExpansionHops, {
-						linkFilter: isAutoExpansionLink,
-						markSelected: true,
-					});
-				}
-				if (selectedId === d.id) {
-					renderSidebar(d);
-				}
-			})).catch((err) => {
+
+	try {
+		if (shouldAutoRevealNodeConnections(d)) {
+			await expandNodeThroughNonGrayHops(d, clickExpansionHops);
+		} else {
+			const fetched = await ensureExpansionDataForNode(d.id, clickExpansionHops);
+			if (fetched && (fetched.nodes?.length || fetched.links?.length)) {
+				revealNeighbors(d, clickExpansionHops, {
+					linkFilter: isAutoExpansionLink,
+					markSelected: true,
+				});
+			}
+			if (selectedId === d.id) {
+				renderSidebar(d);
+			}
+		}
+	} catch (err) {
 		console.error('Node expansion failed:', err);
 		refreshTraceState({ deferMs: 120 });
-	});
+	}
 	void fetchCacheStats();
 }
 

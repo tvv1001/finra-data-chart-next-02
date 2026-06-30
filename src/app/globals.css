@@ -1684,7 +1684,12 @@ a,
 .fg-node {
 	-webkit-tap-highlight-color: transparent;
 }
-
+.fg-btn:focus,
+.fg-node:focus {
+	border: none;
+	outline: none;
+	-webkit-tap-highlight-color: transparent;
+}
 .fg-btn {
 	font: 13px/1 var(--sans);
 	font-weight: 600;
@@ -4795,4 +4800,68 @@ html[data-theme='dark'] .fg-source-toggle-btn.active {
 	color: #ffffff;
 	font-weight: 700;
 	box-shadow: 0 1px 3px rgba(9, 101, 230, 0.4);
+}
+
+/* ── Active Connected Node Highlights (highest priority) ───────────────── */
+
+/* Color is always teal/cyan for active connected nodes */
+.fg-node.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--circle,
+.fg-node.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--firm,
+.fg-node.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--entity {
+	fill: #06b6d4 !important; /* Vibrant Teal/Cyan */
+	stroke: #22d3ee !important; /* Lighter Cyan border */
+	filter: drop-shadow(0 0 5px rgba(6, 182, 212, 0.75));
+}
+
+/* Slightly darker when hovered, focused, or selected */
+.fg-node.fg-node--active-connected:not(.fg-node--inactive):hover .fg-node-shape--circle,
+.fg-node.fg-node--active-connected:not(.fg-node--inactive):hover .fg-node-shape--firm,
+.fg-node.fg-node--active-connected:not(.fg-node--inactive):hover .fg-node-shape--entity,
+.fg-node.fg-node--active-connected:not(.fg-node--inactive):focus .fg-node-shape--circle,
+.fg-node.fg-node--active-connected:not(.fg-node--inactive):focus .fg-node-shape--firm,
+.fg-node.fg-node--active-connected:not(.fg-node--inactive):focus .fg-node-shape--entity,
+.fg-node.fg-node--active-connected:not(.fg-node--inactive):focus-within .fg-node-shape--circle,
+.fg-node.fg-node--active-connected:not(.fg-node--inactive):focus-within .fg-node-shape--firm,
+.fg-node.fg-node--active-connected:not(.fg-node--inactive):focus-within .fg-node-shape--entity,
+.fg-node.fg-node--active-connected:not(.fg-node--inactive).selected .fg-node-shape--circle,
+.fg-node.fg-node--active-connected:not(.fg-node--inactive).selected .fg-node-shape--firm,
+.fg-node.fg-node--active-connected:not(.fg-node--inactive).selected .fg-node-shape--entity {
+	fill: #0891b2 !important; /* Slightly Darker Teal (Cyan 600) */
+	stroke: #06b6d4 !important; /* Cyan 500 border */
+	filter: drop-shadow(0 0 5px rgba(8, 145, 178, 0.75));
+}
+
+/* Transition always active for smooth scale resets */
+.fg-node.fg-node--active-connected .fg-node-shape--circle,
+.fg-node.fg-node--active-connected .fg-node-shape--firm,
+.fg-node.fg-node--active-connected .fg-node-shape--entity,
+.fg-node.fg-node--active-connected .fg-node-overlay,
+.fg-node.fg-node--active-connected .fg-node-selected-ring,
+.fg-node.fg-node--active-connected .fg-node-disclosure-ring,
+.fg-node.fg-node--active-parent-connected .fg-node-shape--circle,
+.fg-node.fg-node--active-parent-connected .fg-node-shape--firm,
+.fg-node.fg-node--active-parent-connected .fg-node-shape--entity,
+.fg-node.fg-node--active-parent-connected .fg-node-overlay,
+.fg-node.fg-node--active-parent-connected .fg-node-selected-ring,
+.fg-node.fg-node--active-parent-connected .fg-node-disclosure-ring {
+	transition:
+		transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+		fill 0.2s ease,
+		stroke 0.2s ease;
+}
+
+/* Size increase only applies when there is active highlights */
+.fg-svg--has-highlights .fg-node.fg-node--active-parent-connected .fg-node-shape--circle,
+.fg-svg--has-highlights .fg-node.fg-node--active-parent-connected .fg-node-shape--firm,
+.fg-svg--has-highlights .fg-node.fg-node--active-parent-connected .fg-node-shape--entity,
+.fg-svg--has-highlights .fg-node.fg-node--active-parent-connected .fg-node-overlay,
+.fg-svg--has-highlights .fg-node.fg-node--active-parent-connected .fg-node-selected-ring,
+.fg-svg--has-highlights .fg-node.fg-node--active-parent-connected .fg-node-disclosure-ring {
+	transform: scale(1.22);
+	transform-origin: 0 0;
+}
+
+.fg-svg--has-highlights .fg-node.fg-node--active-parent-connected text.fg-label {
+	font-weight: 600 !important;
+	transition: font-weight 0.2s ease;
 }
