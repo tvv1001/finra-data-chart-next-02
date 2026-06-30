@@ -27,10 +27,10 @@ function worldToScreen(x: number, y: number, transform: { x: number; y: number; 
 	return { x: transform.x + x * transform.k, y: transform.y + y * transform.k };
 }
 
-export function createOverlay(parent: HTMLElement, opts: { onClick?: (node: any) => void; onHover?: (node: any) => void } = {}) {
+export function createOverlay(parent: HTMLElement, opts: { onClick?: (node: any) => void; onHover?: (node: any) => void; onHoverEnd?: () => void; onFocus?: (node: any) => void; onBlur?: () => void } = {}) {
 	destroyOverlay();
 	parentEl = parent;
-	const { onClick, onHover } = opts || {};
+	const { onClick, onHover, onHoverEnd, onFocus, onBlur } = opts || {};
 	container = document.createElement('div');
 	container.id = 'fg-overlay';
 	container.style.position = 'absolute';
@@ -93,6 +93,15 @@ export function createOverlay(parent: HTMLElement, opts: { onClick?: (node: any)
 			clearTimeout(hoverTimerGlobal);
 			hoverTimerGlobal = null;
 		}
+		const related = ev.relatedTarget as HTMLElement | null;
+		const toLabel = related?.closest('.fg-overlay-label');
+		if (!toLabel) {
+			if (typeof onHoverEnd === 'function') {
+				try {
+					onHoverEnd();
+				} catch (e) {}
+			}
+		}
 		window.setTimeout(() => {
 			if (!activeTooltipIdGlobal) return;
 			const tooltip = document.getElementById('fg-overlay-tooltip');
@@ -100,6 +109,30 @@ export function createOverlay(parent: HTMLElement, opts: { onClick?: (node: any)
 			hideTooltip();
 			activeTooltipIdGlobal = null;
 		}, 150);
+	});
+
+	// delegated focus/blur handler in overlay
+	container.addEventListener('focusin', (ev) => {
+		const el = (ev.target as HTMLElement).closest('.fg-overlay-label') as HTMLElement | null;
+		if (!el) return;
+		const node = (el as any).__node;
+		if (typeof onFocus === 'function') {
+			try {
+				onFocus(node);
+			} catch (e) {}
+		}
+	});
+
+	container.addEventListener('focusout', (ev) => {
+		const related = ev.relatedTarget as HTMLElement | null;
+		const toLabel = related?.closest('.fg-overlay-label');
+		if (!toLabel) {
+			if (typeof onBlur === 'function') {
+				try {
+					onBlur();
+				} catch (e) {}
+			}
+		}
 	});
 
 	// keyboard navigation
