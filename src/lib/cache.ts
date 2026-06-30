@@ -108,14 +108,14 @@ async function getPrimedBundleFromRedis(name: PrimedBundleName): Promise<PrimedB
 		const chunkCount = Number(meta?.chunks || 0);
 		if (!meta?.chunked || !Number.isFinite(chunkCount) || chunkCount <= 0) return null;
 
-		const parts: string[] = [];
+		const partPromises: Promise<string | null>[] = [];
 		for (let index = 0; index < chunkCount; index += 1) {
-			const part = await redis.get<string>(getPrimedRedisPartKey(name, index));
-			if (!part) return null;
-			parts.push(part);
+			partPromises.push(redis.get<string>(getPrimedRedisPartKey(name, index)));
 		}
+		const parts = await Promise.all(partPromises);
+		if (parts.some((part) => part === null)) return null;
 
-		return await decodePrimedBundlePayload(parts.join(''));
+		return await decodePrimedBundlePayload(parts.filter((p): p is string => p !== null).join(''));
 	} catch {
 		return null;
 	}

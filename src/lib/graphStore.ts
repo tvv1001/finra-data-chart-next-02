@@ -654,12 +654,13 @@ export async function getFullGraph() {
 				const rawManifest = await redis.get<string>(manifestKey);
 				if (rawManifest) {
 					const manifest = typeof rawManifest === 'string' ? JSON.parse(rawManifest) : rawManifest;
-					const parts = [];
-					for (let i = 0; i < (manifest.parts || 0); i++) {
-						const part = await redis.get<string>(`${REDIS_GRAPH_KEY}:part:${i}`);
-						if (part) parts.push(part);
+					const manifestParts = manifest.parts || 0;
+					const partPromises = [];
+					for (let i = 0; i < manifestParts; i++) {
+						partPromises.push(redis.get<string>(`${REDIS_GRAPH_KEY}:part:${i}`));
 					}
-					if (parts.length === manifest.parts) {
+					const parts = await Promise.all(partPromises);
+					if (parts.every((part) => part !== null)) {
 						raw = parts.join('');
 					}
 				}

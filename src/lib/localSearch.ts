@@ -7,11 +7,14 @@ import * as path from 'node:path';
 import * as fsSync from 'node:fs';
 import * as zlib from 'node:zlib';
 
+let cachedRedisClient: Redis | null = null;
 function getUpstashClient() {
+	if (cachedRedisClient) return cachedRedisClient;
 	const url = process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 	if (!url || !token) return null;
-	return new Redis({ url, token });
+	cachedRedisClient = new Redis({ url, token });
+	return cachedRedisClient;
 }
 
 async function fetchFromRedis(bucket: string): Promise<any | null> {
@@ -45,15 +48,14 @@ async function fetchFromRedis(bucket: string): Promise<any | null> {
 		const chunkCount = Number(meta?.chunks ?? meta?.parts ?? 0);
 		if (!chunkCount || chunkCount < 1) return null;
 
-		const chunks: string[] = [];
+		const partPromises: Promise<string | null>[] = [];
 		for (let index = 0; index < chunkCount; index += 1) {
-			const part = await redis.get<string>(`${key}:part:${index}`);
-			if (typeof part !== 'string' || !part) return null;
-			chunks.push(part);
+			partPromises.push(redis.get<string>(`${key}:part:${index}`));
 		}
+		const chunks = await Promise.all(partPromises);
+		if (chunks.some(chunk => typeof chunk !== 'string' || !chunk)) return null;
 
-		if (!chunks.length) return null;
-		return parseStoredIndexPayload(chunks.join(''));
+		return parseStoredIndexPayload(chunks.filter((c): c is string => c !== null).join(''));
 	} catch (err) {
 		console.error(`[localSearch] Failed to fetch index from Redis for ${bucket}:`, err instanceof Error ? err.message : String(err));
 		return null;
@@ -395,8 +397,8 @@ async function loadIndex(bucket: LocalSearchBucket, baseUrl?: string, seedRoots:
 						let generatedAt: string | undefined;
 						let bucketName: string | undefined;
 
-						for (const filePath of filePaths) {
-							const parsed = await readIndexPayload(filePath);
+						const results = await Promise.all(filePaths.map((fp) => readIndexPayload(fp)));
+						for (const parsed of results) {
 							if (parsed?.generatedAt) generatedAt = generatedAt || parsed.generatedAt;
 							bucketName = bucketName || parsed?.bucket;
 							if (Array.isArray(parsed?.docs)) allDocs.push(...parsed.docs);

@@ -4,7 +4,7 @@ import { Redis } from '@upstash/redis';
 export const DEFAULT_TTL_SECONDS = Number(process.env.REDIS_CACHE_TTL_SECONDS || 86400);
 
 let client: Redis | null = null;
-function getClient(): Redis | null {
+export function getRedisClient(): Redis | null {
 	if (client) return client;
 	const url = process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -30,7 +30,7 @@ export async function setIfValid(
 ): Promise<'written' | 'skipped-empty' | 'skipped-nonstring' | 'no-client' | 'error'> {
 	try {
 		if (isEmptyHitsObj(value)) return 'skipped-empty';
-		const redis = getClient();
+		const redis = getRedisClient();
 		if (!redis) return 'no-client';
 
 		// check type to avoid WRONGTYPE errors
@@ -72,7 +72,7 @@ export async function setStringIfValid(
 			parsed = null;
 		}
 		if (isEmptyHitsObj(parsed)) return 'skipped-empty';
-		const redis = getClient();
+		const redis = getRedisClient();
 		if (!redis) return 'no-client';
 		let t = 'none';
 		try {

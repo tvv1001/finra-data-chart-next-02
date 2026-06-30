@@ -88,13 +88,13 @@ async function loadBundleFromRedis(baseName: string) {
 		const chunkCount = Number(meta?.chunks || meta?.parts || 0);
 		if (!meta?.chunked || !Number.isFinite(chunkCount) || chunkCount <= 0) return null;
 
-		const parts: string[] = [];
+		const partPromises: Promise<string | null>[] = [];
 		for (let index = 0; index < chunkCount; index += 1) {
-			const part = await redis.get<string>(`primed:bundle:${baseName}:part:${index}`);
-			if (!part) return null;
-			parts.push(part);
+			partPromises.push(redis.get<string>(`primed:bundle:${baseName}:part:${index}`));
 		}
-		return (await decodePayload(parts.join(''))) as PeopleClusterBundle | PeopleClusterManifest;
+		const parts = await Promise.all(partPromises);
+		if (parts.some((part) => part === null)) return null;
+		return (await decodePayload(parts.filter((p): p is string => p !== null).join(''))) as PeopleClusterBundle | PeopleClusterManifest;
 	} catch {
 		return null;
 	}

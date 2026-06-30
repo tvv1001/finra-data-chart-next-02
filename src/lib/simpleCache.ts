@@ -106,14 +106,14 @@ async function getPrimedBundleFromRedis(name: PrimedBundleName): Promise<PrimedB
 		const chunkCount = Number(meta?.chunks || 0);
 		if (!meta?.chunked || !Number.isFinite(chunkCount) || chunkCount <= 0) return null;
 
-		const parts: string[] = [];
+		const partPromises: Promise<string | null>[] = [];
 		for (let index = 0; index < chunkCount; index += 1) {
-			const part = await redis.get<string>(getPrimedRedisPartKey(name, index));
-			if (!part) return null;
-			parts.push(part);
+			partPromises.push(redis.get<string>(getPrimedRedisPartKey(name, index)));
 		}
+		const parts = await Promise.all(partPromises);
+		if (parts.some((part) => part === null)) return null;
 
-		return decodePrimedBundlePayload(parts.join(''));
+		return decodePrimedBundlePayload(parts.filter((p): p is string => p !== null).join(''));
 	} catch {
 		return null;
 	}
@@ -293,15 +293,8 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 			if (redis) {
 				try {
 					const newJson = JSON.stringify(value);
-					// Only write to Redis if the value has actually changed
-					const existing = await redis.get(key).catch(() => null);
-					const existingJson = existing != null ? (typeof existing === 'string' ? existing : JSON.stringify(existing)) : null;
-					let isAdded = false;
-					if (existingJson !== newJson) {
-						await setStringIfValid(key, newJson, ttlSeconds);
-						isAdded = true;
-					}
-					console.log(`[External API Access Success] Time: ${new Date().toISOString()} | Domain: ${domain} | CRDs added: [${crd}] | Added count: ${isAdded ? 1 : 0}`);
+					await setStringIfValid(key, newJson, ttlSeconds);
+					console.log(`[External API Access Success] Time: ${new Date().toISOString()} | Domain: ${domain} | CRDs added: [${crd}] | Added count: 1`);
 				} catch {
 					console.log(`[External API Access Success] Time: ${new Date().toISOString()} | Domain: ${domain} | CRDs added: [${crd}] | Added count: 1 (memory only)`);
 				}

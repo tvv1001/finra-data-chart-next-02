@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Redis } from '@upstash/redis';
+import { getRedisClient } from '@/lib/redisCache';
 import { getNeighborsForNodes } from '@/lib/graphStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
@@ -68,14 +68,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		}
 
 		// Fast path for single node (Redis cache check)
-		const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
-		const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-		if (!strictExpansion && allIds.length === 1 && redisUrl && redisToken && hops === 1) {
+		if (!strictExpansion && allIds.length === 1 && hops === 1) {
 			try {
-				const redis = new Redis({ url: redisUrl, token: redisToken });
-				const cached = await redis.get<any>(`finra:expand:${nodeId}:1`);
-				if (cached) {
-					return NextResponse.json(cached, { headers: sharedCacheHeaders(300) });
+				const redis = getRedisClient();
+				if (redis) {
+					const cached = await redis.get<any>(`finra:expand:${nodeId}:1`);
+					if (cached) {
+						return NextResponse.json(cached, { headers: sharedCacheHeaders(300) });
+					}
 				}
 			} catch (e) {
 				console.warn(`Expansion API: Cache check failed for ${nodeId}`, e);
@@ -105,9 +105,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				// Ensure the firm node itself is present in result.nodes
 				if (!seenNodeIds.has(nodeId)) {
 					let firmLabel = `Firm ${firmId}`;
-					if (redisUrl && redisToken) {
-						try {
-							const redis = new Redis({ url: redisUrl, token: redisToken });
+					try {
+						const redis = getRedisClient();
+						if (redis) {
 							const cachedFirm = await redis.get<any>(`finra:firm:${firmId}`);
 							if (cachedFirm) {
 								const cachedHits = cachedFirm?.hits?.hits || [];
@@ -116,9 +116,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 								const bi = parsed?.basicInformation || parsed || {};
 								firmLabel = bi.firmName || bi.name || firmLabel;
 							}
-						} catch (e) {
-							console.warn(`Expansion API: Failed to load firm details for node label`, e);
 						}
+					} catch (e) {
+						console.warn(`Expansion API: Failed to load firm details for node label`, e);
 					}
 					firmNode = {
 						id: nodeId,

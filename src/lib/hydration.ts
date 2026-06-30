@@ -13,10 +13,15 @@ let isProcessing = false;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+let cachedRedisClient: Redis | null = null;
 function getRedisClient() {
+	if (cachedRedisClient) return cachedRedisClient;
 	const url = process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-	return url && token ? new Redis({ url, token }) : null;
+	if (url && token) {
+		cachedRedisClient = new Redis({ url, token });
+	}
+	return cachedRedisClient;
 }
 
 async function fetchAndSave(

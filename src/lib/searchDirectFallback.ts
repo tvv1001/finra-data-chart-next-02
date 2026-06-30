@@ -1,11 +1,14 @@
 import { Redis } from '@upstash/redis';
 import type { LocalSearchEntity, LocalSearchResponse, LocalSearchSource } from './localSearch';
 
+let cachedRedisClient: Redis | null = null;
 function getUpstashClient() {
+	if (cachedRedisClient) return cachedRedisClient;
 	const url = process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 	if (!url || !token) return null;
-	return new Redis({ url, token });
+	cachedRedisClient = new Redis({ url, token });
+	return cachedRedisClient;
 }
 
 export async function searchDirectRedisFallback(
