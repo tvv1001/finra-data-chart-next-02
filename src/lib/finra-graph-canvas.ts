@@ -126,8 +126,8 @@ export function drawCanvasFrame(
 	const visibleNodes = nodes.filter((n) => n && Number.isFinite(n.x) && Number.isFinite(n.y) && n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY);
 
 	// draw links (lightweight) — only links with at least one visible endpoint
-	ctx.lineWidth = Math.max(0.5, 1 * (transform.k || 1));
-	ctx.strokeStyle = 'rgba(100,120,140,0.18)';
+	ctx.lineWidth = 1.2 * Math.max(0.4, Math.min(1, transform.k || 1));
+	ctx.strokeStyle = 'rgba(90, 105, 120, 0.45)';
 	ctx.beginPath();
 	for (const l of links) {
 		const a = l.source;
@@ -455,7 +455,7 @@ function renderNodeGraphic(graphic: any, node: any, selected: boolean) {
 function drawFrame() {
 	if (!pixiApp || !linkLayer || !nodeLayer) return;
 	linkLayer.clear();
-	linkLayer.lineStyle(1.4, 0xb0b0b0, 0.62);
+	linkLayer.lineStyle(1.4, 0x8a9aad, 0.75);
 
 	for (const link of graphLinks) {
 		const source = link.source;

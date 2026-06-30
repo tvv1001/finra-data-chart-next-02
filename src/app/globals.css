@@ -3532,7 +3532,7 @@ a,
 	stroke-linejoin: round;
 	vector-effect: non-scaling-stroke;
 	filter: none;
-	stroke-width: calc(var(--fg-link-width, 0.124px) * clamp(0.1, var(--fg-current-zoom, 1), 1)) !important;
+	stroke-width: calc(var(--fg-link-width, 1.2px) * clamp(0.4, var(--fg-current-zoom, 1), 1)) !important;
 }
 
 .fg-link.fg-link--depth-active {

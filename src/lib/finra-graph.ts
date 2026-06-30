@@ -6157,16 +6157,16 @@ const LINK_COLOR = {
 	controls: GRAPH_COLORS.lineControls,
 };
 const LINK_OPACITY = {
-	employed_by: 0.58,
-	previous_employed_by: 0.42,
-	controls: 0.58,
+	employed_by: 0.75,
+	previous_employed_by: 0.55,
+	controls: 0.75,
 };
-const DEFAULT_LINK_WIDTH = 0.62;
-const INACTIVE_LINK_OPACITY = 0.28;
+const DEFAULT_LINK_WIDTH = 1.2;
+const INACTIVE_LINK_OPACITY = 0.45;
 const defaultLinkOpacity = (d) => {
 	if (hasInactiveEndpoint(d)) return INACTIVE_LINK_OPACITY;
 	if (usesCurrentEmploymentStyling(d)) return LINK_OPACITY.employed_by;
-	return LINK_OPACITY[d.relationship] ?? 0.5;
+	return LINK_OPACITY[d.relationship] ?? 0.6;
 };
 
 function getEmploymentRelationship(entry) {
@@ -7137,8 +7137,8 @@ function getLinkDash(d) {
 }
 
 function getLinkWidth(d) {
-	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d) || isPreviousEmploymentLink(d)) return '0.15px';
-	return DEFAULT_LINK_WIDTH;
+	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d) || isPreviousEmploymentLink(d)) return '0.5px';
+	return `${DEFAULT_LINK_WIDTH}px`;
 }
 
 function getLinkWidthPx(d) {
@@ -7847,7 +7847,10 @@ function renderGraph(_data) {
 						}
 
 						linkLayerPixi.clear();
-						linkLayerPixi.lineStyle(useSimplifiedLargeGraphShapes ? 0.8 : 1, 0x708090, useSimplifiedLargeGraphShapes ? 0.12 : 0.18);
+						const baseWidth = useSimplifiedLargeGraphShapes ? 0.8 : 1.2;
+						const k = Number.isFinite(transform?.k) && transform.k > 0 ? transform.k : 1;
+						const worldWidth = (baseWidth * Math.max(0.4, Math.min(1, k))) / k;
+						linkLayerPixi.lineStyle(worldWidth, 0x5a6a7a, useSimplifiedLargeGraphShapes ? 0.25 : 0.45);
 						for (const l of visibleLinks) {
 							const a = getLinkPoint(l.source);
 							const b = getLinkPoint(l.target);
