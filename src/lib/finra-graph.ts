@@ -286,6 +286,8 @@ let d3;
 let graphData = null; // { nodes, links, meta } — full dataset
 let simulation = null;
 let selectedId = null;
+let hoveredNodeId = null;
+let focusedNodeId = null;
 let highlightedSelections = []; // [{ id, hops }] — persistent multi-node highlight roots
 let visitedNodeIds = new Set();
 let linkSel = null; // current <line> selection
@@ -2952,6 +2954,38 @@ function upsertHighlightedSelection(id, hops = getDefaultSelectionHops()) {
 	highlightedSelections.push({ id, hops: normalizedHops });
 }
 
+function setHoveredNode(id) {
+	const nextId = id ? String(id).trim() : null;
+	if (hoveredNodeId === nextId) return;
+	hoveredNodeId = nextId;
+	highlightLinks(computeHighlightState());
+}
+
+function setFocusedNode(id) {
+	const nextId = id ? String(id).trim() : null;
+	if (focusedNodeId === nextId) return;
+	focusedNodeId = nextId;
+	highlightLinks(computeHighlightState());
+}
+
+function bindHoverAndFocus(selection) {
+	return selection
+		.attr('focusable', 'true')
+		.attr('tabindex', '0')
+		.on('mouseenter', function (event, d) {
+			setHoveredNode(d.id);
+		})
+		.on('mouseleave', function (event, d) {
+			setHoveredNode(null);
+		})
+		.on('focus', function (event, d) {
+			setFocusedNode(d.id);
+		})
+		.on('blur', function (event, d) {
+			setFocusedNode(null);
+		});
+}
+
 export function getLinkIdentityKey(link) {
 	const sourceId = String(link?.source?.id ?? link?.source ?? '');
 	const targetId = String(link?.target?.id ?? link?.target ?? '');
@@ -3034,7 +3068,20 @@ function computeHighlightState() {
 	const hopNodeIds = new Set();
 	const linkKeys = new Set();
 
-	if (!Array.isArray(highlightedSelections) || !highlightedSelections.length) {
+	const activeFindId = activeFindMatchIndex >= 0 && Array.isArray(activeFindMatchOrder) ? activeFindMatchOrder[activeFindMatchIndex] : null;
+
+	const tempRoots = [...highlightedSelections];
+	if (hoveredNodeId && !tempRoots.some((r) => r.id === hoveredNodeId)) {
+		tempRoots.push({ id: hoveredNodeId, hops: 1 });
+	}
+	if (focusedNodeId && !tempRoots.some((r) => r.id === focusedNodeId)) {
+		tempRoots.push({ id: focusedNodeId, hops: 1 });
+	}
+	if (activeFindId && !tempRoots.some((r) => r.id === activeFindId)) {
+		tempRoots.push({ id: activeFindId, hops: 1 });
+	}
+
+	if (!tempRoots.length) {
 		return { rootIds, nodeIds, hopNodeIds, linkKeys };
 	}
 
@@ -3049,7 +3096,7 @@ function computeHighlightState() {
 		adjacency.get(targetId).push({ nodeId: sourceId, link });
 	});
 
-	highlightedSelections.forEach((entry) => {
+	tempRoots.forEach((entry) => {
 		if (!entry?.id) return;
 		const entryNode = nodeById.get(entry.id) || null;
 		const entryInactive = isNodeInactive(entryNode);
@@ -6978,6 +7025,15 @@ function renderNodeContents(selection) {
 		const g = d3.select(this);
 		g.selectAll('*').remove();
 
+		// Add an invisible mouse-target circle to make hovering/focusing easy when zoomed out
+		const rv = d._vizHalf != null ? d._vizHalf : NODE_R[d.group] || 10;
+		g.append('circle')
+			.attr('class', 'fg-node-mouse-target')
+			.attr('r', Math.max(22, rv + 12))
+			.attr('fill', 'none')
+			.style('pointer-events', 'all')
+			.style('cursor', 'pointer');
+
 		const r = NODE_R[d.group] || 10;
 		const inactive = isNodeInactive(d);
 		g.classed('fg-node--inactive', inactive)
@@ -7704,7 +7760,7 @@ function appendFetchedImpl(newNodes, newLinks) {
 	refreshLayeredLinkSelections({ enterDuration: 400 });
 
 	const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
-	const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen);
+	const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen).call(bindHoverAndFocus);
 
 	// Apply initial transform so new nodes appear at their placed position
 	// immediately (the renderGraph tick handler only covers old nodes).
@@ -7968,7 +8024,23 @@ function renderGraph(_data) {
 							},
 							onHover: (node) => {
 								try {
+									setHoveredNode(node?.id || null);
 									document.dispatchEvent(new CustomEvent('finra:overlay-hover', { detail: { id: String(node.id) } }));
+								} catch (e) {}
+							},
+							onHoverEnd: () => {
+								try {
+									setHoveredNode(null);
+								} catch (e) {}
+							},
+							onFocus: (node) => {
+								try {
+									setFocusedNode(node?.id || null);
+								} catch (e) {}
+							},
+							onBlur: () => {
+								try {
+									setFocusedNode(null);
 								} catch (e) {}
 							},
 						});
@@ -8540,7 +8612,7 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 	refreshLayeredLinkSelections({ enterDuration: 400 });
 
 	const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
-	const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen);
+	const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen).call(bindHoverAndFocus);
 
 	// Persist session so reload restores these server-rendered nodes
 	if (!skipPersist) {
@@ -10702,7 +10774,7 @@ function revealNeighbors(
 	refreshLayeredLinkSelections({ enterDuration: 800 });
 
 	const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
-	const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen);
+	const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen).call(bindHoverAndFocus);
 
 	enteredNodes.transition().duration(800).attr('opacity', 1);
 	nodeSel = nodeGroup.selectAll('g.fg-node');
@@ -10832,15 +10904,32 @@ function highlightLinks(highlightState = null) {
 	const hasNormalHighlights = state.rootIds.size > 0;
 
 	if (!hasNormalHighlights && !isTraceMode && !isTraceLogMode) {
+		const selectionLinkEmphasis = getSelectionLinkEmphasis();
 		// restore default appearance (both attributes and inline styles)
 		linkSel
 			.style('filter', null)
 			.style('stroke-opacity', null)
 			.style('opacity', null)
 			.attr('stroke', (d) => getLinkColor(d))
-			.attr('stroke-opacity', defaultLinkOpacity)
-			.attr('stroke-width', (d) => getLinkWidth(d))
-			.style('--fg-link-width', (d) => getLinkWidthPx(d))
+			.attr('stroke-opacity', 0.5 * selectionLinkEmphasis.strokeOpacity)
+			.attr('stroke-width', (d) => {
+				const isGrayLine = hasInactiveEndpoint(d) || isPreviousEmploymentLink(d) || isForcedGrayConnectionLink(d);
+				const highlightedStrokeWidth =
+					isGrayLine ? 0.34
+					: d.relationship === 'controls' ? 1.9
+					: usesCurrentEmploymentStyling(d) ? 1.85
+					: 1.4;
+				return 0.5 * highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale;
+			})
+			.style('--fg-link-width', (d) => {
+				const isGrayLine = hasInactiveEndpoint(d) || isPreviousEmploymentLink(d) || isForcedGrayConnectionLink(d);
+				const highlightedStrokeWidth =
+					isGrayLine ? 0.34
+					: d.relationship === 'controls' ? 1.9
+					: usesCurrentEmploymentStyling(d) ? 1.85
+					: 1.4;
+				return `${0.5 * highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale}px`;
+			})
 			.classed('fg-link--depth-active', false)
 			.classed('fg-link--depth-recessed', false)
 			.classed('trace-shortest', false)
