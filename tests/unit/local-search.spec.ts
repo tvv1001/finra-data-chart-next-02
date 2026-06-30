@@ -331,6 +331,39 @@ describe('local search indexes', () => {
 		);
 	});
 
+	it('does not match address text for firm queries, matching name only', async () => {
+		await withTempSearchIndex(
+			'search-index.finra.firm.json',
+			JSON.stringify({
+				generatedAt: '2026-06-06T00:00:00.000Z',
+				bucket: 'finra:firm',
+				docs: [
+					{
+						id: 'finra:firm:999',
+						type: 'firm',
+						source: 'finra',
+						nameSearchText: 'Alpha Capital',
+						addressSearchText: '100 main street chicago illinois',
+						strictSearchText: 'Alpha Capital',
+						searchText: '999 Alpha Capital',
+						hit: {
+							firm_id: '999',
+							firm_name: 'Alpha Capital',
+						},
+					},
+				],
+			}),
+			async (root) => {
+				const nameResult = await searchLocalIndex('finra', 'firm', 'Alpha', { limit: 5, seedRoots: [root] });
+				expect(nameResult.total).toBe(1);
+				expect(nameResult.response.docs[0]?.firm_id).toBe('999');
+
+				const addressResult = await searchLocalIndex('finra', 'firm', 'Chicago', { limit: 5, seedRoots: [root] });
+				expect(addressResult.total).toBe(0);
+			},
+		);
+	});
+
 	it('keeps Mc and O apostrophe names tightly ranked', async () => {
 		await withTempSearchIndex(
 			'search-index.sec.individual.json',

@@ -29,6 +29,27 @@ function isStrictMatchQuery(value: string) {
 
 export function collectSearchableNodeKeys(node: any) {
 	const basic = node?.basicInformation || {};
+	const group = node?.group || (node?.type === 'firm' || node?.firmId || node?.firm_id ? 'firm' : 'individual');
+	if (group === 'firm') {
+		return [
+			node?.id,
+			node?.label,
+			node?.name,
+			node?.crd,
+			node?.firmId,
+			node?.bdSecNumber,
+			node?.iaSecNumber,
+			basic?.firmId,
+			basic?.name,
+			basic?.bdSECNumber,
+			basic?.iaSECNumber,
+			...(Array.isArray(node?.otherNames) ? node.otherNames : []),
+			...(Array.isArray(basic?.otherNames) ? basic.otherNames : []),
+			node?.firm_source_id,
+		]
+			.map((value) => normalizeText(value))
+			.filter(Boolean);
+	}
 	return [
 		node?.id,
 		node?.label,

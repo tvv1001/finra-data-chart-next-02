@@ -241,7 +241,7 @@ const LOCATION_SOURCE_STRENGTH = {
 	current_office: 0.92,
 	office_address: 0.88,
 	registered_state: 0.72,
-	basic_state: 0.62,
+	basic_state: 2.62,
 	formed_state: 0.5,
 	district: 0.46,
 };
@@ -1433,7 +1433,24 @@ function collectSearchableNodeKeys(node) {
 		.split(':')
 		.pop();
 	const preferredLabel = getPreferredNodeLabel(node);
-	const keys = [
+	const group = node.group || (node.type === 'firm' || node.firmId || node.firm_id ? 'firm' : 'individual');
+	const keys = group === 'firm' ? [
+		node.id,
+		idSuffix,
+		node.crd,
+		node.firmId,
+		basic.firmId,
+		node.bdSecNumber,
+		node.iaSecNumber,
+		basic.bdSECNumber,
+		basic.iaSECNumber,
+		preferredLabel,
+		node.label,
+		node.name,
+		basic.name,
+		...(Array.isArray(node.otherNames) ? node.otherNames : []),
+		...(Array.isArray(basic.otherNames) ? basic.otherNames : []),
+	] : [
 		node.id,
 		idSuffix,
 		node.crd,
@@ -1565,7 +1582,8 @@ export function rankFindNodeMatches(rawQuery, nodePool = [], liveLinks = []) {
 			}
 
 			// 7.5 Address match
-			if (comparableQuery && node.addressSearchText && node.addressSearchText.includes(comparableQuery)) {
+			const group = node.group || (node.type === 'firm' || node.firmId || node.firm_id ? 'firm' : 'individual');
+			if (group !== 'firm' && comparableQuery && node.addressSearchText && node.addressSearchText.includes(comparableQuery)) {
 				bestScore = Math.max(bestScore, 130);
 			}
 
@@ -4386,8 +4404,11 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 			const q = String(fetchInput.value || '').trim();
 			if (!q) return;
 
-			const tokens = q.split(/[\s,;\t]+/g).map(t => t.trim()).filter(Boolean);
-			const isCrdList = tokens.length > 1 && tokens.every(t => /^\d{1,10}$/.test(t));
+			const tokens = q
+				.split(/[\s,;\t]+/g)
+				.map((t) => t.trim())
+				.filter(Boolean);
+			const isCrdList = tokens.length > 1 && tokens.every((t) => /^\d{1,10}$/.test(t));
 
 			clearFetchStatus();
 			if (!(await ensureFetchRuntimeReady())) {
@@ -4422,9 +4443,9 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 
 					const headers = { Accept: 'application/json' };
 					const [r1, r2, r3] = await Promise.allSettled([
-						fetch(finraIndUrl.toString(), { headers }).then((r) => r.ok ? r.json() : null),
-						fetch(finraFirmUrl.toString(), { headers }).then((r) => r.ok ? r.json() : null),
-						fetch(secUrl.toString(), { headers }).then((r) => r.ok ? r.json() : null),
+						fetch(finraIndUrl.toString(), { headers }).then((r) => (r.ok ? r.json() : null)),
+						fetch(finraFirmUrl.toString(), { headers }).then((r) => (r.ok ? r.json() : null)),
+						fetch(secUrl.toString(), { headers }).then((r) => (r.ok ? r.json() : null)),
 					]);
 
 					const extractHits = (res) => {
@@ -4487,7 +4508,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 					const batchSize = 5;
 					for (let i = 0; i < tokens.length; i += batchSize) {
 						const batch = tokens.slice(i, i + batchSize);
-						const batchResults = await Promise.all(batch.map(t => fetchSingleCrd(t)));
+						const batchResults = await Promise.all(batch.map((t) => fetchSingleCrd(t)));
 						for (const hits of batchResults) {
 							allHits.push(...hits);
 						}

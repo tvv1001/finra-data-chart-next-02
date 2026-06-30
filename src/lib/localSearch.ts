@@ -682,6 +682,7 @@ function hasEmploymentFirmIdMatch(doc: PreparedLocalSearchDoc, normalizedQuery: 
 }
 
 function getAddressMatchScore(doc: PreparedLocalSearchDoc, normalizedQuery: string, tokens: string[]) {
+	if (doc.type === 'firm') return 0;
 	return getAddressFieldMatchScore(doc.addressSearchText, normalizedQuery, tokens);
 }
 
