@@ -241,7 +241,7 @@ const LOCATION_SOURCE_STRENGTH = {
 	current_office: 0.92,
 	office_address: 0.88,
 	registered_state: 0.72,
-	basic_state: 2.62,
+	basic_state: 0.62,
 	formed_state: 0.5,
 	district: 0.46,
 };
@@ -1434,42 +1434,45 @@ function collectSearchableNodeKeys(node) {
 		.pop();
 	const preferredLabel = getPreferredNodeLabel(node);
 	const group = node.group || (node.type === 'firm' || node.firmId || node.firm_id ? 'firm' : 'individual');
-	const keys = group === 'firm' ? [
-		node.id,
-		idSuffix,
-		node.crd,
-		node.firmId,
-		basic.firmId,
-		node.bdSecNumber,
-		node.iaSecNumber,
-		basic.bdSECNumber,
-		basic.iaSECNumber,
-		preferredLabel,
-		node.label,
-		node.name,
-		basic.name,
-		...(Array.isArray(node.otherNames) ? node.otherNames : []),
-		...(Array.isArray(basic.otherNames) ? basic.otherNames : []),
-	] : [
-		node.id,
-		idSuffix,
-		node.crd,
-		basic.individualId,
-		node.firmId,
-		basic.firmId,
-		node.bdSecNumber,
-		node.iaSecNumber,
-		basic.bdSECNumber,
-		basic.iaSECNumber,
-		preferredLabel,
-		node.label,
-		node.name,
-		basic.name,
-		node.addressSearchText,
-		[basic.firstName, basic.middleName, basic.lastName].filter(Boolean).join(' '),
-		...(Array.isArray(node.otherNames) ? node.otherNames : []),
-		...(Array.isArray(basic.otherNames) ? basic.otherNames : []),
-	];
+	const keys =
+		group === 'firm' ?
+			[
+				node.id,
+				idSuffix,
+				node.crd,
+				node.firmId,
+				basic.firmId,
+				node.bdSecNumber,
+				node.iaSecNumber,
+				basic.bdSECNumber,
+				basic.iaSECNumber,
+				preferredLabel,
+				node.label,
+				node.name,
+				basic.name,
+				...(Array.isArray(node.otherNames) ? node.otherNames : []),
+				...(Array.isArray(basic.otherNames) ? basic.otherNames : []),
+			]
+		:	[
+				node.id,
+				idSuffix,
+				node.crd,
+				basic.individualId,
+				node.firmId,
+				basic.firmId,
+				node.bdSecNumber,
+				node.iaSecNumber,
+				basic.bdSECNumber,
+				basic.iaSECNumber,
+				preferredLabel,
+				node.label,
+				node.name,
+				basic.name,
+				node.addressSearchText,
+				[basic.firstName, basic.middleName, basic.lastName].filter(Boolean).join(' '),
+				...(Array.isArray(node.otherNames) ? node.otherNames : []),
+				...(Array.isArray(basic.otherNames) ? basic.otherNames : []),
+			];
 	return keys.map((entry) => String(entry || '').trim()).filter(Boolean);
 }
 
