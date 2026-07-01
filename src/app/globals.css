@@ -4803,31 +4803,41 @@ html[data-theme='dark'] .fg-source-toggle-btn.active {
 
 /* ── Active Connected Node Highlights (highest priority) ───────────────── */
 
-/* Color is always teal/cyan for active connected nodes */
+/* People nodes with an active connection use a stronger purple highlight; firms keep the aqua treatment. */
 .fg-node.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--circle,
-.fg-node.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--firm,
 .fg-node.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--entity {
-	fill: #06b6d4 !important; /* Vibrant Teal/Cyan */
-	stroke: #22d3ee !important; /* Lighter Cyan border */
-	filter: drop-shadow(0 0 5px rgba(6, 182, 212, 0.75));
+	fill: #8b5cf6 !important; /* Purple highlight for people/entities */
+	stroke: #c084fc !important; /* Bright purple border */
+	filter: drop-shadow(0 0 5px rgba(139, 92, 246, 0.85));
 }
 
-/* Slightly darker when hovered, focused, or selected */
+.fg-node.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--firm {
+	fill: #14b8a6 !important; /* Aqua for firms */
+	stroke: #5eead4 !important;
+	filter: drop-shadow(0 0 5px rgba(20, 184, 166, 0.8));
+}
+
+/* Slightly deeper when hovered, focused, or selected */
 .fg-node.fg-node--active-connected:not(.fg-node--inactive):hover .fg-node-shape--circle,
-.fg-node.fg-node--active-connected:not(.fg-node--inactive):hover .fg-node-shape--firm,
 .fg-node.fg-node--active-connected:not(.fg-node--inactive):hover .fg-node-shape--entity,
 .fg-node.fg-node--active-connected:not(.fg-node--inactive):focus .fg-node-shape--circle,
-.fg-node.fg-node--active-connected:not(.fg-node--inactive):focus .fg-node-shape--firm,
 .fg-node.fg-node--active-connected:not(.fg-node--inactive):focus .fg-node-shape--entity,
 .fg-node.fg-node--active-connected:not(.fg-node--inactive):focus-within .fg-node-shape--circle,
-.fg-node.fg-node--active-connected:not(.fg-node--inactive):focus-within .fg-node-shape--firm,
 .fg-node.fg-node--active-connected:not(.fg-node--inactive):focus-within .fg-node-shape--entity,
 .fg-node.fg-node--active-connected:not(.fg-node--inactive).selected .fg-node-shape--circle,
-.fg-node.fg-node--active-connected:not(.fg-node--inactive).selected .fg-node-shape--firm,
 .fg-node.fg-node--active-connected:not(.fg-node--inactive).selected .fg-node-shape--entity {
-	fill: #0891b2 !important; /* Slightly Darker Teal (Cyan 600) */
-	stroke: #06b6d4 !important; /* Cyan 500 border */
-	filter: drop-shadow(0 0 5px rgba(8, 145, 178, 0.75));
+	fill: #7c3aed !important; /* Deeper purple */
+	stroke: #ddd6fe !important;
+	filter: drop-shadow(0 0 5px rgba(124, 58, 237, 0.9));
+}
+
+.fg-node.fg-node--active-connected:not(.fg-node--inactive):hover .fg-node-shape--firm,
+.fg-node.fg-node--active-connected:not(.fg-node--inactive):focus .fg-node-shape--firm,
+.fg-node.fg-node--active-connected:not(.fg-node--inactive):focus-within .fg-node-shape--firm,
+.fg-node.fg-node--active-connected:not(.fg-node--inactive).selected .fg-node-shape--firm {
+	fill: #0f766e !important;
+	stroke: #2dd4bf !important;
+	filter: drop-shadow(0 0 5px rgba(15, 118, 110, 0.85));
 }
 
 /* Transition always active for smooth scale resets */

@@ -6370,8 +6370,8 @@ export function applyGraphDerivedNodeMetrics(nodes, links) {
 	const maxIndDeg = Math.max(1, ...indDegs);
 	const maxFirmDeg = Math.max(1, ...firmDegs);
 
-	const MIN_INDIV = 6;
-	const MIN_FIRM = 7;
+	const MIN_INDIV = 12;
+	const MIN_FIRM = 14;
 
 	nodeList.forEach((node) => {
 		const deg = degMap.get(node.id) || { total: 0, controls: 0, employed: 0 };
