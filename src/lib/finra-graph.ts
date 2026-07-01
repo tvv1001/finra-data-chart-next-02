@@ -10297,11 +10297,13 @@ function selectNode(
 	stopSearchPulseLoop();
 	updateFocusReadout(null);
 	const { persist = true, skipProfileSync = false, skipAutoExpand = false, skipLog = false, focus = false, pulse = false, focusDuration = 300, syncRoute = true } = options;
+	void focus;
+	void pulse;
+	void focusDuration;
 
-	// Performance: reduce selection camera motion to be minimal (instant) to match
-	// the minimal-motion behavior used by the Refresh action. Toggle via env.
-	// Default is false (motion enabled); set env REDUCE_SELECTION_MOTION=1|true to disable motion.
-	const REDUCE_SELECTION_MOTION = true;
+	// Clear any previous transient locator pulse immediately so the blue ring can
+	// move cleanly to the newly selected node.
+	stopNodePulseLoop();
 	if (selectionRestoreTimer) {
 		clearTimeout(selectionRestoreTimer);
 		selectionRestoreTimer = null;
@@ -10335,44 +10337,15 @@ function selectNode(
 		syncProfileSelection(data);
 	}
 
-	if (focus) {
-		if (REDUCE_SELECTION_MOTION) {
-			// Apply immediate transform without transitions or transient highlights
-			try {
-				if (zoomBehavior && svgSel) {
-					const node = (Array.isArray(layoutNodes) && layoutNodes.find((n) => n.id === d.id)) || null;
-					if (node && Number.isFinite(node.x) && Number.isFinite(node.y)) {
-						const viewport = getVisibleGraphViewport();
-						const transform = d3.zoomTransform(svgSel.node());
-						const k = transform.k || 1;
-						const x = node.x || 0;
-						const y = node.y || 0;
-						const tx = viewport.centerX - x * k;
-						const ty = viewport.centerY - y * k;
-						// instant, no transition
-						svgSel.call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(k));
-					}
-				}
-			} catch (e) {
-				/* ignore */
-			}
-		} else {
-			focusNodeById(d.id, { duration: focusDuration, pulse });
-		}
-	} else {
-		// do not trigger pulse/highlight when reduced-motion is enabled
-		if (!REDUCE_SELECTION_MOTION && pulse) {
-			pulseNodeHighlightById(d.id);
-		}
-	}
+	// Intentionally do not pan/zoom the viewport on selection. The selected node
+	// is located via a persistent blue ring plus a short pulse instead.
 	// Always show blue location ring after selection. Use any requested pulse duration
 	// provided by route requests (e.g. sidebar links), otherwise default to 4000ms.
 	const defaultPulseMs = 4000;
 	const finalPulseMs = typeof pendingRoutePulseDuration === 'number' && Number.isFinite(pendingRoutePulseDuration) ? pendingRoutePulseDuration : defaultPulseMs;
 	// Clear consumed pending pulse value so it doesn't affect subsequent selections
 	pendingRoutePulseDuration = null;
-	// Show pulse only when motion is allowed; otherwise skip to avoid animation
-	if (!REDUCE_SELECTION_MOTION) pulseNodeHighlightById(d.id, { duration: finalPulseMs });
+	pulseNodeHighlightById(d.id, { duration: finalPulseMs });
 
 	// For individual nodes, fetch detail data from API and re-render if it's still selected
 	if (d.group === 'individual') {
