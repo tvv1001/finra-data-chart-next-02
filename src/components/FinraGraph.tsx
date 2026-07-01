@@ -1,5 +1,5 @@
 'use client';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 
 import ThemeToggle from './ThemeToggle';
@@ -169,13 +169,18 @@ function focusFetchInputWhenEmpty(options: { force?: boolean } = {}) {
 	});
 }
 
+function updateNodeRouteHistory(href: string, mode: 'push' | 'replace' = 'push') {
+	if (typeof window === 'undefined') return;
+	const method = mode === 'replace' ? 'replaceState' : 'pushState';
+	window.history[method](window.history.state, '', href);
+}
+
 function routeSidebarNodeSelection({
 	nodeId,
 	searchSuffix,
 	browserPathname,
 	pathname,
 	setBrowserPathname,
-	router,
 	pulseDuration = 5000,
 	autoExpand = false,
 }: {
@@ -184,7 +189,6 @@ function routeSidebarNodeSelection({
 	browserPathname: string;
 	pathname: string;
 	setBrowserPathname: (nextPath: string) => void;
-	router: { push: (href: string, options?: { scroll?: boolean }) => void };
 	pulseDuration?: number;
 	autoExpand?: boolean;
 }) {
@@ -193,7 +197,7 @@ function routeSidebarNodeSelection({
 	const currentHref = `${browserPathname || pathname || '/'}${searchSuffix}`;
 	if (nextHref !== currentHref) {
 		setBrowserPathname(nextPath);
-		router.push(nextHref, { scroll: false });
+		updateNodeRouteHistory(nextHref, 'push');
 	}
 	window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { nodeId, pulseDuration, autoExpand } }));
 }
@@ -225,7 +229,6 @@ export default function FinraGraph() {
 	const [findMatchState, setFindMatchState] = useState({ total: 0, activeOrdinal: 0 });
 	const [activeFindNodeId, setActiveFindNodeId] = useState<string | null>(null);
 	const [focusedFindNodeId, setFocusedFindNodeId] = useState<string | null>(null);
-	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
 	const routeNodeId = useMemo(() => parseNodeIdFromPathname(browserPathname || pathname), [browserPathname, pathname]);
@@ -321,14 +324,13 @@ export default function FinraGraph() {
 				browserPathname,
 				pathname,
 				setBrowserPathname,
-				router,
 				pulseDuration: 5000,
 				autoExpand: true,
 			});
 			return;
 		}
 		window.dispatchEvent(new CustomEvent(FIND_NEXT_EVENT, { detail: { query } }));
-	}, [activeFindNodeId, browserPathname, closeFindBar, findQuery, focusedFindNodeId, pathname, router, searchSuffix]);
+	}, [activeFindNodeId, browserPathname, closeFindBar, findQuery, focusedFindNodeId, pathname, searchSuffix]);
 
 	const handleFindInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
 		if (event.key === 'Enter') {
@@ -398,7 +400,6 @@ export default function FinraGraph() {
 					browserPathname,
 					pathname,
 					setBrowserPathname,
-					router,
 					pulseDuration: 5000,
 					autoExpand: true,
 				});
@@ -423,7 +424,6 @@ export default function FinraGraph() {
 					browserPathname,
 					pathname,
 					setBrowserPathname,
-					router,
 					pulseDuration: 5000,
 					autoExpand: true,
 				});
@@ -455,7 +455,7 @@ export default function FinraGraph() {
 		};
 		sidebar.addEventListener('click', handler);
 		return () => sidebar.removeEventListener('click', handler);
-	}, [browserPathname, isMounted, pathname, router, searchSuffix]);
+	}, [browserPathname, isMounted, pathname, searchSuffix]);
 
 	useEffect(() => {
 		setIsMounted(true);
@@ -640,7 +640,6 @@ export default function FinraGraph() {
 					browserPathname,
 					pathname,
 					setBrowserPathname,
-					router,
 					autoExpand: true,
 				});
 				return;
@@ -665,7 +664,7 @@ export default function FinraGraph() {
 		return () => {
 			document.removeEventListener('keydown', handleSearchNavigation);
 		};
-	}, [activeFindNodeId, browserPathname, findQuery, focusedFindNodeId, isFindBarOpen, isMounted, pathname, router, searchSuffix]);
+	}, [activeFindNodeId, browserPathname, findQuery, focusedFindNodeId, isFindBarOpen, isMounted, pathname, searchSuffix]);
 
 	useEffect(() => {
 		if (!isMounted) return;
@@ -749,17 +748,17 @@ export default function FinraGraph() {
 			if (nextHref === currentHref) return;
 			setBrowserPathname(nextPath);
 			if (detail.replace) {
-				router.replace(nextHref, { scroll: false });
+				updateNodeRouteHistory(nextHref, 'replace');
 				return;
 			}
-			router.push(nextHref, { scroll: false });
+			updateNodeRouteHistory(nextHref, 'push');
 		};
 
 		window.addEventListener(SELECTED_NODE_ROUTE_EVENT, handleSelectedNodeRoute as EventListener);
 		return () => {
 			window.removeEventListener(SELECTED_NODE_ROUTE_EVENT, handleSelectedNodeRoute as EventListener);
 		};
-	}, [browserPathname, isMounted, pathname, router, searchSuffix]);
+	}, [browserPathname, isMounted, pathname, searchSuffix]);
 
 	useEffect(() => {
 		if (!isMounted || !graphReady) return;
