@@ -8,22 +8,7 @@ const nextConfig: NextConfig = {
 	// Compress API + page responses with gzip/brotli
 	compress: true,
 	outputFileTracingExcludes: {
-		[allRoutes]: [
-			'./data/national/**',
-			'./data/raw/**',
-			'./data/primed-cache/**',
-			'./data/cache-binary/**',
-			'./data/build_manifest.json',
-			'./data/locations.json',
-		],
-	},
-	async rewrites() {
-		return [
-			{
-				source: '/node/:nodeId',
-				destination: '/',
-			},
-		];
+		[allRoutes]: ['./data/national/**', './data/raw/**', './data/primed-cache/**', './data/cache-binary/**', './data/build_manifest.json', './data/locations.json'],
 	},
 	experimental: {
 		// Allow huge graph JSON to be serialised through getServerSideProps / route handlers

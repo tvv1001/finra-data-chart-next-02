@@ -50,9 +50,9 @@
 	--shadow-node-inactive-highlighted: none;
 
 	/* Selected state */
-	--color-node-selected-stroke: rgb(0, 7, 21);
-	--color-node-selected-ring: #022764;
-	--color-node-firm-selected-stroke: #952525;
+	--color-node-selected-stroke: #16053f;
+	--color-node-selected-ring: #24115f;
+	--color-node-firm-selected-stroke: #083b38;
 	--color-node-firm-selected-overlay: rgba(59, 130, 246, 0.22);
 	--color-node-depth-overlay: rgba(255, 255, 255, 0.96);
 	--opacity-node-selected: 1;
@@ -62,8 +62,8 @@
 	--fill-opacity-node-depth-selected: 0.14;
 	--fill-opacity-node-depth-trace: 0.18;
 	--stroke-opacity-node-selected: 1;
-	--stroke-width-node-selected: 1.5;
-	--stroke-width-node-firm-selected: 2.2;
+	--stroke-width-node-selected: 3.2;
+	--stroke-width-node-firm-selected: 3.4;
 	/* --shadow-node-selected: drop-shadow(2px 3px 4px rgba(10, 18, 38, 0.36)) drop-shadow(0 0 8px rgba(54, 61, 75, 0.5));
 	--shadow-node-firm-selected: drop-shadow(2px 3px 4px rgba(10, 18, 38, 0.36)) drop-shadow(0 0 10px rgba(37, 99, 235, 0.26)) drop-shadow(0 0 20px rgba(29, 78, 216, 0.18));
 	--shadow-link: drop-shadow(0 1px 1px rgba(15, 23, 42, 0.18));
@@ -4840,6 +4840,38 @@ html[data-theme='dark'] .fg-source-toggle-btn.active {
 	filter: drop-shadow(0 0 5px rgba(15, 118, 110, 0.85));
 }
 
+/* Persist selected state so it stays visually dominant over active/highlight colors. */
+.fg-node.selected .fg-node-shape--circle,
+.fg-node.selected .fg-node-shape--entity,
+.fg-node.selected.fg-node--active-connected .fg-node-shape--circle,
+.fg-node.selected.fg-node--active-connected .fg-node-shape--entity,
+.fg-node.selected.fg-node--active-parent-connected .fg-node-shape--circle,
+.fg-node.selected.fg-node--active-parent-connected .fg-node-shape--entity {
+	fill: #6d28d9 !important;
+	stroke: #16053f !important;
+	stroke-width: 3.2px !important;
+	filter: drop-shadow(0 0 8px rgba(22, 5, 63, 0.55)) drop-shadow(0 0 14px rgba(109, 40, 217, 0.28));
+}
+
+.fg-node.fg-node--firm.selected .fg-node-shape--firm,
+.fg-node.fg-node--firm.selected.fg-node--active-connected .fg-node-shape--firm,
+.fg-node.fg-node--firm.selected.fg-node--active-parent-connected .fg-node-shape--firm {
+	fill: #0f766e !important;
+	stroke: #083b38 !important;
+	stroke-width: 3.4px !important;
+	filter: drop-shadow(0 0 8px rgba(8, 59, 56, 0.58)) drop-shadow(0 0 14px rgba(20, 184, 166, 0.24));
+}
+
+.fg-node.selected .fg-node-selected-ring,
+.fg-node.selected.fg-node--active-connected .fg-node-selected-ring,
+.fg-node.selected.fg-node--active-parent-connected .fg-node-selected-ring {
+	display: inline;
+	stroke: var(--color-node-selected-ring) !important;
+	stroke-width: 3.5px;
+	opacity: 1;
+	filter: drop-shadow(0 0 7px rgba(36, 17, 95, 0.45));
+}
+
 /* Transition always active for smooth scale resets */
 .fg-node.fg-node--active-connected .fg-node-shape--circle,
 .fg-node.fg-node--active-connected .fg-node-shape--firm,
@@ -4866,8 +4898,7 @@ html[data-theme='dark'] .fg-source-toggle-btn.active {
 .fg-svg--has-highlights .fg-node.fg-node--active-parent-connected .fg-node-overlay,
 .fg-svg--has-highlights .fg-node.fg-node--active-parent-connected .fg-node-selected-ring,
 .fg-svg--has-highlights .fg-node.fg-node--active-parent-connected .fg-node-disclosure-ring {
-	transform: scale(1.22);
-	transform-origin: 0 0;
+	filter: brightness(1.03);
 }
 
 .fg-svg--has-highlights .fg-node.fg-node--active-parent-connected text.fg-label {
