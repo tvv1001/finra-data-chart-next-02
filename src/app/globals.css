@@ -39,6 +39,8 @@
 	--color-default-soft: #414b5a;
 	--color-node-border: #ffffff;
 	--stroke-width-node-default: 1.5;
+	--font-weight-node-label-default: 100;
+	--font-weight-node-label-selected: 700;
 
 	/* Inactive nodes */
 	--color-node-inactive: #869ab944;
@@ -50,9 +52,14 @@
 	--shadow-node-inactive-highlighted: none;
 
 	/* Selected state */
+	--color-node-individual-selected-fill: #064bb0;
+	--color-node-stub-selected-fill: #5f98da;
+	--color-node-firm-selected-fill: #9a2c00;
+	--color-node-inactive-selected-fill: #6f7f97;
+	--color-node-entity-selected-fill: #d63384;
 	--color-node-selected-stroke: #16053f;
 	--color-node-selected-ring: #24115f;
-	--color-node-firm-selected-stroke: #083b38;
+	--color-node-firm-selected-stroke: #7c2d12;
 	--color-node-firm-selected-overlay: rgba(59, 130, 246, 0.22);
 	--color-node-depth-overlay: rgba(255, 255, 255, 0.96);
 	--opacity-node-selected: 1;
@@ -533,7 +540,7 @@ html[data-theme='dark'] .fg-dis-comment {
 html[data-theme='dark'] text.fg-label {
 	fill: #ffffff !important;
 	font-size: var(--fg-node-label-font-size, 5px);
-	font-weight: var(--fg-node-label-font-weight, 400);
+	font-weight: var(--fg-node-label-font-weight, 100);
 	opacity: 1 !important;
 	stroke: var(--surface) !important;
 	stroke-width: 4px !important;
@@ -3262,10 +3269,22 @@ a,
 }
 
 .fg-node .fg-node-shape--circle,
-.fg-node .fg-node-shape--firm {
+.fg-node .fg-node-shape--firm,
+.fg-node .fg-node-shape--entity {
 	stroke: var(--color-node-border);
 	stroke-width: var(--stroke-width-node-default);
 	cursor: pointer;
+	pointer-events: all;
+}
+
+.fg-node .fg-node-hit-area,
+.fg-node text.fg-label {
+	cursor: pointer;
+}
+
+.fg-node .fg-node-hit-area {
+	fill: transparent;
+	pointer-events: all;
 }
 
 .fg-node .fg-node-shape--firm {
@@ -3274,6 +3293,14 @@ a,
 	transition:
 		filter 180ms ease,
 		transform 180ms ease;
+}
+
+.fg-node.fg-node--firm:not(.fg-node--inactive):not(.fg-node--active-connected):not(.fg-node--active-parent-connected):hover .fg-node-shape--firm,
+.fg-node.fg-node--firm:not(.fg-node--inactive):not(.fg-node--active-connected):not(.fg-node--active-parent-connected):focus .fg-node-shape--firm,
+.fg-node.fg-node--firm:not(.fg-node--inactive):not(.fg-node--active-connected):not(.fg-node--active-parent-connected):focus-within .fg-node-shape--firm {
+	fill: #c2410c !important;
+	stroke: #7c2d12 !important;
+	stroke-width: 0.9px !important;
 }
 
 .fg-node.fg-node--inactive .fg-node-shape--circle,
@@ -3310,6 +3337,18 @@ a,
 	opacity: var(--opacity-node-default) !important;
 }
 
+.fg-node.fg-node--individual:hover .fg-node-shape--circle,
+.fg-node.fg-node--individual:focus .fg-node-shape--circle,
+.fg-node.fg-node--individual:focus-within .fg-node-shape--circle,
+.fg-node.fg-node--individual.selected .fg-node-shape--circle,
+.fg-node.fg-node--individual.fg-node--stub:hover .fg-node-shape--circle,
+.fg-node.fg-node--individual.fg-node--stub:focus .fg-node-shape--circle,
+.fg-node.fg-node--individual.fg-node--stub:focus-within .fg-node-shape--circle,
+.fg-node.fg-node--individual.fg-node--stub.selected .fg-node-shape--circle {
+	stroke: var(--color-node-pulse) !important;
+	stroke-width: calc(var(--stroke-width-node-selected, 2.2px) + 0.4px) !important;
+}
+
 .fg-node.fg-node--individual.fg-node--stub .fg-node-shape--circle {
 	fill: var(--color-node-stub);
 	opacity: var(--opacity-node-stub);
@@ -3324,7 +3363,6 @@ a,
 .fg-node.fg-node--inactive .fg-node-shape--entity {
 	fill: var(--color-node-inactive);
 	stroke: var(--color-node-inactive-stroke);
-	filter: var(--shadow-node-inactive);
 }
 
 .fg-node.fg-node--inactive .fg-node-shape--firm {
@@ -3354,13 +3392,11 @@ a,
 	stroke-opacity: var(--stroke-opacity-node-selected) !important;
 	stroke: var(--color-node-selected-stroke) !important;
 	stroke-width: var(--stroke-width-node-selected) !important;
-	filter: var(--shadow-node-selected);
 }
 
 .fg-node.fg-node--firm.selected .fg-node-shape--firm {
 	stroke: var(--color-node-firm-selected-stroke) !important;
 	stroke-width: var(--stroke-width-node-firm-selected) !important;
-	filter: var(--shadow-node-firm-selected);
 }
 
 .fg-node.fg-node--firm.selected .fg-node-overlay {
@@ -3375,8 +3411,17 @@ a,
 .fg-node.fg-node--inactive.selected .fg-node-shape--circle,
 .fg-node.fg-node--inactive.selected .fg-node-shape--entity,
 .fg-node.fg-node--inactive.selected .fg-node-shape--firm {
+	fill: var(--color-node-inactive-selected-fill) !important;
 	stroke: var(--color-node-inactive-stroke) !important;
-	/* filter: drop-shadow(0 0 8px rgba(71, 85, 105, 0.42)); */
+}
+
+.fg-node.fg-node--inactive.selected .fg-node-shape--circle:hover,
+.fg-node.fg-node--inactive.selected .fg-node-shape--circle:focus,
+.fg-node.fg-node--inactive.selected .fg-node-shape--entity:hover,
+.fg-node.fg-node--inactive.selected .fg-node-shape--entity:focus,
+.fg-node.fg-node--inactive.selected .fg-node-shape--firm:hover,
+.fg-node.fg-node--inactive.selected .fg-node-shape--firm:focus {
+	fill: var(--color-node-inactive-selected-fill) !important;
 }
 
 .fg-node.fg-node--inactive.selected .fg-node-overlay,
@@ -3403,7 +3448,6 @@ a,
 	opacity: 1;
 	cursor: pointer;
 	display: none;
-	filter: var(--shadow-node-pulse);
 }
 
 .fg-node.fg-node--firm .fg-node-selected-ring {
@@ -3437,6 +3481,7 @@ a,
 	stroke: var(--color-node-inactive-stroke);
 	stroke-opacity: 0.5 !important;
 	stroke-dasharray: none;
+	display: none !important;
 }
 
 .fg-node.fg-node--firm.highlighted-hop polygon {
@@ -3445,7 +3490,6 @@ a,
 
 .fg-node.fg-node--inactive.highlighted-hop circle,
 .fg-node.fg-node--inactive.highlighted-hop rect {
-	stroke: var(--color-node-inactive-highlighted-stroke) !important;
 	filter: var(--shadow-node-inactive-highlighted);
 }
 
@@ -3462,8 +3506,14 @@ a,
 .fg-node.selected text.fg-label,
 .fg-node.fg-node--find-match text.fg-label,
 .fg-node.highlighted-hop text.fg-label {
-	font-weight: 400;
+	font-weight: var(--font-weight-node-label-selected, 700);
 	opacity: 1 !important;
+}
+
+.fg-node:hover text.fg-label,
+.fg-node:focus text.fg-label,
+.fg-node:focus-within text.fg-label {
+	font-weight: 400 !important;
 }
 
 .fg-node.fg-node--inactive.selected text.fg-label,
@@ -3497,7 +3547,16 @@ a,
 	paint-order: stroke fill;
 	stroke-linejoin: round;
 	stroke-opacity: 1;
-	font-weight: 400;
+	font-weight: var(--font-weight-node-label-selected, 700);
+}
+
+:not(.theme-dark) .fg-node:hover text.fg-label,
+:not(.theme-dark) .fg-node:focus text.fg-label,
+:not(.theme-dark) .fg-node:focus-within text.fg-label,
+[data-theme='light'] .fg-node:hover text.fg-label,
+[data-theme='light'] .fg-node:focus text.fg-label,
+[data-theme='light'] .fg-node:focus-within text.fg-label {
+	font-weight: 400 !important;
 }
 
 .fg-node .fg-node-overlay {
@@ -4168,14 +4227,14 @@ a,
 .fg-node.selected text.fg-label,
 .fg-node.highlighted-hop text.fg-label {
 	fill: #8e99b3 !important;
-	font-weight: 400;
+	font-weight: 100 !important;
 	opacity: 1 !important;
 }
 
 text.fg-label {
 	fill: #8e99b3 !important;
 	font-size: var(--fg-node-label-font-size, 5px);
-	font-weight: var(--fg-node-label-font-weight, 400);
+	font-weight: var(--fg-node-label-font-weight, 100) !important;
 	opacity: 1 !important;
 	stroke: #ffffff !important;
 	stroke-width: 4px !important;
@@ -4194,9 +4253,9 @@ text.fg-label {
 .fg-node.trace-longest-connector circle,
 .fg-node.trace-longest-connector rect,
 .fg-node.trace-longest-connector polygon {
-	fill: #e9d5ff !important;
+	fill: #e0fbff !important;
 	fill-opacity: 1 !important;
-	stroke: #8b5cf6 !important;
+	stroke: #00f5ff !important;
 	stroke-width: 1.75px !important;
 }
 
@@ -4754,10 +4813,14 @@ html[data-theme='dark'] .fg-mns-input {
 }
 
 /* ── Control Position Nodes ────────────────────────────────────────────── */
-.fg-node.\--color-highlight-controls:not(.fg-node--inactive) .fg-node-shape--circle,
-.fg-node.\--color-highlight-controls:not(.fg-node--inactive) .fg-node-shape--firm,
-.fg-node.\--color-highlight-controls:not(.fg-node--inactive) .fg-node-shape--entity {
+
+.fg-node.fg-node--individual.fg-node--control-position:not(.fg-node--inactive) .fg-node-shape--circle {
 	fill: var(--color-highlight-controls) !important;
+}
+
+.fg-node.fg-node--individual.fg-node--control-position:not(.fg-node--inactive) .fg-node-overlay {
+	fill: rgba(239, 68, 68, 0.2) !important;
+	fill-opacity: 1 !important;
 }
 
 /* ── Source Toggle for FINRA/SEC ─────────────────────────────────────────── */
@@ -4808,32 +4871,47 @@ html[data-theme='dark'] .fg-source-toggle-btn.active {
 
 /* ── Active Connected Node Highlights (highest priority) ───────────────── */
 
-/* People nodes with an active connection use a stronger purple highlight; firms keep the aqua treatment. */
-.fg-node.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--circle,
-.fg-node.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--entity {
-	fill: #8b5cf6 !important; /* Purple highlight for people/entities */
-	stroke: #c084fc !important; /* Bright purple border */
-	filter: drop-shadow(0 0 5px rgba(139, 92, 246, 0.85));
+/* Active connections use a fluorescent blue accent without replacing each node family's base color. */
+.fg-node.fg-node--individual.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--circle {
+	fill: var(--color-highlight-individual) !important;
+	stroke: #0062ff !important;
+	stroke-width: 4px !important;
+}
+
+.fg-node.fg-node--individual.fg-node--stub.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--circle {
+	fill: var(--color-node-stub) !important;
+	stroke: #00f5ff !important;
+}
+
+.fg-node.fg-node--entity.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--entity {
+	fill: var(--color-highlight-entity) !important;
+	stroke: #00f5ff !important;
 }
 
 .fg-node.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--firm {
-	fill: #14b8a6 !important; /* Aqua for firms */
-	stroke: #5eead4 !important;
-	filter: drop-shadow(0 0 5px rgba(20, 184, 166, 0.8));
+	stroke: #00f5ff !important;
+	stroke-width: 3.5px !important;
+	fill: #14c2bb;
 }
 
 /* Slightly deeper when hovered, focused, or selected */
-.fg-node.fg-node--active-connected:not(.fg-node--inactive):hover .fg-node-shape--circle,
-.fg-node.fg-node--active-connected:not(.fg-node--inactive):hover .fg-node-shape--entity,
-.fg-node.fg-node--active-connected:not(.fg-node--inactive):focus .fg-node-shape--circle,
-.fg-node.fg-node--active-connected:not(.fg-node--inactive):focus .fg-node-shape--entity,
-.fg-node.fg-node--active-connected:not(.fg-node--inactive):focus-within .fg-node-shape--circle,
-.fg-node.fg-node--active-connected:not(.fg-node--inactive):focus-within .fg-node-shape--entity,
-.fg-node.fg-node--active-connected:not(.fg-node--inactive).selected .fg-node-shape--circle,
-.fg-node.fg-node--active-connected:not(.fg-node--inactive).selected .fg-node-shape--entity {
-	fill: #7c3aed !important; /* Deeper purple */
-	stroke: #ddd6fe !important;
-	filter: drop-shadow(0 0 5px rgba(124, 58, 237, 0.9));
+.fg-node.fg-node--individual.fg-node--active-connected:not(.fg-node--inactive):hover .fg-node-shape--circle,
+.fg-node.fg-node--individual.fg-node--active-connected:not(.fg-node--inactive):focus .fg-node-shape--circle,
+.fg-node.fg-node--individual.fg-node--active-connected:not(.fg-node--inactive):focus-within .fg-node-shape--circle,
+.fg-node.fg-node--individual.fg-node--active-connected:not(.fg-node--inactive).selected .fg-node-shape--circle,
+.fg-node.fg-node--entity.fg-node--active-connected:not(.fg-node--inactive):hover .fg-node-shape--entity,
+.fg-node.fg-node--entity.fg-node--active-connected:not(.fg-node--inactive):focus .fg-node-shape--entity,
+.fg-node.fg-node--entity.fg-node--active-connected:not(.fg-node--inactive):focus-within .fg-node-shape--entity,
+.fg-node.fg-node--entity.fg-node--active-connected:not(.fg-node--inactive).selected .fg-node-shape--entity {
+	stroke: #e0fbff !important;
+}
+
+.fg-node.fg-node--individual.fg-node--stub.fg-node--active-connected:not(.fg-node--inactive):hover .fg-node-shape--circle,
+.fg-node.fg-node--individual.fg-node--stub.fg-node--active-connected:not(.fg-node--inactive):focus .fg-node-shape--circle,
+.fg-node.fg-node--individual.fg-node--stub.fg-node--active-connected:not(.fg-node--inactive):focus-within .fg-node-shape--circle,
+.fg-node.fg-node--individual.fg-node--stub.fg-node--active-connected:not(.fg-node--inactive).selected .fg-node-shape--circle {
+	fill: var(--color-node-stub) !important;
+	stroke: #e0fbff !important;
 }
 
 .fg-node.fg-node--active-connected:not(.fg-node--inactive):hover .fg-node-shape--firm,
@@ -4842,29 +4920,50 @@ html[data-theme='dark'] .fg-source-toggle-btn.active {
 .fg-node.fg-node--active-connected:not(.fg-node--inactive).selected .fg-node-shape--firm {
 	fill: #0f766e !important;
 	stroke: #2dd4bf !important;
-	filter: drop-shadow(0 0 5px rgba(15, 118, 110, 0.85));
+}
+
+.fg-node.fg-node--individual.fg-node--active-connected:not(.fg-node--inactive) .fg-node-overlay,
+.fg-node.fg-node--entity.fg-node--active-connected:not(.fg-node--inactive) .fg-node-overlay {
+	fill: rgba(0, 245, 255, 0.22) !important;
+	fill-opacity: 1 !important;
 }
 
 /* Persist selected state so it stays visually dominant over active/highlight colors. */
-.fg-node.selected .fg-node-shape--circle,
-.fg-node.selected .fg-node-shape--entity,
-.fg-node.selected.fg-node--active-connected .fg-node-shape--circle,
-.fg-node.selected.fg-node--active-connected .fg-node-shape--entity,
-.fg-node.selected.fg-node--active-parent-connected .fg-node-shape--circle,
-.fg-node.selected.fg-node--active-parent-connected .fg-node-shape--entity {
-	fill: #6d28d9 !important;
-	stroke: #16053f !important;
+.fg-node.fg-node--individual.selected:not(.fg-node--inactive) .fg-node-shape--circle,
+.fg-node.fg-node--individual.selected.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--circle,
+.fg-node.fg-node--individual.selected.fg-node--active-parent-connected:not(.fg-node--inactive) .fg-node-shape--circle {
+	fill: var(--color-node-individual-selected-fill) !important;
+	stroke: var(--color-node-pulse) !important;
 	stroke-width: 3.2px !important;
-	filter: drop-shadow(0 0 8px rgba(22, 5, 63, 0.55)) drop-shadow(0 0 14px rgba(109, 40, 217, 0.28));
 }
 
-.fg-node.fg-node--firm.selected .fg-node-shape--firm,
-.fg-node.fg-node--firm.selected.fg-node--active-connected .fg-node-shape--firm,
-.fg-node.fg-node--firm.selected.fg-node--active-parent-connected .fg-node-shape--firm {
+.fg-node.fg-node--individual.fg-node--stub.selected:not(.fg-node--inactive) .fg-node-shape--circle,
+.fg-node.fg-node--individual.fg-node--stub.selected.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--circle,
+.fg-node.fg-node--individual.fg-node--stub.selected.fg-node--active-parent-connected:not(.fg-node--inactive) .fg-node-shape--circle {
+	fill: var(--color-node-stub-selected-fill) !important;
+	stroke: var(--color-node-pulse) !important;
+	stroke-width: 3.2px !important;
+}
+
+.fg-node.fg-node--entity.selected:not(.fg-node--inactive) .fg-node-shape--entity,
+.fg-node.fg-node--entity.selected.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--entity,
+.fg-node.fg-node--entity.selected.fg-node--active-parent-connected:not(.fg-node--inactive) .fg-node-shape--entity {
+	fill: var(--color-node-entity-selected-fill) !important;
+	stroke: #7a123d !important;
+	stroke-width: 3.2px !important;
+}
+
+.fg-node.fg-node--firm.selected:not(.fg-node--inactive):not(.fg-node--active-connected):not(.fg-node--active-parent-connected) .fg-node-shape--firm {
+	fill: var(--color-node-firm-selected-fill) !important;
+	stroke: var(--color-node-firm-selected-stroke) !important;
+	stroke-width: 3.4px !important;
+}
+
+.fg-node.fg-node--firm.selected.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--firm,
+.fg-node.fg-node--firm.selected.fg-node--active-parent-connected:not(.fg-node--inactive) .fg-node-shape--firm {
 	fill: #0f766e !important;
 	stroke: #083b38 !important;
 	stroke-width: 3.4px !important;
-	filter: drop-shadow(0 0 8px rgba(8, 59, 56, 0.58)) drop-shadow(0 0 14px rgba(20, 184, 166, 0.24));
 }
 
 .fg-node.selected .fg-node-selected-ring,
@@ -4874,7 +4973,23 @@ html[data-theme='dark'] .fg-source-toggle-btn.active {
 	stroke: var(--color-node-pulse) !important;
 	stroke-width: 3.5px;
 	opacity: 1;
-	filter: var(--shadow-node-pulse);
+}
+
+.fg-node.selected.fg-node--active-connected .fg-node-selected-ring,
+.fg-node.selected.fg-node--active-parent-connected .fg-node-selected-ring {
+	stroke: #2dd4bf !important;
+	stroke-width: 5px;
+}
+
+.fg-node.fg-node--individual.fg-node--control-position.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--circle,
+.fg-node.fg-node--individual.fg-node--control-position.fg-node--active-parent-connected:not(.fg-node--inactive) .fg-node-shape--circle {
+	fill: var(--color-highlight-controls) !important;
+}
+
+.fg-node.fg-node--individual.fg-node--control-position.selected:not(.fg-node--inactive) .fg-node-shape--circle,
+.fg-node.fg-node--individual.fg-node--control-position.selected.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--circle,
+.fg-node.fg-node--individual.fg-node--control-position.selected.fg-node--active-parent-connected:not(.fg-node--inactive) .fg-node-shape--circle {
+	fill: #b91c1c !important;
 }
 
 /* Transition always active for smooth scale resets */

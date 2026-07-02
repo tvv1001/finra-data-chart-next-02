@@ -32,6 +32,7 @@ import {
 	DEFAULT_CLICK_EXPANSION_HOPS,
 	DEFAULT_EXPANSION_HOPS,
 	DEFAULT_NODE_LABEL_FONT_SIZE,
+	DEFAULT_NODE_LABEL_FONT_SIZE_PX,
 	DEFAULT_NODE_LABEL_FONT_WEIGHT,
 	DEFAULT_NODE_LABEL_GAP_PX,
 	DEFAULT_SELECTION_HOPS,
@@ -383,7 +384,7 @@ function getCurrentZoomTransform() {
 
 function getFocusedLabelScale(zoomScale: number | string | null | undefined): number {
 	const normalizedScale = Math.max(0.01, Number(zoomScale) || 1);
-	const baseScale = 1.25;
+	const baseScale = 1.6;
 	const dynamicScale = normalizedScale < activeLabelZoomThreshold ? baseScale * (activeLabelZoomThreshold / normalizedScale) : baseScale;
 	return Math.min(dynamicScale, 15.0);
 }
@@ -496,7 +497,7 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 		if (pixiModeActive && pixiApi && typeof pixiApi.drawFrame === 'function') {
 			try {
 				const transform = getCurrentZoomTransform();
-				const labelScale = isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
+				const labelScale = selectedId || isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
 				pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale });
 				if (shouldRefreshOverlayLabels(layoutNodes?.length) && overlayApi && typeof overlayApi.update === 'function') {
 					try {
@@ -511,7 +512,7 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 		if (canvasModeActive && canvasApi) {
 			try {
 				const transform = getCurrentZoomTransform();
-				const labelScale = isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
+				const labelScale = selectedId || isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
 				canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale });
 				if (shouldRefreshOverlayLabels(layoutNodes?.length) && overlayApi && typeof overlayApi.update === 'function') {
 					try {
@@ -2032,7 +2033,7 @@ function getSelectionLogActionButtons(action: 'trace' | 'copy-all' | 'clear' | '
 
 function syncSelectionLogAuxiliaryRenderers() {
 	const transform = getCurrentZoomTransform();
-	const labelScale = isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
+	const labelScale = selectedId || isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
 	const logLabelNodeIds = getSelectionLogLabelNodeIds();
 	if (shouldRefreshOverlayLabels(layoutNodes?.length) && overlayApi && typeof overlayApi.update === 'function') {
 		try {
@@ -7024,28 +7025,28 @@ function rerenderGraphNodesByIds(nodeIds) {
 	renderNodeContents(nodeSel.filter((node) => idSet.has(node.id)));
 }
 
+export function getNodeLabelFontSize({ isSelected = false, isHovered = false }: { isSelected?: boolean; isHovered?: boolean } = {}) {
+	void isSelected;
+	void isHovered;
+	return DEFAULT_NODE_LABEL_FONT_SIZE_PX;
+}
+
 function renderNodeContents(selection) {
 	if (!selection) return;
 	selection.each(function (d) {
 		const g = d3.select(this);
 		g.selectAll('*').remove();
 
-		// Add an invisible mouse-target circle to make hovering/focusing easy when zoomed out
-		const rv = d._vizHalf != null ? d._vizHalf : NODE_R[d.group] || 10;
-		g.append('circle')
-			.attr('class', 'fg-node-mouse-target')
-			.attr('r', Math.max(22, rv + 12))
-			.attr('fill', 'none')
-			.style('pointer-events', 'all')
-			.style('cursor', 'pointer');
-
 		const r = NODE_R[d.group] || 10;
 		const inactive = isNodeInactive(d);
+		const deg = d._deg || { total: 0, controls: 0, employed: 0 };
+		const isControlNode = Boolean(deg.controls > 0);
 		g.classed('fg-node--inactive', inactive)
 			.classed('fg-node--individual', d.group === 'individual')
 			.classed('fg-node--firm', d.group === 'firm')
 			.classed('fg-node--entity', d.group === 'entity')
-			.classed('fg-node--stub', d.group === 'individual' && Boolean(d.stub));
+			.classed('fg-node--stub', d.group === 'individual' && Boolean(d.stub))
+			.classed('fg-node--control-position', isControlNode);
 		// Use lighter blue for stub individuals to match the legend
 		let color = inactive ? GRAPH_COLORS.nodeInactive : NODE_COLOR[d.group] || GRAPH_COLORS.nodeDefault;
 		let nodeOpacity: number | string = inactive ? 0.82 : 1;
@@ -7151,10 +7152,9 @@ function renderNodeContents(selection) {
 
 		// Check if this node is in the selection log (by id)
 		const isLogged = isSelectionLogBold && selectedNodesLog.some((e) => e.id === d.id);
-		const labelFontSize = isLogged ? '24px' : DEFAULT_NODE_LABEL_FONT_SIZE;
+		const labelFontSize = `${getNodeLabelFontSize({ isSelected: selectedId != null && String(selectedId) === String(d.id), isHovered: hoveredNodeId != null && String(hoveredNodeId) === String(d.id) })}px`;
 
-		let label: any = null;
-		label = g
+		const label = g
 			.append('text')
 			.attr('class', `fg-label${inactive ? ' fg-label--inactive' : ''}${isLogged ? ' fg-label--logged' : ''}`)
 			.attr('y', labelY)
@@ -7620,7 +7620,7 @@ function updateNodeVisuals(selection) {
 			.classed('fg-node--firm', d.group === 'firm')
 			.classed('fg-node--entity', d.group === 'entity')
 			.classed('fg-node--stub', d.group === 'individual' && Boolean(d.stub))
-			.classed('--color-highlight-controls', isControlNode);
+			.classed('fg-node--control-position', isControlNode);
 
 		let color = inactive ? GRAPH_COLORS.nodeInactive : NODE_COLOR[d.group] || GRAPH_COLORS.nodeDefault;
 
@@ -8078,7 +8078,7 @@ function renderGraph(_data) {
 							const transform = getCurrentZoomTransform();
 							if (pixiModeActive && pixiApi && typeof pixiApi.drawFrame === 'function') {
 								try {
-									const labelScale = isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
+									const labelScale = selectedId || isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
 									const logLabelNodeIds = getSelectionLogLabelNodeIds();
 									pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
 									if (shouldRefreshOverlayLabels(layoutNodes?.length) && overlayApi && typeof overlayApi.update === 'function') {
@@ -8089,7 +8089,7 @@ function renderGraph(_data) {
 								} catch (e) {}
 							} else if (canvasApi && typeof canvasApi.drawFrame === 'function') {
 								try {
-									const labelScale = isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
+									const labelScale = selectedId || isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
 									const logLabelNodeIds = getSelectionLogLabelNodeIds();
 									canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
 									if (shouldRefreshOverlayLabels(layoutNodes?.length) && overlayApi && typeof overlayApi.update === 'function') {
@@ -13231,11 +13231,13 @@ function renderLegend() {
 	const items = [
 		{
 			color: 'var(--c-individual)',
+			shape: 'circle',
 			label: 'Individual',
 		},
 		{
 			color: 'var(--color-highlight-controls)',
-			label: 'Owner/Officer (Red)',
+			shape: 'circle',
+			label: 'Control-position individual',
 		},
 		{
 			color: GRAPH_COLORS.nodeInactive,
@@ -13244,15 +13246,16 @@ function renderLegend() {
 			opacity: 0.82,
 		},
 		{
-			color: 'var(--c-individual)',
+			color: 'var(--color-node-stub)',
 			shape: 'circle-s',
 			label: 'Stub (Form BD only)',
-			opacity: 0.45,
+			opacity: 0.85,
 		},
 		{ color: 'var(--c-firm)', shape: 'rect', label: 'Firm' },
+		{ color: 'var(--c-entity)', shape: 'diamond', label: 'Entity' },
 		{ color: GRAPH_COLORS.lineEmployedBy, shape: 'line', label: 'Current emp/reg' },
 		{ color: GRAPH_COLORS.linePreviousEmployment, shape: 'line-dashed', label: 'Previous emp/reg' },
-		{ color: GRAPH_COLORS.lineControls, shape: 'line', label: 'Controls (From BD, Red)' },
+		{ color: GRAPH_COLORS.lineControls, shape: 'line', label: 'Controls relationship' },
 		{ color: GRAPH_COLORS.lineDisclosure, shape: 'ring', label: 'Has disclosures' },
 	];
 

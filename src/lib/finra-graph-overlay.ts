@@ -27,7 +27,10 @@ function worldToScreen(x: number, y: number, transform: { x: number; y: number; 
 	return { x: transform.x + x * transform.k, y: transform.y + y * transform.k };
 }
 
-export function createOverlay(parent: HTMLElement, opts: { onClick?: (node: any) => void; onHover?: (node: any) => void; onHoverEnd?: () => void; onFocus?: (node: any) => void; onBlur?: () => void } = {}) {
+export function createOverlay(
+	parent: HTMLElement,
+	opts: { onClick?: (node: any) => void; onHover?: (node: any) => void; onHoverEnd?: () => void; onFocus?: (node: any) => void; onBlur?: () => void } = {},
+) {
 	destroyOverlay();
 	parentEl = parent;
 	const { onClick, onHover, onHoverEnd, onFocus, onBlur } = opts || {};
@@ -263,9 +266,11 @@ export function updateOverlay(
 		}
 		const p = worldToScreen(n.x, n.y, transform);
 		const visualHalf = getNodeVisualHalf(n) * Math.max(0.1, transform.k || 1);
+		const isFocusedLabel = Boolean(opts.selectedId && String(opts.selectedId) === String(n.id)) || forcedLabelIds.has(String(n.id));
+		const effectiveLabelScale = isFocusedLabel ? Math.max(1, Number(opts.labelScale) || 1) : 1;
 		el.style.left = `${Math.round(p.x)}px`;
 		el.style.top = `${Math.round(p.y + visualHalf + DEFAULT_NODE_LABEL_GAP_PX)}px`;
-		el.style.fontSize = `${Math.max(DEFAULT_NODE_LABEL_FONT_SIZE_PX, Math.round(DEFAULT_NODE_LABEL_FONT_SIZE_PX * Math.max(1, Number(opts.labelScale) || 1) * 10) / 10)}px`;
+		el.style.fontSize = `${Math.max(DEFAULT_NODE_LABEL_FONT_SIZE_PX, Math.round(DEFAULT_NODE_LABEL_FONT_SIZE_PX * effectiveLabelScale * 10) / 10)}px`;
 	}
 
 	// remove leftover labels

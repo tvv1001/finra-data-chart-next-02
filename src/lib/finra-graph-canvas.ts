@@ -166,10 +166,11 @@ export function drawCanvasFrame(
 		const isSelected = opts.selectedId && String(opts.selectedId) === String(n.id);
 		const isForcedLabel = forcedLabelIds.has(String(n.id));
 		const shouldShowLabel = isForcedLabel || isSelected || scale >= globalCanvasLabelZoomThreshold;
+		const focusLabelScale = isSelected || isForcedLabel ? Math.max(1, Number(opts.labelScale) || 1) : 1;
 
 		if (shouldShowLabel && scale > 0.4) {
 			const p = worldToScreen(n.x, n.y, transform);
-			
+
 			// highlight selected with halo
 			if (isSelected) {
 				ctx.beginPath();
@@ -183,7 +184,7 @@ export function drawCanvasFrame(
 
 			if (isForcedLabel || isSelected || scale >= selectedCanvasLabelZoomThreshold) {
 				// label
-				ctx.font = `${DEFAULT_NODE_LABEL_FONT_WEIGHT} ${DEFAULT_NODE_LABEL_FONT_SIZE_PX * Math.min(2.6, Math.max(0.9, scale) * Math.max(1, Number(opts.labelScale) || 1))}px Inter, system-ui, sans-serif`;
+				ctx.font = `${DEFAULT_NODE_LABEL_FONT_WEIGHT} ${DEFAULT_NODE_LABEL_FONT_SIZE_PX * Math.min(2.6, Math.max(0.9, scale) * focusLabelScale)}px Inter, system-ui, sans-serif`;
 				ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-default-text') || '#0f172a';
 				ctx.textAlign = 'center';
 				ctx.textBaseline = 'top';
@@ -245,6 +246,11 @@ function getNodeColor(node: any) {
 
 function getNodeRadius(node: any) {
 	return node?.group === 'firm' ? 10 : 7;
+}
+
+export function shouldRenderBlueNodeHighlight(node: any, state: { hovered?: boolean; selected?: boolean } = {}) {
+	if (!node || node.group !== 'individual') return false;
+	return Boolean(state.hovered || state.selected);
 }
 
 function buildGraphMaps(nodes: any[], links: any[]) {
@@ -402,7 +408,7 @@ function buildNodeGraphics(node: any) {
 	graphic.buttonMode = true;
 	graphic.hitArea = new Circle(0, 0, radius + 2);
 	graphic.cursor = 'pointer';
-
+	graphic.alpha = 1;
 	graphic.on('pointerdown', (event: any) => {
 		const originalEvent = event?.data?.originalEvent as Event | undefined;
 		if (originalEvent && typeof originalEvent.stopPropagation === 'function') {
@@ -411,6 +417,18 @@ function buildNodeGraphics(node: any) {
 		}
 		selectNode(node.id);
 		beginNodeDrag(graphic, node, event);
+	});
+	graphic.on('pointerover', () => {
+		if (graphic && typeof graphic.tint !== 'undefined') {
+			graphic.tint = 0x8ec5ff;
+		}
+		renderNodeGraphic(graphic, node, selectedNodeIds.has(String(node.id)), { hovered: true });
+	});
+	graphic.on('pointerout', () => {
+		renderNodeGraphic(graphic, node, selectedNodeIds.has(String(node.id)));
+		if (graphic && typeof graphic.tint !== 'undefined') {
+			graphic.tint = 0xffffff;
+		}
 	});
 	graphic.on('pointermove', (event: any) => {
 		dragNode(event);
@@ -434,18 +452,16 @@ function buildNodeGraphics(node: any) {
 	return graphic;
 }
 
-function renderNodeGraphic(graphic: any, node: any, selected: boolean) {
+function renderNodeGraphic(graphic: any, node: any, selected: boolean, state: { hovered?: boolean } = {}) {
 	const radius = getNodeRadius(node);
 	const color = selected ? 0xffdc64 : getNodeColor(node);
 	graphic.clear();
-	// Blue ring highlight for selected or new nodes (same as center, no pulse)
 	const isNew = newNodeIds.has(String(node.id));
-	if (isNew || selected) {
-		// Use a blue ring, 3px, color #2196f3 (0x2196f3)
+	const shouldRenderBlueOutline = shouldRenderBlueNodeHighlight(node, { hovered: state.hovered, selected });
+	if (isNew || selected || shouldRenderBlueOutline) {
 		graphic.lineStyle(3, 0x2196f3, 1);
 		graphic.drawCircle(0, 0, radius + 4);
 	}
-	// Normal node
 	graphic.beginFill(color);
 	graphic.lineStyle(2, selected ? 0xffe399 : 0x222222, selected ? 1 : 0.65);
 	graphic.drawCircle(0, 0, radius);

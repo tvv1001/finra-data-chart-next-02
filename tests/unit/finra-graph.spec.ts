@@ -13,6 +13,7 @@ import {
 } from '../../src/components/FinraGraph';
 import {
 	applyGraphDerivedNodeMetrics,
+	getNodeLabelFontSize,
 	isNodeInactive,
 	isRevealableChainExhausted,
 	loadPersistedSidebarViewMode,
@@ -31,6 +32,8 @@ import {
 	upsertSelectionLogEntry,
 	isForcedGrayConnectionLink,
 } from '../../src/lib/finra-graph';
+import { shouldRenderBlueNodeHighlight } from '../../src/lib/finra-graph-canvas';
+import { DEFAULT_NODE_LABEL_FONT_SIZE_PX } from '../../src/lib/finra-graph-defaults';
 import { applyIndividualDetail as applyIndividualDetailFromDetailUtils } from '../../src/lib/finra-graph/detailUtils';
 import { buildParentFirmSummaryLinks } from '../../src/lib/finra-graph/externalLinks';
 import { renderPersonDetail } from '../../src/lib/finra-graph/sidebar';
@@ -152,6 +155,15 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(node.label).toBe('Node person:123');
 	});
 
+	it('shouldRenderBlueNodeHighlight enables blue outline for hovered or selected individuals', () => {
+		const individualNode = { id: 'person:1', group: 'individual' } as any;
+		const firmNode = { id: 'firm:1', group: 'firm' } as any;
+
+		expect(shouldRenderBlueNodeHighlight(individualNode, { hovered: true })).toBe(true);
+		expect(shouldRenderBlueNodeHighlight(individualNode, { selected: true })).toBe(true);
+		expect(shouldRenderBlueNodeHighlight(firmNode, { hovered: true })).toBe(false);
+	});
+
 	it('normalizeNodeLabelInPlace upgrades Node person placeholders to fetched individual names', () => {
 		const node = {
 			id: 'person:5825353',
@@ -217,6 +229,11 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		} as any;
 
 		expect(isNodeInactive(node)).toBe(true);
+	});
+
+	it('keeps node label sizing stable for hover and selection feedback', () => {
+		expect(getNodeLabelFontSize({ isSelected: true })).toBe(DEFAULT_NODE_LABEL_FONT_SIZE_PX);
+		expect(getNodeLabelFontSize({ isHovered: true })).toBe(DEFAULT_NODE_LABEL_FONT_SIZE_PX);
 	});
 
 	it('renderPersonDetail uses parent-firm summary URLs for active current employment records', () => {
