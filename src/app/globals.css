@@ -112,14 +112,24 @@
 	--text: #000;
 	--text-h: #222;
 	--text-m: #272020;
+	--text-muted: #516173;
 	--text-l: #fff;
 	--bg: #f6f8fc;
 	--surface: #ffffff;
+	--surface-subtle: rgba(15, 23, 42, 0.04);
 	--border: #102239;
 	--border-strong: #c8d4e4;
+	--border-hover: rgba(37, 99, 235, 0.28);
 	--accent: #2563eb;
 	--accent-s: #1d4ed8;
 	--accent-bg: rgba(37, 99, 235, 0.08);
+	--primary: var(--accent);
+	--primary-subtle: rgba(37, 99, 235, 0.12);
+	--color-node-label: #0f172a;
+	--color-node-label-stroke: rgba(255, 255, 255, 0.96);
+	--scrollbar-thumb: rgba(100, 116, 139, 0.78);
+	--scrollbar-thumb-hover: rgba(71, 85, 105, 0.92);
+	--scrollbar-track: rgba(226, 232, 240, 0.9);
 	/* --shadow: 0 4px 24px rgba(15, 23, 42, 0.08), 0 1px 4px rgba(15, 23, 42, 0.05); */
 	--shadow: none;
 	--sans: 'Manrope', system-ui, sans-serif;
@@ -165,20 +175,31 @@
 }
 
 html[data-theme='dark'] {
+	color-scheme: dark;
 	--text: #e2e8f0;
 	--text-h: #f8fafc;
 	--text-m: #cbd5e1;
+	--text-muted: #94a3b8;
 	--text-l: #fff;
 	--btn-active: #0059b5;
 	--bg: #000106;
 	--surface: #000106;
+	--surface-subtle: rgba(148, 163, 184, 0.08);
 	--border: rgba(148, 163, 184, 0.2);
 	--border-strong: rgba(148, 163, 184, 0.32);
+	--border-hover: rgba(217, 119, 6, 0.42);
 	--accent-bg: rgba(37, 99, 235, 0.14);
+	--primary: var(--accent);
+	--primary-subtle: rgba(217, 119, 6, 0.18);
 	--shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
 	--shadow-node: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
 	--color-node-inactive: rgba(148, 163, 184, 0.36);
 	--opacity-node-inactive: 0.62;
+	--color-node-label: #ffffff;
+	--color-node-label-stroke: rgba(0, 1, 6, 0.96);
+	--scrollbar-thumb: rgba(71, 85, 105, 0.88);
+	--scrollbar-thumb-hover: rgba(100, 116, 139, 0.96);
+	--scrollbar-track: rgba(2, 6, 23, 0.92);
 
 	--accent: #d97706;
 
@@ -187,6 +208,60 @@ html[data-theme='dark'] {
 
 	--shadow-node-inactive: none;
 	--shadow-node-inactive-highlighted: none;
+}
+
+html,
+body,
+.fg-sidebar,
+.fg-sidebar[data-view-mode='info'] .fg-sb-body,
+.fg-selection-log-list,
+.fg-log-body,
+.fg-menu-panel {
+	scrollbar-width: thin;
+	scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.fg-sidebar::-webkit-scrollbar,
+.fg-sidebar[data-view-mode='info'] .fg-sb-body::-webkit-scrollbar,
+.fg-selection-log-list::-webkit-scrollbar,
+.fg-log-body::-webkit-scrollbar,
+.fg-menu-panel::-webkit-scrollbar {
+	width: 12px;
+	height: 12px;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+.fg-sidebar::-webkit-scrollbar-track,
+.fg-sidebar[data-view-mode='info'] .fg-sb-body::-webkit-scrollbar-track,
+.fg-selection-log-list::-webkit-scrollbar-track,
+.fg-log-body::-webkit-scrollbar-track,
+.fg-menu-panel::-webkit-scrollbar-track {
+	background: var(--scrollbar-track);
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+.fg-sidebar::-webkit-scrollbar-thumb,
+.fg-sidebar[data-view-mode='info'] .fg-sb-body::-webkit-scrollbar-thumb,
+.fg-selection-log-list::-webkit-scrollbar-thumb,
+.fg-log-body::-webkit-scrollbar-thumb,
+.fg-menu-panel::-webkit-scrollbar-thumb {
+	background: var(--scrollbar-thumb);
+	border-radius: 999px;
+	border: 2px solid var(--scrollbar-track);
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+.fg-sidebar::-webkit-scrollbar-thumb:hover,
+.fg-sidebar[data-view-mode='info'] .fg-sb-body::-webkit-scrollbar-thumb:hover,
+.fg-selection-log-list::-webkit-scrollbar-thumb:hover,
+.fg-log-body::-webkit-scrollbar-thumb:hover,
+.fg-menu-panel::-webkit-scrollbar-thumb:hover {
+	background: var(--scrollbar-thumb-hover);
 }
 
 html[data-theme='dark'] .fg-owner-row,
@@ -304,7 +379,9 @@ html[data-theme='dark'] .fg-node.fg-node-pulse-target text.fg-label {
 
 html[data-theme='light'] .fg-node.fg-node-pulse-target text.fg-label {
 	opacity: 1 !important;
-	fill: rgb(0, 0, 0) !important;
+	fill: var(--color-node-label) !important;
+	stroke: var(--color-node-label-stroke) !important;
+	paint-order: stroke fill;
 	/* stroke: rgb(245, 196, 18) !important; */
 	/* stroke-width: calc(1px / var(--fg-current-zoom, 1)) !important; */
 	text-shadow: rgb(156, 253, 0) 1px 1px 0px;
@@ -325,8 +402,11 @@ html[data-theme='light'] .fg-node.fg-node-pulse-target text.fg-label,
 html[data-theme='light'] .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
 	display: block !important;
 	font-size: clamp(calc(5px / var(--fg-current-zoom, 1)), 3ch, calc(133px / var(--fg-current-zoom, 1))) !important;
-	font-weight: 100 !important;
+	font-weight: 600 !important;
 	opacity: 1 !important;
+	fill: var(--color-node-label) !important;
+	stroke: var(--color-node-label-stroke) !important;
+	paint-order: stroke fill;
 	stroke-width: calc(5px / var(--fg-current-zoom, 1)) !important;
 	letter-spacing: 3px;
 }
@@ -4226,18 +4306,20 @@ a,
 
 .fg-node.selected text.fg-label,
 .fg-node.highlighted-hop text.fg-label {
-	fill: #8e99b3 !important;
-	font-weight: 100 !important;
+	fill: var(--color-node-label) !important;
+	font-weight: var(--font-weight-node-label-selected, 700) !important;
 	opacity: 1 !important;
 }
 
 text.fg-label {
-	fill: #8e99b3 !important;
+	fill: var(--color-node-label) !important;
 	font-size: var(--fg-node-label-font-size, 5px);
 	font-weight: var(--fg-node-label-font-weight, 100) !important;
 	opacity: 1 !important;
-	stroke: #ffffff !important;
+	stroke: var(--color-node-label-stroke) !important;
 	stroke-width: 4px !important;
+	paint-order: stroke fill;
+	stroke-linejoin: round;
 	fill-opacity: 1 !important;
 }
 /* Connector (intermediate) nodes — same reduced intensity */

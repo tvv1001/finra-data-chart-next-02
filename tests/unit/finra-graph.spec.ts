@@ -23,6 +23,7 @@ import {
 	loadSelectionLogBoldPreference,
 	normalizeNodeLabelInPlace,
 	rankFindNodeMatches,
+	scheduleNodeExpansion,
 	selectTextSearchHydrationTargets,
 	shouldFetchFirmDetailForOwnerEvidence,
 	shouldHydrateExpansionFrontierNodeDetail,
@@ -153,6 +154,16 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		const node = { id: 'person:123', label: 'CRD 123456', group: 'individual' } as any;
 		normalizeNodeLabelInPlace(node);
 		expect(node.label).toBe('Node person:123');
+	});
+
+	it('scheduleNodeExpansion defers expansion work until the queued timer runs', () => {
+		vi.useFakeTimers();
+		const task = vi.fn();
+		scheduleNodeExpansion({ id: 'person:123' }, {}, task as any);
+		expect(task).not.toHaveBeenCalled();
+		vi.runOnlyPendingTimers();
+		expect(task).toHaveBeenCalledTimes(1);
+		vi.useRealTimers();
 	});
 
 	it('shouldRenderBlueNodeHighlight enables blue outline for hovered or selected individuals', () => {

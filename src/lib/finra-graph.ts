@@ -10206,25 +10206,62 @@ const nodeExpansionQueue: Array<{
 	};
 }> = [];
 let isProcessingNodeExpansion = false;
-const NODE_EXPANSION_COOLDOWN_MS = 250; // Delay to prevent CPU overloading on low-powered machines
+const NODE_EXPANSION_COOLDOWN_MS = 80; // Keep the interaction loop responsive on low-powered machines.
+const NODE_EXPANSION_DEFER_MS = 24;
+const pendingNodeExpansionIds = new Set<string>();
+
+export function scheduleNodeExpansion(
+	node: any,
+	options: {
+		focus?: boolean;
+		pulse?: boolean;
+		focusDuration?: number;
+	} = {},
+	runner: (nodeArg: any, taskOptions: any) => Promise<void> | void = enqueueNodeExpansion,
+) {
+	const nodeId = node?.id != null ? String(node.id) : '';
+	if (!nodeId || pendingNodeExpansionIds.has(nodeId)) return null;
+	pendingNodeExpansionIds.add(nodeId);
+
+	const runTask = () => {
+		if (!pendingNodeExpansionIds.has(nodeId)) return;
+		void Promise.resolve(runner(node, options)).finally(() => {
+			pendingNodeExpansionIds.delete(nodeId);
+		});
+	};
+
+	const delayMs = (layoutNodes?.length || 0) > 250 ? NODE_EXPANSION_DEFER_MS : 0;
+	if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
+		window.setTimeout(runTask, delayMs);
+	} else {
+		runTask();
+	}
+
+	return { cancel: () => pendingNodeExpansionIds.delete(nodeId) };
+}
 
 async function enqueueNodeExpansion(node: any, options: any = {}) {
 	nodeExpansionQueue.push({ node, options });
 	if (isProcessingNodeExpansion) return;
 
 	isProcessingNodeExpansion = true;
-	while (nodeExpansionQueue.length > 0) {
-		const task = nodeExpansionQueue.shift();
-		if (task) {
-			try {
-				await openNodeWithExpansionTask(task.node, task.options);
-				await new Promise((resolve) => setTimeout(resolve, NODE_EXPANSION_COOLDOWN_MS));
-			} catch (e) {
-				console.error('Sequenced node expansion failed:', e);
+	try {
+		while (nodeExpansionQueue.length > 0) {
+			const task = nodeExpansionQueue.shift();
+			if (task) {
+				try {
+					await openNodeWithExpansionTask(task.node, task.options);
+					if (nodeExpansionQueue.length > 0) {
+						await new Promise((resolve) => setTimeout(resolve, NODE_EXPANSION_COOLDOWN_MS));
+					}
+				} catch (e) {
+					console.error('Sequenced node expansion failed:', e);
+				}
 			}
 		}
+	} finally {
+		isProcessingNodeExpansion = false;
 	}
-	isProcessingNodeExpansion = false;
 }
 
 function openNodeWithExpansion(
@@ -10235,7 +10272,16 @@ function openNodeWithExpansion(
 		focusDuration?: number;
 	} = {},
 ) {
-	enqueueNodeExpansion(d, options);
+	if (!d?.id) return;
+
+	selectNode(d, {
+		skipAutoExpand: true,
+		focus: options.focus,
+		pulse: options.pulse,
+		focusDuration: options.focusDuration,
+	});
+
+	scheduleNodeExpansion(d, options, enqueueNodeExpansion);
 }
 
 async function openNodeWithExpansionTask(
