@@ -19,7 +19,9 @@ import {
 	loadPersistedSidebarViewMode,
 	collectFirmConnectionEntries,
 	getAutoExpansionHopsForNode,
+	getLargeNodeRevealBatchPlan,
 	getLinkIdentityKey,
+	getSelectionLinkOpacity,
 	loadSelectionLogBoldPreference,
 	normalizeNodeLabelInPlace,
 	rankFindNodeMatches,
@@ -32,6 +34,9 @@ import {
 	shouldRenderNodeSelected,
 	upsertSelectionLogEntry,
 	isForcedGrayConnectionLink,
+	clearSelectionState,
+	buildSessionRenderGraphData,
+	resolveLinkEndpoints,
 } from '../../src/lib/finra-graph';
 import { shouldRenderBlueNodeHighlight } from '../../src/lib/finra-graph-canvas';
 import { DEFAULT_NODE_LABEL_FONT_SIZE_PX } from '../../src/lib/finra-graph-defaults';
@@ -166,6 +171,32 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		vi.useRealTimers();
 	});
 
+	it('getLargeNodeRevealBatchPlan stages large reveals into multiple smaller batches', () => {
+		const plan = getLargeNodeRevealBatchPlan(140, 800);
+
+		expect(plan.shouldBatch).toBe(true);
+		expect(plan.batchSize).toBeGreaterThan(0);
+		expect(plan.batchCount).toBeGreaterThan(1);
+	});
+
+	it('uses smaller batches for large graph reveals to keep motion smooth', () => {
+		const plan = getLargeNodeRevealBatchPlan(240, 2500);
+
+		expect(plan.shouldBatch).toBe(true);
+		expect(plan.batchSize).toBeLessThanOrEqual(12);
+		expect(plan.batchDelayMs).toBeGreaterThan(0);
+	});
+
+	it('getSelectionLinkOpacity keeps gray links brighter in selection emphasis', () => {
+		const emphasis = { strokeOpacity: 0.66 } as any;
+		const grayLink = { relationship: 'previous_employed_by' } as any;
+		const regularLink = { relationship: 'employed_by', isCurrent: true } as any;
+
+		expect(getSelectionLinkOpacity(grayLink, emphasis)).toBeGreaterThan(0.8);
+		expect(getSelectionLinkOpacity(grayLink, emphasis, { connected: true })).toBe(getSelectionLinkOpacity(grayLink, emphasis));
+		expect(getSelectionLinkOpacity(regularLink, emphasis, { connected: true })).toBe(0.66);
+	});
+
 	it('shouldRenderBlueNodeHighlight enables blue outline for hovered or selected individuals', () => {
 		const individualNode = { id: 'person:1', group: 'individual' } as any;
 		const firmNode = { id: 'firm:1', group: 'firm' } as any;
@@ -173,6 +204,56 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(shouldRenderBlueNodeHighlight(individualNode, { hovered: true })).toBe(true);
 		expect(shouldRenderBlueNodeHighlight(individualNode, { selected: true })).toBe(true);
 		expect(shouldRenderBlueNodeHighlight(firmNode, { hovered: true })).toBe(false);
+	});
+
+	it('clearSelectionState clears the active node selection and highlight roots', () => {
+		const resetState = clearSelectionState({
+			selectedId: 'person:123',
+			highlightedSelections: [{ id: 'person:123', hops: 1 }],
+			sidebarSelectedNode: { id: 'person:123' },
+		});
+
+		expect(resetState.selectedId).toBeNull();
+		expect(resetState.highlightedSelections).toEqual([]);
+		expect(resetState.sidebarSelectedNode).toBeNull();
+	});
+
+	it('resolveLinkEndpoints converts restored string endpoints to node objects', () => {
+		const nodes = [
+			{ id: 'person:1', group: 'individual' },
+			{ id: 'firm:1', group: 'firm' },
+		] as any[];
+		const links = [{ source: 'person:1', target: 'firm:1', relationship: 'employed_by' }] as any[];
+
+		const resolved = resolveLinkEndpoints(links, nodes);
+
+		expect(resolved).toHaveLength(1);
+		expect(resolved[0].source).toEqual(nodes[0]);
+		expect(resolved[0].target).toEqual(nodes[1]);
+	});
+
+	it('buildSessionRenderGraphData includes persisted extra nodes for session restoration', () => {
+		const baseGraphData = {
+			nodes: [
+				{ id: 'person:1', group: 'individual' },
+				{ id: 'firm:1', group: 'firm' },
+			],
+			links: [{ source: 'person:1', target: 'firm:1', relationship: 'employed_by' }],
+			meta: {},
+		} as any;
+
+		const session = {
+			selectedNodeId: 'person:999',
+			highlightedNodes: [{ id: 'person:999', hops: 1 }],
+			extraNodes: [{ id: 'person:999', group: 'individual', label: 'Extra person' }],
+			extraLinks: [{ source: 'person:999', target: 'firm:1', relationship: 'controls' }],
+			renderedServerIds: ['person:1', 'firm:1'],
+		} as any;
+
+		const projected = buildSessionRenderGraphData(session, baseGraphData);
+		expect(projected).not.toBeNull();
+		expect(projected.nodes.map((node) => node.id)).toContain('person:999');
+		expect(projected.links.some((link) => link.source === 'person:999' && link.target === 'firm:1')).toBe(true);
 	});
 
 	it('normalizeNodeLabelInPlace upgrades Node person placeholders to fetched individual names', () => {
@@ -306,17 +387,19 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(isNodeInactive(node)).toBe(false);
 	});
 
-	it('marks the requested person/firm link as a forced gray connection', () => {
+	it('supports a data-driven forced gray link without hard-coded CRDs', () => {
 		const link = {
-			source: { id: 'person:4141166' },
-			target: { id: 'firm:37404' },
+			source: { id: 'person:111' },
+			target: { id: 'firm:222' },
 			relationship: 'employed_by',
 			isCurrent: true,
+			forceGray: true,
 		} as any;
 
 		expect(isForcedGrayConnectionLink(link)).toBe(true);
-		expect(isForcedGrayConnectionLink({ source: 'firm:37404', target: 'person:4141166', relationship: 'employed_by' })).toBe(true);
+		expect(isForcedGrayConnectionLink({ source: 'firm:222', target: 'person:111', relationship: 'employed_by', forceGray: true })).toBe(true);
 		expect(isForcedGrayConnectionLink({ source: 'person:100', target: 'firm:200', relationship: 'employed_by' })).toBe(false);
+		expect(isForcedGrayConnectionLink({ source: 'firm:222', target: 'person:111', relationship: 'employed_by' })).toBe(false);
 	});
 
 	it('isRevealableChainExhausted stays false when a visible downstream node still has hidden revealable neighbors', () => {
@@ -677,7 +760,7 @@ describe('FinraGraph DOM helpers (unit)', () => {
 	});
 
 	it('routeSidebarNodeSelection pushes the node route and dispatches a selection request', () => {
-		const push = vi.fn();
+		const pushState = vi.spyOn(window.history, 'pushState');
 		const setBrowserPathname = vi.fn();
 		const dispatched: Array<{ nodeId?: string; pulseDuration?: number; autoExpand?: boolean }> = [];
 		const listener = (event: Event) => {
@@ -692,15 +775,15 @@ describe('FinraGraph DOM helpers (unit)', () => {
 				browserPathname: '/',
 				pathname: '/',
 				setBrowserPathname,
-				router: { push },
 				pulseDuration: 5000,
 			});
 
 			expect(setBrowserPathname).toHaveBeenCalledWith('/node/person-2632784');
-			expect(push).toHaveBeenCalledWith('/node/person-2632784?panel=info', { scroll: false });
+			expect(pushState).toHaveBeenCalledWith(window.history.state, '', '/node/person-2632784?panel=info');
 			expect(dispatched).toEqual([{ nodeId: 'person:2632784', pulseDuration: 5000, autoExpand: false }]);
 		} finally {
 			window.removeEventListener('finra:route-node-request', listener as EventListener);
+			pushState.mockRestore();
 		}
 	});
 });

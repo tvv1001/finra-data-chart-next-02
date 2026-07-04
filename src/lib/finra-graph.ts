@@ -389,15 +389,26 @@ function getFocusedLabelScale(zoomScale: number | string | null | undefined): nu
 	return Math.min(dynamicScale, 15.0);
 }
 
-function getSelectionLinkEmphasis(zoomScale = getCurrentGraphZoomScale()) {
+export function getSelectionLinkEmphasis(zoomScale = getCurrentGraphZoomScale()) {
 	const normalizedScale = Math.max(0.18, Math.min(1, Number(zoomScale) || 1));
 	const zoomWeight = Math.max(0, Math.min(1, (normalizedScale - 0.18) / 0.82));
 
 	return {
-		strokeWidthScale: 0.45 + zoomWeight * 0.25,
-		strokeOpacity: 0.66 + zoomWeight * 0.22,
-		showActiveFilter: normalizedScale >= 0.55,
+		strokeWidthScale: 0.52 + zoomWeight * 0.42,
+		strokeOpacity: 0.8 + zoomWeight * 0.16,
+		showActiveFilter: normalizedScale >= 0.45,
 	};
+}
+
+export function getSelectionLinkOpacity(d, selectionLinkEmphasis, options: { connected?: boolean } = {}) {
+	const isGrayLine = hasInactiveEndpoint(d) || isPreviousEmploymentLink(d) || isForcedGrayConnectionLink(d);
+	if (isGrayLine) {
+		return 0.84;
+	}
+	if (options.connected) {
+		return selectionLinkEmphasis.strokeOpacity;
+	}
+	return 0.5 * selectionLinkEmphasis.strokeOpacity;
 }
 
 function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
@@ -3513,6 +3524,14 @@ async function restoreSavedSession(session) {
 	}
 }
 
+export function clearSelectionState(_state: { selectedId?: string | null; highlightedSelections?: Array<any>; sidebarSelectedNode?: any } = {}) {
+	return {
+		selectedId: null,
+		highlightedSelections: [],
+		sidebarSelectedNode: null,
+	};
+}
+
 function clearGraphData() {
 	graphData = { nodes: [], links: [], meta: {} };
 	sessionPersistenceMode = 'full';
@@ -3522,11 +3541,12 @@ function clearGraphData() {
 	clearFetchStatus();
 	allowFirstFetchZoom = true;
 	hasUserInitiatedGraphExpansion = false;
-	selectedId = null;
-	highlightedSelections = [];
+	const resetSelectionState = clearSelectionState();
+	selectedId = resetSelectionState.selectedId;
+	highlightedSelections = resetSelectionState.highlightedSelections;
 	updateFocusReadout(null);
 	visitedNodeIds.clear();
-	sidebarSelectedNode = null;
+	sidebarSelectedNode = resetSelectionState.sidebarSelectedNode;
 	sidebarViewMode = 'none';
 	stopNodePulseLoop();
 	clearSubsetInfo();
@@ -3690,8 +3710,8 @@ function applySavedNodePositions(savedPositions) {
 	simulation.alpha(0).restart();
 }
 
-function renderSavedSessionGraph(session) {
-	if (!graphData || !Array.isArray(graphData.nodes) || !Array.isArray(graphData.links)) return false;
+export function buildSessionRenderGraphData(session, baseGraphData = graphData) {
+	if (!baseGraphData || !Array.isArray(baseGraphData.nodes) || !Array.isArray(baseGraphData.links)) return null;
 
 	const requestedIds = new Set(
 		[
@@ -3703,17 +3723,71 @@ function renderSavedSessionGraph(session) {
 			.filter(Boolean),
 	);
 
-	if (!requestedIds.size) return false;
+	if (!requestedIds.size) return null;
 
-	const sessionNodes = graphData.nodes.filter((node) => requestedIds.has(node.id));
-	if (!sessionNodes.length) return false;
+	const nodeById = new Map<string, any>();
+	(baseGraphData.nodes || []).forEach((node) => {
+		if (node?.id) nodeById.set(String(node.id), node);
+	});
+	(Array.isArray(session?.extraNodes) ? session.extraNodes : []).forEach((node) => {
+		if (node?.id) nodeById.set(String(node.id), node);
+	});
 
-	const sessionNodeIds = new Set(sessionNodes.map((node) => node.id));
-	const sessionLinks = graphData.links.filter((link) => {
-		const sourceId = link.source?.id ?? link.source;
-		const targetId = link.target?.id ?? link.target;
+	const requiredIds = new Set<string>(requestedIds);
+	const candidateLinks = [...(baseGraphData.links || []), ...(Array.isArray(session?.extraLinks) ? session.extraLinks : [])];
+	let changed = true;
+	while (changed) {
+		changed = false;
+		for (const link of candidateLinks) {
+			const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+			const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+			if (!sourceId || !targetId) continue;
+			if (requiredIds.has(sourceId) && !requiredIds.has(targetId)) {
+				requiredIds.add(targetId);
+				changed = true;
+			} else if (requiredIds.has(targetId) && !requiredIds.has(sourceId)) {
+				requiredIds.add(sourceId);
+				changed = true;
+			}
+		}
+	}
+
+	if (!requiredIds.size) return null;
+
+	const sessionNodes = [];
+	const seenNodeIds = new Set<string>();
+	for (const node of [...(baseGraphData.nodes || []), ...(Array.isArray(session?.extraNodes) ? session.extraNodes : [])]) {
+		if (!node?.id) continue;
+		const nodeId = String(node.id);
+		if (!requiredIds.has(nodeId) || seenNodeIds.has(nodeId)) continue;
+		seenNodeIds.add(nodeId);
+		sessionNodes.push({ ...node, id: nodeId });
+	}
+
+	if (!sessionNodes.length) return null;
+
+	const sessionNodeIds = new Set(sessionNodes.map((node) => String(node.id)));
+	const sessionLinks = candidateLinks.filter((link) => {
+		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
 		return sessionNodeIds.has(sourceId) && sessionNodeIds.has(targetId);
 	});
+
+	return {
+		...baseGraphData,
+		nodes: sessionNodes,
+		links: sessionLinks,
+	};
+}
+
+function renderSavedSessionGraph(session) {
+	if (!graphData || !Array.isArray(graphData.nodes) || !Array.isArray(graphData.links)) return false;
+
+	const sessionGraphData = buildSessionRenderGraphData(session, graphData);
+	if (!sessionGraphData || !Array.isArray(sessionGraphData.nodes) || !Array.isArray(sessionGraphData.links)) return false;
+
+	const sessionNodes = sessionGraphData.nodes;
+	if (!sessionNodes.length) return false;
 
 	isSubsetMode = sessionNodes.length < graphData.nodes.length;
 	if (isSubsetMode) {
@@ -3725,7 +3799,7 @@ function renderSavedSessionGraph(session) {
 	renderGraph({
 		...graphData,
 		nodes: sessionNodes,
-		links: sessionLinks,
+		links: sessionGraphData.links,
 	});
 	showEmpty(false);
 	updateMeta(graphData.meta);
@@ -3969,10 +4043,15 @@ function refreshNodeLayout() {
 	const isLarge = nodeCount > 300;
 	const isHuge = nodeCount > 1000;
 	const jitterBase =
-		isHuge ? 26
-		: isLarge ? 22
-		: 18;
-	const refreshDurationMs = getRefreshLayoutDurationMs(nodeCount);
+		isHuge ? 10
+		: isLarge ? 8
+		: 6;
+	const refreshDurationMs = Math.min(
+		getRefreshLayoutDurationMs(nodeCount),
+		isHuge ? 900
+		: isLarge ? 1200
+		: 1600,
+	);
 
 	layoutNodes.forEach((node, index) => {
 		node.fx = null;
@@ -3983,13 +4062,13 @@ function refreshNodeLayout() {
 			const origX = node.x;
 			const origY = node.y;
 			_logOnce(_loggedBadNodeCoords, node.id || index, 'warn', `Node has non-finite coords; id=${node.id} origX=${origX} origY=${origY}. Assigning jittered position.`);
-			node.x = centerX + (Math.random() - 0.5) * 140;
-			node.y = centerY + (Math.random() - 0.5) * 140;
+			node.x = centerX + (Math.random() - 0.5) * 80;
+			node.y = centerY + (Math.random() - 0.5) * 80;
 		} else {
 			const angle = (index / Math.max(1, layoutNodes.length)) * Math.PI * 2;
-			const jitter = jitterBase + (index % 5) * 2;
-			node.x += Math.cos(angle) * jitter + (Math.random() - 0.5) * 16;
-			node.y += Math.sin(angle) * jitter + (Math.random() - 0.5) * 16;
+			const jitter = jitterBase + (index % 3) * 1.25;
+			node.x += Math.cos(angle) * jitter + (Math.random() - 0.5) * 6;
+			node.y += Math.sin(angle) * jitter + (Math.random() - 0.5) * 6;
 		}
 	});
 
@@ -4011,12 +4090,12 @@ function refreshNodeLayout() {
 		}
 	};
 
-	simulation.alphaTarget(0);
+	simulation.alphaTarget(0.04);
 	simulation
 		.alpha(
-			isHuge ? 0.72
-			: isLarge ? 0.78
-			: 0.84,
+			isHuge ? 0.28
+			: isLarge ? 0.34
+			: 0.42,
 		)
 		.restart();
 
@@ -6229,16 +6308,16 @@ const LINK_COLOR = {
 	controls: GRAPH_COLORS.lineControls,
 };
 const LINK_OPACITY = {
-	employed_by: 0.75,
-	previous_employed_by: 0.55,
-	controls: 0.75,
+	employed_by: 0.9,
+	previous_employed_by: 0.7,
+	controls: 0.6,
 };
 const DEFAULT_LINK_WIDTH = 1.2;
-const INACTIVE_LINK_OPACITY = 0.45;
+const INACTIVE_LINK_OPACITY = 0.6;
 const defaultLinkOpacity = (d) => {
 	if (hasInactiveEndpoint(d)) return INACTIVE_LINK_OPACITY;
 	if (usesCurrentEmploymentStyling(d)) return LINK_OPACITY.employed_by;
-	return LINK_OPACITY[d.relationship] ?? 0.6;
+	return LINK_OPACITY[d.relationship] ?? 1;
 };
 
 function getEmploymentRelationship(entry) {
@@ -6254,6 +6333,9 @@ function normalizeLinkNodeId(endpoint) {
 }
 
 export function isForcedGrayConnectionLink(link) {
+	if (!link) return false;
+	if (link.forceGray === true || link.forceGray === 'true' || link.isForcedGray === true || link.isForcedGray === 'true') return true;
+
 	const sourceId = normalizeLinkNodeId(link?.source)
 		.replace(/^node[:_]/, '')
 		.replace(/^person[:_]/, 'person:')
@@ -6263,7 +6345,7 @@ export function isForcedGrayConnectionLink(link) {
 		.replace(/^person[:_]/, 'person:')
 		.replace(/^firm[:_]/, 'firm:');
 	const pair = [sourceId, targetId].filter(Boolean).sort().join('|');
-	return pair === 'firm:37404|person:4141166' || pair === 'firm:37404|person:4141166';
+	return Boolean(link?.metadata?.forceGray || link?.data?.forceGray || (pair && link?.forceGray));
 }
 
 function resolveEmploymentConnectionFirmNodeId(employment) {
@@ -6607,6 +6689,31 @@ function getIncrementalRestartAlpha(nodeCount = layoutNodes?.length || 0, change
 	return changeRatio > 0.25 ? 0.24 : 0.14;
 }
 
+export function getLargeNodeRevealBatchPlan(hiddenNodeCount = 0, currentNodeCount = layoutNodes?.length || 0) {
+	const hiddenCount = Math.max(0, Number(hiddenNodeCount) || 0);
+	const nodeCount = Math.max(0, Number(currentNodeCount) || 0);
+	if (!hiddenCount) {
+		return { shouldBatch: false, batchSize: 0, batchCount: 1, batchDelayMs: 0 };
+	}
+
+	const isLargeGraph = nodeCount > 800;
+	const isHugeGraph = nodeCount > 2200;
+	const batchSize =
+		isHugeGraph ? 8
+		: isLargeGraph ? 12
+		: 20;
+	const batchCount = Math.max(1, Math.ceil(hiddenCount / batchSize));
+	return {
+		shouldBatch: hiddenCount > batchSize || nodeCount > 1200,
+		batchSize,
+		batchCount,
+		batchDelayMs:
+			isHugeGraph ? 100
+			: isLargeGraph ? 70
+			: 50,
+	};
+}
+
 function getImpactedNodeIds(nodes = [], links = []) {
 	const ids = new Set();
 	(nodes || []).forEach((node) => {
@@ -6621,7 +6728,7 @@ function getImpactedNodeIds(nodes = [], links = []) {
 	return Array.from(ids);
 }
 
-function resolveLinkEndpoints(links = [], nodes = []) {
+export function resolveLinkEndpoints(links = [], nodes = []) {
 	if (!Array.isArray(links) || !Array.isArray(nodes)) return [];
 	const nodeMap = new Map(nodes.map((node) => [node.id, node]));
 	const resolved = [];
@@ -7217,12 +7324,12 @@ function getLinkMarker(d) {
 }
 
 function getLinkDash(d) {
-	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d) || isPreviousEmploymentLink(d)) return '3 4';
+	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d) || isPreviousEmploymentLink(d)) return '2 3';
 	return null;
 }
 
 function getLinkWidth(d) {
-	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d) || isPreviousEmploymentLink(d)) return '0.5px';
+	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d) || isPreviousEmploymentLink(d)) return '0.6px';
 	return `${DEFAULT_LINK_WIDTH}px`;
 }
 
@@ -7722,6 +7829,12 @@ async function fetchAndInjectOrphanNodes(links, knownIds) {
 function appendFetchedImpl(newNodes, newLinks) {
 	if (!Array.isArray(newNodes)) newNodes = [];
 	if (!Array.isArray(newLinks)) newLinks = [];
+	if (!layoutNodes || !layoutLinks) {
+		if (graphData && Array.isArray(newNodes) && Array.isArray(newLinks)) {
+			mergeIntoGraphData(newNodes, newLinks);
+		}
+		return;
+	}
 	normalizeNodeLabelsInPlace(newNodes);
 
 	// avoid duplicates
@@ -7748,9 +7861,10 @@ function appendFetchedImpl(newNodes, newLinks) {
 	// push
 	layoutNodes.push(...uniqNodes);
 
+	const resolvedNewLinks = resolveLinkEndpoints(newLinks, layoutNodes);
 	const currentLayoutNodeIds = new Set(layoutNodes.map((n) => n.id));
 	layoutLinks.push(
-		...newLinks.filter((l) => {
+		...resolvedNewLinks.filter((l) => {
 			const s = l.source?.id ?? l.source;
 			const t = l.target?.id ?? l.target;
 			// only include link if both nodes are currently rendered
@@ -7775,6 +7889,14 @@ function appendFetchedImpl(newNodes, newLinks) {
 	saveSession();
 
 	refreshLayeredLinkSelections({ enterDuration: 400 });
+
+	if (!nodeGroup || !linkGroup || !simulation) {
+		if (graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
+		refreshGraphColors();
+		if (activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
+		refreshTraceState();
+		return;
+	}
 
 	const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
 	const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen).call(bindHoverAndFocus);
@@ -8259,7 +8381,7 @@ function renderGraph(_data) {
 						isHuge ? 0.35
 						: isLarge ? 0.45
 						: 0.55;
-					return maxDeg > 20 ? baseStrength * 0.6 : baseStrength;
+					return maxDeg > 20 ? baseStrength * 0.9 : baseStrength;
 				}),
 		)
 		.force(
@@ -10721,6 +10843,8 @@ async function expandLoadedSeedNodes() {
 
 // Bring any hidden neighbors (present in graphData but not yet rendered) into
 // the live graph without a full re-render.
+// Bring any hidden neighbors (present in graphData but not yet rendered) into
+// the live graph without a full re-render.
 function revealNeighbors(
 	clickedNode,
 	hops: number | 'all' = getDefaultExpansionHops(),
@@ -10734,7 +10858,6 @@ function revealNeighbors(
 	const { linkFilter = null, restrictToIds = null, markSelected = false } = options;
 
 	const renderedIds = new Set(layoutNodes.map((n) => n.id));
-	const parentNodeId = getRevealParentNodeId(clickedNode, renderedIds);
 
 	// Use cached adjacency from the full graph data
 	const fullAdj = getFullAdjacencyMap();
@@ -10764,143 +10887,179 @@ function revealNeighbors(
 
 	// Filter to only nodes not yet rendered
 	const hiddenIds = Array.from(dist.keys()).filter((id) => !renderedIds.has(id) && (!restrictToIds || restrictToIds.has(id)));
+	const revealBatches = (() => {
+		const plan = getLargeNodeRevealBatchPlan(hiddenIds.length, layoutNodes.length);
+		if (!plan.shouldBatch || !hiddenIds.length) return [hiddenIds];
+		const batches = [];
+		for (let index = 0; index < hiddenIds.length; index += plan.batchSize) {
+			batches.push(hiddenIds.slice(index, index + plan.batchSize));
+		}
+		return batches;
+	})();
 
-	// Create new node objects with positions based on hop distance
-	const newNodes =
-		hiddenIds.length > 0 ?
-			placeNodesNearConnections(
-				clickedNode,
-				graphData.nodes.filter((n) => hiddenIds.includes(n.id)),
-				candidateLinks,
-				dist,
-			)
-		:	[];
+	let activeRenderedIds = new Set(renderedIds);
+	const revealNextBatch = (batchIndex = 0) => {
+		const renderBatch = () => {
+			const batchHiddenIds = revealBatches[Math.min(batchIndex, revealBatches.length - 1)] || [];
+			const batchNodes =
+				batchHiddenIds.length ?
+					placeNodesNearConnections(
+						clickedNode,
+						graphData.nodes.filter((n) => batchHiddenIds.includes(n.id)),
+						candidateLinks,
+						dist,
+					)
+				:	[];
+			const batchNodeIds = new Set(batchNodes.map((n) => n.id));
+			const batchLinks = candidateLinks
+				.filter((link) => {
+					const srcId = link.source?.id ?? link.source;
+					const tgtId = link.target?.id ?? link.target;
+					if (!srcId || !tgtId) return false;
+					const srcRendered = activeRenderedIds.has(srcId);
+					const tgtRendered = activeRenderedIds.has(tgtId);
+					if (!srcRendered && !batchNodeIds.has(srcId)) return false;
+					if (!tgtRendered && !batchNodeIds.has(tgtId)) return false;
+					const alreadyHas = layoutLinks.some((el) => {
+						const es = el.source?.id ?? el.source;
+						const et = el.target?.id ?? el.target;
+						return es === srcId && et === tgtId;
+					});
+					return !alreadyHas;
+				})
+				.map((link) => ({ ...link }));
 
-	// Now include any links that connect these newly-rendered nodes to the now-rendered set
-	const nowRenderedIds = new Set([...renderedIds, ...newNodes.map((n) => n.id)]);
-	const newLinks = candidateLinks
-		.filter((l) => {
-			const srcId = l.source?.id ?? l.source;
-			const tgtId = l.target?.id ?? l.target;
-			if (!nowRenderedIds.has(srcId) || !nowRenderedIds.has(tgtId)) return false;
-			const alreadyHas = layoutLinks.some((el) => {
-				const es = el.source?.id ?? el.source;
-				const et = el.target?.id ?? el.target;
-				return es === srcId && et === tgtId;
-			});
-			return !alreadyHas;
-		})
-		.map((l) => ({ ...l }));
+			if (markSelected && clickedNode?.id && batchIndex === 0) {
+				visitedNodeIds.add(clickedNode.id);
+				markNodeSelected(layoutNodes.find((node) => node.id === clickedNode.id) || clickedNode, { persist: false });
+				reapplySelectionState();
+				refreshGraphColors();
+			}
 
-	if (markSelected && clickedNode?.id) {
-		// Always add to visitedNodeIds and mark as selected, even if not found in layoutNodes
-		visitedNodeIds.add(clickedNode.id);
-		markNodeSelected(layoutNodes.find((node) => node.id === clickedNode.id) || clickedNode, { persist: false });
-		reapplySelectionState();
-		refreshGraphColors();
-	}
-
-	if (newNodes.length === 0 && newLinks.length === 0) {
-		if (markSelected && clickedNode) {
-			reapplySelectionState();
-
-			// Notify canvas renderer (Pixi) about restored highlighted selections
-			// so canvas can persist its selected/highlight visuals across reloads.
-			try {
-				if (typeof window !== 'undefined') {
-					// Dispatch a route request for the resolved selectedId (if any)
-					if (selectedId) {
-						window.dispatchEvent(new CustomEvent(ROUTE_NODE_REQUEST_EVENT, { detail: { nodeId: selectedId } }));
+			if (batchNodes.length === 0 && batchLinks.length === 0) {
+				if (batchIndex < revealBatches.length - 1) {
+					const plan = getLargeNodeRevealBatchPlan(hiddenIds.length, layoutNodes.length);
+					setTimeout(
+						() => {
+							if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+								window.requestAnimationFrame(() => revealNextBatch(batchIndex + 1));
+							} else {
+								revealNextBatch(batchIndex + 1);
+							}
+						},
+						revealBatches.length > 1 ? Math.max(40, plan.batchDelayMs) : 0,
+					);
+				} else if (markSelected && clickedNode) {
+					reapplySelectionState();
+					try {
+						if (typeof window !== 'undefined') {
+							if (selectedId) {
+								window.dispatchEvent(new CustomEvent(ROUTE_NODE_REQUEST_EVENT, { detail: { nodeId: selectedId } }));
+							}
+						}
+					} catch (e) {
+						/* ignore */
+					}
+					refreshGraphColors();
+					try {
+						saveSession();
+					} catch (e) {
+						/* ignore */
 					}
 				}
-			} catch (e) {
-				/* ignore */
+				return;
 			}
+
+			layoutNodes.push(...batchNodes);
+			layoutLinks.push(...batchLinks);
+			resolveLinkEndpoints(layoutLinks, layoutNodes);
+			applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
+
+			batchNodes.forEach((node) => {
+				activeRenderedIds.add(node.id);
+			});
+
+			const individuals = batchNodes
+				.filter((n) => n.group === 'individual')
+				.map((n) => Number(String(n.id).split(':').pop()))
+				.filter(Number.isFinite);
+			const firms = batchNodes
+				.filter((n) => n.group === 'firm')
+				.map((n) => Number(String(n.id).split(':').pop()))
+				.filter(Number.isFinite);
+			if (individuals.length || firms.length) {
+				syncProfileSelection({ individuals, firms });
+			}
+
+			neighborMap = buildNeighborMap(layoutNodes, layoutLinks);
+
+			if (graphData && batchIndex === 0) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
+
+			refreshLayeredLinkSelections({ enterDuration: batchIndex === 0 ? 420 : 140 });
+
+			const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
+			const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen).call(bindHoverAndFocus);
+
+			if (batchIndex === 0) {
+				enteredNodes.transition().duration(420).ease(d3.easeCubicOut).attr('opacity', 1);
+			} else {
+				enteredNodes.attr('opacity', 1);
+			}
+			nodeSel = nodeGroup.selectAll('g.fg-node');
+			linkSel = selectRenderedLinkLines();
+			rerenderGraphNodesByIds(getImpactedNodeIds(batchNodes, batchLinks));
+			reapplySelectionState();
+
 			refreshGraphColors();
+			if (activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
+			refreshTraceState();
+
+			simulation.on('tick', () => {
+				linkSel
+					.attr('x1', (d) => d.source.x)
+					.attr('y1', (d) => d.source.y)
+					.attr('x2', (d) => d.target.x)
+					.attr('y2', (d) => d.target.y);
+				nodeSel.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
+			});
+
+			refreshSoftLocationGroupingForces(layoutNodes);
+			simulation.nodes(layoutNodes);
+			simulation.force('link').links(layoutLinks);
+			simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
+
+			simulation.alpha(getIncrementalRestartAlpha(layoutNodes.length, batchNodes.length)).restart();
+
+			if (batchIndex < revealBatches.length - 1) {
+				const plan = getLargeNodeRevealBatchPlan(hiddenIds.length, layoutNodes.length);
+				setTimeout(
+					() => {
+						if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+							window.requestAnimationFrame(() => revealNextBatch(batchIndex + 1));
+						} else {
+							revealNextBatch(batchIndex + 1);
+						}
+					},
+					revealBatches.length > 1 ? Math.max(40, plan.batchDelayMs) : 0,
+				);
+				return;
+			}
+
 			try {
 				saveSession();
 			} catch (e) {
 				/* ignore */
 			}
+		};
+
+		if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+			window.requestAnimationFrame(renderBatch);
+		} else {
+			renderBatch();
 		}
-		return;
-	}
+	};
 
-	// Push into live arrays
-	layoutNodes.push(...newNodes);
-	layoutLinks.push(...newLinks);
-	resolveLinkEndpoints(layoutLinks, layoutNodes);
-	applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
-
-	// Add revealed nodes to seed profile for persistence
-	const individuals = newNodes
-		.filter((n) => n.group === 'individual')
-		.map((n) => Number(String(n.id).split(':').pop()))
-		.filter(Number.isFinite);
-	const firms = newNodes
-		.filter((n) => n.group === 'firm')
-		.map((n) => Number(String(n.id).split(':').pop()))
-		.filter(Number.isFinite);
-	if (individuals.length || firms.length) {
-		syncProfileSelection({ individuals, firms });
-	}
-
-	// Rebuild neighbor cache for the live layout
-	neighborMap = buildNeighborMap(layoutNodes, layoutLinks);
-
-	// Update the subset info to reflect newly-visible nodes
-	if (graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
-
-	refreshLayeredLinkSelections({ enterDuration: 800 });
-
-	const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
-	const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen).call(bindHoverAndFocus);
-
-	enteredNodes.transition().duration(800).attr('opacity', 1);
-	nodeSel = nodeGroup.selectAll('g.fg-node');
-	rerenderGraphNodesByIds(getImpactedNodeIds(newNodes, newLinks));
-	reapplySelectionState();
-
-	refreshGraphColors();
-	if (activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
-	refreshTraceState();
-
-	simulation.on('tick', () => {
-		linkSel
-			.attr('x1', (d) => d.source.x)
-			.attr('y1', (d) => d.source.y)
-			.attr('x2', (d) => d.target.x)
-			.attr('y2', (d) => d.target.y);
-		nodeSel.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
-	});
-
-	refreshSoftLocationGroupingForces(layoutNodes);
-	simulation.nodes(layoutNodes);
-	simulation.force('link').links(layoutLinks);
-	simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
-
-	// Low-energy restart — prevents nodes from exploding outward while preserving fluid motion
-	simulation.alpha(getIncrementalRestartAlpha(layoutNodes.length, newNodes.length)).restart();
-
-	// Persist session so reload restores these nodes
-	saveSession();
-
-	// Update tick handler to cover new selections
-	simulation.on('tick', () => {
-		linkSel
-			.attr('x1', (d) => d.source.x)
-			.attr('y1', (d) => d.source.y)
-			.attr('x2', (d) => d.target.x)
-			.attr('y2', (d) => d.target.y);
-		nodeSel.attr('transform', (d) => `translate(${d.x},${d.y})`);
-	});
-
-	// Persist session so reload restores these revealed neighbors
-	try {
-		saveSession();
-	} catch (e) {
-		/* ignore */
-	}
+	revealNextBatch(0);
 }
 
 function showSidebarHint(options: { keepOpen?: boolean } = {}) {
@@ -10963,8 +11122,12 @@ function clearHighlights() {
 		selectionRestoreTimer = null;
 	}
 	stopNodePulseLoop();
-	highlightedSelections = [];
+	const resetSelectionState = clearSelectionState();
+	selectedId = resetSelectionState.selectedId;
+	highlightedSelections = resetSelectionState.highlightedSelections;
+	sidebarSelectedNode = resetSelectionState.sidebarSelectedNode;
 	updateFocusReadout(null);
+	emitSelectedNodeRoute(null, { replace: true });
 	reapplySelectionState();
 	showSidebarHint({ keepOpen: true });
 	try {
@@ -10991,24 +11154,24 @@ function highlightLinks(highlightState = null) {
 			.style('stroke-opacity', null)
 			.style('opacity', null)
 			.attr('stroke', (d) => getLinkColor(d))
-			.attr('stroke-opacity', 0.5 * selectionLinkEmphasis.strokeOpacity)
+			.attr('stroke-opacity', (d) => getSelectionLinkOpacity(d, selectionLinkEmphasis))
 			.attr('stroke-width', (d) => {
 				const isGrayLine = hasInactiveEndpoint(d) || isPreviousEmploymentLink(d) || isForcedGrayConnectionLink(d);
 				const highlightedStrokeWidth =
-					isGrayLine ? 0.34
+					isGrayLine ? 1.05
 					: d.relationship === 'controls' ? 1.9
 					: usesCurrentEmploymentStyling(d) ? 1.85
 					: 1.4;
-				return 0.5 * highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale;
+				return highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale;
 			})
 			.style('--fg-link-width', (d) => {
 				const isGrayLine = hasInactiveEndpoint(d) || isPreviousEmploymentLink(d) || isForcedGrayConnectionLink(d);
 				const highlightedStrokeWidth =
-					isGrayLine ? 0.34
+					isGrayLine ? 1.05
 					: d.relationship === 'controls' ? 1.9
 					: usesCurrentEmploymentStyling(d) ? 1.85
 					: 1.4;
-				return `${0.5 * highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale}px`;
+				return `${highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale}px`;
 			})
 			.classed('fg-link--depth-active', false)
 			.classed('fg-link--depth-recessed', false)
@@ -11052,9 +11215,7 @@ function highlightLinks(highlightState = null) {
 			if (connected) {
 				sel.classed('fg-link--depth-active', true);
 				const highlightedStrokeWidth =
-					isGrayLine ?
-						connectedToRoot ? 0.34
-						:	0.28
+					isGrayLine ? 1.05
 					: d.relationship === 'controls' ?
 						connectedToRoot ? 1.9
 						:	1.55
@@ -11063,19 +11224,20 @@ function highlightLinks(highlightState = null) {
 						:	1.5
 					: connectedToRoot ? 1.4
 					: 1.15;
+				const activeStrokeOpacity = getSelectionLinkOpacity(d, selectionLinkEmphasis, { connected: true });
 				sel
 					.style('filter', selectionLinkEmphasis.showActiveFilter ? null : 'none')
 					.style('opacity', null)
 					.style('stroke-opacity', null)
 					.attr('stroke', getLinkHighlightColor(d))
-					.attr('stroke-opacity', selectionLinkEmphasis.strokeOpacity)
+					.attr('stroke-opacity', activeStrokeOpacity)
 					.attr('stroke-width', highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale)
 					.style('--fg-link-width', `${highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale}px`);
 			} else {
 				sel.classed('fg-link--depth-recessed', true);
-				const recessedLinkOpacity = isGrayLine ? 0.42 : 0.56;
-				const recessedStrokeOpacity = isGrayLine ? 0.32 : 0.46;
-				const recessedStrokeWidth = isGrayLine ? 0.25 : 0.82;
+				const recessedLinkOpacity = isGrayLine ? 0.58 : 0.56;
+				const recessedStrokeOpacity = isGrayLine ? 0.64 : 0.46;
+				const recessedStrokeWidth = isGrayLine ? 0.65 : 0.82;
 				sel
 					.style('filter', null)
 					.style('opacity', recessedLinkOpacity)
@@ -13319,7 +13481,7 @@ function renderLegend() {
 			} else if (shape === 'ring') {
 				svg = `<svg width="16" height="16"><circle cx="8" cy="8" r="6" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="3 2"/></svg>`;
 			} else if (shape === 'line-dashed') {
-				svg = `<svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="${color}" stroke-width="1.05" stroke-dasharray="3 4"/></svg>`;
+				svg = `<svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="${color}" stroke-width="0.4" stroke-dasharray="3 4"/></svg>`;
 			} else {
 				svg = `<svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="${color}" stroke-width="1.5"/></svg>`;
 			}

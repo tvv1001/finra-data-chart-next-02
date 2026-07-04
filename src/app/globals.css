@@ -1,5 +1,6 @@
 /* ── Design tokens (match main app) ───────────────────────────────────── */
 :root {
+	--fg-current-zoom: 1;
 	/* Legend: individuals */
 	--color-highlight-individual: #0965e6;
 	--color-node-stub: #8ab7ee;
@@ -11,10 +12,10 @@
 	--color-highlight-firm: #d97706;
 	--color-node-firm-employed-stroke: #4a413d;
 	--color-node-firm-controls-stroke: #ef4444;
-	--stroke-width-node-firm-connected: 0.5;
+	--stroke-width-node-firm-connected: 0.9;
 	--stroke-width-node-firm-employed: var(--stroke-width-node-firm-connected);
 	--stroke-width-node-firm-controls: var(--stroke-width-node-firm-connected);
-	--stroke-width-node-firm-isolated: 0.5;
+	--stroke-width-node-firm-isolated: 0.9;
 
 	/* Legend: entities */
 	--color-highlight-entity: #ff4d8d;
@@ -23,7 +24,7 @@
 
 	/* Legend: relationships */
 	--color-highlight-controls: #ef4444;
-	--color-highlight-employed: #004cb6;
+	--color-highlight-employed: #0e6aeb91;
 	--color-node-disclosure-stroke: #f97316;
 	--color-node-pulse: #18a0fb !important;
 	--shadow-node-pulse: drop-shadow(0 0 8px rgba(24, 160, 251, 0.92)) drop-shadow(0 0 18px rgba(56, 189, 248, 0.72));
@@ -3568,6 +3569,22 @@ a,
 	cursor: pointer;
 }
 
+.fg-node.highlighted-hop .fg-node-shape--circle,
+.fg-node.highlighted-hop .fg-node-shape--entity,
+.fg-node.highlighted-hop .fg-node-shape--firm {
+	stroke: var(--color-node-pulse) !important;
+	stroke-width: 1px !important;
+	stroke-opacity: 0.95 !important;
+	vector-effect: non-scaling-stroke;
+}
+
+.fg-link.fg-link--depth-active {
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	vector-effect: non-scaling-stroke;
+	filter: drop-shadow(0 0 0.8px rgba(15, 23, 42, 0.24)) drop-shadow(0 0 3px rgba(2, 132, 199, 0.16));
+}
+
 .fg-node.fg-node--inactive.highlighted-hop circle,
 .fg-node.fg-node--inactive.highlighted-hop rect {
 	filter: var(--shadow-node-inactive-highlighted);
@@ -3590,9 +3607,9 @@ a,
 	opacity: 1 !important;
 }
 
-.fg-node:hover text.fg-label,
-.fg-node:focus text.fg-label,
-.fg-node:focus-within text.fg-label {
+.fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):hover text.fg-label,
+.fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):focus text.fg-label,
+.fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):focus-within text.fg-label {
 	font-weight: 400 !important;
 }
 
@@ -3630,12 +3647,12 @@ a,
 	font-weight: var(--font-weight-node-label-selected, 700);
 }
 
-:not(.theme-dark) .fg-node:hover text.fg-label,
-:not(.theme-dark) .fg-node:focus text.fg-label,
-:not(.theme-dark) .fg-node:focus-within text.fg-label,
-[data-theme='light'] .fg-node:hover text.fg-label,
-[data-theme='light'] .fg-node:focus text.fg-label,
-[data-theme='light'] .fg-node:focus-within text.fg-label {
+:not(.theme-dark) .fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):hover text.fg-label,
+:not(.theme-dark) .fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):focus text.fg-label,
+:not(.theme-dark) .fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):focus-within text.fg-label,
+[data-theme='light'] .fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):hover text.fg-label,
+[data-theme='light'] .fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):focus text.fg-label,
+[data-theme='light'] .fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):focus-within text.fg-label {
 	font-weight: 400 !important;
 }
 
@@ -3671,23 +3688,25 @@ a,
 	fill-opacity: 0.25;
 }
 
-.fg-link {
+/* .fg-link {
 	stroke-linecap: round;
 	stroke-linejoin: round;
 	vector-effect: non-scaling-stroke;
 	filter: none;
 	stroke-width: calc(var(--fg-link-width, 1.2px) * clamp(0.4, var(--fg-current-zoom, 1), 1)) !important;
-}
-
+} */
+/*
+.fg-link[stroke-dasharray] {
+	width: calc(var(--fg-link-width, 1.2px) * clamp(0.4, var(--fg-current-zoom, 1), 1)) !important;
+} */
+/*
 .fg-link.fg-link--depth-active {
 	filter: var(--shadow-link-active);
 }
 
 .fg-link.fg-link--depth-recessed {
 	filter: none;
-	opacity: 0.42 !important;
-	stroke-opacity: 0.32 !important;
-}
+} */
 
 .fg-label {
 	filter: var(--shadow-label);
@@ -4300,12 +4319,23 @@ a,
 
 .fg-node.trace-combined text.fg-label {
 	fill: #14532d !important;
-	font-weight: 800 !important;
+
 	stroke-width: 6px !important;
 }
 
 .fg-node.selected text.fg-label,
 .fg-node.highlighted-hop text.fg-label {
+	fill: var(--color-node-label) !important;
+	font-weight: var(--font-weight-node-label-selected, 700) !important;
+	opacity: 1 !important;
+}
+
+.fg-node.selected text.fg-label:hover,
+.fg-node.selected text.fg-label:focus,
+.fg-node.selected text.fg-label:focus-within,
+.fg-node.highlighted-hop text.fg-label:hover,
+.fg-node.highlighted-hop text.fg-label:focus,
+.fg-node.highlighted-hop text.fg-label:focus-within {
 	fill: var(--color-node-label) !important;
 	font-weight: var(--font-weight-node-label-selected, 700) !important;
 	opacity: 1 !important;
