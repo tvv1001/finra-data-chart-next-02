@@ -5496,21 +5496,41 @@ function updateGraphMeta() {
 	updateMeta(graphData.meta);
 }
 
+function getNodeIdentityBaseToken(node) {
+	if (!node || typeof node !== 'object') return '';
+	const explicitId = String(node.id ?? '').trim();
+	const idCandidates = [explicitId];
+	if (node.group === 'individual') {
+		idCandidates.push(String(node.crd || node.basicInformation?.individualId || node.individualId || '').trim());
+	} else if (node.group === 'firm') {
+		idCandidates.push(String(node.firmId || node.basicInformation?.firmId || node.firm_id || '').trim());
+	}
+	for (const candidate of idCandidates) {
+		if (!candidate) continue;
+		const normalized = String(candidate)
+			.replace(/^(?:person|firm|individual|entity|finra|sec)(?:[:_]+)?/i, '')
+			.replace(/^[:_]+/, '')
+			.trim();
+		const lastToken = normalized.split(/[:_]/).filter(Boolean).pop() || normalized;
+		if (lastToken) return lastToken;
+	}
+	return '';
+}
+
 function getNodeIdentityKey(node) {
 	if (!node || typeof node !== 'object') return '';
 	const explicitId = String(node.id ?? '').trim();
+	const identityBase = getNodeIdentityBaseToken(node);
 	if (node.group === 'individual') {
 		const crd = String(node.crd || node.basicInformation?.individualId || node.individualId || '').trim();
-		const normalizedId = explicitId.replace(/^person[:_]/i, '');
 		if (crd) return `individual:${crd}`;
-		if (normalizedId) return `individual:${normalizedId}`;
+		if (identityBase) return `individual:${identityBase}`;
 		return explicitId ? `individual:${explicitId}` : '';
 	}
 	if (node.group === 'firm') {
 		const firmId = String(node.firmId || node.basicInformation?.firmId || node.firm_id || '').trim();
-		const normalizedId = explicitId.replace(/^firm[:_]/i, '');
 		if (firmId) return `firm:${firmId}`;
-		if (normalizedId) return `firm:${normalizedId}`;
+		if (identityBase) return `firm:${identityBase}`;
 		return explicitId ? `firm:${explicitId}` : '';
 	}
 	return explicitId ? `entity:${explicitId}` : '';
@@ -5524,7 +5544,12 @@ function mergeGraphNodePayload(targetNode, incomingNode) {
 	if (incomingNode.registrationCount) targetNode.registrationCount = { ...(targetNode.registrationCount || {}), ...incomingNode.registrationCount };
 	if (Array.isArray(incomingNode.currentEmployments)) targetNode.currentEmployments = incomingNode.currentEmployments;
 	if (Array.isArray(incomingNode.currentIAEmployments)) targetNode.currentIAEmployments = incomingNode.currentIAEmployments;
-	if (incomingNode.basicInformation && !targetNode.basicInformation) targetNode.basicInformation = incomingNode.basicInformation;
+	if (incomingNode.basicInformation) {
+		targetNode.basicInformation = {
+			...(targetNode.basicInformation || {}),
+			...Object.fromEntries(Object.entries(incomingNode.basicInformation || {}).filter(([, value]) => value != null)),
+		};
+	}
 	if (incomingNode.name && !targetNode.name) targetNode.name = incomingNode.name;
 	if (incomingNode.firmName && !targetNode.firmName) targetNode.firmName = incomingNode.firmName;
 	if (incomingNode.label && (isPlaceholderExpansionLabel(targetNode.label, targetNode.group) || String(incomingNode.label).length > String(targetNode.label || '').length)) {
@@ -5532,6 +5557,10 @@ function mergeGraphNodePayload(targetNode, incomingNode) {
 	}
 	normalizeNodeLabelInPlace(targetNode);
 	return targetNode;
+}
+
+export function mergeRenderedNodesForReveal(existingNodes = [], incomingNodes = []) {
+	return mergeIncomingNodesIntoExistingNodes(existingNodes, incomingNodes);
 }
 
 export function mergeIncomingNodesIntoExistingNodes(existingNodes = [], incomingNodes = []) {
@@ -9947,6 +9976,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 	lastExpandOriginNode = clickedNode;
 	const normalizedHops = normalizeHighlightHops(hops);
 	const maxHops = normalizedHops === 'all' ? 100 : Math.max(1, Number(normalizedHops) || 1);
+	const revealTiming = getNodeExpansionRevealTiming(layoutNodes?.length || 0, { isUserInitiated: true });
 
 	const visitedIds = new Set([clickedNode.id]);
 	let currentWaveIds = [clickedNode.id];
@@ -9985,7 +10015,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 				markSelected: true,
 			});
 			if (runId !== nonGrayExpandRunId) return;
-			spreadNeighbors(clickedNode, new Set(hiddenIds), { duration: NON_GRAY_HOP_ANIMATION_MS });
+			spreadNeighbors(clickedNode, new Set(hiddenIds), { duration: revealTiming.animationMs });
 		}
 
 		// Pass 2: Fetch and hydrate detail for currentWaveIds to discover even MORE neighbors
@@ -10032,14 +10062,14 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 				markSelected: true,
 			});
 			if (runId !== nonGrayExpandRunId) return;
-			spreadNeighbors(clickedNode, new Set(hiddenAfterFetchIds), { duration: NON_GRAY_HOP_ANIMATION_MS });
+			spreadNeighbors(clickedNode, new Set(hiddenAfterFetchIds), { duration: revealTiming.animationMs });
 		}
 
 		const nextWaveIds = Array.from(new Set([...uniqueWaveFoundIds, ...uniqueNewlyFoundIds]));
 		if (nextWaveIds.length === 0) break;
 
 		if (hiddenIds.length || hiddenAfterFetchIds.length) {
-			await delay(NON_GRAY_HOP_DELAY_MS);
+			await delay(revealTiming.delayMs);
 			if (runId !== nonGrayExpandRunId) return;
 		}
 
@@ -10057,6 +10087,37 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 	} catch (e) {
 		/* ignore */
 	}
+}
+
+export function getNodeExpansionRevealTiming(currentNodeCount = layoutNodes?.length || 0, options: { isUserInitiated?: boolean } = {}) {
+	const { isUserInitiated = false } = options;
+	const nodeCount = Math.max(0, Number(currentNodeCount) || 0);
+	const isLargeGraph = nodeCount > 800;
+	const isVeryLargeGraph = nodeCount > 2200;
+
+	if (isUserInitiated) {
+		return {
+			delayMs:
+				isVeryLargeGraph ? 40
+				: isLargeGraph ? 20
+				: 0,
+			animationMs:
+				isVeryLargeGraph ? 220
+				: isLargeGraph ? 160
+				: 110,
+		};
+	}
+
+	return {
+		delayMs:
+			isVeryLargeGraph ? 70
+			: isLargeGraph ? 35
+			: 16,
+		animationMs:
+			isVeryLargeGraph ? 320
+			: isLargeGraph ? 220
+			: 160,
+	};
 }
 
 function getExpansionNodeMatchLabel(node) {

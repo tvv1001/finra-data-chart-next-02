@@ -21,10 +21,12 @@ import {
 	getAutoExpansionHopsForNode,
 	getLargeNodeRevealBatchPlan,
 	getLinkIdentityKey,
+	getNodeExpansionRevealTiming,
 	getSelectionLinkOpacity,
 	loadSelectionLogBoldPreference,
 	mergeGraphNodesByIdentity,
 	mergeIncomingNodesIntoExistingNodes,
+	mergeRenderedNodesForReveal,
 	releasePinnedSelectedNodeAnchor,
 	normalizeNodeLabelInPlace,
 	getNodeTooltipTitle,
@@ -226,6 +228,13 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(plan.shouldBatch).toBe(true);
 		expect(plan.batchSize).toBeLessThanOrEqual(12);
 		expect(plan.batchDelayMs).toBeGreaterThan(0);
+	});
+
+	it('uses near-immediate pacing for user-initiated expansion on smaller graphs', () => {
+		const timing = getNodeExpansionRevealTiming(240, { isUserInitiated: true });
+
+		expect(timing.delayMs).toBeLessThanOrEqual(20);
+		expect(timing.animationMs).toBeLessThanOrEqual(160);
 	});
 
 	it('getSelectionLinkOpacity keeps gray links brighter in selection emphasis', () => {

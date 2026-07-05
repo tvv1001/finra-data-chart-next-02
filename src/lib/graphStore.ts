@@ -610,6 +610,26 @@ export async function rememberRecentSeed(kind: 'individual' | 'firm', id: string
 	await saveRecentSeedsToStore(nextRecentSeeds);
 }
 
+async function syncGraphToRedisInBackground(graph: any, redis: Redis | null = getRedis()) {
+	if (!graph || !redis) return;
+	try {
+		normalizeGraphLabelsInPlace(graph);
+	} catch (e) {
+		// ignore normalization failures and still try the sync
+	}
+	try {
+		await setStringIfValid(REDIS_GRAPH_KEY, JSON.stringify(graph));
+		await redis.set(REDIS_GRAPH_UPDATED_AT_KEY, Date.now());
+	} catch (error) {
+		console.warn('Failed to sync graph into Redis in background.', error);
+	}
+	try {
+		await syncSeedBankFromGraph(graph);
+	} catch (error) {
+		console.warn('Failed to sync seed bank from graph in background.', error);
+	}
+}
+
 async function bootstrapGraphFromDisk(redis: Redis) {
 	const diskGraph = await readGraphFromDisk();
 	if (!diskGraph) return null;
@@ -618,8 +638,7 @@ async function bootstrapGraphFromDisk(redis: Redis) {
 	try {
 		normalizeGraphLabelsInPlace(diskGraph);
 	} catch (e) {}
-	await setStringIfValid(REDIS_GRAPH_KEY, JSON.stringify(diskGraph));
-	await syncSeedBankFromGraph(diskGraph);
+	void syncGraphToRedisInBackground(diskGraph, redis);
 	return diskGraph;
 }
 
@@ -730,16 +749,11 @@ export async function getFullGraph() {
 				const diskGraph = await readGraphFromDisk();
 				if (diskGraph) {
 					try {
-						try {
-							normalizeGraphLabelsInPlace(diskGraph);
-						} catch (e) {}
-						await setStringIfValid(REDIS_GRAPH_KEY, JSON.stringify(diskGraph));
-						await syncSeedBankFromGraph(diskGraph);
-					} catch (error) {
-						console.warn('Failed to sync rebuilt finra-graph.json into Redis.', error);
-					}
+						normalizeGraphLabelsInPlace(diskGraph);
+					} catch (e) {}
 					_graphCache = diskGraph;
 					_graphCacheAt = now;
+					void syncGraphToRedisInBackground(diskGraph, redis);
 					return _graphCache;
 				}
 			}
