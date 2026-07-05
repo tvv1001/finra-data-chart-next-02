@@ -4921,6 +4921,8 @@ html[data-theme='dark'] .fg-mns-input {
 
 .fg-node.fg-node--individual.fg-node--control-position:not(.fg-node--inactive) .fg-node-shape--circle {
 	fill: var(--color-highlight-controls) !important;
+	stroke: rgba(255, 255, 255, 0.95) !important;
+	stroke-width: 1px !important;
 }
 
 .fg-node.fg-node--individual.fg-node--control-position:not(.fg-node--inactive) .fg-node-overlay {
@@ -4977,10 +4979,11 @@ html[data-theme='dark'] .fg-source-toggle-btn.active {
 /* ── Active Connected Node Highlights (highest priority) ───────────────── */
 
 /* Active connections use a fluorescent blue accent without replacing each node family's base color. */
-.fg-node.fg-node--individual.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--circle {
+.fg-node.fg-node--individual.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--circle,
+.fg-node.fg-node--individual.fg-node--active-parent-connected:not(.fg-node--inactive) .fg-node-shape--circle {
 	fill: var(--color-highlight-individual) !important;
 	stroke: #0062ff !important;
-	stroke-width: 4px !important;
+	stroke-width: 1px !important;
 }
 
 .fg-node.fg-node--individual.fg-node--stub.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--circle {
@@ -5095,6 +5098,7 @@ html[data-theme='dark'] .fg-source-toggle-btn.active {
 .fg-node.fg-node--individual.fg-node--control-position.selected.fg-node--active-connected:not(.fg-node--inactive) .fg-node-shape--circle,
 .fg-node.fg-node--individual.fg-node--control-position.selected.fg-node--active-parent-connected:not(.fg-node--inactive) .fg-node-shape--circle {
 	fill: #b91c1c !important;
+	stroke-width: 3px !important;
 }
 
 /* Transition always active for smooth scale resets */
