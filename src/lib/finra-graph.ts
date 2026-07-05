@@ -5570,6 +5570,24 @@ export function mergeRenderedNodesForReveal(existingNodes = [], incomingNodes = 
 	return mergeIncomingNodesIntoExistingNodes(existingNodes, incomingNodes);
 }
 
+export function rewriteLinksForNodeIdMap(links = [], idRewriteMap = new Map<string, string>()) {
+	if (!Array.isArray(links)) return [];
+	if (!idRewriteMap || typeof idRewriteMap.get !== 'function') return links;
+	return links.map((link) => {
+		if (!link || typeof link !== 'object') return link;
+		const rewritten = { ...link };
+		const sourceValue = typeof link.source === 'object' && link.source !== null ? (link.source.id ?? null) : link.source;
+		const targetValue = typeof link.target === 'object' && link.target !== null ? (link.target.id ?? null) : link.target;
+		if (sourceValue != null && idRewriteMap.has(String(sourceValue))) {
+			rewritten.source = idRewriteMap.get(String(sourceValue));
+		}
+		if (targetValue != null && idRewriteMap.has(String(targetValue))) {
+			rewritten.target = idRewriteMap.get(String(targetValue));
+		}
+		return rewritten;
+	});
+}
+
 export function mergeIncomingNodesIntoExistingNodes(existingNodes = [], incomingNodes = []) {
 	const mergedNodes = [];
 	const identityMap = new Map<string, any>();
@@ -5623,11 +5641,13 @@ function mergeIntoGraphData(newNodes, newLinks) {
 	if (!graphData) return;
 	invalidateFullAdjacencyMap();
 	const existingNodes = Array.isArray(graphData.nodes) ? graphData.nodes : [];
-	const mergedNodes = mergeGraphNodesByIdentity(existingNodes, newNodes);
+	const mergeResult = mergeIncomingNodesIntoExistingNodes(existingNodes, newNodes);
+	const mergedNodes = mergeResult.nodes;
 	const addedIds = mergedNodes.filter((node) => !existingNodes.some((entry) => entry.id === node.id)).map((node) => node.id);
 	graphData.nodes = mergedNodes;
+	const rewrittenLinks = rewriteLinksForNodeIdMap(newLinks, mergeResult.idRewriteMap);
 	const gLinkKeys = new Set(graphData.links.map((l) => getLinkIdentityKey(l)));
-	newLinks
+	rewrittenLinks
 		.filter((l) => {
 			const k = getLinkIdentityKey(l);
 			if (gLinkKeys.has(k)) return false;
@@ -7999,14 +8019,7 @@ function appendFetchedImpl(newNodes, newLinks) {
 	const mergedNodes = mergeResult.nodes;
 	const uniqNodes = mergedNodes.filter((node) => !layoutNodes.some((entry) => entry?.id === node?.id));
 	const incomingNodeIdRewrites = mergeResult.idRewriteMap;
-	const rewrittenLinks = (Array.isArray(newLinks) ? newLinks : []).map((link) => {
-		const rewritten = { ...link };
-		const sourceId = link.source?.id ?? link.source;
-		const targetId = link.target?.id ?? link.target;
-		if (sourceId && incomingNodeIdRewrites.has(String(sourceId))) rewritten.source = incomingNodeIdRewrites.get(String(sourceId));
-		if (targetId && incomingNodeIdRewrites.has(String(targetId))) rewritten.target = incomingNodeIdRewrites.get(String(targetId));
-		return rewritten;
-	});
+	const rewrittenLinks = rewriteLinksForNodeIdMap(Array.isArray(newLinks) ? newLinks : [], incomingNodeIdRewrites);
 
 	// Place newly-added nodes near the expand origin (parent node) if known,
 	// otherwise fall back to the viewport center so they're visible immediately.

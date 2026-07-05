@@ -27,6 +27,7 @@ import {
 	mergeGraphNodesByIdentity,
 	mergeIncomingNodesIntoExistingNodes,
 	mergeRenderedNodesForReveal,
+	rewriteLinksForNodeIdMap,
 	releasePinnedSelectedNodeAnchor,
 	normalizeNodeLabelInPlace,
 	getNodeTooltipTitle,
@@ -281,6 +282,15 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(resetState.selectedId).toBeNull();
 		expect(resetState.highlightedSelections).toEqual([]);
 		expect(resetState.sidebarSelectedNode).toBeNull();
+	});
+
+	it('rewriteLinksForNodeIdMap rewrites link endpoints after node identity merges', () => {
+		const links = [{ source: 'person_1333632', target: 'firm:1', relationship: 'employed_by' }] as any[];
+		const rewritten = rewriteLinksForNodeIdMap(links, new Map([['person_1333632', 'person:1333632']]));
+
+		expect(rewritten).toHaveLength(1);
+		expect(rewritten[0].source).toBe('person:1333632');
+		expect(rewritten[0].target).toBe('firm:1');
 	});
 
 	it('resolveLinkEndpoints converts restored string endpoints to node objects', () => {
