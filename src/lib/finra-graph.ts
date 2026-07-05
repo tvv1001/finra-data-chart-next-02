@@ -5558,6 +5558,31 @@ function getNodeIdentityKey(node) {
 	return explicitId ? `entity:${explicitId}` : '';
 }
 
+export function selectNodesToInjectById(ids = [], { renderedNodes = layoutNodes, graphNodes = graphData?.nodes } = {}) {
+	const requestedIds = Array.from(new Set((Array.isArray(ids) ? ids : []).map((nodeId) => String(nodeId || '').trim()).filter(Boolean)));
+	if (!requestedIds.length) return [];
+
+	const renderedIdentityKeys = new Set<string>();
+	(Array.isArray(renderedNodes) ? renderedNodes : []).forEach((node) => {
+		const key = getNodeIdentityKey(node);
+		if (key) renderedIdentityKeys.add(key);
+	});
+
+	const selectedNodes: any[] = [];
+	const seenIdentityKeys = new Set<string>(renderedIdentityKeys);
+	(Array.isArray(graphNodes) ? graphNodes : []).forEach((node) => {
+		if (!node || typeof node !== 'object') return;
+		const nodeId = String(node.id ?? '').trim();
+		if (!nodeId || !requestedIds.includes(nodeId)) return;
+		const identityKey = getNodeIdentityKey(node);
+		if (!identityKey || seenIdentityKeys.has(identityKey)) return;
+		seenIdentityKeys.add(identityKey);
+		selectedNodes.push(node);
+	});
+
+	return selectedNodes;
+}
+
 function mergeGraphNodePayload(targetNode, incomingNode) {
 	if (!targetNode || !incomingNode) return targetNode;
 	if (incomingNode._trustedCurrentRelationshipData === true) targetNode._trustedCurrentRelationshipData = true;
@@ -8984,8 +9009,7 @@ function buildNeighborMap(nodes, links) {
 function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean } = {}) {
 	if (!graphData || !layoutNodes || !layoutLinks || !nodeGroup || !linkGroup) return;
 	const idSet = new Set(ids || []);
-	const exist = new Set(layoutNodes.map((n) => n.id));
-	const toAdd = graphData.nodes.filter((n) => idSet.has(n.id) && !exist.has(n.id));
+	const toAdd = selectNodesToInjectById(Array.from(idSet), { renderedNodes: layoutNodes, graphNodes: graphData.nodes });
 	if (!toAdd.length) return;
 
 	// place new nodes near parent (if known) or near center with small random offset

@@ -29,6 +29,7 @@ import {
 	mergeRenderedNodesForReveal,
 	rewriteLinksForNodeIdMap,
 	resolveNodeByIdOrIdentity,
+	selectNodesToInjectById,
 	releasePinnedSelectedNodeAnchor,
 	normalizeNodeLabelInPlace,
 	getNodeTooltipTitle,
@@ -266,6 +267,18 @@ describe('FinraGraph DOM helpers (unit)', () => {
 	it('normalizeNodeRouteId turns person route slugs into canonical graph ids', () => {
 		expect(normalizeNodeRouteId('person-4240769')).toBe('person:4240769');
 		expect(normalizeNodeRouteId('firm-12345')).toBe('firm:12345');
+	});
+
+	it('selectNodesToInjectById skips nodes already rendered by identity', () => {
+		const renderedNodes = [{ id: 'person_123', group: 'individual', crd: '123', label: 'Ada Lovelace' } as any];
+		const graphNodes = [
+			{ id: 'person:123', group: 'individual', crd: '123', label: 'Ada Lovelace' } as any,
+			{ id: 'person:456', group: 'individual', crd: '456', label: 'Grace Hopper' } as any,
+		];
+
+		const toAdd = selectNodesToInjectById(['person:123', 'person:456'], { renderedNodes, graphNodes });
+
+		expect(toAdd.map((node) => node.id)).toEqual(['person:456']);
 	});
 
 	it('releasePinnedSelectedNodeAnchor clears the prior selection anchor', () => {
