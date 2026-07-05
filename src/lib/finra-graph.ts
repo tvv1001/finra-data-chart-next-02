@@ -7219,6 +7219,17 @@ export function getNodeLabelFontSize({
 	return Math.min(24, Math.max(DEFAULT_NODE_LABEL_FONT_SIZE_PX, size));
 }
 
+export function getNodeTooltipTitle(node) {
+	const parts = [];
+	const label = getPreferredNodeLabel(node);
+	if (label) parts.push(label);
+	const group = node?.group?.toUpperCase?.() || '';
+	if (group) parts.push(group);
+	const crd = node?.crd || (node?.group === 'firm' ? node?.firmId : null) || (typeof node?.id === 'string' && node.id.startsWith('firm:') ? node.id.replace(/^firm:/, '') : null);
+	if (crd) parts.push(`CRD: ${crd}`);
+	return parts.join('\n');
+}
+
 function renderNodeContents(selection) {
 	if (!selection) return;
 	selection.each(function (d) {
@@ -7360,11 +7371,7 @@ function renderNodeContents(selection) {
 			.style('cursor', 'pointer')
 			.text(labelText);
 
-		g.append('title').text(() => {
-			const parts = [getPreferredNodeLabel(d), d.group?.toUpperCase?.() || ''];
-			if (d.crd) parts.push(`CRD: ${d.crd}`);
-			return parts.join('\n');
-		});
+		g.append('title').text(() => getNodeTooltipTitle(d));
 	});
 }
 

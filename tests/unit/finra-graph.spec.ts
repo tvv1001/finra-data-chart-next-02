@@ -27,6 +27,7 @@ import {
 	mergeIncomingNodesIntoExistingNodes,
 	releasePinnedSelectedNodeAnchor,
 	normalizeNodeLabelInPlace,
+	getNodeTooltipTitle,
 	rankFindNodeMatches,
 	scheduleNodeExpansion,
 	selectTextSearchHydrationTargets,
@@ -366,6 +367,16 @@ describe('FinraGraph DOM helpers (unit)', () => {
 	it('keeps node label sizing stable for hover and selection feedback', () => {
 		expect(getNodeLabelFontSize({ isSelected: true })).toBe(DEFAULT_NODE_LABEL_FONT_SIZE_PX);
 		expect(getNodeLabelFontSize({ isHovered: true })).toBe(DEFAULT_NODE_LABEL_FONT_SIZE_PX);
+	});
+
+	it('keeps large labels from shrinking when zooming in', () => {
+		expect(getNodeLabelFontSize({ zoomScale: 1 })).toBe(DEFAULT_NODE_LABEL_FONT_SIZE_PX);
+		expect(getNodeLabelFontSize({ zoomScale: 1.25 })).toBeGreaterThanOrEqual(DEFAULT_NODE_LABEL_FONT_SIZE_PX);
+	});
+
+	it('includes firm CRDs in the node tooltip title', () => {
+		const node = { id: 'firm:7803022', group: 'firm', label: 'Example Firm', firmId: '7803022' } as any;
+		expect(getNodeTooltipTitle(node)).toContain('CRD: 7803022');
 	});
 
 	it('renderPersonDetail uses parent-firm summary URLs for active current employment records', () => {
