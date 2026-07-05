@@ -1203,6 +1203,22 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 	if (!normalizedNodeId) return null;
 
 	let liveNode = getNodeById(normalizedNodeId);
+	if (!liveNode) {
+		const candidateNode =
+			Array.isArray(graphData?.nodes) ?
+				graphData.nodes.find(
+					(entry) =>
+						entry?.id &&
+						String(entry.id)
+							.replace(/^person[:_]/, '')
+							.replace(/^firm[:_]/, '') ===
+							String(normalizedNodeId)
+								.replace(/^person[:_]/, '')
+								.replace(/^firm[:_]/, ''),
+				)
+			:	null;
+		if (candidateNode) liveNode = candidateNode;
+	}
 	if (liveNode && !layoutNodes?.some((node) => node.id === normalizedNodeId)) {
 		injectNodesById([normalizedNodeId]);
 		liveNode = getNodeById(normalizedNodeId) || liveNode;
@@ -7289,8 +7305,8 @@ export function getNodeLabelFontSize({
 		shouldEmphasize ?
 			normalizedScale >= 1 ?
 				1.12
-			: 1.04
-		: 1;
+			:	1.04
+		:	1;
 	const size = DEFAULT_NODE_LABEL_FONT_SIZE_PX * zoomBoost * emphasisBoost;
 	return Math.min(24, Math.max(DEFAULT_NODE_LABEL_FONT_SIZE_PX, size));
 }
@@ -8885,15 +8901,44 @@ function getNeighborIds(nodeId) {
 	return ids;
 }
 
+export function resolveNodeByIdOrIdentity(nodeId, candidates = []) {
+	const normalizedNodeId = String(nodeId || '').trim();
+	if (!normalizedNodeId) return null;
+	const directMatches = Array.isArray(candidates) ? candidates.filter((entry) => entry?.id === normalizedNodeId) : [];
+	if (directMatches.length) return directMatches[0];
+
+	const [prefix, rawSuffix] = normalizedNodeId.split(':');
+	const inferredGroup =
+		prefix === 'person' || prefix === 'individual' ? 'individual'
+		: prefix === 'firm' ? 'firm'
+		: null;
+	const fallbackIdentityNode = {
+		id: normalizedNodeId,
+		group: inferredGroup,
+		...(inferredGroup === 'individual' ? { crd: rawSuffix || '' }
+		: inferredGroup === 'firm' ? { firmId: rawSuffix || '' }
+		: {}),
+	};
+	const identityKey = getNodeIdentityKey(fallbackIdentityNode);
+	if (!identityKey) return null;
+
+	return Array.isArray(candidates) ?
+			candidates.find((entry) => {
+				if (!entry || typeof entry !== 'object') return false;
+				return getNodeIdentityKey(entry) === identityKey;
+			}) || null
+		:	null;
+}
+
 function getNodeById(nodeId) {
 	const normalizedNodeId = String(nodeId || '').trim();
 	if (!normalizedNodeId) return null;
 	if (Array.isArray(layoutNodes)) {
-		const found = layoutNodes.find((entry) => entry.id === normalizedNodeId);
+		const found = resolveNodeByIdOrIdentity(normalizedNodeId, layoutNodes);
 		if (found) return found;
 	}
 	if (graphData?.nodes) {
-		return Array.isArray(graphData.nodes) ? graphData.nodes.find((entry) => entry.id === normalizedNodeId) || null : null;
+		return Array.isArray(graphData.nodes) ? resolveNodeByIdOrIdentity(normalizedNodeId, graphData.nodes) || null : null;
 	}
 	return null;
 }
@@ -10569,12 +10614,7 @@ async function materializeRouteSelectionNeighborhood(node, hops: number = getDef
 }
 
 export function handleNodeKeyboardActivation(event, d, activateNode = handleNodeOpen) {
-	const isActivationKey =
-		event?.key === 'Enter' ||
-		event?.key === ' ' ||
-		event?.key === 'Spacebar' ||
-		event?.code === 'Enter' ||
-		event?.code === 'Space';
+	const isActivationKey = event?.key === 'Enter' || event?.key === ' ' || event?.key === 'Spacebar' || event?.code === 'Enter' || event?.code === 'Space';
 	if (!isActivationKey || !d?.id) return false;
 	event.preventDefault?.();
 	event.stopPropagation?.();

@@ -28,6 +28,7 @@ import {
 	mergeIncomingNodesIntoExistingNodes,
 	mergeRenderedNodesForReveal,
 	rewriteLinksForNodeIdMap,
+	resolveNodeByIdOrIdentity,
 	releasePinnedSelectedNodeAnchor,
 	normalizeNodeLabelInPlace,
 	getNodeTooltipTitle,
@@ -250,6 +251,16 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(result.added).toEqual([]);
 		expect(result.nodes[0].label).toBe('Larry Benton Lessley');
 		expect(result.nodes[0].basicInformation.firstName).toBe('Larry');
+	});
+
+	it('resolveNodeByIdOrIdentity finds an existing firm node by identity when the route uses a canonical id', () => {
+		const existing = [{ id: 'firm_6413', group: 'firm', firmId: '6413', label: 'LPL FINANCIAL LLC' } as any];
+
+		const resolved = resolveNodeByIdOrIdentity('firm:6413', existing);
+
+		expect(resolved).toBeDefined();
+		expect(resolved?.id).toBe('firm_6413');
+		expect(resolved?.firmId).toBe('6413');
 	});
 
 	it('normalizeNodeRouteId turns person route slugs into canonical graph ids', () => {
