@@ -96,8 +96,26 @@ export function parseDashboardSelectionFromUrl(urlString: string): UrlSelectionI
 	}
 }
 
+function extractNumericCrdsFromText(text: string): string[] {
+	const raw = String(text || '').trim();
+	if (!raw) return [];
+
+	const directMatches = Array.from(raw.matchAll(/(?:^|[\s:;#-])(?:crd|crd\s*#|crd\s*id|individual\s*crd|firm\s*crd|individual\s*id|firm\s*id|id)\s*[:#-]?\s*(\d{1,10})/gi));
+	if (directMatches.length) {
+		return directMatches.map((match) => match[1]).filter(Boolean);
+	}
+
+	const fallbackMatches = Array.from(raw.matchAll(/\b(?:crd|crd\s*#|crd\s*id|individual\s*crd|firm\s*crd|individual\s*id|firm\s*id)\b[^0-9]{0,10}(\d{1,10})\b/gi));
+	if (fallbackMatches.length) {
+		return fallbackMatches.map((match) => match[1]).filter(Boolean);
+	}
+
+	return [];
+}
+
 function parseQueueQueries(input: string) {
-	const HEADER_REGEX = /^(crd|crd\s*#|crd\s*number|crd\s*id|individual\s*crd|firm\s*crd|individual\s*id|firm\s*id|id|crd_number|crd_id|individual_id|firm_id|individual_crd|firm_crd|representative\s*crd|rep\s*crd|name|individual\s*name|firm\s*name|representative\s*name|rep\s*name)$/i;
+	const HEADER_REGEX =
+		/^(crd|crd\s*#|crd\s*number|crd\s*id|individual\s*crd|firm\s*crd|individual\s*id|firm\s*id|id|crd_number|crd_id|individual_id|firm_id|individual_crd|firm_crd|representative\s*crd|rep\s*crd|name|individual\s*name|firm\s*name|representative\s*name|rep\s*name)$/i;
 	const PREFIX_NUMERIC_REGEX = /^(?:crd|crd\s*#|crd\s*id|individual\s*crd|firm\s*crd|individual\s*crd\s*:|firm\s*crd\s*:)\s*(\d{1,10})$/i;
 
 	const rawTokens = input
@@ -111,6 +129,12 @@ function parseQueueQueries(input: string) {
 			continue;
 		}
 
+		const extractedCrds = extractNumericCrdsFromText(rawToken);
+		if (extractedCrds.length) {
+			processedTokens.push(...extractedCrds);
+			continue;
+		}
+
 		const prefixMatch = rawToken.match(PREFIX_NUMERIC_REGEX);
 		if (prefixMatch) {
 			processedTokens.push(prefixMatch[1]);
@@ -118,7 +142,10 @@ function parseQueueQueries(input: string) {
 		}
 
 		if (/^[\d\s]+$/.test(rawToken) && /\s/.test(rawToken)) {
-			const parts = rawToken.split(/\s+/).map((v) => v.trim()).filter(Boolean);
+			const parts = rawToken
+				.split(/\s+/)
+				.map((v) => v.trim())
+				.filter(Boolean);
 			processedTokens.push(...parts);
 		} else {
 			processedTokens.push(rawToken);
@@ -128,6 +155,16 @@ function parseQueueQueries(input: string) {
 	return Array.from(new Set(processedTokens));
 }
 
+export function buildQueueRunItems(queries: string[]) {
+	return queries
+		.map((query) => query.trim())
+		.filter(Boolean)
+		.map((query) => ({ query, status: 'queued' as const, elapsedSec: 0 }));
+}
+
+export function createQueueTerminalLogId(kind: string, index: number, step: number) {
+	return `queue:${kind}:${index}:${step}`;
+}
 
 export function computeQueryFetchCounts(resolution: Array<{ query?: string; crds?: string[] }>, fetchedItems: Array<{ crd?: string; status?: string }>) {
 	const counts = new Map<string, number>();
@@ -424,6 +461,8 @@ export default function DashboardPage() {
 	const [terminalLogs, setTerminalLogs] = useState<{ id: string; text: string; type: 'info' | 'error' | 'warn' | 'success' }[]>([]);
 	const [queueCards, setQueueCards] = useState<QueueCard[]>([]);
 	const [queueCrdFilter, setQueueCrdFilter] = useState('');
+	const [submittedQueueQueries, setSubmittedQueueQueries] = useState<string[]>([]);
+	const [queueRunItems, setQueueRunItems] = useState<QueueRunItem[]>([]);
 	const [queueMetaStats, setQueueMetaStats] = useState<{
 		shownCount: number;
 		totalCount: number;
@@ -460,19 +499,20 @@ export default function DashboardPage() {
 
 	const queueQueries = useMemo(() => parseQueueQueries(crdInput), [crdInput]);
 	const parsedCrds = useMemo(() => queueQueries.filter((value) => /^\d{1,10}$/.test(value)), [queueQueries]);
-	const queueQueryLines = queueQueries;
+	const queueQueryLines = useMemo(() => submittedQueueQueries, [submittedQueueQueries]);
+	const visibleQueueCount = queueQueryLines.length;
 
 	const queueStatusLine = useMemo(() => {
 		if (busyAction === 'fetch-crds') {
 			const current = crawlProgress?.current ?? 1;
-			const total = crawlProgress?.total ?? queueQueries.length;
+			const total = crawlProgress?.total ?? visibleQueueCount;
 			return `Searching | Queue | queue ${current}/${Math.max(1, total)} | elapsed ${queueElapsedSec}s`;
 		}
 		if (sessionHasFetched) {
 			return `Finished | queue - | elapsed ${queueElapsedSec}s`;
 		}
 		return 'Idle | - | queue - | elapsed 0s';
-	}, [busyAction, crawlProgress?.current, crawlProgress?.total, queueQueries.length, queueElapsedSec, sessionHasFetched]);
+	}, [busyAction, crawlProgress?.current, crawlProgress?.total, visibleQueueCount, queueElapsedSec, sessionHasFetched]);
 
 	useEffect(() => {
 		if (busyAction !== 'fetch-crds') return;
@@ -1093,12 +1133,15 @@ export default function DashboardPage() {
 		setResult(null);
 		setRecordUpdatedAt(null);
 		const startedAt = Date.now();
-		const effectiveQueries =
+		const pendingQueries =
 			action === 'fetch-crds' ?
 				overrideQueries && overrideQueries.length > 0 ?
 					overrideQueries
 				:	queueQueries
 			:	[];
+		setSubmittedQueueQueries(pendingQueries);
+		setQueueRunItems(buildQueueRunItems(pendingQueries));
+		const effectiveQueries = pendingQueries;
 
 		if (action === 'fetch-crds') {
 			setSessionHasFetched(true);
@@ -1129,9 +1172,14 @@ export default function DashboardPage() {
 				itemsProcessed++;
 				setCrawlProgress((p) => (p ? { ...p, current: itemsProcessed, total: itemsProcessed + queue.length, query } : null));
 
+				setQueueRunItems((prev) => prev.map((entry) => (entry.query === query ? { ...entry, status: 'running', elapsedSec: 0 } : entry)));
 				setTerminalLogs((prev) => [
 					...prev,
-					{ id: `${Date.now()}-${itemsProcessed}-start`, text: `>[${itemsProcessed}/${itemsProcessed + queue.length}] Depth ${depth} | Query: "${query}"`, type: 'info' },
+					{
+						id: createQueueTerminalLogId('start', itemsProcessed, depth),
+						text: `>[${itemsProcessed}/${itemsProcessed + queue.length}] Depth ${depth} | Query: "${query}"`,
+						type: 'info',
+					},
 				]);
 
 				try {
@@ -1142,6 +1190,8 @@ export default function DashboardPage() {
 					});
 					const payload = await response.json().catch(() => null);
 					if (!response.ok || !payload?.ok) throw new Error(payload?.error || `HTTP ${response.status}`);
+
+					setQueueRunItems((prev) => prev.map((entry) => (entry.query === query ? { ...entry, status: 'complete', elapsedSec: 0, message: 'Success' } : entry)));
 
 					const summary = payload.summary || {};
 					const results = payload.results || [];
@@ -1162,7 +1212,7 @@ export default function DashboardPage() {
 						}
 					}
 
-					for (const r of results) {
+					for (const [resultIndex, r] of results.entries()) {
 						let type: 'info' | 'error' | 'warn' | 'success' = 'info';
 						const domain = r.source === 'finra' ? 'FINRA' : 'SEC';
 						const nameLabel = nameMap.get(`${r.type}:${r.crd}`);
@@ -1193,7 +1243,7 @@ export default function DashboardPage() {
 								type = 'info';
 							}
 						}
-						newLogs.push({ id: `${Date.now()}-${itemsProcessed}-${r.crd}-${r.source}`, text: msg, type });
+						newLogs.push({ id: createQueueTerminalLogId(`result-${String(r.source)}-${String(r.crd)}`, itemsProcessed, resultIndex + 1), text: msg, type });
 					}
 
 					setTerminalLogs((prev) => [...prev, ...newLogs]);
@@ -1249,16 +1299,20 @@ export default function DashboardPage() {
 
 					setTerminalLogs((prev) => [
 						...prev,
-						{ id: `${Date.now()}-${itemsProcessed}-done`, text: `  -> Query complete: ${qNew} new, ${qUpd} updated, ${qErr} errors`, type: qErr > 0 ? 'warn' : 'info' },
+						{
+							id: createQueueTerminalLogId('done', itemsProcessed, depth),
+							text: `  -> Query complete: ${qNew} new, ${qUpd} updated, ${qErr} errors`,
+							type: qErr > 0 ? 'warn' : 'info',
+						},
 					]);
 				} catch (err: any) {
 					totalError++;
 					setCrawlProgress((p) => (p ? { ...p, err: totalError } : null));
 					const errText = String(err.message || err);
 					if (errText.includes('no-valid-crds') || errText.includes('No valid CRDs')) {
-						setTerminalLogs((prev) => [...prev, { id: `${Date.now()}-${itemsProcessed}-err`, text: `  -> no valid CRDs`, type: 'warn' }]);
+						setTerminalLogs((prev) => [...prev, { id: createQueueTerminalLogId('error', itemsProcessed, depth), text: `  -> no valid CRDs`, type: 'warn' }]);
 					} else {
-						setTerminalLogs((prev) => [...prev, { id: `${Date.now()}-${itemsProcessed}-err`, text: `  -> Request Failed: ${errText}`, type: 'error' }]);
+						setTerminalLogs((prev) => [...prev, { id: createQueueTerminalLogId('error', itemsProcessed, depth), text: `  -> Request Failed: ${errText}`, type: 'error' }]);
 					}
 				}
 			}
@@ -1266,7 +1320,10 @@ export default function DashboardPage() {
 			setCrawlProgress((p) => (p ? { ...p, active: false } : null));
 			void loadQueueCardsFromRedis(queueCrdFilter);
 			setBusyAction(null);
-			setTerminalLogs((prev) => [...prev, { id: `${Date.now()}-finish`, text: `\nFinished. Total OK: ${totalSuccess}, New: ${totalNew}, Err: ${totalError}`, type: 'success' }]);
+			setTerminalLogs((prev) => [
+				...prev,
+				{ id: createQueueTerminalLogId('finish', initialQueue.length, 0), text: `\nFinished. Total OK: ${totalSuccess}, New: ${totalNew}, Err: ${totalError}`, type: 'success' },
+			]);
 			return;
 		}
 
@@ -1475,77 +1532,72 @@ export default function DashboardPage() {
 									<div
 										key={tpl.id}
 										className={styles.templateCard}
-										onClick={() => setCrdInput(tpl.queries)}
-									>
-										{editingTemplateId === tpl.id ? (
+										onClick={() => setCrdInput(tpl.queries)}>
+										{editingTemplateId === tpl.id ?
 											<div
 												className={styles.templateEditForm}
-												onClick={(e) => e.stopPropagation()}
-											>
+												onClick={(e) => e.stopPropagation()}>
 												<input
-													type="text"
+													type='text'
 													className={styles.templateEditInput}
 													value={editTemplateName}
 													onChange={(e) => setEditTemplateName(e.target.value)}
-													placeholder="Template name"
+													placeholder='Template name'
 												/>
 												<textarea
 													className={styles.templateEditTextarea}
 													value={editTemplateQueries}
 													onChange={(e) => setEditTemplateQueries(e.target.value)}
-													placeholder="CRDs or queries, comma separated"
+													placeholder='CRDs or queries, comma separated'
 												/>
 												<div className={styles.templateActions}>
 													<button
-														type="button"
+														type='button'
 														className={styles.templateBtn}
-														onClick={() => handleSaveEditTemplate(tpl.id)}
-													>
+														onClick={() => handleSaveEditTemplate(tpl.id)}>
 														Save
 													</button>
 													<button
-														type="button"
+														type='button'
 														className={styles.templateBtn}
-														onClick={() => setEditingTemplateId(null)}
-													>
+														onClick={() => setEditingTemplateId(null)}>
 														Cancel
 													</button>
 												</div>
 											</div>
-										) : (
-											<>
+										:	<>
 												<div className={styles.templateCardTitle}>
 													<strong>{tpl.name}</strong>
 												</div>
-												<div className={styles.templateQueries} title={tpl.queries}>
+												<div
+													className={styles.templateQueries}
+													title={tpl.queries}>
 													{tpl.queries}
 												</div>
 												<div className={styles.templateActions}>
 													<button
-														type="button"
+														type='button'
 														className={styles.templateBtn}
 														onClick={(e) => {
 															e.stopPropagation();
 															handleStartEditTemplate(tpl);
-														}}
-													>
+														}}>
 														Edit
 													</button>
 													<button
-														type="button"
+														type='button'
 														className={styles.templateDeleteBtn}
 														onClick={(e) => {
 															e.stopPropagation();
 															if (window.confirm('Delete this template?')) {
 																handleDeleteTemplate(tpl.id);
 															}
-														}}
-													>
+														}}>
 														Delete
 													</button>
 												</div>
 											</>
-										)}
+										}
 									</div>
 								))}
 							</div>
@@ -1557,10 +1609,9 @@ export default function DashboardPage() {
 							<div className={styles.statusLine}>{queueStatusLine}</div>
 							{queueQueries.length > 0 && !isSavingTemplate && (
 								<button
-									type="button"
+									type='button'
 									className={styles.templateBtn}
-									onClick={handleSaveTemplate}
-								>
+									onClick={handleSaveTemplate}>
 									💾 Save List
 								</button>
 							)}
@@ -1569,26 +1620,24 @@ export default function DashboardPage() {
 						{isSavingTemplate && (
 							<div className={styles.saveTemplateForm}>
 								<input
-									type="text"
+									type='text'
 									className={styles.templateEditInput}
 									value={newTemplateName}
 									onChange={(e) => setNewTemplateName(e.target.value)}
-									placeholder="Template Name..."
+									placeholder='Template Name...'
 									autoFocus
 								/>
 								<div className={styles.templateActions}>
 									<button
-										type="button"
+										type='button'
 										className={styles.templateBtn}
-										onClick={handleConfirmSaveTemplate}
-									>
+										onClick={handleConfirmSaveTemplate}>
 										Save
 									</button>
 									<button
-										type="button"
+										type='button'
 										className={styles.templateBtn}
-										onClick={() => setIsSavingTemplate(false)}
-									>
+										onClick={() => setIsSavingTemplate(false)}>
 										Cancel
 									</button>
 								</div>
@@ -1596,13 +1645,21 @@ export default function DashboardPage() {
 						)}
 
 						<div className={styles.queueStatusList}>
-							{queueQueryLines.map((line, index) => (
-								<div
-									key={`${line}-${index}`}
-									className={styles.queueStatusRow}>
-									{line}
-								</div>
-							))}
+							{queueRunItems.length > 0 ?
+								queueRunItems.map((item, index) => (
+									<div
+										key={`${item.query}-${index}`}
+										className={styles.queueStatusRow}>
+										<div className={styles.queueStatusRowTop}>
+											<span className={styles.queueStatusBadge}>{item.status}</span>
+											<span className={styles.queueStatusQuery}>{item.query}</span>
+										</div>
+										{item.message ?
+											<div className={styles.queueStatusMessage}>{item.message}</div>
+										:	null}
+									</div>
+								))
+							:	<div className={styles.queueStatusRow}>No queue submitted yet.</div>}
 						</div>
 					</div>
 

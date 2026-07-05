@@ -171,24 +171,16 @@ crd #7432624
 Individual CRD: 2619791
 2385092 4490863
 John Smith`;
-		expect(parseQueries(rawInput)).toEqual([
-			'5020981',
-			'7432624',
-			'2619791',
-			'2385092',
-			'4490863',
-			'John Smith',
-		]);
+		expect(parseQueries(rawInput)).toEqual(['5020981', '7432624', '2619791', '2385092', '4490863', 'John Smith']);
 	});
 
 	it('splits space separated numeric tokens but keeps spaced name queries', () => {
 		const rawInput = '5020981 7432624\t2619791\r\nJohn Smith\n12345';
-		expect(parseQueries(rawInput)).toEqual([
-			'5020981',
-			'7432624',
-			'2619791',
-			'John Smith',
-			'12345',
-		]);
+		expect(parseQueries(rawInput)).toEqual(['5020981', '7432624', '2619791', 'John Smith', '12345']);
+	});
+
+	it('extracts CRDs embedded in mixed text such as a name plus CRD reference', () => {
+		const rawInput = 'Megan Vogt Omoruyi :: CRD# 7803022';
+		expect(parseQueries(rawInput)).toEqual(['7803022']);
 	});
 });

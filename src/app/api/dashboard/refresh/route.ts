@@ -817,8 +817,11 @@ async function normalizeCardSourcesForDisplay(card: CacheCard): Promise<CacheCar
 
 		const includeSource =
 			card.entity === 'individual' ?
-				sourceEntry.source === 'finra' ? hasIndividualFinraPresence(detail) : hasIndividualSecPresence(detail)
-			:	sourceEntry.source === 'finra' ? hasFirmFinraPresence(detail) : hasFirmSecPresence(detail);
+				sourceEntry.source === 'finra' ?
+					hasIndividualFinraPresence(detail)
+				:	hasIndividualSecPresence(detail)
+			: sourceEntry.source === 'finra' ? hasFirmFinraPresence(detail)
+			: hasFirmSecPresence(detail);
 
 		if (includeSource) normalizedSources.push(sourceEntry);
 	}
@@ -938,25 +941,22 @@ function findFirstDate(value: unknown): string | null {
 function extractNameFromRawPayload(payload: unknown, type: 'individual' | 'firm'): string {
 	if (!isPlainObject(payload)) return '';
 	// Handle ES hits wrapper
-	const src = Array.isArray(payload?.hits?.hits) && payload.hits.hits.length > 0
-		? (payload.hits.hits[0]?._source ?? payload)
-		: payload;
+	const src = Array.isArray(payload?.hits?.hits) && payload.hits.hits.length > 0 ? (payload.hits.hits[0]?._source ?? payload) : payload;
 	// Parse content/iacontent string if present
 	let data: Record<string, any> = isPlainObject(src) ? src : {};
 	const contentRaw = data.content ?? data.bccontent ?? data.iacontent;
 	if (typeof contentRaw === 'string') {
-		try { data = { ...data, ...JSON.parse(contentRaw) }; } catch { /* ignore */ }
+		try {
+			data = { ...data, ...JSON.parse(contentRaw) };
+		} catch {
+			/* ignore */
+		}
 	}
-	const bi = isPlainObject(data.basicInformation) ? data.basicInformation as Record<string, any> : {};
+	const bi = isPlainObject(data.basicInformation) ? (data.basicInformation as Record<string, any>) : {};
 	if (type === 'individual') {
-		return (
-			[bi.firstName, bi.middleName, bi.lastName].filter(Boolean).join(' ').trim() ||
-			String(bi.name || data.firstName || data.name || '').trim()
-		);
+		return [bi.firstName, bi.middleName, bi.lastName].filter(Boolean).join(' ').trim() || String(bi.name || data.firstName || data.name || '').trim();
 	}
-	return (
-		String(bi.legalName || data.legalName || bi.firmName || data.firmName || data.name || '').trim()
-	);
+	return String(bi.legalName || data.legalName || bi.firmName || data.firmName || data.name || '').trim();
 }
 
 export function extractCardSummaryFields(detail: Record<string, any>, fallbackCrd = '', sourceHint?: 'finra' | 'sec') {
@@ -1055,18 +1055,20 @@ export function parseCrds(input: RefreshRequestBody['crds'], maxCrds = 50): stri
 	const tokens =
 		typeof input === 'string' ?
 			input
-				.split(/[\s,]+/g)
+				.split(/[\n\r,;\t]+/g)
 				.map((value) => value.trim())
 				.filter(Boolean)
 		: Array.isArray(input) ? input.map((value) => String(value || '').trim()).filter(Boolean)
 		: [];
 
-	const unique = Array.from(new Set(tokens.filter((value) => /^\d{1,10}$/.test(value))));
+	const extracted = tokens.flatMap((token) => extractNumericCrdsFromText(token));
+	const unique = Array.from(new Set([...extracted, ...tokens.filter((value) => /^\d{1,10}$/.test(value))]));
 	return unique.slice(0, Math.max(1, Math.min(500, maxCrds)));
 }
 
 export function parseQueries(input: RefreshRequestBody['queries'] | RefreshRequestBody['crds'], maxQueries = 50): string[] {
-	const HEADER_REGEX = /^(crd|crd\s*#|crd\s*number|crd\s*id|individual\s*crd|firm\s*crd|individual\s*id|firm\s*id|id|crd_number|crd_id|individual_id|firm_id|individual_crd|firm_crd|representative\s*crd|rep\s*crd|name|individual\s*name|firm\s*name|representative\s*name|rep\s*name)$/i;
+	const HEADER_REGEX =
+		/^(crd|crd\s*#|crd\s*number|crd\s*id|individual\s*crd|firm\s*crd|individual\s*id|firm\s*id|id|crd_number|crd_id|individual_id|firm_id|individual_crd|firm_crd|representative\s*crd|rep\s*crd|name|individual\s*name|firm\s*name|representative\s*name|rep\s*name)$/i;
 	const PREFIX_NUMERIC_REGEX = /^(?:crd|crd\s*#|crd\s*id|individual\s*crd|firm\s*crd|individual\s*crd\s*:|firm\s*crd\s*:)\s*(\d{1,10})$/i;
 
 	const rawTokens =
@@ -1084,6 +1086,12 @@ export function parseQueries(input: RefreshRequestBody['queries'] | RefreshReque
 			continue;
 		}
 
+		const extractedCrds = extractNumericCrdsFromText(rawToken);
+		if (extractedCrds.length) {
+			processedTokens.push(...extractedCrds);
+			continue;
+		}
+
 		const prefixMatch = rawToken.match(PREFIX_NUMERIC_REGEX);
 		if (prefixMatch) {
 			processedTokens.push(prefixMatch[1]);
@@ -1091,7 +1099,10 @@ export function parseQueries(input: RefreshRequestBody['queries'] | RefreshReque
 		}
 
 		if (/^[\d\s]+$/.test(rawToken) && /\s/.test(rawToken)) {
-			const parts = rawToken.split(/\s+/).map((v) => v.trim()).filter(Boolean);
+			const parts = rawToken
+				.split(/\s+/)
+				.map((v) => v.trim())
+				.filter(Boolean);
 			processedTokens.push(...parts);
 		} else {
 			processedTokens.push(rawToken);
@@ -1100,6 +1111,23 @@ export function parseQueries(input: RefreshRequestBody['queries'] | RefreshReque
 
 	const unique = Array.from(new Set(processedTokens));
 	return unique.slice(0, Math.max(1, Math.min(200, maxQueries)));
+}
+
+function extractNumericCrdsFromText(text: string): string[] {
+	const raw = String(text || '').trim();
+	if (!raw) return [];
+
+	const directMatches = Array.from(raw.matchAll(/(?:^|[\s:;#-])(?:crd|crd\s*#|crd\s*id|individual\s*crd|firm\s*crd|individual\s*id|firm\s*id|id)\s*[:#-]?\s*(\d{1,10})/gi));
+	if (directMatches.length) {
+		return directMatches.map((match) => match[1]).filter(Boolean);
+	}
+
+	const fallbackMatches = Array.from(raw.matchAll(/\b(?:crd|crd\s*#|crd\s*id|individual\s*crd|firm\s*crd|individual\s*id|firm\s*id)\b[^0-9]{0,10}(\d{1,10})\b/gi));
+	if (fallbackMatches.length) {
+		return fallbackMatches.map((match) => match[1]).filter(Boolean);
+	}
+
+	return [];
 }
 
 function sleep(ms: number) {
@@ -1288,7 +1316,7 @@ async function fetchJson(url: string, options: { timeoutMs?: number } = {}) {
 
 	const response = await fetch(url, {
 		headers: {
-			'Accept': 'application/json',
+			Accept: 'application/json',
 		},
 		signal: AbortSignal.timeout(timeoutMs),
 		next: { revalidate: 0 },
@@ -1453,7 +1481,7 @@ async function resolveQuerySearchBundle(query: string): Promise<QuerySearchBundl
 					if (isTooManyRequestsError(error)) {
 						const retryAfterHeader = error?.response?.headers?.['retry-after'] || error?.headers?.['retry-after'];
 						const retryAfter = Number.isFinite(Number(retryAfterHeader)) && Number(retryAfterHeader) > 0 ? Number(retryAfterHeader) * 1000 : null;
-						const cooldownMs = retryAfter || randomBetween(2 * 60 * 1000, 4 * 60 * 1000); 
+						const cooldownMs = retryAfter || randomBetween(2 * 60 * 1000, 4 * 60 * 1000);
 						console.warn(`[resolve-query] 429 from ${url}; pausing for ${(cooldownMs / 60000).toFixed(2)} minutes`);
 						await sleep(cooldownMs);
 						if (attempt > maxRetries) throw error;
@@ -1464,7 +1492,9 @@ async function resolveQuerySearchBundle(query: string): Promise<QuerySearchBundl
 			}
 		};
 
-		const finraIndividual = await fetchWithPacingAndRetry(`https://api.brokercheck.finra.org/search/individual?query=${encoded}&hl=true&includePrevious=true&nrows=50&start=0&wt=json`);
+		const finraIndividual = await fetchWithPacingAndRetry(
+			`https://api.brokercheck.finra.org/search/individual?query=${encoded}&hl=true&includePrevious=true&nrows=50&start=0&wt=json`,
+		);
 		const finraFirm = await fetchWithPacingAndRetry(`https://api.brokercheck.finra.org/search/firm?query=${encoded}&hl=true&nrows=12&start=0&wt=json`);
 		const secIndividual = await fetchWithPacingAndRetry(`https://api.adviserinfo.sec.gov/search/individual?query=${encoded}&hl=true&includePrevious=true&nrows=50&start=0&wt=json`);
 		const secFirm = await fetchWithPacingAndRetry(`https://api.adviserinfo.sec.gov/search/firm?query=${encoded}&hl=true&nrows=12&start=0&wt=json`);
@@ -2053,11 +2083,11 @@ async function fetchCrdsToCacheAndRedis(initialTargets: FetchTarget[], options: 
 			: isFinra && !isIndividual ? `https://api.brokercheck.finra.org/search/firm/${crd}?hl=true&wt=json`
 			: !isFinra && isIndividual ? `https://api.adviserinfo.sec.gov/search/individual/${crd}?hl=true&includePrevious=true&wt=json`
 			: `https://api.adviserinfo.sec.gov/search/firm/${crd}?wt=json`;
-		
+
 		const cacheFileName = `api.${isFinra ? 'brokercheck.finra.org' : 'adviserinfo.sec.gov'}_search_${target.type}_${crd}.json`;
 		const cacheDir = isFinra ? 'brokercheck.finra.org' : 'adviserinfo.sec.gov';
 		const redisKey = target.type === 'individual' ? `${target.source}:individual:${crd}` : `${target.source}:firm:${crd}`;
-		
+
 		const nationalFile = path.join(nationalRoot, cacheDir, cacheFileName);
 		const rawFile = path.join(rawRoot, cacheDir, cacheFileName);
 
@@ -2074,7 +2104,7 @@ async function fetchCrdsToCacheAndRedis(initialTargets: FetchTarget[], options: 
 				if (isTooManyRequestsError(error)) {
 					const retryAfterHeader = error?.response?.headers?.['retry-after'] || error?.headers?.['retry-after'];
 					const retryAfter = Number.isFinite(Number(retryAfterHeader)) && Number(retryAfterHeader) > 0 ? Number(retryAfterHeader) * 1000 : null;
-					const cooldownMs = retryAfter || randomBetween(2 * 60 * 1000, 4 * 60 * 1000); 
+					const cooldownMs = retryAfter || randomBetween(2 * 60 * 1000, 4 * 60 * 1000);
 					upstreamCooldownUntil = Date.now() + cooldownMs;
 					await sleep(cooldownMs);
 					payload = await fetchJson(url, { timeoutMs: DASHBOARD_DETAIL_FETCH_TIMEOUT_MS });
@@ -2086,14 +2116,29 @@ async function fetchCrdsToCacheAndRedis(initialTargets: FetchTarget[], options: 
 			const outcome = classifyFetchedPayloadOutcome(payload, target);
 			if (outcome.status === 'error') {
 				allResults.push({
-					crd, source: target.source, type: target.type, url, cacheFile: nationalFile, redisKey, cardKey,
-					status: 'error', redisWrite: 'not-attempted', error: outcome.error || 'invalid-payload-shape',
+					crd,
+					source: target.source,
+					type: target.type,
+					url,
+					cacheFile: nationalFile,
+					redisKey,
+					cardKey,
+					status: 'error',
+					redisWrite: 'not-attempted',
+					error: outcome.error || 'invalid-payload-shape',
 				});
 				continue;
 			}
 
 			if (outcome.status === 'skipped') {
-				allResults.push(buildSkippedFetchResult(target, { url, cacheFile: nationalFile, redisKey, cardKey }, outcome.skipReason || 'out-of-scope-source-payload', includePayload ? payload : undefined));
+				allResults.push(
+					buildSkippedFetchResult(
+						target,
+						{ url, cacheFile: nationalFile, redisKey, cardKey },
+						outcome.skipReason || 'out-of-scope-source-payload',
+						includePayload ? payload : undefined,
+					),
+				);
 				continue;
 			}
 
@@ -2105,9 +2150,10 @@ async function fetchCrdsToCacheAndRedis(initialTargets: FetchTarget[], options: 
 			}
 			await setStringIfValid(redisKey, JSON.stringify(payload), 0);
 
-			const detail = target.type === 'individual'
-				? parseIndividualDetailPayload(payload, target.source === 'finra' ? 'content' : 'iacontent', target.crd)
-				: parseFirmDetailPayload(payload, target.source === 'finra' ? 'content' : 'iacontent');
+			const detail =
+				target.type === 'individual' ?
+					parseIndividualDetailPayload(payload, target.source === 'finra' ? 'content' : 'iacontent', target.crd)
+				:	parseFirmDetailPayload(payload, target.source === 'finra' ? 'content' : 'iacontent');
 
 			if (detail) {
 				try {
@@ -2120,13 +2166,24 @@ async function fetchCrdsToCacheAndRedis(initialTargets: FetchTarget[], options: 
 			const newSourceSaved = !sourceExistedBefore;
 			const newRecordSaved = !recordExistedBefore;
 			const domain = isFinra ? 'api.brokercheck.finra.org' : 'api.adviserinfo.sec.gov';
-			console.log(`[External API Access Success] Time: ${new Date().toISOString()} | Saved CRD to Cache/Redis | Domain: ${domain} | CRDs added: [${crd}] | Added count: ${newRecordSaved ? 1 : 0}`);
+			console.log(
+				`[External API Access Success] Time: ${new Date().toISOString()} | Saved CRD to Cache/Redis | Domain: ${domain} | CRDs added: [${crd}] | Added count: ${newRecordSaved ? 1 : 0}`,
+			);
 
 			mainAppPublishQueue.push({ crd, source: target.source, type: target.type, status: 'ok', payload });
 
 			const fetchResult: FetchResultItem = {
-				crd, source: target.source, type: target.type, url, cacheFile: nationalFile, redisKey, cardKey,
-				status: 'ok', redisWrite: 'written', newSourceSaved, newRecordSaved,
+				crd,
+				source: target.source,
+				type: target.type,
+				url,
+				cacheFile: nationalFile,
+				redisKey,
+				cardKey,
+				status: 'ok',
+				redisWrite: 'written',
+				newSourceSaved,
+				newRecordSaved,
 				name: extractNameFromRawPayload(payload, target.type) || undefined,
 			};
 			if (includePayload) fetchResult.payload = payload;
@@ -2144,22 +2201,34 @@ async function fetchCrdsToCacheAndRedis(initialTargets: FetchTarget[], options: 
 			} catch (discoverErr: any) {
 				console.warn(`[fetch-crds] Failed to parse artifacts for discovery on CRD ${crd}:`, discoverErr?.message || discoverErr);
 			}
-
 		} catch (error: any) {
 			allResults.push({
-				crd, source: target.source, type: target.type, url, cacheFile: nationalFile, redisKey, cardKey,
-				status: 'error', redisWrite: 'not-attempted', error: error?.message || String(error),
+				crd,
+				source: target.source,
+				type: target.type,
+				url,
+				cacheFile: nationalFile,
+				redisKey,
+				cardKey,
+				status: 'error',
+				redisWrite: 'not-attempted',
+				error: error?.message || String(error),
 			});
 		}
 	}
 
 	const mainAppSync = await publishFetchedRecordsToMainApp(mainAppPublishQueue).catch(() => ({
-		rememberedSeeds: 0, nodesAdded: 0, nodesUpdated: 0, linksAdded: 0,
+		rememberedSeeds: 0,
+		nodesAdded: 0,
+		nodesUpdated: 0,
+		linksAdded: 0,
 	}));
 
 	const successfulCrds = allResults.filter((r) => r.status === 'ok').map((r) => r.crd);
 	const targetDomain = initialTargets[0]?.source === 'finra' ? 'api.brokercheck.finra.org' : 'api.adviserinfo.sec.gov';
-	console.log(`[External API Access Sync Complete] Time: ${new Date().toISOString()} | Domain: ${targetDomain} | Graph CRD Nodes added count: ${mainAppSync.nodesAdded} | CRD list: [${successfulCrds.join(', ')}]`);
+	console.log(
+		`[External API Access Sync Complete] Time: ${new Date().toISOString()} | Domain: ${targetDomain} | Graph CRD Nodes added count: ${mainAppSync.nodesAdded} | CRD list: [${successfulCrds.join(', ')}]`,
+	);
 
 	return {
 		summary: summarizeFetchResults(allResults),
