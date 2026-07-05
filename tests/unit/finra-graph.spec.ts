@@ -23,6 +23,7 @@ import {
 	getLinkIdentityKey,
 	getSelectionLinkOpacity,
 	loadSelectionLogBoldPreference,
+	mergeGraphNodesByIdentity,
 	normalizeNodeLabelInPlace,
 	rankFindNodeMatches,
 	scheduleNodeExpansion,
@@ -159,6 +160,17 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		const node = { id: 'person:123', label: 'CRD 123456', group: 'individual' } as any;
 		normalizeNodeLabelInPlace(node);
 		expect(node.label).toBe('Node person:123');
+	});
+
+	it('mergeGraphNodesByIdentity merges person nodes that share the same CRD', () => {
+		const existing = [{ id: 'person:123', group: 'individual', crd: '123', label: 'CRD 123' } as any];
+		const incoming = [{ id: 'person_123', group: 'individual', crd: '123', label: 'Ada Lovelace', basicInformation: { firstName: 'Ada' } } as any];
+
+		const merged = mergeGraphNodesByIdentity(existing, incoming);
+
+		expect(merged).toHaveLength(1);
+		expect(merged[0].id).toBe('person:123');
+		expect(merged[0].basicInformation.firstName).toBe('Ada');
 	});
 
 	it('scheduleNodeExpansion defers expansion work until the queued timer runs', () => {

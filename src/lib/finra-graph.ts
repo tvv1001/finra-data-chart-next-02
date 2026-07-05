@@ -321,6 +321,7 @@ let selectionRestoreTimer = null; // timer used when restoring a saved selection
 let traceRefreshTimer: ReturnType<typeof setTimeout> | null = null; // trailing trace refresh when async reveals land after selection
 let nodePulseTimer = null; // timer used to pulse the restored node after focus animation
 let nodePulseInterval = null; // interval used to keep the restored node pulsing until interaction
+let sessionSaveTimer: number | null = null;
 let nodePulseInteractionCleanup: (() => void) | null = null; // removes reload pulse interaction listeners once the user interacts
 let searchPulseInterval: number | null = null; // interval used to keep the current find-match pulsing until enter
 let lastArrowNavCoord: { x: number; y: number } | null = null; // track last whitespace click for arrow nav origin
@@ -1107,7 +1108,7 @@ function getSessionPersistenceAttempts() {
 	] satisfies Array<{ mode: SessionPersistenceMode; options: { compact: boolean; extraNodeMode: 'full' | 'ids' | 'none' } }>;
 }
 
-function saveSession() {
+function persistSessionNow() {
 	if (!layoutNodes || !graphData) return;
 	const attempts = getSessionPersistenceAttempts();
 	const startIndex = Math.max(
@@ -1133,6 +1134,19 @@ function saveSession() {
 	}
 
 	console.warn('Failed to persist graph session.', lastError);
+}
+
+function saveSession() {
+	if (!layoutNodes || !graphData) return;
+	if (sessionSaveTimer) return;
+	if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
+		sessionSaveTimer = window.setTimeout(() => {
+			sessionSaveTimer = null;
+			persistSessionNow();
+		}, 140);
+		return;
+	}
+	persistSessionNow();
 }
 
 function resetTransientDetailState(node) {
@@ -5482,38 +5496,75 @@ function updateGraphMeta() {
 	updateMeta(graphData.meta);
 }
 
+function getNodeIdentityKey(node) {
+	if (!node || typeof node !== 'object') return '';
+	const explicitId = String(node.id ?? '').trim();
+	if (node.group === 'individual') {
+		const crd = String(node.crd || node.basicInformation?.individualId || node.individualId || '').trim();
+		const normalizedId = explicitId.replace(/^person[:_]/i, '');
+		if (crd) return `individual:${crd}`;
+		if (normalizedId) return `individual:${normalizedId}`;
+		return explicitId ? `individual:${explicitId}` : '';
+	}
+	if (node.group === 'firm') {
+		const firmId = String(node.firmId || node.basicInformation?.firmId || node.firm_id || '').trim();
+		const normalizedId = explicitId.replace(/^firm[:_]/i, '');
+		if (firmId) return `firm:${firmId}`;
+		if (normalizedId) return `firm:${normalizedId}`;
+		return explicitId ? `firm:${explicitId}` : '';
+	}
+	return explicitId ? `entity:${explicitId}` : '';
+}
+
+function mergeGraphNodePayload(targetNode, incomingNode) {
+	if (!targetNode || !incomingNode) return targetNode;
+	if (incomingNode._trustedCurrentRelationshipData === true) targetNode._trustedCurrentRelationshipData = true;
+	if (incomingNode.bcScope != null) targetNode.bcScope = incomingNode.bcScope;
+	if (incomingNode.iaScope != null) targetNode.iaScope = incomingNode.iaScope;
+	if (incomingNode.registrationCount) targetNode.registrationCount = { ...(targetNode.registrationCount || {}), ...incomingNode.registrationCount };
+	if (Array.isArray(incomingNode.currentEmployments)) targetNode.currentEmployments = incomingNode.currentEmployments;
+	if (Array.isArray(incomingNode.currentIAEmployments)) targetNode.currentIAEmployments = incomingNode.currentIAEmployments;
+	if (incomingNode.basicInformation && !targetNode.basicInformation) targetNode.basicInformation = incomingNode.basicInformation;
+	if (incomingNode.name && !targetNode.name) targetNode.name = incomingNode.name;
+	if (incomingNode.firmName && !targetNode.firmName) targetNode.firmName = incomingNode.firmName;
+	if (incomingNode.label && (isPlaceholderExpansionLabel(targetNode.label, targetNode.group) || String(incomingNode.label).length > String(targetNode.label || '').length)) {
+		targetNode.label = incomingNode.label;
+	}
+	normalizeNodeLabelInPlace(targetNode);
+	return targetNode;
+}
+
+export function mergeGraphNodesByIdentity(existingNodes = [], incomingNodes = []) {
+	const mergedNodes = Array.isArray(existingNodes) ? [...existingNodes] : [];
+	const identityMap = new Map<string, any>();
+	mergedNodes.forEach((node) => {
+		const key = getNodeIdentityKey(node);
+		if (key) identityMap.set(key, node);
+	});
+
+	(Array.isArray(incomingNodes) ? incomingNodes : []).forEach((incomingNode) => {
+		const key = getNodeIdentityKey(incomingNode);
+		if (key && identityMap.has(key)) {
+			mergeGraphNodePayload(identityMap.get(key), incomingNode);
+			return;
+		}
+		const nodeToAdd = { ...incomingNode };
+		normalizeNodeLabelInPlace(nodeToAdd);
+		mergedNodes.push(nodeToAdd);
+		if (key) identityMap.set(key, nodeToAdd);
+	});
+
+	return mergedNodes;
+}
+
 function mergeIntoGraphData(newNodes, newLinks) {
 	if (!graphData) return;
 	invalidateFullAdjacencyMap();
-	normalizeNodeLabelsInPlace(newNodes);
-	// Track which nodes are newly added so renderGraph can pulse them.
-	const addedIds = [];
-	const gIds = new Set(graphData.nodes.map((n) => n.id));
+	const existingNodes = Array.isArray(graphData.nodes) ? graphData.nodes : [];
+	const mergedNodes = mergeGraphNodesByIdentity(existingNodes, newNodes);
+	const addedIds = mergedNodes.filter((node) => !existingNodes.some((entry) => entry.id === node.id)).map((node) => node.id);
+	graphData.nodes = mergedNodes;
 	const gLinkKeys = new Set(graphData.links.map((l) => getLinkIdentityKey(l)));
-	newNodes
-		.filter((n) => !gIds.has(n.id))
-		.forEach((n) => {
-			graphData.nodes.push(n);
-			gIds.add(n.id);
-			addedIds.push(n.id);
-		});
-	newNodes
-		.filter((n) => gIds.has(n.id))
-		.forEach((n) => {
-			const existingNode = graphData.nodes.find((entry) => entry.id === n.id);
-			if (!existingNode) return;
-			if (n._trustedCurrentRelationshipData === true) existingNode._trustedCurrentRelationshipData = true;
-			if (n.bcScope != null) existingNode.bcScope = n.bcScope;
-			if (n.iaScope != null) existingNode.iaScope = n.iaScope;
-			if (n.registrationCount) existingNode.registrationCount = { ...(existingNode.registrationCount || {}), ...n.registrationCount };
-			if (Array.isArray(n.currentEmployments)) existingNode.currentEmployments = n.currentEmployments;
-			if (Array.isArray(n.currentIAEmployments)) existingNode.currentIAEmployments = n.currentIAEmployments;
-			if (n.basicInformation && !existingNode.basicInformation) existingNode.basicInformation = n.basicInformation;
-			if (n.name && !existingNode.name) existingNode.name = n.name;
-			if (n.firmName && !existingNode.firmName) existingNode.firmName = n.firmName;
-			normalizeNodeLabelInPlace(existingNode);
-		});
-	normalizeNodeLabelsInPlace(graphData.nodes);
 	newLinks
 		.filter((l) => {
 			const k = getLinkIdentityKey(l);
@@ -7316,11 +7367,7 @@ function getLinkColor(d) {
 }
 
 function getLinkMarker(d) {
-	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d)) return 'url(#arrow-inactive)';
-	if (isControlRelationship(d)) return `url(#arrow-controls)`;
-	if (isPreviousEmploymentLink(d)) return 'url(#arrow-previous_employed_by)';
-	if (usesCurrentEmploymentStyling(d)) return `url(#arrow-current_employed_by)`;
-	return `url(#arrow-${d.relationship})`;
+	return null;
 }
 
 function getLinkDash(d) {
@@ -8480,8 +8527,7 @@ function renderGraph(_data) {
 			.attr('stroke-opacity', defaultLinkOpacity)
 			.attr('stroke-width', (d) => getLinkWidth(d))
 			.style('--fg-link-width', (d) => getLinkWidthPx(d))
-			.attr('stroke-dasharray', (d) => getLinkDash(d))
-			.attr('marker-end', (d) => getLinkMarker(d));
+			.attr('stroke-dasharray', (d) => getLinkDash(d));
 	}
 
 	joinLinkSelection(linkBottomGroup, bottomLinks);
@@ -8500,8 +8546,7 @@ function renderGraph(_data) {
 			.data(data, (d) => `${d.source?.id || d.source}-${d.target?.id || d.target}-${d.relationship}`)
 			.join('line')
 			.attr('stroke', 'none')
-			.attr('fill', 'none')
-			.attr('marker-end', (d) => getLinkMarker(d));
+			.attr('fill', 'none');
 	}
 
 	joinArrowSelection(arrowBottomGroup, bottomLinks);
