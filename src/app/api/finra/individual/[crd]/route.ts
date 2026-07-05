@@ -7,6 +7,7 @@ import { logger } from '@/lib/logger';
 import { normalizeIndividualDetailFromSource } from '@/lib/individualDetail';
 import { hasIndividualSourceCoverage, resolveIndividualSourceDetail } from '@/lib/sourceTruth';
 import { queueHydration } from '@/lib/hydration';
+import { addRecordToSearchIndex } from '@/lib/localSearch';
 
 function parseDetailPayload(data: any, contentKey = 'content') {
 	if (!data) return null;
@@ -228,6 +229,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				},
 				{ headers: sharedCacheHeaders(3600) },
 			);
+		}
+
+		const searchIndexDetail = normalizeIndividualDetailFromSource(detail, crd);
+		try {
+			await addRecordToSearchIndex('finra', 'individual', crd, searchIndexDetail);
+		} catch (searchIndexErr: any) {
+			logger.warn('failed to update local individual search index from detail route', { crd, error: searchIndexErr?.message || String(searchIndexErr) });
 		}
 
 		const responseData: any = { found: true, crd };

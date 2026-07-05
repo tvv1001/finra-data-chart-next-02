@@ -51,6 +51,10 @@ export function getProgressiveLoadBudget(nodeCount: number, zoom = 1, revealPhas
 	return Math.min(baseBudget, targetBudget);
 }
 
+export function shouldUseInitialSvgFallback(nodeCount: number) {
+	return false;
+}
+
 export function buildLargeGraphRenderPlan(
 	nodes: GraphNode[],
 	links: GraphLink[],

@@ -46,6 +46,13 @@ function fromNodeRouteSlug(slug: string) {
 	}
 }
 
+export function normalizeNodeRouteId(nodeIdOrSlug: string | null | undefined) {
+	const normalizedValue = String(nodeIdOrSlug || '').trim();
+	if (!normalizedValue) return null;
+	if (normalizedValue.includes(':')) return normalizedValue;
+	return fromNodeRouteSlug(normalizedValue);
+}
+
 export function buildNodeRoutePath(nodeId: string | null | undefined) {
 	const normalizedNodeId = String(nodeId || '').trim();
 	if (!normalizedNodeId) return '/';
@@ -63,5 +70,5 @@ export function parseNodeIdFromPathname(pathname: string | null | undefined) {
 	if (!normalizedPathname || normalizedPathname === '/') return null;
 	const match = /^\/node\/([^/]+?)\/?$/.exec(normalizedPathname);
 	if (!match) return null;
-	return fromNodeRouteSlug(match[1]);
+	return normalizeNodeRouteId(match[1]);
 }

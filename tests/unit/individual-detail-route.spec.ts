@@ -5,6 +5,7 @@ const cachedFetch = vi.fn();
 const rememberRecentSeed = vi.fn();
 const logger = { warn: vi.fn(), error: vi.fn() };
 const normalizeIndividualDetailFromSource = vi.fn();
+const addRecordToSearchIndex = vi.fn();
 
 vi.mock('@/lib/simpleCache', () => ({
 	cachedFetch,
@@ -26,6 +27,10 @@ vi.mock('@/lib/individualDetail', () => ({
 	normalizeIndividualDetailFromSource,
 }));
 
+vi.mock('@/lib/localSearch', () => ({
+	addRecordToSearchIndex,
+}));
+
 vi.mock('@/lib/sourceTruth', () => ({
 	hasIndividualSourceCoverage: vi.fn(() => false),
 	resolveIndividualSourceDetail: vi.fn((source: unknown) => ({
@@ -44,6 +49,7 @@ describe('individual detail route', () => {
 		vi.clearAllMocks();
 		cachedFetch.mockResolvedValue(undefined);
 		rememberRecentSeed.mockResolvedValue(undefined);
+		addRecordToSearchIndex.mockResolvedValue(true);
 	});
 
 	it('returns a non-500 response when detail normalization throws', async () => {
@@ -56,5 +62,35 @@ describe('individual detail route', () => {
 
 		expect(response.status).toBe(200);
 		expect(payload).toMatchObject({ found: false, crd: '7330393' });
+	});
+
+	it('adds freshly fetched individual details to the local search index', async () => {
+		cachedFetch.mockResolvedValue({
+			hits: {
+				hits: [{ _source: { content: JSON.stringify({ basicInformation: { individualId: '7330393', firstName: 'Jane', lastName: 'Doe' } }) } }],
+			},
+		});
+		normalizeIndividualDetailFromSource.mockImplementation((value: unknown) => {
+			if (value && typeof value === 'object' && 'content' in value && typeof (value as { content?: unknown }).content === 'string') {
+				try {
+					return JSON.parse((value as { content: string }).content);
+				} catch {
+					return value;
+				}
+			}
+			return value;
+		});
+
+		const response = await GET(new NextRequest('http://localhost/api/finra/individual/7330393'), { params: Promise.resolve({ crd: '7330393' }) });
+		const payload = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(payload).toMatchObject({ found: true, crd: '7330393' });
+		expect(addRecordToSearchIndex).toHaveBeenCalledWith(
+			'finra',
+			'individual',
+			'7330393',
+			expect.objectContaining({ basicInformation: expect.objectContaining({ individualId: '7330393' }) }),
+		);
 	});
 });

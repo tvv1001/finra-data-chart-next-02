@@ -4,7 +4,7 @@
  */
 
 import { DEFAULT_NODE_LABEL_FONT_SIZE, DEFAULT_NODE_LABEL_FONT_SIZE_PX, DEFAULT_NODE_LABEL_FONT_WEIGHT, DEFAULT_NODE_LABEL_GAP_PX } from './finra-graph-defaults';
-import { handleNodeOpen } from './finra-graph';
+import { handleNodeKeyboardActivation } from './finra-graph';
 type Node = any;
 
 function getNodeVisualHalf(node: Node) {
@@ -188,9 +188,7 @@ function createLabelElement(node: Node) {
 	el.dataset.nodeId = String(node.id);
 	// keyboard activation (Enter/Space)
 	el.addEventListener('keydown', (ev) => {
-		if (ev.key === 'Enter' || ev.key === ' ') {
-			handleNodeOpen(ev, node);
-			ev.preventDefault();
+		if (handleNodeKeyboardActivation(ev, node)) {
 			try {
 				el.click();
 			} catch (e) {}

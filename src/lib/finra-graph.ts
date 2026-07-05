@@ -41,10 +41,11 @@ import {
 } from './finra-graph-defaults';
 import * as canvasRenderer from './finra-graph-canvas';
 import * as overlayRenderer from './finra-graph-overlay';
-import { buildLargeGraphRenderPlan, getLargeGraphRenderBudget, getProgressiveLoadBudget } from './large-graph-rendering';
+import { buildLargeGraphRenderPlan, getLargeGraphRenderBudget, getProgressiveLoadBudget, shouldUseInitialSvgFallback } from './large-graph-rendering';
 import { isValidLocationStateFilter, isZipLikeLocationQuery, normalizeLocationStateFilter } from './locationSearch';
 import { buildParentFirmSummaryLinks } from './finra-graph/externalLinks';
 import { resolveIndividualSourceDetail, hasIndividualSourceCoverage } from './sourceTruth';
+import { normalizeNodeRouteId } from './node-route';
 
 // API base. When VITE_API_URL is not set, use relative paths so the dev
 // server proxy (`/api`) is used and we don't hardcode a backend port.
@@ -358,6 +359,7 @@ let overlayApi: any = null;
 let overlayRefreshFrameCounter = 0;
 let progressiveRevealPhase = 0;
 let progressiveRevealTimer: ReturnType<typeof setTimeout> | null = null;
+let initialSvgFallbackUsed = false;
 let sessionPersistenceMode: 'full' | 'compact' | 'reduced' | 'minimal' = 'full';
 
 function isAnyTraceModeActive() {
@@ -1197,7 +1199,7 @@ async function fetchNodesByIds(nodeIds: string[] = []) {
 }
 
 async function ensureRouteNodeAvailable(nodeId: string) {
-	const normalizedNodeId = String(nodeId || '').trim();
+	const normalizedNodeId = normalizeNodeRouteId(nodeId) || String(nodeId || '').trim();
 	if (!normalizedNodeId) return null;
 
 	let liveNode = getNodeById(normalizedNodeId);
@@ -3009,6 +3011,9 @@ function bindHoverAndFocus(selection) {
 		})
 		.on('blur', function (event, d) {
 			setFocusedNode(null);
+		})
+		.on('keydown', function (event, d) {
+			handleNodeKeyboardActivation(event, d);
 		});
 }
 
@@ -3555,6 +3560,7 @@ function clearGraphData() {
 	clearFetchStatus();
 	allowFirstFetchZoom = true;
 	hasUserInitiatedGraphExpansion = false;
+	initialSvgFallbackUsed = false;
 	const resetSelectionState = clearSelectionState();
 	selectedId = resetSelectionState.selectedId;
 	highlightedSelections = resetSelectionState.highlightedSelections;
@@ -6861,7 +6867,7 @@ function getImpactedNodeIds(nodes = [], links = []) {
 	return Array.from(ids);
 }
 
-export function resolveLinkEndpoints(links = [], nodes = []) {
+export function rebindLinksToNodes(links = [], nodes = []) {
 	if (!Array.isArray(links) || !Array.isArray(nodes)) return [];
 	const nodeMap = new Map(nodes.map((node) => [node.id, node]));
 	const resolved = [];
@@ -6879,6 +6885,10 @@ export function resolveLinkEndpoints(links = [], nodes = []) {
 	links.length = 0;
 	links.push(...resolved);
 	return links;
+}
+
+export function resolveLinkEndpoints(links = [], nodes = []) {
+	return rebindLinksToNodes(links, nodes);
 }
 
 function classifyActivityText(value) {
@@ -7268,16 +7278,19 @@ function rerenderGraphNodesByIds(nodeIds) {
 export function getNodeLabelFontSize({
 	isSelected = false,
 	isHovered = false,
+	isBolded = false,
+	isEmphasized = false,
 	zoomScale = getCurrentGraphZoomScale(),
-}: { isSelected?: boolean; isHovered?: boolean; zoomScale?: number } = {}) {
+}: { isSelected?: boolean; isHovered?: boolean; isBolded?: boolean; isEmphasized?: boolean; zoomScale?: number } = {}) {
 	const normalizedScale = Math.max(0.08, Number(zoomScale) || 1);
 	const zoomBoost = normalizedScale < 0.85 ? 1 + (0.85 - normalizedScale) * 0.4 : 1;
+	const shouldEmphasize = isSelected || isHovered || isBolded || isEmphasized;
 	const emphasisBoost =
-		isSelected || isHovered ?
-			normalizedScale < 1 ?
-				1.04
-			:	1
-		:	1;
+		shouldEmphasize ?
+			normalizedScale >= 1 ?
+				1.12
+			: 1.04
+		: 1;
 	const size = DEFAULT_NODE_LABEL_FONT_SIZE_PX * zoomBoost * emphasisBoost;
 	return Math.min(24, Math.max(DEFAULT_NODE_LABEL_FONT_SIZE_PX, size));
 }
@@ -7414,7 +7427,11 @@ function renderNodeContents(selection) {
 
 		// Check if this node is in the selection log (by id)
 		const isLogged = isSelectionLogBold && selectedNodesLog.some((e) => e.id === d.id);
-		const labelFontSize = `${getNodeLabelFontSize({ isSelected: selectedId != null && String(selectedId) === String(d.id), isHovered: hoveredNodeId != null && String(hoveredNodeId) === String(d.id) })}px`;
+		const labelFontSize = `${getNodeLabelFontSize({
+			isSelected: selectedId != null && String(selectedId) === String(d.id),
+			isHovered: hoveredNodeId != null && String(hoveredNodeId) === String(d.id),
+			isBolded: isLogged,
+		})}px`;
 
 		const label = g
 			.append('text')
@@ -7776,19 +7793,6 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 function reapplySelectionState() {
 	if (!nodeSel) return;
 	const highlightState = computeHighlightState();
-	nodeSel
-		.classed('selected', (node) =>
-			shouldRenderNodeSelected(node, {
-				selectedId,
-				highlightRootIds: highlightState.rootIds,
-				visitedNodeIds,
-				isFetchedLeafNode: (candidateNode) => isFetchedLeafNode(candidateNode),
-				isFetchedExhaustedConnectedNode: (candidateNode) => isFetchedExhaustedConnectedNode(candidateNode),
-			}),
-		)
-		.classed('highlighted-hop', (node) => node.id !== selectedId && !highlightState.rootIds.has(node.id) && highlightState.hopNodeIds.has(node.id));
-
-	// Compute which nodes have ANY current/active connection in the graph
 	const activeConnectedIds = new Set<string>();
 	(layoutLinks || []).forEach((link) => {
 		if (!isCurrentActiveConnection(link)) return;
@@ -7798,7 +7802,6 @@ function reapplySelectionState() {
 		activeConnectedIds.add(tId);
 	});
 
-	// Compute which nodes have a current/active connection to a highlight root
 	const activeParentConnectedIds = new Set<string>();
 	const hasHighlights = highlightState.rootIds.size > 0;
 	if (hasHighlights) {
@@ -7815,6 +7818,18 @@ function reapplySelectionState() {
 			}
 		});
 	}
+
+	nodeSel
+		.classed('selected', (node) =>
+			shouldRenderNodeSelected(node, {
+				selectedId,
+				highlightRootIds: highlightState.rootIds,
+				visitedNodeIds,
+				isFetchedLeafNode: (candidateNode) => isFetchedLeafNode(candidateNode),
+				isFetchedExhaustedConnectedNode: (candidateNode) => isFetchedExhaustedConnectedNode(candidateNode),
+			}),
+		)
+		.classed('highlighted-hop', (node) => node.id !== selectedId && !highlightState.rootIds.has(node.id) && highlightState.hopNodeIds.has(node.id));
 
 	if (svgSel) {
 		svgSel.classed('fg-svg--has-highlights', hasHighlights);
@@ -7846,7 +7861,7 @@ function reapplySelectionState() {
 		);
 
 	highlightLinks(highlightState);
-	updateNodeVisuals(nodeSel);
+	updateNodeVisuals(nodeSel, { highlightState, activeConnectedIds, activeParentConnectedIds, selectionLogLabelNodeIds });
 }
 
 export function shouldRenderNodeSelected(
@@ -7892,13 +7907,34 @@ function getNodeVisualLabelText(node) {
 	return isNodeInactive(node) && inactiveLabelCompactMode && !isFocused ? getCompactInactiveNodeLabel(node) : getRenderedNodeLabel(node, { skipTruncation: isFocused });
 }
 
-function updateNodeVisuals(selection) {
+function updateNodeVisuals(
+	selection,
+	options: {
+		highlightState?: any;
+		activeConnectedIds?: Set<string>;
+		activeParentConnectedIds?: Set<string>;
+		selectionLogLabelNodeIds?: Set<string>;
+	} = {},
+) {
 	if (!selection) return;
+	const highlightState = options.highlightState ?? computeHighlightState();
+	const activeConnectedIds = options.activeConnectedIds ?? new Set<string>();
+	const activeParentConnectedIds = options.activeParentConnectedIds ?? new Set<string>();
+	const selectionLogLabelNodeIds = options.selectionLogLabelNodeIds ?? new Set(getSelectionLogLabelNodeIds());
+
 	selection.each(function (d) {
 		const g = d3.select(this);
 		const inactive = isNodeInactive(d);
 		const deg = d._deg || { total: 0, controls: 0, employed: 0 };
 		const isControlNode = deg.controls > 0;
+		const isSelectedNode = selectedId != null && String(selectedId) === String(d.id);
+		const isHoveredNode = hoveredNodeId != null && String(hoveredNodeId) === String(d.id);
+		const isFindMatchNode = activeFindMatchIds.has(d.id);
+		const isHighlightRootNode = highlightState.rootIds.has(d.id);
+		const isHighlightHopNode = highlightState.hopNodeIds.has(d.id);
+		const isActiveParentConnectedNode = activeParentConnectedIds.has(String(d.id));
+		const isLogged = isSelectionLogBold && selectedNodesLog.some((entry) => entry.id === d.id);
+		const isEmphasized = isSelectedNode || isHoveredNode || isLogged || isFindMatchNode || isHighlightRootNode || isHighlightHopNode || isActiveParentConnectedNode;
 
 		g.classed('fg-node--inactive', inactive)
 			.classed('fg-node--individual', d.group === 'individual')
@@ -7958,11 +7994,19 @@ function updateNodeVisuals(selection) {
 		const labelText = getNodeVisualLabelText(d);
 		const label = g.select('text.fg-label');
 		if (!label.empty()) {
+			const labelFontSize = `${getNodeLabelFontSize({
+				isSelected: isSelectedNode,
+				isHovered: isHoveredNode,
+				isBolded: isLogged,
+				isEmphasized,
+			})}px`;
 			label
 				.text(labelText)
 				.attr('fill', nodeLabelColor)
 				.attr('stroke', nodeLabelHalo)
-				.attr('opacity', inactive ? 0.86 : 1);
+				.attr('opacity', inactive ? 0.86 : 1)
+				.attr('font-size', labelFontSize)
+				.attr('font-weight', isEmphasized ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT);
 		}
 	});
 }
@@ -8040,6 +8084,9 @@ function appendFetchedImpl(newNodes, newLinks) {
 	}
 
 	layoutNodes = mergedNodes;
+	// Rebind any pre-existing links to the merged node objects so the visualization
+	// keeps them attached after a fetch updates the node list.
+	resolveLinkEndpoints(layoutLinks, layoutNodes);
 	const resolvedNewLinks = resolveLinkEndpoints(rewrittenLinks, layoutNodes);
 	const currentLayoutNodeIds = new Set(layoutNodes.map((n) => n.id));
 	layoutLinks.push(
@@ -8171,9 +8218,17 @@ function renderGraph(_data) {
 	const isHuge = nodeCount > 1000;
 	setGraphLabelRenderMode(nodeCount);
 
+	const shouldUseInitialFallback = shouldUseInitialSvgFallback(nodeCount) && !initialSvgFallbackUsed;
+	const initialRenderFallbackActive = shouldUseInitialFallback;
+	if (initialRenderFallbackActive) {
+		initialSvgFallbackUsed = true;
+	}
+
 	// Prefer the lightweight canvas/WebGL path for medium and large graphs to keep
-	// the render surface cheap and avoid expensive SVG node/label churn.
-	canvasModeActive = nodeCount > 300;
+	// the render surface cheap and avoid expensive SVG node/label churn. For the
+	// initial paint, use SVG for large graphs so users see content immediately
+	// before the canvas/WebGL path becomes available.
+	canvasModeActive = nodeCount > 300 && !initialRenderFallbackActive;
 	let pixiModeActive = false;
 	let pixiApi: any = null;
 	if (canvasModeActive) {
@@ -10511,6 +10566,22 @@ async function materializeRouteSelectionNeighborhood(node, hops: number = getDef
 	} catch (error) {
 		/* ignore */
 	}
+}
+
+export function handleNodeKeyboardActivation(event, d, activateNode = handleNodeOpen) {
+	const isActivationKey =
+		event?.key === 'Enter' ||
+		event?.key === ' ' ||
+		event?.key === 'Spacebar' ||
+		event?.code === 'Enter' ||
+		event?.code === 'Space';
+	if (!isActivationKey || !d?.id) return false;
+	event.preventDefault?.();
+	event.stopPropagation?.();
+	if (typeof activateNode === 'function') {
+		activateNode(event, d);
+	}
+	return true;
 }
 
 export async function handleNodeOpen(event, d) {

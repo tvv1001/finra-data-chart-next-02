@@ -44,13 +44,17 @@ import {
 	clearSelectionState,
 	buildSessionRenderGraphData,
 	resolveLinkEndpoints,
+	rebindLinksToNodes,
+	handleNodeKeyboardActivation,
 } from '../../src/lib/finra-graph';
 import { shouldRenderBlueNodeHighlight } from '../../src/lib/finra-graph-canvas';
 import { DEFAULT_NODE_LABEL_FONT_SIZE_PX } from '../../src/lib/finra-graph-defaults';
 import { applyIndividualDetail as applyIndividualDetailFromDetailUtils } from '../../src/lib/finra-graph/detailUtils';
+import { mergeGraphNodesForAppend, rewriteGraphLinksForNodeIdentity } from '../../src/lib/graphIdentity';
 import { buildParentFirmSummaryLinks } from '../../src/lib/finra-graph/externalLinks';
 import { renderPersonDetail } from '../../src/lib/finra-graph/sidebar';
-import { buildLargeGraphRenderPlan, getLargeGraphRenderBudget, getProgressiveLoadBudget } from '../../src/lib/large-graph-rendering';
+import { buildLargeGraphRenderPlan, getLargeGraphRenderBudget, getProgressiveLoadBudget, shouldUseInitialSvgFallback } from '../../src/lib/large-graph-rendering';
+import { normalizeNodeRouteId } from '../../src/lib/node-route';
 
 describe('FinraGraph DOM helpers (unit)', () => {
 	beforeEach(() => {
@@ -174,6 +178,29 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(getNodeLabelFontSize({ zoomScale: 0.2 })).toBeGreaterThan(getNodeLabelFontSize({ zoomScale: 0.5 }));
 	});
 
+	it('getNodeLabelFontSize enlarges visually emphasized nodes', () => {
+		const baseSize = getNodeLabelFontSize({ zoomScale: 1 });
+		const emphasizedSize = getNodeLabelFontSize({ isEmphasized: true, zoomScale: 1 } as any);
+
+		expect(emphasizedSize).toBeGreaterThan(baseSize);
+	});
+
+	it('handleNodeKeyboardActivation selects focused graph nodes with Enter', () => {
+		const activateNode = vi.fn();
+		const event = {
+			key: 'Enter',
+			preventDefault: vi.fn(),
+			stopPropagation: vi.fn(),
+		} as any;
+
+		const handled = handleNodeKeyboardActivation(event, { id: 'person:123' }, activateNode);
+
+		expect(handled).toBe(true);
+		expect(event.preventDefault).toHaveBeenCalledTimes(1);
+		expect(event.stopPropagation).toHaveBeenCalledTimes(1);
+		expect(activateNode).toHaveBeenCalledWith(event, { id: 'person:123' });
+	});
+
 	it('mergeGraphNodesByIdentity merges person nodes that share the same CRD', () => {
 		const existing = [{ id: 'person:123', group: 'individual', crd: '123', label: 'CRD 123' } as any];
 		const incoming = [{ id: 'person_123', group: 'individual', crd: '123', label: 'Ada Lovelace', basicInformation: { firstName: 'Ada' } } as any];
@@ -196,6 +223,20 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(result.nodes[0].label).toBe('Megan Vogt Omoruyi');
 	});
 
+	it('mergeGraphNodesForAppend keeps the canonical person id when an alternate id arrives', () => {
+		const existing = [{ id: 'person:7212646', group: 'individual', crd: '7212646', label: 'Melinda Q Liu' } as any];
+		const incoming = [{ id: 'person_7212646', group: 'individual', crd: '7212646', label: 'Melinda Q Liu', basicInformation: { firstName: 'Melinda' } } as any];
+
+		const result = mergeGraphNodesForAppend(existing, incoming);
+		const rewrittenLinks = rewriteGraphLinksForNodeIdentity([{ source: 'person_7212646', target: 'firm:1', relationship: 'employed_by' }], result.idRewriteMap);
+
+		expect(result.nodes).toHaveLength(1);
+		expect(result.nodes[0].id).toBe('person:7212646');
+		expect(result.added).toEqual([]);
+		expect(result.idRewriteMap.get('person_7212646')).toBe('person:7212646');
+		expect(rewrittenLinks[0].source).toBe('person:7212646');
+	});
+
 	it('mergeIncomingNodesIntoExistingNodes collapses duplicate person nodes already present for the same CRD', () => {
 		const existing = [
 			{ id: 'person:1333632', group: 'individual', crd: '1333632', label: 'CRD 1333632' } as any,
@@ -209,6 +250,11 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(result.added).toEqual([]);
 		expect(result.nodes[0].label).toBe('Larry Benton Lessley');
 		expect(result.nodes[0].basicInformation.firstName).toBe('Larry');
+	});
+
+	it('normalizeNodeRouteId turns person route slugs into canonical graph ids', () => {
+		expect(normalizeNodeRouteId('person-4240769')).toBe('person:4240769');
+		expect(normalizeNodeRouteId('firm-12345')).toBe('firm:12345');
 	});
 
 	it('releasePinnedSelectedNodeAnchor clears the prior selection anchor', () => {
@@ -307,6 +353,23 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(resolved[0].target).toEqual(nodes[1]);
 	});
 
+	it('rebindLinksToNodes swaps existing links onto the freshly merged node objects', () => {
+		const previousNode = { id: 'person:1', group: 'individual', x: 10, y: 20 } as any;
+		const previousFirm = { id: 'firm:1', group: 'firm', x: 30, y: 40 } as any;
+		const mergedNodes = [
+			{ ...previousNode, x: 11, y: 21 },
+			{ ...previousFirm, x: 31, y: 41 },
+			{ id: 'person:2', group: 'individual', x: 50, y: 60 },
+		] as any[];
+		const links = [{ source: previousNode, target: previousFirm, relationship: 'employed_by' }] as any[];
+
+		const rebound = rebindLinksToNodes(links, mergedNodes);
+
+		expect(rebound).toHaveLength(1);
+		expect(rebound[0].source).toBe(mergedNodes[0]);
+		expect(rebound[0].target).toBe(mergedNodes[1]);
+	});
+
 	it('buildSessionRenderGraphData includes persisted extra nodes for session restoration', () => {
 		const baseGraphData = {
 			nodes: [
@@ -398,14 +461,20 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(isNodeInactive(node)).toBe(true);
 	});
 
-	it('keeps node label sizing stable for hover and selection feedback', () => {
-		expect(getNodeLabelFontSize({ isSelected: true })).toBe(DEFAULT_NODE_LABEL_FONT_SIZE_PX);
-		expect(getNodeLabelFontSize({ isHovered: true })).toBe(DEFAULT_NODE_LABEL_FONT_SIZE_PX);
+	it('enlarges emphasized labels for hover and selection feedback at zoomed-in views', () => {
+		expect(getNodeLabelFontSize({ isSelected: true, zoomScale: 1.25 })).toBeGreaterThan(getNodeLabelFontSize({ zoomScale: 1.25 }));
+		expect(getNodeLabelFontSize({ isHovered: true, zoomScale: 1.25 })).toBeGreaterThan(getNodeLabelFontSize({ zoomScale: 1.25 }));
+		expect(getNodeLabelFontSize({ isBolded: true, zoomScale: 1.25 })).toBeGreaterThan(getNodeLabelFontSize({ zoomScale: 1.25 }));
 	});
 
 	it('keeps large labels from shrinking when zooming in', () => {
 		expect(getNodeLabelFontSize({ zoomScale: 1 })).toBe(DEFAULT_NODE_LABEL_FONT_SIZE_PX);
 		expect(getNodeLabelFontSize({ zoomScale: 1.25 })).toBeGreaterThanOrEqual(DEFAULT_NODE_LABEL_FONT_SIZE_PX);
+	});
+
+	it('makes selected labels larger than standard labels when zoomed in', () => {
+		expect(getNodeLabelFontSize({ isSelected: true, zoomScale: 1.25 })).toBeGreaterThan(getNodeLabelFontSize({ zoomScale: 1.25 }));
+		expect(getNodeLabelFontSize({ isHovered: true, zoomScale: 1.25 })).toBeGreaterThan(getNodeLabelFontSize({ zoomScale: 1.25 }));
 	});
 
 	it('includes firm CRDs in the node tooltip title', () => {
@@ -633,6 +702,12 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(getProgressiveLoadBudget(5_000, 1, 0)).toBeLessThan(getProgressiveLoadBudget(5_000, 1, 4));
 		expect(getProgressiveLoadBudget(5_000, 1, 4)).toBe(getLargeGraphRenderBudget(5_000, 1));
 		expect(getProgressiveLoadBudget(1_000, 1, 0)).toBe(getLargeGraphRenderBudget(1_000, 1));
+	});
+
+	it('shouldUseInitialSvgFallback stays off so graphs always render in SVG', () => {
+		expect(shouldUseInitialSvgFallback(250)).toBe(false);
+		expect(shouldUseInitialSvgFallback(400)).toBe(false);
+		expect(shouldUseInitialSvgFallback(8_000)).toBe(false);
 	});
 
 	it('buildLargeGraphRenderPlan preserves the selected node and trims off-screen work', () => {

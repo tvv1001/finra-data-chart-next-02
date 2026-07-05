@@ -4,6 +4,7 @@ import { rememberRecentSeed } from '@/lib/seedStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
 import { queueHydration } from '@/lib/hydration';
+import { addRecordToSearchIndex } from '@/lib/localSearch';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -147,7 +148,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			cachedFetch(`sec:firm:${id}`, 60 * 60 * 24, async () => {
 				try {
 					const url = `https://api.adviserinfo.sec.gov/search/firm/${encodeURIComponent(id)}?wt=json`;
-					const res = await fetch(url, { ...fetchOptions, headers: { ...fetchOptions.headers, 'Referer': 'https://adviserinfo.sec.gov/' } });
+					const res = await fetch(url, { ...fetchOptions, headers: { ...fetchOptions.headers, Referer: 'https://adviserinfo.sec.gov/' } });
 					if (!res.ok) throw new Error(`HTTP ${res.status}`);
 					return res.json();
 				} catch (err: any) {
@@ -158,7 +159,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			cachedFetch(`sec:firm:summaryHtml:${id}`, 60 * 60 * 24, async () => {
 				try {
 					const url = `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(id)}`;
-					const res = await fetch(url, { ...fetchOptions, headers: { ...fetchOptions.headers, 'Referer': 'https://adviserinfo.sec.gov/' } });
+					const res = await fetch(url, { ...fetchOptions, headers: { ...fetchOptions.headers, Referer: 'https://adviserinfo.sec.gov/' } });
 					if (!res.ok) throw new Error(`HTTP ${res.status}`);
 					return res.text();
 				} catch (err: any) {
@@ -243,6 +244,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		// Queue background hydration of the external API to ensure cache stays hydrated
 		queueHydration('firm', id);
 
+		const searchIndexDetail = detail && typeof detail === 'object' ? detail : null;
+		try {
+			await addRecordToSearchIndex('finra', 'firm', id, searchIndexDetail);
+		} catch (searchIndexErr: any) {
+			logger.warn('failed to update local firm search index from detail route', { id, error: searchIndexErr?.message || String(searchIndexErr) });
+		}
+
 		if (isMergedRoute) {
 			return NextResponse.json(
 				{
@@ -263,11 +271,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		return NextResponse.json(detail, { headers: sharedCacheHeaders(3600) });
 	} catch (err: any) {
-		logger.error('firm local detail route error', { 
-			id, 
+		logger.error('firm local detail route error', {
+			id,
 			error: err.message,
 			stack: err.stack,
-			isMergedRoute: request.nextUrl.searchParams.get('merged') === '1'
+			isMergedRoute: request.nextUrl.searchParams.get('merged') === '1',
 		});
 		return NextResponse.json({ error: 'Failed to load local detail.', message: err.message }, { status: 500 });
 	}
