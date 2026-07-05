@@ -45,7 +45,7 @@
 
 	/* Inactive nodes */
 	--color-node-inactive: #869ab944;
-	--color-node-inactive-stroke: #879bb7;
+	--color-node-inactive-stroke: #879bb77b;
 	--color-node-inactive-label: #334155;
 	--color-node-inactive-highlighted-stroke: rgba(192, 201, 213, 0.95);
 	--opacity-node-inactive: 0.82;
@@ -3576,13 +3576,6 @@ a,
 	stroke-width: 1px !important;
 	stroke-opacity: 0.95 !important;
 	vector-effect: non-scaling-stroke;
-}
-
-.fg-link.fg-link--depth-active {
-	stroke-linecap: round;
-	stroke-linejoin: round;
-	vector-effect: non-scaling-stroke;
-	filter: drop-shadow(0 0 0.8px rgba(15, 23, 42, 0.24)) drop-shadow(0 0 3px rgba(2, 132, 199, 0.16));
 }
 
 .fg-node.fg-node--inactive.highlighted-hop circle,

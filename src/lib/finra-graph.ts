@@ -6708,9 +6708,9 @@ export function getLargeNodeRevealBatchPlan(hiddenNodeCount = 0, currentNodeCoun
 		batchSize,
 		batchCount,
 		batchDelayMs:
-			isHugeGraph ? 100
-			: isLargeGraph ? 70
-			: 50,
+			isHugeGraph ? 60
+			: isLargeGraph ? 40
+			: 24,
 	};
 }
 
@@ -7333,9 +7333,39 @@ function getLinkWidth(d) {
 	return `${DEFAULT_LINK_WIDTH}px`;
 }
 
+function getLinkBaseWidth(d) {
+	const width = getLinkWidth(d);
+	const numericWidth = typeof width === 'number' ? width : parseFloat(String(width));
+	if (Number.isFinite(numericWidth)) return numericWidth;
+	return DEFAULT_LINK_WIDTH;
+}
+
+function getLinkZoomOutScale() {
+	const zoom = Math.max(0.02, Number(getCurrentGraphZoomScale()) || 1);
+	// As zoom goes down (<1), width scale goes up (>1).
+	return Math.min(3.5, Math.max(1, 1 / zoom));
+}
+
+function getScaledLinkStrokeWidth(baseWidth: number) {
+	return baseWidth * getLinkZoomOutScale();
+}
+
 function getLinkWidthPx(d) {
-	const w = getLinkWidth(d);
-	return typeof w === 'number' ? `${w}px` : w;
+	return `${getScaledLinkStrokeWidth(getLinkBaseWidth(d))}px`;
+}
+
+function refreshRenderedLinkStrokeWidthsForZoom() {
+	if (!linkSel) return;
+	const zoomScale = getLinkZoomOutScale();
+	linkSel.each(function (d) {
+		const sel = d3.select(this);
+		const storedBase = Number.parseFloat(String(sel.attr('data-fg-base-stroke-width') || ''));
+		const baseWidth = Number.isFinite(storedBase) ? storedBase : getLinkBaseWidth(d);
+		sel
+			.attr('data-fg-base-stroke-width', String(baseWidth))
+			.attr('stroke-width', baseWidth * zoomScale)
+			.style('--fg-link-width', `${baseWidth * zoomScale}px`);
+	});
 }
 
 function isNodeOnAnyTrace(nodeId: string) {
@@ -7433,7 +7463,8 @@ function joinLayeredLinkGroup(groupSel, data, enterDuration = 0) {
 	merged
 		.attr('class', 'fg-link')
 		.attr('stroke', (d) => getLinkColor(d))
-		.attr('stroke-width', (d) => getLinkWidth(d))
+		.attr('data-fg-base-stroke-width', (d) => String(getLinkBaseWidth(d)))
+		.attr('stroke-width', (d) => getScaledLinkStrokeWidth(getLinkBaseWidth(d)))
 		.style('--fg-link-width', (d) => getLinkWidthPx(d))
 		.attr('stroke-dasharray', (d) => getLinkDash(d));
 	if (enterDuration > 0) entered.transition().duration(enterDuration).attr('stroke-opacity', defaultLinkOpacity);
@@ -8287,6 +8318,7 @@ function renderGraph(_data) {
 			root.attr('transform', event.transform);
 			updateTraceStrokeScale(event.transform.k);
 			updateInactiveLinkScale(event.transform.k);
+			refreshRenderedLinkStrokeWidthsForZoom();
 			syncTraceLabelPresentation(event.transform.k);
 			if (zoomSaveTimer) clearTimeout(zoomSaveTimer);
 			zoomSaveTimer = setTimeout(() => {
@@ -10947,7 +10979,7 @@ function revealNeighbors(
 								revealNextBatch(batchIndex + 1);
 							}
 						},
-						revealBatches.length > 1 ? Math.max(40, plan.batchDelayMs) : 0,
+						revealBatches.length > 1 ? Math.max(16, plan.batchDelayMs) : 0,
 					);
 				} else if (markSelected && clickedNode) {
 					reapplySelectionState();
@@ -10995,13 +11027,13 @@ function revealNeighbors(
 
 			if (graphData && batchIndex === 0) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
 
-			refreshLayeredLinkSelections({ enterDuration: batchIndex === 0 ? 420 : 140 });
+			refreshLayeredLinkSelections({ enterDuration: batchIndex === 0 ? 220 : 90 });
 
 			const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
 			const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen).call(bindHoverAndFocus);
 
 			if (batchIndex === 0) {
-				enteredNodes.transition().duration(420).ease(d3.easeCubicOut).attr('opacity', 1);
+				enteredNodes.transition().duration(220).ease(d3.easeCubicOut).attr('opacity', 1);
 			} else {
 				enteredNodes.attr('opacity', 1);
 			}
@@ -11040,7 +11072,7 @@ function revealNeighbors(
 							revealNextBatch(batchIndex + 1);
 						}
 					},
-					revealBatches.length > 1 ? Math.max(40, plan.batchDelayMs) : 0,
+					revealBatches.length > 1 ? Math.max(16, plan.batchDelayMs) : 0,
 				);
 				return;
 			}
@@ -11122,6 +11154,10 @@ function clearHighlights() {
 		selectionRestoreTimer = null;
 	}
 	stopNodePulseLoop();
+	visitedNodeIds.clear();
+	hoveredNodeId = null;
+	focusedNodeId = null;
+	clearFindMatches();
 	const resetSelectionState = clearSelectionState();
 	selectedId = resetSelectionState.selectedId;
 	highlightedSelections = resetSelectionState.highlightedSelections;
@@ -11155,6 +11191,15 @@ function highlightLinks(highlightState = null) {
 			.style('opacity', null)
 			.attr('stroke', (d) => getLinkColor(d))
 			.attr('stroke-opacity', (d) => getSelectionLinkOpacity(d, selectionLinkEmphasis))
+			.attr('data-fg-base-stroke-width', (d) => {
+				const isGrayLine = hasInactiveEndpoint(d) || isPreviousEmploymentLink(d) || isForcedGrayConnectionLink(d);
+				const highlightedStrokeWidth =
+					isGrayLine ? 1.05
+					: d.relationship === 'controls' ? 1.9
+					: usesCurrentEmploymentStyling(d) ? 1.85
+					: 1.4;
+				return String(highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale);
+			})
 			.attr('stroke-width', (d) => {
 				const isGrayLine = hasInactiveEndpoint(d) || isPreviousEmploymentLink(d) || isForcedGrayConnectionLink(d);
 				const highlightedStrokeWidth =
@@ -11162,7 +11207,8 @@ function highlightLinks(highlightState = null) {
 					: d.relationship === 'controls' ? 1.9
 					: usesCurrentEmploymentStyling(d) ? 1.85
 					: 1.4;
-				return highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale;
+				const baseWidth = highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale;
+				return getScaledLinkStrokeWidth(baseWidth);
 			})
 			.style('--fg-link-width', (d) => {
 				const isGrayLine = hasInactiveEndpoint(d) || isPreviousEmploymentLink(d) || isForcedGrayConnectionLink(d);
@@ -11171,7 +11217,8 @@ function highlightLinks(highlightState = null) {
 					: d.relationship === 'controls' ? 1.9
 					: usesCurrentEmploymentStyling(d) ? 1.85
 					: 1.4;
-				return `${highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale}px`;
+				const baseWidth = highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale;
+				return `${getScaledLinkStrokeWidth(baseWidth)}px`;
 			})
 			.classed('fg-link--depth-active', false)
 			.classed('fg-link--depth-recessed', false)
@@ -11231,8 +11278,9 @@ function highlightLinks(highlightState = null) {
 					.style('stroke-opacity', null)
 					.attr('stroke', getLinkHighlightColor(d))
 					.attr('stroke-opacity', activeStrokeOpacity)
-					.attr('stroke-width', highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale)
-					.style('--fg-link-width', `${highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale}px`);
+					.attr('data-fg-base-stroke-width', `${highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale}`)
+					.attr('stroke-width', getScaledLinkStrokeWidth(highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale))
+					.style('--fg-link-width', `${getScaledLinkStrokeWidth(highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale)}px`);
 			} else {
 				sel.classed('fg-link--depth-recessed', true);
 				const recessedLinkOpacity = isGrayLine ? 0.58 : 0.56;
@@ -11244,8 +11292,9 @@ function highlightLinks(highlightState = null) {
 					.style('stroke-opacity', null)
 					.attr('stroke', getLinkColor(d))
 					.attr('stroke-opacity', recessedStrokeOpacity)
-					.attr('stroke-width', recessedStrokeWidth)
-					.style('--fg-link-width', `${recessedStrokeWidth}px`);
+					.attr('data-fg-base-stroke-width', `${recessedStrokeWidth}`)
+					.attr('stroke-width', getScaledLinkStrokeWidth(recessedStrokeWidth))
+					.style('--fg-link-width', `${getScaledLinkStrokeWidth(recessedStrokeWidth)}px`);
 			}
 		} else if (isTraceMode || isTraceLogMode) {
 			// Keep non-trace links visible during trace mode, just dimmed by ~20%
@@ -11257,7 +11306,8 @@ function highlightLinks(highlightState = null) {
 				.style('stroke-opacity', null)
 				.attr('stroke', getLinkColor(d))
 				.attr('stroke-opacity', Math.max(0.18, baseStrokeOpacity * 0.8))
-				.attr('stroke-width', getLinkWidth(d))
+				.attr('data-fg-base-stroke-width', String(getLinkBaseWidth(d)))
+				.attr('stroke-width', getScaledLinkStrokeWidth(getLinkBaseWidth(d)))
 				.style('--fg-link-width', getLinkWidthPx(d));
 		}
 	});

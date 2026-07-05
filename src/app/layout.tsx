@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from 'next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import AnalyticsRouteBridge from '@/components/AnalyticsRouteBridge';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
-import ViewportDebugOverlay from '@/components/ViewportDebugOverlay';
 import './globals.css';
 
 const siteUrl = 'https://finra-data-chart-next-02.vercel.app';
@@ -110,7 +109,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 			<body>
 				<script dangerouslySetInnerHTML={{ __html: themeLoaderScript }} />
 				<ServiceWorkerRegistration />
-				<ViewportDebugOverlay />
 				{children}
 				<AnalyticsRouteBridge />
 				{shouldRenderSpeedInsights ?
