@@ -24,6 +24,7 @@ import {
 	getSelectionLinkOpacity,
 	loadSelectionLogBoldPreference,
 	mergeGraphNodesByIdentity,
+	mergeIncomingNodesIntoExistingNodes,
 	normalizeNodeLabelInPlace,
 	rankFindNodeMatches,
 	scheduleNodeExpansion,
@@ -171,6 +172,17 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(merged).toHaveLength(1);
 		expect(merged[0].id).toBe('person:123');
 		expect(merged[0].basicInformation.firstName).toBe('Ada');
+	});
+
+	it('mergeIncomingNodesIntoExistingNodes avoids appending a second copy for the same CRD', () => {
+		const existing = [{ id: 'person:7803022', group: 'individual', crd: '7803022', label: 'CRD 7803022' } as any];
+		const incoming = [{ id: 'person_7803022', group: 'individual', crd: '7803022', label: 'Megan Vogt Omoruyi', basicInformation: { firstName: 'Megan' } } as any];
+
+		const result = mergeIncomingNodesIntoExistingNodes(existing, incoming);
+
+		expect(result.nodes).toHaveLength(1);
+		expect(result.added).toEqual([]);
+		expect(result.nodes[0].label).toBe('Megan Vogt Omoruyi');
 	});
 
 	it('scheduleNodeExpansion defers expansion work until the queued timer runs', () => {

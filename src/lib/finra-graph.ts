@@ -5534,9 +5534,10 @@ function mergeGraphNodePayload(targetNode, incomingNode) {
 	return targetNode;
 }
 
-export function mergeGraphNodesByIdentity(existingNodes = [], incomingNodes = []) {
+export function mergeIncomingNodesIntoExistingNodes(existingNodes = [], incomingNodes = []) {
 	const mergedNodes = Array.isArray(existingNodes) ? [...existingNodes] : [];
 	const identityMap = new Map<string, any>();
+	const idRewriteMap = new Map<string, string>();
 	mergedNodes.forEach((node) => {
 		const key = getNodeIdentityKey(node);
 		if (key) identityMap.set(key, node);
@@ -5545,16 +5546,34 @@ export function mergeGraphNodesByIdentity(existingNodes = [], incomingNodes = []
 	(Array.isArray(incomingNodes) ? incomingNodes : []).forEach((incomingNode) => {
 		const key = getNodeIdentityKey(incomingNode);
 		if (key && identityMap.has(key)) {
-			mergeGraphNodePayload(identityMap.get(key), incomingNode);
+			const targetNode = identityMap.get(key);
+			mergeGraphNodePayload(targetNode, incomingNode);
+			if (incomingNode?.id && targetNode?.id && String(incomingNode.id) !== String(targetNode.id)) {
+				idRewriteMap.set(String(incomingNode.id), String(targetNode.id));
+			}
 			return;
 		}
 		const nodeToAdd = { ...incomingNode };
 		normalizeNodeLabelInPlace(nodeToAdd);
 		mergedNodes.push(nodeToAdd);
+		if (incomingNode?.id) {
+			idRewriteMap.set(String(incomingNode.id), String(nodeToAdd.id));
+		}
 		if (key) identityMap.set(key, nodeToAdd);
 	});
 
-	return mergedNodes;
+	return {
+		nodes: mergedNodes,
+		added: mergedNodes
+			.filter((node) => !existingNodes.some((entry) => entry?.id === node?.id))
+			.map((node) => node?.id)
+			.filter(Boolean),
+		idRewriteMap,
+	};
+}
+
+export function mergeGraphNodesByIdentity(existingNodes = [], incomingNodes = []) {
+	return mergeIncomingNodesIntoExistingNodes(existingNodes, incomingNodes).nodes;
 }
 
 function mergeIntoGraphData(newNodes, newLinks) {
@@ -7915,9 +7934,18 @@ function appendFetchedImpl(newNodes, newLinks) {
 	}
 	normalizeNodeLabelsInPlace(newNodes);
 
-	// avoid duplicates
-	const existIds = new Set(layoutNodes.map((n) => n.id));
-	const uniqNodes = newNodes.filter((n) => !existIds.has(n.id));
+	const mergeResult = mergeIncomingNodesIntoExistingNodes(layoutNodes, newNodes);
+	const mergedNodes = mergeResult.nodes;
+	const uniqNodes = mergedNodes.filter((node) => !layoutNodes.some((entry) => entry?.id === node?.id));
+	const incomingNodeIdRewrites = mergeResult.idRewriteMap;
+	const rewrittenLinks = (Array.isArray(newLinks) ? newLinks : []).map((link) => {
+		const rewritten = { ...link };
+		const sourceId = link.source?.id ?? link.source;
+		const targetId = link.target?.id ?? link.target;
+		if (sourceId && incomingNodeIdRewrites.has(String(sourceId))) rewritten.source = incomingNodeIdRewrites.get(String(sourceId));
+		if (targetId && incomingNodeIdRewrites.has(String(targetId))) rewritten.target = incomingNodeIdRewrites.get(String(targetId));
+		return rewritten;
+	});
 
 	// Place newly-added nodes near the expand origin (parent node) if known,
 	// otherwise fall back to the viewport center so they're visible immediately.
@@ -7936,10 +7964,9 @@ function appendFetchedImpl(newNodes, newLinks) {
 			}
 		});
 	}
-	// push
-	layoutNodes.push(...uniqNodes);
 
-	const resolvedNewLinks = resolveLinkEndpoints(newLinks, layoutNodes);
+	layoutNodes = mergedNodes;
+	const resolvedNewLinks = resolveLinkEndpoints(rewrittenLinks, layoutNodes);
 	const currentLayoutNodeIds = new Set(layoutNodes.map((n) => n.id));
 	layoutLinks.push(
 		...resolvedNewLinks.filter((l) => {
