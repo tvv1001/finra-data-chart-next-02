@@ -5552,10 +5552,17 @@ function mergeGraphNodePayload(targetNode, incomingNode) {
 	}
 	if (incomingNode.name && !targetNode.name) targetNode.name = incomingNode.name;
 	if (incomingNode.firmName && !targetNode.firmName) targetNode.firmName = incomingNode.firmName;
-	if (incomingNode.label && (isPlaceholderExpansionLabel(targetNode.label, targetNode.group) || String(incomingNode.label).length > String(targetNode.label || '').length)) {
-		targetNode.label = incomingNode.label;
+	const currentLabel = String(targetNode.label || '').trim();
+	const incomingLabel = String(incomingNode.label || '').trim();
+	const currentLabelIsPlaceholder = !currentLabel || isPlaceholderExpansionLabel(currentLabel, targetNode.group) || /^node\s+/i.test(currentLabel);
+	const shouldAdoptIncomingLabel = Boolean(incomingLabel) && (currentLabelIsPlaceholder || incomingLabel.length > currentLabel.length);
+	if (shouldAdoptIncomingLabel) {
+		targetNode.label = targetNode.group === 'individual' ? normalizePersonLabel(incomingLabel) || incomingLabel : incomingLabel;
+		return targetNode;
 	}
-	normalizeNodeLabelInPlace(targetNode);
+	if (!targetNode.label || isPlaceholderExpansionLabel(targetNode.label, targetNode.group)) {
+		normalizeNodeLabelInPlace(targetNode);
+	}
 	return targetNode;
 }
 
@@ -5564,31 +5571,38 @@ export function mergeRenderedNodesForReveal(existingNodes = [], incomingNodes = 
 }
 
 export function mergeIncomingNodesIntoExistingNodes(existingNodes = [], incomingNodes = []) {
-	const mergedNodes = Array.isArray(existingNodes) ? [...existingNodes] : [];
+	const mergedNodes = [];
 	const identityMap = new Map<string, any>();
 	const idRewriteMap = new Map<string, string>();
-	mergedNodes.forEach((node) => {
+
+	const upsertNode = (node) => {
+		if (!node || typeof node !== 'object') return null;
 		const key = getNodeIdentityKey(node);
-		if (key) identityMap.set(key, node);
+		if (key && identityMap.has(key)) {
+			const targetNode = identityMap.get(key);
+			mergeGraphNodePayload(targetNode, node);
+			if (node?.id && targetNode?.id && String(node.id) !== String(targetNode.id)) {
+				idRewriteMap.set(String(node.id), String(targetNode.id));
+			}
+			return targetNode;
+		}
+
+		const nodeToAdd = { ...node };
+		normalizeNodeLabelInPlace(nodeToAdd);
+		if (key) identityMap.set(key, nodeToAdd);
+		mergedNodes.push(nodeToAdd);
+		if (node?.id) {
+			idRewriteMap.set(String(node.id), String(nodeToAdd.id));
+		}
+		return nodeToAdd;
+	};
+
+	(Array.isArray(existingNodes) ? existingNodes : []).forEach((node) => {
+		upsertNode(node);
 	});
 
 	(Array.isArray(incomingNodes) ? incomingNodes : []).forEach((incomingNode) => {
-		const key = getNodeIdentityKey(incomingNode);
-		if (key && identityMap.has(key)) {
-			const targetNode = identityMap.get(key);
-			mergeGraphNodePayload(targetNode, incomingNode);
-			if (incomingNode?.id && targetNode?.id && String(incomingNode.id) !== String(targetNode.id)) {
-				idRewriteMap.set(String(incomingNode.id), String(targetNode.id));
-			}
-			return;
-		}
-		const nodeToAdd = { ...incomingNode };
-		normalizeNodeLabelInPlace(nodeToAdd);
-		mergedNodes.push(nodeToAdd);
-		if (incomingNode?.id) {
-			idRewriteMap.set(String(incomingNode.id), String(nodeToAdd.id));
-		}
-		if (key) identityMap.set(key, nodeToAdd);
+		upsertNode(incomingNode);
 	});
 
 	return {

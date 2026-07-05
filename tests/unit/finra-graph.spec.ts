@@ -195,6 +195,21 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(result.nodes[0].label).toBe('Megan Vogt Omoruyi');
 	});
 
+	it('mergeIncomingNodesIntoExistingNodes collapses duplicate person nodes already present for the same CRD', () => {
+		const existing = [
+			{ id: 'person:1333632', group: 'individual', crd: '1333632', label: 'CRD 1333632' } as any,
+			{ id: 'person_1333632', group: 'individual', crd: '1333632', label: 'Larry Benton Lessley' } as any,
+		];
+		const incoming = [{ id: 'person:1333632', group: 'individual', crd: '1333632', label: 'Larry Benton Lessley', basicInformation: { firstName: 'Larry' } } as any];
+
+		const result = mergeIncomingNodesIntoExistingNodes(existing, incoming);
+
+		expect(result.nodes).toHaveLength(1);
+		expect(result.added).toEqual([]);
+		expect(result.nodes[0].label).toBe('Larry Benton Lessley');
+		expect(result.nodes[0].basicInformation.firstName).toBe('Larry');
+	});
+
 	it('releasePinnedSelectedNodeAnchor clears the prior selection anchor', () => {
 		const previousNode = { id: 'person:123', fx: 10, fy: 20 } as any;
 		const nextNode = { id: 'person:456', fx: null, fy: null } as any;

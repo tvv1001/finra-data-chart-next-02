@@ -15,11 +15,12 @@ export function startForceWorker(nodes: any[], links: any[], width = 800, height
 		} catch {}
 		_forceWorker = null;
 	}
+	const workerUrl = '/workers/d3-force-worker.js';
 	try {
-		_forceWorker = new Worker('/workers/d3-force-worker-wasm.js', { type: 'module' });
+		_forceWorker = new Worker(workerUrl, { type: 'module' });
 	} catch (err) {
 		try {
-			_forceWorker = new Worker('/workers/d3-force-worker.js');
+			_forceWorker = new Worker('/workers/d3-force-worker.bundle.js', { type: 'module' });
 		} catch (fallbackErr) {
 			const workerCode = `
             let nodes = [];
