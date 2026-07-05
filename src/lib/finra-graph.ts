@@ -7202,10 +7202,21 @@ function rerenderGraphNodesByIds(nodeIds) {
 	renderNodeContents(nodeSel.filter((node) => idSet.has(node.id)));
 }
 
-export function getNodeLabelFontSize({ isSelected = false, isHovered = false }: { isSelected?: boolean; isHovered?: boolean } = {}) {
-	void isSelected;
-	void isHovered;
-	return DEFAULT_NODE_LABEL_FONT_SIZE_PX;
+export function getNodeLabelFontSize({
+	isSelected = false,
+	isHovered = false,
+	zoomScale = getCurrentGraphZoomScale(),
+}: { isSelected?: boolean; isHovered?: boolean; zoomScale?: number } = {}) {
+	const normalizedScale = Math.max(0.08, Number(zoomScale) || 1);
+	const zoomBoost = normalizedScale < 0.85 ? 1 + (0.85 - normalizedScale) * 0.4 : 1;
+	const emphasisBoost =
+		isSelected || isHovered ?
+			normalizedScale < 1 ?
+				1.04
+			:	1
+		:	1;
+	const size = DEFAULT_NODE_LABEL_FONT_SIZE_PX * zoomBoost * emphasisBoost;
+	return Math.min(24, Math.max(DEFAULT_NODE_LABEL_FONT_SIZE_PX, size));
 }
 
 function renderNodeContents(selection) {
@@ -9764,6 +9775,20 @@ async function ensureFirmDetail(firmNode) {
 	}
 }
 
+export function releasePinnedSelectedNodeAnchor(nodeId, nodes = layoutNodes) {
+	if (!nodeId || !Array.isArray(nodes)) return false;
+	let released = false;
+	nodes.forEach((node) => {
+		if (!node || String(node.id) !== String(nodeId)) return;
+		if (node.fx != null || node.fy != null) {
+			node.fx = null;
+			node.fy = null;
+			released = true;
+		}
+	});
+	return released;
+}
+
 function anchorNode(node) {
 	if (!node || !Number.isFinite(node.x) || !Number.isFinite(node.y)) return;
 	node.fx = node.x;
@@ -10579,6 +10604,10 @@ function selectNode(
 	if (selectionRestoreTimer) {
 		clearTimeout(selectionRestoreTimer);
 		selectionRestoreTimer = null;
+	}
+
+	if (selectedId && String(selectedId) !== String(d?.id || '')) {
+		releasePinnedSelectedNodeAnchor(selectedId);
 	}
 
 	const hops = getDefaultSelectionHops();

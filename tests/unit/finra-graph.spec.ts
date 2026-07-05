@@ -25,6 +25,7 @@ import {
 	loadSelectionLogBoldPreference,
 	mergeGraphNodesByIdentity,
 	mergeIncomingNodesIntoExistingNodes,
+	releasePinnedSelectedNodeAnchor,
 	normalizeNodeLabelInPlace,
 	rankFindNodeMatches,
 	scheduleNodeExpansion,
@@ -163,6 +164,12 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(node.label).toBe('Node person:123');
 	});
 
+	it('getNodeLabelFontSize grows as the graph zooms out', () => {
+		expect(getNodeLabelFontSize({ zoomScale: 1 })).toBe(16);
+		expect(getNodeLabelFontSize({ zoomScale: 0.5 })).toBeGreaterThan(16);
+		expect(getNodeLabelFontSize({ zoomScale: 0.2 })).toBeGreaterThan(getNodeLabelFontSize({ zoomScale: 0.5 }));
+	});
+
 	it('mergeGraphNodesByIdentity merges person nodes that share the same CRD', () => {
 		const existing = [{ id: 'person:123', group: 'individual', crd: '123', label: 'CRD 123' } as any];
 		const incoming = [{ id: 'person_123', group: 'individual', crd: '123', label: 'Ada Lovelace', basicInformation: { firstName: 'Ada' } } as any];
@@ -183,6 +190,15 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(result.nodes).toHaveLength(1);
 		expect(result.added).toEqual([]);
 		expect(result.nodes[0].label).toBe('Megan Vogt Omoruyi');
+	});
+
+	it('releasePinnedSelectedNodeAnchor clears the prior selection anchor', () => {
+		const previousNode = { id: 'person:123', fx: 10, fy: 20 } as any;
+		const nextNode = { id: 'person:456', fx: null, fy: null } as any;
+
+		expect(releasePinnedSelectedNodeAnchor(previousNode.id, [previousNode, nextNode])).toBe(true);
+		expect(previousNode.fx).toBeNull();
+		expect(previousNode.fy).toBeNull();
 	});
 
 	it('scheduleNodeExpansion defers expansion work until the queued timer runs', () => {
