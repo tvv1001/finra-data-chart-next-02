@@ -39,10 +39,7 @@ import {
 	getRuntimeHopDefaults,
 	setRuntimeHopDefaults,
 } from './finra-graph-defaults';
-import * as canvasRenderer from './finra-graph-canvas';
-import * as overlayRenderer from './finra-graph-overlay';
 import { mergeGraphNodesForAppend } from './graphIdentity';
-import { buildLargeGraphRenderPlan, getLargeGraphRenderBudget, getProgressiveLoadBudget, shouldUseInitialSvgFallback } from './large-graph-rendering';
 import { isValidLocationStateFilter, isZipLikeLocationQuery, normalizeLocationStateFilter } from './locationSearch';
 import { buildParentFirmSummaryLinks } from './finra-graph/externalLinks';
 import { resolveIndividualSourceDetail, hasIndividualSourceCoverage } from './sourceTruth';
@@ -358,9 +355,6 @@ let pixiModeActive = false;
 let pixiApi: any = null;
 let overlayApi: any = null;
 let overlayRefreshFrameCounter = 0;
-let progressiveRevealPhase = 0;
-let progressiveRevealTimer: ReturnType<typeof setTimeout> | null = null;
-let initialSvgFallbackUsed = false;
 let sessionPersistenceMode: 'full' | 'compact' | 'reduced' | 'minimal' = 'full';
 
 function isAnyTraceModeActive() {
@@ -479,30 +473,11 @@ function shouldRefreshOverlayLabels(nodeCount = layoutNodes?.length || 0) {
 }
 
 function resetProgressiveRevealState() {
-	progressiveRevealPhase = 0;
-	if (progressiveRevealTimer) {
-		clearTimeout(progressiveRevealTimer);
-		progressiveRevealTimer = null;
-	}
+	// SVG rendering stays on the main DOM path; progressive reveal is no longer needed.
 }
 
-function startProgressiveRevealForGraph(nodeCount = layoutNodes?.length || 0) {
-	if (!Number.isFinite(nodeCount) || nodeCount <= 1200) return;
-	resetProgressiveRevealState();
-
-	const scheduleNextPhase = () => {
-		progressiveRevealTimer = setTimeout(() => {
-			progressiveRevealPhase = Math.min(progressiveRevealPhase + 1, 4);
-			scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
-			if (progressiveRevealPhase < 4) {
-				scheduleNextPhase();
-			} else {
-				progressiveRevealTimer = null;
-			}
-		}, 120);
-	};
-
-	scheduleNextPhase();
+function startProgressiveRevealForGraph(_nodeCount = layoutNodes?.length || 0) {
+	// Intentionally left as a no-op so large graphs stay on the SVG renderer.
 }
 
 function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection) {
@@ -3578,7 +3553,6 @@ function clearGraphData() {
 	clearFetchStatus();
 	allowFirstFetchZoom = true;
 	hasUserInitiatedGraphExpansion = false;
-	initialSvgFallbackUsed = false;
 	const resetSelectionState = clearSelectionState();
 	selectedId = resetSelectionState.selectedId;
 	highlightedSelections = resetSelectionState.highlightedSelections;
@@ -8338,282 +8312,18 @@ function renderGraph(_data) {
 	const isHuge = nodeCount > 1000;
 	setGraphLabelRenderMode(nodeCount);
 
-	const shouldUseInitialFallback = shouldUseInitialSvgFallback(nodeCount) && !initialSvgFallbackUsed;
-	const initialRenderFallbackActive = shouldUseInitialFallback;
-	if (initialRenderFallbackActive) {
-		initialSvgFallbackUsed = true;
-	}
-
-	// Prefer the lightweight canvas/WebGL path for medium and large graphs to keep
-	// the render surface cheap and avoid expensive SVG node/label churn. For the
-	// initial paint, use SVG for large graphs so users see content immediately
-	// before the canvas/WebGL path becomes available.
-	canvasModeActive = nodeCount > 300 && !initialRenderFallbackActive;
-	let pixiModeActive = false;
-	let pixiApi: any = null;
-	if (canvasModeActive) {
-		const mainEl = document.getElementById('fg-main');
-		if (mainEl) {
-			// Try to initialize Pixi (WebGL). If that fails, fall back to lightweight canvas.
-			import('pixi.js')
-				.then(async (PIXI) => {
-					// create a canvas for Pixi
-					const existing = document.getElementById('fg-pixi-canvas');
-					if (existing && existing.parentElement === mainEl) {
-						// reuse
-					} else {
-						const c = document.createElement('canvas');
-						c.id = 'fg-pixi-canvas';
-						c.style.position = 'absolute';
-						c.style.left = '0';
-						c.style.top = '0';
-						c.style.width = '100%';
-						c.style.height = '100%';
-						c.style.zIndex = '1';
-						mainEl.appendChild(c);
-					}
-					const canvasEl = document.getElementById('fg-pixi-canvas') as HTMLCanvasElement;
-					const Application = (PIXI as any).Application || (PIXI as any).default?.Application;
-					const Graphics = (PIXI as any).Graphics || (PIXI as any).default?.Graphics;
-					const Container = (PIXI as any).Container || (PIXI as any).default?.Container;
-					if (!Application || !Graphics || !Container) throw new Error('Missing Pixi classes');
-					const app = new Application();
-					await app.init({
-						canvas: canvasEl,
-						resizeTo: mainEl,
-						backgroundAlpha: 0,
-						antialias: false,
-						powerPreference: 'high-performance',
-					});
-					const linkLayerPixi = new Graphics();
-					const nodeLayerPixi = new Container();
-					app.stage.addChild(linkLayerPixi);
-					app.stage.addChild(nodeLayerPixi);
-
-					const nodeSpriteMap = new Map();
-					type PixiFrameOptions = {
-						logLabelNodeIds?: Array<string | number>;
-					};
-					function getLinkPoint(nodeLike: unknown) {
-						if (!nodeLike || typeof nodeLike !== 'object') return null;
-						const candidate = nodeLike as { x?: number; y?: number };
-						if (typeof candidate.x === 'number' && typeof candidate.y === 'number') {
-							return { x: candidate.x, y: candidate.y };
-						}
-						return null;
-					}
-					function drawPixiFrame(nodesArr, linksArr, transform, opts: PixiFrameOptions = {}) {
-						const width = mainEl?.clientWidth || 1200;
-						const height = mainEl?.clientHeight || 800;
-						const renderPlan = buildLargeGraphRenderPlan(nodesArr, linksArr, transform, {
-							width,
-							height,
-							selectedId,
-							logLabelNodeIds: opts.logLabelNodeIds,
-							maxVisibleNodes: getProgressiveLoadBudget(nodesArr.length, transform.k, progressiveRevealPhase),
-						});
-						const useSimplifiedLargeGraphShapes = nodesArr.length > 1500;
-						const visibleNodes = renderPlan.visibleNodes;
-						const visibleLinks = renderPlan.visibleLinks;
-						const visibleNodeIds = renderPlan.visibleNodeIds;
-
-						// Remove sprites that are no longer in the visible slice to keep the render budget bounded.
-						for (const [id, sprite] of Array.from(nodeSpriteMap.entries())) {
-							if (!visibleNodeIds.has(id)) {
-								sprite.destroy?.();
-								nodeLayerPixi.removeChild(sprite);
-								nodeSpriteMap.delete(id);
-							}
-						}
-
-						linkLayerPixi.clear();
-						const baseWidth = useSimplifiedLargeGraphShapes ? 0.8 : 1.2;
-						const k = Number.isFinite(transform?.k) && transform.k > 0 ? transform.k : 1;
-						const worldWidth = (baseWidth * Math.max(0.4, Math.min(1, k))) / k;
-						linkLayerPixi.setStrokeStyle({ width: worldWidth, color: 0x5a6a7a, alpha: useSimplifiedLargeGraphShapes ? 0.25 : 0.45 });
-						linkLayerPixi.beginPath();
-						for (const l of visibleLinks) {
-							const a = getLinkPoint(l.source);
-							const b = getLinkPoint(l.target);
-							if (!a || !b) continue;
-							linkLayerPixi.moveTo(a.x, a.y);
-							linkLayerPixi.lineTo(b.x, b.y);
-						}
-						linkLayerPixi.stroke();
-						for (const n of visibleNodes) {
-							let g = nodeSpriteMap.get(String(n.id));
-							if (!g) {
-								g = new Graphics();
-								nodeLayerPixi.addChild(g);
-								nodeSpriteMap.set(String(n.id), g);
-							}
-							g.clear();
-							const color = 0x4a90e2;
-							const radius =
-								useSimplifiedLargeGraphShapes ?
-									n.group === 'firm' ?
-										4.5
-									:	3.2
-								: n.group === 'firm' ? 6
-								: 4;
-							g.circle(0, 0, radius).fill({ color });
-							g.position.set(n.x, n.y);
-							// ensure interactive handlers for selection and drag
-							if (!g.interactive) {
-								g.interactive = true;
-								g.buttonMode = true;
-								g.cursor = 'pointer';
-								g.on('pointerdown', (evt) => {
-									evt.stopPropagation();
-									try {
-										selectNode(n);
-									} catch (e) {
-										/* ignore */
-									}
-									// start dragging
-									const pos = evt.data.global;
-									g._drag = { offsetX: pos.x - n.x, offsetY: pos.y - n.y };
-									if (typeof simulation?.alphaTarget === 'function') simulation.alphaTarget(0.3).restart?.();
-								});
-								g.on('pointermove', (evt) => {
-									if (!g._drag) return;
-									const pos = evt.data.global;
-									n.x = pos.x - g._drag.offsetX;
-									n.y = pos.y - g._drag.offsetY;
-									n.fx = n.x;
-									n.fy = n.y;
-									if (pixiApi && pixiApi.app && pixiApi.app.renderer) {
-										try {
-											pixiApi.app.renderer.render(pixiApi.app.stage);
-										} catch (e) {
-											/* ignore */
-										}
-									}
-								});
-								g.on('pointerup', () => {
-									if (g._drag) {
-										delete g._drag;
-										n.fx = null;
-										n.fy = null;
-										if (typeof simulation?.alphaTarget === 'function') simulation.alphaTarget(0);
-									}
-								});
-							}
-						}
-						app.renderer.render(app.stage);
-					}
-
-					pixiApi = {
-						app,
-						drawFrame: drawPixiFrame,
-						destroy: () => {
-							try {
-								app.destroy(true, { children: true, texture: true, baseTexture: true });
-							} catch {}
-						},
-					};
-					pixiModeActive = true;
-					canvasApi = null;
-					// Create HTML overlay for labels/tooltips
-					try {
-						overlayApi = overlayRenderer.createOverlay(mainEl, {
-							onClick: (node) => {
-								try {
-									selectNode(node);
-								} catch (e) {}
-							},
-							onHover: (node) => {
-								try {
-									setHoveredNode(node?.id || null);
-									document.dispatchEvent(new CustomEvent('finra:overlay-hover', { detail: { id: String(node.id) } }));
-								} catch (e) {}
-							},
-							onHoverEnd: () => {
-								try {
-									setHoveredNode(null);
-								} catch (e) {}
-							},
-							onFocus: (node) => {
-								try {
-									setFocusedNode(node?.id || null);
-								} catch (e) {}
-							},
-							onBlur: () => {
-								try {
-									setFocusedNode(null);
-								} catch (e) {}
-							},
-						});
-					} catch (e) {
-						_logOnce(_loggedBadTransforms, 'overlay-init-failed', 'warn', 'Failed to create HTML overlay', e);
-					}
-					startProgressiveRevealForGraph(layoutNodes?.length || 0);
-					// Start a layout worker to compute positions off the main thread
-					try {
-						canvasRenderer.startForceWorker(layoutNodes || nodes, layoutLinks || resolvedLinks, W, H, (tickNodes) => {
-							for (const p of tickNodes) {
-								const n = layoutNodes.find((x) => String(x.id) === String(p.id));
-								if (n) {
-									n.x = p.x;
-									n.y = p.y;
-								}
-							}
-							const transform = getCurrentZoomTransform();
-							if (pixiModeActive && pixiApi && typeof pixiApi.drawFrame === 'function') {
-								try {
-									const labelScale = selectedId || isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
-									const logLabelNodeIds = getSelectionLogLabelNodeIds();
-									pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
-									if (shouldRefreshOverlayLabels(layoutNodes?.length) && overlayApi && typeof overlayApi.update === 'function') {
-										try {
-											overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale, logLabelNodeIds });
-										} catch (e) {}
-									}
-								} catch (e) {}
-							} else if (canvasApi && typeof canvasApi.drawFrame === 'function') {
-								try {
-									const labelScale = selectedId || isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
-									const logLabelNodeIds = getSelectionLogLabelNodeIds();
-									canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale, logLabelNodeIds });
-									if (shouldRefreshOverlayLabels(layoutNodes?.length) && overlayApi && typeof overlayApi.update === 'function') {
-										try {
-											overlayApi.update(layoutNodes || [], transform, { selectedId, labelScale, logLabelNodeIds });
-										} catch (e) {}
-									}
-								} catch (e) {}
-							}
-						});
-					} catch (e) {
-						_logOnce(_loggedBadTransforms, 'worker-start-failed', 'warn', 'Failed to start layout worker', e);
-					}
-				})
-				.catch((err) => {
-					_logOnce(_loggedBadTransforms, 'pixi-init-failed', 'warn', 'Pixi init failed; falling back to SVG rendering for this graph', err);
-					canvasModeActive = false;
-					pixiModeActive = false;
-					try {
-						if (pixiApi && pixiApi.destroy) pixiApi.destroy();
-						pixiApi = null;
-					} catch (e) {}
-					try {
-						canvasRenderer.stopForceWorker();
-					} catch (e) {}
-				});
-		} // mainEl
-	} else {
-		// Tear down any existing pixi or canvas overlays
-		try {
-			if (pixiApi && pixiApi.destroy) pixiApi.destroy();
-			if (canvasApi && canvasApi.destroy) canvasApi.destroy();
-			if (overlayApi && overlayApi.destroy) overlayApi.destroy();
-		} catch (e) {}
-		try {
-			canvasRenderer.stopForceWorker();
-		} catch (e) {}
-		pixiApi = null;
-		canvasApi = null;
-		pixiModeActive = false;
-	}
+	// The graph permanently uses the SVG DOM renderer so direct-route loads and
+	// large graphs share the same rendering path without switching modes.
+	canvasModeActive = false;
+	pixiModeActive = false;
+	try {
+		if (pixiApi && pixiApi.destroy) pixiApi.destroy();
+		if (canvasApi && canvasApi.destroy) canvasApi.destroy();
+		if (overlayApi && overlayApi.destroy) overlayApi.destroy();
+	} catch (e) {}
+	pixiApi = null;
+	canvasApi = null;
+	overlayApi = null;
 
 	// ── Zoom ──────────────────────────────────────────────────────────────────
 	// LOD threshold: hide labels when zoomed out (less DOM paint, higher props)
@@ -11362,24 +11072,32 @@ function revealNeighbors(
 						dist,
 					)
 				:	[];
-			const batchNodeIds = new Set(batchNodes.map((n) => n.id));
-			const batchLinks = candidateLinks
-				.filter((link) => {
-					const srcId = link.source?.id ?? link.source;
-					const tgtId = link.target?.id ?? link.target;
-					if (!srcId || !tgtId) return false;
-					const srcRendered = activeRenderedIds.has(srcId);
-					const tgtRendered = activeRenderedIds.has(tgtId);
-					if (!srcRendered && !batchNodeIds.has(srcId)) return false;
-					if (!tgtRendered && !batchNodeIds.has(tgtId)) return false;
-					const alreadyHas = layoutLinks.some((el) => {
-						const es = el.source?.id ?? el.source;
-						const et = el.target?.id ?? el.target;
-						return es === srcId && et === tgtId;
-					});
-					return !alreadyHas;
-				})
-				.map((link) => ({ ...link }));
+			const existingNodeIds = new Set((Array.isArray(layoutNodes) ? layoutNodes : []).map((node) => node.id));
+			const mergeResult = mergeIncomingNodesIntoExistingNodes(layoutNodes, batchNodes);
+			const newRenderNodes = mergeResult.nodes.filter((node) => !existingNodeIds.has(node.id));
+			layoutNodes = mergeResult.nodes;
+			activeRenderedIds = new Set(layoutNodes.map((node) => node.id));
+			const batchNodeIds = new Set(newRenderNodes.map((n) => n.id));
+			const batchLinks = rewriteLinksForNodeIdMap(
+				candidateLinks
+					.filter((link) => {
+						const srcId = link.source?.id ?? link.source;
+						const tgtId = link.target?.id ?? link.target;
+						if (!srcId || !tgtId) return false;
+						const srcRendered = activeRenderedIds.has(srcId);
+						const tgtRendered = activeRenderedIds.has(tgtId);
+						if (!srcRendered && !batchNodeIds.has(srcId)) return false;
+						if (!tgtRendered && !batchNodeIds.has(tgtId)) return false;
+						const alreadyHas = layoutLinks.some((el) => {
+							const es = el.source?.id ?? el.source;
+							const et = el.target?.id ?? el.target;
+							return es === srcId && et === tgtId;
+						});
+						return !alreadyHas;
+					})
+					.map((link) => ({ ...link })),
+				mergeResult.idRewriteMap,
+			);
 
 			if (markSelected && clickedNode?.id && batchIndex === 0) {
 				visitedNodeIds.add(clickedNode.id);
@@ -11422,12 +11140,11 @@ function revealNeighbors(
 				return;
 			}
 
-			layoutNodes.push(...batchNodes);
 			layoutLinks.push(...batchLinks);
 			resolveLinkEndpoints(layoutLinks, layoutNodes);
 			applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
 
-			batchNodes.forEach((node) => {
+			newRenderNodes.forEach((node) => {
 				activeRenderedIds.add(node.id);
 			});
 
