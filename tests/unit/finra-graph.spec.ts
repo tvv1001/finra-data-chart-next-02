@@ -214,6 +214,19 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(merged[0].basicInformation.firstName).toBe('Ada');
 	});
 
+	it('mergeGraphNodesByIdentity merges firm nodes that share the same CRD even when the group is omitted', () => {
+		const existing = [{ id: 'firm:6413', firmId: '6413', label: 'LPL Financial LLC' } as any];
+		const incoming = [{ id: 'firm_6413', crd: '6413', label: 'LPL Financial LLC', basicInformation: { doingBusinessAs: 'LPL' } } as any];
+
+		const merged = mergeGraphNodesByIdentity(existing, incoming);
+
+		expect(merged).toHaveLength(1);
+		expect(merged[0].id).toBe('firm:6413');
+		expect(merged[0].firmId).toBe('6413');
+		expect(merged[0].crd).toBe('6413');
+		expect(merged[0].basicInformation.doingBusinessAs).toBe('LPL');
+	});
+
 	it('mergeIncomingNodesIntoExistingNodes avoids appending a second copy for the same CRD', () => {
 		const existing = [{ id: 'person:7803022', group: 'individual', crd: '7803022', label: 'CRD 7803022' } as any];
 		const incoming = [{ id: 'person_7803022', group: 'individual', crd: '7803022', label: 'Megan Vogt Omoruyi', basicInformation: { firstName: 'Megan' } } as any];
