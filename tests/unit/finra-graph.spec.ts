@@ -239,6 +239,24 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(rewrittenLinks[0].source).toBe('person:7212646');
 	});
 
+	it('mergeGraphNodesForAppend collapses duplicate firm nodes from the same batch', () => {
+		const existing = [] as any[];
+		const incoming = [
+			{ id: 'firm:6413', group: 'firm', firmId: '6413', label: 'LPL Financial LLC' } as any,
+			{ id: 'firm_6413', group: 'firm', firmId: '6413', label: 'LPL Financial LLC', bcScope: 'Active' } as any,
+			{ id: 'person:1', group: 'individual', crd: '1', label: 'Owner One' } as any,
+		];
+
+		const result = mergeGraphNodesForAppend(existing, incoming);
+		const rewrittenLinks = rewriteGraphLinksForNodeIdentity([{ source: 'person:1', target: 'firm_6413', relationship: 'controls' }], result.idRewriteMap);
+
+		expect(result.nodes).toHaveLength(2);
+		expect(result.nodes.find((node) => node.group === 'firm')?.id).toBe('firm:6413');
+		expect(result.nodes.find((node) => node.group === 'firm')?.bcScope).toBe('Active');
+		expect(result.idRewriteMap.get('firm_6413')).toBe('firm:6413');
+		expect(rewrittenLinks[0].target).toBe('firm:6413');
+	});
+
 	it('mergeIncomingNodesIntoExistingNodes collapses duplicate person nodes already present for the same CRD', () => {
 		const existing = [
 			{ id: 'person:1333632', group: 'individual', crd: '1333632', label: 'CRD 1333632' } as any,

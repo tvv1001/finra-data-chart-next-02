@@ -41,6 +41,7 @@ import {
 } from './finra-graph-defaults';
 import * as canvasRenderer from './finra-graph-canvas';
 import * as overlayRenderer from './finra-graph-overlay';
+import { mergeGraphNodesForAppend } from './graphIdentity';
 import { buildLargeGraphRenderPlan, getLargeGraphRenderBudget, getProgressiveLoadBudget, shouldUseInitialSvgFallback } from './large-graph-rendering';
 import { isValidLocationStateFilter, isZipLikeLocationQuery, normalizeLocationStateFilter } from './locationSearch';
 import { buildParentFirmSummaryLinks } from './finra-graph/externalLinks';
@@ -3514,8 +3515,9 @@ async function restoreSavedSession(session) {
 	if (session.extraNodes?.length || session.extraLinks?.length) {
 		const restoredExtraNodes = (session.extraNodes || []).map((node) => sanitizePersistedNode(node));
 		restoredExtraNodes.forEach((node) => resetTransientDetailState(node));
-		mergeIntoGraphData(restoredExtraNodes, session.extraLinks || []);
-		appendFetched(restoredExtraNodes, session.extraLinks || []);
+		const normalized = normalizeGraphPayloadByIdentity(restoredExtraNodes, session.extraLinks || []);
+		mergeIntoGraphData(normalized.nodes, normalized.links);
+		appendFetched(normalized.nodes, normalized.links);
 	} else if (session.extraNodeIds?.length) {
 		const missingExtraNodeIds = session.extraNodeIds.filter((id) => !layoutNodes.some((node) => node.id === id));
 		if (missingExtraNodeIds.length) {
@@ -3791,19 +3793,19 @@ export function buildSessionRenderGraphData(session, baseGraphData = graphData) 
 	if (!requiredIds.size) return null;
 
 	const sessionNodes = [];
-	const seenNodeIds = new Set<string>();
 	for (const node of [...(baseGraphData.nodes || []), ...(Array.isArray(session?.extraNodes) ? session.extraNodes : [])]) {
 		if (!node?.id) continue;
 		const nodeId = String(node.id);
-		if (!requiredIds.has(nodeId) || seenNodeIds.has(nodeId)) continue;
-		seenNodeIds.add(nodeId);
+		if (!requiredIds.has(nodeId)) continue;
 		sessionNodes.push({ ...node, id: nodeId });
 	}
 
-	if (!sessionNodes.length) return null;
+	const normalizedSession = normalizeGraphPayloadByIdentity(sessionNodes, candidateLinks);
+	const dedupedSessionNodes = normalizedSession.nodes;
+	if (!dedupedSessionNodes.length) return null;
 
-	const sessionNodeIds = new Set(sessionNodes.map((node) => String(node.id)));
-	const sessionLinks = candidateLinks.filter((link) => {
+	const sessionNodeIds = new Set(dedupedSessionNodes.map((node) => String(node.id)));
+	const sessionLinks = normalizedSession.links.filter((link) => {
 		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
 		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
 		return sessionNodeIds.has(sourceId) && sessionNodeIds.has(targetId);
@@ -3811,7 +3813,7 @@ export function buildSessionRenderGraphData(session, baseGraphData = graphData) 
 
 	return {
 		...baseGraphData,
-		nodes: sessionNodes,
+		nodes: dedupedSessionNodes,
 		links: sessionLinks,
 	};
 }
@@ -5635,6 +5637,25 @@ export function rewriteLinksForNodeIdMap(links = [], idRewriteMap = new Map<stri
 	});
 }
 
+function dedupeGraphLinksByIdentity(links = [], idRewriteMap = new Map<string, string>()) {
+	const rewrittenLinks = rewriteLinksForNodeIdMap(links, idRewriteMap);
+	const seen = new Set<string>();
+	return rewrittenLinks.filter((link) => {
+		const key = getLinkIdentityKey(link);
+		if (seen.has(key)) return false;
+		seen.add(key);
+		return true;
+	});
+}
+
+function normalizeGraphPayloadByIdentity(nodes = [], links = []) {
+	const mergedNodes = mergeGraphNodesForAppend([], nodes);
+	return {
+		nodes: mergedNodes.nodes,
+		links: dedupeGraphLinksByIdentity(links, mergedNodes.idRewriteMap),
+	};
+}
+
 export function mergeIncomingNodesIntoExistingNodes(existingNodes = [], incomingNodes = []) {
 	const mergedNodes = [];
 	const identityMap = new Map<string, any>();
@@ -5919,7 +5940,11 @@ async function fetchFirmBatch(firmId, queryLabel = null) {
 		console.warn(`Failed to fetch additional employees for firm ${firmId}:`, e);
 	}
 
-	return { nodes, links };
+	const mergedNodes = mergeGraphNodesForAppend([], nodes);
+	return {
+		nodes: mergedNodes.nodes,
+		links: dedupeGraphLinksByIdentity(links, mergedNodes.idRewriteMap),
+	};
 }
 
 async function loadGraph() {
@@ -8277,7 +8302,7 @@ function renderGraph(_data) {
 		if (mainEl) {
 			// Try to initialize Pixi (WebGL). If that fails, fall back to lightweight canvas.
 			import('pixi.js')
-				.then((PIXI) => {
+				.then(async (PIXI) => {
 					// create a canvas for Pixi
 					const existing = document.getElementById('fg-pixi-canvas');
 					if (existing && existing.parentElement === mainEl) {
@@ -8298,7 +8323,14 @@ function renderGraph(_data) {
 					const Graphics = (PIXI as any).Graphics || (PIXI as any).default?.Graphics;
 					const Container = (PIXI as any).Container || (PIXI as any).default?.Container;
 					if (!Application || !Graphics || !Container) throw new Error('Missing Pixi classes');
-					const app = new Application({ view: canvasEl, resizeTo: mainEl, backgroundAlpha: 0, antialias: false, powerPreference: 'high-performance' });
+					const app = new Application();
+					await app.init({
+						canvas: canvasEl,
+						resizeTo: mainEl,
+						backgroundAlpha: 0,
+						antialias: false,
+						powerPreference: 'high-performance',
+					});
 					const linkLayerPixi = new Graphics();
 					const nodeLayerPixi = new Container();
 					app.stage.addChild(linkLayerPixi);
@@ -8344,7 +8376,8 @@ function renderGraph(_data) {
 						const baseWidth = useSimplifiedLargeGraphShapes ? 0.8 : 1.2;
 						const k = Number.isFinite(transform?.k) && transform.k > 0 ? transform.k : 1;
 						const worldWidth = (baseWidth * Math.max(0.4, Math.min(1, k))) / k;
-						linkLayerPixi.lineStyle(worldWidth, 0x5a6a7a, useSimplifiedLargeGraphShapes ? 0.25 : 0.45);
+						linkLayerPixi.setStrokeStyle({ width: worldWidth, color: 0x5a6a7a, alpha: useSimplifiedLargeGraphShapes ? 0.25 : 0.45 });
+						linkLayerPixi.beginPath();
 						for (const l of visibleLinks) {
 							const a = getLinkPoint(l.source);
 							const b = getLinkPoint(l.target);
@@ -8352,6 +8385,7 @@ function renderGraph(_data) {
 							linkLayerPixi.moveTo(a.x, a.y);
 							linkLayerPixi.lineTo(b.x, b.y);
 						}
+						linkLayerPixi.stroke();
 						for (const n of visibleNodes) {
 							let g = nodeSpriteMap.get(String(n.id));
 							if (!g) {
@@ -8368,9 +8402,7 @@ function renderGraph(_data) {
 									:	3.2
 								: n.group === 'firm' ? 6
 								: 4;
-							g.beginFill(color);
-							g.drawCircle(0, 0, radius);
-							g.endFill();
+							g.circle(0, 0, radius).fill({ color });
 							g.position.set(n.x, n.y);
 							// ensure interactive handlers for selection and drag
 							if (!g.interactive) {
@@ -9761,14 +9793,17 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 		});
 	}
 
-	if (!newNodes.length && !newLinks.length) {
+	const dedupedNodes = mergeGraphNodesForAppend([], newNodes);
+	const dedupedLinks = dedupeGraphLinksByIdentity(newLinks, dedupedNodes.idRewriteMap);
+
+	if (!dedupedNodes.nodes.length && !dedupedLinks.length) {
 		applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
 		rerenderGraphNodesByIds([firmNodeId]);
 		refreshGraphColors();
 		return;
 	}
-	appendFetched(newNodes, newLinks);
-	mergeIntoGraphData(newNodes, newLinks);
+	appendFetched(dedupedNodes.nodes, dedupedLinks);
+	mergeIntoGraphData(dedupedNodes.nodes, dedupedLinks);
 }
 
 // Fetch firm detail from the server (which checks local cache first, then FINRA API).
