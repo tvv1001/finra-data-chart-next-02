@@ -42,6 +42,7 @@ import {
 	shouldAutoRevealNodeConnections,
 	shouldRenderNodeSelected,
 	upsertSelectionLogEntry,
+	pruneGraphToSelectionLogEntries,
 	isForcedGrayConnectionLink,
 	clearSelectionState,
 	buildSessionRenderGraphData,
@@ -132,6 +133,25 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		});
 
 		expect(reordered.map((entry) => entry.id)).toEqual(['firm:2', 'person:3', 'person:1']);
+	});
+
+	it('pruneGraphToSelectionLogEntries removes nodes and links outside the logged list', () => {
+		const graphData = {
+			nodes: [
+				{ id: 'person:1', group: 'individual' },
+				{ id: 'person:2', group: 'individual' },
+				{ id: 'firm:3', group: 'firm' },
+			],
+			links: [
+				{ source: 'person:1', target: 'firm:3', relationship: 'employed_by' },
+				{ source: 'person:2', target: 'firm:3', relationship: 'employed_by' },
+			],
+		} as any;
+
+		const pruned = pruneGraphToSelectionLogEntries(graphData, [{ id: 'person:1', label: 'Alpha', secondaryId: 'CRD# 1', group: 'individual' }]);
+
+		expect(pruned.nodes.map((node: any) => node.id)).toEqual(['person:1']);
+		expect(pruned.links).toEqual([]);
 	});
 
 	it('ensureSidebarHintContent adds placeholder when empty', () => {

@@ -1154,6 +1154,14 @@ export default function FinraGraph() {
 									title='Clear log'>
 									Clear
 								</button>
+								<button
+									id='btn-selection-log-clear-others'
+									data-fg-selection-log-action='clear-others'
+									className='fg-ghost-btn fg-btn-sm'
+									type='button'
+									title='Keep only nodes in the selection log'>
+									Clear Others
+								</button>
 							</div>
 						</div>
 					</div>

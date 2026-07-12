@@ -2046,7 +2046,7 @@ function guardTraceLogSurface(reason = 'state-sync') {
 	}
 }
 
-function getSelectionLogActionButtons(action: 'trace' | 'copy-all' | 'clear' | 'toggle-bold' | 'edit') {
+function getSelectionLogActionButtons(action: 'trace' | 'copy-all' | 'clear' | 'clear-others' | 'toggle-bold' | 'edit') {
 	return Array.from(document.querySelectorAll<HTMLButtonElement>(`[data-fg-selection-log-action="${action}"]`));
 }
 
@@ -2099,6 +2099,12 @@ function syncSelectionLogActionButtonStates() {
 		button.setAttribute('aria-pressed', isSelectionLogEditMode ? 'true' : 'false');
 		button.title = isSelectionLogEditMode ? 'Done editing selection log entries' : 'Edit selection log entries';
 		button.textContent = 'Edit';
+	});
+
+	getSelectionLogActionButtons('clear-others').forEach((button) => {
+		button.disabled = selectedNodesLog.length === 0;
+		button.title = selectedNodesLog.length ? 'Keep only nodes in the selection log' : 'No selection log entries to keep';
+		button.textContent = 'Clear Others';
 	});
 }
 
@@ -2696,6 +2702,23 @@ async function ensureNodeFetchedAndOnScreen(entry: SelectionLogEntry) {
 	}
 }
 
+export function pruneGraphToSelectionLogEntries(graphData: { nodes?: Array<any>; links?: Array<any> } | null, entries: Array<SelectionLogEntry> = selectedNodesLog) {
+	if (!graphData || !Array.isArray(graphData.nodes) || !Array.isArray(graphData.links)) return graphData;
+
+	const keepIds = new Set<string>((Array.isArray(entries) ? entries : []).map((entry) => String(entry?.id || '').trim()).filter(Boolean));
+
+	const keptNodes = graphData.nodes.filter((node) => keepIds.has(String(node?.id || '').trim()));
+	const keptLinks = graphData.links.filter((link) => {
+		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+		return Boolean(sourceId && targetId && keepIds.has(sourceId) && keepIds.has(targetId));
+	});
+
+	graphData.nodes = keptNodes;
+	graphData.links = keptLinks;
+	return graphData;
+}
+
 function updateSelectionLogUI() {
 	const containers = Array.from(document.querySelectorAll<HTMLElement>('#fg-selection-log-list, #fg-sidebar-selection-log-list'));
 
@@ -2775,7 +2798,7 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 		return;
 	}
 
-	const action = target.dataset.fgSelectionLogAction as 'trace' | 'copy-all' | 'clear' | 'toggle-bold' | 'edit' | undefined;
+	const action = target.dataset.fgSelectionLogAction as 'trace' | 'copy-all' | 'clear' | 'clear-others' | 'toggle-bold' | 'edit' | undefined;
 	if (!action) return;
 
 	if (action === 'trace') {
@@ -2822,6 +2845,55 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 		syncTraceLabelPresentation();
 		syncSelectionLogAuxiliaryRenderers();
 		flashSelectionLogActionButton(target, 'Cleared!');
+		return;
+	}
+
+	if (action === 'clear-others') {
+		if (!selectedNodesLog.length) {
+			flashSelectionLogActionButton(target, 'Empty');
+			return;
+		}
+
+		pruneGraphToSelectionLogEntries(graphData, selectedNodesLog);
+
+		const keptNodeIds = new Set<string>((Array.isArray(graphData?.nodes) ? graphData.nodes : []).map((node) => String(node?.id || '').trim()).filter(Boolean));
+
+		if (selectedId && !keptNodeIds.has(String(selectedId).trim())) {
+			selectedId = null;
+			sidebarSelectedNode = null;
+			sidebarViewMode = 'none';
+			showSidebarHint();
+			emitSelectedNodeRoute(null, { replace: true });
+		}
+
+		highlightedSelections = highlightedSelections.filter((selection) => keptNodeIds.has(String(selection?.id || '').trim()));
+		visitedNodeIds = new Set(Array.from(visitedNodeIds).filter((id) => keptNodeIds.has(String(id).trim())));
+
+		if (initialServerNodeIds instanceof Set) {
+			for (const nodeId of Array.from(initialServerNodeIds)) {
+				if (!keptNodeIds.has(String(nodeId).trim())) {
+					initialServerNodeIds.delete(nodeId);
+				}
+			}
+		}
+
+		if (initialServerLinkKeys instanceof Set) {
+			for (const key of Array.from(initialServerLinkKeys)) {
+				const [sourceId, targetId] = key.split('|');
+				if (!keptNodeIds.has(String(sourceId).trim()) || !keptNodeIds.has(String(targetId).trim())) {
+					initialServerLinkKeys.delete(key);
+				}
+			}
+		}
+
+		renderGraph(graphData);
+		updateMeta();
+		saveSession();
+		syncSelectionLogActionButtonStates();
+		refreshTraceState();
+		syncTraceLabelPresentation();
+		syncSelectionLogAuxiliaryRenderers();
+		flashSelectionLogActionButton(target, 'Pruned!');
 	}
 }
 
@@ -11895,6 +11967,13 @@ function renderSidebarSelectionLogBody() {
 						type="button"
 						title="Clear log">
 						Clear
+					</button>
+					<button
+						data-fg-selection-log-action="clear-others"
+						class="fg-ghost-btn fg-btn-sm"
+						type="button"
+						title="Keep only nodes in the selection log">
+						Clear Others
 					</button>
 				</div>
 			</div>
