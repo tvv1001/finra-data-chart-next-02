@@ -154,6 +154,37 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(pruned.links).toEqual([]);
 	});
 
+	it('pruneGraphToSelectionLogEntries keeps intermediate nodes on shortest paths between logged nodes', () => {
+		const graphData = {
+			nodes: [
+				{ id: 'person:1', group: 'individual' },
+				{ id: 'person:2', group: 'individual' },
+				{ id: 'firm:3', group: 'firm' },
+				{ id: 'person:4', group: 'individual' },
+			],
+			links: [
+				{ source: 'person:1', target: 'firm:3', relationship: 'employed_by' },
+				{ source: 'person:2', target: 'firm:3', relationship: 'employed_by' },
+				{ source: 'person:4', target: 'person:2', relationship: 'associated_with' },
+			],
+		} as any;
+
+		const pruned = pruneGraphToSelectionLogEntries(graphData, [
+			{ id: 'person:1', label: 'Alpha', secondaryId: 'CRD# 1', group: 'individual' },
+			{ id: 'person:2', label: 'Beta', secondaryId: 'CRD# 2', group: 'individual' },
+		]);
+
+		const keptIds = pruned.nodes.map((node: any) => node.id).sort();
+		expect(keptIds).toEqual(['firm:3', 'person:1', 'person:2']);
+		expect(pruned.links).toHaveLength(2);
+		expect(pruned.links.map((link: any) => [link.source, link.target])).toEqual(
+			expect.arrayContaining([
+				['person:1', 'firm:3'],
+				['person:2', 'firm:3'],
+			]),
+		);
+	});
+
 	it('ensureSidebarHintContent adds placeholder when empty', () => {
 		const inner = document.getElementById('fg-sidebar-inner')!;
 		inner.innerHTML = '';

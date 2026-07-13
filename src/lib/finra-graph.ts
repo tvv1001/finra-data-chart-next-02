@@ -2103,7 +2103,7 @@ function syncSelectionLogActionButtonStates() {
 
 	getSelectionLogActionButtons('clear-others').forEach((button) => {
 		button.disabled = selectedNodesLog.length === 0;
-		button.title = selectedNodesLog.length ? 'Keep only nodes in the selection log' : 'No selection log entries to keep';
+		button.title = selectedNodesLog.length ? 'Keep logged nodes and any intermediaries connecting them' : 'No selection log entries to keep';
 		button.textContent = 'Clear Others';
 	});
 }
@@ -2702,10 +2702,76 @@ async function ensureNodeFetchedAndOnScreen(entry: SelectionLogEntry) {
 	}
 }
 
+function buildUndirectedAdjacencyList(links: Array<any>): Map<string, string[]> {
+	const adj = new Map<string, string[]>();
+	for (const link of links) {
+		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+		if (!sourceId || !targetId || sourceId === targetId) continue;
+		if (!adj.has(sourceId)) adj.set(sourceId, []);
+		if (!adj.has(targetId)) adj.set(targetId, []);
+		adj.get(sourceId)!.push(targetId);
+		adj.get(targetId)!.push(sourceId);
+	}
+	return adj;
+}
+
+function getBfsDistances(adj: Map<string, string[]>, start: string): Map<string, number> {
+	const distances = new Map<string, number>();
+	distances.set(start, 0);
+	const queue: string[] = [start];
+	while (queue.length > 0) {
+		const current = queue.shift()!;
+		const currentDist = distances.get(current)!;
+		for (const neighbor of adj.get(current) || []) {
+			if (!distances.has(neighbor)) {
+				distances.set(neighbor, currentDist + 1);
+				queue.push(neighbor);
+			}
+		}
+	}
+	return distances;
+}
+
+function collectShortestPathConnectorIds(adj: Map<string, string[]>, terminalIds: Set<string>): Set<string> {
+	const keepIds = new Set<string>(terminalIds);
+	if (terminalIds.size <= 1) return keepIds;
+
+	const terminalArray = Array.from(terminalIds);
+	const distancesFrom = new Map<string, Map<string, number>>();
+	for (const terminalId of terminalArray) {
+		distancesFrom.set(terminalId, getBfsDistances(adj, terminalId));
+	}
+
+	for (let i = 0; i < terminalArray.length; i++) {
+		for (let j = i + 1; j < terminalArray.length; j++) {
+			const sourceId = terminalArray[i];
+			const targetId = terminalArray[j];
+			const distFromSource = distancesFrom.get(sourceId)!;
+			const distFromTarget = distancesFrom.get(targetId)!;
+			const totalDistance = distFromSource.get(targetId);
+			if (totalDistance === undefined || totalDistance === Infinity) continue;
+
+			for (const nodeId of adj.keys()) {
+				const dSource = distFromSource.get(nodeId);
+				const dTarget = distFromTarget.get(nodeId);
+				if (dSource !== undefined && dTarget !== undefined && dSource + dTarget === totalDistance) {
+					keepIds.add(nodeId);
+				}
+			}
+		}
+	}
+
+	return keepIds;
+}
+
 export function pruneGraphToSelectionLogEntries(graphData: { nodes?: Array<any>; links?: Array<any> } | null, entries: Array<SelectionLogEntry> = selectedNodesLog) {
 	if (!graphData || !Array.isArray(graphData.nodes) || !Array.isArray(graphData.links)) return graphData;
 
-	const keepIds = new Set<string>((Array.isArray(entries) ? entries : []).map((entry) => String(entry?.id || '').trim()).filter(Boolean));
+	const logIds = new Set<string>((Array.isArray(entries) ? entries : []).map((entry) => String(entry?.id || '').trim()).filter(Boolean));
+
+	const adj = buildUndirectedAdjacencyList(graphData.links);
+	const keepIds = collectShortestPathConnectorIds(adj, logIds);
 
 	const keptNodes = graphData.nodes.filter((node) => keepIds.has(String(node?.id || '').trim()));
 	const keptLinks = graphData.links.filter((link) => {
@@ -11972,7 +12038,7 @@ function renderSidebarSelectionLogBody() {
 						data-fg-selection-log-action="clear-others"
 						class="fg-ghost-btn fg-btn-sm"
 						type="button"
-						title="Keep only nodes in the selection log">
+						title="Keep logged nodes and any intermediaries connecting them">
 						Clear Others
 					</button>
 				</div>

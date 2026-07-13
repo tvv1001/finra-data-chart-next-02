@@ -1159,7 +1159,7 @@ export default function FinraGraph() {
 									data-fg-selection-log-action='clear-others'
 									className='fg-ghost-btn fg-btn-sm'
 									type='button'
-									title='Keep only nodes in the selection log'>
+									title='Keep logged nodes and any intermediaries connecting them'>
 									Clear Others
 								</button>
 							</div>
