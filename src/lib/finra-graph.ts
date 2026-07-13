@@ -2818,6 +2818,84 @@ export function pruneGraphToSelectionLogEntries(graphData: { nodes?: Array<any>;
 	return graphData;
 }
 
+function pruneGraphDataToKeepIds(keepIds: Set<string>) {
+	if (!graphData || !Array.isArray(graphData.nodes) || !Array.isArray(graphData.links)) return;
+
+	graphData.nodes = graphData.nodes.filter((node) => keepIds.has(String(node?.id || '').trim()));
+	graphData.links = graphData.links.filter((link) => {
+		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+		return Boolean(sourceId && targetId && keepIds.has(sourceId) && keepIds.has(targetId));
+	});
+
+	const keptNodeIds = new Set<string>(graphData.nodes.map((node) => String(node?.id || '').trim()).filter(Boolean));
+
+	if (selectedId && !keptNodeIds.has(String(selectedId).trim())) {
+		selectedId = null;
+		sidebarSelectedNode = null;
+		sidebarViewMode = 'none';
+		showSidebarHint();
+		emitSelectedNodeRoute(null, { replace: true });
+	}
+
+	highlightedSelections = highlightedSelections.filter((selection) => keptNodeIds.has(String(selection?.id || '').trim()));
+	visitedNodeIds = new Set(Array.from(visitedNodeIds).filter((id) => keptNodeIds.has(String(id).trim())));
+
+	if (initialServerNodeIds instanceof Set) {
+		for (const nodeId of Array.from(initialServerNodeIds)) {
+			if (!keptNodeIds.has(String(nodeId).trim())) {
+				initialServerNodeIds.delete(nodeId);
+			}
+		}
+	}
+
+	if (initialServerLinkKeys instanceof Set) {
+		for (const key of Array.from(initialServerLinkKeys)) {
+			const [sourceId, targetId] = key.split('|');
+			if (!keptNodeIds.has(String(sourceId).trim()) || !keptNodeIds.has(String(targetId).trim())) {
+				initialServerLinkKeys.delete(key);
+			}
+		}
+	}
+
+	renderGraph(graphData);
+	updateMeta();
+	saveSession();
+	refreshTraceState();
+	syncTraceLabelPresentation();
+	syncSelectionLogAuxiliaryRenderers();
+}
+
+function clearGraphAction(button?: HTMLButtonElement) {
+	clearGraphData();
+	if (button) flashSelectionLogActionButton(button, 'Cleared!');
+}
+
+function clearNonLogAction(button?: HTMLButtonElement) {
+	const logIds = new Set<string>(selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter(Boolean));
+	if (logIds.size === 0) {
+		updateFetchStatus('Selection log is empty');
+		if (button) flashSelectionLogActionButton(button, 'Empty');
+		return;
+	}
+	pruneGraphDataToKeepIds(logIds);
+	if (button) flashSelectionLogActionButton(button, 'Pruned!');
+}
+
+function clearNonConnectedAction(button?: HTMLButtonElement) {
+	const rootId = selectedId || (selectedNodesLog.length ? selectedNodesLog[selectedNodesLog.length - 1].id : null);
+	if (!rootId || !graphData?.links?.length) {
+		updateFetchStatus('No current selection to connect from');
+		if (button) flashSelectionLogActionButton(button, 'No selection');
+		return;
+	}
+	const adj = buildUndirectedAdjacencyList(graphData.links);
+	const reachable = getBfsDistances(adj, String(rootId).trim());
+	const keepIds = new Set<string>(reachable.keys());
+	pruneGraphDataToKeepIds(keepIds);
+	if (button) flashSelectionLogActionButton(button, 'Pruned!');
+}
+
 function updateSelectionLogUI() {
 	const containers = Array.from(document.querySelectorAll<HTMLElement>('#fg-selection-log-list, #fg-sidebar-selection-log-list'));
 
@@ -4538,6 +4616,28 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 	clearHighlightsButtons.forEach((clearHighlightsBtn) => {
 		clearHighlightsBtn.addEventListener('click', () => {
 			clearHighlights();
+		});
+	});
+
+	const graphActionButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-graph-action]'));
+	graphActionButtons.forEach((button) => bindTouchDragClickSuppression(button));
+	graphActionButtons.forEach((graphActionBtn) => {
+		graphActionBtn.addEventListener('click', () => {
+			const action = graphActionBtn.dataset.fgGraphAction;
+			graphActionBtn.closest('details')?.removeAttribute('open');
+			switch (action) {
+				case 'clear':
+					clearGraphAction(graphActionBtn);
+					break;
+				case 'clear-non-log':
+					clearNonLogAction(graphActionBtn);
+					break;
+				case 'clear-non-connected':
+					clearNonConnectedAction(graphActionBtn);
+					break;
+				default:
+					break;
+			}
 		});
 	});
 
@@ -7943,6 +8043,9 @@ function refreshLayeredLinkSelections({ enterDuration = 0, highlightState = comp
 }
 
 function orderGraphVisualLayers(highlightState = computeHighlightState()) {
+	const rootNode = rootGroup?.node?.();
+	if (!rootNode || !rootNode.isConnected || !rootNode.parentNode) return;
+
 	if (linkSel && typeof linkSel.sort === 'function') {
 		linkSel.sort((a, b) => comparePriorityWithTieBreak(getLinkRenderPriority(a, highlightState), getLinkRenderPriority(b, highlightState), getLinkKey(a), getLinkKey(b)));
 	}
@@ -10618,8 +10721,30 @@ export function handleNodeKeyboardActivation(event, d, activateNode = handleNode
 	return true;
 }
 
+function pinNodeAndReleaseOthers(pinnedNode) {
+	if (!pinnedNode?.id || !Array.isArray(layoutNodes)) return;
+
+	for (const n of layoutNodes) {
+		if (n.id === pinnedNode.id) {
+			n.fx = n.x;
+			n.fy = n.y;
+		} else if (n.fx != null || n.fy != null) {
+			n.fx = null;
+			n.fy = null;
+		}
+	}
+
+	if (simulation) {
+		simulation.alphaTarget(0.15).restart();
+		window.setTimeout(() => {
+			if (simulation) simulation.alphaTarget(0);
+		}, 300);
+	}
+}
+
 export async function handleNodeOpen(event, d) {
 	event.stopPropagation();
+	pinNodeAndReleaseOthers(d);
 	openNodeWithExpansion(d);
 }
 

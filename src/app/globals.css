@@ -872,6 +872,45 @@ body {
 	flex: 0 0 auto;
 }
 
+.fg-clear-menu {
+	position: relative;
+}
+
+.fg-clear-menu .fg-menu-summary {
+	padding: 8px 12px;
+	font-size: 13px;
+	font-weight: 500;
+}
+
+.fg-clear-menu .fg-menu-panel {
+	width: auto;
+	min-width: 180px;
+	max-width: 260px;
+	padding: 8px;
+	right: 0;
+	top: calc(100% + 6px);
+}
+
+.fg-clear-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.fg-clear-actions .fg-ghost-btn {
+	justify-content: flex-start;
+	width: 100%;
+	font-size: 13px;
+	padding: 8px 10px;
+}
+
+@media (max-width: 640px) {
+	.fg-clear-menu .fg-menu-summary {
+		padding: 6px 10px;
+		font-size: 12px;
+	}
+}
+
 .fg-find-toggle {
 	display: flex;
 	align-items: center;

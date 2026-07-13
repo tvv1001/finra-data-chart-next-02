@@ -53,7 +53,7 @@ async function fetchFromRedis(bucket: string): Promise<any | null> {
 			partPromises.push(redis.get<string>(`${key}:part:${index}`));
 		}
 		const chunks = await Promise.all(partPromises);
-		if (chunks.some(chunk => typeof chunk !== 'string' || !chunk)) return null;
+		if (chunks.some((chunk) => typeof chunk !== 'string' || !chunk)) return null;
 
 		return parseStoredIndexPayload(chunks.filter((c): c is string => c !== null).join(''));
 	} catch (err) {
@@ -901,10 +901,14 @@ async function fetchExtensionsFromRedis(bucket: LocalSearchBucket): Promise<Loca
 	if (!redis) return [];
 	try {
 		const key = `search:indexes:extensions:${bucket}`;
-		const rawValues = (await redis.hvals(key)) as string[];
+		const rawValues = await redis.hvals(key);
 		const docs: LocalSearchDoc[] = [];
-		for (const raw of rawValues || []) {
-			if (!raw) continue;
+		if (!Array.isArray(rawValues)) {
+			console.warn(`[localSearch] Redis hvals for ${key} returned non-array value:`, typeof rawValues);
+			return docs;
+		}
+		for (const raw of rawValues) {
+			if (!raw || typeof raw !== 'string') continue;
 			try {
 				const doc = JSON.parse(raw);
 				if (doc && typeof doc === 'object') {
