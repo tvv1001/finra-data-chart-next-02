@@ -1146,6 +1146,8 @@ export default function FinraGraph() {
 									title='Edit selection log entries'>
 									Edit
 								</button>
+							</div>
+							<div className='fg-log-drawer-actions-row fg-log-drawer-actions-row--tertiary'>
 								<button
 									id='btn-selection-log-clear'
 									data-fg-selection-log-action='clear'

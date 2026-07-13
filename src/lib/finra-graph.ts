@@ -12060,6 +12060,8 @@ function renderSidebarSelectionLogBody() {
 						title="Copy all entries">
 						Copy All
 					</button>
+				</div>
+				<div class="fg-log-drawer-actions-row fg-log-drawer-actions-row--tertiary">
 					<button
 						data-fg-selection-log-action="clear"
 						class="fg-ghost-btn fg-btn-sm"
