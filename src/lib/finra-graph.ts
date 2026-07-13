@@ -2733,7 +2733,7 @@ function getBfsDistances(adj: Map<string, string[]>, start: string): Map<string,
 	return distances;
 }
 
-function collectShortestPathConnectorIds(adj: Map<string, string[]>, terminalIds: Set<string>): Set<string> {
+function collectSteinerTreeConnectorIds(adj: Map<string, string[]>, terminalIds: Set<string>): Set<string> {
 	const keepIds = new Set<string>(terminalIds);
 	if (terminalIds.size <= 1) return keepIds;
 
@@ -2743,22 +2743,55 @@ function collectShortestPathConnectorIds(adj: Map<string, string[]>, terminalIds
 		distancesFrom.set(terminalId, getBfsDistances(adj, terminalId));
 	}
 
-	for (let i = 0; i < terminalArray.length; i++) {
-		for (let j = i + 1; j < terminalArray.length; j++) {
-			const sourceId = terminalArray[i];
-			const targetId = terminalArray[j];
-			const distFromSource = distancesFrom.get(sourceId)!;
-			const distFromTarget = distancesFrom.get(targetId)!;
-			const totalDistance = distFromSource.get(targetId);
-			if (totalDistance === undefined || totalDistance === Infinity) continue;
+	// Greedy minimum spanning tree in hypergraph space: repeatedly add the shortest
+	// path from any not-yet-connected terminal to the already-kept subgraph.
+	const connected = new Set<string>();
+	connected.add(terminalArray[0]);
 
-			for (const nodeId of adj.keys()) {
-				const dSource = distFromSource.get(nodeId);
-				const dTarget = distFromTarget.get(nodeId);
-				if (dSource !== undefined && dTarget !== undefined && dSource + dTarget === totalDistance) {
-					keepIds.add(nodeId);
+	while (connected.size < terminalIds.size) {
+		let bestTerminal: string | null = null;
+		let bestPath: string[] | null = null;
+		let bestLength = Infinity;
+
+		for (const terminalId of terminalArray) {
+			if (connected.has(terminalId)) continue;
+			const distances = distancesFrom.get(terminalId)!;
+
+			for (const connectedId of connected) {
+				const totalDistance = distances.get(connectedId);
+				if (totalDistance === undefined || totalDistance >= bestLength) continue;
+
+				// Reconstruct one shortest path to this connected node.
+				const path: string[] = [];
+				let current: string | undefined = connectedId;
+				while (current !== undefined) {
+					path.push(current);
+					const currentDist = distances.get(current);
+					if (currentDist === undefined || currentDist === 0) break;
+
+					const neighbors = adj.get(current) || [];
+					let next: string | undefined;
+					for (const neighbor of neighbors) {
+						const neighborDist = distances.get(neighbor);
+						if (neighborDist !== undefined && neighborDist < currentDist) {
+							next = neighbor;
+							break;
+						}
+					}
+					current = next;
 				}
+
+				bestTerminal = terminalId;
+				bestPath = path;
+				bestLength = totalDistance;
 			}
+		}
+
+		if (!bestTerminal || !bestPath) break;
+		connected.add(bestTerminal);
+		for (const nodeId of bestPath) {
+			keepIds.add(nodeId);
+			connected.add(nodeId);
 		}
 	}
 
@@ -2771,7 +2804,7 @@ export function pruneGraphToSelectionLogEntries(graphData: { nodes?: Array<any>;
 	const logIds = new Set<string>((Array.isArray(entries) ? entries : []).map((entry) => String(entry?.id || '').trim()).filter(Boolean));
 
 	const adj = buildUndirectedAdjacencyList(graphData.links);
-	const keepIds = collectShortestPathConnectorIds(adj, logIds);
+	const keepIds = collectSteinerTreeConnectorIds(adj, logIds);
 
 	const keptNodes = graphData.nodes.filter((node) => keepIds.has(String(node?.id || '').trim()));
 	const keptLinks = graphData.links.filter((link) => {

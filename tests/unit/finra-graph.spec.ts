@@ -185,6 +185,36 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		);
 	});
 
+	it('pruneGraphToSelectionLogEntries keeps a small connecting tree when multiple logged nodes share paths', () => {
+		const graphData = {
+			nodes: [
+				{ id: 'person:1', group: 'individual' },
+				{ id: 'person:2', group: 'individual' },
+				{ id: 'person:3', group: 'individual' },
+				{ id: 'firm:4', group: 'firm' },
+				{ id: 'firm:5', group: 'firm' },
+				{ id: 'firm:6', group: 'firm' },
+			],
+			links: [
+				{ source: 'person:1', target: 'firm:4', relationship: 'employed_by' },
+				{ source: 'person:2', target: 'firm:5', relationship: 'employed_by' },
+				{ source: 'person:3', target: 'firm:6', relationship: 'employed_by' },
+				{ source: 'firm:4', target: 'firm:5', relationship: 'branch' },
+				{ source: 'firm:5', target: 'firm:6', relationship: 'branch' },
+			],
+		} as any;
+
+		const pruned = pruneGraphToSelectionLogEntries(graphData, [
+			{ id: 'person:1', label: 'Alpha', secondaryId: 'CRD# 1', group: 'individual' },
+			{ id: 'person:2', label: 'Beta', secondaryId: 'CRD# 2', group: 'individual' },
+			{ id: 'person:3', label: 'Gamma', secondaryId: 'CRD# 3', group: 'individual' },
+		]);
+
+		const keptIds = pruned.nodes.map((node: any) => node.id).sort();
+		expect(keptIds).toEqual(['firm:4', 'firm:5', 'person:1', 'person:2', 'person:3']);
+		expect(pruned.links).toHaveLength(3);
+	});
+
 	it('ensureSidebarHintContent adds placeholder when empty', () => {
 		const inner = document.getElementById('fg-sidebar-inner')!;
 		inner.innerHTML = '';
