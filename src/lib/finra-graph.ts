@@ -1891,7 +1891,11 @@ function getNearestArrowableNode(currentNode) {
 
 function moveFindMatch(rawQuery = activeFindQuery, direction = 'ArrowRight') {
 	const query = String(rawQuery || '').trim();
-	if (query && activeFindMatchOrder.length && (direction === 'ArrowRight' || direction === 'ArrowLeft')) {
+	// A recent canvas whitespace click seeds arrow-key navigation from that
+	// point; while that origin is pending, arrow keys should navigate to the
+	// nearest/directional node from the click instead of cycling in-page find
+	// matches, even if a find query is still active.
+	if (!lastArrowNavCoord && query && activeFindMatchOrder.length && (direction === 'ArrowRight' || direction === 'ArrowLeft')) {
 		return cycleToFindMatch(rawQuery, direction === 'ArrowLeft' ? -1 : 1);
 	}
 
@@ -8967,6 +8971,16 @@ function renderGraph(_data) {
 	svg.on('click', (event) => {
 		const [px, py] = d3.pointer(event);
 		lastArrowNavCoord = { x: px, y: py };
+
+		// Clicking the canvas hands arrow-key navigation over to "nearest node
+		// from click point" mode; disable any active in-page find/search so
+		// arrow keys don't instead cycle through typed find matches.
+		if (activeFindQuery || activeFindMatchOrder.length) {
+			clearFindMatches();
+		}
+		if (typeof window !== 'undefined') {
+			window.dispatchEvent(new CustomEvent(FIND_CLOSE_EVENT, { detail: { clearQuery: true } }));
+		}
 
 		if (selectionRestoreTimer) {
 			clearTimeout(selectionRestoreTimer);
