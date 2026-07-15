@@ -1392,6 +1392,10 @@ let isTraceMode = false;
 let isTraceLogMode = false;
 let isSelectionLogBold = false;
 let isSelectionLogEditMode = false;
+// Node ids whose "large label" emphasis has been manually cleared via the
+// "Clear Labels" action while Log Bold is on. Re-selecting/re-clicking a node
+// removes it from this set so its label becomes enlarged again.
+let clearedSelectionLogLabelNodeIds = new Set<string>();
 let pendingRouteNodeId: string | null = null;
 let pendingRoutePulseDuration: number | null = null; // optional pulse duration (ms) requested with route
 let pendingRouteAutoExpand = false; // optional auto-expand requested with route
@@ -2046,7 +2050,7 @@ function guardTraceLogSurface(reason = 'state-sync') {
 	}
 }
 
-function getSelectionLogActionButtons(action: 'trace' | 'copy-all' | 'clear' | 'clear-others' | 'toggle-bold' | 'edit') {
+function getSelectionLogActionButtons(action: 'trace' | 'copy-all' | 'clear' | 'clear-others' | 'clear-labels' | 'toggle-bold' | 'edit') {
 	return Array.from(document.querySelectorAll<HTMLButtonElement>(`[data-fg-selection-log-action="${action}"]`));
 }
 
@@ -2092,6 +2096,16 @@ function syncSelectionLogActionButtonStates() {
 		button.setAttribute('aria-pressed', isSelectionLogBold ? 'true' : 'false');
 		button.title = isSelectionLogBold ? 'Use normal graph node label size' : 'Make graph node labels larger like trace mode';
 		button.textContent = isSelectionLogBold ? 'Log Bold On' : 'Log Bold';
+	});
+
+	getSelectionLogActionButtons('clear-labels').forEach((button) => {
+		const enlargedNodeIds = getSelectionLogLabelNodeIds();
+		button.disabled = !isSelectionLogBold || enlargedNodeIds.length === 0;
+		button.title =
+			!isSelectionLogBold ? 'Enable Log Bold to use large labels'
+			: enlargedNodeIds.length ? 'Shrink currently enlarged labels without clearing the log'
+			: 'No enlarged labels to clear';
+		button.textContent = 'Clear Labels';
 	});
 
 	getSelectionLogActionButtons('edit').forEach((button) => {
@@ -2218,7 +2232,9 @@ function getTraceLogNodeIds() {
 function getSelectionLogLabelNodeIds() {
 	if (!isSelectionLogBold) return [];
 	const visibleNodeIds = new Set((layoutNodes || []).map((node) => String(node?.id || '').trim()).filter(Boolean));
-	return Array.from(new Set(selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter((id) => Boolean(id) && visibleNodeIds.has(id))));
+	return Array.from(
+		new Set(selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter((id) => Boolean(id) && visibleNodeIds.has(id) && !clearedSelectionLogLabelNodeIds.has(id))),
+	);
 }
 
 function calculateTrace() {
@@ -2531,6 +2547,9 @@ function addToSelectionLog(d) {
 	// Only add if this node was explicitly selected (not just visited/expanded).
 	// Re-selecting an existing node moves it to the most-recent slot.
 	selectedNodesLog = upsertSelectionLogEntry(selectedNodesLog, entry);
+	// A fresh click on this node means the user wants to see its label emphasized
+	// again, even if "Clear Labels" previously hid it.
+	clearedSelectionLogLabelNodeIds.delete(String(d.id || '').trim());
 	saveSelectionLog();
 	updateSelectionLogUI();
 	syncSelectionLogAuxiliaryRenderers();
@@ -2798,13 +2817,24 @@ function collectSteinerTreeConnectorIds(adj: Map<string, string[]>, terminalIds:
 	return keepIds;
 }
 
-export function pruneGraphToSelectionLogEntries(graphData: { nodes?: Array<any>; links?: Array<any> } | null, entries: Array<SelectionLogEntry> = selectedNodesLog) {
+export function pruneGraphToSelectionLogEntries(
+	graphData: { nodes?: Array<any>; links?: Array<any> } | null,
+	entries: Array<SelectionLogEntry> = selectedNodesLog,
+	extraKeepIds: Set<string> = new Set(),
+) {
 	if (!graphData || !Array.isArray(graphData.nodes) || !Array.isArray(graphData.links)) return graphData;
 
 	const logIds = new Set<string>((Array.isArray(entries) ? entries : []).map((entry) => String(entry?.id || '').trim()).filter(Boolean));
 
 	const adj = buildUndirectedAdjacencyList(graphData.links);
 	const keepIds = collectSteinerTreeConnectorIds(adj, logIds);
+	// Preserve any additional nodes the caller wants kept regardless of the
+	// log-entry Steiner tree — e.g. nodes connected by a line to a node the
+	// user currently has selected/highlighted in the graph.
+	for (const extraId of extraKeepIds) {
+		const normalizedExtraId = String(extraId || '').trim();
+		if (normalizedExtraId) keepIds.add(normalizedExtraId);
+	}
 
 	const keptNodes = graphData.nodes.filter((node) => keepIds.has(String(node?.id || '').trim()));
 	const keptLinks = graphData.links.filter((link) => {
@@ -2975,7 +3005,7 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 		return;
 	}
 
-	const action = target.dataset.fgSelectionLogAction as 'trace' | 'copy-all' | 'clear' | 'clear-others' | 'toggle-bold' | 'edit' | undefined;
+	const action = target.dataset.fgSelectionLogAction as 'trace' | 'copy-all' | 'clear' | 'clear-others' | 'clear-labels' | 'toggle-bold' | 'edit' | undefined;
 	if (!action) return;
 
 	if (action === 'trace') {
@@ -3005,6 +3035,21 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 		return;
 	}
 
+	if (action === 'clear-labels') {
+		const enlargedNodeIds = getSelectionLogLabelNodeIds();
+		if (!enlargedNodeIds.length) {
+			flashSelectionLogActionButton(target, 'Empty');
+			return;
+		}
+		enlargedNodeIds.forEach((id) => clearedSelectionLogLabelNodeIds.add(id));
+		syncSelectionLogActionButtonStates();
+		reapplySelectionState();
+		syncTraceLabelPresentation();
+		syncSelectionLogAuxiliaryRenderers();
+		flashSelectionLogActionButton(target, 'Cleared!');
+		return;
+	}
+
 	if (action === 'edit') {
 		isSelectionLogEditMode = !isSelectionLogEditMode;
 		updateSelectionLogUI();
@@ -3031,7 +3076,23 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 			return;
 		}
 
-		pruneGraphToSelectionLogEntries(graphData, selectedNodesLog);
+		// Preserve the currently selected/highlighted node(s) plus any node
+		// connected to them by a line — the user explicitly picked that
+		// connection, so "Clear Others" shouldn't remove it even if it isn't
+		// itself in the selection log.
+		const userSelectedNodeIds = new Set<string>([selectedId, ...highlightedSelections.map((entry) => entry?.id)].map((value) => String(value || '').trim()).filter(Boolean));
+		const extraKeepIds = new Set<string>(userSelectedNodeIds);
+		if (Array.isArray(graphData?.links)) {
+			graphData.links.forEach((link) => {
+				const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+				const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+				if (!sourceId || !targetId) return;
+				if (userSelectedNodeIds.has(sourceId)) extraKeepIds.add(targetId);
+				if (userSelectedNodeIds.has(targetId)) extraKeepIds.add(sourceId);
+			});
+		}
+
+		pruneGraphToSelectionLogEntries(graphData, selectedNodesLog, extraKeepIds);
 
 		const keptNodeIds = new Set<string>((Array.isArray(graphData?.nodes) ? graphData.nodes : []).map((node) => String(node?.id || '').trim()).filter(Boolean));
 
@@ -12177,6 +12238,13 @@ function renderSidebarSelectionLogBody() {
 						type="button"
 						title="Make log entries larger and bolder">
 						Log Bold
+					</button>
+					<button
+						data-fg-selection-log-action="clear-labels"
+						class="fg-ghost-btn fg-btn-sm"
+						type="button"
+						title="Shrink currently enlarged labels without clearing the log">
+						Clear Labels
 					</button>
 					<button
 						data-fg-selection-log-action="copy-all"
