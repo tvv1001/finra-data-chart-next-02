@@ -64,7 +64,7 @@ function toNodeSourceCoverage(finra: boolean, sec: boolean): NodeSourceCoverage 
 
 // Firms known to have broken or unreachable FINRA/BrokerCheck summary pages.
 // Add CRD numbers here to suppress FINRA links for those firms.
-const BROKEN_FINRA_FIRM_IDS = new Set(['134139', '298880', '314694']);
+const BROKEN_FINRA_FIRM_IDS = new Set(['134139', '298880', '314694', '325639']);
 
 // Individual IDs for which SEC AdvisorInfo links should be suppressed.
 // Add numeric individual CRD-like ids (no prefix) here when upstream SEC pages are incorrect or undesirable.
@@ -280,10 +280,7 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 			} else {
 				const existing = seen.get(key);
 				if (existing._sourceLabel && dis._sourceLabel && existing._sourceLabel !== dis._sourceLabel) {
-					const sources = new Set([
-						...existing._sourceLabel.split(',').map((s: string) => s.trim()),
-						...dis._sourceLabel.split(',').map((s: string) => s.trim())
-					]);
+					const sources = new Set([...existing._sourceLabel.split(',').map((s: string) => s.trim()), ...dis._sourceLabel.split(',').map((s: string) => s.trim())]);
 					existing._sourceLabel = Array.from(sources).join(', ');
 				}
 				if (hasContent && !disHasContent(existing)) {
@@ -369,7 +366,9 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 				String(item.firmId || '').trim(),
 				normStart,
 				normEnd,
-				String(item.cityState || '').trim().toLowerCase()
+				String(item.cityState || '')
+					.trim()
+					.toLowerCase(),
 			].join('|');
 			if (seen.has(key)) return false;
 			seen.add(key);
@@ -443,7 +442,9 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 		const seen = new Set();
 		empEntries = empEntries.filter((e) => {
 			const normStart = e.start ? normalizeDateForKey(e.start) : '';
-			const key = `${String(e.firmId || e.firmName).trim().toLowerCase()}|${normStart}`;
+			const key = `${String(e.firmId || e.firmName)
+				.trim()
+				.toLowerCase()}|${normStart}`;
 			if (seen.has(key)) return false;
 			seen.add(key);
 			return true;
@@ -619,7 +620,14 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
       <div class='fg-disclosure'>
         <div class='fg-dis-header'>
           <span class='fg-dis-type'>${esc(dtype)}</span>
-          ${dsource ? dsource.split(',').map(s => `<span class='fg-badge inactive'>${esc(s.trim())}</span>`).join(' ') : ''}
+          ${
+						dsource ?
+							dsource
+								.split(',')
+								.map((s) => `<span class='fg-badge inactive'>${esc(s.trim())}</span>`)
+								.join(' ')
+						:	''
+					}
           ${ddate ? `<span class='fg-dis-date'>${esc(ddate)}</span>` : ''}
           ${dres ? `<span class='fg-dis-res ${/final|settled/i.test(dres) ? 'final' : 'pending'}'>${esc(dres)}</span>` : ''}
           ${isIAExcl || isBCExcl ? `<span class='fg-badge inactive' title='Excluded from count'>${isIAExcl ? 'IA-excl' : ''}${isIAExcl && isBCExcl ? ' ' : ''}${isBCExcl ? 'FINRA-excl' : ''}</span>` : ''}
