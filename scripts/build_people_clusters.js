@@ -213,7 +213,7 @@ function buildClusters({ personNodes, firmNodes, personFirms, firmPeople, pairSc
 					const bCount = firmPeople.get(b)?.size || 0;
 					return aCount - bCount || a.localeCompare(b);
 				})
-				.slice(0, 1);
+				.slice(0, BRIDGE_FIRM_LIMIT);
 		}
 
 		const selectedIds = new Set([...people, ...bridgeFirms]);
