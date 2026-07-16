@@ -65,6 +65,11 @@ export function createOverlay(
 				container?.dispatchEvent(new CustomEvent('finra:overlay-click', { detail: { id } }));
 			} catch (e) {}
 		}
+		// also notify global listeners (window) so graph can react when overlay
+		// labels (HTML) intercept pointer events above the SVG canvas
+		try {
+			if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('finra:overlay-click', { detail: { id } }));
+		} catch (e) {}
 	});
 
 	// hover with debounce, show tooltip and dispatch hover
@@ -87,6 +92,11 @@ export function createOverlay(
 					container?.dispatchEvent(new CustomEvent('finra:overlay-hover', { detail: { id: el.dataset.nodeId } }));
 				} catch (e) {}
 			}
+			// also notify global listeners so graph hover state can update when
+			// pointer is over an overlay label (which sits above the canvas)
+			try {
+				if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('finra:overlay-hover', { detail: { id: el.dataset.nodeId } }));
+			} catch (e) {}
 			showTooltipForNode(node, el, detailCache);
 		}, 120);
 	});
@@ -104,6 +114,10 @@ export function createOverlay(
 					onHoverEnd();
 				} catch (e) {}
 			}
+			// notify global listeners that hover ended (so graph can clear hover)
+			try {
+				if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('finra:overlay-hover-end'));
+			} catch (e) {}
 		}
 		window.setTimeout(() => {
 			if (!activeTooltipIdGlobal) return;

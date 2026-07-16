@@ -2126,6 +2126,49 @@ function syncSelectionLogActionButtonStates() {
 	});
 }
 
+// Listen for overlay hover/click events dispatched from the HTML overlay so
+// overlay labels can update the central graph hover/selection state.
+if (typeof window !== 'undefined') {
+	try {
+		window.addEventListener('finra:overlay-hover', (ev: any) => {
+			try {
+				const id = ev?.detail?.id || null;
+				if (id) {
+					setHoveredNode(String(id));
+				}
+			} catch (e) {}
+		});
+
+		window.addEventListener('finra:overlay-hover-end', () => {
+			try {
+				setHoveredNode(null);
+			} catch (e) {}
+		});
+
+		window.addEventListener('finra:overlay-click', (ev: any) => {
+			try {
+				const id = ev?.detail?.id || null;
+				if (id) {
+					// emulate user click on the node
+					const node = getNodeById(String(id));
+					if (node) {
+						// mark as selected (persist) like a normal node click
+						markNodeSelected(node, { persist: true });
+						reapplySelectionState();
+						try {
+							// render sidebar detail for clicked node and emit route event
+							renderSidebar(node);
+							emitSelectedNodeRoute(node.id, { replace: false });
+						} catch (e) {}
+					}
+				}
+			} catch (e) {}
+		});
+	} catch (e) {
+		/* ignore environments without window */
+	}
+}
+
 function flashSelectionLogActionButton(button: HTMLButtonElement, text: string, duration = 1000) {
 	const originalText = button.dataset.originalText || button.textContent || '';
 	button.dataset.originalText = originalText;
