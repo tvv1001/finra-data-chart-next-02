@@ -3080,23 +3080,14 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 			return;
 		}
 
-		// Preserve the currently selected/highlighted node(s) plus any node
-		// connected to them by a line — the user explicitly picked that
-		// connection, so "Clear Others" shouldn't remove it even if it isn't
-		// itself in the selection log.
-		const userSelectedNodeIds = new Set<string>([selectedId, ...highlightedSelections.map((entry) => entry?.id)].map((value) => String(value || '').trim()).filter(Boolean));
-		const extraKeepIds = new Set<string>(userSelectedNodeIds);
-		if (Array.isArray(graphData?.links)) {
-			graphData.links.forEach((link) => {
-				const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
-				const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
-				if (!sourceId || !targetId) return;
-				if (userSelectedNodeIds.has(sourceId)) extraKeepIds.add(targetId);
-				if (userSelectedNodeIds.has(targetId)) extraKeepIds.add(sourceId);
-			});
-		}
-
-		pruneGraphToSelectionLogEntries(graphData, selectedNodesLog, extraKeepIds);
+		// Only keep nodes that are explicitly in the selection log plus any
+		// connector nodes required to join those log entries. Previously we
+		// also preserved arbitrary one-hop neighbors of the currently
+		// selected/highlighted nodes which kept many unintended nodes on the
+		// screen. The user's expectation is to remove everything not in the
+		// log (except for nodes that serve as connectors between log entries),
+		// so pass an empty extraKeepIds set here.
+		pruneGraphToSelectionLogEntries(graphData, selectedNodesLog, new Set<string>());
 
 		const keptNodeIds = new Set<string>((Array.isArray(graphData?.nodes) ? graphData.nodes : []).map((node) => String(node?.id || '').trim()).filter(Boolean));
 
