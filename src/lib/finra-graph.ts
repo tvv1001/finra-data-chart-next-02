@@ -3000,15 +3000,27 @@ function updateSelectionLogUI() {
 					isSelectionLogEditMode ?
 						'<svg viewBox="0 0 16 16" fill="none" width="18" height="18" aria-hidden="true"><path d="M4 4L12 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 4L4 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
 					:	'<svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18" aria-hidden="true"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path></svg>';
+				const isLabelShown = isSelectionLogBold && !clearedSelectionLogLabelNodeIds.has(String(entry.id)) && (layoutNodes || []).some((n) => String(n?.id) === String(entry.id));
+				const labelToggleTitle = isLabelShown ? 'Hide large label' : 'Show large label';
+				const labelToggleDisabled = !isSelectionLogBold;
+				const labelToggleClass = `fg-log-label-toggle-btn${labelToggleDisabled ? ' is-disabled' : ''}`;
+				const labelToggleIcon =
+					isLabelShown ?
+						'<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M1 8h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
+					:	'<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+
 				div.innerHTML = `
-			<span class="fg-log-text" title="${entryTextTitle}">
-				<strong class="fg-log-label">${entry.label}</strong>
-				<span class="fg-log-subtext">:: ${entry.secondaryId}</span>
-			</span>
-			<button class="${actionButtonClass}" title="${actionButtonTitle}" aria-label="${actionButtonTitle}">
-				${actionButtonIcon}
-			</button>
-		`;
+				<span class="fg-log-text" title="${entryTextTitle}">
+					<strong class="fg-log-label">${entry.label}</strong>
+					<span class="fg-log-subtext">:: ${entry.secondaryId}</span>
+				</span>
+				<button class="${labelToggleClass}" title="${labelToggleTitle}" aria-label="${labelToggleTitle}" ${labelToggleDisabled ? 'disabled' : ''} data-log-id="${entry.id}">
+					${labelToggleIcon}
+				</button>
+				<button class="${actionButtonClass}" title="${actionButtonTitle}" aria-label="${actionButtonTitle}">
+					${actionButtonIcon}
+				</button>
+			`;
 				if (!isSelectionLogEditMode) {
 					div.querySelector('.fg-log-text')?.addEventListener('click', () => {
 						copyToClipboard(text, div);
@@ -3023,6 +3035,34 @@ function updateSelectionLogUI() {
 					copyToClipboard(text, div);
 					ensureNodeFetchedAndOnScreen(entry);
 				});
+
+				// label toggle handler (show/hide enlarged label without clicking node)
+				const labelToggleBtn = div.querySelector('.fg-log-label-toggle-btn') as HTMLButtonElement | null;
+				if (labelToggleBtn) {
+					labelToggleBtn.addEventListener('click', (ev) => {
+						ev.preventDefault();
+						ev.stopPropagation();
+						const id = String(labelToggleBtn.dataset.logId || entry.id);
+						if (!isSelectionLogBold) {
+							flashSelectionLogActionButton(labelToggleBtn, 'Enable Log Bold');
+							return;
+						}
+						const wasCleared = clearedSelectionLogLabelNodeIds.has(id);
+						if (wasCleared) {
+							// remove from cleared set to show label
+							clearedSelectionLogLabelNodeIds.delete(id);
+							flashSelectionLogActionButton(labelToggleBtn, 'Shown');
+						} else {
+							// add to cleared set to hide label
+							clearedSelectionLogLabelNodeIds.add(id);
+							flashSelectionLogActionButton(labelToggleBtn, 'Hidden');
+						}
+						updateSelectionLogUI();
+						reapplySelectionState();
+						syncTraceLabelPresentation();
+						syncSelectionLogAuxiliaryRenderers();
+					});
+				}
 				container.appendChild(div);
 			});
 	});
