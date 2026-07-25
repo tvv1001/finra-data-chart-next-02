@@ -12989,6 +12989,34 @@ function renderPersonDetail(d: any) {
 	const brokerCheckReportUrl = crd && hasFinraPage ? `https://files.brokercheck.finra.org/individual/individual_${encodeURIComponent(crd)}.pdf` : null;
 	const secSummaryUrl = crd && hasSecPage ? `https://adviserinfo.sec.gov/individual/summary/${encodeURIComponent(crd)}` : null;
 	const parentFirmSummaryLinks = buildParentFirmSummaryLinks(d, currentEmploymentEntries);
+	const parentFirmSummaryLinksFiltered = (parentFirmSummaryLinks || []).filter((link: any) => {
+		const fid = link?.firmId || (typeof link?.href === 'string' ? String(link.href).split('/').pop() : null);
+		const rawFirmId =
+			fid ?
+				String(fid)
+					.replace(/^firm[:_]/, '')
+					.replace(/^node[:_]/, '')
+					.trim()
+			:	'';
+		const firmNode = graphData?.nodes?.find((n: any) => {
+			const nid = String(n?.firmId || n?.id || '')
+				.replace(/^firm[:_]/, '')
+				.replace(/^node[:_]/, '')
+				.trim();
+			return nid && rawFirmId && nid === rawFirmId;
+		});
+		if (link.className === 'bc') {
+			if (firmNode) return hasFirmFinraPresence(firmNode);
+			if (rawFirmId) return !BROKEN_FINRA_FIRM_IDS.has(rawFirmId);
+			return false;
+		}
+		if (link.className === 'sec') {
+			if (firmNode) return hasFirmSecPresence(firmNode);
+			if (rawFirmId) return !SUPPRESSED_SEC_FIRM_IDS.has(rawFirmId);
+			return false;
+		}
+		return true;
+	});
 	const personSummaryLine = crd ? `CRD#: ${esc(String(crd))}` : '';
 
 	return `
@@ -13013,7 +13041,7 @@ function renderPersonDetail(d: any) {
 				${showFinra && brokerCheckSummaryUrl ? `<a class="fg-ext-link bc" href="${brokerCheckSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
 				${showFinra && brokerCheckReportUrl ? `<a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>` : ''}
 				${showSec && secSummaryUrl ? `<a class="fg-ext-link sec" href="${secSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo Summary</a>` : ''}
-				${parentFirmSummaryLinks.map((link) => `<a class="fg-ext-link ${link.className}" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer">&#x2197; ${esc(link.label)}</a>`).join('')}
+				${parentFirmSummaryLinksFiltered.map((link) => `<a class="fg-ext-link ${link.className}" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer">&#x2197; ${esc(link.label)}</a>`).join('')}
 			</div>
 		<div class="fg-sb-copy-below-links">
 

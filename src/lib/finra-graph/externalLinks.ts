@@ -1,6 +1,7 @@
 export type ParentFirmSummaryLink = {
 	label: string;
 	href: string;
+	firmId?: string;
 	className: 'bc' | 'sec';
 };
 
@@ -23,11 +24,13 @@ export function buildParentFirmSummaryLinks(node: any, employmentEntries: any[] 
 		{
 			label: 'Parent firm FINRA Summary',
 			href: `https://brokercheck.finra.org/firm/summary/${encodeURIComponent(firmId)}`,
+			firmId,
 			className: 'bc',
 		},
 		{
 			label: 'Parent firm SEC AdvisorInfo Summary',
 			href: `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(firmId)}`,
+			firmId,
 			className: 'sec',
 		},
 	];
