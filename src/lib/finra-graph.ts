@@ -7746,6 +7746,8 @@ function hasFirmFinraPresence(node: any) {
 		.trim();
 	if (rawFirmId && BROKEN_FINRA_FIRM_IDS.has(rawFirmId)) return false;
 	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
+	// Prefer explicit source-truth when available.
+	if (node.hasFinraData === false) return false;
 	if (node.hasFinraData === true) return true;
 	if (node.isLegacy === 'Y') return true;
 	if (hasAnyItems(node?.selfRegulatoryOrgs)) return true;
@@ -10266,6 +10268,24 @@ async function ensureFirmDetail(firmNode) {
 			if (Array.isArray(bi.otherNames) && bi.otherNames.length) firmNode.otherNames = bi.otherNames;
 			if (detail.hasFinraData != null) firmNode.hasFinraData = detail.hasFinraData;
 			if (detail.hasSecData != null) firmNode.hasSecData = detail.hasSecData;
+			// If FINRA explicitly reports no firm data, persist suppression so
+			// sidebar links self-correct during normal browsing.
+			if (detail.hasFinraData === false) {
+				const suppressed = new Set<string>(
+					Array.isArray(firmNode.suppressedExternalLinks) ?
+						firmNode.suppressedExternalLinks
+					: 	[],
+				);
+				suppressed.add('finra');
+				firmNode.suppressedExternalLinks = Array.from(suppressed);
+			} else if (detail.hasFinraData === true && Array.isArray(firmNode.suppressedExternalLinks)) {
+				firmNode.suppressedExternalLinks = firmNode.suppressedExternalLinks.filter(
+					(entry: any) =>
+						String(entry || '')
+							.trim()
+							.toLowerCase() !== 'finra',
+				);
+			}
 			if (typeof detail.secSummaryDescription === 'string') {
 				firmNode.secSummaryDescription = detail.secSummaryDescription;
 			}
