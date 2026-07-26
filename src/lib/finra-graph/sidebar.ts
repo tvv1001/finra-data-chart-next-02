@@ -405,29 +405,83 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 		);
 	}
 
-	function renderRegistrationRole(role, { inactive = false }: { inactive?: boolean } = {}) {
-		const normalizedRole = String(role || '')
-			.trim()
-			.toUpperCase();
-		const label =
-			normalizedRole === 'B' ? 'Broker'
-			: normalizedRole === 'IA' ? 'Investment Adviser'
-			: normalizedRole || 'Registration';
-		const roleClass =
-			normalizedRole === 'B' ? 'fg-reg-role--broker'
-			: normalizedRole === 'IA' ? 'fg-reg-role--ia'
-			: 'fg-reg-role--default';
-		return `<span class='fg-reg-role ${roleClass}${inactive ? ' is-inactive' : ''}' title='${esc(label)}'><span class='fg-reg-role__icon'>${esc(normalizedRole || label.charAt(0))}</span><span class='fg-reg-role__label'>${esc(label)}</span></span>`;
+	function renderRegistrationRole(roleOrRoles, { inactive = false }: { inactive?: boolean } = {}) {
+		// Accept a single role string (e.g., 'B' or 'IA') or an array / Set of roles
+		let roles: string[] = [];
+		if (Array.isArray(roleOrRoles)) roles = roleOrRoles.map((r) => String(r || '').trim());
+		else if (roleOrRoles instanceof Set) roles = Array.from(roleOrRoles).map((r) => String(r || '').trim());
+		else if (roleOrRoles == null) roles = [];
+		else roles = [String(roleOrRoles || '').trim()];
+
+		const badges = roles
+			.filter(Boolean)
+			.map((r) => {
+				const normalizedRole = String(r || '')
+					.trim()
+					.toUpperCase();
+				const label =
+					normalizedRole === 'B' ? 'Broker'
+					: normalizedRole === 'IA' ? 'Investment Adviser'
+					: r || 'Registration';
+				const roleClass =
+					normalizedRole === 'B' ? 'fg-reg-role--broker'
+					: normalizedRole === 'IA' ? 'fg-reg-role--ia'
+					: 'fg-reg-role--default';
+				return `<span class='fg-reg-role ${roleClass}${inactive ? ' is-inactive' : ''}' title='${esc(label)}'><span class='fg-reg-role__icon'>${esc(normalizedRole || label.charAt(0))}</span><span class='fg-reg-role__label'>${esc(label)}</span></span>`;
+			})
+			.join(' ');
+		if (!badges)
+			return `<span class='fg-reg-role fg-reg-role--default${inactive ? ' is-inactive' : ''}' title='Registration'><span class='fg-reg-role__icon'>R</span><span class='fg-reg-role__label'>Registration</span></span>`;
+		return badges;
 	}
 
-	const currentRegistrations = dedupeRegs([
-		...(d.currentIAEmployments || []).map((emp) => regToEntry(emp, 'IA', true)),
-		...(d.currentEmployments || []).map((emp) => regToEntry(emp, 'B', true)),
-	]).sort((a, b) => compareCurrentFirstByDates(a, b, { dateKeys: ['start', 'end'] }));
-	const previousRegistrations = dedupeRegs([
-		...(d.previousIAEmployments || []).map((emp) => regToEntry(emp, 'IA', false)),
-		...(d.previousEmployments || []).map((emp) => regToEntry(emp, 'B', false)),
-	]).sort((a, b) => (b.end || '').localeCompare(a.end || ''));
+	function mergeRegistrations(items) {
+		const groups = new Map();
+		for (const it of items) {
+			const key = String(it.firmId || normalizeFirmKey(it.firmName) || '').trim();
+			if (!groups.has(key)) groups.set(key, []);
+			groups.get(key).push(it);
+		}
+		const merged = [];
+		for (const [key, list] of groups.entries()) {
+			if (!list || !list.length) continue;
+			if (list.length === 1) {
+				merged.push(list[0]);
+				continue;
+			}
+			const roles = new Set();
+			let earliest = null;
+			let chosen = { ...list[0] };
+			for (const l of list) {
+				if (l.role) roles.add(String(l.role || '').trim());
+				if (l.start) {
+					const parsed = parseSortDateValue(l.start);
+					if (parsed !== Number.NEGATIVE_INFINITY && (earliest === null || parsed < earliest.parsed)) earliest = { parsed, raw: l.start };
+				}
+				if (l.officeAddress && (!chosen.officeAddress || l.officeAddress.length > (chosen.officeAddress || '').length)) chosen.officeAddress = l.officeAddress;
+				if (l.cityState && (!chosen.cityState || l.cityState.length > (chosen.cityState || '').length)) chosen.cityState = l.cityState;
+			}
+			chosen.roles = roles;
+			if (earliest) chosen.start = earliest.raw;
+			merged.push(chosen);
+		}
+		return merged;
+	}
+
+	const rawCurrent = [
+		...(d.currentIAEmployments || []).map((emp) => ({ ...regToEntry(emp, 'IA', true), role: 'IA' })),
+		...(d.currentEmployments || []).map((emp) => ({ ...regToEntry(emp, 'B', true), role: 'B' })),
+	];
+	const rawPrevious = [
+		...(d.previousIAEmployments || []).map((emp) => ({ ...regToEntry(emp, 'IA', false), role: 'IA' })),
+		...(d.previousEmployments || []).map((emp) => ({ ...regToEntry(emp, 'B', false), role: 'B' })),
+	];
+
+	let currentRegistrations = mergeRegistrations(dedupeRegs(rawCurrent));
+	let previousRegistrations = mergeRegistrations(dedupeRegs(rawPrevious));
+
+	currentRegistrations.sort((a, b) => compareCurrentFirstByDates(a, b, { dateKeys: ['start', 'end'] }));
+	previousRegistrations.sort((a, b) => (b.end || '').localeCompare(a.end || ''));
 
 	const hasStoredEmps = d.currentEmployments?.length || d.previousEmployments?.length || d.currentIAEmployments?.length || d.previousIAEmployments?.length;
 
@@ -439,6 +493,65 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 			...(d.previousEmployments || []).map((e) => empToEntry(e, false)),
 			...(d.previousIAEmployments || []).map((e) => empToEntry(e, false)),
 		];
+
+		// Merge entries that refer to the same firm CRD (or same normalized name)
+		// and pick the oldest (earliest) known start date among duplicates.
+		(function mergeSameFirmEntries() {
+			const groups = new Map();
+			for (const e of empEntries) {
+				const firmKey = String(e.firmId || e.firmName || '')
+					.trim()
+					.toLowerCase();
+				if (!firmKey) continue;
+				if (!groups.has(firmKey)) groups.set(firmKey, []);
+				groups.get(firmKey).push(e);
+			}
+			const merged = [];
+			for (const [key, items] of groups.entries()) {
+				if (!items || !items.length) continue;
+				if (items.length === 1) {
+					merged.push(items[0]);
+					continue;
+				}
+				// reduce to a single entry: choose earliest start, prefer any current record
+				let chosen = { ...items[0] };
+				let earliestStart = null;
+				let anyCurrent = false;
+				for (const it of items) {
+					if (it.isCurrent) anyCurrent = true;
+					if (it.start) {
+						const parsed = parseSortDateValue(it.start);
+						if (parsed !== Number.NEGATIVE_INFINITY && (earliestStart === null || parsed < earliestStart.parsed)) {
+							earliestStart = { parsed, raw: it.start, item: it };
+						}
+					}
+					// prefer longer/more descriptive firmName
+					if (it.firmName && it.firmName.length > (chosen.firmName || '').length) chosen.firmName = it.firmName;
+					// if no firmId on chosen, take from this
+					if (!chosen.firmId && it.firmId) chosen.firmId = it.firmId;
+					// prefer iaOnly true if any is IA-only
+					if (it.iaOnly) chosen.iaOnly = true;
+				}
+				if (earliestStart) {
+					chosen.start = earliestStart.raw;
+				} else {
+					// fallback: keep existing start or blank
+					chosen.start = chosen.start || '';
+				}
+				// if any entry indicates current employment, mark as current
+				if (anyCurrent) {
+					chosen.isCurrent = true;
+					chosen.end = null;
+				}
+				merged.push(chosen);
+			}
+			// also include any entries that had no firmKey (unlikely) preserving uniqueness by start
+			const noKey = empEntries.filter((e) => !String(e.firmId || e.firmName || '').trim()) || [];
+			for (const nk of noKey) merged.push(nk);
+			empEntries = merged;
+		})();
+
+		// After merging by firm we still dedupe exact duplicates by firm+start
 		const seen = new Set();
 		empEntries = empEntries.filter((e) => {
 			const normStart = e.start ? normalizeDateForKey(e.start) : '';
@@ -471,6 +584,49 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 				loc: formatLocationText([l.city, l.state].filter(Boolean).join(', ')),
 			};
 		});
+
+		// Merge entries that refer to the same firm CRD/name and pick the oldest start date
+		(function mergeSameFirmEntriesLinks() {
+			const groups = new Map();
+			for (const e of empEntries) {
+				const firmKey = String(e.firmId || e.firmName || '')
+					.trim()
+					.toLowerCase();
+				if (!firmKey) continue;
+				if (!groups.has(firmKey)) groups.set(firmKey, []);
+				groups.get(firmKey).push(e);
+			}
+			const merged = [];
+			for (const [key, items] of groups.entries()) {
+				if (!items || !items.length) continue;
+				if (items.length === 1) {
+					merged.push(items[0]);
+					continue;
+				}
+				let chosen = { ...items[0] };
+				let earliestStart = null;
+				let anyCurrent = false;
+				for (const it of items) {
+					if (it.isCurrent) anyCurrent = true;
+					if (it.start) {
+						const parsed = parseSortDateValue(it.start);
+						if (parsed !== Number.NEGATIVE_INFINITY && (earliestStart === null || parsed < earliestStart.parsed)) {
+							earliestStart = { parsed, raw: it.start, item: it };
+						}
+					}
+					if (it.firmName && it.firmName.length > (chosen.firmName || '').length) chosen.firmName = it.firmName;
+					if (!chosen.firmId && it.firmId) chosen.firmId = it.firmId;
+				}
+				if (earliestStart) chosen.start = earliestStart.raw;
+				if (anyCurrent) {
+					chosen.isCurrent = true;
+					chosen.end = null;
+				}
+				merged.push(chosen);
+			}
+			empEntries = merged.concat(empEntries.filter((e) => !String(e.firmId || e.firmName || '').trim()));
+		})();
+
 		empEntries.sort((a, b) => compareCurrentFirstByDates(a, b, { dateKeys: ['end', 'start'] }));
 	}
 
@@ -773,7 +929,7 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 								.map(
 									(reg) => `
                 <div class='fg-tl-entry active-pos'>
-									<span class='fg-tl-firm'>${renderRegistrationRole(reg.role)} ${
+									<span class='fg-tl-firm'>${renderRegistrationRole(reg.roles || reg.role)} ${
 										reg.firmId ?
 											`<button class='fg-crd-link' data-crd='${esc(String(reg.firmId))}' title='View this CRD'>${esc(reg.firmName)}</button> (<button class='fg-crd-link' data-crd='${esc(String(reg.firmId))}' title='View this CRD'>CRD#${esc(String(reg.firmId))}</button>)`
 										:	esc(reg.firmName)
@@ -799,7 +955,7 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 								.map(
 									(reg) => `
                 <div class='fg-tl-entry'>
-									<span class='fg-tl-firm'>${renderRegistrationRole(reg.role, { inactive: true })} ${
+									<span class='fg-tl-firm'>${renderRegistrationRole(reg.roles || reg.role, { inactive: true })} ${
 										reg.firmId ?
 											`<button class='fg-crd-link' data-crd='${esc(String(reg.firmId))}' title='View this CRD'>${esc(reg.firmName)}</button> (<button class='fg-crd-link' data-crd='${esc(String(reg.firmId))}' title='View this CRD'>CRD#${esc(String(reg.firmId))}</button>)`
 										:	esc(reg.firmName)
