@@ -1257,7 +1257,7 @@ export default function FinraGraph() {
 							</div>
 							<h4 className='fg-empty-title'>Fetch nodes with the search field above.</h4>
 							<ul className='fg-empty-steps'>
-								<li>Navigate through the nodes with the arrow keys or in page search.</li>
+								<li>Manage visible nodes within the log panel.</li>
 							</ul>
 						</div>
 					</div>
