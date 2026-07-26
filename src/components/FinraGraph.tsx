@@ -997,12 +997,6 @@ export default function FinraGraph() {
 					</div> */}
 
 					<div className='fg-header-right-controls'>
-						<a
-							href='/dashboard'
-							className='fg-home-link'
-							title='Open dashboard'>
-							add
-						</a>
 						<details className='fg-menu fg-clear-menu'>
 							<summary
 								className='fg-menu-summary'
@@ -1036,30 +1030,6 @@ export default function FinraGraph() {
 								</div>
 							</div>
 						</details>
-						<button
-							id='fg-find-toggle'
-							type='button'
-							className={`fg-btn-secondary fg-find-toggle${isFindBarOpen ? ' active' : ''}`}
-							onClick={() => {
-								if (isMobileSearchViewport()) {
-									if (isFindBarOpen) {
-										closeFindBar({ clearQuery: false });
-									} else {
-										openFindBar();
-									}
-								} else if (isFindBarOpen) {
-									closeFindBar({ clearQuery: false });
-								} else {
-									setIsFindBarOpen(true);
-									focusFindInput();
-								}
-							}}
-							title='Find in graph (Ctrl+F)'
-							aria-label='Find in graph'
-							aria-pressed={isFindBarOpen}>
-							<span className='fg-find-toggle__icon'>🔍</span>
-						</button>
-
 						<button
 							id='fg-mobile-menu-toggle'
 							type='button'

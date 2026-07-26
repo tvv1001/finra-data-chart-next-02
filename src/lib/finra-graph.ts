@@ -2284,6 +2284,16 @@ function getSelectionLogLabelNodeIds() {
 	);
 }
 
+function isSelectionLogChildNode(nodeId: string) {
+	const normalizedNodeId = String(nodeId || '').trim();
+	if (!normalizedNodeId || !Array.isArray(layoutLinks) || !layoutLinks.length) return false;
+	return layoutLinks.some((link) => {
+		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+		return Boolean(sourceId && targetId && targetId === normalizedNodeId && sourceId !== normalizedNodeId);
+	});
+}
+
 function calculateTrace() {
 	const traceModeNodeIds = isTraceMode ? getTraceModeNodeIds() : [];
 	const traceLogNodeIds = isTraceLogMode ? getTraceLogNodeIds() : [];
@@ -3000,6 +3010,8 @@ function updateSelectionLogUI() {
 					isSelectionLogEditMode ?
 						'<svg viewBox="0 0 16 16" fill="none" width="18" height="18" aria-hidden="true"><path d="M4 4L12 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 4L4 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
 					:	'<svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18" aria-hidden="true"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path></svg>';
+				const childNode = isSelectionLogChildNode(entry.id);
+				const secondaryLineHidden = childNode && clearedSelectionLogLabelNodeIds.has(String(entry.id).trim());
 				const isLabelShown = isSelectionLogBold && !clearedSelectionLogLabelNodeIds.has(String(entry.id)) && (layoutNodes || []).some((n) => String(n?.id) === String(entry.id));
 				const labelToggleTitle = isLabelShown ? 'Hide large label' : 'Show large label';
 				const labelToggleDisabled = !isSelectionLogBold;
@@ -3012,7 +3024,7 @@ function updateSelectionLogUI() {
 				div.innerHTML = `
 				<span class="fg-log-text" title="${entryTextTitle}">
 					<strong class="fg-log-label">${entry.label}</strong>
-					<span class="fg-log-subtext">:: ${entry.secondaryId}</span>
+						${secondaryLineHidden ? '' : `<span class="fg-log-subtext">:: ${entry.secondaryId}</span>`}
 				</span>
 				<button class="${labelToggleClass}" title="${labelToggleTitle}" aria-label="${labelToggleTitle}" ${labelToggleDisabled ? 'disabled' : ''} data-log-id="${entry.id}">
 					${labelToggleIcon}
@@ -3039,6 +3051,8 @@ function updateSelectionLogUI() {
 				// label toggle handler (show/hide enlarged label without clicking node)
 				const labelToggleBtn = div.querySelector('.fg-log-label-toggle-btn') as HTMLButtonElement | null;
 				if (labelToggleBtn) {
+					const childNode = isSelectionLogChildNode(entry.id);
+					div.classList.toggle('is-child-node', childNode);
 					labelToggleBtn.addEventListener('click', (ev) => {
 						ev.preventDefault();
 						ev.stopPropagation();
@@ -3055,6 +3069,10 @@ function updateSelectionLogUI() {
 						} else {
 							// add to cleared set to hide label
 							clearedSelectionLogLabelNodeIds.add(id);
+							if (isSelectionLogChildNode(id)) {
+								const textEl = div.querySelector('.fg-log-text');
+								textEl?.classList.add('fg-log-text--secondary-hidden');
+							}
 							flashSelectionLogActionButton(labelToggleBtn, 'Hidden');
 						}
 						updateSelectionLogUI();
@@ -11736,18 +11754,10 @@ function clearHighlights() {
 		selectionRestoreTimer = null;
 	}
 	stopNodePulseLoop();
-	visitedNodeIds.clear();
 	hoveredNodeId = null;
 	focusedNodeId = null;
 	clearFindMatches();
-	const resetSelectionState = clearSelectionState();
-	selectedId = resetSelectionState.selectedId;
-	highlightedSelections = resetSelectionState.highlightedSelections;
-	sidebarSelectedNode = resetSelectionState.sidebarSelectedNode;
-	updateFocusReadout(null);
-	emitSelectedNodeRoute(null, { replace: true });
 	reapplySelectionState();
-	showSidebarHint({ keepOpen: true });
 	try {
 		saveSession();
 	} catch (e) {
