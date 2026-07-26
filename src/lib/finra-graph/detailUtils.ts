@@ -227,7 +227,8 @@ export function hasRichIndividualDetail(detail) {
 	for (const key of listFields) {
 		if (Array.isArray(detail[key]) && detail[key].length) return true;
 	}
-	if (detail.registrationCount || detail.examsCount || detail.brokerDetails) return true;
+	// Skeleton graph nodes often include empty count objects; treat those as non-rich
+	// so we still hydrate from the authoritative detail route when selected.
 	return false;
 }
 

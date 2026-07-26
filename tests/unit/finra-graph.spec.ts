@@ -52,7 +52,7 @@ import {
 } from '../../src/lib/finra-graph';
 import { shouldRenderBlueNodeHighlight } from '../../src/lib/finra-graph-canvas';
 import { DEFAULT_NODE_LABEL_FONT_SIZE_PX } from '../../src/lib/finra-graph-defaults';
-import { applyIndividualDetail as applyIndividualDetailFromDetailUtils } from '../../src/lib/finra-graph/detailUtils';
+import { applyIndividualDetail as applyIndividualDetailFromDetailUtils, hasRichIndividualDetail } from '../../src/lib/finra-graph/detailUtils';
 import { mergeGraphNodesForAppend, rewriteGraphLinksForNodeIdentity } from '../../src/lib/graphIdentity';
 import { buildParentFirmSummaryLinks } from '../../src/lib/finra-graph/externalLinks';
 import { renderPersonDetail } from '../../src/lib/finra-graph/sidebar';
@@ -571,6 +571,35 @@ describe('FinraGraph DOM helpers (unit)', () => {
 
 		expect(node.label).toBe('Mark Daniel Mcadam');
 		expect(node.previousEmployments).toHaveLength(1);
+	});
+
+	it('hasRichIndividualDetail does not treat empty count objects as rich detail', () => {
+		expect(
+			hasRichIndividualDetail({
+				registrationCount: {
+					approvedFinraRegistrationCount: 0,
+					approvedSRORegistrationCount: 0,
+					approvedStateRegistrationCount: 0,
+					approvedIAStateRegistrationCount: 0,
+				},
+				examsCount: {
+					stateExamCount: 0,
+					principalExamCount: 0,
+					productExamCount: 0,
+				},
+				brokerDetails: {
+					hasBCComments: 'N',
+					hasIAComments: 'N',
+					legacyReportStatusDescription: 'Not Requested',
+				},
+			}),
+		).toBe(false);
+
+		expect(
+			hasRichIndividualDetail({
+				previousEmployments: [{ firmId: 6694, firmName: 'RAYMOND JAMES FINANCIAL SERVICES, INC.' }],
+			}),
+		).toBe(true);
 	});
 
 	it('isNodeInactive marks fetched inactive individuals as inactive immediately', () => {
