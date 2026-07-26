@@ -13006,13 +13006,15 @@ function renderPersonDetail(d: any) {
 			return nid && rawFirmId && nid === rawFirmId;
 		});
 		if (link.className === 'bc') {
+			// Only surface parent FINRA links when the parent firm node exists locally
+			// and indicates FINRA presence.
 			if (firmNode) return hasFirmFinraPresence(firmNode);
-			if (rawFirmId) return !BROKEN_FINRA_FIRM_IDS.has(rawFirmId);
 			return false;
 		}
 		if (link.className === 'sec') {
+			// Only surface parent SEC links when the parent firm node exists locally
+			// and indicates SEC presence.
 			if (firmNode) return hasFirmSecPresence(firmNode);
-			if (rawFirmId) return !SUPPRESSED_SEC_FIRM_IDS.has(rawFirmId);
 			return false;
 		}
 		return true;

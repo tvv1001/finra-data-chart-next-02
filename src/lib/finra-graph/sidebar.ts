@@ -666,13 +666,15 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 			return nid && rawFirmId && nid === rawFirmId;
 		});
 		if (link.className === 'bc') {
+			// Only show FINRA parent firm links when we can locate the firm node
+			// in the local graph and it indicates FINRA presence.
 			if (firmNode) return hasFirmFinraPresence(firmNode);
-			if (rawFirmId) return !BROKEN_FINRA_FIRM_IDS.has(rawFirmId);
 			return false;
 		}
 		if (link.className === 'sec') {
+			// Only show SEC parent firm links when we can locate the firm node
+			// in the local graph and it indicates SEC presence.
 			if (firmNode) return hasFirmSecPresence(firmNode);
-			if (rawFirmId) return !SUPPRESSED_SEC_FIRM_IDS.has(rawFirmId);
 			return false;
 		}
 		return true;
