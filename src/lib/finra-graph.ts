@@ -11915,6 +11915,7 @@ function clearHighlights() {
 	stopNodePulseLoop();
 	hoveredNodeId = null;
 	focusedNodeId = null;
+	highlightedSelections = [];
 	clearFindMatches();
 	reapplySelectionState();
 	try {

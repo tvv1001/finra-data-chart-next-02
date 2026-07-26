@@ -960,39 +960,6 @@ export default function FinraGraph() {
 					</div> */}
 
 					<div className='fg-header-right-controls'>
-						<details className='fg-menu fg-clear-menu'>
-							<summary
-								className='fg-menu-summary'
-								title='Graph clear options'
-								aria-label='Graph clear options'>
-								Clear
-							</summary>
-							<div className='fg-menu-panel'>
-								<div className='fg-clear-actions'>
-									<button
-										type='button'
-										data-fg-graph-action='clear'
-										className='fg-ghost-btn fg-btn-sm'
-										title='Remove all nodes from the graph'>
-										Clear all
-									</button>
-									<button
-										type='button'
-										data-fg-graph-action='clear-non-log'
-										className='fg-ghost-btn fg-btn-sm'
-										title='Keep only nodes in the selection log'>
-										Clear non-log
-									</button>
-									<button
-										type='button'
-										data-fg-graph-action='clear-non-connected'
-										className='fg-ghost-btn fg-btn-sm'
-										title='Keep only nodes connected to the current selection'>
-										Clear non-connected
-									</button>
-								</div>
-							</div>
-						</details>
 						<button
 							id='fg-mobile-menu-toggle'
 							type='button'
@@ -1198,6 +1165,13 @@ export default function FinraGraph() {
 						</button>
 					</div>
 					<div className='fg-sidebar-mobile-actions'>
+						<button
+							type='button'
+							data-fg-graph-action='clear-non-connected'
+							className='fg-ghost-btn fg-clear-non-connected-btn'
+							title='Keep only nodes connected to the current selection'>
+							Clear non-connected
+						</button>
 						<button
 							type='button'
 							data-fg-action='clear-highlights'

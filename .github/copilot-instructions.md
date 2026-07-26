@@ -19,6 +19,15 @@ When this repository is opened in VS Code or worked on by Copilot:
 - after importing, rebuild the local derived deployment artifacts needed for Redis-backed deployment prep, including the graph/cache outputs and any bundled search or primed-cache data the app ships
 - never edit the external raw import in place; keep it read-only and update this repository's local data separately
 
+## Production usage policy (branch-first)
+
+For this repository, production must be treated as a **read-only reference source**:
+
+- do not directly mutate or deploy to production from ad-hoc agent tasks
+- use production only for read/verification/audit checks
+- implement changes in-repo and push to `develop` first
+- promote to production only via the normal `develop` → production release workflow
+
 ## Repo-specific Playwright guidance
 
 When adding or editing browser tests in this repo:

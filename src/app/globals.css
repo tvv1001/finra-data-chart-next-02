@@ -2121,6 +2121,12 @@ a,
 	flex-wrap: nowrap;
 }
 
+.fg-sidebar-mobile-actions .fg-clear-non-connected-btn {
+	flex: 1.45 1 0;
+	min-width: 0;
+	width: auto;
+}
+
 .fg-sidebar-action-btn,
 .fg-ghost-btn,
 .fg-mobile-legend-tooltip,
