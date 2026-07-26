@@ -3202,6 +3202,7 @@ function updateSelectionLogUI() {
 				if (labelToggleBtn) {
 					const childNode = isSelectionLogChildNode(entry.id);
 					div.classList.toggle('is-child-node', childNode);
+					div.classList.toggle('is-child-line-muted', childNode && !isLabelShown);
 					labelToggleBtn.addEventListener('click', (ev) => {
 						ev.preventDefault();
 						ev.stopPropagation();
@@ -3218,10 +3219,6 @@ function updateSelectionLogUI() {
 						} else {
 							// add to cleared set to hide label
 							clearedSelectionLogLabelNodeIds.add(id);
-							if (isSelectionLogChildNode(id)) {
-								const textEl = div.querySelector('.fg-log-text');
-								textEl?.classList.add('fg-log-text--secondary-hidden');
-							}
 							flashSelectionLogActionButton(labelToggleBtn, 'Hidden');
 						}
 						updateSelectionLogUI();

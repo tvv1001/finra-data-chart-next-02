@@ -2114,17 +2114,26 @@ a,
 	display: flex;
 	padding: 8px 8px 0;
 	gap: 6px;
-	flex-wrap: wrap;
 	position: sticky;
 	top: 42px;
 	z-index: 99;
-	flex-wrap: nowrap;
+	flex-wrap: wrap;
+	align-items: stretch;
 }
 
 .fg-sidebar-mobile-actions .fg-clear-non-connected-btn {
-	flex: 1.45 1 0;
+	flex: 1.2 1 calc(50% - 3px);
 	min-width: 0;
 	width: auto;
+}
+
+.fg-sidebar-mobile-actions .fg-ghost-btn,
+.fg-sidebar-mobile-actions .fg-sidebar-action-btn {
+	flex: 1 1 calc(50% - 3px);
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .fg-sidebar-action-btn,
@@ -4590,6 +4599,11 @@ text.fg-label {
 .fg-log-entry.firm {
 	border-left-width: 4px;
 	border-left-color: var(--color-highlight-firm);
+}
+
+.fg-log-entry.is-child-node.is-child-line-muted {
+	border-left-width: 1px;
+	border-left-color: transparent !important;
 }
 
 .fg-log-text {
