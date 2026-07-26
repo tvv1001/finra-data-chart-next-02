@@ -674,6 +674,7 @@ if (typeof window !== 'undefined') {
 		refreshGraphColors();
 	};
 	(window as any).getRuntimeHopDefaults = getRuntimeHopDefaults;
+	(window as any).exportConnectedRenderedGraphSnapshot = exportConnectedRenderedGraphSnapshot;
 }
 
 function hasTrustedCurrentRelationshipData(node) {
@@ -2282,6 +2283,154 @@ function getSelectionLogLabelNodeIds() {
 	return Array.from(
 		new Set(selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter((id) => Boolean(id) && visibleNodeIds.has(id) && !clearedSelectionLogLabelNodeIds.has(id))),
 	);
+}
+
+function getConnectedRenderedGraphSnapshot() {
+	const nodes = Array.isArray(layoutNodes) ? layoutNodes.filter((node) => node && String(node.id || '').trim()) : [];
+	const links =
+		Array.isArray(layoutLinks) ?
+			layoutLinks.filter((link) => {
+				const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+				const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+				return Boolean(sourceId && targetId);
+			})
+		:	[];
+
+	const nodeMap = new Map(nodes.map((node) => [String(node.id), node]));
+	const adjacency = new Map<string, Set<string>>();
+	for (const node of nodes) adjacency.set(String(node.id), new Set<string>());
+	for (const link of links) {
+		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+		if (!sourceId || !targetId || !nodeMap.has(sourceId) || !nodeMap.has(targetId)) continue;
+		adjacency.get(sourceId)?.add(targetId);
+		adjacency.get(targetId)?.add(sourceId);
+	}
+
+	const connectedNodeIds = new Set<string>();
+	for (const [nodeId, neighbors] of adjacency.entries()) {
+		if (neighbors.size > 0) connectedNodeIds.add(nodeId);
+	}
+
+	const connectedNodes = nodes.filter((node) => connectedNodeIds.has(String(node.id)));
+	const connectedLinks = links.filter((link) => {
+		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+		return connectedNodeIds.has(sourceId) && connectedNodeIds.has(targetId);
+	});
+
+	const degreeById = new Map<string, number>();
+	for (const node of connectedNodes) {
+		degreeById.set(String(node.id), adjacency.get(String(node.id))?.size || 0);
+	}
+
+	const visited = new Set<string>();
+	const components = [] as Array<any>;
+
+	const sortByDegreeThenLabel = (aId: string, bId: string) => {
+		const degreeDiff = (degreeById.get(bId) || 0) - (degreeById.get(aId) || 0);
+		if (degreeDiff !== 0) return degreeDiff;
+		const a = nodeMap.get(aId);
+		const b = nodeMap.get(bId);
+		return String(getPreferredNodeLabel(a) || a?.label || aId).localeCompare(String(getPreferredNodeLabel(b) || b?.label || bId));
+	};
+
+	for (const startNode of connectedNodes.slice().sort((a, b) => sortByDegreeThenLabel(String(a.id), String(b.id)))) {
+		const startId = String(startNode.id);
+		if (visited.has(startId)) continue;
+		const queue = [startId];
+		const componentNodes = new Set<string>();
+		const componentLinks: Array<any> = [];
+		const parentById = new Map<string, string | null>([[startId, null]]);
+		visited.add(startId);
+
+		while (queue.length) {
+			const currentId = queue.shift() as string;
+			componentNodes.add(currentId);
+			for (const link of connectedLinks) {
+				const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+				const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+				if (sourceId !== currentId && targetId !== currentId) continue;
+				componentLinks.push({
+					source: sourceId,
+					target: targetId,
+					relationship: link?.relationship || null,
+					isCurrent: link?.isCurrent ?? null,
+					startDate: link?.startDate || null,
+					endDate: link?.endDate || null,
+				});
+				const nextId = sourceId === currentId ? targetId : sourceId;
+				if (!componentNodes.has(nextId) && !visited.has(nextId)) {
+					visited.add(nextId);
+					parentById.set(nextId, currentId);
+					queue.push(nextId);
+				}
+			}
+		}
+
+		const childrenById = new Map<string, string[]>();
+		for (const nodeId of componentNodes) childrenById.set(nodeId, []);
+		for (const [nodeId, parentId] of parentById.entries()) {
+			if (!parentId) continue;
+			childrenById.get(parentId)?.push(nodeId);
+		}
+
+		for (const children of childrenById.values()) {
+			children.sort(sortByDegreeThenLabel);
+		}
+
+		const buildTree = (nodeId: string): any => {
+			const node = nodeMap.get(nodeId);
+			return {
+				id: nodeId,
+				label: getPreferredNodeLabel(node) || node?.label || nodeId,
+				group: node?.group || null,
+				firmId: node?.firmId || null,
+				crd: node?.crd || null,
+				connectedTo: Array.from(adjacency.get(nodeId) || []).sort(sortByDegreeThenLabel),
+				children: (childrenById.get(nodeId) || []).map((childId) => buildTree(childId)),
+			};
+		};
+
+		const rootId = Array.from(componentNodes).sort(sortByDegreeThenLabel)[0] || startId;
+		components.push({
+			rootId,
+			rootLabel: getPreferredNodeLabel(nodeMap.get(rootId)) || nodeMap.get(rootId)?.label || rootId,
+			nodeCount: componentNodes.size,
+			linkCount: componentLinks.length,
+			nodes: Array.from(componentNodes)
+				.sort(sortByDegreeThenLabel)
+				.map((nodeId) => {
+					const node = nodeMap.get(nodeId);
+					return {
+						id: nodeId,
+						label: getPreferredNodeLabel(node) || node?.label || nodeId,
+						group: node?.group || null,
+						firmId: node?.firmId || null,
+						crd: node?.crd || null,
+						degree: degreeById.get(nodeId) || 0,
+						connectedTo: Array.from(adjacency.get(nodeId) || []).sort(sortByDegreeThenLabel),
+					};
+				}),
+			links: componentLinks,
+			tree: buildTree(rootId),
+		});
+	}
+
+	return {
+		generatedAt: new Date().toISOString(),
+		nodeCount: connectedNodes.length,
+		linkCount: connectedLinks.length,
+		components,
+	};
+}
+
+export function exportConnectedRenderedGraphSnapshot(options: { print?: boolean } = {}) {
+	const snapshot = getConnectedRenderedGraphSnapshot();
+	if (options.print !== false && typeof console !== 'undefined') {
+		console.log(JSON.stringify(snapshot, null, 2));
+	}
+	return snapshot;
 }
 
 function isSelectionLogChildNode(nodeId: string) {
@@ -6055,6 +6204,11 @@ function mergeGraphNodePayload(targetNode, incomingNode) {
 	}
 	if (incomingNode.name && !targetNode.name) targetNode.name = incomingNode.name;
 	if (incomingNode.firmName && !targetNode.firmName) targetNode.firmName = incomingNode.firmName;
+	if (incomingNode.firmName) {
+		targetNode.firmName = String(incomingNode.firmName).trim() || targetNode.firmName;
+		if (!targetNode.basicInformation) targetNode.basicInformation = {};
+		if (!targetNode.basicInformation.firmName) targetNode.basicInformation.firmName = targetNode.firmName;
+	}
 	if (incomingNode.crd && !targetNode.crd) targetNode.crd = incomingNode.crd;
 	if (incomingNode.individualId && !targetNode.individualId) targetNode.individualId = incomingNode.individualId;
 	const currentLabel = String(targetNode.label || '').trim();
@@ -10094,6 +10248,11 @@ async function ensureFirmDetail(firmNode) {
 			const preferredFirmName = String(bi.firmName || detail?.firmName || detail?.name || '').trim();
 			if (preferredFirmName && (isPlaceholderExpansionLabel(firmNode.label, 'firm') || preferredFirmName.length > String(firmNode.label || '').length)) {
 				firmNode.label = preferredFirmName;
+			}
+			if (preferredFirmName) {
+				firmNode.firmName = preferredFirmName;
+				if (!firmNode.basicInformation) firmNode.basicInformation = {};
+				if (!firmNode.basicInformation.firmName) firmNode.basicInformation.firmName = preferredFirmName;
 			}
 			if (bi.bcScope || bi.iaScope) firmNode.bcScope = bi.bcScope || bi.iaScope;
 			if (bi.firmStatus) firmNode.firmStatus = bi.firmStatus;
