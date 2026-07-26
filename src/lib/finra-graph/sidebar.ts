@@ -468,13 +468,36 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 		return merged;
 	}
 
+	const linkedEmploymentRegs = (Array.isArray(graphData?.links) ? graphData.links : [])
+		.filter((l) => {
+			const sourceId = l?.source?.id ?? l?.source;
+			const targetId = l?.target?.id ?? l?.target;
+			if (sourceId !== d.id || !targetId) return false;
+			return l.relationship === 'employed_by' || l.relationship === 'previous_employed_by';
+		})
+		.map((l) => {
+			const targetNode = (Array.isArray(graphData?.nodes) ? graphData.nodes : []).find((n) => n.id === (l?.target?.id ?? l?.target));
+			return {
+				role: 'B',
+				firmId: String(targetNode?.firmId || String((l?.target?.id ?? l?.target) || '').replace(/^firm:/, '') || '').trim(),
+				firmName: targetNode?.label || l?.firmName || '',
+				start: l?.startDate || '',
+				end: l?.endDate || null,
+				isCurrent: l.relationship === 'employed_by' && !l?.endDate,
+				officeAddress: '',
+				cityState: [l?.city, l?.state].filter(Boolean).join(', '),
+			};
+		});
+
 	const rawCurrent = [
 		...(d.currentIAEmployments || []).map((emp) => ({ ...regToEntry(emp, 'IA', true), role: 'IA' })),
 		...(d.currentEmployments || []).map((emp) => ({ ...regToEntry(emp, 'B', true), role: 'B' })),
+		...linkedEmploymentRegs.filter((entry) => entry.isCurrent),
 	];
 	const rawPrevious = [
 		...(d.previousIAEmployments || []).map((emp) => ({ ...regToEntry(emp, 'IA', false), role: 'IA' })),
 		...(d.previousEmployments || []).map((emp) => ({ ...regToEntry(emp, 'B', false), role: 'B' })),
+		...linkedEmploymentRegs.filter((entry) => !entry.isCurrent),
 	];
 
 	let currentRegistrations = mergeRegistrations(dedupeRegs(rawCurrent));
@@ -483,7 +506,8 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 	currentRegistrations.sort((a, b) => compareCurrentFirstByDates(a, b, { dateKeys: ['start', 'end'] }));
 	previousRegistrations.sort((a, b) => (b.end || '').localeCompare(a.end || ''));
 
-	const hasStoredEmps = d.currentEmployments?.length || d.previousEmployments?.length || d.currentIAEmployments?.length || d.previousIAEmployments?.length;
+	const hasStoredEmps =
+		d.currentEmployments?.length || d.previousEmployments?.length || d.currentIAEmployments?.length || d.previousIAEmployments?.length || linkedEmploymentRegs.length;
 
 	let empEntries = [];
 	if (hasStoredEmps) {
