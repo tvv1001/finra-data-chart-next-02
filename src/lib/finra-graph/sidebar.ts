@@ -887,11 +887,11 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 									const detailLine = getEmploymentDetailLine(e);
 									const scopeTags = getEmploymentScopeTags(e);
 									return `<div class='fg-tl-entry active-pos'>
-									  <span class='fg-tl-firm'>${renderFirmNameWithCrd(e.firmName, e.firmId)}${e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : ''}</span>
-						                  <span class='fg-tl-dates'>${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>
-										  ${detailLine ? `<span class='fg-tl-loc'>${esc(detailLine)}</span>` : ''}
-						                  ${scopeTags.length ? `<span class='fg-tl-loc' style='color:var(--text-m)'>${esc(scopeTags.join(' · '))}</span>` : ''}
-						                </div>`;
+																			<span class='fg-tl-firm'>${renderFirmNameWithCrd(e.firmName, e.firmId)}${e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : ''}</span>
+																					<span class='fg-tl-dates'> ${esc(e.start || '–')} → ${esc(e.end || 'present')} </span>
+																					${detailLine ? `<span class='fg-tl-loc'>${esc(detailLine)}</span>` : ''}
+																					${scopeTags.length ? `<span class='fg-tl-loc' style='color:var(--text-m)'>${esc(scopeTags.join(' · '))}</span>` : ''}
+																				</div>`;
 								})
 								.join('')}
             </div>`
@@ -908,12 +908,12 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 									const detailLine = getEmploymentDetailLine(e);
 									const scopeTags = getEmploymentScopeTags(e);
 									return `<div class='${cls}'>
-									  <span class='fg-tl-firm'>${renderFirmNameWithCrd(e.firmName, e.firmId)}${e.bdSecNumber ? ` <small>SEC#${esc(e.bdSecNumber)}</small>` : ''}</span>
-						                  <span class='fg-tl-dates'>${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>
-										  ${detailLine ? `<span class='fg-tl-loc'>${esc(detailLine)}</span>` : ''}
-						                  ${scopeTags.length ? `<span class='fg-tl-loc' style='color:var(--text-m)'>${esc(scopeTags.join(' · '))}</span>` : ''}
-						                  ${e.expelledDate ? `<span class='fg-badge inactive'>Expelled ${esc(e.expelledDate)}</span>` : ''}
-						                </div>`;
+																			<span class='fg-tl-firm'>${renderFirmNameWithCrd(e.firmName, e.firmId)}${e.bdSecNumber ? ` <small>SEC#${esc(e.bdSecNumber)}</small>` : ''}</span>
+																					<span class='fg-tl-dates'> ${esc(e.start || '–')} → ${esc(e.end || 'present')} </span>
+																					${detailLine ? `<span class='fg-tl-loc'>${esc(detailLine)}</span>` : ''}
+																					${scopeTags.length ? `<span class='fg-tl-loc' style='color:var(--text-m)'>${esc(scopeTags.join(' · '))}</span>` : ''}
+																					${e.expelledDate ? `<span class='fg-badge inactive'>Expelled ${esc(e.expelledDate)}</span>` : ''}
+																				</div>`;
 								})
 								.join('')}
             </div>`
@@ -939,7 +939,7 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 										: reg.cityState ? `<span class='fg-tl-loc'>${esc(reg.cityState)}</span>`
 										: ''
 									}
-                  ${reg.start ? `<span class='fg-tl-dates'>Registered since ${esc(reg.start)}</span>` : ''}
+				  ${reg.start ? `<span class='fg-tl-dates'> Registered since ${esc(reg.start)} </span>` : ''}
                 </div>`,
 								)
 								.join('')}
@@ -1075,7 +1075,7 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 									const examScopeDisplay = /^bc$/i.test(String(ex.examScope || '').trim()) ? '' : String(ex.examScope || '').trim();
 									return `<div class='fg-tl-entry'>
                   <span class='fg-tl-firm'>${esc(ex.examCategory || '')} – ${esc(ex.examName || '')}</span>
-                  ${ex.examTakenDate ? `<span class='fg-tl-dates'>Passed: ${esc(ex.examTakenDate)}</span>` : ''}
+				  ${ex.examTakenDate ? `<span class='fg-tl-dates'> Passed: ${esc(ex.examTakenDate)} </span>` : ''}
                   ${examScopeDisplay ? `<span class='fg-tl-loc'>${esc(examScopeDisplay)}</span>` : ''}
                 </div>`;
 								})
