@@ -694,3 +694,5 @@ When adding new Playwright specs in this repo, prefer:
 - The graph UI is intentionally optimized for incremental growth rather than a single massive one-shot render.
 - Global People / Firms counts shown by the app come from the **seed bank**, not just the currently rendered subset.
 - The prime-check route warms recent usage paths; it is **not** a continuous crawler.
+
+exportConnectedRenderedGraphSnapshot()
