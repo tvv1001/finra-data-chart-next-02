@@ -483,7 +483,6 @@ export default function FinraGraph() {
 		const app = appRef.current;
 		const sidebar = document.getElementById('fg-sidebar');
 		const empty = document.getElementById('fg-empty');
-		const bottomStatus = document.getElementById('fg-bottom-status') as HTMLButtonElement | null;
 		if (!app || !sidebar || !empty) return;
 
 		const landscapeMobileQuery = window.matchMedia('(max-width: 860px) and (orientation: landscape)');
@@ -492,27 +491,11 @@ export default function FinraGraph() {
 			const isSidebarOpen = !sidebar.classList.contains('hidden');
 			const isGraphEmpty = !empty.classList.contains('hidden');
 			const shouldFocusFetchInput = isGraphEmpty && wasGraphEmptyRef.current !== true;
-			const allowLegendToggle = landscapeMobileQuery.matches && !isGraphEmpty;
 			app.dataset.sidebarOpen = isSidebarOpen ? 'true' : 'false';
 			app.dataset.graphEmpty = isGraphEmpty ? 'true' : 'false';
-			app.dataset.legendToggle = allowLegendToggle ? 'true' : 'false';
-			if (!allowLegendToggle) {
-				app.dataset.legendOpen = 'false';
-			}
-			if (bottomStatus) {
-				bottomStatus.setAttribute('aria-expanded', app.dataset.legendOpen === 'true' ? 'true' : 'false');
-			}
 			wasGraphEmptyRef.current = isGraphEmpty;
 			if (shouldFocusFetchInput) {
 				focusFetchInputWhenEmpty({ force: true });
-			}
-		};
-
-		const toggleLegend = () => {
-			if (app.dataset.legendToggle !== 'true') return;
-			app.dataset.legendOpen = app.dataset.legendOpen === 'true' ? 'false' : 'true';
-			if (bottomStatus) {
-				bottomStatus.setAttribute('aria-expanded', app.dataset.legendOpen === 'true' ? 'true' : 'false');
 			}
 		};
 
@@ -522,12 +505,10 @@ export default function FinraGraph() {
 		observer.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
 		observer.observe(empty, { attributes: true, attributeFilter: ['class'] });
 		landscapeMobileQuery.addEventListener('change', syncUiFlags);
-		bottomStatus?.addEventListener('click', toggleLegend);
 
 		return () => {
 			observer.disconnect();
 			landscapeMobileQuery.removeEventListener('change', syncUiFlags);
-			bottomStatus?.removeEventListener('click', toggleLegend);
 		};
 	}, [isMounted]);
 
@@ -668,18 +649,8 @@ export default function FinraGraph() {
 
 	useEffect(() => {
 		if (!isMounted) return;
-		const closeOpenLegendTooltip = (target: EventTarget | null) => {
-			const openLegend = document.querySelector<HTMLDetailsElement>('.fg-mobile-legend-tooltip[open]');
-			if (!openLegend) return;
-			if (target instanceof Node && openLegend.contains(target)) return;
-			openLegend.open = false;
-		};
-
 		const handleDocumentClickCapture = (event: MouseEvent) => {
-			closeOpenLegendTooltip(event.target);
-
 			const sidebar = document.getElementById('fg-sidebar');
-			const bottomStatus = document.getElementById('fg-bottom-status');
 			const findBar = document.getElementById('fg-find-header');
 			const findToggle = document.getElementById('fg-find-toggle');
 			const target = event.target as Node | null;
@@ -692,7 +663,6 @@ export default function FinraGraph() {
 
 			if (!sidebar || sidebar.classList.contains('hidden')) return;
 			if (target && sidebar.contains(target)) return;
-			if (target && bottomStatus?.contains(target)) return;
 			if (graphNode) return;
 			if (target && (!mobileMenuToggle || !mobileMenuToggle.contains(target))) {
 				hideSidebar();
@@ -701,8 +671,6 @@ export default function FinraGraph() {
 		};
 
 		const handleDocumentFocusIn = (event: FocusEvent) => {
-			closeOpenLegendTooltip(event.target);
-
 			const findBar = document.getElementById('fg-find-header');
 			const findToggle = document.getElementById('fg-find-toggle');
 			const target = event.target as Node | null;
@@ -716,11 +684,6 @@ export default function FinraGraph() {
 			if (isFindBarOpenRef.current) {
 				event.preventDefault();
 				closeFindBar();
-				return;
-			}
-			const openLegend = document.querySelector<HTMLDetailsElement>('.fg-mobile-legend-tooltip[open]');
-			if (openLegend) {
-				openLegend.open = false;
 				return;
 			}
 			hideSidebar();
@@ -1291,20 +1254,6 @@ export default function FinraGraph() {
 							</span>
 						</button>
 
-						<details
-							className='fg-mobile-legend-tooltip'
-							onBlur={handleLegendTooltipBlur}>
-							<summary
-								className='fg-mobile-legend-tooltip__toggle'
-								title='Show legend'>
-								Legend
-							</summary>
-							<div className='fg-mobile-legend-tooltip__panel'>
-								<div
-									id='fg-mobile-legend'
-									className='fg-mobile-legend'></div>
-							</div>
-						</details>
 						<ThemeToggle />
 					</div>
 
@@ -1356,20 +1305,6 @@ export default function FinraGraph() {
 					id='fg-log-body'
 					className='fg-log-body'></pre>
 			</div>
-
-			<button
-				id='fg-bottom-status'
-				className='fg-bottom-status'
-				type='button'
-				aria-live='polite'
-				aria-expanded='false'>
-				<span
-					id='fg-bottom-status-text'
-					className='fg-bottom-status__text'></span>
-				<span
-					className='fg-bottom-status__indicator'
-					aria-hidden='true'></span>
-			</button>
 		</div>
 	);
 }

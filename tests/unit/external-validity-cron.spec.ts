@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildNameQueryCandidates, extractCandidateIdsFromSearchPayload } from '@/lib/externalValidityCron';
+import { buildNameQueryCandidates, extractCandidateIdsFromSearchPayload, shouldSkipCronRun } from '@/lib/externalValidityCron';
 
 describe('externalValidityCron candidate discovery', () => {
 	it('generates 3-10 character name terms from seed bank names', () => {
@@ -41,5 +41,11 @@ describe('externalValidityCron candidate discovery', () => {
 
 		expect(extractCandidateIdsFromSearchPayload(payload, 'individual')).toEqual(['12345']);
 		expect(extractCandidateIdsFromSearchPayload(payload, 'firm')).toEqual(['67890']);
+	});
+
+	it('skips cron runs that are still inside the cooldown window', () => {
+		const lastRunAt = new Date('2026-07-26T00:00:00.000Z').toISOString();
+		expect(shouldSkipCronRun(lastRunAt, Date.parse('2026-07-26T03:00:00.000Z'), 360)).toBe(true);
+		expect(shouldSkipCronRun(lastRunAt, Date.parse('2026-07-26T08:00:00.000Z'), 360)).toBe(false);
 	});
 });

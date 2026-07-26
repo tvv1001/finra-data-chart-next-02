@@ -12,6 +12,7 @@ const FIRM_QUERY = new URLSearchParams({ hl: 'true', wt: 'json' }).toString();
 const DEFAULT_DISCOVERY_BATCH = Math.max(1, Number(process.env.FINRA_EXTERNAL_VALIDITY_DISCOVERY_BATCH || 3));
 const DEFAULT_UPDATE_BATCH = Math.max(1, Number(process.env.FINRA_EXTERNAL_VALIDITY_UPDATE_BATCH || 3));
 const DEFAULT_FAILBACK_MINUTES = [6, 11] as const;
+const DEFAULT_MIN_RUN_INTERVAL_MINUTES = Math.max(1, Number(process.env.FINRA_EXTERNAL_VALIDITY_MIN_RUN_INTERVAL_MINUTES || 360));
 
 type CronState = {
 	backoffUntil: number;
@@ -511,6 +512,12 @@ function nextThreshold(ids: string[], picked: number) {
 	return lowestSelected > 0 ? lowestSelected - 1 : 0;
 }
 
+export function shouldSkipCronRun(lastRunAt: string | null | undefined, now = Date.now(), minIntervalMinutes = DEFAULT_MIN_RUN_INTERVAL_MINUTES) {
+	const lastRunMs = Date.parse(String(lastRunAt || ''));
+	if (!Number.isFinite(lastRunMs)) return false;
+	return now - lastRunMs < Math.max(1, minIntervalMinutes) * 60 * 1000;
+}
+
 async function processCandidate(
 	redis: Redis,
 	graph: any,
@@ -537,7 +544,9 @@ async function processCandidate(
 	await saveGraph(mergedGraph);
 
 	const domain = kind === 'individual' ? 'api.brokercheck.finra.org' : 'api.adviserinfo.sec.gov';
-	console.log(`[External API Access Success] Time: ${new Date().toISOString()} | Cron Synced and Added CRD | Domain: ${domain} | CRDs added: [${normalizeId(id)}] | Added count: 1`);
+	console.log(
+		`[External API Access Success] Time: ${new Date().toISOString()} | Cron Synced and Added CRD | Domain: ${domain} | CRDs added: [${normalizeId(id)}] | Added count: 1`,
+	);
 
 	// refresh direct cache keys so the app reads the newest payloads on the next lookup
 	try {
@@ -583,6 +592,19 @@ export async function runExternalValidityCron() {
 	const maxFirm = maxNumericId(enrichedFirms);
 	const state = await loadState(redis, maxIndividual, maxFirm);
 	const now = Date.now();
+	if (shouldSkipCronRun(state.lastRunAt, now)) {
+		return {
+			ok: true,
+			skipped: true,
+			reason: 'cooldown',
+			resumeAt: Date.parse(String(state.lastRunAt || '')) + DEFAULT_MIN_RUN_INTERVAL_MINUTES * 60 * 1000,
+			processed: 0,
+			discovered: 0,
+			updated: 0,
+			skippedNoData: 0,
+			state,
+		};
+	}
 	if (state.backoffUntil && now < state.backoffUntil) {
 		return { ok: true, skipped: true, reason: 'backoff', resumeAt: state.backoffUntil, processed: 0, discovered: 0, updated: 0, skippedNoData: 0, state };
 	}
