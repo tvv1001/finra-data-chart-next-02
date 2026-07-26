@@ -2443,6 +2443,23 @@ function isSelectionLogChildNode(nodeId: string) {
 	});
 }
 
+function clearChildNodeSelectionVisualState(nodeId: string) {
+	const normalizedNodeId = String(nodeId || '').trim();
+	if (!normalizedNodeId) return;
+	highlightedSelections = highlightedSelections.filter((entry) => String(entry?.id || '').trim() !== normalizedNodeId);
+	visitedNodeIds.delete(normalizedNodeId);
+	if (selectedId && String(selectedId).trim() === normalizedNodeId) {
+		selectedId = null;
+	}
+}
+
+function restoreChildNodeSelectionVisualState(nodeId: string) {
+	const normalizedNodeId = String(nodeId || '').trim();
+	if (!normalizedNodeId) return;
+	upsertHighlightedSelection(normalizedNodeId, getDefaultSelectionHops());
+	visitedNodeIds.add(normalizedNodeId);
+}
+
 function calculateTrace() {
 	const traceModeNodeIds = isTraceMode ? getTraceModeNodeIds() : [];
 	const traceLogNodeIds = isTraceLogMode ? getTraceLogNodeIds() : [];
@@ -3215,10 +3232,16 @@ function updateSelectionLogUI() {
 						if (wasCleared) {
 							// remove from cleared set to show label
 							clearedSelectionLogLabelNodeIds.delete(id);
+							if (childNode) {
+								restoreChildNodeSelectionVisualState(id);
+							}
 							flashSelectionLogActionButton(labelToggleBtn, 'Shown');
 						} else {
 							// add to cleared set to hide label
 							clearedSelectionLogLabelNodeIds.add(id);
+							if (childNode) {
+								clearChildNodeSelectionVisualState(id);
+							}
 							flashSelectionLogActionButton(labelToggleBtn, 'Hidden');
 						}
 						updateSelectionLogUI();
@@ -3292,7 +3315,13 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 			flashSelectionLogActionButton(target, 'Empty');
 			return;
 		}
-		enlargedNodeIds.forEach((id) => clearedSelectionLogLabelNodeIds.add(id));
+		enlargedNodeIds.forEach((id) => {
+			clearedSelectionLogLabelNodeIds.add(id);
+			if (isSelectionLogChildNode(id)) {
+				clearChildNodeSelectionVisualState(id);
+			}
+		});
+		updateSelectionLogUI();
 		syncSelectionLogActionButtonStates();
 		reapplySelectionState();
 		syncTraceLabelPresentation();
