@@ -7746,6 +7746,7 @@ function hasIndividualSecPresence(node: any) {
 	if (hasSecActivityEvidence(node)) return true;
 	if (Number(node?.registrationCount?.approvedIAStateRegistrationCount || 0) > 0) return true;
 	if (hasAnyItems(node?.previousIAEmployments)) return true;
+	if (hasAnyItems(node?.disclosures)) return true;
 	if (hasAnyItems(node?.iaDisclosures)) return true;
 	if (hasActiveRegisteredStates(node?.registeredStates, ['ia'])) return true;
 	const iaScopeFlags = collectNodeActivityFlags([node?.iaScope, node?.basicInformation?.iaScope]);
@@ -7850,6 +7851,8 @@ function hasSecActivityEvidence(node) {
 	if (iaActivityFlags.hasActive) return true;
 	if (Number(node?.registrationCount?.approvedIAStateRegistrationCount || 0) > 0) return true;
 	if (Array.isArray(node?.currentIAEmployments) && node.currentIAEmployments.length > 0) return true;
+	if (Array.isArray(node?.disclosures) && node.disclosures.length > 0) return true;
+	if (Array.isArray(node?.iaDisclosures) && node.iaDisclosures.length > 0) return true;
 	if (hasActiveRegisteredStates(node?.registeredStates, ['ia'])) return true;
 	return false;
 }
@@ -10300,11 +10303,7 @@ async function ensureFirmDetail(firmNode) {
 			// If FINRA explicitly reports no firm data, persist suppression so
 			// sidebar links self-correct during normal browsing.
 			if (detail.hasFinraData === false) {
-				const suppressed = new Set<string>(
-					Array.isArray(firmNode.suppressedExternalLinks) ?
-						firmNode.suppressedExternalLinks
-					: 	[],
-				);
+				const suppressed = new Set<string>(Array.isArray(firmNode.suppressedExternalLinks) ? firmNode.suppressedExternalLinks : []);
 				suppressed.add('finra');
 				firmNode.suppressedExternalLinks = Array.from(suppressed);
 			} else if (detail.hasFinraData === true && Array.isArray(firmNode.suppressedExternalLinks)) {
@@ -12687,6 +12686,7 @@ function hasPublicSecIndividualPage(detail, basicInformation: Record<string, any
 		return true;
 	}
 	if (hasAnyItems(detail?.currentIAEmployments)) return true;
+	if (hasAnyItems(detail?.disclosures)) return true;
 	if (hasAnyItems(detail?.iaDisclosures)) return true;
 	if (
 		Array.isArray(detail?.registeredStates) &&
@@ -12753,12 +12753,16 @@ function renderPersonDetail(d: any) {
 	// Deduplicate: for each (type, date) pair keep the entry with the most content.
 	// A blank duplicate (same type, no date/detail/resolution) is dropped when a
 	// richer entry with the same type already exists.
+	const disclosureSourceLabel =
+		showSec && !showFinra ? 'SEC AdvisorInfo'
+		: showFinra && !showSec ? 'FINRA'
+		: 'FINRA';
 	const _rawDisclosures = [
-		...(showFinra ? d.disclosures || [] : []).map((dis) => ({
+		...(d.disclosures || []).map((dis) => ({
 			...dis,
-			_sourceLabel: dis?._sourceLabel || 'FINRA',
+			_sourceLabel: dis?._sourceLabel || disclosureSourceLabel,
 		})),
-		...(showSec ? d.iaDisclosures || [] : []).map((dis) => ({
+		...(d.iaDisclosures || []).map((dis) => ({
 			...dis,
 			_sourceLabel: dis?._sourceLabel || 'SEC AdvisorInfo',
 		})),
@@ -13981,7 +13985,7 @@ function renderFirmDetail(d: any) {
 	const disclosureTotal =
 		Number.isFinite(Number(d.disclosureCount)) ? Number(d.disclosureCount) : disclosures.reduce((sum, dis) => sum + Number(dis?.count ?? dis?.disclosureCount ?? 0), 0);
 	const disclosureLabel = disclosureTotal === 1 ? 'Disclosure' : 'Disclosures';
-	const disclosureBadge = showFinra && disclosureTotal > 0 ? `<span class="fg-badge inactive">${disclosureLabel} ${esc(String(disclosureTotal))}</span>` : '';
+	const disclosureBadge = (showFinra || showSec) && disclosureTotal > 0 ? `<span class="fg-badge inactive">${disclosureLabel} ${esc(String(disclosureTotal))}</span>` : '';
 	const hasAffiliateDisclosureSummary = Boolean(d.affiliateDisclosures);
 	const sortedBrochures = Array.isArray(d.brochures) ? d.brochures.slice().sort((a, b) => compareFirmDatesDesc(a, b, ['dateSubmitted'])) : [];
 	const officeAddressRaw = String(d.officeAddress || '').trim();
@@ -14195,8 +14199,8 @@ function renderFirmDetail(d: any) {
 				:	''
 			}
 
-      ${
-				showFinra && (disclosures.length || disclosureTotal > 0 || hasAffiliateDisclosureSummary) ?
+			${
+				(showFinra || showSec) && (disclosures.length || disclosureTotal > 0 || hasAffiliateDisclosureSummary) ?
 					`
         <div class="fg-section-title fg-section-title--sticky">Disclosures</div>
 					<div class="fg-disclosure">
@@ -14220,7 +14224,10 @@ function renderFirmDetail(d: any) {
 						}
 						${
 							disclosureTotal > 0 ?
-								`<div class="fg-dis-row">For details of these disclosures as well as disclosures involving non-registered affiliated entities refer to the Detailed Report${brokerCheckReportUrl ? ` <a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>` : ''}. For disclosures involving registered affiliated entities visit the BrokerCheck page for those firms.</div>`
+								showFinra ?
+									`<div class="fg-dis-row">For details of these disclosures as well as disclosures involving non-registered affiliated entities refer to the Detailed Report${brokerCheckReportUrl ? ` <a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>` : ''}. For disclosures involving registered affiliated entities visit the BrokerCheck page for those firms.</div>`
+								: secSummaryUrl ? `<div class="fg-dis-row">For disclosure details, open the SEC AdvisorInfo Summary for this firm.</div>`
+								: ''
 							:	''
 						}
 						${
