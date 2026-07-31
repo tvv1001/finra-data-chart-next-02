@@ -62,6 +62,33 @@ function parseDetailPayload(data: any, contentKey = 'content') {
 	return null;
 }
 
+function hasEmploymentLinkData(detail: unknown) {
+	if (!isPlainObject(detail)) return false;
+	const currentEmployments = Array.isArray((detail as Record<string, any>).currentEmployments) ? (detail as Record<string, any>).currentEmployments : [];
+	const currentIAEmployments = Array.isArray((detail as Record<string, any>).currentIAEmployments) ? (detail as Record<string, any>).currentIAEmployments : [];
+	const previousEmployments = Array.isArray((detail as Record<string, any>).previousEmployments) ? (detail as Record<string, any>).previousEmployments : [];
+	const previousIAEmployments = Array.isArray((detail as Record<string, any>).previousIAEmployments) ? (detail as Record<string, any>).previousIAEmployments : [];
+	return currentEmployments.length > 0 || currentIAEmployments.length > 0 || previousEmployments.length > 0 || previousIAEmployments.length > 0;
+}
+
+function indicatesFinraCoverage(detail: unknown) {
+	if (!isPlainObject(detail)) return false;
+	const basic = isPlainObject((detail as Record<string, any>).basicInformation) ? ((detail as Record<string, any>).basicInformation as Record<string, any>) : {};
+	const bcScope = String((detail as Record<string, any>).bcScope ?? basic.bcScope ?? '')
+		.trim()
+		.toLowerCase();
+	if (bcScope && bcScope !== 'notinscope') return true;
+
+	const registrationCount = isPlainObject((detail as Record<string, any>).registrationCount) ? ((detail as Record<string, any>).registrationCount as Record<string, any>) : {};
+	if (Number(registrationCount.approvedFinraRegistrationCount || 0) > 0) return true;
+	if (Number(registrationCount.approvedSRORegistrationCount || 0) > 0) return true;
+
+	if (Array.isArray((detail as Record<string, any>).registeredSROs) && (detail as Record<string, any>).registeredSROs.length > 0) return true;
+	if (isPlainObject((detail as Record<string, any>).brokerDetails)) return true;
+
+	return false;
+}
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
 	return value != null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -183,8 +210,26 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		const finraData = requests[0].status === 'fulfilled' ? requests[0].value : null;
 		const secData = requests[1].status === 'fulfilled' ? requests[1].value : null;
 
-		const finraDetail = parseDetailPayload(finraData, 'content');
+		let finraDetail = parseDetailPayload(finraData, 'content');
 		const secDetail = parseDetailPayload(secData, 'iacontent');
+
+		const shouldForceFinraRefetch = !finraDetail && secDetail && indicatesFinraCoverage(secDetail) && !hasEmploymentLinkData(secDetail);
+
+		if (shouldForceFinraRefetch) {
+			try {
+				const finraUrl = `https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`;
+				const directFinra = await fetch(finraUrl, fetchOptions);
+				if (directFinra.ok) {
+					const directPayload = await directFinra.json();
+					const refreshed = parseDetailPayload(directPayload, 'content');
+					if (refreshed) {
+						finraDetail = refreshed;
+					}
+				}
+			} catch (err: any) {
+				logger.warn('individual route direct FINRA retry failed', { crd, error: err?.message || String(err) });
+			}
+		}
 
 		if (!finraDetail && !secDetail) {
 			return NextResponse.json({ found: false, crd }, { status: 200, headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
