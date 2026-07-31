@@ -283,6 +283,27 @@ function syncProfileSelection(payload) {
 
 let d3 = d3Module;
 
+type GraphSimulationNode = {
+	id: string | number;
+	x?: number;
+	y?: number;
+	fx?: number | null;
+	fy?: number | null;
+	group?: string;
+	_deg?: { total?: number };
+	_locationBiasX?: number;
+	_locationBiasY?: number;
+	_locationBiasStrength?: number;
+	[key: string]: any;
+};
+
+type GraphSimulationLink = {
+	source?: any;
+	target?: any;
+	relationship?: string;
+	[key: string]: any;
+};
+
 // ── State ──────────────────────────────────────────────────────────────────
 let graphData = null; // { nodes, links, meta } — full dataset
 let simulation = null;
@@ -294,8 +315,8 @@ let visitedNodeIds = new Set();
 let linkSel = null; // current <line> selection
 let nodeSel = null; // current <g.fg-node> selection
 let arrowSel = null; // current top-line marker selection
-let layoutNodes = null; // node objects with x/y positions
-let layoutLinks = null; // link objects (source/target resolved to objects)
+let layoutNodes: GraphSimulationNode[] | null = null; // node objects with x/y positions
+let layoutLinks: GraphSimulationLink[] | null = null; // link objects (source/target resolved to objects)
 let fullAdjacencyMap = null; // Map<nodeId, Array<{ nodeId, link }>> — cached full graph adjacency
 let spreadAnimId = null; // rAF handle for neighbor spread animation
 let isSubsetMode = false; // true when only a random sample is rendered
@@ -900,7 +921,7 @@ function getPersistedNodePositions({ compact = false } = {}) {
 
 	const focusIds = new Set([selectedId, ...highlightedSelections.map((entry) => entry?.id)].map((value) => String(value || '').trim()).filter(Boolean));
 	if (!focusIds.size) return [];
-	return layoutNodes.filter((node) => focusIds.has(node.id)).map((node) => buildPersistedNodePosition(node));
+	return layoutNodes.filter((node) => focusIds.has(String(node.id))).map((node) => buildPersistedNodePosition(node));
 }
 
 function buildSessionPayload({ compact = false, extraNodeMode = 'full' }: { compact?: boolean; extraNodeMode?: 'full' | 'ids' | 'none' } = {}) {
@@ -1711,8 +1732,8 @@ function refreshFindMatches(rawQuery, options: { preserveActiveMatch?: boolean }
 	const nodePool = [...(Array.isArray(layoutNodes) ? layoutNodes : []), ...(Array.isArray(graphData?.nodes) ? graphData.nodes : [])];
 	const matches = rankFindNodeMatches(query, nodePool, Array.isArray(layoutLinks) ? layoutLinks : []);
 	activeFindQuery = query;
-	activeFindMatchIds = new Set(matches.map((match) => match.node.id));
-	activeFindMatchOrder = matches.map((match) => match.node.id);
+	activeFindMatchIds = new Set(matches.map((match) => String(match.node.id)));
+	activeFindMatchOrder = matches.map((match) => String(match.node.id));
 	activeFindMatchIndex = previousActiveId && activeFindMatchIds.has(previousActiveId) ? activeFindMatchOrder.indexOf(previousActiveId) : -1;
 	refreshGraphColors();
 	emitFindState();
@@ -1746,7 +1767,7 @@ function cycleToFindMatch(rawQuery = activeFindQuery, direction = 1) {
 	}
 	activeFindMatchOrder = nodeIds;
 	activeFindMatchIds = new Set(nodeIds);
-	activeFindMatchIndex = activeFindMatchOrder.indexOf(liveNode.id);
+	activeFindMatchIndex = activeFindMatchOrder.indexOf(String(liveNode.id));
 	focusNodeById(liveNode.id, { duration: 520 });
 	startSearchPulseLoop(liveNode.id, { interval: 1400, immediate: true });
 	updateFocusReadout(liveNode);
@@ -1855,7 +1876,7 @@ function getArrowableNodes() {
 	if (Array.isArray(layoutNodes) && layoutNodes.length) {
 		for (const node of layoutNodes) {
 			if (!node || !Number.isFinite(node.x) || !Number.isFinite(node.y)) continue;
-			nodesById.set(node.id, node);
+			nodesById.set(String(node.id), node);
 		}
 	}
 
@@ -1912,7 +1933,7 @@ function moveFindMatch(rawQuery = activeFindQuery, direction = 'ArrowRight') {
 		nextNode = getNearestArrowableNode(currentNode);
 	}
 	if (!nextNode) return false;
-	const nodeIds = arrowable.map((node) => node.id);
+	const nodeIds = arrowable.map((node) => String(node.id));
 	activeFindMatchOrder = nodeIds;
 	activeFindMatchIds = new Set(nodeIds);
 	activeFindMatchIndex = activeFindMatchOrder.indexOf(nextNode.id);
@@ -1939,7 +1960,7 @@ function getVisibleNodeIds() {
 			const sy = node.y * k + y;
 			return sx + radius >= 0 && sx - radius <= width && sy + radius >= 0 && sy - radius <= height;
 		})
-		.map((node) => node.id);
+		.map((node) => String(node.id));
 }
 
 function getVisibleNodes() {
@@ -2498,7 +2519,7 @@ function calculateTrace() {
 	traceLogConnectorIds.clear();
 
 	const adj = new Map<string, Array<{ nodeId: string; linkId: string }>>();
-	layoutNodes.forEach((n) => adj.set(n.id, []));
+	layoutNodes.forEach((n) => adj.set(String(n.id), []));
 	layoutLinks.forEach((l) => {
 		const s = l.source?.id ?? l.source;
 		const t = l.target?.id ?? l.target;
@@ -3709,8 +3730,8 @@ function computeHighlightState() {
 		return { rootIds, nodeIds, hopNodeIds, linkKeys };
 	}
 
-	const nodeById = new Map((layoutNodes || []).map((node) => [node.id, node]));
-	const adjacency = new Map<string, Array<{ nodeId: string; link: any }>>((layoutNodes || []).map((node) => [node.id, []]));
+	const nodeById = new Map<string, any>((layoutNodes || []).map((node) => [String(node.id), node]));
+	const adjacency = new Map<string, Array<{ nodeId: string; link: any }>>((layoutNodes || []).map((node) => [String(node.id), []]));
 	(layoutLinks || []).forEach((link) => {
 		const sourceId = link.source?.id ?? link.source;
 		const targetId = link.target?.id ?? link.target;
@@ -7041,8 +7062,8 @@ async function filterGraph(rawQuery) {
 
 		// If we found some ids in the full graph, inject them into the layout
 		if (matched.size > 0) {
-			const rendered = new Set(layoutNodes.map((n) => n.id));
-			const missing = Array.from(matched).filter((id) => !rendered.has(id));
+			const rendered = new Set(layoutNodes.map((n) => String(n.id)));
+			const missing = Array.from(matched as Set<string>).filter((id) => !rendered.has(String(id)));
 			if (missing.length) injectNodesById(missing);
 		}
 	}
@@ -7066,8 +7087,8 @@ async function filterGraph(rawQuery) {
 							if (++count >= FILTER_MATCH_LIMIT) break;
 						}
 					}
-					const rendered = new Set(layoutNodes.map((n) => n.id));
-					const missing = Array.from(matched).filter((id) => !rendered.has(id));
+					const rendered = new Set(layoutNodes.map((n) => String(n.id)));
+					const missing = Array.from(matched as Set<string>).filter((id) => !rendered.has(String(id)));
 					if (missing.length) injectNodesById(missing);
 				}
 			}
@@ -8081,8 +8102,8 @@ export function renderNodeContents(selection) {
 			this instanceof Element ? this
 			: selection && typeof selection.node === 'function' ? selection.node()
 			: null;
-		const g = element ? d3.select(element) : d3.select(null);
-		g.selectAll('*').remove();
+		const g = d3.select<SVGGElement, unknown>(element as SVGGElement | null);
+		g.selectAll<SVGGElement, unknown>('*').remove();
 
 		const r = NODE_R[d.group] || 10;
 		const inactive = isNodeInactive(d);
@@ -8963,9 +8984,9 @@ function renderGraph(_data) {
 	svg.attr('viewBox', `0 0 ${W} ${H}`);
 
 	// Deep-copy so D3 mutation doesn't corrupt the original
-	const nodes = data.nodes.map((n) => ({ ...n }));
+	const nodes: GraphSimulationNode[] = data.nodes.map((n) => ({ ...n }) as GraphSimulationNode);
 	const nodeIdSet = new Set(nodes.map((n) => n.id));
-	const allLinks = data.links.map((l) => ({ ...l }));
+	const allLinks: GraphSimulationLink[] = data.links.map((l) => ({ ...l }) as GraphSimulationLink);
 	// Strip links whose endpoints aren't in the node set — D3 force throws if
 	// a link references a missing node. Missing nodes are fetched asynchronously.
 	const orphanLinks = allLinks.filter((l) => {
@@ -9082,7 +9103,8 @@ function renderGraph(_data) {
 	updateInactiveLinkScale(initialScale);
 	try {
 		// Use immediate transition to set scale centered on the viewport
-		svg.transition().duration(0).call(zoom.scaleTo, initialScale);
+		const svgSelection = d3.select<SVGSVGElement, unknown>(svg.node() as SVGSVGElement | null);
+		svgSelection.call(zoom.scaleTo, initialScale);
 	} catch (e) {
 		/* ignore if zoom API not available */
 	}
@@ -9127,7 +9149,7 @@ function renderGraph(_data) {
 		: isLarge ? 0.006
 		: 0.01;
 	simulation = d3
-		.forceSimulation(nodes)
+		.forceSimulation<GraphSimulationNode>(nodes)
 		.alphaDecay(
 			isHuge ? 0.06
 			: isLarge ? 0.03
@@ -9137,8 +9159,8 @@ function renderGraph(_data) {
 		.force(
 			'link',
 			d3
-				.forceLink(links)
-				.id((d) => d.id)
+				.forceLink<any, any>(links as any)
+				.id((d: GraphSimulationNode) => String(d.id))
 				.distance((link) => getForceLinkDistance(link, nodeCount))
 				.strength((link) => {
 					// Reduce link strength for dense nodes to allow charge/collision to spread them out
@@ -9173,11 +9195,15 @@ function renderGraph(_data) {
 		.force('y', d3.forceY(H / 2).strength(centeringStrength))
 		.force(
 			'location-x',
-			d3.forceX((node) => (Number.isFinite(node?._locationBiasX) ? node._locationBiasX : W / 2)).strength((node) => node?._locationBiasStrength || 0),
+			d3
+				.forceX((node: GraphSimulationNode) => (Number.isFinite(node?._locationBiasX) ? node._locationBiasX : W / 2))
+				.strength((node: GraphSimulationNode) => node?._locationBiasStrength || 0),
 		)
 		.force(
 			'location-y',
-			d3.forceY((node) => (Number.isFinite(node?._locationBiasY) ? node._locationBiasY : H / 2)).strength((node) => (node?._locationBiasStrength || 0) * 0.85),
+			d3
+				.forceY((node: GraphSimulationNode) => (Number.isFinite(node?._locationBiasY) ? node._locationBiasY : H / 2))
+				.strength((node: GraphSimulationNode) => (node?._locationBiasStrength || 0) * 0.85),
 		)
 		// per-node radius so scaled firm squares don't overlap each other
 		.force(
@@ -9250,10 +9276,10 @@ function renderGraph(_data) {
 			.append('g')
 			.attr('class', 'fg-nodes')
 			.selectAll('g')
-			.data(nodes, (d) => d.id)
+			.data(nodes, (d: GraphSimulationNode) => String(d.id))
 			.join('g')
 			.attr('class', 'fg-node')
-			.call(fluidDrag())
+			.call(fluidDrag() as any)
 			.on('click', handleNodeOpen);
 		nodeSel = node;
 		nodeGroup = root.select('.fg-nodes');
@@ -9359,7 +9385,7 @@ function renderGraph(_data) {
 function fluidDrag() {
 	return d3
 		.drag()
-		.on('start', function (event, d) {
+		.on('start', function (event, d: GraphSimulationNode) {
 			// Cancel any pending click-spread animation
 			if (spreadAnimId) {
 				cancelAnimationFrame(spreadAnimId);
@@ -9379,7 +9405,7 @@ function fluidDrag() {
 			// Reheat just enough for fluid neighbor movement
 			simulation.alphaTarget(0.3).restart();
 		})
-		.on('drag', function (event, d) {
+		.on('drag', function (event, d: GraphSimulationNode) {
 			// Calculate delta from previous position
 			const prevX = d.fx ?? d.x;
 			const prevY = d.fy ?? d.y;
@@ -9405,7 +9431,7 @@ function fluidDrag() {
 				});
 			}
 		})
-		.on('end', function (event, d) {
+		.on('end', function (event, d: GraphSimulationNode) {
 			// Release the dragged node so the simulation can continue moving fluidly
 			d.fx = null;
 			d.fy = null;
@@ -11055,9 +11081,9 @@ function findRenderedExpansionMatch(node, renderedNodeById = new Map<string, any
 }
 
 function normalizeExpansionPayloadToRenderedMatches(clickedNodeId, nodes = [], links = []) {
-	const renderedNodeById = new Map<string, any>((layoutNodes || []).map((node) => [node.id, node]));
+	const renderedNodeById = new Map<string, any>((layoutNodes || []).map((node) => [String(node.id), node]));
 	const renderedIds = new Set(renderedNodeById.keys());
-	const nodeById = new Map<string, any>((nodes || []).map((node) => [node.id, node]));
+	const nodeById = new Map<string, any>((nodes || []).map((node) => [String(node.id), node]));
 	const remappedIds = new Map<string, string>();
 
 	(nodes || []).forEach((node) => {
@@ -11587,7 +11613,7 @@ function placeNodesNearConnections(anchorNode, nodesToPlace, candidateLinks, hop
 		return Array.isArray(nodesToPlace) ? nodesToPlace : [];
 	}
 
-	const liveNodeById = new Map<string, any>((layoutNodes || []).map((node) => [node.id, node]));
+	const liveNodeById = new Map<string, any>((layoutNodes || []).map((node) => [String(node.id), node]));
 	const linksByNode = new Map<string, Set<string>>();
 	(Array.isArray(candidateLinks) ? candidateLinks : []).forEach((link) => {
 		const sourceId = link.source?.id ?? link.source;
@@ -12266,7 +12292,7 @@ function spreadNeighbors(
 	return;
 
 	// The animation code below is being bypassed for performance.
-	const nodeById = new Map<string, any>(layoutNodes.map((d) => [d.id, d]));
+	const nodeById = new Map<string, any>(layoutNodes.map((d) => [String(d.id), d]));
 
 	// Capture start and target positions for each neighbor
 	const snapshots = new Map<string, { x0: number; y0: number; x1: number; y1: number }>();
