@@ -1107,14 +1107,29 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 									l.location ||
 									employmentMatch?.loc ||
 									(l.city || l.officeCity || l.state || l.officeState ? [l.city || l.officeCity, l.state || l.officeState].filter(Boolean).join(', ') : null);
-								return `<div class='fg-tl-entry active-pos'>
-									<span class='fg-tl-firm'>${renderFirmNameWithCrd(firmNode?.label || l.firmName || employmentMatch?.firmName || l.name || l.organizationName || l.legalName || '', firmNode?.firmId || l.firmId || employmentMatch?.firmId)}${secNumber ? ` <small>SEC#${esc(String(secNumber))}</small>` : ''}</span>
+								const controlFirmId = firmNode?.firmId || l.firmId || employmentMatch?.firmId || null;
+								const controlFirmIdStr = controlFirmId ? String(controlFirmId).trim() : '';
+								const showControlFinraTag = controlFirmIdStr && (firmNode ? hasFirmFinraPresence(firmNode) : true);
+								const showControlSecTag = controlFirmIdStr && (firmNode ? hasFirmSecPresence(firmNode) : true);
+								const controlTagsHtml =
+									controlFirmIdStr && (showControlFinraTag || showControlSecTag) ?
+										`<span class='fg-control-card__tags'>
+                  ${showControlFinraTag ? `<a class='fg-ext-link bc' href='https://brokercheck.finra.org/firm/summary/${encodeURIComponent(controlFirmIdStr)}' target='_blank' rel='noopener noreferrer' onclick='event.stopPropagation()'>&#x2197; FINRA</a>` : ''}
+                  ${showControlSecTag ? `<a class='fg-ext-link sec' href='https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(controlFirmIdStr)}' target='_blank' rel='noopener noreferrer' onclick='event.stopPropagation()'>&#x2197; SEC</a>` : ''}
+                </span>`
+									:	'';
+								const entryBody = `<span class='fg-tl-firm'>${renderFirmNameWithCrd(firmNode?.label || l.firmName || employmentMatch?.firmName || l.name || l.organizationName || l.legalName || '', controlFirmId)}${secNumber ? ` <small>SEC#${esc(String(secNumber))}</small>` : ''}</span>
                   ${dateRange ? `<span class='fg-tl-dates'>${dateRange}</span>` : ''}
                   ${firmStatus ? `<span class='fg-tl-status'>${esc(firmStatus)}</span>` : ''}
                   ${l.position ? `<span class='fg-tl-loc'>${esc(l.position)}</span>` : ''}
                   ${location ? `<span class='fg-tl-loc'>${esc(location)}</span>` : ''}
                   ${firmAddress ? `<span class='fg-tl-loc'>${esc(firmAddress)}</span>` : ''}
-              </div>`;
+                  ${controlTagsHtml}`;
+								if (controlFirmIdStr) {
+									return `<button type='button' class='fg-tl-entry fg-card-clickable fg-crd-link active-pos' data-crd='${esc(controlFirmIdStr)}' data-crd-type='firm'>${entryBody}</button>`;
+								}
+								const searchName = firmNode?.label || l.firmName || employmentMatch?.firmName || l.name || l.organizationName || l.legalName || '';
+								return `<button type='button' class='fg-tl-entry fg-card-clickable active-pos' data-search-query='${esc(searchName)}'>${entryBody}</button>`;
 							})
 							.join('')}`
 				:	''

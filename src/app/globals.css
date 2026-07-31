@@ -3128,6 +3128,18 @@ a,
 	line-height: 1.45;
 }
 
+.fg-control-card__tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 5px;
+	margin-top: 4px;
+}
+
+.fg-control-card__tags .fg-ext-link {
+	padding: 3px 8px;
+	font-size: 10px;
+}
+
 .fg-tl-firm {
 	display: block;
 	font-weight: 600;
