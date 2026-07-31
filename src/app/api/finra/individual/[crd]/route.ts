@@ -93,6 +93,13 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 	return value != null && typeof value === 'object' && !Array.isArray(value);
 }
 
+// Scraped, non-live reference record (no FINRA/SEC detail available for this CRD).
+function isOrphanIndividualPayload(data: unknown): data is { orphan: Record<string, any>; sources?: Record<string, any> } {
+	if (!isPlainObject(data) || !isPlainObject((data as Record<string, any>).orphan)) return false;
+	const sources = (data as Record<string, any>).sources;
+	return isPlainObject(sources) && sources.finra?.found === false && sources.sec?.found === false;
+}
+
 function mergePreferPrimary(primary: unknown, secondary: unknown): unknown {
 	if (primary == null || primary === '') return secondary;
 	if (secondary == null || secondary === '') return primary;
@@ -209,6 +216,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		const finraData = requests[0].status === 'fulfilled' ? requests[0].value : null;
 		const secData = requests[1].status === 'fulfilled' ? requests[1].value : null;
+
+		// Scraped-only reference record: no live FINRA/SEC detail, surface the orphan metadata as-is.
+		if (isOrphanIndividualPayload(finraData) || isOrphanIndividualPayload(secData)) {
+			const orphanPayload = isOrphanIndividualPayload(finraData) ? finraData : secData;
+			return NextResponse.json(
+				{ found: true, crd, orphan: orphanPayload.orphan, sources: orphanPayload.sources, hasFinraData: false, hasSecData: false },
+				{ headers: sharedCacheHeaders(3600) },
+			);
+		}
 
 		let finraDetail = parseDetailPayload(finraData, 'content');
 		const secDetail = parseDetailPayload(secData, 'iacontent');

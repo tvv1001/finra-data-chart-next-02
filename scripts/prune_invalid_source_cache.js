@@ -138,6 +138,12 @@ function hasFirmCoverage(detail, source) {
 	return Boolean(String(detail.iaSECNumber || detail.iaSecNumber || '').trim());
 }
 
+function isOrphanPayload(source) {
+	if (!isPlainObject(source) || !isPlainObject(source.orphan)) return false;
+	const sources = source.sources;
+	return isPlainObject(sources) && sources.finra?.found === false && sources.sec?.found === false;
+}
+
 function classifyPayload(key, payload) {
 	const parsedKey = getEntityFromKey(key);
 	if (!parsedKey || !isPlainObject(payload)) return null;
@@ -147,6 +153,9 @@ function classifyPayload(key, payload) {
 	else if (isPlainObject(payload?.response?.docs?.[0])) source = payload.response.docs[0];
 	else source = payload;
 	if (!isPlainObject(source)) return null;
+
+	// Scraped-only reference records intentionally have no live FINRA/SEC coverage; never prune them.
+	if (isOrphanPayload(source)) return null;
 
 	const built = parsedKey.entity === 'individual' ? buildIndividualStub(source) : buildFirmStub(source);
 	const coverage = parsedKey.entity === 'individual' ? hasIndividualCoverage(built.detail, parsedKey.source) : hasFirmCoverage(built.detail, parsedKey.source);

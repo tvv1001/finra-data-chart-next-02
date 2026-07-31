@@ -226,6 +226,36 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 
 	const stubBadge = d.stub ? `<span class='fg-badge stub'>Form BD stub</span>` : '';
 
+	if (d.orphan && typeof d.orphan === 'object') {
+		const orphan = d.orphan;
+		const parentCrd = orphan.parentCrd ? String(orphan.parentCrd).trim() : '';
+		const parentType = String(orphan.parentType || 'firm')
+			.trim()
+			.toLowerCase();
+		const parentFirmUrl = parentCrd ? `https://brokercheck.finra.org/${parentType === 'individual' ? 'individual' : 'firm'}/summary/${encodeURIComponent(parentCrd)}` : null;
+		function orphanRow(label: string, value: unknown) {
+			const text = String(value || '').trim();
+			if (!text) return '';
+			return `<div class='fg-detail-row'><span class='fg-detail-label'>${esc(label)}</span><span class='fg-detail-value'>${esc(text)}</span></div>`;
+		}
+		return `
+    <div class='fg-sb-header individual'>
+      <div class='fg-sb-title'>${esc(normalizePersonLabel(d.label || orphan.name || ''))}</div>
+      <div class='fg-sb-badges'>
+        <span class='fg-badge inactive' title='No live FINRA/SEC record — scraped reference only'>No live CRD — scraped reference only</span>
+      </div>
+    </div>
+    <div class='fg-sb-body fg-sb-body--person'>
+      ${parentFirmUrl ? `<div class='fg-ext-links'><a class='fg-ext-link bc' href='${parentFirmUrl}' target='_blank' rel='noopener noreferrer'>&#x2197; Parent Firm Summary</a></div>` : ''}
+      ${orphanRow('CRD', orphan.crd)}
+      ${orphanRow('Position', orphan.position)}
+      ${orphanRow('Firm', orphan.firmName)}
+      ${orphanRow('Office Address', orphan.officeAddress)}
+      ${orphanRow('Mailing Address', orphan.mailingAddress)}
+      ${orphanRow('Phone', orphan.phone)}
+    </div>`;
+	}
+
 	function formatDomainScopeBadge(text: string | null | undefined, domain: string, sourceTitle: string) {
 		const raw = String(text || '').trim();
 		if (!raw) return '';

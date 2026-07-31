@@ -77,6 +77,26 @@ export function findExistingFirmNode(firmId, layoutNodes, { label = '' }: { labe
 export function applyIndividualDetail(targetNode, detail, fallbackCrd = null) {
 	if (!targetNode || !detail) return targetNode;
 
+	// Scraped-only reference record (no live FINRA/SEC detail available for this CRD).
+	if (detail.orphan && typeof detail.orphan === 'object') {
+		const orphan = detail.orphan;
+		targetNode.crd = String(orphan.crd || fallbackCrd || targetNode.crd || '');
+		targetNode.stub = true;
+		targetNode.orphan = orphan;
+		targetNode.hasFinraData = false;
+		targetNode.hasSecData = false;
+		const preferredName = normalizePersonLabel(orphan.name || '');
+		if (preferredName) targetNode.label = preferredName;
+		if (orphan.position) targetNode.orphanPosition = orphan.position;
+		if (orphan.firmName) targetNode.orphanFirmName = orphan.firmName;
+		if (orphan.officeAddress) targetNode.orphanOfficeAddress = orphan.officeAddress;
+		if (orphan.mailingAddress) targetNode.orphanMailingAddress = orphan.mailingAddress;
+		if (orphan.phone) targetNode.orphanPhone = orphan.phone;
+		if (orphan.parentCrd) targetNode.orphanParentCrd = orphan.parentCrd;
+		if (orphan.parentType) targetNode.orphanParentType = orphan.parentType;
+		return targetNode;
+	}
+
 	const bi = detail?.basicInformation || {};
 	targetNode.basicInformation = bi;
 
