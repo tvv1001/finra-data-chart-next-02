@@ -7948,7 +7948,7 @@ function isCurrentActiveConnection(link) {
 
 function getLinkHighlightColor(link) {
 	if (hasInactiveEndpoint(link)) return getLinkColor(link);
-	if (link?.relationship === 'controls') return GRAPH_COLORS.lineControlsHighlight;
+	if (isControlRelationship(link)) return GRAPH_COLORS.lineControlsHighlight;
 	return getLinkColor(link);
 }
 
@@ -8213,8 +8213,9 @@ function getLinkBaseWidth(d) {
 
 function getLinkZoomOutScale() {
 	const zoom = Math.max(0.02, Number(getCurrentGraphZoomScale()) || 1);
-	// As zoom goes down (<1), width scale goes up (>1).
-	return Math.min(3.5, Math.max(1, 1 / zoom));
+	// Only thicken once zoomed out past the point where small labels hide, capped at 35% thicker.
+	if (zoom >= activeLabelZoomThreshold) return 1;
+	return Math.min(1.35, Math.max(1, activeLabelZoomThreshold / zoom));
 }
 
 function getScaledLinkStrokeWidth(baseWidth: number) {
@@ -8663,7 +8664,7 @@ function updateNodeVisuals(
 		let nodeLabelColor = inactive ? GRAPH_COLORS.nodeInactiveLabel : GRAPH_COLORS.nodeLabel;
 		let nodeLabelHalo = inactive ? 'rgba(248,250,252,0.95)' : GRAPH_COLORS.nodeLabelHalo;
 
-		if (d.group === 'individual' && d.stub) {
+		if (d.group === 'individual' && d.stub && !(isControlNode && !inactive)) {
 			color = inactive ? GRAPH_COLORS.nodeInactive : GRAPH_COLORS.nodeStub;
 			nodeOpacity = inactive ? 0.72 : NODE_OPACITY_STUB;
 		}
@@ -9911,6 +9912,14 @@ async function ensureIndividualDetail(personNode, options: { allowOwnerEvidenceF
 	}
 }
 
+// Officer/control-type position text (e.g. "CHIEF COMPLIANCE OFFICER", "DIRECTOR", "PRINCIPAL")
+// should render as a controls-type relationship, not a plain employment link.
+function isControlPositionText(text) {
+	const value = String(text || '').trim();
+	if (!value) return false;
+	return /officer|chief|director|principal|control\s*person|owner|partner|proprietor/i.test(value);
+}
+
 function syncIndividualConnectionsFromDetail(personNode, detail) {
 	if (!personNode || !detail) return;
 
@@ -9936,7 +9945,11 @@ function syncIndividualConnectionsFromDetail(personNode, detail) {
 					:	{ id: parentNodeId, label: orphan.firmName || `Firm ${parentCrd}`, group: 'firm', firmId: parentCrd },
 				);
 			}
-			const candidateLink = { source: personId, target: parentNodeId, relationship: 'employed_by' };
+			const candidateLink = {
+				source: personId,
+				target: parentNodeId,
+				relationship: isControlPositionText(orphan.position) ? 'officer' : 'employed_by',
+			};
 			const hasLayoutLink = layoutLinks.some((link) => getLinkIdentityKey(link) === getLinkIdentityKey(candidateLink));
 			if (!hasLayoutLink) newLinks.push(candidateLink);
 		}
@@ -12020,7 +12033,7 @@ function highlightLinks(highlightState = null) {
 				const isGrayLine = hasInactiveEndpoint(d) || isPreviousEmploymentLink(d) || isForcedGrayConnectionLink(d);
 				const highlightedStrokeWidth =
 					isGrayLine ? 1.05
-					: d.relationship === 'controls' ? 1.9
+					: isControlRelationship(d) ? 1.9
 					: usesCurrentEmploymentStyling(d) ? 1.85
 					: 1.4;
 				return String(highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale);
@@ -12029,7 +12042,7 @@ function highlightLinks(highlightState = null) {
 				const isGrayLine = hasInactiveEndpoint(d) || isPreviousEmploymentLink(d) || isForcedGrayConnectionLink(d);
 				const highlightedStrokeWidth =
 					isGrayLine ? 1.05
-					: d.relationship === 'controls' ? 1.9
+					: isControlRelationship(d) ? 1.9
 					: usesCurrentEmploymentStyling(d) ? 1.85
 					: 1.4;
 				const baseWidth = highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale;
@@ -12039,7 +12052,7 @@ function highlightLinks(highlightState = null) {
 				const isGrayLine = hasInactiveEndpoint(d) || isPreviousEmploymentLink(d) || isForcedGrayConnectionLink(d);
 				const highlightedStrokeWidth =
 					isGrayLine ? 1.05
-					: d.relationship === 'controls' ? 1.9
+					: isControlRelationship(d) ? 1.9
 					: usesCurrentEmploymentStyling(d) ? 1.85
 					: 1.4;
 				const baseWidth = highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale;
@@ -12088,7 +12101,7 @@ function highlightLinks(highlightState = null) {
 				sel.classed('fg-link--depth-active', true);
 				const highlightedStrokeWidth =
 					isGrayLine ? 1.05
-					: d.relationship === 'controls' ?
+					: isControlRelationship(d) ?
 						connectedToRoot ? 1.9
 						:	1.55
 					: usesCurrentEmploymentStyling(d) ?
@@ -13036,11 +13049,12 @@ function renderPersonDetail(d: any) {
 			const firmNode = graphData.nodes.find((n) => n.id === (l.target?.id || l.target));
 			return {
 				firmName: firmNode?.label || l.firmName || '',
-				firmId: l.firmId,
+				firmId: firmNode?.firmId || l.firmId || null,
 				start: l.startDate || '',
 				end: l.endDate || null,
 				isCurrent: !l.endDate,
 				iaOnly: false,
+				addr: firmNode?.officeAddress || l.officeAddress || l.address || d.orphanOfficeAddress || d.orphanMailingAddress || null,
 				loc: formatLocationText([l.city, l.state].filter(Boolean).join(', ')),
 			};
 		});
@@ -13297,6 +13311,9 @@ function renderPersonDetail(d: any) {
 
       ${bi.individualId ? row('CRD', `<code>${bi.individualId}</code>`) : ''}
 		${row('ID source check', esc(formatNodeSourceTruthSummary(d)))}
+      ${d.orphanPosition ? row('Position', esc(String(d.orphanPosition))) : ''}
+      ${d.orphanFirmName ? row('Affiliated Firm', esc(String(d.orphanFirmName))) : ''}
+      ${d.orphanParentCrd ? row('Parent Firm CRD', `<button type="button" class="fg-crd-link" data-crd="${esc(String(d.orphanParentCrd))}" data-crd-type="${d.orphanParentType === 'individual' ? 'individual' : 'firm'}">Firm #${esc(String(d.orphanParentCrd))}</button>`) : ''}
       ${aliases.length ? row('Also known as', esc(aliases.join('; '))) : ''}
       ${
 				d.yearsExperience != null ? row('Years of Experience', esc(String(d.yearsExperience)))
@@ -13330,10 +13347,21 @@ function renderPersonDetail(d: any) {
 						const detailHtml = detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : '';
 						const scopeHtml = scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : '';
 						const secHtml = showSecReferences && e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : '';
+						const empFirmId = e.firmId ? String(e.firmId).trim() : '';
+						const empFirmNode = empFirmId ? graphData.nodes.find((n) => n.firmId === empFirmId || n.id === `firm:${empFirmId}`) : null;
+						const showEmpFinraTag = empFirmId && (empFirmNode ? hasFirmFinraPresence(empFirmNode) : true);
+						const showEmpSecTag = empFirmId && (empFirmNode ? hasFirmSecPresence(empFirmNode) : true);
+						const empTagsHtml =
+							empFirmId && (showEmpFinraTag || showEmpSecTag) ?
+								`<span class="fg-control-card__tags">
+                 ${showEmpFinraTag ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/firm/summary/${encodeURIComponent(empFirmId)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">&#x2197; FINRA</a>` : ''}
+                 ${showEmpSecTag ? `<a class="fg-ext-link sec" href="https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(empFirmId)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">&#x2197; SEC</a>` : ''}
+               </span>`
+							:	'';
 						if (e.firmId) {
-							return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-crd-link" data-crd="${esc(e.firmId)}" data-crd-type="firm">${esc(e.firmName)}${secHtml}${datesHtml}${detailHtml}${scopeHtml}</button>`;
+							return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-crd-link" data-crd="${esc(e.firmId)}" data-crd-type="firm">${esc(e.firmName)}${secHtml}${datesHtml}${detailHtml}${scopeHtml}${empTagsHtml}</button>`;
 						}
-						return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable" data-search-query="${esc(e.firmName)}">${esc(e.firmName)}${secHtml}${datesHtml}${detailHtml}${scopeHtml}</button>`;
+						return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable" data-search-query="${esc(e.firmName)}">${esc(e.firmName)}${secHtml}${datesHtml}${detailHtml}${scopeHtml}${empTagsHtml}</button>`;
 					})
 					.join('')}
             </div>`

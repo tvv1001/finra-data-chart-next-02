@@ -635,6 +635,7 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 				end: l.endDate || null,
 				isCurrent: !l.endDate,
 				iaOnly: false,
+				addr: firmNode?.officeAddress || l.officeAddress || l.address || d.orphanOfficeAddress || d.orphanMailingAddress || null,
 				loc: formatLocationText([l.city, l.state].filter(Boolean).join(', ')),
 			};
 		});
@@ -909,6 +910,9 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 
       ${bi.individualId ? row('CRD', `<code>${bi.individualId}</code>`) : ''}
 	${row('ID source check', esc(formatNodeSourceTruthSummary(d)))}
+      ${d.orphanPosition ? row('Position', esc(String(d.orphanPosition))) : ''}
+      ${d.orphanFirmName ? row('Affiliated Firm', esc(String(d.orphanFirmName))) : ''}
+      ${d.orphanParentCrd ? row('Parent Firm CRD', `<button type='button' class='fg-crd-link' data-crd='${esc(String(d.orphanParentCrd))}' data-crd-type='${d.orphanParentType === 'individual' ? 'individual' : 'firm'}'>Firm #${esc(String(d.orphanParentCrd))}</button>`) : ''}
       ${aliases.length ? row('Also known as', esc(aliases.join('; '))) : ''}
       ${
 				d.yearsExperience != null ? row('Years of Experience', esc(String(d.yearsExperience)))
@@ -940,11 +944,23 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 								.map((e) => {
 									const detailLine = getEmploymentDetailLine(e);
 									const scopeTags = getEmploymentScopeTags(e);
+									const empFirmId = e.firmId ? String(e.firmId).trim() : '';
+									const empFirmNode = empFirmId ? graphData?.nodes?.find((n) => n.firmId === empFirmId || n.id === `firm:${empFirmId}`) : null;
+									const showEmpFinraTag = empFirmId && (empFirmNode ? hasFirmFinraPresence(empFirmNode) : true);
+									const showEmpSecTag = empFirmId && (empFirmNode ? hasFirmSecPresence(empFirmNode) : true);
+									const empTagsHtml =
+										empFirmId && (showEmpFinraTag || showEmpSecTag) ?
+											`<span class='fg-control-card__tags'>
+                       ${showEmpFinraTag ? `<a class='fg-ext-link bc' href='https://brokercheck.finra.org/firm/summary/${encodeURIComponent(empFirmId)}' target='_blank' rel='noopener noreferrer' onclick='event.stopPropagation()'>&#x2197; FINRA</a>` : ''}
+                       ${showEmpSecTag ? `<a class='fg-ext-link sec' href='https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(empFirmId)}' target='_blank' rel='noopener noreferrer' onclick='event.stopPropagation()'>&#x2197; SEC</a>` : ''}
+                     </span>`
+										:	'';
 									return `<div class='fg-tl-entry active-pos'>
 																			<span class='fg-tl-firm'>${renderFirmNameWithCrd(e.firmName, e.firmId)}${e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : ''}</span>
 																					<span class='fg-tl-dates'> ${esc(e.start || '–')} → ${esc(e.end || 'present')} </span>
 																					${detailLine ? `<span class='fg-tl-loc'>${esc(detailLine)}</span>` : ''}
 																					${scopeTags.length ? `<span class='fg-tl-loc' style='color:var(--text-m)'>${esc(scopeTags.join(' · '))}</span>` : ''}
+																					${empTagsHtml}
 																				</div>`;
 								})
 								.join('')}
