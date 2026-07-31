@@ -1192,15 +1192,39 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 }
 
 export function renderFirmDetail(d: any) {
-	const statusDate = d.firmStatusDate || '';
-	const statusText = d.firmStatus ? capitalize(String(d.firmStatus || '').toLowerCase()) : '';
-	const statusIsActive = d.firmStatus ? /\bactive\b|\bapproved\b/i.test(String(d.firmStatus)) : false;
-	const statusIsTerminated = d.firmStatus ? /terminated|inactive|revoked|suspended/i.test(String(d.firmStatus)) : false;
+	const registrationStatusEntries = Array.isArray(d.registrationStatus) ? d.registrationStatus.filter((entry: any) => entry && typeof entry === 'object') : [];
+	const primaryRegistrationStatusEntry =
+		registrationStatusEntries.find((entry: any) => /sec/i.test(String(entry?.secJurisdiction || entry?.jurisdiction || entry?.state || entry?.name || ''))) ||
+		registrationStatusEntries[0] ||
+		null;
+	const registrationStatusText =
+		primaryRegistrationStatusEntry ?
+			String(primaryRegistrationStatusEntry.status || primaryRegistrationStatusEntry.registrationStatus || primaryRegistrationStatusEntry.regStatus || '').trim()
+		:	'';
+	const firmStatusText = d.firmStatus ? String(d.firmStatus).trim() : registrationStatusText;
+	const statusDate =
+		d.firmStatusDate ||
+		(primaryRegistrationStatusEntry ?
+			String(
+				primaryRegistrationStatusEntry.effectiveDate ||
+					primaryRegistrationStatusEntry.effectiveDateText ||
+					primaryRegistrationStatusEntry.effective ||
+					primaryRegistrationStatusEntry.date ||
+					'',
+			).trim()
+		:	'');
+	const statusText = firmStatusText ? capitalize(firmStatusText.toLowerCase()) : '';
+	const statusIsActive = firmStatusText ? /\bactive\b|\bapproved\b/i.test(firmStatusText) : false;
+	const statusIsTerminated = firmStatusText ? /terminated|inactive|revoked|suspended/i.test(firmStatusText) : false;
 	const statusClass =
 		statusIsActive ? 'active'
 		: statusIsTerminated ? 'terminated'
 		: 'inactive';
-	const statusBadge = d.firmStatus ? `<span class='fg-badge ${statusClass}'>${esc(statusText)}${statusDate ? ` ${statusDate}` : ''}</span>` : '';
+	const hasSecRegistrationBadge =
+		Array.isArray(d.registrationStatus) &&
+		d.registrationStatus.some((entry: any) => /sec/i.test(String(entry?.secJurisdiction || entry?.jurisdiction || entry?.state || entry?.name || '')));
+	const displayStatusText = hasSecRegistrationBadge && firmStatusText ? `SEC ${statusText}` : statusText;
+	const statusBadge = firmStatusText ? `<span class='fg-badge ${statusClass}'>${esc(displayStatusText)}${statusDate ? ` ${statusDate}` : ''}</span>` : '';
 	const legacyBadge = d.isLegacy === 'Y' ? `<span class='fg-badge inactive'>PR Previously Registered Brokerage Firm</span>` : '';
 	const scopeBadge =
 		d.bcScope ?
@@ -1260,6 +1284,69 @@ export function renderFirmDetail(d: any) {
 		:	[];
 	const secSummaryDescription = hasSecPage && d.secSummaryDescription ? String(d.secSummaryDescription).trim() : '';
 	const showBrokerCheckSummary = hasFinraPage;
+	const showSec = hasSecPage;
+	function renderRegistrationStatusRows() {
+		const entries = Array.isArray(d.registrationStatus) ? d.registrationStatus.filter((entry: any) => entry && typeof entry === 'object') : [];
+		const fallbackEntries =
+			entries.length ? entries
+			: d.firmStatus ? [{ secJurisdiction: 'SEC', status: d.firmStatus, effectiveDate: d.firmStatusDate }]
+			: [];
+		if (!fallbackEntries.length) return '';
+		return `
+			<div class='fg-section-title fg-section-title--sticky'>Registration Status</div>
+			${fallbackEntries
+				.map((entry: any) => {
+					const jurisdiction = String(entry.secJurisdiction || entry.jurisdiction || entry.state || entry.name || 'SEC').trim() || 'SEC';
+					const status = String(entry.status || entry.registrationStatus || entry.regStatus || '').trim();
+					const effectiveDate = String(entry.effectiveDate || entry.effectiveDateText || entry.effective || entry.date || '').trim();
+					return `
+						<div class='fg-detail-row'>
+							<span class='fg-label'>SEC / Jurisdiction</span>
+							<span>${esc(jurisdiction)}</span>
+						</div>
+						<div class='fg-detail-row'>
+							<span class='fg-label'>Registration Status</span>
+							<span>${status ? esc(status) : '–'}</span>
+						</div>
+						<div class='fg-detail-row'>
+							<span class='fg-label'>Effective Date</span>
+							<span>${effectiveDate ? esc(effectiveDate) : '–'}</span>
+						</div>`;
+				})
+				.join('')}`;
+	}
+
+	function renderNoticeFilingsRows() {
+		const entries = Array.isArray(d.noticeFilings) ? d.noticeFilings.filter((entry: any) => entry && typeof entry === 'object') : [];
+		if (!entries.length) return '';
+		return `
+			<div class='fg-section-title fg-section-title--sticky'>Notice Filings</div>
+			${entries
+				.map((entry: any) => {
+					const jurisdiction = String(entry.jurisdiction || entry.state || entry.name || '').trim();
+					const effectiveDate = String(entry.effectiveDate || entry.effectiveDateText || entry.effective || entry.date || '').trim();
+					const status = String(entry.status || entry.registrationStatus || entry.regStatus || '').trim();
+					const statusClass =
+						/active|approved|registered/i.test(status) ? 'active'
+						: /terminated|inactive|revoked|suspended/i.test(status) ? 'terminated'
+						: 'inactive';
+					const badge = status ? `<span class='fg-badge ${statusClass}'>${esc(status)}</span>` : '';
+					return `
+						<div class='fg-detail-row'>
+							<span class='fg-label'>Jurisdiction</span>
+							<span>${esc(jurisdiction || '–')}</span>
+						</div>
+						<div class='fg-detail-row'>
+							<span class='fg-label'>Effective Date</span>
+							<span>${effectiveDate ? esc(effectiveDate) : '–'}</span>
+						</div>
+						<div class='fg-detail-row'>
+							<span class='fg-label'>Status</span>
+							<span>${badge || '–'}</span>
+						</div>`;
+				})
+				.join('')}`;
+	}
 
 	const officeAddressRaw = String(d.officeAddress || '').trim();
 	const officeAddress = /^(?:-|n\/?a|na|none|null|undefined)$/i.test(officeAddressRaw) ? '' : officeAddressRaw;
@@ -1300,7 +1387,8 @@ export function renderFirmDetail(d: any) {
 			}
       <div class='fg-section-title'>Registration</div>
 	${row('ID source check', esc(formatNodeSourceTruthSummary(d)))}
-      ${row('SEC Registration Status', d.firmStatus ? esc(d.firmStatus) + (statusDate ? ` (${statusDate})` : '') : '–')}
+      ${showSec ? renderRegistrationStatusRows() : ''}
+      ${showSec ? renderNoticeFilingsRows() : ''}
       ${d.districtName ? row('FINRA District', esc(d.districtName)) : ''}
       ${row('Company Type', esc(d.firmType || 'N/A'))}
       ${row('Self-Regulatory Orgs', esc(sros))}

@@ -1,3 +1,4 @@
+import * as d3 from 'd3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	ensureSidebarHintContent,
@@ -33,6 +34,7 @@ import {
 	releasePinnedSelectedNodeAnchor,
 	normalizeNodeLabelInPlace,
 	getNodeTooltipTitle,
+	renderNodeContents,
 	rankFindNodeMatches,
 	scheduleNodeExpansion,
 	selectTextSearchHydrationTargets,
@@ -49,13 +51,14 @@ import {
 	resolveLinkEndpoints,
 	rebindLinksToNodes,
 	handleNodeKeyboardActivation,
+	resolveEmploymentConnectionFirmNodeId,
 } from '../../src/lib/finra-graph';
 import { shouldRenderBlueNodeHighlight } from '../../src/lib/finra-graph-canvas';
 import { DEFAULT_NODE_LABEL_FONT_SIZE_PX } from '../../src/lib/finra-graph-defaults';
 import { applyIndividualDetail as applyIndividualDetailFromDetailUtils, hasRichIndividualDetail } from '../../src/lib/finra-graph/detailUtils';
 import { mergeGraphNodesForAppend, rewriteGraphLinksForNodeIdentity } from '../../src/lib/graphIdentity';
 import { buildParentFirmSummaryLinks } from '../../src/lib/finra-graph/externalLinks';
-import { renderPersonDetail } from '../../src/lib/finra-graph/sidebar';
+import { renderFirmDetail, renderPersonDetail } from '../../src/lib/finra-graph/sidebar';
 import { buildLargeGraphRenderPlan, getLargeGraphRenderBudget, getProgressiveLoadBudget, shouldUseInitialSvgFallback } from '../../src/lib/large-graph-rendering';
 import { normalizeNodeRouteId } from '../../src/lib/node-route';
 
@@ -253,6 +256,96 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		const node = { id: 'person:123', label: 'CRD 123456', group: 'individual' } as any;
 		normalizeNodeLabelInPlace(node);
 		expect(node.label).toBe('Node person:123');
+	});
+
+	it('renderNodeContents creates a dedicated hit-area for hover and focus interactions', () => {
+		const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+		svg.appendChild(group);
+		document.body.appendChild(svg);
+
+		const selection = d3.select(group).datum({ id: 'person:123', group: 'individual', label: 'Alpha' });
+		renderNodeContents(selection);
+
+		const hitArea = group.querySelector('.fg-node-hit-area');
+		expect(hitArea).not.toBeNull();
+		const hitAreaElement = hitArea as Element;
+		expect(hitAreaElement.getAttribute('pointer-events')).toBe('all');
+	});
+
+	it('renderFirmDetail surfaces SEC registration-status rows from the registrationStatus array', () => {
+		const html = renderFirmDetail({
+			id: 'firm:154604',
+			firmId: '154604',
+			label: 'FUTUREADVISOR, INC.',
+			group: 'firm',
+			hasSecData: true,
+			secSummaryDescription: 'SEC adviser firm profile',
+			registrationStatus: [
+				{ secJurisdiction: 'SEC', status: 'Terminated', effectiveDate: '7/14/2023' },
+				{ secJurisdiction: 'North Carolina', status: 'Terminated', effectiveDate: '8/21/2013' },
+				{ secJurisdiction: 'Oregon', status: 'Terminated', effectiveDate: '8/30/2013' },
+			],
+			basicInformation: {},
+		} as any);
+
+		expect(html).toContain('SEC / Jurisdiction');
+		expect(html).toContain('SEC');
+		expect(html).toContain('North Carolina');
+		expect(html).toContain('Oregon');
+		expect(html).toContain('7/14/2023');
+		expect(html).toContain('8/21/2013');
+		expect(html).toContain('8/30/2013');
+	});
+
+	it('uses SEC registration status to mark terminated firms inactive and show a SEC terminated badge', () => {
+		const node = {
+			group: 'firm',
+			id: 'firm:154604',
+			hasSecData: true,
+			registrationStatus: [{ secJurisdiction: 'SEC', status: 'Terminated', effectiveDate: '7/14/2023' }],
+			basicInformation: {},
+		} as any;
+		const html = renderFirmDetail(node);
+
+		expect(isNodeInactive(node)).toBe(true);
+		expect(html).toContain('SEC Terminated');
+	});
+
+	it('renders SEC notice filings in the firm detail panel with status styling', () => {
+		const html = renderFirmDetail({
+			id: 'firm:107342',
+			firmId: '107342',
+			label: 'Example Firm',
+			group: 'firm',
+			hasSecData: true,
+			secSummaryDescription: 'SEC adviser firm profile',
+			registrationStatus: [{ secJurisdiction: 'SEC', status: 'Approved', effectiveDate: '3/26/1987' }],
+			noticeFilings: [
+				{ jurisdiction: 'Alabama', effectiveDate: '5/3/1995', status: 'Approved' },
+				{ jurisdiction: 'California', effectiveDate: '1/1/1988', status: 'Approved' },
+			],
+			basicInformation: {},
+		} as any);
+
+		expect(html).toContain('Notice Filings');
+		expect(html).toContain('Alabama');
+		expect(html).toContain('California');
+		expect(html).toContain('5/3/1995');
+		expect(html).toContain('1/1/1988');
+		expect(html).toContain('fg-badge active');
+	});
+
+	it('resolves person employment links via SEC firm identifiers when CRD is absent', () => {
+		const employment = {
+			firmId: '',
+			firmName: 'Fisher Investments',
+			bdSECNumber: '8-29362',
+			_isCurrent: true,
+		};
+
+		const resolved = resolveEmploymentConnectionFirmNodeId(employment);
+		expect(resolved).toBe('firm:8-29362');
 	});
 
 	it('getNodeLabelFontSize grows as the graph zooms out', () => {

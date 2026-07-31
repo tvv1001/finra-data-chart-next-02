@@ -3424,6 +3424,10 @@ a,
 	pointer-events: all;
 }
 
+.fg-node {
+	pointer-events: all;
+}
+
 .fg-node .fg-node-hit-area,
 .fg-node text.fg-label {
 	cursor: pointer;
@@ -3432,6 +3436,11 @@ a,
 .fg-node .fg-node-hit-area {
 	fill: transparent;
 	pointer-events: all;
+}
+
+.fg-node .fg-node-overlay,
+.fg-node .fg-node-selected-ring {
+	pointer-events: none;
 }
 
 .fg-node .fg-node-shape--firm {

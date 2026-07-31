@@ -579,7 +579,11 @@ function buildEmploymentGraphArtifacts(detail: Record<string, any>, personId: st
 	];
 
 	for (const employment of employments) {
-		const firmId = String(employment?.firm_id || employment?.firmId || employment?.firmIdNumber || '').trim();
+		const rawFirmId = String(employment?.firm_id || employment?.firmId || employment?.firmIdNumber || employment?.organizationId || employment?.orgId || '').trim();
+		const secFirmId = String(
+			employment?.bdSECNumber || employment?.bdSecNumber || employment?.iaSECNumber || employment?.iaSecNumber || employment?.firm_bd_sec_number || '',
+		).trim();
+		const firmId = rawFirmId || secFirmId;
 		if (!firmId) continue;
 		const firmNodeId = `firm:${firmId}`;
 		if (!seenFirmIds.has(firmNodeId)) {
@@ -589,6 +593,8 @@ function buildEmploymentGraphArtifacts(detail: Record<string, any>, personId: st
 				label: employment?.firm_name || employment?.firmName || `Firm ${firmId}`,
 				group: 'firm',
 				firmId,
+				bdSecNumber: employment?.bdSECNumber || employment?.bdSecNumber || employment?.firm_bd_sec_number || null,
+				iaSecNumber: employment?.iaSECNumber || employment?.iaSecNumber || null,
 				_source: 'dashboard-fetch',
 				discovered_by_crd: personId,
 			});

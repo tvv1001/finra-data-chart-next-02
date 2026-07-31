@@ -61,6 +61,39 @@ describe('buildMainAppGraphArtifactsFromFetchedPayload', () => {
 			true,
 		);
 	});
+
+	it('builds a firm link from SEC employment identifiers when no firm id is present', () => {
+		const payload = {
+			hits: {
+				hits: [
+					{
+						_source: {
+							iacontent: JSON.stringify({
+								basicInformation: {
+									individualId: Number(TEST_DUAL_SOURCE_CRD),
+									firstName: TEST_PERSON_FIRST_NAME,
+									lastName: TEST_PERSON_LAST_NAME,
+								},
+								currentEmployments: [{ firm_name: 'Fisher Investments', bdSECNumber: '8-29362' }],
+								currentIAEmployments: [{ firm_name: 'Fisher Investments', iaSECNumber: '8-29362' }],
+								previousEmployments: [],
+								previousIAEmployments: [],
+							}),
+						},
+					},
+				],
+			},
+		};
+
+		const artifacts = buildMainAppGraphArtifactsFromFetchedPayload(payload, {
+			crd: TEST_DUAL_SOURCE_CRD,
+			source: 'sec',
+			type: 'individual',
+		});
+
+		expect(artifacts.nodes.some((node) => node.id === 'firm:8-29362' && node.group === 'firm')).toBe(true);
+		expect(artifacts.links.some((link) => link.source === `person:${TEST_DUAL_SOURCE_CRD}` && link.target === 'firm:8-29362' && link.relationship === 'employed_by')).toBe(true);
+	});
 });
 
 describe('publishFetchedRecordsToMainApp', () => {

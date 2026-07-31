@@ -3,6 +3,7 @@
  * finra.ts  –  FINRA BrokerCheck Network Graph
  */
 
+import * as d3Module from 'd3';
 import {
 	flattenEmploymentRecords as flattenEmploymentRecordsImpl,
 	buildSyntheticFirmNodeId as buildSyntheticFirmNodeIdImpl,
@@ -280,7 +281,7 @@ function syncProfileSelection(payload) {
 	}).catch((err) => console.error('Failed to sync profile selection to server:', err));
 }
 
-let d3;
+let d3 = d3Module;
 
 // ── State ──────────────────────────────────────────────────────────────────
 let graphData = null; // { nodes, links, meta } — full dataset
@@ -6495,7 +6496,9 @@ async function fetchIndividualBatch(crd, queryLabel = null, options: { includePr
 	const emps = flattenEmploymentRecords(detail, { includeGeneric: true }).filter((employment) => includePreviousEmployments || employment?._isCurrent !== false);
 
 	for (const e of emps) {
-		const fid = e?.firmId || e?.firm_id || e?.firmIdNumber || e?.firmId || null;
+		const rawFirmId = String(e?.firmId || e?.firm_id || e?.firmIdNumber || e?.organizationId || e?.orgId || '').trim();
+		const secFirmId = String(e?.bdSECNumber || e?.bdSecNumber || e?.iaSECNumber || e?.iaSecNumber || e?.firm_bd_sec_number || '').trim();
+		const fid = rawFirmId || secFirmId || null;
 		if (!fid) continue;
 		const existingFirmNode = findExistingFirmNode(fid, { label: e?.firmName || e?.name || '' });
 		const firmNodeId = existingFirmNode?.id || `firm:${fid}`;
@@ -6505,6 +6508,8 @@ async function fetchIndividualBatch(crd, queryLabel = null, options: { includePr
 				label: e?.firmName || e?.name || `Firm ${fid}`,
 				group: 'firm',
 				firmId: String(fid),
+				bdSecNumber: e?.bdSECNumber || e?.bdSecNumber || e?.firm_bd_sec_number || null,
+				iaSecNumber: e?.iaSECNumber || e?.iaSecNumber || null,
 			});
 		}
 		links.push({
@@ -7230,8 +7235,10 @@ export function isForcedGrayConnectionLink(link) {
 	return Boolean(link?.metadata?.forceGray || link?.data?.forceGray || (pair && link?.forceGray));
 }
 
-function resolveEmploymentConnectionFirmNodeId(employment) {
-	const firmId = String(employment?.firmId || employment?.firm_id || employment?.firmIdNumber || employment?.organizationId || employment?.orgId || '').trim();
+export function resolveEmploymentConnectionFirmNodeId(employment) {
+	const rawFirmId = String(employment?.firmId || employment?.firm_id || employment?.firmIdNumber || employment?.organizationId || employment?.orgId || '').trim();
+	const secFirmId = String(employment?.bdSECNumber || employment?.bdSecNumber || employment?.iaSECNumber || employment?.iaSecNumber || employment?.firm_bd_sec_number || '').trim();
+	const firmId = rawFirmId || secFirmId;
 	const firmName = String(
 		employment?.firmName || employment?.firm_name || employment?.organizationName || employment?.firm || employment?.name || employment?.legalName || '',
 	).trim();
@@ -7660,6 +7667,12 @@ function collectNodeActivityFlags(values = []) {
 	return { hasActive, hasInactive };
 }
 
+function getRegistrationStatusActivityValues(node) {
+	if (!node || typeof node !== 'object') return [];
+	if (!Array.isArray(node.registrationStatus)) return [];
+	return node.registrationStatus.map((entry: any) => entry?.status || entry?.registrationStatus || entry?.regStatus || entry?.scopeStatus || '').filter(Boolean);
+}
+
 function hasApprovedRegistrationCounts(registrationCount) {
 	const counts = registrationCount || {};
 	return [counts.approvedFinraRegistrationCount, counts.approvedSRORegistrationCount, counts.approvedStateRegistrationCount, counts.approvedIAStateRegistrationCount].some(
@@ -7850,7 +7863,13 @@ function hasFirmSecPresence(node: any) {
 	if (Boolean(String(node?.iaSecNumber || node?.basicInformation?.iaSECNumber || node?.basicInformation?.iaSecNumber || '').trim())) return true;
 	if (hasAnyItems(node?.secDocumentLinks)) return true;
 	if (Boolean(String(node?.secSummaryDescription || '').trim())) return true;
-	const secStatusFlags = collectNodeActivityFlags([node?.firmStatus, node?.basicInformation?.firmStatus, node?.iaScope, node?.basicInformation?.iaScope]);
+	const secStatusFlags = collectNodeActivityFlags([
+		node?.firmStatus,
+		node?.basicInformation?.firmStatus,
+		node?.iaScope,
+		node?.basicInformation?.iaScope,
+		...getRegistrationStatusActivityValues(node),
+	]);
 	if (secStatusFlags.hasActive || secStatusFlags.hasInactive) return true;
 	return false;
 }
@@ -7906,12 +7925,13 @@ function isNodeInactive(node) {
 		const finraFlags = sourceTruth.finra ? collectNodeActivityFlags([node.bcScope, node.basicInformation?.bcScope]) : { hasActive: false, hasInactive: false };
 		const secFlags =
 			sourceTruth.sec ?
-				collectNodeActivityFlags([node.firmStatus, node.basicInformation?.firmStatus, node.iaScope, node.basicInformation?.iaScope])
+				collectNodeActivityFlags([node.firmStatus, node.basicInformation?.firmStatus, node.iaScope, node.basicInformation?.iaScope, ...getRegistrationStatusActivityValues(node)])
 			:	{ hasActive: false, hasInactive: false };
-		if (finraFlags.hasActive || secFlags.hasActive) return false;
+		const registrationStatusFlags = collectNodeActivityFlags(getRegistrationStatusActivityValues(node));
+		if (finraFlags.hasActive || secFlags.hasActive || registrationStatusFlags.hasActive) return false;
 		if ((sourceTruth.finra || sourceTruth.sec) && Array.isArray(node.activeStates) && node.activeStates.length) return false;
 		if (node.isLegacy === 'Y' && !sourceTruth.sec) return true;
-		if (finraFlags.hasInactive || secFlags.hasInactive) return true;
+		if (finraFlags.hasInactive || secFlags.hasInactive || registrationStatusFlags.hasInactive) return true;
 		return false;
 	}
 
@@ -8054,10 +8074,14 @@ export function getNodeTooltipTitle(node) {
 	return parts.join('\n');
 }
 
-function renderNodeContents(selection) {
+export function renderNodeContents(selection) {
 	if (!selection) return;
 	selection.each(function (d) {
-		const g = d3.select(this);
+		const element =
+			this instanceof Element ? this
+			: selection && typeof selection.node === 'function' ? selection.node()
+			: null;
+		const g = element ? d3.select(element) : d3.select(null);
 		g.selectAll('*').remove();
 
 		const r = NODE_R[d.group] || 10;
@@ -8131,6 +8155,13 @@ function renderNodeContents(selection) {
 				.attr('opacity', nodeOpacity === 1 ? 0.9 : nodeOpacity);
 
 			g.append('polygon')
+				.attr('class', 'fg-node-hit-area')
+				.attr('points', hexPoints(s / 2))
+				.attr('fill', 'transparent')
+				.attr('stroke', 'none')
+				.attr('pointer-events', 'all');
+
+			g.append('polygon')
 				.attr('class', 'fg-node-overlay')
 				.attr('points', hexPoints(s / 2));
 
@@ -8147,6 +8178,12 @@ function renderNodeContents(selection) {
 				.attr('stroke', null)
 				.attr('stroke-width', null)
 				.attr('opacity', null);
+			g.append('polygon')
+				.attr('class', 'fg-node-hit-area')
+				.attr('points', `0,${-s} ${s},0 0,${s} ${-s},0`)
+				.attr('fill', 'transparent')
+				.attr('stroke', 'none')
+				.attr('pointer-events', 'all');
 			g.append('polygon').attr('class', 'fg-node-overlay').attr('points', `0,${-s} ${s},0 0,${s} ${-s},0`);
 			g.append('polygon')
 				.attr('class', 'fg-node-selected-ring')
@@ -8161,6 +8198,7 @@ function renderNodeContents(selection) {
 				.attr('stroke', null)
 				.attr('stroke-width', null)
 				.attr('opacity', null);
+			g.append('circle').attr('class', 'fg-node-hit-area').attr('r', rv).attr('fill', 'transparent').attr('stroke', 'none').attr('pointer-events', 'all');
 			g.append('circle').attr('class', 'fg-node-overlay').attr('r', rv);
 			g.append('circle')
 				.attr('class', 'fg-node-selected-ring')
@@ -10003,7 +10041,11 @@ function syncIndividualConnectionsFromDetail(personNode, detail) {
 	const employments = flattenEmploymentRecords(detail);
 
 	for (const employment of employments) {
-		const firmId = String(employment?.firmId || employment?.firm_id || employment?.firmIdNumber || employment?.organizationId || employment?.orgId || '').trim();
+		const rawFirmId = String(employment?.firmId || employment?.firm_id || employment?.firmIdNumber || employment?.organizationId || employment?.orgId || '').trim();
+		const secFirmId = String(
+			employment?.bdSECNumber || employment?.bdSecNumber || employment?.iaSECNumber || employment?.iaSecNumber || employment?.firm_bd_sec_number || '',
+		).trim();
+		const firmId = rawFirmId || secFirmId;
 		const firmName = String(
 			employment?.firmName || employment?.firm_name || employment?.organizationName || employment?.firm || employment?.name || employment?.legalName || '',
 		).trim();
@@ -14027,15 +14069,39 @@ function renderFirmDetail(d: any) {
 		return String(a?.brochureName || a?.type || a?.disclosureType || '').localeCompare(String(b?.brochureName || b?.type || b?.disclosureType || ''));
 	}
 
-	const statusDate = d.firmStatusDate || '';
-	const statusText = d.firmStatus ? capitalize(String(d.firmStatus || '').toLowerCase()) : '';
-	const statusIsActive = d.firmStatus ? /\bactive\b|\bapproved\b/i.test(String(d.firmStatus)) : false;
-	const statusIsTerminated = d.firmStatus ? /terminated|inactive|revoked|suspended/i.test(String(d.firmStatus)) : false;
+	const registrationStatusEntries = Array.isArray(d.registrationStatus) ? d.registrationStatus.filter((entry: any) => entry && typeof entry === 'object') : [];
+	const primaryRegistrationStatusEntry =
+		registrationStatusEntries.find((entry: any) => /sec/i.test(String(entry?.secJurisdiction || entry?.jurisdiction || entry?.state || entry?.name || ''))) ||
+		registrationStatusEntries[0] ||
+		null;
+	const registrationStatusText =
+		primaryRegistrationStatusEntry ?
+			String(primaryRegistrationStatusEntry.status || primaryRegistrationStatusEntry.registrationStatus || primaryRegistrationStatusEntry.regStatus || '').trim()
+		:	'';
+	const firmStatusText = d.firmStatus ? String(d.firmStatus).trim() : registrationStatusText;
+	const statusDate =
+		d.firmStatusDate ||
+		(primaryRegistrationStatusEntry ?
+			String(
+				primaryRegistrationStatusEntry.effectiveDate ||
+					primaryRegistrationStatusEntry.effectiveDateText ||
+					primaryRegistrationStatusEntry.effective ||
+					primaryRegistrationStatusEntry.date ||
+					'',
+			).trim()
+		:	'');
+	const statusText = firmStatusText ? capitalize(firmStatusText.toLowerCase()) : '';
+	const statusIsActive = firmStatusText ? /\bactive\b|\bapproved\b/i.test(firmStatusText) : false;
+	const statusIsTerminated = firmStatusText ? /terminated|inactive|revoked|suspended/i.test(firmStatusText) : false;
 	const statusClass =
 		statusIsActive ? 'active'
 		: statusIsTerminated ? 'terminated'
 		: 'inactive';
-	const statusBadge = d.firmStatus ? `<span class="fg-badge ${statusClass}">${esc(statusText)}${statusDate ? ` ${statusDate}` : ''}</span>` : '';
+	const hasSecRegistrationBadge = registrationStatusEntries.some((entry: any) =>
+		/sec/i.test(String(entry?.secJurisdiction || entry?.jurisdiction || entry?.state || entry?.name || '')),
+	);
+	const displayStatusText = hasSecRegistrationBadge && firmStatusText ? `SEC ${statusText}` : statusText;
+	const statusBadge = firmStatusText ? `<span class="fg-badge ${statusClass}">${esc(displayStatusText)}${statusDate ? ` ${statusDate}` : ''}</span>` : '';
 	const legacyBadge = d.isLegacy === 'Y' ? `<span class="fg-badge inactive">PR Previously Registered Brokerage Firm</span>` : '';
 	const scopeBadge =
 		showFinra && d.bcScope ?
@@ -14094,6 +14160,36 @@ function renderFirmDetail(d: any) {
 		:	[];
 	const secSummaryDescription = hasSecPage && d.secSummaryDescription ? String(d.secSummaryDescription).trim() : '';
 	const showBrokerCheckSummary = hasFinraPage;
+	function renderRegistrationStatusRows() {
+		const entries = Array.isArray(d.registrationStatus) ? d.registrationStatus.filter((entry: any) => entry && typeof entry === 'object') : [];
+		const fallbackEntries =
+			entries.length ? entries
+			: d.firmStatus ? [{ secJurisdiction: 'SEC', status: d.firmStatus, effectiveDate: d.firmStatusDate }]
+			: [];
+		if (!fallbackEntries.length) return '';
+		return `
+			<div class="fg-section-title fg-section-title--sticky">Registration Status</div>
+			${fallbackEntries
+				.map((entry: any) => {
+					const jurisdiction = String(entry.secJurisdiction || entry.jurisdiction || entry.state || entry.name || 'SEC').trim() || 'SEC';
+					const status = String(entry.status || entry.registrationStatus || entry.regStatus || '').trim();
+					const effectiveDate = String(entry.effectiveDate || entry.effectiveDateText || entry.effective || entry.date || '').trim();
+					return `
+						<div class="fg-detail-row">
+							<span class="fg-label">SEC / Jurisdiction</span>
+							<span>${esc(jurisdiction)}</span>
+						</div>
+						<div class="fg-detail-row">
+							<span class="fg-label">Registration Status</span>
+							<span>${status ? esc(status) : '–'}</span>
+						</div>
+						<div class="fg-detail-row">
+							<span class="fg-label">Effective Date</span>
+							<span>${effectiveDate ? esc(effectiveDate) : '–'}</span>
+						</div>`;
+				})
+				.join('')}`;
+	}
 	const disclosureTotal =
 		Number.isFinite(Number(d.disclosureCount)) ? Number(d.disclosureCount) : disclosures.reduce((sum, dis) => sum + Number(dis?.count ?? dis?.disclosureCount ?? 0), 0);
 	const disclosureLabel = disclosureTotal === 1 ? 'Disclosure' : 'Disclosures';
@@ -14200,7 +14296,7 @@ function renderFirmDetail(d: any) {
 			</div>
       <div class="fg-section-title fg-section-title--sticky">Registration</div>
 			${row('ID source check', esc(formatNodeSourceTruthSummary(d)))}
-			${showSec ? row('SEC Registration Status', d.firmStatus ? esc(d.firmStatus) + (statusDate ? ` (${statusDate})` : '') : '–') : ''}
+			${showSec ? renderRegistrationStatusRows() : ''}
 			${showFinra && d.districtName ? row('FINRA District', esc(d.districtName)) : ''}
 			${showFinra ? row('Company Type', esc(d.firmType || 'N/A')) : ''}
 			${showFinra ? row('Self-Regulatory Orgs', esc(sros)) : ''}
