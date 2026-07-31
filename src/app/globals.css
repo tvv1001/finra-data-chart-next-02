@@ -24,7 +24,7 @@
 
 	/* Legend: relationships */
 	--color-highlight-controls: #ef4444;
-	--color-highlight-employed: #0e6aeb91;
+	--color-highlight-employed: #1e88ffe0;
 	--color-node-disclosure-stroke: #f97316;
 	--color-node-pulse: #18a0fb !important;
 	--shadow-node-pulse: drop-shadow(0 0 8px rgba(24, 160, 251, 0.92)) drop-shadow(0 0 18px rgba(56, 189, 248, 0.72));
