@@ -9918,6 +9918,34 @@ function syncIndividualConnectionsFromDetail(personNode, detail) {
 	const newNodes = [];
 	const newLinks = [];
 
+	// Scraped-only reference record: connect to its parent firm/individual so it isn't orphaned in the graph.
+	if (detail.orphan && typeof detail.orphan === 'object') {
+		const orphan = detail.orphan;
+		const parentCrd = String(orphan.parentCrd || '').trim();
+		if (parentCrd) {
+			const parentType = String(orphan.parentType || 'firm')
+				.trim()
+				.toLowerCase();
+			const isParentIndividual = parentType === 'individual';
+			const existingParentNode = isParentIndividual ? findExistingPersonNode(parentCrd) : findExistingFirmNode(parentCrd, { label: orphan.firmName || '' });
+			const parentNodeId = existingParentNode?.id || (isParentIndividual ? `person:${parentCrd}` : `firm:${parentCrd}`);
+			if (!existingParentNode && !newNodes.some((node) => node.id === parentNodeId)) {
+				newNodes.push(
+					isParentIndividual ?
+						{ id: parentNodeId, label: `CRD ${parentCrd}`, group: 'individual', crd: parentCrd, stub: true }
+					:	{ id: parentNodeId, label: orphan.firmName || `Firm ${parentCrd}`, group: 'firm', firmId: parentCrd },
+				);
+			}
+			const candidateLink = { source: personId, target: parentNodeId, relationship: 'employed_by' };
+			const hasLayoutLink = layoutLinks.some((link) => getLinkIdentityKey(link) === getLinkIdentityKey(candidateLink));
+			if (!hasLayoutLink) newLinks.push(candidateLink);
+		}
+		if (!newNodes.length && !newLinks.length) return;
+		appendFetched(newNodes, newLinks);
+		mergeIntoGraphData(newNodes, newLinks);
+		return;
+	}
+
 	const employments = flattenEmploymentRecords(detail);
 
 	for (const employment of employments) {
