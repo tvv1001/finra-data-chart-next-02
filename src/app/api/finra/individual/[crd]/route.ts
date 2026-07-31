@@ -97,7 +97,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 function isOrphanIndividualPayload(data: unknown): data is { orphan: Record<string, any>; sources?: Record<string, any> } {
 	if (!isPlainObject(data) || !isPlainObject((data as Record<string, any>).orphan)) return false;
 	const sources = (data as Record<string, any>).sources;
-	return isPlainObject(sources) && sources.finra?.found === false && sources.sec?.found === false;
+	if (!isPlainObject(sources)) return false;
+	const finraSource = sources.finra as Record<string, any> | undefined;
+	const secSource = sources.sec as Record<string, any> | undefined;
+	return finraSource?.found === false && secSource?.found === false;
 }
 
 function mergePreferPrimary(primary: unknown, secondary: unknown): unknown {
