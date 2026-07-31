@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('render order (2.5D) checks', () => {
 	test('selecting a node promotes its node and connected links to top layer', async ({ page, baseURL }) => {
-		await page.goto(`${baseURL}/node/firm-161724`);
+		await page.goto(`${baseURL}/firm/161724`);
 
 		// wait for client graph nodes to appear
 		await page.waitForFunction(() => typeof window !== 'undefined' && Array.isArray((window as any).__FINRA_GRAPH_NODES) && (window as any).__FINRA_GRAPH_NODES.length > 0, {

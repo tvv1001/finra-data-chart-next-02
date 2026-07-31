@@ -29,9 +29,9 @@ test('Selecting a node pushes an analytics-friendly node route', async ({ page }
 	await expect
 		.poll(async () => page.evaluate(() => window.location.pathname), {
 			timeout: 10_000,
-			message: 'expected selecting a node to push a /node/... route',
+			message: 'expected selecting a node to push a /individual/... route',
 		})
-		.toBe('/node/person-3102054');
+		.toBe('/individual/3102054');
 });
 
 test('Selecting a node also marks visible hop-connected neighbors as selected', async ({ page }) => {
@@ -435,7 +435,7 @@ test('Direct route firm 314694 auto-selects when all graph-derived current conne
 
 	await page.goto('/');
 	await resetBrowserGraphState(page);
-	await page.goto('/node/firm-314694');
+	await page.goto('/firm/314694');
 
 	const fetchedFirmNode = page.locator('.fg-node').filter({ hasText: '103 Advisory Group' });
 	await expect
@@ -509,14 +509,14 @@ test('Fetched nodes without full current relationship data do not auto-select as
 test('A direct node route restores that node selection on a clean session', async ({ page }) => {
 	await page.goto('/');
 	await resetBrowserGraphState(page);
-	await page.goto('/node/person-3102054');
+	await page.goto('/individual/3102054');
 
 	await expect
 		.poll(async () => page.evaluate(() => window.location.pathname), {
 			timeout: 10_000,
 			message: 'expected the direct node route to remain active after load',
 		})
-		.toBe('/node/person-3102054');
+		.toBe('/individual/3102054');
 
 	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/, { timeout: 20_000 });
 	await expect
@@ -663,7 +663,7 @@ test('Firm 167790 suppresses FINRA sidebar links after direct-route hydration', 
 
 	await page.goto('/');
 	await resetBrowserGraphState(page);
-	await page.goto('/node/firm-167790');
+	await page.goto('/firm/167790');
 
 	const firmNode = page.locator('.fg-node').filter({ hasText: 'CLIENT 1ST ADVISORY GROUP' });
 	await expect
@@ -890,7 +890,7 @@ test('A direct node route keeps a fetched inactive leaf node both selected and v
 
 	await page.goto('/');
 	await resetBrowserGraphState(page);
-	await page.goto('/node/person-999999');
+	await page.goto('/individual/999999');
 
 	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/, { timeout: 20_000 });
 	await expect

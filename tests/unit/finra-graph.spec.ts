@@ -1103,8 +1103,8 @@ describe('FinraGraph DOM helpers (unit)', () => {
 				pulseDuration: 5000,
 			});
 
-			expect(setBrowserPathname).toHaveBeenCalledWith('/node/person-2632784');
-			expect(pushState).toHaveBeenCalledWith(window.history.state, '', '/node/person-2632784?panel=info');
+			expect(setBrowserPathname).toHaveBeenCalledWith('/individual/2632784');
+			expect(pushState).toHaveBeenCalledWith(window.history.state, '', '/individual/2632784?panel=info');
 			expect(dispatched).toEqual([{ nodeId: 'person:2632784', pulseDuration: 5000, autoExpand: false }]);
 		} finally {
 			window.removeEventListener('finra:route-node-request', listener as EventListener);

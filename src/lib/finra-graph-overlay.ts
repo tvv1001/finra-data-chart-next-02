@@ -5,6 +5,7 @@
 
 import { DEFAULT_NODE_LABEL_FONT_SIZE, DEFAULT_NODE_LABEL_FONT_SIZE_PX, DEFAULT_NODE_LABEL_FONT_WEIGHT, DEFAULT_NODE_LABEL_GAP_PX } from './finra-graph-defaults';
 import { handleNodeKeyboardActivation } from './finra-graph';
+import { buildNodeRoutePath } from './node-route';
 type Node = any;
 
 function getNodeVisualHalf(node: Node) {
@@ -360,7 +361,7 @@ function renderTooltipContent(tip: HTMLElement, nodeData: any) {
 	meta.textContent = nodeData?.summary || nodeData?.subtitle || '';
 	tip.appendChild(meta);
 	const link = document.createElement('a');
-	link.href = `/node/${encodeURIComponent(String(nodeData?.id || ''))}`;
+	link.href = buildNodeRoutePath(String(nodeData?.id || ''));
 	link.textContent = 'View profile';
 	link.style.display = 'block';
 	link.style.marginTop = '8px';

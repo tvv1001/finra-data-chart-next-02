@@ -1,4 +1,17 @@
 const NODE_ROUTE_BASE = '/node';
+const INDIVIDUAL_ROUTE_BASE = '/individual';
+const FIRM_ROUTE_BASE = '/firm';
+
+function splitNodeId(nodeId: string) {
+	const normalizedNodeId = String(nodeId || '').trim();
+	if (!normalizedNodeId) return null;
+	const separatorIndex = normalizedNodeId.indexOf(':');
+	if (separatorIndex < 0) return null;
+	const prefix = normalizedNodeId.slice(0, separatorIndex).trim();
+	const suffix = normalizedNodeId.slice(separatorIndex + 1).trim();
+	if (!prefix || !suffix) return null;
+	return { prefix, suffix };
+}
 
 function toNodeRouteSlug(nodeId: string) {
 	const normalizedNodeId = String(nodeId || '').trim();
@@ -56,6 +69,9 @@ export function normalizeNodeRouteId(nodeIdOrSlug: string | null | undefined) {
 export function buildNodeRoutePath(nodeId: string | null | undefined) {
 	const normalizedNodeId = String(nodeId || '').trim();
 	if (!normalizedNodeId) return '/';
+	const parts = splitNodeId(normalizedNodeId);
+	if (parts?.prefix === 'person') return `${INDIVIDUAL_ROUTE_BASE}/${encodeURIComponent(parts.suffix)}`;
+	if (parts?.prefix === 'firm') return `${FIRM_ROUTE_BASE}/${encodeURIComponent(parts.suffix)}`;
 	return `${NODE_ROUTE_BASE}/${toNodeRouteSlug(normalizedNodeId)}`;
 }
 
@@ -68,7 +84,26 @@ export function buildNodeRouteHref(nodeId: string | null | undefined, search = '
 export function parseNodeIdFromPathname(pathname: string | null | undefined) {
 	const normalizedPathname = String(pathname || '').trim();
 	if (!normalizedPathname || normalizedPathname === '/') return null;
-	const match = /^\/node\/([^/]+?)\/?$/.exec(normalizedPathname);
-	if (!match) return null;
-	return normalizeNodeRouteId(match[1]);
+
+	const individualMatch = /^\/individual\/([^/]+?)\/?$/.exec(normalizedPathname);
+	if (individualMatch) {
+		try {
+			return `person:${decodeURIComponent(individualMatch[1])}`;
+		} catch {
+			return `person:${individualMatch[1]}`;
+		}
+	}
+
+	const firmMatch = /^\/firm\/([^/]+?)\/?$/.exec(normalizedPathname);
+	if (firmMatch) {
+		try {
+			return `firm:${decodeURIComponent(firmMatch[1])}`;
+		} catch {
+			return `firm:${firmMatch[1]}`;
+		}
+	}
+
+	const legacyMatch = /^\/node\/([^/]+?)\/?$/.exec(normalizedPathname);
+	if (!legacyMatch) return null;
+	return normalizeNodeRouteId(legacyMatch[1]);
 }
