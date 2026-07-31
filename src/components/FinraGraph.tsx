@@ -794,12 +794,17 @@ export default function FinraGraph() {
 		Promise.all([import('d3'), import('d3-force'), import('@/lib/finra-graph')]).then(([d3Module, d3ForceModule, { init }]) => {
 			const combinedD3 = { ...d3Module, ...d3ForceModule };
 			(window as any).d3 = combinedD3;
+			const sharedSelectedIds = (searchParams.get('selected') || '')
+				.split(',')
+				.map((id) => id.trim())
+				.filter(Boolean);
 			init(combinedD3, {
 				initialRouteNodeId: routeNodeId,
+				initialSelectedNodeIds: sharedSelectedIds,
 			});
 			setGraphReady(true);
 		});
-	}, [isMounted, routeNodeId]);
+	}, [isMounted, routeNodeId, searchParams]);
 
 	if (!isMounted) {
 		return (
@@ -1070,6 +1075,14 @@ export default function FinraGraph() {
 									type='button'
 									title='Copy all entries'>
 									Copy All
+								</button>
+								<button
+									id='btn-selection-log-copy-link'
+									data-fg-selection-log-action='copy-link'
+									className='fg-ghost-btn fg-btn-sm'
+									type='button'
+									title='Copy a shareable link to the logged nodes'>
+									Copy Link
 								</button>
 								<button
 									id='btn-selection-log-edit'

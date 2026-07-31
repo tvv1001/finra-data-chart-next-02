@@ -1401,6 +1401,7 @@ let pendingRouteNodeId: string | null = null;
 let pendingRoutePulseDuration: number | null = null; // optional pulse duration (ms) requested with route
 let pendingRouteAutoExpand = false; // optional auto-expand requested with route
 let pendingRouteForceAutoExpand = false; // allow route requests to expand even when the node is already selected
+let pendingSelectedNodeIds: string[] = []; // node ids to hydrate into the selection log from a shared `?selected=` link
 let routeNodeRequestListenerBound = false;
 let findRequestListenersBound = false;
 let traceShortestIds = new Set<string>(); // node and link IDs
@@ -2055,7 +2056,7 @@ function guardTraceLogSurface(reason = 'state-sync') {
 	}
 }
 
-function getSelectionLogActionButtons(action: 'trace' | 'copy-all' | 'clear' | 'clear-others' | 'clear-labels' | 'toggle-bold' | 'edit') {
+function getSelectionLogActionButtons(action: 'trace' | 'copy-all' | 'copy-link' | 'clear' | 'clear-others' | 'clear-labels' | 'toggle-bold' | 'edit') {
 	return Array.from(document.querySelectorAll<HTMLButtonElement>(`[data-fg-selection-log-action="${action}"]`));
 }
 
@@ -3255,6 +3256,15 @@ function updateSelectionLogUI() {
 	});
 }
 
+function buildShareableSelectionUrl(): string {
+	if (typeof window === 'undefined' || !selectedNodesLog.length) return '';
+	const ids = selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter(Boolean);
+	if (!ids.length) return '';
+	const url = new URL(window.location.href);
+	url.searchParams.set('selected', ids.join(','));
+	return url.toString();
+}
+
 function copyToClipboard(text, element) {
 	navigator.clipboard.writeText(text).then(() => {
 		const originalBackground = element.style.background;
@@ -3279,7 +3289,7 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 		return;
 	}
 
-	const action = target.dataset.fgSelectionLogAction as 'trace' | 'copy-all' | 'clear' | 'clear-others' | 'clear-labels' | 'toggle-bold' | 'edit' | undefined;
+	const action = target.dataset.fgSelectionLogAction as 'trace' | 'copy-all' | 'copy-link' | 'clear' | 'clear-others' | 'clear-labels' | 'toggle-bold' | 'edit' | undefined;
 	if (!action) return;
 
 	if (action === 'trace') {
@@ -3294,6 +3304,15 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 			.join('\n');
 		navigator.clipboard.writeText(text).then(() => {
 			flashSelectionLogActionButton(target, 'Copied!');
+		});
+		return;
+	}
+
+	if (action === 'copy-link') {
+		const url = buildShareableSelectionUrl();
+		if (!url) return;
+		navigator.clipboard.writeText(url).then(() => {
+			flashSelectionLogActionButton(target, 'Link Copied!');
 		});
 		return;
 	}
@@ -4749,7 +4768,7 @@ function drawDisclosureIndicator(g, d, r) {
 }
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
-export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) {
+export function init(_d3, options: { initialRouteNodeId?: string | null; initialSelectedNodeIds?: Array<string | null | undefined> } = {}) {
 	d3 = _d3;
 	const initialRouteNodeId = String(options?.initialRouteNodeId || '').trim();
 	pendingRouteNodeId = initialRouteNodeId || pendingRouteNodeId;
@@ -4757,6 +4776,8 @@ export function init(_d3, options: { initialRouteNodeId?: string | null } = {}) 
 		pendingRouteAutoExpand = true;
 		pendingRouteForceAutoExpand = true;
 	}
+	pendingSelectedNodeIds =
+		Array.isArray(options?.initialSelectedNodeIds) ? options.initialSelectedNodeIds.map((id) => String(id || '').trim()).filter(Boolean) : pendingSelectedNodeIds;
 
 	if (!routeNodeRequestListenerBound && typeof window !== 'undefined') {
 		window.addEventListener(ROUTE_NODE_REQUEST_EVENT, ((event: Event) => {
@@ -6732,6 +6753,26 @@ async function loadGraph() {
 				clearGraphData();
 			}
 			void applyPendingRouteNodeSelection();
+		}
+		if (pendingSelectedNodeIds.length) {
+			void hydratePendingSelectedNodeIds();
+		}
+	}
+}
+
+// Populates the selection log (without changing the focused/routed node) from ids
+// shared via a `?selected=` link, fetching any nodes not already present in the graph.
+async function hydratePendingSelectedNodeIds() {
+	const ids = pendingSelectedNodeIds.slice();
+	pendingSelectedNodeIds = [];
+	for (const rawId of ids) {
+		const normalizedId = normalizeNodeRouteId(rawId) || String(rawId || '').trim();
+		if (!normalizedId) continue;
+		try {
+			const liveNode = await ensureRouteNodeAvailable(normalizedId);
+			if (liveNode) addToSelectionLog(liveNode);
+		} catch (error) {
+			console.warn(`Failed to hydrate shared selection for ${normalizedId}:`, error);
 		}
 	}
 }
