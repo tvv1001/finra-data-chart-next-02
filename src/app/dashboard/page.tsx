@@ -1500,323 +1500,332 @@ export default function DashboardPage() {
 	return (
 		<div className={styles.page}>
 			<div className={`${styles.layout} ${rightPaneCollapsed ? styles.layoutCollapsedRight : ''}`}>
-				<aside className={styles.leftPane}>
-					<Link
-						href='/'
-						className={styles.backLink}>
-						← Graph
-					</Link>
+				<section className={styles.centerPane}>
+					<div className={styles.dashboardMainStack}>
+						<div className={styles.dashboardHero}>
+							<div>
+								<div className={styles.dashboardEyebrow}>Dashboard</div>
+								<h2 className={styles.dashboardTitle}>FINRA / SEC inspector</h2>
+								<p className={styles.dashboardSubtitle}>Queue record lookups, inspect cached payloads, and search Redis from a single workspace.</p>
+							</div>
+							<Link
+								href='/'
+								className={styles.backLink}>
+								← Graph
+							</Link>
+						</div>
 
-					{savedTemplates.length > 0 && (
-						<div className={styles.templatesSection}>
-							<div className={styles.queueSectionTitle}>Saved Templates</div>
-							<div className={styles.templatesList}>
-								{savedTemplates.map((tpl) => (
-									<div
-										key={tpl.id}
-										className={styles.templateCard}
-										onClick={() => setCrdInput(tpl.queries)}>
-										{editingTemplateId === tpl.id ?
-											<div
-												className={styles.templateEditForm}
-												onClick={(e) => e.stopPropagation()}>
-												<input
-													type='text'
-													className={styles.templateEditInput}
-													value={editTemplateName}
-													onChange={(e) => setEditTemplateName(e.target.value)}
-													placeholder='Template name'
-												/>
-												<textarea
-													className={styles.templateEditTextarea}
-													value={editTemplateQueries}
-													onChange={(e) => setEditTemplateQueries(e.target.value)}
-													placeholder='CRDs or queries, comma separated'
-												/>
-												<div className={styles.templateActions}>
-													<button
-														type='button'
-														className={styles.templateBtn}
-														onClick={() => handleSaveEditTemplate(tpl.id)}>
-														Save
-													</button>
-													<button
-														type='button'
-														className={styles.templateBtn}
-														onClick={() => setEditingTemplateId(null)}>
-														Cancel
-													</button>
-												</div>
-											</div>
-										:	<>
-												<div className={styles.templateCardTitle}>
-													<strong>{tpl.name}</strong>
-												</div>
+						{savedTemplates.length > 0 && (
+							<div className={styles.templatesSection}>
+								<div className={styles.queueSectionTitle}>Saved Templates</div>
+								<div className={styles.templatesList}>
+									{savedTemplates.map((tpl) => (
+										<div
+											key={tpl.id}
+											className={styles.templateCard}
+											onClick={() => setCrdInput(tpl.queries)}>
+											{editingTemplateId === tpl.id ?
 												<div
-													className={styles.templateQueries}
-													title={tpl.queries}>
-													{tpl.queries}
+													className={styles.templateEditForm}
+													onClick={(e) => e.stopPropagation()}>
+													<input
+														type='text'
+														className={styles.templateEditInput}
+														value={editTemplateName}
+														onChange={(e) => setEditTemplateName(e.target.value)}
+														placeholder='Template name'
+													/>
+													<textarea
+														className={styles.templateEditTextarea}
+														value={editTemplateQueries}
+														onChange={(e) => setEditTemplateQueries(e.target.value)}
+														placeholder='CRDs or queries, comma separated'
+													/>
+													<div className={styles.templateActions}>
+														<button
+															type='button'
+															className={styles.templateBtn}
+															onClick={() => handleSaveEditTemplate(tpl.id)}>
+															Save
+														</button>
+														<button
+															type='button'
+															className={styles.templateBtn}
+															onClick={() => setEditingTemplateId(null)}>
+															Cancel
+														</button>
+													</div>
 												</div>
-												<div className={styles.templateActions}>
-													<button
-														type='button'
-														className={styles.templateBtn}
-														onClick={(e) => {
-															e.stopPropagation();
-															handleStartEditTemplate(tpl);
-														}}>
-														Edit
-													</button>
-													<button
-														type='button'
-														className={styles.templateDeleteBtn}
-														onClick={(e) => {
-															e.stopPropagation();
-															if (window.confirm('Delete this template?')) {
-																handleDeleteTemplate(tpl.id);
-															}
-														}}>
-														Delete
-													</button>
-												</div>
-											</>
-										}
-									</div>
-								))}
-							</div>
-						</div>
-					)}
-
-					<div className={styles.queueStatusPanel}>
-						<div className={styles.queueStatusHeader}>
-							<div className={styles.statusLine}>{queueStatusLine}</div>
-						</div>
-
-						{isSavingTemplate && (
-							<div className={styles.saveTemplateForm}>
-								<input
-									type='text'
-									className={styles.templateEditInput}
-									value={newTemplateName}
-									onChange={(e) => setNewTemplateName(e.target.value)}
-									placeholder='Template Name...'
-									autoFocus
-								/>
-								<div className={styles.templateActions}>
-									<button
-										type='button'
-										className={styles.templateBtn}
-										onClick={handleConfirmSaveTemplate}>
-										Save
-									</button>
-									<button
-										type='button'
-										className={styles.templateBtn}
-										onClick={() => setIsSavingTemplate(false)}>
-										Cancel
-									</button>
-								</div>
-							</div>
-						)}
-
-						<div className={styles.queueStatusList}>
-							{queueRunItems.length > 0 ?
-								queueRunItems.map((item, index) => (
-									<div
-										key={`${item.query}-${index}`}
-										className={styles.queueStatusRow}>
-										<div className={styles.queueStatusRowTop}>
-											<span className={styles.queueStatusBadge}>{item.status}</span>
-											<span className={styles.queueStatusQuery}>{item.query}</span>
+											:	<>
+													<div className={styles.templateCardTitle}>
+														<strong>{tpl.name}</strong>
+													</div>
+													<div
+														className={styles.templateQueries}
+														title={tpl.queries}>
+														{tpl.queries}
+													</div>
+													<div className={styles.templateActions}>
+														<button
+															type='button'
+															className={styles.templateBtn}
+															onClick={(e) => {
+																e.stopPropagation();
+																handleStartEditTemplate(tpl);
+															}}>
+															Edit
+														</button>
+														<button
+															type='button'
+															className={styles.templateDeleteBtn}
+															onClick={(e) => {
+																e.stopPropagation();
+																if (window.confirm('Delete this template?')) {
+																	handleDeleteTemplate(tpl.id);
+																}
+															}}>
+															Delete
+														</button>
+													</div>
+												</>
+											}
 										</div>
-										{item.message ?
-											<div className={styles.queueStatusMessage}>{item.message}</div>
-										:	null}
-									</div>
-								))
-							:	<div className={styles.queueStatusRow}>No queue submitted yet.</div>}
-						</div>
-					</div>
-
-					{hasInventorySummary && (
-						<div className={styles.uniqueCrdCount}>
-							<div className={styles.countItem}>
-								<div className={styles.countLabel}>People</div>
-								<div className={styles.countValue}>{uniqueCrdCounts.individuals.toLocaleString()}</div>
-							</div>
-							<div className={styles.countItem}>
-								<div className={styles.countLabel}>Firms</div>
-								<div className={styles.countValue}>{uniqueCrdCounts.firms.toLocaleString()}</div>
-							</div>
-							<div className={styles.countItem}>
-								<div className={styles.countLabel}>Total CRDs</div>
-								<div className={styles.countValue}>{uniqueCrdCounts.total.toLocaleString()}</div>
-							</div>
-						</div>
-					)}
-
-					<div className={styles.queueSectionTitle}>Run Queue</div>
-					<div className={styles.queueMeta}>{queueMetaText}</div>
-					{persistenceNotice && <div className={styles.searchSummary}>{persistenceNotice}</div>}
-					<div className={styles.cardList}>
-						{displayCards.map((card, index) => (
-							<div
-								key={`${card.entity}:${card.id}:${index}`}
-								className={styles.card}>
-								<div className={styles.cardTop}>
-									<strong>{card.name || (card.entity === 'firm' ? `Firm ${card.id}` : `Individual ${card.id}`)}</strong>
-									<span>
-										{card.id} • {card.entity === 'firm' ? 'Firm' : 'Individual'}
-										{card.since ? ` • ${card.since}` : ''}
-									</span>
-								</div>
-								{card.statusText && <div className={styles.cardMeta}>{card.statusText}</div>}
-								<div className={styles.cardScopes}>{card.sources.map((entry) => String(entry.source).toUpperCase()).join('  ')}</div>
-								<div className={styles.cardSourceRow}>
-									{card.sources.map((entry) => (
-										<button
-											key={`${card.entity}:${card.id}:${entry.source}`}
-											type='button'
-											className={[styles.cardSourceKeyBtn, isSelectedCardSource(card, entry.source) ? styles.cardSourceKeyBtnActive : ''].filter(Boolean).join(' ')}
-											onClick={() => loadQueueSourceJson(card, entry.source)}
-											disabled={activeCardSourceKey === `${card.entity}:${card.id}:${entry.source}`}>
-											{entry.source}:{card.id}
-										</button>
 									))}
 								</div>
-								{shouldShowQueueCardError(card) && <div className={styles.cardError}>Fetch failed</div>}
-							</div>
-						))}
-
-						{displayCards.length === 0 && !queueCrdFilter.trim() && (
-							<div
-								className={styles.cardMeta}
-								style={{ padding: '12px 4px', opacity: 0.6 }}>
-								No fetched CRDs yet. Run the queue to populate your history.
 							</div>
 						)}
 
-						{displayCards.length === 0 && queueCrdFilter.trim().length > 0 && filteredNewCrds.length > 0 && (
-							<div className={styles.card}>
-								<div className={styles.cardTop}>
-									<strong>{filteredNewCrds[0].id}</strong>
-									<span>Not cached yet • New CRD match</span>
+						<div className={styles.queueStatusPanel}>
+							<div className={styles.queueStatusHeader}>
+								<div className={styles.statusLine}>{queueStatusLine}</div>
+							</div>
+
+							{isSavingTemplate && (
+								<div className={styles.saveTemplateForm}>
+									<input
+										type='text'
+										className={styles.templateEditInput}
+										value={newTemplateName}
+										onChange={(e) => setNewTemplateName(e.target.value)}
+										placeholder='Template Name...'
+										autoFocus
+									/>
+									<div className={styles.templateActions}>
+										<button
+											type='button'
+											className={styles.templateBtn}
+											onClick={handleConfirmSaveTemplate}>
+											Save
+										</button>
+										<button
+											type='button'
+											className={styles.templateBtn}
+											onClick={() => setIsSavingTemplate(false)}>
+											Cancel
+										</button>
+									</div>
 								</div>
-								<div className={styles.cardScopes}>{filteredNewCrds[0].scopes.join('  ')}</div>
-								<div className={styles.cardMeta}>Use Run Queue to fetch this CRD into cache.</div>
-								<button
-									type='button'
-									className={styles.primaryBtn}
-									onClick={() => runAction('fetch-crds', [filteredNewCrds[0].id])}
-									disabled={busyAction !== null}>
-									{busyAction === 'fetch-crds' ? 'Running…' : `Run Queue for ${filteredNewCrds[0].id}`}
-								</button>
-							</div>
-						)}
-					</div>
+							)}
 
-					<div className={styles.leftFilterWrap}>
-						<div className={styles.queueSectionTitle}>Filter Cached CRDs</div>
-						<input
-							value={queueCrdFilter}
-							onChange={(event) => setQueueCrdFilter(event.target.value)}
-							spellCheck={false}
-							autoCorrect='off'
-							autoCapitalize='none'
-							className={styles.input}
-							placeholder='Filter CRD(s), comma separated'
-						/>
-					</div>
-				</aside>
-
-				<section className={styles.centerPane}>
-					{crawlProgress && crawlProgress.active && (
-						<div className={styles.crawlBanner}>
-							<div>
-								<strong>Sequential Crawl:</strong> {crawlProgress.current} / {crawlProgress.total}
-								<span style={{ opacity: 0.7, marginLeft: 8 }}>({crawlProgress.query})</span>
-							</div>
-							<div className={styles.crawlBannerStats}>
-								<span>{crawlProgress.new} new</span>
-								<span>{crawlProgress.updated} updated</span>
-								<span>{crawlProgress.err} errors</span>
+							<div className={styles.queueStatusList}>
+								{queueRunItems.length > 0 ?
+									queueRunItems.map((item, index) => (
+										<div
+											key={`${item.query}-${index}`}
+											className={styles.queueStatusRow}>
+											<div className={styles.queueStatusRowTop}>
+												<span className={styles.queueStatusBadge}>{item.status}</span>
+												<span className={styles.queueStatusQuery}>{item.query}</span>
+											</div>
+											{item.message ?
+												<div className={styles.queueStatusMessage}>{item.message}</div>
+											:	null}
+										</div>
+									))
+								:	<div className={styles.queueStatusRow}>No queue submitted yet.</div>}
 							</div>
 						</div>
-					)}
-					{terminalLogs.length > 0 && (
-						<div className={styles.terminalWindow}>
-							{[...terminalLogs].reverse().map((log) => (
+
+						{hasInventorySummary && (
+							<div className={styles.uniqueCrdCount}>
+								<div className={styles.countItem}>
+									<div className={styles.countLabel}>People</div>
+									<div className={styles.countValue}>{uniqueCrdCounts.individuals.toLocaleString()}</div>
+								</div>
+								<div className={styles.countItem}>
+									<div className={styles.countLabel}>Firms</div>
+									<div className={styles.countValue}>{uniqueCrdCounts.firms.toLocaleString()}</div>
+								</div>
+								<div className={styles.countItem}>
+									<div className={styles.countLabel}>Total CRDs</div>
+									<div className={styles.countValue}>{uniqueCrdCounts.total.toLocaleString()}</div>
+								</div>
+							</div>
+						)}
+
+						<div className={styles.queueSectionTitle}>Run Queue</div>
+						<div className={styles.queueMeta}>{queueMetaText}</div>
+						{persistenceNotice && <div className={styles.searchSummary}>{persistenceNotice}</div>}
+						<div className={styles.cardList}>
+							{displayCards.map((card, index) => (
 								<div
-									key={log.id}
-									className={`${styles.terminalLine} ${styles['terminalLine_' + log.type]}`}>
-									{log.text}
+									key={`${card.entity}:${card.id}:${index}`}
+									className={styles.card}>
+									<div className={styles.cardTop}>
+										<strong>{card.name || (card.entity === 'firm' ? `Firm ${card.id}` : `Individual ${card.id}`)}</strong>
+										<span>
+											{card.id} • {card.entity === 'firm' ? 'Firm' : 'Individual'}
+											{card.since ? ` • ${card.since}` : ''}
+										</span>
+									</div>
+									{card.statusText && <div className={styles.cardMeta}>{card.statusText}</div>}
+									<div className={styles.cardScopes}>{card.sources.map((entry) => String(entry.source).toUpperCase()).join('  ')}</div>
+									<div className={styles.cardSourceRow}>
+										{card.sources.map((entry) => (
+											<button
+												key={`${card.entity}:${card.id}:${entry.source}`}
+												type='button'
+												className={[styles.cardSourceKeyBtn, isSelectedCardSource(card, entry.source) ? styles.cardSourceKeyBtnActive : ''].filter(Boolean).join(' ')}
+												onClick={() => loadQueueSourceJson(card, entry.source)}
+												disabled={activeCardSourceKey === `${card.entity}:${card.id}:${entry.source}`}>
+												{entry.source}:{card.id}
+											</button>
+										))}
+									</div>
+									{shouldShowQueueCardError(card) && <div className={styles.cardError}>Fetch failed</div>}
 								</div>
 							))}
+
+							{displayCards.length === 0 && !queueCrdFilter.trim() && (
+								<div
+									className={styles.cardMeta}
+									style={{ padding: '12px 4px', opacity: 0.6 }}>
+									No fetched CRDs yet. Run the queue to populate your history.
+								</div>
+							)}
+
+							{displayCards.length === 0 && queueCrdFilter.trim().length > 0 && filteredNewCrds.length > 0 && (
+								<div className={styles.card}>
+									<div className={styles.cardTop}>
+										<strong>{filteredNewCrds[0].id}</strong>
+										<span>Not cached yet • New CRD match</span>
+									</div>
+									<div className={styles.cardScopes}>{filteredNewCrds[0].scopes.join('  ')}</div>
+									<div className={styles.cardMeta}>Use Run Queue to fetch this CRD into cache.</div>
+									<button
+										type='button'
+										className={styles.primaryBtn}
+										onClick={() => runAction('fetch-crds', [filteredNewCrds[0].id])}
+										disabled={busyAction !== null}>
+										{busyAction === 'fetch-crds' ? 'Running…' : `Run Queue for ${filteredNewCrds[0].id}`}
+									</button>
+								</div>
+							)}
 						</div>
-					)}
-					{hasCurrentRecord && (
-						<>
-							<div className={styles.recordHeaderRow}>
-								<div className={styles.recordHeader}>{currentRecordSource ? String(currentRecordSource).toUpperCase() : 'RECORD'}</div>
-								<div className={styles.recordBadge}>{currentRecordEntity ? String(currentRecordEntity).toUpperCase() : 'UNKNOWN'}</div>
-							</div>
-							<h2 className={styles.recordTitle}>{mainJsonLabel}</h2>
-							{currentRecordId && <div className={styles.recordKeyLabel}>CRD {currentRecordId}:</div>}
-							{recordUpdatedAt && <div className={styles.searchSummary}>Updated: {new Date(recordUpdatedAt).toLocaleString()}</div>}
-							<div className={styles.recordDescription}>Showing recent saved files with full details.</div>
-						</>
-					)}
 
-					{syncBannerText && <div className={styles.statusLine}>{syncBannerText}</div>}
-
-					{hasCurrentRecord && (
-						<div className={styles.jsonPanel}>
-							{jsonRenderBusy && <div className={styles.searchSummary}>Rendering JSON…</div>}
-							<pre>{codeBlock}</pre>
-						</div>
-					)}
-
-					<div className={styles.searchBarWrap}>
-						<div className={styles.searchTitle}>Local Name Search</div>
-						<div className={styles.searchRow}>
+						<div className={styles.leftFilterWrap}>
+							<div className={styles.queueSectionTitle}>Filter Cached CRDs</div>
 							<input
-								value={searchQuery}
-								onChange={(event) => setSearchQuery(event.target.value)}
+								value={queueCrdFilter}
+								onChange={(event) => setQueueCrdFilter(event.target.value)}
 								spellCheck={false}
 								autoCorrect='off'
 								autoCapitalize='none'
-								onKeyDown={(event) => {
-									if (event.key === 'Enter') {
-										event.preventDefault();
-										runRedisSearch();
-									}
-								}}
 								className={styles.input}
-								placeholder='Search Redis records by name...'
+								placeholder='Filter CRD(s), comma separated'
 							/>
-							<button
-								type='button'
-								className={styles.primaryBtn}
-								onClick={runRedisSearch}
-								disabled={searchBusy}>
-								{searchBusy ? 'Searching…' : 'Search'}
-							</button>
 						</div>
-						<div className={styles.searchSummary}>{searchSummary}</div>
-						{searchResults.length > 0 && (
+					</div>
+
+					<div className={styles.dashboardContent}>
+						{crawlProgress && crawlProgress.active && (
+							<div className={styles.crawlBanner}>
+								<div>
+									<strong>Sequential Crawl:</strong> {crawlProgress.current} / {crawlProgress.total}
+									<span style={{ opacity: 0.7, marginLeft: 8 }}>({crawlProgress.query})</span>
+								</div>
+								<div className={styles.crawlBannerStats}>
+									<span>{crawlProgress.new} new</span>
+									<span>{crawlProgress.updated} updated</span>
+									<span>{crawlProgress.err} errors</span>
+								</div>
+							</div>
+						)}
+						{terminalLogs.length > 0 && (
+							<div className={styles.terminalWindow}>
+								{[...terminalLogs].reverse().map((log) => (
+									<div
+										key={log.id}
+										className={`${styles.terminalLine} ${styles['terminalLine_' + log.type]}`}>
+										{log.text}
+									</div>
+								))}
+							</div>
+						)}
+						{hasCurrentRecord && (
 							<>
+								<div className={styles.recordHeaderRow}>
+									<div className={styles.recordHeader}>{currentRecordSource ? String(currentRecordSource).toUpperCase() : 'RECORD'}</div>
+									<div className={styles.recordBadge}>{currentRecordEntity ? String(currentRecordEntity).toUpperCase() : 'UNKNOWN'}</div>
+								</div>
+								<h2 className={styles.recordTitle}>{mainJsonLabel}</h2>
+								{currentRecordId && <div className={styles.recordKeyLabel}>CRD {currentRecordId}:</div>}
+								{recordUpdatedAt && <div className={styles.searchSummary}>Updated: {new Date(recordUpdatedAt).toLocaleString()}</div>}
+								<div className={styles.recordDescription}>Showing recent saved files with full details.</div>
+							</>
+						)}
+
+						{syncBannerText && <div className={styles.statusLine}>{syncBannerText}</div>}
+
+						{hasCurrentRecord && (
+							<div className={styles.jsonPanel}>
+								{jsonRenderBusy && <div className={styles.searchSummary}>Rendering JSON…</div>}
+								<pre>{codeBlock}</pre>
+							</div>
+						)}
+
+						<div className={styles.searchBarWrap}>
+							<div className={styles.searchTitle}>Local Name Search</div>
+							<div className={styles.searchRow}>
+								<input
+									value={searchQuery}
+									onChange={(event) => setSearchQuery(event.target.value)}
+									spellCheck={false}
+									autoCorrect='off'
+									autoCapitalize='none'
+									onKeyDown={(event) => {
+										if (event.key === 'Enter') {
+											event.preventDefault();
+											runRedisSearch();
+										}
+									}}
+									className={styles.input}
+									placeholder='Search Redis records by name...'
+								/>
 								<button
 									type='button'
 									className={styles.primaryBtn}
-									onClick={() => {
-										const crds = searchResults.map((r) => r.id).join('\n');
-										setCrdInput(crds);
-									}}>
-									Fetch All {searchResults.length} Results
+									onClick={runRedisSearch}
+									disabled={searchBusy}>
+									{searchBusy ? 'Searching…' : 'Search'}
 								</button>
-								<div className={styles.searchResultsList}>{searchResults.map(renderSearchResult)}</div>
-							</>
-						)}
+							</div>
+							<div className={styles.searchSummary}>{searchSummary}</div>
+							{searchResults.length > 0 && (
+								<>
+									<button
+										type='button'
+										className={styles.primaryBtn}
+										onClick={() => {
+											const crds = searchResults.map((r) => r.id).join('\n');
+											setCrdInput(crds);
+										}}>
+										Fetch All {searchResults.length} Results
+									</button>
+									<div className={styles.searchResultsList}>{searchResults.map(renderSearchResult)}</div>
+								</>
+							)}
+						</div>
 					</div>
 				</section>
 				<aside className={`${styles.rightPane} ${rightPaneCollapsed ? styles.rightPaneCollapsed : ''}`}>
