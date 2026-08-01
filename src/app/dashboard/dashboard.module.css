@@ -1,8 +1,8 @@
 .page {
 	min-height: 100vh;
-	background: #edf1f7;
+	background: #f4f7fb;
 	color: #0f172a;
-	padding: 8px;
+	padding: 16px;
 	font-family:
 		Inter,
 		system-ui,
@@ -26,15 +26,16 @@
 .leftPane,
 .centerPane,
 .rightPane {
-	background: #f4f7fb;
-	border: 1px solid #cdd6e1;
-	border-radius: 10px;
+	background: #ffffff;
+	border: 1px solid #d9e2ee;
+	border-radius: 16px;
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
 	min-height: 0;
 	scrollbar-width: thin;
-	scrollbar-color: #94a3b8 #edf2f7;
+	scrollbar-color: #94a3b8 #f8fafc;
+	box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
 }
 
 .leftPane,
@@ -108,14 +109,15 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	padding: 8px 10px;
-	border-radius: 8px;
-	border: 1px solid #1f4ab8;
-	background: #2f65ea;
-	color: #fff;
+	padding: 8px 12px;
+	border-radius: 10px;
+	border: 1px solid #d9e2ee;
+	background: #f8fafc;
+	color: #0f172a;
 	font-size: 12px;
 	text-decoration: none;
 	white-space: nowrap;
+	font-weight: 700;
 }
 
 .queueInput {
@@ -132,12 +134,12 @@
 
 .primaryBtn {
 	border: 0;
-	background: #2f65ea;
+	background: #0f172a;
 	color: #fff;
-	border-radius: 8px;
-	padding: 8px 10px;
+	border-radius: 10px;
+	padding: 8px 12px;
 	font-size: 12px;
-	font-weight: 600;
+	font-weight: 700;
 	cursor: pointer;
 }
 
@@ -162,10 +164,10 @@
 .queueStatusPanel {
 	display: grid;
 	gap: 6px;
-	padding: 8px;
-	border-radius: 10px;
-	background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
-	border: 1px solid #c7d7f2;
+	padding: 10px;
+	border-radius: 12px;
+	background: #f8fafc;
+	border: 1px solid #e2e8f0;
 }
 
 .queueStatusList {
@@ -334,14 +336,14 @@
 }
 
 .card {
-	border-radius: 14px;
-	border: 1px solid #b9c8da;
+	border-radius: 12px;
+	border: 1px solid #e2e8f0;
 	background: #fff;
 	padding: 12px;
 	font-size: 12px;
 	line-height: 1.45;
 	height: fit-content;
-	box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+	box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
 }
 
 .cardTop {
@@ -376,13 +378,13 @@
 
 .cardSourceKeyBtn {
 	text-align: left;
-	padding: 4px 6px;
-	border-radius: 6px;
-	border: 1px solid #c7d3e5;
-	background: #eef2ff;
+	padding: 6px 8px;
+	border-radius: 8px;
+	border: 1px solid #dbeafe;
+	background: #f8fafc;
 	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 	font-size: 10px;
-	color: #1d4ed8;
+	color: #1e3a8a;
 	cursor: pointer;
 	word-break: break-word;
 }
@@ -465,10 +467,10 @@
 }
 
 .centerPane {
-	background: #0b1630;
-	border: 1px solid #263656;
-	padding: 10px;
-	color: #dbeafe;
+	background: #f8fafc;
+	border: 1px solid #d9e2ee;
+	padding: 12px;
+	color: #0f172a;
 	gap: 8px;
 }
 
@@ -481,17 +483,17 @@
 
 .recordHeader {
 	font-size: 11px;
-	color: #93c5fd;
+	color: #1d4ed8;
 	font-weight: 700;
 }
 
 .recordBadge {
 	display: inline-block;
-	border-radius: 4px;
-	padding: 2px 8px;
+	border-radius: 999px;
+	padding: 3px 8px;
 	font-size: 10px;
 	font-weight: 700;
-	background: #1d4ed8;
+	background: #0f172a;
 	color: #fff;
 }
 
@@ -499,18 +501,18 @@
 	margin: 0 0 8px 0;
 	font-size: 20px;
 	line-height: 1.15;
-	color: #eaf2ff;
+	color: #0f172a;
 }
 
 .recordKeyLabel {
 	font-size: 12px;
-	color: #fff;
+	color: #334155;
 	margin-bottom: 6px;
 }
 
 .recordDescription {
 	font-size: 11px;
-	color: #fff;
+	color: #475569;
 	margin-bottom: 12px;
 }
 
@@ -530,13 +532,13 @@
 }
 
 .statusLine {
-	border-radius: 8px;
-	background: #daf8df;
-	border: 1px solid #9bd3a4;
-	color: #166534;
+	border-radius: 10px;
+	background: #eef4ff;
+	border: 1px solid #dbeafe;
+	color: #1e3a8a;
 	font-size: 11px;
-	padding: 7px 9px;
-	font-weight: 600;
+	padding: 8px 10px;
+	font-weight: 700;
 }
 
 .consoleLine {

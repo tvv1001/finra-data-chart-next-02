@@ -1503,41 +1503,28 @@ export default function DashboardPage() {
 				style={{
 					marginBottom: 16,
 					padding: 20,
-					borderRadius: 20,
-					background: 'linear-gradient(135deg, #0f172a 0%, #2563eb 100%)',
-					color: '#ffffff',
-					boxShadow: '0 16px 40px rgba(15, 23, 42, 0.2)',
+					borderRadius: 16,
+					background: '#ffffff',
+					color: '#0f172a',
+					boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)',
+					border: '1px solid #d9e2ee',
 				}}>
-				<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', opacity: 0.8 }}>Dashboard refresh</div>
-				<h1 style={{ margin: '8px 0 6px', fontSize: 28, lineHeight: 1.2 }}>Record-first dashboard</h1>
-				<p style={{ margin: 0, maxWidth: 760, lineHeight: 1.55, opacity: 0.95 }}>
-					The queue, search, and JSON view are now grouped around the active record so the page feels more like a live inspector.
+				<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#64748b' }}>Dashboard</div>
+				<h1 style={{ margin: '8px 0 6px', fontSize: 28, lineHeight: 1.2, color: '#0f172a' }}>FINRA / SEC record inspector</h1>
+				<p style={{ margin: 0, maxWidth: 760, lineHeight: 1.55, color: '#475569' }}>
+					Browse cached records and inspect the currently selected individual or firm with the same calm, card-based layout as the reference dashboard.
 				</p>
 			</div>
 			<div className={`${styles.layout} ${rightPaneCollapsed ? styles.layoutCollapsedRight : ''}`}>
 				<aside className={styles.leftPane}>
-					<Link
-						href='/'
-						className={styles.backLink}>
-						← Graph
-					</Link>
-
-					<textarea
-						className={styles.queueInput}
-						value={crdInput}
-						onChange={(event) => setCrdInput(event.target.value)}
-						spellCheck={false}
-						autoCorrect='off'
-						autoCapitalize='none'
-						placeholder='Enter CRD(s) or name query(ies), comma separated'
-					/>
-					<button
-						type='button'
-						className={styles.primaryBtn}
-						onClick={() => runAction('fetch-crds')}
-						disabled={busyAction !== null || queueQueries.length === 0}>
-						{busyAction === 'fetch-crds' ? 'Running…' : 'Run Queue'}
-					</button>
+					<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingBottom: 2 }}>
+						<Link
+							href='/'
+							className={styles.backLink}>
+							← Graph
+						</Link>
+						<div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Inspector</div>
+					</div>
 
 					{savedTemplates.length > 0 && (
 						<div className={styles.templatesSection}>
@@ -1622,14 +1609,6 @@ export default function DashboardPage() {
 					<div className={styles.queueStatusPanel}>
 						<div className={styles.queueStatusHeader}>
 							<div className={styles.statusLine}>{queueStatusLine}</div>
-							{queueQueries.length > 0 && !isSavingTemplate && (
-								<button
-									type='button'
-									className={styles.templateBtn}
-									onClick={handleSaveTemplate}>
-									💾 Save List
-								</button>
-							)}
 						</div>
 
 						{isSavingTemplate && (
@@ -1695,7 +1674,7 @@ export default function DashboardPage() {
 						</div>
 					)}
 
-					<div className={styles.queueSectionTitle}>Run Queue</div>
+					<div className={styles.queueSectionTitle}>Cached records</div>
 					<div className={styles.queueMeta}>{queueMetaText}</div>
 					{persistenceNotice && <div className={styles.searchSummary}>{persistenceNotice}</div>}
 					<div className={styles.cardList}>
@@ -1732,7 +1711,7 @@ export default function DashboardPage() {
 							<div
 								className={styles.cardMeta}
 								style={{ padding: '12px 4px', opacity: 0.6 }}>
-								No fetched CRDs yet. Run the queue to populate your history.
+								No cached records yet. The inspector will populate as data is loaded.
 							</div>
 						)}
 
@@ -1743,14 +1722,7 @@ export default function DashboardPage() {
 									<span>Not cached yet • New CRD match</span>
 								</div>
 								<div className={styles.cardScopes}>{filteredNewCrds[0].scopes.join('  ')}</div>
-								<div className={styles.cardMeta}>Use Run Queue to fetch this CRD into cache.</div>
-								<button
-									type='button'
-									className={styles.primaryBtn}
-									onClick={() => runAction('fetch-crds', [filteredNewCrds[0].id])}
-									disabled={busyAction !== null}>
-									{busyAction === 'fetch-crds' ? 'Running…' : `Run Queue for ${filteredNewCrds[0].id}`}
-								</button>
+								<div className={styles.cardMeta}>This record is available in the current inventory and can be inspected directly.</div>
 							</div>
 						)}
 					</div>
