@@ -11,6 +11,13 @@ type RecordDashboardSummary = {
 	keyFacts: Array<{ label: string; value: string }>;
 };
 
+type RecordDashboardDisplayMeta = {
+	badgeLabel: string;
+	title: string;
+	subtitle: string;
+	overviewCards: Array<{ label: string; value: string }>;
+};
+
 function getValue(source: Record<string, unknown>, paths: string[]): string {
 	for (const path of paths) {
 		const value = path.split('.').reduce<unknown>((acc, key) => (acc && typeof acc === 'object' ? (acc as Record<string, unknown>)[key] : undefined), source);
@@ -18,16 +25,6 @@ function getValue(source: Record<string, unknown>, paths: string[]): string {
 		if (typeof value === 'number') return String(value);
 	}
 	return '';
-}
-
-function getNestedObject(source: Record<string, unknown>, paths: string[]): Record<string, unknown> | null {
-	for (const path of paths) {
-		const value = path.split('.').reduce<unknown>((acc, key) => (acc && typeof acc === 'object' ? (acc as Record<string, unknown>)[key] : undefined), source);
-		if (value && typeof value === 'object' && !Array.isArray(value)) {
-			return value as Record<string, unknown>;
-		}
-	}
-	return null;
 }
 
 export function summarizeRecordDetail(payload: Record<string, unknown> | null | undefined, entity: RecordEntity, id: string): RecordDashboardSummary {
@@ -50,6 +47,24 @@ export function summarizeRecordDetail(payload: Record<string, unknown> | null | 
 	}
 
 	return { title: name, subtitle, keyFacts };
+}
+
+export function getRecordDashboardDisplayMeta(payload: Record<string, unknown> | null | undefined, entity: RecordEntity, id: string): RecordDashboardDisplayMeta {
+	const detail = payload && typeof payload === 'object' ? payload : {};
+	const summary = summarizeRecordDetail(payload, entity, id);
+	const overviewCards = [
+		{ label: 'Entity', value: entity === 'firm' ? 'Firm' : 'Individual' },
+		{ label: 'Record ID', value: id || '—' },
+		{ label: 'Status', value: getValue(detail, ['status', 'employmentStatus', 'basicInformation.status', 'registrationStatus']) || '—' },
+		{ label: 'Employer', value: getValue(detail, ['currentEmployment.0.firmName', 'currentEmployment.0.firm_name', 'basicInformation.currentEmployer']) || '—' },
+	];
+
+	return {
+		badgeLabel: 'Read-only',
+		title: summary.title,
+		subtitle: summary.subtitle,
+		overviewCards,
+	};
 }
 
 export default function RecordDashboard() {
@@ -90,14 +105,15 @@ export default function RecordDashboard() {
 	}, [entity, id]);
 
 	const summary = useMemo(() => summarizeRecordDetail(detail, entity, id), [detail, entity, id]);
+	const displayMeta = useMemo(() => getRecordDashboardDisplayMeta(detail, entity, id), [detail, entity, id]);
 	const detailSections = useMemo(() => {
 		if (!detail) return [] as Array<{ label: string; value: string }>;
 		const sections = [
-			{ label: 'Basic info', value: getValue(detail, ['basicInformation', 'basicInformation.name', 'name']) },
-			{ label: 'CRD', value: getValue(detail, ['basicInformation.crdNumber', 'crdNumber', 'crd']) },
-			{ label: 'Status', value: getValue(detail, ['status', 'employmentStatus', 'basicInformation.status']) },
-			{ label: 'Current employer', value: getValue(detail, ['currentEmployment.0.firmName', 'currentEmployment.0.firm_name']) },
-			{ label: 'Related firms', value: String(Array.isArray(detail?.employmentHistory) ? detail.employmentHistory.length : 0) },
+			{ label: 'Name', value: getValue(detail, ['name', 'basicInformation.name', 'individualName', 'firmName']) },
+			{ label: 'CRD', value: getValue(detail, ['basicInformation.crdNumber', 'crdNumber', 'crd', 'basicInformation.individualId', 'individualId']) },
+			{ label: 'Status', value: getValue(detail, ['status', 'employmentStatus', 'basicInformation.status', 'registrationStatus']) },
+			{ label: 'Current employer', value: getValue(detail, ['currentEmployment.0.firmName', 'currentEmployment.0.firm_name', 'basicInformation.currentEmployer']) },
+			{ label: 'Related firms', value: Array.isArray(detail.employmentHistory) ? String(detail.employmentHistory.length) : '' },
 		];
 		return sections.filter((section) => section.value);
 	}, [detail]);
@@ -113,48 +129,74 @@ export default function RecordDashboard() {
 
 	return (
 		<div style={{ minHeight: '100vh', background: '#f3f4f6', color: '#111827', fontFamily: 'Inter, sans-serif' }}>
-			<div style={{ maxWidth: 1400, margin: '0 auto', padding: 24, display: 'grid', gap: 20, gridTemplateColumns: '320px minmax(0, 1fr)' }}>
-				<aside style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 16, padding: 20, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.06)' }}>
-					<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 12 }}>Record view</div>
-					<h2 style={{ margin: '0 0 8px', fontSize: 24 }}>{summary.title}</h2>
-					<p style={{ margin: '0 0 16px', color: '#4b5563' }}>{summary.subtitle}</p>
-					{loading && <p style={{ color: '#2563eb' }}>Loading record…</p>}
-					{error && <p style={{ color: 'crimson' }}>{error}</p>}
-					{summary.keyFacts.length > 0 && (
-						<ul style={{ paddingLeft: 18, margin: 0, display: 'grid', gap: 8 }}>
-							{summary.keyFacts.map((fact) => (
-								<li
-									key={fact.label}
-									style={{ color: '#374151' }}>
-									<strong>{fact.label}:</strong> {fact.value}
-								</li>
-							))}
-						</ul>
-					)}
-					{detailSections.length > 0 && (
-						<div style={{ marginTop: 18, borderTop: '1px solid #e5e7eb', paddingTop: 16 }}>
-							{detailSections.map((section) => (
-								<div
-									key={section.label}
-									style={{ marginBottom: 10 }}>
-									<div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#6b7280' }}>{section.label}</div>
-									<div style={{ fontWeight: 600 }}>{section.value}</div>
-								</div>
-							))}
-						</div>
-					)}
-				</aside>
-				<section style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 16, padding: 24, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.06)' }}>
-					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-						<div>
-							<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#6b7280' }}>Detail payload</div>
-							<h3 style={{ margin: '4px 0 0', fontSize: 20 }}>Raw record view</h3>
-						</div>
+			<div style={{ maxWidth: 1400, margin: '0 auto', padding: 24, display: 'grid', gap: 20 }}>
+				<header style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 20, padding: 24, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+					<div>
+						<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#6b7280' }}>Dashboard</div>
+						<h1 style={{ margin: '6px 0 4px', fontSize: 28 }}>{displayMeta.title}</h1>
+						<p style={{ margin: 0, color: '#4b5563' }}>{displayMeta.subtitle}</p>
 					</div>
-					{detail ?
-						<pre style={{ whiteSpace: 'pre-wrap', background: '#111827', color: '#f9fafb', padding: 16, borderRadius: 12, overflowX: 'auto', margin: 0 }}>{detailBody}</pre>
-					:	<div style={{ color: '#6b7280' }}>No record loaded yet.</div>}
-				</section>
+					<div style={{ padding: '8px 12px', borderRadius: 999, background: '#ecfdf5', color: '#047857', fontWeight: 700, border: '1px solid #a7f3d0' }}>
+						{displayMeta.badgeLabel}
+					</div>
+				</header>
+				<div style={{ display: 'grid', gap: 20, gridTemplateColumns: '320px minmax(0, 1fr)' }}>
+					<aside style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 16, padding: 20, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.06)', display: 'grid', gap: 16, alignContent: 'start' }}>
+						<div>
+							<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 8 }}>Selection summary</div>
+							<h2 style={{ margin: '0 0 8px', fontSize: 22 }}>{displayMeta.title}</h2>
+							<p style={{ margin: 0, color: '#4b5563' }}>{displayMeta.subtitle}</p>
+						</div>
+						{loading && <div style={{ color: '#2563eb' }}>Loading record…</div>}
+						{error && <div style={{ color: 'crimson' }}>{error}</div>}
+						{summary.keyFacts.length > 0 && (
+							<div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
+								<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 8 }}>Highlights</div>
+								<ul style={{ paddingLeft: 18, margin: 0, display: 'grid', gap: 8 }}>
+									{summary.keyFacts.map((fact) => (
+										<li key={fact.label} style={{ color: '#374151' }}>
+											<strong>{fact.label}:</strong> {fact.value}
+										</li>
+									))}
+								</ul>
+							</div>
+						)}
+						{detailSections.length > 0 && (
+							<div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
+								<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 8 }}>Quick facts</div>
+								<div style={{ display: 'grid', gap: 8 }}>
+									{detailSections.map((section) => (
+										<div key={section.label}>
+											<div style={{ fontSize: 12, color: '#6b7280' }}>{section.label}</div>
+											<div style={{ fontWeight: 600 }}>{section.value}</div>
+										</div>
+									))}
+								</div>
+							</div>
+						)}
+					</aside>
+					<div style={{ display: 'grid', gap: 16 }}>
+						<section style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 16, padding: 20, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.06)' }}>
+							<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 8 }}>Overview</div>
+							<div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+								{displayMeta.overviewCards.map((item) => (
+									<div key={item.label} style={{ background: '#f9fafb', borderRadius: 12, padding: 12 }}>
+										<div style={{ fontSize: 12, color: '#6b7280' }}>{item.label}</div>
+										<div style={{ fontWeight: 700, marginTop: 6 }}>{item.value}</div>
+									</div>
+								))}
+							</div>
+						</section>
+						<section style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 16, padding: 20, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.06)' }}>
+							<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 12 }}>Raw payload</div>
+							{detail ? (
+								<pre style={{ whiteSpace: 'pre-wrap', background: '#111827', color: '#f9fafb', padding: 16, borderRadius: 12, overflowX: 'auto', margin: 0 }}>{detailBody}</pre>
+							) : (
+								<div style={{ color: '#6b7280' }}>No record loaded yet.</div>
+							)}
+						</section>
+					</div>
+				</div>
 			</div>
 		</div>
 	);
