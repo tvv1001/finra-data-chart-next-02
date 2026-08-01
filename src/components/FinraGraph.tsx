@@ -1,5 +1,5 @@
 'use client';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 
 import ThemeToggle from './ThemeToggle';
@@ -169,8 +169,17 @@ function focusFetchInputWhenEmpty(options: { force?: boolean } = {}) {
 	});
 }
 
-function updateNodeRouteHistory(href: string, mode: 'push' | 'replace' = 'push') {
+function updateNodeRouteHistory(
+	href: string,
+	mode: 'push' | 'replace' = 'push',
+	router?: { push: (href: string, options?: { scroll?: boolean }) => void; replace: (href: string, options?: { scroll?: boolean }) => void },
+) {
 	if (typeof window === 'undefined') return;
+	if (router) {
+		const method = mode === 'replace' ? 'replace' : 'push';
+		router[method](href, { scroll: false });
+		return;
+	}
 	const method = mode === 'replace' ? 'replaceState' : 'pushState';
 	window.history[method](window.history.state, '', href);
 }
@@ -183,6 +192,7 @@ function routeSidebarNodeSelection({
 	setBrowserPathname,
 	pulseDuration = 5000,
 	autoExpand = false,
+	router,
 }: {
 	nodeId: string;
 	searchSuffix: string;
@@ -191,13 +201,14 @@ function routeSidebarNodeSelection({
 	setBrowserPathname: (nextPath: string) => void;
 	pulseDuration?: number;
 	autoExpand?: boolean;
+	router?: { push: (href: string, options?: { scroll?: boolean }) => void; replace: (href: string, options?: { scroll?: boolean }) => void };
 }) {
 	const nextHref = buildNodeRouteHref(nodeId, searchSuffix);
 	const nextPath = buildNodeRoutePath(nodeId);
 	const currentHref = `${browserPathname || pathname || '/'}${searchSuffix}`;
 	if (nextHref !== currentHref) {
 		setBrowserPathname(nextPath);
-		updateNodeRouteHistory(nextHref, 'push');
+		updateNodeRouteHistory(nextHref, 'push', router);
 	}
 	window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { nodeId, pulseDuration, autoExpand } }));
 }
@@ -230,6 +241,7 @@ export default function FinraGraph() {
 	const [activeFindNodeId, setActiveFindNodeId] = useState<string | null>(null);
 	const [focusedFindNodeId, setFocusedFindNodeId] = useState<string | null>(null);
 	const pathname = usePathname();
+	const router = useRouter();
 	const searchParams = useSearchParams();
 	const routeNodeId = useMemo(() => parseNodeIdFromPathname(browserPathname || pathname), [browserPathname, pathname]);
 	const findCounterText = useMemo(() => formatFindCounter(findMatchState.total, findMatchState.activeOrdinal), [findMatchState.activeOrdinal, findMatchState.total]);
@@ -326,11 +338,12 @@ export default function FinraGraph() {
 				setBrowserPathname,
 				pulseDuration: 5000,
 				autoExpand: true,
+				router,
 			});
 			return;
 		}
 		window.dispatchEvent(new CustomEvent(FIND_NEXT_EVENT, { detail: { query } }));
-	}, [activeFindNodeId, browserPathname, closeFindBar, findQuery, focusedFindNodeId, pathname, searchSuffix]);
+	}, [activeFindNodeId, browserPathname, closeFindBar, findQuery, focusedFindNodeId, pathname, router, searchSuffix]);
 
 	const handleFindInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
 		if (event.key === 'Enter') {
@@ -402,6 +415,7 @@ export default function FinraGraph() {
 					setBrowserPathname,
 					pulseDuration: 5000,
 					autoExpand: true,
+					router,
 				});
 				return;
 			}
@@ -426,6 +440,7 @@ export default function FinraGraph() {
 					setBrowserPathname,
 					pulseDuration: 5000,
 					autoExpand: true,
+					router,
 				});
 				return;
 			}
@@ -622,6 +637,7 @@ export default function FinraGraph() {
 					pathname,
 					setBrowserPathname,
 					autoExpand: true,
+					router,
 				});
 				return;
 			}
@@ -711,10 +727,10 @@ export default function FinraGraph() {
 			if (nextHref === currentHref) return;
 			setBrowserPathname(nextPath);
 			if (detail.replace) {
-				updateNodeRouteHistory(nextHref, 'replace');
+				updateNodeRouteHistory(nextHref, 'replace', router);
 				return;
 			}
-			updateNodeRouteHistory(nextHref, 'push');
+			updateNodeRouteHistory(nextHref, 'push', router);
 		};
 
 		window.addEventListener(SELECTED_NODE_ROUTE_EVENT, handleSelectedNodeRoute as EventListener);

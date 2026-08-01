@@ -121,6 +121,24 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(loadPersistedSidebarViewMode()).toBe('info');
 	});
 
+	it('routeSidebarNodeSelection preserves the query string when routing a node', () => {
+		const push = vi.fn();
+		const replace = vi.fn();
+		const setBrowserPathname = vi.fn();
+
+		routeSidebarNodeSelection({
+			nodeId: 'person:123',
+			searchSuffix: '?selected=person%3A456',
+			browserPathname: '/',
+			pathname: '/',
+			setBrowserPathname,
+			router: { push, replace } as any,
+		});
+
+		expect(push).toHaveBeenCalledWith('/individual/123?selected=person%3A456', { scroll: false });
+		expect(replace).not.toHaveBeenCalled();
+	});
+
 	it('upsertSelectionLogEntry moves reselected items to most recent', () => {
 		const initialEntries = [
 			{ id: 'person:1', label: 'Alpha', secondaryId: 'CRD# 1', group: 'individual' },
