@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getRecordDashboardDisplayMeta, summarizeRecordDetail } from '../../src/components/RecordDashboard';
+import { getRecordDisplayName } from '../../src/lib/recordDisplay';
 
 describe('summarizeRecordDetail', () => {
 	it('builds a compact individual summary from the detail payload', () => {
@@ -34,5 +35,13 @@ describe('summarizeRecordDetail', () => {
 		expect(meta.overviewCards).toEqual(
 			expect.arrayContaining([expect.objectContaining({ label: 'Entity', value: 'Individual' }), expect.objectContaining({ label: 'Record ID', value: '8276416' })]),
 		);
+	});
+
+	it('uses the firm legal name instead of the fallback placeholder', () => {
+		expect(getRecordDisplayName({ basicInformation: { legalName: 'CardJSON' } }, 'firm', '149777')).toBe('CardJSON');
+	});
+
+	it('uses the individual full name instead of the fallback placeholder', () => {
+		expect(getRecordDisplayName({ basicInformation: { firstName: 'Alice', lastName: 'Johnson' } }, 'individual', '8276416')).toBe('Alice Johnson');
 	});
 });

@@ -1,5 +1,5 @@
-import RecordDashboard from '@/components/RecordDashboard';
+import DashboardPage from '../../page';
 
 export default function DashboardIndividualRoutePage() {
-	return <RecordDashboard />;
+	return <DashboardPage />;
 }

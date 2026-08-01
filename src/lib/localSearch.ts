@@ -686,6 +686,22 @@ function getAddressMatchScore(doc: PreparedLocalSearchDoc, normalizedQuery: stri
 	return getAddressFieldMatchScore(doc.addressSearchText, normalizedQuery, tokens);
 }
 
+function getStrictDocumentMatchScore(doc: PreparedLocalSearchDoc, normalizedQuery: string, tokens: string[]) {
+	const strictText = doc.normalizedStrictSearchText;
+	if (!strictText) return 0;
+
+	if (containsWholePhrase(strictText, normalizedQuery)) return 220;
+	if (strictText.includes(normalizedQuery)) return 180;
+
+	if (tokens.length > 0) {
+		const matchedTokenCount = tokens.filter((token) => containsWholePhrase(strictText, token) || strictText.includes(token)).length;
+		if (matchedTokenCount === tokens.length) return 140 + matchedTokenCount * 10;
+		if (matchedTokenCount > 0) return 60 + matchedTokenCount * 8;
+	}
+
+	return 0;
+}
+
 function getSortScore(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQuery: string, tokens: string[]) {
 	const identifier = getIdentifierText(doc);
 	const nameText = doc.normalizedNameSearchText;
@@ -700,6 +716,7 @@ function getSortScore(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQ
 	}
 	score += getNameMatchScore(doc, rawQuery, normalizedQuery, tokens);
 	score += getAddressMatchScore(doc, normalizedQuery, tokens);
+	score += getStrictDocumentMatchScore(doc, normalizedQuery, tokens);
 	return score;
 }
 
@@ -710,6 +727,7 @@ function matchesQuery(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQ
 	if (identifier === normalizedQuery || doc.id.toLowerCase().endsWith(`:${normalizedQuery}`) || containsWholePhrase(identifier, normalizedQuery)) return true;
 	if (hasEmploymentFirmIdMatch(doc, normalizedQuery)) return true;
 	if (getAddressMatchScore(doc, normalizedQuery, tokens) > 0) return true;
+	if (getStrictDocumentMatchScore(doc, normalizedQuery, tokens) > 0) return true;
 	const strictQuery = isStrictMatchQuery(normalizedQuery);
 	if (strictQuery) {
 		return hasStrictMatch(doc, normalizedQuery, tokens) || hasStrictTokenMatch(doc, tokens);

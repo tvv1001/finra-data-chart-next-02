@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { renderJsonForDisplay } from '@/lib/dashboard-json';
+import { getRecordDisplayName } from '@/lib/recordDisplay';
 
 type RecordEntity = 'individual' | 'firm';
 
@@ -29,8 +30,7 @@ function getValue(source: Record<string, unknown>, paths: string[]): string {
 
 export function summarizeRecordDetail(payload: Record<string, unknown> | null | undefined, entity: RecordEntity, id: string): RecordDashboardSummary {
 	const detail = payload && typeof payload === 'object' ? payload : {};
-	const name =
-		getValue(detail, ['name', 'individualName', 'firmName', 'basicInformation.firmName', 'basicInformation.name']) || `${entity === 'firm' ? 'Firm' : 'Individual'} ${id}`;
+	const name = getRecordDisplayName(detail, entity, id);
 	const subtitle = `${entity === 'firm' ? 'Firm' : 'Individual'} CRD ${id}`;
 	const keyFacts: Array<{ label: string; value: string }> = [];
 

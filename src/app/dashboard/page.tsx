@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { normalizeRenderablePayload, renderJsonForDisplay } from '../../lib/dashboard-json';
+import { getRecordDisplayName } from '../../lib/recordDisplay';
 import styles from './dashboard.module.css';
 
 type DashboardAction = 'fetch-crds' | 'list-new-crds';
@@ -21,6 +22,8 @@ type SearchResultCard = {
 	id: string;
 	label: string;
 	scope: string;
+	address: string;
+	detail: string;
 	source: SearchResultSource;
 	entity: 'individual' | 'firm';
 	payload: SearchResult;
@@ -71,6 +74,30 @@ export function parseDashboardSelectionFromUrl(urlString: string): UrlSelectionI
 	try {
 		const url = new URL(urlString, 'http://localhost');
 		const params = url.searchParams;
+
+		const pathMatch = /^\/dashboard\/(individual|firm)\/([^/?#]+)\/?$/i.exec(url.pathname);
+		if (pathMatch) {
+			const entity: 'individual' | 'firm' = pathMatch[1].toLowerCase() === 'firm' ? 'firm' : 'individual';
+			const id = decodeURIComponent(pathMatch[2]).trim();
+			if (!/^\d{1,10}$/.test(id)) return null;
+
+			const sourceParam = String(params.get('source') || '')
+				.trim()
+				.toLowerCase();
+			const source: SearchResultSource = sourceParam === 'sec' ? 'sec' : 'finra';
+			const availableSources: SearchResultSource[] = [];
+			if (params.get('finra') === '1') availableSources.push('finra');
+			if (params.get('sec') === '1') availableSources.push('sec');
+			if (!availableSources.includes(source)) availableSources.push(source);
+
+			return {
+				entity,
+				id,
+				source,
+				availableSources,
+			};
+		}
+
 		const firmId = String(params.get('CRD_firm') || '').trim();
 		const individualId = String(params.get('CRD_individual') || '').trim();
 		const id = firmId || individualId;
@@ -414,6 +441,217 @@ function extractEntityDetailFromPayload(payload: any, entity: 'individual' | 'fi
 	return null;
 }
 
+function inferEntityTypeFromNewCrd(item: { type?: string; scopes?: string[] }): 'individual' | 'firm' {
+	const typeText = String(item?.type || '')
+		.trim()
+		.toLowerCase();
+	const scopesText = Array.isArray(item?.scopes) ? item.scopes.join(' ').toLowerCase() : '';
+	const combined = `${typeText} ${scopesText}`;
+	if (combined.includes('firm') || combined.includes('company') || combined.includes('organization') || combined.includes('org')) {
+		return 'firm';
+	}
+	return 'individual';
+}
+
+function buildReadableSummaryRows(payload: Record<string, any>) {
+	const rows: Array<{ label: string; value: string }> = [];
+	const push = (label: string, raw: unknown) => {
+		if (raw == null) return;
+		const value = String(raw).trim();
+		if (!value || value === 'N/A' || value === 'null' || value === 'undefined') return;
+		rows.push({ label, value });
+	};
+
+	push('Name', payload.name || payload.fullName || payload.legalName || payload.basicInformation?.legalName);
+	push('Status', payload.status || payload.registrationStatus || payload.bcScope || payload.iaScope || payload.basicInformation?.bcScope || payload.basicInformation?.iaScope);
+	push('City', payload.city || payload.town || payload.mailingAddress?.city || payload.businessAddress?.city);
+	push('State', payload.state || payload.mailingAddress?.state || payload.businessAddress?.state);
+	push('Country', payload.country || payload.mailingAddress?.country || payload.businessAddress?.country);
+	push('SEC', payload.iaSecNumber || payload.secNumber || payload.basicInformation?.iaSecNumber);
+	push('BD', payload.bdSecNumber || payload.basicInformation?.bdSecNumber);
+	push('CRD', payload.crd || payload.firmId || payload.individualId);
+
+	if (!rows.length) {
+		for (const [key, value] of Object.entries(payload)) {
+			if (value == null || typeof value === 'object') continue;
+			const str = String(value).trim();
+			if (!str) continue;
+			rows.push({ label: key, value: str });
+			if (rows.length >= 12) break;
+		}
+	}
+
+	return rows;
+}
+
+function maybeParseJson(value: unknown): unknown {
+	if (typeof value !== 'string') return value;
+	const text = value.trim();
+	if (!text) return null;
+	if (!(text.startsWith('{') || text.startsWith('['))) return value;
+	try {
+		return JSON.parse(text);
+	} catch {
+		return value;
+	}
+}
+
+function unwrapRecordPayload(input: unknown): any {
+	const parsed = maybeParseJson(input);
+	if (parsed == null || typeof parsed !== 'object') return parsed;
+	if (Array.isArray(parsed)) return parsed;
+
+	const payload = parsed as Record<string, unknown>;
+	if (payload.finraBrokerCheck && typeof payload.finraBrokerCheck === 'object') {
+		return unwrapRecordPayload(payload.finraBrokerCheck);
+	}
+	if (payload.secInvestmentAdvisor && typeof payload.secInvestmentAdvisor === 'object') {
+		return unwrapRecordPayload(payload.secInvestmentAdvisor);
+	}
+
+	if (payload.content != null) return unwrapRecordPayload(payload.content);
+	if (payload.iacontent != null) return unwrapRecordPayload(payload.iacontent);
+
+	const firstHit = Array.isArray((payload.hits as any)?.hits) ? (payload.hits as any).hits[0] : null;
+	if (firstHit && typeof firstHit === 'object') {
+		const source = (firstHit as any)._source;
+		if (source && typeof source === 'object') {
+			if ((source as any).content != null) return unwrapRecordPayload((source as any).content);
+			if ((source as any).iacontent != null) return unwrapRecordPayload((source as any).iacontent);
+			return unwrapRecordPayload(source);
+		}
+	}
+
+	if ((payload as any)._source && typeof (payload as any)._source === 'object') {
+		return unwrapRecordPayload((payload as any)._source);
+	}
+
+	return payload;
+}
+
+function toArray(value: unknown): any[] {
+	return Array.isArray(value) ? value : [];
+}
+
+function toText(value: unknown): string {
+	if (value == null) return '';
+	if (typeof value === 'string') return value.trim();
+	if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+	return '';
+}
+
+function pickFirstNonEmpty(...values: unknown[]): string {
+	for (const value of values) {
+		const text = toText(value);
+		if (text) return text;
+	}
+	return '';
+}
+
+function formatAddress(value: unknown): string {
+	if (!value) return '';
+	if (typeof value === 'string') return value.trim();
+	if (typeof value !== 'object' || Array.isArray(value)) return '';
+	const address = value as Record<string, unknown>;
+	const preferredKeys = ['address1', 'address2', 'address3', 'street1', 'street2', 'city', 'state', 'postalCode', 'zipCode', 'zip', 'country'];
+	const parts: string[] = [];
+	for (const key of preferredKeys) {
+		const text = toText(address[key]);
+		if (text) parts.push(text);
+	}
+	if (parts.length > 0) return parts.join(', ');
+	return Object.values(address)
+		.map((v) => toText(v))
+		.filter(Boolean)
+		.join(', ');
+}
+
+function extractCurrentBranchOfficeAddress(body: Record<string, any>): string {
+	const employments = [...toArray(body?.currentEmployments), ...toArray(body?.currentIAEmployments), ...toArray(body?.currentEmployment)];
+	for (const employment of employments) {
+		const branches = toArray(employment?.branchOfficeLocations);
+		const located = branches.find((b) => toText(b?.locatedAtFlag).toUpperCase() === 'Y') || branches[0];
+		if (located) {
+			const address = formatAddress(located);
+			if (address) return address;
+		}
+	}
+	return '';
+}
+
+function collectOtherNames(...lists: unknown[]): string[] {
+	const seen = new Set<string>();
+	const out: string[] = [];
+	for (const list of lists) {
+		for (const item of toArray(list)) {
+			const value = toText(item);
+			if (!value) continue;
+			const normalized = value.toLowerCase();
+			if (seen.has(normalized)) continue;
+			seen.add(normalized);
+			out.push(value);
+		}
+	}
+	return out;
+}
+
+function humanizeKey(key: string): string {
+	if (/\s/.test(key)) return key;
+	return key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
+}
+
+function isEmptyRawValue(value: unknown): boolean {
+	if (value === null || value === undefined) return true;
+	if (typeof value === 'string') return value.trim() === '';
+	if (Array.isArray(value)) return value.length === 0;
+	if (typeof value === 'object') return Object.keys(value as Record<string, unknown>).length === 0;
+	return false;
+}
+
+function stringifyRawValue(value: unknown): string {
+	if (typeof value === 'string') return value;
+	if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+	if (Array.isArray(value)) {
+		if (!value.length) return '';
+		if (value.every((v) => ['string', 'number', 'boolean'].includes(typeof v))) {
+			return value.map((v) => String(v)).join(', ');
+		}
+		return JSON.stringify(value);
+	}
+	if (value && typeof value === 'object') {
+		return JSON.stringify(value);
+	}
+	return '';
+}
+
+const DETAIL_SKIP_KEYS = new Set([
+	'basicInformation',
+	'firmAddressDetails',
+	'iaFirmAddressDetails',
+	'disclosures',
+	'directOwners',
+	'registrationStatus',
+	'registeredSROs',
+	'registeredStates',
+	'registrations',
+	'currentConnections',
+	'previousConnections',
+	'currentEmployments',
+	'currentIAEmployments',
+	'currentEmployment',
+	'previousEmployments',
+	'previousIAEmployments',
+	'otherNames',
+	'aliases',
+	'stateExamCategory',
+	'productExamCategory',
+	'principalExamCategory',
+	'stateExams',
+	'productExams',
+	'principalExams',
+	'exams',
+]);
+
 const LOCAL_HISTORY_KEY = 'finra_dashboard_history';
 const LOCAL_HISTORY_MAX = 100;
 
@@ -423,6 +661,22 @@ type LocalHistoryEntry = {
 	sources: QueueCardSourceEntry[];
 	fetchedAt: string;
 	name?: string;
+	visitCount?: number;
+	lastVisitedAt?: string;
+};
+
+type NewCrdEntry = {
+	id: string;
+	type: string;
+	found: string;
+	scopes: string[];
+	date: string;
+	name?: string | null;
+	fullName?: string | null;
+	firstName?: string | null;
+	lastName?: string | null;
+	firmName?: string | null;
+	legalName?: string | null;
 };
 
 type SavedTemplate = {
@@ -430,6 +684,64 @@ type SavedTemplate = {
 	name: string;
 	queries: string;
 };
+
+function extractDisplayNameFromNewCrd(entry: NewCrdEntry, entity: 'individual' | 'firm') {
+	const combinedPersonName = [toText(entry.firstName), toText(entry.lastName)].filter(Boolean).join(' ').trim();
+	const rawName = pickFirstNonEmpty(entry.name, entry.fullName, entry.firmName, entry.legalName, combinedPersonName);
+	if (rawName) return rawName;
+	return entity === 'firm' ? `Firm ${entry.id}` : `Individual ${entry.id}`;
+}
+
+function formatMainPanelTitle(options: { source: SearchResultSource; entity: 'individual' | 'firm'; id: string; name?: string | null; payload?: unknown }) {
+	const sourceLabel = String(options.source).toUpperCase();
+	const titleName = toText(options.name) || getRecordDisplayName(options.payload, options.entity, options.id);
+	if (titleName) return titleName;
+	return `${options.entity === 'firm' ? 'Firm' : 'Individual'} ${options.id}`;
+}
+
+function formatAddressCandidate(value: unknown): string {
+	if (!value) return '';
+	if (typeof value === 'string') return value.trim();
+	if (typeof value !== 'object' || Array.isArray(value)) return '';
+	const address = value as Record<string, any>;
+	const parts = [address.address1, address.address2, address.street1, address.street2, address.city, address.state, address.zipCode || address.postalCode, address.country]
+		.map((entry) => toText(entry))
+		.filter(Boolean);
+	return parts.join(', ');
+}
+
+function extractSearchResultAddress(item: SearchResult): string {
+	const directAddress = pickFirstNonEmpty(
+		formatAddressCandidate(item?.businessAddress),
+		formatAddressCandidate(item?.officeAddress),
+		formatAddressCandidate(item?.mailingAddress),
+		formatAddressCandidate(item?.address),
+		[toText(item?.city), toText(item?.state)].filter(Boolean).join(', '),
+	);
+	if (directAddress) return directAddress;
+
+	const employments = [
+		...(Array.isArray(item?.ind_current_employments) ? item.ind_current_employments : []),
+		...(Array.isArray(item?.ind_ia_current_employments) ? item.ind_ia_current_employments : []),
+		...(Array.isArray(item?.currentEmployments) ? item.currentEmployments : []),
+		...(Array.isArray(item?.currentIAEmployments) ? item.currentIAEmployments : []),
+	];
+
+	for (const row of employments) {
+		const address = pickFirstNonEmpty(
+			formatAddressCandidate(row?.branchOfficeLocations?.[0]),
+			formatAddressCandidate(row),
+			[toText(row?.city), toText(row?.state)].filter(Boolean).join(', '),
+		);
+		if (address) return address;
+	}
+
+	return '';
+}
+
+function extractSearchResultDetail(item: SearchResult): string {
+	return pickFirstNonEmpty(item?.bcScope, item?.iaScope, item?.status, item?.registrationStatus, item?.firm_bc_scope, item?.firm_ia_scope);
+}
 
 export default function DashboardPage() {
 	const [crdInput, setCrdInput] = useState('');
@@ -441,12 +753,13 @@ export default function DashboardPage() {
 	const [currentRecordSource, setCurrentRecordSource] = useState<'finra' | 'sec' | null>(null);
 	const [currentRecordEntity, setCurrentRecordEntity] = useState<'individual' | 'firm' | null>(null);
 	const [currentRecordId, setCurrentRecordId] = useState<string | null>(null);
-	const [newCrds, setNewCrds] = useState<Array<{ id: string; type: string; found: string; scopes: string[]; date: string }>>([]);
+	const [newCrds, setNewCrds] = useState<NewCrdEntry[]>([]);
 	const [searchQuery, setSearchQuery] = useState('');
 	const [searchBusy, setSearchBusy] = useState(false);
 	const [searchError, setSearchError] = useState<string | null>(null);
 	const [searchResults, setSearchResults] = useState<SearchResultCard[]>([]);
 	const [searchSkippedCount, setSearchSkippedCount] = useState(0);
+	const [hasSearchRun, setHasSearchRun] = useState(false);
 	const [crawlProgress, setCrawlProgress] = useState<{
 		active: boolean;
 		current: number;
@@ -479,13 +792,14 @@ export default function DashboardPage() {
 	const [syncBannerText, setSyncBannerText] = useState<string | null>(null);
 	const [activeCardSourceKey, setActiveCardSourceKey] = useState<string | null>(null);
 	const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
-	const [rightPaneNotice, setRightPaneNotice] = useState<string | null>(null);
 	const [jsonRenderBusy, setJsonRenderBusy] = useState(false);
 	const [codeBlock, setCodeBlock] = useState('');
 	const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
+	const [mainViewMode, setMainViewMode] = useState<'card' | 'json'>('card');
 	const [top10Latest, setTop10Latest] = useState<Array<{ id: string; entity: 'individual' | 'firm'; fetchedAt: string; files?: number; sources?: QueueCardSourceEntry[] }>>([]);
 	const [sessionHasFetched, setSessionHasFetched] = useState(false);
 	const [localHistory, setLocalHistory] = useState<LocalHistoryEntry[]>([]);
+	const [newCrdsOpen, setNewCrdsOpen] = useState(true);
 	const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
 	const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 	const [newTemplateName, setNewTemplateName] = useState('');
@@ -495,12 +809,27 @@ export default function DashboardPage() {
 
 	const mergedDetailCacheRef = useRef(new Map<string, any>());
 	const jsonStringCacheRef = useRef(new Map<string, string>());
-	const previousNewCrdsCountRef = useRef(0);
 
 	const queueQueries = useMemo(() => parseQueueQueries(crdInput), [crdInput]);
 	const parsedCrds = useMemo(() => queueQueries.filter((value) => /^\d{1,10}$/.test(value)), [queueQueries]);
 	const queueQueryLines = useMemo(() => submittedQueueQueries, [submittedQueueQueries]);
 	const visibleQueueCount = queueQueryLines.length;
+
+	async function loadNewCrdsFromRedis() {
+		try {
+			const res = await fetch('/api/dashboard/refresh', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ action: 'list-new-crds' }),
+			});
+			const data = await res.json().catch(() => null);
+			if (data?.ok) {
+				setNewCrds(Array.isArray(data.newCrds) ? data.newCrds : []);
+			}
+		} catch (err) {
+			console.error('Failed to load new CRDs:', err);
+		}
+	}
 
 	const queueStatusLine = useMemo(() => {
 		if (busyAction === 'fetch-crds') {
@@ -599,18 +928,15 @@ export default function DashboardPage() {
 			console.error('Failed to load saved templates:', err);
 		}
 
-		fetch('/api/dashboard/refresh', {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ action: 'list-new-crds' }),
-		})
-			.then((res) => res.json())
-			.then((data) => {
-				if (data.ok) {
-					setNewCrds(data.newCrds || []);
-				}
-			})
-			.catch((err) => console.error('Failed to load new CRDs:', err));
+		void loadNewCrdsFromRedis();
+	}, []);
+
+	useEffect(() => {
+		const intervalId = window.setInterval(() => {
+			void loadNewCrdsFromRedis();
+		}, 15000);
+
+		return () => window.clearInterval(intervalId);
 	}, []);
 
 	const hasCurrentRecord = Boolean(mainJson || result);
@@ -665,23 +991,13 @@ export default function DashboardPage() {
 	}, [mainJson, result, mainJsonLabel]);
 
 	useEffect(() => {
-		if (newCrds.length > previousNewCrdsCountRef.current) {
-			const delta = newCrds.length - previousNewCrdsCountRef.current;
-			setRightPaneNotice(`${delta} new CRD${delta === 1 ? '' : 's'} available in the right panel.`);
-		} else if (previousNewCrdsCountRef.current === 0 && newCrds.length > 0) {
-			setRightPaneNotice('New CRDs are ready in the right panel.');
-		} else if (newCrds.length === 0) {
-			setRightPaneNotice(null);
-		}
-		previousNewCrdsCountRef.current = newCrds.length;
-	}, [newCrds.length]);
-
-	useEffect(() => {
 		if (typeof window === 'undefined') return;
 		if (currentRecordId) return;
 
 		const selection = parseDashboardSelectionFromUrl(window.location.href);
 		if (!selection) return;
+
+		syncSelectionToUrl(selection);
 
 		const card: QueueCard = {
 			id: selection.id,
@@ -706,6 +1022,10 @@ export default function DashboardPage() {
 		}
 		return `${searchResults.length} Redis result${searchResults.length === 1 ? '' : 's'} found`;
 	}, [searchBusy, searchError, searchQuery, searchResults.length, searchSkippedCount]);
+
+	const searchPaneOpen = useMemo(() => {
+		return searchBusy || Boolean(searchError) || hasSearchRun;
+	}, [searchBusy, searchError, hasSearchRun]);
 
 	const queueMetaText = useMemo(() => {
 		const shown = Number(queueMetaStats.shownCount || queueCards.length || 0);
@@ -751,6 +1071,113 @@ export default function DashboardPage() {
 	const hasInventorySummary = useMemo(() => {
 		return queueMetaStats.totalCount > 0 || queueMetaStats.totalCacheKeys > 0 || localHistory.length > 0 || uniqueCrdCounts.individuals > 0 || uniqueCrdCounts.firms > 0;
 	}, [localHistory.length, queueMetaStats.totalCacheKeys, queueMetaStats.totalCount, uniqueCrdCounts.firms, uniqueCrdCounts.individuals]);
+
+	const historyNameMap = useMemo(() => {
+		const map = new Map<string, string>();
+		for (const entry of localHistory) {
+			if (!entry.name) continue;
+			map.set(`${entry.entity}:${entry.id}`, entry.name);
+		}
+		return map;
+	}, [localHistory]);
+
+	const peopleCrdEntries = useMemo(() => {
+		return newCrds
+			.filter((item) => inferEntityTypeFromNewCrd(item) === 'individual')
+			.sort((left, right) => Number(right.id) - Number(left.id))
+			.slice(0, 20);
+	}, [newCrds]);
+
+	const firmCrdEntries = useMemo(() => {
+		return newCrds
+			.filter((item) => inferEntityTypeFromNewCrd(item) === 'firm')
+			.sort((left, right) => Number(right.id) - Number(left.id))
+			.slice(0, 20);
+	}, [newCrds]);
+
+	const detailedMainRecord = useMemo(() => {
+		if (!mainJson || !currentRecordEntity || !currentRecordId) return null;
+
+		const content = unwrapRecordPayload(mainJson);
+		if (!content || typeof content !== 'object') return null;
+		const body = content as Record<string, any>;
+		const basic = body.basicInformation && typeof body.basicInformation === 'object' ? body.basicInformation : {};
+
+		const mainAddress =
+			formatAddress(body.iaFirmAddressDetails?.officeAddress) ||
+			formatAddress(body.firmAddressDetails?.officeAddress) ||
+			extractCurrentBranchOfficeAddress(body) ||
+			formatAddress(body.address);
+		const otherNames = collectOtherNames(basic.otherNames, body.otherNames, basic.aliases, body.aliases);
+
+		const currentEmployment = [...toArray(body.currentEmployments), ...toArray(body.currentIAEmployments), ...toArray(body.currentEmployment)];
+		const previousEmployment = [...toArray(body.previousEmployments), ...toArray(body.previousIAEmployments)];
+
+		const stateExams = toArray(body.stateExamCategory).concat(toArray(body.stateExams));
+		const productExams = toArray(body.productExamCategory).concat(toArray(body.productExams));
+		const principalExams = toArray(body.principalExamCategory).concat(toArray(body.principalExams));
+
+		const registrations = body.registrations && typeof body.registrations === 'object' ? body.registrations : {};
+		const registeredSros = Array.from(
+			new Set(
+				toArray(body.registeredSROs)
+					.map((row: any) => String(row?.sro || '').trim())
+					.filter(Boolean),
+			),
+		).sort((a, b) => a.localeCompare(b));
+
+		const additionalDetails: Array<{ label: string; value: string }> = [];
+		for (const [key, value] of Object.entries(basic)) {
+			if (isEmptyRawValue(value)) continue;
+			if (key === 'otherNames' || key === 'aliases') continue;
+			const rendered = stringifyRawValue(value);
+			if (!rendered) continue;
+			additionalDetails.push({ label: humanizeKey(key), value: rendered });
+		}
+		for (const [key, value] of Object.entries(body)) {
+			if (DETAIL_SKIP_KEYS.has(key) || isEmptyRawValue(value)) continue;
+			const rendered = stringifyRawValue(value);
+			if (!rendered) continue;
+			additionalDetails.push({ label: humanizeKey(key), value: rendered });
+		}
+
+		const profileLinks = [
+			{
+				label: 'FINRA profile ↗',
+				href: `https://brokercheck.finra.org/${currentRecordEntity === 'firm' ? 'firm' : 'individual'}/summary/${currentRecordId}`,
+			},
+			...(currentRecordEntity === 'individual' ?
+				[
+					{
+						label: 'FINRA Detailed Report (PDF) ↗',
+						href: `https://files.brokercheck.finra.org/individual/individual_${currentRecordId}.pdf`,
+					},
+				]
+			:	[]),
+			{
+				label: 'SEC profile ↗',
+				href: `https://adviserinfo.sec.gov/${currentRecordEntity === 'firm' ? 'firm' : 'individual'}/summary/${currentRecordId}`,
+			},
+		];
+
+		return {
+			name:
+				pickFirstNonEmpty(basic.iaFirmName, basic.firmName, basic.fullName, basic.individualName) ||
+				extractEntityDetailFromPayload(content, currentRecordEntity, currentRecordId)?.name ||
+				`${currentRecordEntity === 'firm' ? 'Firm' : 'Individual'} ${currentRecordId}`,
+			mainAddress,
+			otherNames,
+			profileLinks,
+			currentEmployment,
+			previousEmployment,
+			stateExams,
+			productExams,
+			principalExams,
+			registrations,
+			registeredSros,
+			additionalDetails,
+		};
+	}, [mainJson, currentRecordEntity, currentRecordId]);
 
 	const displayCards = useMemo<QueueCard[]>(() => {
 		const token = queueCrdFilter.trim();
@@ -831,13 +1258,45 @@ export default function DashboardPage() {
 		return !hasSignalField;
 	}
 
+	function recordHistoryEntry({ id, entity, source, name }: { id: string; entity: 'individual' | 'firm'; source: SearchResultSource; name?: string }) {
+		if (typeof window === 'undefined') return;
+		const now = new Date().toISOString();
+		setLocalHistory((prev) => {
+			const nextEntries = prev.filter((entry) => !(entry.entity === entity && entry.id === id));
+			const existing = prev.find((entry) => entry.entity === entity && entry.id === id);
+			const updatedEntry: LocalHistoryEntry = {
+				id,
+				entity,
+				sources: [...(existing?.sources || []).filter((item) => item.source !== source), { source, status: 'ok' }],
+				fetchedAt: existing?.fetchedAt || now,
+				name: existing?.name || name || undefined,
+				visitCount: (existing?.visitCount || 0) + 1,
+				lastVisitedAt: now,
+			};
+
+			const combined = [updatedEntry, ...nextEntries].slice(0, LOCAL_HISTORY_MAX);
+			try {
+				localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(combined));
+			} catch {
+				// ignore persistence errors
+			}
+			return combined;
+		});
+	}
+
 	function setMainViewFromSearch(card: SearchResultCard, sourceLabel: string) {
 		setMainJson(normalizePayloadForCleanView(card.payload) as Record<string, any>);
 		setCurrentRecordSource(card.source);
 		setCurrentRecordEntity(card.entity);
 		setCurrentRecordId(card.id);
-		setMainJsonLabel(`${String(card.source).toUpperCase()} ${card.entity.toUpperCase()} • ${sourceLabel}`);
+		setMainJsonLabel(formatMainPanelTitle({ source: card.source, entity: card.entity, id: card.id, name: card.label, payload: card.payload }));
 		markRecordUpdatedAt();
+		recordHistoryEntry({
+			id: card.id,
+			entity: card.entity,
+			source: card.source,
+			name: card.label,
+		});
 		syncSelectionToUrl({
 			entity: card.entity,
 			id: card.id,
@@ -846,31 +1305,71 @@ export default function DashboardPage() {
 		});
 	}
 
+	async function openHistoryEntry(entry: LocalHistoryEntry) {
+		const primarySource = entry.sources.find((item) => item.source === 'finra')?.source || entry.sources[0]?.source || 'finra';
+		await loadQueueSourceJson(
+			{
+				id: entry.id,
+				entity: entry.entity,
+				files: entry.sources.length,
+				sources: entry.sources,
+				name: entry.name ?? null,
+			},
+			primarySource,
+		);
+	}
+
+	function clearSelectionHistory() {
+		setLocalHistory([]);
+		if (typeof window !== 'undefined') {
+			try {
+				localStorage.removeItem(LOCAL_HISTORY_KEY);
+			} catch {
+				// ignore localStorage errors
+			}
+		}
+	}
+
+	async function openQueueCard(card: QueueCard) {
+		const preferredSource = card.sources.find((entry) => entry.source === 'finra')?.source || card.sources[0]?.source || 'finra';
+		await loadQueueSourceJson(card, preferredSource);
+	}
+
+	async function openNewCrdEntry(entry: NewCrdEntry) {
+		const entity: 'individual' | 'firm' = inferEntityTypeFromNewCrd(entry);
+		const historyMatch = localHistory.find((item) => item.entity === entity && item.id === entry.id);
+		if (historyMatch) {
+			await openHistoryEntry(historyMatch);
+			return;
+		}
+
+		const sources: QueueCardSourceEntry[] = [];
+		const scopeText = (entry.scopes || []).join(' ').toLowerCase();
+		if (scopeText.includes('finra') || scopeText.includes('bc')) sources.push({ source: 'finra', status: 'unknown' });
+		if (scopeText.includes('sec') || scopeText.includes('ia')) sources.push({ source: 'sec', status: 'unknown' });
+		if (!sources.length) sources.push({ source: 'finra', status: 'unknown' });
+
+		await loadQueueSourceJson(
+			{
+				id: entry.id,
+				entity,
+				files: sources.length,
+				sources,
+				name: historyNameMap.get(`${entity}:${entry.id}`) || extractDisplayNameFromNewCrd(entry, entity),
+			},
+			sources[0].source,
+		);
+	}
+
 	function syncSelectionToUrl({ entity, id, source, availableSources = [source] }: UrlSelectionInput) {
 		if (typeof window === 'undefined') return;
 		if (!/^\d{1,10}$/.test(String(id || '').trim())) return;
 
 		const url = new URL(window.location.href);
-		const params = url.searchParams;
 		const recordId = String(id).trim();
-		const hasFinra = availableSources.includes('finra');
-		const hasSec = availableSources.includes('sec');
 
-		if (entity === 'firm') {
-			params.set('CRD_firm', recordId);
-			params.delete('CRD_individual');
-		} else {
-			params.set('CRD_individual', recordId);
-			params.delete('CRD_firm');
-		}
-
-		params.set('source', source);
-		if (hasFinra) params.set('finra', '1');
-		else params.delete('finra');
-		if (hasSec) params.set('sec', '1');
-		else params.delete('sec');
-
-		window.history.replaceState({}, '', `${url.pathname}?${params.toString()}${url.hash}`);
+		const nextPath = `/dashboard/${entity}/${encodeURIComponent(recordId)}`;
+		window.history.replaceState({}, '', `${nextPath}${url.hash}`);
 	}
 
 	function isSelectedCardSource(card: QueueCard, source: SearchResultSource) {
@@ -1113,8 +1612,23 @@ export default function DashboardPage() {
 			setCurrentRecordSource(source);
 			setCurrentRecordEntity(card.entity);
 			setCurrentRecordId(card.id);
-			setMainJsonLabel(`${source}:${card.entity}:${card.id}`);
+			const detailName = extractEntityDetailFromPayload(payload, card.entity, card.id)?.name;
+			setMainJsonLabel(
+				formatMainPanelTitle({
+					source,
+					entity: card.entity,
+					id: card.id,
+					name: card.name || detailName,
+					payload,
+				}),
+			);
 			markRecordUpdatedAt();
+			recordHistoryEntry({
+				id: card.id,
+				entity: card.entity,
+				source,
+				name: card.name || undefined,
+			});
 			syncSelectionToUrl({
 				entity: card.entity,
 				id: card.id,
@@ -1324,6 +1838,7 @@ export default function DashboardPage() {
 				...prev,
 				{ id: createQueueTerminalLogId('finish', initialQueue.length, 0), text: `\nFinished. Total OK: ${totalSuccess}, New: ${totalNew}, Err: ${totalError}`, type: 'success' },
 			]);
+			void loadNewCrdsFromRedis();
 			return;
 		}
 
@@ -1399,9 +1914,11 @@ export default function DashboardPage() {
 			setSearchResults([]);
 			setSearchError(null);
 			setSearchSkippedCount(0);
+			setHasSearchRun(false);
 			return;
 		}
 
+		setHasSearchRun(true);
 		setSearchBusy(true);
 		setSearchError(null);
 		setSearchResults([]);
@@ -1446,7 +1963,9 @@ export default function DashboardPage() {
 
 					const label = String(item?.name || item?.fullName || item?.firmName || item?.firstName || item?.lastName || item?.title || 'Result').trim();
 					const scope = String(item?.bcScope || item?.iaScope || item?.status || item?.registrationStatus || '').trim();
-					cards.push({ id, label, scope, source, entity, payload: item });
+					const address = extractSearchResultAddress(item);
+					const detail = extractSearchResultDetail(item);
+					cards.push({ id, label, scope, address, detail, source, entity, payload: item });
 				}
 
 				return { cards, skipped };
@@ -1476,13 +1995,16 @@ export default function DashboardPage() {
 
 	function renderSearchResult(card: SearchResultCard, index: number) {
 		const sourceLabel = card.source === 'finra' ? 'FINRA' : 'SEC';
+		const rowAddress = card.address || card.detail || 'No address/details in cached index';
 
 		return (
 			<div
 				key={`${card.entity}:${card.id}:${card.source}:${index}`}
 				className={styles.searchResultCard}>
-				<div className={styles.searchResultTop}>
-					<strong>{card.id}</strong>
+				<div className={styles.searchResultRow}>
+					<span className={styles.searchResultName}>{card.label}</span>
+					<span className={styles.searchResultCrd}>CRD #{card.id}</span>
+					<span className={styles.searchResultAddress}>{rowAddress}</span>
 					<button
 						type='button'
 						className={styles.searchSourceBtn}
@@ -1490,388 +2012,355 @@ export default function DashboardPage() {
 						{sourceLabel}
 					</button>
 				</div>
-				<div className={styles.searchResultLabel}>{card.label}</div>
-				{card.scope && <div className={styles.searchResultScope}>{card.scope}</div>}
-				<div className={styles.searchResultPayloadHint}>Click {sourceLabel} to open JSON in the main view</div>
 			</div>
 		);
 	}
 
 	return (
 		<div className={styles.page}>
-			<div className={`${styles.layout} ${rightPaneCollapsed ? styles.layoutCollapsedRight : ''}`}>
+			<div className={styles.layout}>
 				<section className={styles.centerPane}>
 					<div className={styles.dashboardMainStack}>
-						<div className={styles.dashboardHero}>
-							<div>
-								<div className={styles.dashboardEyebrow}>Dashboard</div>
-								<h2 className={styles.dashboardTitle}>FINRA / SEC inspector</h2>
-								<p className={styles.dashboardSubtitle}>Queue record lookups, inspect cached payloads, and search Redis from a single workspace.</p>
-							</div>
-							<Link
-								href='/'
-								className={styles.backLink}>
-								← Graph
-							</Link>
-						</div>
+						<div className={styles.dashboardContent}>
+							{crawlProgress && crawlProgress.active && (
+								<div className={styles.crawlBanner}>
+									<div>
+										<strong>Sequential Crawl:</strong> {crawlProgress.current} / {crawlProgress.total}
+										<span style={{ opacity: 0.7, marginLeft: 8 }}>({crawlProgress.query})</span>
+									</div>
+									<div className={styles.crawlBannerStats}>
+										<span>{crawlProgress.new} new</span>
+										<span>{crawlProgress.updated} updated</span>
+										<span>{crawlProgress.err} errors</span>
+									</div>
+								</div>
+							)}
 
-						{savedTemplates.length > 0 && (
-							<div className={styles.templatesSection}>
-								<div className={styles.queueSectionTitle}>Saved Templates</div>
-								<div className={styles.templatesList}>
-									{savedTemplates.map((tpl) => (
+							{terminalLogs.length > 0 && (
+								<div className={styles.terminalWindow}>
+									{[...terminalLogs].reverse().map((log) => (
 										<div
-											key={tpl.id}
-											className={styles.templateCard}
-											onClick={() => setCrdInput(tpl.queries)}>
-											{editingTemplateId === tpl.id ?
-												<div
-													className={styles.templateEditForm}
-													onClick={(e) => e.stopPropagation()}>
-													<input
-														type='text'
-														className={styles.templateEditInput}
-														value={editTemplateName}
-														onChange={(e) => setEditTemplateName(e.target.value)}
-														placeholder='Template name'
-													/>
-													<textarea
-														className={styles.templateEditTextarea}
-														value={editTemplateQueries}
-														onChange={(e) => setEditTemplateQueries(e.target.value)}
-														placeholder='CRDs or queries, comma separated'
-													/>
-													<div className={styles.templateActions}>
-														<button
-															type='button'
-															className={styles.templateBtn}
-															onClick={() => handleSaveEditTemplate(tpl.id)}>
-															Save
-														</button>
-														<button
-															type='button'
-															className={styles.templateBtn}
-															onClick={() => setEditingTemplateId(null)}>
-															Cancel
-														</button>
-													</div>
-												</div>
-											:	<>
-													<div className={styles.templateCardTitle}>
-														<strong>{tpl.name}</strong>
-													</div>
-													<div
-														className={styles.templateQueries}
-														title={tpl.queries}>
-														{tpl.queries}
-													</div>
-													<div className={styles.templateActions}>
-														<button
-															type='button'
-															className={styles.templateBtn}
-															onClick={(e) => {
-																e.stopPropagation();
-																handleStartEditTemplate(tpl);
-															}}>
-															Edit
-														</button>
-														<button
-															type='button'
-															className={styles.templateDeleteBtn}
-															onClick={(e) => {
-																e.stopPropagation();
-																if (window.confirm('Delete this template?')) {
-																	handleDeleteTemplate(tpl.id);
-																}
-															}}>
-															Delete
-														</button>
-													</div>
-												</>
-											}
+											key={log.id}
+											className={`${styles.terminalLine} ${styles['terminalLine_' + log.type]}`}>
+											{log.text}
 										</div>
 									))}
 								</div>
-							</div>
-						)}
-
-						<div className={styles.queueStatusPanel}>
-							<div className={styles.queueStatusHeader}>
-								<div className={styles.statusLine}>{queueStatusLine}</div>
-							</div>
-
-							{isSavingTemplate && (
-								<div className={styles.saveTemplateForm}>
-									<input
-										type='text'
-										className={styles.templateEditInput}
-										value={newTemplateName}
-										onChange={(e) => setNewTemplateName(e.target.value)}
-										placeholder='Template Name...'
-										autoFocus
-									/>
-									<div className={styles.templateActions}>
-										<button
-											type='button'
-											className={styles.templateBtn}
-											onClick={handleConfirmSaveTemplate}>
-											Save
-										</button>
-										<button
-											type='button'
-											className={styles.templateBtn}
-											onClick={() => setIsSavingTemplate(false)}>
-											Cancel
-										</button>
-									</div>
-								</div>
 							)}
 
-							<div className={styles.queueStatusList}>
-								{queueRunItems.length > 0 ?
-									queueRunItems.map((item, index) => (
-										<div
-											key={`${item.query}-${index}`}
-											className={styles.queueStatusRow}>
-											<div className={styles.queueStatusRowTop}>
-												<span className={styles.queueStatusBadge}>{item.status}</span>
-												<span className={styles.queueStatusQuery}>{item.query}</span>
-											</div>
-											{item.message ?
-												<div className={styles.queueStatusMessage}>{item.message}</div>
-											:	null}
-										</div>
-									))
-								:	<div className={styles.queueStatusRow}>No queue submitted yet.</div>}
-							</div>
-						</div>
-
-						{hasInventorySummary && (
-							<div className={styles.uniqueCrdCount}>
-								<div className={styles.countItem}>
-									<div className={styles.countLabel}>People</div>
-									<div className={styles.countValue}>{uniqueCrdCounts.individuals.toLocaleString()}</div>
-								</div>
-								<div className={styles.countItem}>
-									<div className={styles.countLabel}>Firms</div>
-									<div className={styles.countValue}>{uniqueCrdCounts.firms.toLocaleString()}</div>
-								</div>
-								<div className={styles.countItem}>
-									<div className={styles.countLabel}>Total CRDs</div>
-									<div className={styles.countValue}>{uniqueCrdCounts.total.toLocaleString()}</div>
-								</div>
-							</div>
-						)}
-
-						<div className={styles.queueSectionTitle}>Run Queue</div>
-						<div className={styles.queueMeta}>{queueMetaText}</div>
-						{persistenceNotice && <div className={styles.searchSummary}>{persistenceNotice}</div>}
-						<div className={styles.cardList}>
-							{displayCards.map((card, index) => (
-								<div
-									key={`${card.entity}:${card.id}:${index}`}
-									className={styles.card}>
-									<div className={styles.cardTop}>
-										<strong>{card.name || (card.entity === 'firm' ? `Firm ${card.id}` : `Individual ${card.id}`)}</strong>
-										<span>
-											{card.id} • {card.entity === 'firm' ? 'Firm' : 'Individual'}
-											{card.since ? ` • ${card.since}` : ''}
-										</span>
-									</div>
-									{card.statusText && <div className={styles.cardMeta}>{card.statusText}</div>}
-									<div className={styles.cardScopes}>{card.sources.map((entry) => String(entry.source).toUpperCase()).join('  ')}</div>
-									<div className={styles.cardSourceRow}>
-										{card.sources.map((entry) => (
-											<button
-												key={`${card.entity}:${card.id}:${entry.source}`}
-												type='button'
-												className={[styles.cardSourceKeyBtn, isSelectedCardSource(card, entry.source) ? styles.cardSourceKeyBtnActive : ''].filter(Boolean).join(' ')}
-												onClick={() => loadQueueSourceJson(card, entry.source)}
-												disabled={activeCardSourceKey === `${card.entity}:${card.id}:${entry.source}`}>
-												{entry.source}:{card.id}
-											</button>
-										))}
-									</div>
-									{shouldShowQueueCardError(card) && <div className={styles.cardError}>Fetch failed</div>}
-								</div>
-							))}
-
-							{displayCards.length === 0 && !queueCrdFilter.trim() && (
-								<div
-									className={styles.cardMeta}
-									style={{ padding: '12px 4px', opacity: 0.6 }}>
-									No fetched CRDs yet. Run the queue to populate your history.
-								</div>
-							)}
-
-							{displayCards.length === 0 && queueCrdFilter.trim().length > 0 && filteredNewCrds.length > 0 && (
-								<div className={styles.card}>
-									<div className={styles.cardTop}>
-										<strong>{filteredNewCrds[0].id}</strong>
-										<span>Not cached yet • New CRD match</span>
-									</div>
-									<div className={styles.cardScopes}>{filteredNewCrds[0].scopes.join('  ')}</div>
-									<div className={styles.cardMeta}>Use Run Queue to fetch this CRD into cache.</div>
-									<button
-										type='button'
-										className={styles.primaryBtn}
-										onClick={() => runAction('fetch-crds', [filteredNewCrds[0].id])}
-										disabled={busyAction !== null}>
-										{busyAction === 'fetch-crds' ? 'Running…' : `Run Queue for ${filteredNewCrds[0].id}`}
-									</button>
-								</div>
-							)}
-						</div>
-
-						<div className={styles.leftFilterWrap}>
-							<div className={styles.queueSectionTitle}>Filter Cached CRDs</div>
-							<input
-								value={queueCrdFilter}
-								onChange={(event) => setQueueCrdFilter(event.target.value)}
-								spellCheck={false}
-								autoCorrect='off'
-								autoCapitalize='none'
-								className={styles.input}
-								placeholder='Filter CRD(s), comma separated'
-							/>
-						</div>
-					</div>
-
-					<div className={styles.dashboardContent}>
-						{crawlProgress && crawlProgress.active && (
-							<div className={styles.crawlBanner}>
-								<div>
-									<strong>Sequential Crawl:</strong> {crawlProgress.current} / {crawlProgress.total}
-									<span style={{ opacity: 0.7, marginLeft: 8 }}>({crawlProgress.query})</span>
-								</div>
-								<div className={styles.crawlBannerStats}>
-									<span>{crawlProgress.new} new</span>
-									<span>{crawlProgress.updated} updated</span>
-									<span>{crawlProgress.err} errors</span>
-								</div>
-							</div>
-						)}
-						{terminalLogs.length > 0 && (
-							<div className={styles.terminalWindow}>
-								{[...terminalLogs].reverse().map((log) => (
-									<div
-										key={log.id}
-										className={`${styles.terminalLine} ${styles['terminalLine_' + log.type]}`}>
-										{log.text}
-									</div>
-								))}
-							</div>
-						)}
-						{hasCurrentRecord && (
-							<>
-								<div className={styles.recordHeaderRow}>
-									<div className={styles.recordHeader}>{currentRecordSource ? String(currentRecordSource).toUpperCase() : 'RECORD'}</div>
-									<div className={styles.recordBadge}>{currentRecordEntity ? String(currentRecordEntity).toUpperCase() : 'UNKNOWN'}</div>
-								</div>
-								<h2 className={styles.recordTitle}>{mainJsonLabel}</h2>
-								{currentRecordId && <div className={styles.recordKeyLabel}>CRD {currentRecordId}:</div>}
-								{recordUpdatedAt && <div className={styles.searchSummary}>Updated: {new Date(recordUpdatedAt).toLocaleString()}</div>}
-								<div className={styles.recordDescription}>Showing recent saved files with full details.</div>
-							</>
-						)}
-
-						{syncBannerText && <div className={styles.statusLine}>{syncBannerText}</div>}
-
-						{hasCurrentRecord && (
-							<div className={styles.jsonPanel}>
-								{jsonRenderBusy && <div className={styles.searchSummary}>Rendering JSON…</div>}
-								<pre>{codeBlock}</pre>
-							</div>
-						)}
-
-						<div className={styles.searchBarWrap}>
-							<div className={styles.searchTitle}>Local Name Search</div>
-							<div className={styles.searchRow}>
-								<input
-									value={searchQuery}
-									onChange={(event) => setSearchQuery(event.target.value)}
-									spellCheck={false}
-									autoCorrect='off'
-									autoCapitalize='none'
-									onKeyDown={(event) => {
-										if (event.key === 'Enter') {
-											event.preventDefault();
-											runRedisSearch();
-										}
-									}}
-									className={styles.input}
-									placeholder='Search Redis records by name...'
-								/>
-								<button
-									type='button'
-									className={styles.primaryBtn}
-									onClick={runRedisSearch}
-									disabled={searchBusy}>
-									{searchBusy ? 'Searching…' : 'Search'}
-								</button>
-							</div>
-							<div className={styles.searchSummary}>{searchSummary}</div>
-							{searchResults.length > 0 && (
+							{hasCurrentRecord && (
 								<>
-									<button
-										type='button'
-										className={styles.primaryBtn}
-										onClick={() => {
-											const crds = searchResults.map((r) => r.id).join('\n');
-											setCrdInput(crds);
-										}}>
-										Fetch All {searchResults.length} Results
-									</button>
-									<div className={styles.searchResultsList}>{searchResults.map(renderSearchResult)}</div>
+									<div className={styles.recordHeaderRow}>
+										<div className={styles.recordHeader}>{currentRecordSource ? String(currentRecordSource).toUpperCase() : 'RECORD'}</div>
+										<div className={styles.recordBadge}>{currentRecordEntity ? String(currentRecordEntity).toUpperCase() : 'UNKNOWN'}</div>
+										<div className={styles.mainViewToggle}>
+											<button
+												type='button'
+												className={`${styles.mainViewToggleBtn} ${mainViewMode === 'card' ? styles.mainViewToggleBtnActive : ''}`}
+												onClick={() => setMainViewMode('card')}>
+												Card
+											</button>
+											<button
+												type='button'
+												className={`${styles.mainViewToggleBtn} ${mainViewMode === 'json' ? styles.mainViewToggleBtnActive : ''}`}
+												onClick={() => setMainViewMode('json')}>
+												JSON
+											</button>
+										</div>
+									</div>
+									<h2 className={styles.recordTitle}>{mainJsonLabel}</h2>
+									{currentRecordId && <div className={styles.recordKeyLabel}>CRD {currentRecordId}:</div>}
+									{recordUpdatedAt && <div className={styles.searchSummary}>Updated: {new Date(recordUpdatedAt).toLocaleString()}</div>}
+									<div className={styles.recordDescription}>Showing recent saved files with full details.</div>
 								</>
 							)}
+
+							{syncBannerText && <div className={styles.statusLine}>{syncBannerText}</div>}
+
+							{hasCurrentRecord && mainViewMode === 'json' && (
+								<div className={styles.jsonPanel}>
+									{jsonRenderBusy && <div className={styles.searchSummary}>Rendering JSON…</div>}
+									<pre>{codeBlock}</pre>
+								</div>
+							)}
+
+							{hasCurrentRecord && mainViewMode === 'card' && (
+								<div className={styles.readableCardPanel}>
+									{detailedMainRecord ?
+										<>
+											<div className={styles.readableCardHero}>
+												<div className={styles.readableCardName}>{detailedMainRecord.name}</div>
+												<div className={styles.readableCardStatus}>{currentRecordSource ? String(currentRecordSource).toUpperCase() : 'DETAIL'}</div>
+											</div>
+
+											{detailedMainRecord.mainAddress && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Main Address</h4>
+													<div className={styles.detailTextRow}>{detailedMainRecord.mainAddress}</div>
+												</section>
+											)}
+
+											{detailedMainRecord.otherNames.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Other Names</h4>
+													<div className={styles.detailTagList}>
+														{detailedMainRecord.otherNames.map((name) => (
+															<span
+																key={name}
+																className={styles.detailTag}>
+																{name}
+															</span>
+														))}
+													</div>
+												</section>
+											)}
+
+											<section className={styles.detailSection}>
+												<h4 className={styles.detailSectionTitle}>Profile Links</h4>
+												<div className={styles.detailLinkRow}>
+													{detailedMainRecord.profileLinks.map((link) => (
+														<a
+															key={link.href}
+															href={link.href}
+															target='_blank'
+															rel='noopener noreferrer'
+															className={styles.detailLinkBtn}>
+															{link.label}
+														</a>
+													))}
+												</div>
+											</section>
+
+											{detailedMainRecord.currentEmployment.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Current Employment ({detailedMainRecord.currentEmployment.length})</h4>
+													<div className={styles.detailCardList}>
+														{detailedMainRecord.currentEmployment.map((row, idx) => (
+															<div
+																key={`cur-emp-${idx}`}
+																className={styles.detailCard}>
+																<div className={styles.detailCardTitle}>
+																	{pickFirstNonEmpty(row.legalName, row.name, row.firmName, row.organizationName) || `Employment ${idx + 1}`}
+																	{pickFirstNonEmpty(row.crdNumber, row.crd, row.firmId) && (
+																		<span className={styles.detailInlineTag}>CRD#{pickFirstNonEmpty(row.crdNumber, row.crd, row.firmId)}</span>
+																	)}
+																</div>
+																<div className={styles.detailCardMeta}>
+																	{[formatAddress(row.branchOfficeLocations?.[0]), pickFirstNonEmpty(row.registrationBeginDate, row.effectiveDate, row.startDate)]
+																		.filter(Boolean)
+																		.join(' • ') || pickFirstNonEmpty(row.position, row.currentRegistration, row.status)}
+																</div>
+															</div>
+														))}
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.productExams.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Product Exam Category ({detailedMainRecord.productExams.length})</h4>
+													<div className={styles.detailExamGrid}>
+														{detailedMainRecord.productExams.map((row, idx) => (
+															<div
+																key={`prod-exam-${idx}`}
+																className={styles.detailExamCard}>
+																<div className={styles.detailExamTop}>
+																	<span className={styles.detailExamBadge}>{pickFirstNonEmpty(row.examCategory, row.examCode, row.category, 'Exam')}</span>
+																	{pickFirstNonEmpty(row.examTakenDate, row.dateTaken, row.date) && (
+																		<span className={styles.detailExamDate}>📅 {pickFirstNonEmpty(row.examTakenDate, row.dateTaken, row.date)}</span>
+																	)}
+																</div>
+																<div className={styles.detailExamName}>{pickFirstNonEmpty(row.examName, row.description, row.categoryName)}</div>
+																{pickFirstNonEmpty(row.examScope, row.scope) && <div className={styles.detailExamScope}>Scope: {pickFirstNonEmpty(row.examScope, row.scope)}</div>}
+															</div>
+														))}
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.additionalDetails.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Additional {currentRecordSource ? String(currentRecordSource).toUpperCase() : ''} Details</h4>
+													<div className={styles.detailRawList}>
+														{detailedMainRecord.additionalDetails.map((entry) => (
+															<div
+																key={`${entry.label}:${entry.value}`}
+																className={styles.detailRawItem}>
+																<div className={styles.detailRawLabel}>{entry.label}</div>
+																<div className={styles.detailRawValue}>{entry.value}</div>
+															</div>
+														))}
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.registeredSros.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Registered SROs ({detailedMainRecord.registeredSros.length})</h4>
+													<div className={styles.detailTagList}>
+														{detailedMainRecord.registeredSros.map((tag) => (
+															<span
+																key={tag}
+																className={styles.detailTag}>
+																{tag}
+															</span>
+														))}
+													</div>
+												</section>
+											)}
+										</>
+									:	<div className={styles.readableCardEmpty}>No readable fields found for this record.</div>}
+								</div>
+							)}
+
+							<div className={`${styles.searchBarWrap} ${searchPaneOpen ? styles.searchBarWrapExpanded : ''}`}>
+								<div className={`${styles.searchResultsPane} ${searchPaneOpen ? styles.searchResultsPaneOpen : ''}`}>
+									<div className={styles.searchResultsHead}>RESULTS</div>
+									<div className={styles.searchSummary}>{searchSummary}</div>
+									{searchResults.length > 0 ?
+										<div className={styles.searchResultsList}>{searchResults.map(renderSearchResult)}</div>
+									: searchPaneOpen && !searchBusy ?
+										<div className={styles.searchResultsEmpty}>No Redis results yet for this query.</div>
+									:	null}
+								</div>
+								<div className={styles.searchDock}>
+									<div className={styles.searchDockTitleRow}>
+										<div className={styles.searchTitle}>REDIS SEARCH ({searchResults.length.toLocaleString()})</div>
+										<div className={styles.searchDockMeta}>Redis CRDs: {uniqueCrdCounts.total.toLocaleString()}</div>
+									</div>
+									<div className={styles.searchRow}>
+										<input
+											value={searchQuery}
+											onChange={(event) => setSearchQuery(event.target.value)}
+											spellCheck={false}
+											autoCorrect='off'
+											autoCapitalize='none'
+											onKeyDown={(event) => {
+												if (event.key === 'Enter') {
+													event.preventDefault();
+													runRedisSearch();
+												}
+											}}
+											className={styles.input}
+											placeholder='Search Redis-saved records by name...'
+										/>
+									</div>
+									<div className={styles.searchDockActions}>
+										<button
+											type='button'
+											className={styles.primaryBtn}
+											onClick={runRedisSearch}
+											disabled={searchBusy}>
+											{searchBusy ? 'Searching…' : 'Search Redis'}
+										</button>
+									</div>
+								</div>
+							</div>
 						</div>
 					</div>
 				</section>
-				<aside className={`${styles.rightPane} ${rightPaneCollapsed ? styles.rightPaneCollapsed : ''}`}>
-					{!rightPaneCollapsed && (
-						<div className={styles.rightPaneHeader}>
-							<div>
-								<div className={styles.newCrdsHeader}>New CRDs</div>
-							</div>
+
+				<aside className={styles.middlePane}>
+					<div className={styles.middlePaneHeader}>
+						<div className={styles.middlePaneTitle}>SELECTION HISTORY</div>
+						<div className={styles.middlePaneActions}>
+							<span className={styles.middlePaneCount}>{displayCards.length}</span>
 							<button
 								type='button'
-								className={styles.rightPaneToggle}
-								onClick={() => setRightPaneCollapsed(true)}>
-								Hide
+								className={styles.middlePaneClearBtn}
+								onClick={clearSelectionHistory}>
+								CLEAR
 							</button>
 						</div>
-					)}
-					{rightPaneNotice && !rightPaneCollapsed && <div className={styles.rightPaneNotice}>{rightPaneNotice}</div>}
-					{rightPaneCollapsed ?
-						<div className={styles.rightPaneCollapsedContent}>
-							<button
-								type='button'
-								className={styles.rightPaneToggle}
-								onClick={() => setRightPaneCollapsed(false)}>
-								Show
-							</button>
-							<div className={styles.rightPaneCollapsedSummary}>
-								Newest {newCrds.length} CRD{newCrds.length === 1 ? '' : 's'}
-							</div>
-						</div>
-					:	<div className={styles.newCrdsList}>
-							{newCrds.map((item) => (
-								<div
-									key={`${item.type}:${item.id}:${item.scopes.join('|')}`}
-									className={styles.newCrdItem}>
-									<div className={styles.newCrdTop}>
-										<strong>{item.id}</strong>
-										<span>{item.type}</span>
+					</div>
+
+					<div className={styles.middlePaneList}>
+						{displayCards.length > 0 ?
+							displayCards.map((card) => (
+								<button
+									type='button'
+									key={`${card.entity}:${card.id}`}
+									className={styles.middlePaneItem}
+									onClick={() => void openQueueCard(card)}>
+									<div className={styles.middlePaneItemTop}>
+										<span className={styles.middlePaneItemBadge}>{card.entity === 'firm' ? 'FIRM' : 'IND'}</span>
+										<span className={styles.middlePaneItemName}>{card.name || `${card.entity === 'firm' ? 'Firm' : 'Individual'} ${card.id}`}</span>
 									</div>
-									<div className={styles.newCrdMeta}>Found {item.found} • record</div>
-									<div className={styles.newCrdScopes}>{item.scopes.join('  ')}</div>
-									{item.date && <div className={styles.newCrdDate}>{item.date}</div>}
-								</div>
-							))}
-						</div>
-					}
+									<div className={styles.middlePaneItemMeta}>{card.id}</div>
+								</button>
+							))
+						:	<div className={styles.middlePaneEmpty}>No selection history yet.</div>}
+					</div>
 				</aside>
+
+				<div className={styles.rightColumn}>
+					<div className={styles.backLinkOutsideRow}>
+						<Link
+							href='/'
+							className={styles.backLink}>
+							← Graph
+						</Link>
+					</div>
+
+					<aside className={`${styles.rightPane} ${!newCrdsOpen ? styles.rightPaneCompact : ''}`}>
+						<div className={styles.rightPaneHeader}>
+							<div className={styles.newCrdsHeader}>NEW CRDS</div>
+							<button
+								type='button'
+								className={styles.rightPaneToggle}
+								onClick={() => setNewCrdsOpen((open) => !open)}
+								aria-expanded={newCrdsOpen}>
+								{newCrdsOpen ? 'Hide' : 'Show'}
+							</button>
+						</div>
+
+						{newCrdsOpen && (
+							<>
+								<div className={styles.rightPaneCountCard}>{uniqueCrdCounts.total.toLocaleString()} unique CRDs saved in Redis</div>
+
+								<div className={styles.rightPaneSection}>
+									<div className={styles.rightPaneSectionTitle}>PEOPLE</div>
+									<div className={styles.rightPaneList}>
+										{peopleCrdEntries.length > 0 ?
+											peopleCrdEntries.map((entry) => (
+												<button
+													type='button'
+													key={`people-${entry.id}`}
+													className={styles.rightPaneItem}
+													onClick={() => void openNewCrdEntry(entry)}>
+													<div className={styles.rightPaneItemTitle}>
+														{toText(entry.name) || historyNameMap.get(`individual:${entry.id}`) || extractDisplayNameFromNewCrd(entry, 'individual')}
+													</div>
+													<div className={styles.rightPaneItemMeta}>CRD #{entry.id}</div>
+												</button>
+											))
+										:	<div className={styles.rightPaneEmpty}>No people queued yet.</div>}
+									</div>
+								</div>
+
+								<div className={styles.rightPaneSection}>
+									<div className={styles.rightPaneSectionTitle}>FIRMS</div>
+									<div className={styles.rightPaneList}>
+										{firmCrdEntries.length > 0 ?
+											firmCrdEntries.map((entry) => (
+												<button
+													type='button'
+													key={`firm-${entry.id}`}
+													className={styles.rightPaneItem}
+													onClick={() => void openNewCrdEntry(entry)}>
+													<div className={styles.rightPaneItemTitle}>
+														{toText(entry.name) || historyNameMap.get(`firm:${entry.id}`) || extractDisplayNameFromNewCrd(entry, 'firm')}
+													</div>
+													<div className={styles.rightPaneItemMeta}>CRD #{entry.id}</div>
+												</button>
+											))
+										:	<div className={styles.rightPaneEmpty}>No firms queued yet.</div>}
+									</div>
+								</div>
+							</>
+						)}
+					</aside>
+				</div>
 			</div>
 
 			<div className={styles.hiddenValues}>

@@ -991,21 +991,42 @@ async function buildCardSummary(card: CacheCard) {
 	const summary: Pick<CacheCard, 'name' | 'statusText' | 'memberSince'> = {};
 
 	for (const sourceEntry of card.sources) {
-		const detail = await loadCachedIndividualPayload(sourceEntry.source, card.id);
-		if (!detail) continue;
+		if (card.entity === 'individual') {
+			const detail = await loadCachedIndividualPayload(sourceEntry.source, card.id);
+			if (!detail) continue;
 
-		const normalized = normalizeIndividualDetailPayload(detail, card.id) as Record<string, any>;
-		const extracted = extractCardSummaryFields(normalized, card.id, sourceEntry.source);
+			const normalized = normalizeIndividualDetailPayload(detail, card.id) as Record<string, any>;
+			const extracted = extractCardSummaryFields(normalized, card.id, sourceEntry.source);
 
+			if (extracted.name && !summary.name) summary.name = extracted.name;
+			if (extracted.memberSince && !summary.memberSince) summary.memberSince = extracted.memberSince;
+
+			const statusParts = [
+				sourceEntry.source === 'finra' ?
+					`FINRA ${classifyStatusText(normalized.bcScope || normalized.basicInformation?.bcScope || normalized.registrationStatus || normalized.status)}`
+				:	null,
+				sourceEntry.source === 'sec' ?
+					`SEC ${classifyStatusText(normalized.iaScope || normalized.basicInformation?.iaScope || normalized.registrationStatus || normalized.status)}`
+				:	null,
+			].filter(Boolean);
+			if (!summary.statusText && statusParts.length) summary.statusText = statusParts.join(' • ');
+			if (!summary.statusText && extracted.statusText) summary.statusText = extracted.statusText;
+			continue;
+		}
+
+		const firmDetail = await loadCachedFirmPayload(sourceEntry.source, card.id);
+		if (!firmDetail) continue;
+
+		const extracted = extractCardSummaryFields(firmDetail, card.id, sourceEntry.source);
 		if (extracted.name && !summary.name) summary.name = extracted.name;
 		if (extracted.memberSince && !summary.memberSince) summary.memberSince = extracted.memberSince;
 
 		const statusParts = [
 			sourceEntry.source === 'finra' ?
-				`FINRA ${classifyStatusText(normalized.bcScope || normalized.basicInformation?.bcScope || normalized.registrationStatus || normalized.status)}`
+				`FINRA ${classifyStatusText(firmDetail.bcScope || firmDetail.basicInformation?.bcScope || firmDetail.registrationStatus || firmDetail.status)}`
 			:	null,
 			sourceEntry.source === 'sec' ?
-				`SEC ${classifyStatusText(normalized.iaScope || normalized.basicInformation?.iaScope || normalized.registrationStatus || normalized.status)}`
+				`SEC ${classifyStatusText(firmDetail.iaScope || firmDetail.basicInformation?.iaScope || firmDetail.registrationStatus || firmDetail.status)}`
 			:	null,
 		].filter(Boolean);
 		if (!summary.statusText && statusParts.length) summary.statusText = statusParts.join(' • ');
@@ -1923,50 +1944,29 @@ async function listNewCrds() {
 	}
 	const nativeKeys = await collectNativeRedisRecordKeys(redis);
 	const cards = buildCacheCardsFromRedisKeys(nativeKeys, getCrdLogNameMap());
-	const cardMap = new Map(cards.map((card) => [`${card.entity}:${card.id}`, card]));
-	const recentSeeds = await getRecentSeedsFromStore().catch(() => ({ individualIds: [], firmIds: [], updatedAt: new Date(0).toISOString() }));
-	const recentTargets = [...recentSeeds.individualIds.map((id) => ({ entity: 'individual' as const, id })), ...recentSeeds.firmIds.map((id) => ({ entity: 'firm' as const, id }))]
+
+	const topPeople = cards
+		.filter((card) => card.entity === 'individual')
 		.sort((left, right) => Number(right.id) - Number(left.id))
-		.slice(0, 30);
+		.slice(0, 20);
 
-	const fallbackCards = cards
-		.slice()
+	const topFirms = cards
+		.filter((card) => card.entity === 'firm')
 		.sort((left, right) => Number(right.id) - Number(left.id))
-		.slice(0, 30);
-
-	// Also build an id-only lookup so a seed stored under one entity type still resolves
-	const idToAnyCard = new Map<string, CacheCard>();
-	for (const card of cards) {
-		if (!idToAnyCard.has(card.id)) idToAnyCard.set(card.id, card);
-	}
-
-	const latestCards =
-		recentTargets.length > 0 ?
-			recentTargets
-				.map(({ entity, id }) => cardMap.get(`${entity}:${id}`) ?? idToAnyCard.get(id) ?? null)
-				.filter((card): card is CacheCard => card !== null && card.sources.length > 0)
-				.slice(0, 30)
-		:	fallbackCards;
-	const updatedAt = Date.parse(String(recentSeeds.updatedAt || '')) || Date.now();
-	const now = Date.now();
+		.slice(0, 20);
 
 	const formatted = await Promise.all(
-		latestCards.map(async (card) => {
-			// Skip semantic normalization for dashboard to avoid Redis lookups
-			const normalized = normalizeCardForDisplay(card);
-			const updatedDate = new Date(updatedAt);
-			const daysAgo = Math.max(0, Math.floor((now - updatedAt) / (1000 * 60 * 60 * 24)));
-			const found =
-				daysAgo === 0 ? 'today'
-				: daysAgo === 1 ? 'yesterday'
-				: `${daysAgo}d ago`;
-
+		[...topPeople, ...topFirms].map(async (card) => {
+			const normalizedSources = await normalizeCardSourcesForDisplay(card);
+			const summary = await buildCardSummary(normalizedSources);
+			const normalized = normalizeCardForDisplay({ ...normalizedSources, ...summary });
 			return {
 				id: normalized.id,
 				type: normalized.entity === 'individual' ? 'INDIVIDUAL' : 'FIRM',
-				found,
+				found: 'top-crd',
 				scopes: normalized.sources.map((s) => s.source.toUpperCase()).sort(),
-				date: updatedDate.toISOString().split('T')[0],
+				date: new Date().toISOString().split('T')[0],
+				name: normalized.name || null,
 			};
 		}),
 	);
@@ -1974,10 +1974,10 @@ async function listNewCrds() {
 	return {
 		ok: true,
 		newCrds: formatted,
-		isToday: updatedAt >= now - 24 * 60 * 60 * 1000,
+		isToday: true,
 		lastChecked: new Date().toISOString(),
 		detectedCount: cards.length,
-		shownCount: latestCards.length,
+		shownCount: formatted.length,
 	};
 }
 
