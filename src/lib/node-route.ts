@@ -1,6 +1,7 @@
 const NODE_ROUTE_BASE = '/node';
-const INDIVIDUAL_ROUTE_BASE = '/individual';
-const FIRM_ROUTE_BASE = '/firm';
+const DASHBOARD_ROUTE_BASE = '/dashboard';
+const INDIVIDUAL_ROUTE_BASE = `${DASHBOARD_ROUTE_BASE}/individual`;
+const FIRM_ROUTE_BASE = `${DASHBOARD_ROUTE_BASE}/firm`;
 
 function splitNodeId(nodeId: string) {
 	const normalizedNodeId = String(nodeId || '').trim();
@@ -84,6 +85,24 @@ export function buildNodeRouteHref(nodeId: string | null | undefined, search = '
 export function parseNodeIdFromPathname(pathname: string | null | undefined) {
 	const normalizedPathname = String(pathname || '').trim();
 	if (!normalizedPathname || normalizedPathname === '/') return null;
+
+	const dashboardIndividualMatch = /^\/dashboard\/individual\/([^/]+?)\/?$/.exec(normalizedPathname);
+	if (dashboardIndividualMatch) {
+		try {
+			return `person:${decodeURIComponent(dashboardIndividualMatch[1])}`;
+		} catch {
+			return `person:${dashboardIndividualMatch[1]}`;
+		}
+	}
+
+	const dashboardFirmMatch = /^\/dashboard\/firm\/([^/]+?)\/?$/.exec(normalizedPathname);
+	if (dashboardFirmMatch) {
+		try {
+			return `firm:${decodeURIComponent(dashboardFirmMatch[1])}`;
+		} catch {
+			return `firm:${dashboardFirmMatch[1]}`;
+		}
+	}
 
 	const individualMatch = /^\/individual\/([^/]+?)\/?$/.exec(normalizedPathname);
 	if (individualMatch) {

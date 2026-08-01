@@ -1499,32 +1499,13 @@ export default function DashboardPage() {
 
 	return (
 		<div className={styles.page}>
-			<div
-				style={{
-					marginBottom: 16,
-					padding: 20,
-					borderRadius: 16,
-					background: '#ffffff',
-					color: '#0f172a',
-					boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)',
-					border: '1px solid #d9e2ee',
-				}}>
-				<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#64748b' }}>Dashboard</div>
-				<h1 style={{ margin: '8px 0 6px', fontSize: 28, lineHeight: 1.2, color: '#0f172a' }}>FINRA / SEC record inspector</h1>
-				<p style={{ margin: 0, maxWidth: 760, lineHeight: 1.55, color: '#475569' }}>
-					Browse cached records and inspect the currently selected individual or firm with the same calm, card-based layout as the reference dashboard.
-				</p>
-			</div>
 			<div className={`${styles.layout} ${rightPaneCollapsed ? styles.layoutCollapsedRight : ''}`}>
 				<aside className={styles.leftPane}>
-					<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingBottom: 2 }}>
-						<Link
-							href='/'
-							className={styles.backLink}>
-							← Graph
-						</Link>
-						<div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Inspector</div>
-					</div>
+					<Link
+						href='/'
+						className={styles.backLink}>
+						← Graph
+					</Link>
 
 					{savedTemplates.length > 0 && (
 						<div className={styles.templatesSection}>
@@ -1674,7 +1655,7 @@ export default function DashboardPage() {
 						</div>
 					)}
 
-					<div className={styles.queueSectionTitle}>Cached records</div>
+					<div className={styles.queueSectionTitle}>Run Queue</div>
 					<div className={styles.queueMeta}>{queueMetaText}</div>
 					{persistenceNotice && <div className={styles.searchSummary}>{persistenceNotice}</div>}
 					<div className={styles.cardList}>
@@ -1711,7 +1692,7 @@ export default function DashboardPage() {
 							<div
 								className={styles.cardMeta}
 								style={{ padding: '12px 4px', opacity: 0.6 }}>
-								No cached records yet. The inspector will populate as data is loaded.
+								No fetched CRDs yet. Run the queue to populate your history.
 							</div>
 						)}
 
@@ -1722,7 +1703,14 @@ export default function DashboardPage() {
 									<span>Not cached yet • New CRD match</span>
 								</div>
 								<div className={styles.cardScopes}>{filteredNewCrds[0].scopes.join('  ')}</div>
-								<div className={styles.cardMeta}>This record is available in the current inventory and can be inspected directly.</div>
+								<div className={styles.cardMeta}>Use Run Queue to fetch this CRD into cache.</div>
+								<button
+									type='button'
+									className={styles.primaryBtn}
+									onClick={() => runAction('fetch-crds', [filteredNewCrds[0].id])}
+									disabled={busyAction !== null}>
+									{busyAction === 'fetch-crds' ? 'Running…' : `Run Queue for ${filteredNewCrds[0].id}`}
+								</button>
 							</div>
 						)}
 					</div>

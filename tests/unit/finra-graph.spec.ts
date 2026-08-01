@@ -135,7 +135,7 @@ describe('FinraGraph DOM helpers (unit)', () => {
 			router: { push, replace } as any,
 		});
 
-		expect(push).toHaveBeenCalledWith('/individual/123?selected=person%3A456', { scroll: false });
+		expect(push).toHaveBeenCalledWith('/dashboard/individual/123?selected=person%3A456', { scroll: false });
 		expect(replace).not.toHaveBeenCalled();
 	});
 
@@ -1214,8 +1214,8 @@ describe('FinraGraph DOM helpers (unit)', () => {
 				pulseDuration: 5000,
 			});
 
-			expect(setBrowserPathname).toHaveBeenCalledWith('/individual/2632784');
-			expect(pushState).toHaveBeenCalledWith(window.history.state, '', '/individual/2632784?panel=info');
+			expect(setBrowserPathname).toHaveBeenCalledWith('/dashboard/individual/2632784');
+			expect(pushState).toHaveBeenCalledWith(window.history.state, '', '/dashboard/individual/2632784?panel=info');
 			expect(dispatched).toEqual([{ nodeId: 'person:2632784', pulseDuration: 5000, autoExpand: false }]);
 		} finally {
 			window.removeEventListener('finra:route-node-request', listener as EventListener);
