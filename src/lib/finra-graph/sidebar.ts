@@ -216,6 +216,24 @@ function formatNodeSourceTruthSummary(node: any) {
 	return `FINRA=${finra ? 'true' : 'false'} · SEC=${sec ? 'true' : 'false'} (${coverageLabel})`;
 }
 
+function buildDashboardDetailsHref(node: any) {
+	const group = String(node?.group || '')
+		.trim()
+		.toLowerCase();
+	if (group === 'firm') {
+		const firmId = String(node?.firmId || node?.basicInformation?.firmId || node?.id || '')
+			.replace(/^firm[:_]/, '')
+			.replace(/^node[:_]/, '')
+			.trim();
+		return firmId ? `/dashboard/firm/${encodeURIComponent(firmId)}` : null;
+	}
+	const individualId = String(node?.crd || node?.individualId || node?.basicInformation?.individualId || node?.basicInformation?.crd || node?.id || '')
+		.replace(/^person[:_]/, '')
+		.replace(/^node[:_]/, '')
+		.trim();
+	return individualId ? `/dashboard/individual/${encodeURIComponent(individualId)}` : null;
+}
+
 export function renderPersonDetail(d: any, context: RenderContext = {}) {
 	const graphData = context.graphData;
 	const bi = d.basicInformation || {};
@@ -269,6 +287,7 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 	const secScopeText = d.iaScope || bi.iaScope || (hasSecPage ? 'Active' : '');
 	const scopeBadgesHtml = [formatDomainScopeBadge(finraScopeText, 'finra', 'FINRA'), formatDomainScopeBadge(secScopeText, 'sec', 'SEC AdvisorInfo')].filter(Boolean).join(' ');
 
+	const dashboardHref = buildDashboardDetailsHref(d);
 	const rawDisclosures = [
 		...(d.disclosures || []).map((dis) => ({ ...dis, _sourceLabel: dis?._sourceLabel || 'FINRA' })),
 		...(d.iaDisclosures || []).map((dis) => ({ ...dis, _sourceLabel: dis?._sourceLabel || 'SEC AdvisorInfo' })),
@@ -906,6 +925,7 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
         ${brokerCheckReportUrl ? `<a class='fg-ext-link bc' href='${brokerCheckReportUrl}' target='_blank' rel='noopener noreferrer'>&#x2197; FINRA Detailed Report (PDF)</a>` : ''}
         ${secSummaryUrl ? `<a class='fg-ext-link sec' href='${secSummaryUrl}' target='_blank' rel='noopener noreferrer'>&#x2197; SEC AdvisorInfo Summary</a>` : ''}
 		${parentFirmSummaryLinksFiltered.map((link) => `<a class='fg-ext-link ${link.className}' href='${esc(link.href)}' target='_blank' rel='noopener noreferrer'>&#x2197; ${esc(link.label)}</a>`).join('')}
+		${dashboardHref ? `<a class='fg-ext-link dashboard' href='${esc(dashboardHref)}' onclick='event.stopPropagation()'>Dashboard details</a>` : ''}
       </div>
 
       ${bi.individualId ? row('CRD', `<code>${bi.individualId}</code>`) : ''}
@@ -1285,6 +1305,7 @@ export function renderFirmDetail(d: any) {
 	const secSummaryDescription = hasSecPage && d.secSummaryDescription ? String(d.secSummaryDescription).trim() : '';
 	const showBrokerCheckSummary = hasFinraPage;
 	const showSec = hasSecPage;
+	const dashboardHref = buildDashboardDetailsHref(d);
 	function renderRegistrationStatusRows() {
 		const entries = Array.isArray(d.registrationStatus) ? d.registrationStatus.filter((entry: any) => entry && typeof entry === 'object') : [];
 		const fallbackEntries =
@@ -1373,6 +1394,7 @@ export function renderFirmDetail(d: any) {
       <div class='fg-ext-links'>
         ${showBrokerCheckSummary ? `<a class='fg-ext-link bc' href='https://brokercheck.finra.org/firm/summary/${encodeURIComponent(firmId)}' target='_blank' rel='noopener noreferrer'>&#x2197; FINRA Summary</a>` : ''}
         ${secDocumentLinks.map((link) => (link?.href ? `<a class='fg-ext-link sec' href='${esc(link.href)}' target='_blank' rel='noopener noreferrer'>&#x2197; ${esc(link.label)}</a>` : '')).join('')}
+        ${dashboardHref ? `<a class='fg-ext-link dashboard' href='${esc(dashboardHref)}' onclick='event.stopPropagation()'>Dashboard details</a>` : ''}
       </div>
       ${secSummaryDescription ? `<div class='fg-section-title'>SEC summary</div><p class='fg-sb-note'>${esc(secSummaryDescription)}</p>` : ''}
       ${d.isLegacy === 'Y' ? `<p class='fg-sb-note'>Not currently registered as broker. FINRA contains only limited information about this firm.</p>` : ''}

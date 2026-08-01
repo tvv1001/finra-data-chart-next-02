@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 
@@ -972,6 +973,13 @@ export default function FinraGraph() {
 					</div> */}
 
 					<div className='fg-header-right-controls'>
+						<Link
+							href='/dashboard'
+							className='fg-ghost-btn'
+							title='Open dashboard'
+							aria-label='Open dashboard'>
+							Dashboard
+						</Link>
 						<button
 							id='fg-mobile-menu-toggle'
 							type='button'

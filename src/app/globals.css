@@ -2850,6 +2850,15 @@ a,
 	background: #154f3c;
 	color: #fff;
 }
+.fg-ext-link.dashboard {
+	background: #7c3aed;
+	color: #fff;
+}
+
+.fg-ext-links--footer {
+	margin-top: 10px;
+	margin-bottom: 0;
+}
 
 .fg-sb-badges {
 	display: flex;

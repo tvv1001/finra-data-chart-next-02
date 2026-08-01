@@ -10,6 +10,7 @@ import { setStringIfValid } from '@/lib/redisCache';
 import { getFullGraph, saveGraph } from '@/lib/graphStore';
 import { getRecentSeedsFromStore, rememberRecentSeed } from '@/lib/seedStore';
 import { addRecordToSearchIndex } from '@/lib/localSearch';
+import { getRecordDisplayName } from '@/lib/recordDisplay';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -945,35 +946,34 @@ function findFirstDate(value: unknown): string | null {
 }
 
 function extractNameFromRawPayload(payload: unknown, type: 'individual' | 'firm'): string {
-	if (!isPlainObject(payload)) return '';
-	// Handle ES hits wrapper
-	const src = Array.isArray(payload?.hits?.hits) && payload.hits.hits.length > 0 ? (payload.hits.hits[0]?._source ?? payload) : payload;
-	// Parse content/iacontent string if present
-	let data: Record<string, any> = isPlainObject(src) ? src : {};
-	const contentRaw = data.content ?? data.bccontent ?? data.iacontent;
-	if (typeof contentRaw === 'string') {
-		try {
-			data = { ...data, ...JSON.parse(contentRaw) };
-		} catch {
-			/* ignore */
-		}
-	}
-	const bi = isPlainObject(data.basicInformation) ? (data.basicInformation as Record<string, any>) : {};
-	if (type === 'individual') {
-		return [bi.firstName, bi.middleName, bi.lastName].filter(Boolean).join(' ').trim() || String(bi.name || data.firstName || data.name || '').trim();
-	}
-	return String(bi.legalName || data.legalName || bi.firmName || data.firmName || data.name || '').trim();
+	if (!payload) return '';
+	const fallbackCrd = typeof payload === 'object' && payload && 'id' in payload ? String((payload as Record<string, any>).id || '') : '';
+	const displayName = getRecordDisplayName(payload as Record<string, unknown>, type, fallbackCrd || '0');
+	const fallbackName = type === 'individual' ? `Individual ${fallbackCrd || '0'}` : `Firm ${fallbackCrd || '0'}`;
+	return displayName && displayName !== fallbackName ? displayName : '';
 }
 
 export function extractCardSummaryFields(detail: Record<string, any>, fallbackCrd = '', sourceHint?: 'finra' | 'sec') {
 	const basic = (detail?.basicInformation || {}) as Record<string, any>;
-	const candidateName =
-		String(basic.name || '').trim() ||
-		[basic.firstName, basic.middleName, basic.lastName].filter(Boolean).join(' ').trim() ||
-		String(detail?.legalName || '').trim() ||
-		String(detail?.firmName || '').trim() ||
-		String(detail?.name || '').trim() ||
-		'';
+	const inferredEntity =
+		(
+			detail?.individualId ||
+			detail?.firstName ||
+			detail?.lastName ||
+			basic?.firstName ||
+			basic?.lastName ||
+			basic?.fullName ||
+			detail?.fullName ||
+			detail?.individualName ||
+			detail?.name
+		) ?
+			'individual'
+		:	'firm';
+	const candidateName = (() => {
+		const fallback = inferredEntity === 'individual' ? `Individual ${fallbackCrd || '0'}` : `Firm ${fallbackCrd || '0'}`;
+		const fromHelper = getRecordDisplayName(detail, inferredEntity, fallbackCrd || '0');
+		return fromHelper && fromHelper !== fallback ? fromHelper : '';
+	})();
 
 	const memberSince = findFirstDate(detail) || findFirstDate(basic) || null;
 	const finraStatus = sourceHint === 'sec' ? null : classifyStatusText(detail?.bcScope || basic?.bcScope || detail?.registrationStatus || detail?.status);

@@ -13,6 +13,9 @@ import {
 	computeQuerySaveStats,
 	describeDashboardRequestFailure,
 	describeQuerySaveChange,
+	extractConnectionCards,
+	extractNoticeFilingsCards,
+	extractRegistrationCards,
 	parseDashboardSelectionFromUrl,
 	shouldShowQueueCardError,
 	shouldShowQueueCardSkipped,
@@ -58,27 +61,90 @@ describe('buildPrimedBundleInventoryTotals', () => {
 	});
 });
 
-describe('computeQueryFetchCounts', () => {
-	it('counts how many fetches were added for each query', () => {
-		const resolution = [
-			{ query: '100', crds: ['100', '101'] },
-			{ query: '200', crds: ['200'] },
-		];
-		const fetchedItems = [
-			{ crd: '100', status: 'ok' },
-			{ crd: '100', status: 'ok' },
-			{ crd: '200', status: 'ok' },
-			{ crd: '999', status: 'ok' },
-		];
-
-		expect(computeQueryFetchCounts(resolution, fetchedItems)).toEqual({
-			'100': 2,
-			'200': 1,
+describe('extractRegistrationCards', () => {
+	it('collects registration cards from stringified nested payload objects', () => {
+		const cards = extractRegistrationCards({
+			content: JSON.stringify({
+				registrations: [{ registrationName: 'Series 6', status: 'Active', effectiveDate: '2024-01-01' }],
+			}),
 		});
+
+		expect(cards).toEqual([
+			{
+				title: 'Series 6',
+				meta: 'Active',
+				subtitle: '2024-01-01',
+			},
+		]);
 	});
 });
 
-describe('computeQuerySaveStats', () => {
+describe('extractConnectionCards', () => {
+	it('collects connection cards from current and previous connection payloads', () => {
+		const cards = extractConnectionCards(
+			{
+				currentConnections: [{ firmName: 'Example Advisory', relationship: 'Owner' }],
+			},
+			'currentConnections',
+		);
+
+		expect(cards).toEqual([
+			{
+				title: 'Example Advisory',
+				meta: 'Owner',
+				subtitle: '',
+			},
+		]);
+	});
+});
+
+describe('extractNoticeFilingsCards', () => {
+	it('collects notice-filing cards from nested payload objects', () => {
+		const cards = extractNoticeFilingsCards({
+			basicInformation: {},
+			noticeFilings: [
+				{
+					jurisdiction: 'Colorado',
+					status: 'Active',
+					effectiveDate: '2024-01-01',
+					description: 'Filed for notice status',
+				},
+			],
+		});
+
+		expect(cards).toEqual([
+			{
+				title: 'Colorado',
+				meta: 'Active',
+				subtitle: '2024-01-01',
+				detail: 'Filed for notice status',
+			},
+		]);
+	});
+
+	it('reads notice-filing cards from a stringified nested payload', () => {
+		const cards = extractNoticeFilingsCards({
+			content: JSON.stringify({
+				noticeFilingsDetails: [
+					{
+						jurisdiction: 'Texas',
+						status: 'Pending',
+						effectiveDate: '2024-07-01',
+						description: 'Filed through a wrapped payload',
+					},
+				],
+			}),
+		});
+
+		expect(cards).toEqual([
+			{
+				title: 'Texas',
+				meta: 'Pending',
+				subtitle: '2024-07-01',
+				detail: 'Filed through a wrapped payload',
+			},
+		]);
+	});
 	it('counts newly saved records and source saves per query', () => {
 		const resolution = [
 			{ query: '100', crds: ['100', '101'] },
@@ -367,6 +433,28 @@ describe('extractCardSummaryFields', () => {
 
 		expect(summary.statusText).toBe('FINRA Active');
 		expect(summary.statusText).not.toContain('SEC');
+	});
+
+	it('uses common full-name and legal-name fields when building the card summary name', () => {
+		const individualSummary = extractCardSummaryFields(
+			{
+				basicInformation: {
+					fullName: 'Jane Doe',
+				},
+			},
+			'12345',
+		);
+		const firmSummary = extractCardSummaryFields(
+			{
+				basicInformation: {
+					legalName: 'Northwind Advisors',
+				},
+			},
+			'54321',
+		);
+
+		expect(individualSummary.name).toBe('Jane Doe');
+		expect(firmSummary.name).toBe('Northwind Advisors');
 	});
 });
 

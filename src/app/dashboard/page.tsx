@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { normalizeRenderablePayload, renderJsonForDisplay } from '../../lib/dashboard-json';
+import { buildJsonDisplayTree, coerceStructuredValue, normalizeRenderablePayload, renderJsonForDisplay } from '../../lib/dashboard-json';
+import { resolveMainRecordTitle } from '../../lib/dashboard-record-title';
 import { getRecordDisplayName } from '../../lib/recordDisplay';
 import styles from './dashboard.module.css';
 
@@ -652,6 +653,12 @@ const DETAIL_SKIP_KEYS = new Set([
 	'exams',
 ]);
 
+const HIDDEN_DETAIL_LABELS = new Set(['Exams Count', 'Registration Count', 'Broker Details', 'Has Finra Data', 'Has Sec Data']);
+
+function shouldHideDetailLabel(label: string) {
+	return HIDDEN_DETAIL_LABELS.has(label);
+}
+
 const LOCAL_HISTORY_KEY = 'finra_dashboard_history';
 const LOCAL_HISTORY_MAX = 100;
 
@@ -708,6 +715,145 @@ function formatAddressCandidate(value: unknown): string {
 		.map((entry) => toText(entry))
 		.filter(Boolean);
 	return parts.join(', ');
+}
+
+function findNestedValueByKey(input: unknown, candidates: string[]): unknown {
+	if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+	const record = input as Record<string, unknown>;
+	for (const [key, value] of Object.entries(record)) {
+		const normalized = String(key).trim().toLowerCase();
+		if (candidates.some((candidate) => normalized === candidate.toLowerCase() || normalized.includes(candidate.toLowerCase()))) {
+			return coerceStructuredValue(value);
+		}
+		const nestedValue = coerceStructuredValue(value);
+		if (nestedValue && typeof nestedValue === 'object') {
+			const nested = findNestedValueByKey(nestedValue, candidates);
+			if (nested != null) return nested;
+		}
+	}
+	return null;
+}
+
+function extractJurisdictionCards(body: Record<string, any>) {
+	const normalizedBody = coerceStructuredValue(body) as Record<string, any> | undefined;
+	const source =
+		Array.isArray(normalizedBody) ? normalizedBody : (
+			findNestedValueByKey(normalizedBody ?? body, ['jurisdictions', 'stateNoticeDetails', 'stateNoticeRecords', 'stateNoticeHistory', 'jurisdiction'])
+		);
+	const entries =
+		Array.isArray(source) ? source
+		: source && typeof source === 'object' ? [source]
+		: [];
+	return entries
+		.filter((entry) => entry && typeof entry === 'object')
+		.map((entry) => {
+			const record = coerceStructuredValue(entry) as Record<string, any> | undefined;
+			if (!record || typeof record !== 'object' || Array.isArray(record)) return null;
+			const title = pickFirstNonEmpty(record?.jurisdiction, record?.jurisdictionName, record?.name, record?.state);
+			const meta = pickFirstNonEmpty(record?.status, record?.noticeStatus, record?.noticeStatusText);
+			const subtitle = pickFirstNonEmpty(record?.effectiveDate, record?.effective_date, record?.dateFiled, record?.dateSubmitted, record?.noticeDate);
+			return title ? { title, meta, subtitle } : null;
+		})
+		.filter(Boolean) as Array<{ title: string; meta: string; subtitle: string }>;
+}
+
+function extractBrochureCards(body: Record<string, any>) {
+	const normalizedBody = coerceStructuredValue(body) as Record<string, any> | undefined;
+	const brochureContainer = Array.isArray(normalizedBody) ? normalizedBody : findNestedValueByKey(normalizedBody ?? body, ['brochures', 'brochuredetails', 'brochureDetails']);
+	const entries =
+		Array.isArray(brochureContainer) ? brochureContainer
+		: brochureContainer && typeof brochureContainer === 'object' && Array.isArray((brochureContainer as Record<string, any>).brochuredetails) ?
+			(brochureContainer as Record<string, any>).brochuredetails
+		:	[];
+	return entries
+		.filter((entry) => entry && typeof entry === 'object')
+		.map((entry) => {
+			const record = coerceStructuredValue(entry) as Record<string, any> | undefined;
+			if (!record || typeof record !== 'object' || Array.isArray(record)) return null;
+			const title = pickFirstNonEmpty(record?.brochureName, record?.name, record?.brochureTitle);
+			const meta = pickFirstNonEmpty(record?.brochureVersionID, record?.versionId, record?.version);
+			const subtitle = pickFirstNonEmpty(record?.dateSubmitted, record?.submittedDate, record?.date);
+			return title ? { title, meta: meta ? `Version ${meta}` : '', subtitle } : null;
+		})
+		.filter(Boolean) as Array<{ title: string; meta: string; subtitle: string }>;
+}
+
+export function extractRegistrationCards(body: Record<string, any>) {
+	const normalizedBody = coerceStructuredValue(body) as Record<string, any> | undefined;
+	const source = Array.isArray(normalizedBody) ? normalizedBody : findNestedValueByKey(normalizedBody ?? body, ['registrations', 'registrationDetails', 'registrationHistory']);
+	const entries =
+		Array.isArray(source) ? source
+		: source && typeof source === 'object' ? [source]
+		: [];
+	return entries
+		.filter((entry) => entry && typeof entry === 'object')
+		.map((entry) => {
+			const record = coerceStructuredValue(entry) as Record<string, any> | undefined;
+			if (!record || typeof record !== 'object' || Array.isArray(record)) return null;
+			const title = pickFirstNonEmpty(record?.registrationName, record?.name, record?.title, record?.registrationTitle, record?.seriesName);
+			const meta = pickFirstNonEmpty(record?.status, record?.registrationStatus, record?.state, record?.jurisdiction);
+			const subtitle = pickFirstNonEmpty(record?.effectiveDate, record?.effectiveDateText, record?.date, record?.registrationDate);
+			return title ? { title, meta, subtitle } : null;
+		})
+		.filter(Boolean) as Array<{ title: string; meta: string; subtitle: string }>;
+}
+
+export function extractConnectionCards(body: Record<string, any>, key: 'currentConnections' | 'previousConnections') {
+	const normalizedBody = coerceStructuredValue(body) as Record<string, any> | undefined;
+	const source = Array.isArray(normalizedBody) ? normalizedBody : findNestedValueByKey(normalizedBody ?? body, [key]);
+	const entries =
+		Array.isArray(source) ? source
+		: source && typeof source === 'object' ? [source]
+		: [];
+	return entries
+		.filter((entry) => entry && typeof entry === 'object')
+		.map((entry) => {
+			const record = coerceStructuredValue(entry) as Record<string, any> | undefined;
+			if (!record || typeof record !== 'object' || Array.isArray(record)) return null;
+			const title = pickFirstNonEmpty(record?.firmName, record?.name, record?.organizationName, record?.companyName, record?.connectionName);
+			const meta = pickFirstNonEmpty(record?.relationship, record?.position, record?.title, record?.status);
+			const subtitle = pickFirstNonEmpty(record?.effectiveDate, record?.date, record?.startDate, record?.endDate);
+			return title ? { title, meta: meta || '', subtitle: subtitle || '' } : null;
+		})
+		.filter(Boolean) as Array<{ title: string; meta: string; subtitle: string }>;
+}
+
+function extractDocumentLinkCards(body: Record<string, any>) {
+	const normalizedBody = coerceStructuredValue(body) as Record<string, any> | undefined;
+	const source = Array.isArray(normalizedBody) ? normalizedBody : findNestedValueByKey(normalizedBody ?? body, ['secDocumentLinks', 'documentLinks', 'secLinks', 'links']);
+	const entries = Array.isArray(source) ? source : [];
+	return entries
+		.filter((entry) => entry && typeof entry === 'object')
+		.map((entry) => {
+			const record = coerceStructuredValue(entry) as Record<string, any> | undefined;
+			if (!record || typeof record !== 'object' || Array.isArray(record)) return null;
+			const title = pickFirstNonEmpty(record?.label, record?.title, record?.name);
+			const href = pickFirstNonEmpty(record?.href, record?.url, record?.link);
+			return title && href ? { title, href } : null;
+		})
+		.filter(Boolean) as Array<{ title: string; href: string }>;
+}
+
+export function extractNoticeFilingsCards(body: Record<string, any>) {
+	const normalizedBody = coerceStructuredValue(body) as Record<string, any> | undefined;
+	const source =
+		Array.isArray(normalizedBody) ? normalizedBody : findNestedValueByKey(normalizedBody ?? body, ['noticeFilings', 'noticeFiling', 'noticeFilingsDetails', 'noticeFilingDetails']);
+	const entries =
+		Array.isArray(source) ? source
+		: source && typeof source === 'object' ? [source]
+		: [];
+	return entries
+		.filter((entry) => entry && typeof entry === 'object')
+		.map((entry) => {
+			const record = coerceStructuredValue(entry) as Record<string, any> | undefined;
+			if (!record || typeof record !== 'object' || Array.isArray(record)) return null;
+			const title = pickFirstNonEmpty(record?.jurisdiction, record?.state, record?.name);
+			const meta = pickFirstNonEmpty(record?.status, record?.noticeStatus, record?.registrationStatus);
+			const subtitle = pickFirstNonEmpty(record?.effectiveDate, record?.effectiveDateText, record?.effective, record?.date, record?.noticeDate);
+			const detail = pickFirstNonEmpty(record?.description, record?.details, record?.summary);
+			return title ? { title, meta, subtitle, detail } : null;
+		})
+		.filter(Boolean) as Array<{ title: string; meta: string; subtitle: string; detail: string }>;
 }
 
 function extractSearchResultAddress(item: SearchResult): string {
@@ -794,6 +940,7 @@ export default function DashboardPage() {
 	const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
 	const [jsonRenderBusy, setJsonRenderBusy] = useState(false);
 	const [codeBlock, setCodeBlock] = useState('');
+	const [jsonTree, setJsonTree] = useState<any>(null);
 	const [recordUpdatedAt, setRecordUpdatedAt] = useState<string | null>(null);
 	const [mainViewMode, setMainViewMode] = useState<'card' | 'json'>('card');
 	const [top10Latest, setTop10Latest] = useState<Array<{ id: string; entity: 'individual' | 'firm'; fetchedAt: string; files?: number; sources?: QueueCardSourceEntry[] }>>([]);
@@ -945,6 +1092,7 @@ export default function DashboardPage() {
 		const payload = mainJson || result;
 		if (!payload) {
 			setCodeBlock('');
+			setJsonTree(null);
 			setJsonRenderBusy(false);
 			return;
 		}
@@ -964,10 +1112,17 @@ export default function DashboardPage() {
 			if (cancelled) return;
 			try {
 				const text = renderJsonForDisplay(payload);
+				const tree = buildJsonDisplayTree(normalizeRenderablePayload(payload));
 				jsonStringCacheRef.current.set(cacheKey, text);
-				if (!cancelled) setCodeBlock(text);
+				if (!cancelled) {
+					setCodeBlock(text);
+					setJsonTree(tree);
+				}
 			} catch (error: any) {
-				if (!cancelled) setCodeBlock(String(error?.message || error || 'Failed to render JSON'));
+				if (!cancelled) {
+					setCodeBlock(String(error?.message || error || 'Failed to render JSON'));
+					setJsonTree(null);
+				}
 			} finally {
 				if (!cancelled) setJsonRenderBusy(false);
 			}
@@ -1112,6 +1267,9 @@ export default function DashboardPage() {
 
 		const currentEmployment = [...toArray(body.currentEmployments), ...toArray(body.currentIAEmployments), ...toArray(body.currentEmployment)];
 		const previousEmployment = [...toArray(body.previousEmployments), ...toArray(body.previousIAEmployments)];
+		const registrationCards = extractRegistrationCards(body);
+		const currentConnectionCards = extractConnectionCards(body, 'currentConnections');
+		const previousConnectionCards = extractConnectionCards(body, 'previousConnections');
 
 		const stateExams = toArray(body.stateExamCategory).concat(toArray(body.stateExams));
 		const productExams = toArray(body.productExamCategory).concat(toArray(body.productExams));
@@ -1132,13 +1290,17 @@ export default function DashboardPage() {
 			if (key === 'otherNames' || key === 'aliases') continue;
 			const rendered = stringifyRawValue(value);
 			if (!rendered) continue;
-			additionalDetails.push({ label: humanizeKey(key), value: rendered });
+			const label = humanizeKey(key);
+			if (shouldHideDetailLabel(label)) continue;
+			additionalDetails.push({ label, value: rendered });
 		}
 		for (const [key, value] of Object.entries(body)) {
 			if (DETAIL_SKIP_KEYS.has(key) || isEmptyRawValue(value)) continue;
 			const rendered = stringifyRawValue(value);
 			if (!rendered) continue;
-			additionalDetails.push({ label: humanizeKey(key), value: rendered });
+			const label = humanizeKey(key);
+			if (shouldHideDetailLabel(label)) continue;
+			additionalDetails.push({ label, value: rendered });
 		}
 
 		const profileLinks = [
@@ -1160,6 +1322,11 @@ export default function DashboardPage() {
 			},
 		];
 
+		const jurisdictionCards = extractJurisdictionCards(body);
+		const brochureCards = extractBrochureCards(body);
+		const documentLinkCards = extractDocumentLinkCards(body);
+		const noticeFilingCards = extractNoticeFilingsCards(body);
+
 		return {
 			name:
 				pickFirstNonEmpty(basic.iaFirmName, basic.firmName, basic.fullName, basic.individualName) ||
@@ -1170,12 +1337,19 @@ export default function DashboardPage() {
 			profileLinks,
 			currentEmployment,
 			previousEmployment,
+			registrationCards,
+			currentConnectionCards,
+			previousConnectionCards,
 			stateExams,
 			productExams,
 			principalExams,
 			registrations,
 			registeredSros,
 			additionalDetails,
+			jurisdictionCards,
+			brochureCards,
+			documentLinkCards,
+			noticeFilingCards,
 		};
 	}, [mainJson, currentRecordEntity, currentRecordId]);
 
@@ -1289,7 +1463,14 @@ export default function DashboardPage() {
 		setCurrentRecordSource(card.source);
 		setCurrentRecordEntity(card.entity);
 		setCurrentRecordId(card.id);
-		setMainJsonLabel(formatMainPanelTitle({ source: card.source, entity: card.entity, id: card.id, name: card.label, payload: card.payload }));
+		setMainJsonLabel(
+			resolveMainRecordTitle({
+				mainJsonLabel: formatMainPanelTitle({ source: card.source, entity: card.entity, id: card.id, name: card.label, payload: card.payload }),
+				fallbackName: card.label || null,
+				entity: card.entity,
+				id: card.id,
+			}),
+		);
 		markRecordUpdatedAt();
 		recordHistoryEntry({
 			id: card.id,
@@ -1614,12 +1795,17 @@ export default function DashboardPage() {
 			setCurrentRecordId(card.id);
 			const detailName = extractEntityDetailFromPayload(payload, card.entity, card.id)?.name;
 			setMainJsonLabel(
-				formatMainPanelTitle({
-					source,
+				resolveMainRecordTitle({
+					mainJsonLabel: formatMainPanelTitle({
+						source,
+						entity: card.entity,
+						id: card.id,
+						name: card.name || detailName,
+						payload,
+					}),
+					fallbackName: card.name || detailName || null,
 					entity: card.entity,
 					id: card.id,
-					name: card.name || detailName,
-					payload,
 				}),
 			);
 			markRecordUpdatedAt();
@@ -1993,6 +2179,31 @@ export default function DashboardPage() {
 		}
 	}
 
+	function renderJsonTree(node: any, depth = 0) {
+		if (!node) return null;
+		if (node.type === 'primitive') {
+			return (
+				<div
+					className={styles.jsonTreeLeaf}
+					style={{ marginLeft: depth * 12 }}>
+					{node.key && <span className={styles.jsonTreeKey}>{node.key}</span>}
+					<span className={styles.jsonTreeValue}>{node.value}</span>
+				</div>
+			);
+		}
+
+		return (
+			<div
+				className={styles.jsonTreeGroup}
+				style={{ marginLeft: depth * 10 }}>
+				{node.key && <div className={styles.jsonTreeGroupHeader}>{node.key}</div>}
+				{node.children?.map((child: any, index: number) => (
+					<div key={`${child.key || 'child'}-${index}`}>{renderJsonTree(child, depth + 1)}</div>
+				))}
+			</div>
+		);
+	}
+
 	function renderSearchResult(card: SearchResultCard, index: number) {
 		const sourceLabel = card.source === 'finra' ? 'FINRA' : 'SEC';
 		const rowAddress = card.address || card.detail || 'No address/details in cached index';
@@ -2051,7 +2262,6 @@ export default function DashboardPage() {
 							{hasCurrentRecord && (
 								<>
 									<div className={styles.recordHeaderRow}>
-										<div className={styles.recordHeader}>{currentRecordSource ? String(currentRecordSource).toUpperCase() : 'RECORD'}</div>
 										<div className={styles.recordBadge}>{currentRecordEntity ? String(currentRecordEntity).toUpperCase() : 'UNKNOWN'}</div>
 										<div className={styles.mainViewToggle}>
 											<button
@@ -2069,9 +2279,7 @@ export default function DashboardPage() {
 										</div>
 									</div>
 									<h2 className={styles.recordTitle}>{mainJsonLabel}</h2>
-									{currentRecordId && <div className={styles.recordKeyLabel}>CRD {currentRecordId}:</div>}
-									{recordUpdatedAt && <div className={styles.searchSummary}>Updated: {new Date(recordUpdatedAt).toLocaleString()}</div>}
-									<div className={styles.recordDescription}>Showing recent saved files with full details.</div>
+									{currentRecordId && <div className={styles.recordKeyLabel}>CRD {currentRecordId}</div>}
 								</>
 							)}
 
@@ -2080,7 +2288,9 @@ export default function DashboardPage() {
 							{hasCurrentRecord && mainViewMode === 'json' && (
 								<div className={styles.jsonPanel}>
 									{jsonRenderBusy && <div className={styles.searchSummary}>Rendering JSON…</div>}
-									<pre>{codeBlock}</pre>
+									{jsonTree ?
+										<div className={styles.jsonTreeList}>{renderJsonTree(jsonTree)}</div>
+									:	<pre>{codeBlock}</pre>}
 								</div>
 							)}
 
@@ -2088,11 +2298,6 @@ export default function DashboardPage() {
 								<div className={styles.readableCardPanel}>
 									{detailedMainRecord ?
 										<>
-											<div className={styles.readableCardHero}>
-												<div className={styles.readableCardName}>{detailedMainRecord.name}</div>
-												<div className={styles.readableCardStatus}>{currentRecordSource ? String(currentRecordSource).toUpperCase() : 'DETAIL'}</div>
-											</div>
-
 											{detailedMainRecord.mainAddress && (
 												<section className={styles.detailSection}>
 													<h4 className={styles.detailSectionTitle}>Main Address</h4>
@@ -2136,9 +2341,10 @@ export default function DashboardPage() {
 													<h4 className={styles.detailSectionTitle}>Current Employment ({detailedMainRecord.currentEmployment.length})</h4>
 													<div className={styles.detailCardList}>
 														{detailedMainRecord.currentEmployment.map((row, idx) => (
-															<div
+															<button
+																type='button'
 																key={`cur-emp-${idx}`}
-																className={styles.detailCard}>
+																className={styles.detailCardButton}>
 																<div className={styles.detailCardTitle}>
 																	{pickFirstNonEmpty(row.legalName, row.name, row.firmName, row.organizationName) || `Employment ${idx + 1}`}
 																	{pickFirstNonEmpty(row.crdNumber, row.crd, row.firmId) && (
@@ -2150,7 +2356,87 @@ export default function DashboardPage() {
 																		.filter(Boolean)
 																		.join(' • ') || pickFirstNonEmpty(row.position, row.currentRegistration, row.status)}
 																</div>
-															</div>
+															</button>
+														))}
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.registrationCards.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Registrations ({detailedMainRecord.registrationCards.length})</h4>
+													<div className={styles.detailCardList}>
+														{detailedMainRecord.registrationCards.map((item, idx) => (
+															<button
+																type='button'
+																key={`reg-${idx}`}
+																className={styles.detailCardButton}>
+																<div className={styles.detailCardTitle}>{item.title}</div>
+																{item.meta && <div className={styles.detailCardMeta}>{item.meta}</div>}
+																{item.subtitle && <div className={styles.detailCardMeta}>{item.subtitle}</div>}
+															</button>
+														))}
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.currentConnectionCards.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Current Connections ({detailedMainRecord.currentConnectionCards.length})</h4>
+													<div className={styles.detailCardList}>
+														{detailedMainRecord.currentConnectionCards.map((item, idx) => (
+															<button
+																type='button'
+																key={`cur-conn-${idx}`}
+																className={styles.detailCardButton}>
+																<div className={styles.detailCardTitle}>{item.title}</div>
+																{item.meta && <div className={styles.detailCardMeta}>{item.meta}</div>}
+																{item.subtitle && <div className={styles.detailCardMeta}>{item.subtitle}</div>}
+															</button>
+														))}
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.previousEmployment.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Previous Employment ({detailedMainRecord.previousEmployment.length})</h4>
+													<div className={styles.detailCardList}>
+														{detailedMainRecord.previousEmployment.map((row, idx) => (
+															<button
+																type='button'
+																key={`prev-emp-${idx}`}
+																className={styles.detailCardButton}>
+																<div className={styles.detailCardTitle}>
+																	{pickFirstNonEmpty(row.legalName, row.name, row.firmName, row.organizationName) || `Employment ${idx + 1}`}
+																	{pickFirstNonEmpty(row.crdNumber, row.crd, row.firmId) && (
+																		<span className={styles.detailInlineTag}>CRD#{pickFirstNonEmpty(row.crdNumber, row.crd, row.firmId)}</span>
+																	)}
+																</div>
+																<div className={styles.detailCardMeta}>
+																	{[formatAddress(row.branchOfficeLocations?.[0]), pickFirstNonEmpty(row.registrationBeginDate, row.effectiveDate, row.startDate)]
+																		.filter(Boolean)
+																		.join(' • ') || pickFirstNonEmpty(row.position, row.currentRegistration, row.status)}
+																</div>
+															</button>
+														))}
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.previousConnectionCards.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Previous Connections ({detailedMainRecord.previousConnectionCards.length})</h4>
+													<div className={styles.detailCardList}>
+														{detailedMainRecord.previousConnectionCards.map((item, idx) => (
+															<button
+																type='button'
+																key={`prev-conn-${idx}`}
+																className={styles.detailCardButton}>
+																<div className={styles.detailCardTitle}>{item.title}</div>
+																{item.meta && <div className={styles.detailCardMeta}>{item.meta}</div>}
+																{item.subtitle && <div className={styles.detailCardMeta}>{item.subtitle}</div>}
+															</button>
 														))}
 													</div>
 												</section>
@@ -2172,6 +2458,76 @@ export default function DashboardPage() {
 																</div>
 																<div className={styles.detailExamName}>{pickFirstNonEmpty(row.examName, row.description, row.categoryName)}</div>
 																{pickFirstNonEmpty(row.examScope, row.scope) && <div className={styles.detailExamScope}>Scope: {pickFirstNonEmpty(row.examScope, row.scope)}</div>}
+															</div>
+														))}
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.jurisdictionCards.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Jurisdictions</h4>
+													<div className={styles.detailCardList}>
+														{detailedMainRecord.jurisdictionCards.map((item, idx) => (
+															<div
+																key={`${item.title}-${idx}`}
+																className={styles.detailCard}>
+																<div className={styles.detailCardTitle}>{item.title}</div>
+																{item.meta && <div className={styles.detailCardMeta}>{item.meta}</div>}
+																{item.subtitle && <div className={styles.detailCardMeta}>{item.subtitle}</div>}
+															</div>
+														))}
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.brochureCards.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Brochures</h4>
+													<div className={styles.detailCardList}>
+														{detailedMainRecord.brochureCards.map((item, idx) => (
+															<div
+																key={`${item.title}-${idx}`}
+																className={styles.detailCard}>
+																<div className={styles.detailCardTitle}>{item.title}</div>
+																{item.meta && <div className={styles.detailCardMeta}>{item.meta}</div>}
+																{item.subtitle && <div className={styles.detailCardMeta}>{item.subtitle}</div>}
+															</div>
+														))}
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.documentLinkCards.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>SEC Document Links</h4>
+													<div className={styles.detailCardList}>
+														{detailedMainRecord.documentLinkCards.map((item, idx) => (
+															<a
+																key={`${item.title}-${idx}`}
+																href={item.href}
+																target='_blank'
+																rel='noopener noreferrer'
+																className={styles.detailLinkBtn}>
+																{item.title}
+															</a>
+														))}
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.noticeFilingCards.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Notice Filings</h4>
+													<div className={styles.detailCardList}>
+														{detailedMainRecord.noticeFilingCards.map((item, idx) => (
+															<div
+																key={`${item.title}-${idx}`}
+																className={styles.detailNoticeCard}>
+																<div className={styles.detailCardTitle}>{item.title}</div>
+																{item.meta && <div className={styles.detailCardMeta}>{item.meta}</div>}
+																{item.subtitle && <div className={styles.detailNoticeSubtitle}>{item.subtitle}</div>}
+																{item.detail && <div className={styles.detailNoticeDetail}>{item.detail}</div>}
 															</div>
 														))}
 													</div>
@@ -2215,7 +2571,6 @@ export default function DashboardPage() {
 
 							<div className={`${styles.searchBarWrap} ${searchPaneOpen ? styles.searchBarWrapExpanded : ''}`}>
 								<div className={`${styles.searchResultsPane} ${searchPaneOpen ? styles.searchResultsPaneOpen : ''}`}>
-									<div className={styles.searchResultsHead}>RESULTS</div>
 									<div className={styles.searchSummary}>{searchSummary}</div>
 									{searchResults.length > 0 ?
 										<div className={styles.searchResultsList}>{searchResults.map(renderSearchResult)}</div>
@@ -2284,7 +2639,7 @@ export default function DashboardPage() {
 									onClick={() => void openQueueCard(card)}>
 									<div className={styles.middlePaneItemTop}>
 										<span className={styles.middlePaneItemBadge}>{card.entity === 'firm' ? 'FIRM' : 'IND'}</span>
-										<span className={styles.middlePaneItemName}>{card.name || `${card.entity === 'firm' ? 'Firm' : 'Individual'} ${card.id}`}</span>
+										<span className={styles.middlePaneItemName}>{card.name || getRecordDisplayName(card as unknown as Record<string, unknown>, card.entity, card.id)}</span>
 									</div>
 									<div className={styles.middlePaneItemMeta}>{card.id}</div>
 								</button>
@@ -2329,7 +2684,10 @@ export default function DashboardPage() {
 													className={styles.rightPaneItem}
 													onClick={() => void openNewCrdEntry(entry)}>
 													<div className={styles.rightPaneItemTitle}>
-														{toText(entry.name) || historyNameMap.get(`individual:${entry.id}`) || extractDisplayNameFromNewCrd(entry, 'individual')}
+														{toText(entry.name) ||
+															historyNameMap.get(`individual:${entry.id}`) ||
+															getRecordDisplayName(entry as unknown as Record<string, unknown>, 'individual', entry.id) ||
+															extractDisplayNameFromNewCrd(entry, 'individual')}
 													</div>
 													<div className={styles.rightPaneItemMeta}>CRD #{entry.id}</div>
 												</button>
@@ -2349,7 +2707,10 @@ export default function DashboardPage() {
 													className={styles.rightPaneItem}
 													onClick={() => void openNewCrdEntry(entry)}>
 													<div className={styles.rightPaneItemTitle}>
-														{toText(entry.name) || historyNameMap.get(`firm:${entry.id}`) || extractDisplayNameFromNewCrd(entry, 'firm')}
+														{toText(entry.name) ||
+															historyNameMap.get(`firm:${entry.id}`) ||
+															getRecordDisplayName(entry as unknown as Record<string, unknown>, 'firm', entry.id) ||
+															extractDisplayNameFromNewCrd(entry, 'firm')}
 													</div>
 													<div className={styles.rightPaneItemMeta}>CRD #{entry.id}</div>
 												</button>

@@ -14634,8 +14634,8 @@ function onResize() {
 	if (!graphData) return;
 	// Just update the viewBox — no re-simulation, positions stay frozen
 	const main = document.getElementById('fg-main');
-	const W = main.clientWidth;
-	const H = main.clientHeight;
+	const W = main?.clientWidth || 800;
+	const H = main?.clientHeight || 600;
 	d3.select('#fg-svg').attr('viewBox', `0 0 ${W} ${H}`);
 	try {
 		ensureGraphViewportVisible({ duration: 0 });

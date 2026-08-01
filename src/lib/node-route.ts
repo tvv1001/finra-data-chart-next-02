@@ -71,8 +71,8 @@ export function buildNodeRoutePath(nodeId: string | null | undefined) {
 	const normalizedNodeId = String(nodeId || '').trim();
 	if (!normalizedNodeId) return '/';
 	const parts = splitNodeId(normalizedNodeId);
-	if (parts?.prefix === 'person') return `${INDIVIDUAL_ROUTE_BASE}/${encodeURIComponent(parts.suffix)}`;
-	if (parts?.prefix === 'firm') return `${FIRM_ROUTE_BASE}/${encodeURIComponent(parts.suffix)}`;
+	if (parts?.prefix === 'person') return `${NODE_ROUTE_BASE}/${toNodeRouteSlug(`person:${parts.suffix}`)}`;
+	if (parts?.prefix === 'firm') return `${NODE_ROUTE_BASE}/${toNodeRouteSlug(`firm:${parts.suffix}`)}`;
 	return `${NODE_ROUTE_BASE}/${toNodeRouteSlug(normalizedNodeId)}`;
 }
 

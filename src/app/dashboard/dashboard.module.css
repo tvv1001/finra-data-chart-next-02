@@ -85,7 +85,7 @@
 	flex-direction: column;
 	min-height: 0;
 	scrollbar-width: thin;
-	scrollbar-color: #94a3b8 #f8fafc;
+	scrollbar-color: rgba(70, 8, 20, 0.95) rgba(18, 1, 11, 0.95);
 	box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
 }
 
@@ -96,7 +96,6 @@
 
 .centerPane {
 	overflow-y: auto;
-	scrollbar-color: #1f4fd8 #07111f;
 }
 
 .leftPane::-webkit-scrollbar,
@@ -107,40 +106,32 @@
 .searchResultsList::-webkit-scrollbar,
 .newCrdsList::-webkit-scrollbar,
 .jsonPanel::-webkit-scrollbar {
-	width: 10px;
-	height: 10px;
+	width: 5px;
+	height: 5px;
 }
 
 .leftPane::-webkit-scrollbar-track,
 .rightPane::-webkit-scrollbar-track,
+.centerPane::-webkit-scrollbar-track,
 .cardList::-webkit-scrollbar-track,
 .queueRunList::-webkit-scrollbar-track,
 .searchResultsList::-webkit-scrollbar-track,
-.newCrdsList::-webkit-scrollbar-track {
-	background: #edf2f7;
-}
-
-.centerPane::-webkit-scrollbar-track,
+.newCrdsList::-webkit-scrollbar-track,
 .jsonPanel::-webkit-scrollbar-track {
-	background: #07111f;
+	background: rgba(18, 1, 11, 0.95);
 }
 
 .leftPane::-webkit-scrollbar-thumb,
 .rightPane::-webkit-scrollbar-thumb,
+.centerPane::-webkit-scrollbar-thumb,
 .cardList::-webkit-scrollbar-thumb,
 .queueRunList::-webkit-scrollbar-thumb,
 .searchResultsList::-webkit-scrollbar-thumb,
-.newCrdsList::-webkit-scrollbar-thumb {
-	background: linear-gradient(180deg, #b7c5d8 0%, #94a3b8 100%);
-	border-radius: 999px;
-	border: 2px solid #edf2f7;
-}
-
-.centerPane::-webkit-scrollbar-thumb,
+.newCrdsList::-webkit-scrollbar-thumb,
 .jsonPanel::-webkit-scrollbar-thumb {
-	background: linear-gradient(180deg, #2b4b93 0%, #1e3a8a 100%);
+	background: linear-gradient(180deg, rgba(170, 24, 49, 0.98) 0%, rgba(100, 10, 28, 0.98) 100%);
 	border-radius: 999px;
-	border: 2px solid #07111f;
+	border: 1px solid rgba(18, 1, 11, 0.95);
 }
 
 .leftPane {
@@ -589,15 +580,15 @@
 }
 
 .recordKeyLabel {
-	font-size: 12px;
-	color: #334155;
-	margin-bottom: 6px;
+	font-size: 16px;
+	font-weight: 800;
+	letter-spacing: 0.01em;
+	color: #1d4ed8;
+	margin-bottom: 10px;
 }
 
 .recordDescription {
-	font-size: 11px;
-	color: #475569;
-	margin-bottom: 12px;
+	display: none;
 }
 
 .recordPills {
@@ -639,20 +630,70 @@
 .jsonPanel {
 	flex: 1;
 	min-height: 0;
-	background: #02091b;
-	border: 1px solid #334f78;
-	border-radius: 8px;
+	background: linear-gradient(135deg, #07111f 0%, #0f2037 100%);
+	border: 1px solid #24415f;
+	border-radius: 10px;
 	overflow: auto;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .jsonPanel pre {
 	margin: 0;
-	padding: 10px;
-	font-size: 11px;
-	line-height: 1.35;
-	color: #8cc5ff;
+	padding: 14px 16px;
+	font-size: 12px;
+	line-height: 1.5;
+	color: #dfefff;
 	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-	white-space: pre;
+	white-space: pre-wrap;
+	word-break: break-word;
+	overflow-wrap: anywhere;
+}
+
+.jsonTreeList {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 12px;
+}
+
+.jsonTreeGroup {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px 10px;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.06);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.jsonTreeGroupHeader {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: #7dd3fc;
+}
+
+.jsonTreeLeaf {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 8px;
+	border-radius: 8px;
+	background: rgba(248, 250, 252, 0.05);
+	color: #e2f2ff;
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.jsonTreeKey {
+	font-weight: 700;
+	color: #93c5fd;
+}
+
+.jsonTreeValue {
+	color: #f8fafc;
+	word-break: break-word;
 }
 
 .readableCardPanel {
@@ -1299,6 +1340,7 @@
 	gap: 8px;
 	min-height: 0;
 	height: 100%;
+	overflow: auto;
 }
 
 .dashboardHero {
@@ -1549,6 +1591,38 @@
 	gap: 6px;
 }
 
+.detailCardButton {
+	border: 1px solid var(--border-cyan);
+	background: rgba(12, 26, 40, 0.45);
+	padding: 10px;
+	display: grid;
+	gap: 6px;
+	text-align: left;
+	color: inherit;
+	cursor: pointer;
+	transition:
+		transform 0.2s ease,
+		border-color 0.2s ease,
+		background 0.2s ease;
+}
+
+.detailCardButton:hover,
+.detailCardButton:focus-visible {
+	transform: translateY(-1px);
+	border-color: rgba(6, 182, 212, 0.9);
+	background: rgba(20, 40, 60, 0.7);
+	outline: none;
+}
+
+.detailNoticeCard {
+	border: 1px solid rgba(16, 185, 129, 0.35);
+	background: linear-gradient(135deg, rgba(11, 29, 34, 0.92) 0%, rgba(20, 46, 55, 0.92) 100%);
+	padding: 12px 12px 10px;
+	display: grid;
+	gap: 7px;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
 .detailCardTitle {
 	font-size: 20px;
 	font-weight: 700;
@@ -1576,6 +1650,20 @@
 	font-weight: 600;
 	color: var(--text-secondary);
 	line-height: 1.4;
+}
+
+.detailNoticeSubtitle {
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: #94e7cc;
+}
+
+.detailNoticeDetail {
+	font-size: 13px;
+	line-height: 1.45;
+	color: #d9f7ee;
 }
 
 .detailExamGrid {
