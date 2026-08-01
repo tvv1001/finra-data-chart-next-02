@@ -1499,6 +1499,21 @@ export default function DashboardPage() {
 
 	return (
 		<div className={styles.page}>
+			<div
+				style={{
+					marginBottom: 16,
+					padding: 20,
+					borderRadius: 20,
+					background: 'linear-gradient(135deg, #0f172a 0%, #2563eb 100%)',
+					color: '#ffffff',
+					boxShadow: '0 16px 40px rgba(15, 23, 42, 0.2)',
+				}}>
+				<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', opacity: 0.8 }}>Dashboard refresh</div>
+				<h1 style={{ margin: '8px 0 6px', fontSize: 28, lineHeight: 1.2 }}>Record-first dashboard</h1>
+				<p style={{ margin: 0, maxWidth: 760, lineHeight: 1.55, opacity: 0.95 }}>
+					The queue, search, and JSON view are now grouped around the active record so the page feels more like a live inspector.
+				</p>
+			</div>
 			<div className={`${styles.layout} ${rightPaneCollapsed ? styles.layoutCollapsedRight : ''}`}>
 				<aside className={styles.leftPane}>
 					<Link
