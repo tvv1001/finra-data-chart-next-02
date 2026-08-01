@@ -169,17 +169,8 @@ function focusFetchInputWhenEmpty(options: { force?: boolean } = {}) {
 	});
 }
 
-function updateNodeRouteHistory(
-	href: string,
-	mode: 'push' | 'replace' = 'push',
-	router?: { push: (href: string, options?: { scroll?: boolean }) => void; replace: (href: string, options?: { scroll?: boolean }) => void },
-) {
+function updateNodeRouteHistory(href: string, mode: 'push' | 'replace' = 'push') {
 	if (typeof window === 'undefined') return;
-	if (router) {
-		const method = mode === 'replace' ? 'replace' : 'push';
-		router[method](href, { scroll: false });
-		return;
-	}
 	const method = mode === 'replace' ? 'replaceState' : 'pushState';
 	window.history[method](window.history.state, '', href);
 }
@@ -201,14 +192,18 @@ function routeSidebarNodeSelection({
 	setBrowserPathname: (nextPath: string) => void;
 	pulseDuration?: number;
 	autoExpand?: boolean;
-	router?: { push: (href: string, options?: { scroll?: boolean }) => void; replace: (href: string, options?: { scroll?: boolean }) => void };
+	router?: { push?: (href: string, options?: { scroll?: boolean }) => void; replace?: (href: string, options?: { scroll?: boolean }) => void };
 }) {
 	const nextHref = buildNodeRouteHref(nodeId, searchSuffix);
 	const nextPath = buildNodeRoutePath(nodeId);
 	const currentHref = `${browserPathname || pathname || '/'}${searchSuffix}`;
 	if (nextHref !== currentHref) {
 		setBrowserPathname(nextPath);
-		updateNodeRouteHistory(nextHref, 'push', router);
+		if (router?.push) {
+			router.push(nextHref, { scroll: false });
+		} else {
+			updateNodeRouteHistory(nextHref, 'push');
+		}
 	}
 	window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { nodeId, pulseDuration, autoExpand } }));
 }
@@ -234,6 +229,7 @@ export default function FinraGraph() {
 	const [isMounted, setIsMounted] = useState(false);
 	const [graphReady, setGraphReady] = useState(false);
 	const [browserPathname, setBrowserPathname] = useState('');
+	const [browserSearch, setBrowserSearch] = useState('');
 	const [fetchQuery, setFetchQuery] = useState('');
 	const [isFindBarOpen, setIsFindBarOpen] = useState(false);
 	const [findQuery, setFindQuery] = useState('');
@@ -248,10 +244,7 @@ export default function FinraGraph() {
 	// const findSubmitText = activeFindNodeId || focusedFindNodeId ? 'Select' : 'Find';
 
 	const findSubmitText = 'Select';
-	const searchSuffix = useMemo(() => {
-		const suffix = searchParams.toString();
-		return suffix ? `?${suffix}` : '';
-	}, [searchParams]);
+	const searchSuffix = useMemo(() => browserSearch || (searchParams.toString() ? `?${searchParams.toString()}` : ''), [browserSearch, searchParams]);
 
 	const handleFetchQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
 		setFetchQuery(event.target.value);
@@ -338,12 +331,11 @@ export default function FinraGraph() {
 				setBrowserPathname,
 				pulseDuration: 5000,
 				autoExpand: true,
-				router,
 			});
 			return;
 		}
 		window.dispatchEvent(new CustomEvent(FIND_NEXT_EVENT, { detail: { query } }));
-	}, [activeFindNodeId, browserPathname, closeFindBar, findQuery, focusedFindNodeId, pathname, router, searchSuffix]);
+	}, [activeFindNodeId, browserPathname, closeFindBar, findQuery, focusedFindNodeId, pathname, searchSuffix]);
 
 	const handleFindInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
 		if (event.key === 'Enter') {
@@ -415,7 +407,6 @@ export default function FinraGraph() {
 					setBrowserPathname,
 					pulseDuration: 5000,
 					autoExpand: true,
-					router,
 				});
 				return;
 			}
@@ -478,14 +469,15 @@ export default function FinraGraph() {
 
 	useEffect(() => {
 		if (!isMounted) return;
-		const syncBrowserPathname = () => {
+		const syncBrowserLocation = () => {
 			setBrowserPathname(window.location.pathname);
+			setBrowserSearch(window.location.search);
 		};
 
-		syncBrowserPathname();
-		window.addEventListener('popstate', syncBrowserPathname);
+		syncBrowserLocation();
+		window.addEventListener('popstate', syncBrowserLocation);
 		return () => {
-			window.removeEventListener('popstate', syncBrowserPathname);
+			window.removeEventListener('popstate', syncBrowserLocation);
 		};
 	}, [isMounted, pathname]);
 
@@ -637,7 +629,6 @@ export default function FinraGraph() {
 					pathname,
 					setBrowserPathname,
 					autoExpand: true,
-					router,
 				});
 				return;
 			}
@@ -727,10 +718,10 @@ export default function FinraGraph() {
 			if (nextHref === currentHref) return;
 			setBrowserPathname(nextPath);
 			if (detail.replace) {
-				updateNodeRouteHistory(nextHref, 'replace', router);
+				updateNodeRouteHistory(nextHref, 'replace');
 				return;
 			}
-			updateNodeRouteHistory(nextHref, 'push', router);
+			updateNodeRouteHistory(nextHref, 'push');
 		};
 
 		window.addEventListener(SELECTED_NODE_ROUTE_EVENT, handleSelectedNodeRoute as EventListener);
