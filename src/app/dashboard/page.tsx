@@ -1063,6 +1063,7 @@ function DashboardPageInner() {
 
 	const mergedDetailCacheRef = useRef(new Map<string, any>());
 	const jsonStringCacheRef = useRef(new Map<string, string>());
+	const lastNewCrdsFetchWarningAtRef = useRef(0);
 
 	const queueQueries = useMemo(() => parseQueueQueries(crdInput), [crdInput]);
 	const parsedCrds = useMemo(() => queueQueries.filter((value) => /^\d{1,10}$/.test(value)), [queueQueries]);
@@ -1095,18 +1096,37 @@ function DashboardPageInner() {
 		[graphHref],
 	);
 
+	const logNewCrdsFetchWarning = useCallback((error: unknown) => {
+		const now = Date.now();
+		if (now - lastNewCrdsFetchWarningAtRef.current < 60000) return;
+		lastNewCrdsFetchWarningAtRef.current = now;
+		console.warn('[dashboard] NEW CRDs refresh temporarily unavailable', error);
+	}, []);
+
 	async function loadNewCrdsFromRedis() {
 		try {
 			const res = await fetch('/api/dashboard/refresh', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ action: 'list-new-crds' }),
+				cache: 'no-store',
 			});
+			if (!res.ok) {
+				logNewCrdsFetchWarning(`HTTP ${res.status}`);
+				return;
+			}
 			const data = await res.json().catch(() => null);
 			if (data?.ok) {
 				setNewCrds(Array.isArray(data.newCrds) ? data.newCrds : []);
 			}
 		} catch (err) {
+			const message = String((err as any)?.message || err || '').toLowerCase();
+			const isTransientNetworkError =
+				message.includes('failed to fetch') || message.includes('networkerror') || message.includes('load failed') || message.includes('fetch failed');
+			if (isTransientNetworkError) {
+				logNewCrdsFetchWarning(err);
+				return;
+			}
 			console.error('Failed to load new CRDs:', err);
 		}
 	}
@@ -1734,11 +1754,42 @@ function DashboardPageInner() {
 	function extractPayloadFromDetail(detail: any, source: SearchResultSource) {
 		if (!detail || typeof detail !== 'object') return null;
 
+		const normalizeCandidatePayload = (value: unknown) => {
+			const parsed = maybeParseJson(value);
+			if (!parsed || typeof parsed !== 'object') return parsed;
+			return parsed;
+		};
+
+		const pickFirstUsableCandidate = (candidates: unknown[]) => {
+			for (const candidate of candidates) {
+				const normalized = normalizeCandidatePayload(candidate);
+				if (!normalized) continue;
+				return normalized;
+			}
+			return null;
+		};
+
 		const hasOrphan = Boolean(detail?.orphan && typeof detail.orphan === 'object');
 		const candidate =
 			source === 'finra' ?
-				(detail?.sources?.finra?.bccontent ?? detail?.sources?.finra ?? detail?.finraNode ?? detail?.merged ?? detail?.bccontent ?? null)
-			:	(detail?.sources?.sec?.iacontent ?? detail?.sources?.sec ?? detail?.finraNode ?? detail?.merged ?? detail?.iacontent ?? null);
+				pickFirstUsableCandidate([
+					detail?.sources?.finra?.bccontent,
+					detail?.sources?.finra?.content,
+					detail?.sources?.finra,
+					detail?.finraNode,
+					detail?.merged,
+					detail?.bccontent,
+					detail?.content,
+				])
+			:	pickFirstUsableCandidate([
+					detail?.sources?.sec?.iacontent,
+					detail?.sources?.sec?.content,
+					detail?.sources?.sec,
+					detail?.secNode,
+					detail?.merged,
+					detail?.iacontent,
+					detail?.content,
+				]);
 
 		const isScrapedReferenceOnly =
 			candidate && typeof candidate === 'object' && candidate?.found === false && !candidate?.payload && /no\s+live\s+crd/i.test(String(candidate?.error || ''));

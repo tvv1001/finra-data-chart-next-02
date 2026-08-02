@@ -11396,12 +11396,15 @@ async function openNodeWithExpansionTask(
 	markUserInitiatedGraphExpansion();
 	anchorNode(d);
 	lastExpandOriginNode = d;
-	selectNode(d, {
-		skipAutoExpand: true,
-		focus,
-		pulse,
-		focusDuration,
-	});
+	const shouldReapplySelection = !selectedId || String(selectedId) === String(d?.id || '');
+	if (shouldReapplySelection) {
+		selectNode(d, {
+			skipAutoExpand: true,
+			focus,
+			pulse,
+			focusDuration,
+		});
+	}
 
 	try {
 		if (shouldAutoRevealNodeConnections(d)) {
@@ -12964,23 +12967,36 @@ function renderPersonDetail(d: any) {
 	// Build unified list from FINRA arrays (currentEmployments, previousEmployments,
 	// currentIAEmployments, previousIAEmployments) if stored on node.
 	function empToEntry(emp, isCurrent) {
-		const bo = emp.branchOfficeLocations?.[0];
-		const city = emp.city || bo?.city || '';
-		const state = emp.state || bo?.state || '';
-		const street1 = bo?.street1 || '';
-		const street2 = bo?.street2 || '';
-		const zip = emp.zipCode || bo?.zipCode || '';
+		const branchOfficeLocations = Array.isArray(emp?.branchOfficeLocations) ? emp.branchOfficeLocations : [];
+		const bo =
+			branchOfficeLocations.find(
+				(office) =>
+					String(office?.locatedAtFlag || '')
+						.trim()
+						.toUpperCase() === 'Y',
+			) ||
+			branchOfficeLocations[0] ||
+			null;
+		const officeAddress =
+			typeof emp?.officeAddress === 'object' && emp.officeAddress ? emp.officeAddress
+			: typeof bo?.officeAddress === 'object' && bo?.officeAddress ? bo.officeAddress
+			: null;
+		const city = emp.city || bo?.city || officeAddress?.city || '';
+		const state = emp.state || bo?.state || officeAddress?.state || '';
+		const street1 = emp.street1 || bo?.street1 || officeAddress?.street1 || officeAddress?.address1 || '';
+		const street2 = emp.street2 || bo?.street2 || officeAddress?.street2 || officeAddress?.address2 || '';
+		const zip = emp.zipCode || emp.postalCode || bo?.zipCode || bo?.postalCode || officeAddress?.zipCode || officeAddress?.postalCode || '';
 		const loc = formatLocationText([city, state].filter(Boolean).join(', '));
 		const addr = formatLocationText([street1, street2, city, state, zip].filter(Boolean).join(', '));
 		return {
-			firmName: emp.firmName || '',
+			firmName: emp.firmName || emp.legalName || emp.organizationName || emp.name || '',
 			firmId: emp.firmId,
 			bdSecNumber: emp.bdSECNumber,
 			iaSECNumber: emp.iaSECNumber,
-			start: emp.registrationBeginDate || '',
-			end: emp.registrationEndDate || null,
-			isCurrent: isCurrent || !emp.registrationEndDate,
-			employmentStatus: emp.employmentStatus || emp.status || emp.currentStatus || '',
+			start: emp.registrationBeginDate || emp.startDate || emp.effectiveDate || emp.fromDate || emp.date || '',
+			end: emp.registrationEndDate || emp.endDate || emp.toDate || null,
+			isCurrent: isCurrent || !(emp.registrationEndDate || emp.endDate || emp.toDate),
+			employmentStatus: emp.employmentStatus || emp.registrationStatus || emp.status || emp.currentStatus || '',
 			iaOnly: emp.iaOnly === 'Y',
 			firmBCScope: emp.firmBCScope,
 			firmIAScope: emp.firmIAScope,
@@ -13003,15 +13019,41 @@ function renderPersonDetail(d: any) {
 	}
 
 	function regToEntry(emp, role, isCurrent) {
-		const office = emp.branchOfficeLocations?.[0];
-		const officeAddress = office ? formatLocationText([office.street1, office.street2, office.city, office.state, office.zipCode].filter(Boolean).join(', ')) : '';
-		const cityState = formatLocationText([emp.city || office?.city || '', emp.state || office?.state || ''].filter(Boolean).join(', '));
+		const branchOfficeLocations = Array.isArray(emp?.branchOfficeLocations) ? emp.branchOfficeLocations : [];
+		const office =
+			branchOfficeLocations.find(
+				(entry) =>
+					String(entry?.locatedAtFlag || '')
+						.trim()
+						.toUpperCase() === 'Y',
+			) ||
+			branchOfficeLocations[0] ||
+			null;
+		const officeObj =
+			typeof emp?.officeAddress === 'object' && emp.officeAddress ? emp.officeAddress
+			: typeof office?.officeAddress === 'object' && office?.officeAddress ? office.officeAddress
+			: null;
+		const officeAddress =
+			office ?
+				formatLocationText(
+					[
+						emp.street1 || office.street1 || officeObj?.street1 || officeObj?.address1,
+						emp.street2 || office.street2 || officeObj?.street2 || officeObj?.address2,
+						emp.city || office.city || officeObj?.city,
+						emp.state || office.state || officeObj?.state,
+						emp.zipCode || emp.postalCode || office.zipCode || office.postalCode || officeObj?.zipCode || officeObj?.postalCode,
+					]
+						.filter(Boolean)
+						.join(', '),
+				)
+			:	'';
+		const cityState = formatLocationText([emp.city || office?.city || officeObj?.city || '', emp.state || office?.state || officeObj?.state || ''].filter(Boolean).join(', '));
 		return {
 			role,
 			firmId: emp.firmId,
-			firmName: emp.firmName || '',
-			start: emp.registrationBeginDate || '',
-			end: emp.registrationEndDate || null,
+			firmName: emp.firmName || emp.legalName || emp.organizationName || emp.name || '',
+			start: emp.registrationBeginDate || emp.startDate || emp.effectiveDate || emp.fromDate || emp.date || '',
+			end: emp.registrationEndDate || emp.endDate || emp.toDate || null,
 			isCurrent,
 			officeAddress,
 			cityState,
