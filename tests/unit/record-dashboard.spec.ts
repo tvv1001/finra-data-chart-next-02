@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getRecordDashboardDisplayMeta, summarizeRecordDetail } from '../../src/components/RecordDashboard';
+import { getRecordDashboardDisplayMeta, mergeDashboardDetailPayload, summarizeRecordDetail } from '../../src/components/RecordDashboard';
 import { getRecordDisplayName } from '../../src/lib/recordDisplay';
 
 describe('summarizeRecordDetail', () => {
@@ -69,5 +69,29 @@ describe('summarizeRecordDetail', () => {
 
 	it('uses the individual full name instead of the fallback placeholder', () => {
 		expect(getRecordDisplayName({ basicInformation: { firstName: 'Alice', lastName: 'Johnson' } }, 'individual', '8276416')).toBe('Alice Johnson');
+	});
+
+	it('merges node-route stub data with the full record payload without dropping rich detail', () => {
+		const merged = mergeDashboardDetailPayload(
+			{
+				id: 'firm:5393',
+				label: 'Charles Schwab & Co., Inc.',
+				group: 'firm',
+				firmId: '5393',
+			},
+			{
+				found: true,
+				basicInformation: {
+					firmName: 'Charles Schwab & Co., Inc.',
+					bdSECNumber: '8-1029',
+				},
+				registrationStatus: [{ status: 'Approved' }],
+			},
+		) as Record<string, any>;
+
+		expect(merged.label).toBe('Charles Schwab & Co., Inc.');
+		expect(merged.basicInformation.firmName).toBe('Charles Schwab & Co., Inc.');
+		expect(merged.basicInformation.bdSECNumber).toBe('8-1029');
+		expect(merged.registrationStatus).toEqual([{ status: 'Approved' }]);
 	});
 });

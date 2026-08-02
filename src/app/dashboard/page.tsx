@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { buildJsonDisplayTree, coerceStructuredValue, normalizeRenderablePayload, renderJsonForDisplay } from '../../lib/dashboard-json';
 import { resolveMainRecordTitle } from '../../lib/dashboard-record-title';
 import { getRecordDisplayName } from '../../lib/recordDisplay';
@@ -76,11 +77,21 @@ export function parseDashboardSelectionFromUrl(urlString: string): UrlSelectionI
 		const url = new URL(urlString, 'http://localhost');
 		const params = url.searchParams;
 
+		const normalizeSelectionId = (value: unknown) => {
+			const text = String(value || '').trim();
+			if (!text) return '';
+			if (/^\d{1,10}$/.test(text)) return text;
+			const extracted = extractNumericCrdsFromText(text)[0] || '';
+			if (extracted) return extracted;
+			const loose = text.match(/\b(\d{1,10})\b/);
+			return loose?.[1] || '';
+		};
+
 		const pathMatch = /^\/dashboard\/(individual|firm)\/([^/?#]+)\/?$/i.exec(url.pathname);
 		if (pathMatch) {
 			const entity: 'individual' | 'firm' = pathMatch[1].toLowerCase() === 'firm' ? 'firm' : 'individual';
-			const id = decodeURIComponent(pathMatch[2]).trim();
-			if (!/^\d{1,10}$/.test(id)) return null;
+			const id = normalizeSelectionId(decodeURIComponent(pathMatch[2]));
+			if (!id) return null;
 
 			const sourceParam = String(params.get('source') || '')
 				.trim()
@@ -99,10 +110,10 @@ export function parseDashboardSelectionFromUrl(urlString: string): UrlSelectionI
 			};
 		}
 
-		const firmId = String(params.get('CRD_firm') || '').trim();
-		const individualId = String(params.get('CRD_individual') || '').trim();
+		const firmId = normalizeSelectionId(params.get('CRD_firm'));
+		const individualId = normalizeSelectionId(params.get('CRD_individual'));
 		const id = firmId || individualId;
-		if (!/^\d{1,10}$/.test(id)) return null;
+		if (!id) return null;
 
 		const sourceParam = String(params.get('source') || '')
 			.trim()
@@ -549,6 +560,24 @@ function pickFirstNonEmpty(...values: unknown[]): string {
 	return '';
 }
 
+function normalizeCrd(value: unknown): string {
+	const text = toText(value);
+	if (!text) return '';
+	if (/^\d{1,10}$/.test(text)) return text;
+	const extracted = extractNumericCrdsFromText(text)[0] || '';
+	if (extracted) return extracted;
+	const loose = text.match(/\b(\d{1,10})\b/);
+	return loose?.[1] || '';
+}
+
+function pickFirstValidCrd(...values: unknown[]): string {
+	for (const value of values) {
+		const crd = normalizeCrd(value);
+		if (crd) return crd;
+	}
+	return '';
+}
+
 function formatAddress(value: unknown): string {
 	if (!value) return '';
 	if (typeof value === 'string') return value.trim();
@@ -617,10 +646,10 @@ function stringifyRawValue(value: unknown): string {
 		if (value.every((v) => ['string', 'number', 'boolean'].includes(typeof v))) {
 			return value.map((v) => String(v)).join(', ');
 		}
-		return JSON.stringify(value);
+		return JSON.stringify(value, null, 2);
 	}
 	if (value && typeof value === 'object') {
-		return JSON.stringify(value);
+		return JSON.stringify(value, null, 2);
 	}
 	return '';
 }
@@ -812,7 +841,14 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 			if (!record || typeof record !== 'object' || Array.isArray(record)) return null;
 			const title = pickFirstNonEmpty(record?.firmName, record?.name, record?.organizationName, record?.companyName, record?.connectionName);
 			const meta = pickFirstNonEmpty(record?.relationship, record?.position, record?.title, record?.status);
-			const subtitle = pickFirstNonEmpty(record?.effectiveDate, record?.date, record?.startDate, record?.endDate);
+			const dateText = pickFirstNonEmpty(record?.effectiveDate, record?.date, record?.startDate, record?.endDate);
+			const addressText = pickFirstNonEmpty(
+				record?.address,
+				formatAddress(record?.officeAddress),
+				formatAddress(record?.mailingAddress),
+				[toText(record?.city), toText(record?.state)].filter(Boolean).join(', '),
+			);
+			const subtitle = [dateText, addressText].filter(Boolean).join(' • ');
 			return title ? { title, meta: meta || '', subtitle: subtitle || '' } : null;
 		})
 		.filter(Boolean) as Array<{ title: string; meta: string; subtitle: string }>;
@@ -889,7 +925,60 @@ function extractSearchResultDetail(item: SearchResult): string {
 	return pickFirstNonEmpty(item?.bcScope, item?.iaScope, item?.status, item?.registrationStatus, item?.firm_bc_scope, item?.firm_ia_scope);
 }
 
-export default function DashboardPage() {
+function OrphanProfileLinks({ parentCrd }: { parentCrd: string }) {
+	const [status, setStatus] = useState<{ finra: boolean; sec: boolean } | null>(null);
+
+	useEffect(() => {
+		let active = true;
+		fetch(`/api/finra/firm/${parentCrd}`)
+			.then((res) => res.json())
+			.then((data) => {
+				if (active && data && typeof data === 'object') {
+					setStatus({
+						finra: Boolean(data.hasFinraData),
+						sec: Boolean(data.hasSecData),
+					});
+				}
+			})
+			.catch(() => {
+				if (active) setStatus({ finra: true, sec: true }); // Fallback
+			});
+		return () => {
+			active = false;
+		};
+	}, [parentCrd]);
+
+	if (!status) return <div style={{ fontSize: '13px', color: '#64748b' }}>Validating parent firm sources...</div>;
+
+	if (!status.finra && !status.sec) return <div style={{ fontSize: '13px', color: '#64748b' }}>No external parent links available.</div>;
+
+	return (
+		<div className={styles.profileLinksRow}>
+			{status.finra && (
+				<a
+					href={`https://brokercheck.finra.org/firm/summary/${parentCrd}`}
+					target='_blank'
+					rel='noopener noreferrer'
+					className={styles.profileLinkBtn}>
+					Parent firm FINRA profile ↗
+				</a>
+			)}
+			{status.sec && (
+				<a
+					href={`https://adviserinfo.sec.gov/firm/summary/${parentCrd}`}
+					target='_blank'
+					rel='noopener noreferrer'
+					className={styles.profileLinkBtn}>
+					Parent firm SEC profile ↗
+				</a>
+			)}
+		</div>
+	);
+}
+
+function DashboardPageInner() {
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
 	const [crdInput, setCrdInput] = useState('');
 	const [externalRawDir, setExternalRawDir] = useState('/home/lenny/Dev/webDev/Data-finra-sec/data/raw');
 	const [busyAction, setBusyAction] = useState<DashboardAction | null>(null);
@@ -961,6 +1050,13 @@ export default function DashboardPage() {
 	const parsedCrds = useMemo(() => queueQueries.filter((value) => /^\d{1,10}$/.test(value)), [queueQueries]);
 	const queueQueryLines = useMemo(() => submittedQueueQueries, [submittedQueueQueries]);
 	const visibleQueueCount = queueQueryLines.length;
+
+	const routeSelection = useMemo(() => {
+		if (!pathname) return null;
+		const query = searchParams?.toString();
+		const url = `http://localhost${pathname}${query ? `?${query}` : ''}`;
+		return parseDashboardSelectionFromUrl(url);
+	}, [pathname, searchParams]);
 
 	async function loadNewCrdsFromRedis() {
 		try {
@@ -1146,26 +1242,26 @@ export default function DashboardPage() {
 	}, [mainJson, result, mainJsonLabel]);
 
 	useEffect(() => {
-		if (typeof window === 'undefined') return;
-		if (currentRecordId) return;
+		if (!routeSelection) return;
 
-		const selection = parseDashboardSelectionFromUrl(window.location.href);
-		if (!selection) return;
+		const isAlreadySelected = currentRecordId === routeSelection.id && currentRecordEntity === routeSelection.entity && currentRecordSource === routeSelection.source;
+		if (isAlreadySelected) return;
 
-		syncSelectionToUrl(selection);
+		syncSelectionToUrl(routeSelection);
 
 		const card: QueueCard = {
-			id: selection.id,
-			entity: selection.entity,
-			files: Math.max(1, selection.availableSources?.length || 1),
-			sources: (selection.availableSources || [selection.source]).map((source) => ({
+			id: routeSelection.id,
+			entity: routeSelection.entity,
+			files: Math.max(1, routeSelection.availableSources?.length || 1),
+			sources: (routeSelection.availableSources || [routeSelection.source]).map((source) => ({
 				source,
 				status: 'unknown',
 			})),
 		};
 
-		void loadQueueSourceJson(card, selection.source);
-	}, [currentRecordId]);
+		void loadQueueSourceJson(card, routeSelection.source);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [routeSelection]);
 
 	const searchSummary = useMemo(() => {
 		if (!searchQuery.trim()) return 'Search saved records by name';
@@ -1250,6 +1346,13 @@ export default function DashboardPage() {
 			.slice(0, 20);
 	}, [newCrds]);
 
+	const orphanRecord = useMemo(() => {
+		if (!mainJson || typeof mainJson !== 'object') return null;
+		const obj = mainJson as any;
+		if (obj.orphan && typeof obj.orphan === 'object') return obj.orphan;
+		return null;
+	}, [mainJson]);
+
 	const detailedMainRecord = useMemo(() => {
 		if (!mainJson || !currentRecordEntity || !currentRecordId) return null;
 
@@ -1265,8 +1368,18 @@ export default function DashboardPage() {
 			formatAddress(body.address);
 		const otherNames = collectOtherNames(basic.otherNames, body.otherNames, basic.aliases, body.aliases);
 
-		const currentEmployment = [...toArray(body.currentEmployments), ...toArray(body.currentIAEmployments), ...toArray(body.currentEmployment)];
-		const previousEmployment = [...toArray(body.previousEmployments), ...toArray(body.previousIAEmployments)];
+		const sortEmployment = (arr: any[]) => {
+			return arr.sort((a, b) => {
+				const getSortDate = (row: any) => {
+					const d = pickFirstNonEmpty(row.registrationBeginDate, row.effectiveDate, row.startDate);
+					return d ? new Date(d).getTime() : 0;
+				};
+				return getSortDate(b) - getSortDate(a);
+			});
+		};
+
+		const currentEmployment = sortEmployment([...toArray(body.currentEmployments), ...toArray(body.currentIAEmployments), ...toArray(body.currentEmployment)]);
+		const previousEmployment = sortEmployment([...toArray(body.previousEmployments), ...toArray(body.previousIAEmployments)]);
 		const registrationCards = extractRegistrationCards(body);
 		const currentConnectionCards = extractConnectionCards(body, 'currentConnections');
 		const previousConnectionCards = extractConnectionCards(body, 'previousConnections');
@@ -1303,29 +1416,37 @@ export default function DashboardPage() {
 			additionalDetails.push({ label, value: rendered });
 		}
 
-		const profileLinks = [
-			{
+		const mainObj = typeof mainJson === 'object' && mainJson !== null ? (mainJson as any) : {};
+		const showFinra = mainObj.hasFinraData !== false;
+		const showSec = mainObj.hasSecData !== false;
+
+		const profileLinks = [];
+		if (showFinra) {
+			profileLinks.push({
 				label: 'FINRA profile ↗',
 				href: `https://brokercheck.finra.org/${currentRecordEntity === 'firm' ? 'firm' : 'individual'}/summary/${currentRecordId}`,
-			},
-			...(currentRecordEntity === 'individual' ?
-				[
-					{
-						label: 'FINRA Detailed Report (PDF) ↗',
-						href: `https://files.brokercheck.finra.org/individual/individual_${currentRecordId}.pdf`,
-					},
-				]
-			:	[]),
-			{
+			});
+			if (currentRecordEntity === 'individual') {
+				profileLinks.push({
+					label: 'FINRA Detailed Report (PDF) ↗',
+					href: `https://files.brokercheck.finra.org/individual/individual_${currentRecordId}.pdf`,
+				});
+			}
+		}
+		if (showSec) {
+			profileLinks.push({
 				label: 'SEC profile ↗',
 				href: `https://adviserinfo.sec.gov/${currentRecordEntity === 'firm' ? 'firm' : 'individual'}/summary/${currentRecordId}`,
-			},
-		];
+			});
+		}
 
 		const jurisdictionCards = extractJurisdictionCards(body);
 		const brochureCards = extractBrochureCards(body);
 		const documentLinkCards = extractDocumentLinkCards(body);
 		const noticeFilingCards = extractNoticeFilingsCards(body);
+
+		const directOwners = toArray(body.directOwners).concat(toArray(body.directOwnersExecutiveOfficers));
+		const indirectOwners = toArray(body.indirectOwners);
 
 		return {
 			name:
@@ -1350,6 +1471,8 @@ export default function DashboardPage() {
 			brochureCards,
 			documentLinkCards,
 			noticeFilingCards,
+			directOwners,
+			indirectOwners,
 		};
 	}, [mainJson, currentRecordEntity, currentRecordId]);
 
@@ -1528,7 +1651,8 @@ export default function DashboardPage() {
 		const scopeText = (entry.scopes || []).join(' ').toLowerCase();
 		if (scopeText.includes('finra') || scopeText.includes('bc')) sources.push({ source: 'finra', status: 'unknown' });
 		if (scopeText.includes('sec') || scopeText.includes('ia')) sources.push({ source: 'sec', status: 'unknown' });
-		if (!sources.length) sources.push({ source: 'finra', status: 'unknown' });
+		if (!sources.find((item) => item.source === 'finra')) sources.push({ source: 'finra', status: 'unknown' });
+		if (!sources.find((item) => item.source === 'sec')) sources.push({ source: 'sec', status: 'unknown' });
 
 		await loadQueueSourceJson(
 			{
@@ -1544,25 +1668,64 @@ export default function DashboardPage() {
 
 	function syncSelectionToUrl({ entity, id, source, availableSources = [source] }: UrlSelectionInput) {
 		if (typeof window === 'undefined') return;
-		if (!/^\d{1,10}$/.test(String(id || '').trim())) return;
+		const normalizedId = normalizeCrd(id);
+		if (!normalizedId) return;
 
 		const url = new URL(window.location.href);
-		const recordId = String(id).trim();
+		const recordId = normalizedId;
 
 		const nextPath = `/dashboard/${entity}/${encodeURIComponent(recordId)}`;
-		window.history.replaceState({}, '', `${nextPath}${url.hash}`);
+		window.history.replaceState({}, '', `${nextPath}${url.search}${url.hash}`);
 	}
 
 	function isSelectedCardSource(card: QueueCard, source: SearchResultSource) {
 		return currentRecordId === card.id && currentRecordEntity === card.entity && currentRecordSource === source;
 	}
 
+	function handleInternalDashboardLinkClick(event: MouseEvent<HTMLElement>) {
+		const target = event.target as HTMLElement | null;
+		const anchor = target?.closest?.('a[href]') as HTMLAnchorElement | null;
+		if (!anchor) return;
+
+		const href = String(anchor.getAttribute('href') || '').trim();
+		if (!href.startsWith('/dashboard/')) return;
+
+		const parsed = parseDashboardSelectionFromUrl(`http://localhost${href}`);
+		if (!parsed) return;
+
+		event.preventDefault();
+		event.stopPropagation();
+
+		const orderedSources: SearchResultSource[] = parsed.source === 'sec' ? ['sec', 'finra'] : ['finra', 'sec'];
+
+		const card: QueueCard = {
+			id: parsed.id,
+			entity: parsed.entity,
+			files: orderedSources.length,
+			sources: orderedSources.map((source) => ({ source, status: 'unknown' })),
+		};
+
+		void loadQueueSourceJson(card, parsed.source);
+	}
+
 	function extractPayloadFromDetail(detail: any, source: SearchResultSource) {
 		if (!detail || typeof detail !== 'object') return null;
-		if (source === 'finra') {
-			return detail?.sources?.finra?.bccontent ?? detail?.sources?.finra ?? detail?.finraNode ?? detail?.merged ?? detail?.bccontent ?? null;
+
+		const hasOrphan = Boolean(detail?.orphan && typeof detail.orphan === 'object');
+		const candidate =
+			source === 'finra' ?
+				(detail?.sources?.finra?.bccontent ?? detail?.sources?.finra ?? detail?.finraNode ?? detail?.merged ?? detail?.bccontent ?? null)
+			:	(detail?.sources?.sec?.iacontent ?? detail?.sources?.sec ?? detail?.finraNode ?? detail?.merged ?? detail?.iacontent ?? null);
+
+		const isScrapedReferenceOnly =
+			candidate && typeof candidate === 'object' && candidate?.found === false && !candidate?.payload && /no\s+live\s+crd/i.test(String(candidate?.error || ''));
+
+		if (isScrapedReferenceOnly) {
+			return hasOrphan ? detail : null;
 		}
-		return detail?.sources?.sec?.iacontent ?? detail?.sources?.sec ?? detail?.finraNode ?? detail?.merged ?? detail?.iacontent ?? null;
+
+		if (candidate) return candidate;
+		return hasOrphan ? detail : null;
 	}
 
 	async function loadInventoryOnlyFromRedis() {
@@ -1743,41 +1906,55 @@ export default function DashboardPage() {
 		const sourceKey = `${card.entity}:${card.id}:${source}`;
 		setActiveCardSourceKey(sourceKey);
 		try {
-			const detail = await fetchMergedDetail(card);
-			let payload = extractPayloadFromDetail(detail, source);
+			const orderedSources: SearchResultSource[] = [source, ...card.sources.map((entry) => entry.source).filter((candidate) => candidate !== source)];
 
-			if (!payload) {
+			let payload: any = null;
+			let resolvedSource: SearchResultSource = source;
+
+			for (const candidateSource of orderedSources) {
+				const detail = await fetchMergedDetail(card);
+				payload = extractPayloadFromDetail(detail, candidateSource);
+				if (payload) {
+					resolvedSource = candidateSource;
+					break;
+				}
+
 				const fallbackDetail = await fetchFallbackDetail(card);
-				payload = extractPayloadFromDetail(fallbackDetail, source);
+				payload = extractPayloadFromDetail(fallbackDetail, candidateSource);
 				if (payload) {
 					mergedDetailCacheRef.current.set(`${card.entity}:${card.id}`, fallbackDetail);
+					resolvedSource = candidateSource;
+					break;
 				}
-			}
 
-			if (!payload) {
-				const directRefreshedPayload = await refreshSingleCardRecord(card, source);
+				const directRefreshedPayload = await refreshSingleCardRecord(card, candidateSource);
 				if (directRefreshedPayload) {
 					payload = directRefreshedPayload;
+					resolvedSource = candidateSource;
+					break;
 				}
 
 				mergedDetailCacheRef.current.delete(`${card.entity}:${card.id}`);
-				if (!payload) {
-					const refreshedDetail = await fetchMergedDetail(card);
-					payload = extractPayloadFromDetail(refreshedDetail, source);
+				const refreshedDetail = await fetchMergedDetail(card);
+				payload = extractPayloadFromDetail(refreshedDetail, candidateSource);
+				if (payload) {
+					resolvedSource = candidateSource;
+					break;
 				}
 
-				if (!payload) {
-					const refreshedFallbackDetail = await fetchFallbackDetail(card);
-					payload = extractPayloadFromDetail(refreshedFallbackDetail, source);
-					if (payload) {
-						mergedDetailCacheRef.current.set(`${card.entity}:${card.id}`, refreshedFallbackDetail);
-					}
+				const refreshedFallbackDetail = await fetchFallbackDetail(card);
+				payload = extractPayloadFromDetail(refreshedFallbackDetail, candidateSource);
+				if (payload) {
+					mergedDetailCacheRef.current.set(`${card.entity}:${card.id}`, refreshedFallbackDetail);
+					resolvedSource = candidateSource;
+					break;
 				}
-
-				void loadQueueCardsFromRedis(queueCrdFilter);
 			}
 
+			void loadQueueCardsFromRedis(queueCrdFilter);
+
 			if (!payload) {
+				setMainJson(null);
 				setMainJsonLabel(`${source}:${card.entity}:${card.id}`);
 				setCurrentRecordSource(source);
 				setCurrentRecordEntity(card.entity);
@@ -1790,14 +1967,14 @@ export default function DashboardPage() {
 			}
 
 			setMainJson(normalizePayloadForCleanView(payload) as Record<string, any>);
-			setCurrentRecordSource(source);
+			setCurrentRecordSource(resolvedSource);
 			setCurrentRecordEntity(card.entity);
 			setCurrentRecordId(card.id);
 			const detailName = extractEntityDetailFromPayload(payload, card.entity, card.id)?.name;
 			setMainJsonLabel(
 				resolveMainRecordTitle({
 					mainJsonLabel: formatMainPanelTitle({
-						source,
+						source: resolvedSource,
 						entity: card.entity,
 						id: card.id,
 						name: card.name || detailName,
@@ -1812,13 +1989,13 @@ export default function DashboardPage() {
 			recordHistoryEntry({
 				id: card.id,
 				entity: card.entity,
-				source,
+				source: resolvedSource,
 				name: card.name || undefined,
 			});
 			syncSelectionToUrl({
 				entity: card.entity,
 				id: card.id,
-				source,
+				source: resolvedSource,
 				availableSources: card.sources.map((entry) => entry.source),
 			});
 		} catch (error: any) {
@@ -2278,7 +2455,18 @@ export default function DashboardPage() {
 											</button>
 										</div>
 									</div>
-									<h2 className={styles.recordTitle}>{mainJsonLabel}</h2>
+									<h2 className={styles.recordTitle}>{orphanRecord?.name?.toUpperCase() || mainJsonLabel}</h2>
+									{detailedMainRecord && detailedMainRecord.otherNames.length > 0 && (
+										<div className={styles.headerOtherNamesRow}>
+											{detailedMainRecord.otherNames.map((name) => (
+												<span
+													key={name}
+													className={styles.headerOtherNameTag}>
+													{name}
+												</span>
+											))}
+										</div>
+									)}
 									{currentRecordId && <div className={styles.recordKeyLabel}>CRD {currentRecordId}</div>}
 								</>
 							)}
@@ -2295,8 +2483,114 @@ export default function DashboardPage() {
 							)}
 
 							{hasCurrentRecord && mainViewMode === 'card' && (
-								<div className={styles.readableCardPanel}>
-									{detailedMainRecord ?
+								<div
+									className={styles.readableCardPanel}
+									onClickCapture={handleInternalDashboardLinkClick}>
+									{orphanRecord ?
+										<>
+											<div className={styles.detailList}>
+												{orphanRecord.officeAddress && (
+													<div className={styles.detailRow}>
+														<div className={styles.detailTextRow}>
+															<strong>Main Address:</strong> {formatAddress(orphanRecord.officeAddress)}
+														</div>
+													</div>
+												)}
+												{orphanRecord.mailingAddress && (
+													<div className={styles.detailRow}>
+														<div className={styles.detailTextRow}>
+															<strong>Mailing:</strong> {formatAddress(orphanRecord.mailingAddress)}
+														</div>
+													</div>
+												)}
+												{orphanRecord.phone && (
+													<div className={styles.detailRow}>
+														<div className={styles.detailTextRow}>
+															<strong>Phone:</strong> {orphanRecord.phone}
+														</div>
+													</div>
+												)}
+											</div>
+
+											<section
+												className={styles.detailSection}
+												style={{ marginTop: '24px' }}>
+												<h4 className={styles.detailSectionTitle}>Profile Links</h4>
+												<OrphanProfileLinks parentCrd={String(orphanRecord.parentCrd)} />
+											</section>
+
+											<section className={styles.detailSection}>
+												<h4 className={styles.detailSectionTitle}>General Information</h4>
+												<div className={styles.detailList}>
+													{orphanRecord.name && (
+														<div className={styles.detailRow}>
+															<div className={styles.detailTextRow}>
+																<strong>Name:</strong> {orphanRecord.name}
+															</div>
+														</div>
+													)}
+													<div className={styles.detailRow}>
+														<div className={styles.detailTextRow}>
+															<strong>Individual CRD:</strong> {currentRecordId}
+														</div>
+													</div>
+													{orphanRecord.position && (
+														<div className={styles.detailRow}>
+															<div className={styles.detailTextRow}>
+																<strong>Position:</strong> {orphanRecord.position}
+															</div>
+														</div>
+													)}
+													{orphanRecord.firmName && (
+														<div className={styles.detailRow}>
+															<div className={styles.detailTextRow}>
+																<strong>Affiliated Firm:</strong> {orphanRecord.firmName}
+															</div>
+														</div>
+													)}
+													{orphanRecord.parentCrd && (
+														<div className={styles.detailRow}>
+															<div className={styles.detailTextRow}>
+																<strong>Parent Firm CRD:</strong>{' '}
+																<Link
+																	href={`/dashboard/firm/${orphanRecord.parentCrd}`}
+																	className={styles.detailInlineTag}>
+																	Firm #{orphanRecord.parentCrd}
+																</Link>
+															</div>
+														</div>
+													)}
+												</div>
+											</section>
+
+											{orphanRecord.firmName && orphanRecord.parentCrd && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Current Employment (1)</h4>
+													<div className={styles.detailList}>
+														<Link
+															href={`/dashboard/firm/${orphanRecord.parentCrd}`}
+															className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
+															<div className={styles.detailRowMain}>
+																<span className={styles.detailRowName}>{orphanRecord.firmName}</span>
+																<span className={styles.detailInlineTag}>CRD#{orphanRecord.parentCrd}</span>
+															</div>
+															<div className={styles.detailRowMeta}>{orphanRecord.position}</div>
+														</Link>
+													</div>
+												</section>
+											)}
+
+											<div className={styles.orphanNoticeAlert}>
+												No independent BrokerCheck/SEC record exists for CRD {currentRecordId}. This person was scraped from{' '}
+												<Link
+													href={`/dashboard/firm/${orphanRecord.parentCrd}`}
+													className={styles.detailInlineTag}>
+													Firm CRD#{orphanRecord.parentCrd}
+												</Link>
+												's own detail record as "{orphanRecord.position}", and has no live CRD of its own.
+											</div>
+										</>
+									: detailedMainRecord ?
 										<>
 											{detailedMainRecord.mainAddress && (
 												<section className={styles.detailSection}>
@@ -2304,23 +2598,6 @@ export default function DashboardPage() {
 													<div className={styles.detailTextRow}>{detailedMainRecord.mainAddress}</div>
 												</section>
 											)}
-
-											{detailedMainRecord.otherNames.length > 0 && (
-												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Other Names</h4>
-													<div className={styles.detailTagList}>
-														{detailedMainRecord.otherNames.map((name) => (
-															<span
-																key={name}
-																className={styles.detailTag}>
-																{name}
-															</span>
-														))}
-													</div>
-												</section>
-											)}
-
-
 
 											<section className={styles.detailSection}>
 												<h4 className={styles.detailSectionTitle}>Profile Links</h4>
@@ -2342,23 +2619,45 @@ export default function DashboardPage() {
 												<section className={styles.detailSection}>
 													<h4 className={styles.detailSectionTitle}>Current Employment ({detailedMainRecord.currentEmployment.length})</h4>
 													<div className={styles.detailList}>
-														{detailedMainRecord.currentEmployment.map((row, idx) => (
-															<div
-																key={`cur-emp-${idx}`}
-																className={styles.detailRow}>
-																<div className={styles.detailRowMain}>
-																	<span className={styles.detailRowName}>{pickFirstNonEmpty(row.legalName, row.name, row.firmName, row.organizationName) || `Employment ${idx + 1}`}</span>
-																	{pickFirstNonEmpty(row.crdNumber, row.crd, row.firmId) && (
-																		<span className={styles.detailInlineTag}>CRD#{pickFirstNonEmpty(row.crdNumber, row.crd, row.firmId)}</span>
-																	)}
+														{detailedMainRecord.currentEmployment.map((row, idx) => {
+															const crd = pickFirstValidCrd(row.crdNumber, row.crd, row.firmId);
+															const address = formatAddress(row.branchOfficeLocations?.[0]) || (row.city && row.state ? `${row.city}, ${row.state}` : '');
+															const startDate = pickFirstNonEmpty(row.registrationBeginDate, row.effectiveDate, row.startDate);
+															const dateStr = startDate ? `Since ${startDate}` : '';
+															const metaParts = [address, dateStr].filter(Boolean);
+															const metaLine = metaParts.length > 0 ? metaParts.join(' • ') : pickFirstNonEmpty(row.position, row.currentRegistration, row.status);
+
+															const content = (
+																<>
+																	<div className={styles.detailRowMain}>
+																		<span className={styles.detailRowName}>
+																			{pickFirstNonEmpty(row.legalName, row.name, row.firmName, row.organizationName) || `Employment ${idx + 1}`}
+																		</span>
+																		{crd && <span className={styles.detailInlineTag}>CRD#{crd}</span>}
+																	</div>
+																	<div className={styles.detailRowMeta}>{metaLine}</div>
+																</>
+															);
+
+															if (crd) {
+																return (
+																	<Link
+																		href={`/dashboard/firm/${crd}`}
+																		key={`cur-emp-${idx}`}
+																		className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
+																		{content}
+																	</Link>
+																);
+															}
+
+															return (
+																<div
+																	key={`cur-emp-${idx}`}
+																	className={styles.detailRow}>
+																	{content}
 																</div>
-																<div className={styles.detailRowMeta}>
-																	{[formatAddress(row.branchOfficeLocations?.[0]), pickFirstNonEmpty(row.registrationBeginDate, row.effectiveDate, row.startDate)]
-																		.filter(Boolean)
-																		.join(' • ') || pickFirstNonEmpty(row.position, row.currentRegistration, row.status)}
-																</div>
-															</div>
-														))}
+															);
+														})}
 													</div>
 												</section>
 											)}
@@ -2386,23 +2685,50 @@ export default function DashboardPage() {
 												<section className={styles.detailSection}>
 													<h4 className={styles.detailSectionTitle}>Previous Employment ({detailedMainRecord.previousEmployment.length})</h4>
 													<div className={styles.detailList}>
-														{detailedMainRecord.previousEmployment.map((row, idx) => (
-															<div
-																key={`prev-emp-${idx}`}
-																className={styles.detailRow}>
-																<div className={styles.detailRowMain}>
-																	<span className={styles.detailRowName}>{pickFirstNonEmpty(row.legalName, row.name, row.firmName, row.organizationName) || `Employment ${idx + 1}`}</span>
-																	{pickFirstNonEmpty(row.crdNumber, row.crd, row.firmId) && (
-																		<span className={styles.detailInlineTag}>CRD#{pickFirstNonEmpty(row.crdNumber, row.crd, row.firmId)}</span>
-																	)}
+														{detailedMainRecord.previousEmployment.map((row, idx) => {
+															const crd = pickFirstValidCrd(row.crdNumber, row.crd, row.firmId);
+															const address = formatAddress(row.branchOfficeLocations?.[0]) || (row.city && row.state ? `${row.city}, ${row.state}` : '');
+															const startDate = pickFirstNonEmpty(row.registrationBeginDate, row.effectiveDate, row.startDate);
+															const endDate = pickFirstNonEmpty(row.registrationEndDate, row.endDate);
+
+															let dateStr = '';
+															if (startDate && endDate) dateStr = `${startDate} - ${endDate}`;
+															else if (startDate) dateStr = startDate;
+
+															const metaParts = [address, dateStr].filter(Boolean);
+															const metaLine = metaParts.length > 0 ? metaParts.join(' • ') : pickFirstNonEmpty(row.position, row.currentRegistration, row.status);
+
+															const content = (
+																<>
+																	<div className={styles.detailRowMain}>
+																		<span className={styles.detailRowName}>
+																			{pickFirstNonEmpty(row.legalName, row.name, row.firmName, row.organizationName) || `Employment ${idx + 1}`}
+																		</span>
+																		{crd && <span className={styles.detailInlineTag}>CRD#{crd}</span>}
+																	</div>
+																	<div className={styles.detailRowMeta}>{metaLine}</div>
+																</>
+															);
+
+															if (crd) {
+																return (
+																	<Link
+																		href={`/dashboard/firm/${crd}`}
+																		key={`prev-emp-${idx}`}
+																		className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
+																		{content}
+																	</Link>
+																);
+															}
+
+															return (
+																<div
+																	key={`prev-emp-${idx}`}
+																	className={styles.detailRow}>
+																	{content}
 																</div>
-																<div className={styles.detailRowMeta}>
-																	{[formatAddress(row.branchOfficeLocations?.[0]), pickFirstNonEmpty(row.registrationBeginDate, row.effectiveDate, row.startDate)]
-																		.filter(Boolean)
-																		.join(' • ') || pickFirstNonEmpty(row.position, row.currentRegistration, row.status)}
-																</div>
-															</div>
-														))}
+															);
+														})}
 													</div>
 												</section>
 											)}
@@ -2422,6 +2748,90 @@ export default function DashboardPage() {
 																{item.subtitle && <div className={styles.detailRowMeta}>{item.subtitle}</div>}
 															</div>
 														))}
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.directOwners?.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Direct Owners & Executive Officers ({detailedMainRecord.directOwners.length})</h4>
+													<div className={styles.detailList}>
+														{detailedMainRecord.directOwners.map((row, idx) => {
+															const crd = pickFirstValidCrd(row.crdNumber, row.crd, row.individualId);
+															const name = pickFirstNonEmpty(row.legalName, row.name, row.fullName);
+															const position = pickFirstNonEmpty(row.position, row.title);
+
+															const content = (
+																<>
+																	<div className={styles.detailRowMain}>
+																		<span className={styles.detailRowName}>{name || `Owner ${idx + 1}`}</span>
+																		{crd && <span className={styles.detailInlineTag}>CRD#{crd}</span>}
+																	</div>
+																	{position && <div className={styles.detailRowMeta}>{position}</div>}
+																</>
+															);
+
+															if (crd) {
+																return (
+																	<Link
+																		href={`/dashboard/individual/${crd}`}
+																		key={`dir-owner-${idx}`}
+																		className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
+																		{content}
+																	</Link>
+																);
+															}
+
+															return (
+																<div
+																	key={`dir-owner-${idx}`}
+																	className={styles.detailRow}>
+																	{content}
+																</div>
+															);
+														})}
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.indirectOwners?.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Indirect Owners ({detailedMainRecord.indirectOwners.length})</h4>
+													<div className={styles.detailList}>
+														{detailedMainRecord.indirectOwners.map((row, idx) => {
+															const crd = pickFirstValidCrd(row.crdNumber, row.crd, row.individualId);
+															const name = pickFirstNonEmpty(row.legalName, row.name, row.fullName);
+															const position = pickFirstNonEmpty(row.position, row.title);
+
+															const content = (
+																<>
+																	<div className={styles.detailRowMain}>
+																		<span className={styles.detailRowName}>{name || `Owner ${idx + 1}`}</span>
+																		{crd && <span className={styles.detailInlineTag}>CRD#{crd}</span>}
+																	</div>
+																	{position && <div className={styles.detailRowMeta}>{position}</div>}
+																</>
+															);
+
+															if (crd) {
+																return (
+																	<Link
+																		href={`/dashboard/individual/${crd}`}
+																		key={`indir-owner-${idx}`}
+																		className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
+																		{content}
+																	</Link>
+																);
+															}
+
+															return (
+																<div
+																	key={`indir-owner-${idx}`}
+																	className={styles.detailRow}>
+																	{content}
+																</div>
+															);
+														})}
 													</div>
 												</section>
 											)}
@@ -2705,5 +3115,22 @@ export default function DashboardPage() {
 				/>
 			</div>
 		</div>
+	);
+}
+
+export default function DashboardPage() {
+	return (
+		<Suspense
+			fallback={
+				<div className={styles.page}>
+					<div className={styles.layout}>
+						<section className={styles.centerPane}>
+							<div className={styles.searchSummary}>Loading dashboard…</div>
+						</section>
+					</div>
+				</div>
+			}>
+			<DashboardPageInner />
+		</Suspense>
 	);
 }

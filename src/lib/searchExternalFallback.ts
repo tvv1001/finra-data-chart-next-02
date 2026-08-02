@@ -1,9 +1,11 @@
 import type { LocalSearchResponse } from './localSearch';
+import { canCallExternalApis } from './externalApiGate';
 
 function getNumericId(item: any, isIndividual: boolean): string {
-	const keys = isIndividual
-		? ['individualId', 'individual_id', 'crd', 'ind_crd', 'ind_source_id', 'sourceId', 'id']
-		: ['firmId', 'firm_id', 'crd', 'firm_crd', 'firm_source_id', 'bdSecNumber', 'iaSecNumber', 'sourceId', 'id'];
+	const keys =
+		isIndividual ?
+			['individualId', 'individual_id', 'crd', 'ind_crd', 'ind_source_id', 'sourceId', 'id']
+		:	['firmId', 'firm_id', 'crd', 'firm_crd', 'firm_source_id', 'bdSecNumber', 'iaSecNumber', 'sourceId', 'id'];
 	for (const key of keys) {
 		const raw = item?.[key];
 		if (raw == null) continue;
@@ -13,17 +15,18 @@ function getNumericId(item: any, isIndividual: boolean): string {
 	return '';
 }
 
-export async function searchExternalFallback(
-	source: 'finra' | 'sec',
-	entity: 'individual' | 'firm',
-	query: string,
-	baseUrl: string
-): Promise<LocalSearchResponse | null> {
+export async function searchExternalFallback(source: 'finra' | 'sec', entity: 'individual' | 'firm', query: string, baseUrl: string): Promise<LocalSearchResponse | null> {
+	if (!canCallExternalApis()) {
+		console.info(`[searchExternalFallback] External API disabled; skipping upstream search for ${source}:${entity}:${query}`);
+		return null;
+	}
+
 	const encoded = encodeURIComponent(query);
 	const queryParams = entity === 'individual' ? 'hl=true&includePrevious=true&nrows=100&start=0&wt=json' : 'hl=true&nrows=100&start=0&wt=json';
-	const url = source === 'finra'
-		? `https://api.brokercheck.finra.org/search/${entity}?query=${encoded}&${queryParams}`
-		: `https://api.adviserinfo.sec.gov/search/${entity}?query=${encoded}&${queryParams}`;
+	const url =
+		source === 'finra' ?
+			`https://api.brokercheck.finra.org/search/${entity}?query=${encoded}&${queryParams}`
+		:	`https://api.adviserinfo.sec.gov/search/${entity}?query=${encoded}&${queryParams}`;
 
 	const fetchOptions = {
 		headers: {
@@ -41,7 +44,7 @@ export async function searchExternalFallback(
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
 		const externalData = await res.json();
 		const hits = externalData?.hits?.hits || [];
-		
+
 		// If external API returns structure containing results or docs directly
 		const results = hits.map((hit: any) => hit?._source || hit);
 

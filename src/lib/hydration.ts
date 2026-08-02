@@ -2,6 +2,7 @@ import { setStringIfValid } from '@/lib/redisCache';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { Redis } from '@upstash/redis';
+import { canCallExternalApis } from '@/lib/externalApiGate';
 
 interface QueueItem {
 	type: 'individual' | 'firm';
@@ -24,14 +25,10 @@ function getRedisClient() {
 	return cachedRedisClient;
 }
 
-async function fetchAndSave(
-	source: 'finra' | 'sec',
-	type: 'individual' | 'firm',
-	id: string
-) {
+async function fetchAndSave(source: 'finra' | 'sec', type: 'individual' | 'firm', id: string) {
 	const isFinra = source === 'finra';
 	const isIndividual = type === 'individual';
-	
+
 	const url =
 		isFinra && isIndividual ? `https://api.brokercheck.finra.org/search/individual/${id}?hl=true&includePrevious=true&wt=json`
 		: isFinra && !isIndividual ? `https://api.brokercheck.finra.org/search/firm/${id}?hl=true&wt=json`
@@ -70,7 +67,12 @@ async function fetchAndSave(
 	if (redis) {
 		try {
 			const existing = await redis.get(redisKey).catch(() => null);
-			const existingJson = existing != null ? (typeof existing === 'string' ? existing : JSON.stringify(existing)) : null;
+			const existingJson =
+				existing != null ?
+					typeof existing === 'string' ?
+						existing
+					:	JSON.stringify(existing)
+				:	null;
 			const newJson = JSON.stringify(payload);
 
 			if (existingJson === newJson) {
@@ -85,17 +87,19 @@ async function fetchAndSave(
 		}
 	}
 
-	console.log(`[Validation Check Success] Time: ${new Date().toISOString()} | Domain: ${domain} | CRDs validated: [${id}] | Cache Status: ${cacheStatus} | CRDs added/updated: [${addedCount ? id : ''}] | Count: ${addedCount}`);
+	console.log(
+		`[Validation Check Success] Time: ${new Date().toISOString()} | Domain: ${domain} | CRDs validated: [${id}] | Cache Status: ${cacheStatus} | CRDs added/updated: [${addedCount ? id : ''}] | Count: ${addedCount}`,
+	);
 
 	// Save to local cache files if not on Vercel
 	if (process.env.VERCEL !== '1') {
 		try {
 			const cacheDir = isFinra ? 'brokercheck.finra.org' : 'adviserinfo.sec.gov';
 			const cacheFileName = `api.${cacheDir}_search_${type}_${id}.json`;
-			
+
 			const nationalFile = path.join(process.cwd(), 'data', 'national', cacheDir, cacheFileName);
 			const rawFile = path.join(process.cwd(), 'data', 'raw', cacheDir, cacheFileName);
-			
+
 			for (const f of [nationalFile, rawFile]) {
 				await fs.mkdir(path.dirname(f), { recursive: true });
 				await fs.writeFile(f, JSON.stringify(payload, null, 2), 'utf8');
@@ -113,6 +117,10 @@ async function processQueue() {
 	while (hydrationQueue.length > 0) {
 		const task = hydrationQueue.shift();
 		if (!task) continue;
+		if (!canCallExternalApis()) {
+			console.info(`[Validation Check] External API disabled during processing; skipping hydration for ${task.type} ${task.id}`);
+			continue;
+		}
 
 		try {
 			// Meter requests slowly: wait 5 to 10 seconds before hitting external API
@@ -120,10 +128,7 @@ async function processQueue() {
 			await delay(sleepTime);
 
 			// Check external API for both FINRA and SEC sources to validate
-			await Promise.allSettled([
-				fetchAndSave('finra', task.type, task.id),
-				fetchAndSave('sec', task.type, task.id)
-			]);
+			await Promise.allSettled([fetchAndSave('finra', task.type, task.id), fetchAndSave('sec', task.type, task.id)]);
 		} catch (error: any) {
 			console.error(`[Validation Check Queue Error] ${task.type} ${task.id}:`, error.message);
 		}
@@ -133,6 +138,11 @@ async function processQueue() {
 }
 
 export function queueHydration(type: 'individual' | 'firm', id: string) {
+	if (!canCallExternalApis()) {
+		console.info(`[Validation Check] External API disabled; skipping hydration queue for ${type} ${id}`);
+		return;
+	}
+
 	const alreadyInQueue = hydrationQueue.some((item) => item.type === type && item.id === id);
 	if (alreadyInQueue) return;
 

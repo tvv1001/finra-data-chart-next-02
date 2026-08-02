@@ -33,6 +33,26 @@ function hasItems(value: unknown) {
 	return Array.isArray(value) && value.length > 0;
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	return value != null && typeof value === 'object' && !Array.isArray(value);
+}
+
+export function mergeDashboardDetailPayload(primary: unknown, secondary: unknown): unknown {
+	if (secondary == null) return primary;
+	if (primary == null) return secondary;
+	if (Array.isArray(primary) && Array.isArray(secondary)) {
+		return secondary.length ? secondary : primary;
+	}
+	if (isPlainObject(primary) && isPlainObject(secondary)) {
+		const merged: Record<string, unknown> = { ...primary };
+		for (const [key, value] of Object.entries(secondary)) {
+			merged[key] = key in merged ? mergeDashboardDetailPayload(merged[key], value) : value;
+		}
+		return merged;
+	}
+	return secondary;
+}
+
 function normalizeStatusToken(value: string) {
 	return value.trim().toLowerCase().replace(/\s+/g, '');
 }
@@ -174,21 +194,26 @@ export default function RecordDashboard() {
 		setError(null);
 		(async () => {
 			try {
+				let nodeRecord: Record<string, unknown> | null = null;
 				if (segments[0] === 'node' && normalizedNodeRouteId) {
 					const nodeResponse = await fetch(`/api/finra/nodes-by-ids?ids=${encodeURIComponent(normalizedNodeRouteId)}`);
-					if (!nodeResponse.ok) throw new Error(`Request failed with ${nodeResponse.status}`);
-					const nodeData = await nodeResponse.json();
-					const nodeRecord = Array.isArray(nodeData) ? nodeData[0] : null;
-					if (active && nodeRecord && typeof nodeRecord === 'object') {
-						setDetail(nodeRecord);
-						return;
+					if (nodeResponse.ok) {
+						const nodeData = await nodeResponse.json();
+						nodeRecord = Array.isArray(nodeData) ? (nodeData[0] as Record<string, unknown> | null) : null;
 					}
 				}
 
 				const response = await fetch(`/api/finra/${entity}/${encodeURIComponent(id)}`);
-				if (!response.ok) throw new Error(`Request failed with ${response.status}`);
-				const data = await response.json();
-				if (active) setDetail(data);
+				let data: Record<string, unknown> | null = null;
+				if (response.ok) {
+					const rawData = await response.json();
+					if (!(isPlainObject(rawData) && rawData.found === false)) {
+						data = rawData as Record<string, unknown>;
+					}
+				}
+
+				const nextDetail = data && nodeRecord ? mergeDashboardDetailPayload(nodeRecord, data) : data || nodeRecord;
+				if (active && nextDetail) setDetail(nextDetail as Record<string, unknown>);
 			} catch (err) {
 				if (active) setError(err instanceof Error ? err.message : 'Failed to load record');
 			}
