@@ -41,6 +41,9 @@ function parseDetailPayload(data: any, contentKey = 'content') {
 		}
 
 		const merged = { ...src, ...parsed };
+		if (merged[contentKey]) {
+			delete merged[contentKey];
+		}
 
 		if (!merged.basicInformation) {
 			const bi: any = {};

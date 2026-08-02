@@ -231,8 +231,8 @@ export default function RecordDashboard() {
 		if (!detail) return [] as Array<{ label: string; value: string }>;
 		const inferredStatus = inferRecordStatus(detail, entity);
 		const sections = [
-			{ label: 'Name', value: getValue(detail, ['name', 'basicInformation.name', 'individualName', 'firmName']) },
-			{ label: 'CRD', value: getValue(detail, ['basicInformation.crdNumber', 'crdNumber', 'crd', 'basicInformation.individualId', 'individualId']) },
+			{ label: 'Name', value: getValue(detail, ['name', 'basicInformation.name', 'individualName', 'firmName', 'basicInformation.firmName']) },
+			{ label: 'CRD', value: getValue(detail, ['basicInformation.crdNumber', 'crdNumber', 'crd', 'basicInformation.individualId', 'individualId', 'basicInformation.firmId', 'firmId']) },
 			{ label: 'Status', value: inferredStatus || getValue(detail, ['status', 'employmentStatus', 'basicInformation.status', 'registrationStatus']) },
 			{ label: 'Current employer', value: getValue(detail, ['currentEmployment.0.firmName', 'currentEmployment.0.firm_name', 'basicInformation.currentEmployer']) },
 			{ label: 'Related firms', value: Array.isArray(detail.employmentHistory) ? String(detail.employmentHistory.length) : '' },
