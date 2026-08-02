@@ -1003,6 +1003,7 @@ function DashboardPageInner() {
 	const [result, setResult] = useState<ApiResponse | null>(null);
 	const [mainJson, setMainJson] = useState<Record<string, any> | null>(null);
 	const [mainJsonLabel, setMainJsonLabel] = useState('');
+	const [recordViewLoading, setRecordViewLoading] = useState(false);
 	const [currentRecordSource, setCurrentRecordSource] = useState<'finra' | 'sec' | null>(null);
 	const [currentRecordEntity, setCurrentRecordEntity] = useState<'individual' | 'firm' | null>(null);
 	const [currentRecordId, setCurrentRecordId] = useState<string | null>(null);
@@ -1063,7 +1064,6 @@ function DashboardPageInner() {
 
 	const mergedDetailCacheRef = useRef(new Map<string, any>());
 	const jsonStringCacheRef = useRef(new Map<string, string>());
-	const lastNewCrdsFetchWarningAtRef = useRef(0);
 
 	const queueQueries = useMemo(() => parseQueueQueries(crdInput), [crdInput]);
 	const parsedCrds = useMemo(() => queueQueries.filter((value) => /^\d{1,10}$/.test(value)), [queueQueries]);
@@ -1096,37 +1096,18 @@ function DashboardPageInner() {
 		[graphHref],
 	);
 
-	const logNewCrdsFetchWarning = useCallback((error: unknown) => {
-		const now = Date.now();
-		if (now - lastNewCrdsFetchWarningAtRef.current < 60000) return;
-		lastNewCrdsFetchWarningAtRef.current = now;
-		console.warn('[dashboard] NEW CRDs refresh temporarily unavailable', error);
-	}, []);
-
 	async function loadNewCrdsFromRedis() {
 		try {
 			const res = await fetch('/api/dashboard/refresh', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ action: 'list-new-crds' }),
-				cache: 'no-store',
 			});
-			if (!res.ok) {
-				logNewCrdsFetchWarning(`HTTP ${res.status}`);
-				return;
-			}
 			const data = await res.json().catch(() => null);
 			if (data?.ok) {
 				setNewCrds(Array.isArray(data.newCrds) ? data.newCrds : []);
 			}
 		} catch (err) {
-			const message = String((err as any)?.message || err || '').toLowerCase();
-			const isTransientNetworkError =
-				message.includes('failed to fetch') || message.includes('networkerror') || message.includes('load failed') || message.includes('fetch failed');
-			if (isTransientNetworkError) {
-				logNewCrdsFetchWarning(err);
-				return;
-			}
 			console.error('Failed to load new CRDs:', err);
 		}
 	}
@@ -1239,7 +1220,7 @@ function DashboardPageInner() {
 		return () => window.clearInterval(intervalId);
 	}, []);
 
-	const hasCurrentRecord = Boolean(mainJson || result);
+	const hasCurrentRecord = Boolean(mainJson || result || recordViewLoading);
 
 	useEffect(() => {
 		const payload = mainJson || result;
@@ -1533,6 +1514,21 @@ function DashboardPageInner() {
 		};
 	}, [mainJson, currentRecordEntity, currentRecordId]);
 
+	const additionalDetailsSourceLabel = useMemo(() => {
+		if (!mainJson || typeof mainJson !== 'object') {
+			return currentRecordSource ? String(currentRecordSource).toUpperCase() : '';
+		}
+
+		const payload = mainJson as Record<string, any>;
+		const hasFinraData = payload.hasFinraData === true;
+		const hasSecData = payload.hasSecData === true;
+
+		if (!hasFinraData && hasSecData) return 'SEC';
+		if (hasFinraData && !hasSecData) return 'FINRA';
+
+		return currentRecordSource ? String(currentRecordSource).toUpperCase() : '';
+	}, [mainJson, currentRecordSource]);
+
 	const displayCards = useMemo<QueueCard[]>(() => {
 		const token = queueCrdFilter.trim();
 		const tokens =
@@ -1714,11 +1710,10 @@ function DashboardPageInner() {
 		const normalizedId = normalizeCrd(id);
 		if (!normalizedId) return;
 
-		const url = new URL(window.location.href);
 		const recordId = normalizedId;
 
 		const nextPath = `/dashboard/${entity}/${encodeURIComponent(recordId)}`;
-		window.history.replaceState({}, '', `${nextPath}${url.search}${url.hash}`);
+		window.history.replaceState({}, '', nextPath);
 	}
 
 	function isSelectedCardSource(card: QueueCard, source: SearchResultSource) {
@@ -1754,42 +1749,11 @@ function DashboardPageInner() {
 	function extractPayloadFromDetail(detail: any, source: SearchResultSource) {
 		if (!detail || typeof detail !== 'object') return null;
 
-		const normalizeCandidatePayload = (value: unknown) => {
-			const parsed = maybeParseJson(value);
-			if (!parsed || typeof parsed !== 'object') return parsed;
-			return parsed;
-		};
-
-		const pickFirstUsableCandidate = (candidates: unknown[]) => {
-			for (const candidate of candidates) {
-				const normalized = normalizeCandidatePayload(candidate);
-				if (!normalized) continue;
-				return normalized;
-			}
-			return null;
-		};
-
 		const hasOrphan = Boolean(detail?.orphan && typeof detail.orphan === 'object');
 		const candidate =
 			source === 'finra' ?
-				pickFirstUsableCandidate([
-					detail?.sources?.finra?.bccontent,
-					detail?.sources?.finra?.content,
-					detail?.sources?.finra,
-					detail?.finraNode,
-					detail?.merged,
-					detail?.bccontent,
-					detail?.content,
-				])
-			:	pickFirstUsableCandidate([
-					detail?.sources?.sec?.iacontent,
-					detail?.sources?.sec?.content,
-					detail?.sources?.sec,
-					detail?.secNode,
-					detail?.merged,
-					detail?.iacontent,
-					detail?.content,
-				]);
+				(detail?.sources?.finra?.bccontent ?? detail?.sources?.finra ?? detail?.finraNode ?? detail?.merged ?? detail?.bccontent ?? null)
+			:	(detail?.sources?.sec?.iacontent ?? detail?.sources?.sec ?? detail?.finraNode ?? detail?.merged ?? detail?.iacontent ?? null);
 
 		const isScrapedReferenceOnly =
 			candidate && typeof candidate === 'object' && candidate?.found === false && !candidate?.payload && /no\s+live\s+crd/i.test(String(candidate?.error || ''));
@@ -1800,6 +1764,16 @@ function DashboardPageInner() {
 
 		if (candidate) return candidate;
 		return hasOrphan ? detail : null;
+	}
+
+	function resolveOrderedSourcesFromDetail(detail: any, requestedSource: SearchResultSource, declaredSources: SearchResultSource[]): SearchResultSource[] {
+		const base = [requestedSource, ...declaredSources].filter((entry, index, arr) => (entry === 'finra' || entry === 'sec') && arr.indexOf(entry) === index);
+		const hasFinraData = detail?.hasFinraData === true || Boolean(detail?.sources?.finra) || Boolean(detail?.finraNode?.bccontent || detail?.bccontent);
+		const hasSecData = detail?.hasSecData === true || Boolean(detail?.sources?.sec) || Boolean(detail?.finraNode?.iacontent || detail?.iacontent);
+
+		if (!hasFinraData && hasSecData) return ['sec', 'finra'];
+		if (hasFinraData && !hasSecData) return ['finra', 'sec'];
+		return base.length > 0 ? base : ['finra', 'sec'];
 	}
 
 	async function loadInventoryOnlyFromRedis() {
@@ -1979,49 +1953,72 @@ function DashboardPageInner() {
 	async function loadQueueSourceJson(card: QueueCard, source: SearchResultSource) {
 		const sourceKey = `${card.entity}:${card.id}:${source}`;
 		setActiveCardSourceKey(sourceKey);
+		setRecordViewLoading(true);
+		setMainJson(null);
+		setResult(null);
+		setJsonTree(null);
+		setCodeBlock('');
 		try {
-			const orderedSources: SearchResultSource[] = [source, ...card.sources.map((entry) => entry.source).filter((candidate) => candidate !== source)];
+			let orderedSources: SearchResultSource[] = [source, ...card.sources.map((entry) => entry.source).filter((candidate) => candidate !== source)];
+			const cacheKey = `${card.entity}:${card.id}`;
 
 			let payload: any = null;
 			let resolvedSource: SearchResultSource = source;
 
+			const mergedDetail = await fetchMergedDetail(card);
+			orderedSources = resolveOrderedSourcesFromDetail(mergedDetail, source, orderedSources);
 			for (const candidateSource of orderedSources) {
-				const detail = await fetchMergedDetail(card);
-				payload = extractPayloadFromDetail(detail, candidateSource);
+				payload = extractPayloadFromDetail(mergedDetail, candidateSource);
 				if (payload) {
 					resolvedSource = candidateSource;
 					break;
 				}
+			}
 
+			if (!payload) {
 				const fallbackDetail = await fetchFallbackDetail(card);
-				payload = extractPayloadFromDetail(fallbackDetail, candidateSource);
-				if (payload) {
-					mergedDetailCacheRef.current.set(`${card.entity}:${card.id}`, fallbackDetail);
-					resolvedSource = candidateSource;
-					break;
+				mergedDetailCacheRef.current.set(cacheKey, fallbackDetail);
+				orderedSources = resolveOrderedSourcesFromDetail(fallbackDetail, source, orderedSources);
+				for (const candidateSource of orderedSources) {
+					payload = extractPayloadFromDetail(fallbackDetail, candidateSource);
+					if (payload) {
+						resolvedSource = candidateSource;
+						break;
+					}
 				}
+			}
 
-				const directRefreshedPayload = await refreshSingleCardRecord(card, candidateSource);
+			if (!payload) {
+				const directRefreshedPayload = await refreshSingleCardRecord(card, source);
 				if (directRefreshedPayload) {
 					payload = directRefreshedPayload;
-					resolvedSource = candidateSource;
-					break;
+					resolvedSource = source;
 				}
+			}
 
-				mergedDetailCacheRef.current.delete(`${card.entity}:${card.id}`);
+			if (!payload) {
+				mergedDetailCacheRef.current.delete(cacheKey);
 				const refreshedDetail = await fetchMergedDetail(card);
-				payload = extractPayloadFromDetail(refreshedDetail, candidateSource);
-				if (payload) {
-					resolvedSource = candidateSource;
-					break;
+				orderedSources = resolveOrderedSourcesFromDetail(refreshedDetail, source, orderedSources);
+				for (const candidateSource of orderedSources) {
+					payload = extractPayloadFromDetail(refreshedDetail, candidateSource);
+					if (payload) {
+						resolvedSource = candidateSource;
+						break;
+					}
 				}
+			}
 
+			if (!payload) {
 				const refreshedFallbackDetail = await fetchFallbackDetail(card);
-				payload = extractPayloadFromDetail(refreshedFallbackDetail, candidateSource);
-				if (payload) {
-					mergedDetailCacheRef.current.set(`${card.entity}:${card.id}`, refreshedFallbackDetail);
-					resolvedSource = candidateSource;
-					break;
+				mergedDetailCacheRef.current.set(cacheKey, refreshedFallbackDetail);
+				orderedSources = resolveOrderedSourcesFromDetail(refreshedFallbackDetail, source, orderedSources);
+				for (const candidateSource of orderedSources) {
+					payload = extractPayloadFromDetail(refreshedFallbackDetail, candidateSource);
+					if (payload) {
+						resolvedSource = candidateSource;
+						break;
+					}
 				}
 			}
 
@@ -2038,6 +2035,16 @@ function DashboardPageInner() {
 					error: `No ${String(source).toUpperCase()} payload found for ${card.entity} ${card.id} after merged/fallback lookup and auto-refresh retry.`,
 				});
 				return;
+			}
+
+			if (payload && typeof payload === 'object') {
+				const payloadHasFinra = payload?.hasFinraData === true;
+				const payloadHasSec = payload?.hasSecData === true;
+				if (!payloadHasFinra && payloadHasSec) {
+					resolvedSource = 'sec';
+				} else if (payloadHasFinra && !payloadHasSec) {
+					resolvedSource = 'finra';
+				}
 			}
 
 			setMainJson(normalizePayloadForCleanView(payload) as Record<string, any>);
@@ -2075,6 +2082,7 @@ function DashboardPageInner() {
 		} catch (error: any) {
 			setResult({ ok: false, error: error?.message || String(error) });
 		} finally {
+			setRecordViewLoading(false);
 			setActiveCardSourceKey((current) => (current === sourceKey ? null : current));
 		}
 	}
@@ -2512,42 +2520,47 @@ function DashboardPageInner() {
 
 							{hasCurrentRecord && (
 								<>
-									<div className={styles.recordHeaderRow}>
-										<div className={styles.recordBadge}>{currentRecordEntity ? String(currentRecordEntity).toUpperCase() : 'UNKNOWN'}</div>
-										<div className={styles.mainViewToggle}>
-											<button
-												type='button'
-												className={`${styles.mainViewToggleBtn} ${mainViewMode === 'card' ? styles.mainViewToggleBtnActive : ''}`}
-												onClick={() => setMainViewMode('card')}>
-												Card
-											</button>
-											<button
-												type='button'
-												className={`${styles.mainViewToggleBtn} ${mainViewMode === 'json' ? styles.mainViewToggleBtnActive : ''}`}
-												onClick={() => setMainViewMode('json')}>
-												JSON
-											</button>
-										</div>
-									</div>
-									<h2 className={styles.recordTitle}>{orphanRecord?.name?.toUpperCase() || mainJsonLabel}</h2>
-									{detailedMainRecord && detailedMainRecord.otherNames.length > 0 && (
-										<div className={styles.headerOtherNamesRow}>
-											{detailedMainRecord.otherNames.map((name) => (
-												<span
-													key={name}
-													className={styles.headerOtherNameTag}>
-													{name}
-												</span>
-											))}
-										</div>
-									)}
-									{currentRecordId && <div className={styles.recordKeyLabel}>CRD {currentRecordId}</div>}
+									{recordViewLoading ?
+										<div className={styles.searchSummary}>Loading selected record…</div>
+									:	<>
+											<div className={styles.recordHeaderRow}>
+												<div className={styles.recordBadge}>{currentRecordEntity ? String(currentRecordEntity).toUpperCase() : 'UNKNOWN'}</div>
+												<div className={styles.mainViewToggle}>
+													<button
+														type='button'
+														className={`${styles.mainViewToggleBtn} ${mainViewMode === 'card' ? styles.mainViewToggleBtnActive : ''}`}
+														onClick={() => setMainViewMode('card')}>
+														Card
+													</button>
+													<button
+														type='button'
+														className={`${styles.mainViewToggleBtn} ${mainViewMode === 'json' ? styles.mainViewToggleBtnActive : ''}`}
+														onClick={() => setMainViewMode('json')}>
+														JSON
+													</button>
+												</div>
+											</div>
+											<h2 className={styles.recordTitle}>{orphanRecord?.name?.toUpperCase() || mainJsonLabel}</h2>
+											{detailedMainRecord && detailedMainRecord.otherNames.length > 0 && (
+												<div className={styles.headerOtherNamesRow}>
+													{detailedMainRecord.otherNames.map((name) => (
+														<span
+															key={name}
+															className={styles.headerOtherNameTag}>
+															{name}
+														</span>
+													))}
+												</div>
+											)}
+											{currentRecordId && <div className={styles.recordKeyLabel}>CRD {currentRecordId}</div>}
+										</>
+									}
 								</>
 							)}
 
 							{syncBannerText && <div className={styles.statusLine}>{syncBannerText}</div>}
 
-							{hasCurrentRecord && mainViewMode === 'json' && (
+							{hasCurrentRecord && !recordViewLoading && mainViewMode === 'json' && (
 								<div className={styles.jsonPanel}>
 									{jsonRenderBusy && <div className={styles.searchSummary}>Rendering JSON…</div>}
 									{jsonTree ?
@@ -2556,7 +2569,7 @@ function DashboardPageInner() {
 								</div>
 							)}
 
-							{hasCurrentRecord && mainViewMode === 'card' && (
+							{hasCurrentRecord && !recordViewLoading && mainViewMode === 'card' && (
 								<div
 									className={styles.readableCardPanel}
 									onClickCapture={handleInternalDashboardLinkClick}>
@@ -2718,7 +2731,7 @@ function DashboardPageInner() {
 																	<Link
 																		href={`/dashboard/firm/${crd}`}
 																		key={`cur-emp-${idx}`}
-																		className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
+																		className={`${styles.detailRow} ${styles.detailRowInteractive} ${styles.currentEmploymentRow}`}>
 																		{content}
 																	</Link>
 																);
@@ -2727,7 +2740,7 @@ function DashboardPageInner() {
 															return (
 																<div
 																	key={`cur-emp-${idx}`}
-																	className={styles.detailRow}>
+																	className={`${styles.detailRow} ${styles.currentEmploymentRow}`}>
 																	{content}
 																</div>
 															);
@@ -2743,12 +2756,12 @@ function DashboardPageInner() {
 														{detailedMainRecord.currentConnectionCards.map((item, idx) => (
 															<div
 																key={`current-conn-${idx}`}
-																className={styles.detailRow}>
+																className={`${styles.detailRow} ${styles.currentConnectionRow}`}>
 																<div className={styles.detailRowMain}>
-																	<span className={styles.detailRowName}>{item.title}</span>
-																	{item.meta && <span className={styles.detailInlineTag}>{item.meta}</span>}
+																	<span className={`${styles.detailRowName} ${styles.currentConnectionName}`}>{item.title}</span>
+																	{item.meta && <span className={`${styles.detailInlineTag} ${styles.currentConnectionTag}`}>{item.meta}</span>}
 																</div>
-																{item.subtitle && <div className={styles.detailRowMeta}>{item.subtitle}</div>}
+																{item.subtitle && <div className={`${styles.detailRowMeta} ${styles.currentConnectionMeta}`}>{item.subtitle}</div>}
 															</div>
 														))}
 													</div>
@@ -2850,7 +2863,7 @@ function DashboardPageInner() {
 																	<Link
 																		href={`/dashboard/individual/${crd}`}
 																		key={`dir-owner-${idx}`}
-																		className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
+																		className={`${styles.detailRow} ${styles.detailRowInteractive} ${styles.currentEmploymentRow}`}>
 																		{content}
 																	</Link>
 																);
@@ -2892,7 +2905,7 @@ function DashboardPageInner() {
 																	<Link
 																		href={`/dashboard/individual/${crd}`}
 																		key={`indir-owner-${idx}`}
-																		className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
+																		className={`${styles.detailRow} ${styles.detailRowInteractive} ${styles.currentEmploymentRow}`}>
 																		{content}
 																	</Link>
 																);
@@ -2993,7 +3006,7 @@ function DashboardPageInner() {
 
 											{detailedMainRecord.additionalDetails.length > 0 && (
 												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Additional {currentRecordSource ? String(currentRecordSource).toUpperCase() : ''} Details</h4>
+													<h4 className={styles.detailSectionTitle}>Additional {additionalDetailsSourceLabel} Details</h4>
 													<div className={styles.detailRawList}>
 														{detailedMainRecord.additionalDetails.map((entry) => (
 															<div

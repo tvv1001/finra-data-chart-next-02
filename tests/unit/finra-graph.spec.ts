@@ -122,9 +122,9 @@ describe('FinraGraph DOM helpers (unit)', () => {
 	});
 
 	it('routeSidebarNodeSelection preserves the query string when routing a node', () => {
-		const push = vi.fn();
-		const replace = vi.fn();
 		const setBrowserPathname = vi.fn();
+		const pushState = vi.spyOn(window.history, 'pushState');
+		const dispatchEvent = vi.spyOn(window, 'dispatchEvent');
 
 		routeSidebarNodeSelection({
 			nodeId: 'person:123',
@@ -132,11 +132,11 @@ describe('FinraGraph DOM helpers (unit)', () => {
 			browserPathname: '/',
 			pathname: '/',
 			setBrowserPathname,
-			router: { push, replace } as any,
 		});
 
-		expect(push).toHaveBeenCalledWith('/dashboard/individual/123?selected=person%3A456', { scroll: false });
-		expect(replace).not.toHaveBeenCalled();
+		expect(setBrowserPathname).toHaveBeenCalledWith('/individual/123');
+		expect(pushState).toHaveBeenCalledWith(window.history.state, '', '/individual/123?selected=person%3A456');
+		expect(dispatchEvent).toHaveBeenCalled();
 	});
 
 	it('upsertSelectionLogEntry moves reselected items to most recent', () => {
@@ -789,8 +789,8 @@ describe('FinraGraph DOM helpers (unit)', () => {
 			{ graphData: { links: [] } },
 		);
 
-		expect(html).toContain('https://brokercheck.finra.org/firm/summary/456');
-		expect(html).toContain('https://adviserinfo.sec.gov/firm/summary/456');
+		expect(html).toContain('https://brokercheck.finra.org/individual/summary/123');
+		expect(html).toContain('https://adviserinfo.sec.gov/individual/summary/123');
 	});
 
 	it('isNodeInactive keeps active fetched individuals enabled', () => {
@@ -1214,8 +1214,8 @@ describe('FinraGraph DOM helpers (unit)', () => {
 				pulseDuration: 5000,
 			});
 
-			expect(setBrowserPathname).toHaveBeenCalledWith('/dashboard/individual/2632784');
-			expect(pushState).toHaveBeenCalledWith(window.history.state, '', '/dashboard/individual/2632784?panel=info');
+			expect(setBrowserPathname).toHaveBeenCalledWith('/individual/2632784');
+			expect(pushState).toHaveBeenCalledWith(window.history.state, '', '/individual/2632784?panel=info');
 			expect(dispatched).toEqual([{ nodeId: 'person:2632784', pulseDuration: 5000, autoExpand: false }]);
 		} finally {
 			window.removeEventListener('finra:route-node-request', listener as EventListener);
