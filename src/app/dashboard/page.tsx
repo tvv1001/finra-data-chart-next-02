@@ -2320,6 +2320,8 @@ export default function DashboardPage() {
 												</section>
 											)}
 
+
+
 											<section className={styles.detailSection}>
 												<h4 className={styles.detailSectionTitle}>Profile Links</h4>
 												<div className={styles.detailLinkRow}>
@@ -2380,6 +2382,50 @@ export default function DashboardPage() {
 												</section>
 											)}
 
+											{detailedMainRecord.previousEmployment.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Previous Employment ({detailedMainRecord.previousEmployment.length})</h4>
+													<div className={styles.detailList}>
+														{detailedMainRecord.previousEmployment.map((row, idx) => (
+															<div
+																key={`prev-emp-${idx}`}
+																className={styles.detailRow}>
+																<div className={styles.detailRowMain}>
+																	<span className={styles.detailRowName}>{pickFirstNonEmpty(row.legalName, row.name, row.firmName, row.organizationName) || `Employment ${idx + 1}`}</span>
+																	{pickFirstNonEmpty(row.crdNumber, row.crd, row.firmId) && (
+																		<span className={styles.detailInlineTag}>CRD#{pickFirstNonEmpty(row.crdNumber, row.crd, row.firmId)}</span>
+																	)}
+																</div>
+																<div className={styles.detailRowMeta}>
+																	{[formatAddress(row.branchOfficeLocations?.[0]), pickFirstNonEmpty(row.registrationBeginDate, row.effectiveDate, row.startDate)]
+																		.filter(Boolean)
+																		.join(' • ') || pickFirstNonEmpty(row.position, row.currentRegistration, row.status)}
+																</div>
+															</div>
+														))}
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.previousConnectionCards.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Previous Connections ({detailedMainRecord.previousConnectionCards.length})</h4>
+													<div className={styles.detailList}>
+														{detailedMainRecord.previousConnectionCards.map((item, idx) => (
+															<div
+																key={`prev-conn-${idx}`}
+																className={styles.detailRow}>
+																<div className={styles.detailRowMain}>
+																	<span className={styles.detailRowName}>{item.title}</span>
+																	{item.meta && <span className={styles.detailInlineTag}>{item.meta}</span>}
+																</div>
+																{item.subtitle && <div className={styles.detailRowMeta}>{item.subtitle}</div>}
+															</div>
+														))}
+													</div>
+												</section>
+											)}
+
 											{detailedMainRecord.stateExams.length > 0 && (
 												<section className={styles.detailSection}>
 													<h4 className={styles.detailSectionTitle}>State Exam Category ({detailedMainRecord.stateExams.length})</h4>
@@ -2412,6 +2458,28 @@ export default function DashboardPage() {
 																className={styles.detailExamCardProduct}>
 																<div className={styles.detailExamTop}>
 																	<span className={styles.detailExamBadgeProduct}>{pickFirstNonEmpty(row.examCategory, row.examCode, row.category, 'Exam')}</span>
+																	{pickFirstNonEmpty(row.examTakenDate, row.dateTaken, row.date) && (
+																		<span className={styles.detailExamDate}>📅 {pickFirstNonEmpty(row.examTakenDate, row.dateTaken, row.date)}</span>
+																	)}
+																</div>
+																<div className={styles.detailExamName}>{pickFirstNonEmpty(row.examName, row.description, row.categoryName)}</div>
+																{pickFirstNonEmpty(row.examScope, row.scope) && <div className={styles.detailExamScope}>Scope: {pickFirstNonEmpty(row.examScope, row.scope)}</div>}
+															</div>
+														))}
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.principalExams.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Principal Exam Category ({detailedMainRecord.principalExams.length})</h4>
+													<div className={styles.detailExamGrid}>
+														{detailedMainRecord.principalExams.map((row, idx) => (
+															<div
+																key={`princ-exam-${idx}`}
+																className={styles.detailExamCardPrincipal}>
+																<div className={styles.detailExamTop}>
+																	<span className={styles.detailExamBadgePrincipal}>{pickFirstNonEmpty(row.examCategory, row.examCode, row.category, 'Exam')}</span>
 																	{pickFirstNonEmpty(row.examTakenDate, row.dateTaken, row.date) && (
 																		<span className={styles.detailExamDate}>📅 {pickFirstNonEmpty(row.examTakenDate, row.dateTaken, row.date)}</span>
 																	)}
@@ -2462,7 +2530,7 @@ export default function DashboardPage() {
 														{detailedMainRecord.registeredSros.map((tag) => (
 															<span
 																key={tag}
-																className={styles.detailTag}>
+																className={styles.detailTagSro}>
 																{tag}
 															</span>
 														))}
