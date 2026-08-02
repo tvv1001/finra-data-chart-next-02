@@ -11440,9 +11440,6 @@ function selectNode(
 	stopSearchPulseLoop();
 	updateFocusReadout(null);
 	const { persist = true, skipProfileSync = false, skipAutoExpand = false, skipLog = false, focus = false, pulse = false, focusDuration = 300, syncRoute = true } = options;
-	void focus;
-	void pulse;
-	void focusDuration;
 
 	// Clear any previous transient locator pulse immediately so the blue ring can
 	// move cleanly to the newly selected node.
@@ -11468,6 +11465,9 @@ function selectNode(
 	}
 	refreshTraceState();
 	renderSidebar(d);
+	if (focus) {
+		focusNodeById(d.id, { duration: focusDuration, pulse });
+	}
 	if (persist) {
 		try {
 			saveSession();
@@ -13456,21 +13456,10 @@ function renderPersonDetail(d: any) {
 						const detailHtml = detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : '';
 						const scopeHtml = scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : '';
 						const secHtml = showSecReferences && e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : '';
-						const empFirmId = e.firmId ? String(e.firmId).trim() : '';
-						const empFirmNode = empFirmId ? graphData.nodes.find((n) => n.firmId === empFirmId || n.id === `firm:${empFirmId}`) : null;
-						const showEmpFinraTag = empFirmId && (empFirmNode ? hasFirmFinraPresence(empFirmNode) : true);
-						const showEmpSecTag = empFirmId && (empFirmNode ? hasFirmSecPresence(empFirmNode) : true);
-						const empTagsHtml =
-							empFirmId && (showEmpFinraTag || showEmpSecTag) ?
-								`<span class="fg-control-card__tags">
-                 ${showEmpFinraTag ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/firm/summary/${encodeURIComponent(empFirmId)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">&#x2197; FINRA</a>` : ''}
-                 ${showEmpSecTag ? `<a class="fg-ext-link sec" href="https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(empFirmId)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">&#x2197; SEC</a>` : ''}
-               </span>`
-							:	'';
 						if (e.firmId) {
-							return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-crd-link" data-crd="${esc(e.firmId)}" data-crd-type="firm">${esc(e.firmName)}${secHtml}${datesHtml}${detailHtml}${scopeHtml}${empTagsHtml}</button>`;
+							return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-crd-link" data-crd="${esc(e.firmId)}" data-crd-type="firm">${esc(e.firmName)}${secHtml}${datesHtml}${detailHtml}${scopeHtml}</button>`;
 						}
-						return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable" data-search-query="${esc(e.firmName)}">${esc(e.firmName)}${secHtml}${datesHtml}${detailHtml}${scopeHtml}${empTagsHtml}</button>`;
+						return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable" data-search-query="${esc(e.firmName)}">${esc(e.firmName)}${secHtml}${datesHtml}${detailHtml}${scopeHtml}</button>`;
 					})
 					.join('')}
             </div>`
@@ -13554,7 +13543,7 @@ function renderPersonDetail(d: any) {
               ${d.registeredSROs
 								.map((sro) => {
 									const name = esc(sro.sro || sro.name || '');
-									const status = sro.status ? ` <span class="fg-badge ${/approved/i.test(sro.status) ? 'active' : 'inactive'}">${esc(sro.status)}</span>` : '';
+									const status = sro.status ? ` <span class="fg-badge fg-sro-status-badge ${/approved/i.test(sro.status) ? 'active' : 'inactive'}">${esc(sro.status)}</span>` : '';
 									const categories =
 										Array.isArray(sro.CategoriesList) ? sro.CategoriesList
 										: typeof sro.CategoriesList === 'string' ? [sro.CategoriesList]
@@ -13634,22 +13623,12 @@ function renderPersonDetail(d: any) {
 									(l.city || l.officeCity || l.state || l.officeState ? [l.city || l.officeCity, l.state || l.officeState].filter(Boolean).join(', ') : null);
 								const controlFirmId = firmNode?.firmId || l.firmId || employmentMatch?.firmId || null;
 								const controlFirmIdStr = controlFirmId ? String(controlFirmId).trim() : '';
-								const showControlFinraTag = controlFirmIdStr && (firmNode ? hasFirmFinraPresence(firmNode) : true);
-								const showControlSecTag = controlFirmIdStr && (firmNode ? hasFirmSecPresence(firmNode) : true);
-								const controlTagsHtml =
-									controlFirmIdStr && (showControlFinraTag || showControlSecTag) ?
-										`<span class="fg-control-card__tags">
-	                ${showControlFinraTag ? `<a class="fg-ext-link bc" href="https://brokercheck.finra.org/firm/summary/${encodeURIComponent(controlFirmIdStr)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">&#x2197; FINRA</a>` : ''}
-	                ${showControlSecTag ? `<a class="fg-ext-link sec" href="https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(controlFirmIdStr)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">&#x2197; SEC</a>` : ''}
-	              </span>`
-									:	'';
 								const entryBody = `<span class="fg-tl-firm fg-control-card__firm">${esc(firmNode?.label || l.firmName || employmentMatch?.firmName || l.name || l.organizationName || l.legalName || '')}${secNumber ? ` <small>SEC#${esc(String(secNumber))}</small>` : ''}</span>
 		        ${dateRange ? `<span class="fg-tl-dates fg-control-card__date"><strong>${dateRange}</strong></span>` : ''}
 		        ${firmStatus ? `<span class="fg-tl-status fg-control-card__status"><strong>${esc(firmStatus)}</strong></span>` : ''}
 		        ${l.position ? `<span class="fg-tl-loc fg-control-card__position"><strong>${esc(l.position)}</strong></span>` : ''}
 		        ${location ? `<span class="fg-tl-loc fg-control-card__location">${esc(location)}</span>` : ''}
-		        ${firmAddress ? `<span class="fg-tl-loc fg-control-card__address">${esc(firmAddress)}</span>` : ''}
-		        ${controlTagsHtml}`;
+		        ${firmAddress ? `<span class="fg-tl-loc fg-control-card__address">${esc(firmAddress)}</span>` : ''}`;
 								if (controlFirmIdStr) {
 									return `<button type="button" class="fg-tl-entry fg-control-card__entry fg-card-clickable fg-crd-link active-pos" data-crd="${esc(controlFirmIdStr)}" data-crd-type="firm">${entryBody}</button>`;
 								}

@@ -964,23 +964,11 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 								.map((e) => {
 									const detailLine = getEmploymentDetailLine(e);
 									const scopeTags = getEmploymentScopeTags(e);
-									const empFirmId = e.firmId ? String(e.firmId).trim() : '';
-									const empFirmNode = empFirmId ? graphData?.nodes?.find((n) => n.firmId === empFirmId || n.id === `firm:${empFirmId}`) : null;
-									const showEmpFinraTag = empFirmId && (empFirmNode ? hasFirmFinraPresence(empFirmNode) : true);
-									const showEmpSecTag = empFirmId && (empFirmNode ? hasFirmSecPresence(empFirmNode) : true);
-									const empTagsHtml =
-										empFirmId && (showEmpFinraTag || showEmpSecTag) ?
-											`<span class='fg-control-card__tags'>
-                       ${showEmpFinraTag ? `<a class='fg-ext-link bc' href='https://brokercheck.finra.org/firm/summary/${encodeURIComponent(empFirmId)}' target='_blank' rel='noopener noreferrer' onclick='event.stopPropagation()'>&#x2197; FINRA</a>` : ''}
-                       ${showEmpSecTag ? `<a class='fg-ext-link sec' href='https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(empFirmId)}' target='_blank' rel='noopener noreferrer' onclick='event.stopPropagation()'>&#x2197; SEC</a>` : ''}
-                     </span>`
-										:	'';
 									return `<div class='fg-tl-entry active-pos'>
 																			<span class='fg-tl-firm'>${renderFirmNameWithCrd(e.firmName, e.firmId)}${e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : ''}</span>
 																					<span class='fg-tl-dates'> ${esc(e.start || '–')} → ${esc(e.end || 'present')} </span>
 																					${detailLine ? `<span class='fg-tl-loc'>${esc(detailLine)}</span>` : ''}
 																					${scopeTags.length ? `<span class='fg-tl-loc' style='color:var(--text-m)'>${esc(scopeTags.join(' · '))}</span>` : ''}
-																					${empTagsHtml}
 																				</div>`;
 								})
 								.join('')}
@@ -1066,7 +1054,7 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
               ${d.registeredSROs
 								.map((sro) => {
 									const name = esc(sro.sro || sro.name || '');
-									const status = sro.status ? ` <span class='fg-badge ${/approved/i.test(sro.status) ? 'active' : 'inactive'}'>${esc(sro.status)}</span>` : '';
+									const status = sro.status ? ` <span class='fg-badge fg-sro-status-badge ${/approved/i.test(sro.status) ? 'active' : 'inactive'}'>${esc(sro.status)}</span>` : '';
 									const categories =
 										Array.isArray(sro.CategoriesList) ? sro.CategoriesList
 										: typeof sro.CategoriesList === 'string' ? [sro.CategoriesList]
@@ -1145,22 +1133,12 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 									(l.city || l.officeCity || l.state || l.officeState ? [l.city || l.officeCity, l.state || l.officeState].filter(Boolean).join(', ') : null);
 								const controlFirmId = firmNode?.firmId || l.firmId || employmentMatch?.firmId || null;
 								const controlFirmIdStr = controlFirmId ? String(controlFirmId).trim() : '';
-								const showControlFinraTag = controlFirmIdStr && (firmNode ? hasFirmFinraPresence(firmNode) : true);
-								const showControlSecTag = controlFirmIdStr && (firmNode ? hasFirmSecPresence(firmNode) : true);
-								const controlTagsHtml =
-									controlFirmIdStr && (showControlFinraTag || showControlSecTag) ?
-										`<span class='fg-control-card__tags'>
-                  ${showControlFinraTag ? `<a class='fg-ext-link bc' href='https://brokercheck.finra.org/firm/summary/${encodeURIComponent(controlFirmIdStr)}' target='_blank' rel='noopener noreferrer' onclick='event.stopPropagation()'>&#x2197; FINRA</a>` : ''}
-                  ${showControlSecTag ? `<a class='fg-ext-link sec' href='https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(controlFirmIdStr)}' target='_blank' rel='noopener noreferrer' onclick='event.stopPropagation()'>&#x2197; SEC</a>` : ''}
-                </span>`
-									:	'';
 								const entryBody = `<span class='fg-tl-firm'>${renderFirmNameWithCrd(firmNode?.label || l.firmName || employmentMatch?.firmName || l.name || l.organizationName || l.legalName || '', controlFirmId)}${secNumber ? ` <small>SEC#${esc(String(secNumber))}</small>` : ''}</span>
                   ${dateRange ? `<span class='fg-tl-dates'>${dateRange}</span>` : ''}
                   ${firmStatus ? `<span class='fg-tl-status'>${esc(firmStatus)}</span>` : ''}
                   ${l.position ? `<span class='fg-tl-loc'>${esc(l.position)}</span>` : ''}
                   ${location ? `<span class='fg-tl-loc'>${esc(location)}</span>` : ''}
-                  ${firmAddress ? `<span class='fg-tl-loc'>${esc(firmAddress)}</span>` : ''}
-                  ${controlTagsHtml}`;
+                  ${firmAddress ? `<span class='fg-tl-loc'>${esc(firmAddress)}</span>` : ''}`;
 								if (controlFirmIdStr) {
 									return `<button type='button' class='fg-tl-entry fg-card-clickable fg-crd-link active-pos' data-crd='${esc(controlFirmIdStr)}' data-crd-type='firm'>${entryBody}</button>`;
 								}

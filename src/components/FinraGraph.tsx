@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 
 import ThemeToggle from './ThemeToggle';
@@ -184,7 +184,6 @@ function routeSidebarNodeSelection({
 	setBrowserPathname,
 	pulseDuration = 5000,
 	autoExpand = false,
-	router,
 }: {
 	nodeId: string;
 	searchSuffix: string;
@@ -193,18 +192,13 @@ function routeSidebarNodeSelection({
 	setBrowserPathname: (nextPath: string) => void;
 	pulseDuration?: number;
 	autoExpand?: boolean;
-	router?: { push?: (href: string, options?: { scroll?: boolean }) => void; replace?: (href: string, options?: { scroll?: boolean }) => void };
 }) {
 	const nextHref = buildNodeRouteHref(nodeId, searchSuffix);
 	const nextPath = buildNodeRoutePath(nodeId);
 	const currentHref = `${browserPathname || pathname || '/'}${searchSuffix}`;
 	if (nextHref !== currentHref) {
 		setBrowserPathname(nextPath);
-		if (router?.push) {
-			router.push(nextHref, { scroll: false });
-		} else {
-			updateNodeRouteHistory(nextHref, 'push');
-		}
+		updateNodeRouteHistory(nextHref, 'push');
 	}
 	window.dispatchEvent(new CustomEvent('finra:route-node-request', { detail: { nodeId, pulseDuration, autoExpand } }));
 }
@@ -238,7 +232,6 @@ export default function FinraGraph() {
 	const [activeFindNodeId, setActiveFindNodeId] = useState<string | null>(null);
 	const [focusedFindNodeId, setFocusedFindNodeId] = useState<string | null>(null);
 	const pathname = usePathname();
-	const router = useRouter();
 	const searchParams = useSearchParams();
 	const routeNodeId = useMemo(() => parseNodeIdFromPathname(browserPathname || pathname), [browserPathname, pathname]);
 	const findCounterText = useMemo(() => formatFindCounter(findMatchState.total, findMatchState.activeOrdinal), [findMatchState.activeOrdinal, findMatchState.total]);
@@ -432,7 +425,6 @@ export default function FinraGraph() {
 					setBrowserPathname,
 					pulseDuration: 5000,
 					autoExpand: true,
-					router,
 				});
 				return;
 			}
