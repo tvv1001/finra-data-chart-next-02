@@ -1618,32 +1618,18 @@ function DashboardPageInner() {
 		});
 	}
 
-	function setMainViewFromSearch(card: SearchResultCard, sourceLabel: string) {
-		setMainJson(normalizePayloadForCleanView(card.payload) as Record<string, any>);
-		setCurrentRecordSource(card.source);
-		setCurrentRecordEntity(card.entity);
-		setCurrentRecordId(card.id);
-		setMainJsonLabel(
-			resolveMainRecordTitle({
-				mainJsonLabel: formatMainPanelTitle({ source: card.source, entity: card.entity, id: card.id, name: card.label, payload: card.payload }),
-				fallbackName: card.label || null,
-				entity: card.entity,
+	async function setMainViewFromSearch(card: SearchResultCard) {
+		const orderedSources: SearchResultSource[] = card.source === 'sec' ? ['sec', 'finra'] : ['finra', 'sec'];
+		await loadQueueSourceJson(
+			{
 				id: card.id,
-			}),
+				entity: card.entity,
+				files: orderedSources.length,
+				sources: orderedSources.map((source) => ({ source, status: 'unknown' })),
+				name: card.label || null,
+			},
+			card.source,
 		);
-		markRecordUpdatedAt();
-		recordHistoryEntry({
-			id: card.id,
-			entity: card.entity,
-			source: card.source,
-			name: card.label,
-		});
-		syncSelectionToUrl({
-			entity: card.entity,
-			id: card.id,
-			source: card.source,
-			availableSources: [card.source],
-		});
 	}
 
 	async function openHistoryEntry(entry: LocalHistoryEntry) {
@@ -2433,7 +2419,7 @@ function DashboardPageInner() {
 					<button
 						type='button'
 						className={styles.searchSourceBtn}
-						onClick={() => setMainViewFromSearch(card, sourceLabel)}>
+						onClick={() => void setMainViewFromSearch(card)}>
 						{sourceLabel}
 					</button>
 				</div>
