@@ -37,6 +37,32 @@ describe('summarizeRecordDetail', () => {
 		);
 	});
 
+	it('marks an individual as inactive when only historical employment evidence exists', () => {
+		const meta = getRecordDashboardDisplayMeta(
+			{
+				previousEmployments: [{ firmName: 'Old Firm LLC' }],
+				currentEmployments: [],
+				currentIAEmployments: [],
+			},
+			'individual',
+			'1768782',
+		);
+
+		expect(meta.overviewCards).toEqual(expect.arrayContaining([expect.objectContaining({ label: 'Status', value: 'Inactive' })]));
+	});
+
+	it('marks an individual as active when current employment exists', () => {
+		const meta = getRecordDashboardDisplayMeta(
+			{
+				currentEmployments: [{ firmName: 'Current Firm LLC' }],
+			},
+			'individual',
+			'1768782',
+		);
+
+		expect(meta.overviewCards).toEqual(expect.arrayContaining([expect.objectContaining({ label: 'Status', value: 'Active' })]));
+	});
+
 	it('uses the firm legal name instead of the fallback placeholder', () => {
 		expect(getRecordDisplayName({ basicInformation: { legalName: 'CardJSON' } }, 'firm', '149777')).toBe('CardJSON');
 	});

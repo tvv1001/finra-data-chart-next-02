@@ -20,6 +20,7 @@ import {
 	shouldShowQueueCardError,
 	shouldShowQueueCardSkipped,
 } from '../../src/app/dashboard/page';
+import { buildDashboardProfileLinks } from '../../src/lib/finra-graph/linkSuppression';
 
 const TEST_FINRA_ONLY_CRD = '9100001';
 const TEST_DUAL_SOURCE_CRD = '9100002';
@@ -61,6 +62,26 @@ describe('buildPrimedBundleInventoryTotals', () => {
 	});
 });
 
+describe('buildDashboardProfileLinks', () => {
+	it('omits SEC profile links for IDs known to be suppressed for SEC detail pages', () => {
+		const links = buildDashboardProfileLinks('individual', '18040', {
+			basicInformation: { individualId: '18040' },
+		});
+
+		expect(links.map((link) => link.label)).not.toContain('SEC profile ↗');
+	});
+
+	it('keeps FINRA and SEC profile links when the payload shows source coverage', () => {
+		const links = buildDashboardProfileLinks('individual', '123456', {
+			hasFinraData: true,
+			hasSecData: true,
+			basicInformation: { individualId: '123456' },
+		});
+
+		expect(links.map((link) => link.label)).toEqual(expect.arrayContaining(['FINRA profile ↗', 'SEC profile ↗']));
+	});
+});
+
 describe('extractRegistrationCards', () => {
 	it('collects registration cards from stringified nested payload objects', () => {
 		const cards = extractRegistrationCards({
@@ -93,6 +114,49 @@ describe('extractConnectionCards', () => {
 				title: 'Example Advisory',
 				meta: 'Owner',
 				subtitle: '',
+			},
+		]);
+	});
+
+	it('keeps the relationship, dates, and address together for clearer connection cards', () => {
+		const cards = extractConnectionCards(
+			{
+				previousConnections: [
+					{
+						firmName: 'Northstar Advisory',
+						relationship: 'Former owner',
+						effectiveDate: '2020-01-01',
+						address: '123 Market St, Denver, CO',
+					},
+				],
+			},
+			'previousConnections',
+		);
+
+		expect(cards).toEqual([
+			{
+				title: 'Northstar Advisory',
+				meta: 'Former owner',
+				subtitle: '2020-01-01 • 123 Market St, Denver, CO',
+			},
+		]);
+	});
+
+	it('extracts connection cards from wrapped payload objects', () => {
+		const cards = extractConnectionCards(
+			{
+				content: JSON.stringify({
+					currentConnections: [{ connectionName: 'Horizon Partners', relationship: 'Principal', effectiveDate: '2024-06-01' }],
+				}),
+			},
+			'currentConnections',
+		);
+
+		expect(cards).toEqual([
+			{
+				title: 'Horizon Partners',
+				meta: 'Principal',
+				subtitle: '2024-06-01',
 			},
 		]);
 	});

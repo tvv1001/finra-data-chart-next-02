@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { renderJsonForDisplay } from '@/lib/dashboard-json';
 import { getRecordDisplayName } from '@/lib/recordDisplay';
+import { normalizeNodeRouteId } from '@/lib/node-route';
 
 type RecordEntity = 'individual' | 'firm';
 
@@ -28,6 +29,67 @@ function getValue(source: Record<string, unknown>, paths: string[]): string {
 	return '';
 }
 
+function hasItems(value: unknown) {
+	return Array.isArray(value) && value.length > 0;
+}
+
+function normalizeStatusToken(value: string) {
+	return value.trim().toLowerCase().replace(/\s+/g, '');
+}
+
+function classifyStatus(value: string) {
+	const normalized = normalizeStatusToken(value);
+	if (!normalized) return '';
+	if (
+		/(inactive|terminated|revoked|suspended|withdrawn|barred|expelled|denied|ceased|closed|expired|previouslyregistered|nolongerregistered|notregistered|notinscope)/.test(
+			normalized,
+		)
+	) {
+		return 'Inactive';
+	}
+	if (/(active|approved|current|registered|valid|effective)/.test(normalized)) {
+		return 'Active';
+	}
+	return '';
+}
+
+function inferRecordStatus(payload: Record<string, unknown> | null | undefined, entity: RecordEntity): string {
+	const detail = payload && typeof payload === 'object' ? payload : {};
+
+	const explicitStatus = [
+		getValue(detail, ['status', 'employmentStatus', 'basicInformation.status', 'registrationStatus']),
+		getValue(detail, ['bcScope', 'basicInformation.bcScope']),
+		getValue(detail, ['iaScope', 'basicInformation.iaScope']),
+		getValue(detail, ['firmStatus', 'basicInformation.firmStatus']),
+	];
+
+	for (const candidate of explicitStatus) {
+		const classified = classifyStatus(candidate);
+		if (classified) return classified;
+	}
+
+	if (entity === 'individual') {
+		if (hasItems((detail as any).currentEmployment) || hasItems((detail as any).currentEmployments) || hasItems((detail as any).currentIAEmployments)) {
+			return 'Active';
+		}
+		if (hasItems((detail as any).previousEmployments) || hasItems((detail as any).previousIAEmployments) || hasItems((detail as any).employmentHistory)) {
+			return 'Inactive';
+		}
+	}
+
+	if (entity === 'firm') {
+		if (hasItems((detail as any).activeStates)) return 'Active';
+		if (
+			String((detail as any).isLegacy || '')
+				.trim()
+				.toUpperCase() === 'Y'
+		)
+			return 'Inactive';
+	}
+
+	return '';
+}
+
 export function summarizeRecordDetail(payload: Record<string, unknown> | null | undefined, entity: RecordEntity, id: string): RecordDashboardSummary {
 	const detail = payload && typeof payload === 'object' ? payload : {};
 	const name = getRecordDisplayName(detail, entity, id);
@@ -37,10 +99,10 @@ export function summarizeRecordDetail(payload: Record<string, unknown> | null | 
 	if (entity === 'individual') {
 		const currentEmployer = getValue(detail, ['currentEmployment.0.firmName', 'currentEmployment.0.firm_name', 'basicInformation.currentEmployer']);
 		if (currentEmployer) keyFacts.push({ label: 'Current employer', value: currentEmployer });
-		const status = getValue(detail, ['status', 'employmentStatus', 'basicInformation.status']);
+		const status = inferRecordStatus(detail, entity) || getValue(detail, ['status', 'employmentStatus', 'basicInformation.status']);
 		if (status) keyFacts.push({ label: 'Status', value: status });
 	} else {
-		const registrationStatus = getValue(detail, ['registrationStatus', 'basicInformation.registrationStatus']);
+		const registrationStatus = inferRecordStatus(detail, entity) || getValue(detail, ['registrationStatus', 'basicInformation.registrationStatus']);
 		if (registrationStatus) keyFacts.push({ label: 'Registration status', value: registrationStatus });
 		const secId = getValue(detail, ['secId', 'firmId', 'basicInformation.firmId']);
 		if (secId) keyFacts.push({ label: 'SEC ID', value: secId });
@@ -52,10 +114,11 @@ export function summarizeRecordDetail(payload: Record<string, unknown> | null | 
 export function getRecordDashboardDisplayMeta(payload: Record<string, unknown> | null | undefined, entity: RecordEntity, id: string): RecordDashboardDisplayMeta {
 	const detail = payload && typeof payload === 'object' ? payload : {};
 	const summary = summarizeRecordDetail(payload, entity, id);
+	const inferredStatus = inferRecordStatus(detail, entity);
 	const overviewCards = [
 		{ label: 'Entity', value: entity === 'firm' ? 'Firm' : 'Individual' },
 		{ label: 'Record ID', value: id || '—' },
-		{ label: 'Status', value: getValue(detail, ['status', 'employmentStatus', 'basicInformation.status', 'registrationStatus']) || '—' },
+		{ label: 'Status', value: inferredStatus || getValue(detail, ['status', 'employmentStatus', 'basicInformation.status', 'registrationStatus']) || '—' },
 		{ label: 'Employer', value: getValue(detail, ['currentEmployment.0.firmName', 'currentEmployment.0.firm_name', 'basicInformation.currentEmployer']) || '—' },
 	];
 
@@ -76,14 +139,29 @@ export default function RecordDashboard() {
 	const [error, setError] = useState<string | null>(null);
 
 	const segments = useMemo(() => pathname.split('/').filter(Boolean), [pathname]);
+	const normalizedNodeRouteId = useMemo(() => {
+		const [first, second] = segments;
+		if (first !== 'node') return null;
+		return normalizeNodeRouteId(second || '');
+	}, [segments]);
 	const entity = useMemo<RecordEntity>(() => {
 		const [first, second] = segments;
+		if (first === 'node') {
+			const prefix = String(normalizedNodeRouteId || '').split(':')[0] || '';
+			return prefix === 'firm' ? 'firm' : 'individual';
+		}
 		if (first === 'dashboard' && second === 'firm') return 'firm';
 		if (first === 'firm') return 'firm';
 		return 'individual';
-	}, [segments]);
+	}, [normalizedNodeRouteId, segments]);
 	const id = useMemo(() => {
 		const [first, second, third] = segments;
+		if (first === 'node') {
+			const normalized = normalizeNodeRouteId(second || '');
+			if (!normalized) return second || '';
+			const suffix = normalized.split(':')[1] || '';
+			return suffix || second || '';
+		}
 		if (first === 'dashboard') return third || '';
 		return second || '';
 	}, [segments]);
@@ -94,33 +172,43 @@ export default function RecordDashboard() {
 		let active = true;
 		setLoading(true);
 		setError(null);
-		fetch(`/api/finra/${entity}/${encodeURIComponent(id)}`)
-			.then(async (response) => {
+		(async () => {
+			try {
+				if (segments[0] === 'node' && normalizedNodeRouteId) {
+					const nodeResponse = await fetch(`/api/finra/nodes-by-ids?ids=${encodeURIComponent(normalizedNodeRouteId)}`);
+					if (!nodeResponse.ok) throw new Error(`Request failed with ${nodeResponse.status}`);
+					const nodeData = await nodeResponse.json();
+					const nodeRecord = Array.isArray(nodeData) ? nodeData[0] : null;
+					if (active && nodeRecord && typeof nodeRecord === 'object') {
+						setDetail(nodeRecord);
+						return;
+					}
+				}
+
+				const response = await fetch(`/api/finra/${entity}/${encodeURIComponent(id)}`);
 				if (!response.ok) throw new Error(`Request failed with ${response.status}`);
-				return response.json();
-			})
-			.then((data) => {
+				const data = await response.json();
 				if (active) setDetail(data);
-			})
-			.catch((err) => {
+			} catch (err) {
 				if (active) setError(err instanceof Error ? err.message : 'Failed to load record');
-			})
-			.finally(() => {
-				if (active) setLoading(false);
-			});
+			}
+		})().finally(() => {
+			if (active) setLoading(false);
+		});
 		return () => {
 			active = false;
 		};
-	}, [entity, id]);
+	}, [entity, id, normalizedNodeRouteId, segments]);
 
 	const summary = useMemo(() => summarizeRecordDetail(detail, entity, id), [detail, entity, id]);
 	const displayMeta = useMemo(() => getRecordDashboardDisplayMeta(detail, entity, id), [detail, entity, id]);
 	const detailSections = useMemo(() => {
 		if (!detail) return [] as Array<{ label: string; value: string }>;
+		const inferredStatus = inferRecordStatus(detail, entity);
 		const sections = [
 			{ label: 'Name', value: getValue(detail, ['name', 'basicInformation.name', 'individualName', 'firmName']) },
 			{ label: 'CRD', value: getValue(detail, ['basicInformation.crdNumber', 'crdNumber', 'crd', 'basicInformation.individualId', 'individualId']) },
-			{ label: 'Status', value: getValue(detail, ['status', 'employmentStatus', 'basicInformation.status', 'registrationStatus']) },
+			{ label: 'Status', value: inferredStatus || getValue(detail, ['status', 'employmentStatus', 'basicInformation.status', 'registrationStatus']) },
 			{ label: 'Current employer', value: getValue(detail, ['currentEmployment.0.firmName', 'currentEmployment.0.firm_name', 'basicInformation.currentEmployer']) },
 			{ label: 'Related firms', value: Array.isArray(detail.employmentHistory) ? String(detail.employmentHistory.length) : '' },
 		];

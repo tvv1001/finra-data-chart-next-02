@@ -2339,42 +2339,23 @@ export default function DashboardPage() {
 											{detailedMainRecord.currentEmployment.length > 0 && (
 												<section className={styles.detailSection}>
 													<h4 className={styles.detailSectionTitle}>Current Employment ({detailedMainRecord.currentEmployment.length})</h4>
-													<div className={styles.detailCardList}>
+													<div className={styles.detailList}>
 														{detailedMainRecord.currentEmployment.map((row, idx) => (
-															<button
-																type='button'
+															<div
 																key={`cur-emp-${idx}`}
-																className={styles.detailCardButton}>
-																<div className={styles.detailCardTitle}>
-																	{pickFirstNonEmpty(row.legalName, row.name, row.firmName, row.organizationName) || `Employment ${idx + 1}`}
+																className={styles.detailRow}>
+																<div className={styles.detailRowMain}>
+																	<span className={styles.detailRowName}>{pickFirstNonEmpty(row.legalName, row.name, row.firmName, row.organizationName) || `Employment ${idx + 1}`}</span>
 																	{pickFirstNonEmpty(row.crdNumber, row.crd, row.firmId) && (
 																		<span className={styles.detailInlineTag}>CRD#{pickFirstNonEmpty(row.crdNumber, row.crd, row.firmId)}</span>
 																	)}
 																</div>
-																<div className={styles.detailCardMeta}>
+																<div className={styles.detailRowMeta}>
 																	{[formatAddress(row.branchOfficeLocations?.[0]), pickFirstNonEmpty(row.registrationBeginDate, row.effectiveDate, row.startDate)]
 																		.filter(Boolean)
 																		.join(' • ') || pickFirstNonEmpty(row.position, row.currentRegistration, row.status)}
 																</div>
-															</button>
-														))}
-													</div>
-												</section>
-											)}
-
-											{detailedMainRecord.registrationCards.length > 0 && (
-												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Registrations ({detailedMainRecord.registrationCards.length})</h4>
-													<div className={styles.detailCardList}>
-														{detailedMainRecord.registrationCards.map((item, idx) => (
-															<button
-																type='button'
-																key={`reg-${idx}`}
-																className={styles.detailCardButton}>
-																<div className={styles.detailCardTitle}>{item.title}</div>
-																{item.meta && <div className={styles.detailCardMeta}>{item.meta}</div>}
-																{item.subtitle && <div className={styles.detailCardMeta}>{item.subtitle}</div>}
-															</button>
+															</div>
 														))}
 													</div>
 												</section>
@@ -2383,60 +2364,39 @@ export default function DashboardPage() {
 											{detailedMainRecord.currentConnectionCards.length > 0 && (
 												<section className={styles.detailSection}>
 													<h4 className={styles.detailSectionTitle}>Current Connections ({detailedMainRecord.currentConnectionCards.length})</h4>
-													<div className={styles.detailCardList}>
+													<div className={styles.detailList}>
 														{detailedMainRecord.currentConnectionCards.map((item, idx) => (
-															<button
-																type='button'
-																key={`cur-conn-${idx}`}
-																className={styles.detailCardButton}>
-																<div className={styles.detailCardTitle}>{item.title}</div>
-																{item.meta && <div className={styles.detailCardMeta}>{item.meta}</div>}
-																{item.subtitle && <div className={styles.detailCardMeta}>{item.subtitle}</div>}
-															</button>
+															<div
+																key={`current-conn-${idx}`}
+																className={styles.detailRow}>
+																<div className={styles.detailRowMain}>
+																	<span className={styles.detailRowName}>{item.title}</span>
+																	{item.meta && <span className={styles.detailInlineTag}>{item.meta}</span>}
+																</div>
+																{item.subtitle && <div className={styles.detailRowMeta}>{item.subtitle}</div>}
+															</div>
 														))}
 													</div>
 												</section>
 											)}
 
-											{detailedMainRecord.previousEmployment.length > 0 && (
+											{detailedMainRecord.stateExams.length > 0 && (
 												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Previous Employment ({detailedMainRecord.previousEmployment.length})</h4>
-													<div className={styles.detailCardList}>
-														{detailedMainRecord.previousEmployment.map((row, idx) => (
-															<button
-																type='button'
-																key={`prev-emp-${idx}`}
-																className={styles.detailCardButton}>
-																<div className={styles.detailCardTitle}>
-																	{pickFirstNonEmpty(row.legalName, row.name, row.firmName, row.organizationName) || `Employment ${idx + 1}`}
-																	{pickFirstNonEmpty(row.crdNumber, row.crd, row.firmId) && (
-																		<span className={styles.detailInlineTag}>CRD#{pickFirstNonEmpty(row.crdNumber, row.crd, row.firmId)}</span>
+													<h4 className={styles.detailSectionTitle}>State Exam Category ({detailedMainRecord.stateExams.length})</h4>
+													<div className={styles.detailExamGrid}>
+														{detailedMainRecord.stateExams.map((row, idx) => (
+															<div
+																key={`state-exam-${idx}`}
+																className={styles.detailExamCardState}>
+																<div className={styles.detailExamTop}>
+																	<span className={styles.detailExamBadgeState}>{pickFirstNonEmpty(row.examCategory, row.examCode, row.category, 'Exam')}</span>
+																	{pickFirstNonEmpty(row.examTakenDate, row.dateTaken, row.date) && (
+																		<span className={styles.detailExamDate}>📅 {pickFirstNonEmpty(row.examTakenDate, row.dateTaken, row.date)}</span>
 																	)}
 																</div>
-																<div className={styles.detailCardMeta}>
-																	{[formatAddress(row.branchOfficeLocations?.[0]), pickFirstNonEmpty(row.registrationBeginDate, row.effectiveDate, row.startDate)]
-																		.filter(Boolean)
-																		.join(' • ') || pickFirstNonEmpty(row.position, row.currentRegistration, row.status)}
-																</div>
-															</button>
-														))}
-													</div>
-												</section>
-											)}
-
-											{detailedMainRecord.previousConnectionCards.length > 0 && (
-												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Previous Connections ({detailedMainRecord.previousConnectionCards.length})</h4>
-													<div className={styles.detailCardList}>
-														{detailedMainRecord.previousConnectionCards.map((item, idx) => (
-															<button
-																type='button'
-																key={`prev-conn-${idx}`}
-																className={styles.detailCardButton}>
-																<div className={styles.detailCardTitle}>{item.title}</div>
-																{item.meta && <div className={styles.detailCardMeta}>{item.meta}</div>}
-																{item.subtitle && <div className={styles.detailCardMeta}>{item.subtitle}</div>}
-															</button>
+																<div className={styles.detailExamName}>{pickFirstNonEmpty(row.examName, row.description, row.categoryName)}</div>
+																{pickFirstNonEmpty(row.examScope, row.scope) && <div className={styles.detailExamScope}>Scope: {pickFirstNonEmpty(row.examScope, row.scope)}</div>}
+															</div>
 														))}
 													</div>
 												</section>
@@ -2449,9 +2409,9 @@ export default function DashboardPage() {
 														{detailedMainRecord.productExams.map((row, idx) => (
 															<div
 																key={`prod-exam-${idx}`}
-																className={styles.detailExamCard}>
+																className={styles.detailExamCardProduct}>
 																<div className={styles.detailExamTop}>
-																	<span className={styles.detailExamBadge}>{pickFirstNonEmpty(row.examCategory, row.examCode, row.category, 'Exam')}</span>
+																	<span className={styles.detailExamBadgeProduct}>{pickFirstNonEmpty(row.examCategory, row.examCode, row.category, 'Exam')}</span>
 																	{pickFirstNonEmpty(row.examTakenDate, row.dateTaken, row.date) && (
 																		<span className={styles.detailExamDate}>📅 {pickFirstNonEmpty(row.examTakenDate, row.dateTaken, row.date)}</span>
 																	)}
@@ -2466,69 +2426,14 @@ export default function DashboardPage() {
 
 											{detailedMainRecord.jurisdictionCards.length > 0 && (
 												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Jurisdictions</h4>
-													<div className={styles.detailCardList}>
+													<h4 className={styles.detailSectionTitle}>Registered States ({detailedMainRecord.jurisdictionCards.length})</h4>
+													<div className={styles.detailTagList}>
 														{detailedMainRecord.jurisdictionCards.map((item, idx) => (
-															<div
+															<span
 																key={`${item.title}-${idx}`}
-																className={styles.detailCard}>
-																<div className={styles.detailCardTitle}>{item.title}</div>
-																{item.meta && <div className={styles.detailCardMeta}>{item.meta}</div>}
-																{item.subtitle && <div className={styles.detailCardMeta}>{item.subtitle}</div>}
-															</div>
-														))}
-													</div>
-												</section>
-											)}
-
-											{detailedMainRecord.brochureCards.length > 0 && (
-												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Brochures</h4>
-													<div className={styles.detailCardList}>
-														{detailedMainRecord.brochureCards.map((item, idx) => (
-															<div
-																key={`${item.title}-${idx}`}
-																className={styles.detailCard}>
-																<div className={styles.detailCardTitle}>{item.title}</div>
-																{item.meta && <div className={styles.detailCardMeta}>{item.meta}</div>}
-																{item.subtitle && <div className={styles.detailCardMeta}>{item.subtitle}</div>}
-															</div>
-														))}
-													</div>
-												</section>
-											)}
-
-											{detailedMainRecord.documentLinkCards.length > 0 && (
-												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>SEC Document Links</h4>
-													<div className={styles.detailCardList}>
-														{detailedMainRecord.documentLinkCards.map((item, idx) => (
-															<a
-																key={`${item.title}-${idx}`}
-																href={item.href}
-																target='_blank'
-																rel='noopener noreferrer'
-																className={styles.detailLinkBtn}>
+																className={styles.detailTagState}>
 																{item.title}
-															</a>
-														))}
-													</div>
-												</section>
-											)}
-
-											{detailedMainRecord.noticeFilingCards.length > 0 && (
-												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Notice Filings</h4>
-													<div className={styles.detailCardList}>
-														{detailedMainRecord.noticeFilingCards.map((item, idx) => (
-															<div
-																key={`${item.title}-${idx}`}
-																className={styles.detailNoticeCard}>
-																<div className={styles.detailCardTitle}>{item.title}</div>
-																{item.meta && <div className={styles.detailCardMeta}>{item.meta}</div>}
-																{item.subtitle && <div className={styles.detailNoticeSubtitle}>{item.subtitle}</div>}
-																{item.detail && <div className={styles.detailNoticeDetail}>{item.detail}</div>}
-															</div>
+															</span>
 														))}
 													</div>
 												</section>

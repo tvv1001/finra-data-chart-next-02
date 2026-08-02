@@ -22,6 +22,35 @@ function normalizeId(raw: unknown) {
 		.trim();
 }
 
+function hasAnyItems(value: unknown) {
+	return Array.isArray(value) && value.some((entry) => entry != null && entry !== '');
+}
+
+function hasFinraPresence(node: any) {
+	if (!node || typeof node !== 'object') return false;
+	if (node.hasFinraData === true) return true;
+	if (node.hasEmbeddedDetail === true && node.hasFinraData === false) return false;
+	if (Boolean(String(node?.bcScope || node?.basicInformation?.bcScope || '').trim())) return true;
+	if (Boolean(String(node?.registrationCount?.approvedFinraRegistrationCount || node?.registrationCount?.approvedSRORegistrationCount || '').trim())) return true;
+	if (hasAnyItems(node?.currentEmployments) || hasAnyItems(node?.previousEmployments)) return true;
+	if (hasAnyItems(node?.currentIAEmployments) || hasAnyItems(node?.previousIAEmployments)) return true;
+	return false;
+}
+
+function hasSecPresence(node: any) {
+	if (!node || typeof node !== 'object') return false;
+	if (node.hasSecData === true) return true;
+	if (node.hasEmbeddedDetail === true && node.hasSecData === false) return false;
+	if (Boolean(String(node?.iaScope || node?.basicInformation?.iaScope || '').trim())) return true;
+	if (Boolean(String(node?.iaSecNumber || node?.basicInformation?.iaSecNumber || node?.secNumber || '').trim())) return true;
+	if (Boolean(String(node?.secSummaryDescription || node?.basicInformation?.secSummaryDescription || '').trim())) return true;
+	if (hasAnyItems(node?.secDocumentLinks)) return true;
+	if (Boolean(String(node?.registrationCount?.approvedIAStateRegistrationCount || '').trim())) return true;
+	if (hasAnyItems(node?.currentIAEmployments) || hasAnyItems(node?.previousIAEmployments)) return true;
+	if (hasAnyItems(node?.iaDisclosures)) return true;
+	return false;
+}
+
 export function shouldSuppressSecLink(node: any, kind?: 'individual' | 'firm') {
 	if (!node || typeof node !== 'object') return false;
 	if (hasSuppressedExternalLink(node, 'sec')) return true;
@@ -45,6 +74,36 @@ export function shouldSuppressFinraLink(node: any) {
 
 	const rawFirmId = normalizeId(node?.firmId || node?.id);
 	return rawFirmId ? BROKEN_FINRA_FIRM_IDS.has(rawFirmId) : false;
+}
+
+export function buildDashboardProfileLinks(entity: 'individual' | 'firm', id: string, payload: any = {}) {
+	const normalizedEntity = entity === 'firm' ? 'firm' : 'individual';
+	const node = payload && typeof payload === 'object' ? payload : {};
+	const links: Array<{ label: string; href: string }> = [];
+
+	const finraAllowed = !shouldSuppressFinraLink(node) && hasFinraPresence(node);
+	if (finraAllowed) {
+		links.push({
+			label: 'FINRA profile ↗',
+			href: `https://brokercheck.finra.org/${normalizedEntity === 'firm' ? 'firm' : 'individual'}/summary/${encodeURIComponent(id)}`,
+		});
+		if (normalizedEntity === 'individual') {
+			links.push({
+				label: 'FINRA Detailed Report (PDF) ↗',
+				href: `https://files.brokercheck.finra.org/individual/individual_${encodeURIComponent(id)}.pdf`,
+			});
+		}
+	}
+
+	const secAllowed = !shouldSuppressSecLink(node, normalizedEntity) && hasSecPresence(node);
+	if (secAllowed) {
+		links.push({
+			label: 'SEC profile ↗',
+			href: `https://adviserinfo.sec.gov/${normalizedEntity === 'firm' ? 'firm' : 'individual'}/summary/${encodeURIComponent(id)}`,
+		});
+	}
+
+	return links;
 }
 
 export { BROKEN_FINRA_FIRM_IDS, SUPPRESSED_SEC_FIRM_IDS, SUPPRESSED_SEC_INDIV_IDS };
