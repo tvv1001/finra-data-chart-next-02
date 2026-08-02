@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { buildJsonDisplayTree, coerceStructuredValue, normalizeRenderablePayload, renderJsonForDisplay } from '../../lib/dashboard-json';
 import { resolveMainRecordTitle } from '../../lib/dashboard-record-title';
 import { getRecordDisplayName } from '../../lib/recordDisplay';
@@ -150,6 +150,24 @@ function extractNumericCrdsFromText(text: string): string[] {
 	}
 
 	return [];
+}
+
+function buildGraphHrefForEntity(entity: 'individual' | 'firm' | null | undefined, id: string | null | undefined) {
+	const normalizedId = normalizeCrd(id);
+	if (!normalizedId) return null;
+	if (entity === 'firm') return `/firm/${encodeURIComponent(normalizedId)}`;
+	if (entity === 'individual') return `/individual/${encodeURIComponent(normalizedId)}`;
+	return null;
+}
+
+function getLatestGraphHrefFromHistory(entries: LocalHistoryEntry[]) {
+	if (!Array.isArray(entries) || entries.length === 0) return null;
+	const sorted = entries.slice().sort((left, right) => new Date(right.lastVisitedAt || right.fetchedAt).getTime() - new Date(left.lastVisitedAt || left.fetchedAt).getTime());
+	for (const entry of sorted) {
+		const href = buildGraphHrefForEntity(entry.entity, entry.id);
+		if (href) return href;
+	}
+	return null;
 }
 
 function parseQueueQueries(input: string) {
@@ -1057,6 +1075,25 @@ function DashboardPageInner() {
 		const url = `http://localhost${pathname}${query ? `?${query}` : ''}`;
 		return parseDashboardSelectionFromUrl(url);
 	}, [pathname, searchParams]);
+
+	const graphHref = useMemo(() => {
+		const selectedHref = buildGraphHrefForEntity(currentRecordEntity, currentRecordId);
+		if (selectedHref) return selectedHref;
+		const routeHref = buildGraphHrefForEntity(routeSelection?.entity, routeSelection?.id);
+		if (routeHref) return routeHref;
+		const historyHref = getLatestGraphHrefFromHistory(localHistory);
+		if (historyHref) return historyHref;
+		return '/';
+	}, [currentRecordEntity, currentRecordId, routeSelection, localHistory]);
+
+	const handleGraphBackClick = useCallback(
+		(event: MouseEvent<HTMLAnchorElement>) => {
+			if (typeof window === 'undefined') return;
+			event.preventDefault();
+			window.location.assign(graphHref || '/');
+		},
+		[graphHref],
+	);
 
 	async function loadNewCrdsFromRedis() {
 		try {
@@ -2952,6 +2989,8 @@ function DashboardPageInner() {
 								</div>
 							)}
 
+							{!hasCurrentRecord && <div className={styles.searchSummary}>No node selected yet. Search for a specific CRD below.</div>}
+
 							<div className={`${styles.searchBarWrap} ${searchPaneOpen ? styles.searchBarWrapExpanded : ''}`}>
 								<div className={`${styles.searchResultsPane} ${searchPaneOpen ? styles.searchResultsPaneOpen : ''}`}>
 									<div className={styles.searchSummary}>{searchSummary}</div>
@@ -3034,7 +3073,8 @@ function DashboardPageInner() {
 				<div className={styles.rightColumn}>
 					<div className={styles.backLinkOutsideRow}>
 						<Link
-							href='/'
+							href={graphHref}
+							onClick={handleGraphBackClick}
 							className={styles.backLink}>
 							← Graph
 						</Link>

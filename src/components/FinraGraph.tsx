@@ -20,6 +20,39 @@ const FIND_STATE_EVENT = 'finra:find-state';
 const MOBILE_SIDEBAR_COLLAPSE_REQUEST_EVENT = 'finra:mobile-sidebar-collapse-request';
 const MOBILE_FIND_CLOSE_REQUEST_EVENT = 'finra:mobile-find-close-request';
 
+function buildDashboardHrefFromNodeId(nodeId: string | null | undefined) {
+	const normalizedNodeId = String(nodeId || '').trim();
+	if (!normalizedNodeId) return null;
+	const separatorIndex = normalizedNodeId.indexOf(':');
+	if (separatorIndex < 0) return null;
+	const type = normalizedNodeId.slice(0, separatorIndex).trim().toLowerCase();
+	const rawId = normalizedNodeId.slice(separatorIndex + 1).trim();
+	if (!rawId) return null;
+	if (type === 'person' || type === 'individual') return `/dashboard/individual/${encodeURIComponent(rawId)}`;
+	if (type === 'firm') return `/dashboard/firm/${encodeURIComponent(rawId)}`;
+	return null;
+}
+
+function getLatestDashboardHrefFromSelectionLog() {
+	if (typeof window === 'undefined') return null;
+	try {
+		const raw = localStorage.getItem('finra_selection_log');
+		if (!raw) return null;
+		const parsed = JSON.parse(raw);
+		if (!Array.isArray(parsed) || !parsed.length) return null;
+
+		for (let index = parsed.length - 1; index >= 0; index -= 1) {
+			const entry = parsed[index];
+			const candidateNodeId = String(entry?.id || '').trim();
+			const href = buildDashboardHrefFromNodeId(candidateNodeId);
+			if (href) return href;
+		}
+	} catch {
+		return null;
+	}
+	return null;
+}
+
 function bindTouchDragClickSuppression(button: HTMLElement | null) {
 	if (!button || button.dataset.touchGuardBound === 'true') return;
 	button.dataset.touchGuardBound = 'true';
@@ -239,6 +272,13 @@ export default function FinraGraph() {
 
 	const findSubmitText = 'Select';
 	const searchSuffix = useMemo(() => browserSearch || (searchParams.toString() ? `?${searchParams.toString()}` : ''), [browserSearch, searchParams]);
+	const dashboardHref = useMemo(() => {
+		const currentSelectedHref = buildDashboardHrefFromNodeId(routeNodeId);
+		if (currentSelectedHref) return currentSelectedHref;
+		const historyHref = getLatestDashboardHrefFromSelectionLog();
+		if (historyHref) return historyHref;
+		return '/dashboard';
+	}, [routeNodeId]);
 
 	const handleFetchQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
 		setFetchQuery(event.target.value);
@@ -966,7 +1006,7 @@ export default function FinraGraph() {
 
 					<div className='fg-header-right-controls'>
 						<Link
-							href='/dashboard'
+							href={dashboardHref}
 							className='fg-ghost-btn'
 							title='Open dashboard'
 							aria-label='Open dashboard'>

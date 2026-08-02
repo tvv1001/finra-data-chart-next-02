@@ -73,6 +73,7 @@ export function buildNodeRoutePath(nodeId: string | null | undefined) {
 	const parts = splitNodeId(normalizedNodeId);
 	if (parts?.prefix === 'person') return `/individual/${encodeURIComponent(parts.suffix)}`;
 	if (parts?.prefix === 'firm') return `/firm/${encodeURIComponent(parts.suffix)}`;
+	if (parts?.prefix === 'entity') return `/entity/${encodeURIComponent(parts.suffix)}`;
 	return `${NODE_ROUTE_BASE}/${toNodeRouteSlug(normalizedNodeId)}`;
 }
 
@@ -119,6 +120,15 @@ export function parseNodeIdFromPathname(pathname: string | null | undefined) {
 			return `firm:${decodeURIComponent(firmMatch[1])}`;
 		} catch {
 			return `firm:${firmMatch[1]}`;
+		}
+	}
+
+	const entityMatch = /^\/entity\/([^/]+?)\/?$/.exec(normalizedPathname);
+	if (entityMatch) {
+		try {
+			return `entity:${decodeURIComponent(entityMatch[1])}`;
+		} catch {
+			return `entity:${entityMatch[1]}`;
 		}
 	}
 
