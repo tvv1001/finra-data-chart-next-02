@@ -1308,6 +1308,8 @@ async function applyPendingRouteNodeSelection() {
 
 		const targetAlreadySelected = !shouldAutoExpandRouteSelection(targetNodeId, selectedId);
 		const shouldExpand = pendingRouteAutoExpand && (!targetAlreadySelected || pendingRouteForceAutoExpand);
+		const hasExplicitRoutePulseDuration = typeof pendingRoutePulseDuration === 'number' && Number.isFinite(pendingRoutePulseDuration);
+		const shouldFocusRouteSelection = hasExplicitRoutePulseDuration || !targetAlreadySelected;
 		pendingRouteAutoExpand = false;
 		pendingRouteForceAutoExpand = false;
 
@@ -1315,7 +1317,7 @@ async function applyPendingRouteNodeSelection() {
 			skipAutoExpand: true,
 			skipProfileSync: true,
 			skipLog: targetAlreadySelected,
-			focus: true,
+			focus: shouldFocusRouteSelection,
 			focusDuration: 520,
 			syncRoute: false,
 		});
