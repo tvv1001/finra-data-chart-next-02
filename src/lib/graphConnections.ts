@@ -11,8 +11,11 @@
 // cache layer used by the firm/individual detail routes and the graph store — so repeated lookups
 // for the same firm reuse the shared resource instead of recomputing the search/graph scan each time.
 import { getFullGraph } from '@/lib/graphStore';
-import { searchLocalIndex } from '@/lib/localSearch';
+import { searchLocalIndex, extractSearchQueries, hasMinimumSearchQuery } from '@/lib/localSearch';
 import { cachedFetch } from '@/lib/simpleCache';
+import { searchGraphFallback } from '@/lib/searchGraphFallback';
+import { searchDirectRedisFallback } from '@/lib/searchDirectFallback';
+import { searchExternalFallback } from '@/lib/searchExternalFallback';
 
 export type GraphConnectionEntry = {
 	individualId: string;
@@ -24,6 +27,12 @@ export type GraphConnectionEntry = {
 };
 
 const FIRM_CONNECTIONS_CACHE_TTL_SECONDS = 60 * 60; // 1 hour, matching the firm detail route's shared cache headers
+
+function getInternalBaseUrl() {
+	const url = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || process.env.VERCEL_BRANCH_URL?.trim() || process.env.VERCEL_URL?.trim();
+	if (!url) return '';
+	return /^https?:\/\//i.test(url) ? url.replace(/\/$/, '') : `https://${url.replace(/\/$/, '')}`;
+}
 
 function toArraySafe(value: unknown): any[] {
 	return Array.isArray(value) ? value : [];
@@ -37,15 +46,40 @@ function firstNonEmpty(...values: unknown[]) {
 	return '';
 }
 
+async function searchIndividualsForFirmWithFallback(source: 'finra' | 'sec', firmId: string): Promise<any[]> {
+	// Mirrors the exact fallback chain used by /api/finra/search (consumed client-side by the
+	// interactive graph's fetchFirmBatch): local static/dynamic index -> shared graph snapshot ->
+	// direct Redis record -> live external API (includePrevious=true). Replicated here so the
+	// dashboard's Current/Previous Connections have full parity with the graph's node-click panel,
+	// instead of only ever checking the (often tiny) local static index.
+	const limit = 30;
+	const local = await searchLocalIndex(source, 'individual', firmId, { limit }).catch(() => null);
+	if (local && local.total > 0) return toArraySafe(local?.hits?.hits).map((hit: any) => hit?._source || hit || {});
+
+	if (!hasMinimumSearchQuery(firmId)) return [];
+
+	const graphFallback = await searchGraphFallback(source, 'individual', firmId, { limit }).catch(() => null);
+	if (graphFallback && graphFallback.total > 0) return toArraySafe(graphFallback?.hits?.hits).map((hit: any) => hit?._source || hit || {});
+
+	const directFallback = await searchDirectRedisFallback(source, 'individual', firmId, { limit }).catch(() => null);
+	if (directFallback) return toArraySafe(directFallback?.hits?.hits).map((hit: any) => hit?._source || hit || {});
+
+	// baseUrl isn't available/needed here since searchExternalFallback calls the upstream API
+	// directly rather than our own deployment; pass an empty string (only used for background
+	// pre-fetch cache warming, which is best-effort and non-blocking).
+	const externalFallback = await searchExternalFallback(source, 'individual', firmId, getInternalBaseUrl()).catch(() => null);
+	if (externalFallback) return toArraySafe(externalFallback?.hits?.hits).map((hit: any) => hit?._source || hit || {});
+
+	return [];
+}
+
 async function getConnectionsFromSearchIndex(firmId: string): Promise<GraphConnectionEntry[]> {
 	const entries: GraphConnectionEntry[] = [];
 	for (const source of ['finra', 'sec'] as const) {
 		try {
-			const response = await searchLocalIndex(source, 'individual', firmId, { limit: 30 });
-			const hits = toArraySafe(response?.hits?.hits);
-			for (const hit of hits) {
-				const src = hit?._source || hit || {};
-				const crd = firstNonEmpty(src.ind_source_id, src.ind_crd, src.individualId, hit?._id);
+			const hits = await searchIndividualsForFirmWithFallback(source, firmId);
+			for (const src of hits) {
+				const crd = firstNonEmpty(src.ind_source_id, src.ind_crd, src.individualId, src.id);
 				if (!crd) continue;
 
 				const name = firstNonEmpty([src.ind_firstname, src.ind_middlename, src.ind_lastname].filter(Boolean).join(' '), src.individualName, src.name);
@@ -79,7 +113,7 @@ async function getConnectionsFromSearchIndex(firmId: string): Promise<GraphConne
 				}
 			}
 		} catch {
-			// Best-effort: skip this source if its index isn't available.
+			// Best-effort: skip this source if its index/fallback chain isn't available.
 		}
 	}
 	return entries;
