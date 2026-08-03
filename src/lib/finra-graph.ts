@@ -1321,6 +1321,7 @@ async function applyPendingRouteNodeSelection() {
 			focus: shouldFocusRouteSelection,
 			focusDuration: 520,
 			syncRoute: false,
+			preserveRestoreTimer: true,
 		});
 		if (shouldExpand) {
 			await materializeRouteSelectionNeighborhood(liveNode, getDefaultExpansionHops());
@@ -3973,14 +3974,37 @@ function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: 
 			return;
 		}
 
-		highlightedSelections = restoredHighlights
-			.map((entry) => ({
-				id: entry?.id,
+		// Merge (rather than replace) with any highlights already applied since this restore was
+		// scheduled: navigating back from the dashboard triggers an immediate route-based
+		// selectNode() call for the current URL's node (see applyPendingRouteNodeSelection) that
+		// races ahead of this deferred restore. That call adds its own single-node highlight to
+		// highlightedSelections before this timer fires, so unioning here (instead of overwriting)
+		// ensures the full previously-selected set survives a graph -> dashboard -> graph round trip.
+		const preRestoreHighlights = Array.isArray(highlightedSelections) ? highlightedSelections : [];
+		const mergedHighlightsById = new Map<string, { id: string; hops: any }>();
+		for (const entry of restoredHighlights) {
+			const id = entry?.id ? String(entry.id).trim() : '';
+			if (!id) continue;
+			mergedHighlightsById.set(id, {
+				id,
 				hops: shouldReuseStoredSelectionHops ? normalizeHighlightHops(entry?.hops ?? currentHopDefaults.selection) : currentHopDefaults.selection,
-			}))
-			.filter((entry) => entry.id && Array.isArray(layoutNodes) && layoutNodes.some((node) => node.id === entry.id));
+			});
+		}
+		for (const entry of preRestoreHighlights) {
+			const id = entry?.id ? String(entry.id).trim() : '';
+			if (!id || mergedHighlightsById.has(id)) continue;
+			mergedHighlightsById.set(id, { id, hops: normalizeHighlightHops(entry?.hops ?? currentHopDefaults.selection) });
+		}
 
-		selectedId = highlightedSelections.find((entry) => entry.id === session?.selectedNodeId)?.id || highlightedSelections[highlightedSelections.length - 1]?.id || null;
+		highlightedSelections = Array.from(mergedHighlightsById.values()).filter(
+			(entry) => entry.id && Array.isArray(layoutNodes) && layoutNodes.some((node) => node.id === entry.id),
+		);
+
+		selectedId =
+			(Array.isArray(layoutNodes) && layoutNodes.some((node) => node.id === selectedId) ? selectedId : null) ||
+			highlightedSelections.find((entry) => entry.id === session?.selectedNodeId)?.id ||
+			highlightedSelections[highlightedSelections.length - 1]?.id ||
+			null;
 
 		reapplySelectionState();
 
@@ -11440,17 +11464,32 @@ function selectNode(
 		pulse?: boolean;
 		focusDuration?: number; // Default is 300ms
 		syncRoute?: boolean;
+		preserveRestoreTimer?: boolean;
 	} = {},
 ) {
 	lastArrowNavCoord = null;
 	stopSearchPulseLoop();
 	updateFocusReadout(null);
-	const { persist = true, skipProfileSync = false, skipAutoExpand = false, skipLog = false, focus = false, pulse = false, focusDuration = 300, syncRoute = true } = options;
+	const {
+		persist = true,
+		skipProfileSync = false,
+		skipAutoExpand = false,
+		skipLog = false,
+		focus = false,
+		pulse = false,
+		focusDuration = 300,
+		syncRoute = true,
+		// Route-driven auto-selection (e.g. landing on /firm/<id> after a full page
+		// reload from the dashboard's "Graph" back-link) sets this so it doesn't
+		// cancel a pending saved-session restore timer; restoreHighlightStateFromSession
+		// merges this node's selection into the fuller restored highlight set instead.
+		preserveRestoreTimer = false,
+	} = options;
 
 	// Clear any previous transient locator pulse immediately so the blue ring can
 	// move cleanly to the newly selected node.
 	stopNodePulseLoop();
-	if (selectionRestoreTimer) {
+	if (selectionRestoreTimer && !preserveRestoreTimer) {
 		clearTimeout(selectionRestoreTimer);
 		selectionRestoreTimer = null;
 	}
