@@ -1406,14 +1406,92 @@
 	background: rgba(6, 182, 212, 0.1);
 	color: #9fd8ff;
 	border-radius: 0;
+	padding: 4px 8px;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+
+.recordBadgeIndividual {
+	border-color: rgba(59, 130, 246, 0.5);
+	background: rgba(30, 58, 138, 0.4);
+	color: #bfdbfe;
+}
+
+.recordBadgeFirm {
+	border-color: rgba(16, 185, 129, 0.5);
+	background: rgba(6, 78, 59, 0.4);
+	color: #a7f3d0;
+}
+
+.recordBadgeCrd {
+	display: inline-flex;
+	align-items: center;
+	font-size: 12px;
+	font-weight: 700;
+	color: #cbd5e1;
+	letter-spacing: 0.04em;
+	margin-left: 4px;
+	margin-right: 4px;
+}
+
+.recordBadgeActive {
+	display: inline-flex;
+	align-items: center;
+	padding: 4px 8px;
+	border: 1px solid rgba(16, 185, 129, 0.5);
+	background: rgba(6, 78, 59, 0.35);
+	color: #6ee7b7;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
 }
 
 .recordTitle {
 	color: var(--text-primary);
-	font-size: 24px;
+	font-size: 22px;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
 	font-weight: 800;
+	margin: 4px 0 2px;
+}
+
+.recordSubtitle {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	margin-top: 2px;
+	margin-bottom: 8px;
+}
+
+.detailAddressCard {
+	border: 1px solid var(--border);
+	background: var(--content-surface-muted);
+	padding: 10px 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	margin-bottom: 12px;
+}
+
+.detailAddressLine {
+	font-size: 12px;
+	line-height: 1.45;
+	color: var(--text-secondary);
+	letter-spacing: 0.015em;
+}
+
+.detailOtherNamesHeading {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--text-muted);
+	margin-bottom: 6px;
 }
 
 .recordKeyLabel,
@@ -1433,6 +1511,7 @@
 	border: 1px solid var(--border);
 	background: rgba(18, 1, 11, 0.98);
 	border-radius: 0;
+	margin-left: auto;
 }
 
 .mainViewToggleBtn {

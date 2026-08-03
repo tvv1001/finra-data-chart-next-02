@@ -1,0 +1,294 @@
+[
+  {
+    "id": "150696",
+    "entity": "firm",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-03T14:30:15.266Z",
+    "name": "SANTANDER US CAPITAL MARKETS LLC",
+    "visitCount": 1,
+    "lastVisitedAt": "2026-08-03T14:30:15.266Z"
+  },
+  {
+    "id": "8303578",
+    "entity": "individual",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-03T14:30:08.718Z",
+    "name": "Paige Richardson",
+    "visitCount": 1,
+    "lastVisitedAt": "2026-08-03T14:30:08.718Z"
+  },
+  {
+    "id": "8303401",
+    "entity": "individual",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-03T06:45:12.307Z",
+    "name": "KATHERINE FLOWERS",
+    "visitCount": 95548,
+    "lastVisitedAt": "2026-08-03T14:29:13.265Z"
+  },
+  {
+    "id": "8303718",
+    "entity": "individual",
+    "sources": [
+      {
+        "source": "sec",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-03T14:25:39.997Z",
+    "name": "Noah Krakower",
+    "visitCount": 19204,
+    "lastVisitedAt": "2026-08-03T14:29:13.260Z"
+  },
+  {
+    "id": "133763",
+    "entity": "firm",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-03T06:45:02.975Z",
+    "name": "OSAIC SERVICES, INC.",
+    "visitCount": 76344,
+    "lastVisitedAt": "2026-08-03T07:15:55.619Z"
+  },
+  {
+    "id": "3132991",
+    "entity": "individual",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-03T06:44:58.424Z",
+    "name": "GREGORY CORNICK",
+    "visitCount": 1,
+    "lastVisitedAt": "2026-08-03T06:44:58.424Z"
+  },
+  {
+    "id": "23131",
+    "entity": "firm",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-03T06:11:09.152Z",
+    "name": "OSAIC WEALTH, INC.",
+    "visitCount": 15,
+    "lastVisitedAt": "2026-08-03T06:44:33.206Z"
+  },
+  {
+    "id": "8303495",
+    "entity": "individual",
+    "sources": [
+      {
+        "source": "sec",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-03T06:19:36.084Z",
+    "name": "Whitney Dodson",
+    "visitCount": 6791,
+    "lastVisitedAt": "2026-08-03T06:21:11.527Z"
+  },
+  {
+    "id": "16164",
+    "entity": "firm",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-03T06:16:13.391Z",
+    "name": "TRANSAMERICA FINANCIAL ADVISORS, LLC",
+    "visitCount": 6792,
+    "lastVisitedAt": "2026-08-03T06:21:11.520Z"
+  },
+  {
+    "id": "4667709",
+    "entity": "individual",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-03T06:18:37.094Z",
+    "name": "Nathaniel Tjoa",
+    "visitCount": 1,
+    "lastVisitedAt": "2026-08-03T06:18:37.094Z"
+  },
+  {
+    "id": "3262384",
+    "entity": "individual",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-03T06:15:56.941Z",
+    "name": "SHAWN MIHAL",
+    "visitCount": 2,
+    "lastVisitedAt": "2026-08-03T06:16:04.505Z"
+  },
+  {
+    "id": "866",
+    "entity": "firm",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-03T06:15:58.869Z",
+    "name": "WADDELL & REED",
+    "visitCount": 1,
+    "lastVisitedAt": "2026-08-03T06:15:58.869Z"
+  },
+  {
+    "id": "3232016",
+    "entity": "individual",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-03T06:05:40.569Z",
+    "name": "JANICE BRANDT",
+    "visitCount": 25390,
+    "lastVisitedAt": "2026-08-03T06:11:01.410Z"
+  },
+  {
+    "id": "4749127",
+    "entity": "individual",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-03T06:06:06.276Z",
+    "name": "BRENT FACEMIRE",
+    "visitCount": 25388,
+    "lastVisitedAt": "2026-08-03T06:10:34.886Z"
+  },
+  {
+    "id": "3538",
+    "entity": "firm",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-03T05:43:32.446Z",
+    "name": "SUNSET FINANCIAL SERVICES, INC.",
+    "visitCount": 5,
+    "lastVisitedAt": "2026-08-03T06:04:40.470Z"
+  },
+  {
+    "id": "8303700",
+    "entity": "individual",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-02T08:23:07.145Z",
+    "name": "Owen Hays",
+    "visitCount": 3803,
+    "lastVisitedAt": "2026-08-02T08:23:36.276Z"
+  },
+  {
+    "id": "8303540",
+    "entity": "individual",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-02T08:18:15.356Z",
+    "name": "Ejiye Ibhawoh",
+    "visitCount": 28753,
+    "lastVisitedAt": "2026-08-02T08:23:36.272Z"
+  },
+  {
+    "id": "8303588",
+    "entity": "individual",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-02T08:18:11.413Z",
+    "name": "Matthew Ventura",
+    "visitCount": 24950,
+    "lastVisitedAt": "2026-08-02T08:23:03.314Z"
+  },
+  {
+    "id": "4031",
+    "entity": "firm",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-02T06:56:17.774Z",
+    "visitCount": 928,
+    "lastVisitedAt": "2026-08-02T06:56:52.011Z"
+  },
+  {
+    "id": "8303530",
+    "entity": "individual",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-02T06:55:02.323Z",
+    "name": "Dakota Herald",
+    "visitCount": 1,
+    "lastVisitedAt": "2026-08-02T06:55:02.323Z"
+  },
+  {
+    "id": "6363",
+    "entity": "individual",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-02T06:54:50.388Z",
+    "visitCount": 35,
+    "lastVisitedAt": "2026-08-02T06:54:53.154Z"
+  }
+]

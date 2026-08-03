@@ -25,6 +25,7 @@ import {
 	formatUiText as formatUiTextImpl,
 	formatNodeLabel as formatNodeLabelImpl,
 	normalizePersonLabel as normalizePersonLabelImpl,
+	formatOtherName as formatOtherNameImpl,
 	openSidebarToggles as openSidebarTogglesImpl,
 	row as rowImpl,
 	truncate as truncateImpl,
@@ -14307,7 +14308,7 @@ function renderFirmDetail(d: any) {
     <div class="fg-sb-body">
 			<div class="fg-firm-summary">
 				<div class="fg-firm-summary__header">
-					${d.otherNames?.length ? `<div class="fg-firm-summary__aliases">${esc(d.otherNames.join(', '))}</div>` : ''}
+					${d.otherNames?.length ? `<div class="fg-firm-summary__aliases">${escImpl(d.otherNames.map((n) => formatOtherNameImpl(n, true)).join(', '))}</div>` : ''}
 					${crdSec ? `<div class="fg-firm-summary__crd">${esc(crdSec)}</div>` : ''}
 				</div>
 				${

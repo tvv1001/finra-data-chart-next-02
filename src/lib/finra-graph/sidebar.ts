@@ -1347,6 +1347,57 @@ export function renderFirmDetail(d: any) {
 				.join('')}`;
 	}
 
+	function renderCrsRows() {
+		if (!d.crs) return '';
+		return `
+			<div class='fg-section-title'>CRS</div>
+			<div class='fg-detail-row'>
+				<span class='fg-label'>CRS Type</span>
+				<span>${esc(d.crs.crsType || '–')}</span>
+			</div>
+			<div class='fg-detail-row'>
+				<span class='fg-label'>File ID</span>
+				<span>${esc(d.crs.fileId || '–')}</span>
+			</div>`;
+	}
+
+	function renderDisclosureFlagRows() {
+		if (!d.bdDisclosureFlag && !d.iaDisclosureFlag) return '';
+		return `
+			<div class='fg-section-title'>Disclosures</div>
+			${d.bdDisclosureFlag ? `
+			<div class='fg-detail-row'>
+				<span class='fg-label'>BD Disclosure Flag</span>
+				<span>${esc(d.bdDisclosureFlag)}</span>
+			</div>` : ''}
+			${d.iaDisclosureFlag ? `
+			<div class='fg-detail-row'>
+				<span class='fg-label'>IA Disclosure Flag</span>
+				<span>${esc(d.iaDisclosureFlag)}</span>
+			</div>` : ''}`;
+	}
+
+	function renderBrochuresRows() {
+		if (!d.brochures) return '';
+		const details = Array.isArray(d.brochures.brochuredetails) ? d.brochures.brochuredetails : [];
+		return `
+			<div class='fg-section-title fg-section-title--sticky'>Brochures</div>
+			<div class='fg-detail-row'>
+				<span class='fg-label'>Part 2 Exempt</span>
+				<span>${esc(d.brochures.part2ExemptFlag || '–')}</span>
+			</div>
+			${details.length ? `
+			<div class='fg-timeline'>
+				${details.map((b: any) => `
+					<div class='fg-tl-entry'>
+						<span class='fg-tl-firm'>${esc(b.brochureName || '–')} <small>(ID: ${esc(String(b.brochureVersionID || '–'))})</small></span>
+						${b.dateSubmitted ? `<span class='fg-tl-dates'>Submitted: ${esc(b.dateSubmitted)}</span>` : ''}
+						${b.lastConfirmed ? `<span class='fg-tl-loc'>Last Confirmed: ${esc(b.lastConfirmed)}</span>` : ''}
+					</div>
+				`).join('')}
+			</div>` : ''}`;
+	}
+
 	const officeAddressRaw = String(d.officeAddress || '').trim();
 	const officeAddress = /^(?:-|n\/?a|na|none|null|undefined)$/i.test(officeAddressRaw) ? '' : officeAddressRaw;
 	const hasOfficeAddress = Boolean(officeAddress);
@@ -1389,6 +1440,9 @@ export function renderFirmDetail(d: any) {
 	${row('ID source check', esc(formatNodeSourceTruthSummary(d)))}
       ${showSec ? renderRegistrationStatusRows() : ''}
       ${showSec ? renderNoticeFilingsRows() : ''}
+      ${renderDisclosureFlagRows()}
+      ${renderCrsRows()}
+      ${renderBrochuresRows()}
       ${d.districtName ? row('FINRA District', esc(d.districtName)) : ''}
       ${row('Company Type', esc(d.firmType || 'N/A'))}
       ${row('Self-Regulatory Orgs', esc(sros))}

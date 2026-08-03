@@ -628,12 +628,14 @@ function resolveEntityNodeLabel(record: Record<string, any> | null | undefined, 
 	const basicPersonName = buildPersonNameFromRecord(basic);
 	const label = pickFirstNonEmpty(
 		row?.legalName,
+		row?.connectionName,
 		row?.name,
 		row?.fullName,
 		row?.individualName,
 		row?.firmName,
 		row?.iaFirmName,
 		basic?.legalName,
+		basic?.connectionName,
 		basic?.name,
 		basic?.fullName,
 		basic?.individualName,
@@ -757,6 +759,12 @@ const DETAIL_SKIP_KEYS = new Set([
 	'productExams',
 	'principalExams',
 	'exams',
+	'crs',
+	'brochures',
+	'noticeFilings',
+	'secDocumentLinks',
+	'bdDisclosureFlag',
+	'iaDisclosureFlag',
 ]);
 
 const HIDDEN_DETAIL_LABELS = new Set(['Exams Count', 'Registration Count', 'Broker Details', 'Has Finra Data', 'Has Sec Data']);
@@ -880,8 +888,14 @@ function extractBrochureCards(body: Record<string, any>) {
 			if (!record || typeof record !== 'object' || Array.isArray(record)) return null;
 			const title = pickFirstNonEmpty(record?.brochureName, record?.name, record?.brochureTitle);
 			const meta = pickFirstNonEmpty(record?.brochureVersionID, record?.versionId, record?.version);
-			const subtitle = pickFirstNonEmpty(record?.dateSubmitted, record?.submittedDate, record?.date);
-			return title ? { title, meta: meta ? `Version ${meta}` : '', subtitle } : null;
+			const submitted = pickFirstNonEmpty(record?.dateSubmitted, record?.submittedDate, record?.date);
+			const confirmed = pickFirstNonEmpty(record?.lastConfirmed, record?.confirmedDate);
+			const subtitleParts = [
+				submitted ? `Submitted: ${submitted}` : '',
+				confirmed ? `Last Confirmed: ${confirmed}` : '',
+			].filter(Boolean);
+			const subtitle = subtitleParts.join(' • ');
+			return title ? { title, meta: meta ? `ID #${meta}` : '', subtitle } : null;
 		})
 		.filter(Boolean) as Array<{ title: string; meta: string; subtitle: string }>;
 }
@@ -1266,6 +1280,32 @@ function DashboardPageInner() {
 			if (raw) {
 				setLocalHistory(JSON.parse(raw) as LocalHistoryEntry[]);
 			}
+			// Try to load server-side history file (if present) and merge
+			void (async () => {
+				try {
+					const res = await fetch('/api/dashboard/local-history');
+					if (res.ok) {
+						const payload = await res.json();
+						if (payload?.ok && Array.isArray(payload.data)) {
+							setLocalHistory((prev) => {
+								const combined = [...payload.data, ...prev];
+								// dedupe by entity:id keeping newest-first order
+								const seen = new Set();
+								const out: LocalHistoryEntry[] = [];
+								for (const e of combined) {
+									const key = `${e.entity}:${e.id}`;
+									if (seen.has(key)) continue;
+									seen.add(key);
+									out.push(e);
+								}
+								return out;
+							});
+						}
+					}
+				} catch (e) {
+					// ignore server-side history fetch errors
+				}
+			})();
 		} catch (err) {
 			console.error('Failed to load local history:', err);
 		}
@@ -1570,6 +1610,17 @@ function DashboardPageInner() {
 		const documentLinkCards = extractDocumentLinkCards(body);
 		const noticeFilingCards = extractNoticeFilingsCards(body);
 
+		const crs = body.crs && typeof body.crs === 'object' ? body.crs : null;
+		const bdDisclosureFlag = pickFirstNonEmpty(body.bdDisclosureFlag, body.bd_disclosure_flag, basic.bdDisclosureFlag);
+		const iaDisclosureFlag = pickFirstNonEmpty(body.iaDisclosureFlag, body.ia_disclosure_flag, basic.iaDisclosureFlag);
+		const brochuresPart2Exempt = pickFirstNonEmpty(body.brochures?.part2ExemptFlag, body.part2ExemptFlag);
+
+		const bcScope = pickFirstNonEmpty(basic.bcScope, body.bcScope, basic.brokerCheckScope, body.brokerCheckScope, body.bc_scope);
+		const iaScope = pickFirstNonEmpty(basic.iaScope, body.iaScope, basic.secScope, body.secScope, body.ia_scope);
+		const finraActive = bcScope ? `FINRA: ${bcScope}` : (showFinra ? 'FINRA: Active' : '');
+		const secActive = iaScope ? `SEC: ${iaScope}` : (showSec ? 'SEC: Active' : '');
+		const subtitle = otherNames.length > 0 && currentRecordEntity === 'individual' ? otherNames[0] : '';
+
 		const directOwners = toArray(body.directOwners).concat(toArray(body.directOwnersExecutiveOfficers));
 		const indirectOwners = toArray(body.indirectOwners);
 
@@ -1578,6 +1629,9 @@ function DashboardPageInner() {
 				pickFirstNonEmpty(basic.iaFirmName, basic.firmName, basic.fullName, basic.individualName) ||
 				extractEntityDetailFromPayload(content, currentRecordEntity, currentRecordId)?.name ||
 				`${currentRecordEntity === 'firm' ? 'Firm' : 'Individual'} ${currentRecordId}`,
+			subtitle,
+			finraActive,
+			secActive,
 			mainAddress,
 			otherNames,
 			profileLinks,
@@ -1596,6 +1650,10 @@ function DashboardPageInner() {
 			brochureCards,
 			documentLinkCards,
 			noticeFilingCards,
+			crs,
+			bdDisclosureFlag,
+			iaDisclosureFlag,
+			brochuresPart2Exempt,
 			directOwners,
 			indirectOwners,
 		};
@@ -1720,6 +1778,16 @@ function DashboardPageInner() {
 			const combined = [updatedEntry, ...nextEntries].slice(0, LOCAL_HISTORY_MAX);
 			try {
 				localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(combined));
+				// trigger server-side persist (best-effort)
+				try {
+					fetch('/api/dashboard/local-history', {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify(combined),
+					});
+				} catch {
+					// ignore
+				}
 			} catch {
 				// ignore persistence errors
 			}
@@ -1760,6 +1828,8 @@ function DashboardPageInner() {
 		if (typeof window !== 'undefined') {
 			try {
 				localStorage.removeItem(LOCAL_HISTORY_KEY);
+				// remove server-side history file
+				void fetch('/api/dashboard/local-history', { method: 'DELETE' });
 			} catch {
 				// ignore localStorage errors
 			}
@@ -2632,7 +2702,25 @@ function DashboardPageInner() {
 										<div className={styles.searchSummary}>Loading selected record…</div>
 									:	<>
 											<div className={styles.recordHeaderRow}>
-												<div className={styles.recordBadge}>{currentRecordEntity ? String(currentRecordEntity).toUpperCase() : 'UNKNOWN'}</div>
+												<span
+													className={`${styles.recordBadge} ${currentRecordEntity === 'firm' ? styles.recordBadgeFirm : styles.recordBadgeIndividual}`}>
+													{currentRecordEntity ? String(currentRecordEntity).toUpperCase() : 'UNKNOWN'}
+												</span>
+												{currentRecordId && (
+													<span className={styles.recordBadgeCrd}>
+														CRD {currentRecordId}
+													</span>
+												)}
+												{detailedMainRecord?.finraActive && (
+													<span className={styles.recordBadgeActive}>
+														{detailedMainRecord.finraActive}
+													</span>
+												)}
+												{detailedMainRecord?.secActive && (
+													<span className={styles.recordBadgeActive}>
+														{detailedMainRecord.secActive}
+													</span>
+												)}
 												<div className={styles.mainViewToggle}>
 													<button
 														type='button'
@@ -2649,18 +2737,9 @@ function DashboardPageInner() {
 												</div>
 											</div>
 											<h2 className={styles.recordTitle}>{orphanRecord?.name || mainJsonLabel}</h2>
-											{detailedMainRecord && detailedMainRecord.otherNames.length > 0 && (
-												<div className={styles.headerOtherNamesRow}>
-													{detailedMainRecord.otherNames.map((name) => (
-														<span
-															key={name}
-															className={styles.headerOtherNameText}>
-															{formatOtherName(name, currentRecordEntity === 'firm')}
-														</span>
-													))}
-												</div>
+											{detailedMainRecord?.subtitle && (
+												<div className={styles.recordSubtitle}>{detailedMainRecord.subtitle}</div>
 											)}
-											{currentRecordId && <div className={styles.recordKeyLabel}>CRD {currentRecordId}</div>}
 										</>
 									}
 								</>
@@ -2785,11 +2864,28 @@ function DashboardPageInner() {
 										</>
 									: detailedMainRecord ?
 										<>
-											{detailedMainRecord.mainAddress && (
-												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Main Address</h4>
-													<div className={styles.detailTextRow}>{detailedMainRecord.mainAddress}</div>
-												</section>
+											{(detailedMainRecord.mainAddress || detailedMainRecord.otherNames.length > 0) && (
+												<div className={styles.detailAddressCard}>
+													{detailedMainRecord.mainAddress && (
+														<div className={styles.detailAddressLine}>
+															<strong style={{ color: 'var(--text-secondary)' }}>Main Address:</strong> {detailedMainRecord.mainAddress}
+														</div>
+													)}
+													{detailedMainRecord.otherNames.length > 0 && (
+														<div className={styles.detailOtherNamesBlock}>
+															<div className={styles.detailOtherNamesHeading}>OTHER NAMES</div>
+															<div className={styles.headerOtherNamesRow} style={{ margin: 0 }}>
+																{detailedMainRecord.otherNames.map((name) => (
+																	<span
+																		key={name}
+																		className={styles.headerOtherNameTag}>
+																		{formatOtherName(name, currentRecordEntity === 'firm')}
+																	</span>
+																))}
+															</div>
+														</div>
+													)}
+												</div>
 											)}
 
 											<section className={styles.detailSection}>
@@ -2807,6 +2903,64 @@ function DashboardPageInner() {
 													))}
 												</div>
 											</section>
+
+											{detailedMainRecord.documentLinkCards.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>SEC Document Links</h4>
+													<div className={styles.detailLinkRow}>
+														{detailedMainRecord.documentLinkCards.map((link) => (
+															<a
+																key={link.href}
+																href={link.href}
+																target='_blank'
+																rel='noopener noreferrer'
+																className={styles.detailLinkBtn}>
+																{link.title} ↗
+															</a>
+														))}
+													</div>
+												</section>
+											)}
+
+											{(detailedMainRecord.bdDisclosureFlag || detailedMainRecord.iaDisclosureFlag) && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Disclosures</h4>
+													<div className={styles.detailRawList}>
+														{detailedMainRecord.bdDisclosureFlag && (
+															<div className={styles.detailRawItem}>
+																<div className={styles.detailRawLabel}>BD Disclosure Flag</div>
+																<div className={styles.detailRawValue}>{detailedMainRecord.bdDisclosureFlag}</div>
+															</div>
+														)}
+														{detailedMainRecord.iaDisclosureFlag && (
+															<div className={styles.detailRawItem}>
+																<div className={styles.detailRawLabel}>IA Disclosure Flag</div>
+																<div className={styles.detailRawValue}>{detailedMainRecord.iaDisclosureFlag}</div>
+															</div>
+														)}
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.crs && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Form CRS</h4>
+													<div className={styles.detailRawList}>
+														{detailedMainRecord.crs.crsType && (
+															<div className={styles.detailRawItem}>
+																<div className={styles.detailRawLabel}>CRS Type</div>
+																<div className={styles.detailRawValue}>{detailedMainRecord.crs.crsType}</div>
+															</div>
+														)}
+														{detailedMainRecord.crs.fileId && (
+															<div className={styles.detailRawItem}>
+																<div className={styles.detailRawLabel}>File ID</div>
+																<div className={styles.detailRawValue}>{detailedMainRecord.crs.fileId}</div>
+															</div>
+														)}
+													</div>
+												</section>
+											)}
 
 											{detailedMainRecord.currentEmployment.length > 0 && (
 												<section className={styles.detailSection}>
@@ -3027,7 +3181,7 @@ function DashboardPageInner() {
 
 											{detailedMainRecord.stateExams.length > 0 && (
 												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>State Exam Category ({detailedMainRecord.stateExams.length})</h4>
+													<h4 className={styles.detailSectionTitle}>🏛️ STATE EXAM CATEGORY ({detailedMainRecord.stateExams.length})</h4>
 													<div className={styles.detailExamGrid}>
 														{detailedMainRecord.stateExams.map((row, idx) => (
 															<div
@@ -3049,7 +3203,7 @@ function DashboardPageInner() {
 
 											{detailedMainRecord.productExams.length > 0 && (
 												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Product Exam Category ({detailedMainRecord.productExams.length})</h4>
+													<h4 className={styles.detailSectionTitle}>📜 PRODUCT EXAM CATEGORY ({detailedMainRecord.productExams.length})</h4>
 													<div className={styles.detailExamGrid}>
 														{detailedMainRecord.productExams.map((row, idx) => (
 															<div
@@ -3071,7 +3225,7 @@ function DashboardPageInner() {
 
 											{detailedMainRecord.principalExams.length > 0 && (
 												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Principal Exam Category ({detailedMainRecord.principalExams.length})</h4>
+													<h4 className={styles.detailSectionTitle}>👔 PRINCIPAL EXAM CATEGORY ({detailedMainRecord.principalExams.length})</h4>
 													<div className={styles.detailExamGrid}>
 														{detailedMainRecord.principalExams.map((row, idx) => (
 															<div
@@ -3085,6 +3239,49 @@ function DashboardPageInner() {
 																</div>
 																<div className={styles.detailExamName}>{pickFirstNonEmpty(row.examName, row.description, row.categoryName)}</div>
 																{pickFirstNonEmpty(row.examScope, row.scope) && <div className={styles.detailExamScope}>Scope: {pickFirstNonEmpty(row.examScope, row.scope)}</div>}
+															</div>
+														))}
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.brochureCards.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Brochures ({detailedMainRecord.brochureCards.length})</h4>
+													{detailedMainRecord.brochuresPart2Exempt && (
+														<div className={styles.detailTextRow} style={{ marginBottom: '6px' }}>
+															<strong>Part 2 Exempt:</strong> {detailedMainRecord.brochuresPart2Exempt}
+														</div>
+													)}
+													<div className={styles.detailList}>
+														{detailedMainRecord.brochureCards.map((item, idx) => (
+															<div
+																key={`brochure-${idx}`}
+																className={styles.detailRow}>
+																<div className={styles.detailRowMain}>
+																	<span className={styles.detailRowName}>{item.title}</span>
+																	{item.meta && <span className={styles.detailInlineTag}>{item.meta}</span>}
+																</div>
+																{item.subtitle && <div className={styles.detailRowMeta}>{item.subtitle}</div>}
+															</div>
+														))}
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.noticeFilingCards.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Notice Filings ({detailedMainRecord.noticeFilingCards.length})</h4>
+													<div className={styles.detailList}>
+														{detailedMainRecord.noticeFilingCards.map((item, idx) => (
+															<div
+																key={`notice-filing-${idx}`}
+																className={styles.detailRow}>
+																<div className={styles.detailRowMain}>
+																	<span className={styles.detailRowName}>{item.title}</span>
+																	{item.meta && <span className={styles.detailInlineTag}>{item.meta}</span>}
+																</div>
+																{item.subtitle && <div className={styles.detailRowMeta}>Effective Date: {item.subtitle}</div>}
 															</div>
 														))}
 													</div>
