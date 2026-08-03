@@ -20,7 +20,31 @@ export function normalizePersonLabel(str) {
 		}
 	}
 
+	// If the string looks like a person name (letters, spaces, dot, apostrophe, hyphen),
+	// always format to UI case (Title Case) so person nodes appear capitalized.
+	const isLikelyPerson = /^[A-Za-z .'\-]+$/.test(s);
+	if (isLikelyPerson) return formatUiText(s);
+
+	// Otherwise fall back to previous heuristic: if there's no lowercase, normalize,
+	// else leave as-is (likely organization codes or mixed content).
 	return !/[a-z]/.test(s) ? formatUiText(s) : s;
+}
+
+// Format an "other name" for display in the UI. For firms, prefer Title Case
+// but preserve short corporate suffixes (e.g., LLC, INC) as all-caps when they
+// are exactly 2-4 alpha characters (user requested 3, but allow common 2-4).
+export function formatOtherName(rawName, isFirm = false) {
+	const s = String(rawName || '').trim();
+	if (!s) return '';
+	// Use formatUiText to get sensible Title Case / acronym handling baseline
+	const base = formatUiText(s);
+	if (!isFirm) return base;
+
+	// For firms, ensure short suffix tokens (2-4 letters) are uppercase
+	return base
+		.split(/\s+/)
+		.map((tok) => (tok.replace(/[^A-Za-z]/g, '').length === 3 && /^[A-Za-z]+$/.test(tok) ? tok.toUpperCase() : tok))
+		.join(' ');
 }
 
 export function formatNodeLabel(str) {

@@ -1580,6 +1580,14 @@
 	border-radius: 0;
 }
 
+.headerOtherNameText {
+	font-size: 13px;
+	color: var(--text-primary);
+	font-weight: 600;
+	white-space: nowrap;
+	padding-right: 8px;
+}
+
 .detailTagSro {
 	display: inline-flex;
 	align-items: center;

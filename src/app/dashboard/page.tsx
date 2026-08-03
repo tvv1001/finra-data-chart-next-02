@@ -6,6 +6,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type Mouse
 import { buildJsonDisplayTree, coerceStructuredValue, normalizeRenderablePayload, renderJsonForDisplay } from '../../lib/dashboard-json';
 import { resolveMainRecordTitle } from '../../lib/dashboard-record-title';
 import { getRecordDisplayName } from '../../lib/recordDisplay';
+import { formatOtherName } from '@/lib/finra-graph/formatters';
 import styles from './dashboard.module.css';
 
 type DashboardAction = 'fetch-crds' | 'list-new-crds';
@@ -442,7 +443,13 @@ function extractEntityDetailFromPayload(payload: any, entity: 'individual' | 'fi
 	if (entity === 'individual') {
 		const firstName = normalized.bc?.firstName || normalized.ia?.firstName || normalized.basicInformation?.firstName || '';
 		const lastName = normalized.bc?.lastName || normalized.ia?.lastName || normalized.basicInformation?.lastName || '';
-		const name = [firstName, lastName].filter(Boolean).join(' ').trim();
+		const name =
+			[firstName, lastName].filter(Boolean).join(' ').trim() ||
+			normalized.fullName ||
+			normalized.individualName ||
+			normalized.basicInformation?.fullName ||
+			normalized.basicInformation?.individualName ||
+			'';
 		const bcScope = normalized.bc?.bcScope || normalized.basicInformation?.bcScope || 'N/A';
 		const iaScope = normalized.ia?.iaScope || normalized.basicInformation?.iaScope || 'N/A';
 
@@ -456,8 +463,15 @@ function extractEntityDetailFromPayload(payload: any, entity: 'individual' | 'fi
 
 	// For firms
 	if (entity === 'firm') {
-		const legalName = normalized.legalName || normalized.basicInformation?.legalName || '';
-		const doingBusinessAs = normalized.doingBusinessAs || normalized.basicInformation?.doingBusinessAs || '';
+		const legalName =
+			normalized.legalName ||
+			normalized.basicInformation?.legalName ||
+			normalized.basicInformation?.firmName ||
+			normalized.basicInformation?.iaFirmName ||
+			normalized.firmName ||
+			normalized.iaFirmName ||
+			'';
+		const doingBusinessAs = normalized.doingBusinessAs || normalized.basicInformation?.doingBusinessAs || normalized.dba || normalized.basicInformation?.dba || '';
 		const name = legalName || doingBusinessAs || `Firm ${crd}`;
 
 		return {
@@ -596,6 +610,51 @@ function pickFirstValidCrd(...values: unknown[]): string {
 	return '';
 }
 
+function looksLikeGenericEntityLabel(value: unknown) {
+	const text = toText(value);
+	if (!text) return true;
+	return /^(firm|individual)\s+\d{1,10}$/i.test(text) || /^employment\s+\d+$/i.test(text) || /^owner\s+\d+$/i.test(text) || /^result$/i.test(text);
+}
+
+function buildPersonNameFromRecord(record: Record<string, any>) {
+	const parts = [toText(record?.firstName), toText(record?.middleName), toText(record?.lastName), toText(record?.suffix)].filter(Boolean).join(' ').trim();
+	return parts;
+}
+
+function resolveEntityNodeLabel(record: Record<string, any> | null | undefined, entity: 'individual' | 'firm', crd?: string, indexFallback?: number) {
+	const row = record || {};
+	const basic = row?.basicInformation && typeof row.basicInformation === 'object' ? row.basicInformation : {};
+	const personName = buildPersonNameFromRecord(row);
+	const basicPersonName = buildPersonNameFromRecord(basic);
+	const label = pickFirstNonEmpty(
+		row?.legalName,
+		row?.name,
+		row?.fullName,
+		row?.individualName,
+		row?.firmName,
+		row?.iaFirmName,
+		basic?.legalName,
+		basic?.name,
+		basic?.fullName,
+		basic?.individualName,
+		basic?.firmName,
+		basic?.iaFirmName,
+		row?.organizationName,
+		row?.companyName,
+		row?.doingBusinessAs,
+		row?.dba,
+		row?.employerName,
+		row?.entityName,
+		personName,
+		basicPersonName,
+	);
+
+	if (label && !looksLikeGenericEntityLabel(label)) return label;
+	if (crd) return `${entity === 'firm' ? 'Firm' : 'Individual'} CRD #${crd}`;
+	if (typeof indexFallback === 'number') return `${entity === 'firm' ? 'Firm' : 'Individual'} ${indexFallback + 1}`;
+	return entity === 'firm' ? 'Firm' : 'Individual';
+}
+
 function formatAddress(value: unknown): string {
 	if (!value) return '';
 	if (typeof value === 'string') return value.trim();
@@ -707,7 +766,9 @@ function shouldHideDetailLabel(label: string) {
 }
 
 const LOCAL_HISTORY_KEY = 'finra_dashboard_history';
-const LOCAL_HISTORY_MAX = 100;
+// Keep the local history indefinitely. Using a very large numeric sentinel so
+// existing slice(0, LOCAL_HISTORY_MAX) calls keep all entries.
+const LOCAL_HISTORY_MAX = Number.POSITIVE_INFINITY;
 
 type LocalHistoryEntry = {
 	id: string;
@@ -857,7 +918,8 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 		.map((entry) => {
 			const record = coerceStructuredValue(entry) as Record<string, any> | undefined;
 			if (!record || typeof record !== 'object' || Array.isArray(record)) return null;
-			const title = pickFirstNonEmpty(record?.firmName, record?.name, record?.organizationName, record?.companyName, record?.connectionName);
+			const crd = pickFirstValidCrd(record?.crdNumber, record?.crd, record?.firmId, record?.organizationCrd, record?.sourceId);
+			const title = resolveEntityNodeLabel(record, 'firm', crd);
 			const meta = pickFirstNonEmpty(record?.relationship, record?.position, record?.title, record?.status);
 			const dateText = pickFirstNonEmpty(record?.effectiveDate, record?.date, record?.startDate, record?.endDate);
 			const addressText = pickFirstNonEmpty(
@@ -1064,6 +1126,9 @@ function DashboardPageInner() {
 
 	const mergedDetailCacheRef = useRef(new Map<string, any>());
 	const jsonStringCacheRef = useRef(new Map<string, string>());
+	const activeLoadSourceKeyRef = useRef<string | null>(null);
+	const jsonRenderInFlightKeyRef = useRef<string | null>(null);
+	const refreshInFlightByCrdRef = useRef(new Map<string, Promise<any>>());
 
 	const queueQueries = useMemo(() => parseQueueQueries(crdInput), [crdInput]);
 	const parsedCrds = useMemo(() => queueQueries.filter((value) => /^\d{1,10}$/.test(value)), [queueQueries]);
@@ -1076,6 +1141,11 @@ function DashboardPageInner() {
 		const url = `http://localhost${pathname}${query ? `?${query}` : ''}`;
 		return parseDashboardSelectionFromUrl(url);
 	}, [pathname, searchParams]);
+
+	const routeSelectionEntityIdKey = useMemo(() => {
+		if (!routeSelection) return '';
+		return `${routeSelection.entity}:${routeSelection.id}`;
+	}, [routeSelection?.entity, routeSelection?.id]);
 
 	const graphHref = useMemo(() => {
 		const selectedHref = buildGraphHrefForEntity(currentRecordEntity, currentRecordId);
@@ -1225,6 +1295,7 @@ function DashboardPageInner() {
 	useEffect(() => {
 		const payload = mainJson || result;
 		if (!payload) {
+			jsonRenderInFlightKeyRef.current = null;
 			setCodeBlock('');
 			setJsonTree(null);
 			setJsonRenderBusy(false);
@@ -1234,10 +1305,16 @@ function DashboardPageInner() {
 		const cacheKey = mainJson ? `main:${mainJsonLabel}` : `result:${String((result as any)?.ok)}:${String((result as any)?.error || '')}`;
 		const cached = jsonStringCacheRef.current.get(cacheKey);
 		if (cached != null) {
+			jsonRenderInFlightKeyRef.current = null;
 			setCodeBlock(cached);
 			setJsonRenderBusy(false);
 			return;
 		}
+
+		if (jsonRenderInFlightKeyRef.current === cacheKey) {
+			return;
+		}
+		jsonRenderInFlightKeyRef.current = cacheKey;
 
 		setJsonRenderBusy(true);
 		let cancelled = false;
@@ -1258,7 +1335,10 @@ function DashboardPageInner() {
 					setJsonTree(null);
 				}
 			} finally {
-				if (!cancelled) setJsonRenderBusy(false);
+				if (!cancelled) {
+					jsonRenderInFlightKeyRef.current = null;
+					setJsonRenderBusy(false);
+				}
 			}
 		};
 
@@ -1266,6 +1346,9 @@ function DashboardPageInner() {
 			const idleId = (window as any).requestIdleCallback(compute, { timeout: 180 });
 			return () => {
 				cancelled = true;
+				if (jsonRenderInFlightKeyRef.current === cacheKey) {
+					jsonRenderInFlightKeyRef.current = null;
+				}
 				if (typeof (window as any).cancelIdleCallback === 'function') {
 					(window as any).cancelIdleCallback(idleId);
 				}
@@ -1275,17 +1358,21 @@ function DashboardPageInner() {
 		const timeoutId = window.setTimeout(compute, 0);
 		return () => {
 			cancelled = true;
+			if (jsonRenderInFlightKeyRef.current === cacheKey) {
+				jsonRenderInFlightKeyRef.current = null;
+			}
 			window.clearTimeout(timeoutId);
 		};
 	}, [mainJson, result, mainJsonLabel]);
 
 	useEffect(() => {
-		if (!routeSelection) return;
+		if (!routeSelection || !routeSelectionEntityIdKey) return;
 
-		const isAlreadySelected = currentRecordId === routeSelection.id && currentRecordEntity === routeSelection.entity && currentRecordSource === routeSelection.source;
-		if (isAlreadySelected) return;
+		const isAlreadySelectedEntity = currentRecordId === routeSelection.id && currentRecordEntity === routeSelection.entity;
+		if (isAlreadySelectedEntity) return;
 
-		syncSelectionToUrl(routeSelection);
+		const activeLoadKey = activeLoadSourceKeyRef.current;
+		if (activeLoadKey && activeLoadKey.startsWith(`${routeSelection.entity}:${routeSelection.id}:`)) return;
 
 		const card: QueueCard = {
 			id: routeSelection.id,
@@ -1299,7 +1386,7 @@ function DashboardPageInner() {
 
 		void loadQueueSourceJson(card, routeSelection.source);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [routeSelection]);
+	}, [routeSelectionEntityIdKey, routeSelection?.source, currentRecordId, currentRecordEntity]);
 
 	const searchSummary = useMemo(() => {
 		if (!searchQuery.trim()) return 'Search saved records by name';
@@ -1611,15 +1698,21 @@ function DashboardPageInner() {
 	function recordHistoryEntry({ id, entity, source, name }: { id: string; entity: 'individual' | 'firm'; source: SearchResultSource; name?: string }) {
 		if (typeof window === 'undefined') return;
 		const now = new Date().toISOString();
+		const incomingName = toText(name);
 		setLocalHistory((prev) => {
 			const nextEntries = prev.filter((entry) => !(entry.entity === entity && entry.id === id));
 			const existing = prev.find((entry) => entry.entity === entity && entry.id === id);
+			const existingName = toText(existing?.name);
+			const resolvedName =
+				incomingName && !looksLikeGenericEntityLabel(incomingName) ? incomingName
+				: existingName && !looksLikeGenericEntityLabel(existingName) ? existingName
+				: incomingName || existingName || undefined;
 			const updatedEntry: LocalHistoryEntry = {
 				id,
 				entity,
 				sources: [...(existing?.sources || []).filter((item) => item.source !== source), { source, status: 'ok' }],
 				fetchedAt: existing?.fetchedAt || now,
-				name: existing?.name || name || undefined,
+				name: resolvedName,
 				visitCount: (existing?.visitCount || 0) + 1,
 				lastVisitedAt: now,
 			};
@@ -1725,10 +1818,23 @@ function DashboardPageInner() {
 		const anchor = target?.closest?.('a[href]') as HTMLAnchorElement | null;
 		if (!anchor) return;
 
-		const href = String(anchor.getAttribute('href') || '').trim();
-		if (!href.startsWith('/dashboard/')) return;
+		const rawHref = String(anchor.getAttribute('href') || '').trim();
+		if (!rawHref) return;
 
-		const parsed = parseDashboardSelectionFromUrl(`http://localhost${href}`);
+		let hrefForParsing = rawHref;
+		try {
+			if (typeof window !== 'undefined') {
+				const resolved = new URL(rawHref, window.location.origin);
+				if (!resolved.pathname.startsWith('/dashboard/')) return;
+				hrefForParsing = `${resolved.pathname}${resolved.search}${resolved.hash}`;
+			} else if (!rawHref.startsWith('/dashboard/')) {
+				return;
+			}
+		} catch {
+			if (!rawHref.startsWith('/dashboard/')) return;
+		}
+
+		const parsed = parseDashboardSelectionFromUrl(`http://localhost${hrefForParsing}`);
 		if (!parsed) return;
 
 		event.preventDefault();
@@ -1902,7 +2008,7 @@ function DashboardPageInner() {
 		const response = await fetch(route, {
 			method: 'GET',
 			headers: { Accept: 'application/json' },
-			cache: 'no-store',
+			cache: 'default',
 		});
 		const detail = await response.json();
 		mergedDetailCacheRef.current.set(cacheKey, detail);
@@ -1915,43 +2021,49 @@ function DashboardPageInner() {
 		const response = await fetch(route, {
 			method: 'GET',
 			headers: { Accept: 'application/json' },
-			cache: 'no-store',
+			cache: 'default',
 		});
 
 		return response.json();
 	}
 
-	async function refreshSingleCardRecord(card: QueueCard, source: SearchResultSource) {
-		const response = await fetch('/api/dashboard/refresh', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({
-				action: 'fetch-crds',
-				queries: [card.id],
-				crds: [card.id],
-				maxCrds: 1,
-				includePayload: true,
-			}),
-		});
+	async function refreshSingleCardRecord(card: QueueCard) {
+		const refreshKey = `${card.entity}:${card.id}`;
+		const existing = refreshInFlightByCrdRef.current.get(refreshKey);
+		if (existing) {
+			return existing;
+		}
 
-		const payload = await response.json().catch(() => null);
-		const items = Array.isArray(payload?.results) ? payload.results : [];
-		const match = items.find(
-			(item: any) =>
-				String(item?.crd || '') === card.id &&
-				String(item?.source || '').toLowerCase() === source &&
-				String(item?.type || '').toLowerCase() === card.entity &&
-				item?.status === 'ok' &&
-				item?.payload,
-		);
+		const refreshPromise = (async () => {
+			const response = await fetch('/api/dashboard/refresh', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					action: 'fetch-crds',
+					queries: [card.id],
+					crds: [card.id],
+					maxCrds: 1,
+					includePayload: true,
+				}),
+			});
 
-		return match?.payload ?? null;
+			return response.json().catch(() => null);
+		})();
+
+		refreshInFlightByCrdRef.current.set(refreshKey, refreshPromise);
+		try {
+			return await refreshPromise;
+		} finally {
+			refreshInFlightByCrdRef.current.delete(refreshKey);
+		}
 	}
 
 	async function loadQueueSourceJson(card: QueueCard, source: SearchResultSource) {
 		const sourceKey = `${card.entity}:${card.id}:${source}`;
+		if (activeLoadSourceKeyRef.current === sourceKey) return;
+		activeLoadSourceKeyRef.current = sourceKey;
 		setActiveCardSourceKey(sourceKey);
 		setRecordViewLoading(true);
 		setMainJson(null);
@@ -1976,53 +2088,38 @@ function DashboardPageInner() {
 			}
 
 			if (!payload) {
-				const fallbackDetail = await fetchFallbackDetail(card);
-				mergedDetailCacheRef.current.set(cacheKey, fallbackDetail);
-				orderedSources = resolveOrderedSourcesFromDetail(fallbackDetail, source, orderedSources);
-				for (const candidateSource of orderedSources) {
-					payload = extractPayloadFromDetail(fallbackDetail, candidateSource);
-					if (payload) {
-						resolvedSource = candidateSource;
-						break;
+				const mergedFound = mergedDetail?.found === true;
+				const mergedHasAnySource = Boolean(mergedDetail?.sources?.finra || mergedDetail?.sources?.sec || mergedDetail?.finraNode || mergedDetail?.merged);
+				if (mergedFound || mergedHasAnySource) {
+					const fallbackDetail = await fetchFallbackDetail(card);
+					mergedDetailCacheRef.current.set(cacheKey, fallbackDetail);
+					orderedSources = resolveOrderedSourcesFromDetail(fallbackDetail, source, orderedSources);
+					for (const candidateSource of orderedSources) {
+						payload = extractPayloadFromDetail(fallbackDetail, candidateSource);
+						if (payload) {
+							resolvedSource = candidateSource;
+							break;
+						}
+					}
+				}
+
+				if (!payload) {
+					const refreshPayload = await refreshSingleCardRecord(card);
+					const refreshedItems = Array.isArray(refreshPayload?.results) ? refreshPayload.results : [];
+					if (refreshedItems.length > 0) {
+						mergedDetailCacheRef.current.delete(cacheKey);
+						const refreshedDetail = await fetchMergedDetail(card);
+						orderedSources = resolveOrderedSourcesFromDetail(refreshedDetail, source, orderedSources);
+						for (const candidateSource of orderedSources) {
+							payload = extractPayloadFromDetail(refreshedDetail, candidateSource);
+							if (payload) {
+								resolvedSource = candidateSource;
+								break;
+							}
+						}
 					}
 				}
 			}
-
-			if (!payload) {
-				const directRefreshedPayload = await refreshSingleCardRecord(card, source);
-				if (directRefreshedPayload) {
-					payload = directRefreshedPayload;
-					resolvedSource = source;
-				}
-			}
-
-			if (!payload) {
-				mergedDetailCacheRef.current.delete(cacheKey);
-				const refreshedDetail = await fetchMergedDetail(card);
-				orderedSources = resolveOrderedSourcesFromDetail(refreshedDetail, source, orderedSources);
-				for (const candidateSource of orderedSources) {
-					payload = extractPayloadFromDetail(refreshedDetail, candidateSource);
-					if (payload) {
-						resolvedSource = candidateSource;
-						break;
-					}
-				}
-			}
-
-			if (!payload) {
-				const refreshedFallbackDetail = await fetchFallbackDetail(card);
-				mergedDetailCacheRef.current.set(cacheKey, refreshedFallbackDetail);
-				orderedSources = resolveOrderedSourcesFromDetail(refreshedFallbackDetail, source, orderedSources);
-				for (const candidateSource of orderedSources) {
-					payload = extractPayloadFromDetail(refreshedFallbackDetail, candidateSource);
-					if (payload) {
-						resolvedSource = candidateSource;
-						break;
-					}
-				}
-			}
-
-			void loadQueueCardsFromRedis(queueCrdFilter);
 
 			if (!payload) {
 				setMainJson(null);
@@ -2052,16 +2149,22 @@ function DashboardPageInner() {
 			setCurrentRecordEntity(card.entity);
 			setCurrentRecordId(card.id);
 			const detailName = extractEntityDetailFromPayload(payload, card.entity, card.id)?.name;
+			const computedDisplayName = getRecordDisplayName(payload as Record<string, unknown>, card.entity, card.id);
+			const resolvedRecordName =
+				toText(card.name) ||
+				(toText(detailName) && !looksLikeGenericEntityLabel(detailName) ? toText(detailName) : '') ||
+				(toText(computedDisplayName) && !looksLikeGenericEntityLabel(computedDisplayName) ? toText(computedDisplayName) : '') ||
+				resolveEntityNodeLabel(payload as Record<string, any>, card.entity, card.id);
 			setMainJsonLabel(
 				resolveMainRecordTitle({
 					mainJsonLabel: formatMainPanelTitle({
 						source: resolvedSource,
 						entity: card.entity,
 						id: card.id,
-						name: card.name || detailName,
+						name: resolvedRecordName,
 						payload,
 					}),
-					fallbackName: card.name || detailName || null,
+					fallbackName: resolvedRecordName || null,
 					entity: card.entity,
 					id: card.id,
 				}),
@@ -2071,7 +2174,7 @@ function DashboardPageInner() {
 				id: card.id,
 				entity: card.entity,
 				source: resolvedSource,
-				name: card.name || undefined,
+				name: resolvedRecordName || undefined,
 			});
 			syncSelectionToUrl({
 				entity: card.entity,
@@ -2084,6 +2187,9 @@ function DashboardPageInner() {
 		} finally {
 			setRecordViewLoading(false);
 			setActiveCardSourceKey((current) => (current === sourceKey ? null : current));
+			if (activeLoadSourceKeyRef.current === sourceKey) {
+				activeLoadSourceKeyRef.current = null;
+			}
 		}
 	}
 
@@ -2406,7 +2512,9 @@ function DashboardPageInner() {
 						continue;
 					}
 
-					const label = String(item?.name || item?.fullName || item?.firmName || item?.firstName || item?.lastName || item?.title || 'Result').trim();
+					const label =
+						String(item?.name || item?.fullName || item?.firmName || item?.firstName || item?.lastName || item?.title || '').trim() ||
+						`${entity === 'firm' ? 'Firm' : 'Individual'} CRD #${id}`;
 					const scope = String(item?.bcScope || item?.iaScope || item?.status || item?.registrationStatus || '').trim();
 					const address = extractSearchResultAddress(item);
 					const detail = extractSearchResultDetail(item);
@@ -2540,14 +2648,14 @@ function DashboardPageInner() {
 													</button>
 												</div>
 											</div>
-											<h2 className={styles.recordTitle}>{orphanRecord?.name?.toUpperCase() || mainJsonLabel}</h2>
+											<h2 className={styles.recordTitle}>{orphanRecord?.name || mainJsonLabel}</h2>
 											{detailedMainRecord && detailedMainRecord.otherNames.length > 0 && (
 												<div className={styles.headerOtherNamesRow}>
 													{detailedMainRecord.otherNames.map((name) => (
 														<span
 															key={name}
-															className={styles.headerOtherNameTag}>
-															{name}
+															className={styles.headerOtherNameText}>
+															{formatOtherName(name, currentRecordEntity === 'firm')}
 														</span>
 													))}
 												</div>
@@ -2570,9 +2678,7 @@ function DashboardPageInner() {
 							)}
 
 							{hasCurrentRecord && !recordViewLoading && mainViewMode === 'card' && (
-								<div
-									className={styles.readableCardPanel}
-									onClickCapture={handleInternalDashboardLinkClick}>
+								<div className={styles.readableCardPanel}>
 									{orphanRecord ?
 										<>
 											<div className={styles.detailList}>
@@ -2717,9 +2823,7 @@ function DashboardPageInner() {
 															const content = (
 																<>
 																	<div className={styles.detailRowMain}>
-																		<span className={styles.detailRowName}>
-																			{pickFirstNonEmpty(row.legalName, row.name, row.firmName, row.organizationName) || `Employment ${idx + 1}`}
-																		</span>
+																		<span className={styles.detailRowName}>{resolveEntityNodeLabel(row, 'firm', crd, idx)}</span>
 																		{crd && <span className={styles.detailInlineTag}>CRD#{crd}</span>}
 																	</div>
 																	<div className={styles.detailRowMeta}>{metaLine}</div>
@@ -2788,9 +2892,7 @@ function DashboardPageInner() {
 															const content = (
 																<>
 																	<div className={styles.detailRowMain}>
-																		<span className={styles.detailRowName}>
-																			{pickFirstNonEmpty(row.legalName, row.name, row.firmName, row.organizationName) || `Employment ${idx + 1}`}
-																		</span>
+																		<span className={styles.detailRowName}>{resolveEntityNodeLabel(row, 'firm', crd, idx)}</span>
 																		{crd && <span className={styles.detailInlineTag}>CRD#{crd}</span>}
 																	</div>
 																	<div className={styles.detailRowMeta}>{metaLine}</div>
@@ -2845,13 +2947,13 @@ function DashboardPageInner() {
 													<div className={styles.detailList}>
 														{detailedMainRecord.directOwners.map((row, idx) => {
 															const crd = pickFirstValidCrd(row.crdNumber, row.crd, row.individualId);
-															const name = pickFirstNonEmpty(row.legalName, row.name, row.fullName);
+															const name = resolveEntityNodeLabel(row, 'individual', crd, idx);
 															const position = pickFirstNonEmpty(row.position, row.title);
 
 															const content = (
 																<>
 																	<div className={styles.detailRowMain}>
-																		<span className={styles.detailRowName}>{name || `Owner ${idx + 1}`}</span>
+																		<span className={styles.detailRowName}>{name}</span>
 																		{crd && <span className={styles.detailInlineTag}>CRD#{crd}</span>}
 																	</div>
 																	{position && <div className={styles.detailRowMeta}>{position}</div>}
@@ -2887,13 +2989,13 @@ function DashboardPageInner() {
 													<div className={styles.detailList}>
 														{detailedMainRecord.indirectOwners.map((row, idx) => {
 															const crd = pickFirstValidCrd(row.crdNumber, row.crd, row.individualId);
-															const name = pickFirstNonEmpty(row.legalName, row.name, row.fullName);
+															const name = resolveEntityNodeLabel(row, 'individual', crd, idx);
 															const position = pickFirstNonEmpty(row.position, row.title);
 
 															const content = (
 																<>
 																	<div className={styles.detailRowMain}>
-																		<span className={styles.detailRowName}>{name || `Owner ${idx + 1}`}</span>
+																		<span className={styles.detailRowName}>{name}</span>
 																		{crd && <span className={styles.detailInlineTag}>CRD#{crd}</span>}
 																	</div>
 																	{position && <div className={styles.detailRowMeta}>{position}</div>}
@@ -3103,19 +3205,30 @@ function DashboardPageInner() {
 
 					<div className={styles.middlePaneList}>
 						{displayCards.length > 0 ?
-							displayCards.map((card) => (
-								<button
-									type='button'
-									key={`${card.entity}:${card.id}`}
-									className={styles.middlePaneItem}
-									onClick={() => void openQueueCard(card)}>
-									<div className={styles.middlePaneItemTop}>
-										<span className={styles.middlePaneItemBadge}>{card.entity === 'firm' ? 'FIRM' : 'IND'}</span>
-										<span className={styles.middlePaneItemName}>{card.name || getRecordDisplayName(card as unknown as Record<string, unknown>, card.entity, card.id)}</span>
-									</div>
-									<div className={styles.middlePaneItemMeta}>{card.id}</div>
-								</button>
-							))
+							displayCards.map((card) =>
+								(() => {
+									const isActiveRecord = currentRecordId === card.id && currentRecordEntity === card.entity;
+									const storedName = toText(card.name);
+									const computedCardName =
+										storedName && !looksLikeGenericEntityLabel(storedName) ? storedName
+										: isActiveRecord && toText(mainJsonLabel) ? toText(mainJsonLabel)
+										: `${card.entity === 'firm' ? 'Firm' : 'Individual'} CRD #${card.id}`;
+
+									return (
+										<button
+											type='button'
+											key={`${card.entity}:${card.id}`}
+											className={styles.middlePaneItem}
+											onClick={() => void openQueueCard(card)}>
+											<div className={styles.middlePaneItemTop}>
+												<span className={styles.middlePaneItemBadge}>{card.entity === 'firm' ? 'FIRM' : 'IND'}</span>
+												<span className={styles.middlePaneItemName}>{computedCardName}</span>
+											</div>
+											<div className={styles.middlePaneItemMeta}>{card.id}</div>
+										</button>
+									);
+								})(),
+							)
 						:	<div className={styles.middlePaneEmpty}>No selection history yet.</div>}
 					</div>
 				</aside>
