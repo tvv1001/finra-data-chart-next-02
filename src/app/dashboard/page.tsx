@@ -3069,45 +3069,6 @@ function DashboardPageInner() {
 												</section>
 											)}
 
-											{detailedMainRecord.currentConnectionCards.length > 0 && (
-												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Current Connections ({detailedMainRecord.currentConnectionCards.length})</h4>
-													<div className={styles.detailList}>
-														{detailedMainRecord.currentConnectionCards.map((item, idx) => {
-															const content = (
-																<>
-																	<div className={styles.detailRowMain}>
-																		<span className={`${styles.detailRowName} ${styles.currentConnectionName}`}>{item.title}</span>
-																		{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
-																		{item.meta && <span className={`${styles.detailInlineTag} ${styles.currentConnectionTag}`}>{item.meta}</span>}
-																	</div>
-																	{item.subtitle && <div className={`${styles.detailRowMeta} ${styles.currentConnectionMeta}`}>{item.subtitle}</div>}
-																</>
-															);
-
-															if (item.crd) {
-																return (
-																	<Link
-																		href={`/dashboard/${item.entity || 'firm'}/${item.crd}`}
-																		key={`current-conn-${idx}`}
-																		className={`${styles.detailRow} ${styles.detailRowInteractive} ${styles.currentEmploymentRow} ${styles.currentConnectionRow}`}>
-																		{content}
-																	</Link>
-																);
-															}
-
-															return (
-																<div
-																	key={`current-conn-${idx}`}
-																	className={`${styles.detailRow} ${styles.currentConnectionRow}`}>
-																	{content}
-																</div>
-															);
-														})}
-													</div>
-												</section>
-											)}
-
 											{detailedMainRecord.previousEmployment.length > 0 && (
 												<section className={styles.detailSection}>
 													<h4 className={styles.detailSectionTitle}>Previous Employment ({detailedMainRecord.previousEmployment.length})</h4>
@@ -3149,45 +3110,6 @@ function DashboardPageInner() {
 															return (
 																<div
 																	key={`prev-emp-${idx}`}
-																	className={styles.detailRow}>
-																	{content}
-																</div>
-															);
-														})}
-													</div>
-												</section>
-											)}
-
-											{detailedMainRecord.previousConnectionCards.length > 0 && (
-												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Previous Connections ({detailedMainRecord.previousConnectionCards.length})</h4>
-													<div className={styles.detailList}>
-														{detailedMainRecord.previousConnectionCards.map((item, idx) => {
-															const content = (
-																<>
-																	<div className={styles.detailRowMain}>
-																		<span className={styles.detailRowName}>{item.title}</span>
-																		{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
-																		{item.meta && <span className={styles.detailInlineTag}>{item.meta}</span>}
-																	</div>
-																	{item.subtitle && <div className={styles.detailRowMeta}>{item.subtitle}</div>}
-																</>
-															);
-
-															if (item.crd) {
-																return (
-																	<Link
-																		href={`/dashboard/${item.entity || 'firm'}/${item.crd}`}
-																		key={`prev-conn-${idx}`}
-																		className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
-																		{content}
-																	</Link>
-																);
-															}
-
-															return (
-																<div
-																	key={`prev-conn-${idx}`}
 																	className={styles.detailRow}>
 																	{content}
 																</div>
@@ -3432,6 +3354,84 @@ function DashboardPageInner() {
 																{tag}
 															</span>
 														))}
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.currentConnectionCards.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Current Connections ({detailedMainRecord.currentConnectionCards.length})</h4>
+													<div className={styles.detailList}>
+														{detailedMainRecord.currentConnectionCards.map((item, idx) => {
+															const content = (
+																<>
+																	<div className={styles.detailRowMain}>
+																		<span className={`${styles.detailRowName} ${styles.currentConnectionName}`}>{item.title}</span>
+																		{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
+																		{item.meta && <span className={`${styles.detailInlineTag} ${styles.currentConnectionTag}`}>{item.meta}</span>}
+																	</div>
+																	{item.subtitle && <div className={`${styles.detailRowMeta} ${styles.currentConnectionMeta}`}>{item.subtitle}</div>}
+																</>
+															);
+
+															if (item.crd) {
+																return (
+																	<Link
+																		href={`/dashboard/${item.entity || 'firm'}/${item.crd}`}
+																		key={`current-conn-${idx}`}
+																		className={`${styles.detailRow} ${styles.detailRowInteractive} ${styles.currentEmploymentRow} ${styles.currentConnectionRow}`}>
+																		{content}
+																	</Link>
+																);
+															}
+
+															return (
+																<div
+																	key={`current-conn-${idx}`}
+																	className={`${styles.detailRow} ${styles.currentConnectionRow}`}>
+																	{content}
+																</div>
+															);
+														})}
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.previousConnectionCards.length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Previous Connections ({detailedMainRecord.previousConnectionCards.length})</h4>
+													<div className={styles.detailList}>
+														{detailedMainRecord.previousConnectionCards.map((item, idx) => {
+															const content = (
+																<>
+																	<div className={styles.detailRowMain}>
+																		<span className={styles.detailRowName}>{item.title}</span>
+																		{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
+																		{item.meta && <span className={styles.detailInlineTag}>{item.meta}</span>}
+																	</div>
+																	{item.subtitle && <div className={styles.detailRowMeta}>{item.subtitle}</div>}
+																</>
+															);
+
+															if (item.crd) {
+																return (
+																	<Link
+																		href={`/dashboard/${item.entity || 'firm'}/${item.crd}`}
+																		key={`prev-conn-${idx}`}
+																		className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
+																		{content}
+																	</Link>
+																);
+															}
+
+															return (
+																<div
+																	key={`prev-conn-${idx}`}
+																	className={styles.detailRow}>
+																	{content}
+																</div>
+															);
+														})}
 													</div>
 												</section>
 											)}

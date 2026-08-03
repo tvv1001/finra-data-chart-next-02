@@ -673,7 +673,7 @@ function getAddressFieldMatchScore(text: string, normalizedQuery: string, tokens
 
 function hasEmploymentFirmIdMatch(doc: PreparedLocalSearchDoc, normalizedQuery: string): boolean {
 	if (doc.type !== 'individual' || !doc.hit) return false;
-	const emps = [...(doc.hit.ind_current_employments || []), ...(doc.hit.ind_ia_current_employments || [])];
+	const emps = [...(doc.hit.ind_current_employments || []), ...(doc.hit.ind_ia_current_employments || []), ...(doc.hit.ind_previous_employments || []), ...(doc.hit.ind_ia_previous_employments || [])];
 	for (const e of emps) {
 		const fid = String(e?.firmId || e?.firm_id || '').trim();
 		if (fid && fid === normalizedQuery) return true;
@@ -1042,7 +1042,9 @@ export function buildIndividualDoc(source: string, detail: any): LocalSearchDoc 
 	const otherNames = uniqueTexts(basicInformation.otherNames || []);
 	const currentEmployments = (Array.isArray(detail.currentEmployments) ? detail.currentEmployments : []).map(normalizeEmployment).filter(Boolean);
 	const currentIAEmployments = (Array.isArray(detail.currentIAEmployments) ? detail.currentIAEmployments : []).map(normalizeEmployment).filter(Boolean);
-	const firmIds = uniqueTexts([...currentEmployments.map((e: any) => e.firmId), ...currentIAEmployments.map((e: any) => e.firmId)]);
+	const previousEmployments = (Array.isArray(detail.previousEmployments) ? detail.previousEmployments : []).map(normalizeEmployment).filter(Boolean);
+	const previousIAEmployments = (Array.isArray(detail.previousIAEmployments) ? detail.previousIAEmployments : []).map(normalizeEmployment).filter(Boolean);
+	const firmIds = uniqueTexts([...currentEmployments.map((e: any) => e.firmId), ...currentIAEmployments.map((e: any) => e.firmId), ...previousEmployments.map((e: any) => e.firmId), ...previousIAEmployments.map((e: any) => e.firmId)]);
 	const registrationCount = getRegistrationCount(detail);
 
 	const currentAddressTexts = uniqueTexts([
@@ -1067,6 +1069,8 @@ export function buildIndividualDoc(source: string, detail: any): LocalSearchDoc 
 		ind_approved_ia_state_registration_count: registrationCount.approvedIAStateRegistrationCount,
 		ind_current_employments: currentEmployments,
 		ind_ia_current_employments: currentIAEmployments,
+		ind_previous_employments: previousEmployments,
+		ind_ia_previous_employments: previousIAEmployments,
 		disclosureFlag: detail.bdDisclosureFlag ?? detail.disclosureFlag ?? null,
 		iaDisclosureFlag: detail.iaDisclosureFlag ?? null,
 	};

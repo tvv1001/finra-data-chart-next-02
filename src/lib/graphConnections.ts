@@ -2,14 +2,17 @@
 // (see collectFirmConnectionEntries + renderFirmDetail and fetchFirmBatch in src/lib/finra-graph.ts).
 // That module is a large client-only D3/DOM file, so rather than importing it into API routes we
 // reimplement the same two data sources it uses when a firm node is clicked/expanded in the graph:
-//   1. The local search index, queried by firm CRD, which surfaces individuals whose current
-//      employment record references this firm (mirrors fetchFirmBatch's "employed_by" search step).
+//   1. The local search index, queried by firm CRD, which surfaces individuals whose current OR
+//      previous employment record references this firm (mirrors fetchFirmBatch's "employed_by"
+//      search step, extended to also cover previous employments).
 //   2. The shared Redis-backed graph snapshot (getFullGraph()), which may already contain
 //      "employed_by" links (current or previous) for this firm from prior graph activity.
-// Results from both are merged so the dashboard's firm view shows the same Current Connections /
-// Previous Connections a user would see by clicking the firm node in the graph.
+// Results are cached via cachedFetch() (src/lib/simpleCache.ts) — the same Upstash Redis-backed
+// cache layer used by the firm/individual detail routes and the graph store — so repeated lookups
+// for the same firm reuse the shared resource instead of recomputing the search/graph scan each time.
 import { getFullGraph } from '@/lib/graphStore';
 import { searchLocalIndex } from '@/lib/localSearch';
+import { cachedFetch } from '@/lib/simpleCache';
 
 export type GraphConnectionEntry = {
 	individualId: string;
@@ -19,6 +22,8 @@ export type GraphConnectionEntry = {
 	endDate?: string;
 	isCurrent: boolean;
 };
+
+const FIRM_CONNECTIONS_CACHE_TTL_SECONDS = 60 * 60; // 1 hour, matching the firm detail route's shared cache headers
 
 function toArraySafe(value: unknown): any[] {
 	return Array.isArray(value) ? value : [];
@@ -45,18 +50,33 @@ async function getConnectionsFromSearchIndex(firmId: string): Promise<GraphConne
 
 				const name = firstNonEmpty([src.ind_firstname, src.ind_middlename, src.ind_lastname].filter(Boolean).join(' '), src.individualName, src.name);
 
-				const employments = [...toArraySafe(src.ind_current_employments), ...toArraySafe(src.currentEmployments), ...toArraySafe(src.currentIAEmployments)];
-				const matchedEmployment = employments.find((e: any) => firstNonEmpty(e?.firmId, e?.firm_id) === firmId);
-				if (!matchedEmployment) continue;
+				const currentEmployments = [...toArraySafe(src.ind_current_employments), ...toArraySafe(src.currentEmployments), ...toArraySafe(src.currentIAEmployments)];
+				const previousEmployments = [...toArraySafe(src.ind_previous_employments), ...toArraySafe(src.ind_ia_previous_employments), ...toArraySafe(src.previousEmployments), ...toArraySafe(src.previousIAEmployments)];
 
-				entries.push({
-					individualId: crd,
-					name,
-					relationship: 'Current registration',
-					startDate: firstNonEmpty(matchedEmployment?.registrationBeginDate, matchedEmployment?.startDate) || undefined,
-					endDate: undefined,
-					isCurrent: true,
-				});
+				const matchedCurrent = currentEmployments.find((e: any) => firstNonEmpty(e?.firmId, e?.firm_id) === firmId);
+				if (matchedCurrent) {
+					entries.push({
+						individualId: crd,
+						name,
+						relationship: 'Current registration',
+						startDate: firstNonEmpty(matchedCurrent?.registrationBeginDate, matchedCurrent?.startDate) || undefined,
+						endDate: undefined,
+						isCurrent: true,
+					});
+					continue;
+				}
+
+				const matchedPrevious = previousEmployments.find((e: any) => firstNonEmpty(e?.firmId, e?.firm_id) === firmId);
+				if (matchedPrevious) {
+					entries.push({
+						individualId: crd,
+						name,
+						relationship: 'Previous registration',
+						startDate: firstNonEmpty(matchedPrevious?.registrationBeginDate, matchedPrevious?.startDate) || undefined,
+						endDate: firstNonEmpty(matchedPrevious?.registrationEndDate, matchedPrevious?.endDate) || undefined,
+						isCurrent: false,
+					});
+				}
 			}
 		} catch {
 			// Best-effort: skip this source if its index isn't available.
@@ -136,13 +156,10 @@ async function getConnectionsFromGraphStore(firmId: string): Promise<GraphConnec
 	return entries;
 }
 
-export async function getFirmConnectionsFromGraph(firmId: string): Promise<{ currentConnections: GraphConnectionEntry[]; previousConnections: GraphConnectionEntry[] }> {
-	const normalizedFirmId = String(firmId || '').trim();
-	if (!normalizedFirmId) return { currentConnections: [], previousConnections: [] };
-
+async function computeFirmConnectionsFromGraph(firmId: string): Promise<{ currentConnections: GraphConnectionEntry[]; previousConnections: GraphConnectionEntry[] }> {
 	const [searchEntries, graphEntries] = await Promise.all([
-		getConnectionsFromSearchIndex(normalizedFirmId).catch(() => [] as GraphConnectionEntry[]),
-		getConnectionsFromGraphStore(normalizedFirmId).catch(() => [] as GraphConnectionEntry[]),
+		getConnectionsFromSearchIndex(firmId).catch(() => [] as GraphConnectionEntry[]),
+		getConnectionsFromGraphStore(firmId).catch(() => [] as GraphConnectionEntry[]),
 	]);
 
 	const current: GraphConnectionEntry[] = [];
@@ -157,4 +174,17 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<{ cur
 	}
 
 	return { currentConnections: current, previousConnections: previous };
+}
+
+export async function getFirmConnectionsFromGraph(firmId: string): Promise<{ currentConnections: GraphConnectionEntry[]; previousConnections: GraphConnectionEntry[] }> {
+	const normalizedFirmId = String(firmId || '').trim();
+	if (!normalizedFirmId) return { currentConnections: [], previousConnections: [] };
+
+	// Reuse the same Upstash Redis-backed cache (cachedFetch/simpleCache.ts) that the graph and
+	// firm/individual detail routes already share, so this computation isn't repeated per request.
+	// Note: the cache key intentionally avoids the "finra:"/"sec:" prefixes since cachedFetch()
+	// treats those prefixes as external-API service keys subject to rate-limiting/cooldown logic
+	// that doesn't apply to this purely-local computation.
+	const cached = await cachedFetch(`graph:firm-connections:${normalizedFirmId}`, FIRM_CONNECTIONS_CACHE_TTL_SECONDS, () => computeFirmConnectionsFromGraph(normalizedFirmId));
+	return cached || { currentConnections: [], previousConnections: [] };
 }

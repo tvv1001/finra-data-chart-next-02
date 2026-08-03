@@ -161,7 +161,9 @@ function buildIndividualDoc(source, detail) {
 	const otherNames = uniqueTexts(basicInformation.otherNames);
 	const currentEmployments = normalizeEmployments(detail.currentEmployments);
 	const currentIAEmployments = normalizeEmployments(detail.currentIAEmployments);
-	const firmIds = uniqueTexts([...currentEmployments.map((e) => e.firmId), ...currentIAEmployments.map((e) => e.firmId)]);
+	const previousEmployments = normalizeEmployments(detail.previousEmployments);
+	const previousIAEmployments = normalizeEmployments(detail.previousIAEmployments);
+	const firmIds = uniqueTexts([...currentEmployments.map((e) => e.firmId), ...currentIAEmployments.map((e) => e.firmId), ...previousEmployments.map((e) => e.firmId), ...previousIAEmployments.map((e) => e.firmId)]);
 	const registrationCount = getRegistrationCount(detail);
 
 	const currentAddressTexts = uniqueTexts([
@@ -186,6 +188,8 @@ function buildIndividualDoc(source, detail) {
 		ind_approved_ia_state_registration_count: registrationCount.approvedIAStateRegistrationCount,
 		ind_current_employments: currentEmployments,
 		ind_ia_current_employments: currentIAEmployments,
+		ind_previous_employments: previousEmployments,
+		ind_ia_previous_employments: previousIAEmployments,
 		disclosureFlag: detail.bdDisclosureFlag ?? detail.disclosureFlag ?? null,
 		iaDisclosureFlag: detail.iaDisclosureFlag ?? null,
 	};
