@@ -3355,11 +3355,11 @@ function DashboardPageInner() {
 															<strong>Part 2 Exempt:</strong> {detailedMainRecord.brochuresPart2Exempt}
 														</div>
 													)}
-													<div className={styles.detailList}>
+													<div className={styles.detailGrid}>
 														{detailedMainRecord.brochureCards.map((item, idx) => (
 															<div
 																key={`brochure-${idx}`}
-																className={styles.detailRow}>
+																className={styles.detailGridCard}>
 																<div className={styles.detailRowMain}>
 																	<span className={styles.detailRowName}>{item.title}</span>
 																	{item.meta && <span className={styles.detailInlineTag}>{item.meta}</span>}
@@ -3374,11 +3374,11 @@ function DashboardPageInner() {
 											{detailedMainRecord.noticeFilingCards.length > 0 && (
 												<section className={styles.detailSection}>
 													<h4 className={styles.detailSectionTitle}>Notice Filings ({detailedMainRecord.noticeFilingCards.length})</h4>
-													<div className={styles.detailList}>
+													<div className={styles.detailGrid}>
 														{detailedMainRecord.noticeFilingCards.map((item, idx) => (
 															<div
 																key={`notice-filing-${idx}`}
-																className={styles.detailRow}>
+																className={styles.detailGridCard}>
 																<div className={styles.detailRowMain}>
 																	<span className={styles.detailRowName}>{item.title}</span>
 																	{item.meta && <span className={styles.detailInlineTag}>{item.meta}</span>}
