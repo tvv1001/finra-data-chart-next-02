@@ -16,6 +16,7 @@ import { cachedFetch } from '@/lib/simpleCache';
 import { searchGraphFallback } from '@/lib/searchGraphFallback';
 import { searchDirectRedisFallback } from '@/lib/searchDirectFallback';
 import { searchExternalFallback } from '@/lib/searchExternalFallback';
+import { getFirmEmploymentEdgesFromFullScan } from '@/lib/firmEmploymentIndex';
 
 export type GraphConnectionEntry = {
 	individualId: string;
@@ -190,17 +191,34 @@ async function getConnectionsFromGraphStore(firmId: string): Promise<GraphConnec
 	return entries;
 }
 
+async function getConnectionsFromFullScanIndex(firmId: string): Promise<GraphConnectionEntry[]> {
+	const edges = await getFirmEmploymentEdgesFromFullScan(firmId).catch(() => []);
+	return edges.map((edge) => ({
+		individualId: edge.personCrd,
+		name: edge.personName,
+		relationship: edge.isCurrent ? 'Current registration' : 'Previous registration',
+		startDate: edge.startDate,
+		endDate: edge.isCurrent ? undefined : edge.endDate,
+		isCurrent: edge.isCurrent,
+	}));
+}
+
 async function computeFirmConnectionsFromGraph(firmId: string): Promise<{ currentConnections: GraphConnectionEntry[]; previousConnections: GraphConnectionEntry[] }> {
-	const [searchEntries, graphEntries] = await Promise.all([
+	const [searchEntries, graphEntries, fullScanEntries] = await Promise.all([
 		getConnectionsFromSearchIndex(firmId).catch(() => [] as GraphConnectionEntry[]),
 		getConnectionsFromGraphStore(firmId).catch(() => [] as GraphConnectionEntry[]),
+		// Full-Redis-scan reverse employment index (see src/lib/firmEmploymentIndex.ts), ported from
+		// the sibling dashboard-crds app. This is the only source that finds previous employments
+		// for individuals never search-indexed or graph-linked under this firm's CRD, so it's
+		// merged in last as the most complete/authoritative source for "connections over time".
+		getConnectionsFromFullScanIndex(firmId).catch(() => [] as GraphConnectionEntry[]),
 	]);
 
 	const current: GraphConnectionEntry[] = [];
 	const previous: GraphConnectionEntry[] = [];
 	const seen = new Set<string>();
 
-	for (const entry of [...searchEntries, ...graphEntries]) {
+	for (const entry of [...searchEntries, ...graphEntries, ...fullScanEntries]) {
 		const dedupeKey = `${entry.individualId}:${entry.isCurrent}`;
 		if (seen.has(dedupeKey)) continue;
 		seen.add(dedupeKey);
