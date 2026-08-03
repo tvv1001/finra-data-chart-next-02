@@ -922,7 +922,54 @@ export function extractRegistrationCards(body: Record<string, any>) {
 
 export function extractConnectionCards(body: Record<string, any>, key: 'currentConnections' | 'previousConnections') {
 	const normalizedBody = coerceStructuredValue(body) as Record<string, any> | undefined;
-	const source = Array.isArray(normalizedBody) ? normalizedBody : findNestedValueByKey(normalizedBody ?? body, [key]);
+	const candidateKeys =
+		key === 'currentConnections' ?
+			[
+				'currentConnections',
+				'current_connections',
+				'currentConnection',
+				'activeConnections',
+				'currentAssociatedIndividuals',
+				'currentIndividuals',
+				'currentConnectedIndividuals',
+				'currentRegistrations',
+			]
+		:	[
+				'previousConnections',
+				'previous_connections',
+				'previousConnection',
+				'formerConnections',
+				'previousAssociatedIndividuals',
+				'previousIndividuals',
+				'formerConnectedIndividuals',
+				'previousRegistrations',
+			];
+
+	let source = Array.isArray(normalizedBody) ? normalizedBody : findNestedValueByKey(normalizedBody ?? body, candidateKeys);
+
+	if (!source) {
+		const rawConns = findNestedValueByKey(normalizedBody ?? body, ['connections', 'firmConnections', 'affiliatedFirms', 'associatedIndividuals']);
+		if (Array.isArray(rawConns)) {
+			if (key === 'currentConnections') {
+				source = rawConns.filter(
+					(c: any) =>
+						c &&
+						typeof c === 'object' &&
+						c.isCurrent !== false &&
+						!c.endDate &&
+						!/previous|former|terminated|inactive/i.test(String(c.relationship || c.status || c.position || '')),
+				);
+			} else {
+				source = rawConns.filter(
+					(c: any) =>
+						c &&
+						typeof c === 'object' &&
+						(c.isCurrent === false || !!c.endDate || /previous|former|terminated|inactive/i.test(String(c.relationship || c.status || c.position || ''))),
+				);
+			}
+		}
+	}
+
 	const entries =
 		Array.isArray(source) ? source
 		: source && typeof source === 'object' ? [source]
@@ -932,20 +979,34 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 		.map((entry) => {
 			const record = coerceStructuredValue(entry) as Record<string, any> | undefined;
 			if (!record || typeof record !== 'object' || Array.isArray(record)) return null;
-			const crd = pickFirstValidCrd(record?.crdNumber, record?.crd, record?.firmId, record?.organizationCrd, record?.sourceId);
-			const title = resolveEntityNodeLabel(record, 'firm', crd);
-			const meta = pickFirstNonEmpty(record?.relationship, record?.position, record?.title, record?.status);
-			const dateText = pickFirstNonEmpty(record?.effectiveDate, record?.date, record?.startDate, record?.endDate);
+			const crd = pickFirstValidCrd(record?.crdNumber, record?.crd, record?.individualId, record?.personId, record?.firmId, record?.organizationCrd, record?.sourceId);
+			const entityType: 'individual' | 'firm' =
+				record?.individualId || record?.personId || record?.firstName || record?.lastName || record?.individualName ? 'individual' : 'firm';
+			const title = resolveEntityNodeLabel(record, entityType, crd);
+			const meta = pickFirstNonEmpty(record?.relationship, record?.position, record?.title, record?.status, record?.ownershipCode);
+			const startDate = pickFirstNonEmpty(record?.effectiveDate, record?.date, record?.startDate, record?.fromDate, record?.registrationBeginDate);
+			const endDate = pickFirstNonEmpty(record?.endDate, record?.toDate, record?.registrationEndDate);
+			const dateText = record?.startDate && record?.endDate ? `${record.startDate} - ${record.endDate}` : pickFirstNonEmpty(record?.effectiveDate, record?.date, record?.startDate, record?.endDate);
 			const addressText = pickFirstNonEmpty(
 				record?.address,
 				formatAddress(record?.officeAddress),
+				formatAddress(record?.branchOfficeLocations?.[0]),
 				formatAddress(record?.mailingAddress),
 				[toText(record?.city), toText(record?.state)].filter(Boolean).join(', '),
 			);
 			const subtitle = [dateText, addressText].filter(Boolean).join(' • ');
-			return title ? { title, meta: meta || '', subtitle: subtitle || '' } : null;
+			const result: { title: string; meta: string; subtitle: string; crd?: string; entity?: 'individual' | 'firm' } = {
+				title: title || '',
+				meta: meta || '',
+				subtitle: subtitle || '',
+			};
+			if (crd) {
+				result.crd = crd;
+				result.entity = entityType;
+			}
+			return title ? result : null;
 		})
-		.filter(Boolean) as Array<{ title: string; meta: string; subtitle: string }>;
+		.filter(Boolean) as Array<{ title: string; meta: string; subtitle: string; crd?: string; entity?: 'individual' | 'firm' }>;
 }
 
 function extractDocumentLinkCards(body: Record<string, any>) {
@@ -1143,6 +1204,22 @@ function DashboardPageInner() {
 	const activeLoadSourceKeyRef = useRef<string | null>(null);
 	const jsonRenderInFlightKeyRef = useRef<string | null>(null);
 	const refreshInFlightByCrdRef = useRef(new Map<string, Promise<any>>());
+	// The URL-driven auto-load effect below must only react to *external* navigation (initial
+	// deep link / hard refresh, or a real browser back-forward). If it also reacted every time
+	// `usePathname()` recomputes after our own syncSelectionToUrl() call (used to keep the URL
+	// bar in sync with in-app clicks), it creates an infinite feedback loop: loading record A
+	// writes the URL, which re-triggers the effect for a stale selection pointing back at record
+	// B, which writes the URL again, alternating forever and freezing the tab. These refs let the
+	// effect distinguish "real" navigation from its own echo.
+	const initialRouteLoadDoneRef = useRef(false);
+	const lastHandledPopNonceRef = useRef(0);
+	const [popNonce, setPopNonce] = useState(0);
+
+	useEffect(() => {
+		const handlePopState = () => setPopNonce((n) => n + 1);
+		window.addEventListener('popstate', handlePopState);
+		return () => window.removeEventListener('popstate', handlePopState);
+	}, []);
 
 	const queueQueries = useMemo(() => parseQueueQueries(crdInput), [crdInput]);
 	const parsedCrds = useMemo(() => queueQueries.filter((value) => /^\d{1,10}$/.test(value)), [queueQueries]);
@@ -1280,32 +1357,6 @@ function DashboardPageInner() {
 			if (raw) {
 				setLocalHistory(JSON.parse(raw) as LocalHistoryEntry[]);
 			}
-			// Try to load server-side history file (if present) and merge
-			void (async () => {
-				try {
-					const res = await fetch('/api/dashboard/local-history');
-					if (res.ok) {
-						const payload = await res.json();
-						if (payload?.ok && Array.isArray(payload.data)) {
-							setLocalHistory((prev) => {
-								const combined = [...payload.data, ...prev];
-								// dedupe by entity:id keeping newest-first order
-								const seen = new Set();
-								const out: LocalHistoryEntry[] = [];
-								for (const e of combined) {
-									const key = `${e.entity}:${e.id}`;
-									if (seen.has(key)) continue;
-									seen.add(key);
-									out.push(e);
-								}
-								return out;
-							});
-						}
-					}
-				} catch (e) {
-					// ignore server-side history fetch errors
-				}
-			})();
 		} catch (err) {
 			console.error('Failed to load local history:', err);
 		}
@@ -1409,7 +1460,21 @@ function DashboardPageInner() {
 		if (!routeSelection || !routeSelectionEntityIdKey) return;
 
 		const isAlreadySelectedEntity = currentRecordId === routeSelection.id && currentRecordEntity === routeSelection.entity;
-		if (isAlreadySelectedEntity) return;
+		if (isAlreadySelectedEntity) {
+			initialRouteLoadDoneRef.current = true;
+			return;
+		}
+
+		// Only auto-load from the URL on the initial deep link / hard refresh, or in response to
+		// a genuine browser back/forward navigation (popNonce change). Any other recomputation of
+		// routeSelection is just this effect observing its own syncSelectionToUrl() write and must
+		// be ignored, or in-app CRD clicks would fight with this effect forever (see comment near
+		// initialRouteLoadDoneRef above).
+		const isDeepLinkBootstrap = !initialRouteLoadDoneRef.current;
+		const isRealPopNavigation = popNonce !== lastHandledPopNonceRef.current;
+		if (!isDeepLinkBootstrap && !isRealPopNavigation) return;
+		lastHandledPopNonceRef.current = popNonce;
+		initialRouteLoadDoneRef.current = true;
 
 		const activeLoadKey = activeLoadSourceKeyRef.current;
 		if (activeLoadKey && activeLoadKey.startsWith(`${routeSelection.entity}:${routeSelection.id}:`)) return;
@@ -1426,7 +1491,7 @@ function DashboardPageInner() {
 
 		void loadQueueSourceJson(card, routeSelection.source);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [routeSelectionEntityIdKey, routeSelection?.source, currentRecordId, currentRecordEntity]);
+	}, [routeSelectionEntityIdKey, routeSelection?.source, currentRecordId, currentRecordEntity, popNonce]);
 
 	const searchSummary = useMemo(() => {
 		if (!searchQuery.trim()) return 'Search saved records by name';
@@ -1778,16 +1843,6 @@ function DashboardPageInner() {
 			const combined = [updatedEntry, ...nextEntries].slice(0, LOCAL_HISTORY_MAX);
 			try {
 				localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(combined));
-				// trigger server-side persist (best-effort)
-				try {
-					fetch('/api/dashboard/local-history', {
-						method: 'POST',
-						headers: { 'content-type': 'application/json' },
-						body: JSON.stringify(combined),
-					});
-				} catch {
-					// ignore
-				}
 			} catch {
 				// ignore persistence errors
 			}
@@ -1828,8 +1883,6 @@ function DashboardPageInner() {
 		if (typeof window !== 'undefined') {
 			try {
 				localStorage.removeItem(LOCAL_HISTORY_KEY);
-				// remove server-side history file
-				void fetch('/api/dashboard/local-history', { method: 'DELETE' });
 			} catch {
 				// ignore localStorage errors
 			}
@@ -2074,15 +2127,24 @@ function DashboardPageInner() {
 		const cached = mergedDetailCacheRef.current.get(cacheKey);
 		if (cached) return cached;
 
-		const route = card.entity === 'firm' ? `/api/finra/merged/firm/${card.id}` : `/api/finra/merged/individual/${card.id}`;
-		const response = await fetch(route, {
-			method: 'GET',
-			headers: { Accept: 'application/json' },
-			cache: 'default',
-		});
-		const detail = await response.json();
-		mergedDetailCacheRef.current.set(cacheKey, detail);
-		return detail;
+		const route = card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
+		try {
+			const response = await fetch(route, {
+				method: 'GET',
+				headers: { Accept: 'application/json' },
+				cache: 'default',
+			});
+			if (!response.ok) {
+				return { found: false, error: `HTTP ${response.status}` };
+			}
+			const detail = await response.json();
+			if (detail && typeof detail === 'object') {
+				mergedDetailCacheRef.current.set(cacheKey, detail);
+			}
+			return detail;
+		} catch (err: any) {
+			return { found: false, error: err?.message || String(err) };
+		}
 	}
 
 	async function fetchFallbackDetail(card: QueueCard) {
@@ -3011,17 +3073,37 @@ function DashboardPageInner() {
 												<section className={styles.detailSection}>
 													<h4 className={styles.detailSectionTitle}>Current Connections ({detailedMainRecord.currentConnectionCards.length})</h4>
 													<div className={styles.detailList}>
-														{detailedMainRecord.currentConnectionCards.map((item, idx) => (
-															<div
-																key={`current-conn-${idx}`}
-																className={`${styles.detailRow} ${styles.currentConnectionRow}`}>
-																<div className={styles.detailRowMain}>
-																	<span className={`${styles.detailRowName} ${styles.currentConnectionName}`}>{item.title}</span>
-																	{item.meta && <span className={`${styles.detailInlineTag} ${styles.currentConnectionTag}`}>{item.meta}</span>}
+														{detailedMainRecord.currentConnectionCards.map((item, idx) => {
+															const content = (
+																<>
+																	<div className={styles.detailRowMain}>
+																		<span className={`${styles.detailRowName} ${styles.currentConnectionName}`}>{item.title}</span>
+																		{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
+																		{item.meta && <span className={`${styles.detailInlineTag} ${styles.currentConnectionTag}`}>{item.meta}</span>}
+																	</div>
+																	{item.subtitle && <div className={`${styles.detailRowMeta} ${styles.currentConnectionMeta}`}>{item.subtitle}</div>}
+																</>
+															);
+
+															if (item.crd) {
+																return (
+																	<Link
+																		href={`/dashboard/${item.entity || 'firm'}/${item.crd}`}
+																		key={`current-conn-${idx}`}
+																		className={`${styles.detailRow} ${styles.detailRowInteractive} ${styles.currentEmploymentRow} ${styles.currentConnectionRow}`}>
+																		{content}
+																	</Link>
+																);
+															}
+
+															return (
+																<div
+																	key={`current-conn-${idx}`}
+																	className={`${styles.detailRow} ${styles.currentConnectionRow}`}>
+																	{content}
 																</div>
-																{item.subtitle && <div className={`${styles.detailRowMeta} ${styles.currentConnectionMeta}`}>{item.subtitle}</div>}
-															</div>
-														))}
+															);
+														})}
 													</div>
 												</section>
 											)}
@@ -3080,17 +3162,37 @@ function DashboardPageInner() {
 												<section className={styles.detailSection}>
 													<h4 className={styles.detailSectionTitle}>Previous Connections ({detailedMainRecord.previousConnectionCards.length})</h4>
 													<div className={styles.detailList}>
-														{detailedMainRecord.previousConnectionCards.map((item, idx) => (
-															<div
-																key={`prev-conn-${idx}`}
-																className={styles.detailRow}>
-																<div className={styles.detailRowMain}>
-																	<span className={styles.detailRowName}>{item.title}</span>
-																	{item.meta && <span className={styles.detailInlineTag}>{item.meta}</span>}
+														{detailedMainRecord.previousConnectionCards.map((item, idx) => {
+															const content = (
+																<>
+																	<div className={styles.detailRowMain}>
+																		<span className={styles.detailRowName}>{item.title}</span>
+																		{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
+																		{item.meta && <span className={styles.detailInlineTag}>{item.meta}</span>}
+																	</div>
+																	{item.subtitle && <div className={styles.detailRowMeta}>{item.subtitle}</div>}
+																</>
+															);
+
+															if (item.crd) {
+																return (
+																	<Link
+																		href={`/dashboard/${item.entity || 'firm'}/${item.crd}`}
+																		key={`prev-conn-${idx}`}
+																		className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
+																		{content}
+																	</Link>
+																);
+															}
+
+															return (
+																<div
+																	key={`prev-conn-${idx}`}
+																	className={styles.detailRow}>
+																	{content}
 																</div>
-																{item.subtitle && <div className={styles.detailRowMeta}>{item.subtitle}</div>}
-															</div>
-														))}
+															);
+														})}
 													</div>
 												</section>
 											)}

@@ -1475,6 +1475,64 @@ export function renderFirmDetail(d: any) {
       `
 				:	''
 			}
+      ${
+				Array.isArray(d.currentConnections) && d.currentConnections.length ?
+					`
+      <div class='fg-section-title fg-section-title--sticky'>Current Connections (${d.currentConnections.length})</div>
+      <div class='fg-timeline'>
+        ${d.currentConnections
+					.map((conn: any) => {
+						const name = conn.label || conn.name || conn.title || conn.firmName || conn.legalName || `CRD#${conn.crd || ''}`;
+						const crd = conn.crd || conn.crdNumber || conn.firmId || conn.individualId || '';
+						const rel = [
+							conn.relationship || conn.meta || (Array.isArray(conn.relationshipLabels) ? conn.relationshipLabels.join(', ') : ''),
+							conn.position || (Array.isArray(conn.positions) ? conn.positions.join(', ') : ''),
+						]
+							.filter(Boolean)
+							.join(' · ');
+						const dates = conn.dateText || conn.date || conn.subtitle || (Array.isArray(conn.dateTexts) ? conn.dateTexts.join(', ') : '');
+						const address = conn.address || '';
+						return `<div class='fg-tl-entry active-pos'>
+            <span class='fg-tl-firm'>${esc(name)}${crd ? ` <small>(CRD# ${esc(String(crd))})</small>` : ''}</span>
+            ${rel ? `<span class='fg-tl-dates'>${esc(rel)}</span>` : ''}
+            ${dates ? `<span class='fg-tl-loc'>${esc(dates)}</span>` : ''}
+            ${address ? `<span class='fg-tl-loc'>${esc(address)}</span>` : ''}
+          </div>`;
+					})
+					.join('')}
+      </div>
+      `
+				:	''
+			}
+      ${
+				Array.isArray(d.previousConnections) && d.previousConnections.length ?
+					`
+      <div class='fg-section-title fg-section-title--sticky'>Previous Connections (${d.previousConnections.length})</div>
+      <div class='fg-timeline fg-timeline--previous'>
+        ${d.previousConnections
+					.map((conn: any) => {
+						const name = conn.label || conn.name || conn.title || conn.firmName || conn.legalName || `CRD#${conn.crd || ''}`;
+						const crd = conn.crd || conn.crdNumber || conn.firmId || conn.individualId || '';
+						const rel = [
+							conn.relationship || conn.meta || (Array.isArray(conn.relationshipLabels) ? conn.relationshipLabels.join(', ') : ''),
+							conn.position || (Array.isArray(conn.positions) ? conn.positions.join(', ') : ''),
+						]
+							.filter(Boolean)
+							.join(' · ');
+						const dates = conn.dateText || conn.date || conn.subtitle || (Array.isArray(conn.dateTexts) ? conn.dateTexts.join(', ') : '');
+						const address = conn.address || '';
+						return `<div class='fg-tl-entry'>
+            <span class='fg-tl-firm'>${esc(name)}${crd ? ` <small>(CRD# ${esc(String(crd))})</small>` : ''}</span>
+            ${rel ? `<span class='fg-tl-dates'>${esc(rel)}</span>` : ''}
+            ${dates ? `<span class='fg-tl-loc'>${esc(dates)}</span>` : ''}
+            ${address ? `<span class='fg-tl-loc'>${esc(address)}</span>` : ''}
+          </div>`;
+					})
+					.join('')}
+      </div>
+      `
+				:	''
+			}
       <div class='fg-section-title'>General Information</div>
       ${row('Established in', d.formedState ? `${esc(d.formedState)}${d.formedDate ? ' since ' + d.formedDate : ''}` : '–')}
       ${row('Type', esc(d.firmType || '–'))}

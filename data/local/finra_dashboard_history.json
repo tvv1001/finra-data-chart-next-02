@@ -1,5 +1,47 @@
 [
   {
+    "id": "28830",
+    "entity": "firm",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-03T14:31:51.158Z",
+    "name": "CRT CAPITAL GROUP LLC",
+    "visitCount": 14139,
+    "lastVisitedAt": "2026-08-03T14:35:08.432Z"
+  },
+  {
+    "id": "102040",
+    "entity": "firm",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-03T14:32:08.923Z",
+    "name": "J. P. MORGAN ADVISORY SERVICES INC.",
+    "visitCount": 14138,
+    "lastVisitedAt": "2026-08-03T14:35:08.426Z"
+  },
+  {
+    "id": "4705334",
+    "entity": "individual",
+    "sources": [
+      {
+        "source": "finra",
+        "status": "ok"
+      }
+    ],
+    "fetchedAt": "2026-08-03T14:31:40.989Z",
+    "name": "MICHAEL SANTANGELO",
+    "visitCount": 1,
+    "lastVisitedAt": "2026-08-03T14:31:40.989Z"
+  },
+  {
     "id": "150696",
     "entity": "firm",
     "sources": [
