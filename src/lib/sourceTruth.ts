@@ -145,6 +145,28 @@ export function hasIndividualSourceCoverage(detail: unknown, source: SourceDomai
 	return false;
 }
 
+export function hasFirmSourceCoverage(detail: unknown, source: SourceDomain): boolean {
+	if (!isPlainObject(detail)) return false;
+	const basic = isPlainObject(detail.basicInformation) ? detail.basicInformation : {};
+	const scope = source === 'finra' ? (detail.bcScope ?? basic.bcScope) : (detail.iaScope ?? basic.iaScope);
+	if (isNotInScopeValue(scope)) return false;
+	if (isInScopeValue(scope)) return true;
+
+	if (source === 'finra') {
+		if (String(detail.isLegacy || basic.isLegacy || '').trim().toUpperCase() === 'Y') return true;
+		if (Array.isArray(detail.selfRegulatoryOrgs) && detail.selfRegulatoryOrgs.length > 0) return true;
+		if (Boolean(String(detail.districtName || basic.districtName || '').trim())) return true;
+		if (Boolean(String(detail.bdSECNumber || detail.bdSecNumber || basic.bdSECNumber || basic.bdSecNumber || '').trim())) return true;
+		return false;
+	}
+
+	if (Boolean(String(detail.iaSECNumber || detail.iaSecNumber || basic.iaSECNumber || basic.iaSecNumber || '').trim())) return true;
+	if (Array.isArray(detail.noticeFilings) && detail.noticeFilings.length > 0) return true;
+	if (Array.isArray(detail.brochures) && detail.brochures.length > 0) return true;
+	if (isPlainObject(detail.crs)) return true;
+	return false;
+}
+
 export function resolveIndividualSourceDetail(source: unknown, fallbackCrd = ''): IndividualSourceResolution {
 	if (!isPlainObject(source)) {
 		return { detail: null, hasEmbeddedDetail: false, hasFinraData: false, hasSecData: false, searchHitOnly: false };

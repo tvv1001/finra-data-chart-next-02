@@ -7,6 +7,7 @@ import { buildJsonDisplayTree, coerceStructuredValue, normalizeRenderablePayload
 import { resolveMainRecordTitle } from '../../lib/dashboard-record-title';
 import { getRecordDisplayName } from '../../lib/recordDisplay';
 import { formatOtherName } from '@/lib/finra-graph/formatters';
+import { hasFirmSourceCoverage, hasIndividualSourceCoverage } from '@/lib/sourceTruth';
 import styles from './dashboard.module.css';
 
 type DashboardAction = 'fetch-crds' | 'list-new-crds';
@@ -921,10 +922,7 @@ function extractBrochureCards(body: Record<string, any>) {
 			const meta = pickFirstNonEmpty(record?.brochureVersionID, record?.versionId, record?.version);
 			const submitted = pickFirstNonEmpty(record?.dateSubmitted, record?.submittedDate, record?.date);
 			const confirmed = pickFirstNonEmpty(record?.lastConfirmed, record?.confirmedDate);
-			const subtitleParts = [
-				submitted ? `Submitted: ${submitted}` : '',
-				confirmed ? `Last Confirmed: ${confirmed}` : '',
-			].filter(Boolean);
+			const subtitleParts = [submitted ? `Submitted: ${submitted}` : '', confirmed ? `Last Confirmed: ${confirmed}` : ''].filter(Boolean);
 			const subtitle = subtitleParts.join(' • ');
 			return title ? { title, meta: meta ? `ID #${meta}` : '', subtitle } : null;
 		})
@@ -1011,8 +1009,7 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 			const record = coerceStructuredValue(entry) as Record<string, any> | undefined;
 			if (!record || typeof record !== 'object' || Array.isArray(record)) return null;
 			const crd = pickFirstValidCrd(record?.crdNumber, record?.crd, record?.individualId, record?.personId, record?.firmId, record?.organizationCrd, record?.sourceId);
-			const entityType: 'individual' | 'firm' =
-				record?.individualId || record?.personId || record?.firstName || record?.lastName || record?.individualName ? 'individual' : 'firm';
+			const entityType: 'individual' | 'firm' = record?.individualId || record?.personId || record?.firstName || record?.lastName || record?.individualName ? 'individual' : 'firm';
 			const title = resolveEntityNodeLabel(record, entityType, crd);
 			const meta = pickFirstNonEmpty(record?.relationship, record?.position, record?.title, record?.status, record?.ownershipCode);
 			const startDate = pickFirstNonEmpty(record?.effectiveDate, record?.date, record?.startDate, record?.fromDate, record?.registrationBeginDate);
@@ -1678,8 +1675,16 @@ function DashboardPageInner() {
 		}
 
 		const mainObj = typeof mainJson === 'object' && mainJson !== null ? (mainJson as any) : {};
-		const showFinra = mainObj.hasFinraData !== false;
-		const showSec = mainObj.hasSecData !== false;
+		const showFinra =
+			mainObj.hasFinraData === true ? true
+			: mainObj.hasFinraData === false ? false
+			: currentRecordEntity === 'individual' ? hasIndividualSourceCoverage(body, 'finra')
+			: hasFirmSourceCoverage(body, 'finra');
+		const showSec =
+			mainObj.hasSecData === true ? true
+			: mainObj.hasSecData === false ? false
+			: currentRecordEntity === 'individual' ? hasIndividualSourceCoverage(body, 'sec')
+			: hasFirmSourceCoverage(body, 'sec');
 
 		const profileLinks = [];
 		if (showFinra) {
@@ -1713,8 +1718,14 @@ function DashboardPageInner() {
 
 		const bcScope = pickFirstNonEmpty(basic.bcScope, body.bcScope, basic.brokerCheckScope, body.brokerCheckScope, body.bc_scope);
 		const iaScope = pickFirstNonEmpty(basic.iaScope, body.iaScope, basic.secScope, body.secScope, body.ia_scope);
-		const finraActive = bcScope ? `FINRA: ${bcScope}` : (showFinra ? 'FINRA: Active' : '');
-		const secActive = iaScope ? `SEC: ${iaScope}` : (showSec ? 'SEC: Active' : '');
+		const finraActive =
+			bcScope ? `FINRA: ${bcScope}`
+			: showFinra ? 'FINRA: Active'
+			: '';
+		const secActive =
+			iaScope ? `SEC: ${iaScope}`
+			: showSec ? 'SEC: Active'
+			: '';
 		const subtitle = otherNames.length > 0 && currentRecordEntity === 'individual' ? otherNames[0] : '';
 
 		const directOwners = toArray(body.directOwners).concat(toArray(body.directOwnersExecutiveOfficers));
@@ -1868,7 +1879,9 @@ function DashboardPageInner() {
 		const now = new Date().toISOString();
 		const incomingName = toText(name);
 		const incomingSources: SearchResultSource[] =
-			sources && sources.length > 0 ? sources : source ? [source] : ['finra'];
+			sources && sources.length > 0 ? sources
+			: source ? [source]
+			: ['finra'];
 		setLocalHistory((prev) => {
 			const nextEntries = prev.filter((entry) => !(entry.entity === entity && entry.id === id));
 			const existing = prev.find((entry) => entry.entity === entity && entry.id === id);
@@ -2335,22 +2348,16 @@ function DashboardPageInner() {
 			const detectedSourcesSet = new Set<SearchResultSource>();
 			if (resolvedSource) detectedSourcesSet.add(resolvedSource);
 			if (
-				mergedDetail?.sources?.finra ||
 				mergedDetail?.hasFinraData === true ||
 				payload?.hasFinraData === true ||
-				Boolean(payload?.bccontent) ||
-				Boolean(payload?.basicInformation?.bcScope) ||
-				Boolean(payload?.bcScope)
+				(card.entity === 'individual' ? hasIndividualSourceCoverage(payload, 'finra') : hasFirmSourceCoverage(payload, 'finra'))
 			) {
 				detectedSourcesSet.add('finra');
 			}
 			if (
-				mergedDetail?.sources?.sec ||
 				mergedDetail?.hasSecData === true ||
 				payload?.hasSecData === true ||
-				Boolean(payload?.iacontent) ||
-				Boolean(payload?.basicInformation?.iaScope) ||
-				Boolean(payload?.iaScope)
+				(card.entity === 'individual' ? hasIndividualSourceCoverage(payload, 'sec') : hasFirmSourceCoverage(payload, 'sec'))
 			) {
 				detectedSourcesSet.add('sec');
 			}
@@ -2847,38 +2854,28 @@ function DashboardPageInner() {
 							{hasCurrentRecord && (
 								<>
 									{recordViewLoading ?
-										<div className={styles.searchSummary}>Loading selected record…</div>
+										<div className={styles.searchSummary}>
+											<div
+												className={styles.loader}
+												role='status'
+												aria-live='polite'>
+												<span
+													className={styles.spinner}
+													aria-hidden='true'
+												/>
+												<span className={styles.loadingText}>Loading selected record…</span>
+											</div>
+										</div>
 									:	<>
 											<div className={styles.recordHeaderRow}>
-												<span
-													className={`${styles.recordBadge} ${currentRecordEntity === 'firm' ? styles.recordBadgeFirm : styles.recordBadgeIndividual}`}>
+												<span className={`${styles.recordBadge} ${currentRecordEntity === 'firm' ? styles.recordBadgeFirm : styles.recordBadgeIndividual}`}>
 													{currentRecordEntity ? String(currentRecordEntity).toUpperCase() : 'UNKNOWN'}
 												</span>
-												{currentRecordId && (
-													<span className={styles.recordBadgeCrd}>
-														CRD {currentRecordId}
-													</span>
-												)}
-												{detailedMainRecord?.hasFinraData && (
-													<span className={styles.tagFinra}>
-														FINRA
-													</span>
-												)}
-												{detailedMainRecord?.hasSecData && (
-													<span className={styles.tagSec}>
-														SEC
-													</span>
-												)}
-												{detailedMainRecord?.finraActive && (
-													<span className={styles.recordBadgeActive}>
-														{detailedMainRecord.finraActive}
-													</span>
-												)}
-												{detailedMainRecord?.secActive && (
-													<span className={styles.recordBadgeActive}>
-														{detailedMainRecord.secActive}
-													</span>
-												)}
+												{currentRecordId && <span className={styles.recordBadgeCrd}>CRD {currentRecordId}</span>}
+												{detailedMainRecord?.hasFinraData && <span className={styles.tagFinra}>FINRA</span>}
+												{detailedMainRecord?.hasSecData && <span className={styles.tagSec}>SEC</span>}
+												{detailedMainRecord?.finraActive && <span className={styles.recordBadgeActive}>{detailedMainRecord.finraActive}</span>}
+												{detailedMainRecord?.secActive && <span className={styles.recordBadgeActive}>{detailedMainRecord.secActive}</span>}
 												<div className={styles.mainViewToggle}>
 													<button
 														type='button'
@@ -2895,9 +2892,7 @@ function DashboardPageInner() {
 												</div>
 											</div>
 											<h2 className={styles.recordTitle}>{orphanRecord?.name || mainJsonLabel}</h2>
-											{detailedMainRecord?.subtitle && (
-												<div className={styles.recordSubtitle}>{detailedMainRecord.subtitle}</div>
-											)}
+											{detailedMainRecord?.subtitle && <div className={styles.recordSubtitle}>{detailedMainRecord.subtitle}</div>}
 										</>
 									}
 								</>
@@ -3032,7 +3027,9 @@ function DashboardPageInner() {
 													{detailedMainRecord.otherNames.length > 0 && (
 														<div className={styles.detailOtherNamesBlock}>
 															<div className={styles.detailOtherNamesHeading}>OTHER NAMES</div>
-															<div className={styles.headerOtherNamesRow} style={{ margin: 0 }}>
+															<div
+																className={styles.headerOtherNamesRow}
+																style={{ margin: 0 }}>
 																{detailedMainRecord.otherNames.map((name) => (
 																	<span
 																		key={name}
@@ -3369,7 +3366,9 @@ function DashboardPageInner() {
 												<section className={styles.detailSection}>
 													<h4 className={styles.detailSectionTitle}>Brochures ({detailedMainRecord.brochureCards.length})</h4>
 													{detailedMainRecord.brochuresPart2Exempt && (
-														<div className={styles.detailTextRow} style={{ marginBottom: '6px' }}>
+														<div
+															className={styles.detailTextRow}
+															style={{ marginBottom: '6px' }}>
 															<strong>Part 2 Exempt:</strong> {detailedMainRecord.brochuresPart2Exempt}
 														</div>
 													)}
@@ -3686,7 +3685,11 @@ function DashboardPageInner() {
 																	strokeLinejoin='round'
 																	aria-hidden='true'>
 																	<path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2' />
-																	<circle cx='12' cy='7' r='4' />
+																	<circle
+																		cx='12'
+																		cy='7'
+																		r='4'
+																	/>
 																</svg>
 																<span className={styles.rightPaneItemTitle}>
 																	{toText(entry.name) ||
@@ -3733,7 +3736,14 @@ function DashboardPageInner() {
 																	strokeLinecap='round'
 																	strokeLinejoin='round'
 																	aria-hidden='true'>
-																	<rect x='4' y='2' width='16' height='20' rx='2' ry='2' />
+																	<rect
+																		x='4'
+																		y='2'
+																		width='16'
+																		height='20'
+																		rx='2'
+																		ry='2'
+																	/>
 																	<path d='M9 22v-4h6v4' />
 																	<path d='M8 6h.01' />
 																	<path d='M16 6h.01' />

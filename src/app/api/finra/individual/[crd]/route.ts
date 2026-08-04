@@ -271,8 +271,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		const finraNumeric = finraDetail ? findNumericId(finraDetail, ['individualId', 'individual_id', 'crd', 'ind_crd', 'ind_source_id']) : '';
 		const secNumeric = secDetail ? findNumericId(secDetail, ['individualId', 'individual_id', 'crd', 'ind_crd', 'ind_source_id']) : '';
 
-		detail.hasFinraData = !!finraDetail && !!finraNumeric && (hasIndividualSourceCoverage(finraDetail, 'finra') || Boolean((finraDetail as any).basicInformation || (finraDetail as any).individualId));
-		detail.hasSecData = !!secDetail && !!secNumeric && (hasIndividualSourceCoverage(secDetail, 'sec') || Boolean((secDetail as any).basicInformation || (secDetail as any).individualId));
+		detail.hasFinraData = !!finraDetail && !!finraNumeric && hasIndividualSourceCoverage(finraDetail, 'finra');
+		detail.hasSecData = !!secDetail && !!secNumeric && hasIndividualSourceCoverage(secDetail, 'sec');
 
 		// Queue background hydration of the external API to ensure cache stays hydrated
 		queueHydration('individual', crd);
