@@ -2706,11 +2706,13 @@ function DashboardPageInner() {
 	function renderSearchResult(card: SearchResultCard, index: number) {
 		const sourceLabel = card.source === 'finra' ? 'FINRA' : 'SEC';
 		const rowAddress = card.address || card.detail || 'No address/details in cached index';
+		const isSelected = currentRecordId === card.id && currentRecordEntity === card.entity;
 
 		return (
 			<div
 				key={`${card.entity}:${card.id}:${card.source}:${index}`}
-				className={styles.searchResultCard}>
+				className={`${styles.searchResultCard} ${isSelected ? styles.searchResultCardSelected : ''}`}
+				aria-selected={isSelected}>
 				<div className={styles.searchResultRow}>
 					<span className={styles.searchResultName}>{card.label}</span>
 					<span className={styles.searchResultCrd}>CRD #{card.id}</span>
@@ -3517,7 +3519,8 @@ function DashboardPageInner() {
 										<button
 											type='button'
 											key={`${card.entity}:${card.id}`}
-											className={styles.middlePaneItem}
+											className={`${styles.middlePaneItem} ${isActiveRecord ? styles.middlePaneItemSelected : ''}`}
+											aria-selected={isActiveRecord}
 											onClick={() => void openQueueCard(card)}>
 											<div className={styles.middlePaneItemTop}>
 												<span className={styles.middlePaneItemBadge}>{card.entity === 'firm' ? 'FIRM' : 'IND'}</span>
@@ -3562,21 +3565,25 @@ function DashboardPageInner() {
 									<div className={styles.rightPaneSectionTitle}>PEOPLE</div>
 									<div className={styles.rightPaneList}>
 										{peopleCrdEntries.length > 0 ?
-											peopleCrdEntries.map((entry) => (
-												<button
-													type='button'
-													key={`people-${entry.id}`}
-													className={styles.rightPaneItem}
-													onClick={() => void openNewCrdEntry(entry)}>
-													<div className={styles.rightPaneItemTitle}>
-														{toText(entry.name) ||
-															historyNameMap.get(`individual:${entry.id}`) ||
-															getRecordDisplayName(entry as unknown as Record<string, unknown>, 'individual', entry.id) ||
-															extractDisplayNameFromNewCrd(entry, 'individual')}
-													</div>
-													<div className={styles.rightPaneItemMeta}>CRD #{entry.id}</div>
-												</button>
-											))
+											peopleCrdEntries.map((entry) => {
+												const isSelected = currentRecordId === entry.id && currentRecordEntity === 'individual';
+												return (
+													<button
+														type='button'
+														key={`people-${entry.id}`}
+														className={`${styles.rightPaneItem} ${isSelected ? styles.rightPaneItemSelected : ''}`}
+														aria-selected={isSelected}
+														onClick={() => void openNewCrdEntry(entry)}>
+														<div className={styles.rightPaneItemTitle}>
+															{toText(entry.name) ||
+																historyNameMap.get(`individual:${entry.id}`) ||
+																getRecordDisplayName(entry as unknown as Record<string, unknown>, 'individual', entry.id) ||
+																extractDisplayNameFromNewCrd(entry, 'individual')}
+														</div>
+														<div className={styles.rightPaneItemMeta}>CRD #{entry.id}</div>
+													</button>
+												);
+											})
 										:	<div className={styles.rightPaneEmpty}>No people queued yet.</div>}
 									</div>
 								</div>
@@ -3585,21 +3592,25 @@ function DashboardPageInner() {
 									<div className={styles.rightPaneSectionTitle}>FIRMS</div>
 									<div className={styles.rightPaneList}>
 										{firmCrdEntries.length > 0 ?
-											firmCrdEntries.map((entry) => (
-												<button
-													type='button'
-													key={`firm-${entry.id}`}
-													className={styles.rightPaneItem}
-													onClick={() => void openNewCrdEntry(entry)}>
-													<div className={styles.rightPaneItemTitle}>
-														{toText(entry.name) ||
-															historyNameMap.get(`firm:${entry.id}`) ||
-															getRecordDisplayName(entry as unknown as Record<string, unknown>, 'firm', entry.id) ||
-															extractDisplayNameFromNewCrd(entry, 'firm')}
-													</div>
-													<div className={styles.rightPaneItemMeta}>CRD #{entry.id}</div>
-												</button>
-											))
+											firmCrdEntries.map((entry) => {
+												const isSelected = currentRecordId === entry.id && currentRecordEntity === 'firm';
+												return (
+													<button
+														type='button'
+														key={`firm-${entry.id}`}
+														className={`${styles.rightPaneItem} ${isSelected ? styles.rightPaneItemSelected : ''}`}
+														aria-selected={isSelected}
+														onClick={() => void openNewCrdEntry(entry)}>
+														<div className={styles.rightPaneItemTitle}>
+															{toText(entry.name) ||
+																historyNameMap.get(`firm:${entry.id}`) ||
+																getRecordDisplayName(entry as unknown as Record<string, unknown>, 'firm', entry.id) ||
+																extractDisplayNameFromNewCrd(entry, 'firm')}
+														</div>
+														<div className={styles.rightPaneItemMeta}>CRD #{entry.id}</div>
+													</button>
+												);
+											})
 										:	<div className={styles.rightPaneEmpty}>No firms queued yet.</div>}
 									</div>
 								</div>
