@@ -11,7 +11,7 @@ import { getFullGraph, saveGraph } from '@/lib/graphStore';
 import { getRecentSeedsFromStore, rememberRecentSeed } from '@/lib/seedStore';
 import { addRecordToSearchIndex } from '@/lib/localSearch';
 import { getRecordDisplayName } from '@/lib/recordDisplay';
-import { hasFirmSourceCoverage, hasIndividualSourceCoverage, isNotInScopeValue } from '@/lib/sourceTruth';
+import { hasFirmSourceCoverage, hasIndividualSourceCoverage } from '@/lib/sourceTruth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
