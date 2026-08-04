@@ -815,6 +815,37 @@ function extractDisplayNameFromNewCrd(entry: NewCrdEntry, entity: 'individual' |
 	return entity === 'firm' ? `Firm ${entry.id}` : `Individual ${entry.id}`;
 }
 
+function getQueueCardSources(card: QueueCard): { hasFinra: boolean; hasSec: boolean } {
+	const sources = (card.sources || []).map((s) => String(s.source).toLowerCase());
+	const hasFinra = sources.includes('finra');
+	const hasSec = sources.includes('sec');
+	if (!hasFinra && !hasSec) {
+		return { hasFinra: true, hasSec: false };
+	}
+	return { hasFinra, hasSec };
+}
+
+function getNewCrdSources(entry: NewCrdEntry, entity: 'individual' | 'firm', localHistory?: LocalHistoryEntry[]): { hasFinra: boolean; hasSec: boolean } {
+	const scopes = (entry.scopes || []).map((s) => String(s).toLowerCase());
+	const typeStr = String(entry.type || '').toLowerCase();
+	let hasFinra = scopes.includes('finra') || scopes.includes('bc') || typeStr.includes('finra');
+	let hasSec = scopes.includes('sec') || scopes.includes('ia') || typeStr.includes('sec');
+
+	if (localHistory) {
+		const hist = localHistory.find((h) => h.id === entry.id && h.entity === entity);
+		if (hist && Array.isArray(hist.sources)) {
+			const histSources = hist.sources.map((s) => String(s.source).toLowerCase());
+			if (histSources.includes('finra')) hasFinra = true;
+			if (histSources.includes('sec')) hasSec = true;
+		}
+	}
+
+	if (!hasFinra && !hasSec) {
+		hasFinra = true;
+	}
+	return { hasFinra, hasSec };
+}
+
 function formatMainPanelTitle(options: { source: SearchResultSource; entity: 'individual' | 'firm'; id: string; name?: string | null; payload?: unknown }) {
 	const sourceLabel = String(options.source).toUpperCase();
 	const titleName = toText(options.name) || getRecordDisplayName(options.payload, options.entity, options.id);
@@ -986,7 +1017,7 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 			const meta = pickFirstNonEmpty(record?.relationship, record?.position, record?.title, record?.status, record?.ownershipCode);
 			const startDate = pickFirstNonEmpty(record?.effectiveDate, record?.date, record?.startDate, record?.fromDate, record?.registrationBeginDate);
 			const endDate = pickFirstNonEmpty(record?.endDate, record?.toDate, record?.registrationEndDate);
-			const dateText = record?.startDate && record?.endDate ? `${record.startDate} - ${record.endDate}` : pickFirstNonEmpty(record?.effectiveDate, record?.date, record?.startDate, record?.endDate);
+			const dateText = startDate && endDate ? `${startDate} - ${endDate}` : pickFirstNonEmpty(startDate, endDate);
 			const addressText = pickFirstNonEmpty(
 				record?.address,
 				formatAddress(record?.officeAddress),
@@ -1695,6 +1726,8 @@ function DashboardPageInner() {
 				extractEntityDetailFromPayload(content, currentRecordEntity, currentRecordId)?.name ||
 				`${currentRecordEntity === 'firm' ? 'Firm' : 'Individual'} ${currentRecordId}`,
 			subtitle,
+			hasFinraData: showFinra,
+			hasSecData: showSec,
 			finraActive,
 			secActive,
 			mainAddress,
@@ -1818,10 +1851,24 @@ function DashboardPageInner() {
 		return !hasSignalField;
 	}
 
-	function recordHistoryEntry({ id, entity, source, name }: { id: string; entity: 'individual' | 'firm'; source: SearchResultSource; name?: string }) {
+	function recordHistoryEntry({
+		id,
+		entity,
+		source,
+		sources,
+		name,
+	}: {
+		id: string;
+		entity: 'individual' | 'firm';
+		source?: SearchResultSource;
+		sources?: SearchResultSource[];
+		name?: string;
+	}) {
 		if (typeof window === 'undefined') return;
 		const now = new Date().toISOString();
 		const incomingName = toText(name);
+		const incomingSources: SearchResultSource[] =
+			sources && sources.length > 0 ? sources : source ? [source] : ['finra'];
 		setLocalHistory((prev) => {
 			const nextEntries = prev.filter((entry) => !(entry.entity === entity && entry.id === id));
 			const existing = prev.find((entry) => entry.entity === entity && entry.id === id);
@@ -1830,10 +1877,19 @@ function DashboardPageInner() {
 				incomingName && !looksLikeGenericEntityLabel(incomingName) ? incomingName
 				: existingName && !looksLikeGenericEntityLabel(existingName) ? existingName
 				: incomingName || existingName || undefined;
+
+			const sourcesMap = new Map<SearchResultSource, QueueCardSourceEntry['status']>();
+			for (const item of existing?.sources || []) {
+				sourcesMap.set(item.source, item.status || 'ok');
+			}
+			for (const src of incomingSources) {
+				sourcesMap.set(src, 'ok');
+			}
+
 			const updatedEntry: LocalHistoryEntry = {
 				id,
 				entity,
-				sources: [...(existing?.sources || []).filter((item) => item.source !== source), { source, status: 'ok' }],
+				sources: Array.from(sourcesMap.entries()).map(([src, status]) => ({ source: src, status })),
 				fetchedAt: existing?.fetchedAt || now,
 				name: resolvedName,
 				visitCount: (existing?.visitCount || 0) + 1,
@@ -2276,6 +2332,33 @@ function DashboardPageInner() {
 				}
 			}
 
+			const detectedSourcesSet = new Set<SearchResultSource>();
+			if (resolvedSource) detectedSourcesSet.add(resolvedSource);
+			if (
+				mergedDetail?.sources?.finra ||
+				mergedDetail?.hasFinraData === true ||
+				payload?.hasFinraData === true ||
+				Boolean(payload?.bccontent) ||
+				Boolean(payload?.basicInformation?.bcScope) ||
+				Boolean(payload?.bcScope)
+			) {
+				detectedSourcesSet.add('finra');
+			}
+			if (
+				mergedDetail?.sources?.sec ||
+				mergedDetail?.hasSecData === true ||
+				payload?.hasSecData === true ||
+				Boolean(payload?.iacontent) ||
+				Boolean(payload?.basicInformation?.iaScope) ||
+				Boolean(payload?.iaScope)
+			) {
+				detectedSourcesSet.add('sec');
+			}
+			for (const entry of card.sources || []) {
+				if (entry.source) detectedSourcesSet.add(entry.source);
+			}
+			const detectedSources = Array.from(detectedSourcesSet);
+
 			setMainJson(normalizePayloadForCleanView(payload) as Record<string, any>);
 			setCurrentRecordSource(resolvedSource);
 			setCurrentRecordEntity(card.entity);
@@ -2306,13 +2389,14 @@ function DashboardPageInner() {
 				id: card.id,
 				entity: card.entity,
 				source: resolvedSource,
+				sources: detectedSources,
 				name: resolvedRecordName || undefined,
 			});
 			syncSelectionToUrl({
 				entity: card.entity,
 				id: card.id,
 				source: resolvedSource,
-				availableSources: card.sources.map((entry) => entry.source),
+				availableSources: detectedSources.length > 0 ? detectedSources : card.sources.map((entry) => entry.source),
 			});
 		} catch (error: any) {
 			setResult({ ok: false, error: error?.message || String(error) });
@@ -2773,6 +2857,16 @@ function DashboardPageInner() {
 												{currentRecordId && (
 													<span className={styles.recordBadgeCrd}>
 														CRD {currentRecordId}
+													</span>
+												)}
+												{detailedMainRecord?.hasFinraData && (
+													<span className={styles.tagFinra}>
+														FINRA
+													</span>
+												)}
+												{detailedMainRecord?.hasSecData && (
+													<span className={styles.tagSec}>
+														SEC
 													</span>
 												)}
 												{detailedMainRecord?.finraActive && (
@@ -3514,6 +3608,7 @@ function DashboardPageInner() {
 										storedName && !looksLikeGenericEntityLabel(storedName) ? storedName
 										: isActiveRecord && toText(mainJsonLabel) ? toText(mainJsonLabel)
 										: `${card.entity === 'firm' ? 'Firm' : 'Individual'} CRD #${card.id}`;
+									const { hasFinra, hasSec } = getQueueCardSources(card);
 
 									return (
 										<button
@@ -3525,8 +3620,12 @@ function DashboardPageInner() {
 											<div className={styles.middlePaneItemTop}>
 												<span className={styles.middlePaneItemBadge}>{card.entity === 'firm' ? 'FIRM' : 'IND'}</span>
 												<span className={styles.middlePaneItemName}>{computedCardName}</span>
+												<div className={styles.cardTags}>
+													{hasFinra && <span className={styles.tagFinra}>FINRA</span>}
+													{hasSec && <span className={styles.tagSec}>SEC</span>}
+												</div>
 											</div>
-											<div className={styles.middlePaneItemMeta}>{card.id}</div>
+											<div className={styles.middlePaneItemMeta}>CRD #{card.id}</div>
 										</button>
 									);
 								})(),
@@ -3567,6 +3666,7 @@ function DashboardPageInner() {
 										{peopleCrdEntries.length > 0 ?
 											peopleCrdEntries.map((entry) => {
 												const isSelected = currentRecordId === entry.id && currentRecordEntity === 'individual';
+												const { hasFinra, hasSec } = getNewCrdSources(entry, 'individual', localHistory);
 												return (
 													<button
 														type='button'
@@ -3574,11 +3674,31 @@ function DashboardPageInner() {
 														className={`${styles.rightPaneItem} ${isSelected ? styles.rightPaneItemSelected : ''}`}
 														aria-selected={isSelected}
 														onClick={() => void openNewCrdEntry(entry)}>
-														<div className={styles.rightPaneItemTitle}>
-															{toText(entry.name) ||
-																historyNameMap.get(`individual:${entry.id}`) ||
-																getRecordDisplayName(entry as unknown as Record<string, unknown>, 'individual', entry.id) ||
-																extractDisplayNameFromNewCrd(entry, 'individual')}
+														<div className={styles.rightPaneItemTop}>
+															<div className={styles.rightPaneItemTitleRow}>
+																<svg
+																	className={styles.itemEntityIcon}
+																	viewBox='0 0 24 24'
+																	fill='none'
+																	stroke='currentColor'
+																	strokeWidth='2'
+																	strokeLinecap='round'
+																	strokeLinejoin='round'
+																	aria-hidden='true'>
+																	<path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2' />
+																	<circle cx='12' cy='7' r='4' />
+																</svg>
+																<span className={styles.rightPaneItemTitle}>
+																	{toText(entry.name) ||
+																		historyNameMap.get(`individual:${entry.id}`) ||
+																		getRecordDisplayName(entry as unknown as Record<string, unknown>, 'individual', entry.id) ||
+																		extractDisplayNameFromNewCrd(entry, 'individual')}
+																</span>
+															</div>
+															<div className={styles.cardTags}>
+																{hasFinra && <span className={styles.tagFinra}>FINRA</span>}
+																{hasSec && <span className={styles.tagSec}>SEC</span>}
+															</div>
 														</div>
 														<div className={styles.rightPaneItemMeta}>CRD #{entry.id}</div>
 													</button>
@@ -3594,6 +3714,7 @@ function DashboardPageInner() {
 										{firmCrdEntries.length > 0 ?
 											firmCrdEntries.map((entry) => {
 												const isSelected = currentRecordId === entry.id && currentRecordEntity === 'firm';
+												const { hasFinra, hasSec } = getNewCrdSources(entry, 'firm', localHistory);
 												return (
 													<button
 														type='button'
@@ -3601,11 +3722,40 @@ function DashboardPageInner() {
 														className={`${styles.rightPaneItem} ${isSelected ? styles.rightPaneItemSelected : ''}`}
 														aria-selected={isSelected}
 														onClick={() => void openNewCrdEntry(entry)}>
-														<div className={styles.rightPaneItemTitle}>
-															{toText(entry.name) ||
-																historyNameMap.get(`firm:${entry.id}`) ||
-																getRecordDisplayName(entry as unknown as Record<string, unknown>, 'firm', entry.id) ||
-																extractDisplayNameFromNewCrd(entry, 'firm')}
+														<div className={styles.rightPaneItemTop}>
+															<div className={styles.rightPaneItemTitleRow}>
+																<svg
+																	className={styles.itemEntityIcon}
+																	viewBox='0 0 24 24'
+																	fill='none'
+																	stroke='currentColor'
+																	strokeWidth='2'
+																	strokeLinecap='round'
+																	strokeLinejoin='round'
+																	aria-hidden='true'>
+																	<rect x='4' y='2' width='16' height='20' rx='2' ry='2' />
+																	<path d='M9 22v-4h6v4' />
+																	<path d='M8 6h.01' />
+																	<path d='M16 6h.01' />
+																	<path d='M12 6h.01' />
+																	<path d='M12 10h.01' />
+																	<path d='M12 14h.01' />
+																	<path d='M16 10h.01' />
+																	<path d='M16 14h.01' />
+																	<path d='M8 10h.01' />
+																	<path d='M8 14h.01' />
+																</svg>
+																<span className={styles.rightPaneItemTitle}>
+																	{toText(entry.name) ||
+																		historyNameMap.get(`firm:${entry.id}`) ||
+																		getRecordDisplayName(entry as unknown as Record<string, unknown>, 'firm', entry.id) ||
+																		extractDisplayNameFromNewCrd(entry, 'firm')}
+																</span>
+															</div>
+															<div className={styles.cardTags}>
+																{hasFinra && <span className={styles.tagFinra}>FINRA</span>}
+																{hasSec && <span className={styles.tagSec}>SEC</span>}
+															</div>
 														</div>
 														<div className={styles.rightPaneItemMeta}>CRD #{entry.id}</div>
 													</button>

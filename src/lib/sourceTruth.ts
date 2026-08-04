@@ -130,6 +130,10 @@ export function hasIndividualSourceCoverage(detail: unknown, source: SourceDomai
 		if (Number(registrationCount.approvedSRORegistrationCount || 0) > 0) return true;
 		if (Array.isArray(detail.currentEmployments) && detail.currentEmployments.length > 0) return true;
 		if (Array.isArray(detail.previousEmployments) && detail.previousEmployments.length > 0) return true;
+		if (Array.isArray(detail.registeredStates) && detail.registeredStates.length > 0) return true;
+		if (Array.isArray(detail.stateExamCategory) && detail.stateExamCategory.length > 0) return true;
+		if (Array.isArray(detail.productExamCategory) && detail.productExamCategory.length > 0) return true;
+		if (Array.isArray(detail.principalExamCategory) && detail.principalExamCategory.length > 0) return true;
 		return false;
 	}
 
@@ -137,6 +141,7 @@ export function hasIndividualSourceCoverage(detail: unknown, source: SourceDomai
 	if (Array.isArray(detail.currentIAEmployments) && detail.currentIAEmployments.length > 0) return true;
 	if (Array.isArray(detail.previousIAEmployments) && detail.previousIAEmployments.length > 0) return true;
 	if (Array.isArray(detail.iaDisclosures) && detail.iaDisclosures.length > 0) return true;
+	if (Array.isArray(detail.registeredStates) && detail.registeredStates.length > 0) return true;
 	return false;
 }
 

@@ -368,7 +368,6 @@ function hasPublicSecIndividualPage(detail: any, basicInformation: Record<string
 
 function hasIndividualFinraPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
-	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
 	if (node.hasFinraData === true) return true;
 	if (hasPublicFinraIndividualPage(node, node.basicInformation || {})) return true;
 	if (hasAnyItems(node?.currentEmployments)) return true;
@@ -376,12 +375,13 @@ function hasIndividualFinraPresence(node: any) {
 	if (hasApprovedSro(node?.registeredSROs)) return true;
 	if (hasActiveRegisteredStates(node?.registeredStates, ['bc', 'b', 'broker'])) return true;
 	const bcScopeFlags = collectNodeActivityFlags([node?.bcScope, node?.basicInformation?.bcScope]);
-	return bcScopeFlags.hasActive || bcScopeFlags.hasInactive;
+	if (bcScopeFlags.hasActive || bcScopeFlags.hasInactive) return true;
+	if (node?.basicInformation?.individualId || node?.individualId || node?.crd) return true;
+	return false;
 }
 
 function hasIndividualSecPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
-	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
 	if (node.hasSecData === true) return true;
 	if (hasPublicSecIndividualPage(node, node.basicInformation || {})) return true;
 	if (Number(node?.registrationCount?.approvedIAStateRegistrationCount || 0) > 0) return true;
@@ -390,16 +390,17 @@ function hasIndividualSecPresence(node: any) {
 	if (hasAnyItems(node?.iaDisclosures)) return true;
 	if (hasActiveRegisteredStates(node?.registeredStates, ['ia'])) return true;
 	const iaScopeFlags = collectNodeActivityFlags([node?.iaScope, node?.basicInformation?.iaScope]);
-	return iaScopeFlags.hasActive || iaScopeFlags.hasInactive;
+	if (iaScopeFlags.hasActive || iaScopeFlags.hasInactive) return true;
+	if (node?.basicInformation?.individualId || node?.individualId || node?.crd) return true;
+	return false;
 }
 
 function hasFirmFinraPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
-	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
 	const basic = node.basicInformation || {};
 	if (node.hasFinraData === true) return true;
 	const bcScope = normalizeScopeValue(node?.bcScope || basic?.bcScope || '');
-	if (bcScope) return true;
+	if (bcScope && bcScope !== 'notinscope') return true;
 	if (Boolean(String(node?.bdSECNumber || node?.bdSecNumber || basic?.bdSECNumber || basic?.bdSecNumber || '').trim())) return true;
 	if (Boolean(String(node?.districtName || basic?.districtName || '').trim())) return true;
 	if (hasApprovedSro(node?.registeredSROs) || hasApprovedSro(node?.registrations)) return true;
@@ -409,20 +410,17 @@ function hasFirmFinraPresence(node: any) {
 			.toUpperCase() === 'Y'
 	)
 		return true;
+	if (node?.basicInformation?.firmId || node?.firmId || node?.crd) return true;
 	return false;
 }
 
 function hasFirmSecPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
-	if (isNotInScopeValue(node?.iaScope) || isNotInScopeValue(node?.basicInformation?.iaScope)) return false;
 	const basic = node.basicInformation || {};
 	if (node.hasSecData === true) return true;
-	// Only use iaScope explicitly — firmStatus is a BD field, not IA scope
 	const iaScope = normalizeScopeValue(node?.iaScope || basic?.iaScope || '');
-	if (iaScope) return true;
-	// iaSECNumber is the SEC-assigned IA number (distinct from bdSECNumber for broker-dealers)
+	if (iaScope && iaScope !== 'notinscope') return true;
 	if (Boolean(String(node?.iaSECNumber || node?.iaSecNumber || basic?.iaSECNumber || basic?.iaSecNumber || '').trim())) return true;
-	// Only match explicitly IA-type registrations, not BD/SRO registrations
 	if (
 		Array.isArray(node?.registrations) &&
 		node.registrations.some((entry: any) => {
