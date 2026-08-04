@@ -15,7 +15,7 @@ describe('resolveMainRecordTitle', () => {
 			},
 		});
 
-		expect(title).toBe('MORGAN STANLEY');
+		expect(title).toBe('Morgan Stanley');
 	});
 
 	it('prefers a derived name when the label is just a placeholder like Result', () => {

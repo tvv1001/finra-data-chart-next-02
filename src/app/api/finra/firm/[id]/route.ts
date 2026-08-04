@@ -274,11 +274,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		}
 
 		if (isMergedRoute) {
+			const deferConnections =
+				request.nextUrl.searchParams.get('deferConnections') === '1' ||
+				request.nextUrl.searchParams.get('lazyConnections') === '1' ||
+				request.nextUrl.searchParams.get('includeConnections') === '0';
+
 			// Mirror the interactive graph's node-click side panel (collectFirmConnectionEntries /
 			// renderFirmDetail in finra-graph.ts) so the dashboard's firm view shows the same
 			// Current/Previous Connections (individuals employed by or registered with this firm).
 			// Best-effort only: never let a graph lookup failure break the primary firm detail response.
-			if ((!Array.isArray(detail.currentConnections) || !detail.currentConnections.length) || (!Array.isArray(detail.previousConnections) || !detail.previousConnections.length)) {
+			if (
+				!deferConnections &&
+				((!Array.isArray(detail.currentConnections) || !detail.currentConnections.length) || (!Array.isArray(detail.previousConnections) || !detail.previousConnections.length))
+			) {
 				try {
 					const { currentConnections, previousConnections } = await getFirmConnectionsFromGraph(id);
 					// Attach to both bcDetail and secDetail (they're distinct objects) so the connections

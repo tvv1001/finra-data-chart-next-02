@@ -9,6 +9,7 @@ import { getRecordDisplayName } from '../../lib/recordDisplay';
 import { formatOtherName } from '@/lib/finra-graph/formatters';
 import { buildPersonName, formatEntityName, formatFirmName, formatPersonName } from '@/lib/nameFormat';
 import { hasFirmSourceCoverage, hasIndividualSourceCoverage } from '@/lib/sourceTruth';
+import VectorLoader from '@/components/VectorLoader';
 import styles from './dashboard.module.css';
 
 type DashboardAction = 'fetch-crds' | 'list-new-crds';
@@ -1240,6 +1241,8 @@ function DashboardPageInner() {
 	const activeLoadSourceKeyRef = useRef<string | null>(null);
 	const jsonRenderInFlightKeyRef = useRef<string | null>(null);
 	const refreshInFlightByCrdRef = useRef(new Map<string, Promise<any>>());
+	const [connectionsLoadingFirmId, setConnectionsLoadingFirmId] = useState<string | null>(null);
+	const connectionsInFlightByCrdRef = useRef(new Map<string, Promise<any>>());
 	// The URL-driven auto-load effect below must only react to *external* navigation (initial
 	// deep link / hard refresh, or a real browser back-forward). If it also reacted every time
 	// `usePathname()` recomputes after our own syncSelectionToUrl() call (used to keep the URL
@@ -2215,7 +2218,7 @@ function DashboardPageInner() {
 		const cached = mergedDetailCacheRef.current.get(cacheKey);
 		if (cached) return cached;
 
-		const route = card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
+		const route = card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1&deferConnections=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
 		try {
 			const response = await fetch(route, {
 				method: 'GET',
@@ -2236,7 +2239,7 @@ function DashboardPageInner() {
 	}
 
 	async function fetchFallbackDetail(card: QueueCard) {
-		const route = card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
+		const route = card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1&deferConnections=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
 
 		const response = await fetch(route, {
 			method: 'GET',
@@ -2245,6 +2248,61 @@ function DashboardPageInner() {
 		});
 
 		return response.json();
+	}
+
+	async function loadFirmConnections(firmId: string) {
+		const existingPromise = connectionsInFlightByCrdRef.current.get(firmId);
+		if (existingPromise) return existingPromise;
+
+		const fetchPromise = (async () => {
+			try {
+				const response = await fetch(`/api/finra/firm/${encodeURIComponent(firmId)}/connections`, {
+					method: 'GET',
+					headers: { Accept: 'application/json' },
+					cache: 'default',
+				});
+				if (!response.ok) return null;
+				const data = await response.json().catch(() => null);
+				if (!data || !data.found) return null;
+
+				const { currentConnections = [], previousConnections = [] } = data;
+
+				// Update mergedDetailCacheRef so switching back to this firm has connections ready
+				const cacheKey = `firm:${firmId}`;
+				const cached = mergedDetailCacheRef.current.get(cacheKey);
+				if (cached && typeof cached === 'object') {
+					for (const target of [cached, cached?.merged, cached?.sources?.finra, cached?.sources?.sec, cached?.finraNode]) {
+						if (target && typeof target === 'object') {
+							target.currentConnections = currentConnections;
+							target.previousConnections = previousConnections;
+						}
+					}
+				}
+
+				// If the currently viewed record still matches this firm, update mainJson state
+				setMainJson((prev) => {
+					if (!prev) return prev;
+					const prevCrd = String(prev?.basicInformation?.firmId || prev?.firmId || prev?.id || '').trim();
+					if (prevCrd && prevCrd !== firmId) return prev;
+					return {
+						...prev,
+						currentConnections,
+						previousConnections,
+					};
+				});
+
+				return data;
+			} catch (err) {
+				console.warn('Failed to lazy load firm connections', err);
+				return null;
+			} finally {
+				connectionsInFlightByCrdRef.current.delete(firmId);
+				setConnectionsLoadingFirmId((current) => (current === firmId ? null : current));
+			}
+		})();
+
+		connectionsInFlightByCrdRef.current.set(firmId, fetchPromise);
+		return fetchPromise;
 	}
 
 	async function refreshSingleCardRecord(card: QueueCard) {
@@ -2389,6 +2447,18 @@ function DashboardPageInner() {
 			setCurrentRecordSource(resolvedSource);
 			setCurrentRecordEntity(card.entity);
 			setCurrentRecordId(card.id);
+
+			const hasExistingConnections =
+				(Array.isArray(payload?.currentConnections) && payload.currentConnections.length > 0) ||
+				(Array.isArray(payload?.previousConnections) && payload.previousConnections.length > 0);
+
+			if (card.entity === 'firm' && !hasExistingConnections) {
+				setConnectionsLoadingFirmId(card.id);
+				void loadFirmConnections(card.id);
+			} else {
+				setConnectionsLoadingFirmId(null);
+			}
+
 			const detailName = extractEntityDetailFromPayload(payload, card.entity, card.id)?.name;
 			const computedDisplayName = getRecordDisplayName(payload as Record<string, unknown>, card.entity, card.id);
 			const resolvedRecordName =
@@ -2875,16 +2945,11 @@ function DashboardPageInner() {
 								<>
 									{recordViewLoading ?
 										<div className={styles.searchSummary}>
-											<div
-												className={styles.loader}
-												role='status'
-												aria-live='polite'>
-												<span
-													className={styles.spinner}
-													aria-hidden='true'
-												/>
-												<span className={styles.loadingText}>Loading selected record…</span>
-											</div>
+											<VectorLoader
+												size='lg'
+												label={`Loading ${currentRecordEntity ? (currentRecordEntity === 'firm' ? 'firm' : 'individual') : 'record'} profile…`}
+												sublabel={currentRecordId ? `CRD #${currentRecordId}` : undefined}
+											/>
 										</div>
 									:	<>
 											<div className={styles.recordHeaderRow}>
@@ -3473,82 +3538,108 @@ function DashboardPageInner() {
 												</section>
 											)}
 
-											{detailedMainRecord.currentConnectionCards.length > 0 && (
+											{currentRecordEntity === 'firm' && connectionsLoadingFirmId === currentRecordId ? (
 												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Current Connections ({detailedMainRecord.currentConnectionCards.length})</h4>
-													<div className={styles.detailList}>
-														{detailedMainRecord.currentConnectionCards.map((item, idx) => {
-															const content = (
-																<>
-																	<div className={styles.detailRowMain}>
-																		<span className={`${styles.detailRowName} ${styles.currentConnectionName}`}>{item.title}</span>
-																		{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
-																		{item.meta && <span className={`${styles.detailInlineTag} ${styles.currentConnectionTag}`}>{item.meta}</span>}
-																	</div>
-																	{item.subtitle && <div className={`${styles.detailRowMeta} ${styles.currentConnectionMeta}`}>{item.subtitle}</div>}
-																</>
-															);
-
-															if (item.crd) {
-																return (
-																	<Link
-																		href={`/dashboard/${item.entity || 'firm'}/${item.crd}`}
-																		key={`current-conn-${idx}`}
-																		className={`${styles.detailRow} ${styles.detailRowInteractive} ${styles.currentEmploymentRow} ${styles.currentConnectionRow}`}>
-																		{content}
-																	</Link>
-																);
-															}
-
-															return (
-																<div
-																	key={`current-conn-${idx}`}
-																	className={`${styles.detailRow} ${styles.currentConnectionRow}`}>
-																	{content}
-																</div>
-															);
-														})}
+													<div className={styles.detailSectionHeaderWithBadge}>
+														<h4 className={styles.detailSectionTitle}>Current & Previous Connections</h4>
+														<span className={styles.loadingPillBadge}>
+															<span className={styles.pulsingDot} />
+															Loading…
+														</span>
+													</div>
+													<div className={styles.connectionLoadingCard}>
+														<VectorLoader
+															size='md'
+															label='Discovering network connections across FINRA & SEC registries…'
+															sublabel='Analyzing associated representatives, previous registrations, and ownership graph links.'
+														/>
+														<div className={styles.connectionSkeletonList}>
+															<div className={styles.connectionSkeletonRow} />
+															<div className={styles.connectionSkeletonRow} />
+															<div className={styles.connectionSkeletonRow} />
+														</div>
 													</div>
 												</section>
-											)}
+											) : (
+												<>
+													{detailedMainRecord.currentConnectionCards.length > 0 && (
+														<section className={styles.detailSection}>
+															<h4 className={styles.detailSectionTitle}>Current Connections ({detailedMainRecord.currentConnectionCards.length})</h4>
+															<div className={styles.detailList}>
+																{detailedMainRecord.currentConnectionCards.map((item, idx) => {
+																	const content = (
+																		<>
+																			<div className={styles.detailRowMain}>
+																				<span className={`${styles.detailRowName} ${styles.currentConnectionName}`}>{item.title}</span>
+																				{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
+																				{item.meta && <span className={`${styles.detailInlineTag} ${styles.currentConnectionTag}`}>{item.meta}</span>}
+																			</div>
+																			{item.subtitle && <div className={`${styles.detailRowMeta} ${styles.currentConnectionMeta}`}>{item.subtitle}</div>}
+																		</>
+																	);
 
-											{detailedMainRecord.previousConnectionCards.length > 0 && (
-												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Previous Connections ({detailedMainRecord.previousConnectionCards.length})</h4>
-													<div className={styles.detailList}>
-														{detailedMainRecord.previousConnectionCards.map((item, idx) => {
-															const content = (
-																<>
-																	<div className={styles.detailRowMain}>
-																		<span className={styles.detailRowName}>{item.title}</span>
-																		{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
-																		{item.meta && <span className={styles.detailInlineTag}>{item.meta}</span>}
-																	</div>
-																	{item.subtitle && <div className={styles.detailRowMeta}>{item.subtitle}</div>}
-																</>
-															);
+																	if (item.crd) {
+																		return (
+																			<Link
+																				href={`/dashboard/${item.entity || 'firm'}/${item.crd}`}
+																				key={`current-conn-${idx}`}
+																				className={`${styles.detailRow} ${styles.detailRowInteractive} ${styles.currentEmploymentRow} ${styles.currentConnectionRow}`}>
+																				{content}
+																			</Link>
+																		);
+																	}
 
-															if (item.crd) {
-																return (
-																	<Link
-																		href={`/dashboard/${item.entity || 'firm'}/${item.crd}`}
-																		key={`prev-conn-${idx}`}
-																		className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
-																		{content}
-																	</Link>
-																);
-															}
+																	return (
+																		<div
+																			key={`current-conn-${idx}`}
+																			className={`${styles.detailRow} ${styles.currentConnectionRow}`}>
+																			{content}
+																		</div>
+																	);
+																})}
+															</div>
+														</section>
+													)}
 
-															return (
-																<div
-																	key={`prev-conn-${idx}`}
-																	className={styles.detailRow}>
-																	{content}
-																</div>
-															);
-														})}
-													</div>
-												</section>
+													{detailedMainRecord.previousConnectionCards.length > 0 && (
+														<section className={styles.detailSection}>
+															<h4 className={styles.detailSectionTitle}>Previous Connections ({detailedMainRecord.previousConnectionCards.length})</h4>
+															<div className={styles.detailList}>
+																{detailedMainRecord.previousConnectionCards.map((item, idx) => {
+																	const content = (
+																		<>
+																			<div className={styles.detailRowMain}>
+																				<span className={styles.detailRowName}>{item.title}</span>
+																				{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
+																				{item.meta && <span className={styles.detailInlineTag}>{item.meta}</span>}
+																			</div>
+																			{item.subtitle && <div className={styles.detailRowMeta}>{item.subtitle}</div>}
+																		</>
+																	);
+
+																	if (item.crd) {
+																		return (
+																			<Link
+																				href={`/dashboard/${item.entity || 'firm'}/${item.crd}`}
+																				key={`prev-conn-${idx}`}
+																				className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
+																				{content}
+																			</Link>
+																		);
+																	}
+
+																	return (
+																		<div
+																			key={`prev-conn-${idx}`}
+																			className={styles.detailRow}>
+																			{content}
+																		</div>
+																	);
+																})}
+															</div>
+														</section>
+													)}
+												</>
 											)}
 										</>
 									:	<div className={styles.readableCardEmpty}>No readable fields found for this record.</div>}
@@ -3818,7 +3909,9 @@ export default function DashboardPage() {
 				<div className={styles.page}>
 					<div className={styles.layout}>
 						<section className={styles.centerPane}>
-							<div className={styles.searchSummary}>Loading dashboard…</div>
+							<div className={styles.searchSummary}>
+								<VectorLoader size='lg' label='Loading dashboard…' />
+							</div>
 						</section>
 					</div>
 				</div>

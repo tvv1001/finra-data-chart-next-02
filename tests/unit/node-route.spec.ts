@@ -3,8 +3,8 @@ import { buildNodeRoutePath, parseNodeIdFromPathname } from '../../src/lib/node-
 
 describe('node route helpers', () => {
 	it('builds graph-prefixed record paths for person and firm nodes', () => {
-		expect(buildNodeRoutePath('person:8303401')).toBe('/node/person-8303401');
-		expect(buildNodeRoutePath('firm:2602425')).toBe('/node/firm-2602425');
+		expect(buildNodeRoutePath('person:8303401')).toBe('/individual/8303401');
+		expect(buildNodeRoutePath('firm:2602425')).toBe('/firm/2602425');
 	});
 
 	it('parses graph-prefixed and dashboard-prefixed record paths back into node identifiers', () => {
