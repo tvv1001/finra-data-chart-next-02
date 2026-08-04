@@ -787,6 +787,34 @@
 	padding: 8px 10px;
 }
 
+.loader {
+	display: inline-flex;
+	text-align: center;
+	align-items: center;
+	gap: 8px;
+}
+
+.spinner {
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	box-sizing: border-box;
+	border: 2px solid rgba(255, 255, 255, 0.12);
+	border-top-color: #ffffff;
+	animation: spin 1s linear infinite;
+}
+
+.loadingText {
+	font-size: 11px;
+	color: #ffffff;
+}
+
+@keyframes spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
 .searchResultRow {
 	display: grid;
 	grid-template-columns: minmax(180px, 1.5fr) minmax(92px, auto) minmax(260px, 2fr) auto;
