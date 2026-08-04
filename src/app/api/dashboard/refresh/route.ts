@@ -774,8 +774,6 @@ async function loadCachedFirmPayload(source: 'finra' | 'sec', id: string) {
 }
 
 async function normalizeCardSourcesForDisplay(card: CacheCard): Promise<CacheCard> {
-	if (card.sources.length <= 1) return card;
-
 	const normalizedSources: CacheCardSource[] = [];
 	let evaluatedSourceCount = 0;
 
@@ -800,7 +798,9 @@ async function normalizeCardSourcesForDisplay(card: CacheCard): Promise<CacheCar
 		if (includeSource) normalizedSources.push(sourceEntry);
 	}
 
-	if (evaluatedSourceCount === 0 || normalizedSources.length === 0) return card;
+	// If none of the cached payloads could be loaded, keep the card unchanged rather than
+	// clearing its source tags based on incomplete information.
+	if (evaluatedSourceCount === 0) return card;
 	return {
 		...card,
 		files: normalizedSources.length,

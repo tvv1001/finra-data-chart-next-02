@@ -1,3 +1,6 @@
+import { formatPersonName, formatFirmName, formatEntityName } from '../nameFormat';
+export { formatPersonName, formatFirmName, formatEntityName };
+
 export function esc(str) {
 	return String(str || '')
 		.replace(/&/g, '&amp;')
@@ -9,59 +12,28 @@ export function esc(str) {
 export function normalizePersonLabel(str) {
 	const s = String(str || '').trim();
 	if (!s) return '';
-
-	const commaMatch = s.match(/^([^,]+),\s*(.+)$/);
-	if (commaMatch) {
-		const last = commaMatch[1].trim();
-		const first = commaMatch[2].trim();
-		const isPersonName = /^[A-Za-z .'-]+$/.test(first) && /^[A-Za-z .'-]+$/.test(last);
-		if (isPersonName && first.split(/\s+/).length <= 4 && last.split(/\s+/).length <= 3) {
-			return formatUiText(`${first} ${last}`.replace(/\s+/g, ' ').trim());
-		}
-	}
-
-	// If the string looks like a person name (letters, spaces, dot, apostrophe, hyphen),
-	// always format to UI case (Title Case) so person nodes appear capitalized.
-	const isLikelyPerson = /^[A-Za-z .'\-]+$/.test(s);
-	if (isLikelyPerson) return formatUiText(s);
-
-	// Otherwise fall back to previous heuristic: if there's no lowercase, normalize,
-	// else leave as-is (likely organization codes or mixed content).
-	return !/[a-z]/.test(s) ? formatUiText(s) : s;
+	return formatPersonName(s);
 }
 
 // Format an "other name" for display in the UI. For firms, prefer Title Case
 // but preserve short corporate suffixes (e.g., LLC, INC) as all-caps when they
-// are exactly 2-4 alpha characters (user requested 3, but allow common 2-4).
+// are exactly 2-3 alpha characters.
 export function formatOtherName(rawName, isFirm = false) {
 	const s = String(rawName || '').trim();
 	if (!s) return '';
-	// Use formatUiText to get sensible Title Case / acronym handling baseline
-	const base = formatUiText(s);
-	if (!isFirm) return base;
-
-	// For firms, ensure short suffix tokens (2-4 letters) are uppercase
-	return base
-		.split(/\s+/)
-		.map((tok) => (tok.replace(/[^A-Za-z]/g, '').length === 3 && /^[A-Za-z]+$/.test(tok) ? tok.toUpperCase() : tok))
-		.join(' ');
+	return isFirm ? formatFirmName(s) : formatPersonName(s);
 }
 
-export function formatNodeLabel(str) {
+export function formatNodeLabel(str, group?: 'individual' | 'firm' | string) {
 	const s = String(str || '').trim();
 	if (!s) return '';
-	return s
-		.split(/\s+/)
-		.map((word) => {
-			return word
-				.split(/([-\/])/)
-				.map((part) => {
-					if (!part) return '';
-					return part.length === 1 && /[-\/]/.test(part) ? part : part[0].toUpperCase() + part.slice(1).toLowerCase();
-				})
-				.join('');
-		})
-		.join(' ');
+	if (group === 'individual') {
+		return formatPersonName(s);
+	}
+	if (group === 'firm') {
+		return formatFirmName(s);
+	}
+	return formatEntityName(s);
 }
 
 export function capitalize(str) {

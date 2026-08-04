@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { capitalize, esc, firmSizeLabel, formatLocationText, formatUiText, normalizePersonLabel, row } from './formatters';
+import { capitalize, esc, firmSizeLabel, formatLocationText, formatUiText, normalizePersonLabel, formatFirmName, formatPersonName, formatEntityName, row } from './formatters';
 import { buildParentFirmSummaryLinks } from './externalLinks';
 
 type RenderContext = {
@@ -732,11 +731,12 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 	}
 
 	function renderFirmNameWithCrd(name, maybeId) {
+		const formatted = formatFirmName(name);
 		const crd = resolveFirmCrdByName(name, maybeId);
 		if (crd) {
-			return `<button class='fg-crd-link' data-crd='${esc(String(crd))}' title='View this CRD'>${esc(name)}</button>`;
+			return `<button class='fg-crd-link' data-crd='${esc(String(crd))}' title='View this CRD'>${esc(formatted)}</button>`;
 		}
-		return esc(name || '');
+		return esc(formatted || '');
 	}
 
 	function findEmploymentMatchForControl(link, firmNode) {
@@ -1009,8 +1009,8 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
                 <div class='fg-tl-entry active-pos'>
 									<span class='fg-tl-firm'>${renderRegistrationRole(reg.roles || reg.role)} ${
 										reg.firmId ?
-											`<button class='fg-crd-link' data-crd='${esc(String(reg.firmId))}' title='View this CRD'>${esc(reg.firmName)}</button> (<button class='fg-crd-link' data-crd='${esc(String(reg.firmId))}' title='View this CRD'>CRD#${esc(String(reg.firmId))}</button>)`
-										:	esc(reg.firmName)
+											`<button class='fg-crd-link' data-crd='${esc(String(reg.firmId))}' title='View this CRD'>${esc(formatFirmName(reg.firmName))}</button> (<button class='fg-crd-link' data-crd='${esc(String(reg.firmId))}' title='View this CRD'>CRD#${esc(String(reg.firmId))}</button>)`
+										:	esc(formatFirmName(reg.firmName))
 									}</span>
                   ${
 										reg.officeAddress ? `<span class='fg-tl-loc'>${esc(reg.officeAddress)}</span>`
@@ -1027,7 +1027,7 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 
       ${
 				previousRegistrations.length ?
-					`<div class='fg-section-title fg-section-title--sticky'>Previous Registrations</div>
+					`<div class='fg-section-title fg-section-title--sticky'>Previous Registrations (${previousRegistrations.length})</div>
 	            <div class='fg-timeline fg-timeline--previous'>
               ${previousRegistrations
 								.map(
@@ -1035,8 +1035,8 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
                 <div class='fg-tl-entry'>
 									<span class='fg-tl-firm'>${renderRegistrationRole(reg.roles || reg.role, { inactive: true })} ${
 										reg.firmId ?
-											`<button class='fg-crd-link' data-crd='${esc(String(reg.firmId))}' title='View this CRD'>${esc(reg.firmName)}</button> (<button class='fg-crd-link' data-crd='${esc(String(reg.firmId))}' title='View this CRD'>CRD#${esc(String(reg.firmId))}</button>)`
-										:	esc(reg.firmName)
+											`<button class='fg-crd-link' data-crd='${esc(String(reg.firmId))}' title='View this CRD'>${esc(formatFirmName(reg.firmName))}</button> (<button class='fg-crd-link' data-crd='${esc(String(reg.firmId))}' title='View this CRD'>CRD#${esc(String(reg.firmId))}</button>)`
+										:	esc(formatFirmName(reg.firmName))
 									}</span>
                   ${reg.cityState ? `<span class='fg-tl-loc'>${esc(reg.cityState)}</span>` : ''}
                   <span class='fg-tl-dates'>${esc(reg.start || '–')} → ${esc(reg.end || 'present')}</span>
@@ -1405,7 +1405,7 @@ export function renderFirmDetail(d: any) {
 
 	return `
 		<div class='fg-sb-header firm'>
-			<div class='fg-sb-title'>${esc(d.label)}</div>
+			<div class='fg-sb-title'>${esc(formatFirmName(d.label))}</div>
 			${crdSec ? `<div class='fg-sb-crd'>${crdSec}</div>` : ''}
       <div class='fg-sb-badges'>
         ${legacyBadge}
@@ -1482,7 +1482,8 @@ export function renderFirmDetail(d: any) {
       <div class='fg-timeline'>
         ${d.currentConnections
 					.map((conn: any) => {
-						const name = conn.label || conn.name || conn.title || conn.firmName || conn.legalName || `CRD#${conn.crd || ''}`;
+						const rawName = conn.label || conn.name || conn.title || conn.firmName || conn.legalName || `CRD#${conn.crd || ''}`;
+						const name = conn.group === 'individual' || conn.type === 'individual' ? formatPersonName(rawName) : formatFirmName(rawName);
 						const crd = conn.crd || conn.crdNumber || conn.firmId || conn.individualId || '';
 						const rel = [
 							conn.relationship || conn.meta || (Array.isArray(conn.relationshipLabels) ? conn.relationshipLabels.join(', ') : ''),
@@ -1511,7 +1512,8 @@ export function renderFirmDetail(d: any) {
       <div class='fg-timeline fg-timeline--previous'>
         ${d.previousConnections
 					.map((conn: any) => {
-						const name = conn.label || conn.name || conn.title || conn.firmName || conn.legalName || `CRD#${conn.crd || ''}`;
+						const rawName = conn.label || conn.name || conn.title || conn.firmName || conn.legalName || `CRD#${conn.crd || ''}`;
+						const name = conn.group === 'individual' || conn.type === 'individual' ? formatPersonName(rawName) : formatFirmName(rawName);
 						const crd = conn.crd || conn.crdNumber || conn.firmId || conn.individualId || '';
 						const rel = [
 							conn.relationship || conn.meta || (Array.isArray(conn.relationshipLabels) ? conn.relationshipLabels.join(', ') : ''),

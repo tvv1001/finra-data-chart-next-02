@@ -1,4 +1,5 @@
 import { getRecordDisplayName } from './recordDisplay';
+import { formatEntityName, formatPersonName, formatFirmName } from './nameFormat';
 
 export function resolveMainRecordTitle(options: {
 	mainJsonLabel?: string | null;
@@ -20,20 +21,29 @@ export function resolveMainRecordTitle(options: {
 	const hasUsefulLabel = Boolean(normalizedLabel && !genericTitlePattern.test(normalizedLabel) && !placeholderLabelPattern.test(normalizedLabel));
 	const shouldPreferDerivedName = Boolean(derivedName && (!normalizedLabel || genericTitlePattern.test(normalizedLabel) || placeholderLabelPattern.test(normalizedLabel)));
 
+	const formatResolved = (name: string) => {
+		if (!name) return name;
+		if (genericTitlePattern.test(name) || placeholderLabelPattern.test(name)) return name;
+		if (normalizedEntity === 'individual' || normalizedEntity === 'firm') {
+			return formatEntityName(name, normalizedEntity);
+		}
+		return formatPersonName(name);
+	};
+
 	if (shouldPreferDerivedName) {
-		return derivedName;
+		return formatResolved(derivedName);
 	}
 	if (normalizedFallbackName && (!normalizedLabel || genericTitlePattern.test(normalizedLabel) || placeholderLabelPattern.test(normalizedLabel))) {
-		return normalizedFallbackName;
+		return formatResolved(normalizedFallbackName);
 	}
 	if (hasUsefulLabel) {
-		return normalizedLabel;
+		return formatResolved(normalizedLabel);
 	}
 	if (normalizedFallbackName) {
-		return normalizedFallbackName;
+		return formatResolved(normalizedFallbackName);
 	}
 	if (derivedName) {
-		return derivedName;
+		return formatResolved(derivedName);
 	}
 	if (normalizedEntity === 'firm' || normalizedEntity === 'individual') {
 		return `${normalizedEntity === 'firm' ? 'Firm' : 'Individual'} ${normalizedId || ''}`.trim();

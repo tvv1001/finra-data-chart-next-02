@@ -1,3 +1,5 @@
+import { formatEntityName, formatPersonName, formatFirmName, buildPersonName } from './nameFormat';
+
 type RecordEntity = 'individual' | 'firm';
 
 function toText(value: unknown): string {
@@ -53,6 +55,7 @@ function collectNameCandidates(payload: unknown, entity: RecordEntity): string[]
 	const candidates: string[] = [];
 
 	if (entity === 'individual') {
+		const orphanName = toText(record.orphan?.name);
 		const firstName = toText(
 			record.firstName ||
 				record.first_name ||
@@ -64,6 +67,20 @@ function collectNameCandidates(payload: unknown, entity: RecordEntity): string[]
 				record.ia?.first_name ||
 				record.bc?.firstName ||
 				record.bc?.first_name,
+		);
+		const middleName = toText(
+			record.middleName ||
+				record.middle_name ||
+				record.mid_name ||
+				basic.middleName ||
+				basic.middle_name ||
+				basic.mid_name ||
+				record.basicInformation?.middleName ||
+				record.basicInformation?.middle_name ||
+				record.ia?.middleName ||
+				record.ia?.middle_name ||
+				record.bc?.middleName ||
+				record.bc?.middle_name,
 		);
 		const lastName = toText(
 			record.lastName ||
@@ -77,8 +94,10 @@ function collectNameCandidates(payload: unknown, entity: RecordEntity): string[]
 				record.bc?.lastName ||
 				record.bc?.last_name,
 		);
-		const combined = [firstName, lastName].filter(Boolean).join(' ').trim();
+		const combined = buildPersonName(firstName, middleName, lastName);
 		const altNames = [
+			combined,
+			orphanName,
 			record.name,
 			record.fullName,
 			record.individualName,
@@ -88,17 +107,18 @@ function collectNameCandidates(payload: unknown, entity: RecordEntity): string[]
 			record.basicInformation?.name,
 			record.basicInformation?.fullName,
 			record.basicInformation?.individualName,
-			combined,
 		];
 		candidates.push(...altNames.map((value) => toText(value)));
-		return candidates.filter(Boolean);
+		return candidates.filter(Boolean).map((name) => formatPersonName(name));
 	}
 
+	const orphanFirmName = toText(record.orphan?.firmName || record.orphan?.name);
 	const altNames = [
 		record.legalName,
 		record.firmName,
 		record.name,
 		record.fullName,
+		orphanFirmName,
 		record.organizationName,
 		record.doingBusinessAs,
 		basic.legalName,
@@ -115,7 +135,7 @@ function collectNameCandidates(payload: unknown, entity: RecordEntity): string[]
 		record.basicInformation?.doingBusinessAs,
 	];
 	candidates.push(...altNames.map((value) => toText(value)));
-	return candidates.filter(Boolean);
+	return candidates.filter(Boolean).map((name) => formatFirmName(name));
 }
 
 export function getRecordDisplayName(payload: unknown, entity: RecordEntity, id: string): string {

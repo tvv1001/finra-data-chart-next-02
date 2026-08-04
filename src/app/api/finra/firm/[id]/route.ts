@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger';
 import { queueHydration } from '@/lib/hydration';
 import { addRecordToSearchIndex } from '@/lib/localSearch';
 import { getFirmConnectionsFromGraph } from '@/lib/graphConnections';
+import { recordOwnerReferencesForFirm } from '@/lib/ownerReferenceIndex';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -247,6 +248,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		// Queue background hydration of the external API to ensure cache stays hydrated
 		queueHydration('firm', id);
+
+		// Best-effort: index this firm's directOwners/indirectOwners so a later lookup of one of
+		// those individuals (many of whom have no independent, searchable FINRA/SEC record) can
+		// resolve as an "orphan" reference instead of a bare not-found. Never blocks the response.
+		const ownerReferenceRows = [...(Array.isArray(detail.directOwners) ? detail.directOwners : []), ...(Array.isArray(detail.indirectOwners) ? detail.indirectOwners : [])];
+		if (ownerReferenceRows.length) {
+			void recordOwnerReferencesForFirm({
+				parentCrd: id,
+				firmName: detail.basicInformation?.firmName || detail.firmName,
+				officeAddress: detail.firmAddressDetails?.officeAddress,
+				mailingAddress: detail.firmAddressDetails?.mailingAddress,
+				phone: detail.firmAddressDetails?.businessPhoneNumber,
+				owners: ownerReferenceRows,
+			}).catch((err: any) => {
+				logger.warn('failed to record owner reference index for firm', { id, error: err?.message || String(err) });
+			});
+		}
 
 		const searchIndexDetail = detail && typeof detail === 'object' ? detail : null;
 		try {

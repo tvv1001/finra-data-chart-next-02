@@ -8069,7 +8069,7 @@ function getCompactInactiveNodeLabel(node) {
 		const clippedLabel = clipFirmLabelAtWord(preferredLabel, 26);
 		return !isNodeIdLabel && isPlaceholderExpansionLabel(clippedLabel, node?.group) ? '' : clippedLabel;
 	}
-	const formattedLabel = formatNodeLabel(preferredLabel);
+	const formattedLabel = formatNodeLabel(preferredLabel, node?.group);
 	const compactLabel = truncate(formattedLabel, 18);
 	return !isNodeIdLabel && isPlaceholderExpansionLabel(compactLabel, node?.group) ? '' : compactLabel;
 }
@@ -10981,7 +10981,7 @@ function getPreferredNodeLabel(node) {
 }
 
 function clipFirmLabelAtWord(label, maxChars = 44) {
-	const text = formatNodeLabel(label);
+	const text = formatNodeLabel(label, 'firm');
 	if (!text || text.length <= maxChars) return text;
 	const clipped = text.slice(0, maxChars + 1);
 	const lastBoundary = Math.max(clipped.lastIndexOf(' '), clipped.lastIndexOf('/'), clipped.lastIndexOf('-'));
@@ -10997,10 +10997,10 @@ function getRenderedNodeLabel(node, { skipTruncation = false }: { skipTruncation
 	const isNodeIdLabel = /^Node\s+/i.test(preferredLabel);
 	if (!isNodeIdLabel && isPlaceholderExpansionLabel(preferredLabel, node?.group)) return '';
 	if (node?.group === 'firm') {
-		const clippedLabel = skipTruncation ? formatNodeLabel(preferredLabel) : clipFirmLabelAtWord(preferredLabel);
+		const clippedLabel = skipTruncation ? formatNodeLabel(preferredLabel, 'firm') : clipFirmLabelAtWord(preferredLabel);
 		return !isNodeIdLabel && isPlaceholderExpansionLabel(clippedLabel, node?.group) ? '' : clippedLabel;
 	}
-	const formattedLabel = formatNodeLabel(preferredLabel);
+	const formattedLabel = formatNodeLabel(preferredLabel, node?.group);
 	return !isNodeIdLabel && isPlaceholderExpansionLabel(formattedLabel, node?.group) ? '' : formattedLabel;
 }
 
@@ -14716,8 +14716,8 @@ function normalizePersonLabel(str) {
 	return normalizePersonLabelImpl(str);
 }
 
-function formatNodeLabel(str) {
-	return formatNodeLabelImpl(str);
+function formatNodeLabel(str, group?: 'individual' | 'firm' | string) {
+	return formatNodeLabelImpl(str, group);
 }
 
 function capitalize(str) {

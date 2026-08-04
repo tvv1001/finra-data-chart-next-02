@@ -8,6 +8,7 @@ import { normalizeIndividualDetailFromSource } from '@/lib/individualDetail';
 import { hasIndividualSourceCoverage, resolveIndividualSourceDetail } from '@/lib/sourceTruth';
 import { queueHydration } from '@/lib/hydration';
 import { addRecordToSearchIndex } from '@/lib/localSearch';
+import { lookupOwnerReference } from '@/lib/ownerReferenceIndex';
 
 function parseDetailPayload(data: any, contentKey = 'content') {
 	if (!data) return null;
@@ -251,6 +252,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		}
 
 		if (!finraDetail && !secDetail) {
+			// Last resort: this CRD may be a scraped-only "Direct Owners & Executive Officers"
+			// reference from a firm's own detail page, with no independent BrokerCheck/IAPD record.
+			// Check the owner-reference index (populated when firm records are fetched) before
+			// giving up.
+			const ownerReference = await lookupOwnerReference(crd).catch(() => null);
+			if (ownerReference) {
+				return NextResponse.json(
+					{
+						found: true,
+						crd,
+						orphan: ownerReference,
+						sources: { finra: { found: false }, sec: { found: false } },
+						hasFinraData: false,
+						hasSecData: false,
+					},
+					{ headers: sharedCacheHeaders(3600) },
+				);
+			}
 			return NextResponse.json({ found: false, crd }, { status: 200, headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
 		}
 

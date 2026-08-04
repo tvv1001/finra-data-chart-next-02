@@ -7,6 +7,7 @@ import { buildJsonDisplayTree, coerceStructuredValue, normalizeRenderablePayload
 import { resolveMainRecordTitle } from '../../lib/dashboard-record-title';
 import { getRecordDisplayName } from '../../lib/recordDisplay';
 import { formatOtherName } from '@/lib/finra-graph/formatters';
+import { buildPersonName, formatEntityName, formatFirmName, formatPersonName } from '@/lib/nameFormat';
 import { hasFirmSourceCoverage, hasIndividualSourceCoverage } from '@/lib/sourceTruth';
 import styles from './dashboard.module.css';
 
@@ -448,6 +449,8 @@ function extractEntityDetailFromPayload(payload: any, entity: 'individual' | 'fi
 			[firstName, lastName].filter(Boolean).join(' ').trim() ||
 			normalized.fullName ||
 			normalized.individualName ||
+			normalized.orphan?.name ||
+			normalized.name ||
 			normalized.basicInformation?.fullName ||
 			normalized.basicInformation?.individualName ||
 			'';
@@ -469,6 +472,8 @@ function extractEntityDetailFromPayload(payload: any, entity: 'individual' | 'fi
 			normalized.basicInformation?.legalName ||
 			normalized.basicInformation?.firmName ||
 			normalized.basicInformation?.iaFirmName ||
+			normalized.orphan?.firmName ||
+			normalized.orphan?.name ||
 			normalized.firmName ||
 			normalized.iaFirmName ||
 			'';
@@ -618,8 +623,7 @@ function looksLikeGenericEntityLabel(value: unknown) {
 }
 
 function buildPersonNameFromRecord(record: Record<string, any>) {
-	const parts = [toText(record?.firstName), toText(record?.middleName), toText(record?.lastName), toText(record?.suffix)].filter(Boolean).join(' ').trim();
-	return parts;
+	return buildPersonName(record?.firstName, record?.middleName, record?.lastName, record?.suffix);
 }
 
 function resolveEntityNodeLabel(record: Record<string, any> | null | undefined, entity: 'individual' | 'firm', crd?: string, indexFallback?: number) {
@@ -633,6 +637,8 @@ function resolveEntityNodeLabel(record: Record<string, any> | null | undefined, 
 		row?.name,
 		row?.fullName,
 		row?.individualName,
+		row?.orphan?.name,
+		row?.orphan?.firmName,
 		row?.firmName,
 		row?.iaFirmName,
 		basic?.legalName,
@@ -652,7 +658,9 @@ function resolveEntityNodeLabel(record: Record<string, any> | null | undefined, 
 		basicPersonName,
 	);
 
-	if (label && !looksLikeGenericEntityLabel(label)) return label;
+	if (label && !looksLikeGenericEntityLabel(label)) {
+		return entity === 'firm' ? formatFirmName(label) : formatPersonName(label);
+	}
 	if (crd) return `${entity === 'firm' ? 'Firm' : 'Individual'} CRD #${crd}`;
 	if (typeof indexFallback === 'number') return `${entity === 'firm' ? 'Firm' : 'Individual'} ${indexFallback + 1}`;
 	return entity === 'firm' ? 'Firm' : 'Individual';
@@ -1719,13 +1727,13 @@ function DashboardPageInner() {
 		const bcScope = pickFirstNonEmpty(basic.bcScope, body.bcScope, basic.brokerCheckScope, body.brokerCheckScope, body.bc_scope);
 		const iaScope = pickFirstNonEmpty(basic.iaScope, body.iaScope, basic.secScope, body.secScope, body.ia_scope);
 		const finraActive =
-			bcScope ? `FINRA: ${bcScope}`
-			: showFinra ? 'FINRA: Active'
-			: '';
+			!showFinra ? ''
+			: bcScope ? `FINRA: ${bcScope}`
+			: 'FINRA: Active';
 		const secActive =
-			iaScope ? `SEC: ${iaScope}`
-			: showSec ? 'SEC: Active'
-			: '';
+			!showSec ? ''
+			: iaScope ? `SEC: ${iaScope}`
+			: 'SEC: Active';
 		const subtitle = otherNames.length > 0 && currentRecordEntity === 'individual' ? otherNames[0] : '';
 
 		const directOwners = toArray(body.directOwners).concat(toArray(body.directOwnersExecutiveOfficers));
@@ -1891,18 +1899,12 @@ function DashboardPageInner() {
 				: existingName && !looksLikeGenericEntityLabel(existingName) ? existingName
 				: incomingName || existingName || undefined;
 
-			const sourcesMap = new Map<SearchResultSource, QueueCardSourceEntry['status']>();
-			for (const item of existing?.sources || []) {
-				sourcesMap.set(item.source, item.status || 'ok');
-			}
-			for (const src of incomingSources) {
-				sourcesMap.set(src, 'ok');
-			}
-
 			const updatedEntry: LocalHistoryEntry = {
 				id,
 				entity,
-				sources: Array.from(sourcesMap.entries()).map(([src, status]) => ({ source: src, status })),
+				// Replace rather than merge: incomingSources reflects freshly-validated coverage,
+				// so stale/incorrect source tags from earlier visits must not persist.
+				sources: incomingSources.map((src) => ({ source: src, status: 'ok' as const })),
 				fetchedAt: existing?.fetchedAt || now,
 				name: resolvedName,
 				visitCount: (existing?.visitCount || 0) + 1,
@@ -1975,8 +1977,9 @@ function DashboardPageInner() {
 		const scopeText = (entry.scopes || []).join(' ').toLowerCase();
 		if (scopeText.includes('finra') || scopeText.includes('bc')) sources.push({ source: 'finra', status: 'unknown' });
 		if (scopeText.includes('sec') || scopeText.includes('ia')) sources.push({ source: 'sec', status: 'unknown' });
-		if (!sources.find((item) => item.source === 'finra')) sources.push({ source: 'finra', status: 'unknown' });
-		if (!sources.find((item) => item.source === 'sec')) sources.push({ source: 'sec', status: 'unknown' });
+		// If scopes didn't declare any source (unexpected), default to attempting FINRA first;
+		// the real tags are recomputed from validated payload coverage after fetch, not from this guess.
+		if (sources.length === 0) sources.push({ source: 'finra', status: 'unknown' });
 
 		await loadQueueSourceJson(
 			{
@@ -2050,18 +2053,34 @@ function DashboardPageInner() {
 		const hasOrphan = Boolean(detail?.orphan && typeof detail.orphan === 'object');
 		const candidate =
 			source === 'finra' ?
-				(detail?.sources?.finra?.bccontent ?? detail?.sources?.finra ?? detail?.finraNode ?? detail?.merged ?? detail?.bccontent ?? null)
-			:	(detail?.sources?.sec?.iacontent ?? detail?.sources?.sec ?? detail?.finraNode ?? detail?.merged ?? detail?.iacontent ?? null);
+				(detail?.sources?.finra?.bccontent ?? detail?.sources?.finra?.content ?? detail?.sources?.finra ?? detail?.finraNode ?? detail?.merged ?? detail?.bccontent ?? null)
+			:	(detail?.sources?.sec?.iacontent ?? detail?.sources?.sec?.content ?? detail?.sources?.sec ?? detail?.finraNode ?? detail?.merged ?? detail?.iacontent ?? null);
 
-		const isScrapedReferenceOnly =
-			candidate && typeof candidate === 'object' && candidate?.found === false && !candidate?.payload && /no\s+live\s+crd/i.test(String(candidate?.error || ''));
+		const candidateHasRealData =
+			candidate &&
+			typeof candidate === 'object' &&
+			candidate.found !== false &&
+			(Boolean(candidate.basicInformation) ||
+				Boolean(candidate.content) ||
+				Boolean(candidate.iacontent) ||
+				Boolean(candidate.hits) ||
+				Boolean(candidate.individualId) ||
+				Boolean(candidate.firmId) ||
+				Boolean(candidate.firstName) ||
+				Boolean(candidate.lastName) ||
+				Boolean(candidate.legalName) ||
+				Boolean(candidate.firmName));
 
-		if (isScrapedReferenceOnly) {
-			return hasOrphan ? detail : null;
+		if (candidateHasRealData) {
+			return candidate;
 		}
 
-		if (candidate) return candidate;
-		return hasOrphan ? detail : null;
+		if (hasOrphan) {
+			return detail;
+		}
+
+		if (candidate && candidate.found !== false) return candidate;
+		return null;
 	}
 
 	function resolveOrderedSourcesFromDetail(detail: any, requestedSource: SearchResultSource, declaredSources: SearchResultSource[]): SearchResultSource[] {
@@ -2346,7 +2365,6 @@ function DashboardPageInner() {
 			}
 
 			const detectedSourcesSet = new Set<SearchResultSource>();
-			if (resolvedSource) detectedSourcesSet.add(resolvedSource);
 			if (
 				mergedDetail?.hasFinraData === true ||
 				payload?.hasFinraData === true ||
@@ -2361,9 +2379,10 @@ function DashboardPageInner() {
 			) {
 				detectedSourcesSet.add('sec');
 			}
-			for (const entry of card.sources || []) {
-				if (entry.source) detectedSourcesSet.add(entry.source);
-			}
+			const isOrphanPayload = Boolean(payload?.orphan && typeof payload.orphan === 'object');
+			// Fall back to the resolved source only when neither coverage check found a real association,
+			// and this is not an orphan record, so at least one tag is shown instead of leaving normal cards blank.
+			if (!isOrphanPayload && detectedSourcesSet.size === 0 && resolvedSource) detectedSourcesSet.add(resolvedSource);
 			const detectedSources = Array.from(detectedSourcesSet);
 
 			setMainJson(normalizePayloadForCleanView(payload) as Record<string, any>);
@@ -2735,9 +2754,10 @@ function DashboardPageInner() {
 						continue;
 					}
 
-					const label =
+					const rawLabel =
 						String(item?.name || item?.fullName || item?.firmName || item?.firstName || item?.lastName || item?.title || '').trim() ||
 						`${entity === 'firm' ? 'Firm' : 'Individual'} CRD #${id}`;
+					const label = entity === 'firm' ? formatFirmName(rawLabel) : formatPersonName(rawLabel);
 					const scope = String(item?.bcScope || item?.iaScope || item?.status || item?.registrationStatus || '').trim();
 					const address = extractSearchResultAddress(item);
 					const detail = extractSearchResultDetail(item);
@@ -2881,17 +2901,17 @@ function DashboardPageInner() {
 														type='button'
 														className={`${styles.mainViewToggleBtn} ${mainViewMode === 'card' ? styles.mainViewToggleBtnActive : ''}`}
 														onClick={() => setMainViewMode('card')}>
-														Card
+														Info
 													</button>
 													<button
 														type='button'
 														className={`${styles.mainViewToggleBtn} ${mainViewMode === 'json' ? styles.mainViewToggleBtnActive : ''}`}
 														onClick={() => setMainViewMode('json')}>
-														JSON
+														Log
 													</button>
 												</div>
 											</div>
-											<h2 className={styles.recordTitle}>{orphanRecord?.name || mainJsonLabel}</h2>
+											<h2 className={styles.recordTitle}>{orphanRecord?.name ? formatPersonName(orphanRecord.name) : mainJsonLabel}</h2>
 											{detailedMainRecord?.subtitle && <div className={styles.recordSubtitle}>{detailedMainRecord.subtitle}</div>}
 										</>
 									}
@@ -2950,7 +2970,7 @@ function DashboardPageInner() {
 													{orphanRecord.name && (
 														<div className={styles.detailRow}>
 															<div className={styles.detailTextRow}>
-																<strong>Name:</strong> {orphanRecord.name}
+																<strong>Name:</strong> {formatPersonName(orphanRecord.name)}
 															</div>
 														</div>
 													)}
@@ -2969,7 +2989,7 @@ function DashboardPageInner() {
 													{orphanRecord.firmName && (
 														<div className={styles.detailRow}>
 															<div className={styles.detailTextRow}>
-																<strong>Affiliated Firm:</strong> {orphanRecord.firmName}
+																<strong>Affiliated Firm:</strong> {formatFirmName(orphanRecord.firmName)}
 															</div>
 														</div>
 													)}
@@ -2996,7 +3016,7 @@ function DashboardPageInner() {
 															href={`/dashboard/firm/${orphanRecord.parentCrd}`}
 															className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
 															<div className={styles.detailRowMain}>
-																<span className={styles.detailRowName}>{orphanRecord.firmName}</span>
+																<span className={styles.detailRowName}>{formatFirmName(orphanRecord.firmName)}</span>
 																<span className={styles.detailInlineTag}>CRD#{orphanRecord.parentCrd}</span>
 															</div>
 															<div className={styles.detailRowMeta}>{orphanRecord.position}</div>
