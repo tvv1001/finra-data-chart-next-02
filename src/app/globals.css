@@ -198,10 +198,9 @@ html[data-theme='dark'] {
 	--opacity-node-inactive: 0.62;
 	--color-node-label: #ffffff;
 	--color-node-label-stroke: rgba(0, 1, 6, 0.96);
-	--scrollbar-thumb: rgba(71, 85, 105, 0.88);
+	--scrollbar-thumb: rgba(1, 14, 32, 0.88);
 	--scrollbar-thumb-hover: rgba(100, 116, 139, 0.96);
 	--scrollbar-track: rgba(2, 6, 23, 0.92);
-
 	--accent: #d97706;
 
 	/* --shadow-node-inactive: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.24));

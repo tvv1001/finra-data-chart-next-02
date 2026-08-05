@@ -2039,25 +2039,20 @@
 	align-items: center;
 	gap: 8px;
 	flex-wrap: wrap;
+	text-transform: capitalize;
 }
 
 .detailInlineTag {
 	display: inline-flex;
 	align-items: center;
 	padding: 2px 8px;
-	border: 1px solid rgba(59, 130, 246, 0.5); /* blue-500 tint */
-	background: rgba(30, 58, 138, 0.4); /* blue-900 tint */
-	font-size: 10px;
-	font-weight: 700;
-	color: #93c5fd; /* blue-300 */
+
+	font-size: 12px;
+	font-weight: 200;
+	color: #f7d2d8; /* blue-300 */
 	border-radius: 0;
 	text-decoration: none;
 	transition: all 0.2s;
-}
-
-.detailInlineTag:hover {
-	background: rgba(30, 58, 138, 0.8);
-	border-color: rgba(59, 130, 246, 0.8);
 }
 
 .detailCardMeta {
@@ -2908,24 +2903,16 @@
 	gap: 6px;
 }
 
-.detailRow,
-.currentEmploymentRow {
+.detailRow {
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
 	padding: 10px 12px;
-	background: #2e0f28;
+	background: #1a4eec;
 	border: 1px solid rgba(115, 32, 72, 0.623);
 	border-radius: 0px;
 	text-decoration: none;
 	transition: all 0.2s;
-}
-
-.currentEmploymentRow:hover,
-.currentEmploymentRow:focus-visible {
-	background: rgba(42, 3, 16, 0.35);
-	border-color: rgba(96, 165, 250, 0.5);
-	outline: none;
 }
 
 .detailGrid {
@@ -2963,15 +2950,32 @@
 }
 
 .detailRowInteractive {
-	background: rgba(30, 2, 17, 0.35);
-	border-color: rgba(75, 15, 26, 0.978);
+	background: #1c0818;
+	border: 1px solid rgba(115, 32, 72, 0.623);
 }
 .detailRowInteractive:hover {
 	background: rgba(11, 1, 4, 0.35);
 	border-color: rgba(191, 66, 128, 0.996);
 	cursor: pointer;
 }
+.currentEmploymentRow {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 10px 12px;
+	background: rgba(14, 2, 8, 0.914);
+	border-color: rgba(75, 15, 26, 0.978);
+	border-radius: 0px;
+	text-decoration: none;
+	transition: all 0.2s;
+}
 
+.currentEmploymentRow:hover,
+.currentEmploymentRow:focus-visible {
+	background: rgba(42, 3, 16, 0.973);
+	border-color: rgba(191, 66, 128, 0.996);
+	outline: none;
+}
 .profileLinksRow {
 	display: flex;
 	gap: 12px;
@@ -3029,6 +3033,13 @@
 	letter-spacing: 0.02em;
 }
 
+/* .currentConnectionRow {
+	padding: 12px 14px;
+	gap: 6px;
+	box-shadow: inset 0 0 0 1px #7dd3fc24;
+	background: #2e0f28;
+	border: 1px solid rgba(115, 32, 72, 0.623);
+} */
 .currentConnectionRow {
 	padding: 12px 14px;
 	gap: 6px;

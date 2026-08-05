@@ -2947,7 +2947,13 @@ function DashboardPageInner() {
 										<div className={styles.searchSummary}>
 											<VectorLoader
 												size='lg'
-												label={`Loading ${currentRecordEntity ? (currentRecordEntity === 'firm' ? 'firm' : 'individual') : 'record'} profile…`}
+												label={`Loading ${
+													currentRecordEntity ?
+														currentRecordEntity === 'firm' ?
+															'firm'
+														:	'individual'
+													:	'record'
+												} profile…`}
 												sublabel={currentRecordId ? `CRD #${currentRecordId}` : undefined}
 											/>
 										</div>
@@ -3538,7 +3544,7 @@ function DashboardPageInner() {
 												</section>
 											)}
 
-											{currentRecordEntity === 'firm' && connectionsLoadingFirmId === currentRecordId ? (
+											{currentRecordEntity === 'firm' && connectionsLoadingFirmId === currentRecordId ?
 												<section className={styles.detailSection}>
 													<div className={styles.detailSectionHeaderWithBadge}>
 														<h4 className={styles.detailSectionTitle}>Current & Previous Connections</h4>
@@ -3560,8 +3566,7 @@ function DashboardPageInner() {
 														</div>
 													</div>
 												</section>
-											) : (
-												<>
+											:	<>
 													{detailedMainRecord.currentConnectionCards.length > 0 && (
 														<section className={styles.detailSection}>
 															<h4 className={styles.detailSectionTitle}>Current Connections ({detailedMainRecord.currentConnectionCards.length})</h4>
@@ -3640,7 +3645,7 @@ function DashboardPageInner() {
 														</section>
 													)}
 												</>
-											)}
+											}
 										</>
 									:	<div className={styles.readableCardEmpty}>No readable fields found for this record.</div>}
 								</div>
@@ -3910,7 +3915,10 @@ export default function DashboardPage() {
 					<div className={styles.layout}>
 						<section className={styles.centerPane}>
 							<div className={styles.searchSummary}>
-								<VectorLoader size='lg' label='Loading dashboard…' />
+								<VectorLoader
+									size='lg'
+									label='Loading dashboard…'
+								/>
 							</div>
 						</section>
 					</div>
