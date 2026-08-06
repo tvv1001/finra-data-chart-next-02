@@ -1232,6 +1232,8 @@ function DashboardPageInner() {
 	const [sessionHasFetched, setSessionHasFetched] = useState(false);
 	const [localHistory, setLocalHistory] = useState<LocalHistoryEntry[]>([]);
 	const [graphClickHistory, setGraphClickHistory] = useState<SelectionLogEntry[]>([]);
+	const [isSelectionHistoryOpen, setIsSelectionHistoryOpen] = useState(true);
+	const [isGraphClickHistoryOpen, setIsGraphClickHistoryOpen] = useState(true);
 	const [newCrdsOpen, setNewCrdsOpen] = useState(true);
 	const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
 	const [isSavingTemplate, setIsSavingTemplate] = useState(false);
@@ -3713,74 +3715,114 @@ function DashboardPageInner() {
 				</section>
 
 				<aside className={styles.middlePane}>
-					<div className={styles.middlePaneHeader}>
-						<div className={styles.middlePaneTitle}>SELECTION HISTORY</div>
+					<div 
+						className={styles.middlePaneHeader} 
+						style={{ cursor: 'pointer', userSelect: 'none' }}
+						onClick={() => setIsSelectionHistoryOpen(!isSelectionHistoryOpen)}
+					>
+						<div className={styles.middlePaneTitle}>
+							SELECTION HISTORY {isSelectionHistoryOpen ? '▼' : '▶'}
+						</div>
 						<div className={styles.middlePaneActions}>
 							<span className={styles.middlePaneCount}>{displayCards.length}</span>
 							<button
 								type='button'
 								className={styles.middlePaneClearBtn}
-								onClick={clearSelectionHistory}>
+								onClick={(e) => {
+									e.stopPropagation();
+									clearSelectionHistory();
+								}}>
 								CLEAR
 							</button>
 						</div>
 					</div>
 
-					<div className={styles.middlePaneList}>
-						{displayCards.length > 0 ?
-							displayCards.map((card) =>
-								(() => {
-									const isActiveRecord = currentRecordId === card.id && currentRecordEntity === card.entity;
-									const storedName = toText(card.name);
-									const computedCardName =
-										storedName && !looksLikeGenericEntityLabel(storedName) ? storedName
-										: isActiveRecord && toText(mainJsonLabel) ? toText(mainJsonLabel)
-										: `${card.entity === 'firm' ? 'Firm' : 'Individual'} CRD #${card.id}`;
-									const { hasFinra, hasSec } = getQueueCardSources(card);
+					{isSelectionHistoryOpen && (
+						<div className={styles.middlePaneList} style={{ flex: 1, minHeight: 0 }}>
+							{displayCards.length > 0 ?
+								displayCards.map((card) =>
+									(() => {
+										const isActiveRecord = currentRecordId === card.id && currentRecordEntity === card.entity;
+										const storedName = toText(card.name);
+										const computedCardName =
+											storedName && !looksLikeGenericEntityLabel(storedName) ? storedName
+											: isActiveRecord && toText(mainJsonLabel) ? toText(mainJsonLabel)
+											: `${card.entity === 'firm' ? 'Firm' : 'Individual'} CRD #${card.id}`;
+										const { hasFinra, hasSec } = getQueueCardSources(card);
 
+										return (
+											<button
+												type='button'
+												key={`${card.entity}:${card.id}`}
+												className={`${styles.middlePaneItem} ${isActiveRecord ? styles.middlePaneItemSelected : ''}`}
+												aria-selected={isActiveRecord}
+												onClick={() => void openQueueCard(card)}>
+												<div className={styles.middlePaneItemTop}>
+													<span className={styles.middlePaneItemBadge}>{card.entity === 'firm' ? 'FIRM' : 'IND'}</span>
+													<span className={styles.middlePaneItemName}>{computedCardName}</span>
+													<div className={styles.cardTags}>
+														{hasFinra && <span className={styles.tagFinra}>FINRA</span>}
+														{hasSec && <span className={styles.tagSec}>SEC</span>}
+													</div>
+												</div>
+												<div className={styles.middlePaneItemMeta}>CRD #{card.id}</div>
+											</button>
+										);
+									})(),
+								)
+							:	<div className={styles.middlePaneEmpty}>No selection history yet.</div>}
+						</div>
+					)}
+					
+					<div 
+						className={styles.middlePaneHeader} 
+						style={{ marginTop: isSelectionHistoryOpen ? '16px' : '0', paddingTop: isSelectionHistoryOpen ? '16px' : '0', borderTop: isSelectionHistoryOpen ? '1px solid var(--border)' : 'none', cursor: 'pointer', userSelect: 'none' }}
+						onClick={() => setIsGraphClickHistoryOpen(!isGraphClickHistoryOpen)}
+					>
+						<div className={styles.middlePaneTitle}>
+							GRAPH CLICK HISTORY {isGraphClickHistoryOpen ? '▼' : '▶'}
+						</div>
+						<div className={styles.middlePaneActions}>
+							<span className={styles.middlePaneCount}>{graphClickHistory.length}</span>
+						</div>
+					</div>
+					
+					{isGraphClickHistoryOpen && (
+						<div className={styles.middlePaneList} style={{ flex: 1, minHeight: 0 }}>
+							{graphClickHistory.length > 0 ? (
+								graphClickHistory.slice().reverse().map((entry, idx) => {
+									const entityForLink = entry.group === 'firm' ? 'firm' : 'individual';
+									const extractedCrd = entry.secondaryId.replace(/[^0-9]/g, '');
+									const isActiveRecord = currentRecordId === extractedCrd && currentRecordEntity === entityForLink;
+									
 									return (
 										<button
 											type='button'
-											key={`${card.entity}:${card.id}`}
+											key={idx}
 											className={`${styles.middlePaneItem} ${isActiveRecord ? styles.middlePaneItemSelected : ''}`}
 											aria-selected={isActiveRecord}
-											onClick={() => void openQueueCard(card)}>
+											style={{ display: 'flex', flexDirection: 'column', width: '100%', textAlign: 'left' }}
+											onClick={() => void openQueueCard({
+												id: extractedCrd,
+												entity: entityForLink,
+												files: 0,
+												sources: [],
+												name: entry.label
+											})}
+										>
 											<div className={styles.middlePaneItemTop}>
-												<span className={styles.middlePaneItemBadge}>{card.entity === 'firm' ? 'FIRM' : 'IND'}</span>
-												<span className={styles.middlePaneItemName}>{computedCardName}</span>
-												<div className={styles.cardTags}>
-													{hasFinra && <span className={styles.tagFinra}>FINRA</span>}
-													{hasSec && <span className={styles.tagSec}>SEC</span>}
-												</div>
+												<span className={styles.middlePaneItemBadge}>{entityForLink === 'firm' ? 'FIRM' : 'IND'}</span>
+												<span className={styles.middlePaneItemName}>{entry.label}</span>
 											</div>
-											<div className={styles.middlePaneItemMeta}>CRD #{card.id}</div>
+											<div className={styles.middlePaneItemMeta}>CRD #{extractedCrd}</div>
 										</button>
 									);
-								})(),
-							)
-						:	<div className={styles.middlePaneEmpty}>No selection history yet.</div>}
-					</div>
-					
-					<div className={styles.middlePaneHeader} style={{ marginTop: '24px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
-						<div className={styles.middlePaneTitle}>GRAPH CLICK HISTORY</div>
-					</div>
-					<div id="fg-dashboard-selection-log-list" className="fg-selection-log-list fg-selection-log-list--sidebar" style={{ flex: 'none', height: 'auto', maxHeight: '30vh' }}>
-						{graphClickHistory.length > 0 ? (
-							graphClickHistory.slice().reverse().map((entry, idx) => {
-								const entityForLink = entry.group === 'firm' ? 'firm' : 'individual';
-								const extractedCrd = entry.secondaryId.replace(/[^0-9]/g, '');
-								return (
-									<div key={idx} className={`fg-log-entry ${entry.group}`}>
-										<Link href={`/${entityForLink}/${extractedCrd}`} className="fg-log-entry-link" style={{ textDecoration: 'none', color: 'inherit', display: 'block', width: '100%' }}>
-											{entry.label} :: {entry.secondaryId}
-										</Link>
-									</div>
-								);
-							})
-						) : (
-							<div className={styles.middlePaneEmpty} style={{ padding: '0 12px' }}>No graph clicks yet.</div>
-						)}
-					</div>
+								})
+							) : (
+								<div className={styles.middlePaneEmpty}>No graph clicks yet.</div>
+							)}
+						</div>
+					)}
 				</aside>
 
 				<div className={styles.rightColumn}>
