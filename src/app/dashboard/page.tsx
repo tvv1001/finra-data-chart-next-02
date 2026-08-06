@@ -798,6 +798,9 @@ type LocalHistoryEntry = {
 	lastVisitedAt?: string;
 };
 
+type SelectionLogEntry = { id: string; label: string; secondaryId: string; group: string };
+
+
 type NewCrdEntry = {
 	id: string;
 	type: string;
@@ -1228,6 +1231,7 @@ function DashboardPageInner() {
 	const [top10Latest, setTop10Latest] = useState<Array<{ id: string; entity: 'individual' | 'firm'; fetchedAt: string; files?: number; sources?: QueueCardSourceEntry[] }>>([]);
 	const [sessionHasFetched, setSessionHasFetched] = useState(false);
 	const [localHistory, setLocalHistory] = useState<LocalHistoryEntry[]>([]);
+	const [graphClickHistory, setGraphClickHistory] = useState<SelectionLogEntry[]>([]);
 	const [newCrdsOpen, setNewCrdsOpen] = useState(true);
 	const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
 	const [isSavingTemplate, setIsSavingTemplate] = useState(false);
@@ -1407,6 +1411,15 @@ function DashboardPageInner() {
 			}
 		} catch (err) {
 			console.error('Failed to load saved templates:', err);
+		}
+
+		try {
+			const rawGraphLog = localStorage.getItem('finra_selection_log');
+			if (rawGraphLog) {
+				setGraphClickHistory(JSON.parse(rawGraphLog) as SelectionLogEntry[]);
+			}
+		} catch (err) {
+			console.error('Failed to load graph selection log:', err);
 		}
 
 		void loadNewCrdsFromRedis();
@@ -3746,6 +3759,27 @@ function DashboardPageInner() {
 								})(),
 							)
 						:	<div className={styles.middlePaneEmpty}>No selection history yet.</div>}
+					</div>
+					
+					<div className={styles.middlePaneHeader} style={{ marginTop: '24px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+						<div className={styles.middlePaneTitle}>GRAPH CLICK HISTORY</div>
+					</div>
+					<div id="fg-dashboard-selection-log-list" className="fg-selection-log-list fg-selection-log-list--sidebar" style={{ flex: 'none', height: 'auto', maxHeight: '30vh' }}>
+						{graphClickHistory.length > 0 ? (
+							graphClickHistory.slice().reverse().map((entry, idx) => {
+								const entityForLink = entry.group === 'firm' ? 'firm' : 'individual';
+								const extractedCrd = entry.secondaryId.replace(/[^0-9]/g, '');
+								return (
+									<div key={idx} className={`fg-log-entry ${entry.group}`}>
+										<Link href={`/${entityForLink}/${extractedCrd}`} className="fg-log-entry-link" style={{ textDecoration: 'none', color: 'inherit', display: 'block', width: '100%' }}>
+											{entry.label} :: {entry.secondaryId}
+										</Link>
+									</div>
+								);
+							})
+						) : (
+							<div className={styles.middlePaneEmpty} style={{ padding: '0 12px' }}>No graph clicks yet.</div>
+						)}
 					</div>
 				</aside>
 
