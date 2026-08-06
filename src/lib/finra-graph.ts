@@ -11435,6 +11435,9 @@ async function openNodeWithExpansionTask(
 		if (shouldAutoRevealNodeConnections(d)) {
 			await expandNodeThroughNonGrayHops(d, clickExpansionHops);
 		} else {
+			if (d.group === 'firm') {
+				await ensureFirmDetail(d);
+			}
 			const fetched = await ensureExpansionDataForNode(d.id, clickExpansionHops);
 			if (fetched && (fetched.nodes?.length || fetched.links?.length)) {
 				revealNeighbors(d, clickExpansionHops, {
