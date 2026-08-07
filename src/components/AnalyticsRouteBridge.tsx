@@ -26,8 +26,21 @@ function readBrowserLocation(): BrowserLocationSnapshot {
 export default function AnalyticsRouteBridge() {
 	const [location, setLocation] = useState<BrowserLocationSnapshot>(() => readBrowserLocation());
 	const pendingUpdateTimerRef = useRef<number | null>(null);
+	const trackingEnabledRef = useRef<boolean>(false);
 
 	useEffect(() => {
+		if (typeof window === 'undefined') return;
+
+		const host = window.location.hostname;
+		// Disable tracking for local development and non-production builds.
+		const isLocalhost = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+		const isProduction = process.env.NODE_ENV === 'production';
+		if (isLocalhost || !isProduction) {
+			trackingEnabledRef.current = false;
+			return;
+		}
+
+		trackingEnabledRef.current = true;
 		inject({
 			debug: true,
 			disableAutoTrack: true,
@@ -90,6 +103,7 @@ export default function AnalyticsRouteBridge() {
 	}, []);
 
 	useEffect(() => {
+		if (!trackingEnabledRef.current) return;
 		pageview({
 			path: location.path,
 			route: location.route,

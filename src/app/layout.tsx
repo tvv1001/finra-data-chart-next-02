@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import AnalyticsRouteBridge from '@/components/AnalyticsRouteBridge';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
+import { Analytics } from '@vercel/analytics/react';
 import './globals.css';
 
 const siteUrl = 'https://finra-data-chart-next-02.vercel.app';
@@ -111,6 +112,31 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 				<ServiceWorkerRegistration />
 				{children}
 				<AnalyticsRouteBridge />
+				{process.env.NODE_ENV === 'production' ?
+					<Analytics
+						beforeSend={(event) => {
+							try {
+								if (typeof window !== 'undefined') {
+									const host = window.location.hostname;
+									if (host === 'localhost' || host === '127.0.0.1' || host === '::1') {
+										return null;
+									}
+									// allow a local opt-out flag for debugging
+									if (window.localStorage.getItem('disable_analytics') === '1') {
+										return null;
+									}
+								}
+								// drop views for private paths
+								if (event?.type === 'view' && event?.path?.includes('/private')) {
+									return null;
+								}
+								return event;
+							} catch (err) {
+								return event;
+							}
+						}}
+					/>
+				:	null}
 				{shouldRenderSpeedInsights ?
 					<SpeedInsights />
 				:	null}
