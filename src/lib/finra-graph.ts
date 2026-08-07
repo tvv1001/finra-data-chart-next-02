@@ -3996,9 +3996,7 @@ function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: 
 			mergedHighlightsById.set(id, { id, hops: normalizeHighlightHops(entry?.hops ?? currentHopDefaults.selection) });
 		}
 
-		highlightedSelections = Array.from(mergedHighlightsById.values()).filter(
-			(entry) => entry.id && Array.isArray(layoutNodes) && layoutNodes.some((node) => node.id === entry.id),
-		);
+		highlightedSelections = Array.from(mergedHighlightsById.values()).filter((entry) => entry.id && Array.isArray(layoutNodes) && layoutNodes.some((node) => node.id === entry.id));
 
 		selectedId =
 			(Array.isArray(layoutNodes) && layoutNodes.some((node) => node.id === selectedId) ? selectedId : null) ||
@@ -4887,6 +4885,12 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 		window.addEventListener(FIND_MOVE_EVENT, ((event: Event) => {
 			const detail = (event as CustomEvent<{ query?: string | null; direction?: string | null }>).detail || {};
 			moveFindMatch(detail.query || activeFindQuery, String(detail.direction || 'ArrowRight'));
+		}) as EventListener);
+		// Lightweight event used by UI code to request a reapplication of selection
+		// emphasis after keyboard-driven routing/selection flows that can race with
+		// other DOM updates.
+		window.addEventListener('finra:reapply-selection', (() => {
+			reapplySelectionState();
 		}) as EventListener);
 		window.addEventListener(FIND_CLOSE_EVENT, ((event: Event) => {
 			const detail = (event as CustomEvent<{ clearQuery?: boolean }>).detail || {};
@@ -8972,12 +8976,25 @@ function appendFetchedImpl(newNodes, newLinks) {
 	enteredNodes.transition().duration(520).ease(d3.easeCubicOut).attr('opacity', 1);
 	nodeSel = nodeGroup.selectAll('g.fg-node');
 	linkSel = selectRenderedLinkLines();
-	rerenderGraphNodesByIds(getImpactedNodeIds(uniqNodes, newLinks));
+	const impactedIds = getImpactedNodeIds(uniqNodes, newLinks);
+	rerenderGraphNodesByIds(impactedIds);
 	reapplySelectionState();
 
 	refreshGraphColors();
 	if (activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
 	refreshTraceState();
+
+	// If the current selection was impacted by newly appended nodes/links,
+	// re-render the sidebar so any newly-merged detail (owners/children)
+	// appears without requiring a full page refresh.
+	try {
+		if (selectedId && Array.isArray(impactedIds) && impactedIds.includes(selectedId)) {
+			const selectedNode = layoutNodes?.find((node) => node.id === selectedId) || graphData?.nodes?.find((node) => node.id === selectedId);
+			if (selectedNode) renderSidebar(selectedNode);
+		}
+	} catch (e) {
+		/* ignore sidebar refresh errors */
+	}
 
 	// Replace tick handler so it covers the full updated selections.
 	simulation.on('tick', () => {

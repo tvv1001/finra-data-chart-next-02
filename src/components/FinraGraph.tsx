@@ -663,6 +663,20 @@ export default function FinraGraph() {
 					setBrowserPathname,
 					autoExpand: true,
 				});
+
+				// Ensure selection emphasis is re-applied after keyboard-driven routing
+				// (some selection flows can race with other UI updates). Dispatch a
+				// lightweight event that the graph runtime listens for to reapply
+				// selection state after a short delay.
+				if (typeof window !== 'undefined') {
+					window.setTimeout(() => {
+						try {
+							window.dispatchEvent(new Event('finra:reapply-selection'));
+						} catch (e) {
+							/* ignore */
+						}
+					}, 80);
+				}
 				return;
 			}
 
