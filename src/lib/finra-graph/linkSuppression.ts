@@ -29,7 +29,7 @@ function hasAnyItems(value: unknown) {
 function hasFinraPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
 	if (node.hasFinraData === true) return true;
-	if (node.hasEmbeddedDetail === true && node.hasFinraData === false) return false;
+	if (node.hasFinraData === false) return false;
 	if (Boolean(String(node?.bcScope || node?.basicInformation?.bcScope || '').trim())) return true;
 	if (Boolean(String(node?.registrationCount?.approvedFinraRegistrationCount || node?.registrationCount?.approvedSRORegistrationCount || '').trim())) return true;
 	if (hasAnyItems(node?.currentEmployments) || hasAnyItems(node?.previousEmployments)) return true;
@@ -40,7 +40,7 @@ function hasFinraPresence(node: any) {
 function hasSecPresence(node: any) {
 	if (!node || typeof node !== 'object') return false;
 	if (node.hasSecData === true) return true;
-	if (node.hasEmbeddedDetail === true && node.hasSecData === false) return false;
+	if (node.hasSecData === false) return false;
 	if (Boolean(String(node?.iaScope || node?.basicInformation?.iaScope || '').trim())) return true;
 	if (Boolean(String(node?.iaSecNumber || node?.basicInformation?.iaSecNumber || node?.secNumber || '').trim())) return true;
 	if (Boolean(String(node?.secSummaryDescription || node?.basicInformation?.secSummaryDescription || '').trim())) return true;
