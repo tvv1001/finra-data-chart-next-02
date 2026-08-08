@@ -3259,16 +3259,10 @@ function updateSelectionLogUI() {
 						if (wasCleared) {
 							// remove from cleared set to show label
 							clearedSelectionLogLabelNodeIds.delete(id);
-							if (childNode) {
-								restoreChildNodeSelectionVisualState(id);
-							}
 							flashSelectionLogActionButton(labelToggleBtn, 'Shown');
 						} else {
 							// add to cleared set to hide label
 							clearedSelectionLogLabelNodeIds.add(id);
-							if (childNode) {
-								clearChildNodeSelectionVisualState(id);
-							}
 							flashSelectionLogActionButton(labelToggleBtn, 'Hidden');
 						}
 						updateSelectionLogUI();
@@ -3362,9 +3356,6 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 		}
 		enlargedNodeIds.forEach((id) => {
 			clearedSelectionLogLabelNodeIds.add(id);
-			if (isSelectionLogChildNode(id)) {
-				clearChildNodeSelectionVisualState(id);
-			}
 		});
 		updateSelectionLogUI();
 		syncSelectionLogActionButtonStates();
