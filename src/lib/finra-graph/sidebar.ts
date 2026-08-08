@@ -70,7 +70,7 @@ const BROKEN_FINRA_FIRM_IDS = new Set(['134139', '298880', '314694', '325639']);
 const SUPPRESSED_SEC_INDIV_IDS = new Set(['18040']);
 // Firm IDs for which SEC AdvisorInfo links should be suppressed.
 // Add numeric firm CRD-like ids (no prefix) here when upstream SEC pages are unavailable or incorrect.
-const SUPPRESSED_SEC_FIRM_IDS = new Set(['4039']);
+const SUPPRESSED_SEC_FIRM_IDS = new Set(['4039', '25156', '36773']);
 
 function isNotInScopeValue(value) {
 	return (

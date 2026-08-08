@@ -59,7 +59,7 @@ const BROKEN_FINRA_FIRM_IDS = new Set(['134139', '298880', '314694', '325639']);
 const SUPPRESSED_SEC_INDIV_IDS = new Set(['18040']);
 // Firm IDs for which SEC AdvisorInfo links should be suppressed.
 // Add numeric firm CRD-like ids (no prefix) here when upstream SEC pages are unavailable or incorrect.
-const SUPPRESSED_SEC_FIRM_IDS = new Set(['4039']);
+const SUPPRESSED_SEC_FIRM_IDS = new Set(['4039', '25156', '36773']);
 
 // Simple once-only logger sets to avoid spamming the console during render loops.
 const _loggedBadNodeCoords = new Set<string | number>();
@@ -3191,7 +3191,7 @@ function updateSelectionLogUI() {
 
 		selectedNodesLog
 			.slice()
-			.reverse()
+			.sort((a, b) => (a.label || '').localeCompare(b.label || ''))
 			.forEach((entry) => {
 				const div = document.createElement('div');
 				div.className = `fg-log-entry ${entry.group}${isSelectionLogEditMode ? ' is-editing' : ''}`;
@@ -8679,6 +8679,7 @@ function reapplySelectionState() {
 
 	nodeSel
 		.classed('fg-node--selection-log-label', (d) => selectionLogLabelNodeIds.has(d.id))
+		.classed('fg-node--label-cleared', (d) => clearedSelectionLogLabelNodeIds.has(d.id))
 		.classed('fg-node--find-match', (d) => activeFindMatchIds.has(d.id))
 		.classed('fg-node--find-match-active', (d) => activeFindMatchIndex >= 0 && d.id === activeFindMatchOrder[activeFindMatchIndex])
 		.classed('trace-shortest', (d) => isTraceMode && traceShortestIds.has(d.id) && !traceShortestConnectorIds.has(d.id))

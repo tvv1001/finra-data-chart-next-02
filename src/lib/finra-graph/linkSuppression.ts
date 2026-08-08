@@ -2,7 +2,7 @@
 
 const BROKEN_FINRA_FIRM_IDS = new Set(['134139', '298880', '314694', '325639']);
 const SUPPRESSED_SEC_INDIV_IDS = new Set(['18040']);
-const SUPPRESSED_SEC_FIRM_IDS = new Set(['2001', '4039']);
+const SUPPRESSED_SEC_FIRM_IDS = new Set(['2001', '4039', '25156', '36773']);
 
 function normalizeExternalLinkLabel(value: unknown) {
 	return String(value ?? '')

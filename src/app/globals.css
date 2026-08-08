@@ -3703,6 +3703,10 @@ a,
 	opacity: 1 !important;
 }
 
+.fg-node.fg-node--label-cleared text.fg-label {
+	font-weight: 400 !important;
+}
+
 .fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):hover text.fg-label,
 .fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):focus text.fg-label,
 .fg-node:not(.selected):not(.highlighted-hop):not(.fg-node--find-match):not(.fg-node--active-parent-connected):focus-within text.fg-label {

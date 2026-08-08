@@ -11,7 +11,7 @@ import { recordOwnerReferencesForFirm } from '@/lib/ownerReferenceIndex';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const SUPPRESSED_SEC_FIRM_IDS = new Set(['4039']);
+const SUPPRESSED_SEC_FIRM_IDS = new Set(['4039', '25156', '36773']);
 
 function buildFirmQueryParams(searchParams: URLSearchParams) {
 	const params = new URLSearchParams();
