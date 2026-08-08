@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { inject, pageview } from '@vercel/analytics';
+import { isAnalyticsExcluded } from '@/lib/analyticsExclusion';
 
 type BrowserLocationSnapshot = {
 	path: string;
@@ -40,12 +41,23 @@ export default function AnalyticsRouteBridge() {
 			return;
 		}
 
-		trackingEnabledRef.current = true;
-		inject({
-			debug: true,
-			disableAutoTrack: true,
-			framework: 'react',
+		let cancelled = false;
+		isAnalyticsExcluded().then((excluded) => {
+			if (cancelled || excluded) {
+				trackingEnabledRef.current = false;
+				return;
+			}
+			trackingEnabledRef.current = true;
+			inject({
+				debug: true,
+				disableAutoTrack: true,
+				framework: 'react',
+			});
 		});
+
+		return () => {
+			cancelled = true;
+		};
 	}, []);
 
 	useEffect(() => {
