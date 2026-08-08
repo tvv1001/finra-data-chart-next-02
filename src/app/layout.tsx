@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import AnalyticsRouteBridge from '@/components/AnalyticsRouteBridge';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
-import { Analytics } from '@vercel/analytics/react';
+import AnalyticsClient from '@/components/AnalyticsClient';
 import './globals.css';
 
 const siteUrl = 'https://finra-data-chart-next-02.vercel.app';
@@ -87,16 +87,16 @@ export const metadata: Metadata = {
 
 const themeLoaderScript = `
 (function () {
-	try {
-		var theme = window.localStorage.getItem('finra_color_scheme');
-		if (theme !== 'light' && theme !== 'dark') {
-			theme = 'dark';
-		}
-		document.documentElement.dataset.theme = theme;
-		document.documentElement.classList.toggle('theme-dark', theme === 'dark');
-	} catch (error) {
-		console.warn('Theme loader failed', error);
-	}
+    try {
+        var theme = window.localStorage.getItem('finra_color_scheme');
+        if (theme !== 'light' && theme !== 'dark') {
+            theme = 'dark';
+        }
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.classList.toggle('theme-dark', theme === 'dark');
+    } catch (error) {
+        console.warn('Theme loader failed', error);
+    }
 })();
 `;
 
@@ -113,30 +113,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 				{children}
 				<AnalyticsRouteBridge />
 				{process.env.NODE_ENV === 'production' ?
-					<Analytics
-						beforeSend={(event) => {
-							try {
-								if (typeof window !== 'undefined') {
-									const host = window.location.hostname;
-									if (host === 'localhost' || host === '127.0.0.1' || host === '::1') {
-										return null;
-									}
-									// allow a local opt-out flag for debugging
-									if (window.localStorage.getItem('disable_analytics') === '1') {
-										return null;
-									}
-								}
-								// drop pageviews for private paths
-								// `path` may not exist on the typed event; use a safe any-cast for runtime check
-								if (event?.type === 'pageview' && typeof (event as any)?.path === 'string' && (event as any).path.includes('/private')) {
-									return null;
-								}
-								return event;
-							} catch (err) {
-								return event;
-							}
-						}}
-					/>
+					<AnalyticsClient />
 				:	null}
 				{shouldRenderSpeedInsights ?
 					<SpeedInsights />
