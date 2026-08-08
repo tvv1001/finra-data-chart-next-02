@@ -3,9 +3,24 @@ import { Redis } from '@upstash/redis';
 import { saveGraph, getFullGraph } from '@/lib/graphStore';
 import { getSeedBankFromStore } from '@/lib/graphStore';
 import { DEFAULT_HEADERS } from '@/lib/requestConstants';
+import { randomUUID } from 'crypto';
 
 const STATE_KEY = 'finra:cron:external-validity:state';
 const MONITOR_KEY = 'finra:redis-monitor';
+const LOCK_KEY = 'finra:cron:external-validity:lock';
+const DEFAULT_LOCK_TTL_SECONDS = Math.max(30, Number(process.env.FINRA_EXTERNAL_VALIDITY_CRON_LOCK_TTL_SECONDS || 300));
+// If true, use TTL-only locking (don't attempt to delete the lock at the end)
+const USE_TTL_ONLY_LOCK = String(process.env.FINRA_EXTERNAL_VALIDITY_CRON_TTL_ONLY || 'false').toLowerCase() === 'true';
+const QUEUE_KEY = 'finra:cron:queue';
+const PROCESSED_SET = 'finra:cron:processed';
+const RETRY_ZSET = 'finra:cron:retry';
+const PENDING_PREFIX = 'finra:pending';
+const DEFAULT_RETRY_SECONDS = Math.max(60, Number(process.env.FINRA_EXTERNAL_VALIDITY_RETRY_SECONDS || 300));
+const QUEUE_KEY = 'finra:cron:queue';
+const RETRY_KEY = 'finra:cron:retry';
+const PROCESSED_KEY = 'finra:cron:processed';
+const PENDING_PREFIX = 'finra:pending';
+const DEFAULT_RETRY_SECONDS = Math.max(60, Number(process.env.FINRA_EXTERNAL_VALIDITY_RETRY_SECONDS || 300));
 const INDIVIDUAL_QUERY = new URLSearchParams({ hl: 'true', includePrevious: 'true', wt: 'json' }).toString();
 const FIRM_QUERY = new URLSearchParams({ hl: 'true', wt: 'json' }).toString();
 
@@ -476,6 +491,37 @@ function getRedisClient() {
 	return url && token ? new Redis({ url, token }) : null;
 }
 
+async function acquireLock(redis: Redis, ttlSeconds = DEFAULT_LOCK_TTL_SECONDS) {
+	const token = randomUUID?.() || `${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+	try {
+		// set with NX and EX so only one cron runner can own the lock
+		const ok = await redis.set(LOCK_KEY, token, { nx: true, ex: ttlSeconds });
+		if (ok) return { acquired: true, token };
+		return { acquired: false, token: null };
+	} catch (e) {
+		// if Redis is unavailable, avoid running concurrently — signal lock not acquired
+		return { acquired: false, token: null };
+	}
+}
+
+async function releaseLock(redis: Redis, token: string | null) {
+	if (!token) return;
+	if (USE_TTL_ONLY_LOCK) return; // leave expiration to TTL-only strategy
+	try {
+		// Best-effort safe delete: only delete if our token still matches.
+		const current = await redis.get<string>(LOCK_KEY);
+		if (current && String(current) === String(token)) {
+			try {
+				await redis.del(LOCK_KEY);
+			} catch {
+				// ignore delete failures
+			}
+		}
+	} catch {
+		// ignore
+	}
+}
+
 function chooseBackoffUntil(now: number) {
 	const minutes = DEFAULT_FAILBACK_MINUTES[0] + Math.floor(Math.random() * (DEFAULT_FAILBACK_MINUTES[1] - DEFAULT_FAILBACK_MINUTES[0] + 1));
 	return now + minutes * 60 * 1000;
@@ -485,6 +531,54 @@ async function storeState(redis: Redis, state: CronState) {
 	await redis.set(STATE_KEY, JSON.stringify(state), { ex: 60 * 60 * 24 * 30 });
 }
 
+async function moveDueRetriesToQueue(redis: Redis, now = Date.now(), limit = 100) {
+	try {
+		// get due members
+		const due = await (redis as any).zrangebyscore?.(RETRY_ZSET, '-inf', String(now)) || [];
+		if (!due || !due.length) return 0;
+		const slice = due.slice(0, limit);
+		for (const member of slice) {
+			try {
+				await (redis as any).zrem?.(RETRY_ZSET, member);
+			} catch {}
+			try {
+				await redis.lpush(QUEUE_KEY, member);
+			} catch {}
+		}
+		return slice.length;
+	} catch {
+		return 0;
+	}
+}
+
+async function enqueueCandidate(redis: Redis, kind: 'individual' | 'firm', id: string, source: 'discovery' | 'update') {
+	const item = `${source}|${kind}:${String(id)}`;
+	try {
+		// if already processed, skip
+		const processed = await (redis as any).sismember?.(PROCESSED_SET, `${kind}:${String(id)}`);
+		if (processed) return false;
+		await redis.lpush(QUEUE_KEY, item);
+		return true;
+	} catch {
+		// best-effort: if enqueue fails, ignore
+		return false;
+	}
+}
+
+async function popQueueBatch(redis: Redis, limit: number) {
+	const items: string[] = [];
+	for (let i = 0; i < limit; i++) {
+		try {
+			const v = await (redis as any).rpop?.(QUEUE_KEY);
+			if (!v) break;
+			items.push(String(v));
+		} catch {
+			break;
+		}
+	}
+	return items;
+}
+
 async function loadState(redis: Redis, maxIndividual: number, maxFirm: number): Promise<CronState> {
 	try {
 		const raw = await redis.get<string>(STATE_KEY);
@@ -492,6 +586,41 @@ async function loadState(redis: Redis, maxIndividual: number, maxFirm: number): 
 		return normalizeState(typeof raw === 'string' ? JSON.parse(raw) : raw, maxIndividual, maxFirm);
 	} catch {
 		return createDefaultState(maxIndividual, maxFirm);
+	}
+}
+
+async function scheduleRetry(redis: Redis, kind: 'individual' | 'firm', id: string, delaySeconds = DEFAULT_RETRY_SECONDS) {
+	try {
+		const member = `${kind}:${normalizeId(id)}`;
+		const score = Date.now() + Math.max(0, Number(delaySeconds)) * 1000;
+		await (redis as any).zadd?.(RETRY_ZSET, score, member);
+	} catch {
+		// ignore
+	}
+}
+
+async function isProcessed(redis: Redis, kind: 'individual' | 'firm', id: string) {
+	try {
+		const member = `${kind}:${normalizeId(id)}`;
+		const res = await (redis as any).sismember?.(PROCESSED_SET, member as any);
+		return Boolean(res);
+	} catch {
+		return false;
+	}
+}
+
+async function markProcessed(redis: Redis, kind: 'individual' | 'firm', id: string) {
+	try {
+		const member = `${kind}:${normalizeId(id)}`;
+		await (redis as any).sadd?.(PROCESSED_SET, member as any);
+		// keep processed set bounded
+		try {
+			await (redis as any).expire?.(PROCESSED_SET, 60 * 60 * 24 * 30);
+		} catch {
+			// ignore
+		}
+	} catch {
+		// ignore
 	}
 }
 
@@ -524,11 +653,23 @@ async function processCandidate(
 	kind: 'individual' | 'firm',
 	id: string,
 ): Promise<{ found: boolean; discovered: boolean; updated: boolean; 429: boolean }> {
+	isDiscovery = false,
+): Promise<{ found: boolean; discovered: boolean; updated: boolean; 429: boolean }> {
+	if (await isProcessed(redis, kind, id)) return { found: true, discovered: false, updated: false, 429: false };
+
 	const { finra, sec } = await fetchRecord(kind, id);
 	if (!finra && !sec) return { found: false, discovered: false, updated: false, 429: false };
 
 	const node = buildRecordNode(kind, id, finra, sec);
 	if (!node) return { found: false, discovered: false, updated: false, 429: false };
+
+	// Persist raw payloads before merging so we don't lose data when upstream is flaky
+	try {
+		await redis.set(`${PENDING_PREFIX}:${kind}:${normalizeId(id)}:finra`, JSON.stringify(finra || {}));
+	} catch {}
+	try {
+		await redis.set(`${PENDING_PREFIX}:${kind}:${normalizeId(id)}:sec`, JSON.stringify(sec || {}));
+	} catch {}
 
 	if (!hasRecordChanged(graph, node)) {
 		return { found: true, discovered: false, updated: false, 429: false };
@@ -561,6 +702,11 @@ async function processCandidate(
 		// best effort cache refresh only
 	}
 
+	// mark as processed so future runs skip
+	try {
+		await markProcessed(redis, kind, id);
+	} catch {}
+
 	return { found: true, discovered: true, updated: true, 429: false };
 }
 
@@ -570,146 +716,192 @@ export async function runExternalValidityCron() {
 		return { ok: false, error: 'Missing Upstash Redis configuration', processed: 0, discovered: 0, updated: 0, skippedNoData: 0 };
 	}
 
-	const graph = await getFullGraph();
-	const seedBank = await getSeedBankFromStore();
-	const individualIds = uniqueSortedNumericIds(seedBank?.individualIds || []);
-	const firmIds = uniqueSortedNumericIds(seedBank?.firmIds || []);
-	const discoveryTerms = buildNameQueryCandidates(seedBank);
-	const discoveredNameIds = new Set<string>();
-
-	for (const term of discoveryTerms) {
-		try {
-			for (const id of await fetchSearchCandidates('individual', term)) discoveredNameIds.add(id);
-			for (const id of await fetchSearchCandidates('firm', term)) discoveredNameIds.add(id);
-		} catch {
-			// best effort: name-based discovery should not block the run
-		}
+	// Acquire a distributed lock so only one cron job runs at a time.
+	const { acquired, token } = await acquireLock(redis, DEFAULT_LOCK_TTL_SECONDS);
+	if (!acquired) {
+		return { ok: true, skipped: true, reason: 'locked', processed: 0, discovered: 0, updated: 0, skippedNoData: 0 };
 	}
 
-	const enrichedIndividuals = uniqueSortedNumericIds([...individualIds, ...discoveredNameIds]);
-	const enrichedFirms = uniqueSortedNumericIds([...firmIds, ...discoveredNameIds]);
-	const maxIndividual = maxNumericId(enrichedIndividuals);
-	const maxFirm = maxNumericId(enrichedFirms);
-	const state = await loadState(redis, maxIndividual, maxFirm);
-	const now = Date.now();
-	if (shouldSkipCronRun(state.lastRunAt, now)) {
-		return {
-			ok: true,
-			skipped: true,
-			reason: 'cooldown',
-			resumeAt: Date.parse(String(state.lastRunAt || '')) + DEFAULT_MIN_RUN_INTERVAL_MINUTES * 60 * 1000,
+	// ensure lock is released when function exits (best-effort)
+	let lockToken: string | null = token;
+	try {
+		const graph = await getFullGraph();
+		const seedBank = await getSeedBankFromStore();
+		const individualIds = uniqueSortedNumericIds(seedBank?.individualIds || []);
+		const firmIds = uniqueSortedNumericIds(seedBank?.firmIds || []);
+		const discoveryTerms = buildNameQueryCandidates(seedBank);
+		const discoveredNameIds = new Set<string>();
+
+		for (const term of discoveryTerms) {
+			try {
+				for (const id of await fetchSearchCandidates('individual', term)) discoveredNameIds.add(id);
+				for (const id of await fetchSearchCandidates('firm', term)) discoveredNameIds.add(id);
+			} catch {
+				// best effort: name-based discovery should not block the run
+			}
+		}
+
+		const enrichedIndividuals = uniqueSortedNumericIds([...individualIds, ...discoveredNameIds]);
+		const enrichedFirms = uniqueSortedNumericIds([...firmIds, ...discoveredNameIds]);
+		const maxIndividual = maxNumericId(enrichedIndividuals);
+		const maxFirm = maxNumericId(enrichedFirms);
+		const state = await loadState(redis, maxIndividual, maxFirm);
+		const now = Date.now();
+		if (shouldSkipCronRun(state.lastRunAt, now)) {
+			return {
+				ok: true,
+				skipped: true,
+				reason: 'cooldown',
+				resumeAt: Date.parse(String(state.lastRunAt || '')) + DEFAULT_MIN_RUN_INTERVAL_MINUTES * 60 * 1000,
+				processed: 0,
+				discovered: 0,
+				updated: 0,
+				skippedNoData: 0,
+				state,
+			};
+		}
+		if (state.backoffUntil && now < state.backoffUntil) {
+			return { ok: true, skipped: true, reason: 'backoff', resumeAt: state.backoffUntil, processed: 0, discovered: 0, updated: 0, skippedNoData: 0, state };
+		}
+
+		const discoveryBatch = Math.max(1, Number(process.env.FINRA_EXTERNAL_VALIDITY_DISCOVERY_BATCH || DEFAULT_DISCOVERY_BATCH));
+		const updateBatch = Math.max(1, Number(process.env.FINRA_EXTERNAL_VALIDITY_UPDATE_BATCH || DEFAULT_UPDATE_BATCH));
+		let nextState: CronState = {
+			...state,
+			lastRunAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		};
+
+		// Move any due retry items back into the work queue before processing
+		try {
+			await moveDueRetriesToQueue(redis);
+		} catch {
+			// ignore
+		}
+
+		const summary: RunSummary = {
 			processed: 0,
 			discovered: 0,
 			updated: 0,
 			skippedNoData: 0,
-			state,
+			backoffUntil: 0,
+			state: nextState,
 		};
-	}
-	if (state.backoffUntil && now < state.backoffUntil) {
-		return { ok: true, skipped: true, reason: 'backoff', resumeAt: state.backoffUntil, processed: 0, discovered: 0, updated: 0, skippedNoData: 0, state };
-	}
 
-	const discoveryBatch = Math.max(1, Number(process.env.FINRA_EXTERNAL_VALIDITY_DISCOVERY_BATCH || DEFAULT_DISCOVERY_BATCH));
-	const updateBatch = Math.max(1, Number(process.env.FINRA_EXTERNAL_VALIDITY_UPDATE_BATCH || DEFAULT_UPDATE_BATCH));
-	let nextState: CronState = {
-		...state,
-		lastRunAt: new Date().toISOString(),
-		updatedAt: new Date().toISOString(),
-	};
+		const handle429 = async () => {
+			nextState.backoffUntil = chooseBackoffUntil(Date.now());
+			nextState.updatedAt = new Date().toISOString();
+			summary.backoffUntil = nextState.backoffUntil;
+			await storeState(redis, nextState);
+			return { ok: true, rateLimited: true, ...summary, state: nextState };
+		};
 
-	const summary: RunSummary = {
-		processed: 0,
-		discovered: 0,
-		updated: 0,
-		skippedNoData: 0,
-		backoffUntil: 0,
-		state: nextState,
-	};
+		const processList = async (kind: 'individual' | 'firm', ids: string[], isDiscovery: boolean) => {
+			for (const id of ids) {
+				// persist candidate in queue for durability
+				try {
+					await redis.lpush(QUEUE_KEY, `${kind}:${normalizeId(id)}`);
+				} catch {
+					// ignore
+				}
 
-	const handle429 = async () => {
-		nextState.backoffUntil = chooseBackoffUntil(Date.now());
-		nextState.updatedAt = new Date().toISOString();
-		summary.backoffUntil = nextState.backoffUntil;
-		await storeState(redis, nextState);
-		return { ok: true, rateLimited: true, ...summary, state: nextState };
-	};
-
-	const processList = async (kind: 'individual' | 'firm', ids: string[], isDiscovery: boolean) => {
-		for (const id of ids) {
-			try {
-				const result = await processCandidate(redis, graph, kind, id);
-				summary.processed += 1;
-				if (result.found) {
-					summary.updated += 1;
-					if (isDiscovery) summary.discovered += 1;
+				// skip if already processed
+				try {
+					if (await isProcessed(redis, kind, id)) {
+						continue;
+					}
+				} catch {
+					// ignore and attempt processing
 				}
-				if (kind === 'individual') {
-					if (isDiscovery) nextState.discovery.individualNext = Number(id) + 1;
-					else nextState.updateIndex.individual = Math.max(0, Number(id) - 1);
-				} else {
-					if (isDiscovery) nextState.discovery.firmNext = Number(id) + 1;
-					else nextState.updateIndex.firm = Math.max(0, Number(id) - 1);
+				try {
+					const result = await processCandidate(redis, graph, kind, id);
+					summary.processed += 1;
+					if (result.found) {
+						summary.updated += 1;
+						if (isDiscovery) summary.discovered += 1;
+					}
+					if (kind === 'individual') {
+						if (isDiscovery) nextState.discovery.individualNext = Number(id) + 1;
+						else nextState.updateIndex.individual = Math.max(0, Number(id) - 1);
+					} else {
+						if (isDiscovery) nextState.discovery.firmNext = Number(id) + 1;
+						else nextState.updateIndex.firm = Math.max(0, Number(id) - 1);
+					}
+					await storeState(redis, nextState);
+				} catch (error: any) {
+					if (Number(error?.status || error?.response?.status) === 429) {
+						// schedule retry for this ID and backoff overall
+						try {
+							await scheduleRetry(redis, kind, id, DEFAULT_RETRY_SECONDS);
+						} catch {}
+						return await handle429();
+					}
+					// on other failures schedule a retry
+					try {
+						await scheduleRetry(redis, kind, id, DEFAULT_RETRY_SECONDS);
+					} catch {}
+					summary.processed += 1;
+					summary.skippedNoData += 1;
+					if (kind === 'individual') {
+						if (isDiscovery) nextState.discovery.individualNext = Number(id) + 1;
+						else nextState.updateIndex.individual = Math.max(0, Number(id) - 1);
+					} else {
+						if (isDiscovery) nextState.discovery.firmNext = Number(id) + 1;
+						else nextState.updateIndex.firm = Math.max(0, Number(id) - 1);
+					}
+					await storeState(redis, nextState);
 				}
-				await storeState(redis, nextState);
-			} catch (error: any) {
-				if (Number(error?.status || error?.response?.status) === 429) {
-					return await handle429();
-				}
-				summary.processed += 1;
-				summary.skippedNoData += 1;
-				if (kind === 'individual') {
-					if (isDiscovery) nextState.discovery.individualNext = Number(id) + 1;
-					else nextState.updateIndex.individual = Math.max(0, Number(id) - 1);
-				} else {
-					if (isDiscovery) nextState.discovery.firmNext = Number(id) + 1;
-					else nextState.updateIndex.firm = Math.max(0, Number(id) - 1);
-				}
-				await storeState(redis, nextState);
 			}
+			return null;
+		};
+
+		// 1) Discover higher-number CRDs first.
+		const discoveryIndividuals = buildDiscoveryCandidates(Math.max(state.discovery.individualNext, maxIndividual + 1), discoveryBatch);
+		const discoveryFirms = buildDiscoveryCandidates(Math.max(state.discovery.firmNext, maxFirm + 1), discoveryBatch);
+		let result = await processList('individual', discoveryIndividuals, true);
+		if (result) return result;
+		result = await processList('firm', discoveryFirms, true);
+		if (result) return result;
+
+		// 2) Backfill existing CRDs from high to low.
+		const descendingIndividuals = [...enrichedIndividuals].sort(numericSortDesc);
+		const descendingFirms = [...enrichedFirms].sort(numericSortDesc);
+		const updateIndividuals = buildUpdateCandidates(descendingIndividuals, state.updateIndex.individual, updateBatch);
+		const updateFirms = buildUpdateCandidates(descendingFirms, state.updateIndex.firm, updateBatch);
+		result = await processList('individual', updateIndividuals, false);
+		if (result) return result;
+		result = await processList('firm', updateFirms, false);
+		if (result) return result;
+
+		nextState.updateIndex.individual = nextThreshold(updateIndividuals, updateIndividuals.length);
+		nextState.updateIndex.firm = nextThreshold(updateFirms, updateFirms.length);
+		nextState.updatedAt = new Date().toISOString();
+		await storeState(redis, nextState);
+
+		try {
+			await redis.lpush(
+				MONITOR_KEY,
+				JSON.stringify({
+					ts: new Date().toISOString(),
+					action: 'external-validity-cron',
+					processed: summary.processed,
+					discovered: summary.discovered,
+					updated: summary.updated,
+					backoffUntil: nextState.backoffUntil,
+					state: nextState,
+				}),
+			);
+			await redis.ltrim(MONITOR_KEY, 0, 199);
+		} catch {
+			// ignore monitoring errors
 		}
-		return null;
-	};
 
-	// 1) Discover higher-number CRDs first.
-	const discoveryIndividuals = buildDiscoveryCandidates(Math.max(state.discovery.individualNext, maxIndividual + 1), discoveryBatch);
-	const discoveryFirms = buildDiscoveryCandidates(Math.max(state.discovery.firmNext, maxFirm + 1), discoveryBatch);
-	let result = await processList('individual', discoveryIndividuals, true);
-	if (result) return result;
-	result = await processList('firm', discoveryFirms, true);
-	if (result) return result;
-
-	// 2) Backfill existing CRDs from high to low.
-	const descendingIndividuals = [...enrichedIndividuals].sort(numericSortDesc);
-	const descendingFirms = [...enrichedFirms].sort(numericSortDesc);
-	const updateIndividuals = buildUpdateCandidates(descendingIndividuals, state.updateIndex.individual, updateBatch);
-	const updateFirms = buildUpdateCandidates(descendingFirms, state.updateIndex.firm, updateBatch);
-	result = await processList('individual', updateIndividuals, false);
-	if (result) return result;
-	result = await processList('firm', updateFirms, false);
-	if (result) return result;
-
-	nextState.updateIndex.individual = nextThreshold(updateIndividuals, updateIndividuals.length);
-	nextState.updateIndex.firm = nextThreshold(updateFirms, updateFirms.length);
-	nextState.updatedAt = new Date().toISOString();
-	await storeState(redis, nextState);
-
-	try {
-		await redis.lpush(
-			MONITOR_KEY,
-			JSON.stringify({
-				ts: new Date().toISOString(),
-				action: 'external-validity-cron',
-				processed: summary.processed,
-				discovered: summary.discovered,
-				updated: summary.updated,
-				backoffUntil: nextState.backoffUntil,
-				state: nextState,
-			}),
-		);
-		await redis.ltrim(MONITOR_KEY, 0, 199);
-	} catch {
-		// ignore monitoring errors
+		return { ok: true, ...summary, state: nextState };
+	} finally {
+		try {
+			await releaseLock(redis, lockToken);
+		} catch {
+			// ignore
+		}
 	}
-
-	return { ok: true, ...summary, state: nextState };
 }
