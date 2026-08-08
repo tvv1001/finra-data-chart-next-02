@@ -16,11 +16,6 @@ const PROCESSED_SET = 'finra:cron:processed';
 const RETRY_ZSET = 'finra:cron:retry';
 const PENDING_PREFIX = 'finra:pending';
 const DEFAULT_RETRY_SECONDS = Math.max(60, Number(process.env.FINRA_EXTERNAL_VALIDITY_RETRY_SECONDS || 300));
-const QUEUE_KEY = 'finra:cron:queue';
-const RETRY_KEY = 'finra:cron:retry';
-const PROCESSED_KEY = 'finra:cron:processed';
-const PENDING_PREFIX = 'finra:pending';
-const DEFAULT_RETRY_SECONDS = Math.max(60, Number(process.env.FINRA_EXTERNAL_VALIDITY_RETRY_SECONDS || 300));
 const INDIVIDUAL_QUERY = new URLSearchParams({ hl: 'true', includePrevious: 'true', wt: 'json' }).toString();
 const FIRM_QUERY = new URLSearchParams({ hl: 'true', wt: 'json' }).toString();
 
@@ -534,7 +529,7 @@ async function storeState(redis: Redis, state: CronState) {
 async function moveDueRetriesToQueue(redis: Redis, now = Date.now(), limit = 100) {
 	try {
 		// get due members
-		const due = await (redis as any).zrangebyscore?.(RETRY_ZSET, '-inf', String(now)) || [];
+		const due = (await (redis as any).zrangebyscore?.(RETRY_ZSET, '-inf', String(now))) || [];
 		if (!due || !due.length) return 0;
 		const slice = due.slice(0, limit);
 		for (const member of slice) {
@@ -652,8 +647,6 @@ async function processCandidate(
 	graph: any,
 	kind: 'individual' | 'firm',
 	id: string,
-): Promise<{ found: boolean; discovered: boolean; updated: boolean; 429: boolean }> {
-	isDiscovery = false,
 ): Promise<{ found: boolean; discovered: boolean; updated: boolean; 429: boolean }> {
 	if (await isProcessed(redis, kind, id)) return { found: true, discovered: false, updated: false, 429: false };
 
