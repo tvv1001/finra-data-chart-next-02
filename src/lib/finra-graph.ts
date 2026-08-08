@@ -9114,7 +9114,8 @@ function renderGraph(_data) {
 
 	const zoom = d3
 		.zoom()
-		.scaleExtent([0.02, 2.6])
+		// Prevent zooming out too far — keep minimum consistent with label/trace thresholds
+		.scaleExtent([0.15, 2.6])
 		.on('zoom', (event) => {
 			root.attr('transform', event.transform);
 			updateTraceStrokeScale(event.transform.k);
@@ -9140,8 +9141,8 @@ function renderGraph(_data) {
 	// Set an initial zoom so larger graphs start more zoomed-out by default.
 	// Scale choices: small=1, medium≈0.8, large≈0.25, huge≈0.25
 	const initialScale =
-		isHuge ? 0.25
-		: isLarge ? 0.25
+		isHuge ? 0.75
+		: isLarge ? 0.55
 		: 0.25;
 	updateTraceStrokeScale(initialScale);
 	updateInactiveLinkScale(initialScale);
