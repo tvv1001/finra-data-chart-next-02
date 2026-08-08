@@ -7567,7 +7567,9 @@ function getForceLinkDistance(link, nodeCount = layoutNodes?.length || 0) {
 	const baseDistance =
 		nodeCount > 1000 ? 320
 		: nodeCount > 300 ? 260
-		: 180;
+		: nodeCount > 150 ? 220
+		: nodeCount > 80 ? 300
+		: 450;
 
 	const sourceNode = typeof link?.source === 'object' ? link.source : layoutNodes?.find((node) => node.id === link?.source);
 	const targetNode = typeof link?.target === 'object' ? link.target : layoutNodes?.find((node) => node.id === link?.target);
@@ -7597,8 +7599,9 @@ function getNodeCollisionRadius(node, nodeCount = layoutNodes?.length || 0) {
 		nodeCount > 1000 ? 16
 		: nodeCount > 600 ? 20
 		: nodeCount > 300 ? 24
-		: nodeCount > 120 ? 28
-		: 32;
+		: nodeCount > 120 ? 30
+		: nodeCount > 60 ? 45
+		: 65;
 	const labelPadding =
 		nodeCount > 1000 ? 24
 		: nodeCount > 600 ? 20
