@@ -23,6 +23,12 @@
 	grid-template-columns: minmax(0, 1fr);
 }
 
+/* When the right column is hidden, let center+middle fill the space */
+.layoutRightHidden {
+	grid-template-columns: minmax(0, 1fr) 280px !important;
+	grid-template-areas: 'center middle' !important;
+}
+
 .dashboardMainStack {
 	display: flex;
 	flex-direction: column;
@@ -1662,8 +1668,11 @@
 
 .backLinkOutsideRow {
 	display: flex;
-	justify-content: flex-start;
+	justify-content: flex-end;
 	padding: 0;
+	position: absolute;
+	top: 12px;
+	right: 12px;
 }
 
 .recordHeader {
@@ -1930,8 +1939,6 @@
 	display: inline-flex;
 	align-items: center;
 	padding: 4px 10px;
-	border: 1px solid rgba(96, 165, 250, 0.29);
-	background: rgba(95, 30, 48, 0.139);
 	color: #bfdbfe;
 	font-size: 12px;
 	font-weight: 700;
@@ -2569,6 +2576,7 @@
 	overflow-x: hidden;
 	scrollbar-width: thin;
 	scrollbar-color: rgba(27, 1, 15, 0.8) var(--content-surface-muted);
+	margin-top: 40px;
 }
 
 .rightPaneCompact {
@@ -2577,7 +2585,11 @@
 	height: auto;
 	min-height: 0;
 	overflow: hidden;
+	display: none;
 }
+
+/* When the right column is hidden via data attribute, expand center and middle */
+/* Use the .layoutRightHidden class on the root layout to collapse the right pane */
 
 .rightPane::-webkit-scrollbar,
 .searchResultsList::-webkit-scrollbar,

@@ -800,7 +800,6 @@ type LocalHistoryEntry = {
 
 type SelectionLogEntry = { id: string; label: string; secondaryId: string; group: string };
 
-
 type NewCrdEntry = {
 	id: string;
 	type: string;
@@ -2926,7 +2925,7 @@ function DashboardPageInner() {
 
 	return (
 		<div className={styles.page}>
-			<div className={styles.layout}>
+			<div className={`${styles.layout} ${!newCrdsOpen ? styles.layoutRightHidden : ''}`}>
 				<section className={styles.centerPane}>
 					<div className={styles.dashboardMainStack}>
 						<div className={styles.dashboardContent}>
@@ -3715,14 +3714,11 @@ function DashboardPageInner() {
 				</section>
 
 				<aside className={styles.middlePane}>
-					<div 
-						className={styles.middlePaneHeader} 
+					<div
+						className={styles.middlePaneHeader}
 						style={{ cursor: 'pointer', userSelect: 'none' }}
-						onClick={() => setIsSelectionHistoryOpen(!isSelectionHistoryOpen)}
-					>
-						<div className={styles.middlePaneTitle}>
-							SELECTION HISTORY {isSelectionHistoryOpen ? '▼' : '▶'}
-						</div>
+						onClick={() => setIsSelectionHistoryOpen(!isSelectionHistoryOpen)}>
+						<div className={styles.middlePaneTitle}>SELECTION HISTORY {isSelectionHistoryOpen ? '▼' : '▶'}</div>
 						<div className={styles.middlePaneActions}>
 							<span className={styles.middlePaneCount}>{displayCards.length}</span>
 							<button
@@ -3738,7 +3734,9 @@ function DashboardPageInner() {
 					</div>
 
 					{isSelectionHistoryOpen && (
-						<div className={styles.middlePaneList} style={{ flex: 1, minHeight: 0 }}>
+						<div
+							className={styles.middlePaneList}
+							style={{ flex: 1, minHeight: 0 }}>
 							{displayCards.length > 0 ?
 								displayCards.map((card) =>
 									(() => {
@@ -3773,59 +3771,68 @@ function DashboardPageInner() {
 							:	<div className={styles.middlePaneEmpty}>No selection history yet.</div>}
 						</div>
 					)}
-					
-					<div 
-						className={styles.middlePaneHeader} 
-						style={{ marginTop: isSelectionHistoryOpen ? '16px' : '0', paddingTop: isSelectionHistoryOpen ? '16px' : '0', borderTop: isSelectionHistoryOpen ? '1px solid var(--border)' : 'none', cursor: 'pointer', userSelect: 'none' }}
-						onClick={() => setIsGraphClickHistoryOpen(!isGraphClickHistoryOpen)}
-					>
-						<div className={styles.middlePaneTitle}>
-							GRAPH CLICK HISTORY {isGraphClickHistoryOpen ? '▼' : '▶'}
-						</div>
+
+					<div
+						className={styles.middlePaneHeader}
+						style={{
+							marginTop: isSelectionHistoryOpen ? '16px' : '0',
+							paddingTop: isSelectionHistoryOpen ? '16px' : '0',
+							borderTop: isSelectionHistoryOpen ? '1px solid var(--border)' : 'none',
+							cursor: 'pointer',
+							userSelect: 'none',
+						}}
+						onClick={() => setIsGraphClickHistoryOpen(!isGraphClickHistoryOpen)}>
+						<div className={styles.middlePaneTitle}>GRAPH CLICK HISTORY {isGraphClickHistoryOpen ? '▼' : '▶'}</div>
 						<div className={styles.middlePaneActions}>
 							<span className={styles.middlePaneCount}>{graphClickHistory.length}</span>
 						</div>
 					</div>
-					
+
 					{isGraphClickHistoryOpen && (
-						<div className={styles.middlePaneList} style={{ flex: 1, minHeight: 0 }}>
-							{graphClickHistory.length > 0 ? (
-								graphClickHistory.slice().reverse().map((entry, idx) => {
-									const entityForLink = entry.group === 'firm' ? 'firm' : 'individual';
-									const extractedCrd = entry.secondaryId.replace(/[^0-9]/g, '');
-									const isActiveRecord = currentRecordId === extractedCrd && currentRecordEntity === entityForLink;
-									
-									return (
-										<button
-											type='button'
-											key={idx}
-											className={`${styles.middlePaneItem} ${isActiveRecord ? styles.middlePaneItemSelected : ''}`}
-											aria-selected={isActiveRecord}
-											style={{ display: 'flex', flexDirection: 'column', width: '100%', textAlign: 'left' }}
-											onClick={() => void openQueueCard({
-												id: extractedCrd,
-												entity: entityForLink,
-												files: 0,
-												sources: [],
-												name: entry.label
-											})}
-										>
-											<div className={styles.middlePaneItemTop}>
-												<span className={styles.middlePaneItemBadge}>{entityForLink === 'firm' ? 'FIRM' : 'IND'}</span>
-												<span className={styles.middlePaneItemName}>{entry.label}</span>
-											</div>
-											<div className={styles.middlePaneItemMeta}>CRD #{extractedCrd}</div>
-										</button>
-									);
-								})
-							) : (
-								<div className={styles.middlePaneEmpty}>No graph clicks yet.</div>
-							)}
+						<div
+							className={styles.middlePaneList}
+							style={{ flex: 1, minHeight: 0 }}>
+							{graphClickHistory.length > 0 ?
+								graphClickHistory
+									.slice()
+									.reverse()
+									.map((entry, idx) => {
+										const entityForLink = entry.group === 'firm' ? 'firm' : 'individual';
+										const extractedCrd = entry.secondaryId.replace(/[^0-9]/g, '');
+										const isActiveRecord = currentRecordId === extractedCrd && currentRecordEntity === entityForLink;
+
+										return (
+											<button
+												type='button'
+												key={idx}
+												className={`${styles.middlePaneItem} ${isActiveRecord ? styles.middlePaneItemSelected : ''}`}
+												aria-selected={isActiveRecord}
+												style={{ display: 'flex', flexDirection: 'column', width: '100%', textAlign: 'left' }}
+												onClick={() =>
+													void openQueueCard({
+														id: extractedCrd,
+														entity: entityForLink,
+														files: 0,
+														sources: [],
+														name: entry.label,
+													})
+												}>
+												<div className={styles.middlePaneItemTop}>
+													<span className={styles.middlePaneItemBadge}>{entityForLink === 'firm' ? 'FIRM' : 'IND'}</span>
+													<span className={styles.middlePaneItemName}>{entry.label}</span>
+												</div>
+												<div className={styles.middlePaneItemMeta}>CRD #{extractedCrd}</div>
+											</button>
+										);
+									})
+							:	<div className={styles.middlePaneEmpty}>No graph clicks yet.</div>}
 						</div>
 					)}
 				</aside>
 
-				<div className={styles.rightColumn}>
+				<div
+					className={styles.rightColumn}
+					data-right-open={String(newCrdsOpen)}>
 					<div className={styles.backLinkOutsideRow}>
 						<Link
 							href={graphHref}
@@ -3833,20 +3840,18 @@ function DashboardPageInner() {
 							className={styles.backLink}>
 							← Graph
 						</Link>
+						<button
+							type='button'
+							className={styles.rightPaneToggle}
+							onClick={() => setNewCrdsOpen((open) => !open)}
+							aria-expanded={newCrdsOpen}>
+							{newCrdsOpen ? 'Hide' : 'Show'}
+						</button>
 					</div>
 
-					<aside className={`${styles.rightPane} ${!newCrdsOpen ? styles.rightPaneCompact : ''}`}>
-						<div className={styles.rightPaneHeader}>
-							<div className={styles.newCrdsHeader}>NEW CRDS</div>
-							<button
-								type='button'
-								className={styles.rightPaneToggle}
-								onClick={() => setNewCrdsOpen((open) => !open)}
-								aria-expanded={newCrdsOpen}>
-								{newCrdsOpen ? 'Hide' : 'Show'}
-							</button>
-						</div>
-
+					<aside
+						className={`${styles.rightPane} ${!newCrdsOpen ? styles.rightPaneCompact : ''}`}
+						aria-hidden={!newCrdsOpen}>
 						{newCrdsOpen && (
 							<>
 								<div className={styles.rightPaneCountCard}>{uniqueCrdCounts.total.toLocaleString()} unique CRDs saved in Redis</div>
