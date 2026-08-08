@@ -126,8 +126,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 										return null;
 									}
 								}
-								// drop views for private paths
-								if (event?.type === 'view' && event?.path?.includes('/private')) {
+								// drop pageviews for private paths
+								if (event?.type === 'pageview' && typeof event?.path === 'string' && event.path.includes('/private')) {
 									return null;
 								}
 								return event;
