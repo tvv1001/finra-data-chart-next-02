@@ -127,7 +127,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 									}
 								}
 								// drop pageviews for private paths
-								if (event?.type === 'pageview' && typeof event?.path === 'string' && event.path.includes('/private')) {
+								// `path` may not exist on the typed event; use a safe any-cast for runtime check
+								if (event?.type === 'pageview' && typeof (event as any)?.path === 'string' && (event as any).path.includes('/private')) {
 									return null;
 								}
 								return event;
