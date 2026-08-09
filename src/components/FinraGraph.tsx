@@ -1192,6 +1192,9 @@ export default function FinraGraph() {
 					<div
 						id='fg-selection-log-list'
 						className='fg-selection-log-list'></div>
+					<div
+						id='fg-selection-log-templates'
+						className='fg-selection-log-templates-host'></div>
 				</aside>
 
 				{/* Detail sidebar */}

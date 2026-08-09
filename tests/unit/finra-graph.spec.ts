@@ -48,6 +48,7 @@ import {
 	isForcedGrayConnectionLink,
 	clearSelectionState,
 	buildSessionRenderGraphData,
+	generateGraphTemplateName,
 	resolveLinkEndpoints,
 	rebindLinksToNodes,
 	handleNodeKeyboardActivation,
@@ -154,6 +155,27 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		});
 
 		expect(reordered.map((entry) => entry.id)).toEqual(['firm:2', 'person:3', 'person:1']);
+	});
+
+	it('generateGraphTemplateName prefers the selected log label and node count', () => {
+		const name = generateGraphTemplateName(
+			{
+				selectedNodeId: 'person:1',
+				renderedServerIds: ['person:1', 'firm:2', 'firm:3'],
+			},
+			[
+				{ id: 'person:1', label: 'Alpha Person' },
+				{ id: 'firm:2', label: 'Bravo Firm' },
+			],
+			Date.parse('2026-08-08T12:00:00.000Z'),
+		);
+
+		expect(name.startsWith('Alpha Person +2 · ')).toBe(true);
+	});
+
+	it('generateGraphTemplateName falls back when the graph snapshot is empty', () => {
+		const name = generateGraphTemplateName({ cleared: false }, [], Date.parse('2026-08-08T12:00:00.000Z'));
+		expect(name.startsWith('Template · ')).toBe(true);
 	});
 
 	it('pruneGraphToSelectionLogEntries removes nodes and links outside the logged list', () => {

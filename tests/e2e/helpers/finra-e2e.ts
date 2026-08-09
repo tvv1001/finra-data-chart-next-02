@@ -51,6 +51,7 @@ export async function resetBrowserGraphState(page: Page) {
 		localStorage.removeItem('finra_selection_log');
 		localStorage.removeItem('finra_sidebar_pinned');
 		localStorage.removeItem('finra_selection_log_pinned');
+		// Intentionally leave finra_graph_templates intact: templates are durable bookmarks.
 		await fetch('/api/finra/graph-reset', {
 			method: 'POST',
 			cache: 'no-store',

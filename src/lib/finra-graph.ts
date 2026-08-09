@@ -646,9 +646,11 @@ let activeFetchStatusPinned = getPersistedFetchStatusPinned();
 const INITIAL_SEED_COUNT = 0; // random seed nodes on first load (default select)
 const FILTER_MATCH_LIMIT = 100; // maximum number of direct matches to show when filtering
 const LS_SESSION_KEY = 'finra_session'; // storage key for persisted session nodes
+const LS_GRAPH_TEMPLATES_KEY = 'finra_graph_templates'; // durable saved graph templates (survives reset/session clear)
 const SESSION_TTL_MS = 365 * 24 * 60 * 60 * 1000; // 1 year
 const SESSION_STORAGE_SOFT_LIMIT_BYTES = 4 * 1024 * 1024; // stay comfortably below common browser quotas
 const SESSION_FULL_LAYOUT_NODE_LIMIT = 100000; // above this, store only compact positioning data
+const GRAPH_TEMPLATES_SOFT_LIMIT_BYTES = 4 * 1024 * 1024;
 const NON_GRAY_HOP_ANIMATION_MS = 1200;
 const NON_GRAY_HOP_DELAY_MS = 850;
 
@@ -1017,6 +1019,25 @@ function sanitizePersistedNode(node) {
 const SESSION_IDB_DB_NAME = 'finra_graph_session';
 const SESSION_IDB_STORE_NAME = 'session_store';
 const SESSION_IDB_ENTRY_KEY = 'active_session';
+const TEMPLATES_IDB_DB_NAME = 'finra_graph_templates';
+const TEMPLATES_IDB_STORE_NAME = 'template_store';
+const TEMPLATES_IDB_ENTRY_KEY = 'saved_templates';
+
+type GraphTemplateRecord = {
+	id: string;
+	name: string;
+	createdAt: number;
+	updatedAt: number;
+	session: Record<string, any>;
+	selectionLog: Array<{ id: string; label: string; secondaryId: string; group: string }>;
+	selectionLogBold?: boolean;
+};
+
+let savedGraphTemplates: Array<GraphTemplateRecord> = [];
+let isSelectionLogTemplatesOpen = false;
+let graphTemplatesHydrated = false;
+let graphTemplatesHydrationPromise: Promise<void> | null = null;
+let applyingGraphTemplate = false;
 
 function openSessionDatabase() {
 	return new Promise<IDBDatabase>((resolve, reject) => {
@@ -1029,6 +1050,24 @@ function openSessionDatabase() {
 			const db = request.result;
 			if (!db.objectStoreNames.contains(SESSION_IDB_STORE_NAME)) {
 				db.createObjectStore(SESSION_IDB_STORE_NAME);
+			}
+		};
+		request.onsuccess = () => resolve(request.result);
+		request.onerror = () => reject(request.error || new Error('IndexedDB open failed'));
+	});
+}
+
+function openTemplatesDatabase() {
+	return new Promise<IDBDatabase>((resolve, reject) => {
+		if (typeof indexedDB === 'undefined') {
+			reject(new Error('IndexedDB unavailable'));
+			return;
+		}
+		const request = indexedDB.open(TEMPLATES_IDB_DB_NAME, 1);
+		request.onupgradeneeded = () => {
+			const db = request.result;
+			if (!db.objectStoreNames.contains(TEMPLATES_IDB_STORE_NAME)) {
+				db.createObjectStore(TEMPLATES_IDB_STORE_NAME);
 			}
 		};
 		request.onsuccess = () => resolve(request.result);
@@ -1081,6 +1120,582 @@ async function deleteSessionFromIndexedDB() {
 	} catch {
 		return;
 	}
+}
+
+async function saveTemplatesToIndexedDB(templates: Array<GraphTemplateRecord>) {
+	try {
+		const db = await openTemplatesDatabase();
+		const tx = db.transaction(TEMPLATES_IDB_STORE_NAME, 'readwrite');
+		const store = tx.objectStore(TEMPLATES_IDB_STORE_NAME);
+		store.put(templates, TEMPLATES_IDB_ENTRY_KEY);
+		return await new Promise<void>((resolve, reject) => {
+			tx.oncomplete = () => resolve();
+			tx.onerror = () => reject(tx.error || new Error('IndexedDB write failed'));
+			tx.onabort = () => reject(tx.error || new Error('IndexedDB write aborted'));
+		});
+	} catch {
+		// Fallback handled by caller.
+	}
+}
+
+async function loadTemplatesFromIndexedDB() {
+	try {
+		const db = await openTemplatesDatabase();
+		const tx = db.transaction(TEMPLATES_IDB_STORE_NAME, 'readonly');
+		const store = tx.objectStore(TEMPLATES_IDB_STORE_NAME);
+		const request = store.get(TEMPLATES_IDB_ENTRY_KEY);
+		return await new Promise<any>((resolve, reject) => {
+			request.onsuccess = () => resolve(request.result);
+			request.onerror = () => reject(request.error || new Error('IndexedDB read failed'));
+		});
+	} catch {
+		return null;
+	}
+}
+
+function cloneJsonValue<T>(value: T): T {
+	if (typeof structuredClone === 'function') {
+		try {
+			return structuredClone(value);
+		} catch {
+			// fall through
+		}
+	}
+	return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function createGraphTemplateId() {
+	if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+		return `template-${crypto.randomUUID()}`;
+	}
+	return `template-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function escapeHtml(value: unknown) {
+	return String(value ?? '')
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+}
+
+function formatGraphTemplateTimestamp(value: number) {
+	const date = new Date(Number(value) || Date.now());
+	if (Number.isNaN(date.getTime())) return '';
+	return date.toLocaleString(undefined, {
+		month: 'short',
+		day: 'numeric',
+		hour: 'numeric',
+		minute: '2-digit',
+	});
+}
+
+function sanitizeSelectionLogEntries(entries: unknown): Array<{ id: string; label: string; secondaryId: string; group: string }> {
+	if (!Array.isArray(entries)) return [];
+	return entries
+		.map((entry) => {
+			if (!entry || typeof entry !== 'object') return null;
+			const id = String((entry as any).id || '').trim();
+			if (!id) return null;
+			return {
+				id,
+				label: String((entry as any).label || id),
+				secondaryId: String((entry as any).secondaryId || ''),
+				group: String((entry as any).group || ''),
+			};
+		})
+		.filter(Boolean) as Array<{ id: string; label: string; secondaryId: string; group: string }>;
+}
+
+function sanitizeGraphTemplateRecord(raw: unknown): GraphTemplateRecord | null {
+	if (!raw || typeof raw !== 'object') return null;
+	const id = String((raw as any).id || '').trim() || createGraphTemplateId();
+	const name = String((raw as any).name || '').trim();
+	const session = (raw as any).session && typeof (raw as any).session === 'object' ? cloneJsonValue((raw as any).session) : null;
+	if (!session) return null;
+	const createdAt = Number((raw as any).createdAt) || Date.now();
+	const updatedAt = Number((raw as any).updatedAt) || createdAt;
+	return {
+		id,
+		name: name || generateGraphTemplateName(session, sanitizeSelectionLogEntries((raw as any).selectionLog), createdAt),
+		createdAt,
+		updatedAt,
+		session,
+		selectionLog: sanitizeSelectionLogEntries((raw as any).selectionLog),
+		selectionLogBold: Boolean((raw as any).selectionLogBold),
+	};
+}
+
+export function generateGraphTemplateName(session: Record<string, any> | null | undefined, selectionLog: Array<{ id?: string; label?: string }> = [], createdAt = Date.now()) {
+	const selectedLabel =
+		sanitizeSelectionLogEntries(selectionLog).find((entry) => entry.id && entry.id === session?.selectedNodeId)?.label || sanitizeSelectionLogEntries(selectionLog)[0]?.label || '';
+	const nodeCount = Math.max(
+		Array.isArray(session?.renderedServerIds) ? session.renderedServerIds.length : 0,
+		Array.isArray(session?.extraNodes) ? session.extraNodes.length : 0,
+		Array.isArray(session?.extraNodeIds) ? session.extraNodeIds.length : 0,
+		Array.isArray(selectionLog) ? selectionLog.length : 0,
+	);
+	const stamp = formatGraphTemplateTimestamp(createdAt);
+	if (selectedLabel) {
+		const shortLabel = String(selectedLabel).trim().slice(0, 28);
+		return nodeCount > 1 ? `${shortLabel} +${Math.max(0, nodeCount - 1)} · ${stamp}` : `${shortLabel} · ${stamp}`;
+	}
+	if (nodeCount > 0) return `Graph ${nodeCount} nodes · ${stamp}`;
+	return `Template · ${stamp}`;
+}
+
+function normalizeGraphTemplateList(raw: unknown): Array<GraphTemplateRecord> {
+	if (!Array.isArray(raw)) return [];
+	return raw
+		.map((entry) => sanitizeGraphTemplateRecord(entry))
+		.filter(Boolean)
+		.sort((a, b) => Number(b!.updatedAt || 0) - Number(a!.updatedAt || 0)) as Array<GraphTemplateRecord>;
+}
+
+function persistGraphTemplatesSync(templates: Array<GraphTemplateRecord>) {
+	const normalized = normalizeGraphTemplateList(templates);
+	savedGraphTemplates = normalized;
+	const serialized = JSON.stringify(normalized);
+	if (serialized.length > GRAPH_TEMPLATES_SOFT_LIMIT_BYTES && typeof indexedDB !== 'undefined') {
+		void saveTemplatesToIndexedDB(normalized).catch(() => undefined);
+		try {
+			localStorage.setItem(LS_GRAPH_TEMPLATES_KEY, JSON.stringify({ pointer: 'idb', count: normalized.length, updatedAt: Date.now() }));
+		} catch {
+			/* ignore persistence errors */
+		}
+		return normalized;
+	}
+	try {
+		localStorage.setItem(LS_GRAPH_TEMPLATES_KEY, serialized);
+	} catch (error) {
+		if (typeof indexedDB !== 'undefined') {
+			void saveTemplatesToIndexedDB(normalized).catch(() => undefined);
+			try {
+				localStorage.setItem(LS_GRAPH_TEMPLATES_KEY, JSON.stringify({ pointer: 'idb', count: normalized.length, updatedAt: Date.now() }));
+			} catch {
+				console.warn('Failed to persist graph templates.', error);
+			}
+		} else {
+			console.warn('Failed to persist graph templates.', error);
+		}
+	}
+	return normalized;
+}
+
+export function loadGraphTemplatesSync() {
+	try {
+		const raw = localStorage.getItem(LS_GRAPH_TEMPLATES_KEY);
+		if (!raw) {
+			savedGraphTemplates = [];
+			return savedGraphTemplates;
+		}
+		const parsed = JSON.parse(raw);
+		if (parsed && typeof parsed === 'object' && parsed.pointer === 'idb') {
+			// Keep whatever is already hydrated; async loader will replace this if needed.
+			return savedGraphTemplates;
+		}
+		savedGraphTemplates = normalizeGraphTemplateList(parsed);
+		return savedGraphTemplates;
+	} catch {
+		savedGraphTemplates = [];
+		return savedGraphTemplates;
+	}
+}
+
+export async function loadGraphTemplatesAsync() {
+	if (graphTemplatesHydrationPromise) return graphTemplatesHydrationPromise;
+	graphTemplatesHydrationPromise = (async () => {
+		try {
+			const raw = localStorage.getItem(LS_GRAPH_TEMPLATES_KEY);
+			if (raw) {
+				const parsed = JSON.parse(raw);
+				if (parsed && typeof parsed === 'object' && parsed.pointer === 'idb') {
+					const fromIdb = await loadTemplatesFromIndexedDB();
+					savedGraphTemplates = normalizeGraphTemplateList(fromIdb);
+				} else {
+					savedGraphTemplates = normalizeGraphTemplateList(parsed);
+				}
+			} else {
+				const fromIdb = await loadTemplatesFromIndexedDB();
+				savedGraphTemplates = normalizeGraphTemplateList(fromIdb);
+				if (savedGraphTemplates.length) {
+					persistGraphTemplatesSync(savedGraphTemplates);
+				}
+			}
+		} catch {
+			savedGraphTemplates = loadGraphTemplatesSync();
+		} finally {
+			graphTemplatesHydrated = true;
+			updateSelectionLogTemplatesUI();
+		}
+	})();
+	return graphTemplatesHydrationPromise;
+}
+
+export function getSavedGraphTemplates() {
+	return savedGraphTemplates.slice();
+}
+
+export function buildGraphTemplateSnapshot() {
+	const session = buildSessionPayload({ compact: false, extraNodeMode: 'full' });
+	// Templates are intentional bookmarks, never a cleared marker.
+	session.cleared = false;
+	return {
+		session: cloneJsonValue(session),
+		selectionLog: cloneJsonValue(selectedNodesLog || []),
+		selectionLogBold: Boolean(isSelectionLogBold),
+	};
+}
+
+export function saveCurrentGraphTemplate(customName?: string) {
+	// Prefer a live session snapshot. If the graph is empty/not ready, still allow
+	// saving the current selection-log bookmark so templates remain useful after
+	// reset/clear flows.
+	const canSnapshotLiveGraph = Boolean(graphData && Array.isArray(layoutNodes));
+	const snapshot =
+		canSnapshotLiveGraph ? buildGraphTemplateSnapshot() : (
+			{
+				session: {
+					cleared: false,
+					selectedNodeId: null,
+					sidebarViewMode: 'log',
+					highlightedNodes: [],
+					visitedNodeIds: [],
+					nodePositions: [],
+					renderedServerIds: [],
+					extraNodes: [],
+					extraNodeIds: [],
+					extraLinks: [],
+					zoomTransform: null,
+				},
+				selectionLog: cloneJsonValue(selectedNodesLog || []),
+				selectionLogBold: Boolean(isSelectionLogBold),
+			}
+		);
+
+	const hasContent =
+		(Array.isArray(snapshot.selectionLog) && snapshot.selectionLog.length > 0) ||
+		(Array.isArray(snapshot.session?.extraNodes) && snapshot.session.extraNodes.length > 0) ||
+		(Array.isArray(snapshot.session?.extraNodeIds) && snapshot.session.extraNodeIds.length > 0) ||
+		(Array.isArray(snapshot.session?.renderedServerIds) && snapshot.session.renderedServerIds.length > 0) ||
+		Boolean(snapshot.session?.selectedNodeId);
+
+	if (!hasContent) {
+		updateFetchStatus('Nothing to save as a template yet');
+		return null;
+	}
+
+	const now = Date.now();
+	const name = String(customName || '').trim() || generateGraphTemplateName(snapshot.session, snapshot.selectionLog, now);
+	const template: GraphTemplateRecord = {
+		id: createGraphTemplateId(),
+		name,
+		createdAt: now,
+		updatedAt: now,
+		session: snapshot.session,
+		selectionLog: snapshot.selectionLog,
+		selectionLogBold: snapshot.selectionLogBold,
+	};
+	persistGraphTemplatesSync([template, ...savedGraphTemplates]);
+	isSelectionLogTemplatesOpen = true;
+	updateSelectionLogTemplatesUI();
+	updateFetchStatus(`Saved template “${template.name}”`);
+	return template;
+}
+
+export function renameGraphTemplate(templateId: string, nextName: string) {
+	const normalizedId = String(templateId || '').trim();
+	const trimmedName = String(nextName || '').trim();
+	if (!normalizedId || !trimmedName) return null;
+	const index = savedGraphTemplates.findIndex((template) => template.id === normalizedId);
+	if (index < 0) return null;
+	const updated = {
+		...savedGraphTemplates[index],
+		name: trimmedName,
+		updatedAt: Date.now(),
+	};
+	const next = savedGraphTemplates.slice();
+	next[index] = updated;
+	persistGraphTemplatesSync(next);
+	updateSelectionLogTemplatesUI();
+	return updated;
+}
+
+export function deleteGraphTemplate(templateId: string) {
+	const normalizedId = String(templateId || '').trim();
+	if (!normalizedId) return false;
+	const next = savedGraphTemplates.filter((template) => template.id !== normalizedId);
+	if (next.length === savedGraphTemplates.length) return false;
+	persistGraphTemplatesSync(next);
+	updateSelectionLogTemplatesUI();
+	return true;
+}
+
+async function applyGraphTemplateSession(session: Record<string, any>) {
+	if (!session || typeof session !== 'object') return false;
+
+	const hasSessionNodes = Boolean(
+		session.extraNodes?.length || session.extraNodeIds?.length || session.renderedServerIds?.length || session.selectedNodeId || session.highlightedNodes?.length,
+	);
+	if (!hasSessionNodes) {
+		clearGraphData();
+		return true;
+	}
+
+	const profileName = currentProfileName || 'custom';
+	if (!graphData || !Array.isArray(graphData.nodes) || graphData.nodes.length === 0) {
+		try {
+			await loadBaselineGraph(profileName, { suppressRender: true });
+		} catch (error) {
+			console.warn('Failed to load baseline graph while applying template:', error);
+			graphData = { nodes: [], links: [], meta: {} };
+			initialServerNodeIds = new Set();
+			initialServerLinkKeys = new Set();
+		}
+	}
+
+	if (!graphData) {
+		graphData = { nodes: [], links: [], meta: {} };
+	}
+
+	const renderedSavedSession = renderSavedSessionGraph(session);
+	if (!renderedSavedSession) {
+		// Fall back to full restore into whatever graph we currently have.
+		if (!Array.isArray(graphData.nodes) || !graphData.nodes.length) {
+			graphData = { nodes: [], links: [], meta: graphData.meta || {} };
+			renderGraph(graphData);
+			showEmpty(true);
+		} else {
+			renderBaselineGraphData();
+		}
+	}
+
+	await restoreSavedSession(session);
+	isSessionCleared = false;
+	persistSessionPayload(cloneJsonValue(session));
+	return true;
+}
+
+export async function applyGraphTemplate(templateId: string) {
+	const normalizedId = String(templateId || '').trim();
+	if (!normalizedId || applyingGraphTemplate) return false;
+	const template = savedGraphTemplates.find((entry) => entry.id === normalizedId);
+	if (!template) {
+		updateFetchStatus('Template not found');
+		return false;
+	}
+
+	applyingGraphTemplate = true;
+	updateFetchStatus(`Loading template “${template.name}”…`);
+	try {
+		selectedNodesLog = sanitizeSelectionLogEntries(template.selectionLog);
+		saveSelectionLog();
+		if (typeof template.selectionLogBold === 'boolean') {
+			isSelectionLogBold = template.selectionLogBold;
+			saveSelectionLogBoldPreference();
+		}
+		await applyGraphTemplateSession(cloneJsonValue(template.session));
+		updateSelectionLogUI();
+		syncSelectionLogActionButtonStates();
+		refreshTraceState();
+		syncTraceLabelPresentation();
+		syncSelectionLogAuxiliaryRenderers();
+		updateFetchStatus(`Loaded template “${template.name}”`);
+		return true;
+	} catch (error) {
+		console.error('Failed to apply graph template:', error);
+		updateFetchStatus('Failed to load template');
+		return false;
+	} finally {
+		applyingGraphTemplate = false;
+		updateSelectionLogTemplatesUI();
+	}
+}
+
+function renderSelectionLogTemplatesMarkup() {
+	const templates = savedGraphTemplates;
+	const rows =
+		templates.length ?
+			templates
+				.map((template) => {
+					const nodeCount = Math.max(
+						Array.isArray(template.session?.renderedServerIds) ? template.session.renderedServerIds.length : 0,
+						Array.isArray(template.session?.extraNodes) ? template.session.extraNodes.length : 0,
+						Array.isArray(template.session?.extraNodeIds) ? template.session.extraNodeIds.length : 0,
+						Array.isArray(template.selectionLog) ? template.selectionLog.length : 0,
+					);
+					const metaBits = [`${nodeCount} node${nodeCount === 1 ? '' : 's'}`, formatGraphTemplateTimestamp(template.updatedAt || template.createdAt)].filter(Boolean);
+					return `
+						<div class="fg-template-row" data-template-id="${escapeHtml(template.id)}">
+							<div class="fg-template-row__main">
+								<input
+									class="fg-template-name-input"
+									type="text"
+									value="${escapeHtml(template.name)}"
+									aria-label="Template name"
+									title="Edit template name"
+									data-fg-template-action="rename"
+									data-template-id="${escapeHtml(template.id)}"
+								/>
+								<div class="fg-template-row__meta">${escapeHtml(metaBits.join(' · '))}</div>
+							</div>
+							<div class="fg-template-row__actions">
+								<button
+									type="button"
+									class="fg-ghost-btn fg-btn-sm"
+									data-fg-template-action="load"
+									data-template-id="${escapeHtml(template.id)}"
+									title="Load this saved template">
+									Load
+								</button>
+								<button
+									type="button"
+									class="fg-ghost-btn fg-btn-sm"
+									data-fg-template-action="delete"
+									data-template-id="${escapeHtml(template.id)}"
+									title="Delete this saved template">
+									Delete
+								</button>
+							</div>
+						</div>
+					`;
+				})
+				.join('')
+		:	`<div class="fg-template-empty">No saved templates yet. Save the current graph layout to restore it later, even after Reset Session.</div>`;
+
+	return `
+		<div class="fg-selection-log-templates" data-open="${isSelectionLogTemplatesOpen ? 'true' : 'false'}">
+			<div class="fg-selection-log-templates__header">
+				<button
+					type="button"
+					class="fg-selection-log-templates__toggle"
+					data-fg-template-action="toggle-panel"
+					aria-expanded="${isSelectionLogTemplatesOpen ? 'true' : 'false'}"
+					title="Show or hide saved graph templates">
+					<span class="fg-selection-log-templates__toggle-label">Saved Templates</span>
+					<span class="fg-selection-log-templates__count">${templates.length}</span>
+					<span class="fg-selection-log-templates__chevron" aria-hidden="true">${isSelectionLogTemplatesOpen ? '▾' : '▸'}</span>
+				</button>
+				<button
+					type="button"
+					class="fg-ghost-btn fg-btn-sm fg-selection-log-templates__save"
+					data-fg-template-action="save-current"
+					title="Save the current graph session as a reusable template">
+					Save Template
+				</button>
+			</div>
+			<div class="fg-selection-log-templates__body${isSelectionLogTemplatesOpen ? '' : ' is-collapsed'}">
+				${rows}
+			</div>
+		</div>
+	`;
+}
+
+function ensureSelectionLogTemplateMounts() {
+	const hosts: Array<HTMLElement> = [];
+
+	const standaloneList = document.getElementById('fg-selection-log-list');
+	const standalonePanel = document.getElementById('fg-selection-log');
+	if (standalonePanel) {
+		let mount = standalonePanel.querySelector<HTMLElement>('#fg-selection-log-templates');
+		if (!mount) {
+			mount = document.createElement('div');
+			mount.id = 'fg-selection-log-templates';
+			mount.className = 'fg-selection-log-templates-host';
+			if (standaloneList?.parentElement === standalonePanel) {
+				standalonePanel.insertBefore(mount, standaloneList.nextSibling);
+			} else {
+				standalonePanel.appendChild(mount);
+			}
+		}
+		hosts.push(mount);
+	}
+
+	const sidebarList = document.getElementById('fg-sidebar-selection-log-list');
+	if (sidebarList?.parentElement) {
+		let mount = sidebarList.parentElement.querySelector<HTMLElement>('#fg-sidebar-selection-log-templates');
+		if (!mount) {
+			mount = document.createElement('div');
+			mount.id = 'fg-sidebar-selection-log-templates';
+			mount.className = 'fg-selection-log-templates-host';
+			sidebarList.parentElement.insertBefore(mount, sidebarList.nextSibling);
+		}
+		hosts.push(mount);
+	}
+
+	return hosts;
+}
+
+function bindSelectionLogTemplateHost(host: HTMLElement) {
+	if (host.dataset.templatesBound === 'true') return;
+	host.dataset.templatesBound = 'true';
+
+	host.addEventListener('click', (event) => {
+		const target = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-fg-template-action]') : null;
+		if (!target || !host.contains(target)) return;
+		const action = target.getAttribute('data-fg-template-action');
+		const templateId = target.getAttribute('data-template-id') || '';
+
+		if (action === 'toggle-panel') {
+			isSelectionLogTemplatesOpen = !isSelectionLogTemplatesOpen;
+			updateSelectionLogTemplatesUI();
+			return;
+		}
+
+		if (action === 'save-current') {
+			const template = saveCurrentGraphTemplate();
+			if (template) {
+				flashSelectionLogActionButton(target as HTMLButtonElement, 'Saved!');
+			}
+			return;
+		}
+
+		if (action === 'load' && templateId) {
+			void applyGraphTemplate(templateId).then((ok) => {
+				if (ok) flashSelectionLogActionButton(target as HTMLButtonElement, 'Loaded!');
+			});
+			return;
+		}
+
+		if (action === 'delete' && templateId) {
+			if (deleteGraphTemplate(templateId)) {
+				flashSelectionLogActionButton(target as HTMLButtonElement, 'Deleted!');
+			}
+		}
+	});
+
+	host.addEventListener('change', (event) => {
+		const target = event.target instanceof HTMLInputElement ? event.target : null;
+		if (!target || target.getAttribute('data-fg-template-action') !== 'rename') return;
+		const templateId = target.getAttribute('data-template-id') || '';
+		if (!templateId) return;
+		const renamed = renameGraphTemplate(templateId, target.value);
+		if (!renamed) {
+			updateSelectionLogTemplatesUI();
+			return;
+		}
+		target.value = renamed.name;
+	});
+
+	host.addEventListener('keydown', (event) => {
+		const target = event.target instanceof HTMLInputElement ? event.target : null;
+		if (!target || target.getAttribute('data-fg-template-action') !== 'rename') return;
+		if (event.key === 'Enter') {
+			event.preventDefault();
+			target.blur();
+		}
+	});
+}
+
+function updateSelectionLogTemplatesUI() {
+	const hosts = ensureSelectionLogTemplateMounts();
+	if (!hosts.length) return;
+	const markup = renderSelectionLogTemplatesMarkup();
+	hosts.forEach((host) => {
+		bindSelectionLogTemplateHost(host);
+		host.innerHTML = markup;
+	});
 }
 
 function persistSessionPayload(payload) {
@@ -3200,15 +3815,23 @@ function updateSelectionLogUI() {
 		}
 	});
 
-	if (!containers.length) return;
+	if (!containers.length) {
+		updateSelectionLogTemplatesUI();
+		return;
+	}
 
 	containers.forEach((container) => {
 		container.innerHTML = '';
 
 		selectedNodesLog
 			.slice()
-			.filter((entry) => !selectionLogFilterText || (entry.label || '').toLowerCase().includes(selectionLogFilterText.toLowerCase()) || (entry.secondaryId || '').toLowerCase().includes(selectionLogFilterText.toLowerCase()))
-			.sort((a, b) => (a.label || '').localeCompare(b.label || ''))
+			.filter(
+				(entry) =>
+					!selectionLogFilterText ||
+					(entry.label || '').toLowerCase().includes(selectionLogFilterText.toLowerCase()) ||
+					(entry.secondaryId || '').toLowerCase().includes(selectionLogFilterText.toLowerCase()),
+			)
+			.reverse()
 			.forEach((entry) => {
 				const div = document.createElement('div');
 				div.className = `fg-log-entry ${entry.group}${isSelectionLogEditMode ? ' is-editing' : ''}`;
@@ -3291,6 +3914,8 @@ function updateSelectionLogUI() {
 				container.appendChild(div);
 			});
 	});
+
+	updateSelectionLogTemplatesUI();
 }
 
 function buildShareableSelectionUrl(): string {
@@ -4943,12 +5568,15 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 		showSidebarHint({ keepOpen: true });
 	}
 	loadSelectionLog();
+	loadGraphTemplatesSync();
+	void loadGraphTemplatesAsync();
 	try {
 		localStorage.removeItem('finra_selection_log_pinned');
 	} catch {
 		// ignore storage errors
 	}
 	updateSelectionLogUI();
+	updateSelectionLogTemplatesUI();
 	updateSelectionLogChrome();
 	(document.getElementById('btn-log-close') as HTMLButtonElement | null)?.addEventListener('click', closeLog);
 	document.addEventListener('click', handleDelegatedButtonClicks);
@@ -12807,6 +13435,7 @@ function renderSidebarSelectionLogBody() {
 			</div>
 			<div id="fg-sidebar-selection-log-list" class="fg-selection-log-list fg-selection-log-list--sidebar">
 			</div>
+			<div id="fg-sidebar-selection-log-templates" class="fg-selection-log-templates-host"></div>
 		</div>
 	`;
 }
