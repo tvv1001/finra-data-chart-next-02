@@ -1419,6 +1419,7 @@ let isTraceMode = false;
 let isTraceLogMode = false;
 let isSelectionLogBold = false;
 let isSelectionLogEditMode = false;
+let selectionLogFilterText = '';
 // Node ids whose "large label" emphasis has been manually cleared via the
 // "Clear Labels" action while Log Bold is on. Re-selecting/re-clicking a node
 // removes it from this set so its label becomes enlarged again.
@@ -3184,6 +3185,21 @@ function updateSelectionLogUI() {
 		(window as any).updateNodeStyles();
 	}
 
+	const filterInputs = Array.from(document.querySelectorAll<HTMLInputElement>('.fg-selection-log-filter'));
+	filterInputs.forEach((input) => {
+		if (input.dataset.bound !== 'true') {
+			input.dataset.bound = 'true';
+			input.value = selectionLogFilterText;
+			input.addEventListener('input', (e) => {
+				selectionLogFilterText = (e.target as HTMLInputElement).value || '';
+				filterInputs.forEach((fi) => {
+					if (fi !== input) fi.value = selectionLogFilterText;
+				});
+				updateSelectionLogUI();
+			});
+		}
+	});
+
 	if (!containers.length) return;
 
 	containers.forEach((container) => {
@@ -3191,6 +3207,7 @@ function updateSelectionLogUI() {
 
 		selectedNodesLog
 			.slice()
+			.filter((entry) => !selectionLogFilterText || (entry.label || '').toLowerCase().includes(selectionLogFilterText.toLowerCase()) || (entry.secondaryId || '').toLowerCase().includes(selectionLogFilterText.toLowerCase()))
 			.sort((a, b) => (a.label || '').localeCompare(b.label || ''))
 			.forEach((entry) => {
 				const div = document.createElement('div');
@@ -12783,6 +12800,9 @@ function renderSidebarSelectionLogBody() {
 						title="Keep logged nodes and any intermediaries connecting them">
 						Clear Others
 					</button>
+				</div>
+				<div class="fg-log-drawer-actions-row">
+					<input type="text" class="fg-selection-log-filter" placeholder="Filter log..." value="${selectionLogFilterText.replace(/"/g, '&quot;')}" style="width: 100%; padding: 4px 8px; border: 1px solid var(--fg-border); border-radius: 4px; background: var(--fg-bg-secondary); color: var(--fg-text);" />
 				</div>
 			</div>
 			<div id="fg-sidebar-selection-log-list" class="fg-selection-log-list fg-selection-log-list--sidebar">

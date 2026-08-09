@@ -1172,6 +1172,21 @@ export default function FinraGraph() {
 									Clear Others
 								</button>
 							</div>
+							<div className='fg-log-drawer-actions-row'>
+								<input
+									type='text'
+									className='fg-selection-log-filter'
+									placeholder='Filter log...'
+									style={{
+										width: '100%',
+										padding: '4px 8px',
+										border: '1px solid var(--fg-border)',
+										borderRadius: '4px',
+										background: 'var(--fg-bg-secondary)',
+										color: 'var(--fg-text)',
+									}}
+								/>
+							</div>
 						</div>
 					</div>
 					<div
