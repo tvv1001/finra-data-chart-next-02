@@ -1,7 +1,9 @@
 import { defineConfig } from '@playwright/test';
 
 const PORT = 4444;
-const baseURL = process.env.PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${PORT}`;
+// Prefer localhost over 127.0.0.1 so Next.js 16 dev resource checks
+// (allowedDevOrigins / HMR) do not block client hydration in Playwright.
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || `http://localhost:${PORT}`;
 
 export default defineConfig({
 	testDir: './tests/e2e',

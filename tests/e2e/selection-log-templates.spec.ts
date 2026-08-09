@@ -55,6 +55,14 @@ test('Saved Templates toggle can store a graph snapshot that survives Reset Sess
 	expect(Array.isArray(storedBeforeReset?.[0]?.selectionLog)).toBe(true);
 	expect(storedBeforeReset?.[0]?.selectionLog?.map((entry: { id?: string }) => entry?.id)).toEqual(deterministicSelectionLogEntries.map((entry) => entry.id));
 
+	// Close the floating selection-log panel so it cannot intercept menu clicks.
+	await page.evaluate(() => {
+		const button = document.getElementById('btn-selection-log-trace') as HTMLButtonElement | null;
+		button?.click();
+	});
+	await expect(page.locator('#btn-selection-log-trace')).toHaveAttribute('aria-pressed', 'false');
+	await expect(page.locator('#fg-selection-log')).toHaveClass(/hidden/);
+
 	await page.getByRole('button', { name: 'Toggle menu' }).click();
 	const resetButton = page.getByRole('button', { name: 'Reset Session' });
 	await expect(resetButton).toBeVisible();
@@ -79,6 +87,14 @@ test('Saved Templates toggle can store a graph snapshot that survives Reset Sess
 	await page.reload();
 	await waitForGraphShell(page);
 	await openStandaloneSelectionLog(page);
+
+	// Templates list starts collapsed after a fresh shell load.
+	const templatesToggle = templatesHost.getByRole('button', { name: /Saved Templates/i });
+	await expect(templatesToggle).toBeVisible();
+	if ((await templatesToggle.getAttribute('aria-expanded')) !== 'true') {
+		await templatesToggle.click();
+	}
+	await expect(templatesToggle).toHaveAttribute('aria-expanded', 'true');
 	await expect(templatesHost.locator('.fg-template-name-input')).toHaveValue('Regression Snapshot');
 
 	await templatesHost.getByRole('button', { name: 'Load' }).click();

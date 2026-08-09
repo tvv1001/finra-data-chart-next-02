@@ -2959,6 +2959,50 @@ a,
 	justify-content: center;
 }
 
+.fg-clear-labels-control {
+	position: relative;
+	flex: 1 1 0;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.fg-clear-labels-control__toggle {
+	width: 100%;
+}
+
+.fg-clear-labels-control__menu {
+	display: none;
+	position: absolute;
+	top: calc(100% + 4px);
+	left: 0;
+	right: 0;
+	z-index: 5;
+	padding: 4px;
+	border: 1px solid rgba(15, 23, 42, 0.14);
+	border-radius: 8px;
+	background: rgba(255, 255, 255, 0.98);
+	box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
+	gap: 4px;
+}
+
+.fg-clear-labels-control.is-open .fg-clear-labels-control__menu,
+.fg-clear-labels-control[data-open='true'] .fg-clear-labels-control__menu {
+	display: grid;
+}
+
+.fg-clear-labels-control__menu .fg-btn-sm {
+	width: 100%;
+	justify-content: flex-start;
+}
+
+html[data-theme='dark'] .fg-clear-labels-control__menu {
+	border-color: rgba(148, 163, 184, 0.28);
+	background: rgba(15, 23, 42, 0.98);
+	box-shadow: 0 12px 28px rgba(2, 6, 23, 0.45);
+}
+
 .fg-selection-log-list--sidebar {
 	flex: 1 1 auto;
 	max-height: none;

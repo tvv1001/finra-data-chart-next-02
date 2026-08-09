@@ -1129,6 +1129,42 @@ export default function FinraGraph() {
 								</button>
 							</div>
 							<div className='fg-log-drawer-actions-row fg-log-drawer-actions-row--secondary'>
+								<div className='fg-clear-labels-control'>
+									<button
+										id='btn-selection-log-clear-labels'
+										data-fg-selection-log-action='clear-labels-menu'
+										className='fg-ghost-btn fg-btn-sm fg-clear-labels-control__toggle'
+										type='button'
+										aria-expanded='false'
+										title='Choose whether to clear all large labels or only people labels'>
+										Clear Labels
+									</button>
+									<div
+										className='fg-clear-labels-control__menu'
+										role='menu'
+										hidden>
+										<button
+											data-fg-selection-log-action='clear-labels'
+											data-fg-clear-labels-scope='all'
+											className='fg-ghost-btn fg-btn-sm'
+											type='button'
+											role='menuitem'
+											hidden
+											title='Shrink all currently enlarged labels without clearing the log'>
+											All labels
+										</button>
+										<button
+											data-fg-selection-log-action='clear-labels'
+											data-fg-clear-labels-scope='people'
+											className='fg-ghost-btn fg-btn-sm'
+											type='button'
+											role='menuitem'
+											hidden
+											title='Shrink only enlarged people labels without clearing the log'>
+											People only
+										</button>
+									</div>
+								</div>
 								<button
 									id='btn-selection-log-copy-all'
 									data-fg-selection-log-action='copy-all'

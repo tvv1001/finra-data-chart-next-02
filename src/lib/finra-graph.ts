@@ -2039,6 +2039,8 @@ let selectionLogFilterText = '';
 // "Clear Labels" action while Log Bold is on. Re-selecting/re-clicking a node
 // removes it from this set so its label becomes enlarged again.
 let clearedSelectionLogLabelNodeIds = new Set<string>();
+type SelectionLogClearLabelsScope = 'all' | 'people';
+let isSelectionLogClearLabelsMenuOpen = false;
 let pendingRouteNodeId: string | null = null;
 let pendingRoutePulseDuration: number | null = null; // optional pulse duration (ms) requested with route
 let pendingRouteAutoExpand = false; // optional auto-expand requested with route
@@ -2698,8 +2700,41 @@ function guardTraceLogSurface(reason = 'state-sync') {
 	}
 }
 
-function getSelectionLogActionButtons(action: 'trace' | 'copy-all' | 'copy-link' | 'clear' | 'clear-others' | 'clear-labels' | 'toggle-bold' | 'edit') {
+function getSelectionLogActionButtons(action: 'trace' | 'copy-all' | 'copy-link' | 'clear' | 'clear-others' | 'clear-labels' | 'toggle-bold' | 'edit' | 'clear-labels-menu') {
 	return Array.from(document.querySelectorAll<HTMLButtonElement>(`[data-fg-selection-log-action="${action}"]`));
+}
+
+export function isSelectionLogPeopleEntry(entry: { id?: string; group?: string } | null | undefined) {
+	const group = String(entry?.group || '')
+		.trim()
+		.toLowerCase();
+	if (group === 'individual' || group === 'person') return true;
+	if (group === 'firm' || group === 'entity') return false;
+	const id = String(entry?.id || '')
+		.trim()
+		.toLowerCase();
+	return id.startsWith('person:') || id.startsWith('person_');
+}
+
+export function filterSelectionLogLabelNodeIdsByScope(
+	nodeIds: Array<string | null | undefined> = [],
+	selectionLog: Array<{ id?: string; group?: string }> = [],
+	scope: SelectionLogClearLabelsScope = 'all',
+) {
+	const uniqueIds = Array.from(new Set(nodeIds.map((id) => String(id || '').trim()).filter(Boolean)));
+	if (scope === 'all') return uniqueIds;
+
+	const peopleIds = new Set(
+		selectionLog
+			.filter((entry) => isSelectionLogPeopleEntry(entry))
+			.map((entry) => String(entry?.id || '').trim())
+			.filter(Boolean),
+	);
+
+	return uniqueIds.filter((id) => {
+		if (peopleIds.has(id)) return true;
+		return isSelectionLogPeopleEntry({ id });
+	});
 }
 
 function syncSelectionLogAuxiliaryRenderers() {
@@ -2746,14 +2781,43 @@ function syncSelectionLogActionButtonStates() {
 		button.textContent = isSelectionLogBold ? 'Log Bold On' : 'Log Bold';
 	});
 
-	getSelectionLogActionButtons('clear-labels').forEach((button) => {
-		const enlargedNodeIds = getSelectionLogLabelNodeIds();
-		button.disabled = !isSelectionLogBold || enlargedNodeIds.length === 0;
+	const enlargedNodeIds = getSelectionLogLabelNodeIds();
+	const enlargedPeopleNodeIds = filterSelectionLogLabelNodeIdsByScope(enlargedNodeIds, selectedNodesLog, 'people');
+	const clearLabelsDisabled = !isSelectionLogBold || enlargedNodeIds.length === 0;
+	const clearPeopleLabelsDisabled = !isSelectionLogBold || enlargedPeopleNodeIds.length === 0;
+
+	document.querySelectorAll<HTMLElement>('.fg-clear-labels-control').forEach((control) => {
+		control.classList.toggle('is-open', isSelectionLogClearLabelsMenuOpen);
+		control.setAttribute('data-open', isSelectionLogClearLabelsMenuOpen ? 'true' : 'false');
+		const menu = control.querySelector<HTMLElement>('.fg-clear-labels-control__menu');
+		if (menu) menu.hidden = !isSelectionLogClearLabelsMenuOpen;
+	});
+
+	getSelectionLogActionButtons('clear-labels-menu').forEach((button) => {
+		button.disabled = clearLabelsDisabled;
+		button.setAttribute('aria-expanded', isSelectionLogClearLabelsMenuOpen ? 'true' : 'false');
 		button.title =
 			!isSelectionLogBold ? 'Enable Log Bold to use large labels'
-			: enlargedNodeIds.length ? 'Shrink currently enlarged labels without clearing the log'
+			: enlargedNodeIds.length ? 'Choose whether to clear all large labels or only people labels'
 			: 'No enlarged labels to clear';
 		button.textContent = 'Clear Labels';
+	});
+
+	getSelectionLogActionButtons('clear-labels').forEach((button) => {
+		const scope = normalizeSelectionLogClearLabelsScope(button.dataset.fgClearLabelsScope);
+		const scopedIds = scope === 'people' ? enlargedPeopleNodeIds : enlargedNodeIds;
+		const disabled = scope === 'people' ? clearPeopleLabelsDisabled : clearLabelsDisabled;
+		button.disabled = disabled;
+		button.hidden = !isSelectionLogClearLabelsMenuOpen;
+		button.title =
+			!isSelectionLogBold ? 'Enable Log Bold to use large labels'
+			: scope === 'people' ?
+				scopedIds.length ?
+					'Shrink only enlarged people labels without clearing the log'
+				:	'No enlarged people labels to clear'
+			: scopedIds.length ? 'Shrink all currently enlarged labels without clearing the log'
+			: 'No enlarged labels to clear';
+		button.textContent = scope === 'people' ? 'People only' : 'All labels';
 	});
 
 	getSelectionLogActionButtons('edit').forEach((button) => {
@@ -2926,6 +2990,31 @@ function getSelectionLogLabelNodeIds() {
 	return Array.from(
 		new Set(selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter((id) => Boolean(id) && visibleNodeIds.has(id) && !clearedSelectionLogLabelNodeIds.has(id))),
 	);
+}
+
+function normalizeSelectionLogClearLabelsScope(scope: string | null | undefined): SelectionLogClearLabelsScope {
+	return (
+			String(scope || '')
+				.trim()
+				.toLowerCase() === 'people'
+		) ?
+			'people'
+		:	'all';
+}
+
+function clearSelectionLogLabels(scope: SelectionLogClearLabelsScope = 'all') {
+	const enlargedNodeIds = filterSelectionLogLabelNodeIdsByScope(getSelectionLogLabelNodeIds(), selectedNodesLog, scope);
+	if (!enlargedNodeIds.length) return 0;
+	enlargedNodeIds.forEach((id) => {
+		clearedSelectionLogLabelNodeIds.add(id);
+	});
+	isSelectionLogClearLabelsMenuOpen = false;
+	updateSelectionLogUI();
+	syncSelectionLogActionButtonStates();
+	reapplySelectionState();
+	syncTraceLabelPresentation();
+	syncSelectionLogAuxiliaryRenderers();
+	return enlargedNodeIds.length;
 }
 
 function getConnectedRenderedGraphSnapshot() {
@@ -3937,6 +4026,19 @@ function copyToClipboard(text, element) {
 	});
 }
 
+function closeSelectionLogClearLabelsMenu() {
+	if (!isSelectionLogClearLabelsMenuOpen) return;
+	isSelectionLogClearLabelsMenuOpen = false;
+	syncSelectionLogActionButtonStates();
+}
+
+function handleSelectionLogClearLabelsOutsideClick(event: MouseEvent) {
+	if (!isSelectionLogClearLabelsMenuOpen) return;
+	const target = event.target instanceof Element ? event.target : null;
+	if (target?.closest('.fg-clear-labels-control')) return;
+	closeSelectionLogClearLabelsMenu();
+}
+
 function handleDelegatedButtonClicks(event: MouseEvent) {
 	const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button') : null;
 	if (!target) return;
@@ -3947,19 +4049,32 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 	}
 
 	if (target.matches('#fg-trace-mode, [data-fg-trace-mode-button]')) {
+		closeSelectionLogClearLabelsMenu();
 		toggleTraceMode();
 		return;
 	}
 
-	const action = target.dataset.fgSelectionLogAction as 'trace' | 'copy-all' | 'copy-link' | 'clear' | 'clear-others' | 'clear-labels' | 'toggle-bold' | 'edit' | undefined;
+	const action = target.dataset.fgSelectionLogAction as
+		| 'trace'
+		| 'copy-all'
+		| 'copy-link'
+		| 'clear'
+		| 'clear-others'
+		| 'clear-labels'
+		| 'clear-labels-menu'
+		| 'toggle-bold'
+		| 'edit'
+		| undefined;
 	if (!action) return;
 
 	if (action === 'trace') {
+		closeSelectionLogClearLabelsMenu();
 		toggleTraceLogMode();
 		return;
 	}
 
 	if (action === 'copy-all') {
+		closeSelectionLogClearLabelsMenu();
 		const text = selectedNodesLog
 			.map((entry) => `${entry.label} :: ${entry.secondaryId}`)
 			.reverse()
@@ -3971,6 +4086,7 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 	}
 
 	if (action === 'copy-link') {
+		closeSelectionLogClearLabelsMenu();
 		const url = buildShareableSelectionUrl();
 		if (!url) return;
 		navigator.clipboard.writeText(url).then(() => {
@@ -3980,6 +4096,7 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 	}
 
 	if (action === 'toggle-bold') {
+		closeSelectionLogClearLabelsMenu();
 		isSelectionLogBold = !isSelectionLogBold;
 		saveSelectionLogBoldPreference();
 		updateSelectionLogUI();
@@ -3990,25 +4107,31 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 		return;
 	}
 
-	if (action === 'clear-labels') {
-		const enlargedNodeIds = getSelectionLogLabelNodeIds();
-		if (!enlargedNodeIds.length) {
-			flashSelectionLogActionButton(target, 'Empty');
+	if (action === 'clear-labels-menu') {
+		if (!isSelectionLogBold || getSelectionLogLabelNodeIds().length === 0) {
+			flashSelectionLogActionButton(target, !isSelectionLogBold ? 'Enable Log Bold' : 'Empty');
+			syncSelectionLogActionButtonStates();
 			return;
 		}
-		enlargedNodeIds.forEach((id) => {
-			clearedSelectionLogLabelNodeIds.add(id);
-		});
-		updateSelectionLogUI();
+		isSelectionLogClearLabelsMenuOpen = !isSelectionLogClearLabelsMenuOpen;
 		syncSelectionLogActionButtonStates();
-		reapplySelectionState();
-		syncTraceLabelPresentation();
-		syncSelectionLogAuxiliaryRenderers();
-		flashSelectionLogActionButton(target, 'Cleared!');
+		return;
+	}
+
+	if (action === 'clear-labels') {
+		const scope = normalizeSelectionLogClearLabelsScope(target.dataset.fgClearLabelsScope);
+		const clearedCount = clearSelectionLogLabels(scope);
+		if (!clearedCount) {
+			flashSelectionLogActionButton(target, 'Empty');
+			syncSelectionLogActionButtonStates();
+			return;
+		}
+		flashSelectionLogActionButton(target, scope === 'people' ? 'People Cleared!' : 'Cleared!');
 		return;
 	}
 
 	if (action === 'edit') {
+		closeSelectionLogClearLabelsMenu();
 		isSelectionLogEditMode = !isSelectionLogEditMode;
 		updateSelectionLogUI();
 		syncSelectionLogActionButtonStates();
@@ -4016,6 +4139,7 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 	}
 
 	if (action === 'clear') {
+		closeSelectionLogClearLabelsMenu();
 		selectedNodesLog = [];
 		isSelectionLogEditMode = false;
 		saveSelectionLog();
@@ -4029,6 +4153,7 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 	}
 
 	if (action === 'clear-others') {
+		closeSelectionLogClearLabelsMenu();
 		if (!selectedNodesLog.length) {
 			flashSelectionLogActionButton(target, 'Empty');
 			return;
@@ -5580,6 +5705,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 	updateSelectionLogChrome();
 	(document.getElementById('btn-log-close') as HTMLButtonElement | null)?.addEventListener('click', closeLog);
 	document.addEventListener('click', handleDelegatedButtonClicks);
+	document.addEventListener('click', handleSelectionLogClearLabelsOutsideClick);
 	const handleFetchStatusDismissal = (event: Event) => {
 		if (!activeFetchStatusMessage || activeFetchStatusPinned) return;
 		const target = event.target as Node | null;
@@ -13398,13 +13524,38 @@ function renderSidebarSelectionLogBody() {
 						title="Make log entries larger and bolder">
 						Log Bold
 					</button>
-					<button
-						data-fg-selection-log-action="clear-labels"
-						class="fg-ghost-btn fg-btn-sm"
-						type="button"
-						title="Shrink currently enlarged labels without clearing the log">
-						Clear Labels
-					</button>
+					<div class="fg-clear-labels-control">
+						<button
+							data-fg-selection-log-action="clear-labels-menu"
+							class="fg-ghost-btn fg-btn-sm fg-clear-labels-control__toggle"
+							type="button"
+							aria-expanded="false"
+							title="Choose whether to clear all large labels or only people labels">
+							Clear Labels
+						</button>
+						<div class="fg-clear-labels-control__menu" role="menu" hidden>
+							<button
+								data-fg-selection-log-action="clear-labels"
+								data-fg-clear-labels-scope="all"
+								class="fg-ghost-btn fg-btn-sm"
+								type="button"
+								role="menuitem"
+								hidden
+								title="Shrink all currently enlarged labels without clearing the log">
+								All labels
+							</button>
+							<button
+								data-fg-selection-log-action="clear-labels"
+								data-fg-clear-labels-scope="people"
+								class="fg-ghost-btn fg-btn-sm"
+								type="button"
+								role="menuitem"
+								hidden
+								title="Shrink only enlarged people labels without clearing the log">
+								People only
+							</button>
+						</div>
+					</div>
 					<button
 						data-fg-selection-log-action="copy-all"
 						class="fg-ghost-btn fg-btn-sm"

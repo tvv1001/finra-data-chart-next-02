@@ -48,7 +48,9 @@ import {
 	isForcedGrayConnectionLink,
 	clearSelectionState,
 	buildSessionRenderGraphData,
+	filterSelectionLogLabelNodeIdsByScope,
 	generateGraphTemplateName,
+	isSelectionLogPeopleEntry,
 	resolveLinkEndpoints,
 	rebindLinksToNodes,
 	handleNodeKeyboardActivation,
@@ -171,6 +173,20 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		);
 
 		expect(name.startsWith('Alpha Person +2 · ')).toBe(true);
+	});
+
+	it('filterSelectionLogLabelNodeIdsByScope can keep only people labels', () => {
+		const selectionLog = [
+			{ id: 'person:3102054', group: 'individual' },
+			{ id: 'firm:143571', group: 'firm' },
+			{ id: 'person:999', group: 'person' },
+		];
+		const allIds = ['person:3102054', 'firm:143571', 'person:999', 'entity:1'];
+
+		expect(filterSelectionLogLabelNodeIdsByScope(allIds, selectionLog, 'all')).toEqual(allIds);
+		expect(filterSelectionLogLabelNodeIdsByScope(allIds, selectionLog, 'people')).toEqual(['person:3102054', 'person:999']);
+		expect(isSelectionLogPeopleEntry({ id: 'person:1', group: 'firm' })).toBe(false);
+		expect(isSelectionLogPeopleEntry({ id: 'person:1' })).toBe(true);
 	});
 
 	it('generateGraphTemplateName falls back when the graph snapshot is empty', () => {
