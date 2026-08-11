@@ -659,6 +659,8 @@ const NON_GRAY_HOP_DELAY_MS = 850;
 
 const NON_GRAY_DETAIL_BATCH_SIZE = 6;
 const AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT = 16;
+/** Hard cap: never dump mega-firm neighborhoods (e.g. Merrill ~2500) onto the canvas in one expand. */
+const MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND = 48;
 const PROFILE_SEED_FETCH_CONCURRENCY = 4;
 const SEED_QUERY_FETCH_CONCURRENCY = 4;
 const TEXT_SEARCH_DETAIL_HYDRATION_LIMIT = 24;
@@ -1867,7 +1869,11 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 	// Shared Redis is multi-tenant — keep these calls short.
 	try {
 		const expansion = await Promise.race([
-			fetchExpansionDataForNodeIds([normalizedNodeId], getDefaultExpansionHops(), { strictHops: true }),
+			fetchExpansionDataForNodeIds([normalizedNodeId], getDefaultExpansionHops(), {
+				strictHops: true,
+				clickedNodeId: normalizedNodeId,
+				safeFirmExpand: true,
+			}),
 			new Promise<{ nodes: any[]; links: any[] }>((resolve) => setTimeout(() => resolve({ nodes: [], links: [] }), 4000)),
 		]);
 		if (expansion.nodes.length || expansion.links.length) {
@@ -7293,7 +7299,8 @@ async function fetchIndividualBatch(crd, queryLabel = null, options: { includePr
 	if (!/^[0-9]+$/.test(String(crd))) {
 		throw new Error(`invalid individual id ${crd}`);
 	}
-	const { includePreviousEmployments = true } = options;
+	// Deep-link / first hydrate: current employers only on the canvas. Full history stays in detail UI.
+	const { includePreviousEmployments = false } = options;
 
 	const nodes = [];
 	const links = [];
@@ -10869,8 +10876,11 @@ function isControlPositionText(text) {
 	return /officer|chief|director|principal|control\s*person|owner|partner|proprietor/i.test(value);
 }
 
-function syncIndividualConnectionsFromDetail(personNode, detail) {
+function syncIndividualConnectionsFromDetail(personNode, detail, options: { includePrevious?: boolean } = {}) {
 	if (!personNode || !detail) return;
+	// Graph inject defaults to current employments only. Previous stay in the sidebar detail lists
+	// so opening someone at Merrill does not also scatter decades of prior firm nodes.
+	const { includePrevious = false } = options;
 
 	const personId = personNode.id;
 	const newNodes = [];
@@ -10908,7 +10918,7 @@ function syncIndividualConnectionsFromDetail(personNode, detail) {
 		return;
 	}
 
-	const employments = flattenEmploymentRecords(detail);
+	const employments = flattenEmploymentRecords(detail).filter((employment) => includePrevious || employment?._isCurrent !== false);
 
 	for (const employment of employments) {
 		const rawFirmId = String(employment?.firmId || employment?.firm_id || employment?.firmIdNumber || employment?.organizationId || employment?.orgId || '').trim();
@@ -11207,10 +11217,18 @@ function applyFirmConnectionPayload(firmNode: any, payload: { currentConnections
 	const firmNodeId = String(firmNode.id || '').trim();
 	if (!firmNodeId) return false;
 
-	const currentConnections = Array.isArray(payload.currentConnections) ? payload.currentConnections : [];
-	const previousConnections = Array.isArray(payload.previousConnections) ? payload.previousConnections : [];
-	firmNode.currentConnections = currentConnections;
-	firmNode.previousConnections = previousConnections;
+	// Prefer current connections first, then previous — hard-cap canvas inject so mega-firms
+	// (Merrill, LPL, etc.) do not dump thousands of people when opened.
+	const rawCurrent = Array.isArray(payload.currentConnections) ? payload.currentConnections : [];
+	const rawPrevious = Array.isArray(payload.previousConnections) ? payload.previousConnections : [];
+	const cappedCurrent = rawCurrent.slice(0, MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND);
+	const remaining = Math.max(0, MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND - cappedCurrent.length);
+	const cappedPrevious = rawPrevious.slice(0, remaining);
+	const currentConnections = cappedCurrent;
+	const previousConnections = cappedPrevious;
+	firmNode.currentConnections = rawCurrent;
+	firmNode.previousConnections = rawPrevious;
+	firmNode._connectionsCanvasCapped = rawCurrent.length + rawPrevious.length > MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND;
 
 	const newNodes: any[] = [];
 	const newLinks: any[] = [];
@@ -11636,17 +11654,73 @@ function anchorNode(node) {
 	}
 }
 
+/**
+ * Server-expand only safe IDs during multi-wave walks.
+ * Never auto-expand firm neighborhoods unless that firm is the node the user clicked —
+ * firm:7691 (Merrill) alone is ~2500 people at 1 hop and floods the canvas.
+ */
+function filterIdsSafeForServerExpand(nodeIds: string[], clickedNodeId?: string | null) {
+	const clicked = String(clickedNodeId || '').trim();
+	return nodeIds.filter((id) => {
+		const normalized = String(id || '').trim();
+		if (!normalized) return false;
+		if (normalized === clicked) return true;
+		if (normalized.startsWith('person:')) return true;
+		// Firms / entities only when they are the explicit click target.
+		return false;
+	});
+}
+
+function limitExpansionPayload(
+	payload: { nodes?: any[]; links?: any[]; meta?: any },
+	options: { maxNeighbors?: number; rootId?: string | null } = {},
+) {
+	const maxNeighbors = Math.max(1, Number(options.maxNeighbors) || MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND);
+	const rootId = String(options.rootId || '').trim();
+	const nodes = Array.isArray(payload?.nodes) ? payload.nodes : [];
+	const links = Array.isArray(payload?.links) ? payload.links : [];
+	if (!nodes.length) return { nodes: [], links: [], meta: payload?.meta || {} };
+
+	const rootNodes = rootId ? nodes.filter((n) => String(n?.id || '') === rootId) : [];
+	const otherNodes = rootId ? nodes.filter((n) => String(n?.id || '') !== rootId) : nodes.slice();
+	if (otherNodes.length <= maxNeighbors) {
+		return { nodes, links, meta: payload?.meta || {} };
+	}
+
+	const keptOthers = otherNodes.slice(0, maxNeighbors);
+	const keptIds = new Set<string>([...rootNodes, ...keptOthers].map((n) => String(n?.id || '')).filter(Boolean));
+	return {
+		nodes: [...rootNodes, ...keptOthers],
+		links: links.filter((link) => {
+			const s = String(link?.source?.id ?? link?.source ?? '').trim();
+			const t = String(link?.target?.id ?? link?.target ?? '').trim();
+			return keptIds.has(s) && keptIds.has(t);
+		}),
+		meta: {
+			...(payload?.meta || {}),
+			truncated: true,
+			truncatedFrom: otherNodes.length,
+			truncatedTo: maxNeighbors,
+		},
+	};
+}
+
 async function fetchExpansionDataForNodeIds(
 	nodeIds: string[] = [],
 	hops: number | 'all' = getDefaultExpansionHops(),
 	options: {
 		strictHops?: boolean;
+		clickedNodeId?: string | null;
+		/** When true (default), drop firm IDs that are not the click target before calling the server. */
+		safeFirmExpand?: boolean;
+		maxNeighbors?: number;
 	} = {},
 ) {
-	const uniqueIds = Array.from(new Set<string>(nodeIds.filter(Boolean)));
-	if (!uniqueIds.length) return { nodes: [], links: [] };
+	const { strictHops = false, clickedNodeId = null, safeFirmExpand = true, maxNeighbors = MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND } = options;
+	const rawIds = Array.from(new Set<string>(nodeIds.filter(Boolean)));
+	const uniqueIds = safeFirmExpand ? filterIdsSafeForServerExpand(rawIds, clickedNodeId) : rawIds;
+	if (!uniqueIds.length) return { nodes: [], links: [], meta: {} };
 	const normalizedHops = normalizeHighlightHops(hops);
-	const { strictHops = false } = options;
 
 	// Batch IDs into chunks to avoid hitting URL length limits
 	const BATCH_SIZE = 100;
@@ -11713,7 +11787,11 @@ async function fetchExpansionDataForNodeIds(
 		});
 	});
 
-	return { nodes: mergedNodes, links: mergedLinks };
+	// Cap mega-neighborhoods (e.g. Merrill Lynch 1-hop ≈ 2500 people) so a single expand stays usable.
+	return limitExpansionPayload(
+		{ nodes: mergedNodes, links: mergedLinks },
+		{ maxNeighbors: maxNeighbors, rootId: clickedNodeId || uniqueIds[0] || null },
+	);
 }
 
 export function shouldHydrateExpansionFrontierNodeDetail(node, options: { includeFirmDetails?: boolean } = {}) {
@@ -11838,7 +11916,13 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 			includeFirmDetails: false,
 			injectEmploymentGraph: false,
 		});
-		const expansionPromise = fetchExpansionDataForNodeIds(currentWaveIds, 1, { strictHops: true });
+		// Never server-expand firm IDs unless the user clicked that firm (Merrill 1-hop ≈ 2500 nodes).
+		const expansionPromise = fetchExpansionDataForNodeIds(currentWaveIds, 1, {
+			strictHops: true,
+			clickedNodeId: clickedNode.id,
+			safeFirmExpand: true,
+			maxNeighbors: MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND,
+		});
 		// Only the user-clicked firm may pull employment connections. Doing this for every firm
 		// discovered mid-expansion fans out past one hop (people → their other firms → …).
 		const firmConnectionPromise =
@@ -12271,7 +12355,13 @@ async function ensureExpansionDataForNode(
 ) {
 	if (!clickedNodeId) return { nodes: [], links: [] };
 	const { matchExistingOnly = false } = options;
-	const fetched = await fetchExpansionDataForNodeIds([clickedNodeId], hops);
+	const fetched = await fetchExpansionDataForNodeIds([clickedNodeId], hops, {
+		strictHops: true,
+		clickedNodeId,
+		// Explicit open of this node: allow firm expand for the clicked id only (safeFirmExpand keeps that).
+		safeFirmExpand: true,
+		maxNeighbors: MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND,
+	});
 	const normalized = matchExistingOnly ? normalizeExpansionPayloadToRenderedMatches(clickedNodeId, fetched.nodes, fetched.links) : fetched;
 	if (normalized.nodes.length || normalized.links.length) {
 		mergeIntoGraphData(normalized.nodes, normalized.links);
