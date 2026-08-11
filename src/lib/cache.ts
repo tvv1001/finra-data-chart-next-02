@@ -1,3 +1,4 @@
+import type { Redis } from '@upstash/redis';
 /**
  * cache.ts – Simple TTL cache: Upstash Redis (HTTP/REST) when env vars are
  * present, file-based binary cache fallback for local development, and

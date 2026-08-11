@@ -18,6 +18,7 @@ async function executeLocalRequest(req: any): Promise<any> {
 		// pipeline
 		const pipeline = localIoRedis.pipeline();
 		body.forEach((cmd: any) => {
+			// @ts-ignore
 			pipeline.sendCommand(new IORedis.Command(cmd[0], cmd.slice(1)));
 		});
 		const res = await pipeline.exec();

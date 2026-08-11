@@ -1,3 +1,4 @@
+import type { Redis } from '@upstash/redis';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * graphStore.ts – Module-level graph file cache and helper utilities.

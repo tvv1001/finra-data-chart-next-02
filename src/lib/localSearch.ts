@@ -1,3 +1,4 @@
+import type { Redis } from '@upstash/redis';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { gunzipSync } from 'node:zlib';

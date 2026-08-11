@@ -1,3 +1,4 @@
+import type { Redis } from '@upstash/redis';
 import { getRedisClientInstance } from '@/lib/redisClient';
 import type { LocalSearchEntity, LocalSearchResponse, LocalSearchSource } from './localSearch';
 

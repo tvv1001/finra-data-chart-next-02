@@ -1,3 +1,4 @@
+import type { Redis } from '@upstash/redis';
 import { setStringIfValid } from '@/lib/redisCache';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';

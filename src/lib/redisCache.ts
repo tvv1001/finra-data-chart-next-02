@@ -1,3 +1,4 @@
+import type { Redis } from '@upstash/redis';
 import Bottleneck from 'bottleneck';
 import { getRedisClientInstance } from '@/lib/redisClient';
 import zlib from 'zlib';

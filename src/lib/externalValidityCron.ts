@@ -1,3 +1,4 @@
+import type { Redis } from '@upstash/redis';
 import axios from 'axios';
 import { getRedisClientInstance } from '@/lib/redisClient';
 import { saveGraph, getFullGraph } from '@/lib/graphStore';

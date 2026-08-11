@@ -4,6 +4,7 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { getRedisClientInstance } from '@/lib/redisClient';
+import type { Redis } from '@upstash/redis';
 import { cachedFetch } from '@/lib/simpleCache';
 import { normalizeIndividualDetailPayload } from '@/lib/individualDetail';
 import { setStringIfValid } from '@/lib/redisCache';

@@ -1,3 +1,4 @@
+import type { Redis } from '@upstash/redis';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { getRedisClientInstance } from '@/lib/redisClient';
