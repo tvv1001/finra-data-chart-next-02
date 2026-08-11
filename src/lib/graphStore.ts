@@ -206,6 +206,45 @@ function normalizeGraphLabelsInPlace(graph: any) {
 	return graph;
 }
 
+async function decodeRedisGraphRaw(raw: unknown): Promise<any | null> {
+	if (raw == null) return null;
+	if (typeof raw !== 'string') return raw;
+
+	let text = raw.trim();
+	if (!text) return null;
+
+	// Brotli payloads from redisCache.compressPayload (`br:<base64>`), introduced with the binary cache update.
+	if (text.startsWith('br:')) {
+		try {
+			text = decompressPayload(text).trim();
+		} catch {
+			return null;
+		}
+		if (!text) return null;
+	}
+
+	const firstChar = text.charAt(0);
+	if (firstChar === '{' || firstChar === '[') {
+		try {
+			return JSON.parse(text);
+		} catch {
+			return null;
+		}
+	}
+
+	// Legacy gzip+base64 payloads written by saveGraph()/gzipOffload.
+	try {
+		const json = await gunzipOffload(text);
+		return JSON.parse(json);
+	} catch {
+		try {
+			return JSON.parse(text);
+		} catch {
+			return null;
+		}
+	}
+}
+
 function parseGraphPayload(raw: unknown, sourceLabel: string) {
 	if (typeof raw === 'string') {
 		if (!raw.trim()) return { ...EMPTY_GRAPH };
@@ -690,27 +729,8 @@ export async function getFullGraph() {
 			}
 
 			if (raw) {
-				// Support both legacy JSON string and new gzip+base64 compressed payloads.
-				let parsedRaw: any = raw;
-				if (typeof raw === 'string') {
-					const firstChar = raw.trim().charAt(0);
-					if (firstChar === '{' || firstChar === '[') {
-						parsedRaw = JSON.parse(raw);
-					} else {
-						try {
-							// Offload gunzip to worker; redis stores base64 gzipped payloads.
-							const json = await gunzipOffload(raw as string);
-							parsedRaw = JSON.parse(json);
-						} catch (e) {
-							// fallback to attempting JSON parse
-							try {
-								parsedRaw = JSON.parse(raw);
-							} catch (ee) {
-								parsedRaw = null;
-							}
-						}
-					}
-				}
+				// Support plain JSON, brotli (`br:`), and legacy gzip+base64 graph payloads.
+				const parsedRaw = await decodeRedisGraphRaw(raw);
 				if (parsedRaw) {
 					const redisGraph = parseGraphPayload(parsedRaw, 'Redis graph payload');
 					const isRedisGraphEmpty = (redisGraph.nodes?.length || 0) === 0 && (redisGraph.links?.length || 0) === 0;
@@ -804,12 +824,16 @@ export async function saveGraph(data: any) {
 				meta: data.meta || {},
 			};
 			const json = JSON.stringify(compact);
-			// Offload gzip to background worker to avoid blocking the event loop
+			// Offload gzip to background worker to avoid blocking the event loop.
+			// Store the gzip+base64 payload directly (not through setStringIfValid/compressPayload)
+			// so readers only need one decode step. setStringIfValid would wrap this in brotli (`br:`),
+			// producing a double-compressed blob that older gunzip-only readers cannot open.
 			const b64 = await gzipOffload(json);
-			await setStringIfValid(REDIS_GRAPH_KEY, b64);
+			await redis.set(REDIS_GRAPH_KEY, b64);
 			await redis.set(REDIS_GRAPH_UPDATED_AT_KEY, Date.now());
 		} catch (e) {
-			// On any failure, fall back to storing plain JSON
+			// On any failure, fall back to storing plain JSON (may still be brotli-wrapped by setStringIfValid;
+			// decodeRedisGraphRaw handles both shapes).
 			await setStringIfValid(REDIS_GRAPH_KEY, JSON.stringify(data));
 			await redis.set(REDIS_GRAPH_UPDATED_AT_KEY, Date.now());
 		}
