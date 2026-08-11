@@ -612,6 +612,7 @@ describe('FinraGraph DOM helpers (unit)', () => {
 
 		expect(resetState.selectedId).toBeNull();
 		expect(resetState.highlightedSelections).toEqual([]);
+		expect(resetState.persistentSelectedIds).toEqual([]);
 		expect(resetState.sidebarSelectedNode).toBeNull();
 	});
 
@@ -962,6 +963,7 @@ describe('FinraGraph DOM helpers (unit)', () => {
 			shouldRenderNodeSelected(node, {
 				selectedId: 'person:9999999',
 				highlightRootIds: new Set<string>(),
+				persistentSelectedIds: new Set<string>(),
 				visitedNodeIds: new Set(['person:4624219']),
 				isFetchedLeafNode: () => false,
 				isFetchedExhaustedConnectedNode: () => false,
@@ -976,11 +978,26 @@ describe('FinraGraph DOM helpers (unit)', () => {
 			shouldRenderNodeSelected(child, {
 				selectedId: 'person:4624219',
 				highlightRootIds: new Set(['person:4624219']),
+				persistentSelectedIds: new Set(['person:4624219']),
 				visitedNodeIds: new Set(['person:4624219', 'person:4624220']),
 				isFetchedLeafNode: () => false,
 				isFetchedExhaustedConnectedNode: () => false,
 			}),
 		).toBe(false);
+	});
+
+	it('shouldRenderNodeSelected keeps previously selected nodes after Clear Highlight (durable set)', () => {
+		const prior = { id: 'person:111', label: 'Prior Selected' } as any;
+
+		expect(
+			shouldRenderNodeSelected(prior, {
+				selectedId: 'person:222',
+				highlightRootIds: new Set<string>(), // hop roots cleared
+				persistentSelectedIds: new Set(['person:111', 'person:222']),
+				isFetchedLeafNode: () => false,
+				isFetchedExhaustedConnectedNode: () => false,
+			}),
+		).toBe(true);
 	});
 
 	it('shouldRenderNodeSelected still marks exhausted fetched nodes as selected', () => {

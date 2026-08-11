@@ -314,7 +314,9 @@ let simulation = null;
 let selectedId = null;
 let hoveredNodeId = null;
 let focusedNodeId = null;
-let highlightedSelections = []; // [{ id, hops }] — persistent multi-node highlight roots
+let highlightedSelections = []; // [{ id, hops }] — hop/line highlight roots (cleared by Clear Highlight)
+/** Nodes the user has selected/expanded — keep `.selected` chrome even after Clear Highlight (lines only). */
+let persistentSelectedIds = new Set<string>();
 let visitedNodeIds = new Set();
 let linkSel = null; // current <line> selection
 let nodeSel = null; // current <g.fg-node> selection
@@ -928,7 +930,11 @@ function getPersistedNodePositions({ compact = false } = {}) {
 	if (!Array.isArray(layoutNodes) || !layoutNodes.length) return [];
 	if (!compact) return layoutNodes.map((node) => buildPersistedNodePosition(node));
 
-	const focusIds = new Set([selectedId, ...highlightedSelections.map((entry) => entry?.id)].map((value) => String(value || '').trim()).filter(Boolean));
+	const focusIds = new Set(
+		[selectedId, ...highlightedSelections.map((entry) => entry?.id), ...Array.from(persistentSelectedIds)]
+			.map((value) => String(value || '').trim())
+			.filter(Boolean),
+	);
 	if (!focusIds.size) return [];
 	return layoutNodes.filter((node) => focusIds.has(String(node.id))).map((node) => buildPersistedNodePosition(node));
 }
@@ -957,7 +963,8 @@ function buildSessionPayload({ compact = false, extraNodeMode = 'full' }: { comp
 		extraNodes.length === 0 &&
 		(!Array.isArray(layoutLinks) || layoutLinks.length === 0) &&
 		!selectedId &&
-		highlightedSelections.length === 0;
+		highlightedSelections.length === 0 &&
+		persistentSelectedIds.size === 0;
 
 	return {
 		cleared: effectiveCleared,
@@ -969,6 +976,8 @@ function buildSessionPayload({ compact = false, extraNodeMode = 'full' }: { comp
 			id: entry.id,
 			hops: entry.hops === 'all' ? 'all' : Number(entry.hops) || 1,
 		})),
+		// Node selected chrome that survives Clear Highlight (line emphasis only).
+		selectedNodeIds: Array.from(persistentSelectedIds),
 		visitedNodeIds: Array.from(visitedNodeIds),
 		nodePositions: getPersistedNodePositions({ compact: shouldCompactLayout }),
 		extraNodes:
@@ -3195,6 +3204,7 @@ function clearChildNodeSelectionVisualState(nodeId: string) {
 	if (!normalizedNodeId) return;
 	highlightedSelections = highlightedSelections.filter((entry) => String(entry?.id || '').trim() !== normalizedNodeId);
 	visitedNodeIds.delete(normalizedNodeId);
+	persistentSelectedIds.delete(normalizedNodeId);
 	if (selectedId && String(selectedId).trim() === normalizedNodeId) {
 		selectedId = null;
 	}
@@ -3616,6 +3626,7 @@ function removeSelectionLogEntry(entryId: string) {
 				emitSelectedNodeRoute(null, { replace: true });
 			}
 			highlightedSelections = highlightedSelections.filter((sel) => String(sel.id).trim() !== removedId);
+			persistentSelectedIds.delete(removedId);
 			visitedNodeIds.delete(removedId);
 
 			if (initialServerNodeIds instanceof Set) {
@@ -3839,6 +3850,7 @@ function pruneGraphDataToKeepIds(keepIds: Set<string>) {
 	}
 
 	highlightedSelections = highlightedSelections.filter((selection) => keptNodeIds.has(String(selection?.id || '').trim()));
+	persistentSelectedIds = new Set(Array.from(persistentSelectedIds).filter((id) => keptNodeIds.has(String(id).trim())));
 	visitedNodeIds = new Set(Array.from(visitedNodeIds).filter((id) => keptNodeIds.has(String(id).trim())));
 
 	if (initialServerNodeIds instanceof Set) {
@@ -4194,6 +4206,7 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 		}
 
 		highlightedSelections = highlightedSelections.filter((selection) => keptNodeIds.has(String(selection?.id || '').trim()));
+		persistentSelectedIds = new Set(Array.from(persistentSelectedIds).filter((id) => keptNodeIds.has(String(id).trim())));
 		visitedNodeIds = new Set(Array.from(visitedNodeIds).filter((id) => keptNodeIds.has(String(id).trim())));
 
 		if (initialServerNodeIds instanceof Set) {
@@ -4366,11 +4379,18 @@ async function mapWithConcurrency<T, R>(items: T[], concurrency: number, worker:
 	return settledResults;
 }
 
+function rememberPersistentSelection(id: string | null | undefined) {
+	const normalized = String(id || '').trim();
+	if (!normalized) return;
+	persistentSelectedIds.add(normalized);
+}
+
 function upsertHighlightedSelection(id, hops = getDefaultSelectionHops(), options: { replace?: boolean } = {}) {
 	if (!id) return;
 	const normalizedHops = normalizeHighlightHops(hops);
 	const { replace = false } = options;
-	// Default: accumulate roots so prior selections stay highlighted when picking new nodes.
+	rememberPersistentSelection(id);
+	// Default: accumulate hop roots so prior selections still light their lines until Clear Highlight.
 	// replace: true is reserved for explicit reset-style selection if needed later.
 	if (replace) {
 		highlightedSelections = [{ id, hops: normalizedHops }];
@@ -4778,6 +4798,21 @@ function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: 
 
 		highlightedSelections = Array.from(mergedHighlightsById.values()).filter((entry) => entry.id && Array.isArray(layoutNodes) && layoutNodes.some((node) => node.id === entry.id));
 
+		// Restore durable selected-node chrome (survives Clear Highlight).
+		const restoredSelectedIds = Array.isArray(session?.selectedNodeIds) ? session.selectedNodeIds : [];
+		const nextPersistent = new Set<string>();
+		for (const id of restoredSelectedIds) {
+			const normalized = String(id || '').trim();
+			if (normalized && Array.isArray(layoutNodes) && layoutNodes.some((node) => node.id === normalized)) {
+				nextPersistent.add(normalized);
+			}
+		}
+		for (const entry of highlightedSelections) {
+			if (entry?.id) nextPersistent.add(String(entry.id));
+		}
+		if (session?.selectedNodeId) nextPersistent.add(String(session.selectedNodeId));
+		persistentSelectedIds = nextPersistent;
+
 		selectedId =
 			(Array.isArray(layoutNodes) && layoutNodes.some((node) => node.id === selectedId) ? selectedId : null) ||
 			highlightedSelections.find((entry) => entry.id === session?.selectedNodeId)?.id ||
@@ -4967,6 +5002,7 @@ export function clearSelectionState(_state: { selectedId?: string | null; highli
 	return {
 		selectedId: null,
 		highlightedSelections: [],
+		persistentSelectedIds: [] as string[],
 		sidebarSelectedNode: null,
 	};
 }
@@ -4983,6 +5019,7 @@ function clearGraphData() {
 	const resetSelectionState = clearSelectionState();
 	selectedId = resetSelectionState.selectedId;
 	highlightedSelections = resetSelectionState.highlightedSelections;
+	persistentSelectedIds = new Set(resetSelectionState.persistentSelectedIds || []);
 	updateFocusReadout(null);
 	visitedNodeIds.clear();
 	sidebarSelectedNode = resetSelectionState.sidebarSelectedNode;
@@ -9456,12 +9493,14 @@ function reapplySelectionState() {
 			shouldRenderNodeSelected(node, {
 				selectedId,
 				highlightRootIds: highlightState.rootIds,
+				persistentSelectedIds,
 				visitedNodeIds,
 				isFetchedLeafNode: (candidateNode) => isFetchedLeafNode(candidateNode),
 				isFetchedExhaustedConnectedNode: (candidateNode) => isFetchedExhaustedConnectedNode(candidateNode),
 			}),
 		)
-		.classed('highlighted-hop', (node) => node.id !== selectedId && !highlightState.rootIds.has(node.id) && highlightState.hopNodeIds.has(node.id));
+		// Hop emphasis (neighbor glow) is line-highlight companion state — cleared with Clear Highlight.
+		.classed('highlighted-hop', (node) => node.id !== selectedId && !highlightState.rootIds.has(node.id) && !persistentSelectedIds.has(node.id) && highlightState.hopNodeIds.has(node.id));
 
 	if (svgSel) {
 		svgSel.classed('fg-svg--has-highlights', hasHighlights);
@@ -9502,6 +9541,7 @@ export function shouldRenderNodeSelected(
 	options: {
 		selectedId?: string | null;
 		highlightRootIds?: Set<any>;
+		persistentSelectedIds?: Set<any> | Iterable<any>;
 		visitedNodeIds?: Set<any>;
 		isFetchedLeafNode?: (node: any) => boolean;
 		isFetchedExhaustedConnectedNode?: (node: any) => boolean;
@@ -9511,6 +9551,7 @@ export function shouldRenderNodeSelected(
 	const {
 		selectedId: candidateSelectedId = null,
 		highlightRootIds = new Set<any>(),
+		persistentSelectedIds: durableSelectedIds = new Set<any>(),
 		// visitedNodeIds intentionally unused for selected chrome — visiting during expand
 		// must not paint every walked node as "selected" (that looked like multi-hop selection).
 		visitedNodeIds: _visitedIds = new Set<any>(),
@@ -9518,9 +9559,19 @@ export function shouldRenderNodeSelected(
 		isFetchedExhaustedConnectedNode: isFetchedExhaustedConnectedNodeFn = () => false,
 	} = options;
 
-	// Only the active selection (and multi-root highlight roots when restored) get selected chrome.
+	const durableSet =
+		durableSelectedIds instanceof Set ? durableSelectedIds : new Set(Array.from(durableSelectedIds || []).map((id) => String(id || '').trim()).filter(Boolean));
+
+	// Active selection + every node the user has already selected/expanded stays selected.
+	// Clear Highlight does not remove durableSelectedIds — only hop/line emphasis.
 	// Hop neighbors use `highlighted-hop`; exhausted leaves keep the fetched-leaf markers.
-	return node.id === candidateSelectedId || highlightRootIds.has(node.id) || isFetchedLeafNodeFn(node) || isFetchedExhaustedConnectedNodeFn(node);
+	return (
+		node.id === candidateSelectedId ||
+		highlightRootIds.has(node.id) ||
+		durableSet.has(node.id) ||
+		isFetchedLeafNodeFn(node) ||
+		isFetchedExhaustedConnectedNodeFn(node)
+	);
 }
 
 function markNodeSelected(node, options: { persist?: boolean } = {}) {
@@ -13319,6 +13370,8 @@ function updateShortDetail(d) {
 }
 
 function clearHighlights() {
+	// Clear line/hop emphasis only. Keep selectedId + persistentSelectedIds so every
+	// node the user has already selected/expanded retains selected chrome.
 	disableAllTraceModes();
 	if (!nodeSel) return;
 	clearFetchStatus();
@@ -13331,6 +13384,8 @@ function clearHighlights() {
 	focusedNodeId = null;
 	highlightedSelections = [];
 	clearFindMatches();
+	// Ensure active selection remains in the durable selected set.
+	if (selectedId) rememberPersistentSelection(selectedId);
 	reapplySelectionState();
 	try {
 		saveSession();
