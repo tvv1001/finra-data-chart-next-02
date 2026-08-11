@@ -1,5 +1,6 @@
 import type { Redis } from '@upstash/redis';
 import { getRedisClientInstance } from '@/lib/redisClient';
+import { decompressPayload } from '@/lib/redisCache';
 import type { LocalSearchEntity, LocalSearchResponse, LocalSearchSource } from './localSearch';
 
 let cachedRedisClient: Redis | null = null;
@@ -30,7 +31,14 @@ export async function searchDirectRedisFallback(
 		const raw = await redis.get(key);
 		if (!raw) return null;
 
-		const doc = typeof raw === 'string' ? JSON.parse(raw) : raw;
+		// Support brotli `br:` binary cache payloads without scanning other keys.
+		const doc =
+			typeof raw === 'string' ?
+				(() => {
+					const text = decompressPayload(raw);
+					return typeof text === 'string' ? JSON.parse(text) : text;
+				})()
+			:	raw;
 		const id = type === 'individual' ? `person:${normalizedQuery}` : `firm:${normalizedQuery}`;
 		
 		const limit = options.limit ?? 12;

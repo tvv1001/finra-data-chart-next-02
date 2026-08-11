@@ -9,7 +9,16 @@
 // The index is built once per warm serverless instance and cached in-memory, keyed by a cheap
 // "signature" (total individual-key count) so it's rebuilt only when the underlying Redis data
 // changes shape. This mirrors dashboard-crds's in-memory cachedIndex/cachedIndexPromise pattern.
-import { getRedisClient } from '@/lib/redisCache';
+//
+// Throughput: Redis is shared with other applications. Full SCAN+MGET of every individual key
+// (~15k+) is DISABLED by default. Opt in with FINRA_FIRM_EMPLOYMENT_FULL_SCAN=1 only for
+// offline/admin jobs — never for interactive request paths when other tenants share the DB.
+import { getRedisClient, decompressPayload } from '@/lib/redisCache';
+
+/** Full individual-key scan is expensive on shared Redis; off unless explicitly enabled. */
+export function isFirmEmploymentFullScanEnabled(): boolean {
+	return process.env.FINRA_FIRM_EMPLOYMENT_FULL_SCAN === '1';
+}
 
 export type EmploymentEdge = {
 	personCrd: string;
@@ -46,11 +55,13 @@ function firstNonEmpty(...values: unknown[]) {
 // Unwraps the raw Redis payload shape (`{ hits: { hits: [{ _source: { content: "<json>" } }] } }`
 // or a flatter already-parsed object) into the individual's basicInformation + employment arrays,
 // mirroring parseDetailPayload() in src/app/api/finra/firm/[id]/route.ts.
-function unwrapIndividualPayload(raw: unknown): any | null {
+// Supports brotli `br:` payloads written by redisCache.compressPayload after the binary cache change.
+export function unwrapIndividualPayload(raw: unknown): any | null {
 	let data: any = raw;
 	if (typeof data === 'string') {
 		try {
-			data = JSON.parse(data);
+			const decompressed = decompressPayload(data);
+			data = typeof decompressed === 'string' ? JSON.parse(decompressed) : decompressed;
 		} catch {
 			return null;
 		}
@@ -200,9 +211,12 @@ async function getFirmEmployeeIndex(): Promise<FirmEmployeeIndex> {
 // Returns every current + previous employment edge for the given firm CRD, found by scanning ALL
 // saved individual payloads in Redis (regardless of search-index coverage). Deduplicated by
 // personCrd+isCurrent, mirroring dashboard-crds's seenPersonFirm Set.
+//
+// No-ops unless FINRA_FIRM_EMPLOYMENT_FULL_SCAN=1 to keep shared-Redis throughput low.
 export async function getFirmEmploymentEdgesFromFullScan(firmId: string): Promise<EmploymentEdge[]> {
 	const normalizedFirmId = String(firmId || '').trim();
 	if (!normalizedFirmId) return [];
+	if (!isFirmEmploymentFullScanEnabled()) return [];
 
 	try {
 		const index = await getFirmEmployeeIndex();

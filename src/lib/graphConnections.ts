@@ -11,11 +11,10 @@
 // cache layer used by the firm/individual detail routes and the graph store — so repeated lookups
 // for the same firm reuse the shared resource instead of recomputing the search/graph scan each time.
 import { getFullGraph } from '@/lib/graphStore';
-import { searchLocalIndex, extractSearchQueries, hasMinimumSearchQuery } from '@/lib/localSearch';
+import { searchLocalIndex, hasMinimumSearchQuery } from '@/lib/localSearch';
 import { cachedFetch } from '@/lib/simpleCache';
 import { searchGraphFallback } from '@/lib/searchGraphFallback';
 import { searchDirectRedisFallback } from '@/lib/searchDirectFallback';
-import { searchExternalFallback } from '@/lib/searchExternalFallback';
 import { getFirmEmploymentEdgesFromFullScan } from '@/lib/firmEmploymentIndex';
 
 export type GraphConnectionEntry = {
@@ -28,12 +27,6 @@ export type GraphConnectionEntry = {
 };
 
 const FIRM_CONNECTIONS_CACHE_TTL_SECONDS = 60 * 60; // 1 hour, matching the firm detail route's shared cache headers
-
-function getInternalBaseUrl() {
-	const url = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || process.env.VERCEL_BRANCH_URL?.trim() || process.env.VERCEL_URL?.trim();
-	if (!url) return '';
-	return /^https?:\/\//i.test(url) ? url.replace(/\/$/, '') : `https://${url.replace(/\/$/, '')}`;
-}
 
 function toArraySafe(value: unknown): any[] {
 	return Array.isArray(value) ? value : [];
@@ -54,6 +47,9 @@ async function searchIndividualsForFirmWithFallback(source: 'finra' | 'sec', fir
 	// dashboard's Current/Previous Connections have full parity with the graph's node-click panel,
 	// instead of only ever checking the (often tiny) local static index.
 	const limit = 30;
+	// Keep connection discovery Redis-light on a shared database:
+	// local index (disk/static) → mono graph snapshot → single-key direct record.
+	// Skip external fan-out and full individual SCAN here.
 	const local = await searchLocalIndex(source, 'individual', firmId, { limit }).catch(() => null);
 	if (local && local.total > 0) return toArraySafe(local?.hits?.hits).map((hit: any) => hit?._source || hit || {});
 
@@ -64,12 +60,6 @@ async function searchIndividualsForFirmWithFallback(source: 'finra' | 'sec', fir
 
 	const directFallback = await searchDirectRedisFallback(source, 'individual', firmId, { limit }).catch(() => null);
 	if (directFallback) return toArraySafe(directFallback?.hits?.hits).map((hit: any) => hit?._source || hit || {});
-
-	// baseUrl isn't available/needed here since searchExternalFallback calls the upstream API
-	// directly rather than our own deployment; pass an empty string (only used for background
-	// pre-fetch cache warming, which is best-effort and non-blocking).
-	const externalFallback = await searchExternalFallback(source, 'individual', firmId, getInternalBaseUrl()).catch(() => null);
-	if (externalFallback) return toArraySafe(externalFallback?.hits?.hits).map((hit: any) => hit?._source || hit || {});
 
 	return [];
 }
@@ -204,15 +194,14 @@ async function getConnectionsFromFullScanIndex(firmId: string): Promise<GraphCon
 }
 
 async function computeFirmConnectionsFromGraph(firmId: string): Promise<{ currentConnections: GraphConnectionEntry[]; previousConnections: GraphConnectionEntry[] }> {
-	const [searchEntries, graphEntries, fullScanEntries] = await Promise.all([
+	// Prefer cheap sources first. Full individual SCAN is opt-in only (shared Redis throughput).
+	const [searchEntries, graphEntries] = await Promise.all([
 		getConnectionsFromSearchIndex(firmId).catch(() => [] as GraphConnectionEntry[]),
 		getConnectionsFromGraphStore(firmId).catch(() => [] as GraphConnectionEntry[]),
-		// Full-Redis-scan reverse employment index (see src/lib/firmEmploymentIndex.ts), ported from
-		// the sibling dashboard-crds app. This is the only source that finds previous employments
-		// for individuals never search-indexed or graph-linked under this firm's CRD, so it's
-		// merged in last as the most complete/authoritative source for "connections over time".
-		getConnectionsFromFullScanIndex(firmId).catch(() => [] as GraphConnectionEntry[]),
 	]);
+
+	// Only run when FINRA_FIRM_EMPLOYMENT_FULL_SCAN=1 — otherwise this no-ops immediately.
+	const fullScanEntries = await getConnectionsFromFullScanIndex(firmId).catch(() => [] as GraphConnectionEntry[]);
 
 	const current: GraphConnectionEntry[] = [];
 	const previous: GraphConnectionEntry[] = [];

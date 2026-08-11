@@ -274,7 +274,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		}
 
 		if (isMergedRoute) {
+			// Default: defer connections so firm detail (single Redis key GETs) stays fast on a
+			// shared Redis. Opt in with includeConnections=1. Explicit defer/lazy still honor skip.
+			const includeConnections = request.nextUrl.searchParams.get('includeConnections') === '1';
 			const deferConnections =
+				!includeConnections ||
 				request.nextUrl.searchParams.get('deferConnections') === '1' ||
 				request.nextUrl.searchParams.get('lazyConnections') === '1' ||
 				request.nextUrl.searchParams.get('includeConnections') === '0';

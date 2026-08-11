@@ -668,8 +668,11 @@ export async function getFullGraph() {
 		try {
 			let raw = await redis.get<string>(REDIS_GRAPH_KEY);
 
-			if (!raw) {
-				// check for chunked manifest
+			// Chunked national graph parts can be multi-MB. Redis is shared with other apps —
+			// only pull parts when mono key is missing AND FINRA_LOAD_CHUNKED_GRAPH=1.
+			// Deploy/admin scripts should rehydrate a compact `finra:graph` offline instead of
+			// serving multi-MB parts on every serverless cold start.
+			if (!raw && process.env.FINRA_LOAD_CHUNKED_GRAPH === '1') {
 				const manifestKey = `${REDIS_GRAPH_KEY}:manifest`;
 				const rawManifest = await redis.get<string>(manifestKey);
 				if (rawManifest) {

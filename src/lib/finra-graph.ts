@@ -1843,8 +1843,32 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 	}
 	if (liveNode) return liveNode;
 
+	// Prefer firm/person detail hydration first. Deep links like /firm/107342 start from an empty
+	// custom profile; expand/nodes-by-ids load the shared Redis graph and can time out or miss
+	// nodes that still have detail records in Redis. Detail keys are cheap single-key GETs.
+	const [nodePrefix, rawNodeId] = normalizedNodeId.split(':');
+	if (rawNodeId && /^[0-9]+$/.test(rawNodeId) && (nodePrefix === 'person' || nodePrefix === 'firm')) {
+		try {
+			const fetchedBatch = nodePrefix === 'person' ? await fetchIndividualBatch(rawNodeId) : await fetchFirmBatch(rawNodeId);
+			if (fetchedBatch.nodes.length || fetchedBatch.links.length) {
+				mergeIntoGraphData(fetchedBatch.nodes, fetchedBatch.links);
+				appendFetched?.(fetchedBatch.nodes, fetchedBatch.links);
+				liveNode = layoutNodes?.find((node) => node.id === normalizedNodeId) || graphData?.nodes?.find((node) => node.id === normalizedNodeId) || null;
+			}
+		} catch (error) {
+			console.warn('Failed to hydrate route-selected node directly from detail APIs:', error);
+		}
+	}
+
+	if (liveNode) return liveNode;
+
+	// Graph expand / id lookup are best-effort only and must not block deep-link selection for long.
+	// Shared Redis is multi-tenant — keep these calls short.
 	try {
-		const expansion = await fetchExpansionDataForNodeIds([normalizedNodeId], getDefaultExpansionHops(), { strictHops: true });
+		const expansion = await Promise.race([
+			fetchExpansionDataForNodeIds([normalizedNodeId], getDefaultExpansionHops(), { strictHops: true }),
+			new Promise<{ nodes: any[]; links: any[] }>((resolve) => setTimeout(() => resolve({ nodes: [], links: [] }), 4000)),
+		]);
 		if (expansion.nodes.length || expansion.links.length) {
 			mergeIntoGraphData(expansion.nodes, expansion.links);
 			appendFetched?.(expansion.nodes, expansion.links);
@@ -1857,7 +1881,10 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 	if (liveNode) return liveNode;
 
 	try {
-		const fetchedNodes = await fetchNodesByIds([normalizedNodeId]);
+		const fetchedNodes = await Promise.race([
+			fetchNodesByIds([normalizedNodeId]),
+			new Promise<any[]>((resolve) => setTimeout(() => resolve([]), 3000)),
+		]);
 		if (fetchedNodes.length) {
 			mergeIntoGraphData(fetchedNodes, []);
 			injectNodesById(fetchedNodes.map((node) => node.id));
@@ -1865,25 +1892,6 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 		}
 	} catch (error) {
 		console.warn('Failed to fetch route-selected node by id:', error);
-	}
-
-	if (liveNode) return liveNode;
-
-	const [nodePrefix, rawNodeId] = normalizedNodeId.split(':');
-	if (rawNodeId && /^[0-9]+$/.test(rawNodeId)) {
-		try {
-			const fetchedBatch =
-				nodePrefix === 'person' ? await fetchIndividualBatch(rawNodeId)
-				: nodePrefix === 'firm' ? await fetchFirmBatch(rawNodeId)
-				: { nodes: [], links: [] };
-			if (fetchedBatch.nodes.length || fetchedBatch.links.length) {
-				mergeIntoGraphData(fetchedBatch.nodes, fetchedBatch.links);
-				appendFetched?.(fetchedBatch.nodes, fetchedBatch.links);
-				liveNode = layoutNodes?.find((node) => node.id === normalizedNodeId) || graphData?.nodes?.find((node) => node.id === normalizedNodeId) || null;
-			}
-		} catch (error) {
-			console.warn('Failed to hydrate route-selected node directly from detail APIs:', error);
-		}
 	}
 
 	return liveNode;
@@ -7382,11 +7390,15 @@ async function fetchFirmBatch(firmId, queryLabel = null) {
 		});
 	}
 
-	// Also search for some employees to show more connections for this firm
+	// Optional employee stubs for the firm. Cap time so deep links (/firm/:id) stay responsive
+	// and shared Redis is not held by a long search fallback chain during initial hydrate.
 	try {
 		const searchUrl = `${BASE}/api/finra/search?query=${encodeURIComponent(firmId)}&nrows=30`;
-		const searchRes = await fetch(searchUrl);
-		if (searchRes.ok) {
+		const searchRes = await Promise.race([
+			fetch(searchUrl),
+			new Promise<Response | null>((resolve) => setTimeout(() => resolve(null), 3500)),
+		]);
+		if (searchRes && searchRes.ok) {
 			const searchData = await searchRes.json();
 			const hits = searchData?.hits?.hits || searchData?.results || [];
 			for (const hit of hits) {
@@ -12027,7 +12039,11 @@ async function materializeRouteSelectionNeighborhood(node, hops: number = getDef
 	}
 
 	try {
-		await ensureExpansionDataForNode(node.id, normalizedHops);
+		// Cap graph-expand Redis work so deep links remain responsive on a shared Redis instance.
+		await Promise.race([
+			ensureExpansionDataForNode(node.id, normalizedHops),
+			new Promise<void>((resolve) => setTimeout(() => resolve(), 4000)),
+		]);
 	} catch (error) {
 		console.warn('Failed to fetch route-selected neighborhood from server:', error);
 	}
