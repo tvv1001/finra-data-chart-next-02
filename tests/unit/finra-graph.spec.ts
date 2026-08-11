@@ -1061,36 +1061,32 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(shouldAutoExpandRouteSelection('person:4240769', null)).toBe(true);
 	});
 
-	it('getAutoExpansionHopsForNode caps very high-degree individual expansion to two hops', () => {
-		const node = {
+	it('getAutoExpansionHopsForNode uses exactly the requested hop count (default click is 1 hop)', () => {
+		const densePerson = {
 			id: 'person:4240769',
 			group: 'individual',
 			currentEmployments: Array.from({ length: 20 }, (_, index) => ({ firmId: String(1000 + index) })),
 			currentIAEmployments: [],
 		} as any;
-
-		expect(getAutoExpansionHopsForNode(node, 2)).toBe(2);
-	});
-
-	it('getAutoExpansionHopsForNode preserves requested hops for smaller neighborhoods', () => {
-		const node = {
+		const sparsePerson = {
 			id: 'person:123',
 			group: 'individual',
 			currentEmployments: [{ firmId: '1' }, { firmId: '2' }],
 			currentIAEmployments: [],
 		} as any;
-
-		expect(getAutoExpansionHopsForNode(node, 2)).toBe(2);
-	});
-
-	it('getAutoExpansionHopsForNode preserves requested hops for firms even when they have many connections', () => {
-		const node = {
+		const denseFirm = {
 			id: 'firm:11469',
 			group: 'firm',
 			directOwners: Array.from({ length: 30 }, (_, index) => ({ crdNumber: String(4000000 + index) })),
 		} as any;
 
-		expect(getAutoExpansionHopsForNode(node, 2)).toBe(2);
+		// Never auto-bump dense nodes past the requested hop count (used to force 2 hops).
+		expect(getAutoExpansionHopsForNode(densePerson, 1)).toBe(1);
+		expect(getAutoExpansionHopsForNode(sparsePerson, 1)).toBe(1);
+		expect(getAutoExpansionHopsForNode(denseFirm, 1)).toBe(1);
+		expect(getAutoExpansionHopsForNode(densePerson, 2)).toBe(2);
+		expect(getAutoExpansionHopsForNode(sparsePerson, 2)).toBe(2);
+		expect(getAutoExpansionHopsForNode(denseFirm, 2)).toBe(2);
 	});
 
 	it('shouldHydrateExpansionFrontierNodeDetail skips background firm hydration unless explicitly enabled', () => {

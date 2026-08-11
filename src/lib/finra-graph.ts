@@ -4364,9 +4364,8 @@ function upsertHighlightedSelection(id, hops = getDefaultSelectionHops(), option
 	if (!id) return;
 	const normalizedHops = normalizeHighlightHops(hops);
 	const { replace = false } = options;
-	// Single-click selection should only emphasize the chosen node + its neighborhood.
-	// Accumulating every historical root made hop-1 highlights look multi-hop as prior
-	// selections stayed bright alongside the new one.
+	// Default: accumulate roots so prior selections stay highlighted when picking new nodes.
+	// replace: true is reserved for explicit reset-style selection if needed later.
 	if (replace) {
 		highlightedSelections = [{ id, hops: normalizedHops }];
 		return;
@@ -9519,8 +9518,8 @@ export function shouldRenderNodeSelected(
 function markNodeSelected(node, options: { persist?: boolean } = {}) {
 	if (!node?.id) return;
 	const { persist = true } = options;
-	// Keep selection emphasis on the current node only (direct neighbors).
-	upsertHighlightedSelection(node.id, 1, { replace: true });
+	// Keep prior highlight roots; add this node + its direct neighbors.
+	upsertHighlightedSelection(node.id, 1, { replace: false });
 	selectedId = node.id;
 	visitedNodeIds.add(node.id);
 	refreshTraceState();
@@ -10719,9 +10718,16 @@ async function mergeIndividualOwnerEvidence(personNode, options: { allowFirmDeta
 
 // Fetch individual detail from API and merge all data into the node.
 // Called when an individual node is selected to hydrate missing data.
-async function ensureIndividualDetail(personNode, options: { allowOwnerEvidenceFirmFetch?: boolean } = {}) {
+async function ensureIndividualDetail(
+	personNode,
+	options: {
+		allowOwnerEvidenceFirmFetch?: boolean;
+		/** When false, enrich the person node only — do not append employers/control firms into the live graph (keeps click expansion to one hop). */
+		injectEmploymentGraph?: boolean;
+	} = {},
+) {
 	if (!personNode || personNode.group !== 'individual') return;
-	const { allowOwnerEvidenceFirmFetch = true } = options;
+	const { allowOwnerEvidenceFirmFetch = true, injectEmploymentGraph = true } = options;
 
 	// Extract CRD from node ID.
 	// Supports "person:6482604", legacy "person_6482604", and bare numeric ids.
@@ -10741,7 +10747,7 @@ async function ensureIndividualDetail(personNode, options: { allowOwnerEvidenceF
 		return;
 	}
 
-	const requestCacheKey = `${crd}|ownerEvidence:${allowOwnerEvidenceFirmFetch ? '1' : '0'}`;
+	const requestCacheKey = `${crd}|ownerEvidence:${allowOwnerEvidenceFirmFetch ? '1' : '0'}|injectGraph:${injectEmploymentGraph ? '1' : '0'}`;
 	const existingRequest = individualDetailRequestCache.get(requestCacheKey);
 	if (existingRequest) {
 		await existingRequest;
@@ -10827,7 +10833,11 @@ async function ensureIndividualDetail(personNode, options: { allowOwnerEvidenceF
 
 			try {
 				applyIndividualDetail(personNode, detail, crd);
-				syncIndividualConnectionsFromDetail(personNode, detail);
+				// Expansion frontier hydration must not pull hop-2 employers into the canvas.
+				// Full employment graph is injected when the user explicitly opens that person.
+				if (injectEmploymentGraph) {
+					syncIndividualConnectionsFromDetail(personNode, detail);
+				}
 				personNode._trustedCurrentRelationshipData = hasRichIndividualDetail(detail);
 				personNode._detailLoaded = true;
 				personNode._detailMissing = false;
@@ -11714,10 +11724,17 @@ export function shouldHydrateExpansionFrontierNodeDetail(node, options: { includ
 	return false;
 }
 
-async function hydrateExpansionFrontierNodes(nodeIds: string[] = [], options: { includeFirmDetails?: boolean } = {}) {
+async function hydrateExpansionFrontierNodes(
+	nodeIds: string[] = [],
+	options: {
+		includeFirmDetails?: boolean;
+		/** Default false: label/detail only. True only when the user opened that node. */
+		injectEmploymentGraph?: boolean;
+	} = {},
+) {
 	const uniqueIds = Array.from(new Set(nodeIds.filter(Boolean)));
 	if (!uniqueIds.length) return [];
-	const { includeFirmDetails = false } = options;
+	const { includeFirmDetails = false, injectEmploymentGraph = false } = options;
 
 	const hydratedIds = new Set<string>();
 	for (let index = 0; index < uniqueIds.length; index += NON_GRAY_DETAIL_BATCH_SIZE) {
@@ -11728,8 +11745,13 @@ async function hydrateExpansionFrontierNodes(nodeIds: string[] = [], options: { 
 				if (!liveNode) return null;
 				if (!shouldHydrateExpansionFrontierNodeDetail(liveNode, { includeFirmDetails })) return null;
 				if (liveNode.group === 'individual') {
-					await ensureIndividualDetail(liveNode, { allowOwnerEvidenceFirmFetch: includeFirmDetails });
+					await ensureIndividualDetail(liveNode, {
+						allowOwnerEvidenceFirmFetch: includeFirmDetails,
+						// Never inject hop-2 employers while walking an expansion frontier.
+						injectEmploymentGraph: injectEmploymentGraph === true,
+					});
 				} else if (liveNode.group === 'firm') {
+					// Detail only — do not fan out firm employment connections during expansion.
 					await ensureFirmDetail(liveNode);
 				} else {
 					return null;
@@ -11810,19 +11832,23 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 			spreadNeighbors(clickedNode, new Set(hiddenIds), { duration: revealTiming.animationMs });
 		}
 
-		// Pass 2: Fetch and hydrate detail for currentWaveIds to discover even MORE neighbors
-		const hydrationPromise = hydrateExpansionFrontierNodes(currentWaveIds, { includeFirmDetails: false });
+		// Pass 2: Fetch 1-hop neighbors for this wave only. Detail hydration must not inject
+		// further graph relations (that would leak hop N+1 employers into the canvas).
+		const hydrationPromise = hydrateExpansionFrontierNodes(currentWaveIds, {
+			includeFirmDetails: false,
+			injectEmploymentGraph: false,
+		});
 		const expansionPromise = fetchExpansionDataForNodeIds(currentWaveIds, 1, { strictHops: true });
-		// Firm employment edges are often absent from the mono graph; pull reverse-index connections.
-		const firmConnectionPromise = Promise.all(
-			currentWaveIds
-				.filter((id) => String(id).startsWith('firm:'))
-				.map(async (firmNodeId) => {
-					const firmNode = (layoutNodes || []).find((node) => node.id === firmNodeId) ||
-						(graphData?.nodes || []).find((node) => node.id === firmNodeId) || { id: firmNodeId, group: 'firm' };
-					await ensureFirmConnections(firmNode);
-				}),
-		);
+		// Only the user-clicked firm may pull employment connections. Doing this for every firm
+		// discovered mid-expansion fans out past one hop (people → their other firms → …).
+		const firmConnectionPromise =
+			wave === 1 && clickedNode.group === 'firm' && currentWaveIds.includes(clickedNode.id) ?
+				ensureFirmConnections(
+					(layoutNodes || []).find((node) => node.id === clickedNode.id) ||
+						(graphData?.nodes || []).find((node) => node.id === clickedNode.id) ||
+						clickedNode,
+				)
+			:	Promise.resolve();
 
 		await Promise.all([
 			hydrationPromise,
@@ -11879,9 +11905,10 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 		currentWaveIds = nextWaveIds;
 	}
 
-	// Final hydration pass for any newly revealed frontier nodes (leaf nodes of the expansion)
+	// Final hydration: labels/scopes only — never inject employment graphs on leaf nodes
+	// (that was revealing "past direct connections" when a firm was clicked).
 	if (currentWaveIds.length && runId === nonGrayExpandRunId) {
-		await hydrateExpansionFrontierNodes(currentWaveIds, { includeFirmDetails: false });
+		await hydrateExpansionFrontierNodes(currentWaveIds, { includeFirmDetails: false, injectEmploymentGraph: false });
 	}
 
 	refreshTraceState({ deferMs: 120 });
@@ -12356,16 +12383,9 @@ export function shouldAutoExpandRouteSelection(targetNodeId: string | null | und
 export function getAutoExpansionHopsForNode(node, requestedHops = getDefaultClickExpansionHops()) {
 	const normalizedHops = normalizeHighlightHops(requestedHops);
 	if (normalizedHops === 'all') return normalizedHops;
-	if (normalizedHops <= 1) return normalizedHops;
-
-	if (node?.group === 'individual' || node?.group === 'firm') {
-		const directNeighborCount = Math.max(getDirectAutoExpansionNeighborCount(node), getExpectedRevealableNeighborIds(node).size);
-		if (directNeighborCount > AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT) {
-			return Math.min(normalizedHops, 2);
-		}
-	}
-
-	return normalizedHops;
+	// Clicks always expand exactly the requested hop count (default 1). Never bump dense
+	// firms/people to 2 hops — that revealed nodes past current direct connections.
+	return Math.max(1, Number(normalizedHops) || 1);
 }
 
 const nodeExpansionQueue: Array<{
@@ -12548,10 +12568,10 @@ function selectNode(
 		releasePinnedSelectedNodeAnchor(selectedId);
 	}
 
-	// Replace multi-root history so selection emphasis is only this node + direct neighbors.
-	// Prior roots staying active made 2nd-degree nodes stay lit. Force 1 hop on click
+	// Accumulate highlight roots: each selection stays lit (node + 1-hop neighbors/links)
+	// alongside prior selections. Clear Highlight resets the set. Force 1 hop on click
 	// even if runtime selection hops were raised (sliders are currently hidden).
-	upsertHighlightedSelection(d.id, 1, { replace: true });
+	upsertHighlightedSelection(d.id, 1, { replace: false });
 	selectedId = d.id;
 	visitedNodeIds.add(d.id);
 	if (syncRoute) {
