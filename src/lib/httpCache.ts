@@ -3,6 +3,6 @@ export function sharedCacheHeaders(
   staleWhileRevalidateSeconds = 86400,
 ) {
   return {
-    "Cache-Control": `public, s-maxage=${sMaxAgeSeconds}, stale-while-revalidate=${staleWhileRevalidateSeconds}`,
+    "Cache-Control": `public, max-age=${sMaxAgeSeconds}, s-maxage=${sMaxAgeSeconds}, stale-while-revalidate=${staleWhileRevalidateSeconds}`,
   };
 }

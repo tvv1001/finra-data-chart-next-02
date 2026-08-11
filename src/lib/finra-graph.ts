@@ -5015,7 +5015,7 @@ async function loadBaselineGraph(profileName, { suppressRender = false }: { supp
 	if (profileName) {
 		url.searchParams.set('profile', profileName);
 	}
-	const res = await fetch(url.toString(), { cache: 'no-store' });
+	const res = await fetch(url.toString());
 	if (!res.ok) {
 		if (res.status === 404) {
 			sidebarSelectedNode = null;
@@ -5839,7 +5839,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 			try {
 				const url = makeApiUrl('/api/finra/graph');
 				if (limit > 0) url.searchParams.set('limit', String(limit));
-				const r = await fetch(url.toString(), { cache: 'no-store' });
+				const r = await fetch(url.toString());
 				if (!r.ok) throw new Error(`HTTP ${r.status}`);
 				graphData = await r.json();
 				// Reset baseline snapshot for this newly loaded server subset.
@@ -6567,7 +6567,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 			const url = makeApiUrl('/api/finra/graph');
 			url.searchParams.set('limit', '1');
 			if (profileName) url.searchParams.set('profile', profileName);
-			const r = await fetch(url.toString(), { cache: 'no-store' });
+			const r = await fetch(url.toString());
 			if (!r.ok) return;
 			const j = await r.json();
 			if (j && j.meta) {
