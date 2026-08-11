@@ -4360,9 +4360,17 @@ async function mapWithConcurrency<T, R>(items: T[], concurrency: number, worker:
 	return settledResults;
 }
 
-function upsertHighlightedSelection(id, hops = getDefaultSelectionHops()) {
+function upsertHighlightedSelection(id, hops = getDefaultSelectionHops(), options: { replace?: boolean } = {}) {
 	if (!id) return;
 	const normalizedHops = normalizeHighlightHops(hops);
+	const { replace = false } = options;
+	// Single-click selection should only emphasize the chosen node + its neighborhood.
+	// Accumulating every historical root made hop-1 highlights look multi-hop as prior
+	// selections stayed bright alongside the new one.
+	if (replace) {
+		highlightedSelections = [{ id, hops: normalizedHops }];
+		return;
+	}
 	highlightedSelections = highlightedSelections.filter((entry) => entry.id !== id);
 	highlightedSelections.push({ id, hops: normalizedHops });
 }
@@ -9496,18 +9504,23 @@ export function shouldRenderNodeSelected(
 	const {
 		selectedId: candidateSelectedId = null,
 		highlightRootIds = new Set<any>(),
-		visitedNodeIds: visitedIds = new Set<any>(),
+		// visitedNodeIds intentionally unused for selected chrome — visiting during expand
+		// must not paint every walked node as "selected" (that looked like multi-hop selection).
+		visitedNodeIds: _visitedIds = new Set<any>(),
 		isFetchedLeafNode: isFetchedLeafNodeFn = () => false,
 		isFetchedExhaustedConnectedNode: isFetchedExhaustedConnectedNodeFn = () => false,
 	} = options;
 
-	return node.id === candidateSelectedId || highlightRootIds.has(node.id) || visitedIds.has(node.id) || isFetchedLeafNodeFn(node) || isFetchedExhaustedConnectedNodeFn(node);
+	// Only the active selection (and multi-root highlight roots when restored) get selected chrome.
+	// Hop neighbors use `highlighted-hop`; exhausted leaves keep the fetched-leaf markers.
+	return node.id === candidateSelectedId || highlightRootIds.has(node.id) || isFetchedLeafNodeFn(node) || isFetchedExhaustedConnectedNodeFn(node);
 }
 
 function markNodeSelected(node, options: { persist?: boolean } = {}) {
 	if (!node?.id) return;
 	const { persist = true } = options;
-	upsertHighlightedSelection(node.id, getDefaultSelectionHops());
+	// Keep selection emphasis on the current node only (direct neighbors).
+	upsertHighlightedSelection(node.id, 1, { replace: true });
 	selectedId = node.id;
 	visitedNodeIds.add(node.id);
 	refreshTraceState();
@@ -12535,8 +12548,10 @@ function selectNode(
 		releasePinnedSelectedNodeAnchor(selectedId);
 	}
 
-	const hops = getDefaultSelectionHops();
-	upsertHighlightedSelection(d.id, hops);
+	// Replace multi-root history so selection emphasis is only this node + direct neighbors.
+	// Prior roots staying active made 2nd-degree nodes stay lit. Force 1 hop on click
+	// even if runtime selection hops were raised (sliders are currently hidden).
+	upsertHighlightedSelection(d.id, 1, { replace: true });
 	selectedId = d.id;
 	visitedNodeIds.add(d.id);
 	if (syncRoute) {

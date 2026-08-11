@@ -962,6 +962,7 @@ describe('FinraGraph DOM helpers (unit)', () => {
 			shouldRenderNodeSelected(node, {
 				selectedId: 'person:9999999',
 				highlightRootIds: new Set<string>(),
+				visitedNodeIds: new Set(['person:4624219']),
 				isFetchedLeafNode: () => false,
 				isFetchedExhaustedConnectedNode: () => false,
 			}),
@@ -975,6 +976,7 @@ describe('FinraGraph DOM helpers (unit)', () => {
 			shouldRenderNodeSelected(child, {
 				selectedId: 'person:4624219',
 				highlightRootIds: new Set(['person:4624219']),
+				visitedNodeIds: new Set(['person:4624219', 'person:4624220']),
 				isFetchedLeafNode: () => false,
 				isFetchedExhaustedConnectedNode: () => false,
 			}),
