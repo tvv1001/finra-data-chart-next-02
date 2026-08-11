@@ -8,7 +8,7 @@ import { readFile, writeFile, mkdir, access, unlink, constants } from 'node:fs/p
 import * as crypto from 'node:crypto';
 import * as path from 'node:path';
 import { gunzipOffload } from './gzipWorker';
-import { Redis } from '@upstash/redis';
+import { getRedisClientInstance } from '@/lib/redisClient';
 import { setStringIfValid, decompressPayload } from '@/lib/redisCache';
 import { DATA_DIR, PRIMED_CACHE_DIR } from './constants';
 import { canCallExternalApis } from '@/lib/externalApiGate';
@@ -54,7 +54,7 @@ function getUpstash(): Redis | null {
 	if (upstash !== null) return upstash;
 	const url = process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-	if (url && token) upstash = new Redis({ url, token });
+	if (url && token) upstash = getRedisClientInstance({ url, token });
 	return upstash;
 }
 

@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { Redis } from '@upstash/redis';
+import { getRedisClientInstance } from '@/lib/redisClient';
 import { gunzipOffload } from '@/lib/gzipWorker';
 
 export type PeopleClusterManifest = {
@@ -58,7 +58,7 @@ function getRedis() {
 	if (!url || !token || !isValidUpstashUrl(url)) return null;
 	const cacheKey = `${url}::${token}`;
 	if (redisClientCache.has(cacheKey)) return redisClientCache.get(cacheKey) ?? null;
-	const client = new Redis({ url, token });
+	const client = getRedisClientInstance({ url, token });
 	redisClientCache.set(cacheKey, client);
 	return client;
 }

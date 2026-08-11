@@ -257,7 +257,10 @@ function makeApiUrl(path) {
 	let base = BASE || '';
 	if (typeof location !== 'undefined') {
 		const origin = location.origin;
-		if (!base) {
+		const searchParams = new URLSearchParams(location.search);
+		if (searchParams.get('localApi') === '1' || searchParams.get('localApi') === 'true') {
+			base = 'http://localhost:4444';
+		} else if (!base) {
 			base = origin;
 		} else {
 			try {

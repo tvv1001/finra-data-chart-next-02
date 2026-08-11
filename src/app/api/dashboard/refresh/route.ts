@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
-import { Redis } from '@upstash/redis';
+import { getRedisClientInstance } from '@/lib/redisClient';
 import { cachedFetch } from '@/lib/simpleCache';
 import { normalizeIndividualDetailPayload } from '@/lib/individualDetail';
 import { setStringIfValid } from '@/lib/redisCache';
@@ -1247,7 +1247,7 @@ function ensureRedisClient() {
 	const url = process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 	if (!url || !token) return null;
-	return new Redis({ url, token });
+	return getRedisClientInstance({ url, token });
 }
 
 const DASHBOARD_INVENTORY_COUNTER_KEY = 'dashboard:inventory-counter';

@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { gunzipSync } from 'node:zlib';
-import { Redis } from '@upstash/redis';
+import { getRedisClientInstance } from '@/lib/redisClient';
 import { getSearchIndexFilePaths, SEARCH_INDEX_RELATIVE_FILES } from './searchDataPaths';
 import * as path from 'node:path';
 import * as fsSync from 'node:fs';
@@ -13,7 +13,7 @@ function getUpstashClient() {
 	const url = process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 	if (!url || !token) return null;
-	cachedRedisClient = new Redis({ url, token });
+	cachedRedisClient = getRedisClientInstance({ url, token });
 	return cachedRedisClient;
 }
 
@@ -919,23 +919,34 @@ async function fetchExtensionsFromRedis(bucket: LocalSearchBucket): Promise<Loca
 	if (!redis) return [];
 	try {
 		const key = `search:indexes:extensions:${bucket}`;
-		const rawValues = await redis.hvals(key);
 		const docs: LocalSearchDoc[] = [];
-		if (!Array.isArray(rawValues)) {
-			console.warn(`[localSearch] Redis hvals for ${key} returned non-array value:`, typeof rawValues);
-			return docs;
-		}
-		for (const raw of rawValues) {
-			if (!raw || typeof raw !== 'string') continue;
-			try {
-				const doc = JSON.parse(raw);
-				if (doc && typeof doc === 'object') {
-					docs.push(doc);
+		let cursor = '0';
+		
+		do {
+			const [nextCursor, elements] = await redis.hscan(key, cursor, { count: 1000 });
+			cursor = String(nextCursor);
+			
+			if (Array.isArray(elements)) {
+				for (let i = 1; i < elements.length; i += 2) {
+					const raw = elements[i];
+					if (!raw) continue;
+					
+					if (typeof raw === 'object') {
+						docs.push(raw as LocalSearchDoc);
+					} else if (typeof raw === 'string') {
+						try {
+							const doc = JSON.parse(raw);
+							if (doc && typeof doc === 'object') {
+								docs.push(doc);
+							}
+						} catch {
+							// ignore
+						}
+					}
 				}
-			} catch {
-				// ignore
 			}
-		}
+		} while (cursor !== '0' && cursor !== '');
+		
 		return docs;
 	} catch (err) {
 		console.error(`[localSearch] Failed to fetch extensions from Redis for ${bucket}:`, err);

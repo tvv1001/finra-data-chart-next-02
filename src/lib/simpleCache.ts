@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import zlib from 'node:zlib';
-import { Redis } from '@upstash/redis';
+import { getRedisClientInstance } from '@/lib/redisClient';
 import { setStringIfValid } from '@/lib/redisCache';
 import { canCallExternalApis } from '@/lib/externalApiGate';
 
@@ -48,7 +48,7 @@ function getUpstash(): Redis | null {
 	if (upstash !== null) return upstash;
 	const url = process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-	if (url && token) upstash = new Redis({ url, token });
+	if (url && token) upstash = getRedisClientInstance({ url, token });
 	return upstash;
 }
 

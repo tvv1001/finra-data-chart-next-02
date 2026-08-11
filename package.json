@@ -3,8 +3,8 @@
 	"version": "0.1.0",
 	"private": true,
 	"scripts": {
-		"dev": "NODE_OPTIONS=--max-old-space-size=8192 next dev -p 4444",
-		"dev:clean": "rm -rf .next && next dev -p 4444",
+		"dev": "bash /home/lenny/Dev/db/redis/start-redis.sh && NODE_OPTIONS=--max-old-space-size=8192 next dev -p 4444",
+		"dev:clean": "bash /home/lenny/Dev/db/redis/start-redis.sh && rm -rf .next && next dev -p 4444",
 		"prebuild": "node scripts/prebuild.js",
 		"build:workers": "node scripts/build_workers.js",
 		"build:wasm": "cd rust/graph-layout && wasm-pack build --target web --out-dir ../../public/wasm/graph-layout",
@@ -47,6 +47,7 @@
 		"chokidar": "^5.0.0",
 		"d3": "^7.9.0",
 		"d3-force": "^3.0.0",
+		"ioredis": "^6.0.0",
 		"minimist": "^1.2.8",
 		"msgpack-lite": "^0.1.26",
 		"next": "^16.2.9",

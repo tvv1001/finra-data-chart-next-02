@@ -1,5 +1,5 @@
 import Bottleneck from 'bottleneck';
-import { Redis } from '@upstash/redis';
+import { getRedisClientInstance } from '@/lib/redisClient';
 import zlib from 'zlib';
 
 export const DEFAULT_TTL_SECONDS = Number(process.env.REDIS_CACHE_TTL_SECONDS || 86400);
@@ -10,7 +10,7 @@ export function getRedisClient(): Redis | null {
 	const url = process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 	if (!url || !token) return null;
-	client = new Redis({ url, token });
+	client = getRedisClientInstance({ url, token });
 	return client;
 }
 

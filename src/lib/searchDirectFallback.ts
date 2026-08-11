@@ -1,4 +1,4 @@
-import { Redis } from '@upstash/redis';
+import { getRedisClientInstance } from '@/lib/redisClient';
 import type { LocalSearchEntity, LocalSearchResponse, LocalSearchSource } from './localSearch';
 
 let cachedRedisClient: Redis | null = null;
@@ -7,7 +7,7 @@ function getUpstashClient() {
 	const url = process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 	if (!url || !token) return null;
-	cachedRedisClient = new Redis({ url, token });
+	cachedRedisClient = getRedisClientInstance({ url, token });
 	return cachedRedisClient;
 }
 

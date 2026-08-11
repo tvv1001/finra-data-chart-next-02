@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Redis } from '@upstash/redis';
+import { getRedisClientInstance } from '@/lib/redisClient';
 import { saveGraph, getFullGraph } from '@/lib/graphStore';
 import { getSeedBankFromStore } from '@/lib/graphStore';
 import { DEFAULT_HEADERS } from '@/lib/requestConstants';
@@ -483,7 +483,7 @@ function normalizeState(raw: unknown, maxIndividual: number, maxFirm: number): C
 function getRedisClient() {
 	const url = process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-	return url && token ? new Redis({ url, token }) : null;
+	return url && token ? getRedisClientInstance({ url, token }) : null;
 }
 
 async function acquireLock(redis: Redis, ttlSeconds = DEFAULT_LOCK_TTL_SECONDS) {

@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import zlib from 'node:zlib';
-import { Redis } from '@upstash/redis';
+import { getRedisClientInstance } from '@/lib/redisClient';
 import { DEFAULT_TTL_SECONDS, setStringIfValid } from '@/lib/redisCache';
 
 export const PRIMED_BUNDLE_NAMES = ['finra-individual', 'sec-individual', 'finra-firm', 'sec-firm'] as const;
@@ -168,7 +168,7 @@ export function createPrimedBackfillRedisClient(): Redis | null {
 	const url = process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 	if (!url || !token) return null;
-	return new Redis({ url, token });
+	return getRedisClientInstance({ url, token });
 }
 
 export async function backfillPrimedCacheToRedis(options: PrimedBackfillOptions = {}, deps: PrimedBackfillDeps = {}): Promise<PrimedBackfillResult> {

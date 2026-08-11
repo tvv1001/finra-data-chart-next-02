@@ -1,6 +1,6 @@
 import { readFile, writeFile, mkdir, rename, unlink } from 'node:fs/promises';
 import path from 'node:path';
-import { Redis } from '@upstash/redis';
+import { getRedisClientInstance } from '@/lib/redisClient';
 import { setStringIfValid } from '@/lib/redisCache';
 import { RECENT_SEEDS_FILE, SEED_PROFILES_FILE, SEEDS_FILE } from './graphDataPaths';
 
@@ -22,7 +22,7 @@ function getRedis(): Redis | null {
 	if (redisClient !== null) return redisClient;
 	const url = process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-	if (url && token) redisClient = new Redis({ url, token });
+	if (url && token) redisClient = getRedisClientInstance({ url, token });
 	return redisClient;
 }
 

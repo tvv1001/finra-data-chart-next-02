@@ -7,8 +7,8 @@ import { readFile, writeFile, access, mkdir, rename, unlink, constants } from 'n
 import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { Redis } from '@upstash/redis';
-import { setStringIfValid } from '@/lib/redisCache';
+import { getRedisClientInstance } from '@/lib/redisClient';
+import { setStringIfValid, decompressPayload } from '@/lib/redisCache';
 import { gzipOffload, gunzipOffload } from './gzipWorker';
 import { GRAPH_FILE, RECENT_SEEDS_FILE, SEED_BANK_FILE, SEED_PROFILES_FILE, SEEDS_FILE } from './graphDataPaths';
 
@@ -51,7 +51,7 @@ function getRedis(): Redis | null {
 	if (_redis !== null) return _redis;
 	const url = process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-	if (url && token) _redis = new Redis({ url, token });
+	if (url && token) _redis = getRedisClientInstance({ url, token });
 	return _redis;
 }
 
@@ -562,7 +562,7 @@ export async function getSeedBankFromStore(): Promise<SeedBank> {
 	const redis = getRedis();
 	if (redis) {
 		const raw = await redis.get<string>(REDIS_SEED_BANK_KEY);
-		if (raw) return normalizeSeedBankPayload(typeof raw === 'string' ? JSON.parse(raw) : raw);
+		if (raw) return normalizeSeedBankPayload(typeof raw === 'string' ? JSON.parse(decompressPayload(raw)) : raw);
 		const graph = await getFullGraph();
 		return syncSeedBankFromGraph(graph);
 	}
@@ -587,7 +587,7 @@ export async function getRecentSeedsFromStore(): Promise<RecentSeeds> {
 	const redis = getRedis();
 	if (redis) {
 		const raw = await redis.get<string>(REDIS_RECENT_SEEDS_KEY);
-		if (raw) return normalizeRecentSeedsPayload(typeof raw === 'string' ? JSON.parse(raw) : raw);
+		if (raw) return normalizeRecentSeedsPayload(typeof raw === 'string' ? JSON.parse(decompressPayload(raw)) : raw);
 		return createEmptyRecentSeeds();
 	}
 

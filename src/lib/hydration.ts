@@ -1,7 +1,7 @@
 import { setStringIfValid } from '@/lib/redisCache';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { Redis } from '@upstash/redis';
+import { getRedisClientInstance } from '@/lib/redisClient';
 import { canCallExternalApis } from '@/lib/externalApiGate';
 
 interface QueueItem {
@@ -20,7 +20,7 @@ function getRedisClient() {
 	const url = process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 	if (url && token) {
-		cachedRedisClient = new Redis({ url, token });
+		cachedRedisClient = getRedisClientInstance({ url, token });
 	}
 	return cachedRedisClient;
 }
