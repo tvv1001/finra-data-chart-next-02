@@ -9,7 +9,7 @@ import * as crypto from 'node:crypto';
 import * as path from 'node:path';
 import { gunzipOffload } from './gzipWorker';
 import { Redis } from '@upstash/redis';
-import { setStringIfValid } from '@/lib/redisCache';
+import { setStringIfValid, decompressPayload } from '@/lib/redisCache';
 import { DATA_DIR, PRIMED_CACHE_DIR } from './constants';
 import { canCallExternalApis } from '@/lib/externalApiGate';
 
@@ -347,8 +347,11 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 
 	if (redis) {
 		try {
-			const raw = await redis.get(key);
-			if (raw != null) return (typeof raw === 'string' ? JSON.parse(raw) : raw) as T;
+			let raw = await redis.get<string>(key);
+			if (raw != null) {
+				raw = decompressPayload(raw);
+				return (typeof raw === 'string' ? JSON.parse(raw) : raw) as T;
+			}
 			const primed = await getPrimedCacheValue<T>(key);
 			if (primed != null) {
 				await setStringIfValid(key, JSON.stringify(primed), ttlSeconds);

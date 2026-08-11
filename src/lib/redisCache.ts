@@ -1,5 +1,6 @@
 import Bottleneck from 'bottleneck';
 import { Redis } from '@upstash/redis';
+import zlib from 'zlib';
 
 export const DEFAULT_TTL_SECONDS = Number(process.env.REDIS_CACHE_TTL_SECONDS || 86400);
 
@@ -23,6 +24,28 @@ export function isEmptyHitsObj(obj: any): boolean {
 	return totalVal === 0 && Array.isArray(h.hits) && h.hits.length === 0;
 }
 
+export function compressPayload(value: string): string {
+	try {
+		if (value.length > 512) {
+			return 'br:' + zlib.brotliCompressSync(Buffer.from(value)).toString('base64');
+		}
+	} catch {
+		// fallback
+	}
+	return value;
+}
+
+export function decompressPayload(value: string): string {
+	if (typeof value === 'string' && value.startsWith('br:')) {
+		try {
+			return zlib.brotliDecompressSync(Buffer.from(value.slice(3), 'base64')).toString('utf-8');
+		} catch {
+			return value;
+		}
+	}
+	return value;
+}
+
 export async function setIfValid(
 	key: string,
 	value: unknown,
@@ -44,11 +67,12 @@ export async function setIfValid(
 
 		const normalizedTtlSeconds = Number(ttlSeconds);
 		await limiter.schedule(async () => {
+			const finalValue = compressPayload(JSON.stringify(value));
 			if (ttlSeconds == null || !Number.isFinite(normalizedTtlSeconds) || normalizedTtlSeconds <= 0) {
-				await redis.set(key, JSON.stringify(value));
+				await redis.set(key, finalValue);
 				return;
 			}
-			await redis.set(key, JSON.stringify(value), { ex: Math.floor(normalizedTtlSeconds) });
+			await redis.set(key, finalValue, { ex: Math.floor(normalizedTtlSeconds) });
 		});
 		return 'written';
 	} catch (e) {
@@ -81,11 +105,12 @@ export async function setStringIfValid(
 		if (t && t !== 'none' && t !== 'string') return 'skipped-nonstring';
 		const normalizedTtlSeconds = Number(ttlSeconds);
 		await limiter.schedule(async () => {
+			const finalValue = compressPayload(raw);
 			if (ttlSeconds == null || !Number.isFinite(normalizedTtlSeconds) || normalizedTtlSeconds <= 0) {
-				await redis.set(key, raw);
+				await redis.set(key, finalValue);
 				return;
 			}
-			await redis.set(key, raw, { ex: Math.floor(normalizedTtlSeconds) });
+			await redis.set(key, finalValue, { ex: Math.floor(normalizedTtlSeconds) });
 		});
 		return 'written';
 	} catch (e) {
