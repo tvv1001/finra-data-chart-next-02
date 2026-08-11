@@ -7299,8 +7299,9 @@ async function fetchIndividualBatch(crd, queryLabel = null, options: { includePr
 	if (!/^[0-9]+$/.test(String(crd))) {
 		throw new Error(`invalid individual id ${crd}`);
 	}
-	// Deep-link / first hydrate: current employers only on the canvas. Full history stays in detail UI.
-	const { includePreviousEmployments = false } = options;
+	// Include previous employers as 1-hop firm stubs on the canvas. Safe: we do NOT expand
+	// those firms' employee rosters unless the user clicks a firm (mega-firm cap still applies).
+	const { includePreviousEmployments = true } = options;
 
 	const nodes = [];
 	const links = [];
@@ -10751,6 +10752,11 @@ async function ensureIndividualDetail(
 	}
 
 	if (personNode._detailLoaded && hasRichIndividualDetail(personNode)) {
+		// Detail already on the node (e.g. session restore / prior current-only inject).
+		// Still materialize employment firm stubs — including previous — onto the canvas.
+		if (injectEmploymentGraph) {
+			syncIndividualConnectionsFromDetail(personNode, personNode, { includePrevious: true });
+		}
 		return;
 	}
 
@@ -10878,9 +10884,10 @@ function isControlPositionText(text) {
 
 function syncIndividualConnectionsFromDetail(personNode, detail, options: { includePrevious?: boolean } = {}) {
 	if (!personNode || !detail) return;
-	// Graph inject defaults to current employments only. Previous stay in the sidebar detail lists
-	// so opening someone at Merrill does not also scatter decades of prior firm nodes.
-	const { includePrevious = false } = options;
+	// Inject current + previous employers as firm stubs linked to this person (true 1-hop).
+	// Previous firms must appear on the graph for people like CRD 2301267. Flood risk is
+	// expanding those firms' coworker graphs — blocked separately by safeFirmExpand + caps.
+	const { includePrevious = true } = options;
 
 	const personId = personNode.id;
 	const newNodes = [];
