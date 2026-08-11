@@ -6,9 +6,12 @@ import { logger } from '@/lib/logger';
 import { tryLoadPersonCluster } from '@/lib/peopleClusterCache';
 import { searchLocalIndex } from '@/lib/localSearch';
 import { getFirmConnectionsFromGraph } from '@/lib/graphConnections';
+import { getFirmEmploymentEdgesFromPrimed } from '@/lib/firmEmploymentFromPrimed';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+// Firm reverse-index cold path can exceed the default serverless budget before adj keys exist.
+export const maxDuration = 60;
 
 function normalizeHopsParam(value: string | null): number | 'all' {
 	if (typeof value === 'string' && value.trim().toLowerCase() === 'all') {
@@ -121,11 +124,41 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					seenNodeIds.add(nodeId);
 				}
 
-				const { currentConnections = [], previousConnections = [] } = await getFirmConnectionsFromGraph(firmId);
-				const connectionEntries = [
-					...currentConnections.map((entry) => ({ ...entry, isCurrent: true as boolean })),
-					...previousConnections.map((entry) => ({ ...entry, isCurrent: false as boolean })),
-				];
+				// Prefer O(1) precomputed adj / primed reverse edges (dashboard-crds expand path equivalent).
+				// Avoid getFirmConnectionsFromGraph when adj is warm — it still races search fallbacks.
+				let connectionEntries: Array<{ individualId: string; name: string; isCurrent: boolean; startDate?: string; endDate?: string }> = [];
+				try {
+					const primedEdges = await getFirmEmploymentEdgesFromPrimed(firmId);
+					connectionEntries = primedEdges.map((edge) => ({
+						individualId: edge.personCrd,
+						name: edge.personName,
+						isCurrent: edge.isCurrent,
+						startDate: edge.startDate,
+						endDate: edge.endDate,
+					}));
+				} catch {
+					connectionEntries = [];
+				}
+
+				if (!connectionEntries.length) {
+					const { currentConnections = [], previousConnections = [] } = await getFirmConnectionsFromGraph(firmId);
+					connectionEntries = [
+						...currentConnections.map((entry) => ({
+							individualId: entry.individualId,
+							name: entry.name,
+							isCurrent: true as boolean,
+							startDate: entry.startDate,
+							endDate: entry.endDate,
+						})),
+						...previousConnections.map((entry) => ({
+							individualId: entry.individualId,
+							name: entry.name,
+							isCurrent: false as boolean,
+							startDate: entry.startDate,
+							endDate: entry.endDate,
+						})),
+					];
+				}
 
 				for (const entry of connectionEntries) {
 					const crd = String(entry?.individualId || '').trim();
@@ -163,13 +196,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					}
 				}
 
-				// Secondary: local search by firm id/name when reverse index is cold/empty.
+				// Secondary: bounded local search only when reverse index returned nothing.
 				if (connectionEntries.length === 0) {
-					const searchById = await searchLocalIndex('finra', 'individual', firmId, { limit: 100, baseUrl });
-					const hits = searchById.results || [];
+					const searchById = await Promise.race([
+						searchLocalIndex('finra', 'individual', firmId, { limit: 100, baseUrl }),
+						new Promise<any>((resolve) => setTimeout(() => resolve({ results: [] }), 2500)),
+					]);
+					const hits = searchById?.results || [];
 					if (hits.length === 0 && firmNode && firmNode.label) {
-						const searchByName = await searchLocalIndex('finra', 'individual', firmNode.label, { limit: 100, baseUrl });
-						hits.push(...(searchByName.results || []));
+						const searchByName = await Promise.race([
+							searchLocalIndex('finra', 'individual', firmNode.label, { limit: 100, baseUrl }),
+							new Promise<any>((resolve) => setTimeout(() => resolve({ results: [] }), 2500)),
+						]);
+						hits.push(...(searchByName?.results || []));
 					}
 					for (const hit of hits) {
 						const crd = String(hit.ind_source_id || hit.ind_crd || '').trim();
@@ -186,9 +225,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 							});
 							seenNodeIds.add(personId);
 						}
-						const linkExists = result.links.some(
-							(l) => (l.source?.id ?? l.source) === personId && (l.target?.id ?? l.target) === nodeId,
-						);
+						const linkExists = result.links.some((l) => (l.source?.id ?? l.source) === personId && (l.target?.id ?? l.target) === nodeId);
 						if (!linkExists) {
 							result.links.push({
 								source: personId,

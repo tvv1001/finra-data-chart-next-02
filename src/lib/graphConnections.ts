@@ -223,31 +223,37 @@ async function getConnectionsFromFullScanIndex(firmId: string): Promise<GraphCon
 }
 
 async function computeFirmConnectionsFromGraph(firmId: string): Promise<{ currentConnections: GraphConnectionEntry[]; previousConnections: GraphConnectionEntry[] }> {
-	// Primed reverse index first (covers firms missing from mono graph edges, e.g. Fisher 107342).
-	// Then mono graph links + search fallbacks. Full SCAN remains opt-in.
-	const [primedEntries, searchEntries, graphEntries] = await Promise.all([
-		getConnectionsFromPrimedBundle(firmId).catch(() => [] as GraphConnectionEntry[]),
+	// Cheap → expensive. Never kick off search/primed cold-load in parallel with a hit:
+	// dashboard-crds stays fast because expand uses an in-memory reverse index; we prefer
+	// precomputed graph:firm-emp-adj:v1:{firmId} (O(1) Redis GET) for the same behavior.
+	const merge = (lists: GraphConnectionEntry[][]) => {
+		const current: GraphConnectionEntry[] = [];
+		const previous: GraphConnectionEntry[] = [];
+		const seen = new Set<string>();
+		for (const entry of lists.flat()) {
+			const dedupeKey = `${entry.individualId}:${entry.isCurrent}`;
+			if (seen.has(dedupeKey)) continue;
+			seen.add(dedupeKey);
+			(entry.isCurrent ? current : previous).push(entry);
+		}
+		return { currentConnections: current, previousConnections: previous };
+	};
+
+	const primedEntries = await getConnectionsFromPrimedBundle(firmId).catch(() => [] as GraphConnectionEntry[]);
+	if (primedEntries.length) return merge([primedEntries]);
+
+	const graphEntries = await getConnectionsFromGraphStore(firmId).catch(() => [] as GraphConnectionEntry[]);
+	if (graphEntries.length) return merge([graphEntries]);
+
+	// Search can hang on cold indexes; bound it so firm pages don't 504.
+	const searchEntries = await Promise.race([
 		getConnectionsFromSearchIndex(firmId).catch(() => [] as GraphConnectionEntry[]),
-		getConnectionsFromGraphStore(firmId).catch(() => [] as GraphConnectionEntry[]),
+		new Promise<GraphConnectionEntry[]>((resolve) => setTimeout(() => resolve([]), 2500)),
 	]);
+	if (searchEntries.length) return merge([searchEntries]);
 
-	const fullScanEntries =
-		primedEntries.length || searchEntries.length || graphEntries.length ?
-			([] as GraphConnectionEntry[])
-		:	await getConnectionsFromFullScanIndex(firmId).catch(() => [] as GraphConnectionEntry[]);
-
-	const current: GraphConnectionEntry[] = [];
-	const previous: GraphConnectionEntry[] = [];
-	const seen = new Set<string>();
-
-	for (const entry of [...primedEntries, ...searchEntries, ...graphEntries, ...fullScanEntries]) {
-		const dedupeKey = `${entry.individualId}:${entry.isCurrent}`;
-		if (seen.has(dedupeKey)) continue;
-		seen.add(dedupeKey);
-		(entry.isCurrent ? current : previous).push(entry);
-	}
-
-	return { currentConnections: current, previousConnections: previous };
+	const fullScanEntries = await getConnectionsFromFullScanIndex(firmId).catch(() => [] as GraphConnectionEntry[]);
+	return merge([fullScanEntries]);
 }
 
 export async function getFirmConnectionsFromGraph(firmId: string): Promise<{ currentConnections: GraphConnectionEntry[]; previousConnections: GraphConnectionEntry[] }> {

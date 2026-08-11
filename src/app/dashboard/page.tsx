@@ -2264,12 +2264,112 @@ function DashboardPageInner() {
 		return response.json();
 	}
 
+	function applyFirmConnectionsToState(firmId: string, currentConnections: any[], previousConnections: any[]) {
+		const cacheKey = `firm:${firmId}`;
+		const cached = mergedDetailCacheRef.current.get(cacheKey);
+		if (cached && typeof cached === 'object') {
+			for (const target of [cached, cached?.merged, cached?.sources?.finra, cached?.sources?.sec, cached?.finraNode]) {
+				if (target && typeof target === 'object') {
+					target.currentConnections = currentConnections;
+					target.previousConnections = previousConnections;
+				}
+			}
+		}
+
+		setMainJson((prev) => {
+			if (!prev) return prev;
+			const prevCrd = String(prev?.basicInformation?.firmId || prev?.firmId || prev?.id || '').trim();
+			if (prevCrd && prevCrd !== firmId) return prev;
+			return {
+				...prev,
+				currentConnections,
+				previousConnections,
+			};
+		});
+	}
+
+	function connectionsFromExpandPayload(firmId: string, data: any): { currentConnections: any[]; previousConnections: any[] } | null {
+		if (!data || typeof data !== 'object') return null;
+		const nodes = Array.isArray(data.nodes) ? data.nodes : [];
+		const links = Array.isArray(data.links) ? data.links : [];
+		if (!links.length) return null;
+
+		const nodeById = new Map<string, any>(nodes.map((node: any) => [String(node?.id || ''), node]));
+		const firmNodeId = `firm:${firmId}`;
+		const currentConnections: any[] = [];
+		const previousConnections: any[] = [];
+		const seen = new Set<string>();
+
+		for (const link of links) {
+			const relationship = String(link?.relationship || '').trim();
+			// dashboard-crds uses relationship: 'employment'; this app uses employed_by / previous_employed_by / controls.
+			const isEmployment = relationship === 'employment' || relationship === 'employed_by' || relationship === 'previous_employed_by';
+			const isControl = relationship === 'controls' || relationship === 'ownership' || relationship === 'owner';
+			if (!isEmployment && !isControl) continue;
+
+			const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+			const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+			if (sourceId !== firmNodeId && targetId !== firmNodeId) continue;
+			const otherId = sourceId === firmNodeId ? targetId : sourceId;
+			const person = nodeById.get(otherId) || {};
+			const crd = String(person?.crd || otherId.replace(/^(?:person|individual)[:_]/, '')).trim();
+			if (!crd || !/^\d{1,10}$/.test(crd)) continue;
+
+			const isCurrent =
+				isControl ? true
+				: relationship === 'previous_employed_by' ? false
+				: link?.isCurrent !== undefined ? Boolean(link.isCurrent)
+				: !String(link?.endDate || link?.registrationEndDate || '').trim();
+
+			const dedupeKey = `${crd}:${isCurrent}`;
+			if (seen.has(dedupeKey)) continue;
+			seen.add(dedupeKey);
+
+			const entry = {
+				individualId: crd,
+				name: String(person?.label || person?.name || `Person ${crd}`).trim(),
+				relationship:
+					isControl ? 'Control'
+					: isCurrent ? 'Current registration'
+					: 'Previous registration',
+				startDate: link?.startDate || link?.registrationBeginDate || undefined,
+				endDate: isCurrent ? undefined : link?.endDate || link?.registrationEndDate || undefined,
+				isCurrent,
+			};
+			(isCurrent ? currentConnections : previousConnections).push(entry);
+		}
+
+		if (!currentConnections.length && !previousConnections.length) return null;
+		return { currentConnections, previousConnections };
+	}
+
 	async function loadFirmConnections(firmId: string) {
 		const existingPromise = connectionsInFlightByCrdRef.current.get(firmId);
 		if (existingPromise) return existingPromise;
 
 		const fetchPromise = (async () => {
 			try {
+				// Prefer expand (same path dashboard-crds uses for firm employee lists). It is
+				// cached/CDN-friendly there and avoids the slow cold primed-bundle decode that
+				// makes /connections 504 on Vercel when adj keys are missing.
+				try {
+					const expandRes = await fetch(`/api/finra/expand/${encodeURIComponent(`firm:${firmId}`)}?hops=1`, {
+						method: 'GET',
+						headers: { Accept: 'application/json' },
+						cache: 'default',
+					});
+					if (expandRes.ok) {
+						const expandData = await expandRes.json().catch(() => null);
+						const fromExpand = connectionsFromExpandPayload(firmId, expandData);
+						if (fromExpand) {
+							applyFirmConnectionsToState(firmId, fromExpand.currentConnections, fromExpand.previousConnections);
+							return { found: true, firmId, ...fromExpand, source: 'expand' };
+						}
+					}
+				} catch (expandErr) {
+					console.warn('Firm expand connections fallback failed', expandErr);
+				}
+
 				const response = await fetch(`/api/finra/firm/${encodeURIComponent(firmId)}/connections`, {
 					method: 'GET',
 					headers: { Accept: 'application/json' },
@@ -2280,31 +2380,7 @@ function DashboardPageInner() {
 				if (!data || !data.found) return null;
 
 				const { currentConnections = [], previousConnections = [] } = data;
-
-				// Update mergedDetailCacheRef so switching back to this firm has connections ready
-				const cacheKey = `firm:${firmId}`;
-				const cached = mergedDetailCacheRef.current.get(cacheKey);
-				if (cached && typeof cached === 'object') {
-					for (const target of [cached, cached?.merged, cached?.sources?.finra, cached?.sources?.sec, cached?.finraNode]) {
-						if (target && typeof target === 'object') {
-							target.currentConnections = currentConnections;
-							target.previousConnections = previousConnections;
-						}
-					}
-				}
-
-				// If the currently viewed record still matches this firm, update mainJson state
-				setMainJson((prev) => {
-					if (!prev) return prev;
-					const prevCrd = String(prev?.basicInformation?.firmId || prev?.firmId || prev?.id || '').trim();
-					if (prevCrd && prevCrd !== firmId) return prev;
-					return {
-						...prev,
-						currentConnections,
-						previousConnections,
-					};
-				});
-
+				applyFirmConnectionsToState(firmId, currentConnections, previousConnections);
 				return data;
 			} catch (err) {
 				console.warn('Failed to lazy load firm connections', err);

@@ -5,6 +5,8 @@ import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+// Cold reverse-index build can exceed default budget; precomputed adj keeps this fast.
+export const maxDuration = 60;
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
 	const { id } = await params;
