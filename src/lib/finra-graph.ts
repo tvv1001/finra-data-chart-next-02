@@ -666,6 +666,7 @@ const TEXT_SEARCH_DETAIL_HYDRATION_CONCURRENCY = 4;
 
 const individualDetailRequestCache = new Map<string, Promise<void>>();
 const firmDetailRequestCache = new Map<string, Promise<void>>();
+const firmConnectionsRequestCache = new Map<string, Promise<void>>();
 const expansionRequestCache = new Map<string, Promise<any>>();
 
 function getDefaultSelectionHops(): number {
@@ -11172,6 +11173,205 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 	mergeIntoGraphData(dedupedNodes.nodes, dedupedLinks);
 }
 
+function countFirmEmploymentLinks(firmNodeId: string) {
+	const links = [...(layoutLinks || []), ...(graphData?.links || [])];
+	let count = 0;
+	for (const link of links) {
+		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+		if (sourceId !== firmNodeId && targetId !== firmNodeId) continue;
+		if (String(link?.relationship || '').trim() === 'employed_by') count += 1;
+	}
+	return count;
+}
+
+function applyFirmConnectionPayload(firmNode: any, payload: { currentConnections?: any[]; previousConnections?: any[] } | null) {
+	if (!firmNode || !payload) return false;
+	const firmNodeId = String(firmNode.id || '').trim();
+	if (!firmNodeId) return false;
+
+	const currentConnections = Array.isArray(payload.currentConnections) ? payload.currentConnections : [];
+	const previousConnections = Array.isArray(payload.previousConnections) ? payload.previousConnections : [];
+	firmNode.currentConnections = currentConnections;
+	firmNode.previousConnections = previousConnections;
+
+	const newNodes: any[] = [];
+	const newLinks: any[] = [];
+	const seenPerson = new Set<string>();
+
+	const addEntry = (entry: any, isCurrent: boolean) => {
+		const crd = String(entry?.individualId || entry?.crd || '').trim();
+		if (!crd || seenPerson.has(crd)) return;
+		seenPerson.add(crd);
+		const personNodeId = `person:${crd}`;
+		if (!layoutNodes?.some((n) => n.id === personNodeId) && !newNodes.some((n) => n.id === personNodeId) && !findExistingPersonNode(crd)) {
+			newNodes.push({
+				id: personNodeId,
+				label: normalizePersonLabel(entry?.name || `Person ${crd}`),
+				group: 'individual',
+				crd,
+				stub: true,
+			});
+		}
+		const hasLink = [...(layoutLinks || []), ...(graphData?.links || []), ...newLinks].some((link) => {
+			const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+			const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+			return (
+				((sourceId === personNodeId && targetId === firmNodeId) || (sourceId === firmNodeId && targetId === personNodeId)) &&
+				String(link?.relationship || '').trim() === 'employed_by'
+			);
+		});
+		if (!hasLink) {
+			newLinks.push({
+				source: personNodeId,
+				target: firmNodeId,
+				relationship: 'employed_by',
+				isCurrent,
+				startDate: entry?.startDate || null,
+				endDate: entry?.endDate || null,
+			});
+		}
+	};
+
+	for (const entry of currentConnections) addEntry(entry, true);
+	for (const entry of previousConnections) addEntry(entry, false);
+
+	if (newNodes.length || newLinks.length) {
+		const dedupedNodes = mergeGraphNodesForAppend([], newNodes);
+		const dedupedLinks = dedupeGraphLinksByIdentity(newLinks, dedupedNodes.idRewriteMap);
+		appendFetched?.(dedupedNodes.nodes, dedupedLinks);
+		mergeIntoGraphData(dedupedNodes.nodes, dedupedLinks);
+	}
+
+	return currentConnections.length > 0 || previousConnections.length > 0 || newLinks.length > 0;
+}
+
+async function injectFirmEmployeesFromSearch(firmId: string, firmNode: any) {
+	const firmNodeId = String(firmNode?.id || `firm:${firmId}`);
+	try {
+		const searchUrl = `${BASE}/api/finra/search?query=${encodeURIComponent(firmId)}&nrows=30`;
+		const searchRes = await Promise.race([
+			fetch(searchUrl),
+			new Promise<Response | null>((resolve) => setTimeout(() => resolve(null), 3500)),
+		]);
+		if (!searchRes || !searchRes.ok) return false;
+		const searchData = await searchRes.json();
+		const hits = searchData?.hits?.hits || searchData?.results || [];
+		const currentConnections: any[] = [];
+		const newNodes: any[] = [];
+		const newLinks: any[] = [];
+
+		for (const hit of hits) {
+			const src = hit._source || hit;
+			const pid = String(src.ind_source_id || src.ind_crd || src.individualId || '').trim();
+			if (!pid) continue;
+			const personNodeId = `person:${pid}`;
+			const label = normalizePersonLabel(
+				[src.ind_firstname || src.firstName, src.ind_middlename || src.middleName, src.ind_lastname || src.lastName].filter(Boolean).join(' ') || `Person ${pid}`,
+			);
+			if (!layoutNodes?.some((n) => n.id === personNodeId) && !newNodes.some((n) => n.id === personNodeId) && !findExistingPersonNode(pid)) {
+				newNodes.push({
+					id: personNodeId,
+					label,
+					group: 'individual',
+					crd: pid,
+					bcScope: src.ind_bc_scope || src.bcScope || null,
+					stub: true,
+				});
+			}
+			newLinks.push({
+				source: personNodeId,
+				target: firmNodeId,
+				relationship: 'employed_by',
+				isCurrent: true,
+			});
+			currentConnections.push({
+				individualId: pid,
+				name: label,
+				relationship: 'Current registration',
+				isCurrent: true,
+			});
+		}
+
+		if (newNodes.length || newLinks.length) {
+			const dedupedNodes = mergeGraphNodesForAppend([], newNodes);
+			const dedupedLinks = dedupeGraphLinksByIdentity(newLinks, dedupedNodes.idRewriteMap);
+			appendFetched?.(dedupedNodes.nodes, dedupedLinks);
+			mergeIntoGraphData(dedupedNodes.nodes, dedupedLinks);
+		}
+		if (currentConnections.length) {
+			firmNode.currentConnections = currentConnections;
+			if (!Array.isArray(firmNode.previousConnections)) firmNode.previousConnections = [];
+		}
+		return currentConnections.length > 0;
+	} catch (error) {
+		console.warn(`Failed to inject firm employees from search for ${firmId}:`, error);
+		return false;
+	}
+}
+
+/**
+ * Lazy-load current/previous employment connections for a firm and inject them into the live graph.
+ * Re-run is cheap: single Redis-backed /connections key after first warm, with search fallback.
+ * Fixes "connections missing until hard refresh" when sidebar rendered before links were materialised.
+ */
+async function ensureFirmConnections(firmNode: any) {
+	if (!firmNode || firmNode.group !== 'firm') return;
+	const match = String(firmNode.id || '').match(/^(?:firm[:_])?(\d+)$/);
+	if (!match) return;
+	const firmId = match[1];
+	if (firmNode._connectionsLoaded) return;
+
+	const existingRequest = firmConnectionsRequestCache.get(firmId);
+	if (existingRequest) {
+		await existingRequest;
+		return;
+	}
+
+	const requestPromise = (async () => {
+		try {
+			// Already have employment edges in the live graph (e.g. session restore) — still mark loaded
+			// so we don't thrash Redis, but keep any richer server payload if available.
+			const alreadyLinked = countFirmEmploymentLinks(String(firmNode.id)) > 0;
+
+			let applied = false;
+			try {
+				const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+				const timer = controller ? window.setTimeout(() => controller.abort(), 6000) : 0;
+				const res = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}/connections`, {
+					signal: controller?.signal,
+				});
+				if (timer) window.clearTimeout(timer);
+				if (res.ok) {
+					const payload = await res.json();
+					if (payload?.found !== false) {
+						applied = applyFirmConnectionPayload(firmNode, payload) || applied;
+					}
+				}
+			} catch {
+				// timeout / offline — fall through to search inject
+			}
+
+			if (!applied && !alreadyLinked) {
+				applied = (await injectFirmEmployeesFromSearch(firmId, firmNode)) || applied;
+			}
+
+			firmNode._connectionsLoaded = true;
+		} catch (error) {
+			console.warn(`ensureFirmConnections failed for ${firmId}:`, error);
+		}
+	})();
+
+	firmConnectionsRequestCache.set(firmId, requestPromise);
+	try {
+		await requestPromise;
+	} finally {
+		if (firmConnectionsRequestCache.get(firmId) === requestPromise) {
+			firmConnectionsRequestCache.delete(firmId);
+		}
+	}
+}
+
 // Fetch firm detail from the server (which checks local cache first, then FINRA API).
 // Merges the response into the firm node so renderFirmDetail can display rich data.
 async function ensureFirmDetail(firmNode) {
@@ -11367,6 +11567,13 @@ async function ensureFirmDetail(firmNode) {
 			firmNode._detailMissing = false;
 			firmNode._detailValidated = true;
 			logDetailLoadDebug(`Firm detail loaded for ID ${firmId}: ${firmNode.disclosures?.length || 0} disclosures, ${firmNode.directOwners?.length || 0} owners`);
+
+			// Owners are control links; employment connections load async and re-paint the sidebar.
+			void ensureFirmConnections(firmNode).then(() => {
+				if (selectedId === firmNode.id) {
+					renderSidebar(firmNode);
+				}
+			});
 		} catch (err) {
 			console.error(`Error fetching firm detail for ${firmId}:`, err);
 		}
@@ -12053,6 +12260,18 @@ async function materializeRouteSelectionNeighborhood(node, hops: number = getDef
 		markSelected: true,
 	});
 
+	// Re-paint sidebar after neighborhood + employment links land (avoids empty connections until hard refresh).
+	if (node.group === 'firm') {
+		try {
+			await ensureFirmConnections(node);
+		} catch {
+			/* ignore */
+		}
+	}
+	if (selectedId === node.id) {
+		renderSidebar(node);
+	}
+
 	refreshTraceState({ deferMs: 120 });
 	try {
 		saveSession();
@@ -12388,17 +12607,23 @@ function selectNode(
 							markSelected: true,
 						});
 					}
-					if (selectedId === d.id) {
-						renderSidebar(d);
-					}
-				})).finally(() => {
-			refreshTraceState({ deferMs: 120 });
-			try {
-				saveSession();
-			} catch (e) {
-				/* ignore */
-			}
-		});
+				})
+		)
+			.then(() => {
+				// Always re-render firm/person sidebar after neighbors arrive — previously only the
+				// non-auto-reveal path did this, so Current/Previous Connections stayed empty until hard refresh.
+				if (selectedId === d.id) {
+					renderSidebar(d);
+				}
+			})
+			.finally(() => {
+				refreshTraceState({ deferMs: 120 });
+				try {
+					saveSession();
+				} catch (e) {
+					/* ignore */
+				}
+			});
 		void fetchCacheStats();
 	}
 
@@ -14887,13 +15112,52 @@ function renderFirmDetail(d: any) {
 			.filter(Boolean),
 	);
 
-	const rawConnections = collectFirmConnectionEntries({
+	const graphDerivedConnections = collectFirmConnectionEntries({
 		firmNode: d,
 		layoutNodes,
 		graphNodes: graphData?.nodes || [],
 		layoutLinks,
 		graphLinks: graphData?.links || [],
 	});
+
+	// Merge server/search-hydrated employment connections (ensureFirmConnections) so the sidebar
+	// does not wait on a hard refresh when the canvas still has sparse links.
+	const serverConnectionEntries: any[] = [];
+	const pushServerEntry = (entry: any, isCurrent: boolean) => {
+		const crd = String(entry?.individualId || entry?.crd || '').trim();
+		if (!crd) return;
+		serverConnectionEntries.push({
+			id: `person:${crd}`,
+			label: normalizePersonLabel(entry?.name || `Person ${crd}`),
+			group: 'individual',
+			crd,
+			relationshipLabels: [isCurrent ? 'Current registration' : 'Previous registration'],
+			positions: [],
+			dateTexts: [],
+			sortOrder: isCurrent ? 0 : 2,
+			address: null,
+			maxStartDate: entry?.startDate || '',
+			maxEndDate: entry?.endDate || (isCurrent ? 'present' : ''),
+		});
+	};
+	for (const entry of Array.isArray(d.currentConnections) ? d.currentConnections : []) pushServerEntry(entry, true);
+	for (const entry of Array.isArray(d.previousConnections) ? d.previousConnections : []) pushServerEntry(entry, false);
+
+	const rawConnectionsById = new Map<string, any>();
+	for (const conn of graphDerivedConnections) {
+		if (conn?.id) rawConnectionsById.set(String(conn.id), conn);
+	}
+	for (const conn of serverConnectionEntries) {
+		const existing = rawConnectionsById.get(String(conn.id));
+		if (!existing) {
+			rawConnectionsById.set(String(conn.id), conn);
+			continue;
+		}
+		for (const label of conn.relationshipLabels || []) existing.relationshipLabels.push(label);
+		existing.sortOrder = Math.min(existing.sortOrder ?? 4, conn.sortOrder ?? 4);
+		if (!existing.label && conn.label) existing.label = conn.label;
+	}
+	const rawConnections = Array.from(rawConnectionsById.values());
 
 	const connections = rawConnections
 		.filter((conn) => {
