@@ -1882,10 +1882,7 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 	if (liveNode) return liveNode;
 
 	try {
-		const fetchedNodes = await Promise.race([
-			fetchNodesByIds([normalizedNodeId]),
-			new Promise<any[]>((resolve) => setTimeout(() => resolve([]), 3000)),
-		]);
+		const fetchedNodes = await Promise.race([fetchNodesByIds([normalizedNodeId]), new Promise<any[]>((resolve) => setTimeout(() => resolve([]), 3000))]);
 		if (fetchedNodes.length) {
 			mergeIntoGraphData(fetchedNodes, []);
 			injectNodesById(fetchedNodes.map((node) => node.id));
@@ -7395,10 +7392,7 @@ async function fetchFirmBatch(firmId, queryLabel = null) {
 	// and shared Redis is not held by a long search fallback chain during initial hydrate.
 	try {
 		const searchUrl = `${BASE}/api/finra/search?query=${encodeURIComponent(firmId)}&nrows=30`;
-		const searchRes = await Promise.race([
-			fetch(searchUrl),
-			new Promise<Response | null>((resolve) => setTimeout(() => resolve(null), 3500)),
-		]);
+		const searchRes = await Promise.race([fetch(searchUrl), new Promise<Response | null>((resolve) => setTimeout(() => resolve(null), 3500))]);
 		if (searchRes && searchRes.ok) {
 			const searchData = await searchRes.json();
 			const hits = searchData?.hits?.hits || searchData?.results || [];
@@ -11250,10 +11244,7 @@ async function injectFirmEmployeesFromSearch(firmId: string, firmNode: any) {
 	const firmNodeId = String(firmNode?.id || `firm:${firmId}`);
 	try {
 		const searchUrl = `${BASE}/api/finra/search?query=${encodeURIComponent(firmId)}&nrows=30`;
-		const searchRes = await Promise.race([
-			fetch(searchUrl),
-			new Promise<Response | null>((resolve) => setTimeout(() => resolve(null), 3500)),
-		]);
+		const searchRes = await Promise.race([fetch(searchUrl), new Promise<Response | null>((resolve) => setTimeout(() => resolve(null), 3500))]);
 		if (!searchRes || !searchRes.ok) return false;
 		const searchData = await searchRes.json();
 		const hits = searchData?.hits?.hits || searchData?.results || [];
@@ -11799,9 +11790,20 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 		// Pass 2: Fetch and hydrate detail for currentWaveIds to discover even MORE neighbors
 		const hydrationPromise = hydrateExpansionFrontierNodes(currentWaveIds, { includeFirmDetails: false });
 		const expansionPromise = fetchExpansionDataForNodeIds(currentWaveIds, 1, { strictHops: true });
+		// Firm employment edges are often absent from the mono graph; pull reverse-index connections.
+		const firmConnectionPromise = Promise.all(
+			currentWaveIds
+				.filter((id) => String(id).startsWith('firm:'))
+				.map(async (firmNodeId) => {
+					const firmNode = (layoutNodes || []).find((node) => node.id === firmNodeId) ||
+						(graphData?.nodes || []).find((node) => node.id === firmNodeId) || { id: firmNodeId, group: 'firm' };
+					await ensureFirmConnections(firmNode);
+				}),
+		);
 
 		await Promise.all([
 			hydrationPromise,
+			firmConnectionPromise,
 			expansionPromise.then(async (expansion) => {
 				if (expansion.nodes.length || expansion.links.length) {
 					mergeIntoGraphData(expansion.nodes, expansion.links);
@@ -12247,10 +12249,7 @@ async function materializeRouteSelectionNeighborhood(node, hops: number = getDef
 
 	try {
 		// Cap graph-expand Redis work so deep links remain responsive on a shared Redis instance.
-		await Promise.race([
-			ensureExpansionDataForNode(node.id, normalizedHops),
-			new Promise<void>((resolve) => setTimeout(() => resolve(), 4000)),
-		]);
+		await Promise.race([ensureExpansionDataForNode(node.id, normalizedHops), new Promise<void>((resolve) => setTimeout(() => resolve(), 4000))]);
 	} catch (error) {
 		console.warn('Failed to fetch route-selected neighborhood from server:', error);
 	}
@@ -12319,7 +12318,10 @@ export async function handleNodeOpen(event, d) {
 }
 
 export function shouldAutoRevealNodeConnections(node) {
-	return node?.group !== 'firm';
+	// Firms must also auto-reveal: employment edges often live only in reverse indexes /
+	// /connections payloads, not the mono session graph. Returning false left firm nodes
+	// detail-only after the binary/primed cache update.
+	return Boolean(node?.group);
 }
 
 export function shouldAutoExpandRouteSelection(targetNodeId: string | null | undefined, currentSelectedId: string | null | undefined) {
@@ -12607,8 +12609,7 @@ function selectNode(
 							markSelected: true,
 						});
 					}
-				})
-		)
+				}))
 			.then(() => {
 				// Always re-render firm/person sidebar after neighbors arrive — previously only the
 				// non-auto-reveal path did this, so Current/Previous Connections stayed empty until hard refresh.

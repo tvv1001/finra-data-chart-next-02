@@ -994,9 +994,9 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		).toBe(true);
 	});
 
-	it('shouldAutoRevealNodeConnections keeps firm connections hidden by default', () => {
+	it('shouldAutoRevealNodeConnections reveals firm and individual connections', () => {
 		expect(shouldAutoRevealNodeConnections({ id: 'person:123', group: 'individual' })).toBe(true);
-		expect(shouldAutoRevealNodeConnections({ id: 'firm:456', group: 'firm' })).toBe(false);
+		expect(shouldAutoRevealNodeConnections({ id: 'firm:456', group: 'firm' })).toBe(true);
 	});
 
 	it('getLinkIdentityKey distinguishes current and previous employment links on the same firm pair', () => {

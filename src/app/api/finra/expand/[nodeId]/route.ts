@@ -5,6 +5,7 @@ import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
 import { tryLoadPersonCluster } from '@/lib/peopleClusterCache';
 import { searchLocalIndex } from '@/lib/localSearch';
+import { getFirmConnectionsFromGraph } from '@/lib/graphConnections';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -67,8 +68,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			}
 		}
 
-		// Fast path for single node (Redis cache check)
-		if (!strictExpansion && allIds.length === 1 && hops === 1) {
+		// Fast path for single node (Redis cache check).
+		// Skip firm expand cache: empty mono-graph neighborhoods were cached before reverse-index hydration existed.
+		if (!strictExpansion && allIds.length === 1 && hops === 1 && !nodeId.startsWith('firm:')) {
 			try {
 				const redis = getRedisClient();
 				if (redis) {
@@ -84,25 +86,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		const result = await getNeighborsForNodes(allIds, hops);
 
-		// If expanding a firm, also search for individuals who work there
+		// If expanding a firm, hydrate employees from primed reverse index / connections
+		// (mono session graph often has the firm node with zero employed_by edges).
 		if (nodeId.startsWith('firm:') && hops === 1) {
 			try {
 				const firmId = nodeId.replace(/^firm:/, '');
-				// First try searching by firm ID (more accurate if indexed)
-				const searchById = await searchLocalIndex('finra', 'individual', firmId, { limit: 100, baseUrl });
-				
-				const hits = searchById.results || [];
-				
-				// If no hits by ID, try by firm name from the firm node itself
-				let firmNode = result.nodes.find(n => n.id === nodeId);
-				if (hits.length === 0 && firmNode && firmNode.label) {
-					const searchByName = await searchLocalIndex('finra', 'individual', firmNode.label, { limit: 100, baseUrl });
-					hits.push(...(searchByName.results || []));
-				}
+				const seenNodeIds = new Set(result.nodes.map((n) => n.id));
+				let firmNode = result.nodes.find((n) => n.id === nodeId);
 
-				const seenNodeIds = new Set(result.nodes.map(n => n.id));
-				
-				// Ensure the firm node itself is present in result.nodes
 				if (!seenNodeIds.has(nodeId)) {
 					let firmLabel = `Firm ${firmId}`;
 					try {
@@ -111,7 +102,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 							const cachedFirm = await redis.get<any>(`finra:firm:${firmId}`);
 							if (cachedFirm) {
 								const cachedHits = cachedFirm?.hits?.hits || [];
-								const rawDetail = cachedHits.length > 0 ? (cachedHits[0]?._source?.content || cachedHits[0]?._source) : cachedFirm;
+								const rawDetail = cachedHits.length > 0 ? cachedHits[0]?._source?.content || cachedHits[0]?._source : cachedFirm;
 								const parsed = typeof rawDetail === 'string' ? JSON.parse(rawDetail) : rawDetail;
 								const bi = parsed?.basicInformation || parsed || {};
 								firmLabel = bi.firmName || bi.name || firmLabel;
@@ -124,40 +115,88 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 						id: nodeId,
 						label: firmLabel,
 						group: 'firm',
-						firmId
+						firmId,
 					};
 					result.nodes.push(firmNode);
 					seenNodeIds.add(nodeId);
 				}
-				
-				for (const hit of hits) {
-					const crd = String(hit.ind_source_id || hit.ind_crd || '').trim();
+
+				const { currentConnections = [], previousConnections = [] } = await getFirmConnectionsFromGraph(firmId);
+				const connectionEntries = [
+					...currentConnections.map((entry) => ({ ...entry, isCurrent: true as boolean })),
+					...previousConnections.map((entry) => ({ ...entry, isCurrent: false as boolean })),
+				];
+
+				for (const entry of connectionEntries) {
+					const crd = String(entry?.individualId || '').trim();
 					if (!crd) continue;
 					const personId = `person:${crd}`;
 					if (!seenNodeIds.has(personId)) {
-						const label = [hit.ind_firstname, hit.ind_middlename, hit.ind_lastname].filter(Boolean).join(' ') || `CRD ${crd}`;
 						result.nodes.push({
 							id: personId,
-							label,
+							label: entry?.name || `CRD ${crd}`,
 							group: 'individual',
 							crd,
-							_source: 'expansion-search'
+							_source: 'expansion-firm-connections',
 						});
 						seenNodeIds.add(personId);
 					}
-					
-					const linkExists = result.links.some(l => 
-						(l.source?.id ?? l.source) === personId && 
-						(l.target?.id ?? l.target) === nodeId
-					);
-					
+
+					const linkExists = result.links.some((l) => {
+						const sourceId = String(l.source?.id ?? l.source ?? '');
+						const targetId = String(l.target?.id ?? l.target ?? '');
+						return (
+							((sourceId === personId && targetId === nodeId) || (sourceId === nodeId && targetId === personId)) &&
+							(String(l.relationship || '') === 'employed_by' || String(l.relationship || '') === 'previous_employed_by')
+						);
+					});
+
 					if (!linkExists) {
 						result.links.push({
 							source: personId,
 							target: nodeId,
-							relationship: 'employed_by',
-							isCurrent: true
+							relationship: entry.isCurrent === false ? 'previous_employed_by' : 'employed_by',
+							isCurrent: entry.isCurrent !== false,
+							startDate: entry.startDate || null,
+							endDate: entry.endDate || null,
 						});
+					}
+				}
+
+				// Secondary: local search by firm id/name when reverse index is cold/empty.
+				if (connectionEntries.length === 0) {
+					const searchById = await searchLocalIndex('finra', 'individual', firmId, { limit: 100, baseUrl });
+					const hits = searchById.results || [];
+					if (hits.length === 0 && firmNode && firmNode.label) {
+						const searchByName = await searchLocalIndex('finra', 'individual', firmNode.label, { limit: 100, baseUrl });
+						hits.push(...(searchByName.results || []));
+					}
+					for (const hit of hits) {
+						const crd = String(hit.ind_source_id || hit.ind_crd || '').trim();
+						if (!crd) continue;
+						const personId = `person:${crd}`;
+						if (!seenNodeIds.has(personId)) {
+							const label = [hit.ind_firstname, hit.ind_middlename, hit.ind_lastname].filter(Boolean).join(' ') || `CRD ${crd}`;
+							result.nodes.push({
+								id: personId,
+								label,
+								group: 'individual',
+								crd,
+								_source: 'expansion-search',
+							});
+							seenNodeIds.add(personId);
+						}
+						const linkExists = result.links.some(
+							(l) => (l.source?.id ?? l.source) === personId && (l.target?.id ?? l.target) === nodeId,
+						);
+						if (!linkExists) {
+							result.links.push({
+								source: personId,
+								target: nodeId,
+								relationship: 'employed_by',
+								isCurrent: true,
+							});
+						}
 					}
 				}
 			} catch (e) {

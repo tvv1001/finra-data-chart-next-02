@@ -1,13 +1,17 @@
 // Server-side firm connections for dashboard + graph sidebar.
-// Prefer cheap mono-graph link scan + local/search fallbacks. Full Redis individual SCAN is
-// opt-in only (FINRA_FIRM_EMPLOYMENT_FULL_SCAN=1) because Redis is multi-tenant.
-// Results are cached at graph:firm-connections:{firmId} via cachedFetch.
+// Sources (cheap → expensive):
+//   1. Primed individual reverse index (Redis primed:bundle:finra-individual*)
+//   2. Mono graph employed_by links (getFullGraph)
+//   3. Local/search fallbacks
+//   4. Opt-in full Redis SCAN (FINRA_FIRM_EMPLOYMENT_FULL_SCAN=1)
+// Results are cached at graph:firm-connections:v3:{firmId} via cachedFetch.
 import { getFullGraph } from '@/lib/graphStore';
 import { searchLocalIndex, hasMinimumSearchQuery } from '@/lib/localSearch';
 import { cachedFetch } from '@/lib/simpleCache';
 import { searchGraphFallback } from '@/lib/searchGraphFallback';
 import { searchDirectRedisFallback } from '@/lib/searchDirectFallback';
 import { getFirmEmploymentEdgesFromFullScan } from '@/lib/firmEmploymentIndex';
+import { getFirmEmploymentEdgesFromPrimed } from '@/lib/firmEmploymentFromPrimed';
 
 export type GraphConnectionEntry = {
 	individualId: string;
@@ -18,9 +22,9 @@ export type GraphConnectionEntry = {
 	isCurrent: boolean;
 };
 
-const FIRM_CONNECTIONS_CACHE_TTL_SECONDS = 60 * 60; // 1 hour, matching the firm detail route's shared cache headers
-// Avoid sticky empty caches while graph/search coverage is still warming after compression/format changes.
-const EMPTY_FIRM_CONNECTIONS_CACHE_TTL_SECONDS = 30;
+const FIRM_CONNECTIONS_CACHE_TTL_SECONDS = 60 * 60;
+// Do not stick empty results for an hour — empty caches were masking recoveries.
+const EMPTY_FIRM_CONNECTIONS_CACHE_TTL_SECONDS = 45;
 
 function toArraySafe(value: unknown): any[] {
 	return Array.isArray(value) ? value : [];
@@ -35,9 +39,6 @@ function firstNonEmpty(...values: unknown[]) {
 }
 
 async function searchIndividualsForFirmWithFallback(source: 'finra' | 'sec', firmId: string): Promise<any[]> {
-	// Mirrors the fallback chain used by /api/finra/search (consumed client-side by fetchFirmBatch):
-	// local static/dynamic index -> shared graph snapshot -> direct Redis record.
-	// Keep this Redis-light: no external fan-out and no full individual SCAN.
 	const limit = 30;
 	const local = await searchLocalIndex(source, 'individual', firmId, { limit }).catch(() => null);
 	if (local && local.total > 0) return toArraySafe(local?.hits?.hits).map((hit: any) => hit?._source || hit || {});
@@ -98,7 +99,7 @@ async function getConnectionsFromSearchIndex(firmId: string): Promise<GraphConne
 				}
 			}
 		} catch {
-			// Best-effort: skip this source if its index/fallback chain isn't available.
+			// Best-effort
 		}
 	}
 	return entries;
@@ -122,7 +123,9 @@ async function getConnectionsFromGraphStore(firmId: string): Promise<GraphConnec
 		const id = node?.id ? String(node.id) : '';
 		if (id) nodeById.set(id, node);
 	}
-	if (!nodeById.has(firmNodeId)) return [];
+	if (!nodeById.has(firmNodeId)) {
+		// Still scan links — mono graph may omit the firm node while links exist after partial merges.
+	}
 
 	const entries: GraphConnectionEntry[] = [];
 
@@ -132,24 +135,20 @@ async function getConnectionsFromGraphStore(firmId: string): Promise<GraphConnec
 		if (!sourceId || !targetId) continue;
 		if (sourceId !== firmNodeId && targetId !== firmNodeId) continue;
 
-		// Only "employed_by" links represent individuals currently/previously employed by or
-		// registered with this firm. "controls" links represent ownership and are already surfaced
-		// separately via the firm's directOwners/indirectOwners sections.
 		const relationship = String(link?.relationship || '').trim();
 		if (relationship !== 'employed_by' && relationship !== 'previous_employed_by') continue;
 
 		const otherId = sourceId === firmNodeId ? targetId : sourceId;
 		const otherNode = nodeById.get(otherId);
-		if (!otherNode || otherNode.group !== 'individual') continue;
-
-		const crd = firstNonEmpty(otherNode.crd, otherId.replace(/^person:/, ''));
-		if (!crd) continue;
+		const crd = firstNonEmpty(otherNode?.crd, otherId.replace(/^person:/, ''));
+		if (!crd || !otherId.startsWith('person:')) continue;
+		if (otherNode && otherNode.group && otherNode.group !== 'individual') continue;
 
 		const startDate = firstNonEmpty(link?.startDate, link?.registrationBeginDate, link?.fromDate, link?.effectiveDate);
 		const endDate = firstNonEmpty(link?.endDate, link?.registrationEndDate, link?.toDate);
 
-		const currentEmployments = [...toArraySafe(otherNode.currentEmployments), ...toArraySafe(otherNode.currentIAEmployments)];
-		const previousEmployments = [...toArraySafe(otherNode.previousEmployments), ...toArraySafe(otherNode.previousIAEmployments)];
+		const currentEmployments = [...toArraySafe(otherNode?.currentEmployments), ...toArraySafe(otherNode?.currentIAEmployments)];
+		const previousEmployments = [...toArraySafe(otherNode?.previousEmployments), ...toArraySafe(otherNode?.previousIAEmployments)];
 
 		let isCurrent: boolean;
 		if (relationship === 'previous_employed_by') {
@@ -166,7 +165,7 @@ async function getConnectionsFromGraphStore(firmId: string): Promise<GraphConnec
 
 		entries.push({
 			individualId: crd,
-			name: firstNonEmpty(otherNode.label),
+			name: firstNonEmpty(otherNode?.label),
 			relationship: isCurrent ? 'Current registration' : 'Previous registration',
 			startDate: startDate || undefined,
 			endDate: !isCurrent && endDate ? endDate : undefined,
@@ -175,6 +174,18 @@ async function getConnectionsFromGraphStore(firmId: string): Promise<GraphConnec
 	}
 
 	return entries;
+}
+
+async function getConnectionsFromPrimedBundle(firmId: string): Promise<GraphConnectionEntry[]> {
+	const edges = await getFirmEmploymentEdgesFromPrimed(firmId).catch(() => []);
+	return edges.map((edge) => ({
+		individualId: edge.personCrd,
+		name: edge.personName,
+		relationship: edge.isCurrent ? 'Current registration' : 'Previous registration',
+		startDate: edge.startDate,
+		endDate: edge.isCurrent ? undefined : edge.endDate,
+		isCurrent: edge.isCurrent,
+	}));
 }
 
 async function getConnectionsFromFullScanIndex(firmId: string): Promise<GraphConnectionEntry[]> {
@@ -190,20 +201,24 @@ async function getConnectionsFromFullScanIndex(firmId: string): Promise<GraphCon
 }
 
 async function computeFirmConnectionsFromGraph(firmId: string): Promise<{ currentConnections: GraphConnectionEntry[]; previousConnections: GraphConnectionEntry[] }> {
-	// Prefer cheap sources first. Full individual SCAN is opt-in only (shared Redis throughput).
-	const [searchEntries, graphEntries] = await Promise.all([
+	// Primed reverse index first (covers firms missing from mono graph edges, e.g. Fisher 107342).
+	// Then mono graph links + search fallbacks. Full SCAN remains opt-in.
+	const [primedEntries, searchEntries, graphEntries] = await Promise.all([
+		getConnectionsFromPrimedBundle(firmId).catch(() => [] as GraphConnectionEntry[]),
 		getConnectionsFromSearchIndex(firmId).catch(() => [] as GraphConnectionEntry[]),
 		getConnectionsFromGraphStore(firmId).catch(() => [] as GraphConnectionEntry[]),
 	]);
 
-	// Only runs when FINRA_FIRM_EMPLOYMENT_FULL_SCAN=1 — otherwise this no-ops immediately.
-	const fullScanEntries = await getConnectionsFromFullScanIndex(firmId).catch(() => [] as GraphConnectionEntry[]);
+	const fullScanEntries =
+		primedEntries.length || searchEntries.length || graphEntries.length ?
+			([] as GraphConnectionEntry[])
+		:	await getConnectionsFromFullScanIndex(firmId).catch(() => [] as GraphConnectionEntry[]);
 
 	const current: GraphConnectionEntry[] = [];
 	const previous: GraphConnectionEntry[] = [];
 	const seen = new Set<string>();
 
-	for (const entry of [...searchEntries, ...graphEntries, ...fullScanEntries]) {
+	for (const entry of [...primedEntries, ...searchEntries, ...graphEntries, ...fullScanEntries]) {
 		const dedupeKey = `${entry.individualId}:${entry.isCurrent}`;
 		if (seen.has(dedupeKey)) continue;
 		seen.add(dedupeKey);
@@ -217,26 +232,17 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<{ cur
 	const normalizedFirmId = String(firmId || '').trim();
 	if (!normalizedFirmId) return { currentConnections: [], previousConnections: [] };
 
-	// Reuse the same Upstash Redis-backed cache (cachedFetch/simpleCache.ts) that the graph and
-	// firm/individual detail routes already share, so this computation isn't repeated per request.
-	// Note: the cache key intentionally avoids the "finra:"/"sec:" prefixes since cachedFetch()
-	// treats those prefixes as external-API service keys subject to rate-limiting/cooldown logic
-	// that doesn't apply to this purely-local computation.
-	//
-	// Cache key versioned after brotli/graph decode fix so sticky empty `graph:firm-connections:*`
-	// entries written while getFullGraph() failed to parse `br:` payloads are not reused forever.
-	const cacheKey = `graph:firm-connections:v2:${normalizedFirmId}`;
+	// v3: primed reverse index + avoid sticky empty v1/v2 caches from broken mono-graph-only path.
+	const cacheKey = `graph:firm-connections:v3:${normalizedFirmId}`;
+	// Use the long TTL for cache reads; empty results are stored under a sibling short-TTL key
+	// so warm recoveries are not blocked for a full hour after a cold miss.
 	const cached = await cachedFetch(cacheKey, FIRM_CONNECTIONS_CACHE_TTL_SECONDS, async () => {
 		const computed = await computeFirmConnectionsFromGraph(normalizedFirmId);
 		const total = (computed.currentConnections?.length || 0) + (computed.previousConnections?.length || 0);
 		if (total === 0) {
-			// Short-circuit empty results with a brief in-memory-friendly TTL via a second write path:
-			// return the empty payload, but callers still get correct empty arrays. Sticky hour-long
-			// empty caches were masking recoveries after graph decode fixes.
-			return {
-				...computed,
-				_cacheTtlSeconds: EMPTY_FIRM_CONNECTIONS_CACHE_TTL_SECONDS,
-			} as any;
+			// Brief empty cache via a separate key so the primary key is not poisoned for 1h.
+			await cachedFetch(`${cacheKey}:empty`, EMPTY_FIRM_CONNECTIONS_CACHE_TTL_SECONDS, async () => computed).catch(() => null);
+			return computed;
 		}
 		return computed;
 	});
