@@ -1,6 +1,8 @@
-// Reverse firm → employee lookup from the primed individual Redis bundle.
-// Used by firm /connections and expand routes when the mono session graph has no employed_by edges.
-// Bundle is multi-MB; load once per warm instance and keep an in-memory reverse index.
+// Reverse firm → employee lookup.
+// Prefer precomputed O(1) keys from scripts/build_firm_employment_adj.js:
+//   graph:firm-emp-adj:v1:{firmId}
+// Fallback: load multi-MB primed:bundle:finra-individual* once per warm instance.
+// Used by firm /connections and expand when the mono session graph has no employed_by edges.
 import type { Redis } from '@upstash/redis';
 import zlib from 'node:zlib';
 import { getRedisClientInstance } from '@/lib/redisClient';
@@ -12,6 +14,8 @@ export type PrimedEmploymentEdge = {
 	isCurrent: boolean;
 	startDate?: string;
 	endDate?: string;
+	bcScope?: string;
+	iaScope?: string;
 };
 
 type PrimedBundle = Record<string, unknown>;
@@ -19,6 +23,7 @@ type PrimedBundle = Record<string, unknown>;
 const BUNDLE_NAME = 'finra-individual';
 const PRIMED_KEY = `primed:bundle:${BUNDLE_NAME}`;
 const PRIMED_META_KEY = `${PRIMED_KEY}:meta`;
+const FIRM_EMP_ADJ_PREFIX = 'graph:firm-emp-adj:v1';
 
 let reverseIndex: Map<string, PrimedEmploymentEdge[]> | null = null;
 let reverseIndexPromise: Promise<Map<string, PrimedEmploymentEdge[]>> | null = null;
@@ -74,9 +79,7 @@ async function loadPrimedIndividualBundle(redis: Redis): Promise<PrimedBundle | 
 		const chunkCount = Number(meta?.chunks || meta?.parts || 0);
 		if (!Number.isFinite(chunkCount) || chunkCount <= 0) return null;
 
-		const parts = await Promise.all(
-			Array.from({ length: chunkCount }, (_, index) => redis.get<string>(`${PRIMED_KEY}:part:${index}`)),
-		);
+		const parts = await Promise.all(Array.from({ length: chunkCount }, (_, index) => redis.get<string>(`${PRIMED_KEY}:part:${index}`)));
 		if (parts.some((part) => part == null)) return null;
 		return decodeBundlePayload(parts.join(''));
 	} catch {
@@ -116,14 +119,7 @@ function unwrapIndividualRecord(raw: unknown): any | null {
 
 function personCrdFromBundleKey(key: string, payload: any): string {
 	const fromKey = key.match(/individual:(\d{1,10})/i)?.[1] || '';
-	return firstNonEmpty(
-		payload?.basicInformation?.individualId,
-		payload?.basicInformation?.ind_source_id,
-		payload?.ind_source_id,
-		payload?.ind_crd,
-		payload?.crd,
-		fromKey,
-	);
+	return firstNonEmpty(payload?.basicInformation?.individualId, payload?.basicInformation?.ind_source_id, payload?.ind_source_id, payload?.ind_crd, payload?.crd, fromKey);
 }
 
 function personNameFromPayload(payload: any): string {
@@ -163,12 +159,15 @@ function buildReverseIndex(bundle: PrimedBundle): Map<string, PrimedEmploymentEd
 		const add = (entry: any, isCurrent: boolean) => {
 			const firmId = firstNonEmpty(entry?.firmId, entry?.firm_id);
 			if (!firmId) return;
+			const bi = payload?.basicInformation || {};
 			const edge: PrimedEmploymentEdge = {
 				personCrd,
 				personName,
 				isCurrent,
 				startDate: firstNonEmpty(entry?.registrationBeginDate, entry?.startDate) || undefined,
 				endDate: firstNonEmpty(entry?.registrationEndDate, entry?.endDate) || undefined,
+				bcScope: firstNonEmpty(payload?.bcScope, bi.bcScope) || undefined,
+				iaScope: firstNonEmpty(payload?.iaScope, bi.iaScope) || undefined,
 			};
 			const list = index.get(firmId) || [];
 			list.push(edge);
@@ -215,11 +214,66 @@ async function getReverseIndex(): Promise<Map<string, PrimedEmploymentEdge[]>> {
 	return reverseIndexPromise;
 }
 
-/** Returns current/previous employment edges for a firm from the primed individual bundle. */
+function edgesFromAdjPayload(raw: unknown): PrimedEmploymentEdge[] | null {
+	if (raw == null) return null;
+	let data: any = raw;
+	if (typeof data === 'string') {
+		try {
+			const text = data.startsWith('br:') ? decompressPayload(data) : data;
+			data = JSON.parse(text);
+		} catch {
+			return null;
+		}
+	}
+	if (!data || typeof data !== 'object') return null;
+
+	const current = toArraySafe(data.currentConnections ?? data.current);
+	const previous = toArraySafe(data.previousConnections ?? data.previous);
+	if (!current.length && !previous.length && !Array.isArray(data.currentConnections) && !Array.isArray(data.previousConnections)) {
+		// Distinguish empty precomputed result from missing key shape.
+		if (!('currentConnections' in data) && !('previousConnections' in data) && !('current' in data) && !('previous' in data)) {
+			return null;
+		}
+	}
+
+	const out: PrimedEmploymentEdge[] = [];
+	const push = (entry: any, isCurrent: boolean) => {
+		const personCrd = firstNonEmpty(entry?.individualId, entry?.personCrd, entry?.crd);
+		if (!personCrd) return;
+		out.push({
+			personCrd,
+			personName: firstNonEmpty(entry?.name, entry?.personName, entry?.label),
+			isCurrent: entry?.isCurrent != null ? Boolean(entry.isCurrent) : isCurrent,
+			startDate: firstNonEmpty(entry?.startDate, entry?.registrationBeginDate) || undefined,
+			endDate: firstNonEmpty(entry?.endDate, entry?.registrationEndDate) || undefined,
+			bcScope: firstNonEmpty(entry?.bcScope) || undefined,
+			iaScope: firstNonEmpty(entry?.iaScope) || undefined,
+		});
+	};
+	for (const entry of current) push(entry, true);
+	for (const entry of previous) push(entry, false);
+	return out;
+}
+
+async function getEdgesFromPrecomputedAdj(firmId: string): Promise<PrimedEmploymentEdge[] | null> {
+	const redis = getRedis();
+	if (!redis) return null;
+	try {
+		const raw = await redis.get(`${FIRM_EMP_ADJ_PREFIX}:${firmId}`);
+		return edgesFromAdjPayload(raw);
+	} catch {
+		return null;
+	}
+}
+
+/** Returns current/previous employment edges for a firm (precomputed adj, then primed bundle). */
 export async function getFirmEmploymentEdgesFromPrimed(firmId: string): Promise<PrimedEmploymentEdge[]> {
 	const normalizedFirmId = String(firmId || '').trim();
 	if (!normalizedFirmId) return [];
 	try {
+		const precomputed = await getEdgesFromPrecomputedAdj(normalizedFirmId);
+		if (precomputed) return precomputed;
+
 		const index = await getReverseIndex();
 		return index.get(normalizedFirmId) || [];
 	} catch {

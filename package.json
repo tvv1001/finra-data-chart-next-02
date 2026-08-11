@@ -19,6 +19,7 @@
 		"test:smoke": "playwright test tests/e2e/smoke.spec.ts",
 		"build:graph": "node scripts/build_graph_from_cache.js --employment-scope all",
 		"build:primed-cache": "ENABLE_PRIMED_CACHE=true node scripts/build_primed_cache_bundle.js",
+		"build:firm-emp-adj": "node scripts/build_firm_employment_adj.mjs",
 		"build:people-clusters": "node scripts/build_people_clusters.js",
 		"crd-log": "node scripts/generate-crd-log.js",
 		"split:crds": "node scripts/split_crds_into_batches.js",

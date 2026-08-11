@@ -11326,9 +11326,12 @@ async function ensureFirmConnections(firmNode: any) {
 			const alreadyLinked = countFirmEmploymentLinks(String(firmNode.id)) > 0;
 
 			let applied = false;
+			let connectionsRequestFailed = false;
 			try {
+				// Cold primed reverse-index builds can exceed 6s on serverless; allow more headroom
+				// once precomputed adj keys exist this is typically <500ms.
 				const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-				const timer = controller ? window.setTimeout(() => controller.abort(), 6000) : 0;
+				const timer = controller ? window.setTimeout(() => controller.abort(), 12000) : 0;
 				const res = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}/connections`, {
 					signal: controller?.signal,
 				});
@@ -11338,16 +11341,23 @@ async function ensureFirmConnections(firmNode: any) {
 					if (payload?.found !== false) {
 						applied = applyFirmConnectionPayload(firmNode, payload) || applied;
 					}
+				} else {
+					connectionsRequestFailed = true;
 				}
 			} catch {
 				// timeout / offline — fall through to search inject
+				connectionsRequestFailed = true;
 			}
 
 			if (!applied && !alreadyLinked) {
 				applied = (await injectFirmEmployeesFromSearch(firmId, firmNode)) || applied;
 			}
 
-			firmNode._connectionsLoaded = true;
+			// Only sticky-mark loaded when we got edges or a successful empty response.
+			// Failed/timeouts must retry so firm people lists can appear after warm Redis/adj is ready.
+			if (applied || alreadyLinked || !connectionsRequestFailed) {
+				firmNode._connectionsLoaded = true;
+			}
 		} catch (error) {
 			console.warn(`ensureFirmConnections failed for ${firmId}:`, error);
 		}

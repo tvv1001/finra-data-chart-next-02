@@ -7,11 +7,11 @@
 // Results are cached at graph:firm-connections:v3:{firmId} via cachedFetch.
 import { getFullGraph } from '@/lib/graphStore';
 import { searchLocalIndex, hasMinimumSearchQuery } from '@/lib/localSearch';
-import { cachedFetch } from '@/lib/simpleCache';
 import { searchGraphFallback } from '@/lib/searchGraphFallback';
 import { searchDirectRedisFallback } from '@/lib/searchDirectFallback';
 import { getFirmEmploymentEdgesFromFullScan } from '@/lib/firmEmploymentIndex';
 import { getFirmEmploymentEdgesFromPrimed } from '@/lib/firmEmploymentFromPrimed';
+import { getRedisClient, setStringIfValid, decompressPayload } from '@/lib/redisCache';
 
 export type GraphConnectionEntry = {
 	individualId: string;
@@ -20,6 +20,8 @@ export type GraphConnectionEntry = {
 	startDate?: string;
 	endDate?: string;
 	isCurrent: boolean;
+	bcScope?: string;
+	iaScope?: string;
 };
 
 const FIRM_CONNECTIONS_CACHE_TTL_SECONDS = 60 * 60;
@@ -185,7 +187,27 @@ async function getConnectionsFromPrimedBundle(firmId: string): Promise<GraphConn
 		startDate: edge.startDate,
 		endDate: edge.isCurrent ? undefined : edge.endDate,
 		isCurrent: edge.isCurrent,
+		bcScope: edge.bcScope,
+		iaScope: edge.iaScope,
 	}));
+}
+
+function parseCachedConnectionsPayload(raw: unknown): { currentConnections: GraphConnectionEntry[]; previousConnections: GraphConnectionEntry[] } | null {
+	if (raw == null) return null;
+	let data: any = raw;
+	if (typeof data === 'string') {
+		try {
+			const text = data.startsWith('br:') ? decompressPayload(data) : data;
+			data = JSON.parse(text);
+		} catch {
+			return null;
+		}
+	}
+	if (!data || typeof data !== 'object') return null;
+	return {
+		currentConnections: Array.isArray(data.currentConnections) ? data.currentConnections : [],
+		previousConnections: Array.isArray(data.previousConnections) ? data.previousConnections : [],
+	};
 }
 
 async function getConnectionsFromFullScanIndex(firmId: string): Promise<GraphConnectionEntry[]> {
@@ -232,24 +254,41 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<{ cur
 	const normalizedFirmId = String(firmId || '').trim();
 	if (!normalizedFirmId) return { currentConnections: [], previousConnections: [] };
 
-	// v3: primed reverse index + avoid sticky empty v1/v2 caches from broken mono-graph-only path.
-	const cacheKey = `graph:firm-connections:v3:${normalizedFirmId}`;
-	// Use the long TTL for cache reads; empty results are stored under a sibling short-TTL key
-	// so warm recoveries are not blocked for a full hour after a cold miss.
-	const cached = await cachedFetch(cacheKey, FIRM_CONNECTIONS_CACHE_TTL_SECONDS, async () => {
-		const computed = await computeFirmConnectionsFromGraph(normalizedFirmId);
-		const total = (computed.currentConnections?.length || 0) + (computed.previousConnections?.length || 0);
-		if (total === 0) {
-			// Brief empty cache via a separate key so the primary key is not poisoned for 1h.
-			await cachedFetch(`${cacheKey}:empty`, EMPTY_FIRM_CONNECTIONS_CACHE_TTL_SECONDS, async () => computed).catch(() => null);
-			return computed;
-		}
-		return computed;
-	});
+	// v4: precomputed firm-emp-adj first (via getFirmEmploymentEdgesFromPrimed).
+	// Never write empty payloads to the long-TTL key (that poisoned firm people lists for 1h).
+	const cacheKey = `graph:firm-connections:v4:${normalizedFirmId}`;
+	const emptyCacheKey = `${cacheKey}:empty`;
+	const redis = getRedisClient();
 
-	if (!cached) return { currentConnections: [], previousConnections: [] };
-	return {
-		currentConnections: Array.isArray(cached.currentConnections) ? cached.currentConnections : [],
-		previousConnections: Array.isArray(cached.previousConnections) ? cached.previousConnections : [],
-	};
+	if (redis) {
+		try {
+			const hit = parseCachedConnectionsPayload(await redis.get(cacheKey));
+			if (hit && (hit.currentConnections.length || hit.previousConnections.length)) {
+				return hit;
+			}
+			const emptyHit = await redis.get(emptyCacheKey);
+			if (emptyHit != null) {
+				return { currentConnections: [], previousConnections: [] };
+			}
+		} catch {
+			// fall through to compute
+		}
+	}
+
+	const computed = await computeFirmConnectionsFromGraph(normalizedFirmId);
+	const total = (computed.currentConnections?.length || 0) + (computed.previousConnections?.length || 0);
+
+	if (redis) {
+		try {
+			if (total > 0) {
+				await setStringIfValid(cacheKey, JSON.stringify(computed), FIRM_CONNECTIONS_CACHE_TTL_SECONDS);
+			} else {
+				await setStringIfValid(emptyCacheKey, JSON.stringify({ empty: true, at: Date.now() }), EMPTY_FIRM_CONNECTIONS_CACHE_TTL_SECONDS);
+			}
+		} catch {
+			// best-effort cache
+		}
+	}
+
+	return computed;
 }
