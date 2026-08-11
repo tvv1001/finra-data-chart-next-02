@@ -36,7 +36,7 @@ async function executeLocalRequest(req: any): Promise<any> {
 }
 
 export function getRedisClientInstance(config: { url: string; token: string }) {
-	const isLocalhost = process.env.NODE_ENV === 'development' || process.env.USE_LOCAL_REDIS === '1';
+	const isLocalhost = process.env.USE_LOCAL_REDIS === '1';
 	
 	if (isLocalhost) {
 		return new UpstashRedis({

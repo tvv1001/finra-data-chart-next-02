@@ -35,12 +35,15 @@ function normalizeKey(key: string): string {
 	return key;
 }
 
+import { decompressPayload } from '@/lib/redisCache';
+
 /** Safely parse a Redis value — Upstash auto-deserialises JSON so the value may
  *  already be a plain object rather than a JSON string. */
 function parseRedisValue<T>(raw: unknown): T | null {
 	if (raw == null) return null;
 	if (typeof raw === 'string') {
-		try { return JSON.parse(raw) as T; } catch { return null; }
+		const decompressed = decompressPayload(raw);
+		try { return JSON.parse(decompressed) as T; } catch { return null; }
 	}
 	return raw as T;
 }

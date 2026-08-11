@@ -921,17 +921,20 @@ async function fetchExtensionsFromRedis(bucket: LocalSearchBucket): Promise<Loca
 	try {
 		const key = `search:indexes:extensions:${bucket}`;
 		const docs: LocalSearchDoc[] = [];
-		let cursor = '0';
 		
-		do {
-			const [nextCursor, elements] = await redis.hscan(key, cursor, { count: 1000 });
-			cursor = String(nextCursor);
+		const keys = await redis.hkeys(key);
+		if (!keys || !keys.length) return [];
+		
+		// Chunk keys to avoid Upstash 10MB response limits (hscan ignores count sometimes)
+		const chunkSize = 500;
+		for (let i = 0; i < keys.length; i += chunkSize) {
+			const chunk = keys.slice(i, i + chunkSize);
+			const vals = await redis.hmget<Record<string, unknown>>(key, ...chunk);
 			
-			if (Array.isArray(elements)) {
-				for (let i = 1; i < elements.length; i += 2) {
-					const raw = elements[i];
+			if (vals && typeof vals === 'object') {
+				// hmget returns an object mapping key to value
+				for (const raw of Object.values(vals)) {
 					if (!raw) continue;
-					
 					if (typeof raw === 'object') {
 						docs.push(raw as LocalSearchDoc);
 					} else if (typeof raw === 'string') {
@@ -946,7 +949,7 @@ async function fetchExtensionsFromRedis(bucket: LocalSearchBucket): Promise<Loca
 					}
 				}
 			}
-		} while (cursor !== '0' && cursor !== '');
+		}
 		
 		return docs;
 	} catch (err) {
