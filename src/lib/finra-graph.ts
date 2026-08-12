@@ -1054,6 +1054,14 @@ let graphTemplatesHydrated = false;
 let graphTemplatesHydrationPromise: Promise<void> | null = null;
 let applyingGraphTemplate = false;
 
+// Bulk "paste a CRD list" import, mounted alongside Save/Load Template controls. Lets a user
+// paste lines like "Gerard Francis Hallaren :: CRD# 1408026" and have each individual fetched
+// and added to the graph + selection log in one action.
+let isCrdPasteImportOpen = false;
+let pasteCrdImportText = '';
+let crdPasteImportBusy = false;
+let crdPasteImportStatus = '';
+
 function openSessionDatabase() {
 	return new Promise<IDBDatabase>((resolve, reject) => {
 		if (typeof indexedDB === 'undefined') {
@@ -1603,6 +1611,38 @@ function renderSelectionLogTemplatesMarkup() {
 			<div class="fg-selection-log-templates__body${isSelectionLogTemplatesOpen ? '' : ' is-collapsed'}">
 				${rows}
 			</div>
+			<div class="fg-crd-paste-import">
+				<button
+					type="button"
+					class="fg-selection-log-templates__toggle"
+					data-fg-template-action="toggle-paste-panel"
+					aria-expanded="${isCrdPasteImportOpen ? 'true' : 'false'}"
+					title="Paste a list of Name :: CRD# numbers to bulk add individuals">
+					<span class="fg-selection-log-templates__toggle-label">Paste CRD List</span>
+					<span class="fg-selection-log-templates__chevron" aria-hidden="true">${isCrdPasteImportOpen ? '▾' : '▸'}</span>
+				</button>
+				<div class="fg-crd-paste-import__body${isCrdPasteImportOpen ? '' : ' is-collapsed'}">
+					<textarea
+						class="fg-crd-paste-textarea"
+						rows="4"
+						placeholder="Gerard Francis Hallaren :: CRD# 1408026&#10;Darcy Gail Glenn :: CRD# 1420846&#10;One per line"
+						aria-label="Paste CRD list"
+						data-fg-template-action="paste-textarea"
+						${crdPasteImportBusy ? 'disabled' : ''}
+					>${escapeHtml(pasteCrdImportText)}</textarea>
+					<div class="fg-crd-paste-import__actions">
+						<button
+							type="button"
+							class="fg-ghost-btn fg-btn-sm"
+							data-fg-template-action="paste-import"
+							${crdPasteImportBusy ? 'disabled' : ''}
+							title="Fetch and add each pasted CRD to the graph and selection log">
+							${crdPasteImportBusy ? 'Importing…' : 'Import CRDs'}
+						</button>
+						${crdPasteImportStatus ? `<span class="fg-crd-paste-import__status">${escapeHtml(crdPasteImportStatus)}</span>` : ''}
+					</div>
+				</div>
+			</div>
 		</div>
 	`;
 }
@@ -1677,7 +1717,26 @@ function bindSelectionLogTemplateHost(host: HTMLElement) {
 			if (deleteGraphTemplate(templateId)) {
 				flashSelectionLogActionButton(target as HTMLButtonElement, 'Deleted!');
 			}
+			return;
 		}
+
+		if (action === 'toggle-paste-panel') {
+			isCrdPasteImportOpen = !isCrdPasteImportOpen;
+			updateSelectionLogTemplatesUI();
+			return;
+		}
+
+		if (action === 'paste-import') {
+			const textarea = host.querySelector<HTMLTextAreaElement>('[data-fg-template-action="paste-textarea"]');
+			const text = textarea ? textarea.value : pasteCrdImportText;
+			void importPastedCrdList(text);
+		}
+	});
+
+	host.addEventListener('input', (event) => {
+		const target = event.target instanceof HTMLTextAreaElement ? event.target : null;
+		if (!target || target.getAttribute('data-fg-template-action') !== 'paste-textarea') return;
+		pasteCrdImportText = target.value;
 	});
 
 	host.addEventListener('change', (event) => {
@@ -7396,6 +7455,98 @@ async function fetchIndividualBatch(crd, queryLabel = null, options: { includePr
 	}
 
 	return { nodes, links };
+}
+
+// Parses pasted lines of the form "Gerard Francis Hallaren :: CRD# 1408026" (one per line) into
+// { name, crd } entries. Tolerant of extra whitespace, missing names, and bare CRD numbers.
+function parsePastedCrdList(text: string): Array<{ crd: string; name: string }> {
+	const seen = new Set<string>();
+	const results: Array<{ crd: string; name: string }> = [];
+	const lines = String(text || '').split(/\r?\n/);
+	for (const rawLine of lines) {
+		const line = rawLine.trim();
+		if (!line) continue;
+		const crdMatch = line.match(/CRD#?\s*[:]?\s*(\d{1,10})/i) || line.match(/^(\d{1,10})$/);
+		if (!crdMatch) continue;
+		const crd = crdMatch[1];
+		if (seen.has(crd)) continue;
+		seen.add(crd);
+		const namePart = line.split(/::/)[0]?.trim() || '';
+		const name = namePart && !/^\d+$/.test(namePart) && namePart !== line.trim() ? namePart : '';
+		results.push({ crd, name });
+	}
+	return results;
+}
+
+// Bulk-imports a pasted CRD list: fetches each individual, merges new nodes/links into the live
+// graph, and adds every requested person (new or already-on-canvas) to the selection log.
+async function importPastedCrdList(rawText: string) {
+	if (crdPasteImportBusy) return { added: 0, skipped: 0, failed: 0 };
+	const parsed = parsePastedCrdList(rawText);
+	if (!parsed.length) {
+		crdPasteImportStatus = 'No CRD numbers found in pasted text';
+		updateSelectionLogTemplatesUI();
+		return { added: 0, skipped: 0, failed: 0 };
+	}
+
+	crdPasteImportBusy = true;
+	crdPasteImportStatus = `Importing ${parsed.length} CRD${parsed.length === 1 ? '' : 's'}…`;
+	updateSelectionLogTemplatesUI();
+	updateFetchStatus(crdPasteImportStatus);
+
+	let added = 0;
+	let skipped = 0;
+	let failed = 0;
+	const allNodes = [];
+	const allLinks = [];
+
+	try {
+		const results = await mapWithConcurrency(parsed, PROFILE_SEED_FETCH_CONCURRENCY, async (entry) => {
+			const personId = `person:${entry.crd}`;
+			if (layoutNodes.some((n) => n.id === personId)) return { entry, existed: true };
+			const batch = await fetchIndividualBatch(entry.crd, entry.name || null);
+			return { entry, existed: false, nodes: batch.nodes, links: batch.links };
+		});
+
+		for (const r of results) {
+			if (r.status !== 'fulfilled') {
+				failed += 1;
+				continue;
+			}
+			if (r.value.existed) {
+				skipped += 1;
+			} else {
+				added += 1;
+				allNodes.push(...(r.value.nodes || []));
+				allLinks.push(...(r.value.links || []));
+			}
+		}
+
+		if (allNodes.length) {
+			appendFetched(allNodes, allLinks);
+			mergeIntoGraphData(allNodes, allLinks);
+			persistToServer(allNodes, allLinks);
+		}
+
+		for (const entry of parsed) {
+			const node = layoutNodes.find((n) => n.id === `person:${entry.crd}`);
+			if (node) addToSelectionLog(node);
+		}
+
+		if (added || skipped) openSelectionLog();
+
+		crdPasteImportStatus = `Added ${added}${skipped ? `, ${skipped} already on canvas` : ''}${failed ? `, ${failed} failed` : ''}`;
+	} catch (err) {
+		console.warn('Bulk CRD paste import failed:', err);
+		crdPasteImportStatus = 'Import failed — see console for details';
+	} finally {
+		crdPasteImportBusy = false;
+		pasteCrdImportText = '';
+		updateFetchStatus(crdPasteImportStatus);
+		updateSelectionLogTemplatesUI();
+	}
+
+	return { added, skipped, failed };
 }
 
 async function fetchFirmBatch(firmId, queryLabel = null) {
