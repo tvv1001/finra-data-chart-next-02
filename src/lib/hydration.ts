@@ -40,6 +40,23 @@ async function fetchAndSave(source: 'finra' | 'sec', type: 'individual' | 'firm'
 
 	console.log(`[Validation Check] Time: ${new Date().toISOString()} | Accessing external API: ${url} | Domain: ${domain} | CRDs: [${id}] | Count: 1`);
 
+	const redisKey = `${source}:${type}:${id}`;
+	const redis = getRedisClient();
+
+	// Local API First Approach: Do not hit the external API if the record already exists in Redis.
+	// The cron job handles regular background updates, so the UI hydration queue should only fetch missing records.
+	if (redis) {
+		try {
+			const exists = await redis.exists(redisKey);
+			if (exists) {
+				console.log(`[Validation Check Skipped] Time: ${new Date().toISOString()} | Found in Redis | Domain: ${domain} | CRDs: [${id}]`);
+				return;
+			}
+		} catch (e) {
+			// ignore redis errors and fall through to fetch
+		}
+	}
+
 	const fetchOptions = {
 		headers: {
 			'Accept': 'application/json',
@@ -60,8 +77,6 @@ async function fetchAndSave(source: 'finra' | 'sec', type: 'individual' | 'firm'
 		return;
 	}
 
-	const redisKey = `${source}:${type}:${id}`;
-	const redis = getRedisClient();
 	let cacheStatus = 'no-redis';
 	let addedCount = 0;
 

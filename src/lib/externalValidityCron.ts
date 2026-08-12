@@ -657,17 +657,17 @@ async function processCandidate(
 	const node = buildRecordNode(kind, id, finra, sec);
 	if (!node) return { found: false, discovered: false, updated: false, 429: false };
 
-	// Persist raw payloads before merging so we don't lose data when upstream is flaky
+	if (!hasRecordChanged(graph, node)) {
+		return { found: true, discovered: false, updated: false, 429: false };
+	}
+
+	// Persist raw payloads only if changed to save Redis command/bandwidth costs
 	try {
 		await redis.set(`${PENDING_PREFIX}:${kind}:${normalizeId(id)}:finra`, JSON.stringify(finra || {}));
 	} catch {}
 	try {
 		await redis.set(`${PENDING_PREFIX}:${kind}:${normalizeId(id)}:sec`, JSON.stringify(sec || {}));
 	} catch {}
-
-	if (!hasRecordChanged(graph, node)) {
-		return { found: true, discovered: false, updated: false, 429: false };
-	}
 
 	const linksAccumulator: any[] & { _extraNodes?: any[] } = [] as any;
 	const tempNodes = new Map<string, any>();
@@ -816,10 +816,10 @@ export async function runExternalValidityCron() {
 					}
 					if (kind === 'individual') {
 						if (isDiscovery) nextState.discovery.individualNext = Number(id) + 1;
-						else nextState.updateIndex.individual = Math.max(0, Number(id) - 1);
+						else nextState.updateIndex.individual = Math.max(Number(process.env.FINRA_EXTERNAL_VALIDITY_MIN_INDIVIDUAL_UPDATE || 7000000), Number(id) - 1);
 					} else {
 						if (isDiscovery) nextState.discovery.firmNext = Number(id) + 1;
-						else nextState.updateIndex.firm = Math.max(0, Number(id) - 1);
+						else nextState.updateIndex.firm = Math.max(Number(process.env.FINRA_EXTERNAL_VALIDITY_MIN_FIRM_UPDATE || 300000), Number(id) - 1);
 					}
 					await storeState(redis, nextState);
 				} catch (error: any) {
@@ -838,10 +838,10 @@ export async function runExternalValidityCron() {
 					summary.skippedNoData += 1;
 					if (kind === 'individual') {
 						if (isDiscovery) nextState.discovery.individualNext = Number(id) + 1;
-						else nextState.updateIndex.individual = Math.max(0, Number(id) - 1);
+						else nextState.updateIndex.individual = Math.max(Number(process.env.FINRA_EXTERNAL_VALIDITY_MIN_INDIVIDUAL_UPDATE || 7000000), Number(id) - 1);
 					} else {
 						if (isDiscovery) nextState.discovery.firmNext = Number(id) + 1;
-						else nextState.updateIndex.firm = Math.max(0, Number(id) - 1);
+						else nextState.updateIndex.firm = Math.max(Number(process.env.FINRA_EXTERNAL_VALIDITY_MIN_FIRM_UPDATE || 300000), Number(id) - 1);
 					}
 					await storeState(redis, nextState);
 				}

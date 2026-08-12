@@ -31,7 +31,9 @@ function parseDetailPayload(data: any, contentKey = 'content') {
 	const extractFromSource = (src: any) => {
 		if (!src) return null;
 		const raw = src[contentKey];
-		let parsed = {};
+		if (!raw) return null;
+
+		let parsed: any = null;
 		if (typeof raw === 'string') {
 			try {
 				parsed = JSON.parse(raw);
@@ -42,25 +44,22 @@ function parseDetailPayload(data: any, contentKey = 'content') {
 			parsed = raw;
 		}
 
-		const merged = { ...src, ...parsed };
-		if (merged[contentKey]) {
-			delete merged[contentKey];
-		}
-
-		if (!merged.basicInformation) {
+		if (!parsed) return null;
+		
+		if (!parsed.basicInformation) {
 			const bi: any = {};
-			const fid = merged.firmId || merged.firm_id || merged.id;
+			const fid = parsed.firmId || parsed.firm_id || parsed.id;
 			if (fid) bi.firmId = fid;
-			if (merged.firmName || merged.firm_name || merged.name) bi.firmName = merged.firmName || merged.firm_name || merged.name;
-			if (merged.bcScope || merged.bc_scope) bi.bcScope = merged.bcScope || merged.bc_scope;
-			if (merged.iaScope || merged.ia_scope) bi.iaScope = merged.iaScope || merged.ia_scope;
-			if (merged.bdSECNumber || merged.bd_sec_number) bi.bdSECNumber = merged.bdSECNumber || merged.bd_sec_number;
-			if (merged.iaSECNumber || merged.ia_sec_number) bi.iaSECNumber = merged.iaSECNumber || merged.ia_sec_number;
-			if (Object.keys(bi).length) merged.basicInformation = bi;
+			if (parsed.firmName || parsed.firm_name || parsed.name) bi.firmName = parsed.firmName || parsed.firm_name || parsed.name;
+			if (parsed.bcScope || parsed.bc_scope) bi.bcScope = parsed.bcScope || parsed.bc_scope;
+			if (parsed.iaScope || parsed.ia_scope) bi.iaScope = parsed.iaScope || parsed.ia_scope;
+			if (parsed.bdSECNumber || parsed.bd_sec_number) bi.bdSECNumber = parsed.bdSECNumber || parsed.bd_sec_number;
+			if (parsed.iaSECNumber || parsed.ia_sec_number) bi.iaSECNumber = parsed.iaSECNumber || parsed.ia_sec_number;
+			if (Object.keys(bi).length) parsed.basicInformation = bi;
 		}
 
-		const looksLikeDetail = merged.basicInformation || merged.firmId || merged.bdSECNumber || merged.firmName || merged.firmStatus || merged.disclosures || merged.directOwners;
-		return looksLikeDetail ? merged : null;
+		const looksLikeDetail = parsed.basicInformation || parsed.firmId || parsed.bdSECNumber || parsed.firmName || parsed.firmStatus || parsed.disclosures || parsed.directOwners;
+		return looksLikeDetail ? parsed : null;
 	};
 
 	if (data?.hits?.hits?.length) {
@@ -185,17 +184,34 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		}
 
 		if (!bcDetail && !secDetail) {
-			// Last resort: this firm CRD may be a scraped-only reference — e.g. an employer entry
-			// scraped directly from an individual's BrokerCheck summary page — with no independent
-			// BrokerCheck/IAPD firm record. Check the firm-reference index (populated when individual
-			// records are fetched) before giving up.
-			const firmReference = await lookupFirmReference(id).catch(() => null);
-			if (firmReference) {
+			// If FINRA/SEC search returns a hit, but it lacks a full detail profile (no `content` / `iacontent`),
+			// construct an orphan from the search hit rather than falling back immediately.
+			const bcSearchHit = bcData.status === 'fulfilled' && bcData.value?.hits?.hits?.length ? bcData.value.hits.hits[0]._source : null;
+			const secSearchHit = secData.status === 'fulfilled' && secData.value?.hits?.hits?.length ? secData.value.hits.hits[0]._source : null;
+			const searchHit = bcSearchHit || secSearchHit;
+			
+			let orphan = null;
+			if (searchHit) {
+				orphan = {
+					firmId: id,
+					firmName: searchHit.firm_name || searchHit.firmName || searchHit.name || `Firm ${id}`,
+					bcScope: searchHit.firm_bc_scope || searchHit.bcScope || 'NotInScope',
+					iaScope: searchHit.iaScope || 'NotInScope',
+					firmStatus: searchHit.firmStatus || searchHit.status || searchHit.registrationStatus || 'Terminated',
+					bdSECNumber: searchHit.firm_bd_sec_number || searchHit.bdSecNumber,
+					iaSECNumber: searchHit.firm_ia_sec_number || searchHit.iaSecNumber,
+				};
+			} else {
+				// Last resort: check the local firm-reference index for scraped mentions
+				orphan = await lookupFirmReference(id).catch(() => null);
+			}
+
+			if (orphan) {
 				return NextResponse.json(
 					{
 						found: true,
 						firmId: id,
-						orphan: firmReference,
+						orphan,
 						sources: { finra: { found: false }, sec: { found: false } },
 						hasFinraData: false,
 						hasSecData: false,

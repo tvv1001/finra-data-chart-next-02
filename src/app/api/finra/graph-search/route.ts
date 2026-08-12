@@ -86,6 +86,10 @@ function buildNodesFromFirmDetail(detail: any, id: string) {
 			group: 'firm',
 			firmId: id,
 			_source: 'direct-crd-fallback',
+			firmStatus: merged?.firmStatus || basic?.firmStatus || null,
+			bcScope: merged?.bcScope || basic?.bcScope || null,
+			iaScope: merged?.iaScope || basic?.iaScope || null,
+			isLegacy: merged?.isLegacy || basic?.isLegacy || null,
 		},
 	];
 
@@ -419,7 +423,15 @@ export async function GET(request: NextRequest) {
 								const firmNodeId = `firm:${fid}`;
 								if (!seenIds.has(firmNodeId)) {
 									seenIds.add(firmNodeId);
-									newNodes.push({ id: firmNodeId, label: e?.firm_name || e?.firmName || `Firm ${fid}`, group: 'firm', firmId: fid, _source: 'local-search' });
+									newNodes.push({ 
+										id: firmNodeId, 
+										label: e?.firm_name || e?.firmName || `Firm ${fid}`, 
+										group: 'firm', 
+										firmId: fid, 
+										_source: 'local-search',
+										firmStatus: e?.firmStatus || e?.status || e?.registrationStatus || null,
+										bcScope: e?.firmBCScope || e?.bcScope || null
+									});
 								}
 								newLinks.push({
 									source: personId,
@@ -437,7 +449,16 @@ export async function GET(request: NextRequest) {
 						const firmNodeId = `firm:${firmId}`;
 						if (!seenIds.has(firmNodeId)) {
 							seenIds.add(firmNodeId);
-							newNodes.push({ id: firmNodeId, label: src?.firm_name || src?.firmName || `Firm ${firmId}`, group: 'firm', firmId, _source: 'local-search' });
+							newNodes.push({ 
+								id: firmNodeId, 
+								label: src?.firm_name || src?.firmName || `Firm ${firmId}`, 
+								group: 'firm', 
+								firmId, 
+								_source: 'local-search',
+								firmStatus: src?.firmStatus || src?.status || src?.registrationStatus || src?.basicInformation?.firmStatus || null,
+								bcScope: src?.firm_bc_scope || src?.bcScope || src?.basicInformation?.bcScope || null,
+								iaScope: src?.iaScope || src?.basicInformation?.iaScope || null
+							});
 						}
 					}
 				}

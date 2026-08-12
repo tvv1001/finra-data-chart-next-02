@@ -7597,6 +7597,9 @@ async function fetchFirmBatch(firmId, queryLabel = null) {
 		label: detail?.firmName || detail?.name || queryLabel || `Firm ${firmId}`,
 		group: 'firm',
 		firmId: String(firmId),
+		firmStatus: detail?.firmStatus || detail?.status || detail?.registrationStatus || detail?.basicInformation?.firmStatus || null,
+		bcScope: detail?.bcScope || detail?.basicInformation?.bcScope || null,
+		iaScope: detail?.iaScope || detail?.basicInformation?.iaScope || null,
 	});
 
 	for (const owner of detail?.directOwners || detail?.owners || []) {
@@ -11140,7 +11143,7 @@ function syncIndividualConnectionsFromDetail(personNode, detail, options: { incl
 				newNodes.push(
 					isParentIndividual ?
 						{ id: parentNodeId, label: `CRD ${parentCrd}`, group: 'individual', crd: parentCrd, stub: true }
-					:	{ id: parentNodeId, label: orphan.firmName || `Firm ${parentCrd}`, group: 'firm', firmId: parentCrd },
+					:	{ id: parentNodeId, label: orphan.firmName || `Firm ${parentCrd}`, group: 'firm', firmId: parentCrd, firmStatus: orphan.firmStatus || orphan.status || orphan.registrationStatus || null },
 				);
 			}
 			const candidateLink = {
@@ -11183,6 +11186,7 @@ function syncIndividualConnectionsFromDetail(personNode, detail, options: { incl
 				bdSecNumber: employment?.bdSECNumber || employment?.firm_bd_sec_number,
 				iaSecNumber: employment?.iaSECNumber || employment?.firm_ia_sec_number,
 				bcScope: employment?.firmBCScope || null,
+				firmStatus: employment?.employmentStatus || employment?.status || employment?.firmStatus || null,
 			});
 		}
 
@@ -11272,6 +11276,7 @@ function syncIndividualConnectionsFromDetail(personNode, detail, options: { incl
 				label: firmName || `Firm ${firmId}`,
 				group: 'firm',
 				firmId: firmId || undefined,
+				firmStatus: controlRecord?.firmStatus || controlRecord?.status || controlRecord?.registrationStatus || null,
 			});
 		}
 
@@ -11406,7 +11411,7 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 				newNodes.push(
 					isParentIndividual ?
 						{ id: parentNodeId, label: `CRD ${parentCrd}`, group: 'individual', crd: parentCrd, stub: true }
-					:	{ id: parentNodeId, label: orphan.firmName || `Firm ${parentCrd}`, group: 'firm', firmId: parentCrd },
+					:	{ id: parentNodeId, label: orphan.firmName || `Firm ${parentCrd}`, group: 'firm', firmId: parentCrd, firmStatus: orphan.firmStatus || orphan.status || orphan.registrationStatus || null },
 				);
 			}
 			const candidateLink = {

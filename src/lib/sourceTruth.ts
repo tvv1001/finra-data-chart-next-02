@@ -184,7 +184,7 @@ export function resolveIndividualSourceDetail(source: unknown, fallbackCrd = '')
 
 	const embedded = getEmbeddedContentObject(source, ['content', 'iacontent']);
 	if (embedded) {
-		const detail = normalizeIndividualDetailFromSource({ ...source, ...embedded }, fallbackCrd) as AnyRecord;
+		const detail = normalizeIndividualDetailFromSource(embedded, fallbackCrd) as AnyRecord;
 		return {
 			detail,
 			hasEmbeddedDetail: true,

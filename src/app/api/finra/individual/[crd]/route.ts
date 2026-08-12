@@ -25,10 +25,7 @@ function parseDetailPayload(data: any, contentKey = 'content') {
 	const raw = data?.[contentKey];
 	if (raw != null) {
 		try {
-			return normalizeIndividualDetailFromSource({
-				...data,
-				...(typeof raw === 'string' ? JSON.parse(raw) : raw || {}),
-			});
+			return normalizeIndividualDetailFromSource(typeof raw === 'string' ? JSON.parse(raw) : raw || {});
 		} catch (error) {
 			try {
 				return normalizeIndividualDetailFromSource(data);
@@ -252,17 +249,35 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		}
 
 		if (!finraDetail && !secDetail) {
-			// Last resort: this CRD may be a scraped-only "Direct Owners & Executive Officers"
-			// reference from a firm's own detail page, with no independent BrokerCheck/IAPD record.
-			// Check the owner-reference index (populated when firm records are fetched) before
-			// giving up.
-			const ownerReference = await lookupOwnerReference(crd).catch(() => null);
-			if (ownerReference) {
+			// If FINRA/SEC search returns a hit but lacks a full detail profile (`content`),
+			// construct an orphan from the search hit rather than falling back immediately.
+			const finraSearchHit = finraData?.hits?.hits?.length ? finraData.hits.hits[0]._source : null;
+			const secSearchHit = secData?.hits?.hits?.length ? secData.hits.hits[0]._source : null;
+			const searchHit = finraSearchHit || secSearchHit;
+			
+			let orphan = null;
+			if (searchHit) {
+				orphan = {
+					personId: crd,
+					crdNumber: crd,
+					name: [searchHit.ind_firstname, searchHit.ind_middlename, searchHit.ind_lastname].filter(Boolean).join(' ') || `Person ${crd}`,
+					firstName: searchHit.ind_firstname || '',
+					middleName: searchHit.ind_middlename || '',
+					lastName: searchHit.ind_lastname || '',
+					bcScope: searchHit.ind_bc_scope || searchHit.bcScope || 'NotInScope',
+					iaScope: searchHit.iaScope || 'NotInScope',
+				};
+			} else {
+				// Last resort: check the owner-reference index
+				orphan = await lookupOwnerReference(crd).catch(() => null);
+			}
+
+			if (orphan) {
 				return NextResponse.json(
 					{
 						found: true,
 						crd,
-						orphan: ownerReference,
+						orphan,
 						sources: { finra: { found: false }, sec: { found: false } },
 						hasFinraData: false,
 						hasSecData: false,
