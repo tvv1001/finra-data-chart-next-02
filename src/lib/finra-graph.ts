@@ -7478,8 +7478,10 @@ function parsePastedCrdList(text: string): Array<{ crd: string; name: string }> 
 	return results;
 }
 
-// Bulk-imports a pasted CRD list: fetches each individual, merges new nodes/links into the live
-// graph, and adds every requested person (new or already-on-canvas) to the selection log.
+// Bulk-imports a pasted CRD list: each entry may be an individual OR a firm CRD (the paste
+// format "Name :: CRD# 123" is the same for both). We don't know which without asking the API,
+// so for every entry we try the individual endpoint first and fall back to the firm endpoint on
+// a "not found" — this lets a single paste box handle person lists, firm lists, or a mix of both.
 async function importPastedCrdList(rawText: string) {
 	if (crdPasteImportBusy) return { added: 0, skipped: 0, failed: 0 };
 	const parsed = parsePastedCrdList(rawText);
@@ -7499,13 +7501,26 @@ async function importPastedCrdList(rawText: string) {
 	let failed = 0;
 	const allNodes = [];
 	const allLinks = [];
+	const addedNodeIds: Array<string> = [];
 
 	try {
 		const results = await mapWithConcurrency(parsed, PROFILE_SEED_FETCH_CONCURRENCY, async (entry) => {
 			const personId = `person:${entry.crd}`;
-			if (layoutNodes.some((n) => n.id === personId)) return { entry, existed: true };
-			const batch = await fetchIndividualBatch(entry.crd, entry.name || null);
-			return { entry, existed: false, nodes: batch.nodes, links: batch.links };
+			const firmId = `firm:${entry.crd}`;
+			if (layoutNodes.some((n) => n.id === personId)) return { entry, existed: true, nodeId: personId };
+			if (layoutNodes.some((n) => n.id === firmId)) return { entry, existed: true, nodeId: firmId };
+
+			try {
+				const batch = await fetchIndividualBatch(entry.crd, entry.name || null);
+				return { entry, existed: false, nodeId: personId, nodes: batch.nodes, links: batch.links };
+			} catch (individualErr) {
+				try {
+					const batch = await fetchFirmBatch(entry.crd, entry.name || null);
+					return { entry, existed: false, nodeId: firmId, nodes: batch.nodes, links: batch.links };
+				} catch (firmErr) {
+					throw firmErr || individualErr;
+				}
+			}
 		});
 
 		for (const r of results) {
@@ -7515,8 +7530,10 @@ async function importPastedCrdList(rawText: string) {
 			}
 			if (r.value.existed) {
 				skipped += 1;
+				addedNodeIds.push(r.value.nodeId);
 			} else {
 				added += 1;
+				addedNodeIds.push(r.value.nodeId);
 				allNodes.push(...(r.value.nodes || []));
 				allLinks.push(...(r.value.links || []));
 			}
@@ -7528,14 +7545,14 @@ async function importPastedCrdList(rawText: string) {
 			persistToServer(allNodes, allLinks);
 		}
 
-		for (const entry of parsed) {
-			const node = layoutNodes.find((n) => n.id === `person:${entry.crd}`);
+		for (const nodeId of addedNodeIds) {
+			const node = layoutNodes.find((n) => n.id === nodeId);
 			if (node) addToSelectionLog(node);
 		}
 
 		if (added || skipped) openSelectionLog();
 
-		crdPasteImportStatus = `Added ${added}${skipped ? `, ${skipped} already on canvas` : ''}${failed ? `, ${failed} failed` : ''}`;
+		crdPasteImportStatus = `Added ${added}${skipped ? `, ${skipped} already on canvas` : ''}${failed ? `, ${failed} failed (not found)` : ''}`;
 	} catch (err) {
 		console.warn('Bulk CRD paste import failed:', err);
 		crdPasteImportStatus = 'Import failed — see console for details';
