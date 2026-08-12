@@ -7459,9 +7459,20 @@ async function fetchIndividualBatch(crd, queryLabel = null, options: { includePr
 
 // Parses pasted lines of the form "Gerard Francis Hallaren :: CRD# 1408026" (one per line) into
 // { name, crd } entries. Tolerant of extra whitespace, missing names, and bare CRD numbers.
-function parsePastedCrdList(text: string): Array<{ crd: string; name: string }> {
+// Heuristic firm-vs-individual name detector, used to pick which endpoint to try first for a
+// pasted CRD (we still fall back to the other endpoint if the guess turns out wrong).
+const FIRM_NAME_KEYWORDS_RE =
+	/\b(INC\.?|LLC|L\.L\.C\.?|LTD\.?|CORP\.?|CORPORATION|CO\.|CO|COMPANY|COMPANIES|SECURITIES|SERVICES|PARTNERS|GROUP|MANAGEMENT|CAPITAL|ADVISORS?|FINANCIAL|WEALTH|INVESTMENTS?|FUND|BANK|TRUST|HOLDINGS|ASSOCIATES|ASSOC\.?|ASSET|BROKERS?|BROKERAGE|EQUITY|EQUITIES|PLANNING|INSURANCE|P\.C\.|PC|LP|L\.P\.|INSTITUTIONAL|NETWORK|GLOBAL|INTERNATIONAL|CONSULTANTS|STRATEGIES|BANCORP|BANCSHARES|ASSURANCE|LIFE)\b|&/i;
+
+function looksLikeFirmName(name: string): boolean {
+	const trimmed = String(name || '').trim();
+	if (!trimmed) return false;
+	return FIRM_NAME_KEYWORDS_RE.test(trimmed);
+}
+
+function parsePastedCrdList(text: string): Array<{ crd: string; name: string; likelyFirm: boolean }> {
 	const seen = new Set<string>();
-	const results: Array<{ crd: string; name: string }> = [];
+	const results: Array<{ crd: string; name: string; likelyFirm: boolean }> = [];
 	const lines = String(text || '').split(/\r?\n/);
 	for (const rawLine of lines) {
 		const line = rawLine.trim();
@@ -7473,15 +7484,15 @@ function parsePastedCrdList(text: string): Array<{ crd: string; name: string }> 
 		seen.add(crd);
 		const namePart = line.split(/::/)[0]?.trim() || '';
 		const name = namePart && !/^\d+$/.test(namePart) && namePart !== line.trim() ? namePart : '';
-		results.push({ crd, name });
+		results.push({ crd, name, likelyFirm: looksLikeFirmName(name) });
 	}
 	return results;
 }
 
 // Bulk-imports a pasted CRD list: each entry may be an individual OR a firm CRD (the paste
-// format "Name :: CRD# 123" is the same for both). We don't know which without asking the API,
-// so for every entry we try the individual endpoint first and fall back to the firm endpoint on
-// a "not found" — this lets a single paste box handle person lists, firm lists, or a mix of both.
+// format "Name :: CRD# 123" is the same for both). We guess which endpoint to try first from the
+// name (e.g. "INC", "LLC", "& CO", "SECURITIES" ⇒ firm), then fall back to the other endpoint if
+// the first guess 404s — this lets a single paste box handle person lists, firm lists, or a mix.
 async function importPastedCrdList(rawText: string) {
 	if (crdPasteImportBusy) return { added: 0, skipped: 0, failed: 0 };
 	const parsed = parsePastedCrdList(rawText);
@@ -7507,18 +7518,20 @@ async function importPastedCrdList(rawText: string) {
 		const results = await mapWithConcurrency(parsed, PROFILE_SEED_FETCH_CONCURRENCY, async (entry) => {
 			const personId = `person:${entry.crd}`;
 			const firmId = `firm:${entry.crd}`;
-			if (layoutNodes.some((n) => n.id === personId)) return { entry, existed: true, nodeId: personId };
-			if (layoutNodes.some((n) => n.id === firmId)) return { entry, existed: true, nodeId: firmId };
+			if (layoutNodes.some((n) => n.id === personId)) return { entry, existed: true, nodeId: personId, nodes: [], links: [] };
+			if (layoutNodes.some((n) => n.id === firmId)) return { entry, existed: true, nodeId: firmId, nodes: [], links: [] };
+
+			const fetchAsFirm = () => fetchFirmBatch(entry.crd, entry.name || null).then((batch) => ({ entry, existed: false, nodeId: firmId, nodes: batch.nodes, links: batch.links }));
+			const fetchAsIndividual = () => fetchIndividualBatch(entry.crd, entry.name || null).then((batch) => ({ entry, existed: false, nodeId: personId, nodes: batch.nodes, links: batch.links }));
+			const [tryFirst, tryFallback] = entry.likelyFirm ? [fetchAsFirm, fetchAsIndividual] : [fetchAsIndividual, fetchAsFirm];
 
 			try {
-				const batch = await fetchIndividualBatch(entry.crd, entry.name || null);
-				return { entry, existed: false, nodeId: personId, nodes: batch.nodes, links: batch.links };
-			} catch (individualErr) {
+				return await tryFirst();
+			} catch (firstErr) {
 				try {
-					const batch = await fetchFirmBatch(entry.crd, entry.name || null);
-					return { entry, existed: false, nodeId: firmId, nodes: batch.nodes, links: batch.links };
-				} catch (firmErr) {
-					throw firmErr || individualErr;
+					return await tryFallback();
+				} catch (fallbackErr) {
+					throw fallbackErr || firstErr;
 				}
 			}
 		});
