@@ -1402,6 +1402,56 @@ export function renderFirmDetail(d: any) {
 	const officeAddress = /^(?:-|n\/?a|na|none|null|undefined)$/i.test(officeAddressRaw) ? '' : officeAddressRaw;
 	const hasOfficeAddress = Boolean(officeAddress);
 	const businessPhone = String(d.businessPhone || '').trim();
+	let currentConns = Array.isArray(d.currentConnections) ? [...d.currentConnections] : [];
+	let prevConns = Array.isArray(d.previousConnections) ? [...d.previousConnections] : [];
+	let primaryConns: any[] = [];
+	let secondaryConns: any[] = [];
+
+	if (statusIsTerminated || !statusIsActive) {
+		prevConns = [...currentConns, ...prevConns];
+		currentConns = [];
+	} else {
+		for (const conn of currentConns) {
+			const rels = (Array.isArray(conn.relationshipLabels) ? conn.relationshipLabels : []).join(' ').toLowerCase();
+			const relText = String(conn.relationship || conn.meta || '').toLowerCase() + ' ' + rels;
+			const posText = String(conn.position || (Array.isArray(conn.positions) ? conn.positions.join(' ') : '')).toLowerCase();
+			const fullStr = relText + ' ' + posText + ' ' + String(conn.group || conn.type || '').toLowerCase();
+			
+			if (
+				fullStr.includes('employee') || 
+				fullStr.includes('bd') || 
+				fullStr.includes('broker') || 
+				fullStr.includes('dealer') || 
+				fullStr.includes('control') ||
+				conn.group === 'individual' ||
+				conn.type === 'individual'
+			) {
+				primaryConns.push(conn);
+			} else {
+				secondaryConns.push(conn);
+			}
+		}
+	}
+
+	function renderConnectionEntry(conn: any, isActive: boolean) {
+		const rawName = conn.label || conn.name || conn.title || conn.firmName || conn.legalName || `CRD#${conn.crd || ''}`;
+		const name = conn.group === 'individual' || conn.type === 'individual' ? formatPersonName(rawName) : formatFirmName(rawName);
+		const crd = conn.crd || conn.crdNumber || conn.firmId || conn.individualId || '';
+		const rel = [
+			conn.relationship || conn.meta || (Array.isArray(conn.relationshipLabels) ? conn.relationshipLabels.join(', ') : ''),
+			conn.position || (Array.isArray(conn.positions) ? conn.positions.join(', ') : ''),
+		]
+			.filter(Boolean)
+			.join(' · ');
+		const dates = conn.dateText || conn.date || conn.subtitle || (Array.isArray(conn.dateTexts) ? conn.dateTexts.join(', ') : '');
+		const address = conn.address || '';
+		return `<div class='fg-tl-entry${isActive ? ' active-pos' : ''}'>
+            <span class='fg-tl-firm'>${esc(name)}${crd ? ` <small>(CRD# ${esc(String(crd))})</small>` : ''}</span>
+            ${rel ? `<span class='fg-tl-dates'>${esc(rel)}</span>` : ''}
+            ${dates ? `<span class='fg-tl-loc'>${esc(dates)}</span>` : ''}
+            ${address ? `<span class='fg-tl-loc'>${esc(address)}</span>` : ''}
+          </div>`;
+	}
 
 	return `
 		<div class='fg-sb-header firm'>
@@ -1481,61 +1531,31 @@ export function renderFirmDetail(d: any) {
       ${row('Fiscal Year End', esc(d.fiscalYearEnd || '–'))}
       ${d.otherNames?.length ? row('Other names', esc(d.otherNames.join('; '))) : ''}
       ${
-				Array.isArray(d.currentConnections) && d.currentConnections.length ?
+				primaryConns.length ?
 					`
-      <div class='fg-section-title fg-section-title--sticky'>Current Connections (${d.currentConnections.length})</div>
+      <div class='fg-section-title fg-section-title--sticky'>Current Connections - Core Employees & Control (${primaryConns.length})</div>
       <div class='fg-timeline'>
-        ${d.currentConnections
-					.map((conn: any) => {
-						const rawName = conn.label || conn.name || conn.title || conn.firmName || conn.legalName || `CRD#${conn.crd || ''}`;
-						const name = conn.group === 'individual' || conn.type === 'individual' ? formatPersonName(rawName) : formatFirmName(rawName);
-						const crd = conn.crd || conn.crdNumber || conn.firmId || conn.individualId || '';
-						const rel = [
-							conn.relationship || conn.meta || (Array.isArray(conn.relationshipLabels) ? conn.relationshipLabels.join(', ') : ''),
-							conn.position || (Array.isArray(conn.positions) ? conn.positions.join(', ') : ''),
-						]
-							.filter(Boolean)
-							.join(' · ');
-						const dates = conn.dateText || conn.date || conn.subtitle || (Array.isArray(conn.dateTexts) ? conn.dateTexts.join(', ') : '');
-						const address = conn.address || '';
-						return `<div class='fg-tl-entry active-pos'>
-            <span class='fg-tl-firm'>${esc(name)}${crd ? ` <small>(CRD# ${esc(String(crd))})</small>` : ''}</span>
-            ${rel ? `<span class='fg-tl-dates'>${esc(rel)}</span>` : ''}
-            ${dates ? `<span class='fg-tl-loc'>${esc(dates)}</span>` : ''}
-            ${address ? `<span class='fg-tl-loc'>${esc(address)}</span>` : ''}
-          </div>`;
-					})
-					.join('')}
+        ${primaryConns.map((conn: any) => renderConnectionEntry(conn, true)).join('')}
       </div>
       `
 				:	''
 			}
       ${
-				Array.isArray(d.previousConnections) && d.previousConnections.length ?
+				secondaryConns.length ?
 					`
-      <div class='fg-section-title fg-section-title--sticky'>Previous Connections (${d.previousConnections.length})</div>
+      <div class='fg-section-title fg-section-title--sticky'>Current Connections - Other (${secondaryConns.length})</div>
+      <div class='fg-timeline'>
+        ${secondaryConns.map((conn: any) => renderConnectionEntry(conn, true)).join('')}
+      </div>
+      `
+				:	''
+			}
+      ${
+				prevConns.length ?
+					`
+      <div class='fg-section-title fg-section-title--sticky'>Previous Connections (${prevConns.length})</div>
       <div class='fg-timeline fg-timeline--previous'>
-        ${d.previousConnections
-					.map((conn: any) => {
-						const rawName = conn.label || conn.name || conn.title || conn.firmName || conn.legalName || `CRD#${conn.crd || ''}`;
-						const name = conn.group === 'individual' || conn.type === 'individual' ? formatPersonName(rawName) : formatFirmName(rawName);
-						const crd = conn.crd || conn.crdNumber || conn.firmId || conn.individualId || '';
-						const rel = [
-							conn.relationship || conn.meta || (Array.isArray(conn.relationshipLabels) ? conn.relationshipLabels.join(', ') : ''),
-							conn.position || (Array.isArray(conn.positions) ? conn.positions.join(', ') : ''),
-						]
-							.filter(Boolean)
-							.join(' · ');
-						const dates = conn.dateText || conn.date || conn.subtitle || (Array.isArray(conn.dateTexts) ? conn.dateTexts.join(', ') : '');
-						const address = conn.address || '';
-						return `<div class='fg-tl-entry'>
-            <span class='fg-tl-firm'>${esc(name)}${crd ? ` <small>(CRD# ${esc(String(crd))})</small>` : ''}</span>
-            ${rel ? `<span class='fg-tl-dates'>${esc(rel)}</span>` : ''}
-            ${dates ? `<span class='fg-tl-loc'>${esc(dates)}</span>` : ''}
-            ${address ? `<span class='fg-tl-loc'>${esc(address)}</span>` : ''}
-          </div>`;
-					})
-					.join('')}
+        ${prevConns.map((conn: any) => renderConnectionEntry(conn, false)).join('')}
       </div>
       `
 				:	''
