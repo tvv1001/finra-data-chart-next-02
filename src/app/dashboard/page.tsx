@@ -1119,12 +1119,14 @@ function extractSearchResultDetail(item: SearchResult): string {
 	return pickFirstNonEmpty(item?.bcScope, item?.iaScope, item?.status, item?.registrationStatus, item?.firm_bc_scope, item?.firm_ia_scope);
 }
 
-function OrphanProfileLinks({ parentCrd }: { parentCrd: string }) {
+function OrphanProfileLinks({ parentCrd, parentType = 'firm' }: { parentCrd: string; parentType?: 'individual' | 'firm' }) {
 	const [status, setStatus] = useState<{ finra: boolean; sec: boolean } | null>(null);
+	const isParentIndividual = parentType === 'individual';
 
 	useEffect(() => {
 		let active = true;
-		fetch(`/api/finra/firm/${parentCrd}`)
+		setStatus(null);
+		fetch(isParentIndividual ? `/api/finra/individual/${parentCrd}` : `/api/finra/firm/${parentCrd}`)
 			.then((res) => res.json())
 			.then((data) => {
 				if (active && data && typeof data === 'object') {
@@ -1140,9 +1142,9 @@ function OrphanProfileLinks({ parentCrd }: { parentCrd: string }) {
 		return () => {
 			active = false;
 		};
-	}, [parentCrd]);
+	}, [parentCrd, isParentIndividual]);
 
-	if (!status) return <div style={{ fontSize: '13px', color: '#64748b' }}>Validating parent firm sources...</div>;
+	if (!status) return <div style={{ fontSize: '13px', color: '#64748b' }}>Validating parent {isParentIndividual ? 'individual' : 'firm'} sources...</div>;
 
 	if (!status.finra && !status.sec) return <div style={{ fontSize: '13px', color: '#64748b' }}>No external parent links available.</div>;
 
@@ -1150,20 +1152,20 @@ function OrphanProfileLinks({ parentCrd }: { parentCrd: string }) {
 		<div className={styles.profileLinksRow}>
 			{status.finra && (
 				<a
-					href={`https://brokercheck.finra.org/firm/summary/${parentCrd}`}
+					href={`https://brokercheck.finra.org/${isParentIndividual ? 'individual' : 'firm'}/summary/${parentCrd}`}
 					target='_blank'
 					rel='noopener noreferrer'
 					className={styles.profileLinkBtn}>
-					Parent firm FINRA profile ↗
+					Parent {isParentIndividual ? 'individual' : 'firm'} FINRA profile ↗
 				</a>
 			)}
 			{status.sec && (
 				<a
-					href={`https://adviserinfo.sec.gov/firm/summary/${parentCrd}`}
+					href={`https://adviserinfo.sec.gov/${isParentIndividual ? 'individual' : 'firm'}/summary/${parentCrd}`}
 					target='_blank'
 					rel='noopener noreferrer'
 					className={styles.profileLinkBtn}>
-					Parent firm SEC profile ↗
+					Parent {isParentIndividual ? 'individual' : 'firm'} SEC profile ↗
 				</a>
 			)}
 		</div>
@@ -3072,7 +3074,13 @@ function DashboardPageInner() {
 													</button>
 												</div>
 											</div>
-											<h2 className={styles.recordTitle}>{orphanRecord?.name ? formatPersonName(orphanRecord.name) : mainJsonLabel}</h2>
+											<h2 className={styles.recordTitle}>
+												{orphanRecord ?
+													currentRecordEntity === 'firm' ?
+														formatFirmName(orphanRecord.firmName || mainJsonLabel)
+													:	formatPersonName(orphanRecord.name || mainJsonLabel)
+												:	mainJsonLabel}
+											</h2>
 											{detailedMainRecord?.subtitle && <div className={styles.recordSubtitle}>{detailedMainRecord.subtitle}</div>}
 										</>
 									}
@@ -3093,109 +3101,158 @@ function DashboardPageInner() {
 							{hasCurrentRecord && !recordViewLoading && mainViewMode === 'card' && (
 								<div className={styles.readableCardPanel}>
 									{orphanRecord ?
-										<>
-											<div className={styles.detailList}>
-												{orphanRecord.officeAddress && (
-													<div className={styles.detailRow}>
-														<div className={styles.detailTextRow}>
-															<strong>Main Address:</strong> {formatAddress(orphanRecord.officeAddress)}
-														</div>
+										(() => {
+											const isFirmOrphan = currentRecordEntity === 'firm';
+											const parentType = String(orphanRecord.parentType || (isFirmOrphan ? 'individual' : 'firm')).toLowerCase();
+											const parentIsIndividual = parentType === 'individual';
+											const parentDashboardHref = `/dashboard/${parentIsIndividual ? 'individual' : 'firm'}/${orphanRecord.parentCrd}`;
+											const parentLabel = parentIsIndividual ? 'Individual' : 'Firm';
+											return (
+												<>
+													<div className={styles.detailList}>
+														{orphanRecord.officeAddress && (
+															<div className={styles.detailRow}>
+																<div className={styles.detailTextRow}>
+																	<strong>Main Address:</strong> {formatAddress(orphanRecord.officeAddress)}
+																</div>
+															</div>
+														)}
+														{orphanRecord.mailingAddress && (
+															<div className={styles.detailRow}>
+																<div className={styles.detailTextRow}>
+																	<strong>Mailing:</strong> {formatAddress(orphanRecord.mailingAddress)}
+																</div>
+															</div>
+														)}
+														{orphanRecord.phone && (
+															<div className={styles.detailRow}>
+																<div className={styles.detailTextRow}>
+																	<strong>Phone:</strong> {orphanRecord.phone}
+																</div>
+															</div>
+														)}
 													</div>
-												)}
-												{orphanRecord.mailingAddress && (
-													<div className={styles.detailRow}>
-														<div className={styles.detailTextRow}>
-															<strong>Mailing:</strong> {formatAddress(orphanRecord.mailingAddress)}
-														</div>
-													</div>
-												)}
-												{orphanRecord.phone && (
-													<div className={styles.detailRow}>
-														<div className={styles.detailTextRow}>
-															<strong>Phone:</strong> {orphanRecord.phone}
-														</div>
-													</div>
-												)}
-											</div>
 
-											<section
-												className={styles.detailSection}
-												style={{ marginTop: '24px' }}>
-												<h4 className={styles.detailSectionTitle}>Profile Links</h4>
-												<OrphanProfileLinks parentCrd={String(orphanRecord.parentCrd)} />
-											</section>
+													<section
+														className={styles.detailSection}
+														style={{ marginTop: '24px' }}>
+														<h4 className={styles.detailSectionTitle}>Profile Links</h4>
+														<OrphanProfileLinks
+															parentCrd={String(orphanRecord.parentCrd)}
+															parentType={parentIsIndividual ? 'individual' : 'firm'}
+														/>
+													</section>
 
-											<section className={styles.detailSection}>
-												<h4 className={styles.detailSectionTitle}>General Information</h4>
-												<div className={styles.detailList}>
-													{orphanRecord.name && (
-														<div className={styles.detailRow}>
-															<div className={styles.detailTextRow}>
-																<strong>Name:</strong> {formatPersonName(orphanRecord.name)}
+													<section className={styles.detailSection}>
+														<h4 className={styles.detailSectionTitle}>General Information</h4>
+														<div className={styles.detailList}>
+															{!isFirmOrphan && orphanRecord.name && (
+																<div className={styles.detailRow}>
+																	<div className={styles.detailTextRow}>
+																		<strong>Name:</strong> {formatPersonName(orphanRecord.name)}
+																	</div>
+																</div>
+															)}
+															<div className={styles.detailRow}>
+																<div className={styles.detailTextRow}>
+																	<strong>{isFirmOrphan ? 'Firm' : 'Individual'} CRD:</strong> {currentRecordId}
+																</div>
 															</div>
+															{orphanRecord.position && (
+																<div className={styles.detailRow}>
+																	<div className={styles.detailTextRow}>
+																		<strong>Position:</strong> {orphanRecord.position}
+																	</div>
+																</div>
+															)}
+															{!isFirmOrphan && orphanRecord.firmName && (
+																<div className={styles.detailRow}>
+																	<div className={styles.detailTextRow}>
+																		<strong>Affiliated Firm:</strong> {formatFirmName(orphanRecord.firmName)}
+																	</div>
+																</div>
+															)}
+															{isFirmOrphan && orphanRecord.name && (
+																<div className={styles.detailRow}>
+																	<div className={styles.detailTextRow}>
+																		<strong>Scraped From:</strong> {formatPersonName(orphanRecord.name)}
+																	</div>
+																</div>
+															)}
+															{orphanRecord.parentCrd && (
+																<div className={styles.detailRow}>
+																	<div className={styles.detailTextRow}>
+																		<strong>Parent {parentLabel} CRD:</strong>{' '}
+																		<Link
+																			href={parentDashboardHref}
+																			className={styles.detailInlineTag}>
+																			{parentLabel} #{orphanRecord.parentCrd}
+																		</Link>
+																	</div>
+																</div>
+															)}
 														</div>
-													)}
-													<div className={styles.detailRow}>
-														<div className={styles.detailTextRow}>
-															<strong>Individual CRD:</strong> {currentRecordId}
-														</div>
-													</div>
-													{orphanRecord.position && (
-														<div className={styles.detailRow}>
-															<div className={styles.detailTextRow}>
-																<strong>Position:</strong> {orphanRecord.position}
-															</div>
-														</div>
-													)}
-													{orphanRecord.firmName && (
-														<div className={styles.detailRow}>
-															<div className={styles.detailTextRow}>
-																<strong>Affiliated Firm:</strong> {formatFirmName(orphanRecord.firmName)}
-															</div>
-														</div>
-													)}
-													{orphanRecord.parentCrd && (
-														<div className={styles.detailRow}>
-															<div className={styles.detailTextRow}>
-																<strong>Parent Firm CRD:</strong>{' '}
+													</section>
+
+													{!isFirmOrphan && orphanRecord.firmName && orphanRecord.parentCrd && (
+														<section className={styles.detailSection}>
+															<h4 className={styles.detailSectionTitle}>Current Employment (1)</h4>
+															<div className={styles.detailList}>
 																<Link
-																	href={`/dashboard/firm/${orphanRecord.parentCrd}`}
-																	className={styles.detailInlineTag}>
-																	Firm #{orphanRecord.parentCrd}
+																	href={parentDashboardHref}
+																	className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
+																	<div className={styles.detailRowMain}>
+																		<span className={styles.detailRowName}>{formatFirmName(orphanRecord.firmName)}</span>
+																		<span className={styles.detailInlineTag}>CRD#{orphanRecord.parentCrd}</span>
+																	</div>
+																	<div className={styles.detailRowMeta}>{orphanRecord.position}</div>
 																</Link>
 															</div>
-														</div>
+														</section>
 													)}
-												</div>
-											</section>
 
-											{orphanRecord.firmName && orphanRecord.parentCrd && (
-												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Current Employment (1)</h4>
-													<div className={styles.detailList}>
-														<Link
-															href={`/dashboard/firm/${orphanRecord.parentCrd}`}
-															className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
-															<div className={styles.detailRowMain}>
-																<span className={styles.detailRowName}>{formatFirmName(orphanRecord.firmName)}</span>
-																<span className={styles.detailInlineTag}>CRD#{orphanRecord.parentCrd}</span>
+													{isFirmOrphan && orphanRecord.name && orphanRecord.parentCrd && (
+														<section className={styles.detailSection}>
+															<h4 className={styles.detailSectionTitle}>Scraped From (1)</h4>
+															<div className={styles.detailList}>
+																<Link
+																	href={parentDashboardHref}
+																	className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
+																	<div className={styles.detailRowMain}>
+																		<span className={styles.detailRowName}>{formatPersonName(orphanRecord.name)}</span>
+																		<span className={styles.detailInlineTag}>CRD#{orphanRecord.parentCrd}</span>
+																	</div>
+																	<div className={styles.detailRowMeta}>{orphanRecord.position}</div>
+																</Link>
 															</div>
-															<div className={styles.detailRowMeta}>{orphanRecord.position}</div>
-														</Link>
-													</div>
-												</section>
-											)}
+														</section>
+													)}
 
-											<div className={styles.orphanNoticeAlert}>
-												No independent BrokerCheck/SEC record exists for CRD {currentRecordId}. This person was scraped from{' '}
-												<Link
-													href={`/dashboard/firm/${orphanRecord.parentCrd}`}
-													className={styles.detailInlineTag}>
-													Firm CRD#{orphanRecord.parentCrd}
-												</Link>
-												's own detail record as "{orphanRecord.position}", and has no live CRD of its own.
-											</div>
-										</>
+													<div className={styles.orphanNoticeAlert}>
+														{isFirmOrphan ?
+															<>
+																No independent BrokerCheck/SEC record exists for Firm CRD {currentRecordId}. This firm was scraped from{' '}
+																<Link
+																	href={parentDashboardHref}
+																	className={styles.detailInlineTag}>
+																	Individual CRD#{orphanRecord.parentCrd}
+																</Link>
+																's employment history{orphanRecord.position ? ` as "${orphanRecord.position}"` : ''}, and has no live CRD of its own.
+															</>
+														:	<>
+																No independent BrokerCheck/SEC record exists for CRD {currentRecordId}. This person was scraped from{' '}
+																<Link
+																	href={parentDashboardHref}
+																	className={styles.detailInlineTag}>
+																	Firm CRD#{orphanRecord.parentCrd}
+																</Link>
+																's own detail record as "{orphanRecord.position}", and has no live CRD of its own.
+															</>
+														}
+													</div>
+												</>
+											);
+										})()
 									: detailedMainRecord ?
 										<>
 											{(detailedMainRecord.mainAddress || detailedMainRecord.otherNames.length > 0) && (
