@@ -11207,6 +11207,41 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 	const firmNodeId = firmNode.id;
 	const newNodes = [];
 	const newLinks = [];
+
+	// Scraped-only reference record (e.g. an employer entry scraped directly from an
+	// individual's page): connect back to its parent individual/firm so it isn't orphaned
+	// in the graph.
+	if (detail.orphan && typeof detail.orphan === 'object') {
+		const orphan = detail.orphan;
+		const parentCrd = String(orphan.parentCrd || '').trim();
+		if (parentCrd) {
+			const parentType = String(orphan.parentType || 'individual')
+				.trim()
+				.toLowerCase();
+			const isParentIndividual = parentType === 'individual';
+			const existingParentNode = isParentIndividual ? findExistingPersonNode(parentCrd) : findExistingFirmNode(parentCrd, { label: orphan.firmName || '' });
+			const parentNodeId = existingParentNode?.id || (isParentIndividual ? `person:${parentCrd}` : `firm:${parentCrd}`);
+			if (!existingParentNode && !newNodes.some((node) => node.id === parentNodeId)) {
+				newNodes.push(
+					isParentIndividual ?
+						{ id: parentNodeId, label: `CRD ${parentCrd}`, group: 'individual', crd: parentCrd, stub: true }
+					:	{ id: parentNodeId, label: orphan.firmName || `Firm ${parentCrd}`, group: 'firm', firmId: parentCrd },
+				);
+			}
+			const candidateLink = {
+				source: parentNodeId,
+				target: firmNodeId,
+				relationship: isControlPositionText(orphan.position) ? 'officer' : 'employed_by',
+			};
+			const hasLayoutLink = layoutLinks.some((link) => getLinkIdentityKey(link) === getLinkIdentityKey(candidateLink));
+			if (!hasLayoutLink) newLinks.push(candidateLink);
+		}
+		if (!newNodes.length && !newLinks.length) return;
+		appendFetched(newNodes, newLinks);
+		mergeIntoGraphData(newNodes, newLinks);
+		return;
+	}
+
 	const owners = detail.directOwners || detail.owners || [];
 
 	for (const owner of owners) {
@@ -11538,6 +11573,25 @@ async function ensureFirmDetail(firmNode) {
 				}
 			} catch (err) {
 				console.warn(`Local API fetch failed for firm ${firmId}:`, err);
+			}
+
+			// Scraped-only reference record (e.g. an employer entry scraped directly from an
+			// individual's page, with no independent, searchable BrokerCheck/IAPD firm record).
+			if (detail && detail.orphan && typeof detail.orphan === 'object') {
+				const orphan = detail.orphan;
+				firmNode.orphan = orphan;
+				firmNode.stub = true;
+				firmNode.hasFinraData = false;
+				firmNode.hasSecData = false;
+				const preferredFirmName = String(orphan.firmName || '').trim();
+				if (preferredFirmName && (isPlaceholderExpansionLabel(firmNode.label, 'firm') || preferredFirmName.length > String(firmNode.label || '').length)) {
+					firmNode.label = preferredFirmName;
+					firmNode.firmName = preferredFirmName;
+				}
+				syncFirmConnectionsFromDetail(firmNode, detail);
+				firmNode._detailLoaded = true;
+				firmNode._detailValidated = true;
+				return;
 			}
 
 			if (!detail || detail.found === false || (!detail.basicInformation && !detail.firmName && !detail.name)) {
@@ -15297,6 +15351,36 @@ export function collectFirmConnectionEntries({
 
 // ── Firm detail ──────────────────────────────────────────────────────────────
 function renderFirmDetail(d: any) {
+	// Scraped-only reference record (e.g. an employer entry scraped directly from an
+	// individual's BrokerCheck page, with no independent FINRA/SEC firm record).
+	if (d.orphan && typeof d.orphan === 'object') {
+		const orphan = d.orphan;
+		const parentCrd = orphan.parentCrd ? String(orphan.parentCrd).trim() : '';
+		const parentType = String(orphan.parentType || 'individual')
+			.trim()
+			.toLowerCase();
+		const parentUrl = parentCrd ? `https://brokercheck.finra.org/${parentType === 'firm' ? 'firm' : 'individual'}/summary/${encodeURIComponent(parentCrd)}` : null;
+		function orphanRow(label: string, value: unknown) {
+			const text = String(value || '').trim();
+			if (!text) return '';
+			return `<div class='fg-detail-row'><span class='fg-detail-label'>${esc(label)}</span><span class='fg-detail-value'>${esc(text)}</span></div>`;
+		}
+		return `
+    <div class='fg-sb-header firm'>
+      <div class='fg-sb-title'>${esc(String(d.label || orphan.firmName || ''))}</div>
+      <div class='fg-sb-badges'>
+        <span class='fg-badge inactive' title='No live FINRA/SEC record — scraped reference only'>No live CRD — scraped reference only</span>
+      </div>
+    </div>
+    <div class='fg-sb-body fg-sb-body--firm'>
+      ${parentUrl ? `<div class='fg-ext-links'><a class='fg-ext-link bc' href='${parentUrl}' target='_blank' rel='noopener noreferrer'>&#x2197; ${parentType === 'firm' ? 'Parent Firm' : 'Source Individual'} Summary</a></div>` : ''}
+      ${orphanRow('Firm', orphan.firmName)}
+      ${orphanRow('Office Address', orphan.officeAddress)}
+      ${orphanRow('Mailing Address', orphan.mailingAddress)}
+      ${orphanRow('Phone', orphan.phone)}
+    </div>`;
+	}
+
 	const owners = d.directOwners || [];
 	const disclosures = d.disclosures || [];
 	const ownerCrdSet = new Set(owners.map((o: any) => String(o?.crdNumber || o?.crd || o?.personId || '').trim()).filter(Boolean));

@@ -1475,6 +1475,11 @@ export function renderFirmDetail(d: any) {
       `
 				:	''
 			}
+      <div class='fg-section-title'>General Information</div>
+      ${row('Established in', d.formedState ? `${esc(d.formedState)}${d.formedDate ? ' since ' + d.formedDate : ''}` : '–')}
+      ${row('Type', esc(d.firmType || '–'))}
+      ${row('Fiscal Year End', esc(d.fiscalYearEnd || '–'))}
+      ${d.otherNames?.length ? row('Other names', esc(d.otherNames.join('; '))) : ''}
       ${
 				Array.isArray(d.currentConnections) && d.currentConnections.length ?
 					`
@@ -1535,11 +1540,6 @@ export function renderFirmDetail(d: any) {
       `
 				:	''
 			}
-      <div class='fg-section-title'>General Information</div>
-      ${row('Established in', d.formedState ? `${esc(d.formedState)}${d.formedDate ? ' since ' + d.formedDate : ''}` : '–')}
-      ${row('Type', esc(d.firmType || '–'))}
-      ${row('Fiscal Year End', esc(d.fiscalYearEnd || '–'))}
-      ${d.otherNames?.length ? row('Other names', esc(d.otherNames.join('; '))) : ''}
     </div>
   `;
 }

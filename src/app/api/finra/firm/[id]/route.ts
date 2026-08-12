@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger';
 import { queueHydration } from '@/lib/hydration';
 import { addRecordToSearchIndex } from '@/lib/localSearch';
 import { getFirmConnectionsFromGraph } from '@/lib/graphConnections';
-import { recordOwnerReferencesForFirm } from '@/lib/ownerReferenceIndex';
+import { recordOwnerReferencesForFirm, lookupFirmReference } from '@/lib/ownerReferenceIndex';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -185,6 +185,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		}
 
 		if (!bcDetail && !secDetail) {
+			// Last resort: this firm CRD may be a scraped-only reference — e.g. an employer entry
+			// scraped directly from an individual's BrokerCheck summary page — with no independent
+			// BrokerCheck/IAPD firm record. Check the firm-reference index (populated when individual
+			// records are fetched) before giving up.
+			const firmReference = await lookupFirmReference(id).catch(() => null);
+			if (firmReference) {
+				return NextResponse.json(
+					{
+						found: true,
+						firmId: id,
+						orphan: firmReference,
+						sources: { finra: { found: false }, sec: { found: false } },
+						hasFinraData: false,
+						hasSecData: false,
+					},
+					{ headers: sharedCacheHeaders(3600) },
+				);
+			}
 			return NextResponse.json({ found: false }, { status: 200, headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
 		}
 

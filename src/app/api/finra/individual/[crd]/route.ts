@@ -8,7 +8,7 @@ import { normalizeIndividualDetailFromSource } from '@/lib/individualDetail';
 import { hasIndividualSourceCoverage, resolveIndividualSourceDetail } from '@/lib/sourceTruth';
 import { queueHydration } from '@/lib/hydration';
 import { addRecordToSearchIndex } from '@/lib/localSearch';
-import { lookupOwnerReference } from '@/lib/ownerReferenceIndex';
+import { lookupOwnerReference, recordFirmReferencesForIndividual } from '@/lib/ownerReferenceIndex';
 
 function parseDetailPayload(data: any, contentKey = 'content') {
 	if (!data) return null;
@@ -295,6 +295,27 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		// Queue background hydration of the external API to ensure cache stays hydrated
 		queueHydration('individual', crd);
+
+		// Best-effort: index this individual's employers (many of which are scraped-only firm
+		// names/CRDs with no independent, searchable BrokerCheck/IAPD record) so a later lookup of
+		// one of those firm CRDs can resolve as an "orphan" reference instead of a bare not-found.
+		// Never blocks the response.
+		const employmentReferenceRows = [
+			...(Array.isArray(detail.currentEmployments) ? detail.currentEmployments : []),
+			...(Array.isArray(detail.currentIAEmployments) ? detail.currentIAEmployments : []),
+			...(Array.isArray(detail.previousEmployments) ? detail.previousEmployments : []),
+			...(Array.isArray(detail.previousIAEmployments) ? detail.previousIAEmployments : []),
+		];
+		if (employmentReferenceRows.length) {
+			const bi: any = detail.basicInformation || {};
+			void recordFirmReferencesForIndividual({
+				parentCrd: crd,
+				individualName: [bi.firstName, bi.middleName, bi.lastName].filter(Boolean).join(' '),
+				employments: employmentReferenceRows,
+			}).catch((err: any) => {
+				logger.warn('failed to record firm reference index for individual', { crd, error: err?.message || String(err) });
+			});
+		}
 
 		if (isMergedRoute) {
 			return NextResponse.json(
