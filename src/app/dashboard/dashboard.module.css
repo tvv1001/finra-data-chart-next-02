@@ -1892,9 +1892,7 @@
 	font-size: 12px;
 	line-height: 1.45;
 	color: var(--text-secondary);
-	padding: 8px;
-	border: 1px solid var(--border);
-	background: var(--content-surface-muted);
+
 	font-family: inherit;
 	letter-spacing: 0.015em;
 }
@@ -2919,9 +2917,7 @@
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
-	padding: 10px 12px;
-	background: #474d5d42;
-	border: 1px solid rgba(115, 32, 72, 0.623);
+	padding: 5px;
 	border-radius: 0px;
 	text-decoration: none;
 	transition: all 0.2s;

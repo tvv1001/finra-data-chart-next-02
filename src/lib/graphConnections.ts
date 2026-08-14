@@ -42,29 +42,54 @@ function firstNonEmpty(...values: unknown[]) {
 
 async function searchIndividualsForFirmWithFallback(source: 'finra' | 'sec', firmId: string): Promise<any[]> {
 	const limit = 30;
+	let localHits: any[] = [];
+
 	const local = await searchLocalIndex(source, 'individual', firmId, { limit }).catch(() => null);
-	if (local && local.total > 0) return toArraySafe(local?.hits?.hits).map((hit: any) => hit?._source || hit || {});
+	if (local && local.total > 0) localHits = localHits.concat(toArraySafe(local?.hits?.hits));
 
-	if (!hasMinimumSearchQuery(firmId)) return [];
+	if (localHits.length < limit && hasMinimumSearchQuery(firmId)) {
+		const graphFallback = await searchGraphFallback(source, 'individual', firmId, { limit }).catch(() => null);
+		if (graphFallback && graphFallback.total > 0) localHits = localHits.concat(toArraySafe(graphFallback?.hits?.hits));
+	}
 
-	const graphFallback = await searchGraphFallback(source, 'individual', firmId, { limit }).catch(() => null);
-	if (graphFallback && graphFallback.total > 0) return toArraySafe(graphFallback?.hits?.hits).map((hit: any) => hit?._source || hit || {});
+	if (localHits.length < limit && hasMinimumSearchQuery(firmId)) {
+		const directFallback = await searchDirectRedisFallback(source, 'individual', firmId, { limit }).catch(() => null);
+		if (directFallback && directFallback.hits?.total > 0) localHits = localHits.concat(toArraySafe(directFallback?.hits?.hits));
+	}
 
-	const directFallback = await searchDirectRedisFallback(source, 'individual', firmId, { limit }).catch(() => null);
-	if (directFallback && directFallback.hits?.total > 0) return toArraySafe(directFallback?.hits?.hits).map((hit: any) => hit?._source || hit || {});
+	let extHits: any[] = [];
+	// Always fetch external if we have fewer than 20 local hits to ensure completeness for fresh DBs
+	if (localHits.length < 20) {
+		try {
+			const maxApiRows = 100; // Both FINRA and SEC hard-fail if > 100
+			const extUrl = source === 'finra' 
+				? `https://api.brokercheck.finra.org/search/individual?firm=${encodeURIComponent(firmId)}&hl=true&wt=json&nrows=${maxApiRows}&includePrevious` 
+				: `https://api.adviserinfo.sec.gov/search/individual?firm=${encodeURIComponent(firmId)}&hl=true&wt=json&nrows=${maxApiRows}&includePrevious`;
+			const extRes = await fetch(extUrl, { cache: 'no-store' });
+			const extData = await extRes.json();
+			if (extData && extData.hits && extData.hits.total > 0) {
+				extHits = toArraySafe(extData.hits.hits).map((hit: any) => {
+					const sourceObj = hit?._source || hit || {};
+					return {
+						...sourceObj,
+						ind_previous_employments: hit?.inner_hits?.ind_previous_employments?.hits?.hits?.map((h: any) => h._source) || [],
+						ind_ia_previous_employments: hit?.inner_hits?.ind_ia_previous_employments?.hits?.hits?.map((h: any) => h._source) || [],
+						ind_current_employments: hit?.inner_hits?.ind_current_employments?.hits?.hits?.map((h: any) => h._source) || sourceObj.ind_current_employments || []
+					};
+				});
+			}
+		} catch {}
+	}
 
-	try {
-		const extUrl = source === 'finra' 
-			? `https://api.brokercheck.finra.org/search/individual?firm=${encodeURIComponent(firmId)}&hl=true&wt=json&rows=${limit}` 
-			: `https://api.adviserinfo.sec.gov/search/individual?firm=${encodeURIComponent(firmId)}&hl=true&wt=json&rows=${limit}`;
-		const extRes = await fetch(extUrl);
-		const extData = await extRes.json();
-		if (extData && extData.hits && extData.hits.total > 0) {
-			return toArraySafe(extData.hits.hits).map((hit: any) => hit?._source || hit || {});
-		}
-	} catch {}
-
-	return [];
+	// Merge all hits, map to source, and remove duplicates
+	const merged = [...localHits.map((h: any) => h?._source || h || {}), ...extHits];
+	const seen = new Set<string>();
+	return merged.filter((item: any) => {
+		const id = item.ind_source_id || item.ind_crd || item.individualId || item.id;
+		if (!id || seen.has(id)) return false;
+		seen.add(id);
+		return true;
+	});
 }
 
 async function getConnectionsFromSearchIndex(firmId: string): Promise<GraphConnectionEntry[]> {
@@ -109,7 +134,19 @@ async function getConnectionsFromSearchIndex(firmId: string): Promise<GraphConne
 						endDate: firstNonEmpty(matchedPrevious?.registrationEndDate, matchedPrevious?.endDate) || undefined,
 						isCurrent: false,
 					});
+					continue;
 				}
+
+				// External API hits often omit previousEmployments but return the hit because they matched the firm= ID.
+				// If they reached here, they must be a previous registration.
+				entries.push({
+					individualId: crd,
+					name,
+					relationship: 'Previous registration',
+					startDate: undefined,
+					endDate: undefined,
+					isCurrent: false,
+				});
 			}
 		} catch {
 			// Best-effort
@@ -259,7 +296,7 @@ async function computeFirmConnectionsFromGraph(firmId: string): Promise<{ curren
 	// Search can hang on cold indexes; bound it so firm pages don't 504.
 	const searchEntries = await Promise.race([
 		getConnectionsFromSearchIndex(firmId).catch(() => [] as GraphConnectionEntry[]),
-		new Promise<GraphConnectionEntry[]>((resolve) => setTimeout(() => resolve([]), 2500)),
+		new Promise<GraphConnectionEntry[]>((resolve) => setTimeout(() => resolve([]), 8000)),
 	]);
 	if (searchEntries.length) return merge([searchEntries]);
 
@@ -273,7 +310,7 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<{ cur
 
 	// v4: precomputed firm-emp-adj first (via getFirmEmploymentEdgesFromPrimed).
 	// Never write empty payloads to the long-TTL key (that poisoned firm people lists for 1h).
-	const cacheKey = `graph:firm-connections:v4:${normalizedFirmId}`;
+	const cacheKey = `graph:firm-connections:v9:${normalizedFirmId}`;
 	const emptyCacheKey = `${cacheKey}:empty`;
 	const redis = getRedisClient();
 

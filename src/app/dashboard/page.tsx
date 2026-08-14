@@ -3115,24 +3115,18 @@ function DashboardPageInner() {
 												<>
 													<div className={styles.detailList}>
 														{orphanRecord.officeAddress && (
-															<div className={styles.detailRow}>
-																<div className={styles.detailTextRow}>
-																	<strong>Main Address:</strong> {formatAddress(orphanRecord.officeAddress)}
-																</div>
+															<div className={styles.detailTextRow}>
+																<strong>Main Address:</strong> {formatAddress(orphanRecord.officeAddress)}
 															</div>
 														)}
 														{orphanRecord.mailingAddress && (
-															<div className={styles.detailRow}>
-																<div className={styles.detailTextRow}>
-																	<strong>Mailing:</strong> {formatAddress(orphanRecord.mailingAddress)}
-																</div>
+															<div className={styles.detailTextRow}>
+																<strong>Mailing:</strong> {formatAddress(orphanRecord.mailingAddress)}
 															</div>
 														)}
 														{orphanRecord.phone && (
-															<div className={styles.detailRow}>
-																<div className={styles.detailTextRow}>
-																	<strong>Phone:</strong> {orphanRecord.phone}
-																</div>
+															<div className={styles.detailTextRow}>
+																<strong>Phone:</strong> {orphanRecord.phone}
 															</div>
 														)}
 													</div>
@@ -3817,8 +3811,10 @@ function DashboardPageInner() {
 									<div className={styles.searchDockTitleRow}>
 										<div className={styles.searchTitle}>REDIS SEARCH ({searchResults.length.toLocaleString()})</div>
 										<div className={styles.searchDockMeta}>
-											<span style={{ marginRight: '8px', color: '#10b981', fontWeight: 600, padding: '2px 6px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '4px' }}>LOCAL REDIS ONLINE</span>
-											{' '}Redis CRDs: {uniqueCrdCounts.total.toLocaleString()}
+											<span style={{ marginRight: '8px', color: '#10b981', fontWeight: 600, padding: '2px 6px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '4px' }}>
+												LOCAL REDIS ONLINE
+											</span>{' '}
+											Redis CRDs: {uniqueCrdCounts.total.toLocaleString()}
 										</div>
 									</div>
 									<div className={styles.searchRow}>
@@ -4115,10 +4111,6 @@ function DashboardPageInner() {
 						)}
 					</aside>
 				</div>
-			</div>
-			
-			<div style={{ textAlign: 'center', padding: '20px', fontSize: '12px', color: '#888' }}>
-				dashboard:cached-crd-count: {uniqueCrdCounts.cachedCrdCount ?? 'Loading...'}
 			</div>
 
 			<div className={styles.hiddenValues}>
