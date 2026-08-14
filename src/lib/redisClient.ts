@@ -86,7 +86,7 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 							})();
 						}
 						// Direct passthrough for other methods (like pipeline)
-						return (client2 as any)[propStr](...args);
+						return (client1 as any)[propStr](...args);
 					};
 				}
 				return val;
