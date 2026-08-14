@@ -1013,7 +1013,7 @@ export default function FinraGraph() {
 
 					<div className='fg-header-right-controls'>
 						<Link
-							href="https://dashboard-crds.vercel.app/"
+							href={buildDashboardHrefFromNodeId(routeNodeId) || '/dashboard'}
 							className='fg-ghost-btn'
 							title='Open dashboard'
 							aria-label='Open dashboard'>

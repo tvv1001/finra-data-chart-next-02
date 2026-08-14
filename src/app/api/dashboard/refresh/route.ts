@@ -1270,6 +1270,7 @@ async function incrementInventoryCounterInRedis(amount = 1) {
 	if (!redis) return { ok: false, count: 0 };
 	const safeAmount = Math.max(1, Math.floor(Number(amount) || 1));
 	const nextCount = await redis.incrby(DASHBOARD_INVENTORY_COUNTER_KEY, safeAmount).catch(() => null);
+	await redis.del('dashboard:new-crds-cache').catch(() => null);
 	const numericCount = Number(nextCount ?? 0);
 	return { ok: true, count: Number.isFinite(numericCount) ? numericCount : 0 };
 }
@@ -1555,6 +1556,18 @@ async function collectNativeRedisRecordKeys(redis: Redis, forceRefresh = false) 
 	const now = Date.now();
 	if (!forceRefresh && nativeRedisKeyCache && now - nativeRedisKeyCache.fetchedAt <= DASHBOARD_NATIVE_REDIS_KEY_CACHE_MS) {
 		return nativeRedisKeyCache.keys;
+	}
+
+	if (process.env.USE_LOCAL_REDIS === '1') {
+		try {
+			const finraKeys = await redis.keys('finra:*');
+			const secKeys = await redis.keys('sec:*');
+			const allKeys = Array.from(new Set([...finraKeys, ...secKeys]));
+			nativeRedisKeyCache = { keys: allKeys, fetchedAt: now };
+			return allKeys;
+		} catch (e) {
+			console.error('Failed to run keys command on local redis:', e);
+		}
 	}
 
 	// Optimization: reference the CRD list for counting the redis cache instead of reading/scanning each item.
@@ -1923,6 +1936,23 @@ async function listNewCrds() {
 	if (!redis) {
 		return { ok: true, newCrds: [], isToday: false, lastChecked: null };
 	}
+
+	const cacheKey = 'dashboard:new-crds-cache';
+	try {
+		const cached = await redis.get(cacheKey);
+		if (cached) {
+			const parsed = typeof cached === 'string' ? JSON.parse(cached) : cached;
+			return {
+				ok: true,
+				newCrds: parsed.newCrds || [],
+				isToday: true,
+				lastChecked: parsed.lastChecked || new Date().toISOString(),
+				detectedCount: parsed.detectedCount || 0,
+				shownCount: parsed.shownCount || 0,
+			};
+		}
+	} catch (err) {}
+
 	const nativeKeys = await collectNativeRedisRecordKeys(redis);
 	const cards = buildCacheCardsFromRedisKeys(nativeKeys, getCrdLogNameMap());
 
@@ -1952,13 +1982,21 @@ async function listNewCrds() {
 		}),
 	);
 
-	return {
-		ok: true,
+	const result = {
 		newCrds: formatted,
-		isToday: true,
 		lastChecked: new Date().toISOString(),
 		detectedCount: cards.length,
 		shownCount: formatted.length,
+	};
+
+	try {
+		await redis.set(cacheKey, JSON.stringify(result), { ex: 3600 });
+	} catch (err) {}
+
+	return {
+		ok: true,
+		...result,
+		isToday: true,
 	};
 }
 

@@ -4112,7 +4112,6 @@ function DashboardPageInner() {
 					</aside>
 				</div>
 			</div>
-
 			<div className={styles.hiddenValues}>
 				<input
 					type='text'

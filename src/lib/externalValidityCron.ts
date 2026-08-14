@@ -651,6 +651,17 @@ async function processCandidate(
 ): Promise<{ found: boolean; discovered: boolean; updated: boolean; 429: boolean }> {
 	if (await isProcessed(redis, kind, id)) return { found: true, discovered: false, updated: false, 429: false };
 
+	const graphNodeId = kind === 'individual' ? `person:${normalizeId(id)}` : `firm:${normalizeId(id)}`;
+	const existingNode = graph?.nodes?.find((n: any) => n.id === graphNodeId || n.id === `${kind}:${normalizeId(id)}`);
+	if (existingNode && existingNode.basicInformation) {
+		const bcScope = String(existingNode.basicInformation.bcScope || '').trim().toLowerCase();
+		const iaScope = String(existingNode.basicInformation.iaScope || '').trim().toLowerCase();
+		if (bcScope !== 'active' && iaScope !== 'active') {
+			await markProcessed(redis, kind, id);
+			return { found: true, discovered: false, updated: false, 429: false };
+		}
+	}
+
 	const { finra, sec } = await fetchRecord(kind, id);
 	if (!finra && !sec) return { found: false, discovered: false, updated: false, 429: false };
 
