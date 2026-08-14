@@ -164,7 +164,7 @@ Local app URL:
 ### Useful local commands
 
 ```bash
-# Standard dev server
+# Standard dev server (automatically starts local Redis server)
 pnpm run dev
 
 # Iteratively expand the local FINRA/SEC cache from identifiers already discovered
@@ -355,9 +355,8 @@ The build/runtime pipeline centers on these generated files:
 
 ### Graph storage
 
-- **Local development**: graph and seed-bank data are read from disk
-- **With Upstash Redis**: graph and seed-bank data are served from Redis when present
-- If Redis is enabled but the graph key is empty, the server will **bootstrap the graph from the bundled disk graph artifact** and store it back into Redis
+- **Local development**: graph and seed-bank data are served from the local Redis server (which starts automatically via the `dev` script).
+- If the Redis graph key is empty, the server will **bootstrap the graph from the bundled disk graph artifact** and store it back into Redis.
 
 ### Upstream response caching
 

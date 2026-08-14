@@ -1581,10 +1581,13 @@ function DashboardPageInner() {
 
 	const uniqueCrdCounts = useMemo(() => {
 		if (queueMetaStats.inventoryTotals) {
+			const cached = queueMetaStats.inventoryTotals.cachedCrdCount;
+			const cachedParsed = cached && cached !== 'Not Found' && cached !== 'Error' ? parseInt(cached, 10) : NaN;
 			return {
 				individuals: queueMetaStats.inventoryTotals.people,
 				firms: queueMetaStats.inventoryTotals.firms,
-				total: queueMetaStats.inventoryTotals.unique,
+				total: !isNaN(cachedParsed) ? cachedParsed : queueMetaStats.inventoryTotals.unique,
+				cachedCrdCount: cached,
 			};
 		}
 
@@ -1601,6 +1604,7 @@ function DashboardPageInner() {
 			individuals: individuals.size,
 			firms: firms.size,
 			total: individuals.size + firms.size,
+			cachedCrdCount: undefined as string | number | undefined,
 		};
 	}, [queueCards, queueMetaStats.inventoryTotals]);
 
@@ -3812,7 +3816,10 @@ function DashboardPageInner() {
 								<div className={styles.searchDock}>
 									<div className={styles.searchDockTitleRow}>
 										<div className={styles.searchTitle}>REDIS SEARCH ({searchResults.length.toLocaleString()})</div>
-										<div className={styles.searchDockMeta}>Redis CRDs: {uniqueCrdCounts.total.toLocaleString()}</div>
+										<div className={styles.searchDockMeta}>
+											<span style={{ marginRight: '8px', color: '#10b981', fontWeight: 600, padding: '2px 6px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '4px' }}>LOCAL REDIS ONLINE</span>
+											{' '}Redis CRDs: {uniqueCrdCounts.total.toLocaleString()}
+										</div>
 									</div>
 									<div className={styles.searchRow}>
 										<input
@@ -4108,6 +4115,10 @@ function DashboardPageInner() {
 						)}
 					</aside>
 				</div>
+			</div>
+			
+			<div style={{ textAlign: 'center', padding: '20px', fontSize: '12px', color: '#888' }}>
+				dashboard:cached-crd-count: {uniqueCrdCounts.cachedCrdCount ?? 'Loading...'}
 			</div>
 
 			<div className={styles.hiddenValues}>

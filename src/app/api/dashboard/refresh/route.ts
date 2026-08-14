@@ -176,6 +176,7 @@ type InventoryTotals = {
 	firms: number;
 	unique: number;
 	source: 'external-raw' | 'local-raw' | 'redis' | 'primed-bundle';
+	cachedCrdCount?: string | number;
 };
 
 export function buildInventoryTotalsFromCards(cards: Array<Pick<CacheCard, 'id' | 'entity'> & Partial<CacheCard>>, source: InventoryTotals['source'] = 'redis'): InventoryTotals {
@@ -1245,13 +1246,16 @@ async function resolveCrdsFromQueries(queries: string[], maxCrds = 500) {
 }
 
 function ensureRedisClient() {
+	if (process.env.USE_LOCAL_REDIS === '1') {
+		return getRedisClientInstance({ url: '', token: '' });
+	}
 	const url = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL);
 	const token = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN);
 	if (!url || !token) return null;
 	return getRedisClientInstance({ url, token });
 }
 
-const DASHBOARD_INVENTORY_COUNTER_KEY = 'dashboard:inventory-counter';
+const DASHBOARD_INVENTORY_COUNTER_KEY = 'dashboard:cached-crd-count';
 
 async function getInventoryCounterFromRedis() {
 	const redis = ensureRedisClient();
@@ -1829,11 +1833,28 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 		:	null,
 		rawFallbackTotals,
 	);
+	
+	try {
+		const cachedCrdCountRaw = await redis.get('dashboard:cached-crd-count');
+		const cachedCrdCount = Number(cachedCrdCountRaw);
+		
+		if (cachedCrdCountRaw != null && !isNaN(cachedCrdCount)) {
+			effectiveInventoryTotals.unique = cachedCrdCount;
+			effectiveInventoryTotals.cachedCrdCount = String(cachedCrdCount);
+		} else {
+			effectiveInventoryTotals.cachedCrdCount = 'Not Found';
+		}
+	} catch (e) {
+		effectiveInventoryTotals.cachedCrdCount = 'Error';
+	}
 
 	const fallbackManifestTotals = null;
 	if (shouldUseLocalFallback(cards.length, filterTokens.length > 0)) {
 		const localListed = await listLocalNewestCards(maxCards, crdFilter);
 		if ((localListed as any)?.totalCards > 0) {
+			if (localListed && localListed.inventoryTotals && effectiveInventoryTotals.cachedCrdCount != null) {
+				localListed.inventoryTotals.cachedCrdCount = effectiveInventoryTotals.cachedCrdCount;
+			}
 			return localListed;
 		}
 	}

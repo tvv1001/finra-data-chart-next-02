@@ -4,20 +4,21 @@ This project is an interactive relationship explorer for FINRA BrokerCheck and S
 
 ## Project Overview
 
-- **Main Technologies**: Next.js 15 (App Router), React 19, D3 v7, Pixi.js 8, TypeScript, Upstash Redis.
+- **Main Technologies**: Next.js 15 (App Router), React 19, D3 v7, Pixi.js 8, TypeScript, Redis.
 - **Core Architecture (Redis-Only)**:
-  - **Source of Truth**: The project has moved away from local data dependence. All runtime data (graph, seed bank, recent seeds) is stored in **Upstash Redis**.
+  - **Source of Truth**: All runtime data (graph, seed bank, recent seeds) is stored in a **local Redis server**.
   - **Graph Storage**: Managed in `src/lib/graphStore.ts`. Supports chunked manifests and gzipped/base64 payloads for large graphs.
   - **Search Sidecar**: Search uses gzipped flatfiles (`search-index.*.json.gz`) located in `public/search-indexes/` for fast, low-memory local lookups.
   - **Synchronization**: The main app and the dashboard (`/dashboard`) are kept in sync by reading from and writing to the same Redis instance.
-  - **Performance**: Pre-generated artifacts are still used to bootstrap Redis, but `next.config.ts` excludes large local data from serverless bundles to stay within Vercel limits.
+  - **Performance**: Pre-generated artifacts are still used to bootstrap Redis, but `next.config.ts` excludes large local data from serverless bundles.
 
 ## Building and Running
 
 ### Key Commands
 
 - `pnpm install`: Install dependencies.
-- `pnpm run dev:clean`: Start the development server with a clean Next.js cache.
+- `pnpm run dev`: Starts the local Redis server automatically (via `start-redis.sh`) and then starts the Next.js dev server.
+- `pnpm run dev:clean`: Start the development server with a clean Next.js cache (also starts Redis automatically).
 - `pnpm run build`: Production build. Regenerates search indexes and artifacts.
 - `pnpm run deploy:upstash-artifacts`: **Critical**. Rebuilds and syncs all graph and search artifacts to Redis.
 - `pnpm run prime:all`: Iteratively expand the local cache (before deploying to Redis).
