@@ -51,7 +51,18 @@ async function searchIndividualsForFirmWithFallback(source: 'finra' | 'sec', fir
 	if (graphFallback && graphFallback.total > 0) return toArraySafe(graphFallback?.hits?.hits).map((hit: any) => hit?._source || hit || {});
 
 	const directFallback = await searchDirectRedisFallback(source, 'individual', firmId, { limit }).catch(() => null);
-	if (directFallback) return toArraySafe(directFallback?.hits?.hits).map((hit: any) => hit?._source || hit || {});
+	if (directFallback && directFallback.hits?.total > 0) return toArraySafe(directFallback?.hits?.hits).map((hit: any) => hit?._source || hit || {});
+
+	try {
+		const extUrl = source === 'finra' 
+			? `https://api.brokercheck.finra.org/search/individual?firm=${encodeURIComponent(firmId)}&hl=true&wt=json&rows=${limit}` 
+			: `https://api.adviserinfo.sec.gov/search/individual?firm=${encodeURIComponent(firmId)}&hl=true&wt=json&rows=${limit}`;
+		const extRes = await fetch(extUrl);
+		const extData = await extRes.json();
+		if (extData && extData.hits && extData.hits.total > 0) {
+			return toArraySafe(extData.hits.hits).map((hit: any) => hit?._source || hit || {});
+		}
+	} catch {}
 
 	return [];
 }

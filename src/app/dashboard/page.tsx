@@ -2238,7 +2238,7 @@ function DashboardPageInner() {
 		const cached = mergedDetailCacheRef.current.get(cacheKey);
 		if (cached) return cached;
 
-		const route = card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1&deferConnections=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
+		const route = card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1&includeConnections=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
 		try {
 			const response = await fetch(route, {
 				method: 'GET',
@@ -2259,7 +2259,7 @@ function DashboardPageInner() {
 	}
 
 	async function fetchFallbackDetail(card: QueueCard) {
-		const route = card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1&deferConnections=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
+		const route = card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1&includeConnections=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
 
 		const response = await fetch(route, {
 			method: 'GET',
