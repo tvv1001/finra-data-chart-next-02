@@ -1553,17 +1553,9 @@ async function collectNativeRedisRecordKeys(redis: Redis, forceRefresh = false) 
 		return nativeRedisKeyCache.keys;
 	}
 
-	const patterns = ['finra:individual:*', 'sec:individual:*', 'finra:firm:*', 'sec:firm:*'];
-	const scannedGroups = await Promise.all(patterns.map((pattern) => scanKeys(redis, pattern, DASHBOARD_REDIS_SCAN_CARD_LIMIT_PER_PATTERN)));
-	const dedupedKeys = new Set<string>();
-
-	for (const scannedKeys of scannedGroups) {
-		for (const key of scannedKeys) {
-			const parsed = parseCacheKey(key);
-			if (!parsed) continue;
-			dedupedKeys.add(`${parsed.source}:${parsed.entity}:${parsed.id}`);
-		}
-	}
+	// Optimization: reference the CRD list for counting the redis cache instead of reading/scanning each item.
+	// This prevents huge bandwidth and command quota usage on Upstash.
+	const dedupedKeys = buildKeySetFromCrdLog();
 
 	const keys = Array.from(dedupedKeys.values());
 	nativeRedisKeyCache = { keys, fetchedAt: now };

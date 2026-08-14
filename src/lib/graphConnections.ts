@@ -24,9 +24,9 @@ export type GraphConnectionEntry = {
 	iaScope?: string;
 };
 
-const FIRM_CONNECTIONS_CACHE_TTL_SECONDS = 60 * 60;
+const FIRM_CONNECTIONS_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
 // Do not stick empty results for an hour — empty caches were masking recoveries.
-const EMPTY_FIRM_CONNECTIONS_CACHE_TTL_SECONDS = 45;
+const EMPTY_FIRM_CONNECTIONS_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 function toArraySafe(value: unknown): any[] {
 	return Array.isArray(value) ? value : [];
