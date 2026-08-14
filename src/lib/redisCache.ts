@@ -66,14 +66,9 @@ export async function setIfValid(
 		}
 		if (t && t !== 'none' && t !== 'string') return 'skipped-nonstring';
 
-		const normalizedTtlSeconds = Number(ttlSeconds);
 		await limiter.schedule(async () => {
 			const finalValue = compressPayload(JSON.stringify(value));
-			if (ttlSeconds == null || !Number.isFinite(normalizedTtlSeconds) || normalizedTtlSeconds <= 0) {
-				await redis.set(key, finalValue);
-				return;
-			}
-			await redis.set(key, finalValue, { ex: Math.floor(normalizedTtlSeconds) });
+			await redis.set(key, finalValue);
 		});
 		return 'written';
 	} catch (e) {
@@ -104,14 +99,9 @@ export async function setStringIfValid(
 			t = await redis.type(key);
 		} catch {}
 		if (t && t !== 'none' && t !== 'string') return 'skipped-nonstring';
-		const normalizedTtlSeconds = Number(ttlSeconds);
 		await limiter.schedule(async () => {
 			const finalValue = compressPayload(raw);
-			if (ttlSeconds == null || !Number.isFinite(normalizedTtlSeconds) || normalizedTtlSeconds <= 0) {
-				await redis.set(key, finalValue);
-				return;
-			}
-			await redis.set(key, finalValue, { ex: Math.floor(normalizedTtlSeconds) });
+			await redis.set(key, finalValue);
 		});
 		return 'written';
 	} catch (e) {

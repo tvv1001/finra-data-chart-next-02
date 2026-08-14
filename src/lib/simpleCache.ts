@@ -294,10 +294,39 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 		if (service) lastExternalFetch.set(service, Date.now());
 		if (value !== undefined) {
 			memSet(mem, key, value, ttlSeconds);
+			const newJson = JSON.stringify(value);
+			
+			// Always cache to disk to survive Redis quota limits
+			try {
+				const fs = require('fs');
+				const path = require('path');
+				const keyParts = key.split(':');
+				if (keyParts.length >= 3) {
+					const s = keyParts[0];
+					const t = keyParts[1];
+					const i = keyParts[2];
+					let folder = '';
+					let filePrefix = '';
+					if (s === 'finra') {
+						folder = 'brokercheck.finra.org';
+						filePrefix = 'api.brokercheck.finra.org_search';
+					} else if (s === 'sec') {
+						folder = 'adviserinfo.sec.gov';
+						filePrefix = 'api.adviserinfo.sec.gov_search';
+					}
+					if (folder) {
+						const fileName = `${filePrefix}_${t}_${i}.json`;
+						const filePath = path.join(process.cwd(), 'data', 'national', folder, fileName);
+						fs.mkdirSync(path.dirname(filePath), { recursive: true });
+						fs.writeFileSync(filePath, newJson, 'utf-8');
+					}
+				}
+			} catch (e) {}
+
 			if (redis) {
 				try {
-					const newJson = JSON.stringify(value);
-					await setStringIfValid(key, newJson, ttlSeconds);
+					// Enforce no TTL
+					await setStringIfValid(key, newJson, null);
 					console.log(`[External API Access Success] Time: ${new Date().toISOString()} | Domain: ${domain} | CRDs added: [${crd}] | Added count: 1`);
 				} catch {
 					console.log(`[External API Access Success] Time: ${new Date().toISOString()} | Domain: ${domain} | CRDs added: [${crd}] | Added count: 1 (memory only)`);

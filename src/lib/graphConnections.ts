@@ -280,6 +280,23 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<{ cur
 			// fall through to compute
 		}
 	}
+	
+	const fs = require('fs');
+	const path = require('path');
+	let localCachePath = '';
+	try {
+		const cacheDir = path.join(process.cwd(), 'data', 'firm-connections');
+		fs.mkdirSync(cacheDir, { recursive: true });
+		localCachePath = path.join(cacheDir, `${normalizedFirmId}.json`);
+		if (fs.existsSync(localCachePath)) {
+			const localHit = parseCachedConnectionsPayload(fs.readFileSync(localCachePath, 'utf-8'));
+			if (localHit && (localHit.currentConnections.length || localHit.previousConnections.length)) {
+				return localHit;
+			}
+		}
+	} catch (e) {
+		// fallback to compute
+	}
 
 	const computed = await computeFirmConnectionsFromGraph(normalizedFirmId);
 	const total = (computed.currentConnections?.length || 0) + (computed.previousConnections?.length || 0);
@@ -294,6 +311,14 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<{ cur
 		} catch {
 			// best-effort cache
 		}
+	}
+
+	try {
+		if (localCachePath && total > 0) {
+			require('fs').writeFileSync(localCachePath, JSON.stringify(computed));
+		}
+	} catch (e) {
+		// best-effort cache
 	}
 
 	return computed;
