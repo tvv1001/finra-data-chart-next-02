@@ -9,8 +9,8 @@ import { getRecentSeedsFromStore } from '@/lib/seedStore';
 
 function getUpstashClient() {
 	try {
-		const url = process.env.UPSTASH_REDIS_REST_URL;
-		const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+		const url = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL);
+		const token = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN);
 		if (url && token) return new UpstashRedis({ url, token });
 	} catch (e) {
 		// ignore
@@ -233,8 +233,8 @@ export async function GET(request: NextRequest) {
 		// init upstash redis client if configured
 		let upstash: any = null;
 		try {
-			const url = process.env.UPSTASH_REDIS_REST_URL;
-			const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+			const url = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL);
+			const token = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN);
 			if (url && token) upstash = new UpstashRedis({ url, token });
 		} catch (e) {
 			upstash = null;

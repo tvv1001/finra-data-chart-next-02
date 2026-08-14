@@ -50,8 +50,8 @@ function parseRedisValue<T>(raw: unknown): T | null {
 
 function getUpstash(): Redis | null {
 	if (upstash !== null) return upstash;
-	const url = process.env.UPSTASH_REDIS_REST_URL;
-	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+	const url = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL);
+	const token = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN);
 	if (url && token) upstash = getRedisClientInstance({ url, token });
 	return upstash;
 }

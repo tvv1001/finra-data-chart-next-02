@@ -21,8 +21,8 @@ let seedsCache: string[] | null = null;
 
 function getRedis(): Redis | null {
 	if (redisClient !== null) return redisClient;
-	const url = process.env.UPSTASH_REDIS_REST_URL;
-	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+	const url = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL);
+	const token = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN);
 	if (url && token) redisClient = getRedisClientInstance({ url, token });
 	return redisClient;
 }

@@ -482,8 +482,8 @@ function normalizeState(raw: unknown, maxIndividual: number, maxFirm: number): C
 }
 
 function getRedisClient() {
-	const url = process.env.UPSTASH_REDIS_REST_URL;
-	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+	const url = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL);
+	const token = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN);
 	return url && token ? getRedisClientInstance({ url, token }) : null;
 }
 

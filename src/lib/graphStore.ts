@@ -50,8 +50,8 @@ export type SeedLookupKind = 'individual' | 'firm';
 let _redis: Redis | null = null;
 function getRedis(): Redis | null {
 	if (_redis !== null) return _redis;
-	const url = process.env.UPSTASH_REDIS_REST_URL;
-	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+	const url = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL);
+	const token = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN);
 	if (url && token) _redis = getRedisClientInstance({ url, token });
 	return _redis;
 }

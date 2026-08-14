@@ -129,8 +129,8 @@ async function persistGraphSearchNodesAndLinks(newNodes: any[], newLinks: any[])
 		await saveGraph(graph);
 
 		try {
-			const url = process.env.UPSTASH_REDIS_REST_URL;
-			const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+			const url = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL);
+			const token = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN);
 			if (url && token) {
 				const redis = new UpstashRedis({ url, token });
 				const ts = new Date().toISOString();

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
 
-const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || null;
-const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || null;
+const UPSTASH_URL = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL) || null;
+const UPSTASH_TOKEN = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN) || null;
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
 const CACHE_DIR = path.join(process.cwd(), 'data', 'national', 'api_cache');
 

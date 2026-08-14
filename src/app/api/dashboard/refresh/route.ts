@@ -1245,8 +1245,8 @@ async function resolveCrdsFromQueries(queries: string[], maxCrds = 500) {
 }
 
 function ensureRedisClient() {
-	const url = process.env.UPSTASH_REDIS_REST_URL;
-	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+	const url = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL);
+	const token = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN);
 	if (!url || !token) return null;
 	return getRedisClientInstance({ url, token });
 }

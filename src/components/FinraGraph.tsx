@@ -272,13 +272,6 @@ export default function FinraGraph() {
 
 	const findSubmitText = 'Select';
 	const searchSuffix = useMemo(() => browserSearch || (searchParams.toString() ? `?${searchParams.toString()}` : ''), [browserSearch, searchParams]);
-	const dashboardHref = useMemo(() => {
-		const currentSelectedHref = buildDashboardHrefFromNodeId(routeNodeId);
-		if (currentSelectedHref) return currentSelectedHref;
-		const historyHref = getLatestDashboardHrefFromSelectionLog();
-		if (historyHref) return historyHref;
-		return '/dashboard';
-	}, [routeNodeId]);
 
 	const handleFetchQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
 		setFetchQuery(event.target.value);
@@ -1020,7 +1013,7 @@ export default function FinraGraph() {
 
 					<div className='fg-header-right-controls'>
 						<Link
-							href={dashboardHref}
+							href="https://dashboard-crds.vercel.app/"
 							className='fg-ghost-btn'
 							title='Open dashboard'
 							aria-label='Open dashboard'>
