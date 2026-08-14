@@ -11717,7 +11717,7 @@ async function ensureFirmDetail(firmNode) {
 			// First try the local merged record (fast, no external call)
 			let detail = null;
 			try {
-				const localRes = await fetch(`${BASE}/api/finra/merged/firm/${encodeURIComponent(firmId)}`);
+				const localRes = await fetch(`${BASE}/api/finra/merged/firm/${encodeURIComponent(firmId)}?includeConnections=1`);
 				if (localRes.ok) {
 					const merged = await localRes.json();
 					if (merged?.found && merged?.finraNode) {
