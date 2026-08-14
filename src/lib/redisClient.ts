@@ -71,7 +71,12 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 								const primary = useFirst ? client1 : client2;
 								const secondary = useFirst ? client2 : client1;
 								try {
-									return await (primary as any)[propStr](...args);
+									let res = await (primary as any)[propStr](...args);
+									if (res === null || res === undefined) {
+										// Fallback if null (helpful during partial migrations)
+										res = await (secondary as any)[propStr](...args);
+									}
+									return res;
 								} catch (err: any) {
 									console.warn(`[Redis LB] Error on primary for ${propStr}, falling back... (${err.message})`);
 									return await (secondary as any)[propStr](...args);
