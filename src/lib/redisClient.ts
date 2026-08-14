@@ -79,7 +79,13 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 						const propStr = prop as string;
 						if (readMethods.has(propStr)) {
 							return (async () => {
-								if (db1Maxxed && db2Maxxed) throw new Error("Both Redis databases are maxxed out.");
+								if (db1Maxxed && db2Maxxed) {
+									if (propStr === 'scan') return ['0', []];
+									if (propStr === 'mget' || propStr === 'zrange' || propStr === 'zrevrange' || propStr === 'smembers' || propStr === 'keys') return [];
+									if (propStr === 'exists' || propStr === 'dbsize') return 0;
+									if (propStr === 'hgetall') return {};
+									return null;
+								}
 								
 								let primary = client2;
 								let secondary = client1;
@@ -102,13 +108,23 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 									return res;
 								} catch (err: any) {
 									checkMaxxed(err, primaryIndex);
-									if (db1Maxxed && db2Maxxed) throw err;
+									if (db1Maxxed && db2Maxxed) {
+										if (propStr === 'scan') return ['0', []];
+										if (propStr === 'mget' || propStr === 'zrange' || propStr === 'zrevrange' || propStr === 'smembers' || propStr === 'keys') return [];
+										if (propStr === 'exists' || propStr === 'dbsize') return 0;
+										if (propStr === 'hgetall') return {};
+										return null;
+									}
 									console.warn(`[Redis LB] Error on DB${primaryIndex} for ${propStr}, falling back to DB${secondaryIndex}... (${err.message})`);
 									try {
 										return await (secondary as any)[propStr](...args);
 									} catch (err2: any) {
 										checkMaxxed(err2, secondaryIndex);
-										throw err2;
+										if (propStr === 'scan') return ['0', []];
+										if (propStr === 'mget' || propStr === 'zrange' || propStr === 'zrevrange' || propStr === 'smembers' || propStr === 'keys') return [];
+										if (propStr === 'exists' || propStr === 'dbsize') return 0;
+										if (propStr === 'hgetall') return {};
+										return null;
 									}
 								}
 							})();
