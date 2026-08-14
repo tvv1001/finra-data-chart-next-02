@@ -59,6 +59,18 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 		const readMethods = new Set(['get', 'mget', 'scan', 'zrange', 'smembers', 'hgetall', 'exists', 'dbsize', 'type', 'keys', 'hget', 'zrevrange']);
 		const writeMethods = new Set(['set', 'mset', 'hset', 'zadd', 'sadd', 'del', 'incr', 'incrby', 'expire', 'flushall', 'flushdb']);
 
+		let db1Maxxed = false;
+		let db2Maxxed = false;
+
+		const checkMaxxed = (err: any, dbIndex: 1 | 2) => {
+			const msg = String(err?.message || '').toLowerCase();
+			if (msg.includes('max') || msg.includes('limit') || msg.includes('exceeded') || msg.includes('daily')) {
+				if (dbIndex === 1) db1Maxxed = true;
+				else db2Maxxed = true;
+				console.warn(`[Redis LB] DB${dbIndex} marked as maxxed out!`);
+			}
+		};
+
 		return new Proxy(client2, {
 			get(target, prop) {
 				const val = (target as any)[prop];
@@ -67,31 +79,60 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 						const propStr = prop as string;
 						if (readMethods.has(propStr)) {
 							return (async () => {
-								const useFirst = Math.random() < 0.5;
-								const primary = useFirst ? client1 : client2;
-								const secondary = useFirst ? client2 : client1;
+								if (db1Maxxed && db2Maxxed) throw new Error("Both Redis databases are maxxed out.");
+								
+								let primary = client2;
+								let secondary = client1;
+								let primaryIndex: 1 | 2 = 2;
+								let secondaryIndex: 1 | 2 = 1;
+
+								if (!db1Maxxed && (db2Maxxed || Math.random() < 0.5)) {
+									primary = client1;
+									secondary = client2;
+									primaryIndex = 1;
+									secondaryIndex = 2;
+								}
+
 								try {
 									let res = await (primary as any)[propStr](...args);
-									if (res === null || res === undefined) {
-										// Fallback if null (helpful during partial migrations)
+									if ((res === null || res === undefined) && !db1Maxxed && !db2Maxxed) {
+										// Fallback if null (helpful during partial migrations), only if other DB is healthy
 										res = await (secondary as any)[propStr](...args);
 									}
 									return res;
 								} catch (err: any) {
-									console.warn(`[Redis LB] Error on primary for ${propStr}, falling back... (${err.message})`);
-									return await (secondary as any)[propStr](...args);
+									checkMaxxed(err, primaryIndex);
+									if (db1Maxxed && db2Maxxed) throw err;
+									console.warn(`[Redis LB] Error on DB${primaryIndex} for ${propStr}, falling back to DB${secondaryIndex}... (${err.message})`);
+									try {
+										return await (secondary as any)[propStr](...args);
+									} catch (err2: any) {
+										checkMaxxed(err2, secondaryIndex);
+										throw err2;
+									}
 								}
 							})();
 						} else if (writeMethods.has(propStr)) {
 							return (async () => {
-								const p1 = (client1 as any)[propStr](...args).catch((e: any) => console.error(`[Redis LB] Write error DB1:`, e.message));
-								const p2 = (client2 as any)[propStr](...args).catch((e: any) => console.error(`[Redis LB] Write error DB2:`, e.message));
-								const results = await Promise.all([p1, p2]);
+								const promises = [];
+								if (!db1Maxxed) promises.push((client1 as any)[propStr](...args).catch((e: any) => {
+									checkMaxxed(e, 1);
+									console.error(`[Redis LB] Write error DB1:`, e.message);
+								}));
+								else promises.push(Promise.resolve(undefined));
+
+								if (!db2Maxxed) promises.push((client2 as any)[propStr](...args).catch((e: any) => {
+									checkMaxxed(e, 2);
+									console.error(`[Redis LB] Write error DB2:`, e.message);
+								}));
+								else promises.push(Promise.resolve(undefined));
+
+								const results = await Promise.all(promises);
 								return results[1] !== undefined ? results[1] : results[0];
 							})();
 						}
 						// Direct passthrough for other methods (like pipeline)
-						return (client1 as any)[propStr](...args);
+						return (db1Maxxed ? client2 : client1 as any)[propStr](...args);
 					};
 				}
 				return val;
