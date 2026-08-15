@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
-import { cachedFetch } from '@/lib/simpleCache';
+import { cachedFetch, evictCacheKey } from '@/lib/simpleCache';
 import { rememberRecentSeed } from '@/lib/seedStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
@@ -175,6 +175,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		return NextResponse.json({ error: 'Invalid CRD number.' }, { status: 400 });
 	}
 	const isMergedRoute = request.nextUrl.searchParams.get('merged') === '1';
+	const forceRefresh = request.nextUrl.searchParams.get('forceRefresh') === '1';
+
+	if (forceRefresh) {
+		await Promise.allSettled([
+			evictCacheKey(`finra:individual:${crd}`),
+			evictCacheKey(`sec:individual:${crd}`),
+		]);
+	}
+
 	void rememberRecentSeed('individual', crd).catch((error) => {
 		logger.warn('failed to remember recent individual seed', { crd, error: error?.message || String(error) });
 	});

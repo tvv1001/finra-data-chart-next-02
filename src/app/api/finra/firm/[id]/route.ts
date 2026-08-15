@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cachedFetch } from '@/lib/simpleCache';
+import { cachedFetch, evictCacheKey } from '@/lib/simpleCache';
 import { rememberRecentSeed } from '@/lib/seedStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
@@ -121,6 +121,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		return NextResponse.json({ error: 'Invalid firm ID.' }, { status: 400 });
 	}
 	const isMergedRoute = request.nextUrl.searchParams.get('merged') === '1';
+	const forceRefresh = request.nextUrl.searchParams.get('forceRefresh') === '1';
+
+	if (forceRefresh) {
+		await Promise.allSettled([
+			evictCacheKey(`finra:firm:${id}`),
+			evictCacheKey(`sec:firm:${id}`),
+			evictCacheKey(`sec:firm:summaryHtml:${id}`),
+		]);
+	}
+
 	void rememberRecentSeed('firm', id).catch((error) => {
 		logger.warn('failed to remember recent firm seed', { id, error: error?.message || String(error) });
 	});

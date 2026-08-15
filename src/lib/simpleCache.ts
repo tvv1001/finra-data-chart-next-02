@@ -242,6 +242,20 @@ function shouldSkipExternalFetch(service: string) {
 	return false;
 }
 
+/** Delete a key from Redis and in-memory cache so the next cachedFetch goes external. */
+export async function evictCacheKey(rawKey: string): Promise<void> {
+	const key = normalizeKey(rawKey);
+	const redis = getUpstash();
+	if (redis) {
+		try {
+			await redis.del(key);
+		} catch {
+			// ignore
+		}
+	}
+	getMem().delete(key);
+}
+
 export async function waitExternalFetchLimit(service: string) {
 	if (!service || !canCallExternalApis()) return;
 	const lastFetchAt = lastExternalFetch.get(service) || 0;
