@@ -2283,6 +2283,13 @@ async function fetchCrdsToCacheAndRedis(initialTargets: FetchTarget[], options: 
 		`[External API Access Sync Complete] Time: ${new Date().toISOString()} | Domain: ${targetDomain} | Graph CRD Nodes added count: ${mainAppSync.nodesAdded} | CRD list: [${successfulCrds.join(', ')}]`,
 	);
 
+	const newRecordsSavedCount = allResults.filter(r => r.newRecordSaved).length;
+	if (newRecordsSavedCount > 0) {
+		await incrementInventoryCounterInRedis(newRecordsSavedCount).catch(err => {
+			console.warn('[fetch-crds] Failed to increment inventory counter:', err);
+		});
+	}
+
 	return {
 		summary: summarizeFetchResults(allResults),
 		mainAppSync,
