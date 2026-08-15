@@ -4,11 +4,10 @@
 	color: #cbd5e1;
 	padding: 0px;
 	font-family:
-		Inter,
+		var(--font-urbanist, 'Urbanist'),
 		system-ui,
 		-apple-system,
 		Segoe UI,
-		Roboto,
 		sans-serif;
 }
 

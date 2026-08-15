@@ -1,9 +1,16 @@
 import type { Metadata, Viewport } from 'next';
+import { Urbanist } from 'next/font/google';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import AnalyticsRouteBridge from '@/components/AnalyticsRouteBridge';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
 import AnalyticsClient from '@/components/AnalyticsClient';
 import './globals.css';
+
+const urbanist = Urbanist({
+	subsets: ['latin'],
+	variable: '--font-urbanist',
+	display: 'swap',
+});
 
 const siteUrl = 'https://finra-data-chart-next-02.vercel.app';
 
@@ -106,6 +113,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 	return (
 		<html
 			lang='en'
+			className={urbanist.variable}
 			suppressHydrationWarning>
 			<body>
 				<script dangerouslySetInnerHTML={{ __html: themeLoaderScript }} />
