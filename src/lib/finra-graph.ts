@@ -45,7 +45,7 @@ import { mergeGraphNodesForAppend } from './graphIdentity';
 import { isValidLocationStateFilter, isZipLikeLocationQuery, normalizeLocationStateFilter } from './locationSearch';
 import { buildParentFirmSummaryLinks } from './finra-graph/externalLinks';
 import { resolveIndividualSourceDetail, hasIndividualSourceCoverage } from './sourceTruth';
-import { normalizeNodeRouteId } from './node-route';
+import { normalizeNodeRouteId, buildNodeRoutePath } from './node-route';
 
 // API base. When VITE_API_URL is not set, use relative paths so the dev
 // server proxy (`/api`) is used and we don't hardcode a backend port.
@@ -1865,6 +1865,18 @@ function clearSession() {
 
 function emitSelectedNodeRoute(nodeId: string | null, { replace = false }: { replace?: boolean } = {}) {
 	if (typeof window === 'undefined') return;
+	try {
+		// As a fallback for UI listeners that may not be mounted yet, ensure the
+		// browser URL reflects the selected node immediately using replaceState.
+		if (nodeId) {
+			const nextPath = buildNodeRoutePath(nodeId);
+			if (window.history && typeof window.history.replaceState === 'function') {
+				window.history.replaceState(window.history.state, document.title || '', nextPath);
+			}
+		}
+	} catch (e) {
+		/* non-critical */
+	}
 	window.dispatchEvent(
 		new CustomEvent(SELECTED_NODE_ROUTE_EVENT, {
 			detail: {
@@ -5902,6 +5914,20 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 	clearHighlightsButtons.forEach((clearHighlightsBtn) => {
 		clearHighlightsBtn.addEventListener('click', () => {
 			clearHighlights();
+			// Preserve/restore a meaningful dashboard route when clearing highlights
+			// so the URL still reflects the currently displayed sidebar node (if any).
+			try {
+				const side = document.getElementById('fg-sidebar');
+				const displayedId = (side && side.dataset && side.dataset.displayedId) || selectedId || '';
+				if (displayedId) {
+					const nextPath = buildNodeRoutePath(displayedId);
+					if (typeof window !== 'undefined' && window.history && typeof window.history.replaceState === 'function') {
+						window.history.replaceState(window.history.state, document.title || '', nextPath);
+					}
+				}
+			} catch (e) {
+				// non-critical
+			}
 		});
 	});
 
@@ -7322,18 +7348,9 @@ function mergeIntoGraphData(newNodes, newLinks) {
 		/* ignore */
 	}
 
-	// Reset the browser URL to the site root WITHOUT reloading the page.
-	// Use history.replaceState so the change is client-side only and does
-	// not perform a full navigation.
-	try {
-		if (typeof window !== 'undefined') {
-			if (window.history && typeof window.history.replaceState === 'function') {
-				window.history.replaceState(window.history.state, document.title || '', '/');
-			}
-		}
-	} catch (e) {
-		// ignore any errors when attempting to update history
-	}
+	// Do not modify the browser URL here. Merging fetched nodes should not
+	// clobber an existing deep-link route (e.g. /firm/:id or /individual/:id).
+	// URL/history updates are handled by dedicated routing helpers elsewhere.
 
 	updateGraphMeta();
 	if (addedIds.length) {
