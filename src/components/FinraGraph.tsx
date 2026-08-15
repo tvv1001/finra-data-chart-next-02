@@ -262,7 +262,20 @@ export default function FinraGraph() {
 	const [isFindBarOpen, setIsFindBarOpen] = useState(false);
 	const [findQuery, setFindQuery] = useState('');
 	const [findMatchState, setFindMatchState] = useState({ total: 0, activeOrdinal: 0 });
-	const [isSidebarToolsOpen, setIsSidebarToolsOpen] = useState(false);
+	const [isSidebarToolsOpen, setIsSidebarToolsOpen] = useState(true);
+
+	useEffect(() => {
+		const stored = localStorage.getItem('finra_sidebar_tools_open');
+		if (stored !== null) {
+			setIsSidebarToolsOpen(stored === 'true');
+		}
+	}, []);
+
+	const toggleSidebarTools = () => {
+		const newState = !isSidebarToolsOpen;
+		setIsSidebarToolsOpen(newState);
+		localStorage.setItem('finra_sidebar_tools_open', String(newState));
+	};
 	const [activeFindNodeId, setActiveFindNodeId] = useState<string | null>(null);
 	const [focusedFindNodeId, setFocusedFindNodeId] = useState<string | null>(null);
 	const pathname = usePathname();
@@ -1105,60 +1118,7 @@ export default function FinraGraph() {
 					<div className='fg-log-drawer-header'>
 						<h3>Selection Log</h3>
 						<div className='fg-log-drawer-actions'>
-							<div className='fg-log-drawer-actions-row fg-log-drawer-actions-row--primary'>
-								<button
-									data-fg-selection-log-action='toggle-bold'
-									className='fg-ghost-btn fg-btn-sm'
-									type='button'
-									title='Make log entries larger and bolder'>
-									Log Bold
-								</button>
-								<button
-									id='btn-selection-log-trace'
-									data-fg-selection-log-action='trace'
-									className='fg-ghost-btn fg-btn-sm'
-									type='button'
-									title='Trace path between all logged nodes'>
-									Trace with Log
-								</button>
-							</div>
 							<div className='fg-log-drawer-actions-row fg-log-drawer-actions-row--secondary'>
-								<div className='fg-clear-labels-control'>
-									<button
-										id='btn-selection-log-clear-labels'
-										data-fg-selection-log-action='clear-labels-menu'
-										className='fg-ghost-btn fg-btn-sm fg-clear-labels-control__toggle'
-										type='button'
-										aria-expanded='false'
-										title='Choose whether to clear all large labels or only people labels'>
-										Clear Labels
-									</button>
-									<div
-										className='fg-clear-labels-control__menu'
-										role='menu'
-										hidden>
-										<button
-											data-fg-selection-log-action='clear-labels'
-											data-fg-clear-labels-scope='all'
-											className='fg-ghost-btn fg-btn-sm'
-											type='button'
-											role='menuitem'
-											hidden
-											title='Shrink all currently enlarged labels without clearing the log'>
-											All labels
-										</button>
-										<button
-											data-fg-selection-log-action='clear-labels'
-											data-fg-clear-labels-scope='people'
-											className='fg-ghost-btn fg-btn-sm'
-											type='button'
-											role='menuitem'
-											hidden
-											title='Shrink only enlarged people labels without clearing the log'>
-											People only
-										</button>
-									</div>
-								</div>
 								<button
 									id='btn-selection-log-copy-all'
 									data-fg-selection-log-action='copy-all'
@@ -1175,14 +1135,6 @@ export default function FinraGraph() {
 									title='Copy a shareable link to the logged nodes'>
 									Copy Link
 								</button>
-								<button
-									id='btn-selection-log-edit'
-									data-fg-selection-log-action='edit'
-									className='fg-ghost-btn fg-btn-sm'
-									type='button'
-									title='Edit selection log entries'>
-									Edit
-								</button>
 							</div>
 							<div className='fg-log-drawer-actions-row fg-log-drawer-actions-row--tertiary'>
 								<button
@@ -1194,12 +1146,12 @@ export default function FinraGraph() {
 									Clear
 								</button>
 								<button
-									id='btn-selection-log-clear-others'
-									data-fg-selection-log-action='clear-others'
+									id='btn-selection-log-edit'
+									data-fg-selection-log-action='edit'
 									className='fg-ghost-btn fg-btn-sm'
 									type='button'
-									title='Keep logged nodes and any intermediaries connecting them'>
-									Clear Others
+									title='Edit selection log entries'>
+									Edit
 								</button>
 							</div>
 							<div className='fg-log-drawer-actions-row'>
@@ -1231,47 +1183,27 @@ export default function FinraGraph() {
 				<aside
 					id='fg-sidebar'
 					className='fg-sidebar hidden'>
-					<div className='fg-sidebar-toolbar-header' style={{ padding: '8px 8px 0', display: 'flex' }}>
-						<button
-							type='button'
-							className={`fg-sb-toggle-btn ${isSidebarToolsOpen ? 'is-active' : ''}`}
-							onClick={() => setIsSidebarToolsOpen(!isSidebarToolsOpen)}
-							title={isSidebarToolsOpen ? 'Hide tools' : 'Show tools'}
-							style={{ width: '100%', justifyContent: 'space-between', padding: '6px 12px', background: 'rgba(255, 255, 255, 0.96)', border: '1px solid rgba(15, 23, 42, 0.18)', borderRadius: '6px', boxShadow: '0 2px 6px rgba(15, 23, 42, 0.06)' }}>
-							<span className='fg-sb-toggle-btn__label' style={{ fontWeight: 600 }}>Graph Tools</span>
-							<span className='fg-sb-toggle-btn__chevron' aria-hidden='true' style={{ transform: isSidebarToolsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}>▾</span>
-						</button>
-					</div>
-					<div className={`fg-sidebar-toolbar-content ${isSidebarToolsOpen ? '' : 'hidden'}`}>
-					<div className='fg-sidebar-actions'>
-						<button
-							type='button'
-							data-fg-action='refresh-layout'
-							className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-sidebar-action-btn--mobile-only'
-							title='Re-run the graph layout'
-							aria-label='Reflow layout'>
-							<span className='fg-sidebar-action-label'>Refresh</span>
-							<span
-								className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
-								aria-hidden='true'>
-								↺
-							</span>
-						</button>
+					<div
+						className='utility-wrapper'
+						style={{ display: 'block', position: 'relative', zIndex: 99, background: 'var(--fg-bg-secondary)', borderBottom: '1px solid var(--fg-border)' }}>
+						<div
+							className='fg-sidebar-toolbar-header'
+							style={{ padding: '8px 8px 0', display: 'flex', gap: '4px', alignItems: 'center', position: 'absolute', right: 0 }}>
+							<button
+								type='button'
+								className={`fg-sb-toggle-btn ${isSidebarToolsOpen ? 'is-active' : ''}`}
+								onClick={toggleSidebarTools}
+								title={isSidebarToolsOpen ? 'Hide tools' : 'Show tools'}
+								style={{ flex: 1, justifyContent: 'space-between', padding: '5px', background: 'transparent', border: 'none', color: 'inherit' }}>
+								<span
+									className='fg-sb-toggle-btn__chevron'
+									aria-hidden='true'
+									style={{ transform: isSidebarToolsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}>
+									▾
+								</span>
+							</button>
+						</div>
 
-						<button
-							type='button'
-							data-fg-trace-mode-button='sidebar-mobile'
-							className='fg-ghost-btn'
-							title='Toggle path tracing mode'>
-							Trace Mode
-						</button>
-						<button
-							type='button'
-							data-fg-action='clear-session'
-							className='fg-danger-btn'
-							title='Clear saved session and reload fresh'>
-							Reset Session
-						</button>
 						<button
 							id='fg-sidebar-pin-toggle'
 							className='fg-sidebar-action-btn fg-sidebar-action-btn--pin fg-sidebar-action-btn--icon-only'
@@ -1280,7 +1212,8 @@ export default function FinraGraph() {
 							title='Pin panel open'
 							aria-label='Pin panel open'
 							aria-pressed='false'
-							data-pinned='false'>
+							data-pinned='false'
+							style={{ background: 'transparent', border: 'none', padding: '6px', color: 'inherit' }}>
 							<span
 								className='fg-sidebar-action-icon'
 								aria-hidden='true'>
@@ -1298,73 +1231,103 @@ export default function FinraGraph() {
 							</span>
 						</button>
 					</div>
-					<div className='fg-sidebar-mobile-actions'>
-						<button
-							type='button'
-							data-fg-graph-action='clear-non-connected'
-							className='fg-ghost-btn fg-clear-non-connected-btn'
-							title='Keep only nodes connected to the current selection'>
-							Clear non-connected
-						</button>
-						<button
-							type='button'
-							data-fg-action='clear-highlights'
-							className='fg-ghost-btn'
-							title='Clear hop/line highlights only — selected nodes stay selected'>
-							Clear Highlight
-						</button>
-						<button
-							id='fg-focus-btn'
-							className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary'
-							type='button'
-							title='Focus on this node'
-							aria-label='Center on this node'>
-							<span className='fg-sidebar-action-label'>Center</span>
-							<span
-								className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
-								aria-hidden='true'>
-								<svg
-									viewBox='0 0 16 16'
-									fill='none'
-									focusable='false'>
-									<circle
-										cx='8'
-										cy='8'
-										r='2.75'
-										stroke='currentColor'
-										strokeWidth='1.4'
-									/>
-									<path
-										d='M8 1.75V4'
-										stroke='currentColor'
-										strokeWidth='1.4'
-										strokeLinecap='round'
-									/>
-									<path
-										d='M8 12V14.25'
-										stroke='currentColor'
-										strokeWidth='1.4'
-										strokeLinecap='round'
-									/>
-									<path
-										d='M1.75 8H4'
-										stroke='currentColor'
-										strokeWidth='1.4'
-										strokeLinecap='round'
-									/>
-									<path
-										d='M12 8H14.25'
-										stroke='currentColor'
-										strokeWidth='1.4'
-										strokeLinecap='round'
-									/>
-								</svg>
-							</span>
-						</button>
+					<div className={`fg-sidebar-toolbar-content ${isSidebarToolsOpen ? '' : 'hidden'}`}>
+						<div className='fg-sidebar-actions'>
+							<button
+								type='button'
+								data-fg-action='refresh-layout'
+								className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-sidebar-action-btn--mobile-only'
+								title='Re-run the graph layout'
+								aria-label='Reflow layout'>
+								<span className='fg-sidebar-action-label'>Refresh</span>
+								<span
+									className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
+									aria-hidden='true'>
+									↺
+								</span>
+							</button>
 
-						<ThemeToggle />
-					</div>
+							<button
+								type='button'
+								data-fg-selection-log-action='toggle-bold'
+								className='fg-ghost-btn'
+								title='Make log entries larger and bolder'>
+								Log Bold
+							</button>
+						</div>
+						<div className='fg-sidebar-mobile-actions'>
+							<button
+								type='button'
+								data-fg-graph-action='clear-non-connected'
+								className='fg-ghost-btn fg-clear-non-connected-btn'
+								title='Keep only nodes connected to the current selection'>
+								Clear non-connected
+							</button>
+							<button
+								type='button'
+								data-fg-action='clear-highlights'
+								className='fg-ghost-btn'
+								title='Clear hop/line highlights only — selected nodes stay selected'>
+								Clear Highlight
+							</button>
+							<button
+								id='fg-focus-btn'
+								className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary'
+								type='button'
+								title='Focus on this node'
+								aria-label='Center on this node'>
+								<span className='fg-sidebar-action-label'>Center</span>
+								<span
+									className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
+									aria-hidden='true'>
+									<svg
+										viewBox='0 0 16 16'
+										fill='none'
+										focusable='false'>
+										<circle
+											cx='8'
+											cy='8'
+											r='2.75'
+											stroke='currentColor'
+											strokeWidth='1.4'
+										/>
+										<path
+											d='M8 1.75V4'
+											stroke='currentColor'
+											strokeWidth='1.4'
+											strokeLinecap='round'
+										/>
+										<path
+											d='M8 12V14.25'
+											stroke='currentColor'
+											strokeWidth='1.4'
+											strokeLinecap='round'
+										/>
+										<path
+											d='M1.75 8H4'
+											stroke='currentColor'
+											strokeWidth='1.4'
+											strokeLinecap='round'
+										/>
+										<path
+											d='M12 8H14.25'
+											stroke='currentColor'
+											strokeWidth='1.4'
+											strokeLinecap='round'
+										/>
+									</svg>
+								</span>
+							</button>
+							<button
+								type='button'
+								data-fg-action='clear-session'
+								className='fg-danger-btn'
+								title='Clear saved session and reload fresh'>
+								Reset Session
+							</button>
 
+							<ThemeToggle />
+						</div>
 					</div>
 					<div
 						id='fg-sidebar-inner'

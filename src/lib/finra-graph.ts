@@ -14175,75 +14175,21 @@ function renderSidebarSelectionLogBody() {
 		<div class="fg-sb-body fg-sb-body--log">
 			<div class="fg-section-title">Selection Log</div>
 			<div class="fg-log-drawer-actions fg-log-drawer-actions--sidebar">
-				<div class="fg-log-drawer-actions-row fg-log-drawer-actions-row--primary">
-					<button
-						data-fg-trace-mode-button="sidebar-log"
-						class="fg-ghost-btn fg-btn-sm"
-						type="button"
-						title="Toggle path tracing mode">
-						Trace Mode
-					</button>
-					<button
-						data-fg-selection-log-action="trace"
-						class="fg-ghost-btn fg-btn-sm"
-						type="button"
-						title="Trace path between all logged nodes">
-						Trace with Log
-					</button>
-					<button
-						data-fg-selection-log-action="edit"
-						class="fg-ghost-btn fg-btn-sm"
-						type="button"
-						title="Edit selection log entries">
-						Edit
-					</button>
-				</div>
+
 				<div class="fg-log-drawer-actions-row fg-log-drawer-actions-row--secondary">
-					<button
-						data-fg-selection-log-action="toggle-bold"
-						class="fg-ghost-btn fg-btn-sm"
-						type="button"
-						title="Make log entries larger and bolder">
-						Log Bold
-					</button>
-					<div class="fg-clear-labels-control">
-						<button
-							data-fg-selection-log-action="clear-labels-menu"
-							class="fg-ghost-btn fg-btn-sm fg-clear-labels-control__toggle"
-							type="button"
-							aria-expanded="false"
-							title="Choose whether to clear all large labels or only people labels">
-							Clear Labels
-						</button>
-						<div class="fg-clear-labels-control__menu" role="menu" hidden>
-							<button
-								data-fg-selection-log-action="clear-labels"
-								data-fg-clear-labels-scope="all"
-								class="fg-ghost-btn fg-btn-sm"
-								type="button"
-								role="menuitem"
-								hidden
-								title="Shrink all currently enlarged labels without clearing the log">
-								All labels
-							</button>
-							<button
-								data-fg-selection-log-action="clear-labels"
-								data-fg-clear-labels-scope="people"
-								class="fg-ghost-btn fg-btn-sm"
-								type="button"
-								role="menuitem"
-								hidden
-								title="Shrink only enlarged people labels without clearing the log">
-								People only
-							</button>
-						</div>
-					</div>
 					<button
 						data-fg-selection-log-action="copy-all"
 						class="fg-ghost-btn fg-btn-sm"
 						type="button"
 						title="Copy all entries">
 						Copy All
+					</button>
+					<button
+						data-fg-selection-log-action="copy-link"
+						class="fg-ghost-btn fg-btn-sm"
+						type="button"
+						title="Copy a shareable link to the logged nodes">
+						Copy Link
 					</button>
 				</div>
 				<div class="fg-log-drawer-actions-row fg-log-drawer-actions-row--tertiary">
@@ -14255,11 +14201,11 @@ function renderSidebarSelectionLogBody() {
 						Clear
 					</button>
 					<button
-						data-fg-selection-log-action="clear-others"
+						data-fg-selection-log-action="edit"
 						class="fg-ghost-btn fg-btn-sm"
 						type="button"
-						title="Keep logged nodes and any intermediaries connecting them">
-						Clear Others
+						title="Edit selection log entries">
+						Edit
 					</button>
 				</div>
 				<div class="fg-log-drawer-actions-row">
