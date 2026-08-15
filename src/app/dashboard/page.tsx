@@ -770,6 +770,10 @@ const DETAIL_SKIP_KEYS = new Set([
 	'principalExams',
 	'exams',
 	'crs',
+	'Crs',
+	'CRS',
+	'affiliateDisclosures',
+	'Affiliate Disclosures',
 	'brochures',
 	'noticeFilings',
 	'secDocumentLinks',
@@ -992,21 +996,9 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 		if (Array.isArray(rawConns)) {
 			const isInactive = (c: any) => /previous|former|terminated|inactive/i.test(String(c.relationship || c.status || c.firmStatus || c.employmentStatus || c.position || ''));
 			if (key === 'currentConnections') {
-				source = rawConns.filter(
-					(c: any) =>
-						c &&
-						typeof c === 'object' &&
-						c.isCurrent !== false &&
-						!c.endDate &&
-						!isInactive(c),
-				);
+				source = rawConns.filter((c: any) => c && typeof c === 'object' && c.isCurrent !== false && !c.endDate && !isInactive(c));
 			} else {
-				source = rawConns.filter(
-					(c: any) =>
-						c &&
-						typeof c === 'object' &&
-						(c.isCurrent === false || !!c.endDate || isInactive(c)),
-				);
+				source = rawConns.filter((c: any) => c && typeof c === 'object' && (c.isCurrent === false || !!c.endDate || isInactive(c)));
 			}
 		}
 	}
@@ -1689,8 +1681,7 @@ function DashboardPageInner() {
 
 		const additionalDetails: Array<{ label: string; value: string }> = [];
 		for (const [key, value] of Object.entries(basic)) {
-			if (isEmptyRawValue(value)) continue;
-			if (key === 'otherNames' || key === 'aliases') continue;
+			if (DETAIL_SKIP_KEYS.has(key) || isEmptyRawValue(value)) continue;
 			const rendered = stringifyRawValue(value);
 			if (!rendered) continue;
 			const label = humanizeKey(key);
@@ -1743,7 +1734,11 @@ function DashboardPageInner() {
 		const documentLinkCards = extractDocumentLinkCards(body);
 		const noticeFilingCards = extractNoticeFilingsCards(body);
 
-		const crs = body.crs && typeof body.crs === 'object' ? body.crs : null;
+		const crs = (body.crs || body.Crs || body.CRS) && typeof (body.crs || body.Crs || body.CRS) === 'object' ? (body.crs || body.Crs || body.CRS) : null;
+		const affiliateDisclosures =
+			(body.affiliateDisclosures || body['Affiliate Disclosures']) && typeof (body.affiliateDisclosures || body['Affiliate Disclosures']) === 'object' ?
+				body.affiliateDisclosures || body['Affiliate Disclosures']
+			:	null;
 		const bdDisclosureFlag = pickFirstNonEmpty(body.bdDisclosureFlag, body.bd_disclosure_flag, basic.bdDisclosureFlag);
 		const iaDisclosureFlag = pickFirstNonEmpty(body.iaDisclosureFlag, body.ia_disclosure_flag, basic.iaDisclosureFlag);
 		const brochuresPart2Exempt = pickFirstNonEmpty(body.brochures?.part2ExemptFlag, body.part2ExemptFlag);
@@ -1792,6 +1787,7 @@ function DashboardPageInner() {
 			documentLinkCards,
 			noticeFilingCards,
 			crs,
+			affiliateDisclosures,
 			bdDisclosureFlag,
 			iaDisclosureFlag,
 			brochuresPart2Exempt,
@@ -3011,30 +3007,37 @@ function DashboardPageInner() {
 
 	return (
 		<div className={styles.page}>
-			<header className="fg-header">
-				<div className="fg-header-bar">
-					<div className="fg-header-brand">
-						<h1 className="fg-title" style={{ fontSize: '14px' }}>FINRA/SEC</h1>
+			<header className='fg-header'>
+				<div className='fg-header-bar'>
+					<div className='fg-header-brand'>
+						<h1
+							className='fg-title'
+							style={{ fontSize: '14px' }}>
+							FINRA/SEC
+						</h1>
 					</div>
-					<div className="fg-header-controls"></div>
-					<div className="fg-header-right-controls" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-						<button
-							type='button'
-							className={styles.rightPaneToggle}
-							onClick={() => setNewCrdsOpen((open) => !open)}
-							aria-expanded={newCrdsOpen}>
-							{newCrdsOpen ? 'Hide Panel' : 'Show Panel'}
-						</button>
+					<div className='fg-header-controls'></div>
+					<div
+						className='fg-header-right-controls'
+						style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
 						<Link
 							href={graphHref}
 							onClick={handleGraphBackClick}
-							className="fg-ghost-btn"
-                            style={{ textDecoration: 'none' }}>
-							Graph
+							className={styles.primaryBtn}
+							style={{ textDecoration: 'none', borderRadius: '4px', padding: '6px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+							<span style={{ fontSize: '16px' }}>↗</span>
+							Back to Graph
 						</Link>
 					</div>
 				</div>
 			</header>
+			<button
+				type='button'
+				className={styles.rightPaneToggle}
+				onClick={() => setNewCrdsOpen((open) => !open)}
+				aria-expanded={newCrdsOpen}>
+				{newCrdsOpen ? 'Hide Panel' : 'Show Panel'}
+			</button>
 			<div className={`${styles.layout} ${!newCrdsOpen ? styles.layoutRightHidden : ''}`}>
 				<section className={styles.centerPane}>
 					<div className={styles.dashboardMainStack}>
@@ -3364,19 +3367,40 @@ function DashboardPageInner() {
 											{detailedMainRecord.crs && (
 												<section className={styles.detailSection}>
 													<h4 className={styles.detailSectionTitle}>Form CRS</h4>
-													<div className={styles.detailRawList}>
-														{detailedMainRecord.crs.crsType && (
-															<div className={styles.detailRawItem}>
-																<div className={styles.detailRawLabel}>CRS Type</div>
-																<div className={styles.detailRawValue}>{detailedMainRecord.crs.crsType}</div>
+													<div className={styles.detailGrid}>
+														<div className={styles.detailGridCard}>
+															<div className={styles.detailRowMain}>
+																<span className={styles.detailRowName}>CRS Document ({detailedMainRecord.crs.crsType || 'PDF'})</span>
+																{detailedMainRecord.crs.fileId && (
+																	<a
+																		href={`https://files.brokercheck.finra.org/crs_${detailedMainRecord.crs.fileId}.pdf`}
+																		target='_blank'
+																		rel='noopener noreferrer'
+																		className={styles.detailInlineTag}>
+																		View PDF ↗
+																	</a>
+																)}
 															</div>
-														)}
-														{detailedMainRecord.crs.fileId && (
-															<div className={styles.detailRawItem}>
-																<div className={styles.detailRawLabel}>File ID</div>
-																<div className={styles.detailRawValue}>{detailedMainRecord.crs.fileId}</div>
+															{detailedMainRecord.crs.fileId && <div className={styles.detailRowMeta}>ID: {detailedMainRecord.crs.fileId}</div>}
+														</div>
+													</div>
+												</section>
+											)}
+
+											{detailedMainRecord.affiliateDisclosures && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Affiliate Disclosures</h4>
+													<div className={styles.detailGrid}>
+														{Object.entries(detailedMainRecord.affiliateDisclosures).map(([key, val]) => (
+															<div
+																key={key}
+																className={styles.detailGridCard}>
+																<div className={styles.detailRowMain}>
+																	<span className={styles.detailRowName}>{humanizeKey(key)}</span>
+																	<span className={styles.detailInlineTag}>{String(val)}</span>
+																</div>
 															</div>
-														)}
+														))}
 													</div>
 												</section>
 											)}
@@ -3484,6 +3508,9 @@ function DashboardPageInner() {
 															const crd = pickFirstValidCrd(row.crdNumber, row.crd, row.individualId);
 															const name = resolveEntityNodeLabel(row, 'individual', crd, idx);
 															const position = pickFirstNonEmpty(row.position, row.title);
+															const acquiredDate = pickFirstNonEmpty(row.acquiredDate, row.dateAcquired, row.startDate);
+															const addressText = [toText(row.city), toText(row.state)].filter(Boolean).join(', ');
+															const metaParts = [position, acquiredDate ? `Acquired: ${acquiredDate}` : '', addressText].filter(Boolean);
 
 															const content = (
 																<>
@@ -3491,7 +3518,7 @@ function DashboardPageInner() {
 																		<span className={styles.detailRowName}>{name}</span>
 																		{crd && <span className={styles.detailInlineTag}>CRD#{crd}</span>}
 																	</div>
-																	{position && <div className={styles.detailRowMeta}>{position}</div>}
+																	{metaParts.length > 0 && <div className={styles.detailRowMeta}>{metaParts.join(' • ')}</div>}
 																</>
 															);
 
@@ -3526,6 +3553,9 @@ function DashboardPageInner() {
 															const crd = pickFirstValidCrd(row.crdNumber, row.crd, row.individualId);
 															const name = resolveEntityNodeLabel(row, 'individual', crd, idx);
 															const position = pickFirstNonEmpty(row.position, row.title);
+															const acquiredDate = pickFirstNonEmpty(row.acquiredDate, row.dateAcquired, row.startDate);
+															const addressText = [toText(row.city), toText(row.state)].filter(Boolean).join(', ');
+															const metaParts = [position, acquiredDate ? `Acquired: ${acquiredDate}` : '', addressText].filter(Boolean);
 
 															const content = (
 																<>
@@ -3533,7 +3563,7 @@ function DashboardPageInner() {
 																		<span className={styles.detailRowName}>{name}</span>
 																		{crd && <span className={styles.detailInlineTag}>CRD#{crd}</span>}
 																	</div>
-																	{position && <div className={styles.detailRowMeta}>{position}</div>}
+																	{metaParts.length > 0 && <div className={styles.detailRowMeta}>{metaParts.join(' • ')}</div>}
 																</>
 															);
 
@@ -3689,13 +3719,22 @@ function DashboardPageInner() {
 											{detailedMainRecord.additionalDetails.length > 0 && (
 												<section className={styles.detailSection}>
 													<h4 className={styles.detailSectionTitle}>Additional {additionalDetailsSourceLabel} Details</h4>
-													<div className={styles.detailRawList}>
+													<div className={styles.detailGrid}>
 														{detailedMainRecord.additionalDetails.map((entry) => (
 															<div
 																key={`${entry.label}:${entry.value}`}
-																className={styles.detailRawItem}>
-																<div className={styles.detailRawLabel}>{entry.label}</div>
-																<div className={styles.detailRawValue}>{entry.value}</div>
+																className={styles.detailGridCard}>
+																<div className={styles.detailRowMain}>
+																	<span className={styles.detailRowName}>{entry.label}</span>
+																	{entry.value.length <= 40 && (
+																		<span className={styles.detailInlineTag}>{entry.value}</span>
+																	)}
+																</div>
+																{entry.value.length > 40 && (
+																	<div className={styles.detailRowMeta} style={{ marginTop: '8px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'var(--text-secondary)' }}>
+																		{entry.value}
+																	</div>
+																)}
 															</div>
 														))}
 													</div>
@@ -3997,8 +4036,6 @@ function DashboardPageInner() {
 				<div
 					className={styles.rightColumn}
 					data-right-open={String(newCrdsOpen)}>
-
-
 					<aside
 						className={`${styles.rightPane} ${!newCrdsOpen ? styles.rightPaneCompact : ''}`}
 						aria-hidden={!newCrdsOpen}>

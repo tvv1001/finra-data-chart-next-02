@@ -182,16 +182,18 @@ type InventoryTotals = {
 export function buildInventoryTotalsFromCards(cards: Array<Pick<CacheCard, 'id' | 'entity'> & Partial<CacheCard>>, source: InventoryTotals['source'] = 'redis'): InventoryTotals {
 	const people = new Set<string>();
 	const firms = new Set<string>();
+	const allUnique = new Set<string>();
 
 	for (const card of cards) {
 		if (card.entity === 'individual') people.add(card.id);
 		else firms.add(card.id);
+		allUnique.add(card.id);
 	}
 
 	return {
 		people: people.size,
 		firms: firms.size,
-		unique: people.size + firms.size,
+		unique: allUnique.size,
 		source,
 	};
 }
@@ -199,18 +201,20 @@ export function buildInventoryTotalsFromCards(cards: Array<Pick<CacheCard, 'id' 
 export function collectInventoryTotalsFromCacheKeys(keys: string[], source: InventoryTotals['source'] = 'redis'): InventoryTotals {
 	const people = new Set<string>();
 	const firms = new Set<string>();
+	const allUnique = new Set<string>();
 
 	for (const key of keys) {
 		const parsed = parseCacheKey(key);
 		if (!parsed) continue;
 		if (parsed.entity === 'individual') people.add(parsed.id);
 		else firms.add(parsed.id);
+		allUnique.add(parsed.id);
 	}
 
 	return {
 		people: people.size,
 		firms: firms.size,
-		unique: people.size + firms.size,
+		unique: allUnique.size,
 		source,
 	};
 }

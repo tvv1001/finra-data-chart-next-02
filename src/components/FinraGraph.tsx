@@ -1357,6 +1357,13 @@ export default function FinraGraph() {
 							<ul className='fg-empty-steps'>
 								<li>Manage visible nodes within the log panel.</li>
 							</ul>
+							<br />
+							<a
+								href='https://dashboard-crds.vercel.app/'
+								target='_blank'
+								rel='noopener noreferrer'>
+								Canvas & WebGL versions - in progress..
+							</a>
 						</div>
 					</div>
 				</main>

@@ -877,6 +877,7 @@ body {
 	justify-content: flex-end;
 	gap: 8px;
 	flex: 0 0 auto;
+	margin-left: auto;
 }
 
 .fg-clear-menu {
@@ -2090,6 +2091,7 @@ a,
 	max-height: 94svh;
 	overflow-y: hidden;
 	padding: 0;
+	margin-top: 0;
 }
 
 .fg-sidebar[data-mobile-expanded='false'] .fg-sb-body {
@@ -2955,13 +2957,13 @@ a,
 }
 
 .fg-log-drawer-actions-row {
-	display: flex;
+	display: grid;
+	grid-template-columns: 1fr 1fr;
 	width: 100%;
 	gap: 6px;
 }
 
 .fg-log-drawer-actions-row .fg-btn-sm {
-	flex: 1 1 0;
 	min-width: 0;
 	justify-content: center;
 }
@@ -4014,8 +4016,20 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 	box-shadow: 0 18px 48px rgba(2, 6, 23, 0.42);
 	backdrop-filter: blur(10px);
 	-webkit-backdrop-filter: blur(10px);
+	pointer-events: auto;
 }
 
+.fg-empty-card a:link,
+.fg-empty-card a:visited {
+	color: #93c5fd;
+	text-decoration: underline;
+	text-underline-offset: 4px;
+}
+.fg-empty-card a:hover,
+.fg-empty-card a:focus {
+	color: #60a5fa;
+	text-decoration: underline;
+}
 .fg-empty-card__arrow {
 	position: absolute;
 	right: 92px;
@@ -4161,6 +4175,7 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 		gap: 6px;
 		flex: 1 1 auto;
 		min-width: 0;
+		margin-left: auto;
 	}
 
 	.fg-toolbar-status--top {

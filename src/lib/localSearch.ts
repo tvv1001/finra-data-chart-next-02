@@ -31,7 +31,11 @@ async function fetchFromRedis(bucket: string): Promise<any | null> {
 			if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
 				return JSON.parse(trimmed);
 			}
-			const decoded = gunzipSync(Buffer.from(trimmed, 'base64')).toString('utf-8');
+			if (trimmed.startsWith('br:')) {
+				const decoded = zlib.brotliDecompressSync(Buffer.from(trimmed.slice(3), 'base64')).toString('utf-8');
+				return JSON.parse(decoded);
+			}
+			const decoded = zlib.gunzipSync(Buffer.from(trimmed, 'base64')).toString('utf-8');
 			return JSON.parse(decoded);
 		} catch {
 			return null;
