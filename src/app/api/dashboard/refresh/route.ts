@@ -1266,10 +1266,16 @@ const DASHBOARD_INVENTORY_COUNTER_KEY = 'dashboard:cached-crd-count';
 
 async function getInventoryCounterFromRedis() {
 	const redis = ensureRedisClient();
-	if (!redis) return 0;
+	if (!redis) return countInventoryTotalsFromCrdLog().unique;
 	const value = await redis.get(DASHBOARD_INVENTORY_COUNTER_KEY).catch(() => null);
-	const numericValue = Number(value ?? 0);
-	return Number.isFinite(numericValue) ? numericValue : 0;
+	let numericValue = Number(value ?? 0);
+	if (!Number.isFinite(numericValue) || numericValue === 0) {
+		numericValue = countInventoryTotalsFromCrdLog().unique;
+		if (numericValue > 0) {
+			await redis.set(DASHBOARD_INVENTORY_COUNTER_KEY, numericValue).catch(() => null);
+		}
+	}
+	return numericValue;
 }
 
 async function incrementInventoryCounterInRedis(amount = 1) {
