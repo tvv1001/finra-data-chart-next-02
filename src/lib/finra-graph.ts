@@ -15143,7 +15143,15 @@ function renderPersonDetail(d: any) {
 								const secNumber =
 									firmNode?.bdSecNumber || firmNode?.iaSecNumber || l.bdSecNumber || l.iaSecNumber || employmentMatch?.bdSecNumber || employmentMatch?.iaSECNumber || null;
 								const startDate = l.startDate || l.registrationBeginDate || l.fromDate || l.effectiveDate || l.date || employmentMatch?.start || null;
-								const endDate = l.endDate || l.registrationEndDate || l.toDate || employmentMatch?.end || null;
+								let endDate = l.endDate || l.registrationEndDate || l.toDate || employmentMatch?.end || null;
+								
+								if (!endDate && firmNode) {
+									const isTerminated = /inactive|terminated|revoked|suspended|withdrawn|ceased/i.test(String(firmNode.firmStatus || firmNode.basicInformation?.firmStatus || ''));
+									if (isTerminated) {
+										endDate = firmNode.firmStatusDate || firmNode.basicInformation?.firmStatusDate || 'Terminated';
+									}
+								}
+								
 								const dateRange = startDate ? `${esc(startDate)} → ${esc(endDate || 'present')}` : null;
 								const location =
 									l.location ||

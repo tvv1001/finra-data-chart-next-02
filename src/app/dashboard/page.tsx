@@ -990,6 +990,7 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 	if (!source) {
 		const rawConns = findNestedValueByKey(normalizedBody ?? body, ['connections', 'firmConnections', 'affiliatedFirms', 'associatedIndividuals']);
 		if (Array.isArray(rawConns)) {
+			const isInactive = (c: any) => /previous|former|terminated|inactive/i.test(String(c.relationship || c.status || c.firmStatus || c.employmentStatus || c.position || ''));
 			if (key === 'currentConnections') {
 				source = rawConns.filter(
 					(c: any) =>
@@ -997,14 +998,14 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 						typeof c === 'object' &&
 						c.isCurrent !== false &&
 						!c.endDate &&
-						!/previous|former|terminated|inactive/i.test(String(c.relationship || c.status || c.position || '')),
+						!isInactive(c),
 				);
 			} else {
 				source = rawConns.filter(
 					(c: any) =>
 						c &&
 						typeof c === 'object' &&
-						(c.isCurrent === false || !!c.endDate || /previous|former|terminated|inactive/i.test(String(c.relationship || c.status || c.position || ''))),
+						(c.isCurrent === false || !!c.endDate || isInactive(c)),
 				);
 			}
 		}
@@ -2321,8 +2322,11 @@ function DashboardPageInner() {
 			const crd = String(person?.crd || otherId.replace(/^(?:person|individual)[:_]/, '')).trim();
 			if (!crd || !/^\d{1,10}$/.test(crd)) continue;
 
+			const firmNode = nodeById.get(firmNodeId) || {};
+			const isFirmTerminated = /inactive|terminated|revoked|suspended|withdrawn|ceased/i.test(String(firmNode.firmStatus || firmNode.basicInformation?.firmStatus || ''));
 			const isCurrent =
-				isControl ? true
+				isFirmTerminated ? false
+				: isControl ? true
 				: relationship === 'previous_employed_by' ? false
 				: link?.isCurrent !== undefined ? Boolean(link.isCurrent)
 				: !String(link?.endDate || link?.registrationEndDate || '').trim();

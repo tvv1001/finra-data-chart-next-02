@@ -1,3 +1,18 @@
+body {
+	margin: 0;
+	padding: 0;
+	font-family:
+		Inter,
+		system-ui,
+		-apple-system,
+		Segoe UI,
+		Roboto,
+		sans-serif;
+	background: #080105;
+	color: #cbd5e1;
+	overflow: hidden;
+}
+
 .page {
 	min-height: 100vh;
 	background: #080105;
@@ -17,7 +32,6 @@
 	grid-template-columns: minmax(0, 1fr);
 	gap: 10px;
 	height: calc(100vh - 16px);
-	margin-top: 55px;
 }
 
 .layoutCollapsedRight {
@@ -1366,6 +1380,10 @@
 }
 
 @media (max-width: 1280px) {
+	body {
+		overflow: auto;
+		overflow-x: hidden;
+	}
 	.layout {
 		grid-template-columns: 1fr;
 		height: auto;

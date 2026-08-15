@@ -1171,10 +1171,11 @@ async function resolveCrdsFromQueries(queries: string[], maxCrds = 500) {
 		targetMap.set(`${target.source}:${target.type}:${target.crd}`, target);
 	};
 
-	const canIncludeCrd = (crd: string) => {
-		if (resolved.has(crd)) return true;
+	const canIncludeCrd = (crd: string, type: 'individual' | 'firm') => {
+		const key = `${type}:${crd}`;
+		if (resolved.has(key)) return true;
 		if (resolved.size >= maxCrds) return false;
-		resolved.add(crd);
+		resolved.add(key);
 		return true;
 	};
 
@@ -1185,9 +1186,11 @@ async function resolveCrdsFromQueries(queries: string[], maxCrds = 500) {
 	for (const query of queries) {
 		if (resolved.size >= maxCrds) break;
 		if (/^\d{1,10}$/.test(query)) {
-			if (canIncludeCrd(query)) {
+			if (canIncludeCrd(query, 'individual')) {
 				addTarget({ crd: query, source: 'finra', type: 'individual' });
 				addTarget({ crd: query, source: 'sec', type: 'individual' });
+			}
+			if (canIncludeCrd(query, 'firm')) {
 				addTarget({ crd: query, source: 'finra', type: 'firm' });
 				addTarget({ crd: query, source: 'sec', type: 'firm' });
 			}
@@ -1208,25 +1211,25 @@ async function resolveCrdsFromQueries(queries: string[], maxCrds = 500) {
 
 			for (const item of collectSearchItems(bundle.finraIndividual)) {
 				const id = extractNumericId(item, individualKeys);
-				if (!id || !canIncludeCrd(id)) continue;
+				if (!id || !canIncludeCrd(id, 'individual')) continue;
 				crdsForQuery.add(id);
 				addTarget({ crd: id, source: 'finra', type: 'individual' });
 			}
 			for (const item of collectSearchItems(bundle.finraFirm)) {
 				const id = extractNumericId(item, firmKeys);
-				if (!id || !canIncludeCrd(id)) continue;
+				if (!id || !canIncludeCrd(id, 'firm')) continue;
 				crdsForQuery.add(id);
 				addTarget({ crd: id, source: 'finra', type: 'firm' });
 			}
 			for (const item of collectSearchItems(bundle.secIndividual)) {
 				const id = extractNumericId(item, individualKeys);
-				if (!id || !canIncludeCrd(id)) continue;
+				if (!id || !canIncludeCrd(id, 'individual')) continue;
 				crdsForQuery.add(id);
 				addTarget({ crd: id, source: 'sec', type: 'individual' });
 			}
 			for (const item of collectSearchItems(bundle.secFirm)) {
 				const id = extractNumericId(item, firmKeys);
-				if (!id || !canIncludeCrd(id)) continue;
+				if (!id || !canIncludeCrd(id, 'firm')) continue;
 				crdsForQuery.add(id);
 				addTarget({ crd: id, source: 'sec', type: 'firm' });
 			}
