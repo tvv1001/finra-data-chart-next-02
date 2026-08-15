@@ -3037,11 +3037,17 @@ function DashboardPageInner() {
 						<Link
 							href={graphHref}
 							onClick={handleGraphBackClick}
-							className={styles.primaryBtn}
-							style={{ textDecoration: 'none', borderRadius: '4px', padding: '6px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-							<span style={{ fontSize: '16px' }}>↗</span>
-							Back to Graph
+							className='fg-ghost-btn'
+							style={{ textDecoration: 'none' }}>
+							Graph
 						</Link>
+						<button
+							type='button'
+							className={styles.rightPaneToggle}
+							onClick={() => setNewCrdsOpen((open) => !open)}
+							aria-expanded={newCrdsOpen}>
+							{newCrdsOpen ? 'Hide Panel' : 'Show Panel'}
+						</button>
 					</div>
 				</div>
 			</header>
@@ -3887,9 +3893,21 @@ function DashboardPageInner() {
 									<div className={styles.searchDockTitleRow}>
 										<div className={styles.searchTitle}>REDIS SEARCH ({searchResults.length.toLocaleString()})</div>
 										<div className={styles.searchDockMeta}>
-											<span style={{ marginRight: '8px', color: '#10b981', fontWeight: 600, padding: '2px 6px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '4px' }}>
-												LOCAL REDIS ONLINE
-											</span>{' '}
+											{(() => {
+												let label = 'LOCAL REDIS ONLINE';
+												if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+													const host = window.location.hostname.toLowerCase();
+													if (host.includes('vercel.app') || host.includes('vercel.com') || host === 'finra-data-chart-next-02.vercel.app') {
+														label = 'Redis connected';
+													}
+												}
+												return (
+													<span
+														style={{ marginRight: '8px', color: '#10b981', fontWeight: 600, padding: '2px 6px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '4px' }}>
+														{label}
+													</span>
+												);
+											})()}{' '}
 											Redis CRDs: {uniqueCrdCounts.total.toLocaleString()}
 										</div>
 									</div>
