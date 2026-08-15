@@ -1,7 +1,7 @@
 #!/usr/bin/env ts-node
 import fs from 'fs';
 import path from 'path';
-import { getFirmConnectionsFromGraph } from '../src/lib/graphConnections.ts';
+import { getFirmConnectionsFromGraph } from '../src/lib/graphConnections';
 
 const argv = require('minimist')(process.argv.slice(2));
 const firmId = String(argv.firm || argv.f || '').trim();
