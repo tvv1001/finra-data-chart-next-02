@@ -754,8 +754,10 @@ export default function FinraGraph() {
 
 		const handleSelectedNodeRoute = (event: Event) => {
 			const detail = (event as CustomEvent<{ nodeId?: string | null; replace?: boolean }>).detail || {};
-			const nextHref = buildNodeRouteHref(detail.nodeId ?? null);
-			const nextPath = buildNodeRoutePath(detail.nodeId ?? null);
+			// null nodeId means deselect — don't touch the URL
+			if (!detail.nodeId) return;
+			const nextHref = buildNodeRouteHref(detail.nodeId);
+			const nextPath = buildNodeRoutePath(detail.nodeId);
 			const currentPath = browserPathname || pathname || '/';
 			if (nextPath === currentPath) return;
 			setBrowserPathname(nextPath);
