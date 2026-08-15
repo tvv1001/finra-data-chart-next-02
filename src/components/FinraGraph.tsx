@@ -1279,21 +1279,29 @@ export default function FinraGraph() {
 						</button>
 					</div>
 					<div className={`fg-sidebar-toolbar-content ${isSidebarToolsOpen ? '' : 'hidden'}`}>
-						<div className='fg-sidebar-actions'>
+						<div className='fg-sidebar-actions'></div>
+						<div className='fg-sidebar-mobile-actions'>
 							<button
 								type='button'
-								data-fg-action='refresh-layout'
-								className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-sidebar-action-btn--mobile-only'
-								title='Re-run the graph layout'
-								aria-label='Reflow layout'>
-								<span className='fg-sidebar-action-label'>Refresh</span>
-								<span
-									className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
-									aria-hidden='true'>
-									↺
-								</span>
+								data-fg-graph-action='clear-non-connected'
+								className='fg-ghost-btn fg-clear-non-connected-btn'
+								title='Keep only nodes connected to the current selection'>
+								Clear non-connected
 							</button>
-
+							<button
+								type='button'
+								data-fg-action='clear-highlights'
+								className='fg-ghost-btn'
+								title='Clear hop/line highlights only — selected nodes stay selected'>
+								Clear Highlight
+							</button>
+							<button
+								type='button'
+								data-fg-graph-action='clear-non-log'
+								className='fg-ghost-btn fg-clear-non-log-btn'
+								title='Keep only nodes that appear in the selection log'>
+								Clear non-log
+							</button>
 							<button
 								type='button'
 								data-fg-selection-log-action='toggle-bold'
@@ -1301,8 +1309,16 @@ export default function FinraGraph() {
 								title='Make log entries larger and bolder'>
 								Log Bold
 							</button>
-
-							<div className='fg-clear-labels-control' style={{ width: '100%', marginLeft: '8px' }}>
+							<button
+								type='button'
+								data-fg-action='clear-session'
+								className='fg-danger-btn'
+								title='Clear saved session and reload fresh'>
+								Reset Session
+							</button>
+							<div
+								className='fg-clear-labels-control'
+								style={{ width: '100%', marginLeft: '8px' }}>
 								<button
 									id='btn-sidebar-clear-labels'
 									data-fg-selection-log-action='clear-labels-menu'
@@ -1312,7 +1328,7 @@ export default function FinraGraph() {
 									title='Choose whether to clear all large labels or only people labels'
 									style={{ width: 'auto', justifyContent: 'center' }}>
 									Clear Labels
-									</button>
+								</button>
 								<div
 									className='fg-clear-labels-control__menu'
 									role='menu'
@@ -1339,29 +1355,6 @@ export default function FinraGraph() {
 									</button>
 								</div>
 							</div>
-						</div>
-						<div className='fg-sidebar-mobile-actions'>
-							<button
-								type='button'
-								data-fg-graph-action='clear-non-connected'
-								className='fg-ghost-btn fg-clear-non-connected-btn'
-								title='Keep only nodes connected to the current selection'>
-								Clear non-connected
-							</button>
-							<button
-								type='button'
-								data-fg-graph-action='clear-non-log'
-								className='fg-ghost-btn fg-clear-non-log-btn'
-								title='Keep only nodes that appear in the selection log'>
-								Clear non-log
-							</button>
-							<button
-								type='button'
-								data-fg-action='clear-highlights'
-								className='fg-ghost-btn'
-								title='Clear hop/line highlights only — selected nodes stay selected'>
-								Clear Highlight
-							</button>
 							<button
 								id='fg-focus-btn'
 								className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary'
@@ -1412,12 +1405,17 @@ export default function FinraGraph() {
 							</button>
 							<button
 								type='button'
-								data-fg-action='clear-session'
-								className='fg-danger-btn'
-								title='Clear saved session and reload fresh'>
-								Reset Session
+								data-fg-action='refresh-layout'
+								className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-sidebar-action-btn--mobile-only'
+								title='Re-run the graph layout'
+								aria-label='Reflow layout'>
+								<span className='fg-sidebar-action-label'>Refresh</span>
+								<span
+									className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
+									aria-hidden='true'>
+									↺
+								</span>
 							</button>
-
 							<ThemeToggle />
 						</div>
 					</div>
