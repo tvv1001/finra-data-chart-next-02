@@ -1966,8 +1966,8 @@ async function listNewCrds() {
 		}
 	} catch (err) {}
 
-	const topIndividualIds = await redis.zrevrange('dashboard:highest-crds:individual', 0, 19);
-	const topFirmIds = await redis.zrevrange('dashboard:highest-crds:firm', 0, 19);
+	const topIndividualIds = await redis.zrange('dashboard:highest-crds:individual', 0, 19, { rev: true });
+	const topFirmIds = await redis.zrange('dashboard:highest-crds:firm', 0, 19, { rev: true });
 
 	const keysToFetch: string[] = [];
 	for (const id of topIndividualIds) {
