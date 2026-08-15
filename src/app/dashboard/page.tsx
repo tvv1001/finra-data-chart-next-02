@@ -3593,6 +3593,37 @@ function DashboardPageInner() {
 												</section>
 											)}
 
+											{detailedMainRecord.registrations && Object.keys(detailedMainRecord.registrations).length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Registrations</h4>
+													<div className={styles.detailGrid}>
+														{Object.entries(detailedMainRecord.registrations).map(([k, v]) => {
+															if (k === 'stateList' || !v) return null;
+															return (
+																<div key={`reg-${k}`} className={styles.detailGridCard}>
+																	<div className={styles.detailRowMain}>
+																		<span className={styles.detailRowName}>{k.replace(/([A-Z])/g, ' $1').replace(/^./, str => (str as string).toUpperCase())}</span>
+																		<span className={styles.detailInlineTag}>{String(v)}</span>
+																	</div>
+																</div>
+															);
+														})}
+													</div>
+													{detailedMainRecord.registrations.stateList?.length > 0 && (
+														<div style={{ marginTop: '12px' }}>
+															<h5 style={{ fontSize: '12px', fontWeight: 600, color: '#888', marginBottom: '8px', textTransform: 'uppercase' }}>Registered States ({detailedMainRecord.registrations.stateList.length})</h5>
+															<div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+																{detailedMainRecord.registrations.stateList.map((st: any, idx: number) => (
+																	<span key={`state-${idx}`} style={{ fontSize: '11px', background: '#333', color: '#eee', padding: '2px 8px', borderRadius: '12px', whiteSpace: 'nowrap' }}>
+																		{st.state || st.id || st.name || st}
+																	</span>
+																))}
+															</div>
+														</div>
+													)}
+												</section>
+											)}
+
 											{detailedMainRecord.directOwners?.length > 0 && (
 												<section className={styles.detailSection}>
 													<h4 className={styles.detailSectionTitle}>Direct Owners & Executive Officers ({detailedMainRecord.directOwners.length})</h4>

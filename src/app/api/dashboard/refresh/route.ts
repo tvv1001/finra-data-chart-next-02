@@ -114,6 +114,7 @@ type RefreshRequestBody = {
 	maxCards?: number;
 	crdFilter?: string;
 	amount?: number;
+	force?: boolean;
 };
 
 type FetchResultItem = {
