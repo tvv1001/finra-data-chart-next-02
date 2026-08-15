@@ -855,7 +855,8 @@ export default function FinraGraph() {
 		Promise.all([import('d3'), import('d3-force'), import('@/lib/finra-graph')]).then(([d3Module, d3ForceModule, { init }]) => {
 			const combinedD3 = { ...d3Module, ...d3ForceModule };
 			(window as any).d3 = combinedD3;
-			const sharedSelectedIds = (searchParams.get('selected') || '')
+			const defaultSelected = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEFAULT_SELECTED) || '';
+			const sharedSelectedIds = (searchParams.get('selected') || defaultSelected || '')
 				.split(',')
 				.map((id) => id.trim())
 				.filter(Boolean);

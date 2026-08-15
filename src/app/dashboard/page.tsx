@@ -1168,6 +1168,34 @@ function OrphanProfileLinks({ parentCrd, parentType = 'firm' }: { parentCrd: str
 function DashboardPageInner() {
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
+
+	// Heal query param: if present and allowed, trigger a background refresh for the route CRD
+	useEffect(() => {
+		try {
+			const allow = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_ALLOW_HEAL_QUERY === '1';
+			if (!allow) return;
+			if (!searchParams) return;
+			if (String(searchParams.get('heal') || '').trim() !== '1') return;
+
+			const parsed = parseDashboardSelectionFromUrl(window.location.href);
+			if (!parsed || !parsed.id) return;
+
+			// fire-and-forget background heal request
+			fetch('/api/dashboard/refresh', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ action: 'fetch-crds', crds: [String(parsed.id)], includePayload: true }),
+			}).then((res) => res.json()).then((data) => {
+				console.log('Heal requested for', parsed.id, data);
+			}).catch((err) => {
+				console.warn('Heal request failed', err);
+			});
+		} catch (e) {
+			// ignore
+		}
+	// run once on mount
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 	const [crdInput, setCrdInput] = useState('');
 	const [externalRawDir, setExternalRawDir] = useState('/home/lenny/Dev/webDev/Data-finra-sec/data/raw');
 	const [busyAction, setBusyAction] = useState<DashboardAction | null>(null);
