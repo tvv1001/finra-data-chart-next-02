@@ -1944,7 +1944,7 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 	};
 }
 
-async function listNewCrds() {
+async function listNewCrds(force = false) {
 	const redis = ensureRedisClient();
 	if (!redis) {
 		return { ok: true, newCrds: [], isToday: false, lastChecked: null };
@@ -1952,22 +1952,46 @@ async function listNewCrds() {
 
 	const cacheKey = 'dashboard:new-crds-cache';
 	try {
-		const cached = await redis.get(cacheKey);
-		if (cached) {
-			const parsed = typeof cached === 'string' ? JSON.parse(cached) : cached;
-			return {
-				ok: true,
-				newCrds: parsed.newCrds || [],
-				isToday: true,
-				lastChecked: parsed.lastChecked || new Date().toISOString(),
-				detectedCount: parsed.detectedCount || 0,
-				shownCount: parsed.shownCount || 0,
-			};
+		if (!force) {
+			const cached = await redis.get(cacheKey);
+			if (cached) {
+				const parsed = typeof cached === 'string' ? JSON.parse(cached) : cached;
+				return {
+					ok: true,
+					newCrds: parsed.newCrds || [],
+					isToday: true,
+					lastChecked: parsed.lastChecked || new Date().toISOString(),
+					detectedCount: parsed.detectedCount || 0,
+					shownCount: parsed.shownCount || 0,
+				};
+			}
 		}
 	} catch (err) {}
 
-	const topIndividualIds = await redis.zrange('dashboard:highest-crds:individual', 0, 19, { rev: true });
-	const topFirmIds = await redis.zrange('dashboard:highest-crds:firm', 0, 19, { rev: true });
+	let topIndividualIds = (await redis.zrange('dashboard:highest-crds:individual', 0, 19, { rev: true })) as string[];
+	let topFirmIds = (await redis.zrange('dashboard:highest-crds:firm', 0, 19, { rev: true })) as string[];
+
+	if (topIndividualIds.length === 0 && topFirmIds.length === 0) {
+		const recentSeeds = await getRecentSeedsFromStore();
+		topIndividualIds = recentSeeds.individualIds.slice(0, 20);
+		topFirmIds = recentSeeds.firmIds.slice(0, 20);
+	}
+	
+	// Final fallback for local development where recent lists are completely uninitialized
+	if (topIndividualIds.length === 0 && topFirmIds.length === 0) {
+		try {
+			const indKeys = await redis.keys('finra:individual:*');
+			const firmKeys = await redis.keys('finra:firm:*');
+			
+			const indKeysArr = Array.isArray(indKeys) ? indKeys : [];
+			const firmKeysArr = Array.isArray(firmKeys) ? firmKeys : [];
+			
+			topIndividualIds = indKeysArr.slice(0, 20).map(k => String(k).split(':').pop() || '');
+			topFirmIds = firmKeysArr.slice(0, 20).map(k => String(k).split(':').pop() || '');
+		} catch (e) {
+			// ignore keys errors
+		}
+	}
 
 	const keysToFetch: string[] = [];
 	for (const id of topIndividualIds) {
@@ -2374,7 +2398,7 @@ export async function POST(request: NextRequest) {
 		}
 
 		if (action === 'list-new-crds') {
-			const listed = await listNewCrds();
+			const listed = await listNewCrds(Boolean(body.force));
 			return NextResponse.json({
 				ok: true,
 				action,
