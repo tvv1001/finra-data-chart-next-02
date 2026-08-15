@@ -7322,6 +7322,26 @@ function mergeIntoGraphData(newNodes, newLinks) {
 		/* ignore */
 	}
 
+	// Reset the browser URL to the site root WITHOUT reloading the page.
+	// Use history.replaceState so the change is client-side only and does
+	// not perform a full navigation.
+	try {
+		if (typeof window !== 'undefined') {
+			try {
+				// Temporarily suppress selection-log -> URL syncing so clearing the URL
+				// isn't immediately reverted by other UI syncs. Suppress for 5 minutes.
+				window.dispatchEvent(new CustomEvent('finra:suppress-selection-url', { detail: { ms: 300000 } }));
+			} catch (e) {
+				/* ignore */
+			}
+			if (window.history && typeof window.history.replaceState === 'function') {
+				window.history.replaceState(window.history.state, document.title || '', '/');
+			}
+		}
+	} catch (e) {
+		// ignore any errors when attempting to update history
+	}
+
 	updateGraphMeta();
 	if (addedIds.length) {
 		// Expose recent additions for the next render so they can be highlighted.

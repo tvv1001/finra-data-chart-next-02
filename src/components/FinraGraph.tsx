@@ -887,7 +887,9 @@ export default function FinraGraph() {
 
 		// Listen for selection log changes (same-tab via patched event, cross-tab via storage event)
 		const MAX_SELECTED_URL = 200;
+		let suppressSelectionUrlUntil = 0; // ms since epoch; when in future, skip updating URL from selection log
 		const applySelectionLogToUrl = () => {
+			if (Date.now() < suppressSelectionUrlUntil) return; // suppressed by recent clear action
 			try {
 				const raw = localStorage.getItem('finra_selection_log');
 				if (!raw) return;
@@ -908,10 +910,28 @@ export default function FinraGraph() {
 			}
 		};
 
-		window.addEventListener('finra:selection-log-changed', applySelectionLogToUrl as EventListener);
-		window.addEventListener('storage', (ev) => {
+		const selectionChangedHandler = applySelectionLogToUrl as EventListener;
+		const storageHandler = (ev: StorageEvent) => {
 			if (ev.key === 'finra_selection_log') applySelectionLogToUrl();
-		});
+		};
+		const suppressHandler = (ev: Event) => {
+			try {
+				const ms = Number((ev as CustomEvent<any>)?.detail?.ms) || 5000;
+				suppressSelectionUrlUntil = Date.now() + ms;
+			} catch (e) {
+				suppressSelectionUrlUntil = Date.now() + 5000;
+			}
+		};
+
+		window.addEventListener('finra:selection-log-changed', selectionChangedHandler);
+		window.addEventListener('storage', storageHandler as EventListener);
+		window.addEventListener('finra:suppress-selection-url', suppressHandler as EventListener);
+
+		return () => {
+			window.removeEventListener('finra:selection-log-changed', selectionChangedHandler);
+			window.removeEventListener('storage', storageHandler as EventListener);
+			window.removeEventListener('finra:suppress-selection-url', suppressHandler as EventListener);
+		};
 	}, [isMounted, routeNodeId, searchParams]);
 
 	if (!isMounted) {
