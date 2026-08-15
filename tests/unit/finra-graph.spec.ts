@@ -131,14 +131,13 @@ describe('FinraGraph DOM helpers (unit)', () => {
 
 		routeSidebarNodeSelection({
 			nodeId: 'person:123',
-			searchSuffix: '?selected=person%3A456',
 			browserPathname: '/',
 			pathname: '/',
 			setBrowserPathname,
 		});
 
 		expect(setBrowserPathname).toHaveBeenCalledWith('/individual/123');
-		expect(pushState).toHaveBeenCalledWith(window.history.state, '', '/individual/123?selected=person%3A456');
+		expect(pushState).toHaveBeenCalledWith(window.history.state, '', '/individual/123');
 		expect(dispatchEvent).toHaveBeenCalled();
 	});
 
@@ -1260,7 +1259,6 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		try {
 			routeSidebarNodeSelection({
 				nodeId: 'person:2632784',
-				searchSuffix: '?panel=info',
 				browserPathname: '/',
 				pathname: '/',
 				setBrowserPathname,
@@ -1268,7 +1266,7 @@ describe('FinraGraph DOM helpers (unit)', () => {
 			});
 
 			expect(setBrowserPathname).toHaveBeenCalledWith('/individual/2632784');
-			expect(pushState).toHaveBeenCalledWith(window.history.state, '', '/individual/2632784?panel=info');
+			expect(pushState).toHaveBeenCalledWith(window.history.state, '', '/individual/2632784');
 			expect(dispatched).toEqual([{ nodeId: 'person:2632784', pulseDuration: 5000, autoExpand: false }]);
 		} finally {
 			window.removeEventListener('finra:route-node-request', listener as EventListener);

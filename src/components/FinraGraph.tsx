@@ -211,7 +211,6 @@ function updateNodeRouteHistory(href: string, mode: 'push' | 'replace' = 'push')
 
 function routeSidebarNodeSelection({
 	nodeId,
-	searchSuffix,
 	browserPathname,
 	pathname,
 	setBrowserPathname,
@@ -219,17 +218,16 @@ function routeSidebarNodeSelection({
 	autoExpand = false,
 }: {
 	nodeId: string;
-	searchSuffix: string;
 	browserPathname: string;
 	pathname: string;
 	setBrowserPathname: (nextPath: string) => void;
 	pulseDuration?: number;
 	autoExpand?: boolean;
 }) {
-	const nextHref = buildNodeRouteHref(nodeId, searchSuffix);
+	const nextHref = buildNodeRouteHref(nodeId);
 	const nextPath = buildNodeRoutePath(nodeId);
-	const currentHref = `${browserPathname || pathname || '/'}${searchSuffix}`;
-	if (nextHref !== currentHref) {
+	const currentPath = browserPathname || pathname || '/';
+	if (nextPath !== currentPath) {
 		setBrowserPathname(nextPath);
 		updateNodeRouteHistory(nextHref, 'push');
 	}
@@ -257,7 +255,6 @@ export default function FinraGraph() {
 	const [isMounted, setIsMounted] = useState(false);
 	const [graphReady, setGraphReady] = useState(false);
 	const [browserPathname, setBrowserPathname] = useState('');
-	const [browserSearch, setBrowserSearch] = useState('');
 	const [fetchQuery, setFetchQuery] = useState('');
 	const [isFindBarOpen, setIsFindBarOpen] = useState(false);
 	const [findQuery, setFindQuery] = useState('');
@@ -282,10 +279,6 @@ export default function FinraGraph() {
 	const searchParams = useSearchParams();
 	const routeNodeId = useMemo(() => parseNodeIdFromPathname(browserPathname || pathname), [browserPathname, pathname]);
 	const findCounterText = useMemo(() => formatFindCounter(findMatchState.total, findMatchState.activeOrdinal), [findMatchState.activeOrdinal, findMatchState.total]);
-	// const findSubmitText = activeFindNodeId || focusedFindNodeId ? 'Select' : 'Find';
-
-	const findSubmitText = 'Select';
-	const searchSuffix = useMemo(() => browserSearch || (searchParams.toString() ? `?${searchParams.toString()}` : ''), [browserSearch, searchParams]);
 
 	const handleFetchQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
 		setFetchQuery(event.target.value);
@@ -366,7 +359,6 @@ export default function FinraGraph() {
 			}
 			routeSidebarNodeSelection({
 				nodeId,
-				searchSuffix,
 				browserPathname,
 				pathname,
 				setBrowserPathname,
@@ -376,7 +368,7 @@ export default function FinraGraph() {
 			return;
 		}
 		window.dispatchEvent(new CustomEvent(FIND_NEXT_EVENT, { detail: { query } }));
-	}, [activeFindNodeId, browserPathname, closeFindBar, findQuery, focusedFindNodeId, pathname, searchSuffix]);
+	}, [activeFindNodeId, browserPathname, closeFindBar, findQuery, focusedFindNodeId, pathname]);
 
 	const handleFindInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
 		if (event.key === 'Enter') {
@@ -442,7 +434,6 @@ export default function FinraGraph() {
 				e.stopPropagation();
 				routeSidebarNodeSelection({
 					nodeId: String(nodeBtn.dataset.nodeId || '').trim(),
-					searchSuffix,
 					browserPathname,
 					pathname,
 					setBrowserPathname,
@@ -466,7 +457,6 @@ export default function FinraGraph() {
 				}
 				routeSidebarNodeSelection({
 					nodeId,
-					searchSuffix,
 					browserPathname,
 					pathname,
 					setBrowserPathname,
@@ -501,7 +491,7 @@ export default function FinraGraph() {
 		};
 		sidebar.addEventListener('click', handler);
 		return () => sidebar.removeEventListener('click', handler);
-	}, [browserPathname, isMounted, pathname, searchSuffix]);
+	}, [browserPathname, isMounted, pathname]);
 
 	useEffect(() => {
 		setIsMounted(true);
@@ -511,7 +501,6 @@ export default function FinraGraph() {
 		if (!isMounted) return;
 		const syncBrowserLocation = () => {
 			setBrowserPathname(window.location.pathname);
-			setBrowserSearch(window.location.search);
 		};
 
 		syncBrowserLocation();
@@ -664,7 +653,6 @@ export default function FinraGraph() {
 
 				routeSidebarNodeSelection({
 					nodeId,
-					searchSuffix,
 					browserPathname,
 					pathname,
 					setBrowserPathname,
@@ -706,7 +694,7 @@ export default function FinraGraph() {
 		return () => {
 			document.removeEventListener('keydown', handleSearchNavigation);
 		};
-	}, [activeFindNodeId, browserPathname, findQuery, focusedFindNodeId, isFindBarOpen, isMounted, pathname, searchSuffix]);
+	}, [activeFindNodeId, browserPathname, findQuery, focusedFindNodeId, isFindBarOpen, isMounted, pathname]);
 
 	useEffect(() => {
 		if (!isMounted) return;
@@ -766,10 +754,10 @@ export default function FinraGraph() {
 
 		const handleSelectedNodeRoute = (event: Event) => {
 			const detail = (event as CustomEvent<{ nodeId?: string | null; replace?: boolean }>).detail || {};
-			const nextHref = buildNodeRouteHref(detail.nodeId ?? null, searchSuffix);
+			const nextHref = buildNodeRouteHref(detail.nodeId ?? null);
 			const nextPath = buildNodeRoutePath(detail.nodeId ?? null);
-			const currentHref = `${browserPathname || pathname || '/'}${searchSuffix}`;
-			if (nextHref === currentHref) return;
+			const currentPath = browserPathname || pathname || '/';
+			if (nextPath === currentPath) return;
 			setBrowserPathname(nextPath);
 			if (detail.replace) {
 				updateNodeRouteHistory(nextHref, 'replace');
@@ -782,7 +770,7 @@ export default function FinraGraph() {
 		return () => {
 			window.removeEventListener(SELECTED_NODE_ROUTE_EVENT, handleSelectedNodeRoute as EventListener);
 		};
-	}, [browserPathname, isMounted, pathname, searchSuffix]);
+	}, [browserPathname, isMounted, pathname]);
 
 	useEffect(() => {
 		if (!isMounted || !graphReady) return;
@@ -885,56 +873,6 @@ export default function FinraGraph() {
 			// ignore
 		}
 
-		// Listen for selection log changes (same-tab via patched event, cross-tab via storage event)
-		const MAX_SELECTED_URL = 200;
-		let suppressSelectionUrlUntil = 0; // ms since epoch; when in future, skip updating URL from selection log
-		const applySelectionLogToUrl = () => {
-			if (Date.now() < suppressSelectionUrlUntil) return;
-			// Don't append ?selected= when on a clean node path
-			const currentPath = window.location.pathname;
-			if (/^\/(firm|individual|entity)\//.test(currentPath)) return;
-			try {
-				const raw = localStorage.getItem('finra_selection_log');
-				if (!raw) return;
-				const parsed = JSON.parse(raw);
-				if (!Array.isArray(parsed) || !parsed.length) return;
-				// keep only the most-recent MAX_SELECTED_URL entries
-				const recent = parsed.length > MAX_SELECTED_URL ? parsed.slice(-MAX_SELECTED_URL) : parsed;
-				const ids = recent.map((entry: any) => String(entry?.id || '').trim()).filter(Boolean);
-				if (!ids.length) return;
-				const url = new URL(window.location.href);
-				const existing = String(url.searchParams.get('selected') || '').trim();
-				const next = ids.join(',');
-				if (existing === next) return;
-				url.searchParams.set('selected', next);
-				window.history.replaceState({}, '', url.pathname + url.search + url.hash);
-			} catch (e) {
-				// ignore
-			}
-		};
-
-		const selectionChangedHandler = applySelectionLogToUrl as EventListener;
-		const storageHandler = (ev: StorageEvent) => {
-			if (ev.key === 'finra_selection_log') applySelectionLogToUrl();
-		};
-		const suppressHandler = (ev: Event) => {
-			try {
-				const ms = Number((ev as CustomEvent<any>)?.detail?.ms) || 5000;
-				suppressSelectionUrlUntil = Date.now() + ms;
-			} catch (e) {
-				suppressSelectionUrlUntil = Date.now() + 5000;
-			}
-		};
-
-		window.addEventListener('finra:selection-log-changed', selectionChangedHandler);
-		window.addEventListener('storage', storageHandler as EventListener);
-		window.addEventListener('finra:suppress-selection-url', suppressHandler as EventListener);
-
-		return () => {
-			window.removeEventListener('finra:selection-log-changed', selectionChangedHandler);
-			window.removeEventListener('storage', storageHandler as EventListener);
-			window.removeEventListener('finra:suppress-selection-url', suppressHandler as EventListener);
-		};
 	}, [isMounted, routeNodeId, searchParams]);
 
 	if (!isMounted) {
