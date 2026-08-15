@@ -877,6 +877,7 @@ body {
 	justify-content: flex-end;
 	gap: 8px;
 	flex: 0 0 auto;
+	margin-left: auto;
 }
 
 .fg-clear-menu {

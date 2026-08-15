@@ -992,21 +992,9 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 		if (Array.isArray(rawConns)) {
 			const isInactive = (c: any) => /previous|former|terminated|inactive/i.test(String(c.relationship || c.status || c.firmStatus || c.employmentStatus || c.position || ''));
 			if (key === 'currentConnections') {
-				source = rawConns.filter(
-					(c: any) =>
-						c &&
-						typeof c === 'object' &&
-						c.isCurrent !== false &&
-						!c.endDate &&
-						!isInactive(c),
-				);
+				source = rawConns.filter((c: any) => c && typeof c === 'object' && c.isCurrent !== false && !c.endDate && !isInactive(c));
 			} else {
-				source = rawConns.filter(
-					(c: any) =>
-						c &&
-						typeof c === 'object' &&
-						(c.isCurrent === false || !!c.endDate || isInactive(c)),
-				);
+				source = rawConns.filter((c: any) => c && typeof c === 'object' && (c.isCurrent === false || !!c.endDate || isInactive(c)));
 			}
 		}
 	}
@@ -3011,13 +2999,26 @@ function DashboardPageInner() {
 
 	return (
 		<div className={styles.page}>
-			<header className="fg-header">
-				<div className="fg-header-bar">
-					<div className="fg-header-brand">
-						<h1 className="fg-title" style={{ fontSize: '14px' }}>FINRA/SEC</h1>
+			<header className='fg-header'>
+				<div className='fg-header-bar'>
+					<div className='fg-header-brand'>
+						<h1
+							className='fg-title'
+							style={{ fontSize: '14px' }}>
+							FINRA/SEC
+						</h1>
 					</div>
-					<div className="fg-header-controls"></div>
-					<div className="fg-header-right-controls" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+					<div className='fg-header-controls'></div>
+					<div
+						className='fg-header-right-controls'
+						style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+						<Link
+							href={graphHref}
+							onClick={handleGraphBackClick}
+							className='fg-ghost-btn'
+							style={{ textDecoration: 'none' }}>
+							Graph
+						</Link>
 						<button
 							type='button'
 							className={styles.rightPaneToggle}
@@ -3025,13 +3026,6 @@ function DashboardPageInner() {
 							aria-expanded={newCrdsOpen}>
 							{newCrdsOpen ? 'Hide Panel' : 'Show Panel'}
 						</button>
-						<Link
-							href={graphHref}
-							onClick={handleGraphBackClick}
-							className="fg-ghost-btn"
-                            style={{ textDecoration: 'none' }}>
-							Graph
-						</Link>
 					</div>
 				</div>
 			</header>
@@ -3997,8 +3991,6 @@ function DashboardPageInner() {
 				<div
 					className={styles.rightColumn}
 					data-right-open={String(newCrdsOpen)}>
-
-
 					<aside
 						className={`${styles.rightPane} ${!newCrdsOpen ? styles.rightPaneCompact : ''}`}
 						aria-hidden={!newCrdsOpen}>

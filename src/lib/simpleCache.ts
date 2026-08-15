@@ -43,15 +43,19 @@ function parseRedisValue<T>(raw: unknown): T | null {
 	if (raw == null) return null;
 	if (typeof raw === 'string') {
 		const decompressed = decompressPayload(raw);
-		try { return JSON.parse(decompressed) as T; } catch { return null; }
+		try {
+			return JSON.parse(decompressed) as T;
+		} catch {
+			return null;
+		}
 	}
 	return raw as T;
 }
 
 function getUpstash(): Redis | null {
 	if (upstash !== null) return upstash;
-	const url = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL);
-	const token = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN);
+	const url = process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
+	const token = process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN;
 	if (url && token) upstash = getRedisClientInstance({ url, token });
 	return upstash;
 }
@@ -259,7 +263,39 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 			const raw = await redis.get(key);
 			if (raw != null) {
 				const parsed = parseRedisValue<T>(raw);
-				if (parsed != null) return parsed;
+				if (parsed != null) {
+					// Detect malformed payloads that sometimes get written to Redis
+					// (e.g. truncated JSON inside _source.content). If malformed,
+					// fall through to external fetcher so we re-populate Redis.
+					try {
+						const maybeObj: any = parsed as any;
+						let malformed = false;
+						if (maybeObj && maybeObj.hits && Array.isArray(maybeObj.hits.hits)) {
+							for (const h of maybeObj.hits.hits) {
+								const content = h?._source?.content;
+								if (typeof content === 'string') {
+									try {
+										JSON.parse(content);
+									} catch (e) {
+										malformed = true;
+										break;
+									}
+								}
+							}
+						}
+						if (!malformed) return parsed;
+						// If malformed, proactively remove the bad Redis key so later
+						// primed/disk/external fetch paths can provide a clean value.
+						try {
+							if (redis && typeof redis.del === 'function') await redis.del(key);
+						} catch (e) {
+							// ignore deletion errors
+						}
+						// fall through to refresh from external source
+					} catch (e) {
+						// conservative: if our validation errors, treat as malformed
+					}
+				}
 			}
 			const primed = await getPrimedCacheValue<T>(key);
 			if (primed != null) {
@@ -310,7 +346,7 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 		if (value !== undefined) {
 			memSet(mem, key, value, ttlSeconds);
 			const newJson = JSON.stringify(value);
-			
+
 			// Always cache to disk to survive Redis quota limits
 			try {
 				const fs = require('fs');
