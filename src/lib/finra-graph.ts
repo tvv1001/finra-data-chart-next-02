@@ -931,9 +931,7 @@ function getPersistedNodePositions({ compact = false } = {}) {
 	if (!compact) return layoutNodes.map((node) => buildPersistedNodePosition(node));
 
 	const focusIds = new Set(
-		[selectedId, ...highlightedSelections.map((entry) => entry?.id), ...Array.from(persistentSelectedIds)]
-			.map((value) => String(value || '').trim())
-			.filter(Boolean),
+		[selectedId, ...highlightedSelections.map((entry) => entry?.id), ...Array.from(persistentSelectedIds)].map((value) => String(value || '').trim()).filter(Boolean),
 	);
 	if (!focusIds.size) return [];
 	return layoutNodes.filter((node) => focusIds.has(String(node.id))).map((node) => buildPersistedNodePosition(node));
@@ -7524,7 +7522,8 @@ async function importPastedCrdList(rawText: string) {
 			if (layoutNodes.some((n) => n.id === firmId)) return { entry, existed: true, nodeId: firmId, nodes: [], links: [] };
 
 			const fetchAsFirm = () => fetchFirmBatch(entry.crd, entry.name || null).then((batch) => ({ entry, existed: false, nodeId: firmId, nodes: batch.nodes, links: batch.links }));
-			const fetchAsIndividual = () => fetchIndividualBatch(entry.crd, entry.name || null).then((batch) => ({ entry, existed: false, nodeId: personId, nodes: batch.nodes, links: batch.links }));
+			const fetchAsIndividual = () =>
+				fetchIndividualBatch(entry.crd, entry.name || null).then((batch) => ({ entry, existed: false, nodeId: personId, nodes: batch.nodes, links: batch.links }));
 			const [tryFirst, tryFallback] = entry.likelyFirm ? [fetchAsFirm, fetchAsIndividual] : [fetchAsIndividual, fetchAsFirm];
 
 			try {
@@ -9686,7 +9685,10 @@ function reapplySelectionState() {
 			}),
 		)
 		// Hop emphasis (neighbor glow) is line-highlight companion state — cleared with Clear Highlight.
-		.classed('highlighted-hop', (node) => node.id !== selectedId && !highlightState.rootIds.has(node.id) && !persistentSelectedIds.has(node.id) && highlightState.hopNodeIds.has(node.id));
+		.classed(
+			'highlighted-hop',
+			(node) => node.id !== selectedId && !highlightState.rootIds.has(node.id) && !persistentSelectedIds.has(node.id) && highlightState.hopNodeIds.has(node.id),
+		);
 
 	if (svgSel) {
 		svgSel.classed('fg-svg--has-highlights', hasHighlights);
@@ -9746,18 +9748,18 @@ export function shouldRenderNodeSelected(
 	} = options;
 
 	const durableSet =
-		durableSelectedIds instanceof Set ? durableSelectedIds : new Set(Array.from(durableSelectedIds || []).map((id) => String(id || '').trim()).filter(Boolean));
+		durableSelectedIds instanceof Set ? durableSelectedIds : (
+			new Set(
+				Array.from(durableSelectedIds || [])
+					.map((id) => String(id || '').trim())
+					.filter(Boolean),
+			)
+		);
 
 	// Active selection + every node the user has already selected/expanded stays selected.
 	// Clear Highlight does not remove durableSelectedIds — only hop/line emphasis.
 	// Hop neighbors use `highlighted-hop`; exhausted leaves keep the fetched-leaf markers.
-	return (
-		node.id === candidateSelectedId ||
-		highlightRootIds.has(node.id) ||
-		durableSet.has(node.id) ||
-		isFetchedLeafNodeFn(node) ||
-		isFetchedExhaustedConnectedNodeFn(node)
-	);
+	return node.id === candidateSelectedId || highlightRootIds.has(node.id) || durableSet.has(node.id) || isFetchedLeafNodeFn(node) || isFetchedExhaustedConnectedNodeFn(node);
 }
 
 function markNodeSelected(node, options: { persist?: boolean } = {}) {
@@ -11145,7 +11147,13 @@ function syncIndividualConnectionsFromDetail(personNode, detail, options: { incl
 				newNodes.push(
 					isParentIndividual ?
 						{ id: parentNodeId, label: `CRD ${parentCrd}`, group: 'individual', crd: parentCrd, stub: true }
-					:	{ id: parentNodeId, label: orphan.firmName || `Firm ${parentCrd}`, group: 'firm', firmId: parentCrd, firmStatus: orphan.firmStatus || orphan.status || orphan.registrationStatus || null },
+					:	{
+							id: parentNodeId,
+							label: orphan.firmName || `Firm ${parentCrd}`,
+							group: 'firm',
+							firmId: parentCrd,
+							firmStatus: orphan.firmStatus || orphan.status || orphan.registrationStatus || null,
+						},
 				);
 			}
 			const candidateLink = {
@@ -11413,7 +11421,13 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 				newNodes.push(
 					isParentIndividual ?
 						{ id: parentNodeId, label: `CRD ${parentCrd}`, group: 'individual', crd: parentCrd, stub: true }
-					:	{ id: parentNodeId, label: orphan.firmName || `Firm ${parentCrd}`, group: 'firm', firmId: parentCrd, firmStatus: orphan.firmStatus || orphan.status || orphan.registrationStatus || null },
+					:	{
+							id: parentNodeId,
+							label: orphan.firmName || `Firm ${parentCrd}`,
+							group: 'firm',
+							firmId: parentCrd,
+							firmStatus: orphan.firmStatus || orphan.status || orphan.registrationStatus || null,
+						},
 				);
 			}
 			const candidateLink = {
@@ -11971,10 +11985,7 @@ function filterIdsSafeForServerExpand(nodeIds: string[], clickedNodeId?: string 
 	});
 }
 
-function limitExpansionPayload(
-	payload: { nodes?: any[]; links?: any[]; meta?: any },
-	options: { maxNeighbors?: number; rootId?: string | null } = {},
-) {
+function limitExpansionPayload(payload: { nodes?: any[]; links?: any[]; meta?: any }, options: { maxNeighbors?: number; rootId?: string | null } = {}) {
 	const maxNeighbors = Math.max(1, Number(options.maxNeighbors) || MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND);
 	const rootId = String(options.rootId || '').trim();
 	const nodes = Array.isArray(payload?.nodes) ? payload.nodes : [];
@@ -12088,10 +12099,7 @@ async function fetchExpansionDataForNodeIds(
 	});
 
 	// Cap mega-neighborhoods (e.g. Merrill Lynch 1-hop ≈ 2500 people) so a single expand stays usable.
-	return limitExpansionPayload(
-		{ nodes: mergedNodes, links: mergedLinks },
-		{ maxNeighbors: maxNeighbors, rootId: clickedNodeId || uniqueIds[0] || null },
-	);
+	return limitExpansionPayload({ nodes: mergedNodes, links: mergedLinks }, { maxNeighbors: maxNeighbors, rootId: clickedNodeId || uniqueIds[0] || null });
 }
 
 export function shouldHydrateExpansionFrontierNodeDetail(node, options: { includeFirmDetails?: boolean } = {}) {
@@ -12227,11 +12235,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 		// discovered mid-expansion fans out past one hop (people → their other firms → …).
 		const firmConnectionPromise =
 			wave === 1 && clickedNode.group === 'firm' && currentWaveIds.includes(clickedNode.id) ?
-				ensureFirmConnections(
-					(layoutNodes || []).find((node) => node.id === clickedNode.id) ||
-						(graphData?.nodes || []).find((node) => node.id === clickedNode.id) ||
-						clickedNode,
-				)
+				ensureFirmConnections((layoutNodes || []).find((node) => node.id === clickedNode.id) || (graphData?.nodes || []).find((node) => node.id === clickedNode.id) || clickedNode)
 			:	Promise.resolve();
 
 		await Promise.all([
@@ -15146,14 +15150,14 @@ function renderPersonDetail(d: any) {
 									firmNode?.bdSecNumber || firmNode?.iaSecNumber || l.bdSecNumber || l.iaSecNumber || employmentMatch?.bdSecNumber || employmentMatch?.iaSECNumber || null;
 								const startDate = l.startDate || l.registrationBeginDate || l.fromDate || l.effectiveDate || l.date || employmentMatch?.start || null;
 								let endDate = l.endDate || l.registrationEndDate || l.toDate || employmentMatch?.end || null;
-								
+
 								if (!endDate && firmNode) {
 									const isTerminated = /inactive|terminated|revoked|suspended|withdrawn|ceased/i.test(String(firmNode.firmStatus || firmNode.basicInformation?.firmStatus || ''));
 									if (isTerminated) {
 										endDate = firmNode.firmStatusDate || firmNode.basicInformation?.firmStatusDate || 'Terminated';
 									}
 								}
-								
+
 								const dateRange = startDate ? `${esc(startDate)} → ${esc(endDate || 'present')}` : null;
 								const location =
 									l.location ||
