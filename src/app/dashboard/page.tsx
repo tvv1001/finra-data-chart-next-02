@@ -1850,6 +1850,7 @@ function DashboardPageInner() {
 			directOwners,
 			indirectOwners,
 			disclosureSummary,
+			rawDisclosures: Array.isArray(body.disclosures) ? body.disclosures : [],
 		};
 	}, [mainJson, currentRecordEntity, currentRecordId]);
 
@@ -3198,6 +3199,75 @@ function DashboardPageInner() {
 															</div>
 														))}
 													</div>
+													{detailedMainRecord.rawDisclosures && detailedMainRecord.rawDisclosures.some((dis: any) => dis.disclosureDetail && Object.keys(dis.disclosureDetail).length > 0) && (
+														<div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+															{detailedMainRecord.rawDisclosures.filter((dis: any) => dis.disclosureDetail && Object.keys(dis.disclosureDetail).length > 0).map((dis: any, idx: number) => {
+																const dtype = String(dis.disclosureType || dis.type || '').trim();
+																const ddate = String(dis.eventDate || dis.date || '').trim();
+																const dres = String(dis.disclosureResolution || dis.resolution || '').trim();
+																const dd = dis.disclosureDetail || {};
+																const isObj = dd && typeof dd === 'object' && !Array.isArray(dd);
+																if (!isObj) return null;
+
+																const allegs = String(dd['Allegations'] || dd['allegations'] || '').trim();
+																const initiatedBy = String(dd['Initiated By'] || dd['initiatedBy'] || '').trim();
+																const resolution = String(dd['Resolution'] || dd['resolution'] || '').trim();
+																const sanctionText = String(dd['Sanctions'] || dd['sanctions'] || '').trim();
+																const sanctionDetails = Array.isArray(dd['SanctionDetails'] || dd['Sanction Details']) ? (dd['SanctionDetails'] || dd['Sanction Details']) : [];
+																const brokerCommentRaw = dd['Broker Comment'] || dd['brokerComment'] || null;
+																const comments = Array.isArray(brokerCommentRaw) ? brokerCommentRaw : brokerCommentRaw ? [brokerCommentRaw] : [];
+																const settlementAmt = String(dd['Settlement Amount'] || dd['settlementAmount'] || '').trim();
+																const docketFDA = String(dd['DocketNumberFDA'] || '').trim();
+																const docketAAO = String(dd['DocketNumberAAO'] || '').trim();
+																const arbDocket = String(dd['arbitrationDocketNumber'] || '').trim();
+																
+																const sanctionBadges = sanctionDetails
+																	.map((s: any) => String(typeof s === 'object' ? s.Sanctions || s.sanctions || '' : s).trim())
+																	.filter(Boolean);
+
+																const handledDetailKeys = new Set([
+																	'Allegations', 'allegations', 'Initiated By', 'initiatedBy',
+																	'Resolution', 'resolution', 'Sanctions', 'sanctions',
+																	'SanctionDetails', 'Sanction Details', 'Broker Comment', 'brokerComment',
+																	'Settlement Amount', 'settlementAmount', 'DocketNumberFDA',
+																	'DocketNumberAAO', 'arbitrationDocketNumber'
+																].map(k => k.toLowerCase().replace(/[^a-z0-9]/g, '')));
+
+																const extraDetailRows = Object.entries(dd)
+																	.map(([key, value]) => ({ key, keyId: key.toLowerCase().replace(/[^a-z0-9]/g, ''), valueText: String(value).trim() }))
+																	.filter(({ keyId, valueText }) => valueText && !handledDetailKeys.has(keyId));
+
+																return (
+																	<div key={idx} className="fg-disclosure" style={{ margin: 0 }}>
+																		<div className="fg-dis-header">
+																			<span className="fg-dis-type">{dtype}</span>
+																			{ddate && <span className="fg-dis-date">{ddate}</span>}
+																			{dres && <span className={`fg-dis-res ${/final|settled/i.test(dres) ? 'final' : 'pending'}`}>{dres}</span>}
+																		</div>
+																		{initiatedBy && <div className="fg-dis-row"><span className="fg-dis-label">Initiated by:</span> {initiatedBy}</div>}
+																		{allegs && <div className="fg-dis-row"><span className="fg-dis-label">Allegations:</span><div className="fg-dis-text">{allegs}</div></div>}
+																		{resolution && <div className="fg-dis-row"><span className="fg-dis-label">Resolution:</span> {resolution}</div>}
+																		{sanctionText && <div className="fg-dis-row"><span className="fg-dis-label">Sanctions:</span><div className="fg-dis-text">{sanctionText}</div></div>}
+																		{settlementAmt && <div className="fg-dis-row"><span className="fg-dis-label">Settlement:</span> <strong>{settlementAmt}</strong></div>}
+																		{sanctionBadges.length > 0 && <div className="fg-dis-sanctions">{sanctionBadges.map((s: any, i: number) => <span key={i} className="fg-badge inactive">{s}</span>)}</div>}
+																		{comments.length > 0 && <div className="fg-dis-row"><span className="fg-dis-label">Broker comment:</span><div className="fg-dis-text fg-dis-comment">{comments.map((c: any, i: number) => <div key={i}>{String(c)}</div>)}</div></div>}
+																		{(docketFDA || docketAAO || arbDocket) && (
+																			<div className="fg-dis-row fg-dis-dockets">
+																				{[
+																					docketFDA && `FDA: ${docketFDA}`,
+																					docketAAO && `AAO: ${docketAAO}`,
+																					arbDocket && `Arb: ${arbDocket}`
+																				].filter(Boolean).join('  |  ')}
+																			</div>
+																		)}
+																		{extraDetailRows.map(({ key, valueText }, i) => (
+																			<div key={`extra-${i}`} className="fg-dis-row"><span className="fg-dis-label">{key}:</span><div className="fg-dis-text">{valueText}</div></div>
+																		))}
+																	</div>
+																);
+															})}
+														</div>
+													)}
 												</section>
 											)}
 										</>
