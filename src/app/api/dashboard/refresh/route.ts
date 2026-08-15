@@ -1966,8 +1966,18 @@ async function listNewCrds() {
 		}
 	} catch (err) {}
 
-	const nativeKeys = await collectNativeRedisRecordKeys(redis);
-	const cards = buildCacheCardsFromRedisKeys(nativeKeys, getCrdLogNameMap());
+	const topIndividualIds = await redis.zrevrange('dashboard:highest-crds:individual', 0, 19);
+	const topFirmIds = await redis.zrevrange('dashboard:highest-crds:firm', 0, 19);
+
+	const keysToFetch: string[] = [];
+	for (const id of topIndividualIds) {
+		keysToFetch.push(`finra:individual:${id}`, `sec:individual:${id}`);
+	}
+	for (const id of topFirmIds) {
+		keysToFetch.push(`finra:firm:${id}`, `sec:firm:${id}`);
+	}
+
+	const cards = buildCacheCardsFromRedisKeys(keysToFetch, getCrdLogNameMap());
 
 	const topPeople = cards
 		.filter((card) => card.entity === 'individual')
@@ -2187,6 +2197,11 @@ async function fetchCrdsToCacheAndRedis(initialTargets: FetchTarget[], options: 
 				console.warn(`[fetch-crds] Skipping local file write: ${fileErr.message}`);
 			}
 			await setStringIfValid(redisKey, JSON.stringify(payload), 0);
+			try {
+				await redis.zadd(`dashboard:highest-crds:${target.type}`, { score: Number(crd), member: String(crd) });
+			} catch (err) {
+				console.warn(`[fetch-crds] Failed to update highest-crds zset:`, err);
+			}
 
 			const detail =
 				target.type === 'individual' ?
