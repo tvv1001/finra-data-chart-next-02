@@ -78,9 +78,7 @@ export function buildNodeRoutePath(nodeId: string | null | undefined) {
 }
 
 export function buildNodeRouteHref(nodeId: string | null | undefined, search = '') {
-	const path = buildNodeRoutePath(nodeId);
-	const normalizedSearch = search.startsWith('?') || !search ? search : `?${search}`;
-	return `${path}${normalizedSearch}`;
+	return buildNodeRoutePath(nodeId);
 }
 
 export function parseNodeIdFromPathname(pathname: string | null | undefined) {

@@ -889,7 +889,10 @@ export default function FinraGraph() {
 		const MAX_SELECTED_URL = 200;
 		let suppressSelectionUrlUntil = 0; // ms since epoch; when in future, skip updating URL from selection log
 		const applySelectionLogToUrl = () => {
-			if (Date.now() < suppressSelectionUrlUntil) return; // suppressed by recent clear action
+			if (Date.now() < suppressSelectionUrlUntil) return;
+			// Don't append ?selected= when on a clean node path
+			const currentPath = window.location.pathname;
+			if (/^\/(firm|individual|entity)\//.test(currentPath)) return;
 			try {
 				const raw = localStorage.getItem('finra_selection_log');
 				if (!raw) return;
