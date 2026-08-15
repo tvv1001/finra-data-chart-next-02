@@ -1789,18 +1789,30 @@ function DashboardPageInner() {
 		const directOwners = toArray(body.directOwners).concat(toArray(body.directOwnersExecutiveOfficers));
 		const indirectOwners = toArray(body.indirectOwners);
 
-		// Build a compact disclosure summary when available (e.g. FINRA firm disclosures)
-		const disclosureSummary =
-			Array.isArray(body.disclosures) ?
-				body.disclosures
-					.map((d: any) => {
-						const disclosureType = String(d?.disclosureType || d?.type || d?.disclosure || '').trim();
-						const disclosureCount = Number(d?.disclosureCount ?? d?.count ?? 0) || 0;
-						if (!disclosureType || disclosureCount <= 0) return null;
-						return { disclosureType, disclosureCount };
-					})
-					.filter(Boolean)
-			:	[];
+		// Build a compact disclosure summary when available (e.g. FINRA firm disclosures or individual event details)
+		const groupedDisclosures = new Map<string, number>();
+		if (Array.isArray(body.disclosures)) {
+			for (const d of body.disclosures) {
+				const type = String(d?.disclosureType || d?.type || d?.disclosure || '').trim();
+				if (!type) continue;
+				const count = Number(d?.disclosureCount ?? d?.count ?? 0);
+				const increment = count > 0 ? count : 1;
+				groupedDisclosures.set(type, (groupedDisclosures.get(type) || 0) + increment);
+			}
+		}
+		if (Array.isArray(body.iaDisclosures)) {
+			for (const d of body.iaDisclosures) {
+				const type = String(d?.disclosureType || d?.type || d?.disclosure || '').trim();
+				if (!type) continue;
+				const count = Number(d?.disclosureCount ?? d?.count ?? 0);
+				const increment = count > 0 ? count : 1;
+				groupedDisclosures.set(type, (groupedDisclosures.get(type) || 0) + increment);
+			}
+		}
+		const disclosureSummary = Array.from(groupedDisclosures.entries()).map(([disclosureType, disclosureCount]) => ({
+			disclosureType,
+			disclosureCount,
+		}));
 
 		return {
 			name:
@@ -3156,7 +3168,7 @@ function DashboardPageInner() {
 														type='button'
 														className={`${styles.mainViewToggleBtn} ${mainViewMode === 'json' ? styles.mainViewToggleBtnActive : ''}`}
 														onClick={() => setMainViewMode('json')}>
-														Log
+														JSON
 													</button>
 												</div>
 											</div>
