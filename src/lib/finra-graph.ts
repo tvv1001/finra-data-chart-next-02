@@ -15967,6 +15967,121 @@ function renderFirmDetail(d: any) {
 				:	''
 			}
       ${row('Regulator', esc(d.regulator || '–'))}
+      ${
+				controlConnections.length || (showFinra && staticOwnersToRender.length) ?
+					`
+        <div class="fg-section-title fg-section-title--sticky">Form BD — Direct Owners &amp; Executive Officers (${controlConnections.length + (showFinra ? staticOwnersToRender.length : 0)})</div>
+		<div class="fg-timeline">
+			${controlConnections
+				.map((connection) => {
+					const displaySecondary = connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>` : '';
+					const relHtml =
+						connection.relationshipLabels.length || connection.positions.length ?
+							`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>`
+						:	'';
+					const datesHtml = connection.dateTexts.length ? `<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
+					const addrHtml = connection.address ? `<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
+					return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}">
+						<span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>
+						${relHtml}
+						${datesHtml}
+						${addrHtml}
+					</button>`;
+				})
+				.join('')}
+			${
+				showFinra ?
+					staticOwnersToRender
+						.map((o) => {
+							const nameHtml = `<span class="fg-owner-name">${esc(o.legalName || '')}</span>`;
+							const posHtml = `<span class="fg-owner-pos">${esc(o.position || '')}</span>`;
+							if (o.crdNumber) {
+								return `
+						<button type="button" class="fg-owner-row fg-card-clickable fg-crd-link" data-crd="${esc(o.crdNumber)}" data-crd-type="person" title="View person ${esc(o.crdNumber)}">
+							${nameHtml}
+							${posHtml}
+						</button>
+						`;
+							}
+							return `
+					<div class="fg-owner-row fg-owner-row--static">
+						${nameHtml}
+						${posHtml}
+					</div>
+					`;
+						})
+						.join('')
+				:	''
+			}
+		</div>
+		`
+				:	''
+			}
+
+			<div class="fg-section-title fg-section-title--sticky">General Information</div>
+      ${row('Established in', d.formedState ? `${esc(d.formedState)}${d.formedDate ? ' since ' + d.formedDate : ''}` : '–')}
+      ${row('Type', esc(d.firmType || '–'))}
+      ${row('Fiscal Year End', esc(d.fiscalYearEnd || '–'))}
+      ${
+				showSec && sortedBrochures.length ?
+					`
+				<div class="fg-section-title fg-section-title--sticky">Form ADV Brochures</div>
+						${sortedBrochures
+							.slice(0, 5)
+							.map((b) => `<div class="fg-detail-row"><span class="fg-label">${esc(b.brochureName || '')}</span><span>${esc(b.dateSubmitted || '')}</span></div>`)
+							.join('')}
+      `
+				:	''
+			}
+
+			${
+				(showFinra || showSec) && (disclosures.length || disclosureTotal > 0 || hasAffiliateDisclosureSummary) ?
+					`
+        <div class="fg-section-title fg-section-title--sticky">Disclosures</div>
+					<div class="fg-disclosure">
+						${disclosures
+							.map(
+								(dis) => `
+							<div class="fg-dis-header">
+								<span class="fg-dis-type">${esc(dis.type || dis.disclosureType || '')}:</span>
+							</div>
+							<div class="fg-dis-row"><span class="fg-dis-label">Total Disclosure</span> ${esc(String(dis.count ?? dis.disclosureCount ?? ''))}</div>
+						`,
+							)
+							.join('')}
+						${
+							disclosureTotal > 0 && !disclosures.length ?
+								`<div class="fg-dis-header">
+								<span class="fg-dis-type">Total Disclosure</span>
+							</div>
+							<div class="fg-dis-row">${esc(String(disclosureTotal))}</div>`
+							:	''
+						}
+						${
+							disclosureTotal > 0 ?
+								showFinra ?
+									`<div class="fg-dis-row">For details of these disclosures as well as disclosures involving non-registered affiliated entities refer to the Detailed Report${brokerCheckReportUrl ? ` <a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>` : ''}. For disclosures involving registered affiliated entities visit the BrokerCheck page for those firms.</div>`
+								: secSummaryUrl ? `<div class="fg-dis-row">For disclosure details, open the SEC AdvisorInfo Summary for this firm.</div>`
+								: ''
+							:	''
+						}
+						${
+							hasAffiliateDisclosureSummary ?
+								`<div class="fg-dis-header">
+								<span class="fg-dis-type">Affiliate Disclosure (registered)</span>
+							</div>
+							<div class="fg-dis-row"><span class="fg-dis-label">Count:</span> ${esc(String(d.affiliateDisclosures.registeredAffiliateDisclosureCount ?? 0))}</div>
+							<div class="fg-dis-header">
+								<span class="fg-dis-type">Affiliate Disclosure (non-registered)</span>
+							</div>
+							<div class="fg-dis-row"><span class="fg-dis-label">Count:</span> ${esc(String(d.affiliateDisclosures.nonRegisteredAffiliateDisclosureCount ?? 0))}</div>`
+							:	''
+						}
+					</div>
+      `
+				:	''
+			}
+
 			${
 				connections.length ?
 					`<div class="fg-section-title fg-section-title--sticky">Connected Nodes (${connections.length})</div>
@@ -16045,120 +16160,6 @@ function renderFirmDetail(d: any) {
 							})
 							.join('')}
 					</div>`
-				:	''
-			}
-			<div class="fg-section-title fg-section-title--sticky">General Information</div>
-      ${row('Established in', d.formedState ? `${esc(d.formedState)}${d.formedDate ? ' since ' + d.formedDate : ''}` : '–')}
-      ${row('Type', esc(d.firmType || '–'))}
-      ${row('Fiscal Year End', esc(d.fiscalYearEnd || '–'))}
-      ${
-				showSec && sortedBrochures.length ?
-					`
-				<div class="fg-section-title fg-section-title--sticky">Form ADV Brochures</div>
-						${sortedBrochures
-							.slice(0, 5)
-							.map((b) => `<div class="fg-detail-row"><span class="fg-label">${esc(b.brochureName || '')}</span><span>${esc(b.dateSubmitted || '')}</span></div>`)
-							.join('')}
-      `
-				:	''
-			}
-
-			${
-				(showFinra || showSec) && (disclosures.length || disclosureTotal > 0 || hasAffiliateDisclosureSummary) ?
-					`
-        <div class="fg-section-title fg-section-title--sticky">Disclosures</div>
-					<div class="fg-disclosure">
-						${disclosures
-							.map(
-								(dis) => `
-							<div class="fg-dis-header">
-								<span class="fg-dis-type">${esc(dis.type || dis.disclosureType || '')}:</span>
-							</div>
-							<div class="fg-dis-row"><span class="fg-dis-label">Total Disclosure</span> ${esc(String(dis.count ?? dis.disclosureCount ?? ''))}</div>
-						`,
-							)
-							.join('')}
-						${
-							disclosureTotal > 0 && !disclosures.length ?
-								`<div class="fg-dis-header">
-								<span class="fg-dis-type">Total Disclosure</span>
-							</div>
-							<div class="fg-dis-row">${esc(String(disclosureTotal))}</div>`
-							:	''
-						}
-						${
-							disclosureTotal > 0 ?
-								showFinra ?
-									`<div class="fg-dis-row">For details of these disclosures as well as disclosures involving non-registered affiliated entities refer to the Detailed Report${brokerCheckReportUrl ? ` <a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>` : ''}. For disclosures involving registered affiliated entities visit the BrokerCheck page for those firms.</div>`
-								: secSummaryUrl ? `<div class="fg-dis-row">For disclosure details, open the SEC AdvisorInfo Summary for this firm.</div>`
-								: ''
-							:	''
-						}
-						${
-							hasAffiliateDisclosureSummary ?
-								`<div class="fg-dis-header">
-								<span class="fg-dis-type">Affiliate Disclosure (registered)</span>
-							</div>
-							<div class="fg-dis-row"><span class="fg-dis-label">Count:</span> ${esc(String(d.affiliateDisclosures.registeredAffiliateDisclosureCount ?? 0))}</div>
-							<div class="fg-dis-header">
-								<span class="fg-dis-type">Affiliate Disclosure (non-registered)</span>
-							</div>
-							<div class="fg-dis-row"><span class="fg-dis-label">Count:</span> ${esc(String(d.affiliateDisclosures.nonRegisteredAffiliateDisclosureCount ?? 0))}</div>`
-							:	''
-						}
-					</div>
-      `
-				:	''
-			}
-
-      ${
-				controlConnections.length || (showFinra && staticOwnersToRender.length) ?
-					`
-        <div class="fg-section-title fg-section-title--sticky">Form BD — Direct Owners &amp; Executive Officers (${controlConnections.length + (showFinra ? staticOwnersToRender.length : 0)})</div>
-		<div class="fg-timeline">
-			${controlConnections
-				.map((connection) => {
-					const displaySecondary = connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>` : '';
-					const relHtml =
-						connection.relationshipLabels.length || connection.positions.length ?
-							`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>`
-						:	'';
-					const datesHtml = connection.dateTexts.length ? `<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
-					const addrHtml = connection.address ? `<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
-					return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}">
-						<span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>
-						${relHtml}
-						${datesHtml}
-						${addrHtml}
-					</button>`;
-				})
-				.join('')}
-			${
-				showFinra ?
-					staticOwnersToRender
-						.map((o) => {
-							const nameHtml = `<span class="fg-owner-name">${esc(o.legalName || '')}</span>`;
-							const posHtml = `<span class="fg-owner-pos">${esc(o.position || '')}</span>`;
-							if (o.crdNumber) {
-								return `
-						<button type="button" class="fg-owner-row fg-card-clickable fg-crd-link" data-crd="${esc(o.crdNumber)}" data-crd-type="person" title="View person ${esc(o.crdNumber)}">
-							${nameHtml}
-							${posHtml}
-						</button>
-						`;
-							}
-							return `
-					<div class="fg-owner-row fg-owner-row--static">
-						${nameHtml}
-						${posHtml}
-					</div>
-					`;
-						})
-						.join('')
-				:	''
-			}
-		</div>
-		`
 				:	''
 			}
     </div>

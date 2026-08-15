@@ -173,7 +173,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			}),
 		]);
 
-		let bcDetail: any = null;
+		console.log("bcData status", bcData.status, (bcData as any).value ? "has value" : "no value"); let bcDetail: any = null;
 		if (bcData.status === 'fulfilled') {
 			bcDetail = parseDetailPayload(bcData.value, 'content');
 		}
@@ -211,7 +211,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					{
 						found: true,
 						firmId: id,
-						orphan,
+						orphan, debugBcData: (bcData as any).value, 
 						sources: { finra: { found: false }, sec: { found: false } },
 						hasFinraData: false,
 						hasSecData: false,

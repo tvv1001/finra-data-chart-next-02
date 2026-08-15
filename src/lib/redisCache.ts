@@ -68,7 +68,11 @@ export async function setIfValid(
 
 		await limiter.schedule(async () => {
 			const finalValue = compressPayload(JSON.stringify(value));
-			await redis.set(key, finalValue);
+			if (ttlSeconds) {
+				await redis.set(key, finalValue, { ex: ttlSeconds });
+			} else {
+				await redis.set(key, finalValue);
+			}
 		});
 		return 'written';
 	} catch (e) {
@@ -101,7 +105,11 @@ export async function setStringIfValid(
 		if (t && t !== 'none' && t !== 'string') return 'skipped-nonstring';
 		await limiter.schedule(async () => {
 			const finalValue = compressPayload(raw);
-			await redis.set(key, finalValue);
+			if (ttlSeconds) {
+				await redis.set(key, finalValue, { ex: ttlSeconds });
+			} else {
+				await redis.set(key, finalValue);
+			}
 		});
 		return 'written';
 	} catch (e) {

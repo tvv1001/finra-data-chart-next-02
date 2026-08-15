@@ -227,14 +227,27 @@ function getExternalService(key: string) {
 	return '';
 }
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 function shouldSkipExternalFetch(service: string) {
 	if (!service) return false;
 	const now = Date.now();
 	const lastFailureAt = lastExternalFailure.get(service) || 0;
 	if (now - lastFailureAt < EXTERNAL_API_FAILURE_COOLDOWN_MS) return true;
 	if (!canCallExternalApis()) return true;
+	return false;
+}
+
+export async function waitExternalFetchLimit(service: string) {
+	if (!service || !canCallExternalApis()) return;
 	const lastFetchAt = lastExternalFetch.get(service) || 0;
-	return now - lastFetchAt < EXTERNAL_API_MIN_INTERVAL_MS;
+	const now = Date.now();
+	const elapsed = now - lastFetchAt;
+	if (elapsed < EXTERNAL_API_MIN_INTERVAL_MS) {
+		const waitTime = EXTERNAL_API_MIN_INTERVAL_MS - elapsed;
+		await delay(waitTime);
+	}
+	lastExternalFetch.set(service, Date.now());
 }
 
 export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher: () => Promise<T>): Promise<T> {
@@ -288,6 +301,8 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 	const parts = key.split(':');
 	const crd = parts[2] || '';
 	console.log(`[External API Access] Time: ${new Date().toISOString()} | Accessing external API | Domain: ${domain} | CRDs: [${crd}] | Count: 1`);
+
+	await waitExternalFetchLimit(service);
 
 	try {
 		const value = await fetcher();

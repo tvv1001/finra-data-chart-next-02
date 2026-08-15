@@ -789,7 +789,9 @@ body {
 
 /* ── Header ────────────────────────────────────────────────────────────── */
 .fg-header {
-	position: relative;
+	position: fixed;
+	top: 0;
+	left: 0;
 	display: flex;
 	flex-direction: column;
 	padding: 0;
@@ -2068,6 +2070,7 @@ a,
 	box-shadow: -14px 0 34px rgba(15, 23, 42, 0.18);
 	min-width: 345px;
 	padding: 11px 0 0 11px;
+	margin-top: 46px;
 }
 
 .fg-sidebar:has(.fg-mobile-legend-tooltip[open]) {
@@ -6355,4 +6358,14 @@ button[type='submit'],
 	width: fint-content;
 	font-size: 0.68rem;
 	font-weight: 700;
+}
+
+/* Overrides just for the Graph page */
+#finra-app .fg-title {
+	font-size: 11px;
+}
+#finra-app .fg-fetch-input {
+	width: min(180px, 100%);
+	flex: 1 1 180px;
+	max-width: 180px;
 }

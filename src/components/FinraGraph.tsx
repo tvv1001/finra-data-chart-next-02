@@ -262,6 +262,7 @@ export default function FinraGraph() {
 	const [isFindBarOpen, setIsFindBarOpen] = useState(false);
 	const [findQuery, setFindQuery] = useState('');
 	const [findMatchState, setFindMatchState] = useState({ total: 0, activeOrdinal: 0 });
+	const [isSidebarToolsOpen, setIsSidebarToolsOpen] = useState(false);
 	const [activeFindNodeId, setActiveFindNodeId] = useState<string | null>(null);
 	const [focusedFindNodeId, setFocusedFindNodeId] = useState<string | null>(null);
 	const pathname = usePathname();
@@ -861,7 +862,7 @@ export default function FinraGraph() {
 				<header className='fg-header'>
 					<div className='fg-header-bar'>
 						<div className='fg-header-brand'>
-							<h1 className='fg-title'>FINRA</h1>
+							<h1 className='fg-title'>FINRA/SEC</h1>
 						</div>
 					</div>
 				</header>
@@ -886,7 +887,7 @@ export default function FinraGraph() {
 			<header className='fg-header'>
 				<div className='fg-header-bar'>
 					<div className='fg-header-brand'>
-						<h1 className='fg-title'>FINRA</h1>
+						<h1 className='fg-title'>FINRA/SEC</h1>
 					</div>
 
 					<div
@@ -1230,6 +1231,18 @@ export default function FinraGraph() {
 				<aside
 					id='fg-sidebar'
 					className='fg-sidebar hidden'>
+					<div className='fg-sidebar-toolbar-header' style={{ padding: '8px 8px 0', display: 'flex' }}>
+						<button
+							type='button'
+							className={`fg-sb-toggle-btn ${isSidebarToolsOpen ? 'is-active' : ''}`}
+							onClick={() => setIsSidebarToolsOpen(!isSidebarToolsOpen)}
+							title={isSidebarToolsOpen ? 'Hide tools' : 'Show tools'}
+							style={{ width: '100%', justifyContent: 'space-between', padding: '6px 12px', background: 'rgba(255, 255, 255, 0.96)', border: '1px solid rgba(15, 23, 42, 0.18)', borderRadius: '6px', boxShadow: '0 2px 6px rgba(15, 23, 42, 0.06)' }}>
+							<span className='fg-sb-toggle-btn__label' style={{ fontWeight: 600 }}>Graph Tools</span>
+							<span className='fg-sb-toggle-btn__chevron' aria-hidden='true' style={{ transform: isSidebarToolsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}>▾</span>
+						</button>
+					</div>
+					<div className={`fg-sidebar-toolbar-content ${isSidebarToolsOpen ? '' : 'hidden'}`}>
 					<div className='fg-sidebar-actions'>
 						<button
 							type='button'
@@ -1352,6 +1365,7 @@ export default function FinraGraph() {
 						<ThemeToggle />
 					</div>
 
+					</div>
 					<div
 						id='fg-sidebar-inner'
 						className='fg-sidebar-inner'>

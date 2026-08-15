@@ -1581,7 +1581,7 @@ function DashboardPageInner() {
 
 	const uniqueCrdCounts = useMemo(() => {
 		if (queueMetaStats.inventoryTotals) {
-			const cached = queueMetaStats.inventoryTotals.cachedCrdCount;
+			const cached = (queueMetaStats.inventoryTotals as any).cachedCrdCount || 0;
 			const cachedParsed = cached && cached !== 'Not Found' && cached !== 'Error' ? parseInt(cached, 10) : NaN;
 			return {
 				individuals: queueMetaStats.inventoryTotals.people,
@@ -3007,6 +3007,30 @@ function DashboardPageInner() {
 
 	return (
 		<div className={styles.page}>
+			<header className="fg-header">
+				<div className="fg-header-bar">
+					<div className="fg-header-brand">
+						<h1 className="fg-title" style={{ fontSize: '14px' }}>FINRA/SEC</h1>
+					</div>
+					<div className="fg-header-controls"></div>
+					<div className="fg-header-right-controls" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+						<button
+							type='button'
+							className={styles.rightPaneToggle}
+							onClick={() => setNewCrdsOpen((open) => !open)}
+							aria-expanded={newCrdsOpen}>
+							{newCrdsOpen ? 'Hide Panel' : 'Show Panel'}
+						</button>
+						<Link
+							href={graphHref}
+							onClick={handleGraphBackClick}
+							className="fg-ghost-btn"
+                            style={{ textDecoration: 'none' }}>
+							Graph
+						</Link>
+					</div>
+				</div>
+			</header>
 			<div className={`${styles.layout} ${!newCrdsOpen ? styles.layoutRightHidden : ''}`}>
 				<section className={styles.centerPane}>
 					<div className={styles.dashboardMainStack}>
@@ -3253,27 +3277,27 @@ function DashboardPageInner() {
 										})()
 									: detailedMainRecord ?
 										<>
+											{detailedMainRecord.otherNames.length > 0 && (
+												<div className={styles.detailOtherNamesBlock}>
+													<div className={styles.detailOtherNamesHeading}>OTHER NAMES</div>
+													<div
+														className={styles.headerOtherNamesRow}
+														style={{ margin: 0 }}>
+														{detailedMainRecord.otherNames.map((name) => (
+															<span
+																key={name}
+																className={styles.headerOtherNameTag}>
+																{formatOtherName(name, currentRecordEntity === 'firm')}
+															</span>
+														))}
+													</div>
+												</div>
+											)}
 											{(detailedMainRecord.mainAddress || detailedMainRecord.otherNames.length > 0) && (
 												<div className={styles.detailAddressCard}>
 													{detailedMainRecord.mainAddress && (
 														<div className={styles.detailAddressLine}>
 															<strong style={{ color: 'var(--text-secondary)' }}>Main Address:</strong> {detailedMainRecord.mainAddress}
-														</div>
-													)}
-													{detailedMainRecord.otherNames.length > 0 && (
-														<div className={styles.detailOtherNamesBlock}>
-															<div className={styles.detailOtherNamesHeading}>OTHER NAMES</div>
-															<div
-																className={styles.headerOtherNamesRow}
-																style={{ margin: 0 }}>
-																{detailedMainRecord.otherNames.map((name) => (
-																	<span
-																		key={name}
-																		className={styles.headerOtherNameTag}>
-																		{formatOtherName(name, currentRecordEntity === 'firm')}
-																	</span>
-																))}
-															</div>
 														</div>
 													)}
 												</div>
@@ -3969,21 +3993,7 @@ function DashboardPageInner() {
 				<div
 					className={styles.rightColumn}
 					data-right-open={String(newCrdsOpen)}>
-					<div className={styles.backLinkOutsideRow}>
-						<Link
-							href={graphHref}
-							onClick={handleGraphBackClick}
-							className={styles.backLink}>
-							← Graph
-						</Link>
-						<button
-							type='button'
-							className={styles.rightPaneToggle}
-							onClick={() => setNewCrdsOpen((open) => !open)}
-							aria-expanded={newCrdsOpen}>
-							{newCrdsOpen ? 'Hide' : 'Show'}
-						</button>
-					</div>
+
 
 					<aside
 						className={`${styles.rightPane} ${!newCrdsOpen ? styles.rightPaneCompact : ''}`}
