@@ -2960,12 +2960,13 @@ a,
 	display: grid;
 	grid-template-columns: 1fr 1fr;
 	width: 100%;
-	gap: 6px;
+	gap: 16px;
 }
 
 .fg-log-drawer-actions-row .fg-btn-sm {
 	min-width: 0;
 	justify-content: center;
+	width: 100%;
 }
 
 .fg-clear-labels-control {
@@ -4676,8 +4677,8 @@ text.fg-label {
 
 .fg-log-drawer-actions {
 	display: grid;
-	width: 100%;
-	gap: 6px;
+	width: 96%;
+	gap: 16px;
 	grid-template-columns: minmax(0, 1fr);
 }
 

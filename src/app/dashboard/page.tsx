@@ -1734,7 +1734,7 @@ function DashboardPageInner() {
 		const documentLinkCards = extractDocumentLinkCards(body);
 		const noticeFilingCards = extractNoticeFilingsCards(body);
 
-		const crs = (body.crs || body.Crs || body.CRS) && typeof (body.crs || body.Crs || body.CRS) === 'object' ? (body.crs || body.Crs || body.CRS) : null;
+		const crs = (body.crs || body.Crs || body.CRS) && typeof (body.crs || body.Crs || body.CRS) === 'object' ? body.crs || body.Crs || body.CRS : null;
 		const affiliateDisclosures =
 			(body.affiliateDisclosures || body['Affiliate Disclosures']) && typeof (body.affiliateDisclosures || body['Affiliate Disclosures']) === 'object' ?
 				body.affiliateDisclosures || body['Affiliate Disclosures']
@@ -1757,6 +1757,19 @@ function DashboardPageInner() {
 
 		const directOwners = toArray(body.directOwners).concat(toArray(body.directOwnersExecutiveOfficers));
 		const indirectOwners = toArray(body.indirectOwners);
+
+		// Build a compact disclosure summary when available (e.g. FINRA firm disclosures)
+		const disclosureSummary =
+			Array.isArray(body.disclosures) ?
+				body.disclosures
+					.map((d: any) => {
+						const disclosureType = String(d?.disclosureType || d?.type || d?.disclosure || '').trim();
+						const disclosureCount = Number(d?.disclosureCount ?? d?.count ?? 0) || 0;
+						if (!disclosureType || disclosureCount <= 0) return null;
+						return { disclosureType, disclosureCount };
+					})
+					.filter(Boolean)
+			:	[];
 
 		return {
 			name:
@@ -1793,6 +1806,7 @@ function DashboardPageInner() {
 			brochuresPart2Exempt,
 			directOwners,
 			indirectOwners,
+			disclosureSummary,
 		};
 	}, [mainJson, currentRecordEntity, currentRecordId]);
 
@@ -3117,6 +3131,26 @@ function DashboardPageInner() {
 												:	mainJsonLabel}
 											</h2>
 											{detailedMainRecord?.subtitle && <div className={styles.recordSubtitle}>{detailedMainRecord.subtitle}</div>}
+
+											{detailedMainRecord?.disclosureSummary && detailedMainRecord.disclosureSummary.length > 0 && (
+												<section
+													className={styles.detailSection}
+													style={{ marginTop: '12px' }}>
+													<h4 className={styles.detailSectionTitle}>Disclosures</h4>
+													<div className={styles.detailGrid}>
+														{detailedMainRecord.disclosureSummary.map((d: any) => (
+															<div
+																key={d.disclosureType}
+																className={styles.detailGridCard}>
+																<div className={styles.detailRowMain}>
+																	<span className={styles.detailRowName}>{d.disclosureType}</span>
+																	<span className={styles.detailInlineTag}>{d.disclosureCount}</span>
+																</div>
+															</div>
+														))}
+													</div>
+												</section>
+											)}
 										</>
 									}
 								</>
@@ -3711,31 +3745,6 @@ function DashboardPageInner() {
 																className={styles.detailTagState}>
 																{item.title}
 															</span>
-														))}
-													</div>
-												</section>
-											)}
-
-											{detailedMainRecord.additionalDetails.length > 0 && (
-												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Additional {additionalDetailsSourceLabel} Details</h4>
-													<div className={styles.detailGrid}>
-														{detailedMainRecord.additionalDetails.map((entry) => (
-															<div
-																key={`${entry.label}:${entry.value}`}
-																className={styles.detailGridCard}>
-																<div className={styles.detailRowMain}>
-																	<span className={styles.detailRowName}>{entry.label}</span>
-																	{entry.value.length <= 40 && (
-																		<span className={styles.detailInlineTag}>{entry.value}</span>
-																	)}
-																</div>
-																{entry.value.length > 40 && (
-																	<div className={styles.detailRowMeta} style={{ marginTop: '8px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'var(--text-secondary)' }}>
-																		{entry.value}
-																	</div>
-																)}
-															</div>
 														))}
 													</div>
 												</section>
