@@ -869,7 +869,7 @@ export default function FinraGraph() {
 
 		// Patch localStorage.setItem once to emit a custom event when selection log changes within same window.
 		try {
-			if (typeof window !== 'undefined' && !((window as any).__finra_ls_patch_applied)) {
+			if (typeof window !== 'undefined' && !(window as any).__finra_ls_patch_applied) {
 				const origSetItem = window.localStorage.setItem.bind(window.localStorage);
 				window.localStorage.setItem = function (k, v) {
 					origSetItem(k, v);
@@ -886,13 +886,16 @@ export default function FinraGraph() {
 		}
 
 		// Listen for selection log changes (same-tab via patched event, cross-tab via storage event)
+		const MAX_SELECTED_URL = 200;
 		const applySelectionLogToUrl = () => {
 			try {
 				const raw = localStorage.getItem('finra_selection_log');
 				if (!raw) return;
 				const parsed = JSON.parse(raw);
 				if (!Array.isArray(parsed) || !parsed.length) return;
-				const ids = parsed.map((entry: any) => String(entry?.id || '').trim()).filter(Boolean);
+				// keep only the most-recent MAX_SELECTED_URL entries
+				const recent = parsed.length > MAX_SELECTED_URL ? parsed.slice(-MAX_SELECTED_URL) : parsed;
+				const ids = recent.map((entry: any) => String(entry?.id || '').trim()).filter(Boolean);
 				if (!ids.length) return;
 				const url = new URL(window.location.href);
 				const existing = String(url.searchParams.get('selected') || '').trim();

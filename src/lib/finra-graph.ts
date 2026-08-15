@@ -4095,7 +4095,9 @@ function updateSelectionLogUI() {
 
 function buildShareableSelectionUrl(): string {
 	if (typeof window === 'undefined' || !selectedNodesLog.length) return '';
-	const ids = selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter(Boolean);
+	const MAX_SELECTED_URL = 200;
+	const allIds = selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter(Boolean);
+	const ids = allIds.length > MAX_SELECTED_URL ? allIds.slice(-MAX_SELECTED_URL) : allIds;
 	if (!ids.length) return '';
 	const url = new URL(window.location.href);
 	url.searchParams.set('selected', ids.join(','));
