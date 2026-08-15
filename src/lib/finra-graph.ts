@@ -7329,8 +7329,8 @@ function mergeIntoGraphData(newNodes, newLinks) {
 		if (typeof window !== 'undefined') {
 			try {
 				// Temporarily suppress selection-log -> URL syncing so clearing the URL
-				// isn't immediately reverted by other UI syncs. Suppress for 5 minutes.
-				window.dispatchEvent(new CustomEvent('finra:suppress-selection-url', { detail: { ms: 300000 } }));
+				// isn't immediately reverted by other UI syncs. Suppress for 500ms.
+				window.dispatchEvent(new CustomEvent('finra:suppress-selection-url', { detail: { ms: 500 } }));
 			} catch (e) {
 				/* ignore */
 			}
