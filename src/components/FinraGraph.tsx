@@ -1175,12 +1175,12 @@ export default function FinraGraph() {
 									Copy All
 								</button>
 								<button
-									id='btn-selection-log-copy-link'
-									data-fg-selection-log-action='copy-link'
+									id='btn-selection-log-toggle-bold'
+									data-fg-selection-log-action='toggle-bold'
 									className='fg-ghost-btn fg-btn-sm'
 									type='button'
-									title='Copy a shareable link to the logged nodes'>
-									Copy Link
+									title='Make log entries larger and bolder'>
+									<strong>Log Bold</strong>
 								</button>
 							</div>
 							<div className='fg-log-drawer-actions-row fg-log-drawer-actions-row--tertiary'>
@@ -1309,6 +1309,13 @@ export default function FinraGraph() {
 								className='fg-ghost-btn fg-clear-non-connected-btn'
 								title='Keep only nodes connected to the current selection'>
 								Clear non-connected
+							</button>
+							<button
+								type='button'
+								data-fg-graph-action='clear-non-log'
+								className='fg-ghost-btn fg-clear-non-log-btn'
+								title='Keep only nodes that appear in the selection log'>
+								Clear non-log
 							</button>
 							<button
 								type='button'
