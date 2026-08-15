@@ -1309,16 +1309,8 @@ export default function FinraGraph() {
 								title='Make log entries larger and bolder'>
 								Log Bold
 							</button>
-							<button
-								type='button'
-								data-fg-action='clear-session'
-								className='fg-danger-btn'
-								title='Clear saved session and reload fresh'>
-								Reset Session
-							</button>
-							<div
-								className='fg-clear-labels-control'
-								style={{ width: '100%', marginLeft: '8px' }}>
+
+							<div className='fg-clear-labels-control'>
 								<button
 									id='btn-sidebar-clear-labels'
 									data-fg-selection-log-action='clear-labels-menu'
@@ -1415,6 +1407,13 @@ export default function FinraGraph() {
 									aria-hidden='true'>
 									↺
 								</span>
+							</button>
+							<button
+								type='button'
+								data-fg-action='clear-session'
+								className='fg-danger-btn'
+								title='Clear saved session and reload fresh'>
+								Reset Session
 							</button>
 							<ThemeToggle />
 						</div>

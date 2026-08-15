@@ -2119,14 +2119,15 @@ a,
 .fg-sidebar-action-btn--mobile-only {
 	display: inline-flex;
 }
-
+.theme-toggle-btn {
+	margin-top: 17px;
+}
 .fg-sidebar-mobile-actions {
 	display: flex;
 	padding: 8px 44px 0 8px;
 	gap: 6px;
 	position: sticky;
 	top: 42px;
-	z-index: 99;
 	flex-wrap: wrap;
 	align-items: stretch;
 }
@@ -2145,6 +2146,7 @@ a,
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	height: 35px;
 }
 
 .fg-sidebar-action-btn,
@@ -2416,7 +2418,7 @@ a,
 .fg-sidebar {
 	--fg-sidebar-sticky-offset: 78px;
 	--fg-sidebar-sticky-pad-x: 4px;
-
+	margin-top: 0;
 	background:
 		linear-gradient(217deg, rgba(255, 255, 255, 0.8), transparent 90.71%), linear-gradient(127deg, rgba(255, 255, 255, 0.68), transparent 60.71%),
 		linear-gradient(336deg, rgba(255, 255, 255, 1), transparent 100%);
@@ -2970,12 +2972,19 @@ a,
 }
 
 .fg-clear-labels-control {
-	position: relative;
-	flex: 1 1 0;
-	min-width: 0;
+	flex-direction: column-reverse;
+	flex: content;
+	gap: 0;
+	min-width: 142px;
 	display: flex;
-	flex-direction: column;
-	gap: 4px;
+	position: relative;
+	margin-right: auto;
+	margin: 0;
+	margin: 0;
+	padding: 0;
+	flex-wrap: nowrap;
+	align-content: center;
+	align-items: stretch;
 }
 
 .fg-clear-labels-control__toggle {

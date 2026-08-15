@@ -49,7 +49,7 @@ export default function ThemeToggle() {
 	return (
 		<button
 			type='button'
-			className='fg-sidebar-action-btn fg-sidebar-action-btn--theme fg-sidebar-action-btn--icon-only'
+			className='fg-sidebar-action-btn fg-sidebar-action-btn--theme fg-sidebar-action-btn--icon-only theme-toggle-btn'
 			onClick={handleToggle}
 			title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
 			aria-pressed={theme === 'dark'}
