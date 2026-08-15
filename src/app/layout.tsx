@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import { Urbanist } from 'next/font/google';
-import { SpeedInsights } from '@vercel/speed-insights/next';
 import AnalyticsRouteBridge from '@/components/AnalyticsRouteBridge';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
 import AnalyticsClient from '@/components/AnalyticsClient';
+import SpeedInsightsClient from '@/components/SpeedInsightsClient';
 import './globals.css';
 
 const urbanist = Urbanist({
@@ -107,8 +107,6 @@ const themeLoaderScript = `
 })();
 `;
 
-const shouldRenderSpeedInsights = process.env.NODE_ENV === 'production';
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
 	return (
 		<html
@@ -123,8 +121,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 				{process.env.NODE_ENV === 'production' ?
 					<AnalyticsClient />
 				:	null}
-				{shouldRenderSpeedInsights ?
-					<SpeedInsights />
+				{process.env.NODE_ENV === 'production' ?
+					<SpeedInsightsClient />
 				:	null}
 			</body>
 		</html>
