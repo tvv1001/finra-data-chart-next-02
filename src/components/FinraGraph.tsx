@@ -1301,6 +1301,44 @@ export default function FinraGraph() {
 								title='Make log entries larger and bolder'>
 								Log Bold
 							</button>
+
+							<div className='fg-clear-labels-control' style={{ width: '100%', marginLeft: '8px' }}>
+								<button
+									id='btn-sidebar-clear-labels'
+									data-fg-selection-log-action='clear-labels-menu'
+									className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-clear-labels-control__toggle'
+									type='button'
+									aria-expanded='false'
+									title='Choose whether to clear all large labels or only people labels'
+									style={{ width: 'auto', justifyContent: 'center' }}>
+									Clear Labels
+									</button>
+								<div
+									className='fg-clear-labels-control__menu'
+									role='menu'
+									hidden>
+									<button
+										data-fg-selection-log-action='clear-labels'
+										data-fg-clear-labels-scope='all'
+										className='fg-ghost-btn fg-btn-sm'
+										type='button'
+										role='menuitem'
+										hidden
+										title='Shrink all currently enlarged labels'>
+										All labels
+									</button>
+									<button
+										data-fg-selection-log-action='clear-labels'
+										data-fg-clear-labels-scope='people'
+										className='fg-ghost-btn fg-btn-sm'
+										type='button'
+										role='menuitem'
+										hidden
+										title='Shrink only enlarged people labels'>
+										People only
+									</button>
+								</div>
+							</div>
 						</div>
 						<div className='fg-sidebar-mobile-actions'>
 							<button
