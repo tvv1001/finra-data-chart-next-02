@@ -1748,6 +1748,19 @@
 	text-transform: capitalize;
 }
 
+.recordBadgeInactive {
+	display: inline-flex;
+	align-items: center;
+	padding: 4px 8px;
+	border: 1px solid rgba(148, 163, 184, 0.5);
+	background: rgba(51, 65, 85, 0.35);
+	color: #94a3b8;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: capitalize;
+}
+
 .recordTitle {
 	color: var(--text-primary);
 	font-size: 22px;

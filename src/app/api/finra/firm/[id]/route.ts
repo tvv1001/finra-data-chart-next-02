@@ -7,6 +7,7 @@ import { queueHydration } from '@/lib/hydration';
 import { addRecordToSearchIndex } from '@/lib/localSearch';
 import { getFirmConnectionsFromGraph } from '@/lib/graphConnections';
 import { recordOwnerReferencesForFirm, lookupFirmReference } from '@/lib/ownerReferenceIndex';
+import { hasFirmSourceCoverage } from '@/lib/sourceTruth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -265,7 +266,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		detail.hasFinraData = hasPublicFinraFirmDetail(bcDetail, bcDetail?.basicInformation || {});
 
 		const suppressSecLinks = SUPPRESSED_SEC_FIRM_IDS.has(id);
-		detail.hasSecData = !suppressSecLinks && Boolean(secFirmId) && Boolean(secDetail || detail?.hasSecData);
+		const secHasCoverage = secDetail ? hasFirmSourceCoverage(secDetail, 'sec') : false;
+		detail.hasSecData = !suppressSecLinks && Boolean(secFirmId) && Boolean(secHasCoverage || detail?.hasSecData);
 
 		if (!suppressSecLinks && typeof detail.secSummaryDescription === 'string' && !detail.secSummaryDescription.trim()) {
 			delete detail.secSummaryDescription;

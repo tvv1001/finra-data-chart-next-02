@@ -1678,7 +1678,8 @@ function DashboardPageInner() {
 			formatAddress(body.iaFirmAddressDetails?.officeAddress) ||
 			formatAddress(body.firmAddressDetails?.officeAddress) ||
 			extractCurrentBranchOfficeAddress(body) ||
-			formatAddress(body.address);
+			formatAddress(body.address) ||
+			'Address not found';
 		const otherNames = collectOtherNames(basic.otherNames, body.otherNames, basic.aliases, body.aliases);
 
 		const sortEmployment = (arr: any[]) => {
@@ -1847,6 +1848,7 @@ function DashboardPageInner() {
 			bdDisclosureFlag,
 			iaDisclosureFlag,
 			brochuresPart2Exempt,
+			basicInformation: basic,
 			directOwners,
 			indirectOwners,
 			disclosureSummary,
@@ -3156,8 +3158,16 @@ function DashboardPageInner() {
 												{currentRecordId && <span className={styles.recordBadgeCrd}>CRD {currentRecordId}</span>}
 												{detailedMainRecord?.hasFinraData && <span className={styles.tagFinra}>FINRA</span>}
 												{detailedMainRecord?.hasSecData && <span className={styles.tagSec}>SEC</span>}
-												{detailedMainRecord?.finraActive && <span className={styles.recordBadgeActive}>{detailedMainRecord.finraActive}</span>}
-												{detailedMainRecord?.secActive && <span className={styles.recordBadgeActive}>{detailedMainRecord.secActive}</span>}
+												{detailedMainRecord?.finraActive && (
+													<span className={detailedMainRecord.finraActive.toLowerCase().includes('inactive') ? styles.recordBadgeInactive : styles.recordBadgeActive}>
+														{detailedMainRecord.finraActive}
+													</span>
+												)}
+												{detailedMainRecord?.secActive && (
+													<span className={detailedMainRecord.secActive.toLowerCase().includes('inactive') ? styles.recordBadgeInactive : styles.recordBadgeActive}>
+														{detailedMainRecord.secActive}
+													</span>
+												)}
 												<div className={styles.mainViewToggle}>
 													<button
 														type='button'
@@ -3373,6 +3383,25 @@ function DashboardPageInner() {
 														</div>
 													)}
 												</div>
+											)}
+
+											{detailedMainRecord.basicInformation && Object.keys(detailedMainRecord.basicInformation).length > 0 && (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Basic Information</h4>
+													<div className={styles.detailRawList}>
+														{Object.entries(detailedMainRecord.basicInformation).map(([key, value]) => {
+															if (value == null || typeof value === 'object' || String(value).trim() === '') return null;
+															return (
+																<div key={key} className={styles.detailRawItem}>
+																	<div className={styles.detailRawLabel}>
+																		{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+																	</div>
+																	<div className={styles.detailRawValue}>{String(value)}</div>
+																</div>
+															);
+														})}
+													</div>
+												</section>
 											)}
 
 											<section className={styles.detailSection}>
