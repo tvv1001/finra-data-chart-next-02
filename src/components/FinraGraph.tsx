@@ -866,6 +866,49 @@ export default function FinraGraph() {
 			});
 			setGraphReady(true);
 		});
+
+		// Patch localStorage.setItem once to emit a custom event when selection log changes within same window.
+		try {
+			if (typeof window !== 'undefined' && !((window as any).__finra_ls_patch_applied)) {
+				const origSetItem = window.localStorage.setItem.bind(window.localStorage);
+				window.localStorage.setItem = function (k, v) {
+					origSetItem(k, v);
+					try {
+						window.dispatchEvent(new CustomEvent('finra:selection-log-changed', { detail: { key: k, value: v } }));
+					} catch (e) {
+						// ignore
+					}
+				};
+				(window as any).__finra_ls_patch_applied = true;
+			}
+		} catch (e) {
+			// ignore
+		}
+
+		// Listen for selection log changes (same-tab via patched event, cross-tab via storage event)
+		const applySelectionLogToUrl = () => {
+			try {
+				const raw = localStorage.getItem('finra_selection_log');
+				if (!raw) return;
+				const parsed = JSON.parse(raw);
+				if (!Array.isArray(parsed) || !parsed.length) return;
+				const ids = parsed.map((entry: any) => String(entry?.id || '').trim()).filter(Boolean);
+				if (!ids.length) return;
+				const url = new URL(window.location.href);
+				const existing = String(url.searchParams.get('selected') || '').trim();
+				const next = ids.join(',');
+				if (existing === next) return;
+				url.searchParams.set('selected', next);
+				window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+			} catch (e) {
+				// ignore
+			}
+		};
+
+		window.addEventListener('finra:selection-log-changed', applySelectionLogToUrl as EventListener);
+		window.addEventListener('storage', (ev) => {
+			if (ev.key === 'finra_selection_log') applySelectionLogToUrl();
+		});
 	}, [isMounted, routeNodeId, searchParams]);
 
 	if (!isMounted) {
