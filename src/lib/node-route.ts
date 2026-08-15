@@ -67,6 +67,21 @@ export function normalizeNodeRouteId(nodeIdOrSlug: string | null | undefined) {
 	return fromNodeRouteSlug(normalizedValue);
 }
 
+/** Query params that should survive node-to-node navigation. */
+const STICKY_PARAMS = ['disable_analytics', 'localApi', 'profile'];
+
+function getStickySearch(): string {
+	if (typeof window === 'undefined') return '';
+	const current = new URLSearchParams(window.location.search);
+	const sticky = new URLSearchParams();
+	for (const key of STICKY_PARAMS) {
+		const val = current.get(key);
+		if (val !== null) sticky.set(key, val);
+	}
+	const str = sticky.toString();
+	return str ? `?${str}` : '';
+}
+
 export function buildNodeRoutePath(nodeId: string | null | undefined) {
 	const normalizedNodeId = String(nodeId || '').trim();
 	if (!normalizedNodeId) return '/';
@@ -78,7 +93,7 @@ export function buildNodeRoutePath(nodeId: string | null | undefined) {
 }
 
 export function buildNodeRouteHref(nodeId: string | null | undefined, search = '') {
-	return buildNodeRoutePath(nodeId);
+	return buildNodeRoutePath(nodeId) + getStickySearch();
 }
 
 export function parseNodeIdFromPathname(pathname: string | null | undefined) {
