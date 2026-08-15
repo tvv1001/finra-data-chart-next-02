@@ -105,6 +105,9 @@ Apply this skill when the user:
   - `https://api.adviserinfo.sec.gov/search/individual/<CRD>?wt=json`
   - `https://api.brokercheck.finra.org/search/firm/<CRD>?hl=true&wt=json`
   - `https://api.adviserinfo.sec.gov/search/firm/<CRD>?wt=json`
+  - `https://api.adviserinfo.sec.gov/search/firm/<CRD>?wt=json`
+  - `https://api.adviserinfo.sec.gov/search/individual?firm=<FIRM_CRD>&includePrevious&hl=true` (list individuals for a firm)
+  - `https://api.brokercheck.finra.org/search/individual?firm=<FIRM_CRD>&includePrevious&hl=true` (list individuals for a firm)
   - `https://api.brokercheck.finra.org/search/individual/<CRD>?hl=true&includePrevious=true&nrows=12&r=25&sort=bc_lastname_sort+asc,bc_firstname_sort+asc,bc_middlename_sort+asc,score+desc&wt=json`
   - `https://api.brokercheck.finra.org/search/firm/<CRD>?hl=true&nrows=12&query=&start=0&wt=json`
   - `https://api.adviserinfo.sec.gov/search/individual/<CRD>?hl=true&includePrevious=true&nrows=12&r=25&sort=bc_lastname_sort+asc,bc_firstname_sort+asc,bc_middlename_sort+asc,score+desc&wt=json`
@@ -118,6 +121,16 @@ Responses are saved with filenames matching the existing naming convention, for 
 - `api.adviserinfo.sec.gov_search_individual_<CRD>.json`
 - `api.brokercheck.finra.org_search_firm_<CRD>.json`
 - `api.adviserinfo.sec.gov_search_firm_<CRD>.json`
+
+Notes on firm->individual connections
+
+- Some firm-level endpoints return lists of individual records (people) associated with a firm. When crawling `search?firm=<FIRM_CRD>` endpoints you MUST:
+  - save the firm-level response to disk using the existing naming convention (e.g. `api.adviserinfo.sec.gov_search_firm_<CRD>.json`),
+  - iterate the returned person CRDs and request each person's individual payload via the individual search endpoints, writing each person's cache file and pushing to Redis via the established `setStringIfValid` flow,
+  - record or update `data/firm-connections/<FIRM_CRD>.json` (or the project's existing firm-connections store) to reflect all person CRDs discovered for that firm, and
+  - run the malformed-check script (`scripts/check_malformed_crds.js --redis`) to validate both disk and local Redis payloads after the import.
+
+- Some firm connections may have already been downloaded; do not assume completeness. Always verify each person CRD discovered in the firm listing is present on disk/Redis and re-fetch any missing or malformed person records.
 
 ## Workflow
 

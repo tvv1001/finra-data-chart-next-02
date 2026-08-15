@@ -142,13 +142,49 @@ async function main() {
 	}
 
 	const report = [];
-	for (const r of results) {
-		const entry = { file: r.file, key: r.key, disk: r.disk };
-		if (redis && r.key) {
-			const redisRes = await checkRedisKey(redis, r.key);
-			entry.redis = redisRes;
+
+	const onlyRedis = process.argv.includes('--only-redis');
+	if (onlyRedis) {
+		if (!redis) {
+			console.error('Cannot run --only-redis without a Redis client (set USE_LOCAL_REDIS=1)');
+			process.exit(1);
 		}
-		report.push(entry);
+		// Discover keys directly from Redis (finra:*, sec:*)
+		let keys = [];
+		try {
+			// prefer scan if available
+			if (typeof redis.scanStream === 'function') {
+				const stream = redis.scanStream({ match: 'finra:*', count: 1000 });
+				for await (const ks of stream) {
+					keys.push(...ks);
+				}
+				const stream2 = redis.scanStream({ match: 'sec:*', count: 1000 });
+				for await (const ks of stream2) {
+					keys.push(...ks);
+				}
+			} else if (typeof redis.keys === 'function') {
+				const k1 = await redis.keys('finra:*');
+				const k2 = await redis.keys('sec:*');
+				keys = k1.concat(k2);
+			}
+		} catch (e) {
+			console.error('Error listing Redis keys:', e.message || e);
+		}
+
+		console.log('Found', keys.length, 'redis keys to check');
+		for (const key of keys) {
+			const redisRes = await checkRedisKey(redis, key);
+			report.push({ file: null, key, disk: null, redis: redisRes });
+		}
+	} else {
+		for (const r of results) {
+			const entry = { file: r.file, key: r.key, disk: r.disk };
+			if (redis && r.key) {
+				const redisRes = await checkRedisKey(redis, r.key);
+				entry.redis = redisRes;
+			}
+			report.push(entry);
+		}
 	}
 
 	const malformed = report.filter((e) => (e.disk && e.disk.ok === false) || (e.redis && e.redis.ok === false));
