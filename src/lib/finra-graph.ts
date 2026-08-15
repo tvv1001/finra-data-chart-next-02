@@ -7327,13 +7327,6 @@ function mergeIntoGraphData(newNodes, newLinks) {
 	// not perform a full navigation.
 	try {
 		if (typeof window !== 'undefined') {
-			try {
-				// Temporarily suppress selection-log -> URL syncing so clearing the URL
-				// isn't immediately reverted by other UI syncs. Suppress for 500ms.
-				window.dispatchEvent(new CustomEvent('finra:suppress-selection-url', { detail: { ms: 500 } }));
-			} catch (e) {
-				/* ignore */
-			}
 			if (window.history && typeof window.history.replaceState === 'function') {
 				window.history.replaceState(window.history.state, document.title || '', '/');
 			}
