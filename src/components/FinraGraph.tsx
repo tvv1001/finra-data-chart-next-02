@@ -499,16 +499,20 @@ export default function FinraGraph() {
 
 	useEffect(() => {
 		if (!isMounted) return;
-		const syncBrowserLocation = () => {
+		// Sync once on mount, then only on browser back/forward (popstate).
+		// Do NOT re-run when pathname changes — we control browserPathname
+		// directly via setBrowserPathname on node clicks, and re-syncing
+		// from window.location would overwrite our pushState-driven value.
+		setBrowserPathname(window.location.pathname);
+		const syncOnPopState = () => {
 			setBrowserPathname(window.location.pathname);
 		};
-
-		syncBrowserLocation();
-		window.addEventListener('popstate', syncBrowserLocation);
+		window.addEventListener('popstate', syncOnPopState);
 		return () => {
-			window.removeEventListener('popstate', syncBrowserLocation);
+			window.removeEventListener('popstate', syncOnPopState);
 		};
-	}, [isMounted, pathname]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [isMounted]);
 
 	useEffect(() => {
 		if (!isMounted) return;
