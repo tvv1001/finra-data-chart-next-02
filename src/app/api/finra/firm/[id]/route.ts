@@ -393,7 +393,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				const prevRaw = await redis.get(snapKey).catch(() => null);
 				let prev = null;
 				try {
-					prev = prevRaw ? JSON.parse(prevRaw) : null;
+					const prevRawStr =
+						typeof prevRaw === 'string' ? prevRaw
+						: prevRaw == null ? null
+						: String(prevRaw);
+					prev = prevRawStr ? JSON.parse(prevRawStr) : null;
 				} catch {
 					prev = null;
 				}
