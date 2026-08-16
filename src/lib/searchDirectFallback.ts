@@ -6,8 +6,8 @@ import type { LocalSearchEntity, LocalSearchResponse, LocalSearchSource } from '
 let cachedRedisClient: Redis | null = null;
 function getUpstashClient() {
 	if (cachedRedisClient) return cachedRedisClient;
-	const url = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL);
-	const token = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN);
+	const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
+	const token = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN;
 	if (!url || !token) return null;
 	cachedRedisClient = getRedisClientInstance({ url, token });
 	return cachedRedisClient;
@@ -40,7 +40,7 @@ export async function searchDirectRedisFallback(
 				})()
 			:	raw;
 		const id = type === 'individual' ? `person:${normalizedQuery}` : `firm:${normalizedQuery}`;
-		
+
 		const limit = options.limit ?? 12;
 		const offset = options.offset ?? 0;
 

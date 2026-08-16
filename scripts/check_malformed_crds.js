@@ -86,8 +86,9 @@ async function getRedisClient() {
 		}
 	}
 	// Try upstash
-	const url = process.env.UPSTASH_REDIS_REST_URL || process.env.UPSTASH_REDIS_REST_URL_2;
-	const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN_2;
+	// prefer MIRROR env var but fall back to legacy _2 names
+	const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL || process.env.UPSTASH_REDIS_REST_URL_2;
+	const token = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN_2;
 	if (!url || !token) return null;
 	try {
 		const { Redis } = require('@upstash/redis');

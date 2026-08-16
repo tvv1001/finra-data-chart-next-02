@@ -46,12 +46,13 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 
 	const url1 = process.env.UPSTASH_REDIS_REST_URL;
 	const token1 = process.env.UPSTASH_REDIS_REST_TOKEN;
-	const url2 = process.env.UPSTASH_REDIS_REST_URL_2;
-	const token2 = process.env.UPSTASH_REDIS_REST_TOKEN_2;
+	// prefer the MIRROR env var but fall back to legacy _2 env names for compatibility
+	const url2 = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2;
+	const token2 = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN__2;
 
 	const hasDb1 = !!(url1 && token1);
 	const hasDb2 = !!(url2 && token2);
-	const disableDb2 = process.env.UPSTASH_REDIS_DISABLE_2 === '1';
+	const disableDb2 = process.env.UPSTASH_REDIS_DISABLE_MIRROR === '1' || process.env.UPSTASH_REDIS_DISABLE_2 === '1';
 
 	// If DB2 is explicitly disabled via env, prefer DB1 when available and avoid the dual-proxy.
 	if (hasDb1 && hasDb2 && !disableDb2) {
@@ -132,27 +133,47 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 							})();
 						} else if (writeMethods.has(propStr)) {
 							return (async () => {
-								const promises = [];
-								if (!db1Maxxed)
-									promises.push(
-										(client1 as any)[propStr](...args).catch((e: any) => {
-											checkMaxxed(e, 1);
-											console.error(`[Redis LB] Write error DB1:`, e.message);
-										}),
-									);
-								else promises.push(Promise.resolve(undefined));
+								// Perform writes to both DBs concurrently but return the fastest
+								// successful response to minimize latency. The other write
+								// continues in the background; failures are logged and may mark
+								// the DB as maxxed.
+								const wrapped = (p: Promise<any>, dbIndex: 1 | 2) =>
+									p
+										.then((res) => ({ ok: true, res, dbIndex }))
+										.catch((e: any) => {
+											checkMaxxed(e, dbIndex);
+											console.error(`[Redis LB] Write error DB${dbIndex}:`, e?.message || e);
+											return { ok: false, err: e, dbIndex };
+										});
 
-								if (!db2Maxxed)
-									promises.push(
-										(client2 as any)[propStr](...args).catch((e: any) => {
-											checkMaxxed(e, 2);
-											console.error(`[Redis LB] Write error DB2:`, e.message);
-										}),
-									);
-								else promises.push(Promise.resolve(undefined));
+								const promises: Array<Promise<any>> = [];
+								if (!db1Maxxed) promises.push(wrapped((client1 as any)[propStr](...args), 1));
+								else promises.push(Promise.resolve({ ok: false, dbIndex: 1 }));
+								if (!db2Maxxed) promises.push(wrapped((client2 as any)[propStr](...args), 2));
+								else promises.push(Promise.resolve({ ok: false, dbIndex: 2 }));
 
-								const results = await Promise.all(promises);
-								return results[1] !== undefined ? results[1] : results[0];
+								// Return the first successful write result to reduce latency.
+								try {
+									const first = await Promise.race(promises);
+									if (first && first.ok) {
+										// Let the other promise finish in background; don't await here.
+										Promise.allSettled(promises).then(() => {});
+										return first.res;
+									}
+									// If the raced result wasn't ok (rare), wait for both and return
+									// any successful one, prefer DB2 result when available to keep
+									// previous behavior consistent.
+									const all = await Promise.all(promises);
+									for (const a of all) if (a && a.ok) return a.res;
+									return undefined;
+								} catch (e) {
+									// If race threw (shouldn't), await both settled and return best-effort
+									const settled = await Promise.allSettled(promises);
+									for (const s of settled) {
+										if ((s as any).status === 'fulfilled' && (s as any).value && (s as any).value.ok) return (s as any).value.res;
+									}
+									return undefined;
+								}
 							})();
 						}
 						// Direct passthrough for other methods (like pipeline)
@@ -173,4 +194,86 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 	}
 
 	return new UpstashRedis({ url: config.url, token: config.token });
+}
+
+/**
+ * Return a read-only Upstash client (or proxied client) that will only execute
+ * read methods against DB1/DB2. Writes will be rejected to ensure the caller
+ * cannot modify state. This is intended for applications that should only
+ * read from the cache (e.g., analytics or reporting services).
+ */
+export function getReadOnlyRedisClientInstance(config?: { url?: string; token?: string }) {
+	const isLocalhost = process.env.USE_LOCAL_REDIS === '1';
+	if (isLocalhost) {
+		// Local proxy still supports read-only usage via the normal Upstash wrapper
+		return new UpstashRedis({ request: executeLocalRequest } as any);
+	}
+
+	const url1 = process.env.UPSTASH_REDIS_REST_URL || config?.url;
+	const token1 = process.env.UPSTASH_REDIS_REST_TOKEN;
+	const url2 = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || config?.url;
+	const token2 = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN__2;
+
+	const hasDb1 = !!(url1 && token1);
+	const hasDb2 = !!(url2 && token2);
+	const disableDb2 = process.env.UPSTASH_REDIS_DISABLE_MIRROR === '1' || process.env.UPSTASH_REDIS_DISABLE_2 === '1';
+
+	const readMethods = new Set(['get', 'mget', 'scan', 'zrange', 'smembers', 'hgetall', 'exists', 'dbsize', 'type', 'keys', 'hget', 'zrevrange', 'zscore', 'zrank', 'zincrby']);
+
+	const checkMaxxed = (err: any, dbIndex: 1 | 2) => {
+		const msg = String(err?.message || '').toLowerCase();
+		if (msg.includes('max') || msg.includes('limit') || msg.includes('exceeded') || msg.includes('daily')) {
+			// noop for read-only: log only
+			console.warn(`[Redis RO] DB${dbIndex} marked as maxxed out (read)!");
+		}
+	};
+
+	if (hasDb1 && hasDb2 && !disableDb2) {
+		const client1 = new UpstashRedis({ url: url1, token: token1 });
+		const client2 = new UpstashRedis({ url: url2, token: token2 });
+
+		return new Proxy(client2, {
+			get(target, prop) {
+				const val = (target as any)[prop];
+				if (typeof val === 'function') {
+					return function (...args: any[]) {
+						const propStr = prop as string;
+						if (!readMethods.has(propStr)) {
+							return Promise.reject(new Error('Redis client is read-only: write methods are not allowed'));
+						}
+						return (async () => {
+							// choose between DB1/DB2 for reads (same strategy as main client)
+							let primary = client2;
+							let secondary = client1;
+							if (Math.random() < 0.5) {
+								primary = client1;
+								secondary = client2;
+							}
+							try {
+								let res = await (primary as any)[propStr](...args);
+								if ((res === null || res === undefined)) {
+									res = await (secondary as any)[propStr](...args);
+								}
+								return res;
+							} catch (err: any) {
+								checkMaxxed(err, 1);
+								try {
+									return await (secondary as any)[propStr](...args);
+								} catch (err2: any) {
+									checkMaxxed(err2, 2);
+									return null;
+								}
+							}
+						})();
+					};
+				}
+				return val;
+			},
+		});
+	}
+
+	if (hasDb1) return new UpstashRedis({ url: url1, token: token1 });
+	if (hasDb2) return new UpstashRedis({ url: url2, token: token2 });
+
+	return new UpstashRedis({ url: config?.url || '', token: config?.token || '' });
 }

@@ -54,8 +54,8 @@ function isValidUpstashUrl(value: string) {
 }
 
 function getRedis() {
-	const url = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL);
-	const token = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN);
+	const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
+	const token = process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN;
 	if (!url || !token || !isValidUpstashUrl(url)) return null;
 	const cacheKey = `${url}::${token}`;
 	if (redisClientCache.has(cacheKey)) return redisClientCache.get(cacheKey) ?? null;

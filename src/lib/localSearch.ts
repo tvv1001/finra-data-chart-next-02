@@ -11,7 +11,7 @@ import * as zlib from 'node:zlib';
 let cachedRedisClient: Redis | null = null;
 function getUpstashClient() {
 	if (cachedRedisClient) return cachedRedisClient;
-	const url = process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
+	const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN;
 	if (!url || !token) return null;
 	cachedRedisClient = getRedisClientInstance({ url, token });

@@ -54,8 +54,9 @@ function parseRedisValue<T>(raw: unknown): T | null {
 
 function getUpstash(): Redis | null {
 	if (upstash !== null) return upstash;
-	const url = process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
-	const token = process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN;
+	// prefer MIRROR env var first, fall back to legacy _2 names
+	const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
+	const token = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN;
 	if (url && token) upstash = getRedisClientInstance({ url, token });
 	return upstash;
 }

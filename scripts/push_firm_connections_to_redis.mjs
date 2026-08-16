@@ -34,9 +34,10 @@ async function main() {
 	loadEnv(path.join(process.cwd(), '.env.local'));
 	loadEnv(path.join(process.cwd(), '.env'));
 
-	// Support both single-underscore and accidental double-underscore env var names
-	const url = process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
-	const token = process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN__2;
+	// Prefer MIRROR env vars, fall back to legacy _2 names for compatibility
+	const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
+	const token =
+		process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN__2;
 	if (!url || !token) {
 		console.error('Missing UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN in env');
 		process.exit(2);

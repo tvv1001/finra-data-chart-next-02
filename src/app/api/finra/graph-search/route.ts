@@ -129,8 +129,9 @@ async function persistGraphSearchNodesAndLinks(newNodes: any[], newLinks: any[])
 		await saveGraph(graph);
 
 		try {
-			const url = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL);
-			const token = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN);
+			// prefer MIRROR env var but fall back to legacy _2 names
+			const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
+			const token = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN;
 			if (url && token) {
 				const redis = new UpstashRedis({ url, token });
 				const ts = new Date().toISOString();
@@ -423,14 +424,14 @@ export async function GET(request: NextRequest) {
 								const firmNodeId = `firm:${fid}`;
 								if (!seenIds.has(firmNodeId)) {
 									seenIds.add(firmNodeId);
-									newNodes.push({ 
-										id: firmNodeId, 
-										label: e?.firm_name || e?.firmName || `Firm ${fid}`, 
-										group: 'firm', 
-										firmId: fid, 
+									newNodes.push({
+										id: firmNodeId,
+										label: e?.firm_name || e?.firmName || `Firm ${fid}`,
+										group: 'firm',
+										firmId: fid,
 										_source: 'local-search',
 										firmStatus: e?.firmStatus || e?.status || e?.registrationStatus || null,
-										bcScope: e?.firmBCScope || e?.bcScope || null
+										bcScope: e?.firmBCScope || e?.bcScope || null,
 									});
 								}
 								newLinks.push({
@@ -449,15 +450,15 @@ export async function GET(request: NextRequest) {
 						const firmNodeId = `firm:${firmId}`;
 						if (!seenIds.has(firmNodeId)) {
 							seenIds.add(firmNodeId);
-							newNodes.push({ 
-								id: firmNodeId, 
-								label: src?.firm_name || src?.firmName || `Firm ${firmId}`, 
-								group: 'firm', 
-								firmId, 
+							newNodes.push({
+								id: firmNodeId,
+								label: src?.firm_name || src?.firmName || `Firm ${firmId}`,
+								group: 'firm',
+								firmId,
 								_source: 'local-search',
 								firmStatus: src?.firmStatus || src?.status || src?.registrationStatus || src?.basicInformation?.firmStatus || null,
 								bcScope: src?.firm_bc_scope || src?.bcScope || src?.basicInformation?.bcScope || null,
-								iaScope: src?.iaScope || src?.basicInformation?.iaScope || null
+								iaScope: src?.iaScope || src?.basicInformation?.iaScope || null,
 							});
 						}
 					}

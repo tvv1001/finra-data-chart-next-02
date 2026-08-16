@@ -166,8 +166,9 @@ export function buildPrimedBackfillEntries(bundles: Partial<Record<PrimedBundleN
 }
 
 export function createPrimedBackfillRedisClient(): Redis | null {
-	const url = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL);
-	const token = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN);
+	// prefer MIRROR env var but fall back to legacy _2 names
+	const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
+	const token = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN;
 	if (!url || !token) return null;
 	return getRedisClientInstance({ url, token });
 }

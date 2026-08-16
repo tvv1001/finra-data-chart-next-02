@@ -23,7 +23,6 @@ let memStore: MemStore | null = null;
 const primedBundleCache = new Map<PrimedBundleName, PrimedBundle | null>();
 const BINARY_CACHE_DIR = path.join(DATA_DIR, 'cache-binary');
 
-
 // Rate-limit protections for external API fetches. Keys that begin with
 // "finra:" or "sec:" will be rate-limited to at most one fetch per
 // EXTERNAL_API_MIN_INTERVAL_MS (default 5s) to avoid getting blocked by
@@ -53,8 +52,9 @@ const primedBundleFiles: Record<PrimedBundleName, string> = {
 
 function getUpstash(): Redis | null {
 	if (upstash !== null) return upstash;
-	const url = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL);
-	const token = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN);
+	// prefer MIRROR env var but fall back to legacy _2 names
+	const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
+	const token = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN;
 	if (url && token) upstash = getRedisClientInstance({ url, token });
 	return upstash;
 }

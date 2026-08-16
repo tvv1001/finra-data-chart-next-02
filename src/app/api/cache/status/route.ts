@@ -4,8 +4,9 @@ import fs from 'fs/promises';
 
 const GRAPH_PATH = path.join(process.cwd(), 'data', 'national', 'finra-graph.json');
 const OUT_DIR = path.join(process.cwd(), 'data', 'national');
-const UPSTASH_URL = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL) || null;
-const UPSTASH_TOKEN = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN) || null;
+// prefer MIRROR env var but fall back to legacy _2 names
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL || null;
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN || null;
 
 async function checkUpstashKey(key: string) {
 	if (!UPSTASH_URL || !UPSTASH_TOKEN) return null;

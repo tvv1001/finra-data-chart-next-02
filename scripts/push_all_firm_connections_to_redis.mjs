@@ -18,8 +18,10 @@ function loadEnv(filePath) {
 loadEnv(path.join(process.cwd(), '.env.local'));
 loadEnv(path.join(process.cwd(), '.env'));
 
-const url = process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
-const token = process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN__2;
+// prefer MIRROR vars, fall back to legacy _2 names
+const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
+const token =
+	process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN__2;
 if (!url || !token) {
 	console.error('Missing UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN in env');
 	process.exit(2);
@@ -39,37 +41,70 @@ for (const a of args) {
 	if (a.startsWith('--dir=')) opts.dir = a.split('=')[1] || opts.dir;
 }
 
-async function pushFile(filePath) {
-	const firmId = path.basename(filePath, '.json');
-	const raw = fs.readFileSync(filePath, 'utf8');
-	const cacheKey = `graph:firm-connections:v9:${firmId}`;
-	const emptyKey = `${cacheKey}:empty`;
+async function pushBatch(filePaths) {
+	const items = filePaths.map((fp) => {
+		const firmId = path.basename(fp, '.json');
+		const raw = fs.readFileSync(fp, 'utf8');
+		const cacheKey = `graph:firm-connections:v9:${firmId}`;
+		const emptyKey = `${cacheKey}:empty`;
+		return { firmId, fp, raw, cacheKey, emptyKey };
+	});
+
 	if (opts.dryRun) {
-		console.log('DRY:', firmId, filePath);
-		return { firmId, ok: true, dry: true };
+		for (const it of items) console.log('DRY:', it.firmId, it.fp);
+		return items.map((it) => ({ firmId: it.firmId, ok: true, dry: true }));
 	}
+
 	try {
-		await redis.set(cacheKey, raw, { ex: 60 * 60 * 24 * 30 });
-		const emptyVal = await redis.get(emptyKey);
-		if (emptyVal != null) {
-			await redis.del(emptyKey);
+		// Build mset args: [key1, val1, key2, val2, ...]
+		const msetArgs = [];
+		for (const it of items) {
+			msetArgs.push(it.cacheKey, it.raw);
 		}
-		// audit entry
+
+		// Use mset to write all values in one request
+		if (msetArgs.length > 0) {
+			await redis.mset(...msetArgs);
+		}
+
+		// Set TTLs in parallel (expire) to avoid per-set EX overhead
+		const expires = items.map((it) => redis.expire(it.cacheKey, 60 * 60 * 24 * 30).catch(() => null));
+		await Promise.all(expires);
+
+		// Cleanup any :empty keys via mget -> del batch
+		const emptyKeys = items.map((it) => it.emptyKey);
+		if (emptyKeys.length > 0) {
+			try {
+				const emptyVals = await redis.mget(...emptyKeys);
+				const toDel = [];
+				for (let i = 0; i < emptyKeys.length; i++) {
+					if (emptyVals && emptyVals[i] != null) toDel.push(emptyKeys[i]);
+				}
+				if (toDel.length > 0) await redis.del(...toDel).catch(() => null);
+			} catch {}
+		}
+
+		// Batch audit: push one audit entry per firm in a single lpush
 		try {
-			const entry = { at: new Date().toISOString(), action: 'batch-push-firm-connections', firmId, ok: true, method: 'disk->redis' };
-			await redis.lpush('dashboard:admin-audit', JSON.stringify(entry)).catch(() => null);
-			await redis.ltrim('dashboard:admin-audit', 0, 999).catch(() => null);
-			const logDir = path.join(process.cwd(), 'logs');
-			fs.mkdirSync(logDir, { recursive: true });
-			fs.appendFileSync(path.join(logDir, 'admin-audit.log'), JSON.stringify(entry) + '\n', 'utf8');
+			const entries = items.map((it) =>
+				JSON.stringify({ at: new Date().toISOString(), action: 'batch-push-firm-connections', firmId: it.firmId, ok: true, method: 'disk->redis' }),
+			);
+			if (entries.length) {
+				await redis.lpush('dashboard:admin-audit', ...entries).catch(() => null);
+				await redis.ltrim('dashboard:admin-audit', 0, 999).catch(() => null);
+				const logDir = path.join(process.cwd(), 'logs');
+				fs.mkdirSync(logDir, { recursive: true });
+				for (const e of entries) fs.appendFileSync(path.join(logDir, 'admin-audit.log'), e + '\n', 'utf8');
+			}
 		} catch (e) {
 			// ignore audit failures
 		}
-		console.log('wrote', cacheKey);
-		return { firmId, ok: true };
+
+		for (const it of items) console.log('wrote', it.cacheKey);
+		return items.map((it) => ({ firmId: it.firmId, ok: true }));
 	} catch (e) {
-		console.error('error writing', cacheKey, e?.message || e);
-		return { firmId, ok: false, reason: String(e?.message || e) };
+		for (const it of items) console.error('error writing', it.cacheKey, e?.message || e);
+		return items.map((it) => ({ firmId: it.firmId, ok: false, reason: String(e?.message || e) }));
 	}
 }
 
@@ -80,17 +115,26 @@ async function run() {
 	}
 	const files = fs.readdirSync(opts.dir).filter((f) => f.endsWith('.json'));
 	console.log('found', files.length, 'files in', opts.dir, 'dryRun=', opts.dryRun, 'concurrency=', opts.concurrency);
+	const batchSize = Number(process.env.PUSH_BATCH_SIZE || 50);
 	const results = [];
-	const pool = new Array(opts.concurrency).fill(Promise.resolve());
-	let idx = 0;
-	for (const file of files) {
-		const fp = path.join(opts.dir, file);
-		const slot = idx % opts.concurrency;
+	// Build batches
+	const batches = [];
+	for (let i = 0; i < files.length; i += batchSize) {
+		batches.push(files.slice(i, i + batchSize));
+	}
+
+	console.log('found', files.length, 'files in', opts.dir, 'dryRun=', opts.dryRun, 'concurrency=', opts.concurrency, 'batches=', batches.length, 'batchSize=', batchSize);
+
+	const pool = new Array(Math.max(1, opts.concurrency)).fill(Promise.resolve());
+	let bi = 0;
+	for (const batch of batches) {
+		const fpBatch = batch.map((f) => path.join(opts.dir, f));
+		const slot = bi % pool.length;
 		pool[slot] = pool[slot]
-			.then(() => pushFile(fp))
-			.then((r) => results.push(r))
-			.catch((e) => results.push({ firmId: file, ok: false, reason: String(e) }));
-		idx++;
+			.then(() => pushBatch(fpBatch))
+			.then((rs) => rs.forEach((r) => results.push(r)))
+			.catch((e) => fpBatch.forEach((f) => results.push({ firmId: path.basename(f), ok: false, reason: String(e) })));
+		bi++;
 	}
 	await Promise.all(pool);
 	console.log('done. results:', results.length);

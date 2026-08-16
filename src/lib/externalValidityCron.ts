@@ -482,8 +482,9 @@ function normalizeState(raw: unknown, maxIndividual: number, maxFirm: number): C
 }
 
 function getRedisClient() {
-	const url = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL);
-	const token = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN);
+	// prefer MIRROR env var but fall back to legacy _2 names
+	const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
+	const token = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN;
 	return url && token ? getRedisClientInstance({ url, token }) : null;
 }
 
@@ -654,8 +655,12 @@ async function processCandidate(
 	const graphNodeId = kind === 'individual' ? `person:${normalizeId(id)}` : `firm:${normalizeId(id)}`;
 	const existingNode = graph?.nodes?.find((n: any) => n.id === graphNodeId || n.id === `${kind}:${normalizeId(id)}`);
 	if (existingNode && existingNode.basicInformation) {
-		const bcScope = String(existingNode.basicInformation.bcScope || '').trim().toLowerCase();
-		const iaScope = String(existingNode.basicInformation.iaScope || '').trim().toLowerCase();
+		const bcScope = String(existingNode.basicInformation.bcScope || '')
+			.trim()
+			.toLowerCase();
+		const iaScope = String(existingNode.basicInformation.iaScope || '')
+			.trim()
+			.toLowerCase();
 		if (bcScope !== 'active' && iaScope !== 'active') {
 			await markProcessed(redis, kind, id);
 			return { found: true, discovered: false, updated: false, 429: false };

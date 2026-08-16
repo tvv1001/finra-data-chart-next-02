@@ -9,8 +9,9 @@ import { getRecentSeedsFromStore } from '@/lib/seedStore';
 
 function getUpstashClient() {
 	try {
-		const url = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL);
-		const token = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN);
+		// prefer MIRROR env var but fall back to legacy _2 names
+		const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
+		const token = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN;
 		if (url && token) return new UpstashRedis({ url, token });
 	} catch (e) {
 		// ignore
@@ -233,8 +234,8 @@ export async function GET(request: NextRequest) {
 		// init upstash redis client if configured
 		let upstash: any = null;
 		try {
-			const url = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL);
-			const token = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN);
+			const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
+			const token = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN;
 			if (url && token) upstash = new UpstashRedis({ url, token });
 		} catch (e) {
 			upstash = null;
@@ -249,7 +250,10 @@ export async function GET(request: NextRequest) {
 						const parsed = typeof rawGraph === 'string' ? JSON.parse(rawGraph) : rawGraph;
 						const totalNodes = Array.isArray(parsed?.nodes) ? parsed.nodes.length : parsed?.nodes?.length || 0;
 						if (totalNodes >= 70000) {
-							return NextResponse.json({ ok: true, reason: 'target-count-reached', totalNodes }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
+							return NextResponse.json(
+								{ ok: true, reason: 'target-count-reached', totalNodes },
+								{ headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } },
+							);
 						}
 					} catch (e) {
 						// ignore parse errors and continue

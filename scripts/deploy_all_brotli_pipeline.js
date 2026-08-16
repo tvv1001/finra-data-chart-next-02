@@ -28,16 +28,20 @@ const envVars = {
 };
 
 const instances = [];
+// Primary (DB1)
 if (envVars.UPSTASH_REDIS_REST_URL && envVars.UPSTASH_REDIS_REST_TOKEN) {
 	instances.push({
 		name: 'Redis 1',
 		redis: new Redis({ url: envVars.UPSTASH_REDIS_REST_URL, token: envVars.UPSTASH_REDIS_REST_TOKEN }),
 	});
 }
-if (envVars.UPSTASH_REDIS_REST_URL_2 && envVars.UPSTASH_REDIS_REST_TOKEN__2) {
+// Mirror / DB2 (prefer MIRROR env var, fall back to legacy _2)
+const mirrorUrl = envVars.UPSTASH_REDIS_REST_URL_MIRROR || envVars.UPSTASH_REDIS_REST_URL_2;
+const mirrorToken = envVars.UPSTASH_REDIS_REST_TOKEN_MIRROR || envVars.UPSTASH_REDIS_REST_TOKEN__2 || envVars.UPSTASH_REDIS_REST_TOKEN_2;
+if (mirrorUrl && mirrorToken) {
 	instances.push({
-		name: 'Redis 2',
-		redis: new Redis({ url: envVars.UPSTASH_REDIS_REST_URL_2, token: envVars.UPSTASH_REDIS_REST_TOKEN__2 }),
+		name: 'Redis Mirror',
+		redis: new Redis({ url: mirrorUrl, token: mirrorToken }),
 	});
 }
 
@@ -60,7 +64,7 @@ async function uploadToRedis(key, data, metaKey = null, metaObj = null) {
 	for (const { name, redis } of instances) {
 		const pipeline = redis.pipeline();
 		const chunks = chunkString(data, MAX_CHUNK_CHARS);
-		
+
 		if (chunks.length <= 1) {
 			pipeline.set(key, chunks[0]);
 			if (metaKey) pipeline.del(metaKey);
@@ -107,7 +111,7 @@ async function deployPrimedCache() {
 		const payload = 'br:' + compressed.toString('base64');
 		await uploadToRedis(`primed:bundle:${bundleName}`, payload, `primed:bundle:${bundleName}:meta`, {
 			encoding: 'base64-brotli',
-			updatedAt: new Date().toISOString()
+			updatedAt: new Date().toISOString(),
 		});
 	}
 }
@@ -121,7 +125,7 @@ async function deployGraph() {
 	await uploadToRedis('finra:graph', payload, 'finra:graph:manifest', {
 		bytes: raw.length,
 		encoding: 'base64-brotli',
-		updatedAt: new Date().toISOString()
+		updatedAt: new Date().toISOString(),
 	});
 }
 
@@ -134,15 +138,15 @@ async function deploySearchIndexes() {
 		const match = name.match(/search-index\.(\w+)\.(\w+)\.json\.gz/);
 		if (!match) continue;
 		const bucket = `${match[1]}:${match[2]}`;
-		
+
 		const gzData = await fs.readFile(path.join(dir, name));
 		const rawJson = zlib.gunzipSync(gzData);
 		const compressed = zlib.brotliCompressSync(rawJson);
 		const payload = 'br:' + compressed.toString('base64');
-		
+
 		await uploadToRedis(`search:indexes:${bucket}`, payload, `search:indexes:${bucket}:meta`, {
 			encoding: 'base64-brotli',
-			updatedAt: new Date().toISOString()
+			updatedAt: new Date().toISOString(),
 		});
 	}
 }
