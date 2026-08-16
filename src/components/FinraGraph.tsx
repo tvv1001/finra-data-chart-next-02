@@ -305,6 +305,80 @@ export default function FinraGraph() {
 		} catch {}
 	}, [searchType]);
 
+	// Persist and enforce ?disable_analytics=1 in the URL on this machine only.
+	useEffect(() => {
+		if (typeof window === 'undefined') return;
+		try {
+			// Record the preference locally so this only affects this machine
+			localStorage.setItem('finra_disable_analytics_pref', '1');
+		} catch (e) {
+			/* ignore */
+		}
+
+		const addParamToUrl = (raw: string | null | undefined) => {
+			try {
+				const base = raw ? new URL(String(raw), window.location.origin) : new URL(window.location.href);
+				base.searchParams.set('disable_analytics', '1');
+				return base.pathname + base.search + base.hash;
+			} catch (e) {
+				return raw || window.location.pathname + window.location.search + window.location.hash;
+			}
+		};
+
+		// Patch history methods so all client navigations keep the param in the URL
+		const origPush = history.pushState;
+		const origReplace = history.replaceState;
+
+		history.pushState = function (state: any, title: string, url?: string | null) {
+			try {
+				const newUrl = url ? addParamToUrl(url) : url;
+				return origPush.apply(this, [state, title, newUrl]);
+			} catch (err) {
+				return origPush.apply(this, [state, title, url]);
+			}
+		} as any;
+		history.replaceState = function (state: any, title: string, url?: string | null) {
+			try {
+				const newUrl = url ? addParamToUrl(url) : addParamToUrl(window.location.href);
+				return origReplace.apply(this, [state, title, newUrl]);
+			} catch (err) {
+				return origReplace.apply(this, [state, title, url]);
+			}
+		} as any;
+
+		const onPop = () => {
+			try {
+				if (!window.location.search.includes('disable_analytics=1')) {
+					history.replaceState(history.state, document.title, addParamToUrl(window.location.href));
+				}
+			} catch (e) {
+				/* ignore */
+			}
+		};
+
+		window.addEventListener('popstate', onPop);
+
+		// Ensure initial load has the param
+		if (!window.location.search.includes('disable_analytics=1')) {
+			try {
+				history.replaceState(history.state, document.title, addParamToUrl(window.location.href));
+			} catch (e) {
+				/* ignore */
+			}
+		}
+
+		return () => {
+			// restore originals
+			try {
+				history.pushState = origPush;
+				history.replaceState = origReplace;
+				window.removeEventListener('popstate', onPop);
+			} catch (e) {
+				/* ignore */
+			}
+		};
+	}, []);
+
 	const focusFindInput = useCallback(() => {
 		window.requestAnimationFrame(() => {
 			const input = findInputRef.current;

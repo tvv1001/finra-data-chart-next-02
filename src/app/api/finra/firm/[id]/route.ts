@@ -125,7 +125,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	const forceRefresh = request.nextUrl.searchParams.get('forceRefresh') === '1';
 
 	if (forceRefresh) {
-		await Promise.allSettled([evictCacheKey(`finra:firm:${id}`), evictCacheKey(`sec:firm:${id}`), evictCacheKey(`sec:firm:summaryHtml:${id}`)]);
+		// Evict upstream detail caches and the precomputed firm-connections cache
+		const graphConnKey = `graph:firm-connections:v9:${id}`;
+		await Promise.allSettled([
+			evictCacheKey(`finra:firm:${id}`),
+			evictCacheKey(`sec:firm:${id}`),
+			evictCacheKey(`sec:firm:summaryHtml:${id}`),
+			evictCacheKey(graphConnKey),
+			evictCacheKey(`${graphConnKey}:empty`),
+		]);
 	}
 
 	void rememberRecentSeed('firm', id).catch((error) => {
