@@ -939,20 +939,30 @@ export default function FinraGraph() {
 			}
 		} catch {}
 
-		Promise.all([import('d3'), import('d3-force'), import('@/lib/finra-graph')]).then(([d3Module, d3ForceModule, { init }]) => {
-			const combinedD3 = { ...d3Module, ...d3ForceModule };
-			(window as any).d3 = combinedD3;
-			const defaultSelected = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEFAULT_SELECTED) || '';
-			const sharedSelectedIds = (searchParams.get('selected') || defaultSelected || '')
-				.split(',')
-				.map((id) => id.trim())
-				.filter(Boolean);
-			init(combinedD3, {
-				initialRouteNodeId: routeNodeId,
-				initialSelectedNodeIds: sharedSelectedIds,
+		// Defer heavy graph initialization until after initial paint / idle to improve perceived load
+		const startInit = () => {
+			Promise.all([import('d3'), import('d3-force'), import('@/lib/finra-graph')]).then(([d3Module, d3ForceModule, { init }]) => {
+				const combinedD3 = { ...d3Module, ...d3ForceModule };
+				(window as any).d3 = combinedD3;
+				const defaultSelected = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEFAULT_SELECTED) || '';
+				const sharedSelectedIds = (searchParams.get('selected') || defaultSelected || '')
+					.split(',')
+					.map((id) => id.trim())
+					.filter(Boolean);
+				init(combinedD3, {
+					initialRouteNodeId: routeNodeId,
+					initialSelectedNodeIds: sharedSelectedIds,
+				});
+				setGraphReady(true);
 			});
-			setGraphReady(true);
-		});
+		};
+
+		if (typeof (window as any).requestIdleCallback === 'function') {
+			(window as any).requestIdleCallback(() => startInit(), { timeout: 2000 });
+		} else {
+			// fallback: small delay to allow first paint
+			setTimeout(() => startInit(), 50);
+		}
 
 		// Patch localStorage.setItem once to emit a custom event when selection log changes within same window.
 		try {
