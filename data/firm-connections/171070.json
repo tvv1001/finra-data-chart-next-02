@@ -1,0 +1,33 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "1003868",
+      "name": "RICHARD CROSS",
+      "relationship": "Current registration",
+      "startDate": "10/12/2024",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1329980",
+      "name": "BRENT GOTTIER",
+      "relationship": "Current registration",
+      "startDate": "11/8/2024",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1448417",
+      "name": "NEAL SLAFSKY",
+      "relationship": "Current registration",
+      "startDate": "9/25/2023",
+      "isCurrent": true
+    },
+    {
+      "individualId": "3021815",
+      "name": "JASON GERB",
+      "relationship": "Current registration",
+      "startDate": "9/20/2021",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": []
+}

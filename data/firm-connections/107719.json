@@ -1,0 +1,61 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1674152",
+      "name": "ALEXANDER SARAFIANOS",
+      "relationship": "Previous registration",
+      "startDate": "11/14/2005",
+      "endDate": "4/20/2006",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2314031",
+      "name": "John Malone",
+      "relationship": "Previous registration",
+      "startDate": "1/4/2021",
+      "endDate": "3/31/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4173015",
+      "name": "CHRISTINA SANCHEZ",
+      "relationship": "Previous registration",
+      "startDate": "10/29/2004",
+      "endDate": "4/20/2006",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5040066",
+      "name": "JUSTIN FITZGERALD-RHODES",
+      "relationship": "Previous registration",
+      "startDate": "1/4/2021",
+      "endDate": "2/19/2021",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5954585",
+      "name": "MICHAEL BARNES",
+      "relationship": "Previous registration",
+      "startDate": "6/28/2022",
+      "endDate": "8/26/2022",
+      "isCurrent": false
+    },
+    {
+      "individualId": "6400335",
+      "name": "Colman Flanagan",
+      "relationship": "Previous registration",
+      "startDate": "12/15/2020",
+      "endDate": "12/2/2022",
+      "isCurrent": false
+    },
+    {
+      "individualId": "6400340",
+      "name": "Michael OConnor",
+      "relationship": "Previous registration",
+      "startDate": "1/4/2021",
+      "endDate": "2/18/2025",
+      "isCurrent": false
+    }
+  ]
+}

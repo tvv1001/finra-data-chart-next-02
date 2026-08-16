@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "2106922",
+      "name": "REBECCA BELICEK",
+      "relationship": "Previous registration",
+      "startDate": "4/5/2004",
+      "endDate": "5/11/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1321008",
+      "name": "WILLIAM CORLEY",
+      "relationship": "Previous registration",
+      "startDate": "12/5/2000",
+      "endDate": "4/3/2001",
+      "isCurrent": false
+    }
+  ]
+}

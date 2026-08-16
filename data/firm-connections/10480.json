@@ -1,0 +1,53 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1011060",
+      "name": "GARY NAPARSTEK",
+      "relationship": "Previous registration",
+      "startDate": "6/16/1986",
+      "endDate": "1/15/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1001682",
+      "name": "L THOMAS",
+      "relationship": "Previous registration",
+      "startDate": "8/15/1985",
+      "endDate": "8/26/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1120916",
+      "name": "MAHESH JHALA",
+      "relationship": "Previous registration",
+      "startDate": "4/17/1985",
+      "endDate": "1/15/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1173061",
+      "name": "NATHAN BATALION",
+      "relationship": "Previous registration",
+      "startDate": "9/25/1984",
+      "endDate": "1/15/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1197383",
+      "name": "JOHN OHANLON",
+      "relationship": "Previous registration",
+      "startDate": "4/5/1984",
+      "endDate": "1/15/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1289271",
+      "name": "LEWIS WALTZER",
+      "relationship": "Previous registration",
+      "startDate": "6/5/1986",
+      "endDate": "8/26/1986",
+      "isCurrent": false
+    }
+  ]
+}

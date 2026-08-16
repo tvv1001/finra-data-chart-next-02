@@ -1,0 +1,45 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1005204",
+      "name": "WILLIAM JAMES",
+      "relationship": "Previous registration",
+      "startDate": "10/13/1986",
+      "endDate": "12/31/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "39190",
+      "name": "JAMES CAMPBELL",
+      "relationship": "Previous registration",
+      "startDate": "2/9/1989",
+      "endDate": "7/5/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "600230",
+      "name": "RAYMOND WHITE",
+      "relationship": "Previous registration",
+      "startDate": "7/31/1985",
+      "endDate": "12/21/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1084501",
+      "name": "CAROL OSTERHOUT",
+      "relationship": "Previous registration",
+      "startDate": "11/10/1986",
+      "endDate": "5/12/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1170068",
+      "name": "JULIUS HUTCHINSON",
+      "relationship": "Previous registration",
+      "startDate": "4/29/1988",
+      "endDate": "8/14/1990",
+      "isCurrent": false
+    }
+  ]
+}

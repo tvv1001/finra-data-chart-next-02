@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1013931",
+      "name": "BRIAN LADAH",
+      "relationship": "Previous registration",
+      "startDate": "11/28/1998",
+      "endDate": "3/17/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1141623",
+      "name": "MARY BELL",
+      "relationship": "Previous registration",
+      "startDate": "2/5/1997",
+      "endDate": "12/23/2011",
+      "isCurrent": false
+    }
+  ]
+}

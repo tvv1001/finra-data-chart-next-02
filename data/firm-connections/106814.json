@@ -1,0 +1,105 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "1389091",
+      "name": "",
+      "relationship": "Current registration",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2319359",
+      "name": "ROBERT BEHAN",
+      "relationship": "Current registration",
+      "startDate": "4/10/2026",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4101533",
+      "name": "DAVID PAGLIARO",
+      "relationship": "Current registration",
+      "startDate": "1/26/2026",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4447527",
+      "name": "CHRIS ENGEL",
+      "relationship": "Current registration",
+      "startDate": "5/7/2021",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4518541",
+      "name": "TED CLARK",
+      "relationship": "Current registration",
+      "startDate": "5/4/2018",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4872468",
+      "name": "DAVID LIEN",
+      "relationship": "Current registration",
+      "startDate": "6/17/2024",
+      "isCurrent": true
+    },
+    {
+      "individualId": "6181910",
+      "name": "Ross Emrick",
+      "relationship": "Current registration",
+      "startDate": "10/25/2024",
+      "isCurrent": true
+    },
+    {
+      "individualId": "7114990",
+      "name": "James Morton",
+      "relationship": "Current registration",
+      "startDate": "8/1/2023",
+      "isCurrent": true
+    },
+    {
+      "individualId": "7374695",
+      "name": "Troy Oehler",
+      "relationship": "Current registration",
+      "startDate": "2/17/2026",
+      "isCurrent": true
+    },
+    {
+      "individualId": "7440611",
+      "name": "Daniel Liss",
+      "relationship": "Current registration",
+      "startDate": "9/16/2025",
+      "isCurrent": true
+    },
+    {
+      "individualId": "7567442",
+      "name": "Byul Jheong",
+      "relationship": "Current registration",
+      "startDate": "10/23/2024",
+      "isCurrent": true
+    },
+    {
+      "individualId": "8135888",
+      "name": "Kendall Theil",
+      "relationship": "Current registration",
+      "startDate": "5/3/2026",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "6181910",
+      "name": "Ross Emrick",
+      "relationship": "Previous registration",
+      "startDate": "5/7/2021",
+      "endDate": "11/22/2022",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7440611",
+      "name": "Daniel Liss",
+      "relationship": "Previous registration",
+      "startDate": "12/24/2021",
+      "endDate": "11/29/2022",
+      "isCurrent": false
+    }
+  ]
+}

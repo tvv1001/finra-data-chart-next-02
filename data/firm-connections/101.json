@@ -1,0 +1,149 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1023579",
+      "name": "MARY WRIGHT",
+      "relationship": "Previous registration",
+      "startDate": "5/24/1982",
+      "endDate": "6/8/1984",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1235772",
+      "name": "GABRIELLE SHERRY",
+      "relationship": "Previous registration",
+      "startDate": "3/25/1987",
+      "endDate": "9/4/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "420740",
+      "name": "GARRY SHEA",
+      "relationship": "Previous registration",
+      "startDate": "7/19/1982",
+      "endDate": "2/28/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "501388",
+      "name": "PATRICIA SMITH",
+      "relationship": "Previous registration",
+      "startDate": "2/10/1983",
+      "endDate": "10/25/1983",
+      "isCurrent": false
+    },
+    {
+      "individualId": "817715",
+      "name": "DAVID EVANS",
+      "relationship": "Previous registration",
+      "startDate": "6/25/1979",
+      "endDate": "7/16/1982",
+      "isCurrent": false
+    },
+    {
+      "individualId": "853536",
+      "name": "JOHN BUNDOCK",
+      "relationship": "Previous registration",
+      "startDate": "8/26/1988",
+      "endDate": "9/4/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1038589",
+      "name": "KENNETH JOHNSTON",
+      "relationship": "Previous registration",
+      "startDate": "7/31/1990",
+      "endDate": "9/4/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1207636",
+      "name": "PATRICIA DUPUIS",
+      "relationship": "Previous registration",
+      "startDate": "6/4/1987",
+      "endDate": "7/20/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1214688",
+      "name": "DEBORAH VARCO",
+      "relationship": "Previous registration",
+      "startDate": "11/22/1983",
+      "endDate": "7/20/1984",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1274528",
+      "name": "SALLY WALTON",
+      "relationship": "Previous registration",
+      "startDate": "6/20/1984",
+      "endDate": "4/18/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1275616",
+      "name": "PHYLLIS KNOWLES",
+      "relationship": "Previous registration",
+      "startDate": "9/1/1987",
+      "endDate": "10/14/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1336395",
+      "name": "DAVID WEILD",
+      "relationship": "Previous registration",
+      "startDate": "3/20/1985",
+      "endDate": "1/19/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1355858",
+      "name": "Joseph Lavalle",
+      "relationship": "Previous registration",
+      "startDate": "8/5/1988",
+      "endDate": "9/4/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "13822",
+      "name": "ELAINE BARTEL",
+      "relationship": "Previous registration",
+      "startDate": "6/13/1973",
+      "endDate": "8/8/1978",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1387153",
+      "name": "GREGORY SAMMONS",
+      "relationship": "Previous registration",
+      "startDate": "8/21/1985",
+      "endDate": "10/10/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1395364",
+      "name": "PAMELA PAGLIAI",
+      "relationship": "Previous registration",
+      "startDate": "3/19/1986",
+      "endDate": "6/22/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1452495",
+      "name": "SALVATORE PARISI",
+      "relationship": "Previous registration",
+      "startDate": "4/23/1986",
+      "endDate": "1/28/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1470266",
+      "name": "DOUGLAS PROPECK",
+      "relationship": "Previous registration",
+      "startDate": "8/18/1989",
+      "endDate": "9/4/1990",
+      "isCurrent": false
+    }
+  ]
+}

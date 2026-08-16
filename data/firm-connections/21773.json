@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1006625",
+      "name": "ANDREA TOTO-WALSHE",
+      "relationship": "Previous registration",
+      "startDate": "6/6/1988",
+      "endDate": "10/12/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1292607",
+      "name": "JACQUELINE GOODE",
+      "relationship": "Previous registration",
+      "startDate": "6/6/1988",
+      "endDate": "6/26/1989",
+      "isCurrent": false
+    }
+  ]
+}

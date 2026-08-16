@@ -1,0 +1,165 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1018494",
+      "name": "KEVIN KELLY",
+      "relationship": "Previous registration",
+      "startDate": "11/23/1983",
+      "endDate": "5/29/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1462443",
+      "name": "JOHN GRECCO",
+      "relationship": "Previous registration",
+      "startDate": "4/29/1987",
+      "endDate": "5/29/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1824070",
+      "name": "KATHLEEN DOHERTY",
+      "relationship": "Previous registration",
+      "startDate": "2/1/1996",
+      "endDate": "12/10/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1855679",
+      "name": "PATRICK DOLAN",
+      "relationship": "Previous registration",
+      "startDate": "6/30/2003",
+      "endDate": "5/25/2005",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2502927",
+      "name": "ERIK NANDA",
+      "relationship": "Previous registration",
+      "startDate": "3/31/2000",
+      "endDate": "12/31/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1036891",
+      "name": "ERIC SCHWEITZER",
+      "relationship": "Previous registration",
+      "startDate": "5/22/1984",
+      "endDate": "1/30/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1175827",
+      "name": "MARCO MENDEZ",
+      "relationship": "Previous registration",
+      "startDate": "8/25/1998",
+      "endDate": "5/18/2005",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1225088",
+      "name": "MONIQUE SCHULMAN",
+      "relationship": "Previous registration",
+      "startDate": "12/20/1985",
+      "endDate": "1/14/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1326787",
+      "name": "ANTHONY MONACO",
+      "relationship": "Previous registration",
+      "startDate": "9/9/2003",
+      "endDate": "9/18/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1420990",
+      "name": "GERARD NIZICH",
+      "relationship": "Previous registration",
+      "startDate": "9/4/2003",
+      "endDate": "5/25/2005",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1428753",
+      "name": "MICHAEL ALEXANDER",
+      "relationship": "Previous registration",
+      "startDate": "8/31/2000",
+      "endDate": "11/8/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1432751",
+      "name": "TIMOTHY ANDRES",
+      "relationship": "Previous registration",
+      "startDate": "9/1/2000",
+      "endDate": "11/9/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1543499",
+      "name": "Daniel McIsaac",
+      "relationship": "Previous registration",
+      "startDate": "7/22/2005",
+      "endDate": "12/6/2006",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2158255",
+      "name": "DANIEL CHARNEY",
+      "relationship": "Previous registration",
+      "startDate": "7/8/2002",
+      "endDate": "11/1/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2671708",
+      "name": "JASON LANE",
+      "relationship": "Previous registration",
+      "startDate": "4/3/1998",
+      "endDate": "4/24/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3114744",
+      "name": "JOSEPH MECANE",
+      "relationship": "Previous registration",
+      "startDate": "2/24/2003",
+      "endDate": "12/6/2006",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3164064",
+      "name": "MATTHEW ZUKOWSKY",
+      "relationship": "Previous registration",
+      "startDate": "6/29/2000",
+      "endDate": "4/29/2005",
+      "isCurrent": false
+    },
+    {
+      "individualId": "42803",
+      "name": "CHARLES CASPER",
+      "relationship": "Previous registration",
+      "startDate": "4/8/1971",
+      "endDate": "3/9/1972",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4319792",
+      "name": "STEPHEN SIMMES",
+      "relationship": "Previous registration",
+      "startDate": "6/26/2001",
+      "endDate": "12/6/2006",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4998217",
+      "name": "Alexandrina Sapunova",
+      "relationship": "Previous registration",
+      "startDate": "10/24/2005",
+      "endDate": "2/15/2006",
+      "isCurrent": false
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1000733",
+      "name": "NATALIE NUNNALLY",
+      "relationship": "Previous registration",
+      "startDate": "8/13/1981",
+      "endDate": "8/5/1982",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1367206",
+      "name": "MARK BORTECK",
+      "relationship": "Previous registration",
+      "startDate": "2/10/2015",
+      "endDate": "7/19/2016",
+      "isCurrent": false
+    }
+  ]
+}

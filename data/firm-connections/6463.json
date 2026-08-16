@@ -1,0 +1,61 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1020842",
+      "name": "SUSAN BRAUNER",
+      "relationship": "Previous registration",
+      "startDate": "12/11/1981",
+      "endDate": "10/16/1984",
+      "isCurrent": false
+    },
+    {
+      "individualId": "727236",
+      "name": "CHARLES SCOTT",
+      "relationship": "Previous registration",
+      "startDate": "3/23/1981",
+      "endDate": "8/26/1981",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1091509",
+      "name": "Mark Schlafly",
+      "relationship": "Previous registration",
+      "startDate": "3/23/1983",
+      "endDate": "10/1/1984",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1201408",
+      "name": "PATRICK LETTICE",
+      "relationship": "Previous registration",
+      "startDate": "10/20/1983",
+      "endDate": "1/31/1984",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1258673",
+      "name": "EILEEN WRIGHT",
+      "relationship": "Previous registration",
+      "startDate": "4/18/1984",
+      "endDate": "1/7/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1328556",
+      "name": "WESLEY MAR",
+      "relationship": "Previous registration",
+      "startDate": "12/18/1984",
+      "endDate": "2/8/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1672347",
+      "name": "ROGER MATSUI",
+      "relationship": "Previous registration",
+      "startDate": "7/22/1987",
+      "endDate": "7/11/1991",
+      "isCurrent": false
+    }
+  ]
+}

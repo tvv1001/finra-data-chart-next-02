@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "2655124",
+      "name": "PETER FLYNN",
+      "relationship": "Previous registration",
+      "startDate": "12/3/2016",
+      "endDate": "2/2/2023",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4316310",
+      "name": "KIMBERLY RYAN",
+      "relationship": "Previous registration",
+      "startDate": "5/8/2023",
+      "endDate": "9/18/2024",
+      "isCurrent": false
+    }
+  ]
+}

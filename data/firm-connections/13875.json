@@ -1,0 +1,53 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1002235",
+      "name": "GREG BARISHMAN",
+      "relationship": "Previous registration",
+      "startDate": "10/27/1995",
+      "endDate": "2/10/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1934700",
+      "name": "GARY MADRID",
+      "relationship": "Previous registration",
+      "startDate": "11/29/1990",
+      "endDate": "11/28/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2093335",
+      "name": "Thomas Harm",
+      "relationship": "Previous registration",
+      "startDate": "11/29/1990",
+      "endDate": "1/25/1991",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1068278",
+      "name": "WALLACE GIAKAS",
+      "relationship": "Previous registration",
+      "startDate": "7/12/1995",
+      "endDate": "4/10/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1439471",
+      "name": "ELI MORE",
+      "relationship": "Previous registration",
+      "startDate": "8/22/1988",
+      "endDate": "12/20/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2524648",
+      "name": "Dean Abbinanti",
+      "relationship": "Previous registration",
+      "startDate": "4/24/1995",
+      "endDate": "6/23/1995",
+      "isCurrent": false
+    }
+  ]
+}

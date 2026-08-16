@@ -1,0 +1,144 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "1238530",
+      "name": "",
+      "relationship": "Current registration",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1292607",
+      "name": "JACQUELINE GOODE",
+      "relationship": "Current registration",
+      "startDate": "8/13/2024",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2161416",
+      "name": "NEAL GRIFFIN",
+      "relationship": "Current registration",
+      "startDate": "8/13/2024",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2276494",
+      "name": "Jeffrey Jacobson",
+      "relationship": "Current registration",
+      "startDate": "12/20/2024",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2520497",
+      "name": "DEREK GOTTSCHALL",
+      "relationship": "Current registration",
+      "startDate": "7/2/2025",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2573168",
+      "name": "COLIN CROWLEY",
+      "relationship": "Current registration",
+      "startDate": "3/6/2025",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2646218",
+      "name": "Jason Jakubowicz",
+      "relationship": "Current registration",
+      "startDate": "7/2/2026",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2665690",
+      "name": "JOHN ROQUE",
+      "relationship": "Current registration",
+      "startDate": "12/24/2024",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2800906",
+      "name": "WILLIAM HEBEL",
+      "relationship": "Current registration",
+      "startDate": "6/11/2025",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2889938",
+      "name": "ROBERT MAGUIRE",
+      "relationship": "Current registration",
+      "startDate": "12/23/2024",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2938000",
+      "name": "CHRISTOPHER SARKIS",
+      "relationship": "Current registration",
+      "startDate": "12/23/2024",
+      "isCurrent": true
+    },
+    {
+      "individualId": "3100523",
+      "name": "MARK WHALING",
+      "relationship": "Current registration",
+      "startDate": "5/31/2025",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4134742",
+      "name": "MIKHAIL BOTVINNIK",
+      "relationship": "Current registration",
+      "startDate": "7/23/2025",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4860180",
+      "name": "BRIAN HERLIHY",
+      "relationship": "Current registration",
+      "startDate": "8/13/2024",
+      "isCurrent": true
+    },
+    {
+      "individualId": "6093855",
+      "name": "Jillian Altenburger",
+      "relationship": "Current registration",
+      "startDate": "4/20/2025",
+      "isCurrent": true
+    },
+    {
+      "individualId": "6300779",
+      "name": "MAXIMILIAN TRUNZ",
+      "relationship": "Current registration",
+      "startDate": "6/17/2025",
+      "isCurrent": true
+    },
+    {
+      "individualId": "6978264",
+      "name": "Kevin Brocks",
+      "relationship": "Current registration",
+      "startDate": "12/20/2024",
+      "isCurrent": true
+    },
+    {
+      "individualId": "7074358",
+      "name": "Michael Walsh",
+      "relationship": "Current registration",
+      "startDate": "6/30/2025",
+      "isCurrent": true
+    },
+    {
+      "individualId": "7373110",
+      "name": "Peter Williams",
+      "relationship": "Current registration",
+      "startDate": "12/20/2024",
+      "isCurrent": true
+    },
+    {
+      "individualId": "8243048",
+      "name": "Dauvin Peterson",
+      "relationship": "Current registration",
+      "startDate": "4/25/2026",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": []
+}

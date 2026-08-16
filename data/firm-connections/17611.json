@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1020747",
+      "name": "CHARLES RUTAN",
+      "relationship": "Previous registration",
+      "startDate": "8/1/1986",
+      "endDate": "1/19/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1627184",
+      "name": "Ronald Ostezan",
+      "relationship": "Previous registration",
+      "startDate": "2/6/1987",
+      "endDate": "7/16/1987",
+      "isCurrent": false
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1336627",
+      "name": "ROBERT WOLFORD",
+      "relationship": "Previous registration",
+      "startDate": "12/3/1991",
+      "endDate": "7/22/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1455059",
+      "name": "Phillip Meserve",
+      "relationship": "Previous registration",
+      "startDate": "3/1/2004",
+      "endDate": "10/26/2005",
+      "isCurrent": false
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1012393",
+      "name": "JEFF HACKMEIER",
+      "relationship": "Previous registration",
+      "startDate": "12/9/1994",
+      "endDate": "2/2/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1020089",
+      "name": "BRIAN ASHE",
+      "relationship": "Previous registration",
+      "startDate": "6/2/1982",
+      "endDate": "12/31/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1382085",
+      "name": "JULIUS HICKS",
+      "relationship": "Previous registration",
+      "startDate": "7/24/1986",
+      "endDate": "10/17/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1175083",
+      "name": "Jeffrey Warkenthien",
+      "relationship": "Previous registration",
+      "startDate": "4/28/1997",
+      "endDate": "12/31/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1203880",
+      "name": "DEBRA HOAG",
+      "relationship": "Previous registration",
+      "startDate": "8/25/2000",
+      "endDate": "2/15/2013",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1240321",
+      "name": "MARVIN MANGHAM",
+      "relationship": "Previous registration",
+      "startDate": "10/26/1987",
+      "endDate": "12/20/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4614898",
+      "name": "KENNETH NOONAN",
+      "relationship": "Previous registration",
+      "startDate": "1/15/2003",
+      "endDate": "10/8/2003",
+      "isCurrent": false
+    }
+  ]
+}

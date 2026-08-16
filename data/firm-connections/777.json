@@ -1,0 +1,29 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1028178",
+      "name": "JOVO DJUROVSKI",
+      "relationship": "Previous registration",
+      "startDate": "1/25/1982",
+      "endDate": "2/16/1983",
+      "isCurrent": false
+    },
+    {
+      "individualId": "824126",
+      "name": "ALLEN GREEN",
+      "relationship": "Previous registration",
+      "startDate": "9/8/1980",
+      "endDate": "11/7/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1437179",
+      "name": "JAMES DENISON",
+      "relationship": "Previous registration",
+      "startDate": "4/7/1988",
+      "endDate": "3/23/1990",
+      "isCurrent": false
+    }
+  ]
+}

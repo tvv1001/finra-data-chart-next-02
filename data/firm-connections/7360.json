@@ -1,0 +1,109 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "2680389",
+      "name": "JAMES RICHARDS",
+      "relationship": "Current registration",
+      "startDate": "6/29/2023",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1002770",
+      "name": "HAROLD TEEL",
+      "relationship": "Previous registration",
+      "startDate": "6/10/1993",
+      "endDate": "1/1/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "212099",
+      "name": "THOMAS FOWLER",
+      "relationship": "Previous registration",
+      "startDate": "3/8/1977",
+      "endDate": "12/19/1984",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2199907",
+      "name": "KAREN RODRIGUEZ",
+      "relationship": "Previous registration",
+      "startDate": "4/24/1998",
+      "endDate": "7/1/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2680389",
+      "name": "JAMES RICHARDS",
+      "relationship": "Previous registration",
+      "startDate": "5/7/2021",
+      "endDate": "6/6/2023",
+      "isCurrent": false
+    },
+    {
+      "individualId": "736047",
+      "name": "emil albanese",
+      "relationship": "Previous registration",
+      "startDate": "3/17/1983",
+      "endDate": "12/17/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "853194",
+      "name": "JEFFREY MARKS",
+      "relationship": "Previous registration",
+      "startDate": "10/3/1990",
+      "endDate": "12/31/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "872801",
+      "name": "THOMAS ODELL",
+      "relationship": "Previous registration",
+      "startDate": "10/29/1979",
+      "endDate": "11/30/1982",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1028744",
+      "name": "Phillip Gillis",
+      "relationship": "Previous registration",
+      "startDate": "3/1/1994",
+      "endDate": "1/1/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1058737",
+      "name": "DAVID HOFF",
+      "relationship": "Previous registration",
+      "startDate": "8/26/1982",
+      "endDate": "3/1/1983",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1080022",
+      "name": "GARY PENDLETON",
+      "relationship": "Previous registration",
+      "startDate": "8/30/1984",
+      "endDate": "9/25/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1095377",
+      "name": "BRUCE LIPNICK",
+      "relationship": "Previous registration",
+      "startDate": "8/7/2019",
+      "endDate": "10/19/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1263856",
+      "name": "CRAIG JERGENSON",
+      "relationship": "Previous registration",
+      "startDate": "6/7/1989",
+      "endDate": "4/7/1990",
+      "isCurrent": false
+    }
+  ]
+}

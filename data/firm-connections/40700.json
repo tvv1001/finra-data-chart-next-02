@@ -1,0 +1,29 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1066691",
+      "name": "DAVID LITTLE",
+      "relationship": "Previous registration",
+      "startDate": "12/3/1999",
+      "endDate": "6/18/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1246996",
+      "name": "DAVID SMETEK",
+      "relationship": "Previous registration",
+      "startDate": "10/2/2002",
+      "endDate": "3/12/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1344819",
+      "name": "JOHN LITTLE",
+      "relationship": "Previous registration",
+      "startDate": "12/9/1999",
+      "endDate": "6/18/2004",
+      "isCurrent": false
+    }
+  ]
+}

@@ -1,0 +1,109 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1015533",
+      "name": "DANIEL LEACH",
+      "relationship": "Previous registration",
+      "startDate": "9/19/1991",
+      "endDate": "12/31/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1504850",
+      "name": "BRUCE STEWART",
+      "relationship": "Previous registration",
+      "startDate": "6/11/1987",
+      "endDate": "10/30/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "718291",
+      "name": "W. JAMES STEEN",
+      "relationship": "Previous registration",
+      "startDate": "8/31/1989",
+      "endDate": "12/31/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "858080",
+      "name": "PAUL MOSS",
+      "relationship": "Previous registration",
+      "startDate": "5/30/1991",
+      "endDate": "12/31/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1008563",
+      "name": "JEFFREY ROSE",
+      "relationship": "Previous registration",
+      "startDate": "3/3/1982",
+      "endDate": "4/29/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1101301",
+      "name": "CLIVE SLOVIN",
+      "relationship": "Previous registration",
+      "startDate": "10/3/1989",
+      "endDate": "6/28/1993",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1112088",
+      "name": "Julie Sullivan",
+      "relationship": "Previous registration",
+      "startDate": "11/27/1990",
+      "endDate": "12/31/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1150990",
+      "name": "BENJAMIN GOODKIND",
+      "relationship": "Previous registration",
+      "startDate": "3/23/1988",
+      "endDate": "12/31/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1217408",
+      "name": "JOSEPH VOSBERG",
+      "relationship": "Previous registration",
+      "startDate": "10/21/1991",
+      "endDate": "12/31/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1334339",
+      "name": "SANDRA EISENBERG",
+      "relationship": "Previous registration",
+      "startDate": "2/6/1990",
+      "endDate": "2/9/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1338732",
+      "name": "CHARLES LACHMAN",
+      "relationship": "Previous registration",
+      "startDate": "4/4/1991",
+      "endDate": "8/12/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1371131",
+      "name": "MILLICENT WALKER",
+      "relationship": "Previous registration",
+      "startDate": "3/19/1990",
+      "endDate": "6/28/1993",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1952919",
+      "name": "HARRY ARROWOOD",
+      "relationship": "Previous registration",
+      "startDate": "6/18/1992",
+      "endDate": "12/31/1992",
+      "isCurrent": false
+    }
+  ]
+}

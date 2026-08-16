@@ -1,0 +1,173 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1013879",
+      "name": "Liza Marquardt",
+      "relationship": "Previous registration",
+      "startDate": "5/31/1989",
+      "endDate": "12/20/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "856154",
+      "name": "GERALD KLOSTERBOER",
+      "relationship": "Previous registration",
+      "startDate": "5/31/1989",
+      "endDate": "12/23/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1092663",
+      "name": "RONALD BORIO",
+      "relationship": "Previous registration",
+      "startDate": "4/10/1990",
+      "endDate": "10/31/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1094898",
+      "name": "PHILLIP FERGUSON",
+      "relationship": "Previous registration",
+      "startDate": "8/25/1989",
+      "endDate": "10/12/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1105573",
+      "name": "PAUL WENDEE",
+      "relationship": "Previous registration",
+      "startDate": "9/22/1993",
+      "endDate": "8/30/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1184177",
+      "name": "LEONARD KAHN",
+      "relationship": "Previous registration",
+      "startDate": "11/21/1989",
+      "endDate": "2/6/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1260759",
+      "name": "HOUSTON GODDARD",
+      "relationship": "Previous registration",
+      "startDate": "5/31/1989",
+      "endDate": "8/15/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1271782",
+      "name": "CRAIG LODGE",
+      "relationship": "Previous registration",
+      "startDate": "1/24/1994",
+      "endDate": "8/29/1995",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1319088",
+      "name": "GEORGE DOUMANIS",
+      "relationship": "Previous registration",
+      "startDate": "11/28/1994",
+      "endDate": "8/29/1995",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1351835",
+      "name": "PHUONG HUYNH",
+      "relationship": "Previous registration",
+      "startDate": "5/31/1989",
+      "endDate": "8/15/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1354744",
+      "name": "HUGO PEROTTI",
+      "relationship": "Previous registration",
+      "startDate": "4/27/1993",
+      "endDate": "11/16/1993",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1372234",
+      "name": "ALAN BASKIN",
+      "relationship": "Previous registration",
+      "startDate": "5/31/1989",
+      "endDate": "8/29/1995",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1402510",
+      "name": "STEVEN FELDSTEIN",
+      "relationship": "Previous registration",
+      "startDate": "1/10/1991",
+      "endDate": "12/16/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1414260",
+      "name": "GUSTAVE ALFIERI",
+      "relationship": "Previous registration",
+      "startDate": "8/25/1989",
+      "endDate": "3/19/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1420210",
+      "name": "DENNIS JORDAN",
+      "relationship": "Previous registration",
+      "startDate": "6/9/1994",
+      "endDate": "8/29/1995",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1439471",
+      "name": "ELI MORE",
+      "relationship": "Previous registration",
+      "startDate": "1/4/1993",
+      "endDate": "5/5/1993",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1454016",
+      "name": "James Furrow",
+      "relationship": "Previous registration",
+      "startDate": "8/25/1989",
+      "endDate": "1/15/1991",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1458645",
+      "name": "Don Dumas",
+      "relationship": "Previous registration",
+      "startDate": "7/24/1990",
+      "endDate": "2/27/1991",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1630",
+      "name": "NATALIE ROSS",
+      "relationship": "Previous registration",
+      "startDate": "8/25/1989",
+      "endDate": "12/8/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2261744",
+      "name": "ADAM ANTONIADES",
+      "relationship": "Previous registration",
+      "startDate": "9/2/1994",
+      "endDate": "9/16/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "370011",
+      "name": "ROBERT RAFAEL",
+      "relationship": "Previous registration",
+      "startDate": "5/31/1989",
+      "endDate": "1/27/1995",
+      "isCurrent": false
+    }
+  ]
+}

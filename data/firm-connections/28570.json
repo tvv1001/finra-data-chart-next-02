@@ -1,0 +1,29 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1002235",
+      "name": "GREG BARISHMAN",
+      "relationship": "Previous registration",
+      "startDate": "3/2/1992",
+      "endDate": "10/2/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1062136",
+      "name": "STEPHEN CHIPMAN",
+      "relationship": "Previous registration",
+      "startDate": "12/13/1991",
+      "endDate": "2/28/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1129223",
+      "name": "CINDY MICK",
+      "relationship": "Previous registration",
+      "startDate": "12/11/1991",
+      "endDate": "4/21/1992",
+      "isCurrent": false
+    }
+  ]
+}

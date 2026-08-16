@@ -1,1 +1,101 @@
-{"currentConnections":[],"previousConnections":[{"individualId":"2155849","name":"MICHAEL SUNGHYUN CHOE","relationship":"Previous registration","startDate":"8/12/1991","endDate":"9/30/1991","isCurrent":false}]}
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1332733",
+      "name": "TIMOTHY CAMPBELL",
+      "relationship": "Previous registration",
+      "startDate": "10/9/1987",
+      "endDate": "4/18/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1672947",
+      "name": "GREGORY ALLEN",
+      "relationship": "Previous registration",
+      "startDate": "5/20/1988",
+      "endDate": "10/4/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2149690",
+      "name": "JOHN ZIEBA",
+      "relationship": "Previous registration",
+      "startDate": "8/1/1991",
+      "endDate": "6/23/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2155849",
+      "name": "MICHAEL CHOE",
+      "relationship": "Previous registration",
+      "startDate": "8/12/1991",
+      "endDate": "9/30/1991",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2182607",
+      "name": "BRAD LARSON",
+      "relationship": "Previous registration",
+      "startDate": "10/23/1991",
+      "endDate": "3/31/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1028056",
+      "name": "TIMOTHY MICKEY",
+      "relationship": "Previous registration",
+      "startDate": "5/16/1988",
+      "endDate": "7/14/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1212799",
+      "name": "DAVID DAVIDSON",
+      "relationship": "Previous registration",
+      "startDate": "4/10/1986",
+      "endDate": "12/31/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1353341",
+      "name": "ELLSWORTH BUCK",
+      "relationship": "Previous registration",
+      "startDate": "5/16/1988",
+      "endDate": "7/6/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1354744",
+      "name": "HUGO PEROTTI",
+      "relationship": "Previous registration",
+      "startDate": "10/15/1986",
+      "endDate": "12/31/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1431387",
+      "name": "EDWARD MAHER",
+      "relationship": "Previous registration",
+      "startDate": "11/3/1986",
+      "endDate": "1/29/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1470991",
+      "name": "JAMES ZACK",
+      "relationship": "Previous registration",
+      "startDate": "5/16/1988",
+      "endDate": "10/20/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1475628",
+      "name": "EUGENE GRIN",
+      "relationship": "Previous registration",
+      "startDate": "10/23/1986",
+      "endDate": "12/31/1988",
+      "isCurrent": false
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1010206",
+      "name": "THOMAS GINTHER",
+      "relationship": "Previous registration",
+      "startDate": "9/23/1985",
+      "endDate": "1/16/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "733515",
+      "name": "GEORGE BECKHAM",
+      "relationship": "Previous registration",
+      "startDate": "2/10/1986",
+      "endDate": "11/16/1987",
+      "isCurrent": false
+    }
+  ]
+}

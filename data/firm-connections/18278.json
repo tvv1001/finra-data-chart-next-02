@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1010206",
+      "name": "THOMAS GINTHER",
+      "relationship": "Previous registration",
+      "startDate": "5/14/1987",
+      "endDate": "8/9/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2418073",
+      "name": "LEV PARNAS",
+      "relationship": "Previous registration",
+      "startDate": "3/19/1997",
+      "endDate": "2/3/1998",
+      "isCurrent": false
+    }
+  ]
+}

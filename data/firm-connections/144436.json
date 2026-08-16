@@ -1,0 +1,45 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1230327",
+      "name": "PHILLIP RODRIGUEZ",
+      "relationship": "Previous registration",
+      "startDate": "4/27/2015",
+      "endDate": "2/11/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1252538",
+      "name": "EDWARD MCCABE",
+      "relationship": "Previous registration",
+      "startDate": "5/27/2008",
+      "endDate": "10/1/2008",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1471677",
+      "name": "STEVEN MONACO",
+      "relationship": "Previous registration",
+      "startDate": "9/9/2020",
+      "endDate": "4/7/2021",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1864219",
+      "name": "Greg Vittor",
+      "relationship": "Previous registration",
+      "startDate": "12/9/2022",
+      "endDate": "3/6/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "43833",
+      "name": "JOSEPH CERBONE",
+      "relationship": "Previous registration",
+      "startDate": "8/7/2017",
+      "endDate": "8/20/2024",
+      "isCurrent": false
+    }
+  ]
+}

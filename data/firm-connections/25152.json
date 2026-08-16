@@ -1,0 +1,69 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1002235",
+      "name": "GREG BARISHMAN",
+      "relationship": "Previous registration",
+      "startDate": "10/2/1992",
+      "endDate": "11/1/1995",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2109840",
+      "name": "VINCENT CAPODANNO",
+      "relationship": "Previous registration",
+      "startDate": "9/25/1991",
+      "endDate": "10/25/1991",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1187636",
+      "name": "JAMES HEITZER",
+      "relationship": "Previous registration",
+      "startDate": "5/13/1993",
+      "endDate": "5/31/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1248043",
+      "name": "FRANK OTTAVIANI",
+      "relationship": "Previous registration",
+      "startDate": "11/1/1995",
+      "endDate": "8/5/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1255763",
+      "name": "JEANNE ROCKMAN",
+      "relationship": "Previous registration",
+      "startDate": "4/24/1993",
+      "endDate": "8/5/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1443672",
+      "name": "GEORGE D'ANTONIO",
+      "relationship": "Previous registration",
+      "startDate": "1/15/1997",
+      "endDate": "3/21/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2392225",
+      "name": "EVAN ADELGLASS",
+      "relationship": "Previous registration",
+      "startDate": "10/6/1993",
+      "endDate": "12/20/1993",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2556877",
+      "name": "DAVID LAVENDER",
+      "relationship": "Previous registration",
+      "startDate": "6/6/1995",
+      "endDate": "12/11/1995",
+      "isCurrent": false
+    }
+  ]
+}

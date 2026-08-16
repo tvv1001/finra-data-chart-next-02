@@ -1,0 +1,21 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "1160811",
+      "name": "FREDRIC OBSBAUM",
+      "relationship": "Current registration",
+      "startDate": "4/8/2026",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1160811",
+      "name": "FREDRIC OBSBAUM",
+      "relationship": "Previous registration",
+      "startDate": "4/18/2002",
+      "endDate": "5/23/2007",
+      "isCurrent": false
+    }
+  ]
+}

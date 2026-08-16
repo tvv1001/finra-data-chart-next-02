@@ -1,0 +1,93 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1002235",
+      "name": "GREG BARISHMAN",
+      "relationship": "Previous registration",
+      "startDate": "4/17/1985",
+      "endDate": "6/19/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1041680",
+      "name": "PETER JANSSEN",
+      "relationship": "Previous registration",
+      "startDate": "8/26/1985",
+      "endDate": "6/19/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1058617",
+      "name": "JOHNNY FIGLIOLINI",
+      "relationship": "Previous registration",
+      "startDate": "11/24/1982",
+      "endDate": "2/2/1983",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1076376",
+      "name": "JOSEPH GALLINO",
+      "relationship": "Previous registration",
+      "startDate": "5/8/1984",
+      "endDate": "7/10/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1144173",
+      "name": "JOSEPH LAROCCA",
+      "relationship": "Previous registration",
+      "startDate": "1/21/1986",
+      "endDate": "7/31/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1156732",
+      "name": "CARY SUCOFF",
+      "relationship": "Previous registration",
+      "startDate": "10/14/1985",
+      "endDate": "2/2/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1176065",
+      "name": "DAVID KAPLAN",
+      "relationship": "Previous registration",
+      "startDate": "4/9/1984",
+      "endDate": "2/3/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1343730",
+      "name": "MICHAEL TAGLICH",
+      "relationship": "Previous registration",
+      "startDate": "10/17/1985",
+      "endDate": "12/4/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1345266",
+      "name": "WILLIAM ODENTHAL",
+      "relationship": "Previous registration",
+      "startDate": "5/3/1985",
+      "endDate": "6/19/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1425173",
+      "name": "MICHAEL WARD",
+      "relationship": "Previous registration",
+      "startDate": "12/16/1985",
+      "endDate": "12/9/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1455255",
+      "name": "BRUCE BERLAND",
+      "relationship": "Previous registration",
+      "startDate": "5/20/1986",
+      "endDate": "2/3/1987",
+      "isCurrent": false
+    }
+  ]
+}

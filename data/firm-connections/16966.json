@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1003784",
+      "name": "MICHAEL RICHARDSON",
+      "relationship": "Previous registration",
+      "startDate": "5/21/1988",
+      "endDate": "7/14/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1422286",
+      "name": "Marlene Lupas",
+      "relationship": "Previous registration",
+      "startDate": "4/15/1986",
+      "endDate": "5/2/1989",
+      "isCurrent": false
+    }
+  ]
+}

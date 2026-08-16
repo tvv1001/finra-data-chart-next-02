@@ -1,0 +1,133 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1019547",
+      "name": "ORLANDO PEREZ",
+      "relationship": "Previous registration",
+      "startDate": "6/8/2007",
+      "endDate": "8/27/2021",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1143272",
+      "name": "DOUGLAS SIEGEL",
+      "relationship": "Previous registration",
+      "startDate": "7/6/2006",
+      "endDate": "11/6/2015",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1204351",
+      "name": "ROBERT DEGENAARS",
+      "relationship": "Previous registration",
+      "startDate": "9/30/2013",
+      "endDate": "4/15/2014",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1502893",
+      "name": "Gregory Fratianni",
+      "relationship": "Previous registration",
+      "startDate": "4/12/2021",
+      "endDate": "8/28/2021",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1622264",
+      "name": "ROBERT CHIARELLA",
+      "relationship": "Previous registration",
+      "startDate": "4/12/2021",
+      "endDate": "8/28/2021",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2796295",
+      "name": "MITCHELL WONBOY",
+      "relationship": "Previous registration",
+      "startDate": "2/28/2011",
+      "endDate": "8/2/2011",
+      "isCurrent": false
+    },
+    {
+      "individualId": "815453",
+      "name": "MIGUEL HERNANDEZ",
+      "relationship": "Previous registration",
+      "startDate": "7/18/2008",
+      "endDate": "10/15/2021",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1077259",
+      "name": "PEDRO COLON FERREIRA",
+      "relationship": "Previous registration",
+      "startDate": "2/7/1991",
+      "endDate": "12/16/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1215582",
+      "name": "EDWARD LYNN",
+      "relationship": "Previous registration",
+      "startDate": "3/11/2003",
+      "endDate": "4/12/2010",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1240820",
+      "name": "JOSEPH SCAVO",
+      "relationship": "Previous registration",
+      "startDate": "12/5/2007",
+      "endDate": "1/24/2013",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1299116",
+      "name": "JOSEPH CONWAY",
+      "relationship": "Previous registration",
+      "startDate": "12/11/2007",
+      "endDate": "8/17/2010",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1460620",
+      "name": "RICARDO GONZALEZ",
+      "relationship": "Previous registration",
+      "startDate": "8/14/2017",
+      "endDate": "8/28/2021",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1468482",
+      "name": "ARTURO MUNDO",
+      "relationship": "Previous registration",
+      "startDate": "3/2/1992",
+      "endDate": "7/1/2009",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1742910",
+      "name": "JUAN HERRANS BARRERAS",
+      "relationship": "Previous registration",
+      "startDate": "9/11/1997",
+      "endDate": "6/22/2010",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2008236",
+      "name": "VICTOR LIZARDI",
+      "relationship": "Previous registration",
+      "startDate": "11/29/2007",
+      "endDate": "10/22/2010",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4313868",
+      "name": "RICARDO EBOLI KODESH",
+      "relationship": "Previous registration",
+      "startDate": "9/24/2002",
+      "endDate": "9/1/2021",
+      "isCurrent": false
+    }
+  ]
+}

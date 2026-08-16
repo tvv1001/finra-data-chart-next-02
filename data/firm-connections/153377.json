@@ -1,0 +1,76 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "2094794",
+      "name": "",
+      "relationship": "Current registration",
+      "isCurrent": true
+    },
+    {
+      "individualId": "5105375",
+      "name": "MASON SALIT",
+      "relationship": "Current registration",
+      "startDate": "7/7/2017",
+      "isCurrent": true
+    },
+    {
+      "individualId": "5571202",
+      "name": "JUSTIN WEINKLE",
+      "relationship": "Current registration",
+      "startDate": "7/6/2018",
+      "isCurrent": true
+    },
+    {
+      "individualId": "5981990",
+      "name": "Miguel Saldana",
+      "relationship": "Current registration",
+      "startDate": "1/22/2025",
+      "isCurrent": true
+    },
+    {
+      "individualId": "5999620",
+      "name": "SAMANTHA SINDLEDECKER",
+      "relationship": "Current registration",
+      "startDate": "1/17/2018",
+      "isCurrent": true
+    },
+    {
+      "individualId": "6483872",
+      "name": "Jaycee Kertzman",
+      "relationship": "Current registration",
+      "startDate": "4/21/2023",
+      "isCurrent": true
+    },
+    {
+      "individualId": "7198082",
+      "name": "JOHN GRAFTON",
+      "relationship": "Current registration",
+      "startDate": "12/16/2022",
+      "isCurrent": true
+    },
+    {
+      "individualId": "7260996",
+      "name": "Bailee Hill",
+      "relationship": "Current registration",
+      "startDate": "1/30/2025",
+      "isCurrent": true
+    },
+    {
+      "individualId": "7339833",
+      "name": "Jayson Keller",
+      "relationship": "Current registration",
+      "startDate": "5/9/2024",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "4498023",
+      "name": "JAVIER RIVERO",
+      "relationship": "Previous registration",
+      "startDate": "8/30/2016",
+      "endDate": "2/26/2018",
+      "isCurrent": false
+    }
+  ]
+}

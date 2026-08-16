@@ -1,0 +1,133 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1006305",
+      "name": "ALICIA SHIFLET",
+      "relationship": "Previous registration",
+      "startDate": "8/25/1981",
+      "endDate": "12/8/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "448025",
+      "name": "DONALD TONELLI",
+      "relationship": "Previous registration",
+      "startDate": "3/18/1988",
+      "endDate": "12/8/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5367216",
+      "name": "MATTHEW FOERTSCH",
+      "relationship": "Previous registration",
+      "startDate": "3/4/2011",
+      "endDate": "3/4/2014",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1005250",
+      "name": "LOREN KAYFETZ",
+      "relationship": "Previous registration",
+      "startDate": "3/30/1987",
+      "endDate": "5/29/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1019443",
+      "name": "PAUL AUSLANDER",
+      "relationship": "Previous registration",
+      "startDate": "6/30/2009",
+      "endDate": "2/26/2014",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1062136",
+      "name": "STEPHEN CHIPMAN",
+      "relationship": "Previous registration",
+      "startDate": "4/6/2006",
+      "endDate": "12/31/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1066588",
+      "name": "Ann Serrato",
+      "relationship": "Previous registration",
+      "startDate": "9/6/2010",
+      "endDate": "1/10/2012",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1080626",
+      "name": "RICHARD MCFARLAND",
+      "relationship": "Previous registration",
+      "startDate": "11/30/1990",
+      "endDate": "5/28/1991",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1097937",
+      "name": "MICHAEL MELBY",
+      "relationship": "Previous registration",
+      "startDate": "7/24/2009",
+      "endDate": "12/8/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1144402",
+      "name": "Patricia Cook",
+      "relationship": "Previous registration",
+      "startDate": "1/26/2015",
+      "endDate": "12/8/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1185076",
+      "name": "JUDITH KUPLIC",
+      "relationship": "Previous registration",
+      "startDate": "8/3/2009",
+      "endDate": "12/8/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "11922",
+      "name": "F BANOS",
+      "relationship": "Previous registration",
+      "startDate": "8/3/2009",
+      "endDate": "5/15/2012",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1233480",
+      "name": "CHRISTINE FLYNN BAZZINI",
+      "relationship": "Previous registration",
+      "startDate": "10/2/1989",
+      "endDate": "12/31/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1386441",
+      "name": "THOMAS CURRAN",
+      "relationship": "Previous registration",
+      "startDate": "10/10/2007",
+      "endDate": "12/8/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1450782",
+      "name": "JEFFREY ANTON",
+      "relationship": "Previous registration",
+      "startDate": "11/27/2000",
+      "endDate": "12/8/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1628494",
+      "name": "KARYN WHITE",
+      "relationship": "Previous registration",
+      "startDate": "10/1/2015",
+      "endDate": "12/31/2016",
+      "isCurrent": false
+    }
+  ]
+}

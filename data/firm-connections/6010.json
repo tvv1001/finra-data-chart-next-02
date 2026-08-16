@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1291479",
+      "name": "DEBRA DRAUGHAN",
+      "relationship": "Previous registration",
+      "startDate": "3/9/1987",
+      "endDate": "3/29/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1355135",
+      "name": "ALEXIS THOMAS",
+      "relationship": "Previous registration",
+      "startDate": "1/24/1994",
+      "endDate": "7/24/1997",
+      "isCurrent": false
+    }
+  ]
+}

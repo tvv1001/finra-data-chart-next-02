@@ -1,0 +1,76 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "4304790",
+      "name": "SANDRA HOWARD",
+      "relationship": "Current registration",
+      "startDate": "12/23/2019",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1058737",
+      "name": "DAVID HOFF",
+      "relationship": "Current registration",
+      "startDate": "7/20/1993",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1296240",
+      "name": "DEBORAH COOK",
+      "relationship": "Previous registration",
+      "startDate": "8/27/2001",
+      "endDate": "11/1/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2617708",
+      "name": "JAMES SANDAGER",
+      "relationship": "Previous registration",
+      "startDate": "11/3/1997",
+      "endDate": "10/29/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2656269",
+      "name": "JAMES GOBEL",
+      "relationship": "Previous registration",
+      "startDate": "3/29/2005",
+      "endDate": "9/21/2006",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5724575",
+      "name": "Elaheh Bitaraf",
+      "relationship": "Previous registration",
+      "startDate": "2/5/2015",
+      "endDate": "10/31/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1033247",
+      "name": "RONALD SELLERS",
+      "relationship": "Previous registration",
+      "startDate": "1/9/2007",
+      "endDate": "12/7/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1082857",
+      "name": "RANDALL SCHULMAN",
+      "relationship": "Previous registration",
+      "startDate": "1/8/2009",
+      "endDate": "11/3/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1420673",
+      "name": "MARTIN SMITH",
+      "relationship": "Previous registration",
+      "startDate": "9/13/1993",
+      "endDate": "2/29/1996",
+      "isCurrent": false
+    }
+  ]
+}

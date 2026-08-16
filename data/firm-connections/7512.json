@@ -1,0 +1,29 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1013425",
+      "name": "James Elsass",
+      "relationship": "Previous registration",
+      "startDate": "9/14/2001",
+      "endDate": "12/31/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1368639",
+      "name": "DOREEN WEBER",
+      "relationship": "Previous registration",
+      "startDate": "5/23/1985",
+      "endDate": "7/15/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1432510",
+      "name": "DAVID BUSHARD",
+      "relationship": "Previous registration",
+      "startDate": "3/16/2009",
+      "endDate": "11/26/2010",
+      "isCurrent": false
+    }
+  ]
+}

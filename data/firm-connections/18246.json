@@ -1,0 +1,253 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1005204",
+      "name": "WILLIAM JAMES",
+      "relationship": "Previous registration",
+      "startDate": "9/21/1989",
+      "endDate": "1/11/1993",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1059237",
+      "name": "MICHAEL RAEBER",
+      "relationship": "Previous registration",
+      "startDate": "1/12/1987",
+      "endDate": "10/31/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1217747",
+      "name": "LORI STEVENS",
+      "relationship": "Previous registration",
+      "startDate": "2/27/1988",
+      "endDate": "10/31/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2045949",
+      "name": "WALTER WANDALL",
+      "relationship": "Previous registration",
+      "startDate": "6/21/1990",
+      "endDate": "9/15/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2155968",
+      "name": "TIMOTHY STEPHENS",
+      "relationship": "Previous registration",
+      "startDate": "7/29/1991",
+      "endDate": "10/1/1991",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2213501",
+      "name": "MATTHEW MURPHY",
+      "relationship": "Previous registration",
+      "startDate": "4/6/1992",
+      "endDate": "5/7/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2239538",
+      "name": "EDWARD KELLY",
+      "relationship": "Previous registration",
+      "startDate": "6/22/1992",
+      "endDate": "7/29/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2246755",
+      "name": "Robert Calabro",
+      "relationship": "Previous registration",
+      "startDate": "7/31/1992",
+      "endDate": "10/1/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2247367",
+      "name": "JOHN CRONIN",
+      "relationship": "Previous registration",
+      "startDate": "6/30/1992",
+      "endDate": "8/6/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2267830",
+      "name": "GUY FERRARA",
+      "relationship": "Previous registration",
+      "startDate": "2/16/1993",
+      "endDate": "4/26/1993",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2281181",
+      "name": "MONTY TOUZALIN",
+      "relationship": "Previous registration",
+      "startDate": "11/10/1992",
+      "endDate": "4/2/1993",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2294272",
+      "name": "JUSTIN ADAMITIS",
+      "relationship": "Previous registration",
+      "startDate": "12/24/1992",
+      "endDate": "9/15/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2453008",
+      "name": "JOSEPH GLUCKSNIS",
+      "relationship": "Previous registration",
+      "startDate": "2/24/1994",
+      "endDate": "5/31/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2486825",
+      "name": "ERIC MIZELL",
+      "relationship": "Previous registration",
+      "startDate": "6/24/1994",
+      "endDate": "9/15/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2490184",
+      "name": "RAYMOND QUEREY",
+      "relationship": "Previous registration",
+      "startDate": "6/7/1994",
+      "endDate": "6/30/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "33927",
+      "name": "THOMAS BRYAN",
+      "relationship": "Previous registration",
+      "startDate": "9/29/1986",
+      "endDate": "10/31/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1005658",
+      "name": "JAMES NORMAN",
+      "relationship": "Previous registration",
+      "startDate": "5/24/1988",
+      "endDate": "1/5/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1010083",
+      "name": "ANTON GERDES",
+      "relationship": "Previous registration",
+      "startDate": "1/26/1988",
+      "endDate": "10/4/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1062136",
+      "name": "STEPHEN CHIPMAN",
+      "relationship": "Previous registration",
+      "startDate": "5/31/1988",
+      "endDate": "12/22/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1234831",
+      "name": "Donna Schulze",
+      "relationship": "Previous registration",
+      "startDate": "11/2/1989",
+      "endDate": "9/30/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1356290",
+      "name": "ROBERT TARASKA",
+      "relationship": "Previous registration",
+      "startDate": "5/24/1988",
+      "endDate": "6/22/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1384495",
+      "name": "MICHAEL DAYTON",
+      "relationship": "Previous registration",
+      "startDate": "12/10/1991",
+      "endDate": "8/4/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1472828",
+      "name": "DONALD HEANEY",
+      "relationship": "Previous registration",
+      "startDate": "5/24/1988",
+      "endDate": "9/15/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1693969",
+      "name": "ARTHUR RUBY",
+      "relationship": "Previous registration",
+      "startDate": "5/24/1988",
+      "endDate": "7/12/1993",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1744430",
+      "name": "CHARLES DODSON",
+      "relationship": "Previous registration",
+      "startDate": "5/24/1988",
+      "endDate": "6/7/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2070784",
+      "name": "RAYMOND AMBROSINO",
+      "relationship": "Previous registration",
+      "startDate": "11/6/1990",
+      "endDate": "9/15/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2169408",
+      "name": "GREGORY HOLD",
+      "relationship": "Previous registration",
+      "startDate": "10/4/1991",
+      "endDate": "2/7/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2171620",
+      "name": "JOHN TAYLOR-JONES",
+      "relationship": "Previous registration",
+      "startDate": "9/5/1991",
+      "endDate": "12/8/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2232496",
+      "name": "STEVEN TRIGILI",
+      "relationship": "Previous registration",
+      "startDate": "7/6/1992",
+      "endDate": "9/15/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2239540",
+      "name": "Steven Josephson",
+      "relationship": "Previous registration",
+      "startDate": "8/27/1992",
+      "endDate": "11/3/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2306460",
+      "name": "JEFFREY AKRIGHT",
+      "relationship": "Previous registration",
+      "startDate": "3/2/1993",
+      "endDate": "3/23/1993",
+      "isCurrent": false
+    }
+  ]
+}

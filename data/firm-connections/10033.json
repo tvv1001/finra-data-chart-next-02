@@ -1,0 +1,53 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1017827",
+      "name": "KENT SNODGRASS",
+      "relationship": "Previous registration",
+      "startDate": "8/28/1984",
+      "endDate": "1/30/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "727534",
+      "name": "RONALD CALDWELL",
+      "relationship": "Previous registration",
+      "startDate": "2/21/1986",
+      "endDate": "7/24/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1195328",
+      "name": "SAMUEL LOERCH",
+      "relationship": "Previous registration",
+      "startDate": "11/9/1994",
+      "endDate": "9/12/1995",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1307998",
+      "name": "MICHAEL WOLF",
+      "relationship": "Previous registration",
+      "startDate": "11/18/1994",
+      "endDate": "11/17/1995",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1471677",
+      "name": "STEVEN MONACO",
+      "relationship": "Previous registration",
+      "startDate": "3/19/2008",
+      "endDate": "10/8/2008",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1974097",
+      "name": "OLGA MALDONADO",
+      "relationship": "Previous registration",
+      "startDate": "5/29/2008",
+      "endDate": "8/26/2010",
+      "isCurrent": false
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1003395",
+      "name": "NOREEN CLEMENT",
+      "relationship": "Previous registration",
+      "startDate": "12/15/2016",
+      "endDate": "3/1/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1007416",
+      "name": "MATTHEW CORBISHLEY",
+      "relationship": "Previous registration",
+      "startDate": "1/14/2013",
+      "endDate": "2/22/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1110287",
+      "name": "JEFFREY KLAUENBERG",
+      "relationship": "Previous registration",
+      "startDate": "6/9/2006",
+      "endDate": "6/18/2014",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2224028",
+      "name": "GREGORY VANMETER",
+      "relationship": "Previous registration",
+      "startDate": "2/7/2005",
+      "endDate": "10/17/2005",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1210151",
+      "name": "WILLIAM SELLERS",
+      "relationship": "Previous registration",
+      "startDate": "6/16/2017",
+      "endDate": "2/1/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1406637",
+      "name": "KEVIN BACHMANN",
+      "relationship": "Previous registration",
+      "startDate": "2/4/2016",
+      "endDate": "9/29/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2246088",
+      "name": "Matthew Dian",
+      "relationship": "Previous registration",
+      "startDate": "4/25/2014",
+      "endDate": "7/15/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4434124",
+      "name": "JAMES BALL",
+      "relationship": "Previous registration",
+      "startDate": "1/10/2017",
+      "endDate": "3/1/2019",
+      "isCurrent": false
+    }
+  ]
+}

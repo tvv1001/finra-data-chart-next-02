@@ -1,0 +1,586 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "6129222",
+      "name": "ERIC KUESTER",
+      "relationship": "Current registration",
+      "startDate": "7/29/2025",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1233605",
+      "name": "GLENN GUTHRIE",
+      "relationship": "Current registration",
+      "startDate": "7/10/2003",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2641591",
+      "name": "KEITH HUCKERBY",
+      "relationship": "Current registration",
+      "startDate": "5/5/2021",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4556827",
+      "name": "VICTORIA ROBINSON",
+      "relationship": "Current registration",
+      "startDate": "4/4/2019",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1030976",
+      "name": "JAMES KIRLIN",
+      "relationship": "Previous registration",
+      "startDate": "12/15/2000",
+      "endDate": "11/22/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1034967",
+      "name": "JAMES FLOWER",
+      "relationship": "Previous registration",
+      "startDate": "3/1/1983",
+      "endDate": "5/2/1983",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1260843",
+      "name": "Brian McCormack",
+      "relationship": "Previous registration",
+      "startDate": "6/14/1984",
+      "endDate": "12/19/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1262533",
+      "name": "MARK MADDEN",
+      "relationship": "Previous registration",
+      "startDate": "11/21/1985",
+      "endDate": "5/13/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1380147",
+      "name": "Michael Conley",
+      "relationship": "Previous registration",
+      "startDate": "6/5/2014",
+      "endDate": "8/31/2017",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1380462",
+      "name": "TIMOTHY WALSH",
+      "relationship": "Previous registration",
+      "startDate": "7/30/1991",
+      "endDate": "3/6/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1472459",
+      "name": "MICHAEL WALDOW",
+      "relationship": "Previous registration",
+      "startDate": "1/31/2007",
+      "endDate": "4/26/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1535350",
+      "name": "VLADIMIR GUSINSKY",
+      "relationship": "Previous registration",
+      "startDate": "9/9/1986",
+      "endDate": "6/16/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1715323",
+      "name": "MICHAEL MCPEEK",
+      "relationship": "Previous registration",
+      "startDate": "5/22/2008",
+      "endDate": "12/8/2008",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1779728",
+      "name": "RISLEY MOUTON",
+      "relationship": "Previous registration",
+      "startDate": "1/12/2004",
+      "endDate": "5/4/2018",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2045949",
+      "name": "WALTER WANDALL",
+      "relationship": "Previous registration",
+      "startDate": "1/4/1999",
+      "endDate": "5/21/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2107877",
+      "name": "TIMOTHY MENEZ",
+      "relationship": "Previous registration",
+      "startDate": "7/11/1997",
+      "endDate": "8/27/2008",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2162746",
+      "name": "ELSIE EWING-MITCHELL",
+      "relationship": "Previous registration",
+      "startDate": "12/4/2009",
+      "endDate": "2/10/2011",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2463406",
+      "name": "CHRISTOPHER SALAMON",
+      "relationship": "Previous registration",
+      "startDate": "11/26/2003",
+      "endDate": "5/17/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3084900",
+      "name": "Gerald Catalano",
+      "relationship": "Previous registration",
+      "startDate": "1/28/2016",
+      "endDate": "7/20/2017",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3130411",
+      "name": "Timothy Carroll",
+      "relationship": "Previous registration",
+      "startDate": "12/10/1998",
+      "endDate": "11/14/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3169689",
+      "name": "JANICE FARIS",
+      "relationship": "Previous registration",
+      "startDate": "4/22/2010",
+      "endDate": "8/11/2017",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3256981",
+      "name": "CRAIG MCGOVERN",
+      "relationship": "Previous registration",
+      "startDate": "5/14/2013",
+      "endDate": "2/12/2015",
+      "isCurrent": false
+    },
+    {
+      "individualId": "338678",
+      "name": "WALTER MOONEY",
+      "relationship": "Previous registration",
+      "startDate": "8/12/1987",
+      "endDate": "12/13/1991",
+      "isCurrent": false
+    },
+    {
+      "individualId": "428569",
+      "name": "RALPH SMITH",
+      "relationship": "Previous registration",
+      "startDate": "1/17/1973",
+      "endDate": "6/21/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "434119",
+      "name": "DAVID STAUDT",
+      "relationship": "Previous registration",
+      "startDate": "7/12/1973",
+      "endDate": "6/2/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "448025",
+      "name": "DONALD TONELLI",
+      "relationship": "Previous registration",
+      "startDate": "11/15/1972",
+      "endDate": "5/28/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4676365",
+      "name": "RICHARD JOHANNSEN",
+      "relationship": "Previous registration",
+      "startDate": "3/16/2005",
+      "endDate": "3/30/2006",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4696681",
+      "name": "Douglas Hellerman",
+      "relationship": "Previous registration",
+      "startDate": "6/6/2007",
+      "endDate": "6/26/2013",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4850358",
+      "name": "MARY BEVICH",
+      "relationship": "Previous registration",
+      "startDate": "11/12/2004",
+      "endDate": "5/9/2022",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4873410",
+      "name": "ROBERT HELD",
+      "relationship": "Previous registration",
+      "startDate": "5/23/2006",
+      "endDate": "7/2/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5069011",
+      "name": "JAMES TILL",
+      "relationship": "Previous registration",
+      "startDate": "10/2/2017",
+      "endDate": "10/28/2022",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5245852",
+      "name": "Tariq Akbar",
+      "relationship": "Previous registration",
+      "startDate": "5/2/2018",
+      "endDate": "6/24/2022",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5828264",
+      "name": "MANAS TAVARGERI",
+      "relationship": "Previous registration",
+      "startDate": "9/23/2010",
+      "endDate": "10/28/2010",
+      "isCurrent": false
+    },
+    {
+      "individualId": "707132",
+      "name": "PAULA MICHAELS",
+      "relationship": "Previous registration",
+      "startDate": "5/24/1985",
+      "endDate": "8/15/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "719572",
+      "name": "HAROLD MAUDE",
+      "relationship": "Previous registration",
+      "startDate": "4/17/2000",
+      "endDate": "12/6/2000",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1002946",
+      "name": "Thomas Archer",
+      "relationship": "Previous registration",
+      "startDate": "11/9/1989",
+      "endDate": "12/13/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1009428",
+      "name": "JOEL HARRIS",
+      "relationship": "Previous registration",
+      "startDate": "7/3/1995",
+      "endDate": "1/9/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1010752",
+      "name": "JANIE GARZA-CLARK",
+      "relationship": "Previous registration",
+      "startDate": "5/11/1993",
+      "endDate": "12/21/2015",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1057703",
+      "name": "BEVERLY EPPS",
+      "relationship": "Previous registration",
+      "startDate": "11/24/1982",
+      "endDate": "12/19/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1058810",
+      "name": "KENNETH BROOKE",
+      "relationship": "Previous registration",
+      "startDate": "12/9/1982",
+      "endDate": "12/19/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1068083",
+      "name": "SAMUEL CHICKERELLA",
+      "relationship": "Previous registration",
+      "startDate": "12/21/1982",
+      "endDate": "2/25/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1080504",
+      "name": "EDWARD DUBLIS",
+      "relationship": "Previous registration",
+      "startDate": "6/21/1996",
+      "endDate": "12/24/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1080626",
+      "name": "RICHARD MCFARLAND",
+      "relationship": "Previous registration",
+      "startDate": "9/28/1983",
+      "endDate": "12/19/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1085218",
+      "name": "D BRUCE",
+      "relationship": "Previous registration",
+      "startDate": "3/9/1983",
+      "endDate": "1/15/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1089588",
+      "name": "MARK GRAHAM",
+      "relationship": "Previous registration",
+      "startDate": "6/22/2011",
+      "endDate": "5/17/2013",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1197786",
+      "name": "HAROLD NOJI",
+      "relationship": "Previous registration",
+      "startDate": "8/28/1990",
+      "endDate": "10/30/1991",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1208897",
+      "name": "JAMES COWAN",
+      "relationship": "Previous registration",
+      "startDate": "6/3/2002",
+      "endDate": "3/6/2009",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1208928",
+      "name": "PHILIP HARMON",
+      "relationship": "Previous registration",
+      "startDate": "6/19/1985",
+      "endDate": "4/10/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1215114",
+      "name": "JAMES CARBONE",
+      "relationship": "Previous registration",
+      "startDate": "10/4/2017",
+      "endDate": "8/7/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1250491",
+      "name": "THOMAS HUGHS",
+      "relationship": "Previous registration",
+      "startDate": "4/14/2015",
+      "endDate": "6/30/2017",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1285310",
+      "name": "EARL STALKER",
+      "relationship": "Previous registration",
+      "startDate": "2/14/2000",
+      "endDate": "7/29/2010",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1299148",
+      "name": "Mara London",
+      "relationship": "Previous registration",
+      "startDate": "11/9/2012",
+      "endDate": "3/7/2013",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1312459",
+      "name": "ROGER PACHECO",
+      "relationship": "Previous registration",
+      "startDate": "2/6/2006",
+      "endDate": "6/18/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1323936",
+      "name": "MICHAEL REIDY",
+      "relationship": "Previous registration",
+      "startDate": "11/5/1987",
+      "endDate": "7/29/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1375237",
+      "name": "LORELLE FARBER",
+      "relationship": "Previous registration",
+      "startDate": "6/18/2009",
+      "endDate": "1/25/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1388016",
+      "name": "MARION OTMINSKI",
+      "relationship": "Previous registration",
+      "startDate": "4/30/1992",
+      "endDate": "12/21/2010",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1429134",
+      "name": "PHILLIP DAMBRISI",
+      "relationship": "Previous registration",
+      "startDate": "1/2/2015",
+      "endDate": "10/21/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1434277",
+      "name": "RICHARD EPPS",
+      "relationship": "Previous registration",
+      "startDate": "12/23/1985",
+      "endDate": "3/30/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1935194",
+      "name": "MARIEELENA NESS",
+      "relationship": "Previous registration",
+      "startDate": "10/18/1991",
+      "endDate": "10/2/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2026113",
+      "name": "MICHAEL SWEENEY",
+      "relationship": "Previous registration",
+      "startDate": "10/3/1995",
+      "endDate": "10/31/2000",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2052671",
+      "name": "ALFRED APPLE",
+      "relationship": "Previous registration",
+      "startDate": "6/15/2007",
+      "endDate": "6/2/2009",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2060780",
+      "name": "Constita Ong",
+      "relationship": "Previous registration",
+      "startDate": "1/10/2002",
+      "endDate": "4/13/2017",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2128581",
+      "name": "THOMAS HELLINGS",
+      "relationship": "Previous registration",
+      "startDate": "10/27/1992",
+      "endDate": "6/7/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2617514",
+      "name": "SUSANNE DENBY",
+      "relationship": "Previous registration",
+      "startDate": "1/9/2025",
+      "endDate": "4/10/2026",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2641416",
+      "name": "ROBERT OMID",
+      "relationship": "Previous registration",
+      "startDate": "12/2/2011",
+      "endDate": "4/7/2021",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2641591",
+      "name": "KEITH HUCKERBY",
+      "relationship": "Previous registration",
+      "startDate": "8/8/1995",
+      "endDate": "9/22/2017",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3236752",
+      "name": "REBECCA DUNNE",
+      "relationship": "Previous registration",
+      "startDate": "3/17/2010",
+      "endDate": "2/2/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "418154",
+      "name": "OWEN SEIDENBERGER",
+      "relationship": "Previous registration",
+      "startDate": "4/12/1973",
+      "endDate": "6/3/2011",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4231618",
+      "name": "JOSEPH MALLEE",
+      "relationship": "Previous registration",
+      "startDate": "1/5/2009",
+      "endDate": "1/6/2011",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4275481",
+      "name": "Tracy Zimmerer",
+      "relationship": "Previous registration",
+      "startDate": "10/17/2018",
+      "endDate": "3/17/2021",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4359340",
+      "name": "MOHAMED AKRAM",
+      "relationship": "Previous registration",
+      "startDate": "4/26/2001",
+      "endDate": "2/22/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4556827",
+      "name": "VICTORIA ROBINSON",
+      "relationship": "Previous registration",
+      "startDate": "9/15/2005",
+      "endDate": "9/22/2017",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4802527",
+      "name": "GARRETT SWARTZ",
+      "relationship": "Previous registration",
+      "startDate": "7/19/2004",
+      "endDate": "1/9/2007",
+      "isCurrent": false
+    }
+  ]
+}

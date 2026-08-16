@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1011832",
+      "name": "TIM HO",
+      "relationship": "Previous registration",
+      "startDate": "2/17/1984",
+      "endDate": "1/21/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1201408",
+      "name": "PATRICK LETTICE",
+      "relationship": "Previous registration",
+      "startDate": "12/12/1984",
+      "endDate": "12/17/1985",
+      "isCurrent": false
+    }
+  ]
+}

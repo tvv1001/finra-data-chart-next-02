@@ -1,0 +1,155 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "2143823",
+      "name": "",
+      "relationship": "Current registration",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2399284",
+      "name": "ANDREW PAPP",
+      "relationship": "Current registration",
+      "startDate": "1/20/2026",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2728886",
+      "name": "MICHAEL MISHLER",
+      "relationship": "Current registration",
+      "startDate": "1/16/2026",
+      "isCurrent": true
+    },
+    {
+      "individualId": "3082755",
+      "name": "Ned Wyse",
+      "relationship": "Current registration",
+      "startDate": "1/17/2026",
+      "isCurrent": true
+    },
+    {
+      "individualId": "3219474",
+      "name": "BRUCE TRAUB",
+      "relationship": "Current registration",
+      "startDate": "1/20/2026",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4243982",
+      "name": "Alan Wyse",
+      "relationship": "Current registration",
+      "startDate": "1/17/2026",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4679168",
+      "name": "Andres Peterson",
+      "relationship": "Current registration",
+      "startDate": "1/17/2026",
+      "isCurrent": true
+    },
+    {
+      "individualId": "5668094",
+      "name": "KIRK WELDY",
+      "relationship": "Current registration",
+      "startDate": "1/16/2026",
+      "isCurrent": true
+    },
+    {
+      "individualId": "5847245",
+      "name": "LINDSEY ROEHL",
+      "relationship": "Current registration",
+      "startDate": "1/16/2026",
+      "isCurrent": true
+    },
+    {
+      "individualId": "7260406",
+      "name": "Trevor Rupp",
+      "relationship": "Current registration",
+      "startDate": "1/17/2026",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "2143823",
+      "name": "MICHAEL CHILDS",
+      "relationship": "Previous registration",
+      "startDate": "2/22/2022",
+      "endDate": "12/31/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2399284",
+      "name": "ANDREW PAPP",
+      "relationship": "Previous registration",
+      "startDate": "6/13/2023",
+      "endDate": "12/31/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2728886",
+      "name": "MICHAEL MISHLER",
+      "relationship": "Previous registration",
+      "startDate": "3/21/2025",
+      "endDate": "12/31/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3082755",
+      "name": "Ned Wyse",
+      "relationship": "Previous registration",
+      "startDate": "2/16/2022",
+      "endDate": "12/31/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3219474",
+      "name": "BRUCE TRAUB",
+      "relationship": "Previous registration",
+      "startDate": "6/14/2023",
+      "endDate": "12/31/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4243982",
+      "name": "Alan Wyse",
+      "relationship": "Previous registration",
+      "startDate": "2/22/2022",
+      "endDate": "12/31/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4679168",
+      "name": "Andres Peterson",
+      "relationship": "Previous registration",
+      "startDate": "2/16/2022",
+      "endDate": "12/31/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5668094",
+      "name": "KIRK WELDY",
+      "relationship": "Previous registration",
+      "startDate": "2/16/2022",
+      "endDate": "12/31/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5847245",
+      "name": "LINDSEY ROEHL",
+      "relationship": "Previous registration",
+      "startDate": "8/10/2023",
+      "endDate": "12/31/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7260406",
+      "name": "Trevor Rupp",
+      "relationship": "Previous registration",
+      "startDate": "5/1/2024",
+      "endDate": "12/31/2025",
+      "isCurrent": false
+    }
+  ]
+}

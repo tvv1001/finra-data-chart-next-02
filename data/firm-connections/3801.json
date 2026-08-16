@@ -1,0 +1,85 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1189553",
+      "name": "JANE ROSS-SCHRIBER",
+      "relationship": "Previous registration",
+      "startDate": "9/1/1995",
+      "endDate": "11/3/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1318684",
+      "name": "PETER MAIORANO",
+      "relationship": "Previous registration",
+      "startDate": "11/1/1995",
+      "endDate": "11/3/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1874709",
+      "name": "STEPHEN PORRICOLO",
+      "relationship": "Previous registration",
+      "startDate": "10/5/1995",
+      "endDate": "11/3/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2782055",
+      "name": "SARAH THOMPSON",
+      "relationship": "Previous registration",
+      "startDate": "9/25/1996",
+      "endDate": "11/3/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1108841",
+      "name": "SUSAN HOLGATE",
+      "relationship": "Previous registration",
+      "startDate": "7/21/1987",
+      "endDate": "2/1/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1170408",
+      "name": "MARY JOHNSTONE",
+      "relationship": "Previous registration",
+      "startDate": "8/23/1983",
+      "endDate": "1/17/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1398078",
+      "name": "WILLIAM MANSFIELD",
+      "relationship": "Previous registration",
+      "startDate": "7/9/1997",
+      "endDate": "11/3/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1670889",
+      "name": "MARVIN GRIFFITH",
+      "relationship": "Previous registration",
+      "startDate": "4/30/1997",
+      "endDate": "11/3/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2428962",
+      "name": "NEIL GIARDINO",
+      "relationship": "Previous registration",
+      "startDate": "11/1/1995",
+      "endDate": "11/3/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2684739",
+      "name": "ARYEH BOURKOFF",
+      "relationship": "Previous registration",
+      "startDate": "9/9/1997",
+      "endDate": "11/3/1997",
+      "isCurrent": false
+    }
+  ]
+}

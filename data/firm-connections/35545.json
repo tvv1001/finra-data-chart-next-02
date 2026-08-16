@@ -1,0 +1,109 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1013879",
+      "name": "Liza Marquardt",
+      "relationship": "Previous registration",
+      "startDate": "10/25/2005",
+      "endDate": "11/3/2011",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1423672",
+      "name": "MARTIN HARMON",
+      "relationship": "Previous registration",
+      "startDate": "12/5/2012",
+      "endDate": "12/6/2012",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5219867",
+      "name": "SOFIA SEMA",
+      "relationship": "Previous registration",
+      "startDate": "6/18/2009",
+      "endDate": "7/19/2010",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1088981",
+      "name": "DIANA DORN",
+      "relationship": "Previous registration",
+      "startDate": "5/27/2004",
+      "endDate": "9/17/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1189929",
+      "name": "JOEL MARKS",
+      "relationship": "Previous registration",
+      "startDate": "2/7/2005",
+      "endDate": "2/17/2010",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1209667",
+      "name": "RICHARD CROCKETT",
+      "relationship": "Previous registration",
+      "startDate": "5/8/2006",
+      "endDate": "3/18/2008",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1329099",
+      "name": "Wayne Gilpin",
+      "relationship": "Previous registration",
+      "startDate": "3/7/2002",
+      "endDate": "2/12/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1352722",
+      "name": "ROBERT SETTEDUCATI",
+      "relationship": "Previous registration",
+      "startDate": "10/13/2008",
+      "endDate": "1/9/2012",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1463372",
+      "name": "KEITH DAUBENSPECK",
+      "relationship": "Previous registration",
+      "startDate": "4/7/1999",
+      "endDate": "11/20/2012",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2013040",
+      "name": "Robert Milburn",
+      "relationship": "Previous registration",
+      "startDate": "6/20/2006",
+      "endDate": "1/25/2008",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2261744",
+      "name": "ADAM ANTONIADES",
+      "relationship": "Previous registration",
+      "startDate": "8/23/2004",
+      "endDate": "11/17/2006",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2290795",
+      "name": "BASIL CHRISTAKOS",
+      "relationship": "Previous registration",
+      "startDate": "7/1/2008",
+      "endDate": "11/20/2012",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2441501",
+      "name": "Glenn Schwalje",
+      "relationship": "Previous registration",
+      "startDate": "6/22/2005",
+      "endDate": "4/27/2006",
+      "isCurrent": false
+    }
+  ]
+}

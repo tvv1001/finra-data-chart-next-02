@@ -1,0 +1,29 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1024975",
+      "name": "GEORGE TOTH",
+      "relationship": "Previous registration",
+      "startDate": "7/8/1986",
+      "endDate": "1/9/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1303936",
+      "name": "DEAN VITALI",
+      "relationship": "Previous registration",
+      "startDate": "12/7/1987",
+      "endDate": "1/9/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1298205",
+      "name": "WILLIAM SYKES",
+      "relationship": "Previous registration",
+      "startDate": "7/2/1986",
+      "endDate": "4/28/1988",
+      "isCurrent": false
+    }
+  ]
+}

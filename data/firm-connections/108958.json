@@ -1,0 +1,61 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "4531831",
+      "name": "Phillip Korenman",
+      "relationship": "Current registration",
+      "startDate": "8/19/2019",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1672955",
+      "name": "JOSEPH DELLUTRI",
+      "relationship": "Previous registration",
+      "startDate": "4/4/2003",
+      "endDate": "1/4/2013",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2203974",
+      "name": "ROBERT GILL",
+      "relationship": "Previous registration",
+      "startDate": "2/5/2014",
+      "endDate": "7/19/2021",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5981990",
+      "name": "Miguel Saldana",
+      "relationship": "Previous registration",
+      "startDate": "6/7/2013",
+      "endDate": "10/24/2014",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7146694",
+      "name": "John Mead",
+      "relationship": "Previous registration",
+      "startDate": "5/2/2022",
+      "endDate": "8/28/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2391434",
+      "name": "EDWARD WALTERS",
+      "relationship": "Previous registration",
+      "startDate": "11/19/2015",
+      "endDate": "9/7/2018",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4810761",
+      "name": "TIMOTHY PLUSH",
+      "relationship": "Previous registration",
+      "startDate": "1/23/2006",
+      "endDate": "8/22/2016",
+      "isCurrent": false
+    }
+  ]
+}

@@ -1,0 +1,198 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "2074700",
+      "name": "JAMES MASON",
+      "relationship": "Current registration",
+      "startDate": "8/18/2016",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4269982",
+      "name": "KIMBERLY BENFIELD",
+      "relationship": "Current registration",
+      "startDate": "11/1/2017",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1017166",
+      "name": "WILLIAM SONNETT",
+      "relationship": "Current registration",
+      "startDate": "9/28/2016",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2239528",
+      "name": "PATRICIA CENTENO",
+      "relationship": "Current registration",
+      "startDate": "5/9/2023",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2459582",
+      "name": "CYNTHIA HARVARD",
+      "relationship": "Current registration",
+      "startDate": "9/9/2016",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2723431",
+      "name": "BRYAN CRAM",
+      "relationship": "Current registration",
+      "startDate": "2/17/2021",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4228631",
+      "name": "JEFFREY DUNN",
+      "relationship": "Current registration",
+      "startDate": "9/29/2016",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4629743",
+      "name": "RONALD BROWN",
+      "relationship": "Current registration",
+      "startDate": "8/11/2016",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1072858",
+      "name": "JOHN MAYFIELD",
+      "relationship": "Previous registration",
+      "startDate": "9/9/2016",
+      "endDate": "12/17/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "500564",
+      "name": "CHARLES FAIRES",
+      "relationship": "Previous registration",
+      "startDate": "2/17/2021",
+      "endDate": "3/6/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7100962",
+      "name": "ANA MATIA",
+      "relationship": "Previous registration",
+      "startDate": "11/21/2019",
+      "endDate": "10/10/2023",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1046234",
+      "name": "STEPHEN EYE",
+      "relationship": "Previous registration",
+      "startDate": "8/17/2016",
+      "endDate": "6/13/2018",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1112962",
+      "name": "LIANE HANSEN",
+      "relationship": "Previous registration",
+      "startDate": "2/17/2021",
+      "endDate": "11/18/2021",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1181095",
+      "name": "STEPHEN ANDERSON",
+      "relationship": "Previous registration",
+      "startDate": "8/25/2021",
+      "endDate": "7/13/2022",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1421579",
+      "name": "Diane Parmele",
+      "relationship": "Previous registration",
+      "startDate": "2/17/2021",
+      "endDate": "12/1/2022",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1430238",
+      "name": "GARY BARGEBUHR",
+      "relationship": "Previous registration",
+      "startDate": "8/24/2018",
+      "endDate": "12/2/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1895889",
+      "name": "William Biles",
+      "relationship": "Previous registration",
+      "startDate": "1/30/2017",
+      "endDate": "8/22/2017",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2475731",
+      "name": "MICHELLE JESSUP MCKENZIE",
+      "relationship": "Previous registration",
+      "startDate": "9/9/2016",
+      "endDate": "10/21/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2697260",
+      "name": "Charles McCallum",
+      "relationship": "Previous registration",
+      "startDate": "9/14/2016",
+      "endDate": "1/31/2023",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4165945",
+      "name": "TIMOTHY NUGENT",
+      "relationship": "Previous registration",
+      "startDate": "9/14/2016",
+      "endDate": "10/4/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4344845",
+      "name": "Lee Christopher",
+      "relationship": "Previous registration",
+      "startDate": "11/16/2020",
+      "endDate": "12/15/2023",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4544954",
+      "name": "COYE CORDLE",
+      "relationship": "Previous registration",
+      "startDate": "11/6/2020",
+      "endDate": "10/18/2023",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4587280",
+      "name": "JEREMY BEAKES",
+      "relationship": "Previous registration",
+      "startDate": "2/17/2021",
+      "endDate": "1/10/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4621076",
+      "name": "Melissa Holding",
+      "relationship": "Previous registration",
+      "startDate": "11/17/2020",
+      "endDate": "1/8/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4779549",
+      "name": "RYAN AKERS",
+      "relationship": "Previous registration",
+      "startDate": "1/24/2022",
+      "endDate": "8/29/2022",
+      "isCurrent": false
+    }
+  ]
+}

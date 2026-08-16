@@ -1,0 +1,93 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1002235",
+      "name": "GREG BARISHMAN",
+      "relationship": "Previous registration",
+      "startDate": "5/13/1983",
+      "endDate": "8/13/1984",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1034681",
+      "name": "JOSEPH LAGRIOLA",
+      "relationship": "Previous registration",
+      "startDate": "9/30/1988",
+      "endDate": "10/24/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1027259",
+      "name": "Steven Shaffer",
+      "relationship": "Previous registration",
+      "startDate": "2/10/1982",
+      "endDate": "2/9/1983",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1086913",
+      "name": "GEORGE GARUCCIO",
+      "relationship": "Previous registration",
+      "startDate": "2/18/1987",
+      "endDate": "1/2/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1095395",
+      "name": "CHRISTOPHER MORAN",
+      "relationship": "Previous registration",
+      "startDate": "4/19/1983",
+      "endDate": "4/10/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1124455",
+      "name": "CARMINE CAPONE",
+      "relationship": "Previous registration",
+      "startDate": "8/15/1985",
+      "endDate": "12/31/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1143818",
+      "name": "JAMES PATTEN",
+      "relationship": "Previous registration",
+      "startDate": "6/1/1988",
+      "endDate": "12/1/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1144621",
+      "name": "WENDY WENDT",
+      "relationship": "Previous registration",
+      "startDate": "5/22/1985",
+      "endDate": "8/4/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1205712",
+      "name": "DAVID KOROSTOFF",
+      "relationship": "Previous registration",
+      "startDate": "8/15/1985",
+      "endDate": "12/31/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1315386",
+      "name": "RICHARD HENNION",
+      "relationship": "Previous registration",
+      "startDate": "7/14/1988",
+      "endDate": "1/2/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "28345",
+      "name": "THOMAS BRADLEY",
+      "relationship": "Previous registration",
+      "startDate": "7/15/1986",
+      "endDate": "6/22/1989",
+      "isCurrent": false
+    }
+  ]
+}

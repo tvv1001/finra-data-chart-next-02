@@ -1,0 +1,51 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "2128581",
+      "name": "THOMAS HELLINGS",
+      "relationship": "Current registration",
+      "startDate": "3/5/2013",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2392261",
+      "name": "LISA BUONO",
+      "relationship": "Current registration",
+      "startDate": "7/21/2014",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2645082",
+      "name": "DAVID GEIBEL",
+      "relationship": "Current registration",
+      "startDate": "7/24/2014",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "2128581",
+      "name": "THOMAS HELLINGS",
+      "relationship": "Previous registration",
+      "startDate": "3/5/2013",
+      "endDate": "1/4/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2392261",
+      "name": "LISA BUONO",
+      "relationship": "Previous registration",
+      "startDate": "7/21/2014",
+      "endDate": "3/27/2015",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2645082",
+      "name": "DAVID GEIBEL",
+      "relationship": "Previous registration",
+      "startDate": "7/24/2014",
+      "endDate": "3/27/2015",
+      "isCurrent": false
+    }
+  ]
+}

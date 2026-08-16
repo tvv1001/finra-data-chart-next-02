@@ -1,0 +1,173 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1010207",
+      "name": "DEBORAH MINCH",
+      "relationship": "Previous registration",
+      "startDate": "2/25/1982",
+      "endDate": "6/1/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1356113",
+      "name": "PAUL RANKIN",
+      "relationship": "Previous registration",
+      "startDate": "1/15/1986",
+      "endDate": "2/10/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1374394",
+      "name": "PETER CORDTS",
+      "relationship": "Previous registration",
+      "startDate": "4/7/1988",
+      "endDate": "5/16/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1458667",
+      "name": "KENNETH MCANDRESS",
+      "relationship": "Previous registration",
+      "startDate": "6/13/1986",
+      "endDate": "4/9/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1509825",
+      "name": "JOHN GRAMBONE",
+      "relationship": "Previous registration",
+      "startDate": "5/20/1986",
+      "endDate": "2/10/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "874380",
+      "name": "STEVEN DIETZ",
+      "relationship": "Previous registration",
+      "startDate": "4/27/1983",
+      "endDate": "2/20/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1068278",
+      "name": "WALLACE GIAKAS",
+      "relationship": "Previous registration",
+      "startDate": "11/4/1983",
+      "endDate": "3/19/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1096719",
+      "name": "BRUCE GUARINO",
+      "relationship": "Previous registration",
+      "startDate": "6/24/1987",
+      "endDate": "10/9/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1109634",
+      "name": "SILVIO DIMEDIO",
+      "relationship": "Previous registration",
+      "startDate": "3/22/1983",
+      "endDate": "1/28/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1143818",
+      "name": "JAMES PATTEN",
+      "relationship": "Previous registration",
+      "startDate": "5/27/1987",
+      "endDate": "6/14/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1201577",
+      "name": "HARRY GOBORA",
+      "relationship": "Previous registration",
+      "startDate": "7/9/1984",
+      "endDate": "6/13/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1211212",
+      "name": "JAMES COLEMAN",
+      "relationship": "Previous registration",
+      "startDate": "6/10/1987",
+      "endDate": "4/21/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1247269",
+      "name": "RONALD BONO",
+      "relationship": "Previous registration",
+      "startDate": "5/24/1984",
+      "endDate": "6/1/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1257500",
+      "name": "Christopher Zelesnick",
+      "relationship": "Previous registration",
+      "startDate": "10/23/1984",
+      "endDate": "4/19/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1315386",
+      "name": "RICHARD HENNION",
+      "relationship": "Previous registration",
+      "startDate": "10/25/1984",
+      "endDate": "6/16/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1354744",
+      "name": "HUGO PEROTTI",
+      "relationship": "Previous registration",
+      "startDate": "6/30/1986",
+      "endDate": "10/27/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1385075",
+      "name": "IRA ZADIKOW",
+      "relationship": "Previous registration",
+      "startDate": "12/2/1986",
+      "endDate": "3/18/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1420210",
+      "name": "DENNIS JORDAN",
+      "relationship": "Previous registration",
+      "startDate": "1/15/1987",
+      "endDate": "7/7/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "14213",
+      "name": "CLAUD BARUCH",
+      "relationship": "Previous registration",
+      "startDate": "1/8/1969",
+      "endDate": "5/26/1973",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1431387",
+      "name": "EDWARD MAHER",
+      "relationship": "Previous registration",
+      "startDate": "2/10/1987",
+      "endDate": "7/6/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1436877",
+      "name": "MICHAEL LADERER",
+      "relationship": "Previous registration",
+      "startDate": "10/31/1986",
+      "endDate": "6/1/1988",
+      "isCurrent": false
+    }
+  ]
+}

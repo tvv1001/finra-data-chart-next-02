@@ -1,0 +1,61 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1012980",
+      "name": "RUSSELL MONTGOMERY",
+      "relationship": "Previous registration",
+      "startDate": "12/12/1988",
+      "endDate": "2/25/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "726267",
+      "name": "ROBERT MERRIFIELD",
+      "relationship": "Previous registration",
+      "startDate": "5/12/1988",
+      "endDate": "2/28/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1432928",
+      "name": "TANGA ALEXANDER",
+      "relationship": "Previous registration",
+      "startDate": "12/15/1987",
+      "endDate": "9/30/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1685795",
+      "name": "HOWARD INSCHO",
+      "relationship": "Previous registration",
+      "startDate": "12/3/1987",
+      "endDate": "2/12/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1707489",
+      "name": "SONDRA WHITE",
+      "relationship": "Previous registration",
+      "startDate": "3/28/1988",
+      "endDate": "2/28/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1803765",
+      "name": "WENDY ATHENS",
+      "relationship": "Previous registration",
+      "startDate": "1/2/1989",
+      "endDate": "2/27/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1803825",
+      "name": "Michael Dolphin",
+      "relationship": "Previous registration",
+      "startDate": "4/6/1988",
+      "endDate": "2/27/1989",
+      "isCurrent": false
+    }
+  ]
+}

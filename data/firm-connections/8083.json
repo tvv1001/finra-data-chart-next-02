@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1024804",
+      "name": "DAVID RICHMAN",
+      "relationship": "Previous registration",
+      "startDate": "11/26/1983",
+      "endDate": "5/2/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "28345",
+      "name": "THOMAS BRADLEY",
+      "relationship": "Previous registration",
+      "startDate": "8/3/1977",
+      "endDate": "4/9/1980",
+      "isCurrent": false
+    }
+  ]
+}

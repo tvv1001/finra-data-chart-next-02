@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1029712",
+      "name": "MAUREEN MEEHAN",
+      "relationship": "Previous registration",
+      "startDate": "3/29/2010",
+      "endDate": "2/1/2018",
+      "isCurrent": false
+    },
+    {
+      "individualId": "34511",
+      "name": "JOHN BUCKLEY",
+      "relationship": "Previous registration",
+      "startDate": "12/13/2010",
+      "endDate": "2/1/2018",
+      "isCurrent": false
+    }
+  ]
+}

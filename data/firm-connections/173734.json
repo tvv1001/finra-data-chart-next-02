@@ -1,0 +1,159 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "1725723",
+      "name": "MILDRED DORTA",
+      "relationship": "Current registration",
+      "startDate": "6/4/2026",
+      "isCurrent": true
+    },
+    {
+      "individualId": "3217684",
+      "name": "JASON KNIGHT",
+      "relationship": "Current registration",
+      "startDate": "3/5/2026",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4771430",
+      "name": "KELLY VIERGUTZ",
+      "relationship": "Current registration",
+      "startDate": "7/16/2025",
+      "isCurrent": true
+    },
+    {
+      "individualId": "5191929",
+      "name": "Sarah Gonzales",
+      "relationship": "Current registration",
+      "startDate": "7/16/2025",
+      "isCurrent": true
+    },
+    {
+      "individualId": "5241465",
+      "name": "Andrea Monsalve",
+      "relationship": "Current registration",
+      "startDate": "2/27/2026",
+      "isCurrent": true
+    },
+    {
+      "individualId": "5588581",
+      "name": "Benjamin Schneider",
+      "relationship": "Current registration",
+      "startDate": "5/1/2025",
+      "isCurrent": true
+    },
+    {
+      "individualId": "5969024",
+      "name": "Ashley Zeiher",
+      "relationship": "Current registration",
+      "startDate": "3/13/2025",
+      "isCurrent": true
+    },
+    {
+      "individualId": "6245252",
+      "name": "Courtney Farrell",
+      "relationship": "Current registration",
+      "startDate": "6/29/2022",
+      "isCurrent": true
+    },
+    {
+      "individualId": "6294272",
+      "name": "Marguerita Hardy",
+      "relationship": "Current registration",
+      "startDate": "4/10/2026",
+      "isCurrent": true
+    },
+    {
+      "individualId": "6373606",
+      "name": "Camille Smalley",
+      "relationship": "Current registration",
+      "startDate": "6/29/2022",
+      "isCurrent": true
+    },
+    {
+      "individualId": "6930896",
+      "name": "Stefanos Taousakis",
+      "relationship": "Current registration",
+      "startDate": "6/11/2026",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1544189",
+      "name": "TERESA COWAN",
+      "relationship": "Current registration",
+      "startDate": "9/24/2020",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2184856",
+      "name": "CHRISTOPHER LANZA",
+      "relationship": "Current registration",
+      "startDate": "12/7/2017",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4512785",
+      "name": "Susan La Fond",
+      "relationship": "Current registration",
+      "startDate": "5/26/2022",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4863973",
+      "name": "Kate Macchia",
+      "relationship": "Current registration",
+      "startDate": "12/7/2017",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "3217684",
+      "name": "JASON KNIGHT",
+      "relationship": "Previous registration",
+      "startDate": "1/29/2018",
+      "endDate": "12/31/2022",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5694427",
+      "name": "Mark Dow",
+      "relationship": "Previous registration",
+      "startDate": "12/15/2017",
+      "endDate": "6/19/2018",
+      "isCurrent": false
+    },
+    {
+      "individualId": "6245252",
+      "name": "Courtney Farrell",
+      "relationship": "Previous registration",
+      "startDate": "1/29/2018",
+      "endDate": "11/14/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1137783",
+      "name": "JENNIFER BRUNNER",
+      "relationship": "Previous registration",
+      "startDate": "10/27/2022",
+      "endDate": "12/31/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1341368",
+      "name": "RICHARD BERTHY",
+      "relationship": "Previous registration",
+      "startDate": "12/1/2017",
+      "endDate": "12/31/2022",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4315489",
+      "name": "Meredith Henning",
+      "relationship": "Previous registration",
+      "startDate": "12/7/2017",
+      "endDate": "3/11/2022",
+      "isCurrent": false
+    }
+  ]
+}

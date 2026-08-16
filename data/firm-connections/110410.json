@@ -1,0 +1,26 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "1024849",
+      "name": "KEVIN GOVERO",
+      "relationship": "Current registration",
+      "startDate": "9/17/2025",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1152284",
+      "name": "BOBB MECKENSTOCK",
+      "relationship": "Current registration",
+      "startDate": "5/30/2025",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4359340",
+      "name": "MOHAMED AKRAM",
+      "relationship": "Current registration",
+      "startDate": "3/1/2021",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": []
+}

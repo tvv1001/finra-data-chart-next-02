@@ -1,0 +1,29 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1012980",
+      "name": "RUSSELL MONTGOMERY",
+      "relationship": "Previous registration",
+      "startDate": "6/20/1984",
+      "endDate": "6/26/1984",
+      "isCurrent": false
+    },
+    {
+      "individualId": "326875",
+      "name": "ROBERT MCDONALD",
+      "relationship": "Previous registration",
+      "startDate": "6/2/1980",
+      "endDate": "1/4/1982",
+      "isCurrent": false
+    },
+    {
+      "individualId": "16534",
+      "name": "BERTRUM BECKOFF",
+      "relationship": "Previous registration",
+      "startDate": "2/6/1975",
+      "endDate": "6/9/1977",
+      "isCurrent": false
+    }
+  ]
+}

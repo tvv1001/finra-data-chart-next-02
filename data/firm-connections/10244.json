@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1020089",
+      "name": "BRIAN ASHE",
+      "relationship": "Previous registration",
+      "startDate": "5/31/1983",
+      "endDate": "9/25/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1054985",
+      "name": "DONALD SCARO",
+      "relationship": "Previous registration",
+      "startDate": "10/3/1983",
+      "endDate": "10/24/1985",
+      "isCurrent": false
+    }
+  ]
+}

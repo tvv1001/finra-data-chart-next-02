@@ -1,0 +1,105 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "1062838",
+      "name": "John O'Hare",
+      "relationship": "Current registration",
+      "startDate": "5/27/2022",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1075564",
+      "name": "JEANI WINTERBOURNE",
+      "relationship": "Current registration",
+      "startDate": "3/3/2009",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1254399",
+      "name": "FRAN SCHARF",
+      "relationship": "Current registration",
+      "startDate": "3/13/2026",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1340004",
+      "name": "TIMOTHY STICKNEY",
+      "relationship": "Current registration",
+      "startDate": "8/15/2022",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1427591",
+      "name": "CONNER WAGSTAFF",
+      "relationship": "Current registration",
+      "startDate": "6/2/2022",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1023067",
+      "name": "DOUGLAS STRAND",
+      "relationship": "Previous registration",
+      "startDate": "11/23/1983",
+      "endDate": "12/10/2008",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1075564",
+      "name": "JEANI WINTERBOURNE",
+      "relationship": "Previous registration",
+      "startDate": "3/3/2009",
+      "endDate": "7/29/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1336014",
+      "name": "CATHLEEN DEPASQUALE",
+      "relationship": "Previous registration",
+      "startDate": "11/24/2021",
+      "endDate": "10/2/2022",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1340004",
+      "name": "TIMOTHY STICKNEY",
+      "relationship": "Previous registration",
+      "startDate": "8/15/2022",
+      "endDate": "7/10/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1468659",
+      "name": "DEBORAH HESS",
+      "relationship": "Previous registration",
+      "startDate": "7/17/2003",
+      "endDate": "6/22/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2036581",
+      "name": "NORMAN FINCHER",
+      "relationship": "Previous registration",
+      "startDate": "12/17/2001",
+      "endDate": "12/10/2008",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4522058",
+      "name": "Michelle Wanless",
+      "relationship": "Previous registration",
+      "startDate": "4/17/2013",
+      "endDate": "7/21/2015",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4711576",
+      "name": "HENRY SANCHEZ",
+      "relationship": "Previous registration",
+      "startDate": "7/2/2019",
+      "endDate": "10/10/2019",
+      "isCurrent": false
+    }
+  ]
+}

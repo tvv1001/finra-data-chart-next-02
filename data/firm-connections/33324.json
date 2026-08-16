@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "7300388",
+      "name": "Anthony Sherlag",
+      "relationship": "Previous registration",
+      "startDate": "10/8/2024",
+      "endDate": "7/16/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4189289",
+      "name": "WILLIAM CRAPPS",
+      "relationship": "Previous registration",
+      "startDate": "3/30/2021",
+      "endDate": "4/2/2022",
+      "isCurrent": false
+    }
+  ]
+}

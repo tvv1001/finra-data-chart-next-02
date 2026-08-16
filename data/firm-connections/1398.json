@@ -1,0 +1,133 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1005204",
+      "name": "WILLIAM JAMES",
+      "relationship": "Previous registration",
+      "startDate": "9/5/1986",
+      "endDate": "10/13/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1233655",
+      "name": "COLIN WATANABE",
+      "relationship": "Previous registration",
+      "startDate": "12/26/1984",
+      "endDate": "7/16/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1783361",
+      "name": "VICTOR SIBILLA",
+      "relationship": "Previous registration",
+      "startDate": "4/26/1990",
+      "endDate": "4/5/1993",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1793072",
+      "name": "JOAN BUXTON",
+      "relationship": "Previous registration",
+      "startDate": "2/23/1988",
+      "endDate": "6/2/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1804129",
+      "name": "STEVEN PHELPS",
+      "relationship": "Previous registration",
+      "startDate": "4/26/1990",
+      "endDate": "4/5/1993",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1003754",
+      "name": "SARA HERRING",
+      "relationship": "Previous registration",
+      "startDate": "8/15/1985",
+      "endDate": "12/19/2000",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1020034",
+      "name": "MICHAEL RENTERIA",
+      "relationship": "Previous registration",
+      "startDate": "1/8/1986",
+      "endDate": "9/12/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1037278",
+      "name": "JOANN SALISBURY",
+      "relationship": "Previous registration",
+      "startDate": "1/21/1997",
+      "endDate": "12/19/2000",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1060711",
+      "name": "FRED BORRIES",
+      "relationship": "Previous registration",
+      "startDate": "8/3/1985",
+      "endDate": "7/6/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1161629",
+      "name": "JOHN FLOOD",
+      "relationship": "Previous registration",
+      "startDate": "1/27/1984",
+      "endDate": "6/7/1984",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1197658",
+      "name": "KEITH KOCH",
+      "relationship": "Previous registration",
+      "startDate": "12/17/1984",
+      "endDate": "10/22/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1234831",
+      "name": "Donna Schulze",
+      "relationship": "Previous registration",
+      "startDate": "10/14/1994",
+      "endDate": "8/30/2000",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1264136",
+      "name": "James Shaw",
+      "relationship": "Previous registration",
+      "startDate": "6/20/1984",
+      "endDate": "3/26/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1334662",
+      "name": "EDWIN FOSS",
+      "relationship": "Previous registration",
+      "startDate": "3/22/1988",
+      "endDate": "5/11/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2208099",
+      "name": "LUCAS SATRE",
+      "relationship": "Previous registration",
+      "startDate": "2/7/1992",
+      "endDate": "7/28/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2633996",
+      "name": "DANIEL GILBERTSON",
+      "relationship": "Previous registration",
+      "startDate": "12/12/1995",
+      "endDate": "2/18/1997",
+      "isCurrent": false
+    }
+  ]
+}

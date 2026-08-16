@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1285092",
+      "name": "CHARLES LUCAS",
+      "relationship": "Previous registration",
+      "startDate": "11/6/2012",
+      "endDate": "1/3/2023",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1379026",
+      "name": "GEORGE CALVO",
+      "relationship": "Previous registration",
+      "startDate": "12/21/2009",
+      "endDate": "1/7/2019",
+      "isCurrent": false
+    }
+  ]
+}

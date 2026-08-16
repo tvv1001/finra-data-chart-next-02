@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1230668",
+      "name": "STEVEN BLECHER",
+      "relationship": "Previous registration",
+      "startDate": "2/9/2011",
+      "endDate": "1/28/2013",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2247374",
+      "name": "Timothy Bowman",
+      "relationship": "Previous registration",
+      "startDate": "4/14/2011",
+      "endDate": "2/27/2012",
+      "isCurrent": false
+    }
+  ]
+}

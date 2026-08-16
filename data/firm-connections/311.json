@@ -1,0 +1,181 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1028178",
+      "name": "JOVO DJUROVSKI",
+      "relationship": "Previous registration",
+      "startDate": "2/4/1983",
+      "endDate": "1/1/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1046659",
+      "name": "ROSE MANOR",
+      "relationship": "Previous registration",
+      "startDate": "5/2/1994",
+      "endDate": "1/1/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1048402",
+      "name": "PATRICIA THOMPSON",
+      "relationship": "Previous registration",
+      "startDate": "7/22/1982",
+      "endDate": "1/1/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1053476",
+      "name": "JAMES DZIADZIOLA",
+      "relationship": "Previous registration",
+      "startDate": "7/22/1982",
+      "endDate": "1/1/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1249845",
+      "name": "JAMES CHARRON",
+      "relationship": "Previous registration",
+      "startDate": "6/20/1984",
+      "endDate": "1/1/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1255731",
+      "name": "JOSEPH CASERIO",
+      "relationship": "Previous registration",
+      "startDate": "6/20/1984",
+      "endDate": "5/23/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1435688",
+      "name": "DAVID GILLETTE",
+      "relationship": "Previous registration",
+      "startDate": "2/28/1986",
+      "endDate": "2/27/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1602212",
+      "name": "CHERYL ALLAN",
+      "relationship": "Previous registration",
+      "startDate": "7/20/1988",
+      "endDate": "1/1/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1799614",
+      "name": "VIOLET ROZKOWSKI",
+      "relationship": "Previous registration",
+      "startDate": "12/18/1997",
+      "endDate": "1/1/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1843678",
+      "name": "GAIL PERRYMASON",
+      "relationship": "Previous registration",
+      "startDate": "11/25/1994",
+      "endDate": "1/1/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1844557",
+      "name": "JEFFREY RANCILIO",
+      "relationship": "Previous registration",
+      "startDate": "7/20/1988",
+      "endDate": "1/1/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2957361",
+      "name": "RONALD GUEVARRA",
+      "relationship": "Previous registration",
+      "startDate": "10/23/1997",
+      "endDate": "3/25/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1121284",
+      "name": "CHARLES GRIMLEY",
+      "relationship": "Previous registration",
+      "startDate": "5/28/1985",
+      "endDate": "2/2/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1196733",
+      "name": "DENISE BELLINGER",
+      "relationship": "Previous registration",
+      "startDate": "3/22/1984",
+      "endDate": "11/13/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1277142",
+      "name": "ALAN NUECHTERLEIN",
+      "relationship": "Previous registration",
+      "startDate": "8/22/1984",
+      "endDate": "1/1/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1298675",
+      "name": "JOHN KAY",
+      "relationship": "Previous registration",
+      "startDate": "3/2/1990",
+      "endDate": "10/1/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1346992",
+      "name": "PETERIS ABULS",
+      "relationship": "Previous registration",
+      "startDate": "4/24/1985",
+      "endDate": "2/23/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1367879",
+      "name": "ELAINE ROBERTS",
+      "relationship": "Previous registration",
+      "startDate": "7/28/1997",
+      "endDate": "1/1/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1432179",
+      "name": "RALPH ROTH",
+      "relationship": "Previous registration",
+      "startDate": "7/14/1986",
+      "endDate": "10/6/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1437179",
+      "name": "JAMES DENISON",
+      "relationship": "Previous registration",
+      "startDate": "3/23/1990",
+      "endDate": "7/21/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2793132",
+      "name": "Lee LeRoy",
+      "relationship": "Previous registration",
+      "startDate": "10/29/1996",
+      "endDate": "9/3/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "313519",
+      "name": "ALBERT LOWENTHAL",
+      "relationship": "Previous registration",
+      "startDate": "7/30/1997",
+      "endDate": "1/1/1999",
+      "isCurrent": false
+    }
+  ]
+}

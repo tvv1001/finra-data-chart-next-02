@@ -1,0 +1,101 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1003497",
+      "name": "JOSEPH REYNOLDS",
+      "relationship": "Previous registration",
+      "startDate": "4/12/1998",
+      "endDate": "7/17/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1012069",
+      "name": "RICHARD KAUFMAN",
+      "relationship": "Previous registration",
+      "startDate": "6/21/2007",
+      "endDate": "7/17/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1625386",
+      "name": "JAMES BUCKLEY",
+      "relationship": "Previous registration",
+      "startDate": "8/3/2005",
+      "endDate": "7/17/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "212459",
+      "name": "STEVEN FRAIDSTERN",
+      "relationship": "Previous registration",
+      "startDate": "1/2/1998",
+      "endDate": "7/17/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2581386",
+      "name": "MARY KUEHN",
+      "relationship": "Previous registration",
+      "startDate": "6/4/2020",
+      "endDate": "7/17/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1454441",
+      "name": "PATRICK FARRELL",
+      "relationship": "Previous registration",
+      "startDate": "4/25/2000",
+      "endDate": "7/31/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1779551",
+      "name": "ERIC BEADLE",
+      "relationship": "Previous registration",
+      "startDate": "1/31/2020",
+      "endDate": "7/17/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1895889",
+      "name": "William Biles",
+      "relationship": "Previous registration",
+      "startDate": "2/28/2018",
+      "endDate": "7/8/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2858859",
+      "name": "MARCUS ARNEAUD",
+      "relationship": "Previous registration",
+      "startDate": "5/14/2012",
+      "endDate": "7/31/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3149369",
+      "name": "MICHAEL MUNDO",
+      "relationship": "Previous registration",
+      "startDate": "1/6/2008",
+      "endDate": "7/17/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4820047",
+      "name": "Stephen Dudas",
+      "relationship": "Previous registration",
+      "startDate": "8/29/2018",
+      "endDate": "7/31/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4853245",
+      "name": "RANA CHANDER",
+      "relationship": "Previous registration",
+      "startDate": "3/26/2020",
+      "endDate": "7/31/2020",
+      "isCurrent": false
+    }
+  ]
+}

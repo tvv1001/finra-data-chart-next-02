@@ -1,1 +1,53 @@
-{"currentConnections":[{"individualId":"1158274","name":"DAVID LEWIS JAFFE","relationship":"Current registration","isCurrent":true},{"individualId":"2127911","name":"BRUCE GLENN POLLACK","relationship":"Current registration","isCurrent":true},{"individualId":"2505253","name":"PETER WILLIAM GAUDET","relationship":"Current registration","isCurrent":true},{"individualId":"6743863","name":"CHRISTOPHER ROBERT ERICKSON","relationship":"Current registration","isCurrent":true},{"individualId":"6298212","name":"JAMES ROBIN BRADFORD BURGOYNE","relationship":"Current registration","isCurrent":true},{"individualId":"2582697","name":"JOSEPH WILLIAM LICHTENBERGER","relationship":"Current registration","isCurrent":true},{"individualId":"4240769","name":"Daniel Stewart Beaton","relationship":"Current registration","isCurrent":true}],"previousConnections":[{"individualId":"1158274","name":"DAVID LEWIS JAFFE","relationship":"Previous registration","isCurrent":false},{"individualId":"2127911","name":"BRUCE GLENN POLLACK","relationship":"Previous registration","isCurrent":false},{"individualId":"2505253","name":"PETER WILLIAM GAUDET","relationship":"Previous registration","isCurrent":false},{"individualId":"6298212","name":"JAMES ROBIN BRADFORD BURGOYNE","relationship":"Previous registration","isCurrent":false},{"individualId":"6743863","name":"CHRISTOPHER ROBERT ERICKSON","relationship":"Previous registration","isCurrent":false},{"individualId":"2582697","name":"JOSEPH WILLIAM LICHTENBERGER","relationship":"Previous registration","isCurrent":false},{"individualId":"4240769","name":"Daniel Stewart Beaton","relationship":"Previous registration","isCurrent":false}]}
+{
+  "currentConnections": [
+    {
+      "individualId": "1158274",
+      "name": "",
+      "relationship": "Current registration",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2127911",
+      "name": "BRUCE POLLACK",
+      "relationship": "Current registration",
+      "startDate": "12/6/2016",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2505253",
+      "name": "PETER GAUDET",
+      "relationship": "Current registration",
+      "startDate": "4/29/2014",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2582697",
+      "name": "JOSEPH LICHTENBERGER",
+      "relationship": "Current registration",
+      "startDate": "12/8/2025",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4240769",
+      "name": "Daniel Beaton",
+      "relationship": "Current registration",
+      "startDate": "10/1/2015",
+      "isCurrent": true
+    },
+    {
+      "individualId": "6298212",
+      "name": "JAMES BURGOYNE",
+      "relationship": "Current registration",
+      "startDate": "1/10/2023",
+      "isCurrent": true
+    },
+    {
+      "individualId": "6743863",
+      "name": "CHRISTOPHER ERICKSON",
+      "relationship": "Current registration",
+      "startDate": "11/18/2019",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": []
+}

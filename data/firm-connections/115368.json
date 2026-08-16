@@ -1,0 +1,108 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "1143889",
+      "name": "Worth Clark",
+      "relationship": "Current registration",
+      "startDate": "6/23/2025",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1341868",
+      "name": "ANASTASIA CADOTTE",
+      "relationship": "Current registration",
+      "startDate": "4/4/2007",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1013931",
+      "name": "BRIAN LADAH",
+      "relationship": "Previous registration",
+      "startDate": "4/29/2002",
+      "endDate": "11/19/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1333936",
+      "name": "VICTOR TARTARO",
+      "relationship": "Previous registration",
+      "startDate": "2/9/2002",
+      "endDate": "11/11/2008",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1380462",
+      "name": "TIMOTHY WALSH",
+      "relationship": "Previous registration",
+      "startDate": "2/9/2002",
+      "endDate": "11/6/2008",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2859906",
+      "name": "Richard Brown",
+      "relationship": "Previous registration",
+      "startDate": "10/30/2002",
+      "endDate": "10/29/2010",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3016267",
+      "name": "RYAN PITNER",
+      "relationship": "Previous registration",
+      "startDate": "11/6/2002",
+      "endDate": "3/1/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1022014",
+      "name": "STEPHEN ALINIKOFF",
+      "relationship": "Previous registration",
+      "startDate": "4/14/2005",
+      "endDate": "4/27/2009",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1067262",
+      "name": "MICHAEL KINGSTON",
+      "relationship": "Previous registration",
+      "startDate": "8/5/2003",
+      "endDate": "8/12/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1406637",
+      "name": "KEVIN BACHMANN",
+      "relationship": "Previous registration",
+      "startDate": "10/5/2004",
+      "endDate": "11/25/2008",
+      "isCurrent": false
+    },
+    {
+      "individualId": "15488",
+      "name": "JOE BAZZELL",
+      "relationship": "Previous registration",
+      "startDate": "3/2/2004",
+      "endDate": "11/6/2009",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4148742",
+      "name": "GILBERT TALBERT",
+      "relationship": "Previous registration",
+      "startDate": "3/9/2006",
+      "endDate": "11/4/2008",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4781513",
+      "name": "GALE ALMGREN",
+      "relationship": "Previous registration",
+      "startDate": "5/14/2010",
+      "endDate": "11/5/2010",
+      "isCurrent": false
+    }
+  ]
+}

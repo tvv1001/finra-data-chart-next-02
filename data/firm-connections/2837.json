@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1006625",
+      "name": "ANDREA TOTO-WALSHE",
+      "relationship": "Previous registration",
+      "startDate": "7/28/1982",
+      "endDate": "8/17/1981",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1002755",
+      "name": "JANE FINCHER",
+      "relationship": "Previous registration",
+      "startDate": "8/23/1981",
+      "endDate": "8/17/1981",
+      "isCurrent": false
+    }
+  ]
+}

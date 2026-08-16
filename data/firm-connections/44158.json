@@ -1,0 +1,45 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "2625367",
+      "name": "Richard Rizzo",
+      "relationship": "Previous registration",
+      "startDate": "5/4/2017",
+      "endDate": "7/26/2018",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4975946",
+      "name": "SHAWN PELC",
+      "relationship": "Previous registration",
+      "startDate": "3/31/2023",
+      "endDate": "2/7/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1336014",
+      "name": "CATHLEEN DEPASQUALE",
+      "relationship": "Previous registration",
+      "startDate": "9/30/2016",
+      "endDate": "3/31/2017",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2959137",
+      "name": "MARK DOUCE",
+      "relationship": "Previous registration",
+      "startDate": "10/1/2012",
+      "endDate": "5/20/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3001473",
+      "name": "KRISTEN CONSTANTINO",
+      "relationship": "Previous registration",
+      "startDate": "6/14/2012",
+      "endDate": "11/26/2012",
+      "isCurrent": false
+    }
+  ]
+}

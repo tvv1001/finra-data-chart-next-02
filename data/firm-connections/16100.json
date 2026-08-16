@@ -1,0 +1,221 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1003308",
+      "name": "James Robinson",
+      "relationship": "Previous registration",
+      "startDate": "10/9/1993",
+      "endDate": "5/13/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1013425",
+      "name": "James Elsass",
+      "relationship": "Previous registration",
+      "startDate": "6/28/1994",
+      "endDate": "5/3/2000",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1171035",
+      "name": "DEBRA OWEN",
+      "relationship": "Previous registration",
+      "startDate": "7/25/2000",
+      "endDate": "12/13/2000",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1311496",
+      "name": "JAMES BENSON",
+      "relationship": "Previous registration",
+      "startDate": "8/25/1994",
+      "endDate": "2/22/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1366409",
+      "name": "STEPHEN KUEHL",
+      "relationship": "Previous registration",
+      "startDate": "1/24/1986",
+      "endDate": "4/12/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1867575",
+      "name": "KATHY BORKOVEC",
+      "relationship": "Previous registration",
+      "startDate": "9/26/1997",
+      "endDate": "3/13/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2764121",
+      "name": "SCOTT HOFFERKAMP",
+      "relationship": "Previous registration",
+      "startDate": "12/14/2000",
+      "endDate": "3/14/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2793784",
+      "name": "BENJAMIN THISTLETHWAITE",
+      "relationship": "Previous registration",
+      "startDate": "1/5/1998",
+      "endDate": "7/21/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1054365",
+      "name": "MICHAEL MOSS",
+      "relationship": "Previous registration",
+      "startDate": "12/13/2000",
+      "endDate": "8/21/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1088981",
+      "name": "DIANA DORN",
+      "relationship": "Previous registration",
+      "startDate": "2/8/1999",
+      "endDate": "11/5/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1209797",
+      "name": "RUTH TRANSUE",
+      "relationship": "Previous registration",
+      "startDate": "12/15/2000",
+      "endDate": "3/15/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1257904",
+      "name": "CECILIA WECH",
+      "relationship": "Previous registration",
+      "startDate": "8/28/2001",
+      "endDate": "12/3/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1262649",
+      "name": "SHELLEY FREEMAN",
+      "relationship": "Previous registration",
+      "startDate": "6/14/1999",
+      "endDate": "12/13/2000",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1397060",
+      "name": "DANA SCHMIDT",
+      "relationship": "Previous registration",
+      "startDate": "6/25/2004",
+      "endDate": "12/31/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1432928",
+      "name": "TANGA ALEXANDER",
+      "relationship": "Previous registration",
+      "startDate": "12/14/2000",
+      "endDate": "8/20/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1523151",
+      "name": "VICTOR BENSUSSEN",
+      "relationship": "Previous registration",
+      "startDate": "7/25/2001",
+      "endDate": "5/29/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1645287",
+      "name": "STEPHEN KRUCHTEN",
+      "relationship": "Previous registration",
+      "startDate": "12/14/2000",
+      "endDate": "8/12/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1922613",
+      "name": "BRUCE HAGEMANN",
+      "relationship": "Previous registration",
+      "startDate": "3/21/1999",
+      "endDate": "1/12/2000",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2221956",
+      "name": "LEAH KAUFMAN",
+      "relationship": "Previous registration",
+      "startDate": "5/21/1997",
+      "endDate": "12/13/2000",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2274345",
+      "name": "Andrew An",
+      "relationship": "Previous registration",
+      "startDate": "2/21/2002",
+      "endDate": "5/4/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2276699",
+      "name": "GREGORY BRONSTEIN",
+      "relationship": "Previous registration",
+      "startDate": "4/9/1999",
+      "endDate": "12/13/2000",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2383277",
+      "name": "Steven Vacinek",
+      "relationship": "Previous registration",
+      "startDate": "12/17/2000",
+      "endDate": "5/21/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2498892",
+      "name": "DARRELL CRONK",
+      "relationship": "Previous registration",
+      "startDate": "12/15/2000",
+      "endDate": "8/21/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2602579",
+      "name": "TYRON SELL",
+      "relationship": "Previous registration",
+      "startDate": "12/14/2000",
+      "endDate": "8/20/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3222247",
+      "name": "TIMOTHY TRAUDT",
+      "relationship": "Previous registration",
+      "startDate": "7/26/1999",
+      "endDate": "12/13/2000",
+      "isCurrent": false
+    },
+    {
+      "individualId": "338698",
+      "name": "DENNIS MOORADIAN",
+      "relationship": "Previous registration",
+      "startDate": "3/6/2000",
+      "endDate": "12/13/2000",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5025315",
+      "name": "Kyle Salstrom",
+      "relationship": "Previous registration",
+      "startDate": "7/7/2008",
+      "endDate": "11/6/2009",
+      "isCurrent": false
+    }
+  ]
+}

@@ -1,0 +1,117 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1003784",
+      "name": "MICHAEL RICHARDSON",
+      "relationship": "Previous registration",
+      "startDate": "12/23/1994",
+      "endDate": "7/14/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1110393",
+      "name": "CINDY RAGAN",
+      "relationship": "Previous registration",
+      "startDate": "8/1/2001",
+      "endDate": "6/1/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1209737",
+      "name": "JAY HEIDT",
+      "relationship": "Previous registration",
+      "startDate": "9/27/1995",
+      "endDate": "6/1/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1532882",
+      "name": "THOMAS BYRNE",
+      "relationship": "Previous registration",
+      "startDate": "10/24/1997",
+      "endDate": "7/20/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1588341",
+      "name": "JOSEPH ZYMROZ",
+      "relationship": "Previous registration",
+      "startDate": "12/23/1994",
+      "endDate": "4/21/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2083509",
+      "name": "ANDREW WILLIAMS",
+      "relationship": "Previous registration",
+      "startDate": "3/1/1994",
+      "endDate": "5/15/1995",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1356913",
+      "name": "KENNETH LEPORE",
+      "relationship": "Previous registration",
+      "startDate": "12/11/1996",
+      "endDate": "1/9/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1406921",
+      "name": "MARY FEDUSKA",
+      "relationship": "Previous registration",
+      "startDate": "12/23/1994",
+      "endDate": "2/20/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1447356",
+      "name": "SAMUEL GINSBERG",
+      "relationship": "Previous registration",
+      "startDate": "12/23/1994",
+      "endDate": "3/27/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1564302",
+      "name": "CHRISTOPHER RADFORD",
+      "relationship": "Previous registration",
+      "startDate": "7/8/1997",
+      "endDate": "12/8/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1990015",
+      "name": "RICHARD GUERRINI",
+      "relationship": "Previous registration",
+      "startDate": "3/29/1994",
+      "endDate": "6/1/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2574562",
+      "name": "FRANK PRAGOSA",
+      "relationship": "Previous registration",
+      "startDate": "2/15/1996",
+      "endDate": "7/10/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3119437",
+      "name": "Erick Todd",
+      "relationship": "Previous registration",
+      "startDate": "10/1/1998",
+      "endDate": "6/1/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4080314",
+      "name": "KIMBERLY WEIDNER",
+      "relationship": "Previous registration",
+      "startDate": "5/10/2000",
+      "endDate": "6/1/2002",
+      "isCurrent": false
+    }
+  ]
+}

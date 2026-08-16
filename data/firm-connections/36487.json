@@ -1,0 +1,173 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1004944",
+      "name": "STEVEN MARTIN",
+      "relationship": "Previous registration",
+      "startDate": "11/28/1995",
+      "endDate": "6/24/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1035671",
+      "name": "GARRY DIPPEL",
+      "relationship": "Previous registration",
+      "startDate": "9/12/2003",
+      "endDate": "12/31/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1764053",
+      "name": "JULIAN OWENS",
+      "relationship": "Previous registration",
+      "startDate": "1/9/2002",
+      "endDate": "8/27/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1864969",
+      "name": "THOMAS COIL",
+      "relationship": "Previous registration",
+      "startDate": "8/29/2002",
+      "endDate": "2/18/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1950117",
+      "name": "DAVID REED",
+      "relationship": "Previous registration",
+      "startDate": "3/11/2002",
+      "endDate": "6/30/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2108652",
+      "name": "TOMMY ROBERTS",
+      "relationship": "Previous registration",
+      "startDate": "12/6/2001",
+      "endDate": "6/24/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2259301",
+      "name": "KYU HAN",
+      "relationship": "Previous registration",
+      "startDate": "6/9/2006",
+      "endDate": "3/1/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2323086",
+      "name": "Joel Russo",
+      "relationship": "Previous registration",
+      "startDate": "1/14/2003",
+      "endDate": "12/1/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2837934",
+      "name": "ROSLYN MCGLUEN",
+      "relationship": "Previous registration",
+      "startDate": "11/24/1998",
+      "endDate": "12/31/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "736316",
+      "name": "JERRY SMITH",
+      "relationship": "Previous registration",
+      "startDate": "9/12/2003",
+      "endDate": "12/31/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1067519",
+      "name": "EDWARD GARDNER",
+      "relationship": "Previous registration",
+      "startDate": "11/30/2001",
+      "endDate": "3/1/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1071737",
+      "name": "LANCE CAPLIN",
+      "relationship": "Previous registration",
+      "startDate": "6/15/2004",
+      "endDate": "8/22/2005",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1088880",
+      "name": "LARRY AUSTIN",
+      "relationship": "Previous registration",
+      "startDate": "7/5/1995",
+      "endDate": "3/11/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1217408",
+      "name": "JOSEPH VOSBERG",
+      "relationship": "Previous registration",
+      "startDate": "5/3/2004",
+      "endDate": "3/1/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1272680",
+      "name": "GREGORY WILSON",
+      "relationship": "Previous registration",
+      "startDate": "5/3/1996",
+      "endDate": "5/26/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1294862",
+      "name": "Margaret Tietjen",
+      "relationship": "Previous registration",
+      "startDate": "4/27/1995",
+      "endDate": "4/11/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1304918",
+      "name": "Anthony Surrett",
+      "relationship": "Previous registration",
+      "startDate": "3/31/1995",
+      "endDate": "12/31/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2246268",
+      "name": "DAVID HOCK",
+      "relationship": "Previous registration",
+      "startDate": "5/15/1996",
+      "endDate": "10/18/2000",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2328796",
+      "name": "NEIL MODERSON",
+      "relationship": "Previous registration",
+      "startDate": "1/23/2001",
+      "endDate": "4/21/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2337814",
+      "name": "JAMES TATE",
+      "relationship": "Previous registration",
+      "startDate": "6/12/2003",
+      "endDate": "3/24/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2406999",
+      "name": "DEBRA BENN",
+      "relationship": "Previous registration",
+      "startDate": "9/4/2001",
+      "endDate": "8/7/2002",
+      "isCurrent": false
+    }
+  ]
+}

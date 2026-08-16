@@ -1,0 +1,109 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1003308",
+      "name": "James Robinson",
+      "relationship": "Previous registration",
+      "startDate": "10/5/1988",
+      "endDate": "12/31/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1057538",
+      "name": "MARGARET SWENSON",
+      "relationship": "Previous registration",
+      "startDate": "10/24/1988",
+      "endDate": "4/8/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1366409",
+      "name": "STEPHEN KUEHL",
+      "relationship": "Previous registration",
+      "startDate": "4/4/1988",
+      "endDate": "12/8/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "13680",
+      "name": "BARBARA HORWITZ",
+      "relationship": "Previous registration",
+      "startDate": "9/20/1988",
+      "endDate": "9/27/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2212832",
+      "name": "CALVIN MASON",
+      "relationship": "Previous registration",
+      "startDate": "8/1/1994",
+      "endDate": "2/21/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "729571",
+      "name": "JOEL DICKEY",
+      "relationship": "Previous registration",
+      "startDate": "9/13/1988",
+      "endDate": "9/16/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1245164",
+      "name": "KATHLEEN DEWHURST",
+      "relationship": "Previous registration",
+      "startDate": "7/26/1984",
+      "endDate": "5/31/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1274284",
+      "name": "COLLEEN DAVIS",
+      "relationship": "Previous registration",
+      "startDate": "11/4/1987",
+      "endDate": "6/4/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1466130",
+      "name": "ROBERT KRUG",
+      "relationship": "Previous registration",
+      "startDate": "11/8/2000",
+      "endDate": "1/1/2005",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1554798",
+      "name": "Jeffrey Sime",
+      "relationship": "Previous registration",
+      "startDate": "3/15/1994",
+      "endDate": "10/18/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2146027",
+      "name": "KARA GRIGAS CALIGIURI",
+      "relationship": "Previous registration",
+      "startDate": "6/15/1999",
+      "endDate": "10/18/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4075012",
+      "name": "Jacqueline Beauprez",
+      "relationship": "Previous registration",
+      "startDate": "9/30/2002",
+      "endDate": "1/1/2005",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4272399",
+      "name": "JOHN HATFIELD",
+      "relationship": "Previous registration",
+      "startDate": "12/1/2000",
+      "endDate": "10/18/2002",
+      "isCurrent": false
+    }
+  ]
+}

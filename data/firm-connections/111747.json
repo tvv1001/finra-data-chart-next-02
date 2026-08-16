@@ -1,0 +1,21 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "6818091",
+      "name": "Connor Lovelace",
+      "relationship": "Current registration",
+      "startDate": "7/5/2018",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "2666044",
+      "name": "WILLIAM KERKAM",
+      "relationship": "Previous registration",
+      "startDate": "3/15/2016",
+      "endDate": "9/12/2025",
+      "isCurrent": false
+    }
+  ]
+}

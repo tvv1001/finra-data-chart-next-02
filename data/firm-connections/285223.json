@@ -1,0 +1,39 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "2515899",
+      "name": "",
+      "relationship": "Current registration",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2680389",
+      "name": "JAMES RICHARDS",
+      "relationship": "Current registration",
+      "startDate": "8/1/2018",
+      "isCurrent": true
+    },
+    {
+      "individualId": "6710332",
+      "name": "Preston Abraham",
+      "relationship": "Current registration",
+      "startDate": "8/23/2017",
+      "isCurrent": true
+    },
+    {
+      "individualId": "7212547",
+      "name": "Adam Felsenthal",
+      "relationship": "Current registration",
+      "startDate": "1/24/2020",
+      "isCurrent": true
+    },
+    {
+      "individualId": "8066061",
+      "name": "Chris Baviello",
+      "relationship": "Current registration",
+      "startDate": "12/3/2025",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": []
+}

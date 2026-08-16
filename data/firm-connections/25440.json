@@ -1,0 +1,37 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1013808",
+      "name": "JOYCE LAMBERT",
+      "relationship": "Previous registration",
+      "startDate": "7/12/1991",
+      "endDate": "6/15/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1108636",
+      "name": "JEFFREY QUERQUES",
+      "relationship": "Previous registration",
+      "startDate": "2/24/2016",
+      "endDate": "4/21/2017",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1299363",
+      "name": "NICHOLAS FRY",
+      "relationship": "Previous registration",
+      "startDate": "10/7/2003",
+      "endDate": "7/21/2008",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1395210",
+      "name": "PAIGE PIERCE",
+      "relationship": "Previous registration",
+      "startDate": "4/23/1990",
+      "endDate": "9/11/1990",
+      "isCurrent": false
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1004530",
+      "name": "AMY SHERRER",
+      "relationship": "Previous registration",
+      "startDate": "8/31/1987",
+      "endDate": "6/1/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1412232",
+      "name": "DOUGLAS PENDLETON",
+      "relationship": "Previous registration",
+      "startDate": "2/21/1986",
+      "endDate": "2/27/1986",
+      "isCurrent": false
+    }
+  ]
+}

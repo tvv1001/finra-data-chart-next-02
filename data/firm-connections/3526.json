@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "2547521",
+      "name": "THOMAS POSS",
+      "relationship": "Previous registration",
+      "startDate": "5/22/2014",
+      "endDate": "8/21/2018",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3048728",
+      "name": "JEFFREY GALVANI",
+      "relationship": "Previous registration",
+      "startDate": "10/15/2013",
+      "endDate": "5/2/2014",
+      "isCurrent": false
+    }
+  ]
+}

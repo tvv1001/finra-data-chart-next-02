@@ -1,0 +1,29 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1012273",
+      "name": "ROBERT MURDOCK",
+      "relationship": "Previous registration",
+      "startDate": "1/27/1999",
+      "endDate": "9/14/2005",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1104055",
+      "name": "ERIC SWARTZ",
+      "relationship": "Previous registration",
+      "startDate": "4/8/1994",
+      "endDate": "4/11/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1278293",
+      "name": "JOSEPH CARBONE",
+      "relationship": "Previous registration",
+      "startDate": "1/9/2002",
+      "endDate": "1/14/2005",
+      "isCurrent": false
+    }
+  ]
+}

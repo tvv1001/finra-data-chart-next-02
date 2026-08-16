@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1019931",
+      "name": "ERIK NORBERG",
+      "relationship": "Previous registration",
+      "startDate": "2/25/1985",
+      "endDate": "6/12/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1022093",
+      "name": "DANIEL SUTLIFF",
+      "relationship": "Previous registration",
+      "startDate": "4/25/1985",
+      "endDate": "4/1/1986",
+      "isCurrent": false
+    }
+  ]
+}

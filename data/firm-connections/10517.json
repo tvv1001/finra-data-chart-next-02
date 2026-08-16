@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1020747",
+      "name": "CHARLES RUTAN",
+      "relationship": "Previous registration",
+      "startDate": "4/11/1987",
+      "endDate": "12/31/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1866729",
+      "name": "Michael Planning",
+      "relationship": "Previous registration",
+      "startDate": "8/22/1988",
+      "endDate": "12/31/1988",
+      "isCurrent": false
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1005692",
+      "name": "FRANK BRITTINGHAM",
+      "relationship": "Previous registration",
+      "startDate": "10/11/1988",
+      "endDate": "1/1/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1101301",
+      "name": "CLIVE SLOVIN",
+      "relationship": "Previous registration",
+      "startDate": "3/20/1995",
+      "endDate": "12/31/1995",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1112088",
+      "name": "Julie Sullivan",
+      "relationship": "Previous registration",
+      "startDate": "3/13/1995",
+      "endDate": "12/31/1995",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1255255",
+      "name": "ANTHONY BARKATE",
+      "relationship": "Previous registration",
+      "startDate": "6/23/1995",
+      "endDate": "1/1/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1331825",
+      "name": "ROBERTA WELSH",
+      "relationship": "Previous registration",
+      "startDate": "1/3/1989",
+      "endDate": "4/7/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1371131",
+      "name": "MILLICENT WALKER",
+      "relationship": "Previous registration",
+      "startDate": "4/2/1996",
+      "endDate": "1/16/1997",
+      "isCurrent": false
+    }
+  ]
+}

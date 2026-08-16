@@ -1,0 +1,106 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "1543415",
+      "name": "Richard Schell",
+      "relationship": "Current registration",
+      "startDate": "10/11/2019",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1812378",
+      "name": "john Maier",
+      "relationship": "Current registration",
+      "startDate": "6/7/2022",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2013807",
+      "name": "Nicholas Amos",
+      "relationship": "Current registration",
+      "startDate": "10/7/2022",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4887671",
+      "name": "PETER SAMBOUL",
+      "relationship": "Current registration",
+      "startDate": "3/30/2026",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1003784",
+      "name": "MICHAEL RICHARDSON",
+      "relationship": "Previous registration",
+      "startDate": "7/20/2015",
+      "endDate": "6/13/2017",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1513395",
+      "name": "TIMOTHY BRESNAHAN",
+      "relationship": "Previous registration",
+      "startDate": "6/8/2000",
+      "endDate": "3/8/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2764991",
+      "name": "HOLLY MAURER",
+      "relationship": "Previous registration",
+      "startDate": "1/29/1999",
+      "endDate": "12/19/2005",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1088599",
+      "name": "Lawrence Granata",
+      "relationship": "Previous registration",
+      "startDate": "3/27/2006",
+      "endDate": "9/21/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1420485",
+      "name": "JACK SINGER",
+      "relationship": "Previous registration",
+      "startDate": "5/7/2001",
+      "endDate": "9/13/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2552281",
+      "name": "DAVID DOYLE",
+      "relationship": "Previous registration",
+      "startDate": "8/27/2010",
+      "endDate": "9/21/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "338698",
+      "name": "DENNIS MOORADIAN",
+      "relationship": "Previous registration",
+      "startDate": "12/18/2003",
+      "endDate": "3/16/2009",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4614077",
+      "name": "MARJAN AHMADI",
+      "relationship": "Previous registration",
+      "startDate": "6/21/2016",
+      "endDate": "9/9/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4848295",
+      "name": "Sanjay Chugani",
+      "relationship": "Previous registration",
+      "startDate": "9/8/2023",
+      "endDate": "11/3/2023",
+      "isCurrent": false
+    }
+  ]
+}

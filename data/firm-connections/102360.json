@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1020089",
+      "name": "BRIAN ASHE",
+      "relationship": "Previous registration",
+      "startDate": "6/4/2001",
+      "endDate": "1/22/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2441501",
+      "name": "Glenn Schwalje",
+      "relationship": "Previous registration",
+      "startDate": "5/7/2013",
+      "endDate": "10/4/2016",
+      "isCurrent": false
+    }
+  ]
+}

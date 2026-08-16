@@ -1,0 +1,36 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "1788458",
+      "name": "DANIEL SCHLESSER",
+      "relationship": "Current registration",
+      "startDate": "6/7/2006",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4621953",
+      "name": "REGAN BEAVER",
+      "relationship": "Current registration",
+      "startDate": "6/7/2006",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1021266",
+      "name": "ALAN NADOLNA",
+      "relationship": "Previous registration",
+      "startDate": "11/1/2021",
+      "endDate": "5/1/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1391521",
+      "name": "DANIEL O'HALLORAN",
+      "relationship": "Previous registration",
+      "startDate": "1/9/2006",
+      "endDate": "12/31/2014",
+      "isCurrent": false
+    }
+  ]
+}

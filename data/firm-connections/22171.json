@@ -1,0 +1,37 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "2102930",
+      "name": "FRANK ALBANESE",
+      "relationship": "Previous registration",
+      "startDate": "7/22/1992",
+      "endDate": "2/11/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2301267",
+      "name": "WILLIAM WILLIAMS",
+      "relationship": "Previous registration",
+      "startDate": "3/26/1993",
+      "endDate": "4/21/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1302135",
+      "name": "JOAN MATHEWS",
+      "relationship": "Previous registration",
+      "startDate": "5/4/1990",
+      "endDate": "9/7/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "32542",
+      "name": "JOHN BROWN",
+      "relationship": "Previous registration",
+      "startDate": "5/18/1990",
+      "endDate": "7/22/1994",
+      "isCurrent": false
+    }
+  ]
+}

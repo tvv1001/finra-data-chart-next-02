@@ -1,0 +1,196 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "1788458",
+      "name": "DANIEL SCHLESSER",
+      "relationship": "Current registration",
+      "startDate": "5/2/1988",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4621953",
+      "name": "REGAN BEAVER",
+      "relationship": "Current registration",
+      "startDate": "4/16/2003",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1021266",
+      "name": "ALAN NADOLNA",
+      "relationship": "Previous registration",
+      "startDate": "10/25/2021",
+      "endDate": "5/1/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1039053",
+      "name": "ROBERT ADAMS",
+      "relationship": "Previous registration",
+      "startDate": "10/6/1994",
+      "endDate": "12/31/2005",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1449696",
+      "name": "MICHAEL HAMIL",
+      "relationship": "Previous registration",
+      "startDate": "11/8/2000",
+      "endDate": "2/5/2010",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1451670",
+      "name": "HOWARD WEISBERG",
+      "relationship": "Previous registration",
+      "startDate": "1/3/1992",
+      "endDate": "12/31/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1513674",
+      "name": "CATHERINE FUJISAKI",
+      "relationship": "Previous registration",
+      "startDate": "8/21/1987",
+      "endDate": "6/21/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2355608",
+      "name": "LARRY MANN",
+      "relationship": "Previous registration",
+      "startDate": "5/19/2016",
+      "endDate": "12/31/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2928357",
+      "name": "TIMOTHY HALL",
+      "relationship": "Previous registration",
+      "startDate": "12/7/2001",
+      "endDate": "5/22/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "334043",
+      "name": "JOHN MIKLOS",
+      "relationship": "Previous registration",
+      "startDate": "1/3/1990",
+      "endDate": "12/31/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7337492",
+      "name": "ELIZABETH BAILEY",
+      "relationship": "Previous registration",
+      "startDate": "10/30/2025",
+      "endDate": "11/17/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1098747",
+      "name": "JAMES LAYTON",
+      "relationship": "Previous registration",
+      "startDate": "1/16/1991",
+      "endDate": "12/31/1995",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1362276",
+      "name": "IVY GILBERT",
+      "relationship": "Previous registration",
+      "startDate": "6/28/1999",
+      "endDate": "9/13/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1383638",
+      "name": "CRAIG MARKHAM",
+      "relationship": "Previous registration",
+      "startDate": "6/15/1989",
+      "endDate": "12/5/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1391521",
+      "name": "DANIEL O'HALLORAN",
+      "relationship": "Previous registration",
+      "startDate": "11/20/2000",
+      "endDate": "12/31/2014",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1398986",
+      "name": "LEONARD GALL",
+      "relationship": "Previous registration",
+      "startDate": "4/13/1988",
+      "endDate": "1/24/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1445252",
+      "name": "MARY CICIORA",
+      "relationship": "Previous registration",
+      "startDate": "5/6/1993",
+      "endDate": "9/28/1993",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1454388",
+      "name": "JOHN SOULE",
+      "relationship": "Previous registration",
+      "startDate": "10/19/1999",
+      "endDate": "12/31/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1476542",
+      "name": "GLENDA BONE",
+      "relationship": "Previous registration",
+      "startDate": "10/1/2001",
+      "endDate": "11/23/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1508761",
+      "name": "G LLOYD",
+      "relationship": "Previous registration",
+      "startDate": "5/22/1986",
+      "endDate": "9/29/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2235565",
+      "name": "PATRICK MCKERNAN",
+      "relationship": "Previous registration",
+      "startDate": "5/27/2016",
+      "endDate": "12/5/2017",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2564095",
+      "name": "VICKI MCDONALD",
+      "relationship": "Previous registration",
+      "startDate": "9/27/2002",
+      "endDate": "12/31/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3144311",
+      "name": "GREGORY TURNER",
+      "relationship": "Previous registration",
+      "startDate": "11/5/1998",
+      "endDate": "1/22/2009",
+      "isCurrent": false
+    },
+    {
+      "individualId": "502550",
+      "name": "Patricia Sara",
+      "relationship": "Previous registration",
+      "startDate": "8/19/1998",
+      "endDate": "9/7/2000",
+      "isCurrent": false
+    }
+  ]
+}

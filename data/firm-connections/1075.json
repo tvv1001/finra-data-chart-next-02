@@ -1,0 +1,301 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1016418",
+      "name": "CHARLOTTE COOPER",
+      "relationship": "Previous registration",
+      "startDate": "4/19/1985",
+      "endDate": "1/27/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1207519",
+      "name": "RONALD REMAK",
+      "relationship": "Previous registration",
+      "startDate": "2/15/1984",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1472651",
+      "name": "ROBERT HEUBECK",
+      "relationship": "Previous registration",
+      "startDate": "1/4/1991",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1633238",
+      "name": "KENNETH BLOCK",
+      "relationship": "Previous registration",
+      "startDate": "8/7/1987",
+      "endDate": "8/29/1995",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1926402",
+      "name": "WILLIAM CASSIDY",
+      "relationship": "Previous registration",
+      "startDate": "3/12/2001",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2205971",
+      "name": "JEFFERY SOPER",
+      "relationship": "Previous registration",
+      "startDate": "6/1/1999",
+      "endDate": "10/2/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2222884",
+      "name": "CLARK BLAIR",
+      "relationship": "Previous registration",
+      "startDate": "8/16/1993",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2235664",
+      "name": "DWIGHT JOHNSON",
+      "relationship": "Previous registration",
+      "startDate": "8/24/1992",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2299424",
+      "name": "JEFFREY SEMLER",
+      "relationship": "Previous registration",
+      "startDate": "12/7/1992",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2448664",
+      "name": "Richard Russell",
+      "relationship": "Previous registration",
+      "startDate": "1/28/1994",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2482812",
+      "name": "DAVID HAMPTON",
+      "relationship": "Previous registration",
+      "startDate": "6/16/1994",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2528628",
+      "name": "JOHN FOX",
+      "relationship": "Previous registration",
+      "startDate": "9/14/1994",
+      "endDate": "10/30/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2544733",
+      "name": "NATHAN BLURY",
+      "relationship": "Previous registration",
+      "startDate": "10/11/1994",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2555816",
+      "name": "DENISE PREECE",
+      "relationship": "Previous registration",
+      "startDate": "11/19/1999",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "273104",
+      "name": "ALAN KOENEMAN",
+      "relationship": "Previous registration",
+      "startDate": "6/3/1975",
+      "endDate": "2/13/1980",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2767176",
+      "name": "JAMES BERRY",
+      "relationship": "Previous registration",
+      "startDate": "7/13/1999",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2822633",
+      "name": "ROBERT SHANAHAN",
+      "relationship": "Previous registration",
+      "startDate": "1/9/1997",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2877685",
+      "name": "KEITH AIREY",
+      "relationship": "Previous registration",
+      "startDate": "8/11/1997",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2982213",
+      "name": "TAMI RUSSO",
+      "relationship": "Previous registration",
+      "startDate": "12/23/1997",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3032157",
+      "name": "ANTHONY JONES",
+      "relationship": "Previous registration",
+      "startDate": "4/9/1998",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3227526",
+      "name": "JOE HAYES",
+      "relationship": "Previous registration",
+      "startDate": "5/20/1999",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3230118",
+      "name": "LORI LAUER",
+      "relationship": "Previous registration",
+      "startDate": "6/21/1999",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3272949",
+      "name": "SCHUYLER SCHMIDT",
+      "relationship": "Previous registration",
+      "startDate": "10/1/1999",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "330449",
+      "name": "STANLEY MCROBERTS",
+      "relationship": "Previous registration",
+      "startDate": "4/18/1989",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "338678",
+      "name": "WALTER MOONEY",
+      "relationship": "Previous registration",
+      "startDate": "3/23/1983",
+      "endDate": "12/14/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "344339",
+      "name": "JAMES MYRTLE",
+      "relationship": "Previous registration",
+      "startDate": "9/26/1996",
+      "endDate": "6/5/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "348871",
+      "name": "THOMAS NOLL",
+      "relationship": "Previous registration",
+      "startDate": "9/21/1970",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4102050",
+      "name": "CAROLYN FORTE",
+      "relationship": "Previous registration",
+      "startDate": "8/22/2000",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "736260",
+      "name": "KATHLEEN HAUCK BLUM",
+      "relationship": "Previous registration",
+      "startDate": "5/28/1981",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1029625",
+      "name": "JOSEPH URBAN",
+      "relationship": "Previous registration",
+      "startDate": "11/14/2000",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1070500",
+      "name": "DAVID MERTENS",
+      "relationship": "Previous registration",
+      "startDate": "11/11/1982",
+      "endDate": "1/12/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1101334",
+      "name": "FREDERICK SCHAARD",
+      "relationship": "Previous registration",
+      "startDate": "4/8/1991",
+      "endDate": "2/21/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1399902",
+      "name": "NANCY BECK",
+      "relationship": "Previous registration",
+      "startDate": "3/10/1995",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1416650",
+      "name": "JIM DUNCAN",
+      "relationship": "Previous registration",
+      "startDate": "9/10/2001",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2661264",
+      "name": "JUANITA BRIONES",
+      "relationship": "Previous registration",
+      "startDate": "2/21/1997",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3269800",
+      "name": "CAROLYN DAVIDSON",
+      "relationship": "Previous registration",
+      "startDate": "10/5/1999",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4411050",
+      "name": "DEBORAH EVERSOLE",
+      "relationship": "Previous registration",
+      "startDate": "7/23/2001",
+      "endDate": "12/17/2001",
+      "isCurrent": false
+    }
+  ]
+}

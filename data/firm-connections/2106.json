@@ -1,1 +1,61 @@
-{"currentConnections":[],"previousConnections":[{"individualId":"1390543","name":"MICHAEL ANTHONY CHIODO","relationship":"Previous registration","startDate":"6/18/1991","endDate":"8/3/2004","isCurrent":false}]}
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1041256",
+      "name": "PETER XENIAS",
+      "relationship": "Previous registration",
+      "startDate": "2/3/1996",
+      "endDate": "8/2/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1390543",
+      "name": "MICHAEL CHIODO",
+      "relationship": "Previous registration",
+      "startDate": "6/18/1991",
+      "endDate": "8/3/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1635758",
+      "name": "JEANENE BAUER",
+      "relationship": "Previous registration",
+      "startDate": "5/29/1996",
+      "endDate": "8/16/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2043254",
+      "name": "THOMAS RUTTER",
+      "relationship": "Previous registration",
+      "startDate": "7/29/1998",
+      "endDate": "11/30/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "229737",
+      "name": "RICHARD GRIBKO",
+      "relationship": "Previous registration",
+      "startDate": "8/28/1991",
+      "endDate": "8/2/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1086064",
+      "name": "JOSEPH LUCCHINO",
+      "relationship": "Previous registration",
+      "startDate": "9/17/1986",
+      "endDate": "9/4/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1439447",
+      "name": "JAMES AULT",
+      "relationship": "Previous registration",
+      "startDate": "9/7/1991",
+      "endDate": "7/12/2004",
+      "isCurrent": false
+    }
+  ]
+}

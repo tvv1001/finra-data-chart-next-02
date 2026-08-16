@@ -1,0 +1,109 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1002235",
+      "name": "GREG BARISHMAN",
+      "relationship": "Previous registration",
+      "startDate": "1/2/2001",
+      "endDate": "3/26/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1885122",
+      "name": "RICHARD RAPPAPORT",
+      "relationship": "Previous registration",
+      "startDate": "4/20/1998",
+      "endDate": "10/15/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2053515",
+      "name": "JASON STERN",
+      "relationship": "Previous registration",
+      "startDate": "11/23/1998",
+      "endDate": "3/15/2000",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2301267",
+      "name": "WILLIAM WILLIAMS",
+      "relationship": "Previous registration",
+      "startDate": "9/24/1996",
+      "endDate": "11/25/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1006748",
+      "name": "MERRELL JORDAN",
+      "relationship": "Previous registration",
+      "startDate": "3/30/1994",
+      "endDate": "7/15/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1135898",
+      "name": "RICHARD ROUSE",
+      "relationship": "Previous registration",
+      "startDate": "1/25/1993",
+      "endDate": "4/17/1995",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1251868",
+      "name": "MIRIAM BLACK",
+      "relationship": "Previous registration",
+      "startDate": "6/13/1994",
+      "endDate": "5/4/1995",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1308189",
+      "name": "Brad Dowell",
+      "relationship": "Previous registration",
+      "startDate": "7/12/1994",
+      "endDate": "3/28/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1317129",
+      "name": "John Paul DeVito",
+      "relationship": "Previous registration",
+      "startDate": "9/30/1998",
+      "endDate": "2/1/2000",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1334662",
+      "name": "EDWIN FOSS",
+      "relationship": "Previous registration",
+      "startDate": "11/12/1993",
+      "endDate": "12/5/1995",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1409464",
+      "name": "MATTHEW MEISTER",
+      "relationship": "Previous registration",
+      "startDate": "1/25/1993",
+      "endDate": "12/31/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1885206",
+      "name": "ROBERT NAGEL",
+      "relationship": "Previous registration",
+      "startDate": "5/16/1991",
+      "endDate": "8/25/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2547521",
+      "name": "THOMAS POSS",
+      "relationship": "Previous registration",
+      "startDate": "1/13/2000",
+      "endDate": "6/22/2001",
+      "isCurrent": false
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1005922",
+      "name": "JEAN HICKS",
+      "relationship": "Previous registration",
+      "startDate": "3/14/1995",
+      "endDate": "11/5/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2209741",
+      "name": "RALPH SAIGH",
+      "relationship": "Previous registration",
+      "startDate": "9/13/1993",
+      "endDate": "2/9/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1058579",
+      "name": "KIM HALLIBURTON",
+      "relationship": "Previous registration",
+      "startDate": "3/11/1998",
+      "endDate": "2/2/2000",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1066210",
+      "name": "KELLY BROWN",
+      "relationship": "Previous registration",
+      "startDate": "8/3/1989",
+      "endDate": "11/5/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1408329",
+      "name": "ROBERT CROWL",
+      "relationship": "Previous registration",
+      "startDate": "6/26/1989",
+      "endDate": "11/5/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1867703",
+      "name": "Donald Meredith",
+      "relationship": "Previous registration",
+      "startDate": "2/23/1996",
+      "endDate": "11/5/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2246268",
+      "name": "DAVID HOCK",
+      "relationship": "Previous registration",
+      "startDate": "2/9/1995",
+      "endDate": "10/31/1995",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2718206",
+      "name": "KEVIN BRADBURN",
+      "relationship": "Previous registration",
+      "startDate": "3/15/1996",
+      "endDate": "10/1/1997",
+      "isCurrent": false
+    }
+  ]
+}

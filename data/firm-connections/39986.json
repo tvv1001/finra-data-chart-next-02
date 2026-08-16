@@ -1,0 +1,77 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1005922",
+      "name": "JEAN HICKS",
+      "relationship": "Previous registration",
+      "startDate": "11/5/1999",
+      "endDate": "3/6/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2957361",
+      "name": "RONALD GUEVARRA",
+      "relationship": "Previous registration",
+      "startDate": "4/3/1998",
+      "endDate": "9/3/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1017508",
+      "name": "EDWARD RIPLEY",
+      "relationship": "Previous registration",
+      "startDate": "7/3/2001",
+      "endDate": "5/21/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1058579",
+      "name": "KIM HALLIBURTON",
+      "relationship": "Previous registration",
+      "startDate": "8/6/1996",
+      "endDate": "4/17/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1066210",
+      "name": "KELLY BROWN",
+      "relationship": "Previous registration",
+      "startDate": "11/5/1999",
+      "endDate": "5/21/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1137061",
+      "name": "STEPHEN WASHBURN",
+      "relationship": "Previous registration",
+      "startDate": "3/24/2003",
+      "endDate": "11/23/2005",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1384495",
+      "name": "MICHAEL DAYTON",
+      "relationship": "Previous registration",
+      "startDate": "6/12/2002",
+      "endDate": "12/31/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1408329",
+      "name": "ROBERT CROWL",
+      "relationship": "Previous registration",
+      "startDate": "11/5/1999",
+      "endDate": "7/2/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1867703",
+      "name": "Donald Meredith",
+      "relationship": "Previous registration",
+      "startDate": "11/5/1999",
+      "endDate": "12/31/2002",
+      "isCurrent": false
+    }
+  ]
+}

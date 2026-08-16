@@ -1,0 +1,85 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1025672",
+      "name": "PAUL VIGUE",
+      "relationship": "Previous registration",
+      "startDate": "1/27/1984",
+      "endDate": "4/11/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1090328",
+      "name": "JEFFREY GUNDELL",
+      "relationship": "Previous registration",
+      "startDate": "3/11/1988",
+      "endDate": "3/19/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1336572",
+      "name": "JAMES EGAN",
+      "relationship": "Previous registration",
+      "startDate": "10/7/1992",
+      "endDate": "4/1/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "844510",
+      "name": "STEPHEN GIFFORD",
+      "relationship": "Previous registration",
+      "startDate": "5/30/1984",
+      "endDate": "6/16/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "867840",
+      "name": "JOHN YEOMAN",
+      "relationship": "Previous registration",
+      "startDate": "11/18/1982",
+      "endDate": "6/21/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1010582",
+      "name": "JOSEPH COLLERAN",
+      "relationship": "Previous registration",
+      "startDate": "3/17/1995",
+      "endDate": "4/1/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1073134",
+      "name": "GERARD MIZRAHI",
+      "relationship": "Previous registration",
+      "startDate": "11/18/1982",
+      "endDate": "5/11/1983",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1335335",
+      "name": "JOHN YOUNGBLOOD",
+      "relationship": "Previous registration",
+      "startDate": "3/28/1991",
+      "endDate": "4/1/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1337873",
+      "name": "DAVID MORTIMER",
+      "relationship": "Previous registration",
+      "startDate": "10/9/1989",
+      "endDate": "2/18/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1376620",
+      "name": "DONALD RAPPAPORT",
+      "relationship": "Previous registration",
+      "startDate": "8/29/1985",
+      "endDate": "11/20/1987",
+      "isCurrent": false
+    }
+  ]
+}

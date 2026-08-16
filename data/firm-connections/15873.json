@@ -1,0 +1,101 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1322613",
+      "name": "Stephen Newell",
+      "relationship": "Previous registration",
+      "startDate": "2/22/1993",
+      "endDate": "1/26/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2161023",
+      "name": "JOHN ENGELKE",
+      "relationship": "Previous registration",
+      "startDate": "5/19/1997",
+      "endDate": "7/6/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2301267",
+      "name": "WILLIAM WILLIAMS",
+      "relationship": "Previous registration",
+      "startDate": "6/25/1998",
+      "endDate": "5/14/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2503077",
+      "name": "TIMOTHY MORGAN",
+      "relationship": "Previous registration",
+      "startDate": "1/21/1998",
+      "endDate": "5/14/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2937289",
+      "name": "JOHN DRAHZAL",
+      "relationship": "Previous registration",
+      "startDate": "11/6/1997",
+      "endDate": "5/14/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1033934",
+      "name": "RICHARD TANNER",
+      "relationship": "Previous registration",
+      "startDate": "6/26/1991",
+      "endDate": "9/29/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1314260",
+      "name": "WILLIAM FERRIEL",
+      "relationship": "Previous registration",
+      "startDate": "5/20/1996",
+      "endDate": "9/11/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1316128",
+      "name": "DANIEL PLIS",
+      "relationship": "Previous registration",
+      "startDate": "7/10/1997",
+      "endDate": "1/8/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1331493",
+      "name": "KELLIE MCKINZIE",
+      "relationship": "Previous registration",
+      "startDate": "6/26/1990",
+      "endDate": "5/6/1991",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1406115",
+      "name": "CRAIG LONG",
+      "relationship": "Previous registration",
+      "startDate": "12/5/1996",
+      "endDate": "6/26/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1974671",
+      "name": "RICHARD ANTHONY",
+      "relationship": "Previous registration",
+      "startDate": "12/2/1992",
+      "endDate": "4/18/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2124910",
+      "name": "JEFFREY SUHANIC",
+      "relationship": "Previous registration",
+      "startDate": "3/3/1995",
+      "endDate": "5/14/1999",
+      "isCurrent": false
+    }
+  ]
+}

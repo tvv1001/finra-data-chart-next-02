@@ -1,0 +1,37 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1023255",
+      "name": "ANDREW GOLDMAN",
+      "relationship": "Previous registration",
+      "startDate": "1/31/1983",
+      "endDate": "10/10/1995",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2703000",
+      "name": "BRIAN CAMPBELL",
+      "relationship": "Previous registration",
+      "startDate": "1/5/2005",
+      "endDate": "3/28/2008",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1014371",
+      "name": "PAUL SILBERBERG",
+      "relationship": "Previous registration",
+      "startDate": "10/6/1981",
+      "endDate": "5/26/2017",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2313132",
+      "name": "GERARD SCARPATI",
+      "relationship": "Previous registration",
+      "startDate": "2/17/2004",
+      "endDate": "5/11/2004",
+      "isCurrent": false
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1674152",
+      "name": "ALEXANDER SARAFIANOS",
+      "relationship": "Previous registration",
+      "startDate": "4/20/2006",
+      "endDate": "11/5/2012",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2314031",
+      "name": "John Malone",
+      "relationship": "Previous registration",
+      "startDate": "6/11/2007",
+      "endDate": "12/31/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2336002",
+      "name": "JOHN GUAGLIARDO",
+      "relationship": "Previous registration",
+      "startDate": "6/12/2007",
+      "endDate": "10/12/2015",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2361939",
+      "name": "GORDON BURROW",
+      "relationship": "Previous registration",
+      "startDate": "9/18/2009",
+      "endDate": "7/25/2017",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3232750",
+      "name": "CRISTY O'NEIL",
+      "relationship": "Previous registration",
+      "startDate": "5/20/2016",
+      "endDate": "10/20/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4040432",
+      "name": "Nathan Fair",
+      "relationship": "Previous registration",
+      "startDate": "3/27/2012",
+      "endDate": "6/7/2013",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4173015",
+      "name": "CHRISTINA SANCHEZ",
+      "relationship": "Previous registration",
+      "startDate": "4/20/2006",
+      "endDate": "1/7/2011",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5040066",
+      "name": "JUSTIN FITZGERALD-RHODES",
+      "relationship": "Previous registration",
+      "startDate": "2/13/2012",
+      "endDate": "12/31/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "6400335",
+      "name": "Colman Flanagan",
+      "relationship": "Previous registration",
+      "startDate": "3/20/2017",
+      "endDate": "12/31/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "6400340",
+      "name": "Michael OConnor",
+      "relationship": "Previous registration",
+      "startDate": "12/20/2016",
+      "endDate": "12/31/2020",
+      "isCurrent": false
+    }
+  ]
+}

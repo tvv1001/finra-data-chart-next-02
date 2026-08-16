@@ -1,0 +1,109 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1011849",
+      "name": "BRIAN MOON",
+      "relationship": "Previous registration",
+      "startDate": "5/24/1982",
+      "endDate": "6/24/1983",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1242191",
+      "name": "RICHARD BRANDIS",
+      "relationship": "Previous registration",
+      "startDate": "12/17/1985",
+      "endDate": "10/14/1991",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1977190",
+      "name": "Steven Toong",
+      "relationship": "Previous registration",
+      "startDate": "4/2/1998",
+      "endDate": "6/5/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2033778",
+      "name": "JAMES PIOTROWSKI",
+      "relationship": "Previous registration",
+      "startDate": "6/5/1990",
+      "endDate": "9/27/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2102930",
+      "name": "FRANK ALBANESE",
+      "relationship": "Previous registration",
+      "startDate": "2/13/1997",
+      "endDate": "8/21/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1017508",
+      "name": "EDWARD RIPLEY",
+      "relationship": "Previous registration",
+      "startDate": "6/3/1986",
+      "endDate": "9/19/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1050490",
+      "name": "EDWARD LINZER",
+      "relationship": "Previous registration",
+      "startDate": "10/15/1999",
+      "endDate": "6/16/2000",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1201770",
+      "name": "CHARLES FOX",
+      "relationship": "Previous registration",
+      "startDate": "12/21/1993",
+      "endDate": "7/10/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1251491",
+      "name": "JAMES BASHAW",
+      "relationship": "Previous registration",
+      "startDate": "1/9/1991",
+      "endDate": "7/9/1991",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1298800",
+      "name": "RICHARD BARBER",
+      "relationship": "Previous registration",
+      "startDate": "11/18/1998",
+      "endDate": "5/10/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1903253",
+      "name": "WENDY OLSON",
+      "relationship": "Previous registration",
+      "startDate": "4/18/1999",
+      "endDate": "5/18/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2731190",
+      "name": "MONTEJAR PARE",
+      "relationship": "Previous registration",
+      "startDate": "5/21/1996",
+      "endDate": "8/21/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3177277",
+      "name": "TINA LOUIE",
+      "relationship": "Previous registration",
+      "startDate": "9/14/1999",
+      "endDate": "7/31/2000",
+      "isCurrent": false
+    }
+  ]
+}

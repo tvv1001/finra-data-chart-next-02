@@ -1,1 +1,93 @@
-{"currentConnections":[],"previousConnections":[{"individualId":"3269870","name":"Pasquale Joseph Calabro","relationship":"Previous registration","isCurrent":false},{"individualId":"4694295","name":"RICHARD RAYMOND CANTARA","relationship":"Previous registration","isCurrent":false}]}
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "21318",
+      "name": "JAMES BIGGERS",
+      "relationship": "Previous registration",
+      "startDate": "2/27/1968",
+      "endDate": "11/2/1973",
+      "isCurrent": false
+    },
+    {
+      "individualId": "271489",
+      "name": "PETER KLEIN",
+      "relationship": "Previous registration",
+      "startDate": "2/27/1976",
+      "endDate": "8/27/1976",
+      "isCurrent": false
+    },
+    {
+      "individualId": "33308",
+      "name": "ROY BROWNING",
+      "relationship": "Previous registration",
+      "startDate": "2/27/1976",
+      "endDate": "8/27/1976",
+      "isCurrent": false
+    },
+    {
+      "individualId": "413310",
+      "name": "ROBERT SCHIFF",
+      "relationship": "Previous registration",
+      "startDate": "2/27/1976",
+      "endDate": "8/27/1976",
+      "isCurrent": false
+    },
+    {
+      "individualId": "426683",
+      "name": "LOUIS SMALLE",
+      "relationship": "Previous registration",
+      "startDate": "9/19/1972",
+      "endDate": "12/13/1975",
+      "isCurrent": false
+    },
+    {
+      "individualId": "465041",
+      "name": "GRIER WHITE",
+      "relationship": "Previous registration",
+      "startDate": "2/27/1976",
+      "endDate": "8/27/1976",
+      "isCurrent": false
+    },
+    {
+      "individualId": "808229",
+      "name": "WILLIAM CARVER",
+      "relationship": "Previous registration",
+      "startDate": "5/22/1975",
+      "endDate": "9/15/1975",
+      "isCurrent": false
+    },
+    {
+      "individualId": "815403",
+      "name": "THOMAS SQUILLANTE",
+      "relationship": "Previous registration",
+      "startDate": "2/27/1976",
+      "endDate": "8/27/1976",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1630",
+      "name": "NATALIE ROSS",
+      "relationship": "Previous registration",
+      "startDate": "2/27/1976",
+      "endDate": "8/27/1976",
+      "isCurrent": false
+    },
+    {
+      "individualId": "205708",
+      "name": "ROBERT FEINMAN",
+      "relationship": "Previous registration",
+      "startDate": "7/28/1976",
+      "endDate": "8/27/1976",
+      "isCurrent": false
+    },
+    {
+      "individualId": "370011",
+      "name": "ROBERT RAFAEL",
+      "relationship": "Previous registration",
+      "startDate": "6/17/1974",
+      "endDate": "8/15/1975",
+      "isCurrent": false
+    }
+  ]
+}

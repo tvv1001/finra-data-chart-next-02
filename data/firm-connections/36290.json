@@ -1,0 +1,21 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "1294943",
+      "name": "CRAIG ASCARI",
+      "relationship": "Current registration",
+      "startDate": "6/17/2024",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1294943",
+      "name": "CRAIG ASCARI",
+      "relationship": "Previous registration",
+      "startDate": "1/31/2017",
+      "endDate": "11/19/2019",
+      "isCurrent": false
+    }
+  ]
+}

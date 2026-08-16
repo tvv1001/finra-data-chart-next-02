@@ -1,0 +1,69 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1003497",
+      "name": "JOSEPH REYNOLDS",
+      "relationship": "Previous registration",
+      "startDate": "5/26/1983",
+      "endDate": "4/13/1984",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1124697",
+      "name": "BRUCE BIDDICK",
+      "relationship": "Previous registration",
+      "startDate": "3/4/1988",
+      "endDate": "9/20/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1257904",
+      "name": "CECILIA WECH",
+      "relationship": "Previous registration",
+      "startDate": "2/1/1988",
+      "endDate": "12/6/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1297489",
+      "name": "MARTIN YOKOSAWA",
+      "relationship": "Previous registration",
+      "startDate": "4/24/1986",
+      "endDate": "12/17/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1305965",
+      "name": "DONALD MCKIERNAN",
+      "relationship": "Previous registration",
+      "startDate": "6/5/1985",
+      "endDate": "9/20/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1400090",
+      "name": "M COLLINS",
+      "relationship": "Previous registration",
+      "startDate": "2/1/1988",
+      "endDate": "9/26/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1458169",
+      "name": "DINO CAPITANI",
+      "relationship": "Previous registration",
+      "startDate": "2/19/1986",
+      "endDate": "4/12/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "14642",
+      "name": "GEORGE BATES",
+      "relationship": "Previous registration",
+      "startDate": "5/1/1981",
+      "endDate": "11/15/1981",
+      "isCurrent": false
+    }
+  ]
+}

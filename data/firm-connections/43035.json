@@ -1,0 +1,76 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "1202221",
+      "name": "CASPER BRADBURY",
+      "relationship": "Current registration",
+      "startDate": "3/17/2008",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1248645",
+      "name": "EARTHA YOUNG",
+      "relationship": "Current registration",
+      "startDate": "9/30/2009",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1011060",
+      "name": "GARY NAPARSTEK",
+      "relationship": "Previous registration",
+      "startDate": "9/28/2015",
+      "endDate": "4/15/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1012273",
+      "name": "ROBERT MURDOCK",
+      "relationship": "Previous registration",
+      "startDate": "1/5/2010",
+      "endDate": "6/28/2013",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4318449",
+      "name": "Venera Izant",
+      "relationship": "Previous registration",
+      "startDate": "10/8/2009",
+      "endDate": "4/9/2010",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1280076",
+      "name": "MARK FARWELL",
+      "relationship": "Previous registration",
+      "startDate": "2/12/2018",
+      "endDate": "7/23/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1436009",
+      "name": "DANIEL FELLERS",
+      "relationship": "Previous registration",
+      "startDate": "5/1/2007",
+      "endDate": "6/19/2017",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2833948",
+      "name": "JOHN WILLIAMS",
+      "relationship": "Previous registration",
+      "startDate": "2/26/2013",
+      "endDate": "3/20/2015",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4189289",
+      "name": "WILLIAM CRAPPS",
+      "relationship": "Previous registration",
+      "startDate": "5/30/2019",
+      "endDate": "5/21/2021",
+      "isCurrent": false
+    }
+  ]
+}

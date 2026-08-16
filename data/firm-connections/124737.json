@@ -1,0 +1,45 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1018494",
+      "name": "KEVIN KELLY",
+      "relationship": "Previous registration",
+      "startDate": "3/4/2009",
+      "endDate": "4/1/2011",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1022160",
+      "name": "KENNETH DENGLER",
+      "relationship": "Previous registration",
+      "startDate": "5/1/2003",
+      "endDate": "5/15/2008",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1106139",
+      "name": "THOMAS FAGLIO",
+      "relationship": "Previous registration",
+      "startDate": "10/28/2010",
+      "endDate": "8/31/2011",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1320993",
+      "name": "ELLEN SCAMBIA",
+      "relationship": "Previous registration",
+      "startDate": "4/28/2011",
+      "endDate": "12/21/2011",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5066217",
+      "name": "Adriana Piltz",
+      "relationship": "Previous registration",
+      "startDate": "3/24/2011",
+      "endDate": "10/19/2011",
+      "isCurrent": false
+    }
+  ]
+}
