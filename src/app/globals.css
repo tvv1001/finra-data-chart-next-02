@@ -1926,15 +1926,15 @@ a,
 
 /* Make the compact select visually match the primary button when fetching */
 #fg-database-search[data-fetching='true'] .fg-search-type-inside {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.12);
-    color: inherit;
-    box-shadow: none;
+	background: rgba(255, 255, 255, 0.08);
+	border-color: rgba(255, 255, 255, 0.12);
+	color: inherit;
+	box-shadow: none;
 }
 
 /* Slightly reduce left margin so the select doesn't push into the spinner area */
 #fg-database-search[data-fetching='true'] .fg-search-type-inside {
-    margin-left: 4px;
+	margin-left: 4px;
 }
 
 @media (max-width: 720px) {
@@ -2638,6 +2638,7 @@ a,
 	justify-content: flex-start;
 	gap: 8px;
 	padding-right: 8px;
+	width: 300px;
 }
 
 .fg-sb-title-actions--below-tags .fg-sb-log-toggle,
@@ -2646,6 +2647,13 @@ a,
 	width: calc(50% - 4px);
 	min-width: 0;
 	border-radius: 5px;
+}
+
+/* When only the Log toggle is present make it take full width */
+.fg-sb-title-actions--below-tags .fg-sb-log-toggle:only-child {
+	flex: 1 1 100% !important;
+	width: 100% !important;
+	max-width: none !important;
 }
 
 .fg-sb-toggle-btn__label {

@@ -5806,6 +5806,14 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 			if (!isMobileSidebarViewport()) return;
 			showSidebarHint({ keepOpen: false });
 		}) as EventListener);
+		// Allow other code to request the sidebar re-render of no-selection content.
+		window.addEventListener('finra:ensure-sidebar-content', (() => {
+			try {
+				renderSidebar(sidebarSelectedNode || null);
+			} catch (e) {
+				/* ignore */
+			}
+		}) as EventListener);
 		window.addEventListener(FIND_QUERY_EVENT, ((event: Event) => {
 			const detail = (event as CustomEvent<{ query?: string | null }>).detail || {};
 			refreshFindMatches(detail.query, { preserveActiveMatch: true });
@@ -6773,6 +6781,14 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 	void loadGraph().finally(() => {
 		void fetchCacheStats();
 	});
+
+	// Ensure the sidebar is rendered on initial load so the Log toggle is visible
+	// even when no node is selected (useful after page refreshes).
+	try {
+		renderSidebar(sidebarSelectedNode || null);
+	} catch (e) {
+		/* ignore */
+	}
 	// Poll lightweight meta/cache endpoints so externally updated Redis totals
 	// appear in the UI without a hard refresh.
 	let _metaPollId = null;

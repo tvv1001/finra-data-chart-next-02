@@ -170,6 +170,12 @@ function toggleMobileMenu() {
 	}
 	sidebar.classList.remove('hidden');
 	backdrop?.classList.remove('hidden');
+	// Ensure the sidebar content is populated by requesting the lib renderer
+	try {
+		window.dispatchEvent(new CustomEvent('finra:ensure-sidebar-content'));
+	} catch (e) {
+		/* ignore */
+	}
 }
 
 function handleLegendTooltipBlur(event: React.FocusEvent<HTMLDetailsElement>) {
