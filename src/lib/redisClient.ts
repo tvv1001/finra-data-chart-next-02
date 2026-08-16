@@ -224,7 +224,7 @@ export function getReadOnlyRedisClientInstance(config?: { url?: string; token?: 
 		const msg = String(err?.message || '').toLowerCase();
 		if (msg.includes('max') || msg.includes('limit') || msg.includes('exceeded') || msg.includes('daily')) {
 			// noop for read-only: log only
-			console.warn(`[Redis RO] DB${dbIndex} marked as maxxed out (read)!");
+			console.warn(`[Redis RO] DB${dbIndex} marked as maxxed out (read)!`);
 		}
 	};
 
@@ -251,7 +251,7 @@ export function getReadOnlyRedisClientInstance(config?: { url?: string; token?: 
 							}
 							try {
 								let res = await (primary as any)[propStr](...args);
-								if ((res === null || res === undefined)) {
+								if (res === null || res === undefined) {
 									res = await (secondary as any)[propStr](...args);
 								}
 								return res;
