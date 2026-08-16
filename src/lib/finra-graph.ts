@@ -13736,6 +13736,11 @@ function updateShortDetail(d) {
 	if (!el) return;
 	if (!d) {
 		el.textContent = '';
+		try {
+			if (typeof window !== 'undefined') {
+				document.title = 'graph';
+			}
+		} catch {}
 		return;
 	}
 	const id = d?.crd || d?.firmId || d?.id || '';
@@ -13743,6 +13748,12 @@ function updateShortDetail(d) {
 	const label = getPreferredNodeLabel(d) || 'Selected node';
 	const suffix = id ? ` • ${id}` : '';
 	el.textContent = `${type}: ${label}${suffix}`;
+	try {
+		if (typeof window !== 'undefined') {
+			const idLabel = id ? ` / CRD# ${id}` : '';
+			document.title = `graph: ${label}${idLabel}`;
+		}
+	} catch {}
 }
 
 function clearHighlights() {
