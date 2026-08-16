@@ -21,6 +21,8 @@
 		"build:primed-cache": "ENABLE_PRIMED_CACHE=true node scripts/build_primed_cache_bundle.js",
 		"build:firm-emp-adj": "node scripts/build_firm_employment_adj.mjs",
 		"build:people-clusters": "node scripts/build_people_clusters.js",
+		"push:firm-connections:all": "node scripts/push_all_firm_connections_to_redis.mjs",
+		"push:firm-connections:watch": "node scripts/watch_and_push_firm_connections.mjs",
 		"crd-log": "node scripts/generate-crd-log.js",
 		"split:crds": "node scripts/split_crds_into_batches.js",
 		"deploy:primed-cache": "pnpm run build:primed-cache && PEOPLE_CLUSTER_ALLOW_MISSING_GRAPH=true pnpm run build:people-clusters && node scripts/deploy_primed_cache_to_redis.js",
