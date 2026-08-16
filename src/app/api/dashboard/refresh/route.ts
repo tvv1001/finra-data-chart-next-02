@@ -86,6 +86,62 @@ function getCrdLogNameMap(): Map<string, string> {
 	return crdLogNameMapCache;
 }
 
+async function writeCrdLog(log: CrdLog) {
+	try {
+		await fs.mkdir(path.dirname(CRD_LOG_PATH), { recursive: true });
+		await fs.writeFile(CRD_LOG_PATH, JSON.stringify(log, null, 2), 'utf8');
+		crdLogCache = log;
+		crdLogNameMapCache = null;
+		return true;
+	} catch (e) {
+		console.warn('Failed to write CRD log:', e?.message || e);
+		return false;
+	}
+}
+
+async function addCrdLogEntry(kind: 'firm' | 'individual', id: number, name?: string) {
+	try {
+		const log = loadCrdLog();
+		const arr = kind === 'firm' ? log.firms : log.individuals;
+		// remove any existing entry for id
+		const filtered = arr.filter((e) => Number(e.id) !== Number(id));
+		filtered.unshift({ id: Number(id), name: String(name || '') });
+		// keep reasonable size
+		const sliced = filtered.slice(0, 2000);
+		if (kind === 'firm') log.firms = sliced;
+		else log.individuals = sliced;
+		await writeCrdLog(log);
+	} catch (e) {
+		console.warn('addCrdLogEntry error', e?.message || e);
+	}
+}
+
+async function prependToNewCrdsCache(redis: Redis, entry: { id: string; type: 'INDIVIDUAL' | 'FIRM'; name?: string; found?: string }) {
+	const cacheKey = 'dashboard:new-crds-cache';
+	try {
+		let current = null;
+		try {
+			const raw = await redis.get(cacheKey);
+			current =
+				raw ?
+					typeof raw === 'string' ?
+						JSON.parse(raw)
+					:	raw
+				:	null;
+		} catch {}
+
+		const list = Array.isArray(current?.newCrds) ? current.newCrds : [];
+		// remove existing with same id/type
+		const deduped = list.filter((e: any) => !(String(e.id) === String(entry.id) && String(e.type) === String(entry.type)));
+		deduped.unshift({ ...entry, date: new Date().toISOString().split('T')[0] });
+		const limited = deduped.slice(0, 100);
+		const result = { newCrds: limited, lastChecked: new Date().toISOString(), detectedCount: limited.length, shownCount: Math.min(limited.length, 20) };
+		await redis.set(cacheKey, JSON.stringify(result), { ex: 86400 });
+	} catch (e) {
+		console.warn('Failed to prepend new CRD cache:', e?.message || e);
+	}
+}
+
 function buildKeySetFromCrdLog(): Set<string> {
 	const log = loadCrdLog();
 	const keySet = new Set<string>();
@@ -1257,8 +1313,8 @@ function ensureRedisClient() {
 	if (process.env.USE_LOCAL_REDIS === '1') {
 		return getRedisClientInstance({ url: '', token: '' });
 	}
-	const url = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL);
-	const token = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN);
+	const url = process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
+	const token = process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN;
 	if (!url || !token) return null;
 	return getRedisClientInstance({ url, token });
 }
@@ -1860,11 +1916,11 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 		:	null,
 		rawFallbackTotals,
 	);
-	
+
 	try {
 		const cachedCrdCountRaw = await redis.get('dashboard:cached-crd-count');
 		const cachedCrdCount = Number(cachedCrdCountRaw);
-		
+
 		if (cachedCrdCountRaw != null && !isNaN(cachedCrdCount)) {
 			effectiveInventoryTotals.unique = cachedCrdCount;
 			effectiveInventoryTotals.cachedCrdCount = String(cachedCrdCount);
@@ -1977,18 +2033,18 @@ async function listNewCrds(force = false) {
 		topIndividualIds = recentSeeds.individualIds.slice(0, 20);
 		topFirmIds = recentSeeds.firmIds.slice(0, 20);
 	}
-	
+
 	// Final fallback for local development where recent lists are completely uninitialized
 	if (topIndividualIds.length === 0 && topFirmIds.length === 0) {
 		try {
 			const indKeys = await redis.keys('finra:individual:*');
 			const firmKeys = await redis.keys('finra:firm:*');
-			
+
 			const indKeysArr = Array.isArray(indKeys) ? indKeys : [];
 			const firmKeysArr = Array.isArray(firmKeys) ? firmKeys : [];
-			
-			topIndividualIds = indKeysArr.slice(0, 20).map(k => String(k).split(':').pop() || '');
-			topFirmIds = firmKeysArr.slice(0, 20).map(k => String(k).split(':').pop() || '');
+
+			topIndividualIds = indKeysArr.slice(0, 20).map((k) => String(k).split(':').pop() || '');
+			topFirmIds = firmKeysArr.slice(0, 20).map((k) => String(k).split(':').pop() || '');
 		} catch (e) {
 			// ignore keys errors
 		}
@@ -2038,7 +2094,7 @@ async function listNewCrds(force = false) {
 	};
 
 	try {
-		await redis.set(cacheKey, JSON.stringify(result), { ex: 3600 });
+		await redis.set(cacheKey, JSON.stringify(result), { ex: 86400 });
 	} catch (err) {}
 
 	return {
@@ -2308,11 +2364,29 @@ async function fetchCrdsToCacheAndRedis(initialTargets: FetchTarget[], options: 
 		`[External API Access Sync Complete] Time: ${new Date().toISOString()} | Domain: ${targetDomain} | Graph CRD Nodes added count: ${mainAppSync.nodesAdded} | CRD list: [${successfulCrds.join(', ')}]`,
 	);
 
-	const newRecordsSavedCount = allResults.filter(r => r.newRecordSaved).length;
+	const newRecordsSavedCount = allResults.filter((r) => r.newRecordSaved).length;
 	if (newRecordsSavedCount > 0) {
-		await incrementInventoryCounterInRedis(newRecordsSavedCount).catch(err => {
+		await incrementInventoryCounterInRedis(newRecordsSavedCount).catch((err) => {
 			console.warn('[fetch-crds] Failed to increment inventory counter:', err);
 		});
+	}
+
+	// For any newly saved records, update the CRD log and the new-CRDs cache so the
+	// dashboard shows them at the top. Best-effort only.
+	try {
+		const redis = ensureRedisClient();
+		if (redis) {
+			for (const r of allResults) {
+				if (r.status === 'ok' && r.newRecordSaved) {
+					const kind = r.type === 'firm' ? 'firm' : 'individual';
+					const idNum = Number(r.crd || r.redisKey?.split(':').pop());
+					await addCrdLogEntry(kind as 'firm' | 'individual', idNum, r.name || undefined).catch(() => {});
+					await prependToNewCrdsCache(redis, { id: String(idNum), type: kind === 'firm' ? 'FIRM' : 'INDIVIDUAL', name: r.name || null, found: 'new' }).catch(() => {});
+				}
+			}
+		}
+	} catch (e) {
+		console.warn('Failed to update new CRD caches/logs:', e?.message || e);
 	}
 
 	return {

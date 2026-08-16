@@ -4005,8 +4005,54 @@ function updateSelectionLogUI() {
 		return;
 	}
 
+	// Fetch recent alerts and render them above the selection history.
+	// Keep a small cached copy to avoid thrashing the API.
+	let cachedAlerts: Array<any> = [];
+	let lastAlertsFetch = 0;
+	async function fetchRecentAlerts() {
+		try {
+			const now = Date.now();
+			if (now - lastAlertsFetch < 25000 && cachedAlerts.length) return cachedAlerts; // 25s cache
+			lastAlertsFetch = now;
+			const res = await fetch('/api/dashboard/alerts?limit=10');
+			if (!res.ok) return cachedAlerts;
+			const j = await res.json();
+			cachedAlerts =
+				Array.isArray(j?.alerts) ?
+					j.alerts.map((a: any) => {
+						try {
+							return typeof a === 'string' ? JSON.parse(a) : a;
+						} catch {
+							return a;
+						}
+					})
+				:	[];
+			return cachedAlerts;
+		} catch (e) {
+			return cachedAlerts;
+		}
+	}
+
 	containers.forEach((container) => {
 		container.innerHTML = '';
+
+		// render alerts container (above the selection history) with same style
+		// as the log entries so they appear visually consistent.
+		(async () => {
+			const alerts = await fetchRecentAlerts();
+			if (alerts && alerts.length) {
+				const alertsWrap = document.createElement('div');
+				alertsWrap.className = 'fg-selection-alerts';
+				alerts.forEach((a) => {
+					const div = document.createElement('div');
+					div.className = 'fg-log-entry alert';
+					const text = a && (a.prevName ? `${a.entity || a.id} name changed: ${a.prevName} → ${a.nextName}` : a.note || JSON.stringify(a));
+					div.innerHTML = `<span class="fg-log-text" title="Alert"><strong class="fg-log-label">${escapeHtml(String(text || 'Alert'))}</strong></span>`;
+					alertsWrap.appendChild(div);
+				});
+				container.appendChild(alertsWrap);
+			}
+		})();
 
 		selectedNodesLog
 			.slice()
@@ -9050,6 +9096,16 @@ function isNodeInactive(node) {
 		if (hasFinraActiveStates || hasSecActiveStates) return false;
 		if (finraSignalsEnabled && hasApprovedSro(node.registeredSROs)) return false;
 		if (activityFlags.hasInactive) return true;
+		// Honor a client-side strictness toggle. When enabled, be more
+		// conservative about marking nodes inactive based solely on
+		// historical-only signals so UI interactions don't flip a node gray
+		// unexpectedly. Toggle by setting localStorage.finra_strict_inactive = 'true'.
+		try {
+			const strict = typeof window !== 'undefined' && window.localStorage && window.localStorage.getItem('finra_strict_inactive') === 'true';
+			if (strict) return false;
+		} catch (e) {
+			/* ignore */
+		}
 		return hasHistoricalIndividualRegistrations(node) && !node.stub;
 	}
 
@@ -12482,9 +12538,53 @@ function getRenderedNodeLabel(node, { skipTruncation = false }: { skipTruncation
 
 function normalizeNodeLabelInPlace(node) {
 	if (!node || typeof node !== 'object') return node;
+	// Attempt to hydrate from a small persistent client-side label cache so
+	// labels survive full page refreshes and slow network fallbacks. Cache is
+	// keyed by node.id and stores { label, ts } where ts is epoch ms.
+	try {
+		if (typeof window !== 'undefined' && window.localStorage) {
+			const raw = window.localStorage.getItem('finra_node_label_cache');
+			if (raw) {
+				const map = JSON.parse(raw || '{}');
+				const entry = map[node.id];
+				if (entry && entry.label) {
+					// Respect cached label only when current node lacks a
+					// meaningful label to avoid clobbering freshly-fetched
+					// authoritative names.
+					const currentLabel = String(node.label || '').trim();
+					if (!currentLabel || /^(?:node\s+|person\s+|firm\s+)\d+/i.test(currentLabel)) {
+						node.label = entry.label;
+					}
+				}
+			}
+		}
+	} catch (e) {
+		// ignore cache errors
+	}
 	const preferredLabel = getPreferredNodeLabel(node);
 	// Prefer a rich/preferred label when available
 	if (preferredLabel && preferredLabel !== node.label) {
+		// persist chosen preferred label so subsequent mounts show it quickly
+		try {
+			if (typeof window !== 'undefined' && window.localStorage) {
+				const key = 'finra_node_label_cache';
+				const raw = window.localStorage.getItem(key) || '{}';
+				const map = JSON.parse(raw || '{}');
+				map[node.id] = { label: preferredLabel, ts: Date.now() };
+				// keep cache small: remove entries older than 14 days when writing
+				const TTL = 1000 * 60 * 60 * 24 * 14;
+				for (const k of Object.keys(map)) {
+					try {
+						if (!map[k] || typeof map[k].ts !== 'number' || Date.now() - map[k].ts > TTL) delete map[k];
+					} catch {
+						delete map[k];
+					}
+				}
+				window.localStorage.setItem(key, JSON.stringify(map));
+			}
+		} catch (e) {
+			// ignore cache write errors
+		}
 		node.label = preferredLabel;
 		return node;
 	}

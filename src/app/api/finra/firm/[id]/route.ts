@@ -4,6 +4,7 @@ import { rememberRecentSeed } from '@/lib/seedStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
 import { queueHydration } from '@/lib/hydration';
+import { getRedisClientInstance } from '@/lib/redisClient';
 import { addRecordToSearchIndex } from '@/lib/localSearch';
 import { getFirmConnectionsFromGraph } from '@/lib/graphConnections';
 import { recordOwnerReferencesForFirm, lookupFirmReference } from '@/lib/ownerReferenceIndex';
@@ -186,6 +187,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			bcDetail = parseDetailPayload(bcData.value, 'content');
 		}
 
+		// Additional fallback: some cached payloads use a different envelope (finraBrokerCheck)
+		if (!bcDetail && bcData.status === 'fulfilled' && bcData.value && typeof bcData.value === 'object') {
+			if (bcData.value.finraBrokerCheck && typeof bcData.value.finraBrokerCheck === 'object') {
+				bcDetail = bcData.value.finraBrokerCheck;
+				logger.info('firm-detail-envelope-fallback', { id, source: 'finra', note: 'used finraBrokerCheck envelope' });
+			}
+		}
+
 		// Fallback: if parse failed (possibly due to primed-bundle collision), try reading
 		// the local disk cache file directly as a last resort so local dev shows details.
 		if (!bcDetail) {
@@ -197,7 +206,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					const raw = fs.readFileSync(filePath, 'utf8');
 					const parsed = JSON.parse(raw);
 					const alt = parseDetailPayload(parsed, 'content');
-					if (alt) bcDetail = alt;
+					if (alt) {
+						bcDetail = alt;
+						logger.info('firm-detail-disk-fallback', { id, source: 'finra', note: 'used disk cache fallback for finra firm detail' });
+						try {
+							const redis = getRedisClientInstance({ url: process.env.UPSTASH_REDIS_REST_URL || '', token: process.env.UPSTASH_REDIS_REST_TOKEN || '' });
+							await redis.lpush(
+								'dashboard:alerts',
+								JSON.stringify({ at: new Date().toISOString(), id, source: 'finra', type: 'disk-fallback', note: 'used disk cache fallback for finra firm detail' }),
+							);
+							await redis.ltrim('dashboard:alerts', 0, 499).catch(() => null);
+						} catch (e) {
+							// ignore alerting errors
+						}
+					}
 				}
 			} catch (e) {
 				// ignore fallback errors
@@ -207,6 +229,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		let secDetail: any = null;
 		if (secData.status === 'fulfilled') {
 			secDetail = parseDetailPayload(secData.value, 'iacontent');
+		}
+
+		// Additional fallback: sec envelope variations
+		if (!secDetail && secData.status === 'fulfilled' && secData.value && typeof secData.value === 'object') {
+			if (secData.value.iacontent && typeof secData.value.iacontent === 'object') {
+				secDetail = secData.value.iacontent;
+				logger.info('firm-detail-envelope-fallback', { id, source: 'sec', note: 'used iacontent envelope' });
+			} else if (secData.value.iaContent && typeof secData.value.iaContent === 'object') {
+				secDetail = secData.value.iaContent;
+				logger.info('firm-detail-envelope-fallback', { id, source: 'sec', note: 'used iaContent envelope' });
+			}
 		}
 
 		// Disk fallback for SEC detail when cached/primed fetch returns non-detail.
@@ -219,7 +252,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					const raw = fs.readFileSync(filePath, 'utf8');
 					const parsed = JSON.parse(raw);
 					const alt = parseDetailPayload(parsed, 'iacontent');
-					if (alt) secDetail = alt;
+					if (alt) {
+						secDetail = alt;
+						logger.info('firm-detail-disk-fallback', { id, source: 'sec', note: 'used disk cache fallback for sec firm detail' });
+						try {
+							const redis2 = getRedisClientInstance({ url: process.env.UPSTASH_REDIS_REST_URL || '', token: process.env.UPSTASH_REDIS_REST_TOKEN || '' });
+							await redis2.lpush(
+								'dashboard:alerts',
+								JSON.stringify({ at: new Date().toISOString(), id, source: 'sec', type: 'disk-fallback', note: 'used disk cache fallback for sec firm detail' }),
+							);
+							await redis2.ltrim('dashboard:alerts', 0, 499).catch(() => null);
+						} catch (e) {
+							// ignore alerting errors
+						}
+					}
 				}
 			} catch (e) {
 				// ignore
@@ -327,6 +373,43 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		// Queue background hydration of the external API to ensure cache stays hydrated
 		queueHydration('firm', id);
+
+		// Monitor name changes for active firms which have at least one other name.
+		// Store monitored CRDs and per-CRD name snapshots in Redis so a lightweight
+		// background job can detect changes and alert operators.
+		try {
+			const bi: any = detail.basicInformation || {};
+			const otherNames =
+				Array.isArray(bi.otherNames) ? bi.otherNames
+				: Array.isArray(detail.otherNames) ? detail.otherNames
+				: [];
+			const isActive = Boolean(detail.hasFinraData || detail.hasSecData || hasPublicFinraFirmDetail(bcDetail, bcDetail?.basicInformation || {}));
+			if (otherNames.length && isActive) {
+				const redis = getRedisClientInstance({ url: process.env.UPSTASH_REDIS_REST_URL || '', token: process.env.UPSTASH_REDIS_REST_TOKEN || '' });
+				const role = 'firm';
+				await redis.sadd(`dashboard:monitored-crds:${role}`, id).catch(() => null);
+				const mainName = bi.firmName || detail.firmName || bi.name || detail.name || `Firm ${id}`;
+				const snapKey = `dashboard:crd-name-snapshot:${role}:${id}`;
+				const prevRaw = await redis.get(snapKey).catch(() => null);
+				let prev = null;
+				try {
+					prev = prevRaw ? JSON.parse(prevRaw) : null;
+				} catch {
+					prev = null;
+				}
+				if (!prev || String(prev.name || '') !== String(mainName || '')) {
+					if (prev && prev.name) {
+						await redis
+							.lpush('dashboard:alerts', JSON.stringify({ at: new Date().toISOString(), id, entity: role, type: 'name-change', prevName: prev.name, nextName: mainName }))
+							.catch(() => null);
+						await redis.ltrim('dashboard:alerts', 0, 499).catch(() => null);
+					}
+					await redis.set(snapKey, JSON.stringify({ name: mainName, ts: Date.now() })).catch(() => null);
+				}
+			}
+		} catch (e: any) {
+			logger.warn('firm name-change monitor failed', { id, error: e?.message || String(e) });
+		}
 
 		// Best-effort: index this firm's directOwners/indirectOwners so a later lookup of one of
 		// those individuals (many of whom have no independent, searchable FINRA/SEC record) can
