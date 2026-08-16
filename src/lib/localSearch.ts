@@ -11,8 +11,8 @@ import * as zlib from 'node:zlib';
 let cachedRedisClient: Redis | null = null;
 function getUpstashClient() {
 	if (cachedRedisClient) return cachedRedisClient;
-	const url = (process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL);
-	const token = (process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN);
+	const url = process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
+	const token = process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN;
 	if (!url || !token) return null;
 	cachedRedisClient = getRedisClientInstance({ url, token });
 	return cachedRedisClient;
@@ -556,6 +556,26 @@ function tokensFuzzyMatch(queryToken: string, candidateToken: string) {
 	return getBoundedEditDistance(queryToken, candidateToken, maxDistance) <= maxDistance;
 }
 
+function tokensOrderMatch(queryTokens: string[], candidateTokens: string[]) {
+	if (!queryTokens || queryTokens.length < 2) return false;
+	const firstQt = queryTokens[0];
+	const lastQt = queryTokens[queryTokens.length - 1];
+	const firstMatches: number[] = [];
+	const lastMatches: number[] = [];
+	for (let i = 0; i < candidateTokens.length; i++) {
+		const ct = candidateTokens[i];
+		if (tokensFuzzyMatch(firstQt, ct)) firstMatches.push(i);
+		if (tokensFuzzyMatch(lastQt, ct)) lastMatches.push(i);
+	}
+	for (const i of firstMatches) {
+		for (const j of lastMatches) {
+			if (i < j && j - i <= 4) return true;
+			if (j < i && i - j <= 2) return true;
+		}
+	}
+	return false;
+}
+
 function isStrictSurnameQuery(rawQuery: string, normalizedQuery: string) {
 	const compactQuery = compactNormalizeText(normalizedQuery);
 	const raw = String(rawQuery || '')
@@ -678,7 +698,12 @@ function getAddressFieldMatchScore(text: string, normalizedQuery: string, tokens
 
 function hasEmploymentFirmIdMatch(doc: PreparedLocalSearchDoc, normalizedQuery: string): boolean {
 	if (doc.type !== 'individual' || !doc.hit) return false;
-	const emps = [...(doc.hit.ind_current_employments || []), ...(doc.hit.ind_ia_current_employments || []), ...(doc.hit.ind_previous_employments || []), ...(doc.hit.ind_ia_previous_employments || [])];
+	const emps = [
+		...(doc.hit.ind_current_employments || []),
+		...(doc.hit.ind_ia_current_employments || []),
+		...(doc.hit.ind_previous_employments || []),
+		...(doc.hit.ind_ia_previous_employments || []),
+	];
 	for (const e of emps) {
 		const fid = String(e?.firmId || e?.firm_id || '').trim();
 		if (fid && fid === normalizedQuery) return true;
@@ -742,7 +767,11 @@ function matchesQuery(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQ
 	}
 	if (getNameMatchScore(doc, rawQuery, normalizedQuery, tokens) > 0) return true;
 	if (hasStrictMatch(doc, normalizedQuery, tokens)) return true;
-	return tokens.every((token) => doc.nameTokens.some((candidateToken) => tokensFuzzyMatch(token, candidateToken)));
+	if (tokens.every((token) => doc.nameTokens.some((candidateToken) => tokensFuzzyMatch(token, candidateToken)))) return true;
+	// Allow ordered first+last (or last+first) fuzzy match with a small gap to
+	// accommodate middle names or initials (e.g., "John Doe" → "John A. Doe").
+	if (tokensOrderMatch(tokens, doc.nameTokens)) return true;
+	return false;
 }
 
 function buildQueryMatches(docs: PreparedLocalSearchDoc[], rawQuery: string, normalizedQuery: string, tokens: string[], limit: number) {
@@ -925,16 +954,16 @@ async function fetchExtensionsFromRedis(bucket: LocalSearchBucket): Promise<Loca
 	try {
 		const key = `search:indexes:extensions:${bucket}`;
 		const docs: LocalSearchDoc[] = [];
-		
+
 		const keys = await redis.hkeys(key);
 		if (!keys || !keys.length) return [];
-		
+
 		// Chunk keys to avoid Upstash 10MB response limits (hscan ignores count sometimes)
 		const chunkSize = 500;
 		for (let i = 0; i < keys.length; i += chunkSize) {
 			const chunk = keys.slice(i, i + chunkSize);
 			const vals = await redis.hmget<Record<string, unknown>>(key, ...chunk);
-			
+
 			if (vals && typeof vals === 'object') {
 				// hmget returns an object mapping key to value
 				for (const raw of Object.values(vals)) {
@@ -954,7 +983,7 @@ async function fetchExtensionsFromRedis(bucket: LocalSearchBucket): Promise<Loca
 				}
 			}
 		}
-		
+
 		return docs;
 	} catch (err) {
 		console.error(`[localSearch] Failed to fetch extensions from Redis for ${bucket}:`, err);
@@ -1063,7 +1092,12 @@ export function buildIndividualDoc(source: string, detail: any): LocalSearchDoc 
 	const currentIAEmployments = (Array.isArray(detail.currentIAEmployments) ? detail.currentIAEmployments : []).map(normalizeEmployment).filter(Boolean);
 	const previousEmployments = (Array.isArray(detail.previousEmployments) ? detail.previousEmployments : []).map(normalizeEmployment).filter(Boolean);
 	const previousIAEmployments = (Array.isArray(detail.previousIAEmployments) ? detail.previousIAEmployments : []).map(normalizeEmployment).filter(Boolean);
-	const firmIds = uniqueTexts([...currentEmployments.map((e: any) => e.firmId), ...currentIAEmployments.map((e: any) => e.firmId), ...previousEmployments.map((e: any) => e.firmId), ...previousIAEmployments.map((e: any) => e.firmId)]);
+	const firmIds = uniqueTexts([
+		...currentEmployments.map((e: any) => e.firmId),
+		...currentIAEmployments.map((e: any) => e.firmId),
+		...previousEmployments.map((e: any) => e.firmId),
+		...previousIAEmployments.map((e: any) => e.firmId),
+	]);
 	const registrationCount = getRegistrationCount(detail);
 
 	const currentAddressTexts = uniqueTexts([

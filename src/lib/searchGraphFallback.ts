@@ -116,10 +116,13 @@ export function matchesSearchableNodeQuery(node: any, query: string) {
 	const strictQuery = isStrictMatchQuery(normalizedQuery);
 	if (keys.some((key) => key === normalizedQuery || containsWholePhrase(key, normalizedQuery))) return true;
 	if (strictQuery) {
-		return queryTokens.length > 0 && keys.some((key) => {
-			const keyTokens = key.split(/\s+/).filter(Boolean);
-			return queryTokens.every((qt) => keyTokens.some((kt) => kt === qt));
-		});
+		return (
+			queryTokens.length > 0 &&
+			keys.some((key) => {
+				const keyTokens = key.split(/\s+/).filter(Boolean);
+				return queryTokens.every((qt) => keyTokens.some((kt) => kt === qt));
+			})
+		);
 	}
 	if (!identifierLikeQuery && keys.some((key) => key.includes(normalizedQuery))) return true;
 	if (queryTokens.length > 0) {
@@ -127,6 +130,34 @@ export function matchesSearchableNodeQuery(node: any, query: string) {
 			const keyTokens = key.split(/\s+/).filter(Boolean);
 			if (queryTokens.every((qt) => keyTokens.some((kt) => tokensFuzzyMatch(qt, kt)))) {
 				return true;
+			}
+		}
+
+		// If the user supplied multiple words (e.g., first + last), also allow
+		// non-contiguous matches where the first and last query tokens appear in
+		// the candidate key in order (possibly with a middle name/initial between
+		// them). This enables matching "John Doe" to "John A. Doe" or
+		// "Doe, John A" (we check both orders).
+		if (queryTokens.length >= 2) {
+			const firstQt = queryTokens[0];
+			const lastQt = queryTokens[queryTokens.length - 1];
+			for (const key of keys) {
+				const keyTokens = key.split(/\s+/).filter(Boolean);
+				const firstMatches: number[] = [];
+				const lastMatches: number[] = [];
+				for (let i = 0; i < keyTokens.length; i++) {
+					if (tokensFuzzyMatch(firstQt, keyTokens[i])) firstMatches.push(i);
+					if (tokensFuzzyMatch(lastQt, keyTokens[i])) lastMatches.push(i);
+				}
+				// check forward order (first before last) with small allowance for a
+				// single extra token (middle name/initial) in between.
+				for (const i of firstMatches) {
+					for (const j of lastMatches) {
+						if (i < j && j - i <= 4) return true;
+						// also accept reversed order ("Last, First") if both match.
+						if (j < i && i - j <= 2) return true;
+					}
+				}
 			}
 		}
 	}

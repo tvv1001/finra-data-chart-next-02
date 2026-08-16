@@ -6274,7 +6274,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 					}
 				};
 
-				const allHits = [];
+				let allHits = [];
 				if (isCrdList) {
 					const batchSize = 5;
 					for (let i = 0; i < tokens.length; i += batchSize) {
@@ -6294,6 +6294,18 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 						}
 					});
 				}
+
+				// Respect header search type selector (all | people | firms)
+				let headerSearchType = 'all';
+				try {
+					const stEl = document.getElementById('fg-search-type') as HTMLSelectElement | null;
+					if (stEl && stEl.value)
+						headerSearchType = String(stEl.value || 'all')
+							.trim()
+							.toLowerCase();
+				} catch {}
+
+				// headerSearchType will be applied after we have the helper predicates
 
 				const getSearchHitIndividualId = (hit) => {
 					const src = hit?._source || hit || {};
@@ -6329,6 +6341,25 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 
 				const hitHasIndividualId = (hit) => Boolean(getSearchHitIndividualId(hit));
 				const hitHasFirmId = (hit) => Boolean(getSearchHitFirmId(hit));
+
+				// Respect header search type selector (all | people | firms)
+				try {
+					const stEl = document.getElementById('fg-search-type') as HTMLSelectElement | null;
+					if (stEl && stEl.value)
+						headerSearchType = String(stEl.value || 'all')
+							.trim()
+							.toLowerCase();
+				} catch {}
+
+				if (headerSearchType === 'people') {
+					const before = allHits.length;
+					allHits = allHits.filter((hit) => hitHasIndividualId(hit));
+					// console.debug(`[search] filtered to people: ${before} -> ${allHits.length}`);
+				} else if (headerSearchType === 'firms') {
+					const before = allHits.length;
+					allHits = allHits.filter((hit) => hitHasFirmId(hit));
+					// console.debug(`[search] filtered to firms: ${before} -> ${allHits.length}`);
+				}
 
 				// When query is a pure number, always inject synthetic hits so the
 				// direct-by-ID lookup path runs when search could not already identify

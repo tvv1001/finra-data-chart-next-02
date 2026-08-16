@@ -256,6 +256,7 @@ export default function FinraGraph() {
 	const [graphReady, setGraphReady] = useState(false);
 	const [browserPathname, setBrowserPathname] = useState('');
 	const [fetchQuery, setFetchQuery] = useState('');
+	const [searchType, setSearchType] = useState<'all' | 'people' | 'firms'>('all');
 	const [isFindBarOpen, setIsFindBarOpen] = useState(false);
 	const [findQuery, setFindQuery] = useState('');
 	const [findMatchState, setFindMatchState] = useState({ total: 0, activeOrdinal: 0 });
@@ -266,6 +267,12 @@ export default function FinraGraph() {
 		if (stored !== null) {
 			setIsSidebarToolsOpen(stored === 'true');
 		}
+
+		// Load persisted search type for the header search control
+		try {
+			const st = localStorage.getItem('finra_search_type');
+			if (st === 'people' || st === 'firms' || st === 'all') setSearchType(st);
+		} catch {}
 	}, []);
 
 	const toggleSidebarTools = () => {
@@ -285,6 +292,12 @@ export default function FinraGraph() {
 	};
 
 	const isMobileSearchViewport = useCallback(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches, []);
+
+	useEffect(() => {
+		try {
+			localStorage.setItem('finra_search_type', searchType);
+		} catch {}
+	}, [searchType]);
 
 	const focusFindInput = useCallback(() => {
 		window.requestAnimationFrame(() => {
@@ -935,6 +948,7 @@ export default function FinraGraph() {
 										spellCheck={false}
 										data-gramm='false'
 									/>
+									{/* search type selector moved into the Search button to save horizontal space */}
 									<div className='fg-toolbar-group fg-toolbar-status fg-toolbar-status--top'>
 										<span
 											id='fg-subset-info'
@@ -959,7 +973,20 @@ export default function FinraGraph() {
 									id='fg-database-search'
 									className='fg-btn-primary fg-action-btn'
 									title='Search all records in the local database'>
-									Search
+									<span className='fg-search-button-content'>
+										Search
+										<select
+											id='fg-search-type'
+											className='fg-search-type-inside'
+											value={searchType}
+											onChange={(e) => setSearchType(e.target.value as any)}
+											title='Search type: all, people, or firms'
+											aria-label='Search type'>
+											<option value='all'>All</option>
+											<option value='people'>People</option>
+											<option value='firms'>Firms</option>
+										</select>
+									</span>
 								</button>
 							</div>
 						</div>

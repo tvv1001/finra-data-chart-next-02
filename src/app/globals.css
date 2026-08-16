@@ -1906,6 +1906,34 @@ a,
 	filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.45));
 }
 
+/* Inline compact select inside the search button */
+.fg-search-button-content {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+.fg-search-type-inside {
+	font-size: 12px;
+	padding: 2px 6px;
+	height: 24px;
+	border-radius: 4px;
+	border: 1px solid var(--border-strong);
+	background: var(--surface);
+	color: var(--text-h);
+	cursor: pointer;
+	margin-left: 6px;
+}
+
+@media (max-width: 720px) {
+	/* On narrow viewports keep the select inside the button but slightly smaller */
+	.fg-search-type-inside {
+		font-size: 11px;
+		padding: 1px 5px;
+		height: 22px;
+		margin-left: 4px;
+	}
+}
+
 /* Ghost utility buttons */
 .fg-ghost-btn {
 	font: 600 11px/1 var(--sans);
@@ -6394,7 +6422,7 @@ button[type='submit'],
 	font-size: 11px;
 }
 #finra-app .fg-fetch-input {
-	width: min(180px, 100%);
-	flex: 1 1 180px;
-	max-width: 180px;
+	width: min(150px, 100%);
+	flex: 1 1 150px;
+	max-width: 150px;
 }
