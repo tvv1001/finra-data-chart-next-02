@@ -3040,6 +3040,8 @@ function setSidebarViewMode(mode: SidebarViewMode, options: { expandMobile?: boo
 	}
 
 	if (sidebarSelectedNode) renderSidebar(sidebarSelectedNode);
+	// Always re-render sidebar to ensure toggles are present even with no selection.
+	renderSidebar(sidebarSelectedNode);
 	updateSelectionLogChrome();
 }
 
@@ -14480,6 +14482,55 @@ function renderSidebar(d) {
 	if (!el || !side) {
 		return;
 	}
+	// Support rendering a minimal default sidebar when no node is selected.
+	if (!d) {
+		sidebarSelectedNode = null;
+		if (sidebarViewMode === 'none') {
+			sidebarViewMode = loadPersistedSidebarViewMode();
+		}
+		const preserveExpandedState = sidebarViewMode !== 'none';
+		el.innerHTML = renderNoSelectionSidebar();
+		if (sidebarViewMode === 'log') {
+			const body = el.querySelector('.fg-sb-body');
+			if (body) {
+				body.outerHTML = renderSidebarSelectionLogBody();
+			}
+		}
+		if (side) side.classList.remove('hidden');
+		document.getElementById('fg-sidebar-backdrop')?.classList.remove('hidden');
+		if (side) side.dataset.displayedId = '';
+		if (side) side.dataset.viewMode = sidebarViewMode;
+		syncMobileSidebarExpandedState(!isMobileSidebarViewport() || preserveExpandedState);
+		const mobileToggle = el.querySelector('.fg-sidebar-mobile-summary-toggle') as HTMLButtonElement | null;
+		if (mobileToggle) {
+			bindSidebarToggleInteraction(mobileToggle, () => (sidebarViewMode === 'info' ? 'none' : 'info'));
+		}
+		const logToggleButtons = Array.from(el.querySelectorAll<HTMLButtonElement>('.fg-sb-log-toggle'));
+		logToggleButtons.forEach((button) => {
+			bindSidebarToggleInteraction(button, () => (sidebarViewMode === 'log' ? 'none' : 'log'));
+		});
+		const touchGuardButtons = Array.from(
+			document.querySelectorAll<HTMLElement>('#fg-sidebar button, #fg-selection-log button, #fg-sidebar details.fg-mobile-legend-tooltip > summary, [data-fg-trace-mode-button]'),
+		);
+		touchGuardButtons.forEach((button) => bindTouchDragClickSuppression(button));
+		updateSelectionLogUI();
+		updateSelectionLogChrome();
+		const focusBtn = document.getElementById('fg-focus-btn') as HTMLButtonElement | null;
+		if (focusBtn) focusBtn.disabled = false;
+		try {
+			// no short detail to update when no selection
+		} catch (e) {
+			/* no-op */
+		}
+		try {
+			if (side) side.dataset.renderedByClient = '1';
+			if (typeof window !== 'undefined') (window as any).__FG_SIDEBAR_RENDERED = true;
+		} catch (e) {
+			/* ignore */
+		}
+		openSidebarToggles();
+		return;
+	}
 	const previousDisplayedId = side?.dataset.displayedId || '';
 	sidebarSelectedNode = d;
 	// Ensure known connection floor is computed and persisted for this node so its
@@ -14613,6 +14664,20 @@ function renderSourceToggle() {
 				SEC
 			</button>
 		</div>
+	`;
+}
+
+function renderNoSelectionSidebar() {
+	return `
+		<div class="fg-sb-header no-selection">
+			<div class="fg-sb-title-row">
+				<div class="fg-sb-title"></div>
+			</div>
+			<div class="fg-sb-title-actions fg-sb-title-actions--below-tags">
+				${renderSidebarSelectionLogToggle()}
+			</div>
+		</div>
+		<div class="fg-sb-body fg-sb-body--none"></div>
 	`;
 }
 
