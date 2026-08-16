@@ -8396,6 +8396,17 @@ function getKnownNodeConnectionFloor(node) {
 	const counts = { total: 0, controls: 0, employed: 0 };
 	if (!node || typeof node !== 'object') return counts;
 
+	// Load persisted per-node connection cache from localStorage when available.
+	let connCache: Record<string, any> | null = null;
+	try {
+		if (typeof window !== 'undefined') {
+			const raw = localStorage.getItem('finra_node_conn_count');
+			if (raw) connCache = JSON.parse(raw);
+		}
+	} catch {
+		connCache = null;
+	}
+
 	const seenConnectionKeys = new Set<string>();
 	const addConnection = (bucket: 'controls' | 'employed', key: string | null | undefined) => {
 		const normalizedKey = String(key || '').trim();
@@ -8434,6 +8445,29 @@ function getKnownNodeConnectionFloor(node) {
 			const firmNodeId = resolveControlConnectionFirmNodeId(controlRecord);
 			addConnection('controls', firmNodeId ? `controls|${firmNodeId}` : null);
 		}
+
+		// If we computed no connections but have a cached value, use it as a floor.
+		if (!counts.total && connCache && node.id) {
+			const cached = connCache[String(node.id)];
+			if (cached && typeof cached === 'object') {
+				return { total: Number(cached.total) || 0, controls: Number(cached.controls) || 0, employed: Number(cached.employed) || 0 };
+			}
+		}
+
+		// persist computed counts to cache
+		try {
+			if (typeof window !== 'undefined') {
+				const nid = String(node.id || '');
+				if (nid) {
+					connCache = connCache || {};
+					connCache[nid] = { total: counts.total, controls: counts.controls, employed: counts.employed, ts: Date.now() };
+					try {
+						localStorage.setItem('finra_node_conn_count', JSON.stringify(connCache));
+					} catch {}
+				}
+			}
+		} catch {}
+
 		return counts;
 	}
 
@@ -8442,7 +8476,40 @@ function getKnownNodeConnectionFloor(node) {
 			const personId = String(owner?.crdNumber || owner?.crd || owner?.personId || '').trim();
 			addConnection('controls', personId ? `controls|person:${personId}` : null);
 		}
+
+		if (!counts.total && connCache && node.id) {
+			const cached = connCache[String(node.id)];
+			if (cached && typeof cached === 'object') {
+				return { total: Number(cached.total) || 0, controls: Number(cached.controls) || 0, employed: Number(cached.employed) || 0 };
+			}
+		}
+
+		// persist computed counts to cache
+		try {
+			if (typeof window !== 'undefined') {
+				const nid = String(node.id || '');
+				if (nid) {
+					connCache = connCache || {};
+					connCache[nid] = { total: counts.total, controls: counts.controls, employed: counts.employed, ts: Date.now() };
+					try {
+						localStorage.setItem('finra_node_conn_count', JSON.stringify(connCache));
+					} catch {}
+				}
+			}
+		} catch {}
+
+		return counts;
 	}
+
+	// If nothing matched but we have a cached entry, return that as a floor
+	try {
+		if (connCache && node && node.id) {
+			const cached = connCache[String(node.id)];
+			if (cached && typeof cached === 'object') {
+				return { total: Number(cached.total) || 0, controls: Number(cached.controls) || 0, employed: Number(cached.employed) || 0 };
+			}
+		}
+	} catch {}
 
 	return counts;
 }
@@ -8487,7 +8554,17 @@ export function applyGraphDerivedNodeMetrics(nodes, links) {
 		const knownFloor = getKnownNodeConnectionFloor(node);
 		deg.controls = Math.max(deg.controls, knownFloor.controls);
 		deg.employed = Math.max(deg.employed, knownFloor.employed);
+		// Base total should respect computed degree and known (cached) floor.
 		deg.total = Math.max(deg.total, knownFloor.total, deg.controls + deg.employed);
+
+		// Visual boost: make nodes more prominent even when their active degree is low
+		// (for example when not yet expanded). This helps users see which nodes
+		// warrant clicking. Use slightly higher minima for firms.
+		if (node.group === 'individual') {
+			deg.total = Math.max(deg.total, 3);
+		} else if (node.group === 'firm') {
+			deg.total = Math.max(deg.total, 4);
+		}
 		node._deg = deg;
 
 		if (node.group === 'individual') {
@@ -14374,6 +14451,12 @@ function renderSidebar(d) {
 	}
 	const previousDisplayedId = side?.dataset.displayedId || '';
 	sidebarSelectedNode = d;
+	// Ensure known connection floor is computed and persisted for this node so its
+	// visual size is correct on first render (getKnownNodeConnectionFloor will
+	// write to localStorage when appropriate).
+	try {
+		getKnownNodeConnectionFloor(d);
+	} catch {}
 	if (previousDisplayedId !== (d?.id || '')) {
 		sidebarSourceToggle = 'finra';
 	}

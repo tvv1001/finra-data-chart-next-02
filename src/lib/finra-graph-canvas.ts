@@ -153,10 +153,13 @@ export function drawCanvasFrame(
 
 	for (const n of visibleNodes) {
 		const col = getColorForGroup(n.group);
-		const baseSize = n.group === 'firm' ? 6 : 4;
+		// Prefer any precomputed viz half-radius (from D3 renderer); otherwise
+		// fall back to defaults. _vizHalf stores a half-radius used by SVG, so
+		// use it directly for canvas sizing when available.
+		const vizHalf = (n && n._vizHalf) || (n.group === 'firm' ? 6 : 4);
 		const size = Math.max(
 			1,
-			baseSize *
+			vizHalf *
 				(scale < 0.5 ? 0.6
 				: scale < 1 ? 0.9
 				: 1.2),
