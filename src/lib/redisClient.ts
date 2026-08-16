@@ -2,6 +2,9 @@ import { Redis as UpstashRedis } from '@upstash/redis';
 import IORedis from 'ioredis';
 
 let localIoRedis: IORedis | null = null;
+// Cache Upstash client instances to avoid recreating HTTP clients on every
+// invocation which adds latency and extra resource usage.
+const upstashClientCache = new Map<string, UpstashRedis>();
 
 async function executeLocalRequest(req: any): Promise<any> {
 	if (!localIoRedis) {
@@ -56,8 +59,12 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 
 	// If DB2 is explicitly disabled via env, prefer DB1 when available and avoid the dual-proxy.
 	if (hasDb1 && hasDb2 && !disableDb2) {
-		const client1 = new UpstashRedis({ url: url1, token: token1 });
-		const client2 = new UpstashRedis({ url: url2, token: token2 });
+		const cacheKey1 = `${url1}:${token1}`;
+		const cacheKey2 = `${url2}:${token2}`;
+		const client1 = upstashClientCache.get(cacheKey1) ?? new UpstashRedis({ url: url1, token: token1 });
+		const client2 = upstashClientCache.get(cacheKey2) ?? new UpstashRedis({ url: url2, token: token2 });
+		upstashClientCache.set(cacheKey1, client1);
+		upstashClientCache.set(cacheKey2, client2);
 
 		const readMethods = new Set(['get', 'mget', 'scan', 'zrange', 'smembers', 'hgetall', 'exists', 'dbsize', 'type', 'keys', 'hget', 'zrevrange']);
 		const writeMethods = new Set(['set', 'mset', 'hset', 'zadd', 'sadd', 'del', 'incr', 'incrby', 'expire', 'flushall', 'flushdb']);
@@ -187,13 +194,22 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 
 	// Single-instance behavior. Prefer DB1 when present; otherwise use DB2 or the provided config.
 	if (hasDb1) {
-		return new UpstashRedis({ url: url1, token: token1 });
+		const cacheKey = `${url1}:${token1}`;
+		const c = upstashClientCache.get(cacheKey) ?? new UpstashRedis({ url: url1, token: token1 });
+		upstashClientCache.set(cacheKey, c);
+		return c;
 	}
 	if (hasDb2) {
-		return new UpstashRedis({ url: url2, token: token2 });
+		const cacheKey = `${url2}:${token2}`;
+		const c = upstashClientCache.get(cacheKey) ?? new UpstashRedis({ url: url2, token: token2 });
+		upstashClientCache.set(cacheKey, c);
+		return c;
 	}
 
-	return new UpstashRedis({ url: config.url, token: config.token });
+	const cfgKey = `${config.url}:${config.token}`;
+	const c = upstashClientCache.get(cfgKey) ?? new UpstashRedis({ url: config.url, token: config.token });
+	upstashClientCache.set(cfgKey, c);
+	return c;
 }
 
 /**

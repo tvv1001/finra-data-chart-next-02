@@ -10,8 +10,11 @@ import { getFirmConnectionsFromGraph } from '@/lib/graphConnections';
 import { recordOwnerReferencesForFirm, lookupFirmReference } from '@/lib/ownerReferenceIndex';
 import { hasFirmSourceCoverage } from '@/lib/sourceTruth';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// Allow ISR for firm API responses to reduce SSR load and repeated upstream
+// external fetches. Cache for 1 hour by default; individual callers can use
+// `forceRefresh=1` to evict and refresh.
+export const dynamic = 'auto';
+export const revalidate = 3600;
 
 const SUPPRESSED_SEC_FIRM_IDS = new Set(['4039', '25156', '36773']);
 
