@@ -22,7 +22,7 @@ async function executeLocalRequest(req: any): Promise<any> {
 			pipeline.sendCommand(new IORedis.Command(cmd[0], cmd.slice(1)));
 		});
 		const res = await pipeline.exec();
-		return res?.map(r => r[0] ? { error: r[0].message } : { result: r[1] });
+		return res?.map((r) => (r[0] ? { error: r[0].message } : { result: r[1] }));
 	} else if (Array.isArray(body)) {
 		try {
 			const res = await localIoRedis.sendCommand(new IORedis.Command(body[0], body.slice(1)));
@@ -37,10 +37,10 @@ async function executeLocalRequest(req: any): Promise<any> {
 
 export function getRedisClientInstance(config: { url: string; token: string }) {
 	const isLocalhost = process.env.USE_LOCAL_REDIS === '1';
-	
+
 	if (isLocalhost) {
 		return new UpstashRedis({
-			request: executeLocalRequest
+			request: executeLocalRequest,
 		} as any);
 	}
 
@@ -51,11 +51,13 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 
 	const hasDb1 = !!(url1 && token1);
 	const hasDb2 = !!(url2 && token2);
+	const disableDb2 = process.env.UPSTASH_REDIS_DISABLE_2 === '1';
 
-	if (hasDb1 && hasDb2) {
+	// If DB2 is explicitly disabled via env, prefer DB1 when available and avoid the dual-proxy.
+	if (hasDb1 && hasDb2 && !disableDb2) {
 		const client1 = new UpstashRedis({ url: url1, token: token1 });
 		const client2 = new UpstashRedis({ url: url2, token: token2 });
-		
+
 		const readMethods = new Set(['get', 'mget', 'scan', 'zrange', 'smembers', 'hgetall', 'exists', 'dbsize', 'type', 'keys', 'hget', 'zrevrange']);
 		const writeMethods = new Set(['set', 'mset', 'hset', 'zadd', 'sadd', 'del', 'incr', 'incrby', 'expire', 'flushall', 'flushdb']);
 
@@ -75,7 +77,7 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 			get(target, prop) {
 				const val = (target as any)[prop];
 				if (typeof val === 'function') {
-					return function(...args: any[]) {
+					return function (...args: any[]) {
 						const propStr = prop as string;
 						if (readMethods.has(propStr)) {
 							return (async () => {
@@ -86,7 +88,7 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 									if (propStr === 'hgetall') return {};
 									return null;
 								}
-								
+
 								let primary = client2;
 								let secondary = client1;
 								let primaryIndex: 1 | 2 = 2;
@@ -131,16 +133,22 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 						} else if (writeMethods.has(propStr)) {
 							return (async () => {
 								const promises = [];
-								if (!db1Maxxed) promises.push((client1 as any)[propStr](...args).catch((e: any) => {
-									checkMaxxed(e, 1);
-									console.error(`[Redis LB] Write error DB1:`, e.message);
-								}));
+								if (!db1Maxxed)
+									promises.push(
+										(client1 as any)[propStr](...args).catch((e: any) => {
+											checkMaxxed(e, 1);
+											console.error(`[Redis LB] Write error DB1:`, e.message);
+										}),
+									);
 								else promises.push(Promise.resolve(undefined));
 
-								if (!db2Maxxed) promises.push((client2 as any)[propStr](...args).catch((e: any) => {
-									checkMaxxed(e, 2);
-									console.error(`[Redis LB] Write error DB2:`, e.message);
-								}));
+								if (!db2Maxxed)
+									promises.push(
+										(client2 as any)[propStr](...args).catch((e: any) => {
+											checkMaxxed(e, 2);
+											console.error(`[Redis LB] Write error DB2:`, e.message);
+										}),
+									);
 								else promises.push(Promise.resolve(undefined));
 
 								const results = await Promise.all(promises);
@@ -148,17 +156,21 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 							})();
 						}
 						// Direct passthrough for other methods (like pipeline)
-						return (db1Maxxed ? client2 : client1 as any)[propStr](...args);
+						return (db1Maxxed ? client2 : (client1 as any))[propStr](...args);
 					};
 				}
 				return val;
-			}
+			},
 		});
 	}
 
-	// Production behavior single instance
-	return new UpstashRedis({
-		url: url2 || config.url,
-		token: token2 || config.token
-	});
+	// Single-instance behavior. Prefer DB1 when present; otherwise use DB2 or the provided config.
+	if (hasDb1) {
+		return new UpstashRedis({ url: url1, token: token1 });
+	}
+	if (hasDb2) {
+		return new UpstashRedis({ url: url2, token: token2 });
+	}
+
+	return new UpstashRedis({ url: config.url, token: config.token });
 }
