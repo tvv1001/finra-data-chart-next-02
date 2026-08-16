@@ -56,15 +56,10 @@ async function pushBatch(filePaths) {
 	}
 
 	try {
-		// Build mset args: [key1, val1, key2, val2, ...]
-		const msetArgs = [];
-		for (const it of items) {
-			msetArgs.push(it.cacheKey, it.raw);
-		}
-
-		// Use mset to write all values in one request
-		if (msetArgs.length > 0) {
-			await redis.mset(...msetArgs);
+		// Write each value using SET to ensure GET/TYPE/EXISTS behave consistently across Upstash
+		// perform in parallel for this batch
+		if (items.length > 0) {
+			await Promise.all(items.map((it) => redis.set(it.cacheKey, it.raw).catch(() => null)));
 		}
 
 		// Set TTLs in parallel (expire) to avoid per-set EX overhead
