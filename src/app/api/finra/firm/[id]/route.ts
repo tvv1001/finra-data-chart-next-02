@@ -46,7 +46,7 @@ function parseDetailPayload(data: any, contentKey = 'content') {
 		}
 
 		if (!parsed) return null;
-		
+
 		if (!parsed.basicInformation) {
 			const bi: any = {};
 			const fid = parsed.firmId || parsed.firm_id || parsed.id;
@@ -124,11 +124,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	const forceRefresh = request.nextUrl.searchParams.get('forceRefresh') === '1';
 
 	if (forceRefresh) {
-		await Promise.allSettled([
-			evictCacheKey(`finra:firm:${id}`),
-			evictCacheKey(`sec:firm:${id}`),
-			evictCacheKey(`sec:firm:summaryHtml:${id}`),
-		]);
+		await Promise.allSettled([evictCacheKey(`finra:firm:${id}`), evictCacheKey(`sec:firm:${id}`), evictCacheKey(`sec:firm:summaryHtml:${id}`)]);
 	}
 
 	void rememberRecentSeed('firm', id).catch((error) => {
@@ -184,14 +180,50 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			}),
 		]);
 
-		console.log("bcData status", bcData.status, (bcData as any).value ? "has value" : "no value"); let bcDetail: any = null;
+		console.log('bcData status', bcData.status, (bcData as any).value ? 'has value' : 'no value');
+		let bcDetail: any = null;
 		if (bcData.status === 'fulfilled') {
 			bcDetail = parseDetailPayload(bcData.value, 'content');
+		}
+
+		// Fallback: if parse failed (possibly due to primed-bundle collision), try reading
+		// the local disk cache file directly as a last resort so local dev shows details.
+		if (!bcDetail) {
+			try {
+				const fs = require('fs');
+				const path = require('path');
+				const filePath = path.join(process.cwd(), 'data', 'national', 'brokercheck.finra.org', `api.brokercheck.finra.org_search_firm_${id}.json`);
+				if (fs.existsSync(filePath)) {
+					const raw = fs.readFileSync(filePath, 'utf8');
+					const parsed = JSON.parse(raw);
+					const alt = parseDetailPayload(parsed, 'content');
+					if (alt) bcDetail = alt;
+				}
+			} catch (e) {
+				// ignore fallback errors
+			}
 		}
 
 		let secDetail: any = null;
 		if (secData.status === 'fulfilled') {
 			secDetail = parseDetailPayload(secData.value, 'iacontent');
+		}
+
+		// Disk fallback for SEC detail when cached/primed fetch returns non-detail.
+		if (!secDetail) {
+			try {
+				const fs = require('fs');
+				const path = require('path');
+				const filePath = path.join(process.cwd(), 'data', 'national', 'adviserinfo.sec.gov', `api.adviserinfo.sec.gov_search_firm_${id}.json`);
+				if (fs.existsSync(filePath)) {
+					const raw = fs.readFileSync(filePath, 'utf8');
+					const parsed = JSON.parse(raw);
+					const alt = parseDetailPayload(parsed, 'iacontent');
+					if (alt) secDetail = alt;
+				}
+			} catch (e) {
+				// ignore
+			}
 		}
 
 		if (!bcDetail && !secDetail) {
@@ -200,7 +232,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			const bcSearchHit = bcData.status === 'fulfilled' && bcData.value?.hits?.hits?.length ? bcData.value.hits.hits[0]._source : null;
 			const secSearchHit = secData.status === 'fulfilled' && secData.value?.hits?.hits?.length ? secData.value.hits.hits[0]._source : null;
 			const searchHit = bcSearchHit || secSearchHit;
-			
+
 			let orphan = null;
 			if (searchHit) {
 				orphan = {
@@ -222,7 +254,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					{
 						found: true,
 						firmId: id,
-						orphan, debugBcData: (bcData as any).value, 
+						orphan,
+						debugBcData: (bcData as any).value,
 						sources: { finra: { found: false }, sec: { found: false } },
 						hasFinraData: false,
 						hasSecData: false,
@@ -335,7 +368,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			// Best-effort only: never let a graph lookup failure break the primary firm detail response.
 			if (
 				!deferConnections &&
-				((!Array.isArray(detail.currentConnections) || !detail.currentConnections.length) || (!Array.isArray(detail.previousConnections) || !detail.previousConnections.length))
+				(!Array.isArray(detail.currentConnections) || !detail.currentConnections.length || !Array.isArray(detail.previousConnections) || !detail.previousConnections.length)
 			) {
 				try {
 					const { currentConnections, previousConnections } = await getFirmConnectionsFromGraph(id);

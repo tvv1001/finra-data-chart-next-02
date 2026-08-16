@@ -878,7 +878,6 @@ export default function FinraGraph() {
 		} catch (e) {
 			// ignore
 		}
-
 	}, [isMounted, routeNodeId, searchParams]);
 
 	if (!isMounted) {
@@ -1248,35 +1247,6 @@ export default function FinraGraph() {
 					<div className={`fg-sidebar-toolbar-content ${isSidebarToolsOpen ? '' : 'hidden'}`}>
 						<div className='fg-sidebar-actions'></div>
 						<div className='fg-sidebar-mobile-actions'>
-							<button
-								type='button'
-								data-fg-graph-action='clear-non-connected'
-								className='fg-ghost-btn fg-clear-non-connected-btn'
-								title='Keep only nodes connected to the current selection'>
-								Clear non-connected
-							</button>
-							<button
-								type='button'
-								data-fg-action='clear-highlights'
-								className='fg-ghost-btn'
-								title='Clear hop/line highlights only — selected nodes stay selected'>
-								Clear Highlight
-							</button>
-							<button
-								type='button'
-								data-fg-graph-action='clear-non-log'
-								className='fg-ghost-btn fg-clear-non-log-btn'
-								title='Keep only nodes that appear in the selection log'>
-								Clear non-log
-							</button>
-							<button
-								type='button'
-								data-fg-selection-log-action='toggle-bold'
-								className='fg-ghost-btn'
-								title='Make log entries larger and bolder'>
-								Log Bold
-							</button>
-
 							<div className='fg-clear-labels-control'>
 								<button
 									id='btn-sidebar-clear-labels'
@@ -1314,6 +1284,35 @@ export default function FinraGraph() {
 									</button>
 								</div>
 							</div>
+							<button
+								type='button'
+								data-fg-graph-action='clear-non-connected'
+								className='fg-ghost-btn fg-clear-non-connected-btn'
+								title='Keep only nodes connected to the current selection'>
+								Clear non-connected
+							</button>
+							<button
+								type='button'
+								data-fg-action='clear-highlights'
+								className='fg-ghost-btn'
+								title='Clear hop/line highlights only — selected nodes stay selected'>
+								Clear Highlight
+							</button>
+							<button
+								type='button'
+								data-fg-graph-action='clear-non-log'
+								className='fg-ghost-btn fg-clear-non-log-btn'
+								title='Keep only nodes that appear in the selection log'>
+								Clear non-log
+							</button>
+							<button
+								type='button'
+								data-fg-selection-log-action='toggle-bold'
+								className='fg-ghost-btn'
+								title='Make log entries larger and bolder'>
+								Log Bold
+							</button>
+
 							<button
 								id='fg-focus-btn'
 								className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary'
