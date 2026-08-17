@@ -271,7 +271,7 @@ function buildGraphMaps(nodes: any[], links: any[]) {
 	}
 }
 
-function requestRender() {
+export function requestRender() {
 	if (renderRequested) return;
 	renderRequested = true;
 	if (typeof window === 'undefined') return;

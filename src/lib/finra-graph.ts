@@ -46,6 +46,7 @@ import { isValidLocationStateFilter, isZipLikeLocationQuery, normalizeLocationSt
 import { buildParentFirmSummaryLinks } from './finra-graph/externalLinks';
 import { resolveIndividualSourceDetail, hasIndividualSourceCoverage } from './sourceTruth';
 import { normalizeNodeRouteId, buildNodeRoutePath } from './node-route';
+import { requestRender } from './finra-graph-canvas';
 
 // API base. When VITE_API_URL is not set, use relative paths so the dev
 // server proxy (`/api`) is used and we don't hardcode a backend port.

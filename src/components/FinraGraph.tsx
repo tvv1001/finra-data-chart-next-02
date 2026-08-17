@@ -941,7 +941,7 @@ export default function FinraGraph() {
 
 		// Defer heavy graph initialization until after initial paint / idle to improve perceived load
 		const startInit = () => {
-			Promise.all([import('d3'), import('d3-force'), import('@/lib/finra-graph')]).then(([d3Module, d3ForceModule, { init }]) => {
+			Promise.all([import('d3'), import('d3-force'), import('@/lib/finra-graph')]).then(async ([d3Module, d3ForceModule, { init }]) => {
 				const combinedD3 = { ...d3Module, ...d3ForceModule };
 				(window as any).d3 = combinedD3;
 				const defaultSelected = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEFAULT_SELECTED) || '';
@@ -957,20 +957,20 @@ export default function FinraGraph() {
 				// Try to initialize the wasm thread pool (if a parallel/threads build was produced)
 				try {
 					if (typeof window !== 'undefined' && (self as any).crossOriginIsolated) {
-						import('/wasm/graph-layout/graph_layout.js')
-							.then((mod) => {
-								if (mod && typeof mod.initThreadPool === 'function') {
-									const threads = navigator.hardwareConcurrency ? Math.max(2, Math.min(8, navigator.hardwareConcurrency - 1)) : 4;
-									try {
-										mod.initThreadPool(threads);
-									} catch (e) {
-										console.info('wasm thread pool init failed:', e);
-									}
+						try {
+							// Use eval-import to avoid bundler static analysis resolving the path at build time
+							const mod = await eval("import('/wasm/graph-layout/graph_layout.js')");
+							if (mod && typeof mod.initThreadPool === 'function') {
+								const threads = navigator.hardwareConcurrency ? Math.max(2, Math.min(8, navigator.hardwareConcurrency - 1)) : 4;
+								try {
+									await mod.initThreadPool(threads);
+								} catch (e) {
+									console.info('wasm thread pool init failed:', e);
 								}
-							})
-							.catch(() => {
-								// ignore missing wasm or module
-							});
+							}
+						} catch (_) {
+							// ignore missing wasm or module
+						}
 					}
 				} catch (e) {
 					// ignore
