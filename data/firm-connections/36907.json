@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1034647",
+      "name": "JOHN MOSKO",
+      "relationship": "Previous registration",
+      "startDate": "11/22/2004",
+      "endDate": "3/22/2006",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1275799",
+      "name": "LYNN HUTCHINSON",
+      "relationship": "Previous registration",
+      "startDate": "9/22/2003",
+      "endDate": "5/4/2006",
+      "isCurrent": false
+    }
+  ]
+}

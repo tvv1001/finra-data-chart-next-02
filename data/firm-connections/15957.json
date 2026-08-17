@@ -1,0 +1,37 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1031368",
+      "name": "HENRY STERZING",
+      "relationship": "Previous registration",
+      "startDate": "4/17/1995",
+      "endDate": "4/11/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "437008",
+      "name": "JAMES STOEGER",
+      "relationship": "Previous registration",
+      "startDate": "7/18/1989",
+      "endDate": "12/15/1995",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1163978",
+      "name": "MORRIS SCHULMAN",
+      "relationship": "Previous registration",
+      "startDate": "5/20/1988",
+      "endDate": "12/31/1991",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1357509",
+      "name": "DEIRDRE PATTEN",
+      "relationship": "Previous registration",
+      "startDate": "5/16/1995",
+      "endDate": "3/27/1996",
+      "isCurrent": false
+    }
+  ]
+}

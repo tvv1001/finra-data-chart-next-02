@@ -106,7 +106,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 							if (cachedFirm) {
 								const cachedHits = cachedFirm?.hits?.hits || [];
 								const rawDetail = cachedHits.length > 0 ? cachedHits[0]?._source?.content || cachedHits[0]?._source : cachedFirm;
-								const parsed = typeof rawDetail === 'string' ? JSON.parse(rawDetail) : rawDetail;
+								let parsed: any = rawDetail;
+								// Defensive: only attempt JSON.parse on strings that look like JSON to avoid
+								// parsing plain legacy identifiers like "br:XYZ" which will throw.
+								if (typeof rawDetail === 'string') {
+									const t = rawDetail.trim();
+									if (t.startsWith('{') || t.startsWith('[')) {
+										try {
+											parsed = JSON.parse(rawDetail);
+										} catch {
+											parsed = rawDetail;
+										}
+									}
+								}
 								const bi = parsed?.basicInformation || parsed || {};
 								firmLabel = bi.firmName || bi.name || firmLabel;
 							}

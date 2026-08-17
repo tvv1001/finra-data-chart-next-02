@@ -1,0 +1,69 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1089466",
+      "name": "Kevin Siemiawski",
+      "relationship": "Previous registration",
+      "startDate": "7/9/2001",
+      "endDate": "5/26/2010",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1326614",
+      "name": "KENNETH SIEGEL",
+      "relationship": "Previous registration",
+      "startDate": "6/7/2005",
+      "endDate": "1/6/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2622454",
+      "name": "Larry Mikell",
+      "relationship": "Previous registration",
+      "startDate": "7/14/2009",
+      "endDate": "5/26/2010",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3203736",
+      "name": "MICHAEL CHOCHON",
+      "relationship": "Previous registration",
+      "startDate": "6/15/2009",
+      "endDate": "10/1/2010",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4576783",
+      "name": "Jeffrey Plummer",
+      "relationship": "Previous registration",
+      "startDate": "3/3/2010",
+      "endDate": "5/27/2010",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2146027",
+      "name": "KARA GRIGAS CALIGIURI",
+      "relationship": "Previous registration",
+      "startDate": "2/3/2010",
+      "endDate": "5/27/2010",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2728768",
+      "name": "Steven Quirk",
+      "relationship": "Previous registration",
+      "startDate": "8/8/2007",
+      "endDate": "5/27/2010",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2749545",
+      "name": "WILLIAM YATES",
+      "relationship": "Previous registration",
+      "startDate": "6/15/2009",
+      "endDate": "10/1/2010",
+      "isCurrent": false
+    }
+  ]
+}

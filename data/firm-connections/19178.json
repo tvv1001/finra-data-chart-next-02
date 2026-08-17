@@ -1,0 +1,45 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1048607",
+      "name": "Roger Feldman",
+      "relationship": "Previous registration",
+      "startDate": "7/17/1991",
+      "endDate": "11/25/1991",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1101253",
+      "name": "GWENDOLYN KIRKLAND",
+      "relationship": "Previous registration",
+      "startDate": "4/20/1990",
+      "endDate": "4/14/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1135015",
+      "name": "NATHAN CHAPMAN",
+      "relationship": "Previous registration",
+      "startDate": "2/24/1987",
+      "endDate": "11/17/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1916044",
+      "name": "DANIEL BALDWIN",
+      "relationship": "Previous registration",
+      "startDate": "3/21/1989",
+      "endDate": "7/27/2005",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2034052",
+      "name": "EARL BRAVO",
+      "relationship": "Previous registration",
+      "startDate": "3/20/1990",
+      "endDate": "1/22/2008",
+      "isCurrent": false
+    }
+  ]
+}

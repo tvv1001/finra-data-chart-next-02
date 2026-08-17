@@ -1,0 +1,45 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1049600",
+      "name": "RONALD FRANZEN",
+      "relationship": "Previous registration",
+      "startDate": "9/19/1983",
+      "endDate": "8/11/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1055954",
+      "name": "Steven Weinman",
+      "relationship": "Previous registration",
+      "startDate": "11/23/1982",
+      "endDate": "12/31/2018",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1407004",
+      "name": "TIMOTHY SMITH",
+      "relationship": "Previous registration",
+      "startDate": "11/19/1985",
+      "endDate": "6/5/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1672974",
+      "name": "STANLEY GREGOR",
+      "relationship": "Previous registration",
+      "startDate": "12/1/2016",
+      "endDate": "10/29/2018",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2690894",
+      "name": "Lauren Gretchen",
+      "relationship": "Previous registration",
+      "startDate": "12/15/1998",
+      "endDate": "5/4/2001",
+      "isCurrent": false
+    }
+  ]
+}

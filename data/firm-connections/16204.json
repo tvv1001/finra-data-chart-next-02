@@ -1,0 +1,61 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1039053",
+      "name": "ROBERT ADAMS",
+      "relationship": "Previous registration",
+      "startDate": "11/14/2012",
+      "endDate": "5/24/2022",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1131102",
+      "name": "MARTIN GURVEY",
+      "relationship": "Previous registration",
+      "startDate": "10/28/1999",
+      "endDate": "8/8/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1382394",
+      "name": "DANNY BAIRD",
+      "relationship": "Previous registration",
+      "startDate": "2/22/2017",
+      "endDate": "1/30/2018",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1403227",
+      "name": "RAYMOND FINOCCHIO",
+      "relationship": "Previous registration",
+      "startDate": "6/8/1995",
+      "endDate": "1/16/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1416650",
+      "name": "JIM DUNCAN",
+      "relationship": "Previous registration",
+      "startDate": "4/12/1995",
+      "endDate": "5/20/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1473655",
+      "name": "CHRISTOPHER DELANEY",
+      "relationship": "Previous registration",
+      "startDate": "2/24/1998",
+      "endDate": "9/4/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2287712",
+      "name": "CAMPBELL MCCASKILL",
+      "relationship": "Previous registration",
+      "startDate": "1/16/1997",
+      "endDate": "10/4/2002",
+      "isCurrent": false
+    }
+  ]
+}

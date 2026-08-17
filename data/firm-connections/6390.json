@@ -1,0 +1,85 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1080419",
+      "name": "MARK SHABER",
+      "relationship": "Previous registration",
+      "startDate": "2/22/2000",
+      "endDate": "2/26/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2106821",
+      "name": "TAMI BRYAN",
+      "relationship": "Previous registration",
+      "startDate": "2/1/2008",
+      "endDate": "2/5/2008",
+      "isCurrent": false
+    },
+    {
+      "individualId": "718668",
+      "name": "DOROTHY BELVILLE",
+      "relationship": "Previous registration",
+      "startDate": "7/13/2009",
+      "endDate": "2/2/2012",
+      "isCurrent": false
+    },
+    {
+      "individualId": "727236",
+      "name": "CHARLES SCOTT",
+      "relationship": "Previous registration",
+      "startDate": "9/9/1993",
+      "endDate": "12/5/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1028082",
+      "name": "HARRIS BELINKIE",
+      "relationship": "Previous registration",
+      "startDate": "9/1/2006",
+      "endDate": "11/1/2011",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1265719",
+      "name": "EDWARD PANFILI",
+      "relationship": "Previous registration",
+      "startDate": "10/5/1984",
+      "endDate": "2/7/2012",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1329980",
+      "name": "BRENT GOTTIER",
+      "relationship": "Previous registration",
+      "startDate": "10/6/2006",
+      "endDate": "2/28/2012",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2176816",
+      "name": "ERINN FORD",
+      "relationship": "Previous registration",
+      "startDate": "12/21/1992",
+      "endDate": "2/28/2012",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2624443",
+      "name": "Deanna Pearce",
+      "relationship": "Previous registration",
+      "startDate": "5/24/2006",
+      "endDate": "7/20/2011",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3247374",
+      "name": "JEFFREY SIMS",
+      "relationship": "Previous registration",
+      "startDate": "9/23/1999",
+      "endDate": "6/25/2012",
+      "isCurrent": false
+    }
+  ]
+}

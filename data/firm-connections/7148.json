@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1108709",
+      "name": "KEVIN FLACH",
+      "relationship": "Previous registration",
+      "startDate": "11/6/1984",
+      "endDate": "3/4/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1888764",
+      "name": "Ramon Mencia",
+      "relationship": "Previous registration",
+      "startDate": "5/21/1997",
+      "endDate": "8/7/2002",
+      "isCurrent": false
+    }
+  ]
+}

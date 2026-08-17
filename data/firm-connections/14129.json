@@ -1,0 +1,29 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1059237",
+      "name": "MICHAEL RAEBER",
+      "relationship": "Previous registration",
+      "startDate": "11/2/1988",
+      "endDate": "4/10/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1217747",
+      "name": "LORI STEVENS",
+      "relationship": "Previous registration",
+      "startDate": "11/2/1988",
+      "endDate": "4/26/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "33927",
+      "name": "THOMAS BRYAN",
+      "relationship": "Previous registration",
+      "startDate": "11/2/1988",
+      "endDate": "4/21/1989",
+      "isCurrent": false
+    }
+  ]
+}

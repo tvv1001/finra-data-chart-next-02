@@ -1,0 +1,29 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1048578",
+      "name": "SCOTT GUETZ",
+      "relationship": "Previous registration",
+      "startDate": "3/6/1984",
+      "endDate": "3/5/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1197658",
+      "name": "KEITH KOCH",
+      "relationship": "Previous registration",
+      "startDate": "6/26/1984",
+      "endDate": "9/10/1984",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1864219",
+      "name": "Greg Vittor",
+      "relationship": "Previous registration",
+      "startDate": "9/6/1988",
+      "endDate": "9/19/1988",
+      "isCurrent": false
+    }
+  ]
+}

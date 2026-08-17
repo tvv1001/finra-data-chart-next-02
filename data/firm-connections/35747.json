@@ -1,0 +1,803 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "2593035",
+      "name": "TIMOTHY BANGERTER",
+      "relationship": "Current registration",
+      "startDate": "5/1/2013",
+      "isCurrent": true
+    },
+    {
+      "individualId": "5731138",
+      "name": "BRIAN PIERCE",
+      "relationship": "Current registration",
+      "startDate": "1/23/2023",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1123669",
+      "name": "STEPHEN SMITH",
+      "relationship": "Current registration",
+      "startDate": "5/4/2012",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1664678",
+      "name": "JOHN PURCELL",
+      "relationship": "Current registration",
+      "startDate": "4/15/1994",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2196712",
+      "name": "DEBRA GARDI",
+      "relationship": "Current registration",
+      "startDate": "1/22/2019",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2853423",
+      "name": "MARC AGEL",
+      "relationship": "Current registration",
+      "startDate": "11/24/2006",
+      "isCurrent": true
+    },
+    {
+      "individualId": "3242751",
+      "name": "MICHAEL YOUNG",
+      "relationship": "Current registration",
+      "startDate": "1/16/2026",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4301918",
+      "name": "PETER KVAM",
+      "relationship": "Current registration",
+      "startDate": "3/15/2021",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4405001",
+      "name": "KATHERINE FLOUTON",
+      "relationship": "Current registration",
+      "startDate": "6/20/2001",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4517189",
+      "name": "BRIANA ANDREONI",
+      "relationship": "Current registration",
+      "startDate": "8/26/2021",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4826937",
+      "name": "TRACEY BOHLEY",
+      "relationship": "Current registration",
+      "startDate": "9/28/2004",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1098678",
+      "name": "MARK POWERS",
+      "relationship": "Previous registration",
+      "startDate": "7/8/2011",
+      "endDate": "6/26/2012",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1270279",
+      "name": "PETER PONZIO",
+      "relationship": "Previous registration",
+      "startDate": "5/16/2022",
+      "endDate": "9/16/2022",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1427787",
+      "name": "RICHARD EDWARDS",
+      "relationship": "Previous registration",
+      "startDate": "10/14/1999",
+      "endDate": "7/22/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1529387",
+      "name": "William Mead",
+      "relationship": "Previous registration",
+      "startDate": "5/19/2023",
+      "endDate": "2/3/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1618685",
+      "name": "Deborah Sante",
+      "relationship": "Previous registration",
+      "startDate": "3/10/2021",
+      "endDate": "10/19/2022",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2543293",
+      "name": "GLENN ROYAL",
+      "relationship": "Previous registration",
+      "startDate": "6/14/2019",
+      "endDate": "4/7/2022",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2764121",
+      "name": "SCOTT HOFFERKAMP",
+      "relationship": "Previous registration",
+      "startDate": "8/20/2010",
+      "endDate": "10/20/2017",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2906201",
+      "name": "JOHN SULLIVAN",
+      "relationship": "Previous registration",
+      "startDate": "8/3/2012",
+      "endDate": "1/12/2018",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4061554",
+      "name": "JAMES WAWRZYNIAKOWSKI",
+      "relationship": "Previous registration",
+      "startDate": "6/3/2015",
+      "endDate": "6/14/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4659590",
+      "name": "CHADWICK ALBANO",
+      "relationship": "Previous registration",
+      "startDate": "1/8/2014",
+      "endDate": "9/28/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4726546",
+      "name": "MATTHEW FOXHALL",
+      "relationship": "Previous registration",
+      "startDate": "4/8/2022",
+      "endDate": "1/10/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4913495",
+      "name": "MATTHEW SIMS",
+      "relationship": "Previous registration",
+      "startDate": "10/29/2019",
+      "endDate": "1/11/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5571202",
+      "name": "JUSTIN WEINKLE",
+      "relationship": "Previous registration",
+      "startDate": "10/9/2013",
+      "endDate": "1/12/2018",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5855980",
+      "name": "IK CHOI",
+      "relationship": "Previous registration",
+      "startDate": "5/18/2018",
+      "endDate": "5/18/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5999620",
+      "name": "SAMANTHA SINDLEDECKER",
+      "relationship": "Previous registration",
+      "startDate": "4/12/2017",
+      "endDate": "1/12/2018",
+      "isCurrent": false
+    },
+    {
+      "individualId": "6210256",
+      "name": "JOSHUA HENSON",
+      "relationship": "Previous registration",
+      "startDate": "10/25/2019",
+      "endDate": "1/16/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "6235656",
+      "name": "HUNTER LLOYD",
+      "relationship": "Previous registration",
+      "startDate": "10/28/2019",
+      "endDate": "1/16/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "6333464",
+      "name": "SAMUEL HANGER",
+      "relationship": "Previous registration",
+      "startDate": "7/8/2016",
+      "endDate": "6/2/2023",
+      "isCurrent": false
+    },
+    {
+      "individualId": "6618680",
+      "name": "Brandon Lanz",
+      "relationship": "Previous registration",
+      "startDate": "11/26/2019",
+      "endDate": "1/11/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "6637384",
+      "name": "Patrick Mundlin",
+      "relationship": "Previous registration",
+      "startDate": "10/28/2019",
+      "endDate": "1/11/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "6674692",
+      "name": "Boston Prachyl",
+      "relationship": "Previous registration",
+      "startDate": "2/7/2020",
+      "endDate": "1/10/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "6766943",
+      "name": "Benjamin Long",
+      "relationship": "Previous registration",
+      "startDate": "1/8/2020",
+      "endDate": "1/11/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "6906213",
+      "name": "MITCHELL JOHNSON",
+      "relationship": "Previous registration",
+      "startDate": "12/17/2019",
+      "endDate": "1/11/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "6972876",
+      "name": "Micah Damrow",
+      "relationship": "Previous registration",
+      "startDate": "11/13/2019",
+      "endDate": "1/12/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7023735",
+      "name": "Connor Bradley",
+      "relationship": "Previous registration",
+      "startDate": "1/15/2020",
+      "endDate": "1/12/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7153268",
+      "name": "Landry Mead",
+      "relationship": "Previous registration",
+      "startDate": "1/3/2020",
+      "endDate": "7/13/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7260255",
+      "name": "Brock Martin",
+      "relationship": "Previous registration",
+      "startDate": "9/3/2021",
+      "endDate": "1/16/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7274307",
+      "name": "Mitchell Roper",
+      "relationship": "Previous registration",
+      "startDate": "9/26/2020",
+      "endDate": "1/10/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7281692",
+      "name": "Parker Teague",
+      "relationship": "Previous registration",
+      "startDate": "5/21/2021",
+      "endDate": "1/10/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7296073",
+      "name": "Conner Haney",
+      "relationship": "Previous registration",
+      "startDate": "10/12/2020",
+      "endDate": "1/12/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7313854",
+      "name": "Samantha Owens",
+      "relationship": "Previous registration",
+      "startDate": "1/8/2021",
+      "endDate": "1/12/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7315953",
+      "name": "James Henry",
+      "relationship": "Previous registration",
+      "startDate": "1/11/2021",
+      "endDate": "1/16/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7331636",
+      "name": "Stephen Davis",
+      "relationship": "Previous registration",
+      "startDate": "2/9/2021",
+      "endDate": "1/16/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7357500",
+      "name": "Alfred Lopez",
+      "relationship": "Previous registration",
+      "startDate": "1/5/2024",
+      "endDate": "1/12/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7359114",
+      "name": "Louis Aquino",
+      "relationship": "Previous registration",
+      "startDate": "5/6/2022",
+      "endDate": "1/18/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7367770",
+      "name": "Clifton Borders",
+      "relationship": "Previous registration",
+      "startDate": "5/27/2021",
+      "endDate": "1/10/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7371590",
+      "name": "Ryan Botzong",
+      "relationship": "Previous registration",
+      "startDate": "7/1/2021",
+      "endDate": "1/11/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7376926",
+      "name": "Jonathan Curry",
+      "relationship": "Previous registration",
+      "startDate": "5/21/2021",
+      "endDate": "1/10/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7379616",
+      "name": "Grace McCasland",
+      "relationship": "Previous registration",
+      "startDate": "5/22/2021",
+      "endDate": "1/10/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7381767",
+      "name": "Christopher Spalthoff",
+      "relationship": "Previous registration",
+      "startDate": "8/12/2022",
+      "endDate": "1/9/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7389837",
+      "name": "Sean O'Brien",
+      "relationship": "Previous registration",
+      "startDate": "6/28/2021",
+      "endDate": "1/12/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7393723",
+      "name": "Campbell Huber",
+      "relationship": "Previous registration",
+      "startDate": "5/16/2023",
+      "endDate": "1/10/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7395314",
+      "name": "Olivia Shin",
+      "relationship": "Previous registration",
+      "startDate": "6/29/2021",
+      "endDate": "1/9/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7401297",
+      "name": "Hayden Baker",
+      "relationship": "Previous registration",
+      "startDate": "7/30/2021",
+      "endDate": "1/12/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7408916",
+      "name": "Dawson Moses",
+      "relationship": "Previous registration",
+      "startDate": "7/16/2021",
+      "endDate": "1/11/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7413707",
+      "name": "Jacob Roos",
+      "relationship": "Previous registration",
+      "startDate": "7/27/2021",
+      "endDate": "1/18/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7417982",
+      "name": "Kyle Sweeney",
+      "relationship": "Previous registration",
+      "startDate": "8/9/2021",
+      "endDate": "1/11/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7425392",
+      "name": "Victoria Patrie",
+      "relationship": "Previous registration",
+      "startDate": "8/30/2021",
+      "endDate": "1/10/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7552928",
+      "name": "Joseph Bolling",
+      "relationship": "Previous registration",
+      "startDate": "5/26/2022",
+      "endDate": "1/18/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7561424",
+      "name": "Ava Smagacz",
+      "relationship": "Previous registration",
+      "startDate": "5/31/2022",
+      "endDate": "1/9/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7564903",
+      "name": "Cole Pettis",
+      "relationship": "Previous registration",
+      "startDate": "6/6/2022",
+      "endDate": "1/11/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7565958",
+      "name": "FRATES NEWSOM",
+      "relationship": "Previous registration",
+      "startDate": "6/6/2022",
+      "endDate": "1/16/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7569251",
+      "name": "Richard Drucker",
+      "relationship": "Previous registration",
+      "startDate": "7/3/2023",
+      "endDate": "1/9/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7573049",
+      "name": "Garrett Newberry",
+      "relationship": "Previous registration",
+      "startDate": "6/20/2022",
+      "endDate": "1/11/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7576003",
+      "name": "Dana Cabela",
+      "relationship": "Previous registration",
+      "startDate": "9/2/2022",
+      "endDate": "1/12/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7577834",
+      "name": "Nathan Allen",
+      "relationship": "Previous registration",
+      "startDate": "6/30/2022",
+      "endDate": "1/9/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7584305",
+      "name": "Jace Engel",
+      "relationship": "Previous registration",
+      "startDate": "7/6/2022",
+      "endDate": "1/10/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7593952",
+      "name": "Andrew Horton",
+      "relationship": "Previous registration",
+      "startDate": "7/18/2022",
+      "endDate": "1/18/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7600181",
+      "name": "Robert Thomas",
+      "relationship": "Previous registration",
+      "startDate": "9/12/2022",
+      "endDate": "1/17/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7630298",
+      "name": "Jon Webb",
+      "relationship": "Previous registration",
+      "startDate": "8/16/2023",
+      "endDate": "1/10/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7651479",
+      "name": "Alexander Bright",
+      "relationship": "Previous registration",
+      "startDate": "5/25/2023",
+      "endDate": "1/9/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7731734",
+      "name": "Lauren Matheu",
+      "relationship": "Previous registration",
+      "startDate": "5/29/2023",
+      "endDate": "1/10/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7734651",
+      "name": "Ashley Bourland",
+      "relationship": "Previous registration",
+      "startDate": "7/10/2023",
+      "endDate": "1/9/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7742286",
+      "name": "Caleb Kuhn",
+      "relationship": "Previous registration",
+      "startDate": "6/8/2023",
+      "endDate": "1/12/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7749134",
+      "name": "Sydney Cobb",
+      "relationship": "Previous registration",
+      "startDate": "8/26/2023",
+      "endDate": "1/10/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7753093",
+      "name": "Mary Grace Cooper",
+      "relationship": "Previous registration",
+      "startDate": "6/9/2023",
+      "endDate": "1/16/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7756053",
+      "name": "Timothy Herndon",
+      "relationship": "Previous registration",
+      "startDate": "7/5/2023",
+      "endDate": "1/10/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "7756059",
+      "name": "Jack Breen",
+      "relationship": "Previous registration",
+      "startDate": "6/12/2023",
+      "endDate": "1/9/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1025901",
+      "name": "Peter Hoover",
+      "relationship": "Previous registration",
+      "startDate": "4/1/2013",
+      "endDate": "7/6/2021",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1035225",
+      "name": "LINDA STORMS",
+      "relationship": "Previous registration",
+      "startDate": "1/2/2013",
+      "endDate": "10/12/2018",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1092690",
+      "name": "JOHN HANLON",
+      "relationship": "Previous registration",
+      "startDate": "5/5/2003",
+      "endDate": "12/31/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1226139",
+      "name": "BILL DAY",
+      "relationship": "Previous registration",
+      "startDate": "8/31/2018",
+      "endDate": "5/16/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1331825",
+      "name": "ROBERTA WELSH",
+      "relationship": "Previous registration",
+      "startDate": "1/15/2015",
+      "endDate": "7/15/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1403903",
+      "name": "DAVID ENGLEHART",
+      "relationship": "Previous registration",
+      "startDate": "1/8/2020",
+      "endDate": "12/31/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1420990",
+      "name": "GERARD NIZICH",
+      "relationship": "Previous registration",
+      "startDate": "2/15/2011",
+      "endDate": "9/30/2013",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2011315",
+      "name": "PATRICIA PAZ",
+      "relationship": "Previous registration",
+      "startDate": "1/18/2011",
+      "endDate": "7/15/2015",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2095048",
+      "name": "CHRISTIAN WAGNER",
+      "relationship": "Previous registration",
+      "startDate": "5/11/2021",
+      "endDate": "10/3/2022",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2129646",
+      "name": "DOUGLAS GILL",
+      "relationship": "Previous registration",
+      "startDate": "2/28/2014",
+      "endDate": "2/1/2016",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2145074",
+      "name": "KAREN ALTHAUS",
+      "relationship": "Previous registration",
+      "startDate": "7/16/2020",
+      "endDate": "6/5/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2194720",
+      "name": "ROBERT CREW",
+      "relationship": "Previous registration",
+      "startDate": "9/6/2011",
+      "endDate": "12/31/2018",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2606335",
+      "name": "JASON MICKOOL",
+      "relationship": "Previous registration",
+      "startDate": "10/3/2014",
+      "endDate": "3/27/2018",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2878363",
+      "name": "JOHN VIRES",
+      "relationship": "Previous registration",
+      "startDate": "5/6/2017",
+      "endDate": "8/28/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3133520",
+      "name": "STEVEN MILLS",
+      "relationship": "Previous registration",
+      "startDate": "3/26/2021",
+      "endDate": "11/10/2021",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4008628",
+      "name": "GREGORY COVERDALE",
+      "relationship": "Previous registration",
+      "startDate": "1/5/2011",
+      "endDate": "10/14/2014",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4027131",
+      "name": "G. BIGGS",
+      "relationship": "Previous registration",
+      "startDate": "8/17/2009",
+      "endDate": "12/17/2013",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4301918",
+      "name": "PETER KVAM",
+      "relationship": "Previous registration",
+      "startDate": "3/3/2008",
+      "endDate": "5/2/2011",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4522058",
+      "name": "Michelle Wanless",
+      "relationship": "Previous registration",
+      "startDate": "7/9/2015",
+      "endDate": "8/10/2018",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4526007",
+      "name": "JEREMY OFFICE",
+      "relationship": "Previous registration",
+      "startDate": "8/2/2011",
+      "endDate": "6/20/2014",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4822791",
+      "name": "Mona Campos",
+      "relationship": "Previous registration",
+      "startDate": "2/21/2020",
+      "endDate": "4/15/2026",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4834967",
+      "name": "MARK ALCORN",
+      "relationship": "Previous registration",
+      "startDate": "5/5/2014",
+      "endDate": "7/21/2016",
+      "isCurrent": false
+    }
+  ]
+}

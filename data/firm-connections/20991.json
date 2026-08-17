@@ -1,0 +1,77 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1072858",
+      "name": "JOHN MAYFIELD",
+      "relationship": "Previous registration",
+      "startDate": "12/10/1997",
+      "endDate": "4/24/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1810145",
+      "name": "STEVEN MITCHELL",
+      "relationship": "Previous registration",
+      "startDate": "7/8/1993",
+      "endDate": "10/30/1993",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4347164",
+      "name": "Nina Renna",
+      "relationship": "Previous registration",
+      "startDate": "7/14/2004",
+      "endDate": "2/1/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "712728",
+      "name": "John Taphorn",
+      "relationship": "Previous registration",
+      "startDate": "10/6/2003",
+      "endDate": "10/19/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1327170",
+      "name": "EDWARD LANZNER",
+      "relationship": "Previous registration",
+      "startDate": "1/5/2005",
+      "endDate": "2/1/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1467307",
+      "name": "STUART BRUNET",
+      "relationship": "Previous registration",
+      "startDate": "4/12/2005",
+      "endDate": "12/6/2006",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2331259",
+      "name": "WILLIAM BERWALD",
+      "relationship": "Previous registration",
+      "startDate": "1/12/2001",
+      "endDate": "5/31/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2960341",
+      "name": "GILBERT AREVALOS",
+      "relationship": "Previous registration",
+      "startDate": "8/9/2001",
+      "endDate": "10/29/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4756593",
+      "name": "TAMARA FORTE",
+      "relationship": "Previous registration",
+      "startDate": "2/28/2006",
+      "endDate": "2/23/2007",
+      "isCurrent": false
+    }
+  ]
+}

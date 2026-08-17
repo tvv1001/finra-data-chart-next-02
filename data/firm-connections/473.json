@@ -1,0 +1,61 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1091853",
+      "name": "DAVID MANDERFIELD",
+      "relationship": "Previous registration",
+      "startDate": "1/9/1984",
+      "endDate": "1/18/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1145573",
+      "name": "CHRISTOPHER PARKS",
+      "relationship": "Previous registration",
+      "startDate": "9/21/1983",
+      "endDate": "5/8/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "707132",
+      "name": "PAULA MICHAELS",
+      "relationship": "Previous registration",
+      "startDate": "7/27/1987",
+      "endDate": "2/14/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1079435",
+      "name": "PHILIP JACOBY",
+      "relationship": "Previous registration",
+      "startDate": "5/13/1983",
+      "endDate": "9/27/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1199027",
+      "name": "CAROL TOMES",
+      "relationship": "Previous registration",
+      "startDate": "2/23/1988",
+      "endDate": "9/16/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1201770",
+      "name": "CHARLES FOX",
+      "relationship": "Previous registration",
+      "startDate": "11/4/1988",
+      "endDate": "6/5/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1253938",
+      "name": "JULIA COHEY",
+      "relationship": "Previous registration",
+      "startDate": "11/1/1988",
+      "endDate": "12/31/1990",
+      "isCurrent": false
+    }
+  ]
+}

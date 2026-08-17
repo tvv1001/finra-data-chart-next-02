@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1048607",
+      "name": "Roger Feldman",
+      "relationship": "Previous registration",
+      "startDate": "7/25/2012",
+      "endDate": "8/15/2017",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1075864",
+      "name": "ARTHUR MOODY",
+      "relationship": "Previous registration",
+      "startDate": "6/11/2015",
+      "endDate": "5/16/2017",
+      "isCurrent": false
+    }
+  ]
+}

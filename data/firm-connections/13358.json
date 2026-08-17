@@ -1,0 +1,85 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1047283",
+      "name": "LORI COYNE MCDANIEL",
+      "relationship": "Previous registration",
+      "startDate": "4/15/1985",
+      "endDate": "5/20/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1292607",
+      "name": "JACQUELINE GOODE",
+      "relationship": "Previous registration",
+      "startDate": "7/20/1990",
+      "endDate": "9/25/1991",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1030645",
+      "name": "ANTHONY EPPS",
+      "relationship": "Previous registration",
+      "startDate": "8/29/1985",
+      "endDate": "7/9/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1069032",
+      "name": "ROBERT FALLAH",
+      "relationship": "Previous registration",
+      "startDate": "7/12/1984",
+      "endDate": "10/19/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1305087",
+      "name": "JEFFREY CAHN",
+      "relationship": "Previous registration",
+      "startDate": "8/1/1985",
+      "endDate": "1/14/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1315513",
+      "name": "GEORGE GOLDMAN",
+      "relationship": "Previous registration",
+      "startDate": "5/6/1988",
+      "endDate": "6/8/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1319088",
+      "name": "GEORGE DOUMANIS",
+      "relationship": "Previous registration",
+      "startDate": "11/2/1989",
+      "endDate": "4/24/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1321490",
+      "name": "DIANE BOYAJIAN",
+      "relationship": "Previous registration",
+      "startDate": "2/13/1989",
+      "endDate": "7/25/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1458521",
+      "name": "CARL PALATNIK",
+      "relationship": "Previous registration",
+      "startDate": "10/1/1987",
+      "endDate": "9/1/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1871294",
+      "name": "LEONARD NEUHAUS",
+      "relationship": "Previous registration",
+      "startDate": "11/16/1988",
+      "endDate": "5/15/1990",
+      "isCurrent": false
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1048578",
+      "name": "SCOTT GUETZ",
+      "relationship": "Previous registration",
+      "startDate": "1/1/1999",
+      "endDate": "11/2/2006",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1575802",
+      "name": "DANIEL TRIVISON",
+      "relationship": "Previous registration",
+      "startDate": "6/9/1998",
+      "endDate": "1/4/2005",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4280994",
+      "name": "James Belyeu",
+      "relationship": "Previous registration",
+      "startDate": "1/27/2003",
+      "endDate": "3/18/2004",
+      "isCurrent": false
+    }
+  ]
+}

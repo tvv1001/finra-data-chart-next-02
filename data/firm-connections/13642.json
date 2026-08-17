@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1031368",
+      "name": "HENRY STERZING",
+      "relationship": "Previous registration",
+      "startDate": "7/10/1987",
+      "endDate": "1/17/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1431974",
+      "name": "HANSFORD HOLT",
+      "relationship": "Previous registration",
+      "startDate": "12/14/1994",
+      "endDate": "9/8/1995",
+      "isCurrent": false
+    }
+  ]
+}

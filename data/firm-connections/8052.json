@@ -1,0 +1,53 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "1233857",
+      "name": "DENNIS CLAY",
+      "relationship": "Current registration",
+      "startDate": "1/1/2017",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1051550",
+      "name": "JOHN FRAME",
+      "relationship": "Previous registration",
+      "startDate": "11/23/1985",
+      "endDate": "3/6/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2899871",
+      "name": "DAVID BRYAN",
+      "relationship": "Previous registration",
+      "startDate": "4/23/2012",
+      "endDate": "7/9/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1203880",
+      "name": "DEBRA HOAG",
+      "relationship": "Previous registration",
+      "startDate": "3/5/1985",
+      "endDate": "8/5/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1233857",
+      "name": "DENNIS CLAY",
+      "relationship": "Previous registration",
+      "startDate": "1/25/2005",
+      "endDate": "2/28/2006",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1437290",
+      "name": "JOHN MELTON",
+      "relationship": "Previous registration",
+      "startDate": "1/21/1986",
+      "endDate": "6/24/1999",
+      "isCurrent": false
+    }
+  ]
+}

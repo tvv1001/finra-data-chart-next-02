@@ -1,0 +1,301 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1108709",
+      "name": "KEVIN FLACH",
+      "relationship": "Previous registration",
+      "startDate": "10/4/1999",
+      "endDate": "4/30/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1416447",
+      "name": "ROBERT MURPHY",
+      "relationship": "Previous registration",
+      "startDate": "4/19/1988",
+      "endDate": "3/1/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1421557",
+      "name": "JUSTIN KING",
+      "relationship": "Previous registration",
+      "startDate": "4/30/2001",
+      "endDate": "3/1/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1843096",
+      "name": "ABBY DRUCKER",
+      "relationship": "Previous registration",
+      "startDate": "4/30/2001",
+      "endDate": "3/1/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1961761",
+      "name": "THOMAS MCGIVERN",
+      "relationship": "Previous registration",
+      "startDate": "5/20/1999",
+      "endDate": "5/29/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2570811",
+      "name": "SANDRA O'KEEFE",
+      "relationship": "Previous registration",
+      "startDate": "12/10/1996",
+      "endDate": "8/19/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2706618",
+      "name": "JOHN CALARCO",
+      "relationship": "Previous registration",
+      "startDate": "2/1/2000",
+      "endDate": "4/30/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2709373",
+      "name": "ARTHUR SARZEN",
+      "relationship": "Previous registration",
+      "startDate": "4/30/2001",
+      "endDate": "3/1/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4016774",
+      "name": "MURAT TASTAN",
+      "relationship": "Previous registration",
+      "startDate": "10/10/2000",
+      "endDate": "4/30/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4033977",
+      "name": "SARAH SCHACHINGER",
+      "relationship": "Previous registration",
+      "startDate": "11/21/2000",
+      "endDate": "3/23/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "728430",
+      "name": "CHRISTOPHER LAVER",
+      "relationship": "Previous registration",
+      "startDate": "4/19/1996",
+      "endDate": "4/14/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "825274",
+      "name": "David Wilson Jr.",
+      "relationship": "Previous registration",
+      "startDate": "2/9/1996",
+      "endDate": "3/29/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1100730",
+      "name": "JOHN BOLEBRUCH",
+      "relationship": "Previous registration",
+      "startDate": "7/28/1998",
+      "endDate": "4/30/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1146694",
+      "name": "JOHN PERNELL",
+      "relationship": "Previous registration",
+      "startDate": "4/7/1987",
+      "endDate": "11/2/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1159354",
+      "name": "DONNA SCHOLE",
+      "relationship": "Previous registration",
+      "startDate": "6/17/1986",
+      "endDate": "11/22/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1230668",
+      "name": "STEVEN BLECHER",
+      "relationship": "Previous registration",
+      "startDate": "1/10/1984",
+      "endDate": "12/31/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1264132",
+      "name": "MARTIN MORONEY",
+      "relationship": "Previous registration",
+      "startDate": "3/9/1995",
+      "endDate": "3/23/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1275799",
+      "name": "LYNN HUTCHINSON",
+      "relationship": "Previous registration",
+      "startDate": "6/26/1991",
+      "endDate": "3/28/1994",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1298550",
+      "name": "BRIAN FRIEDMAN",
+      "relationship": "Previous registration",
+      "startDate": "8/17/1984",
+      "endDate": "2/8/2000",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1326787",
+      "name": "ANTHONY MONACO",
+      "relationship": "Previous registration",
+      "startDate": "7/23/1999",
+      "endDate": "3/1/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1334008",
+      "name": "MARK GOLDWASSER",
+      "relationship": "Previous registration",
+      "startDate": "7/1/1998",
+      "endDate": "7/5/2000",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1350363",
+      "name": "ROBERT AIRO",
+      "relationship": "Previous registration",
+      "startDate": "8/17/1999",
+      "endDate": "4/18/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1418724",
+      "name": "ROBERT SHERRY",
+      "relationship": "Previous registration",
+      "startDate": "6/17/1999",
+      "endDate": "3/1/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1425319",
+      "name": "Michael Cashel",
+      "relationship": "Previous registration",
+      "startDate": "5/7/2001",
+      "endDate": "3/1/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1665741",
+      "name": "JOEL LUCCHESE",
+      "relationship": "Previous registration",
+      "startDate": "9/21/1999",
+      "endDate": "4/30/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1688071",
+      "name": "ANDREW DRUCH",
+      "relationship": "Previous registration",
+      "startDate": "7/1/1998",
+      "endDate": "4/30/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1741601",
+      "name": "JASON EVELETH",
+      "relationship": "Previous registration",
+      "startDate": "7/1/1998",
+      "endDate": "5/10/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1840894",
+      "name": "RALPH MATTONE",
+      "relationship": "Previous registration",
+      "startDate": "7/1/1998",
+      "endDate": "3/1/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2396517",
+      "name": "NICHOLAS SEIDENBERG",
+      "relationship": "Previous registration",
+      "startDate": "5/2/1996",
+      "endDate": "8/28/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2490187",
+      "name": "MICHAEL FISCELLA",
+      "relationship": "Previous registration",
+      "startDate": "7/1/1998",
+      "endDate": "1/19/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2498339",
+      "name": "Steven Aloupis",
+      "relationship": "Previous registration",
+      "startDate": "7/1/1998",
+      "endDate": "8/13/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2623915",
+      "name": "Fredrick Scuteri",
+      "relationship": "Previous registration",
+      "startDate": "7/24/2001",
+      "endDate": "3/1/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2875865",
+      "name": "Chris Camerino",
+      "relationship": "Previous registration",
+      "startDate": "4/27/2001",
+      "endDate": "3/1/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2880234",
+      "name": "WILBUR INSCHO",
+      "relationship": "Previous registration",
+      "startDate": "4/30/2001",
+      "endDate": "10/30/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2919730",
+      "name": "MARK KATZELNICK",
+      "relationship": "Previous registration",
+      "startDate": "7/1/1998",
+      "endDate": "10/24/1998",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2929038",
+      "name": "VIRGINIA HERRERA",
+      "relationship": "Previous registration",
+      "startDate": "12/22/1999",
+      "endDate": "4/30/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3066618",
+      "name": "Theodore Langworthy",
+      "relationship": "Previous registration",
+      "startDate": "4/25/2000",
+      "endDate": "4/30/2001",
+      "isCurrent": false
+    }
+  ]
+}

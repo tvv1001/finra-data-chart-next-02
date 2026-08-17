@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1105244",
+      "name": "JAMES BLADEL",
+      "relationship": "Previous registration",
+      "startDate": "3/2/1989",
+      "endDate": "6/22/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1374268",
+      "name": "JAMES MITCHELL",
+      "relationship": "Previous registration",
+      "startDate": "3/21/1989",
+      "endDate": "6/22/1990",
+      "isCurrent": false
+    }
+  ]
+}

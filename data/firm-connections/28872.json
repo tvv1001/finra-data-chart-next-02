@@ -1,0 +1,92 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "6143846",
+      "name": "MICHAEL CHOINA",
+      "relationship": "Current registration",
+      "startDate": "7/8/2024",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4480973",
+      "name": "JORGE CORREA",
+      "relationship": "Current registration",
+      "startDate": "1/6/2015",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1108709",
+      "name": "KEVIN FLACH",
+      "relationship": "Previous registration",
+      "startDate": "4/30/2001",
+      "endDate": "10/16/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2706618",
+      "name": "JOHN CALARCO",
+      "relationship": "Previous registration",
+      "startDate": "4/30/2001",
+      "endDate": "2/13/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5154543",
+      "name": "ROSSANA BIRD",
+      "relationship": "Previous registration",
+      "startDate": "10/24/2006",
+      "endDate": "12/12/2006",
+      "isCurrent": false
+    },
+    {
+      "individualId": "6780489",
+      "name": "Lukas Valik",
+      "relationship": "Previous registration",
+      "startDate": "7/31/2017",
+      "endDate": "9/9/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1241304",
+      "name": "Ian Grice",
+      "relationship": "Previous registration",
+      "startDate": "9/26/2011",
+      "endDate": "6/1/2018",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1688071",
+      "name": "ANDREW DRUCH",
+      "relationship": "Previous registration",
+      "startDate": "4/30/2001",
+      "endDate": "5/24/2005",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2929038",
+      "name": "VIRGINIA HERRERA",
+      "relationship": "Previous registration",
+      "startDate": "4/30/2001",
+      "endDate": "6/7/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3066618",
+      "name": "Theodore Langworthy",
+      "relationship": "Previous registration",
+      "startDate": "4/30/2001",
+      "endDate": "4/12/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3260208",
+      "name": "ANTHONY DENIER",
+      "relationship": "Previous registration",
+      "startDate": "7/20/2009",
+      "endDate": "2/2/2012",
+      "isCurrent": false
+    }
+  ]
+}

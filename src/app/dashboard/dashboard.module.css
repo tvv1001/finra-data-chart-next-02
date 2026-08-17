@@ -1049,6 +1049,18 @@
 	gap: 10px;
 }
 
+/* Connection CRD styling for sidebar connection cards */
+.fg-connection-crd {
+	font-size: 11px;
+	color: var(--text-secondary);
+	margin-left: 6px;
+}
+.fg-connection-crd-number {
+	color: var(--cyan, #06b6d4);
+	font-weight: 800;
+	padding: 0 4px;
+}
+
 @keyframes skeletonShimmer {
 	0% {
 		background-position: 200% 0;

@@ -1,0 +1,29 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1109428",
+      "name": "MICHAEL BURNS",
+      "relationship": "Previous registration",
+      "startDate": "7/16/1998",
+      "endDate": "7/12/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "604078",
+      "name": "STACEY RUDBART",
+      "relationship": "Previous registration",
+      "startDate": "7/5/1985",
+      "endDate": "3/18/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1267271",
+      "name": "WILLIAM GRIMES",
+      "relationship": "Previous registration",
+      "startDate": "11/21/1986",
+      "endDate": "5/25/1990",
+      "isCurrent": false
+    }
+  ]
+}

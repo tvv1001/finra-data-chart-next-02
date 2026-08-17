@@ -1,0 +1,29 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1044565",
+      "name": "ROBERT MCCABE",
+      "relationship": "Previous registration",
+      "startDate": "7/22/1982",
+      "endDate": "5/22/1992",
+      "isCurrent": false
+    },
+    {
+      "individualId": "729689",
+      "name": "DAVID PAULUKAITIS",
+      "relationship": "Previous registration",
+      "startDate": "5/6/1981",
+      "endDate": "11/5/1981",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1175231",
+      "name": "NOEL BRAGG",
+      "relationship": "Previous registration",
+      "startDate": "12/9/1988",
+      "endDate": "5/21/1992",
+      "isCurrent": false
+    }
+  ]
+}

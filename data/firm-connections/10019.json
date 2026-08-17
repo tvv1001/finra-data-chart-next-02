@@ -1,0 +1,53 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1072409",
+      "name": "VICTORIA DE PAOLO",
+      "relationship": "Previous registration",
+      "startDate": "3/22/1983",
+      "endDate": "3/15/2011",
+      "isCurrent": false
+    },
+    {
+      "individualId": "846513",
+      "name": "LORETTA FINCK",
+      "relationship": "Previous registration",
+      "startDate": "5/11/1989",
+      "endDate": "2/16/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1281617",
+      "name": "JOHN HOLMES",
+      "relationship": "Previous registration",
+      "startDate": "11/14/2012",
+      "endDate": "3/24/2015",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1327561",
+      "name": "JAMES SIMMONS",
+      "relationship": "Previous registration",
+      "startDate": "12/9/2013",
+      "endDate": "3/24/2015",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2119564",
+      "name": "MATTHEW NIZICH",
+      "relationship": "Previous registration",
+      "startDate": "6/18/2013",
+      "endDate": "3/24/2015",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2730122",
+      "name": "ROBERT EGAN",
+      "relationship": "Previous registration",
+      "startDate": "10/10/2011",
+      "endDate": "9/11/2012",
+      "isCurrent": false
+    }
+  ]
+}

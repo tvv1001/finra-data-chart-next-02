@@ -1,0 +1,29 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1049591",
+      "name": "WILLIAM WATTEL",
+      "relationship": "Previous registration",
+      "startDate": "8/3/2000",
+      "endDate": "10/27/2008",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1140219",
+      "name": "RICHARD BELZ",
+      "relationship": "Previous registration",
+      "startDate": "3/20/2000",
+      "endDate": "10/27/2008",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1207021",
+      "name": "THOMAS LAUNDRIE",
+      "relationship": "Previous registration",
+      "startDate": "3/20/2000",
+      "endDate": "10/27/2008",
+      "isCurrent": false
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "1302645",
+      "name": "MARY MAR",
+      "relationship": "Current registration",
+      "startDate": "3/15/2000",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1341868",
+      "name": "ANASTASIA CADOTTE",
+      "relationship": "Current registration",
+      "startDate": "4/4/2007",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1052092",
+      "name": "MARY TOCCO",
+      "relationship": "Previous registration",
+      "startDate": "1/23/2009",
+      "endDate": "12/31/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1436770",
+      "name": "Peter Wilson",
+      "relationship": "Previous registration",
+      "startDate": "2/10/1992",
+      "endDate": "12/17/1996",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2058958",
+      "name": "PETER CASCIOTTA",
+      "relationship": "Previous registration",
+      "startDate": "10/25/2001",
+      "endDate": "10/3/2005",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2728886",
+      "name": "MICHAEL MISHLER",
+      "relationship": "Previous registration",
+      "startDate": "2/14/2005",
+      "endDate": "2/24/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1303685",
+      "name": "JEROME LAVALLEY",
+      "relationship": "Previous registration",
+      "startDate": "10/27/2020",
+      "endDate": "12/31/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1350020",
+      "name": "JERRY CLINE",
+      "relationship": "Previous registration",
+      "startDate": "11/7/2009",
+      "endDate": "3/6/2012",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1418148",
+      "name": "Donald VanGorder",
+      "relationship": "Previous registration",
+      "startDate": "10/18/2019",
+      "endDate": "12/31/2023",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1473912",
+      "name": "NEIL SHAWN",
+      "relationship": "Previous registration",
+      "startDate": "4/27/2000",
+      "endDate": "12/31/2002",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1579469",
+      "name": "LISA EVERSON",
+      "relationship": "Previous registration",
+      "startDate": "1/2/2018",
+      "endDate": "9/15/2021",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2795184",
+      "name": "BASEL NAFAL",
+      "relationship": "Previous registration",
+      "startDate": "9/17/2014",
+      "endDate": "12/16/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3240890",
+      "name": "ANTHONY BONNER",
+      "relationship": "Previous registration",
+      "startDate": "3/7/2016",
+      "endDate": "5/19/2023",
+      "isCurrent": false
+    }
+  ]
+}

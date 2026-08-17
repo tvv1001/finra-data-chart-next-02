@@ -1,0 +1,108 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "1440529",
+      "name": "J JENNINGS",
+      "relationship": "Current registration",
+      "startDate": "12/17/1985",
+      "isCurrent": true
+    },
+    {
+      "individualId": "4533534",
+      "name": "CHARLES TRUHLAR",
+      "relationship": "Current registration",
+      "startDate": "12/26/2018",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1110223",
+      "name": "GARY TSUJIMOTO",
+      "relationship": "Previous registration",
+      "startDate": "1/9/2017",
+      "endDate": "9/15/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1243664",
+      "name": "PAUL COSTA",
+      "relationship": "Previous registration",
+      "startDate": "12/18/1996",
+      "endDate": "6/8/2006",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1485273",
+      "name": "SCOTT MODELL",
+      "relationship": "Previous registration",
+      "startDate": "9/12/1994",
+      "endDate": "5/18/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1760670",
+      "name": "MARK BERTRANG",
+      "relationship": "Previous registration",
+      "startDate": "9/29/1995",
+      "endDate": "9/10/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2822415",
+      "name": "PAUL BRANSHAW",
+      "relationship": "Previous registration",
+      "startDate": "12/3/2015",
+      "endDate": "9/21/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3270560",
+      "name": "WARREN CURTIS",
+      "relationship": "Previous registration",
+      "startDate": "1/9/2017",
+      "endDate": "9/18/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4006839",
+      "name": "EMILY MARTIN",
+      "relationship": "Previous registration",
+      "startDate": "1/13/2010",
+      "endDate": "9/18/2020",
+      "isCurrent": false
+    },
+    {
+      "individualId": "821110",
+      "name": "WILLIAM BUFFINGTON",
+      "relationship": "Previous registration",
+      "startDate": "12/11/2000",
+      "endDate": "4/5/2004",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1175083",
+      "name": "Jeffrey Warkenthien",
+      "relationship": "Previous registration",
+      "startDate": "3/14/2003",
+      "endDate": "11/19/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1363259",
+      "name": "CORINA ELIAS-RAMIREZ",
+      "relationship": "Previous registration",
+      "startDate": "12/21/2020",
+      "endDate": "8/6/2021",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4531723",
+      "name": "Gregory Collingwood",
+      "relationship": "Previous registration",
+      "startDate": "2/13/2020",
+      "endDate": "8/2/2021",
+      "isCurrent": false
+    }
+  ]
+}

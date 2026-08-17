@@ -1,0 +1,29 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1105244",
+      "name": "JAMES BLADEL",
+      "relationship": "Previous registration",
+      "startDate": "12/22/1992",
+      "endDate": "2/9/1993",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1374268",
+      "name": "JAMES MITCHELL",
+      "relationship": "Previous registration",
+      "startDate": "6/18/1985",
+      "endDate": "11/29/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "313519",
+      "name": "ALBERT LOWENTHAL",
+      "relationship": "Previous registration",
+      "startDate": "9/2/1988",
+      "endDate": "11/7/2005",
+      "isCurrent": false
+    }
+  ]
+}

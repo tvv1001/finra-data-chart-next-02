@@ -1,0 +1,149 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1104199",
+      "name": "Sylvester Thomas",
+      "relationship": "Previous registration",
+      "startDate": "6/29/2018",
+      "endDate": "6/25/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1181176",
+      "name": "BRUCE KATZ",
+      "relationship": "Previous registration",
+      "startDate": "2/12/2013",
+      "endDate": "6/25/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1211993",
+      "name": "ROBERT STUTZMAN",
+      "relationship": "Previous registration",
+      "startDate": "7/15/2014",
+      "endDate": "6/20/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1260952",
+      "name": "MICHAEL CONNELL",
+      "relationship": "Previous registration",
+      "startDate": "10/29/2012",
+      "endDate": "6/24/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1263408",
+      "name": "JOHN DIRIK",
+      "relationship": "Previous registration",
+      "startDate": "8/31/2012",
+      "endDate": "6/25/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1310774",
+      "name": "LANDON VATH",
+      "relationship": "Previous registration",
+      "startDate": "6/29/2016",
+      "endDate": "6/25/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1399052",
+      "name": "STEVEN SHERMAN",
+      "relationship": "Previous registration",
+      "startDate": "9/9/2016",
+      "endDate": "6/20/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1450055",
+      "name": "CASEY WINNINGHAM",
+      "relationship": "Previous registration",
+      "startDate": "9/5/2012",
+      "endDate": "6/20/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1528578",
+      "name": "MARK PHILLIPS",
+      "relationship": "Previous registration",
+      "startDate": "10/3/2012",
+      "endDate": "6/25/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1689181",
+      "name": "STEPHEN SCULLY",
+      "relationship": "Previous registration",
+      "startDate": "10/2/2012",
+      "endDate": "6/21/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1852572",
+      "name": "MICHAEL PALCIC",
+      "relationship": "Previous registration",
+      "startDate": "4/19/2017",
+      "endDate": "6/24/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1890773",
+      "name": "DARRYL LONGO",
+      "relationship": "Previous registration",
+      "startDate": "4/16/2015",
+      "endDate": "6/24/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1916150",
+      "name": "DANA BARRETT",
+      "relationship": "Previous registration",
+      "startDate": "7/11/2016",
+      "endDate": "6/24/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2116971",
+      "name": "CHARLES MEDLICOTT",
+      "relationship": "Previous registration",
+      "startDate": "2/19/2013",
+      "endDate": "6/25/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "719224",
+      "name": "DANIEL KRAVITS",
+      "relationship": "Previous registration",
+      "startDate": "5/10/2016",
+      "endDate": "6/24/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3021815",
+      "name": "JASON GERB",
+      "relationship": "Previous registration",
+      "startDate": "12/26/2013",
+      "endDate": "8/27/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4667709",
+      "name": "Nathaniel Tjoa",
+      "relationship": "Previous registration",
+      "startDate": "9/4/2012",
+      "endDate": "8/27/2019",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4818868",
+      "name": "Brett Kelly",
+      "relationship": "Previous registration",
+      "startDate": "7/18/2013",
+      "endDate": "6/20/2019",
+      "isCurrent": false
+    }
+  ]
+}

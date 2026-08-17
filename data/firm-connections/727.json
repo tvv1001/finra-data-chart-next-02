@@ -1,0 +1,157 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1031310",
+      "name": "BARNET FISHBEIN",
+      "relationship": "Previous registration",
+      "startDate": "3/2/1982",
+      "endDate": "1/1/1991",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1031813",
+      "name": "WILLIAM FRISCO",
+      "relationship": "Previous registration",
+      "startDate": "3/2/1982",
+      "endDate": "8/31/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1039643",
+      "name": "MARIA BANUELOS",
+      "relationship": "Previous registration",
+      "startDate": "7/10/1984",
+      "endDate": "11/23/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "237543",
+      "name": "HOWELL HARRALSON",
+      "relationship": "Previous registration",
+      "startDate": "10/15/1969",
+      "endDate": "3/7/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "716059",
+      "name": "MICHAEL WILLIAMS",
+      "relationship": "Previous registration",
+      "startDate": "1/24/1986",
+      "endDate": "4/19/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "718812",
+      "name": "MICHAEL SAWYER",
+      "relationship": "Previous registration",
+      "startDate": "7/8/1987",
+      "endDate": "1/1/1991",
+      "isCurrent": false
+    },
+    {
+      "individualId": "730526",
+      "name": "CARLA THOMPSON",
+      "relationship": "Previous registration",
+      "startDate": "5/18/1981",
+      "endDate": "4/3/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1065868",
+      "name": "DARLA BARTKOWIAK",
+      "relationship": "Previous registration",
+      "startDate": "5/12/1986",
+      "endDate": "8/5/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1074574",
+      "name": "COOPER MILLS",
+      "relationship": "Previous registration",
+      "startDate": "12/21/1983",
+      "endDate": "12/19/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1081188",
+      "name": "THOMAS SIMPSON",
+      "relationship": "Previous registration",
+      "startDate": "1/19/1983",
+      "endDate": "3/3/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1084549",
+      "name": "CINDY HANERHOFF",
+      "relationship": "Previous registration",
+      "startDate": "7/10/1989",
+      "endDate": "1/1/1991",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1132311",
+      "name": "SAMUEL BOLDRICK III",
+      "relationship": "Previous registration",
+      "startDate": "9/8/1986",
+      "endDate": "11/18/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1195328",
+      "name": "SAMUEL LOERCH",
+      "relationship": "Previous registration",
+      "startDate": "7/6/1990",
+      "endDate": "1/1/1991",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1413678",
+      "name": "HOMER THORNTON",
+      "relationship": "Previous registration",
+      "startDate": "11/20/1985",
+      "endDate": "5/6/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1418245",
+      "name": "VINCENT BEALE",
+      "relationship": "Previous registration",
+      "startDate": "2/20/1990",
+      "endDate": "1/1/1991",
+      "isCurrent": false
+    },
+    {
+      "individualId": "14850",
+      "name": "JOHN BAUCHMAN",
+      "relationship": "Previous registration",
+      "startDate": "11/20/1974",
+      "endDate": "10/24/1979",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1915552",
+      "name": "Mark Benson",
+      "relationship": "Previous registration",
+      "startDate": "1/24/1989",
+      "endDate": "2/5/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "20289",
+      "name": "THOMAS BERRY",
+      "relationship": "Previous registration",
+      "startDate": "1/25/1983",
+      "endDate": "2/23/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "39274",
+      "name": "LUTHER CAMPBELL",
+      "relationship": "Previous registration",
+      "startDate": "7/8/1974",
+      "endDate": "6/5/1975",
+      "isCurrent": false
+    }
+  ]
+}

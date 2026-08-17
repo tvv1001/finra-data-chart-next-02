@@ -1,0 +1,29 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1030126",
+      "name": "ROBIN BUTLER",
+      "relationship": "Previous registration",
+      "startDate": "3/2/1982",
+      "endDate": "11/30/1982",
+      "isCurrent": false
+    },
+    {
+      "individualId": "322158",
+      "name": "ANTONY MASON",
+      "relationship": "Previous registration",
+      "startDate": "4/24/1974",
+      "endDate": "3/7/1983",
+      "isCurrent": false
+    },
+    {
+      "individualId": "3690",
+      "name": "DOUGLAS ALLISON",
+      "relationship": "Previous registration",
+      "startDate": "6/7/1974",
+      "endDate": "6/28/1982",
+      "isCurrent": false
+    }
+  ]
+}

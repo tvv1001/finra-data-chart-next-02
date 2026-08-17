@@ -1,0 +1,37 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1105721",
+      "name": "CRAIG JANTZ",
+      "relationship": "Previous registration",
+      "startDate": "2/10/1995",
+      "endDate": "8/2/1995",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1449245",
+      "name": "DAVID HOLMES",
+      "relationship": "Previous registration",
+      "startDate": "1/26/1996",
+      "endDate": "9/30/1999",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1365684",
+      "name": "JOHN GERACI",
+      "relationship": "Previous registration",
+      "startDate": "10/27/1999",
+      "endDate": "8/1/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1450313",
+      "name": "ROBERT FINE",
+      "relationship": "Previous registration",
+      "startDate": "9/12/1988",
+      "endDate": "1/28/1991",
+      "isCurrent": false
+    }
+  ]
+}

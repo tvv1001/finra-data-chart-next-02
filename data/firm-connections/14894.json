@@ -1,0 +1,29 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1034616",
+      "name": "PHILIP PACE",
+      "relationship": "Previous registration",
+      "startDate": "1/1/1989",
+      "endDate": "6/4/1997",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2737382",
+      "name": "HEATHER ERRIGO",
+      "relationship": "Previous registration",
+      "startDate": "1/2/2000",
+      "endDate": "9/24/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1672968",
+      "name": "RONALD DEBLANC",
+      "relationship": "Previous registration",
+      "startDate": "2/5/2010",
+      "endDate": "7/6/2010",
+      "isCurrent": false
+    }
+  ]
+}

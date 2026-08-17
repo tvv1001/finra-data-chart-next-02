@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1105721",
+      "name": "CRAIG JANTZ",
+      "relationship": "Previous registration",
+      "startDate": "8/17/1995",
+      "endDate": "12/6/1995",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1023145",
+      "name": "GLEN SMITH",
+      "relationship": "Previous registration",
+      "startDate": "5/31/1996",
+      "endDate": "5/15/1997",
+      "isCurrent": false
+    }
+  ]
+}

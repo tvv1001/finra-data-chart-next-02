@@ -1365,16 +1365,24 @@ export function renderFirmDetail(d: any) {
 		if (!d.bdDisclosureFlag && !d.iaDisclosureFlag) return '';
 		return `
 			<div class='fg-section-title'>Disclosures</div>
-			${d.bdDisclosureFlag ? `
+			${
+				d.bdDisclosureFlag ?
+					`
 			<div class='fg-detail-row'>
 				<span class='fg-label'>BD Disclosure Flag</span>
 				<span>${esc(d.bdDisclosureFlag)}</span>
-			</div>` : ''}
-			${d.iaDisclosureFlag ? `
+			</div>`
+				:	''
+			}
+			${
+				d.iaDisclosureFlag ?
+					`
 			<div class='fg-detail-row'>
 				<span class='fg-label'>IA Disclosure Flag</span>
 				<span>${esc(d.iaDisclosureFlag)}</span>
-			</div>` : ''}`;
+			</div>`
+				:	''
+			}`;
 	}
 
 	function renderBrochuresRows() {
@@ -1386,16 +1394,24 @@ export function renderFirmDetail(d: any) {
 				<span class='fg-label'>Part 2 Exempt</span>
 				<span>${esc(d.brochures.part2ExemptFlag || '–')}</span>
 			</div>
-			${details.length ? `
+			${
+				details.length ?
+					`
 			<div class='fg-timeline'>
-				${details.map((b: any) => `
+				${details
+					.map(
+						(b: any) => `
 					<div class='fg-tl-entry'>
 						<span class='fg-tl-firm'>${esc(b.brochureName || '–')} <small>(ID: ${esc(String(b.brochureVersionID || '–'))})</small></span>
 						${b.dateSubmitted ? `<span class='fg-tl-dates'>Submitted: ${esc(b.dateSubmitted)}</span>` : ''}
 						${b.lastConfirmed ? `<span class='fg-tl-loc'>Last Confirmed: ${esc(b.lastConfirmed)}</span>` : ''}
 					</div>
-				`).join('')}
-			</div>` : ''}`;
+				`,
+					)
+					.join('')}
+			</div>`
+				:	''
+			}`;
 	}
 
 	const officeAddressRaw = String(d.officeAddress || '').trim();
@@ -1416,12 +1432,12 @@ export function renderFirmDetail(d: any) {
 			const relText = String(conn.relationship || conn.meta || '').toLowerCase() + ' ' + rels;
 			const posText = String(conn.position || (Array.isArray(conn.positions) ? conn.positions.join(' ') : '')).toLowerCase();
 			const fullStr = relText + ' ' + posText + ' ' + String(conn.group || conn.type || '').toLowerCase();
-			
+
 			if (
-				fullStr.includes('employee') || 
-				fullStr.includes('bd') || 
-				fullStr.includes('broker') || 
-				fullStr.includes('dealer') || 
+				fullStr.includes('employee') ||
+				fullStr.includes('bd') ||
+				fullStr.includes('broker') ||
+				fullStr.includes('dealer') ||
 				fullStr.includes('control') ||
 				conn.group === 'individual' ||
 				conn.type === 'individual'
@@ -1446,11 +1462,11 @@ export function renderFirmDetail(d: any) {
 		const dates = conn.dateText || conn.date || conn.subtitle || (Array.isArray(conn.dateTexts) ? conn.dateTexts.join(', ') : '');
 		const address = conn.address || '';
 		return `<div class='fg-tl-entry${isActive ? ' active-pos' : ''}'>
-            <span class='fg-tl-firm'>${esc(name)}${crd ? ` <small>(CRD# ${esc(String(crd))})</small>` : ''}</span>
-            ${rel ? `<span class='fg-tl-dates'>${esc(rel)}</span>` : ''}
-            ${dates ? `<span class='fg-tl-loc'>${esc(dates)}</span>` : ''}
-            ${address ? `<span class='fg-tl-loc'>${esc(address)}</span>` : ''}
-          </div>`;
+	            <span class='fg-tl-firm'>${esc(name)}${crd ? ` <small class="fg-connection-crd">(CRD <span class=\"fg-connection-crd-number\">${esc(String(crd))}</span>)</small>` : ''}</span>
+	            ${rel ? `<span class='fg-tl-dates'>${esc(rel)}</span>` : ''}
+	            ${dates ? `<span class='fg-tl-loc'>${esc(dates)}</span>` : ''}
+	            ${address ? `<span class='fg-tl-loc'>${esc(address)}</span>` : ''}
+	          </div>`;
 	}
 
 	return `

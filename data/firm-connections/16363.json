@@ -1,0 +1,29 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1049591",
+      "name": "WILLIAM WATTEL",
+      "relationship": "Previous registration",
+      "startDate": "1/29/1988",
+      "endDate": "12/13/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1334567",
+      "name": "GEORGE PROST",
+      "relationship": "Previous registration",
+      "startDate": "1/20/1989",
+      "endDate": "6/7/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1431387",
+      "name": "EDWARD MAHER",
+      "relationship": "Previous registration",
+      "startDate": "3/2/1989",
+      "endDate": "11/20/1989",
+      "isCurrent": false
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "1835087",
+      "name": "THOMAS HOPKINS",
+      "relationship": "Current registration",
+      "startDate": "7/2/2019",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1108709",
+      "name": "KEVIN FLACH",
+      "relationship": "Previous registration",
+      "startDate": "11/4/2021",
+      "endDate": "2/11/2022",
+      "isCurrent": false
+    }
+  ]
+}

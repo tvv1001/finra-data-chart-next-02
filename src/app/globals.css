@@ -560,6 +560,18 @@ html[data-theme='dark'] .fg-disclosure .fg-dis-type {
 	color: #ffb197;
 }
 
+/* Connection CRD styling for sidebar connection cards (global so server-rendered HTML picks it up) */
+.fg-connection-crd {
+	font-size: 11px;
+	color: var(--text-secondary, #94a3b8);
+	margin-left: 6px;
+}
+.fg-connection-crd-number {
+	color: var(--cyan, #06b6d4);
+	font-weight: 800;
+	padding: 0 4px;
+}
+
 html[data-theme='dark'] .fg-sidebar-action-btn--icon-only {
 	flex: 0 0 auto;
 	width: auto;

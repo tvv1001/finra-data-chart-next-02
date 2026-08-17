@@ -1,0 +1,149 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1039053",
+      "name": "ROBERT ADAMS",
+      "relationship": "Previous registration",
+      "startDate": "2/2/1989",
+      "endDate": "2/13/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1839013",
+      "name": "JAMES MEAD",
+      "relationship": "Previous registration",
+      "startDate": "7/9/1988",
+      "endDate": "2/21/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1018364",
+      "name": "JOHN ESPOSITO",
+      "relationship": "Previous registration",
+      "startDate": "5/20/1988",
+      "endDate": "1/1/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1032747",
+      "name": "KENNETH MCGRORY",
+      "relationship": "Previous registration",
+      "startDate": "8/16/1989",
+      "endDate": "2/21/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1068278",
+      "name": "WALLACE GIAKAS",
+      "relationship": "Previous registration",
+      "startDate": "10/30/1987",
+      "endDate": "8/20/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1141080",
+      "name": "AARON HEIGHTON",
+      "relationship": "Previous registration",
+      "startDate": "11/25/1987",
+      "endDate": "12/3/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1288313",
+      "name": "JOHN LOCASTRO",
+      "relationship": "Previous registration",
+      "startDate": "4/3/1989",
+      "endDate": "1/29/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1330613",
+      "name": "HOWARD FEINMEL",
+      "relationship": "Previous registration",
+      "startDate": "3/25/1988",
+      "endDate": "3/31/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1398840",
+      "name": "THOMAS PARIGIAN",
+      "relationship": "Previous registration",
+      "startDate": "2/5/1987",
+      "endDate": "1/26/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1420210",
+      "name": "DENNIS JORDAN",
+      "relationship": "Previous registration",
+      "startDate": "1/10/1990",
+      "endDate": "2/1/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1425173",
+      "name": "MICHAEL WARD",
+      "relationship": "Previous registration",
+      "startDate": "2/28/1989",
+      "endDate": "1/29/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1443672",
+      "name": "GEORGE D'ANTONIO",
+      "relationship": "Previous registration",
+      "startDate": "6/10/1988",
+      "endDate": "10/19/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1468194",
+      "name": "ROBERT SALLES",
+      "relationship": "Previous registration",
+      "startDate": "9/12/1989",
+      "endDate": "2/24/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1618774",
+      "name": "David Geschke",
+      "relationship": "Previous registration",
+      "startDate": "5/23/1988",
+      "endDate": "2/15/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1672974",
+      "name": "STANLEY GREGOR",
+      "relationship": "Previous registration",
+      "startDate": "5/20/1988",
+      "endDate": "2/15/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1827956",
+      "name": "KENNETH BRADLE",
+      "relationship": "Previous registration",
+      "startDate": "7/6/1988",
+      "endDate": "5/4/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1927084",
+      "name": "TODD FICETO",
+      "relationship": "Previous registration",
+      "startDate": "8/22/1989",
+      "endDate": "2/14/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1974671",
+      "name": "RICHARD ANTHONY",
+      "relationship": "Previous registration",
+      "startDate": "10/25/1989",
+      "endDate": "2/13/1990",
+      "isCurrent": false
+    }
+  ]
+}

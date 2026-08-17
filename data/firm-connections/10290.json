@@ -1,0 +1,21 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1048578",
+      "name": "SCOTT GUETZ",
+      "relationship": "Previous registration",
+      "startDate": "2/27/1985",
+      "endDate": "10/9/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1268211",
+      "name": "REBECCA MENDENHALL",
+      "relationship": "Previous registration",
+      "startDate": "7/19/1985",
+      "endDate": "7/23/1987",
+      "isCurrent": false
+    }
+  ]
+}

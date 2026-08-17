@@ -1,0 +1,45 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1075470",
+      "name": "EVELYN COLON",
+      "relationship": "Previous registration",
+      "startDate": "8/1/1985",
+      "endDate": "1/5/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1109347",
+      "name": "ROBERT FAGENSON",
+      "relationship": "Previous registration",
+      "startDate": "9/11/1986",
+      "endDate": "10/1/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1280443",
+      "name": "RICHARD SCHOTTENFELD",
+      "relationship": "Previous registration",
+      "startDate": "11/5/1984",
+      "endDate": "9/14/1990",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1345266",
+      "name": "WILLIAM ODENTHAL",
+      "relationship": "Previous registration",
+      "startDate": "3/21/2001",
+      "endDate": "8/10/2001",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1727623",
+      "name": "MICHAEL BAUER",
+      "relationship": "Previous registration",
+      "startDate": "2/15/1994",
+      "endDate": "8/15/1997",
+      "isCurrent": false
+    }
+  ]
+}

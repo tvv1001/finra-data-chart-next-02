@@ -1,0 +1,61 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1030443",
+      "name": "TRACY BURKARD",
+      "relationship": "Previous registration",
+      "startDate": "2/28/1986",
+      "endDate": "4/10/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1216921",
+      "name": "JILL SHANNON",
+      "relationship": "Previous registration",
+      "startDate": "8/20/1985",
+      "endDate": "4/10/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1062595",
+      "name": "ELLIS FISCHER",
+      "relationship": "Previous registration",
+      "startDate": "8/24/1983",
+      "endDate": "7/31/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1172528",
+      "name": "PHILIPPE KEYES",
+      "relationship": "Previous registration",
+      "startDate": "4/28/1987",
+      "endDate": "4/10/1989",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1379212",
+      "name": "JOEL KNIGHT",
+      "relationship": "Previous registration",
+      "startDate": "6/18/1985",
+      "endDate": "2/10/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1408329",
+      "name": "ROBERT CROWL",
+      "relationship": "Previous registration",
+      "startDate": "7/1/1987",
+      "endDate": "4/23/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "40002",
+      "name": "KENNETH CAPLIN",
+      "relationship": "Previous registration",
+      "startDate": "8/20/1985",
+      "endDate": "4/10/1989",
+      "isCurrent": false
+    }
+  ]
+}

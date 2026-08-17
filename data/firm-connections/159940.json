@@ -1,0 +1,29 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "1141095",
+      "name": "TODD NORRIS",
+      "relationship": "Current registration",
+      "startDate": "9/13/2013",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1109428",
+      "name": "MICHAEL BURNS",
+      "relationship": "Previous registration",
+      "startDate": "3/1/2013",
+      "endDate": "11/28/2018",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1815104",
+      "name": "WALTER LEWIS",
+      "relationship": "Previous registration",
+      "startDate": "8/27/2012",
+      "endDate": "3/31/2015",
+      "isCurrent": false
+    }
+  ]
+}

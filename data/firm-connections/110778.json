@@ -1,0 +1,93 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1059237",
+      "name": "MICHAEL RAEBER",
+      "relationship": "Previous registration",
+      "startDate": "11/12/1996",
+      "endDate": "1/1/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1182649",
+      "name": "JAMES PEDE",
+      "relationship": "Previous registration",
+      "startDate": "1/6/1999",
+      "endDate": "1/3/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "821329",
+      "name": "JAMES BANKS",
+      "relationship": "Previous registration",
+      "startDate": "11/12/1996",
+      "endDate": "1/1/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "853307",
+      "name": "JANET MONTGOMERY",
+      "relationship": "Previous registration",
+      "startDate": "1/23/2004",
+      "endDate": "1/3/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1009299",
+      "name": "LINDA FAIRCHILD",
+      "relationship": "Previous registration",
+      "startDate": "9/30/1993",
+      "endDate": "1/1/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1108580",
+      "name": "MICHAEL THIEL",
+      "relationship": "Previous registration",
+      "startDate": "9/29/1997",
+      "endDate": "1/3/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1129654",
+      "name": "EDWARD OPAT",
+      "relationship": "Previous registration",
+      "startDate": "6/4/1997",
+      "endDate": "4/29/2003",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1301638",
+      "name": "Thomas Losby",
+      "relationship": "Previous registration",
+      "startDate": "1/10/2006",
+      "endDate": "1/3/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2097379",
+      "name": "ROBIN RODERMUND",
+      "relationship": "Previous registration",
+      "startDate": "11/12/1996",
+      "endDate": "1/18/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2489703",
+      "name": "Christine Haedike",
+      "relationship": "Previous registration",
+      "startDate": "6/25/1997",
+      "endDate": "1/18/2007",
+      "isCurrent": false
+    },
+    {
+      "individualId": "4797565",
+      "name": "MICHAEL STALKA",
+      "relationship": "Previous registration",
+      "startDate": "7/19/2006",
+      "endDate": "1/1/2007",
+      "isCurrent": false
+    }
+  ]
+}

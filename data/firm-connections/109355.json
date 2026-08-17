@@ -1,0 +1,310 @@
+{
+  "currentConnections": [
+    {
+      "individualId": "1034647",
+      "name": "JOHN MOSKO",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1205148",
+      "name": "JAMES OSTROWSKI",
+      "relationship": "Current registration",
+      "startDate": "5/18/2009",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1401147",
+      "name": "JEFFREY JONES",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1418988",
+      "name": "RICHARD MIHM",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "1676319",
+      "name": "PETER EISENBRANDT",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2043674",
+      "name": "PAUL UHLMAN",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2075764",
+      "name": "THOMAS SCHINABECK",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2158278",
+      "name": "MICHAEL LISS",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2158279",
+      "name": "BRIAN RONAYNE",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2164437",
+      "name": "MARK STRUBEL",
+      "relationship": "Current registration",
+      "startDate": "7/2/2008",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2188558",
+      "name": "STEPHEN OTTO",
+      "relationship": "Current registration",
+      "startDate": "1/2/2002",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2200188",
+      "name": "EDWIN BROOKS",
+      "relationship": "Current registration",
+      "startDate": "5/12/2009",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2217918",
+      "name": "ALEC NEILLY",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2256727",
+      "name": "HEATHER FROEHLICH",
+      "relationship": "Current registration",
+      "startDate": "11/26/2019",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2304467",
+      "name": "SCOTT HOLICK",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2305527",
+      "name": "SCOTT KAVANAGH",
+      "relationship": "Current registration",
+      "startDate": "5/12/2009",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2315851",
+      "name": "MICHAEL KOENIG",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2315854",
+      "name": "MARK CARROLL",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2364021",
+      "name": "EDWIN KOONTZ",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2410429",
+      "name": "ERIK ZETTELMAYER",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2434266",
+      "name": "G WHALEN",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2530150",
+      "name": "DAVID WASIK",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2551140",
+      "name": "JAMES CONELY",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2630258",
+      "name": "VINCENT MORROW",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2642389",
+      "name": "DAYNA HAFERKAMP",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2655345",
+      "name": "PAUL ZUBER",
+      "relationship": "Current registration",
+      "startDate": "10/29/2002",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2659959",
+      "name": "BRYAN BURKE",
+      "relationship": "Current registration",
+      "startDate": "7/9/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2663785",
+      "name": "BRIAN MCINIS",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2700596",
+      "name": "PETER SICONOLFI",
+      "relationship": "Current registration",
+      "startDate": "5/12/2009",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2737963",
+      "name": "MARK PATSY",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2761481",
+      "name": "JAMES GETZ",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2761483",
+      "name": "VICTOR HARPER",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2790411",
+      "name": "DANIEL BERRY",
+      "relationship": "Current registration",
+      "startDate": "1/26/2007",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2796103",
+      "name": "THEODORE NOETHLING",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2852441",
+      "name": "JACK EBENREITER",
+      "relationship": "Current registration",
+      "startDate": "2/17/2011",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2872349",
+      "name": "IRVING ANDERSON",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2941179",
+      "name": "RYAN JONES",
+      "relationship": "Current registration",
+      "startDate": "6/16/2016",
+      "isCurrent": true
+    },
+    {
+      "individualId": "2991779",
+      "name": "DIANE ROBINSON",
+      "relationship": "Current registration",
+      "startDate": "11/15/2006",
+      "isCurrent": true
+    },
+    {
+      "individualId": "3021868",
+      "name": "MARC BENACCI",
+      "relationship": "Current registration",
+      "startDate": "5/12/2010",
+      "isCurrent": true
+    },
+    {
+      "individualId": "6683477",
+      "name": "Frank Senchak",
+      "relationship": "Current registration",
+      "startDate": "6/29/2023",
+      "isCurrent": true
+    }
+  ],
+  "previousConnections": [
+    {
+      "individualId": "1383144",
+      "name": "PETER SMITH",
+      "relationship": "Previous registration",
+      "startDate": "8/13/2009",
+      "endDate": "5/12/2011",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2852441",
+      "name": "JACK EBENREITER",
+      "relationship": "Previous registration",
+      "startDate": "8/19/2009",
+      "endDate": "9/14/2010",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5040066",
+      "name": "JUSTIN FITZGERALD-RHODES",
+      "relationship": "Previous registration",
+      "startDate": "8/18/2010",
+      "endDate": "10/20/2011",
+      "isCurrent": false
+    }
+  ]
+}

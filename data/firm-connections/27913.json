@@ -1,0 +1,37 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1087633",
+      "name": "GARY ALBERT",
+      "relationship": "Previous registration",
+      "startDate": "1/2/2003",
+      "endDate": "8/11/2025",
+      "isCurrent": false
+    },
+    {
+      "individualId": "2764991",
+      "name": "HOLLY MAURER",
+      "relationship": "Previous registration",
+      "startDate": "7/17/2012",
+      "endDate": "10/19/2012",
+      "isCurrent": false
+    },
+    {
+      "individualId": "5857698",
+      "name": "Timothy Chon",
+      "relationship": "Previous registration",
+      "startDate": "3/3/2022",
+      "endDate": "10/25/2024",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1058490",
+      "name": "TIMOTHY MACKEY",
+      "relationship": "Previous registration",
+      "startDate": "3/31/2006",
+      "endDate": "8/31/2015",
+      "isCurrent": false
+    }
+  ]
+}

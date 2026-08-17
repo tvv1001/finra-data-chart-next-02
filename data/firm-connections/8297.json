@@ -1,0 +1,93 @@
+{
+  "currentConnections": [],
+  "previousConnections": [
+    {
+      "individualId": "1047283",
+      "name": "LORI COYNE MCDANIEL",
+      "relationship": "Previous registration",
+      "startDate": "5/11/1982",
+      "endDate": "1/31/1984",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1049591",
+      "name": "WILLIAM WATTEL",
+      "relationship": "Previous registration",
+      "startDate": "6/23/1982",
+      "endDate": "2/2/1988",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1053114",
+      "name": "PAUL ROMANELLO",
+      "relationship": "Previous registration",
+      "startDate": "7/1/1982",
+      "endDate": "10/17/1983",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1147221",
+      "name": "STEVEN LABINER",
+      "relationship": "Previous registration",
+      "startDate": "3/10/1984",
+      "endDate": "5/31/1984",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1296851",
+      "name": "ANTHONY LEE",
+      "relationship": "Previous registration",
+      "startDate": "2/21/1985",
+      "endDate": "7/18/1987",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1079161",
+      "name": "LARRY ROTHENBERG",
+      "relationship": "Previous registration",
+      "startDate": "11/24/1982",
+      "endDate": "12/8/1982",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1131230",
+      "name": "DAVID STETCH",
+      "relationship": "Previous registration",
+      "startDate": "11/26/1984",
+      "endDate": "6/13/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1198045",
+      "name": "BRIAN BORNSTEIN",
+      "relationship": "Previous registration",
+      "startDate": "10/20/1983",
+      "endDate": "3/7/1985",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1271782",
+      "name": "CRAIG LODGE",
+      "relationship": "Previous registration",
+      "startDate": "3/5/1985",
+      "endDate": "2/13/1986",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1274728",
+      "name": "EUGENE CHRISTENSEN",
+      "relationship": "Previous registration",
+      "startDate": "6/20/1984",
+      "endDate": "12/14/1984",
+      "isCurrent": false
+    },
+    {
+      "individualId": "1443672",
+      "name": "GEORGE D'ANTONIO",
+      "relationship": "Previous registration",
+      "startDate": "4/23/1986",
+      "endDate": "8/25/1987",
+      "isCurrent": false
+    }
+  ]
+}
