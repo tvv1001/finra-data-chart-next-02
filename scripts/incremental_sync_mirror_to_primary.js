@@ -25,7 +25,7 @@ const url2 = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_RE
 const token2 = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN_2;
 
 if (String(process.env.UPSTASH_ALLOW_WRITES || '0') !== '1') {
-	console.error('UPSTASH_ALLOW_WRITES !== 1; aborting. Set UPSTASH_ALLOW_WRITES=1 to permit destructive replace.');
+	console.error('UPSTASH_ALLOW_WRITES !== 1; aborting. Set UPSTASH_ALLOW_WRITES=1 to permit writes.');
 	process.exit(3);
 }
 
@@ -57,64 +57,72 @@ async function scanAllKeys(client, count = 1000) {
 }
 
 async function main() {
-	console.log('Flushing primary DB1 and copying all keys from mirror to primary. This is destructive.');
-
-	console.log('Flushing primary DB1...');
-	try {
-		await primary.flushdb();
-	} catch (e) {
-		console.error('flushdb failed:', e?.message || e);
-		process.exit(5);
-	}
+	console.log('Starting incremental sync: copy missing/different keys from mirror → primary (non-destructive).');
 
 	console.log('Scanning mirror for keys...');
 	const keys = await scanAllKeys(mirror, 1000);
-	console.log('Mirror keys to copy:', keys.length);
+	console.log('Mirror keys found:', keys.length);
 
 	const batch = 200;
 	let copied = 0;
+	let skipped = 0;
+	let updated = 0;
+
 	for (let i = 0; i < keys.length; i += batch) {
 		const slice = keys.slice(i, i + batch);
-		// fetch values (we intentionally ignore TTLs to retain keys permanently)
-		const values = await mirror.mget(...slice).catch(() => null);
+		const mirrorVals = await mirror.mget(...slice).catch(() => null);
+		const primaryVals = await primary.mget(...slice).catch(() => null);
 
-		if (!Array.isArray(values)) {
-			// fall back to individual gets
-			for (let j = 0; j < slice.length; j++) {
-				const key = slice[j];
-				const v = await mirror.get(key).catch(() => null);
-				const ttl = await mirror.ttl(key).catch(() => -1);
-				try {
-					if (v == null) continue;
-					// intentionally do NOT set TTLs — persist keys indefinitely
-					await primary.set(key, v);
+		if (!Array.isArray(mirrorVals)) {
+			// fallback to per-key
+			for (const key of slice) {
+				const mv = await mirror.get(key).catch(() => null);
+				const pv = await primary.get(key).catch(() => null);
+				if (mv == null) {
+					skipped++;
+					continue;
+				}
+				if (pv == null) {
+					await primary.set(key, mv).catch((e) => console.error('set error', key, e?.message || e));
 					copied++;
-				} catch (e) {
-					console.error('set error for key', key, e?.message || e);
+				} else if (pv !== mv) {
+					await primary.set(key, mv).catch((e) => console.error('set error', key, e?.message || e));
+					updated++;
+				} else {
+					skipped++;
 				}
 			}
 		} else {
 			for (let j = 0; j < slice.length; j++) {
 				const key = slice[j];
-				const v = values[j];
-				// const ttl = Number.isFinite(Number(ttls[j])) ? ttls[j] : -1; // This line is removed
-				try {
-					if (v == null) continue;
-					// intentionally do NOT set TTLs — persist keys indefinitely
-					await primary.set(key, v);
+				const mv = mirrorVals[j];
+				const pv = Array.isArray(primaryVals) ? primaryVals[j] : null;
+				if (mv == null) {
+					skipped++;
+					continue;
+				}
+				if (pv == null) {
+					await primary.set(key, mv).catch((e) => console.error('set error', key, e?.message || e));
 					copied++;
-				} catch (e) {
-					console.error('set error for key', key, e?.message || e);
+				} else if (pv !== mv) {
+					await primary.set(key, mv).catch((e) => console.error('set error', key, e?.message || e));
+					updated++;
+				} else {
+					skipped++;
 				}
 			}
 		}
-		console.log(`copied ${copied}/${keys.length}`);
+		console.log(`progress: processed ${Math.min(i + batch, keys.length)}/${keys.length} — copied ${copied}, updated ${updated}, skipped ${skipped}`);
 	}
 
-	console.log('Copy complete. Verifying sizes...');
+	console.log('Sync complete. Summary:');
+	console.log('Copied (new keys):', copied);
+	console.log('Updated (overwrote differing keys):', updated);
+	console.log('Skipped (already identical or mirror null):', skipped);
+
 	const db1 = await primary.dbsize().catch(() => null);
 	const db2 = await mirror.dbsize().catch(() => null);
-	console.log('DB sizes after replace: DB1=', db1, 'DB2=', db2);
+	console.log('DB sizes after incremental sync: DB1=', db1, 'DB2=', db2);
 }
 
 main().catch((e) => {

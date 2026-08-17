@@ -1,0 +1,7243 @@
+[
+  {
+    "file": "api.orphan_firm_10.json",
+    "crd": "10",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10019.json",
+    "crd": "10019",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10033.json",
+    "crd": "10033",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10078.json",
+    "crd": "10078",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_101.json",
+    "crd": "101",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10102.json",
+    "crd": "10102",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10105.json",
+    "crd": "10105",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10128.json",
+    "crd": "10128",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10147.json",
+    "crd": "10147",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10205.json",
+    "crd": "10205",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_102360.json",
+    "crd": "102360",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10244.json",
+    "crd": "10244",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10264.json",
+    "crd": "10264",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_1027.json",
+    "crd": "1027",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10271.json",
+    "crd": "10271",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10279.json",
+    "crd": "10279",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10288.json",
+    "crd": "10288",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10290.json",
+    "crd": "10290",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10299.json",
+    "crd": "10299",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10307.json",
+    "crd": "10307",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10332.json",
+    "crd": "10332",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10358.json",
+    "crd": "10358",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_103714.json",
+    "crd": "103714",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_103863.json",
+    "crd": "103863",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10409.json",
+    "crd": "10409",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10410.json",
+    "crd": "10410",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_104446.json",
+    "crd": "104446",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_104474.json",
+    "crd": "104474",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_104510.json",
+    "crd": "104510",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_104556.json",
+    "crd": "104556",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10465.json",
+    "crd": "10465",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10480.json",
+    "crd": "10480",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_104873.json",
+    "crd": "104873",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_104964.json",
+    "crd": "104964",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10509.json",
+    "crd": "10509",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10517.json",
+    "crd": "10517",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_105316.json",
+    "crd": "105316",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": false
+    },
+    "sec": {
+      "ok": true,
+      "found": false
+    }
+  },
+  {
+    "file": "api.orphan_firm_105325.json",
+    "crd": "105325",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_105559.json",
+    "crd": "105559",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10571.json",
+    "crd": "10571",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_105950.json",
+    "crd": "105950",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10604.json",
+    "crd": "10604",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10606.json",
+    "crd": "10606",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_106069.json",
+    "crd": "106069",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_106277.json",
+    "crd": "106277",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10641.json",
+    "crd": "10641",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_106807.json",
+    "crd": "106807",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": false
+    },
+    "sec": {
+      "ok": true,
+      "found": false
+    }
+  },
+  {
+    "file": "api.orphan_firm_106814.json",
+    "crd": "106814",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_106945.json",
+    "crd": "106945",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10739.json",
+    "crd": "10739",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_1075.json",
+    "crd": "1075",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10793.json",
+    "crd": "10793",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10825.json",
+    "crd": "10825",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_108446.json",
+    "crd": "108446",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": false
+    },
+    "sec": {
+      "ok": true,
+      "found": false
+    }
+  },
+  {
+    "file": "api.orphan_firm_108477.json",
+    "crd": "108477",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_109011.json",
+    "crd": "109011",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10905.json",
+    "crd": "10905",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_109355.json",
+    "crd": "109355",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_109492.json",
+    "crd": "109492",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_10959.json",
+    "crd": "10959",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_109701.json",
+    "crd": "109701",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_109903.json",
+    "crd": "109903",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": false
+    },
+    "sec": {
+      "ok": true,
+      "found": false
+    }
+  },
+  {
+    "file": "api.orphan_firm_110080.json",
+    "crd": "110080",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_11025.json",
+    "crd": "11025",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_11039.json",
+    "crd": "11039",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_110410.json",
+    "crd": "110410",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_110518.json",
+    "crd": "110518",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_11060.json",
+    "crd": "11060",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_110760.json",
+    "crd": "110760",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_110778.json",
+    "crd": "110778",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": false
+    },
+    "sec": {
+      "ok": true,
+      "found": false
+    }
+  },
+  {
+    "file": "api.orphan_firm_110936.json",
+    "crd": "110936",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_11105.json",
+    "crd": "11105",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_111514.json",
+    "crd": "111514",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_111743.json",
+    "crd": "111743",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_11217.json",
+    "crd": "11217",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_112697.json",
+    "crd": "112697",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_11271.json",
+    "crd": "11271",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_113037.json",
+    "crd": "113037",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": false
+    },
+    "sec": {
+      "ok": true,
+      "found": false
+    }
+  },
+  {
+    "file": "api.orphan_firm_1137.json",
+    "crd": "1137",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_114473.json",
+    "crd": "114473",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_115368.json",
+    "crd": "115368",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_115612.json",
+    "crd": "115612",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_115927.json",
+    "crd": "115927",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_116280.json",
+    "crd": "116280",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": false
+    },
+    "sec": {
+      "ok": true,
+      "found": false
+    }
+  },
+  {
+    "file": "api.orphan_firm_117031.json",
+    "crd": "117031",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": false
+    },
+    "sec": {
+      "ok": true,
+      "found": false
+    }
+  },
+  {
+    "file": "api.orphan_firm_1175.json",
+    "crd": "1175",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_118381.json",
+    "crd": "118381",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": false
+    },
+    "sec": {
+      "ok": true,
+      "found": false
+    }
+  },
+  {
+    "file": "api.orphan_firm_118582.json",
+    "crd": "118582",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_118669.json",
+    "crd": "118669",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": false
+    },
+    "sec": {
+      "ok": true,
+      "found": false
+    }
+  },
+  {
+    "file": "api.orphan_firm_1187.json",
+    "crd": "1187",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_119755.json",
+    "crd": "119755",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": false
+    },
+    "sec": {
+      "ok": true,
+      "found": false
+    }
+  },
+  {
+    "file": "api.orphan_firm_120059.json",
+    "crd": "120059",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_120123.json",
+    "crd": "120123",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_120894.json",
+    "crd": "120894",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_121043.json",
+    "crd": "121043",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_121699.json",
+    "crd": "121699",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_122999.json",
+    "crd": "122999",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": false
+    },
+    "sec": {
+      "ok": true,
+      "found": false
+    }
+  },
+  {
+    "file": "api.orphan_firm_123013.json",
+    "crd": "123013",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_123637.json",
+    "crd": "123637",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": false
+    },
+    "sec": {
+      "ok": true,
+      "found": false
+    }
+  },
+  {
+    "file": "api.orphan_firm_123903.json",
+    "crd": "123903",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": false
+    },
+    "sec": {
+      "ok": true,
+      "found": false
+    }
+  },
+  {
+    "file": "api.orphan_firm_124737.json",
+    "crd": "124737",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_125073.json",
+    "crd": "125073",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_125117.json",
+    "crd": "125117",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_1254.json",
+    "crd": "1254",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_126292.json",
+    "crd": "126292",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_128143.json",
+    "crd": "128143",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_128929.json",
+    "crd": "128929",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_129119.json",
+    "crd": "129119",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_12965.json",
+    "crd": "12965",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_12969.json",
+    "crd": "12969",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_130120.json",
+    "crd": "130120",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_13042.json",
+    "crd": "13042",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_13121.json",
+    "crd": "13121",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_131453.json",
+    "crd": "131453",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_13227.json",
+    "crd": "13227",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_133358.json",
+    "crd": "133358",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_13336.json",
+    "crd": "13336",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_13358.json",
+    "crd": "13358",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_133763.json",
+    "crd": "133763",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_133890.json",
+    "crd": "133890",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": false
+    },
+    "sec": {
+      "ok": true,
+      "found": false
+    }
+  },
+  {
+    "file": "api.orphan_firm_13397.json",
+    "crd": "13397",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_134086.json",
+    "crd": "134086",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_13462.json",
+    "crd": "13462",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_13502.json",
+    "crd": "13502",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_135379.json",
+    "crd": "135379",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_13543.json",
+    "crd": "13543",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_13572.json",
+    "crd": "13572",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_13642.json",
+    "crd": "13642",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_13648.json",
+    "crd": "13648",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_13686.json",
+    "crd": "13686",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_13747.json",
+    "crd": "13747",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_13755.json",
+    "crd": "13755",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_137888.json",
+    "crd": "137888",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_13810.json",
+    "crd": "13810",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_13875.json",
+    "crd": "13875",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_139233.json",
+    "crd": "139233",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": false
+    },
+    "sec": {
+      "ok": true,
+      "found": false
+    }
+  },
+  {
+    "file": "api.orphan_firm_1398.json",
+    "crd": "1398",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_140096.json",
+    "crd": "140096",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_140195.json",
+    "crd": "140195",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_14129.json",
+    "crd": "14129",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_14229.json",
+    "crd": "14229",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_14232.json",
+    "crd": "14232",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_14251.json",
+    "crd": "14251",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_14303.json",
+    "crd": "14303",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_14316.json",
+    "crd": "14316",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_14367.json",
+    "crd": "14367",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_14416.json",
+    "crd": "14416",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_14447.json",
+    "crd": "14447",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_14469.json",
+    "crd": "14469",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_14503.json",
+    "crd": "14503",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_14536.json",
+    "crd": "14536",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_1462.json",
+    "crd": "1462",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_146271.json",
+    "crd": "146271",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_14675.json",
+    "crd": "14675",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_1483.json",
+    "crd": "1483",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_14849.json",
+    "crd": "14849",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_14869.json",
+    "crd": "14869",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_148818.json",
+    "crd": "148818",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_14894.json",
+    "crd": "14894",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_149018.json",
+    "crd": "149018",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_15038.json",
+    "crd": "15038",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_15142.json",
+    "crd": "15142",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_151664.json",
+    "crd": "151664",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_15296.json",
+    "crd": "15296",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_153377.json",
+    "crd": "153377",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_15340.json",
+    "crd": "15340",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_15372.json",
+    "crd": "15372",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_153744.json",
+    "crd": "153744",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_1541.json",
+    "crd": "1541",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_154327.json",
+    "crd": "154327",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_154702.json",
+    "crd": "154702",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_15491.json",
+    "crd": "15491",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_15527.json",
+    "crd": "15527",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_15647.json",
+    "crd": "15647",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_15655.json",
+    "crd": "15655",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_15695.json",
+    "crd": "15695",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_15764.json",
+    "crd": "15764",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_15776.json",
+    "crd": "15776",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_15794.json",
+    "crd": "15794",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_15801.json",
+    "crd": "15801",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_15817.json",
+    "crd": "15817",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_15833.json",
+    "crd": "15833",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_15840.json",
+    "crd": "15840",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_15896.json",
+    "crd": "15896",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_15957.json",
+    "crd": "15957",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_159940.json",
+    "crd": "159940",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16089.json",
+    "crd": "16089",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16100.json",
+    "crd": "16100",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16124.json",
+    "crd": "16124",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16164.json",
+    "crd": "16164",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16190.json",
+    "crd": "16190",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16191.json",
+    "crd": "16191",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16198.json",
+    "crd": "16198",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16204.json",
+    "crd": "16204",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16337.json",
+    "crd": "16337",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16361.json",
+    "crd": "16361",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16363.json",
+    "crd": "16363",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16364.json",
+    "crd": "16364",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_163768.json",
+    "crd": "163768",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16443.json",
+    "crd": "16443",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_164663.json",
+    "crd": "164663",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16546.json",
+    "crd": "16546",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16605.json",
+    "crd": "16605",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16611.json",
+    "crd": "16611",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16659.json",
+    "crd": "16659",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16668.json",
+    "crd": "16668",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16715.json",
+    "crd": "16715",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16724.json",
+    "crd": "16724",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16783.json",
+    "crd": "16783",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16815.json",
+    "crd": "16815",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16933.json",
+    "crd": "16933",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16944.json",
+    "crd": "16944",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16966.json",
+    "crd": "16966",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16986.json",
+    "crd": "16986",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_16999.json",
+    "crd": "16999",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_1703.json",
+    "crd": "1703",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_17079.json",
+    "crd": "17079",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_17101.json",
+    "crd": "17101",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_171070.json",
+    "crd": "171070",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_172555.json",
+    "crd": "172555",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_173.json",
+    "crd": "173",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_17344.json",
+    "crd": "17344",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_173962.json",
+    "crd": "173962",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_174328.json",
+    "crd": "174328",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_17438.json",
+    "crd": "17438",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_17463.json",
+    "crd": "17463",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_17486.json",
+    "crd": "17486",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_17499.json",
+    "crd": "17499",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_17507.json",
+    "crd": "17507",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_17516.json",
+    "crd": "17516",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_17533.json",
+    "crd": "17533",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_17587.json",
+    "crd": "17587",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_17611.json",
+    "crd": "17611",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_17790.json",
+    "crd": "17790",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_17819.json",
+    "crd": "17819",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_17935.json",
+    "crd": "17935",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_17970.json",
+    "crd": "17970",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_17999.json",
+    "crd": "17999",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_18166.json",
+    "crd": "18166",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_18246.json",
+    "crd": "18246",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_18278.json",
+    "crd": "18278",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_18339.json",
+    "crd": "18339",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_18367.json",
+    "crd": "18367",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_18487.json",
+    "crd": "18487",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_18513.json",
+    "crd": "18513",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_18555.json",
+    "crd": "18555",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_18581.json",
+    "crd": "18581",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_18692.json",
+    "crd": "18692",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_18697.json",
+    "crd": "18697",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_18837.json",
+    "crd": "18837",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_190.json",
+    "crd": "190",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_19178.json",
+    "crd": "19178",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_19537.json",
+    "crd": "19537",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_19616.json",
+    "crd": "19616",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_19628.json",
+    "crd": "19628",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_19631.json",
+    "crd": "19631",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_19647.json",
+    "crd": "19647",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_19655.json",
+    "crd": "19655",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_19660.json",
+    "crd": "19660",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_19693.json",
+    "crd": "19693",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_19714.json",
+    "crd": "19714",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_19727.json",
+    "crd": "19727",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_19738.json",
+    "crd": "19738",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_19739.json",
+    "crd": "19739",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_19948.json",
+    "crd": "19948",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_20.json",
+    "crd": "20",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_20004.json",
+    "crd": "20004",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_20068.json",
+    "crd": "20068",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_20431.json",
+    "crd": "20431",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_20472.json",
+    "crd": "20472",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_20580.json",
+    "crd": "20580",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_20597.json",
+    "crd": "20597",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_20804.json",
+    "crd": "20804",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_20991.json",
+    "crd": "20991",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_21000.json",
+    "crd": "21000",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_212.json",
+    "crd": "212",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_21210.json",
+    "crd": "21210",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_21624.json",
+    "crd": "21624",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_21663.json",
+    "crd": "21663",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_21773.json",
+    "crd": "21773",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_21787.json",
+    "crd": "21787",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_2186.json",
+    "crd": "2186",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_21933.json",
+    "crd": "21933",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_22531.json",
+    "crd": "22531",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_22540.json",
+    "crd": "22540",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_22704.json",
+    "crd": "22704",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_22710.json",
+    "crd": "22710",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_231.json",
+    "crd": "231",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_23131.json",
+    "crd": "23131",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_2347.json",
+    "crd": "2347",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_235.json",
+    "crd": "235",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_23737.json",
+    "crd": "23737",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_23745.json",
+    "crd": "23745",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_24007.json",
+    "crd": "24007",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_24049.json",
+    "crd": "24049",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_24549.json",
+    "crd": "24549",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_250.json",
+    "crd": "250",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_25152.json",
+    "crd": "25152",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_2525.json",
+    "crd": "2525",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_2528.json",
+    "crd": "2528",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_25312.json",
+    "crd": "25312",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_25367.json",
+    "crd": "25367",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_25399.json",
+    "crd": "25399",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_25440.json",
+    "crd": "25440",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_25803.json",
+    "crd": "25803",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_25899.json",
+    "crd": "25899",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_25900.json",
+    "crd": "25900",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_260.json",
+    "crd": "260",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_26091.json",
+    "crd": "26091",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_26460.json",
+    "crd": "26460",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_265.json",
+    "crd": "265",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_268.json",
+    "crd": "268",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_2692.json",
+    "crd": "2692",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_27107.json",
+    "crd": "27107",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_27913.json",
+    "crd": "27913",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_2809.json",
+    "crd": "2809",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_28262.json",
+    "crd": "28262",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_28314.json",
+    "crd": "28314",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_2837.json",
+    "crd": "2837",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": false
+    },
+    "sec": {
+      "ok": true,
+      "found": false
+    }
+  },
+  {
+    "file": "api.orphan_firm_285.json",
+    "crd": "285",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_28570.json",
+    "crd": "28570",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_2881.json",
+    "crd": "2881",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_2882.json",
+    "crd": "2882",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_28872.json",
+    "crd": "28872",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_28955.json",
+    "crd": "28955",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_2908.json",
+    "crd": "2908",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_29110.json",
+    "crd": "29110",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_29551.json",
+    "crd": "29551",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_29604.json",
+    "crd": "29604",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_298.json",
+    "crd": "298",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_29865.json",
+    "crd": "29865",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_298667.json",
+    "crd": "298667",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_299008.json",
+    "crd": "299008",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_30184.json",
+    "crd": "30184",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_3036.json",
+    "crd": "3036",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_305.json",
+    "crd": "305",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_30539.json",
+    "crd": "30539",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_305585.json",
+    "crd": "305585",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_30613.json",
+    "crd": "30613",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_3094.json",
+    "crd": "3094",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_30999.json",
+    "crd": "30999",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_311.json",
+    "crd": "311",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_31183.json",
+    "crd": "31183",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_31194.json",
+    "crd": "31194",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_3128.json",
+    "crd": "3128",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_3144.json",
+    "crd": "3144",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_316.json",
+    "crd": "316",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_316636.json",
+    "crd": "316636",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_318170.json",
+    "crd": "318170",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_3198.json",
+    "crd": "3198",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_321.json",
+    "crd": "321",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_32444.json",
+    "crd": "32444",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_3248.json",
+    "crd": "3248",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_32542.json",
+    "crd": "32542",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_32625.json",
+    "crd": "32625",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_327657.json",
+    "crd": "327657",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_329985.json",
+    "crd": "329985",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_34643.json",
+    "crd": "34643",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_34671.json",
+    "crd": "34671",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_3487.json",
+    "crd": "3487",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_3514.json",
+    "crd": "3514",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_35350.json",
+    "crd": "35350",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_35545.json",
+    "crd": "35545",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_35690.json",
+    "crd": "35690",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_35747.json",
+    "crd": "35747",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_3600.json",
+    "crd": "3600",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_361.json",
+    "crd": "361",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_36427.json",
+    "crd": "36427",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_36451.json",
+    "crd": "36451",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_36487.json",
+    "crd": "36487",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_36907.json",
+    "crd": "36907",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_36937.json",
+    "crd": "36937",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_37157.json",
+    "crd": "37157",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_372.json",
+    "crd": "372",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_37533.json",
+    "crd": "37533",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_37886.json",
+    "crd": "37886",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_38.json",
+    "crd": "38",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_38095.json",
+    "crd": "38095",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_3866.json",
+    "crd": "3866",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_3870.json",
+    "crd": "3870",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_3892.json",
+    "crd": "3892",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_38995.json",
+    "crd": "38995",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_39543.json",
+    "crd": "39543",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_3960.json",
+    "crd": "3960",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_3978.json",
+    "crd": "3978",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_39986.json",
+    "crd": "39986",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_4.json",
+    "crd": "4",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_40231.json",
+    "crd": "40231",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_40305.json",
+    "crd": "40305",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_4039.json",
+    "crd": "4039",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_406.json",
+    "crd": "406",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_40637.json",
+    "crd": "40637",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_4082.json",
+    "crd": "4082",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_40875.json",
+    "crd": "40875",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_4095.json",
+    "crd": "4095",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_41812.json",
+    "crd": "41812",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_4182.json",
+    "crd": "4182",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_42046.json",
+    "crd": "42046",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_421.json",
+    "crd": "421",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_4234.json",
+    "crd": "4234",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_4257.json",
+    "crd": "4257",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_43035.json",
+    "crd": "43035",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_43100.json",
+    "crd": "43100",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_43177.json",
+    "crd": "43177",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_4341.json",
+    "crd": "4341",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_4386.json",
+    "crd": "4386",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_43882.json",
+    "crd": "43882",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_46214.json",
+    "crd": "46214",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_463.json",
+    "crd": "463",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_46727.json",
+    "crd": "46727",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_4679.json",
+    "crd": "4679",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_468.json",
+    "crd": "468",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_46929.json",
+    "crd": "46929",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_47076.json",
+    "crd": "47076",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_473.json",
+    "crd": "473",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_475.json",
+    "crd": "475",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_47682.json",
+    "crd": "47682",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_4806.json",
+    "crd": "4806",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_4882.json",
+    "crd": "4882",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_490.json",
+    "crd": "490",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_5003.json",
+    "crd": "5003",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_501.json",
+    "crd": "501",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_5053.json",
+    "crd": "5053",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_5066.json",
+    "crd": "5066",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_5081.json",
+    "crd": "5081",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_5087.json",
+    "crd": "5087",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_5096.json",
+    "crd": "5096",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_5155.json",
+    "crd": "5155",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_5167.json",
+    "crd": "5167",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_5181.json",
+    "crd": "5181",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_519.json",
+    "crd": "519",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_524.json",
+    "crd": "524",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_5249.json",
+    "crd": "5249",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_5269.json",
+    "crd": "5269",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_541.json",
+    "crd": "541",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": false
+    },
+    "sec": {
+      "ok": true,
+      "found": false
+    }
+  },
+  {
+    "file": "api.orphan_firm_5431.json",
+    "crd": "5431",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_5475.json",
+    "crd": "5475",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_5478.json",
+    "crd": "5478",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_5496.json",
+    "crd": "5496",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_5685.json",
+    "crd": "5685",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_5698.json",
+    "crd": "5698",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_5774.json",
+    "crd": "5774",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_5927.json",
+    "crd": "5927",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_595.json",
+    "crd": "595",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_5979.json",
+    "crd": "5979",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_599.json",
+    "crd": "599",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_60.json",
+    "crd": "60",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_611.json",
+    "crd": "611",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6112.json",
+    "crd": "6112",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_615.json",
+    "crd": "615",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6218.json",
+    "crd": "6218",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6220.json",
+    "crd": "6220",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_624.json",
+    "crd": "624",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6281.json",
+    "crd": "6281",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_629.json",
+    "crd": "629",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6320.json",
+    "crd": "6320",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6321.json",
+    "crd": "6321",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6363.json",
+    "crd": "6363",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6390.json",
+    "crd": "6390",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6403.json",
+    "crd": "6403",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6413.json",
+    "crd": "6413",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6463.json",
+    "crd": "6463",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6518.json",
+    "crd": "6518",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6540.json",
+    "crd": "6540",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6555.json",
+    "crd": "6555",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_659.json",
+    "crd": "659",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6621.json",
+    "crd": "6621",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6635.json",
+    "crd": "6635",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_665.json",
+    "crd": "665",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6663.json",
+    "crd": "6663",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6694.json",
+    "crd": "6694",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6695.json",
+    "crd": "6695",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_67.json",
+    "crd": "67",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": false
+    },
+    "sec": {
+      "ok": true,
+      "found": false
+    }
+  },
+  {
+    "file": "api.orphan_firm_6722.json",
+    "crd": "6722",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6751.json",
+    "crd": "6751",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6775.json",
+    "crd": "6775",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_680.json",
+    "crd": "680",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6833.json",
+    "crd": "6833",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6871.json",
+    "crd": "6871",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6917.json",
+    "crd": "6917",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6929.json",
+    "crd": "6929",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6958.json",
+    "crd": "6958",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_6966.json",
+    "crd": "6966",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7000.json",
+    "crd": "7000",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7030.json",
+    "crd": "7030",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7033.json",
+    "crd": "7033",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_705.json",
+    "crd": "705",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7093.json",
+    "crd": "7093",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7094.json",
+    "crd": "7094",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7110.json",
+    "crd": "7110",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7117.json",
+    "crd": "7117",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7148.json",
+    "crd": "7148",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7154.json",
+    "crd": "7154",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7191.json",
+    "crd": "7191",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_723.json",
+    "crd": "723",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7242.json",
+    "crd": "7242",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_727.json",
+    "crd": "727",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7291.json",
+    "crd": "7291",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7344.json",
+    "crd": "7344",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7360.json",
+    "crd": "7360",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7378.json",
+    "crd": "7378",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_740.json",
+    "crd": "740",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7423.json",
+    "crd": "7423",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7447.json",
+    "crd": "7447",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7461.json",
+    "crd": "7461",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7471.json",
+    "crd": "7471",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7512.json",
+    "crd": "7512",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7514.json",
+    "crd": "7514",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7541.json",
+    "crd": "7541",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7555.json",
+    "crd": "7555",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7560.json",
+    "crd": "7560",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7569.json",
+    "crd": "7569",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7575.json",
+    "crd": "7575",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7580.json",
+    "crd": "7580",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_759.json",
+    "crd": "759",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_76.json",
+    "crd": "76",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7600.json",
+    "crd": "7600",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7613.json",
+    "crd": "7613",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7616.json",
+    "crd": "7616",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7635.json",
+    "crd": "7635",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7656.json",
+    "crd": "7656",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7661.json",
+    "crd": "7661",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7684.json",
+    "crd": "7684",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7700.json",
+    "crd": "7700",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7717.json",
+    "crd": "7717",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7739.json",
+    "crd": "7739",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_777.json",
+    "crd": "777",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7923.json",
+    "crd": "7923",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7929.json",
+    "crd": "7929",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_793.json",
+    "crd": "793",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7943.json",
+    "crd": "7943",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7955.json",
+    "crd": "7955",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7961.json",
+    "crd": "7961",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_7963.json",
+    "crd": "7963",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_801.json",
+    "crd": "801",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_8026.json",
+    "crd": "8026",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_8032.json",
+    "crd": "8032",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_8035.json",
+    "crd": "8035",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_8052.json",
+    "crd": "8052",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_8083.json",
+    "crd": "8083",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_8097.json",
+    "crd": "8097",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_8099.json",
+    "crd": "8099",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_8112.json",
+    "crd": "8112",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_8158.json",
+    "crd": "8158",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_816.json",
+    "crd": "816",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_829.json",
+    "crd": "829",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_8297.json",
+    "crd": "8297",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_833.json",
+    "crd": "833",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_8359.json",
+    "crd": "8359",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_8362.json",
+    "crd": "8362",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_837.json",
+    "crd": "837",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_8503.json",
+    "crd": "8503",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_866.json",
+    "crd": "866",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_87.json",
+    "crd": "87",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_8755.json",
+    "crd": "8755",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_901.json",
+    "crd": "901",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  },
+  {
+    "file": "api.orphan_firm_93.json",
+    "crd": "93",
+    "firmName": "",
+    "finra": {
+      "ok": true,
+      "found": true
+    },
+    "sec": {
+      "ok": true,
+      "found": true
+    }
+  }
+]
