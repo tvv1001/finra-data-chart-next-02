@@ -12,12 +12,20 @@ let firmId = '';
 	try {
 		// parse argv here (ESM-safe)
 		console.log('process.argv:', process.argv.slice(0, 10));
-		const minimist = (await import('minimist')).default;
+		// Prefer requiring minimist to avoid dynamic-import TS module flags
+		// eslint-disable-next-line @typescript-eslint/no-var-requires
+		const minimist = require('minimist');
 		const argv = minimist(process.argv.slice(2));
 		console.log('parsed argv:', argv);
-		firmId = String(argv.firm || argv.f || (argv._ && argv._[0]) || '').trim() || String(argv['firm'] || '').trim();
-		if (!firmId) {
-			console.error('Usage: --firm <CRD>');
+		// Defensive: some callers may inject a leading '--' token; remove it if present.
+		if (Array.isArray(argv._) && argv._[0] === '--') argv._ = argv._.slice(1);
+		// Also drop any leading tokens that look like option flags (e.g. '--firm')
+		while (Array.isArray(argv._) && argv._[0] && String(argv._[0]).startsWith('--')) argv._ = argv._.slice(1);
+		// Accept --firm, -f, or first positional arg
+		firmId = String(argv.firm || argv.f || (Array.isArray(argv._) && argv._[0]) || '').trim();
+		// Basic validation: CRD should be numeric
+		if (!firmId || !/^[0-9]+$/.test(firmId)) {
+			console.error('Usage: --firm <CRD>   (CRD must be numeric)');
 			process.exit(2);
 		}
 

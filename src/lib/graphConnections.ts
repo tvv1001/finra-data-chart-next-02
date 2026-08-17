@@ -22,6 +22,8 @@ export type GraphConnectionEntry = {
 	isCurrent: boolean;
 	bcScope?: string;
 	iaScope?: string;
+	// Evidence tags describing why this connection was inferred (e.g. 'primed', 'graph-edge', 'search-finra')
+	evidence?: string[];
 };
 
 const FIRM_CONNECTIONS_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
@@ -62,9 +64,10 @@ async function searchIndividualsForFirmWithFallback(source: 'finra' | 'sec', fir
 	if (localHits.length < 20) {
 		try {
 			const maxApiRows = 100; // Both FINRA and SEC hard-fail if > 100
-			const extUrl = source === 'finra' 
-				? `https://api.brokercheck.finra.org/search/individual?firm=${encodeURIComponent(firmId)}&hl=true&wt=json&nrows=${maxApiRows}&includePrevious` 
-				: `https://api.adviserinfo.sec.gov/search/individual?firm=${encodeURIComponent(firmId)}&hl=true&wt=json&nrows=${maxApiRows}&includePrevious`;
+			const extUrl =
+				source === 'finra' ?
+					`https://api.brokercheck.finra.org/search/individual?firm=${encodeURIComponent(firmId)}&hl=true&wt=json&nrows=${maxApiRows}&includePrevious`
+				:	`https://api.adviserinfo.sec.gov/search/individual?firm=${encodeURIComponent(firmId)}&hl=true&wt=json&nrows=${maxApiRows}&includePrevious`;
 			const extRes = await fetch(extUrl, { cache: 'no-store' });
 			const extData = await extRes.json();
 			if (extData && extData.hits && extData.hits.total > 0) {
@@ -74,11 +77,48 @@ async function searchIndividualsForFirmWithFallback(source: 'finra' | 'sec', fir
 						...sourceObj,
 						ind_previous_employments: hit?.inner_hits?.ind_previous_employments?.hits?.hits?.map((h: any) => h._source) || [],
 						ind_ia_previous_employments: hit?.inner_hits?.ind_ia_previous_employments?.hits?.hits?.map((h: any) => h._source) || [],
-						ind_current_employments: hit?.inner_hits?.ind_current_employments?.hits?.hits?.map((h: any) => h._source) || sourceObj.ind_current_employments || []
+						ind_current_employments: hit?.inner_hits?.ind_current_employments?.hits?.hits?.map((h: any) => h._source) || sourceObj.ind_current_employments || [],
 					};
 				});
 			}
-		} catch {}
+		} catch (e) {
+			// If external fetch is disabled or fails, try reading a local cached copy from data/national
+			try {
+				const fs = require('fs');
+				const path = require('path');
+				const candidates = [
+					path.join(process.cwd(), 'data', 'national', `brokercheck.finra.org`, `api.brokercheck.finra.org_search_firm_${firmId}.json`),
+					path.join(process.cwd(), 'data', 'national', `adviserinfo.sec.gov`, `api.adviserinfo.sec.gov_search_firm_${firmId}.json`),
+				];
+				for (const p of candidates) {
+					if (fs.existsSync(p)) {
+						const raw = fs.readFileSync(p, 'utf-8');
+						let parsed: any = null;
+						try {
+							parsed = JSON.parse(raw);
+						} catch (e2) {
+							// Some files may wrap the payload; try to locate embedded JSON
+							const m = raw.match(/\{\"hits\"[\s\S]*\}$/m);
+							if (m) parsed = JSON.parse(m[0]);
+						}
+						if (parsed && parsed.hits && parsed.hits.hits) {
+							extHits = toArraySafe(parsed.hits.hits).map((hit: any) => {
+								const sourceObj = hit?._source || hit || {};
+								return {
+									...sourceObj,
+									ind_previous_employments: hit?.inner_hits?.ind_previous_employments?.hits?.hits?.map((h: any) => h._source) || [],
+									ind_ia_previous_employments: hit?.inner_hits?.ind_ia_previous_employments?.hits?.hits?.map((h: any) => h._source) || [],
+									ind_current_employments: hit?.inner_hits?.ind_current_employments?.hits?.hits?.map((h: any) => h._source) || sourceObj.ind_current_employments || [],
+								};
+							});
+							if (extHits.length) break;
+						}
+					}
+				}
+			} catch {
+				// swallow
+			}
+		}
 	}
 
 	// Merge all hits, map to source, and remove duplicates
@@ -120,6 +160,7 @@ async function getConnectionsFromSearchIndex(firmId: string): Promise<GraphConne
 						startDate: firstNonEmpty(matchedCurrent?.registrationBeginDate, matchedCurrent?.startDate) || undefined,
 						endDate: undefined,
 						isCurrent: true,
+						evidence: [`search-${source}`, 'current-employment-record'],
 					});
 					continue;
 				}
@@ -133,6 +174,7 @@ async function getConnectionsFromSearchIndex(firmId: string): Promise<GraphConne
 						startDate: firstNonEmpty(matchedPrevious?.registrationBeginDate, matchedPrevious?.startDate) || undefined,
 						endDate: firstNonEmpty(matchedPrevious?.registrationEndDate, matchedPrevious?.endDate) || undefined,
 						isCurrent: false,
+						evidence: [`search-${source}`, 'matched-previous-employment'],
 					});
 					continue;
 				}
@@ -146,6 +188,7 @@ async function getConnectionsFromSearchIndex(firmId: string): Promise<GraphConne
 					startDate: undefined,
 					endDate: undefined,
 					isCurrent: false,
+					evidence: [`search-${source}`, 'implicit-previous-match'],
 				});
 			}
 		} catch {
@@ -220,6 +263,7 @@ async function getConnectionsFromGraphStore(firmId: string): Promise<GraphConnec
 			startDate: startDate || undefined,
 			endDate: !isCurrent && endDate ? endDate : undefined,
 			isCurrent,
+			evidence: ['graph-edge'],
 		});
 	}
 
@@ -235,6 +279,7 @@ async function getConnectionsFromPrimedBundle(firmId: string): Promise<GraphConn
 		startDate: edge.startDate,
 		endDate: edge.isCurrent ? undefined : edge.endDate,
 		isCurrent: edge.isCurrent,
+		evidence: [edge.bcScope ? 'primed-bundle' : 'primed-bundle'],
 		bcScope: edge.bcScope,
 		iaScope: edge.iaScope,
 	}));
@@ -328,7 +373,7 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<{ cur
 			// fall through to compute
 		}
 	}
-	
+
 	const fs = require('fs');
 	const path = require('path');
 	let localCachePath = '';
