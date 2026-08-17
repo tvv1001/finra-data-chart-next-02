@@ -51,29 +51,63 @@ pub fn compute_layout(nodes_json: &str, links_json: &str, width: f64, height: f6
     for _ in 0..8 {
         let mut forces = vec![(0.0, 0.0); state.len()];
 
-        for i in 0..state.len() {
-            let (x, y, _, _, r, _) = state[i];
-            let mut fx = 0.0;
-            let mut fy = 0.0;
+        #[cfg(feature = "parallel")]
+        {
+            use rayon::prelude::*;
+            let n = state.len();
+            let computed: Vec<(f64, f64)> = (0..n)
+                .into_par_iter()
+                .map(|i| {
+                    let (x, y, _, _, r, _) = state[i];
+                    let mut fx = 0.0;
+                    let mut fy = 0.0;
+                    for j in 0..n {
+                        if i == j { continue; }
+                        let (ox, oy, _, _, or, _) = state[j];
+                        let dx = x - ox;
+                        let dy = y - oy;
+                        let dist2 = dx * dx + dy * dy + 12.0;
+                        let force = repulsion_strength / dist2;
+                        fx += (dx / dist2) * force;
+                        fy += (dy / dist2) * force;
+                        if (r + or) > 0.0 {
+                            let push = (r + or) * 0.02;
+                            fx += dx.signum() * push / (1.0 + (dist2 / 1600.0).sqrt());
+                            fy += dy.signum() * push / (1.0 + (dist2 / 1600.0).sqrt());
+                        }
+                    }
+                    (fx, fy)
+                })
+                .collect();
+            forces = computed;
+        }
 
-            for j in 0..state.len() {
-                if i == j { continue; }
-                let (ox, oy, _, _, or, _) = state[j];
-                let dx = x - ox;
-                let dy = y - oy;
-                let dist2 = dx * dx + dy * dy + 12.0;
-                let force = repulsion_strength / dist2;
-                fx += (dx / dist2) * force;
-                fy += (dy / dist2) * force;
-                if (r + or) > 0.0 {
-                    let push = (r + or) * 0.02;
-                    fx += dx.signum() * push / (1.0 + (dist2 / 1600.0).sqrt());
-                    fy += dy.signum() * push / (1.0 + (dist2 / 1600.0).sqrt());
+        #[cfg(not(feature = "parallel"))]
+        {
+            for i in 0..state.len() {
+                let (x, y, _, _, r, _) = state[i];
+                let mut fx = 0.0;
+                let mut fy = 0.0;
+
+                for j in 0..state.len() {
+                    if i == j { continue; }
+                    let (ox, oy, _, _, or, _) = state[j];
+                    let dx = x - ox;
+                    let dy = y - oy;
+                    let dist2 = dx * dx + dy * dy + 12.0;
+                    let force = repulsion_strength / dist2;
+                    fx += (dx / dist2) * force;
+                    fy += (dy / dist2) * force;
+                    if (r + or) > 0.0 {
+                        let push = (r + or) * 0.02;
+                        fx += dx.signum() * push / (1.0 + (dist2 / 1600.0).sqrt());
+                        fy += dy.signum() * push / (1.0 + (dist2 / 1600.0).sqrt());
+                    }
                 }
-            }
 
-            forces[i].0 += fx;
-            forces[i].1 += fy;
+                forces[i].0 += fx;
+                forces[i].1 += fy;
+            }
         }
 
         for link in &links {

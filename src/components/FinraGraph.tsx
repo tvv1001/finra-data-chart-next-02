@@ -954,6 +954,27 @@ export default function FinraGraph() {
 					initialSelectedNodeIds: sharedSelectedIds,
 				});
 				setGraphReady(true);
+				// Try to initialize the wasm thread pool (if a parallel/threads build was produced)
+				try {
+					if (typeof window !== 'undefined' && (self as any).crossOriginIsolated) {
+						import('/wasm/graph-layout/graph_layout.js')
+							.then((mod) => {
+								if (mod && typeof mod.initThreadPool === 'function') {
+									const threads = navigator.hardwareConcurrency ? Math.max(2, Math.min(8, navigator.hardwareConcurrency - 1)) : 4;
+									try {
+										mod.initThreadPool(threads);
+									} catch (e) {
+										console.info('wasm thread pool init failed:', e);
+									}
+								}
+							})
+							.catch(() => {
+								// ignore missing wasm or module
+							});
+					}
+				} catch (e) {
+					// ignore
+				}
 			});
 		};
 
