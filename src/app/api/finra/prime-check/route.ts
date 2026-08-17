@@ -3,6 +3,7 @@ import { cachedFetch } from '@/lib/simpleCache';
 import { DEFAULT_HEADERS } from '@/lib/requestConstants';
 import { getFullGraph, getSeedBankFromStore } from '@/lib/graphStore';
 import { logger } from '@/lib/logger';
+import { isValidCrd, makeRedisKey, ensurePersonCrd, ensureFirmCrd } from '@/lib/crd';
 import { Redis as UpstashRedis } from '@upstash/redis';
 import { zaddRaw } from '@/lib/upstashHelpers';
 import { getRecentSeedsFromStore } from '@/lib/seedStore';
@@ -71,8 +72,11 @@ async function runWithConcurrency<T>(items: T[], concurrency: number, worker: (i
 async function warmIndividual(crd: string) {
 	const { default: axios } = await import('axios');
 	const fetchQuery = INDIVIDUAL_QUERY; // still use includePrevious=true when hitting the API
+	const s = String(crd || '').trim();
+	if (!isValidCrd(s)) throw new Error(`invalid individual CRD: ${crd}`);
+	const crdNorm = ensurePersonCrd(s);
 	await Promise.allSettled([
-		cachedFetch(`finra:individual:${crd}`, 60 * 60 * 24, async () => {
+		cachedFetch(makeRedisKey('finra', 'individual', crdNorm), 60 * 60 * 24, async () => {
 			try {
 				const response = await axios.get(`https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`, {
 					headers: DEFAULT_HEADERS,
@@ -91,7 +95,7 @@ async function warmIndividual(crd: string) {
 				throw err;
 			}
 		}),
-		cachedFetch(`sec:individual:${crd}`, 60 * 60 * 24, async () => {
+		cachedFetch(makeRedisKey('sec', 'individual', crdNorm), 60 * 60 * 24, async () => {
 			try {
 				const response = await axios.get(`https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`, {
 					headers: DEFAULT_HEADERS,
@@ -115,8 +119,11 @@ async function warmIndividual(crd: string) {
 
 async function warmFirm(id: string) {
 	const { default: axios } = await import('axios');
+	const s = String(id || '').trim();
+	if (!isValidCrd(s)) throw new Error(`invalid firm CRD: ${id}`);
+	const idNorm = ensureFirmCrd(s);
 	await Promise.allSettled([
-		cachedFetch(`finra:firm:${id}`, 60 * 60 * 24, async () => {
+		cachedFetch(makeRedisKey('finra', 'firm', idNorm), 60 * 60 * 24, async () => {
 			try {
 				const response = await axios.get(`https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(id)}?${FIRM_QUERY}`, {
 					headers: DEFAULT_HEADERS,
@@ -135,7 +142,7 @@ async function warmFirm(id: string) {
 				throw err;
 			}
 		}),
-		cachedFetch(`sec:firm:${id}`, 60 * 60 * 24, async () => {
+		cachedFetch(makeRedisKey('sec', 'firm', idNorm), 60 * 60 * 24, async () => {
 			try {
 				const response = await axios.get(`https://api.adviserinfo.sec.gov/search/firm/${encodeURIComponent(id)}?wt=json`, {
 					headers: DEFAULT_HEADERS,
@@ -154,7 +161,7 @@ async function warmFirm(id: string) {
 				throw err;
 			}
 		}),
-		cachedFetch(`sec:firm:summaryHtml:${id}`, 60 * 60 * 24, async () => {
+		cachedFetch(`sec:firm:summaryHtml:${idNorm}`, 60 * 60 * 24, async () => {
 			try {
 				const response = await axios.get(`https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(id)}`, {
 					headers: DEFAULT_HEADERS,

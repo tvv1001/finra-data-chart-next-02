@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { cachedFetch, evictCacheKey } from '@/lib/simpleCache';
+import { isValidCrd, ensurePersonCrd, makeRedisKey } from '@/lib/crd';
 import { rememberRecentSeed } from '@/lib/seedStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
@@ -175,11 +176,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	if (!/^\d{1,10}$/.test(crd)) {
 		return NextResponse.json({ error: 'Invalid CRD number.' }, { status: 400 });
 	}
+	const crdNorm = ensurePersonCrd(crd);
 	const isMergedRoute = request.nextUrl.searchParams.get('merged') === '1';
 	const forceRefresh = request.nextUrl.searchParams.get('forceRefresh') === '1';
 
 	if (forceRefresh) {
-		await Promise.allSettled([evictCacheKey(`finra:individual:${crd}`), evictCacheKey(`sec:individual:${crd}`)]);
+		await Promise.allSettled([evictCacheKey(makeRedisKey('finra', 'individual', crdNorm)), evictCacheKey(makeRedisKey('sec', 'individual', crdNorm))]);
 	}
 
 	void rememberRecentSeed('individual', crd).catch((error) => {
@@ -198,7 +200,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		};
 
 		const requests = await Promise.allSettled([
-			cachedFetch(`finra:individual:${crd}`, 60 * 60 * 24, async () => {
+			cachedFetch(makeRedisKey('finra', 'individual', crdNorm), 60 * 60 * 24, async () => {
 				try {
 					const url = `https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`;
 					const res = await fetch(url, fetchOptions);
@@ -209,7 +211,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					return undefined;
 				}
 			}),
-			cachedFetch(`sec:individual:${crd}`, 60 * 60 * 24, async () => {
+			cachedFetch(makeRedisKey('sec', 'individual', crdNorm), 60 * 60 * 24, async () => {
 				try {
 					const url = `https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`;
 					const res = await fetch(url, fetchOptions);

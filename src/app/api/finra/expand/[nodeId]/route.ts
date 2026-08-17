@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redisCache';
+import { isValidCrd, ensureFirmCrd, ensurePersonCrd, makeRedisKey } from '@/lib/crd';
 import { getNeighborsForNodes } from '@/lib/graphStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
@@ -62,9 +63,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		// Fast path for single person expansion (cluster lookup)
 		if (!strictExpansion && allIds.length === 1 && hops === 1 && nodeId.startsWith('person:')) {
 			try {
-				const cluster = await tryLoadPersonCluster(nodeId.slice('person:'.length));
-				if (cluster) {
-					return NextResponse.json({ nodes: cluster.nodes || [], links: cluster.links || [] }, { headers: sharedCacheHeaders(300) });
+				const crd = nodeId.slice('person:'.length);
+				if (isValidCrd(crd)) {
+					const cluster = await tryLoadPersonCluster(crd);
+					if (cluster) {
+						return NextResponse.json({ nodes: cluster.nodes || [], links: cluster.links || [] }, { headers: sharedCacheHeaders(300) });
+					}
+				} else {
+					// invalid person CRD, skip cluster fast path
 				}
 			} catch (error) {
 				console.warn(`Expansion API: people-cluster lookup failed for ${nodeId}`, error);
@@ -93,7 +99,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		// (mono session graph often has the firm node with zero employed_by edges).
 		if (nodeId.startsWith('firm:') && hops === 1) {
 			try {
-				const firmId = nodeId.replace(/^firm:/, '');
+				const rawFirm = nodeId.replace(/^firm:/, '');
+				let firmId = rawFirm;
+				if (!isValidCrd(rawFirm)) {
+					console.warn(`Expansion API: invalid firm CRD '${rawFirm}' requested`);
+				} else {
+					firmId = ensureFirmCrd(rawFirm);
+				}
 				const seenNodeIds = new Set(result.nodes.map((n) => n.id));
 				let firmNode = result.nodes.find((n) => n.id === nodeId);
 
@@ -102,7 +114,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					try {
 						const redis = getRedisClient();
 						if (redis) {
-							const cachedFirm = await redis.get<any>(`finra:firm:${firmId}`);
+							const cachedFirm = isValidCrd(firmId) ? await redis.get<any>(makeRedisKey('finra', 'firm', firmId)) : null;
 							if (cachedFirm) {
 								const cachedHits = cachedFirm?.hits?.hits || [];
 								const rawDetail = cachedHits.length > 0 ? cachedHits[0]?._source?.content || cachedHits[0]?._source : cachedFirm;

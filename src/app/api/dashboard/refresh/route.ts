@@ -8,6 +8,7 @@ import type { Redis } from '@upstash/redis';
 import { cachedFetch } from '@/lib/simpleCache';
 import { normalizeIndividualDetailPayload } from '@/lib/individualDetail';
 import { setStringIfValid } from '@/lib/redisCache';
+import { isValidCrd, makeRedisKey } from '@/lib/crd';
 import { getFullGraph, saveGraph } from '@/lib/graphStore';
 import { getRecentSeedsFromStore, rememberRecentSeed } from '@/lib/seedStore';
 import { addRecordToSearchIndex } from '@/lib/localSearch';
@@ -146,12 +147,16 @@ function buildKeySetFromCrdLog(): Set<string> {
 	const log = loadCrdLog();
 	const keySet = new Set<string>();
 	for (const entry of log.individuals) {
-		keySet.add(`finra:individual:${entry.id}`);
-		keySet.add(`sec:individual:${entry.id}`);
+		const id = String(entry.id);
+		if (!isValidCrd(id)) continue;
+		keySet.add(makeRedisKey('finra', 'individual', id));
+		keySet.add(makeRedisKey('sec', 'individual', id));
 	}
 	for (const entry of log.firms) {
-		keySet.add(`finra:firm:${entry.id}`);
-		keySet.add(`sec:firm:${entry.id}`);
+		const id = String(entry.id);
+		if (!isValidCrd(id)) continue;
+		keySet.add(makeRedisKey('finra', 'firm', id));
+		keySet.add(makeRedisKey('sec', 'firm', id));
 	}
 	return keySet;
 }
@@ -1422,21 +1427,22 @@ async function cacheArtifactExists(paths: string[]) {
 }
 
 async function recordExistsBeforeFetch(redis: Redis | null, entity: 'individual' | 'firm', crd: string) {
-	const sourcePairs: Array<{ source: 'finra' | 'sec'; redisKey: string; files: string[] }> = [
-		{
+	const sourcePairs: Array<{ source: 'finra' | 'sec'; redisKey: string; files: string[] }> = [];
+	if (isValidCrd(crd)) {
+		sourcePairs.push({
 			source: 'finra',
-			redisKey: entity === 'individual' ? `finra:individual:${crd}` : `finra:firm:${crd}`,
+			redisKey: entity === 'individual' ? makeRedisKey('finra', 'individual', crd) : makeRedisKey('finra', 'firm', crd),
 			files: [
 				buildLocalCacheFilePath('finra', entity, crd),
 				path.join(process.cwd(), 'data', 'raw', 'brokercheck.finra.org', `api.brokercheck.finra.org_search_${entity}_${crd}.json`),
 			],
-		},
-		{
+		});
+		sourcePairs.push({
 			source: 'sec',
-			redisKey: entity === 'individual' ? `sec:individual:${crd}` : `sec:firm:${crd}`,
+			redisKey: entity === 'individual' ? makeRedisKey('sec', 'individual', crd) : makeRedisKey('sec', 'firm', crd),
 			files: [buildLocalCacheFilePath('sec', entity, crd), path.join(process.cwd(), 'data', 'raw', 'adviserinfo.sec.gov', `api.adviserinfo.sec.gov_search_${entity}_${crd}.json`)],
-		},
-	];
+		});
+	}
 
 	for (const pair of sourcePairs) {
 		if (await cacheArtifactExists(pair.files)) return true;
@@ -2053,10 +2059,14 @@ async function listNewCrds(force = false) {
 
 	const keysToFetch: string[] = [];
 	for (const id of topIndividualIds) {
-		keysToFetch.push(`finra:individual:${id}`, `sec:individual:${id}`);
+		const s = String(id || '').trim();
+		if (!isValidCrd(s)) continue;
+		keysToFetch.push(makeRedisKey('finra', 'individual', s), makeRedisKey('sec', 'individual', s));
 	}
 	for (const id of topFirmIds) {
-		keysToFetch.push(`finra:firm:${id}`, `sec:firm:${id}`);
+		const s = String(id || '').trim();
+		if (!isValidCrd(s)) continue;
+		keysToFetch.push(makeRedisKey('finra', 'firm', s), makeRedisKey('sec', 'firm', s));
 	}
 
 	const cards = buildCacheCardsFromRedisKeys(keysToFetch, getCrdLogNameMap());
@@ -2522,14 +2532,18 @@ export async function POST(request: NextRequest) {
 
 			const targetMap = new Map<string, FetchTarget>();
 			for (const target of resolvedFromQueries.targets) {
-				targetMap.set(`${target.source}:${target.type}:${target.crd}`, target);
+				const s = String(target.crd || '').trim();
+				if (!isValidCrd(s)) continue;
+				targetMap.set(`${target.source}:${target.type}:${s}`, { ...target, crd: s });
 			}
 
 			for (const crd of providedCrds) {
-				targetMap.set(`finra:individual:${crd}`, { crd, source: 'finra', type: 'individual' });
-				targetMap.set(`sec:individual:${crd}`, { crd, source: 'sec', type: 'individual' });
-				targetMap.set(`finra:firm:${crd}`, { crd, source: 'finra', type: 'firm' });
-				targetMap.set(`sec:firm:${crd}`, { crd, source: 'sec', type: 'firm' });
+				const s = String(crd || '').trim();
+				if (!isValidCrd(s)) continue;
+				targetMap.set(`finra:individual:${s}`, { crd: s, source: 'finra', type: 'individual' });
+				targetMap.set(`sec:individual:${s}`, { crd: s, source: 'sec', type: 'individual' });
+				targetMap.set(`finra:firm:${s}`, { crd: s, source: 'finra', type: 'firm' });
+				targetMap.set(`sec:firm:${s}`, { crd: s, source: 'sec', type: 'firm' });
 			}
 
 			const targets = Array.from(targetMap.values());

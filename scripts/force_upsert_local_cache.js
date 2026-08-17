@@ -22,11 +22,18 @@ const MAX_REQUEST_BYTES = 10_000_000; // Upstash limit ~10,485,760 - be conserva
 
 const DEFAULT_INDIVIDUAL_QUERY = 'hl=true&includePrevious=true&wt=json';
 const DEFAULT_FIRM_QUERY = 'hl=true&wt=json';
+function isValidCrd(value) {
+	return typeof value === 'string' && /^\d+$/.test(value.trim());
+}
 function finraIndividualKey(id) {
-	return `finra:individual:${id}:${DEFAULT_INDIVIDUAL_QUERY}`;
+	const s = String(id || '').trim();
+	if (!isValidCrd(s)) throw new Error(`invalid individual id: ${id}`);
+	return `finra:individual:${s}:${DEFAULT_INDIVIDUAL_QUERY}`;
 }
 function finraFirmKey(id) {
-	return `finra:firm:${id}:${DEFAULT_FIRM_QUERY}`;
+	const s = String(id || '').trim();
+	if (!isValidCrd(s)) throw new Error(`invalid firm id: ${id}`);
+	return `finra:firm:${s}:${DEFAULT_FIRM_QUERY}`;
 }
 
 // detect broker/search empty hits responses
@@ -106,7 +113,13 @@ async function main() {
 			const id = name.replace('finra-individual-', '').replace('.json', '');
 			try {
 				const raw = await fs.readFile(p, 'utf-8');
-				limiter.schedule(() => setKey(finraIndividualKey(id), raw));
+				try {
+					limiter.schedule(() => setKey(finraIndividualKey(id), raw));
+				} catch (e) {
+					console.warn('INVALID_CLEARED', id, e?.message || e);
+					failed++;
+					processed++;
+				}
 			} catch (err) {
 				console.warn('READ_ERR', p, err?.message || err);
 				failed++;
@@ -117,7 +130,13 @@ async function main() {
 			const id = name.replace('finra-firm-', '').replace('.json', '');
 			try {
 				const raw = await fs.readFile(p, 'utf-8');
-				limiter.schedule(() => setKey(finraFirmKey(id), raw));
+				try {
+					limiter.schedule(() => setKey(finraFirmKey(id), raw));
+				} catch (e) {
+					console.warn('INVALID_CLEARED', id, e?.message || e);
+					failed++;
+					processed++;
+				}
 			} catch (err) {
 				console.warn('READ_ERR', p, err?.message || err);
 				failed++;
@@ -146,8 +165,14 @@ async function main() {
 			const p = path.join(brokerDir, name);
 			try {
 				const raw = await fs.readFile(p, 'utf-8');
-				const key = type === 'individual' ? finraIndividualKey(id) : finraFirmKey(id);
-				limiter.schedule(() => setKey(key, raw));
+				try {
+					const key = type === 'individual' ? finraIndividualKey(id) : finraFirmKey(id);
+					limiter.schedule(() => setKey(key, raw));
+				} catch (e) {
+					console.warn('INVALID_CLEARED', id, e?.message || e);
+					failed++;
+					processed++;
+				}
 			} catch (err) {
 				console.warn('READ_ERR', p, err?.message || err);
 				failed++;
@@ -176,8 +201,14 @@ async function main() {
 			const p = path.join(secDir, name);
 			try {
 				const raw = await fs.readFile(p, 'utf-8');
-				const key = type === 'individual' ? finraIndividualKey(id) : finraFirmKey(id);
-				limiter.schedule(() => setKey(key, raw));
+				try {
+					const key = type === 'individual' ? finraIndividualKey(id) : finraFirmKey(id);
+					limiter.schedule(() => setKey(key, raw));
+				} catch (e) {
+					console.warn('INVALID_CLEARED', id, e?.message || e);
+					failed++;
+					processed++;
+				}
 			} catch (err) {
 				console.warn('READ_ERR', p, err?.message || err);
 				failed++;
