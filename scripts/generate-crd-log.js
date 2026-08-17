@@ -59,17 +59,37 @@ async function extractName(filePath, entity) {
 	}
 }
 
-/** Scan data/raw/ and return arrays of { id, file } grouped by entity. */
+/** Scan data/raw/ recursively and return arrays of { id, file } grouped by entity. */
 function scanRawDir() {
-	const files = fs.readdirSync(RAW_DIR);
 	const firms = [];
 	const individuals = [];
-	for (const name of files) {
-		const firmMatch = name.match(/^finra:firm:(\d+)\.json$/);
-		if (firmMatch) { firms.push({ id: Number(firmMatch[1]), file: path.join(RAW_DIR, name) }); continue; }
-		const indivMatch = name.match(/^finra:individual:(\d+)\.json$/);
-		if (indivMatch) { individuals.push({ id: Number(indivMatch[1]), file: path.join(RAW_DIR, name) }); }
+
+	function walk(dir) {
+		let entries;
+		try {
+			entries = fs.readdirSync(dir, { withFileTypes: true });
+		} catch (err) {
+			return;
+		}
+		for (const ent of entries) {
+			const full = path.join(dir, ent.name);
+			if (ent.isDirectory()) {
+				walk(full);
+				continue;
+			}
+			const firmMatch = ent.name.match(/^finra:firm:(\d+)\.json$/);
+			if (firmMatch) {
+				firms.push({ id: Number(firmMatch[1]), file: full });
+				continue;
+			}
+			const indivMatch = ent.name.match(/^finra:individual:(\d+)\.json$/);
+			if (indivMatch) {
+				individuals.push({ id: Number(indivMatch[1]), file: full });
+			}
+		}
 	}
+
+	walk(RAW_DIR);
 	return { firms, individuals };
 }
 
@@ -138,4 +158,7 @@ async function main() {
 	console.log(`  total       : ${log.summary.total.toLocaleString()}`);
 }
 
-main().catch((err) => { console.error(err); process.exit(1); });
+main().catch((err) => {
+	console.error(err);
+	process.exit(1);
+});

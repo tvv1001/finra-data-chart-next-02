@@ -78,6 +78,16 @@ async function main() {
 
 	console.log('Force-upsert from', NATIONAL);
 
+	const zlib = require('node:zlib');
+
+	function compressForRedis(str) {
+		if (typeof str !== 'string') str = String(str);
+		const rawByteLen = Buffer.byteLength(str, 'utf-8');
+		if (rawByteLen <= 512) return { finalValue: str, compressed: false, byteLen: rawByteLen };
+		const compressed = zlib.brotliCompressSync(Buffer.from(str, 'utf-8'));
+		return { finalValue: 'br:' + compressed.toString('base64'), compressed: true, byteLen: compressed.length };
+	}
+
 	// helper to set key safely
 	async function setKey(key, contentStr) {
 		// skip obvious empty search results
@@ -87,15 +97,15 @@ async function main() {
 			if (processed % REPORT_INTERVAL === 0) console.log(`progress processed=${processed} written=${written} failed=${failed}`);
 			return;
 		}
-		const byteLen = Buffer.byteLength(contentStr, 'utf-8');
-		if (byteLen > MAX_REQUEST_BYTES) {
-			console.warn('SKIP_TOO_LARGE', key, 'bytes=', byteLen);
+		const compressed = compressForRedis(contentStr);
+		if (compressed.byteLen > MAX_REQUEST_BYTES) {
+			console.warn('SKIP_TOO_LARGE', key, 'bytes=', compressed.byteLen);
 			failed++;
 			processed++;
 			return;
 		}
 		try {
-			await redis.set(key, contentStr, { ex: TTL_SECONDS });
+			await redis.set(key, compressed.finalValue, { ex: TTL_SECONDS });
 			written++;
 		} catch (err) {
 			console.warn('SET_FAILED', key, err?.message || err);

@@ -1646,14 +1646,77 @@ async function collectNativeRedisRecordKeys(redis: Redis, forceRefresh = false) 
 			console.error('Failed to run keys command on local redis:', e);
 		}
 	}
+	// When running against Upstash (or other remote redis without KEYS), prefer small
+	// Redis-maintained indexes if present to avoid heavy scan/keys usage.
+	try {
+		const keySet = new Set<string>();
 
-	// Optimization: reference the CRD list for counting the redis cache instead of reading/scanning each item.
-	// This prevents huge bandwidth and command quota usage on Upstash.
-	const dedupedKeys = buildKeySetFromCrdLog();
+		// 1) Prefer explicit new-crds cache maintained by the app
+		try {
+			const raw = await redis.get('dashboard:new-crds-cache');
+			if (raw) {
+				let parsed = null;
+				if (typeof raw === 'string') {
+					try {
+						parsed = JSON.parse(raw);
+					} catch {}
+				} else {
+					parsed = raw;
+				}
+				const list = Array.isArray(parsed?.newCrds) ? parsed.newCrds : [];
+				for (const entry of list) {
+					const id = String(entry?.id || '').trim();
+					const type = String(entry?.type || entry?.entity || '').toLowerCase();
+					if (!isValidCrd(id)) continue;
+					if (type === 'individual' || type === 'ind' || String(entry?.type) === 'INDIVIDUAL') {
+						keySet.add(makeRedisKey('finra', 'individual', id));
+						keySet.add(makeRedisKey('sec', 'individual', id));
+					} else {
+						keySet.add(makeRedisKey('finra', 'firm', id));
+						keySet.add(makeRedisKey('sec', 'firm', id));
+					}
+				}
+			}
+		} catch (e) {
+			// ignore parsing errors
+		}
 
-	const keys = Array.from(dedupedKeys.values());
-	nativeRedisKeyCache = { keys, fetchedAt: now };
-	return keys;
+		// 2) Include highest-crds zsets if present
+		try {
+			const topInd = (await redis.zrange('dashboard:highest-crds:individual', 0, 499, { rev: true })) as string[];
+			const topFirm = (await redis.zrange('dashboard:highest-crds:firm', 0, 499, { rev: true })) as string[];
+			for (const id of Array.isArray(topInd) ? topInd : []) {
+				const s = String(id || '').trim();
+				if (!isValidCrd(s)) continue;
+				keySet.add(makeRedisKey('finra', 'individual', s));
+				keySet.add(makeRedisKey('sec', 'individual', s));
+			}
+			for (const id of Array.isArray(topFirm) ? topFirm : []) {
+				const s = String(id || '').trim();
+				if (!isValidCrd(s)) continue;
+				keySet.add(makeRedisKey('finra', 'firm', s));
+				keySet.add(makeRedisKey('sec', 'firm', s));
+			}
+		} catch (e) {
+			// ignore missing zsets
+		}
+
+		// 3) Fallback to CRD log if set remains empty
+		if (keySet.size === 0) {
+			const dedupedKeys = buildKeySetFromCrdLog();
+			for (const k of dedupedKeys) keySet.add(k);
+		}
+
+		const keys = Array.from(keySet.values());
+		nativeRedisKeyCache = { keys, fetchedAt: now };
+		return keys;
+	} catch (e) {
+		// as last resort, fall back to the CRD log
+		const dedupedKeys = buildKeySetFromCrdLog();
+		const keys = Array.from(dedupedKeys.values());
+		nativeRedisKeyCache = { keys, fetchedAt: now };
+		return keys;
+	}
 }
 
 function parseCacheKey(key: string): { source: 'finra' | 'sec'; entity: 'individual' | 'firm'; id: string } | null {
