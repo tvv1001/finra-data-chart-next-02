@@ -1,0 +1,35 @@
+name: Update CRD Count
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  schedule:
+    - cron: '0 6 * * *' # daily at 06:00 UTC
+
+jobs:
+  update:
+    name: Compute and publish CRD count
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run CRD count script
+        env:
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+          # Optional: mirror / secondary DB tokens if you use them
+          UPSTASH_REDIS_REST_URL_MIRROR: ${{ secrets.UPSTASH_REDIS_REST_URL_MIRROR }}
+          UPSTASH_REDIS_REST_TOKEN_MIRROR: ${{ secrets.UPSTASH_REDIS_REST_TOKEN_MIRROR }}
+        run: |
+          node scripts/set-dashboard-crd-count.js
