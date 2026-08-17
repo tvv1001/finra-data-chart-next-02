@@ -5,13 +5,28 @@ export function esc(str) {
 	if (str == null) return '';
 	// Handle arrays and plain objects more gracefully so templates don't render
 	// the unhelpful "[object Object]" string. Arrays are joined with comma,
-	// objects are JSON-stringified as a last resort.
+	// and object elements inside arrays will try to surface a useful label
+	// (label/name/status/code/etc.) before falling back to JSON.
 	let raw: string;
+	function elementToString(s: any) {
+		if (s == null) return '';
+		if (typeof s === 'string') return s;
+		if (typeof s === 'number' || typeof s === 'boolean') return String(s);
+		if (typeof s === 'object') {
+			// Prefer common human-friendly keys when stringifying objects
+			const preferred = s.label || s.name || s.title || s.code || s.state || s.status || s.registrationStatus || s.value || s.description;
+			if (preferred && (typeof preferred === 'string' || typeof preferred === 'number')) return String(preferred);
+			try {
+				return JSON.stringify(s);
+			} catch {
+				return String(s);
+			}
+		}
+		return String(s);
+	}
+
 	if (Array.isArray(str)) {
-		raw = str
-			.map((s) => (s == null ? '' : String(s)))
-			.filter(Boolean)
-			.join(', ');
+		raw = str.map(elementToString).filter(Boolean).join(', ');
 	} else if (typeof str === 'object') {
 		try {
 			raw = JSON.stringify(str);
@@ -192,6 +207,29 @@ export function formatLocationText(str) {
 		)
 		.filter(Boolean)
 		.join(', ');
+}
+
+// Safely join an array of possibly heterogeneous items into a readable string.
+export function safeJoin(arr: any[], sep = ', ') {
+	if (!Array.isArray(arr)) return '';
+	return arr
+		.map((s) => {
+			if (s == null) return '';
+			if (typeof s === 'string') return s;
+			if (typeof s === 'number' || typeof s === 'boolean') return String(s);
+			if (typeof s === 'object') {
+				const preferred = s.label || s.name || s.title || s.code || s.state || s.status || s.registrationStatus || s.value || s.description;
+				if (preferred && (typeof preferred === 'string' || typeof preferred === 'number')) return String(preferred);
+				try {
+					return JSON.stringify(s);
+				} catch {
+					return String(s);
+				}
+			}
+			return String(s);
+		})
+		.filter(Boolean)
+		.join(sep);
 }
 
 export function truncate(str, n) {

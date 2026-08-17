@@ -29,6 +29,7 @@ import {
 	openSidebarToggles as openSidebarTogglesImpl,
 	row as rowImpl,
 	truncate as truncateImpl,
+	safeJoin as safeJoinImpl,
 } from './finra-graph/formatters';
 import {
 	DEFAULT_CLICK_EXPANSION_HOPS,
@@ -169,6 +170,18 @@ const STATE_NAME_TO_CODE = {
 	'american samoa': 'AS',
 	'northern mariana islands': 'MP',
 };
+
+// Toggle: enable graph-derived connections (layout/graph inference) in the
+// sidebar. Default is disabled to avoid surfacing inferred/derived edges that
+// come from cache/graph artifacts. Enable by setting
+// NEXT_PUBLIC_ENABLE_GRAPH_DERIVED_CONNECTIONS=1 in the environment if you
+// explicitly want graph-derived connections back.
+const ENABLE_GRAPH_DERIVED_CONNECTIONS =
+	typeof process !== 'undefined' &&
+	(String(process.env.NEXT_PUBLIC_ENABLE_GRAPH_DERIVED_CONNECTIONS || '').trim() === '1' ||
+		String(process.env.NEXT_PUBLIC_ENABLE_GRAPH_DERIVED_CONNECTIONS || '')
+			.trim()
+			.toLowerCase() === 'true');
 
 const STATE_CODES = new Set(Object.values(STATE_NAME_TO_CODE));
 
@@ -15926,13 +15939,25 @@ function renderFirmDetail(d: any) {
 			.filter(Boolean),
 	);
 
-	const graphDerivedConnections = collectFirmConnectionEntries({
-		firmNode: d,
-		layoutNodes,
-		graphNodes: graphData?.nodes || [],
-		layoutLinks,
-		graphLinks: graphData?.links || [],
-	});
+	const graphDerivedConnections =
+		ENABLE_GRAPH_DERIVED_CONNECTIONS ?
+			collectFirmConnectionEntries({
+				firmNode: d,
+				layoutNodes,
+				graphNodes: graphData?.nodes || [],
+				layoutLinks,
+				graphLinks: graphData?.links || [],
+			})
+		:	[];
+	if (!ENABLE_GRAPH_DERIVED_CONNECTIONS) {
+		// keep a trace during development so operators can see why sidebar is empty
+		// of graph-derived connections for debugging
+		try {
+			console.debug('[finra-graph] graph-derived connections disabled by NEXT_PUBLIC_ENABLE_GRAPH_DERIVED_CONNECTIONS');
+		} catch (e) {
+			/* ignore */
+		}
+	}
 
 	// Merge server/search-hydrated employment connections (ensureFirmConnections) so the sidebar
 	// does not wait on a hard refresh when the canvas still has sparse links.
@@ -16110,8 +16135,8 @@ function renderFirmDetail(d: any) {
 			`<span class="fg-badge ${/\b(active|approved)\b/i.test(String(d.bcScope || '').trim()) ? 'active' : 'inactive'}">${esc(capitalize(String(d.bcScope || '').toLowerCase()))}</span>`
 		:	'';
 
-	const sros = Array.isArray(d.selfRegulatoryOrgs) && d.selfRegulatoryOrgs.length ? d.selfRegulatoryOrgs.join(', ') : 'N/A';
-	const states = Array.isArray(d.activeStates) && d.activeStates.length ? d.activeStates.join(', ') : 'N/A';
+	const sros = Array.isArray(d.selfRegulatoryOrgs) && d.selfRegulatoryOrgs.length ? safeJoinImpl(d.selfRegulatoryOrgs) : 'N/A';
+	const states = Array.isArray(d.activeStates) && d.activeStates.length ? safeJoinImpl(d.activeStates) : 'N/A';
 
 	const firmId = d.firmId || String(d.id).replace(/^firm[:_]/, '');
 	const brokerCheckReportUrl = firmId ? `https://files.brokercheck.finra.org/firm/firm_${encodeURIComponent(firmId)}.pdf` : null;

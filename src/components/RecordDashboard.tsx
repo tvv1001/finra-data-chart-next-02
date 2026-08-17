@@ -23,6 +23,29 @@ type RecordDashboardDisplayMeta = {
 function getValue(source: Record<string, unknown>, paths: string[]): string {
 	for (const path of paths) {
 		const value = path.split('.').reduce<unknown>((acc, key) => (acc && typeof acc === 'object' ? (acc as Record<string, unknown>)[key] : undefined), source);
+		if (value == null) continue;
+		// If value is a plain array, prefer joining simple strings or extracting
+		// the first object's `status`/`registrationStatus` field for SEC/FINRA
+		if (Array.isArray(value)) {
+			if (value.length === 0) continue;
+			const first = value[0];
+			if (typeof first === 'string') {
+				const joined = (value as any[]).filter((v) => v != null).join(', ');
+				if (joined.trim()) return joined.trim();
+			}
+			if (first && typeof first === 'object') {
+				const status = (first as any).status || (first as any).registrationStatus || (first as any).regStatus || '';
+				if (typeof status === 'string' && status.trim()) return status.trim();
+				// Fallback: stringify simple array of objects
+				try {
+					const s = JSON.stringify(value);
+					if (s) return s;
+				} catch {
+					/* ignore */
+				}
+			}
+			continue;
+		}
 		if (typeof value === 'string' && value.trim()) return value.trim();
 		if (typeof value === 'number') return String(value);
 	}
@@ -232,7 +255,10 @@ export default function RecordDashboard() {
 		const inferredStatus = inferRecordStatus(detail, entity);
 		const sections = [
 			{ label: 'Name', value: getValue(detail, ['name', 'basicInformation.name', 'individualName', 'firmName', 'basicInformation.firmName']) },
-			{ label: 'CRD', value: getValue(detail, ['basicInformation.crdNumber', 'crdNumber', 'crd', 'basicInformation.individualId', 'individualId', 'basicInformation.firmId', 'firmId']) },
+			{
+				label: 'CRD',
+				value: getValue(detail, ['basicInformation.crdNumber', 'crdNumber', 'crd', 'basicInformation.individualId', 'individualId', 'basicInformation.firmId', 'firmId']),
+			},
 			{ label: 'Status', value: inferredStatus || getValue(detail, ['status', 'employmentStatus', 'basicInformation.status', 'registrationStatus']) },
 			{ label: 'Current employer', value: getValue(detail, ['currentEmployment.0.firmName', 'currentEmployment.0.firm_name', 'basicInformation.currentEmployer']) },
 			{ label: 'Related firms', value: Array.isArray(detail.employmentHistory) ? String(detail.employmentHistory.length) : '' },

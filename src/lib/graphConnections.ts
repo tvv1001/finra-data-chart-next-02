@@ -361,8 +361,43 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<{ cur
 
 	if (redis) {
 		try {
-			const hit = parseCachedConnectionsPayload(await redis.get(cacheKey));
+			const hitRaw = await redis.get(cacheKey);
+			const hit = parseCachedConnectionsPayload(hitRaw);
 			if (hit && (hit.currentConnections.length || hit.previousConnections.length)) {
+				// Validate cached entries by ensuring each referenced individual CRD
+				// has a corresponding primed record in Redis (finra/sec individual bundles)
+				try {
+					const allCrds = Array.from(
+						new Set([
+							...hit.currentConnections.map((c: any) => String(c.individualId || c.personCrd || c.crd || '').trim()).filter(Boolean),
+							...hit.previousConnections.map((c: any) => String(c.individualId || c.personCrd || c.crd || '').trim()).filter(Boolean),
+						]),
+					);
+					if (allCrds.length) {
+						const keys: string[] = [];
+						for (const crd of allCrds) {
+							keys.push(`finra:individual:${crd}`);
+							keys.push(`sec:individual:${crd}`);
+						}
+						const values = await redis.mget(...keys).catch(() => null);
+						const present = new Set<string>();
+						if (Array.isArray(values)) {
+							for (let i = 0; i < values.length; i++) {
+								if (values[i] != null) {
+									// map back to crd index
+									const crdIndex = Math.floor(i / 2);
+									present.add(allCrds[crdIndex]);
+								}
+							}
+						}
+						// Filter out any connections whose CRD is not present in primed redis
+						hit.currentConnections = (hit.currentConnections || []).filter((c: any) => present.has(String(c.individualId || c.personCrd || c.crd || '').trim()));
+						hit.previousConnections = (hit.previousConnections || []).filter((c: any) => present.has(String(c.individualId || c.personCrd || c.crd || '').trim()));
+					}
+				} catch (e) {
+					// Validation failures are non-fatal; fall back to the cached hit as-is
+					/* ignore */
+				}
 				return hit;
 			}
 			const emptyHit = await redis.get(emptyCacheKey);

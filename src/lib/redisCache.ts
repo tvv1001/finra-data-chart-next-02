@@ -55,6 +55,14 @@ export async function setIfValid(
 ): Promise<'written' | 'skipped-empty' | 'skipped-nonstring' | 'no-client' | 'error'> {
 	try {
 		if (isEmptyHitsObj(value)) return 'skipped-empty';
+		// Safety: only allow writes when UPSTASH_ALLOW_WRITES=1 to avoid accidental
+		// data deployments during code pushes (e.g., Vercel builds). When disabled,
+		// behave as if no redis client is configured.
+		if (String(process.env.UPSTASH_ALLOW_WRITES || '0') !== '1') {
+			// eslint-disable-next-line no-console
+			console.warn('Redis writes are disabled (set UPSTASH_ALLOW_WRITES=1 to enable)');
+			return 'no-client';
+		}
 		const redis = getRedisClient();
 		if (!redis) return 'no-client';
 
@@ -97,6 +105,11 @@ export async function setStringIfValid(
 			parsed = null;
 		}
 		if (isEmptyHitsObj(parsed)) return 'skipped-empty';
+		if (String(process.env.UPSTASH_ALLOW_WRITES || '0') !== '1') {
+			// eslint-disable-next-line no-console
+			console.warn('Redis writes are disabled (set UPSTASH_ALLOW_WRITES=1 to enable)');
+			return 'no-client';
+		}
 		const redis = getRedisClient();
 		if (!redis) return 'no-client';
 		let t = 'none';

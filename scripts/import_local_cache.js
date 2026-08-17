@@ -98,8 +98,20 @@ async function setRedisJson(redis, key, payload) {
 async function main() {
 	const url = process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-	const useRedis = Boolean(url && token);
-	const redis = useRedis ? new Redis({ url, token }) : null;
+	const urlMirror = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2;
+	const tokenMirror = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN_2;
+	const useRedisPrimary = Boolean(url && token);
+	const useRedisMirror = Boolean(urlMirror && tokenMirror);
+
+	// Safety gate: only allow writes when UPSTASH_ALLOW_WRITES=1
+	if (String(process.env.UPSTASH_ALLOW_WRITES || '0') !== '1') {
+		console.error('UPSTASH_ALLOW_WRITES is not set to 1; aborting to avoid accidental writes. Set UPSTASH_ALLOW_WRITES=1 to enable.');
+		process.exit(3);
+	}
+
+	const redisPrimary = useRedisPrimary ? new Redis({ url, token }) : null;
+	const redisMirror = useRedisMirror ? new Redis({ url: urlMirror, token: tokenMirror }) : null;
+	const useRedis = Boolean(redisPrimary || redisMirror);
 	const batchFilter = await loadBatchFilter(CRD_BATCH_FILE).catch((err) => {
 		console.error(`Failed to load CRD batch file ${CRD_BATCH_FILE}:`, err?.message || err);
 		process.exit(1);
@@ -146,15 +158,11 @@ async function main() {
 				const parsed = JSON.parse(raw);
 				const key = finraIndividualKey(id);
 				if (useRedis) {
-					const exists = await redis.get(key);
-					if (exists != null) {
-						skipped++;
-						counts.root++;
-						processed++;
-						if (processed % REPORT_INTERVAL === 0) logProgress();
-						continue;
-					}
-					await setRedisJson(redis, key, parsed);
+					// write to both primary and mirror when available
+					const ops = [];
+					if (redisPrimary) ops.push(setRedisJson(redisPrimary, key, parsed));
+					if (redisMirror) ops.push(setRedisJson(redisMirror, key, parsed));
+					await Promise.allSettled(ops);
 					written++;
 					counts.root++;
 					processed++;
@@ -201,15 +209,10 @@ async function main() {
 				const parsed = JSON.parse(raw);
 				const key = type === 'individual' ? finraIndividualKey(id) : finraFirmKey(id);
 				if (useRedis) {
-					const exists = await redis.get(key);
-					if (exists != null) {
-						skipped++;
-						counts.brokercheck++;
-						processed++;
-						if (processed % REPORT_INTERVAL === 0) logProgress();
-						continue;
-					}
-					await setRedisJson(redis, key, parsed);
+					const ops = [];
+					if (redisPrimary) ops.push(setRedisJson(redisPrimary, key, parsed));
+					if (redisMirror) ops.push(setRedisJson(redisMirror, key, parsed));
+					await Promise.allSettled(ops);
 					written++;
 					counts.brokercheck++;
 					processed++;
@@ -256,15 +259,10 @@ async function main() {
 				const parsed = JSON.parse(raw);
 				const key = type === 'individual' ? secIndividualKey(id) : secFirmKey(id);
 				if (useRedis) {
-					const exists = await redis.get(key);
-					if (exists != null) {
-						skipped++;
-						counts.adviserinfo++;
-						processed++;
-						if (processed % REPORT_INTERVAL === 0) logProgress();
-						continue;
-					}
-					await setRedisJson(redis, key, parsed);
+					const ops = [];
+					if (redisPrimary) ops.push(setRedisJson(redisPrimary, key, parsed));
+					if (redisMirror) ops.push(setRedisJson(redisMirror, key, parsed));
+					await Promise.allSettled(ops);
 					written++;
 					counts.adviserinfo++;
 					processed++;
