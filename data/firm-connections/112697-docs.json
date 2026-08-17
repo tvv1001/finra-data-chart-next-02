@@ -1,0 +1,156 @@
+{
+  "generatedAt": "2026-08-17T00:30:36.702Z",
+  "firm": "112697",
+  "entries": [
+    {
+      "individualId": "1003868",
+      "name": "RICHARD CROSS",
+      "relationship": "Previous registration",
+      "isCurrent": false,
+      "startDate": "7/22/2003",
+      "endDate": "10/11/2024",
+      "sources": {
+        "brokercheckLocal": true,
+        "adviserLocal": true,
+        "primedBundle": true,
+        "brokercheckUrl": "https://brokercheck.finra.org/individual/summary/1003868",
+        "adviserUrl": "https://adviserinfo.sec.gov/IAPD/Content/Search/iapd_Search.aspx?search=1003868"
+      }
+    },
+    {
+      "individualId": "1019108",
+      "name": "LARRY ARINSBURG",
+      "relationship": "Previous registration",
+      "isCurrent": false,
+      "startDate": "2/4/2008",
+      "endDate": "10/11/2024",
+      "sources": {
+        "brokercheckLocal": true,
+        "adviserLocal": true,
+        "primedBundle": true,
+        "brokercheckUrl": "https://brokercheck.finra.org/individual/summary/1019108",
+        "adviserUrl": "https://adviserinfo.sec.gov/IAPD/Content/Search/iapd_Search.aspx?search=1019108"
+      }
+    },
+    {
+      "individualId": "2127192",
+      "name": "MELISSA ALBANESE",
+      "relationship": "Previous registration",
+      "isCurrent": false,
+      "startDate": "2/1/2013",
+      "endDate": "10/11/2024",
+      "sources": {
+        "brokercheckLocal": true,
+        "adviserLocal": true,
+        "primedBundle": true,
+        "brokercheckUrl": "https://brokercheck.finra.org/individual/summary/2127192",
+        "adviserUrl": "https://adviserinfo.sec.gov/IAPD/Content/Search/iapd_Search.aspx?search=2127192"
+      }
+    },
+    {
+      "individualId": "732534",
+      "name": "CRAIG CANTARA",
+      "relationship": "Previous registration",
+      "isCurrent": false,
+      "startDate": "9/17/2009",
+      "endDate": "10/11/2024",
+      "sources": {
+        "brokercheckLocal": true,
+        "adviserLocal": true,
+        "primedBundle": true,
+        "brokercheckUrl": "https://brokercheck.finra.org/individual/summary/732534",
+        "adviserUrl": "https://adviserinfo.sec.gov/IAPD/Content/Search/iapd_Search.aspx?search=732534"
+      }
+    },
+    {
+      "individualId": "1158341",
+      "name": "STEVEN GARRY",
+      "relationship": "Previous registration",
+      "isCurrent": false,
+      "startDate": "9/4/2020",
+      "endDate": "10/11/2024",
+      "sources": {
+        "brokercheckLocal": false,
+        "adviserLocal": false,
+        "primedBundle": false,
+        "brokercheckUrl": "https://brokercheck.finra.org/individual/summary/1158341",
+        "adviserUrl": "https://adviserinfo.sec.gov/IAPD/Content/Search/iapd_Search.aspx?search=1158341"
+      }
+    },
+    {
+      "individualId": "1280887",
+      "name": "V KEMPSON",
+      "relationship": "Previous registration",
+      "isCurrent": false,
+      "startDate": "6/14/2016",
+      "endDate": "10/11/2024",
+      "sources": {
+        "brokercheckLocal": false,
+        "adviserLocal": false,
+        "primedBundle": false,
+        "brokercheckUrl": "https://brokercheck.finra.org/individual/summary/1280887",
+        "adviserUrl": "https://adviserinfo.sec.gov/IAPD/Content/Search/iapd_Search.aspx?search=1280887"
+      }
+    },
+    {
+      "individualId": "1321490",
+      "name": "DIANE BOYAJIAN",
+      "relationship": "Previous registration",
+      "isCurrent": false,
+      "startDate": "4/1/2021",
+      "endDate": "10/11/2024",
+      "sources": {
+        "brokercheckLocal": false,
+        "adviserLocal": false,
+        "primedBundle": false,
+        "brokercheckUrl": "https://brokercheck.finra.org/individual/summary/1321490",
+        "adviserUrl": "https://adviserinfo.sec.gov/IAPD/Content/Search/iapd_Search.aspx?search=1321490"
+      }
+    },
+    {
+      "individualId": "1420990",
+      "name": "GERARD NIZICH",
+      "relationship": "Previous registration",
+      "isCurrent": false,
+      "startDate": "11/13/2013",
+      "endDate": "8/3/2021",
+      "sources": {
+        "brokercheckLocal": false,
+        "adviserLocal": false,
+        "primedBundle": false,
+        "brokercheckUrl": "https://brokercheck.finra.org/individual/summary/1420990",
+        "adviserUrl": "https://adviserinfo.sec.gov/IAPD/Content/Search/iapd_Search.aspx?search=1420990"
+      }
+    },
+    {
+      "individualId": "1434842",
+      "name": "WARD BRICKNER",
+      "relationship": "Previous registration",
+      "isCurrent": false,
+      "startDate": "8/8/2014",
+      "endDate": "10/11/2024",
+      "sources": {
+        "brokercheckLocal": false,
+        "adviserLocal": false,
+        "primedBundle": false,
+        "brokercheckUrl": "https://brokercheck.finra.org/individual/summary/1434842",
+        "adviserUrl": "https://adviserinfo.sec.gov/IAPD/Content/Search/iapd_Search.aspx?search=1434842"
+      }
+    },
+    {
+      "individualId": "4412883",
+      "name": "Cari Henning",
+      "relationship": "Previous registration",
+      "isCurrent": false,
+      "startDate": "7/23/2012",
+      "endDate": "1/3/2013",
+      "sources": {
+        "brokercheckLocal": false,
+        "adviserLocal": false,
+        "primedBundle": false,
+        "brokercheckUrl": "https://brokercheck.finra.org/individual/summary/4412883",
+        "adviserUrl": "https://adviserinfo.sec.gov/IAPD/Content/Search/iapd_Search.aspx?search=4412883"
+      }
+    }
+  ]
+}
