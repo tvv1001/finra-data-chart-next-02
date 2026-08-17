@@ -2,11 +2,26 @@ import { formatPersonName, formatFirmName, formatEntityName } from '../nameForma
 export { formatPersonName, formatFirmName, formatEntityName };
 
 export function esc(str) {
-	return String(str || '')
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;')
-		.replace(/\"/g, '&quot;');
+	if (str == null) return '';
+	// Handle arrays and plain objects more gracefully so templates don't render
+	// the unhelpful "[object Object]" string. Arrays are joined with comma,
+	// objects are JSON-stringified as a last resort.
+	let raw: string;
+	if (Array.isArray(str)) {
+		raw = str
+			.map((s) => (s == null ? '' : String(s)))
+			.filter(Boolean)
+			.join(', ');
+	} else if (typeof str === 'object') {
+		try {
+			raw = JSON.stringify(str);
+		} catch {
+			raw = String(str);
+		}
+	} else {
+		raw = String(str);
+	}
+	return raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');
 }
 
 export function normalizePersonLabel(str) {
