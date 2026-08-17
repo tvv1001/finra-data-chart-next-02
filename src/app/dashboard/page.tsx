@@ -1336,6 +1336,16 @@ function DashboardPageInner() {
 			});
 			const data = await res.json().catch(() => null);
 			if (data?.ok) {
+				// Debug: surface what the API returned in the client console and on window for inspection
+				try {
+					console.debug('[dashboard] loadNewCrdsFromRedis: fetched', data.newCrds);
+					// expose temporarily for quick inspection in the browser console
+					// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+					// @ts-ignore
+					window.__NEW_CRDS_PAYLOAD = data.newCrds;
+				} catch (e) {
+					// ignore
+				}
 				setNewCrds(Array.isArray(data.newCrds) ? data.newCrds : []);
 			}
 		} catch (err) {
