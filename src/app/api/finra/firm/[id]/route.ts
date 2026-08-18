@@ -84,6 +84,14 @@ function buildSecDocumentLinks(id: string) {
 	];
 }
 
+function buildFinraDocumentLinks(id: string) {
+	if (!id) return [];
+	return [
+		{ label: 'FINRA BrokerCheck Summary', href: `https://brokercheck.finra.org/firm/summary/${id}` },
+		{ label: 'FINRA Firm Detail (BrokerCheck)', href: `https://brokercheck.finra.org/firm/summary/${id}` },
+	];
+}
+
 function normalizeSecFirmId(value: string | number | null | undefined) {
 	const raw = String(value || '').trim();
 	if (!raw) return '';
@@ -126,6 +134,39 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	}
 	const isMergedRoute = request.nextUrl.searchParams.get('merged') === '1';
 	const forceRefresh = request.nextUrl.searchParams.get('forceRefresh') === '1';
+
+	// If a merged disk fallback file exists and the caller requested the merged view,
+	// prefer returning the precomputed merged payload immediately. This avoids
+	// unnecessary external fetches and prevents the server from logging a disk
+	// fallback during normal dev work where merged files are intentionally created.
+	if (isMergedRoute) {
+		try {
+			const fs = require('fs');
+			const path = require('path');
+			const mergedFile = path.join(process.cwd(), 'data', 'national', `finra-firm-${id}.json`);
+			if (fs.existsSync(mergedFile)) {
+				const raw = fs.readFileSync(mergedFile, 'utf8');
+				const parsed = JSON.parse(raw);
+				if (parsed && parsed.merged) {
+					logger.info('serving-merged-disk-file', { id, file: mergedFile });
+					return NextResponse.json(
+						{
+							firmId: id,
+							found: parsed.found !== false,
+							hasFinraData: Boolean(parsed.merged?.hasFinraData) || Boolean(parsed.sources?.finra),
+							hasSecData: Boolean(parsed.merged?.hasSecData) || Boolean(parsed.sources?.sec),
+							finraNode: parsed.merged,
+							sources: parsed.sources || { finra: parsed.sources?.finra, sec: parsed.sources?.sec },
+							merged: parsed.merged,
+						},
+						{ headers: sharedCacheHeaders(3600) },
+					);
+				}
+			}
+		} catch (e) {
+			// ignore and continue to normal fetch path
+		}
+	}
 
 	if (forceRefresh) {
 		// Evict upstream detail caches and the precomputed firm-connections cache
@@ -191,6 +232,21 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				}
 			}),
 		]);
+
+		// Also fetch the FINRA BrokerCheck summary HTML so we can detect a real upstream
+		// detail page (and reserve the orphan template only for records that actually
+		// have an API detail page present).
+		const finraPageData = await cachedFetch(`finra:firm:summaryHtml:${id}`, 60 * 60 * 24, async () => {
+			try {
+				const url = `https://brokercheck.finra.org/firm/summary/${encodeURIComponent(id)}`;
+				const res = await fetch(url, { ...fetchOptions, headers: { ...fetchOptions.headers, Referer: 'https://brokercheck.finra.org/' } });
+				if (!res.ok) throw new Error(`HTTP ${res.status}`);
+				return res.text();
+			} catch (err: any) {
+				logger.warn('FINRA firm summaryHtml fetch failed', { id, error: err.message });
+				return undefined;
+			}
+		});
 
 		console.log('bcData status', bcData.status, (bcData as any).value ? 'has value' : 'no value');
 		let bcDetail: any = null;
@@ -283,6 +339,36 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			}
 		}
 
+		// Determine whether the upstream SEC/FINRA summary pages exist and look valid.
+		const secHtml = secPageData?.status === 'fulfilled' ? secPageData.value : null;
+		let secPageValid = false;
+		try {
+			if (typeof secHtml === 'string' && secHtml.trim().length > 200) {
+				const low = secHtml.toLowerCase();
+				if (low.includes('firm summary') || low.includes('adviserinfo') || (String(id) && low.includes(`/firm/summary/${String(id).toLowerCase()}`))) {
+					secPageValid = true;
+				}
+				if (!secPageValid && secHtml.length > 5000) secPageValid = true;
+			}
+		} catch (e) {
+			secPageValid = false;
+		}
+
+		// finraPageData is the actual fetched text (or undefined) from cachedFetch above.
+		const finraHtml = typeof finraPageData === 'string' ? finraPageData : null;
+		let finraPageValid = false;
+		try {
+			if (typeof finraHtml === 'string' && finraHtml.trim().length > 200) {
+				const low = finraHtml.toLowerCase();
+				if (low.includes('brokercheck') || low.includes('firm summary') || (String(id) && low.includes(`/firm/summary/${String(id).toLowerCase()}`))) {
+					finraPageValid = true;
+				}
+				if (!finraPageValid && finraHtml.length > 5000) finraPageValid = true;
+			}
+		} catch (e) {
+			finraPageValid = false;
+		}
+
 		if (!bcDetail && !secDetail) {
 			// If FINRA/SEC search returns a hit, but it lacks a full detail profile (no `content` / `iacontent`),
 			// construct an orphan from the search hit rather than falling back immediately.
@@ -291,7 +377,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			const searchHit = bcSearchHit || secSearchHit;
 
 			let orphan = null;
-			if (searchHit) {
+			// Strict orphan rule: only return an orphan when an upstream detail page exists
+			// (FINRA or SEC summary). Do NOT construct orphans from plain search hits.
+			const externalDetailPageExists = Boolean(secPageValid || finraPageValid);
+			if (searchHit && externalDetailPageExists) {
 				orphan = {
 					firmId: id,
 					firmName: searchHit.firm_name || searchHit.firmName || searchHit.name || `Firm ${id}`,
@@ -300,11 +389,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					firmStatus: searchHit.firmStatus || searchHit.status || searchHit.registrationStatus || 'Terminated',
 					bdSECNumber: searchHit.firm_bd_sec_number || searchHit.bdSecNumber,
 					iaSECNumber: searchHit.firm_ia_sec_number || searchHit.iaSecNumber,
+					_externalPages: { finra: finraPageValid, sec: secPageValid },
 				};
-			} else {
-				// Last resort: check the local firm-reference index for scraped mentions
-				orphan = await lookupFirmReference(id).catch(() => null);
 			}
+
+			// NOTE: lookupFirmReference is intentionally NOT used here — per the strict rule,
+			// orphan template is reserved only for records with an actual API detail page.
 
 			if (orphan) {
 				return NextResponse.json(
@@ -360,9 +450,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		}
 
 		const secFirmId = normalizeSecFirmId(detail?.basicInformation?.bdSECNumber || detail?.basicInformation?.bdSecNumber || detail?.bdSECNumber || detail?.bdSecNumber || id);
-
-		const secHtml = secPageData?.status === 'fulfilled' ? secPageData.value : null;
-		const secPageValid = false;
 		detail.hasFinraData = hasPublicFinraFirmDetail(bcDetail, bcDetail?.basicInformation || {});
 
 		const suppressSecLinks = SUPPRESSED_SEC_FIRM_IDS.has(id);
@@ -374,12 +461,26 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		}
 
 		if (!suppressSecLinks && Boolean(secFirmId) && (!Array.isArray(detail.secDocumentLinks) || !detail.secDocumentLinks.length)) {
-			detail.secDocumentLinks = buildSecDocumentLinks(secFirmId);
+			// Only attach SEC document links if the SEC summary page appears valid; otherwise hide the button
+			if (secPageValid) {
+				detail.secDocumentLinks = buildSecDocumentLinks(secFirmId);
+			} else {
+				detail.secDocumentLinks = [];
+			}
 		}
 
 		if (!detail.hasSecData) {
 			detail.secSummaryDescription = undefined;
 			detail.secDocumentLinks = [];
+		}
+
+		// Attach FINRA BrokerCheck links when FINRA content exists so UI can render a FINRA button.
+		try {
+			if (bcDetail && (!Array.isArray(detail.finraDocumentLinks) || !detail.finraDocumentLinks.length)) {
+				detail.finraDocumentLinks = buildFinraDocumentLinks(id);
+			}
+		} catch (e) {
+			// noop
 		}
 
 		// Queue background hydration of the external API to ensure cache stays hydrated

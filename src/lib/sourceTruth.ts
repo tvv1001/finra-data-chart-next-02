@@ -153,7 +153,12 @@ export function hasFirmSourceCoverage(detail: unknown, source: SourceDomain): bo
 	if (isInScopeValue(scope)) return true;
 
 	if (source === 'finra') {
-		if (String(detail.isLegacy || basic.isLegacy || '').trim().toUpperCase() === 'Y') return true;
+		if (
+			String(detail.isLegacy || basic.isLegacy || '')
+				.trim()
+				.toUpperCase() === 'Y'
+		)
+			return true;
 		if (Array.isArray(detail.selfRegulatoryOrgs) && detail.selfRegulatoryOrgs.length > 0) return true;
 		if (Boolean(String(detail.districtName || basic.districtName || '').trim())) return true;
 		if (Boolean(String(detail.bdSECNumber || detail.bdSecNumber || basic.bdSECNumber || basic.bdSecNumber || '').trim())) return true;
@@ -162,8 +167,10 @@ export function hasFirmSourceCoverage(detail: unknown, source: SourceDomain): bo
 
 	if (Boolean(String(detail.iaSECNumber || detail.iaSecNumber || basic.iaSECNumber || basic.iaSecNumber || '').trim())) return true;
 	if (Array.isArray(detail.noticeFilings) && detail.noticeFilings.length > 0) return true;
+	if (Array.isArray(basic.noticeFilings) && basic.noticeFilings.length > 0) return true;
 	if (Array.isArray(detail.brochures) && detail.brochures.length > 0) return true;
-	if (isPlainObject(detail.crs)) return true;
+	if (Array.isArray(basic.brochures) && basic.brochures.length > 0) return true;
+	if (isPlainObject(detail.crs) || isPlainObject(basic.crs)) return true;
 	return false;
 }
 
