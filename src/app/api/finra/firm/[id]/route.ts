@@ -279,6 +279,35 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			bcDetail = parseDetailPayload(bcData.value, 'content');
 		}
 
+		// If we found a Redis-backed payload but parsing produced no usable detail,
+		// treat that as "poor data" and attempt a one-off refresh from the external
+		// API (without persisting) so the UI shows a fixed view while you navigate.
+		if (!bcDetail && bcData.status === 'fulfilled' && bcData.value) {
+			try {
+				logger.info('poor-data-detected-in-redis-key', { id, key: `finra:firm:${id}` });
+				// Remove the bad key so cachedFetch/external fetchers will be able to
+				// provide a fresh value.
+				await evictCacheKey(`finra:firm:${id}`);
+				// Try an immediate external fetch to replace the bad value in-memory for
+				// this request. Do not persist unless writeRequested is true (handled
+				// later).
+				try {
+					const url = `https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(id)}?hl=true&wt=json`;
+					const res = await fetch(url, { headers: fetchOptions.headers, next: fetchOptions.next });
+					if (res.ok) {
+						const fresh = await res.json();
+						bcData.value = fresh;
+						bcDetail = parseDetailPayload(fresh, 'content');
+						logger.info('refreshed-poor-redis-key-from-external', { id, key: `finra:firm:${id}` });
+					}
+				} catch (e) {
+					// ignore external fetch errors — fall through
+				}
+			} catch (e) {
+				// ignore
+			}
+		}
+
 		// Additional fallback: some cached payloads use a different envelope (finraBrokerCheck)
 		if (!bcDetail && bcData.status === 'fulfilled' && bcData.value && typeof bcData.value === 'object') {
 			if (bcData.value.finraBrokerCheck && typeof bcData.value.finraBrokerCheck === 'object') {
@@ -325,6 +354,28 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		let secDetail: any = null;
 		if (secData.status === 'fulfilled') {
 			secDetail = parseDetailPayload(secData.value, 'iacontent');
+		}
+
+		// Same poor-data detection & refresh for SEC payloads
+		if (!secDetail && secData.status === 'fulfilled' && secData.value) {
+			try {
+				logger.info('poor-data-detected-in-redis-key', { id, key: `sec:firm:${id}` });
+				await evictCacheKey(`sec:firm:${id}`);
+				try {
+					const url = `https://api.adviserinfo.sec.gov/search/firm/${encodeURIComponent(id)}?wt=json`;
+					const res = await fetch(url, { headers: { ...fetchOptions.headers, Referer: 'https://adviserinfo.sec.gov/' }, next: fetchOptions.next });
+					if (res.ok) {
+						const fresh = await res.json();
+						secData.value = fresh;
+						secDetail = parseDetailPayload(fresh, 'iacontent');
+						logger.info('refreshed-poor-redis-key-from-external', { id, key: `sec:firm:${id}` });
+					}
+				} catch (e) {
+					// ignore
+				}
+			} catch (e) {
+				// ignore
+			}
 		}
 
 		// Additional fallback: sec envelope variations
