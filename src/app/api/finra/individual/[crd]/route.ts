@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { cachedFetch, evictCacheKey } from '@/lib/simpleCache';
+import { setStringIfValid } from '@/lib/redisCache';
 import { isValidCrd, ensurePersonCrd, makeRedisKey } from '@/lib/crd';
 import { rememberRecentSeed } from '@/lib/seedStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
@@ -179,6 +180,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	const crdNorm = ensurePersonCrd(crd);
 	const isMergedRoute = request.nextUrl.searchParams.get('merged') === '1';
 	const forceRefresh = request.nextUrl.searchParams.get('forceRefresh') === '1';
+	const writeRequested = request.nextUrl.searchParams.get('write') === '1' || request.nextUrl.searchParams.get('refreshWrite') === '1';
 
 	if (forceRefresh) {
 		await Promise.allSettled([evictCacheKey(makeRedisKey('finra', 'individual', crdNorm)), evictCacheKey(makeRedisKey('sec', 'individual', crdNorm))]);
@@ -227,6 +229,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		const finraData = requests[0].status === 'fulfilled' ? requests[0].value : null;
 		const secData = requests[1].status === 'fulfilled' ? requests[1].value : null;
 
+		function isPoorIndividualPayload(detail: any, raw: any) {
+			// Null parsing => poor
+			if (!detail) return true;
+			// Missing any name and no numeric id and no employment links => poor
+			const numeric = findNumericId(detail, ['individualId', 'individual_id', 'crd', 'ind_crd', 'ind_source_id']);
+			const hasName = Boolean(detail.firstName || detail.lastName || detail.personName || detail.displayName);
+			const hasEmployment = hasEmploymentLinkData(detail);
+			if (!numeric && !hasName && !hasEmployment) return true;
+			// Otherwise assume OK
+			return false;
+		}
+
 		// Scraped-only reference record: no live FINRA/SEC detail, surface the orphan metadata as-is.
 		if (isOrphanIndividualPayload(finraData) || isOrphanIndividualPayload(secData)) {
 			const orphanPayload = isOrphanIndividualPayload(finraData) ? finraData : secData;
@@ -238,6 +252,82 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		let finraDetail = parseDetailPayload(finraData, 'content');
 		const secDetail = parseDetailPayload(secData, 'iacontent');
+
+		// Auto-heal: If Redis contained a payload but parsing produced poor data,
+		// evict the bad key, fetch fresh from the external API, and optionally
+		// persist when UPSTASH_ALLOW_WRITES=1 or caller requested `write=1`.
+		if (isPoorIndividualPayload(finraDetail, finraData) && finraData) {
+			try {
+				logger.info('poor-data-detected-in-redis-key', { crd, key: makeRedisKey('finra', 'individual', crdNorm) });
+				await evictCacheKey(makeRedisKey('finra', 'individual', crdNorm));
+				try {
+					const finraUrl = `https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`;
+					const res = await fetch(finraUrl, fetchOptions);
+					if (res.ok) {
+						const fresh = await res.json();
+						const refreshed = parseDetailPayload(fresh, 'content');
+						if (refreshed) {
+							finraDetail = refreshed;
+							logger.info('refreshed-poor-redis-key-from-external', { crd, key: makeRedisKey('finra', 'individual', crdNorm) });
+							// push dashboard alert
+							try {
+								const redis = getRedisClientInstance({ url: process.env.UPSTASH_REDIS_REST_URL || '', token: process.env.UPSTASH_REDIS_REST_TOKEN || '' });
+								if (redis) {
+									await redis.lpush('dashboard:alerts', JSON.stringify({ at: new Date().toISOString(), id: crd, entity: 'individual', type: 'auto-heal', source: 'finra' }));
+									await redis.ltrim('dashboard:alerts', 0, 999).catch(() => null);
+								}
+							} catch {}
+							// auto-write when allowed or requested
+							if (String(process.env.UPSTASH_ALLOW_WRITES || '').toLowerCase() === '1' || writeRequested) {
+								try {
+									await setStringIfValid(makeRedisKey('finra', 'individual', crdNorm), JSON.stringify(fresh), null);
+								} catch {}
+							}
+						}
+					}
+				} catch (e) {
+					// ignore external fetch errors
+				}
+			} catch (e) {
+				// ignore
+			}
+		}
+
+		if (isPoorIndividualPayload(secDetail, secData) && secData) {
+			try {
+				logger.info('poor-data-detected-in-redis-key', { crd, key: makeRedisKey('sec', 'individual', crdNorm) });
+				await evictCacheKey(makeRedisKey('sec', 'individual', crdNorm));
+				try {
+					const secUrl = `https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`;
+					const res = await fetch(secUrl, fetchOptions);
+					if (res.ok) {
+						const fresh = await res.json();
+						const refreshed = parseDetailPayload(fresh, 'iacontent');
+						if (refreshed) {
+							// set secDetail and optionally persist
+							// Note: secDetail is const; we'll not reassign but use refreshed for merging
+							logger.info('refreshed-poor-redis-key-from-external', { crd, key: makeRedisKey('sec', 'individual', crdNorm) });
+							try {
+								const redis = getRedisClientInstance({ url: process.env.UPSTASH_REDIS_REST_URL || '', token: process.env.UPSTASH_REDIS_REST_TOKEN || '' });
+								if (redis) {
+									await redis.lpush('dashboard:alerts', JSON.stringify({ at: new Date().toISOString(), id: crd, entity: 'individual', type: 'auto-heal', source: 'sec' }));
+									await redis.ltrim('dashboard:alerts', 0, 999).catch(() => null);
+								}
+							} catch {}
+							if (String(process.env.UPSTASH_ALLOW_WRITES || '').toLowerCase() === '1' || writeRequested) {
+								try {
+									await setStringIfValid(makeRedisKey('sec', 'individual', crdNorm), JSON.stringify(fresh), null);
+								} catch {}
+							}
+						}
+					}
+				} catch (e) {
+					// ignore
+				}
+			} catch (e) {
+				// ignore
+			}
+		}
 
 		const shouldForceFinraRefetch = !finraDetail && secDetail && indicatesFinraCoverage(secDetail) && !hasEmploymentLinkData(secDetail);
 
