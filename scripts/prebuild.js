@@ -40,9 +40,14 @@ function ensureLocalGraphArtifact(reason) {
 	}
 
 	console.warn(`No local finra-graph.json available (${reason}); rebuilding graph from local cache instead.`);
-	execSync('node scripts/build_graph_from_cache.js --employment-scope all --no-redis', {
-		stdio: 'inherit',
-	});
+	const graphBuilder = path.join(process.cwd(), 'scripts', 'build_graph_from_cache.js');
+	if (fs.existsSync(graphBuilder)) {
+		execSync(`node ${graphBuilder} --employment-scope all --no-redis`, {
+			stdio: 'inherit',
+		});
+	} else {
+		console.warn('Skipping graph rebuild: scripts/build_graph_from_cache.js is not present in this checkout.');
+	}
 }
 
 function shouldSkipRemoteGraphSync() {
@@ -98,9 +103,14 @@ if (url && token) {
 execSync('node scripts/build_workers.js', {
 	stdio: 'inherit',
 });
-execSync('node scripts/build_graph_from_cache.js --employment-scope all --no-redis', {
-	stdio: 'inherit',
-});
+const graphBuilder = path.join(process.cwd(), 'scripts', 'build_graph_from_cache.js');
+if (fs.existsSync(graphBuilder)) {
+	execSync(`node ${graphBuilder} --employment-scope all --no-redis`, {
+		stdio: 'inherit',
+	});
+} else {
+	console.warn('Skipping graph rebuild: scripts/build_graph_from_cache.js is not present in this checkout.');
+}
 
 if (canRebuildSearchIndexes()) {
 	execSync('node scripts/build_search_indexes.js', {
