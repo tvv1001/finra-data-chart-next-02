@@ -135,36 +135,42 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	const isMergedRoute = request.nextUrl.searchParams.get('merged') === '1';
 	const forceRefresh = request.nextUrl.searchParams.get('forceRefresh') === '1';
 
+	const useRedisOnly = String(process.env.USE_REDIS_ONLY || '').toLowerCase() === '1';
+
 	// If a merged disk fallback file exists and the caller requested the merged view,
 	// prefer returning the precomputed merged payload immediately. This avoids
 	// unnecessary external fetches and prevents the server from logging a disk
 	// fallback during normal dev work where merged files are intentionally created.
 	if (isMergedRoute) {
-		try {
-			const fs = require('fs');
-			const path = require('path');
-			const mergedFile = path.join(process.cwd(), 'data', 'national', `finra-firm-${id}.json`);
-			if (fs.existsSync(mergedFile)) {
-				const raw = fs.readFileSync(mergedFile, 'utf8');
-				const parsed = JSON.parse(raw);
-				if (parsed && parsed.merged) {
-					logger.info('serving-merged-disk-file', { id, file: mergedFile });
-					return NextResponse.json(
-						{
-							firmId: id,
-							found: parsed.found !== false,
-							hasFinraData: Boolean(parsed.merged?.hasFinraData) || Boolean(parsed.sources?.finra),
-							hasSecData: Boolean(parsed.merged?.hasSecData) || Boolean(parsed.sources?.sec),
-							finraNode: parsed.merged,
-							sources: parsed.sources || { finra: parsed.sources?.finra, sec: parsed.sources?.sec },
-							merged: parsed.merged,
-						},
-						{ headers: sharedCacheHeaders(3600) },
-					);
+		if (useRedisOnly) {
+			logger.info('skipping-merged-disk-file-due-to-USE_REDIS_ONLY', { id });
+		} else {
+			try {
+				const fs = require('fs');
+				const path = require('path');
+				const mergedFile = path.join(process.cwd(), 'data', 'national', `finra-firm-${id}.json`);
+				if (fs.existsSync(mergedFile)) {
+					const raw = fs.readFileSync(mergedFile, 'utf8');
+					const parsed = JSON.parse(raw);
+					if (parsed && parsed.merged) {
+						logger.info('serving-merged-disk-file', { id, file: mergedFile });
+						return NextResponse.json(
+							{
+								firmId: id,
+								found: parsed.found !== false,
+								hasFinraData: Boolean(parsed.merged?.hasFinraData) || Boolean(parsed.sources?.finra),
+								hasSecData: Boolean(parsed.merged?.hasSecData) || Boolean(parsed.sources?.sec),
+								finraNode: parsed.merged,
+								sources: parsed.sources || { finra: parsed.sources?.finra, sec: parsed.sources?.sec },
+								merged: parsed.merged,
+							},
+							{ headers: sharedCacheHeaders(3600) },
+						);
+					}
 				}
+			} catch (e) {
+				// ignore and continue to normal fetch path
 			}
-		} catch (e) {
-			// ignore and continue to normal fetch path
 		}
 	}
 
@@ -265,31 +271,35 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		// Fallback: if parse failed (possibly due to primed-bundle collision), try reading
 		// the local disk cache file directly as a last resort so local dev shows details.
 		if (!bcDetail) {
-			try {
-				const fs = require('fs');
-				const path = require('path');
-				const filePath = path.join(process.cwd(), 'data', 'national', 'brokercheck.finra.org', `api.brokercheck.finra.org_search_firm_${id}.json`);
-				if (fs.existsSync(filePath)) {
-					const raw = fs.readFileSync(filePath, 'utf8');
-					const parsed = JSON.parse(raw);
-					const alt = parseDetailPayload(parsed, 'content');
-					if (alt) {
-						bcDetail = alt;
-						logger.info('firm-detail-disk-fallback', { id, source: 'finra', note: 'used disk cache fallback for finra firm detail' });
-						try {
-							const redis = getRedisClientInstance({ url: process.env.UPSTASH_REDIS_REST_URL || '', token: process.env.UPSTASH_REDIS_REST_TOKEN || '' });
-							await redis.lpush(
-								'dashboard:alerts',
-								JSON.stringify({ at: new Date().toISOString(), id, source: 'finra', type: 'disk-fallback', note: 'used disk cache fallback for finra firm detail' }),
-							);
-							await redis.ltrim('dashboard:alerts', 0, 499).catch(() => null);
-						} catch (e) {
-							// ignore alerting errors
+			if (useRedisOnly) {
+				logger.info('skipping-bc-disk-fallback-due-to-USE_REDIS_ONLY', { id });
+			} else {
+				try {
+					const fs = require('fs');
+					const path = require('path');
+					const filePath = path.join(process.cwd(), 'data', 'national', 'brokercheck.finra.org', `api.brokercheck.finra.org_search_firm_${id}.json`);
+					if (fs.existsSync(filePath)) {
+						const raw = fs.readFileSync(filePath, 'utf8');
+						const parsed = JSON.parse(raw);
+						const alt = parseDetailPayload(parsed, 'content');
+						if (alt) {
+							bcDetail = alt;
+							logger.info('firm-detail-disk-fallback', { id, source: 'finra', note: 'used disk cache fallback for finra firm detail' });
+							try {
+								const redis = getRedisClientInstance({ url: process.env.UPSTASH_REDIS_REST_URL || '', token: process.env.UPSTASH_REDIS_REST_TOKEN || '' });
+								await redis.lpush(
+									'dashboard:alerts',
+									JSON.stringify({ at: new Date().toISOString(), id, source: 'finra', type: 'disk-fallback', note: 'used disk cache fallback for finra firm detail' }),
+								);
+								await redis.ltrim('dashboard:alerts', 0, 499).catch(() => null);
+							} catch (e) {
+								// ignore alerting errors
+							}
 						}
 					}
+				} catch (e) {
+					// ignore fallback errors
 				}
-			} catch (e) {
-				// ignore fallback errors
 			}
 		}
 
@@ -311,31 +321,35 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		// Disk fallback for SEC detail when cached/primed fetch returns non-detail.
 		if (!secDetail) {
-			try {
-				const fs = require('fs');
-				const path = require('path');
-				const filePath = path.join(process.cwd(), 'data', 'national', 'adviserinfo.sec.gov', `api.adviserinfo.sec.gov_search_firm_${id}.json`);
-				if (fs.existsSync(filePath)) {
-					const raw = fs.readFileSync(filePath, 'utf8');
-					const parsed = JSON.parse(raw);
-					const alt = parseDetailPayload(parsed, 'iacontent');
-					if (alt) {
-						secDetail = alt;
-						logger.info('firm-detail-disk-fallback', { id, source: 'sec', note: 'used disk cache fallback for sec firm detail' });
-						try {
-							const redis2 = getRedisClientInstance({ url: process.env.UPSTASH_REDIS_REST_URL || '', token: process.env.UPSTASH_REDIS_REST_TOKEN || '' });
-							await redis2.lpush(
-								'dashboard:alerts',
-								JSON.stringify({ at: new Date().toISOString(), id, source: 'sec', type: 'disk-fallback', note: 'used disk cache fallback for sec firm detail' }),
-							);
-							await redis2.ltrim('dashboard:alerts', 0, 499).catch(() => null);
-						} catch (e) {
-							// ignore alerting errors
+			if (useRedisOnly) {
+				logger.info('skipping-sec-disk-fallback-due-to-USE_REDIS_ONLY', { id });
+			} else {
+				try {
+					const fs = require('fs');
+					const path = require('path');
+					const filePath = path.join(process.cwd(), 'data', 'national', 'adviserinfo.sec.gov', `api.adviserinfo.sec.gov_search_firm_${id}.json`);
+					if (fs.existsSync(filePath)) {
+						const raw = fs.readFileSync(filePath, 'utf8');
+						const parsed = JSON.parse(raw);
+						const alt = parseDetailPayload(parsed, 'iacontent');
+						if (alt) {
+							secDetail = alt;
+							logger.info('firm-detail-disk-fallback', { id, source: 'sec', note: 'used disk cache fallback for sec firm detail' });
+							try {
+								const redis2 = getRedisClientInstance({ url: process.env.UPSTASH_REDIS_REST_URL || '', token: process.env.UPSTASH_REDIS_REST_TOKEN || '' });
+								await redis2.lpush(
+									'dashboard:alerts',
+									JSON.stringify({ at: new Date().toISOString(), id, source: 'sec', type: 'disk-fallback', note: 'used disk cache fallback for sec firm detail' }),
+								);
+								await redis2.ltrim('dashboard:alerts', 0, 499).catch(() => null);
+							} catch (e) {
+								// ignore alerting errors
+							}
 						}
 					}
+				} catch (e) {
+					// ignore
 				}
-			} catch (e) {
-				// ignore
 			}
 		}
 
