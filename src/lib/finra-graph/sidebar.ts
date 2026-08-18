@@ -1488,7 +1488,7 @@ export function renderFirmDetail(d: any) {
     <div class='fg-sb-body'>
       <div class='fg-ext-links'>
         ${showBrokerCheckSummary ? `<a class='fg-ext-link bc' href='https://brokercheck.finra.org/firm/summary/${encodeURIComponent(firmId)}' target='_blank' rel='noopener noreferrer'>&#x2197; FINRA Summary</a>` : ''}
-        ${secDocumentLinks.map((link) => (link?.href ? `<a class='fg-ext-link sec' href='${esc(link.href)}' target='_blank' rel='noopener noreferrer'>&#x2197; ${esc(link.label)}</a>` : '')).join('')}
+		${showSec ? secDocumentLinks.map((link) => (link?.href ? `<a class='fg-ext-link sec' href='${esc(link.href)}' target='_blank' rel='noopener noreferrer'>&#x2197; ${esc(link.label)}</a>` : '')).join('') : ''}
         ${dashboardHref ? `<a class='fg-ext-link dashboard' href='${esc(dashboardHref)}' onclick='event.stopPropagation()'>Dashboard details</a>` : ''}
       </div>
       ${secSummaryDescription ? `<div class='fg-section-title'>SEC summary</div><p class='fg-sb-note'>${esc(secSummaryDescription)}</p>` : ''}
