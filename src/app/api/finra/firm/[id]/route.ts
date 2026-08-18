@@ -299,6 +299,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 						bcData.value = fresh;
 						bcDetail = parseDetailPayload(fresh, 'content');
 						logger.info('refreshed-poor-redis-key-from-external', { id, key: `finra:firm:${id}` });
+						try {
+							const redis = getRedisClientInstance({ url: process.env.UPSTASH_REDIS_REST_URL || '', token: process.env.UPSTASH_REDIS_REST_TOKEN || '' });
+							if (redis) {
+								await redis.lpush('dashboard:alerts', JSON.stringify({ at: new Date().toISOString(), id, entity: 'firm', type: 'auto-heal', source: 'finra' }));
+								await redis.ltrim('dashboard:alerts', 0, 999).catch(() => null);
+							}
+						} catch (e) {}
 						// Auto-persist when UPSTASH_ALLOW_WRITES=1 or when caller explicitly requested write
 						if (String(process.env.UPSTASH_ALLOW_WRITES || '').toLowerCase() === '1' || writeRequested) {
 							try {
@@ -378,6 +385,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 						secData.value = fresh;
 						secDetail = parseDetailPayload(fresh, 'iacontent');
 						logger.info('refreshed-poor-redis-key-from-external', { id, key: `sec:firm:${id}` });
+						try {
+							const redis2 = getRedisClientInstance({ url: process.env.UPSTASH_REDIS_REST_URL || '', token: process.env.UPSTASH_REDIS_REST_TOKEN || '' });
+							if (redis2) {
+								await redis2.lpush('dashboard:alerts', JSON.stringify({ at: new Date().toISOString(), id, entity: 'firm', type: 'auto-heal', source: 'sec' }));
+								await redis2.ltrim('dashboard:alerts', 0, 999).catch(() => null);
+							}
+						} catch (e) {}
 						// Auto-persist when UPSTASH_ALLOW_WRITES=1 or when caller explicitly requested write
 						if (String(process.env.UPSTASH_ALLOW_WRITES || '').toLowerCase() === '1' || writeRequested) {
 							try {
