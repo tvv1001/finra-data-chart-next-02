@@ -5,6 +5,7 @@ import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
 import { queueHydration } from '@/lib/hydration';
 import { getRedisClientInstance } from '@/lib/redisClient';
+import { compressPayload } from '@/lib/redisCache';
 import { addRecordToSearchIndex } from '@/lib/localSearch';
 import { getFirmConnectionsFromGraph } from '@/lib/graphConnections';
 import { recordOwnerReferencesForFirm, lookupFirmReference } from '@/lib/ownerReferenceIndex';
@@ -134,6 +135,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	}
 	const isMergedRoute = request.nextUrl.searchParams.get('merged') === '1';
 	const forceRefresh = request.nextUrl.searchParams.get('forceRefresh') === '1';
+	const writeRequested = request.nextUrl.searchParams.get('write') === '1' || request.nextUrl.searchParams.get('refreshWrite') === '1';
 
 	const useRedisOnly = String(process.env.USE_REDIS_ONLY || '').toLowerCase() === '1';
 
@@ -184,6 +186,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			evictCacheKey(graphConnKey),
 			evictCacheKey(`${graphConnKey}:empty`),
 		]);
+
+		if (writeRequested) {
+			// also clear the finra/sec keys so subsequent external fetches are fresh
+			try {
+				const redis = getRedisClientInstance({ url: process.env.UPSTASH_REDIS_REST_URL || '', token: process.env.UPSTASH_REDIS_REST_TOKEN || '' });
+				if (redis) {
+					await Promise.allSettled([
+						redis.del(`finra:firm:${id}`),
+						redis.del(`sec:firm:${id}`),
+						redis.del(`finra:firm:summaryHtml:${id}`),
+						redis.del(`sec:firm:summaryHtml:${id}`),
+					]);
+				}
+			} catch (e) {
+				// ignore
+			}
+		}
 	}
 
 	void rememberRecentSeed('firm', id).catch((error) => {
@@ -563,6 +582,33 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			await addRecordToSearchIndex('finra', 'firm', id, searchIndexDetail);
 		} catch (searchIndexErr: any) {
 			logger.warn('failed to update local firm search index from detail route', { id, error: searchIndexErr?.message || String(searchIndexErr) });
+		}
+
+		// If the caller explicitly requested writes, persist the fresh external
+		// responses into Redis regardless of UPSTASH_ALLOW_WRITES so you can
+		// validate FINRA+SEC payloads on-demand. This is a one-off action gated by
+		// the `write=1` or `refreshWrite=1` query parameter.
+		if (writeRequested) {
+			try {
+				const redis = getRedisClientInstance({ url: process.env.UPSTASH_REDIS_REST_URL || '', token: process.env.UPSTASH_REDIS_REST_TOKEN || '' });
+				if (redis) {
+					// FINRA JSON
+					if (bcData?.status === 'fulfilled' && bcData?.value) {
+						const raw = JSON.stringify(bcData.value);
+						await redis.set(`finra:firm:${id}`, compressPayload(raw)).catch(() => null);
+					}
+					// SEC JSON
+					if (secData?.status === 'fulfilled' && secData?.value) {
+						const raw = JSON.stringify(secData.value);
+						await redis.set(`sec:firm:${id}`, compressPayload(raw)).catch(() => null);
+					}
+					// Summary HTML (plain string)
+					if (typeof finraPageData === 'string') await redis.set(`finra:firm:summaryHtml:${id}`, finraPageData).catch(() => null);
+					if (typeof secPageData === 'string') await redis.set(`sec:firm:summaryHtml:${id}`, secPageData).catch(() => null);
+				}
+			} catch (e) {
+				logger.warn('failed to write refresh keys to redis', { id, error: e?.message || String(e) });
+			}
 		}
 
 		if (isMergedRoute) {
