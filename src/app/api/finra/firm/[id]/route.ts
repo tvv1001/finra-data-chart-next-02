@@ -5,7 +5,7 @@ import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
 import { queueHydration } from '@/lib/hydration';
 import { getRedisClientInstance } from '@/lib/redisClient';
-import { compressPayload } from '@/lib/redisCache';
+import { compressPayload, setStringIfValid } from '@/lib/redisCache';
 import { addRecordToSearchIndex } from '@/lib/localSearch';
 import { getFirmConnectionsFromGraph } from '@/lib/graphConnections';
 import { recordOwnerReferencesForFirm, lookupFirmReference } from '@/lib/ownerReferenceIndex';
@@ -299,6 +299,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 						bcData.value = fresh;
 						bcDetail = parseDetailPayload(fresh, 'content');
 						logger.info('refreshed-poor-redis-key-from-external', { id, key: `finra:firm:${id}` });
+						// Auto-persist when UPSTASH_ALLOW_WRITES=1 or when caller explicitly requested write
+						if (String(process.env.UPSTASH_ALLOW_WRITES || '').toLowerCase() === '1' || writeRequested) {
+							try {
+								await setStringIfValid(`finra:firm:${id}`, JSON.stringify(fresh), null);
+								logger.info('auto-healed-and-wrote-redis-key', { id, key: `finra:firm:${id}` });
+							} catch (e) {
+								// ignore write errors
+							}
+						}
 					}
 				} catch (e) {
 					// ignore external fetch errors — fall through
@@ -369,6 +378,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 						secData.value = fresh;
 						secDetail = parseDetailPayload(fresh, 'iacontent');
 						logger.info('refreshed-poor-redis-key-from-external', { id, key: `sec:firm:${id}` });
+						// Auto-persist when UPSTASH_ALLOW_WRITES=1 or when caller explicitly requested write
+						if (String(process.env.UPSTASH_ALLOW_WRITES || '').toLowerCase() === '1' || writeRequested) {
+							try {
+								await setStringIfValid(`sec:firm:${id}`, JSON.stringify(fresh), null);
+								logger.info('auto-healed-and-wrote-redis-key', { id, key: `sec:firm:${id}` });
+							} catch (e) {
+								// ignore write errors
+							}
+						}
 					}
 				} catch (e) {
 					// ignore
