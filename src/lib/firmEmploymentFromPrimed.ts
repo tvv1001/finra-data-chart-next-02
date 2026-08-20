@@ -266,19 +266,36 @@ async function getEdgesFromPrecomputedAdj(firmId: string): Promise<PrimedEmploym
 	}
 }
 
-/** Returns current/previous employment edges for a firm (precomputed adj, then primed bundle). */
-export async function getFirmEmploymentEdgesFromPrimed(firmId: string): Promise<PrimedEmploymentEdge[]> {
+export type FirmEmploymentLookupSource = 'adj' | 'bundle' | 'none';
+
+export type FirmEmploymentLookup = {
+	edges: PrimedEmploymentEdge[];
+	source: FirmEmploymentLookupSource;
+};
+
+/**
+ * Reverse-index lookup with provenance.
+ * `adj` is the precomputed complete firm roster (including an authoritative empty list).
+ * `bundle` is a partial scan of the primed individual snapshot and must not be treated as complete.
+ */
+export async function lookupFirmEmploymentEdgesFromPrimed(firmId: string): Promise<FirmEmploymentLookup> {
 	const normalizedFirmId = String(firmId || '').trim();
-	if (!normalizedFirmId) return [];
+	if (!normalizedFirmId) return { edges: [], source: 'none' };
 	try {
 		const precomputed = await getEdgesFromPrecomputedAdj(normalizedFirmId);
-		if (precomputed) return precomputed;
+		if (precomputed) return { edges: precomputed, source: 'adj' };
 
 		const index = await getReverseIndex();
-		return index.get(normalizedFirmId) || [];
+		if (!index.size) return { edges: [], source: 'none' };
+		return { edges: index.get(normalizedFirmId) || [], source: 'bundle' };
 	} catch {
-		return [];
+		return { edges: [], source: 'none' };
 	}
+}
+
+/** Returns current/previous employment edges for a firm (precomputed adj, then primed bundle). */
+export async function getFirmEmploymentEdgesFromPrimed(firmId: string): Promise<PrimedEmploymentEdge[]> {
+	return (await lookupFirmEmploymentEdgesFromPrimed(firmId)).edges;
 }
 
 /** Test helper — reset warm-instance cache. */

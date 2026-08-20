@@ -1,12 +1,1 @@
-{
-  "currentConnections": [
-    {
-      "individualId": "2853423",
-      "name": "MARC AGEL",
-      "relationship": "Current registration",
-      "startDate": "10/21/2021",
-      "isCurrent": true
-    }
-  ],
-  "previousConnections": []
-}
+{"currentConnections":[{"individualId":"5240690","name":"LORI GLUCK MURPHY","relationship":"Current registration","isCurrent":true,"evidence":["official-search-finra","current-employment-record"],"bcScope":"Active","iaScope":"Active"},{"individualId":"4210566","name":"MICHAEL SETH LURIE","relationship":"Current registration","isCurrent":true,"evidence":["official-search-finra","current-employment-record"],"bcScope":"Active","iaScope":"Active"},{"individualId":"2853423","name":"MARC ALLEN AGEL","relationship":"Current registration","isCurrent":true,"evidence":["official-search-finra","current-employment-record"],"bcScope":"Active","iaScope":"Active"},{"individualId":"5418354","name":"MICHAEL JOSEPH CARRILLO","relationship":"Current registration","isCurrent":true,"evidence":["official-search-finra","current-employment-record"],"bcScope":"Active","iaScope":"Active"},{"individualId":"4210326","name":"SUSAN BETHANY HART","relationship":"Current registration","isCurrent":true,"evidence":["official-search-finra","current-employment-record"],"bcScope":"Active","iaScope":"Active"}],"previousConnections":[{"individualId":"5854562","name":"IAN R MANN","relationship":"Previous registration","isCurrent":false,"evidence":["official-search-finra","matched-previous-employment"],"bcScope":"Active","iaScope":"Active"}],"source":"official-search","officialTotals":{"finra":6,"sec":6},"fetchedAt":"2026-08-20T18:41:39.820Z"}

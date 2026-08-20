@@ -4,7 +4,22 @@ import { useEffect } from 'react';
 
 export default function ServiceWorkerRegistration() {
 	useEffect(() => {
-		if (process.env.NODE_ENV !== 'production' || !('serviceWorker' in navigator)) {
+		const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+		if (process.env.NODE_ENV !== 'production' || isLocalhost || !('serviceWorker' in navigator)) {
+			if ('serviceWorker' in navigator && isLocalhost) {
+				navigator.serviceWorker.getRegistrations().then((registrations) => {
+					for (const registration of registrations) {
+						void registration.unregister();
+					}
+				});
+			}
+			if (window.caches && isLocalhost) {
+				window.caches.keys().then((names) => {
+					for (const name of names) {
+						void window.caches.delete(name);
+					}
+				});
+			}
 			return;
 		}
 

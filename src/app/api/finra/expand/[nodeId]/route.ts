@@ -7,7 +7,7 @@ import { logger } from '@/lib/logger';
 import { tryLoadPersonCluster } from '@/lib/peopleClusterCache';
 import { searchLocalIndex } from '@/lib/localSearch';
 import { getFirmConnectionsFromGraph } from '@/lib/graphConnections';
-import { getFirmEmploymentEdgesFromPrimed } from '@/lib/firmEmploymentFromPrimed';
+import { lookupFirmEmploymentEdgesFromPrimed } from '@/lib/firmEmploymentFromPrimed';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -148,27 +148,33 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					seenNodeIds.add(nodeId);
 				}
 
-				// Prefer O(1) precomputed adj / primed reverse edges (dashboard-crds expand path equivalent).
-				// Avoid getFirmConnectionsFromGraph when adj is warm — it still races search fallbacks.
-				let connectionEntries: Array<{ individualId: string; name: string; isCurrent: boolean; startDate?: string; endDate?: string }> = [];
+				// Prefer O(1) precomputed adj when warm (including an authoritative empty roster).
+				// A primed-bundle hit is incomplete — only people in that snapshot — so merge via
+				// getFirmConnectionsFromGraph instead of treating one bundle match as the full list.
+				let connectionEntries: Array<{ individualId?: string; firmId?: string; name: string; isCurrent: boolean; startDate?: string; endDate?: string }> = [];
+				let usedPrecomputedAdj = false;
 				try {
-					const primedEdges = await getFirmEmploymentEdgesFromPrimed(firmId);
-					connectionEntries = primedEdges.map((edge) => ({
-						individualId: edge.personCrd,
-						name: edge.personName,
-						isCurrent: edge.isCurrent,
-						startDate: edge.startDate,
-						endDate: edge.endDate,
-					}));
+					const primedLookup = await lookupFirmEmploymentEdgesFromPrimed(firmId);
+					if (primedLookup.source === 'adj') {
+						usedPrecomputedAdj = true;
+						connectionEntries = primedLookup.edges.map((edge) => ({
+							individualId: edge.personCrd,
+							name: edge.personName,
+							isCurrent: edge.isCurrent,
+							startDate: edge.startDate,
+							endDate: edge.endDate,
+						}));
+					}
 				} catch {
 					connectionEntries = [];
 				}
 
-				if (!connectionEntries.length) {
+				if (!usedPrecomputedAdj) {
 					const { currentConnections = [], previousConnections = [] } = await getFirmConnectionsFromGraph(firmId);
 					connectionEntries = [
 						...currentConnections.map((entry) => ({
 							individualId: entry.individualId,
+							firmId: entry.firmId,
 							name: entry.name,
 							isCurrent: true as boolean,
 							startDate: entry.startDate,
@@ -176,6 +182,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 						})),
 						...previousConnections.map((entry) => ({
 							individualId: entry.individualId,
+							firmId: entry.firmId,
 							name: entry.name,
 							isCurrent: false as boolean,
 							startDate: entry.startDate,
@@ -185,34 +192,36 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				}
 
 				for (const entry of connectionEntries) {
-					const crd = String(entry?.individualId || '').trim();
+					const personCrd = String(entry?.individualId || '').trim();
+					const relatedFirmId = String(entry?.firmId || '').trim();
+					const isFirm = Boolean(relatedFirmId && !personCrd);
+					const crd = isFirm ? relatedFirmId : personCrd;
 					if (!crd) continue;
-					const personId = `person:${crd}`;
-					if (!seenNodeIds.has(personId)) {
+					const otherId = isFirm ? `firm:${crd}` : `person:${crd}`;
+					if (!seenNodeIds.has(otherId)) {
 						result.nodes.push({
-							id: personId,
-							label: entry?.name || `CRD ${crd}`,
-							group: 'individual',
+							id: otherId,
+							label: entry?.name || `${isFirm ? 'Firm' : 'CRD'} ${crd}`,
+							group: isFirm ? 'firm' : 'individual',
 							crd,
+							firmId: isFirm ? crd : undefined,
 							_source: 'expansion-firm-connections',
 						});
-						seenNodeIds.add(personId);
+						seenNodeIds.add(otherId);
 					}
 
+					const relationship = isFirm ? (entry.isCurrent === false ? 'previously_associated' : 'associated') : entry.isCurrent === false ? 'previous_employed_by' : 'employed_by';
 					const linkExists = result.links.some((l) => {
 						const sourceId = String(l.source?.id ?? l.source ?? '');
 						const targetId = String(l.target?.id ?? l.target ?? '');
-						return (
-							((sourceId === personId && targetId === nodeId) || (sourceId === nodeId && targetId === personId)) &&
-							(String(l.relationship || '') === 'employed_by' || String(l.relationship || '') === 'previous_employed_by')
-						);
+						return (sourceId === otherId && targetId === nodeId) || (sourceId === nodeId && targetId === otherId);
 					});
 
 					if (!linkExists) {
 						result.links.push({
-							source: personId,
+							source: otherId,
 							target: nodeId,
-							relationship: entry.isCurrent === false ? 'previous_employed_by' : 'employed_by',
+							relationship,
 							isCurrent: entry.isCurrent !== false,
 							startDate: entry.startDate || null,
 							endDate: entry.endDate || null,
@@ -221,7 +230,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				}
 
 				// Secondary: bounded local search only when reverse index returned nothing.
-				if (connectionEntries.length === 0) {
+				if (connectionEntries.length === 0 && !usedPrecomputedAdj) {
 					const searchById = await Promise.race([
 						searchLocalIndex('finra', 'individual', firmId, { limit: 100, baseUrl }),
 						new Promise<any>((resolve) => setTimeout(() => resolve({ results: [] }), 2500)),

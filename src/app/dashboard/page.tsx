@@ -2337,14 +2337,33 @@ function DashboardPageInner() {
 		return response.json();
 	}
 
+	function mergeFirmConnectionLists(lists: any[][]) {
+		const currentConnections: any[] = [];
+		const previousConnections: any[] = [];
+		const seen = new Set<string>();
+		for (const list of lists) {
+			for (const entry of Array.isArray(list) ? list : []) {
+				const crd = String(entry?.individualId || entry?.crd || entry?.personCrd || entry?.firmId || '').trim();
+				if (!crd) continue;
+				const isCurrent = entry?.isCurrent === true ? true : entry?.isCurrent === false ? false : !String(entry?.endDate || '').trim();
+				const key = `${crd}:${isCurrent ? '1' : '0'}`;
+				if (seen.has(key)) continue;
+				seen.add(key);
+				(isCurrent ? currentConnections : previousConnections).push(entry);
+			}
+		}
+		return { currentConnections, previousConnections };
+	}
+
 	function applyFirmConnectionsToState(firmId: string, currentConnections: any[], previousConnections: any[]) {
 		const cacheKey = `firm:${firmId}`;
 		const cached = mergedDetailCacheRef.current.get(cacheKey);
 		if (cached && typeof cached === 'object') {
 			for (const target of [cached, cached?.merged, cached?.sources?.finra, cached?.sources?.sec, cached?.finraNode]) {
 				if (target && typeof target === 'object') {
-					target.currentConnections = currentConnections;
-					target.previousConnections = previousConnections;
+					const merged = mergeFirmConnectionLists([target.currentConnections, target.previousConnections, currentConnections, previousConnections]);
+					target.currentConnections = merged.currentConnections;
+					target.previousConnections = merged.previousConnections;
 				}
 			}
 		}
@@ -2353,10 +2372,11 @@ function DashboardPageInner() {
 			if (!prev) return prev;
 			const prevCrd = String(prev?.basicInformation?.firmId || prev?.firmId || prev?.id || '').trim();
 			if (prevCrd && prevCrd !== firmId) return prev;
+			const merged = mergeFirmConnectionLists([prev.currentConnections, prev.previousConnections, currentConnections, previousConnections]);
 			return {
 				...prev,
-				currentConnections,
-				previousConnections,
+				currentConnections: merged.currentConnections,
+				previousConnections: merged.previousConnections,
 			};
 		});
 	}
@@ -2377,15 +2397,17 @@ function DashboardPageInner() {
 			const relationship = String(link?.relationship || '').trim();
 			// dashboard-crds uses relationship: 'employment'; this app uses employed_by / previous_employed_by / controls.
 			const isEmployment = relationship === 'employment' || relationship === 'employed_by' || relationship === 'previous_employed_by';
+			const isAssociatedFirm = relationship === 'associated' || relationship === 'previously_associated';
 			const isControl = relationship === 'controls' || relationship === 'ownership' || relationship === 'owner';
-			if (!isEmployment && !isControl) continue;
+			if (!isEmployment && !isControl && !isAssociatedFirm) continue;
 
 			const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
 			const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
 			if (sourceId !== firmNodeId && targetId !== firmNodeId) continue;
 			const otherId = sourceId === firmNodeId ? targetId : sourceId;
-			const person = nodeById.get(otherId) || {};
-			const crd = String(person?.crd || otherId.replace(/^(?:person|individual)[:_]/, '')).trim();
+			const other = nodeById.get(otherId) || {};
+			const isFirmNode = other.group === 'firm' || otherId.startsWith('firm:');
+			const crd = String(other?.crd || otherId.replace(/^(?:person|individual|firm)[:_]/, '')).trim();
 			if (!crd || !/^\d{1,10}$/.test(crd)) continue;
 
 			const firmNode = nodeById.get(firmNodeId) || {};
@@ -2393,25 +2415,35 @@ function DashboardPageInner() {
 			const isCurrent =
 				isFirmTerminated ? false
 				: isControl ? true
-				: relationship === 'previous_employed_by' ? false
+				: relationship === 'previous_employed_by' || relationship === 'previously_associated' ? false
 				: link?.isCurrent !== undefined ? Boolean(link.isCurrent)
 				: !String(link?.endDate || link?.registrationEndDate || '').trim();
 
-			const dedupeKey = `${crd}:${isCurrent}`;
+			const dedupeKey = `${isFirmNode ? 'firm' : 'person'}:${crd}:${isCurrent}`;
 			if (seen.has(dedupeKey)) continue;
 			seen.add(dedupeKey);
 
-			const entry = {
-				individualId: crd,
-				name: String(person?.label || person?.name || `Person ${crd}`).trim(),
-				relationship:
-					isControl ? 'Control'
-					: isCurrent ? 'Current registration'
-					: 'Previous registration',
-				startDate: link?.startDate || link?.registrationBeginDate || undefined,
-				endDate: isCurrent ? undefined : link?.endDate || link?.registrationEndDate || undefined,
-				isCurrent,
-			};
+			const entry =
+				isFirmNode ?
+					{
+						firmId: crd,
+						name: String(other?.label || other?.name || `Firm ${crd}`).trim(),
+						relationship: isCurrent ? 'Associated firm' : 'Previously associated firm',
+						startDate: link?.startDate || link?.registrationBeginDate || undefined,
+						endDate: isCurrent ? undefined : link?.endDate || link?.registrationEndDate || undefined,
+						isCurrent,
+					}
+				:	{
+						individualId: crd,
+						name: String(other?.label || other?.name || `Person ${crd}`).trim(),
+						relationship:
+							isControl ? 'Control'
+							: isCurrent ? 'Current registration'
+							: 'Previous registration',
+						startDate: link?.startDate || link?.registrationBeginDate || undefined,
+						endDate: isCurrent ? undefined : link?.endDate || link?.registrationEndDate || undefined,
+						isCurrent,
+					};
 			(isCurrent ? currentConnections : previousConnections).push(entry);
 		}
 
@@ -2425,9 +2457,8 @@ function DashboardPageInner() {
 
 		const fetchPromise = (async () => {
 			try {
-				// Prefer expand (same path dashboard-crds uses for firm employee lists). It is
-				// cached/CDN-friendly there and avoids the slow cold primed-bundle decode that
-				// makes /connections 504 on Vercel when adj keys are missing.
+				// Expand hydrates the graph; /connections is the firm-connections collection
+				// (official FINRA/SEC individual-by-firm search). Always merge both.
 				try {
 					const expandRes = await fetch(`/api/finra/expand/${encodeURIComponent(`firm:${firmId}`)}?hops=1`, {
 						method: 'GET',
@@ -2439,7 +2470,6 @@ function DashboardPageInner() {
 						const fromExpand = connectionsFromExpandPayload(firmId, expandData);
 						if (fromExpand) {
 							applyFirmConnectionsToState(firmId, fromExpand.currentConnections, fromExpand.previousConnections);
-							return { found: true, firmId, ...fromExpand, source: 'expand' };
 						}
 					}
 				} catch (expandErr) {
@@ -2618,8 +2648,11 @@ function DashboardPageInner() {
 				(Array.isArray(payload?.currentConnections) && payload.currentConnections.length > 0) ||
 				(Array.isArray(payload?.previousConnections) && payload.previousConnections.length > 0);
 
-			if (card.entity === 'firm' && !hasExistingConnections) {
-				setConnectionsLoadingFirmId(card.id);
+			if (card.entity === 'firm') {
+				// A 1-person primed-bundle payload is not the full roster. Always try expand /
+				// /connections and merge so a thin includeConnections hit cannot hide people.
+				if (!hasExistingConnections) setConnectionsLoadingFirmId(card.id);
+				else setConnectionsLoadingFirmId(null);
 				void loadFirmConnections(card.id);
 			} else {
 				setConnectionsLoadingFirmId(null);

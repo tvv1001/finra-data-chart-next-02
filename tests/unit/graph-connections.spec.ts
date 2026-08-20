@@ -1,0 +1,91 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockRedis = {
+	get: vi.fn(),
+	mget: vi.fn(),
+};
+
+vi.mock('@/lib/redisCache', () => ({
+	getRedisClient: () => mockRedis,
+	setStringIfValid: vi.fn(async () => 'written'),
+	decompressPayload: (value: string) => value,
+}));
+
+vi.mock('@/lib/firmEmploymentFromPrimed', () => ({
+	lookupFirmEmploymentEdgesFromPrimed: vi.fn(async () => ({
+		edges: [
+			{
+				personCrd: '821381',
+				personName: 'FRANKLIN RUSSELL BEARD',
+				isCurrent: false,
+				startDate: '1/13/2001',
+				endDate: '9/4/2002',
+			},
+		],
+		source: 'bundle',
+	})),
+	getFirmEmploymentEdgesFromPrimed: vi.fn(async () => []),
+}));
+
+vi.mock('@/lib/officialFirmRoster', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('@/lib/officialFirmRoster')>();
+	return {
+		...actual,
+		fetchOfficialFirmRoster: vi.fn(async () => null),
+	};
+});
+
+import { countFirmConnectionEntries, firmConnectionsCacheKey, getFirmConnectionsFromGraph, mergeGraphConnectionEntries } from '@/lib/graphConnections';
+
+describe('firm connection merge and cache', () => {
+	beforeEach(() => {
+		mockRedis.get.mockReset();
+		mockRedis.mget.mockReset();
+		mockRedis.get.mockResolvedValue(null);
+		mockRedis.mget.mockResolvedValue([]);
+	});
+
+	it('builds the versioned cache key', () => {
+		expect(firmConnectionsCacheKey('2525')).toBe('graph:firm-connections:v10:2525');
+	});
+
+	it('merges current and previous lists without dropping distinct people', () => {
+		const merged = mergeGraphConnectionEntries([
+			[{ individualId: '1', name: 'A', relationship: 'Current registration', isCurrent: true }],
+			[
+				{ individualId: '1', name: 'A', relationship: 'Current registration', isCurrent: true },
+				{ individualId: '2', name: 'B', relationship: 'Previous registration', isCurrent: false },
+			],
+		]);
+		expect(merged.currentConnections).toHaveLength(1);
+		expect(merged.previousConnections).toHaveLength(1);
+		expect(countFirmConnectionEntries(merged)).toBe(2);
+	});
+
+	it('does not let a thin primed redis cache hide the local firm-connections roster', async () => {
+		mockRedis.get.mockImplementation(async (key: string) => {
+			if (key === firmConnectionsCacheKey('2525')) {
+				return {
+					currentConnections: [],
+					previousConnections: [
+						{
+							individualId: '821381',
+							name: 'FRANKLIN RUSSELL BEARD',
+							relationship: 'Previous registration',
+							isCurrent: false,
+							evidence: ['primed-bundle'],
+						},
+					],
+				};
+			}
+			return null;
+		});
+		mockRedis.mget.mockImplementation(async (...keys: string[]) => keys.map(() => 'present'));
+
+		const result = await getFirmConnectionsFromGraph('2525');
+		expect(result.currentConnections.length).toBeGreaterThan(0);
+		expect(result.previousConnections.length).toBeGreaterThan(1);
+		expect(countFirmConnectionEntries(result)).toBeGreaterThanOrEqual(185);
+		expect(result.previousConnections.some((entry) => entry.individualId === '821381')).toBe(true);
+	});
+});

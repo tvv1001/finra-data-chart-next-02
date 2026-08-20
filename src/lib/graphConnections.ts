@@ -1,20 +1,24 @@
 // Server-side firm connections for dashboard + graph sidebar.
 // Sources (cheap → expensive):
-//   1. Primed individual reverse index (Redis primed:bundle:finra-individual*)
-//   2. Mono graph employed_by links (getFullGraph)
-//   3. Local/search fallbacks
-//   4. Opt-in full Redis SCAN (FINRA_FIRM_EMPLOYMENT_FULL_SCAN=1)
-// Results are cached at graph:firm-connections:v3:{firmId} via cachedFetch.
+//   1. Official FINRA/SEC individual-by-firm search (paginated), stored in
+//      data/firm-connections/{firmId}.json — the collection the UI already reads
+//   2. Cached official roster in Redis graph:firm-connections:v10:{firmId}
+//   3. Primed individual reverse index / precomputed adj
+//   4. Mono graph employed_by links (getFullGraph)
+//   5. Local/search fallbacks and opt-in full Redis SCAN
+// Results are cached at graph:firm-connections:v10:{firmId}.
 import { getFullGraph } from '@/lib/graphStore';
 import { searchLocalIndex, hasMinimumSearchQuery } from '@/lib/localSearch';
 import { searchGraphFallback } from '@/lib/searchGraphFallback';
 import { searchDirectRedisFallback } from '@/lib/searchDirectFallback';
 import { getFirmEmploymentEdgesFromFullScan } from '@/lib/firmEmploymentIndex';
-import { getFirmEmploymentEdgesFromPrimed } from '@/lib/firmEmploymentFromPrimed';
+import { lookupFirmEmploymentEdgesFromPrimed } from '@/lib/firmEmploymentFromPrimed';
 import { getRedisClient, setStringIfValid, decompressPayload } from '@/lib/redisCache';
+import { fetchOfficialFirmRoster, isOfficialFirmRoster, OFFICIAL_FIRM_ROSTER_SOURCE } from '@/lib/officialFirmRoster';
 
 export type GraphConnectionEntry = {
-	individualId: string;
+	individualId?: string;
+	firmId?: string;
 	name: string;
 	relationship: string;
 	startDate?: string;
@@ -29,6 +33,37 @@ export type GraphConnectionEntry = {
 const FIRM_CONNECTIONS_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
 // Do not stick empty results for an hour — empty caches were masking recoveries.
 const EMPTY_FIRM_CONNECTIONS_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
+// v10: do not treat a thin primed-bundle hit as the full roster (v9 poisoned mega-firms).
+export const FIRM_CONNECTIONS_CACHE_VERSION = 10;
+
+export function firmConnectionsCacheKey(firmId: string): string {
+	return `graph:firm-connections:v${FIRM_CONNECTIONS_CACHE_VERSION}:${String(firmId || '').trim()}`;
+}
+
+export function countFirmConnectionEntries(payload: { currentConnections?: GraphConnectionEntry[]; previousConnections?: GraphConnectionEntry[] } | null | undefined): number {
+	if (!payload) return 0;
+	return (payload.currentConnections?.length || 0) + (payload.previousConnections?.length || 0);
+}
+
+export function connectionEntryId(entry: GraphConnectionEntry | null | undefined): string {
+	return firstNonEmpty(entry?.individualId, entry?.firmId, (entry as any)?.crd);
+}
+
+export function mergeGraphConnectionEntries(lists: GraphConnectionEntry[][]): { currentConnections: GraphConnectionEntry[]; previousConnections: GraphConnectionEntry[] } {
+	const current: GraphConnectionEntry[] = [];
+	const previous: GraphConnectionEntry[] = [];
+	const seen = new Set<string>();
+	for (const entry of lists.flat()) {
+		const id = connectionEntryId(entry);
+		if (!id) continue;
+		const kind = entry?.firmId && !entry?.individualId ? 'firm' : 'person';
+		const dedupeKey = `${kind}:${id}:${entry.isCurrent ? '1' : '0'}`;
+		if (seen.has(dedupeKey)) continue;
+		seen.add(dedupeKey);
+		(entry.isCurrent ? current : previous).push(entry);
+	}
+	return { currentConnections: current, previousConnections: previous };
+}
 
 function toArraySafe(value: unknown): any[] {
 	return Array.isArray(value) ? value : [];
@@ -270,22 +305,33 @@ async function getConnectionsFromGraphStore(firmId: string): Promise<GraphConnec
 	return entries;
 }
 
-async function getConnectionsFromPrimedBundle(firmId: string): Promise<GraphConnectionEntry[]> {
-	const edges = await getFirmEmploymentEdgesFromPrimed(firmId).catch(() => []);
-	return edges.map((edge) => ({
-		individualId: edge.personCrd,
-		name: edge.personName,
-		relationship: edge.isCurrent ? 'Current registration' : 'Previous registration',
-		startDate: edge.startDate,
-		endDate: edge.isCurrent ? undefined : edge.endDate,
-		isCurrent: edge.isCurrent,
-		evidence: [edge.bcScope ? 'primed-bundle' : 'primed-bundle'],
-		bcScope: edge.bcScope,
-		iaScope: edge.iaScope,
-	}));
+async function getConnectionsFromPrimedBundle(firmId: string): Promise<{ entries: GraphConnectionEntry[]; source: 'adj' | 'bundle' | 'none' }> {
+	const lookup = await lookupFirmEmploymentEdgesFromPrimed(firmId).catch(() => ({ edges: [], source: 'none' as const }));
+	return {
+		source: lookup.source,
+		entries: lookup.edges.map((edge) => ({
+			individualId: edge.personCrd,
+			name: edge.personName,
+			relationship: edge.isCurrent ? 'Current registration' : 'Previous registration',
+			startDate: edge.startDate,
+			endDate: edge.isCurrent ? undefined : edge.endDate,
+			isCurrent: edge.isCurrent,
+			evidence: [lookup.source === 'adj' ? 'firm-emp-adj' : 'primed-bundle'],
+			bcScope: edge.bcScope,
+			iaScope: edge.iaScope,
+		})),
+	};
 }
 
-function parseCachedConnectionsPayload(raw: unknown): { currentConnections: GraphConnectionEntry[]; previousConnections: GraphConnectionEntry[] } | null {
+type FirmConnectionsPayload = {
+	currentConnections: GraphConnectionEntry[];
+	previousConnections: GraphConnectionEntry[];
+	source?: string;
+	officialTotals?: { finra?: number; sec?: number };
+	fetchedAt?: string;
+};
+
+function parseCachedConnectionsPayload(raw: unknown): FirmConnectionsPayload | null {
 	if (raw == null) return null;
 	let data: any = raw;
 	if (typeof data === 'string') {
@@ -300,6 +346,9 @@ function parseCachedConnectionsPayload(raw: unknown): { currentConnections: Grap
 	return {
 		currentConnections: Array.isArray(data.currentConnections) ? data.currentConnections : [],
 		previousConnections: Array.isArray(data.previousConnections) ? data.previousConnections : [],
+		source: typeof data.source === 'string' ? data.source : undefined,
+		officialTotals: data.officialTotals && typeof data.officialTotals === 'object' ? data.officialTotals : undefined,
+		fetchedAt: typeof data.fetchedAt === 'string' ? data.fetchedAt : undefined,
 	};
 }
 
@@ -315,91 +364,127 @@ async function getConnectionsFromFullScanIndex(firmId: string): Promise<GraphCon
 	}));
 }
 
-async function computeFirmConnectionsFromGraph(firmId: string): Promise<{ currentConnections: GraphConnectionEntry[]; previousConnections: GraphConnectionEntry[] }> {
-	// Cheap → expensive. Never kick off search/primed cold-load in parallel with a hit:
-	// dashboard-crds stays fast because expand uses an in-memory reverse index; we prefer
-	// precomputed graph:firm-emp-adj:v1:{firmId} (O(1) Redis GET) for the same behavior.
-	const merge = (lists: GraphConnectionEntry[][]) => {
-		const current: GraphConnectionEntry[] = [];
-		const previous: GraphConnectionEntry[] = [];
-		const seen = new Set<string>();
-		for (const entry of lists.flat()) {
-			const dedupeKey = `${entry.individualId}:${entry.isCurrent}`;
-			if (seen.has(dedupeKey)) continue;
-			seen.add(dedupeKey);
-			(entry.isCurrent ? current : previous).push(entry);
-		}
-		return { currentConnections: current, previousConnections: previous };
-	};
+async function computeFirmConnectionsFromGraph(firmId: string): Promise<FirmConnectionsPayload> {
+	const official = await fetchOfficialFirmRoster(firmId).catch(() => null);
+	if (official && countFirmConnectionEntries(official) > 0) return official;
 
-	const primedEntries = await getConnectionsFromPrimedBundle(firmId).catch(() => [] as GraphConnectionEntry[]);
-	if (primedEntries.length) return merge([primedEntries]);
+	// Cheap → expensive fallbacks when official search is unavailable.
+	// Trust precomputed adj as complete. A primed-bundle hit is only the people
+	// present in that snapshot — never treat a 1-person bundle match as the roster.
+	const primed = await getConnectionsFromPrimedBundle(firmId).catch(() => ({ entries: [] as GraphConnectionEntry[], source: 'none' as const }));
+	if (primed.source === 'adj') return mergeGraphConnectionEntries([primed.entries]);
 
 	const graphEntries = await getConnectionsFromGraphStore(firmId).catch(() => [] as GraphConnectionEntry[]);
-	if (graphEntries.length) return merge([graphEntries]);
+	if (graphEntries.length) return mergeGraphConnectionEntries([primed.entries, graphEntries]);
 
 	// Search can hang on cold indexes; bound it so firm pages don't 504.
 	const searchEntries = await Promise.race([
 		getConnectionsFromSearchIndex(firmId).catch(() => [] as GraphConnectionEntry[]),
 		new Promise<GraphConnectionEntry[]>((resolve) => setTimeout(() => resolve([]), 8000)),
 	]);
-	if (searchEntries.length) return merge([searchEntries]);
+	if (searchEntries.length || primed.entries.length) return mergeGraphConnectionEntries([primed.entries, searchEntries]);
 
 	const fullScanEntries = await getConnectionsFromFullScanIndex(firmId).catch(() => [] as GraphConnectionEntry[]);
-	return merge([fullScanEntries]);
+	return mergeGraphConnectionEntries([fullScanEntries]);
 }
 
-export async function getFirmConnectionsFromGraph(firmId: string): Promise<{ currentConnections: GraphConnectionEntry[]; previousConnections: GraphConnectionEntry[] }> {
+function readLocalFirmConnectionsFile(firmId: string): { payload: FirmConnectionsPayload | null; path: string } {
+	const fs = require('fs');
+	const path = require('path');
+	const localCachePath = path.join(process.cwd(), 'data', 'firm-connections', `${firmId}.json`);
+	try {
+		fs.mkdirSync(path.dirname(localCachePath), { recursive: true });
+		if (fs.existsSync(localCachePath)) {
+			const localHit = parseCachedConnectionsPayload(fs.readFileSync(localCachePath, 'utf-8'));
+			if (localHit && countFirmConnectionEntries(localHit) > 0) {
+				return { payload: localHit, path: localCachePath };
+			}
+		}
+	} catch {
+		// fallback to compute
+	}
+	return { payload: null, path: localCachePath };
+}
+
+async function persistFirmConnections(payload: FirmConnectionsPayload, cacheKey: string, emptyCacheKey: string, localPath: string) {
+	const total = countFirmConnectionEntries(payload);
+	const redis = getRedisClient();
+	if (redis) {
+		try {
+			if (total > 0) {
+				await setStringIfValid(cacheKey, JSON.stringify(payload), FIRM_CONNECTIONS_CACHE_TTL_SECONDS);
+			} else {
+				await setStringIfValid(emptyCacheKey, JSON.stringify({ empty: true, at: Date.now() }), EMPTY_FIRM_CONNECTIONS_CACHE_TTL_SECONDS);
+			}
+		} catch {
+			// best-effort cache
+		}
+	}
+	try {
+		if (localPath && total > 0) {
+			require('fs').writeFileSync(localPath, JSON.stringify(payload));
+		}
+	} catch {
+		// best-effort cache
+	}
+}
+
+export async function getFirmConnectionsFromGraph(firmId: string): Promise<FirmConnectionsPayload> {
 	const normalizedFirmId = String(firmId || '').trim();
 	if (!normalizedFirmId) return { currentConnections: [], previousConnections: [] };
 
-	// v4: precomputed firm-emp-adj first (via getFirmEmploymentEdgesFromPrimed).
-	// Never write empty payloads to the long-TTL key (that poisoned firm people lists for 1h).
-	const cacheKey = `graph:firm-connections:v9:${normalizedFirmId}`;
+	// Never write empty payloads to the long-TTL key (that poisoned firm people lists).
+	const cacheKey = firmConnectionsCacheKey(normalizedFirmId);
 	const emptyCacheKey = `${cacheKey}:empty`;
 	const redis = getRedisClient();
+	const local = readLocalFirmConnectionsFile(normalizedFirmId);
+
+	let redisHit: FirmConnectionsPayload | null = null;
+	if (redis) {
+		try {
+			redisHit = parseCachedConnectionsPayload(await redis.get(cacheKey));
+			if (redisHit && countFirmConnectionEntries(redisHit) === 0) redisHit = null;
+		} catch {
+			redisHit = null;
+		}
+	}
+
+	const cachedOfficial = isOfficialFirmRoster(redisHit) ? redisHit : isOfficialFirmRoster(local.payload) ? local.payload : null;
+	if (cachedOfficial && countFirmConnectionEntries(cachedOfficial) > 0) {
+		return cachedOfficial;
+	}
+
+	// Incomplete crawl/primed collections are not the roster. Refresh from the
+	// official FINRA/SEC individual-by-firm search and store the result in the
+	// firm-connections collection the UI already reads.
+	const official = await fetchOfficialFirmRoster(normalizedFirmId).catch(() => null);
+	if (official && countFirmConnectionEntries(official) > 0) {
+		const extras = mergeGraphConnectionEntries([
+			...(official.currentConnections || []),
+			...(official.previousConnections || []),
+			...(redisHit?.currentConnections || []),
+			...(redisHit?.previousConnections || []),
+			...(local.payload?.currentConnections || []),
+			...(local.payload?.previousConnections || []),
+		]);
+		const result: FirmConnectionsPayload = {
+			...extras,
+			source: OFFICIAL_FIRM_ROSTER_SOURCE,
+			officialTotals: official.officialTotals,
+			fetchedAt: official.fetchedAt,
+		};
+		await persistFirmConnections(result, cacheKey, emptyCacheKey, local.path);
+		return result;
+	}
+
+	const combined = mergeGraphConnectionEntries([...(redisHit?.currentConnections || []), ...(redisHit?.previousConnections || []), ...(local.payload?.currentConnections || []), ...(local.payload?.previousConnections || [])]);
+
+	if (countFirmConnectionEntries(combined) > 0) {
+		return combined;
+	}
 
 	if (redis) {
 		try {
-			const hitRaw = await redis.get(cacheKey);
-			const hit = parseCachedConnectionsPayload(hitRaw);
-			if (hit && (hit.currentConnections.length || hit.previousConnections.length)) {
-				// Validate cached entries by ensuring each referenced individual CRD
-				// has a corresponding primed record in Redis (finra/sec individual bundles)
-				try {
-					const allCrds = Array.from(
-						new Set([
-							...hit.currentConnections.map((c: any) => String(c.individualId || c.personCrd || c.crd || '').trim()).filter(Boolean),
-							...hit.previousConnections.map((c: any) => String(c.individualId || c.personCrd || c.crd || '').trim()).filter(Boolean),
-						]),
-					);
-					if (allCrds.length) {
-						const keys: string[] = [];
-						for (const crd of allCrds) {
-							keys.push(`finra:individual:${crd}`);
-							keys.push(`sec:individual:${crd}`);
-						}
-						const values = await redis.mget(...keys).catch(() => null);
-						const present = new Set<string>();
-						if (Array.isArray(values)) {
-							for (let i = 0; i < values.length; i++) {
-								if (values[i] != null) {
-									// map back to crd index
-									const crdIndex = Math.floor(i / 2);
-									present.add(allCrds[crdIndex]);
-								}
-							}
-						}
-						// Filter out any connections whose CRD is not present in primed redis
-						hit.currentConnections = (hit.currentConnections || []).filter((c: any) => present.has(String(c.individualId || c.personCrd || c.crd || '').trim()));
-						hit.previousConnections = (hit.previousConnections || []).filter((c: any) => present.has(String(c.individualId || c.personCrd || c.crd || '').trim()));
-					}
-				} catch (e) {
-					// Validation failures are non-fatal; fall back to the cached hit as-is
-					/* ignore */
-				}
-				return hit;
-			}
 			const emptyHit = await redis.get(emptyCacheKey);
 			if (emptyHit != null) {
 				return { currentConnections: [], previousConnections: [] };
@@ -409,45 +494,7 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<{ cur
 		}
 	}
 
-	const fs = require('fs');
-	const path = require('path');
-	let localCachePath = '';
-	try {
-		const cacheDir = path.join(process.cwd(), 'data', 'firm-connections');
-		fs.mkdirSync(cacheDir, { recursive: true });
-		localCachePath = path.join(cacheDir, `${normalizedFirmId}.json`);
-		if (fs.existsSync(localCachePath)) {
-			const localHit = parseCachedConnectionsPayload(fs.readFileSync(localCachePath, 'utf-8'));
-			if (localHit && (localHit.currentConnections.length || localHit.previousConnections.length)) {
-				return localHit;
-			}
-		}
-	} catch (e) {
-		// fallback to compute
-	}
-
 	const computed = await computeFirmConnectionsFromGraph(normalizedFirmId);
-	const total = (computed.currentConnections?.length || 0) + (computed.previousConnections?.length || 0);
-
-	if (redis) {
-		try {
-			if (total > 0) {
-				await setStringIfValid(cacheKey, JSON.stringify(computed), FIRM_CONNECTIONS_CACHE_TTL_SECONDS);
-			} else {
-				await setStringIfValid(emptyCacheKey, JSON.stringify({ empty: true, at: Date.now() }), EMPTY_FIRM_CONNECTIONS_CACHE_TTL_SECONDS);
-			}
-		} catch {
-			// best-effort cache
-		}
-	}
-
-	try {
-		if (localCachePath && total > 0) {
-			require('fs').writeFileSync(localCachePath, JSON.stringify(computed));
-		}
-	} catch (e) {
-		// best-effort cache
-	}
-
+	await persistFirmConnections(computed, cacheKey, emptyCacheKey, local.path);
 	return computed;
 }

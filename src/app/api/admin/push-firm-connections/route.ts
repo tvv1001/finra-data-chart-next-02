@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { setStringIfValid, getRedisClient } from '@/lib/redisCache';
+import { firmConnectionsCacheKey } from '@/lib/graphConnections';
 
 type PushResult = { firmId: string; ok: boolean; reason?: string };
 
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
 					continue;
 				}
 				const raw = fs.readFileSync(file, 'utf8');
-				const cacheKey = `graph:firm-connections:v9:${firmId}`;
+				const cacheKey = firmConnectionsCacheKey(firmId);
 				const emptyKey = `${cacheKey}:empty`;
 
 				const res = await setStringIfValid(cacheKey, raw, 60 * 60 * 24 * 30);

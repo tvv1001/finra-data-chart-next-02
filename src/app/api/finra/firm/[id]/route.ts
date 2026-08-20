@@ -7,7 +7,7 @@ import { queueHydration } from '@/lib/hydration';
 import { getRedisClientInstance } from '@/lib/redisClient';
 import { compressPayload, setStringIfValid } from '@/lib/redisCache';
 import { addRecordToSearchIndex } from '@/lib/localSearch';
-import { getFirmConnectionsFromGraph } from '@/lib/graphConnections';
+import { firmConnectionsCacheKey, getFirmConnectionsFromGraph } from '@/lib/graphConnections';
 import { recordOwnerReferencesForFirm, lookupFirmReference } from '@/lib/ownerReferenceIndex';
 import { hasFirmSourceCoverage } from '@/lib/sourceTruth';
 
@@ -178,7 +178,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 	if (forceRefresh) {
 		// Evict upstream detail caches and the precomputed firm-connections cache
-		const graphConnKey = `graph:firm-connections:v9:${id}`;
+		const graphConnKey = firmConnectionsCacheKey(id);
 		await Promise.allSettled([
 			evictCacheKey(`finra:firm:${id}`),
 			evictCacheKey(`sec:firm:${id}`),

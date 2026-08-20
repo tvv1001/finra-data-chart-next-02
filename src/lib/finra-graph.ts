@@ -11805,6 +11805,7 @@ function applyFirmConnectionPayload(firmNode: any, payload: { currentConnections
 	const seenPerson = new Set<string>();
 
 	const addEntry = (entry: any, isCurrent: boolean) => {
+		if (entry?.firmId && !entry?.individualId) return;
 		const crd = String(entry?.individualId || entry?.crd || '').trim();
 		if (!crd || seenPerson.has(crd)) return;
 		seenPerson.add(crd);
@@ -15963,7 +15964,25 @@ function renderFirmDetail(d: any) {
 	// does not wait on a hard refresh when the canvas still has sparse links.
 	const serverConnectionEntries: any[] = [];
 	const pushServerEntry = (entry: any, isCurrent: boolean) => {
-		const crd = String(entry?.individualId || entry?.crd || '').trim();
+		const firmId = String(entry?.firmId || '').trim();
+		const personId = String(entry?.individualId || entry?.crd || '').trim();
+		if (firmId && !personId) {
+			serverConnectionEntries.push({
+				id: `firm:${firmId}`,
+				label: String(entry?.name || `Firm ${firmId}`).trim(),
+				group: 'firm',
+				crd: firmId,
+				relationshipLabels: [entry?.relationship || (isCurrent ? 'Associated firm' : 'Previously associated firm')],
+				positions: [],
+				dateTexts: [],
+				sortOrder: isCurrent ? 1 : 3,
+				address: null,
+				maxStartDate: entry?.startDate || '',
+				maxEndDate: entry?.endDate || (isCurrent ? 'present' : ''),
+			});
+			return;
+		}
+		const crd = personId;
 		if (!crd) return;
 		serverConnectionEntries.push({
 			id: `person:${crd}`,
@@ -16003,6 +16022,10 @@ function renderFirmDetail(d: any) {
 			// Filter out individuals (employees and individual control positions)
 			if (conn.group === 'individual') return false;
 
+			const labels = (conn.relationshipLabels || []).map((r: string) => String(r).toLowerCase());
+			// Name-search associated firms belong in Current/Previous Connections.
+			if (labels.some((r) => r.includes('associated firm'))) return false;
+
 			// Filter out control relationships
 			const hasControl = conn.relationshipLabels.some((r) => r.toLowerCase().includes('control'));
 			if (hasControl) return false;
@@ -16035,7 +16058,7 @@ function renderFirmDetail(d: any) {
 
 	const previousConnections = rawConnections
 		.filter((conn) => {
-			if (conn.group !== 'individual') return false;
+			if (conn.group !== 'individual' && conn.group !== 'firm') return false;
 			const isControl = conn.relationshipLabels.some((r) => r.toLowerCase().includes('control'));
 			if (isControl) return false;
 			return conn.sortOrder === 2 || conn.sortOrder === 3 || conn.relationshipLabels.some((r) => r.includes('Previous') || r.includes('Former'));
@@ -16044,7 +16067,7 @@ function renderFirmDetail(d: any) {
 
 	const currentConnections = rawConnections
 		.filter((conn) => {
-			if (conn.group !== 'individual') return false;
+			if (conn.group !== 'individual' && conn.group !== 'firm') return false;
 			const isControl = conn.relationshipLabels.some((r) => r.toLowerCase().includes('control'));
 			if (isControl) return false;
 			return !previousConnections.includes(conn);
