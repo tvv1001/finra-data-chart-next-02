@@ -460,24 +460,24 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<FirmC
 	const official = await fetchOfficialFirmRoster(normalizedFirmId).catch(() => null);
 	if (official && countFirmConnectionEntries(official) > 0) {
 		const extras = mergeGraphConnectionEntries([
-			...(official.currentConnections || []),
-			...(official.previousConnections || []),
-			...(redisHit?.currentConnections || []),
-			...(redisHit?.previousConnections || []),
-			...(local.payload?.currentConnections || []),
-			...(local.payload?.previousConnections || []),
+			official.currentConnections || [],
+			official.previousConnections || [],
+			redisHit?.currentConnections || [],
+			redisHit?.previousConnections || [],
+			local.payload?.currentConnections || [],
+			local.payload?.previousConnections || [],
 		]);
 		const result: FirmConnectionsPayload = {
 			...extras,
 			source: OFFICIAL_FIRM_ROSTER_SOURCE,
-			officialTotals: official.officialTotals,
-			fetchedAt: official.fetchedAt,
+			meta: { updatedAt: new Date().toISOString(), ttlSeconds: 24 * 60 * 60, generatedAt: new Date().toISOString() },
+			generatedAt: new Date().toISOString(),
 		};
 		await persistFirmConnections(result, cacheKey, emptyCacheKey, local.path);
 		return result;
 	}
 
-	const combined = mergeGraphConnectionEntries([...(redisHit?.currentConnections || []), ...(redisHit?.previousConnections || []), ...(local.payload?.currentConnections || []), ...(local.payload?.previousConnections || [])]);
+	const combined = mergeGraphConnectionEntries([redisHit?.currentConnections || [], redisHit?.previousConnections || [], local.payload?.currentConnections || [], local.payload?.previousConnections || []]);
 
 	if (countFirmConnectionEntries(combined) > 0) {
 		return combined;
