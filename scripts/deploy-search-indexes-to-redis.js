@@ -30,6 +30,8 @@ const envVars = {
 };
 const redisUrl = process.env.UPSTASH_REDIS_REST_URL || envVars.UPSTASH_REDIS_REST_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || envVars.UPSTASH_REDIS_REST_TOKEN;
+const redisUrlMirror = process.env.UPSTASH_REDIS_REST_URL_MIRROR || envVars.UPSTASH_REDIS_REST_URL_MIRROR;
+const redisTokenMirror = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || envVars.UPSTASH_REDIS_REST_TOKEN_MIRROR;
 
 if (!redisUrl || !redisToken) {
 	console.warn('UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN not set. Skipping Redis deployment.');
@@ -78,18 +80,33 @@ async function deploySearchIndexToRedis(fileName) {
 		}
 
 		async function send(command) {
-			const response = await fetch(redisUrl, {
-				method: 'POST',
-				headers: {
-					Authorization: `Bearer ${redisToken}`,
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify(command),
-			});
-			if (!response.ok) {
-				throw new Error(await response.text());
+			const promises = [];
+			promises.push(
+				fetch(redisUrl, {
+					method: 'POST',
+					headers: { Authorization: `Bearer ${redisToken}`, 'Content-Type': 'application/json' },
+					body: JSON.stringify(command),
+				}).then(async (response) => {
+					if (!response.ok) throw new Error(await response.text());
+					return response.json();
+				})
+			);
+			
+			if (redisUrlMirror && redisTokenMirror) {
+				promises.push(
+					fetch(redisUrlMirror, {
+						method: 'POST',
+						headers: { Authorization: `Bearer ${redisTokenMirror}`, 'Content-Type': 'application/json' },
+						body: JSON.stringify(command),
+					}).then(async (response) => {
+						if (!response.ok) console.warn("Mirror error:", await response.text());
+						return response.json();
+					}).catch((e) => console.warn("Mirror error:", e))
+				);
 			}
-			return response.json();
+			
+			const results = await Promise.all(promises);
+			return results[0];
 		}
 
 		if (chunks.length === 1) {
