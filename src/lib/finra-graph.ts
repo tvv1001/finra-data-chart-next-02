@@ -6199,14 +6199,26 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 		};
 
 		const runDatabaseSearch = async () => {
-			const q = String(fetchInput.value || '').trim();
+			let q = String(fetchInput.value || '').trim();
 			if (!q) return;
 
-			const tokens = q
-				.split(/[\s,;\t]+/g)
+			let tokens = q
+				.split(/[\s,;\t\n]+/g)
 				.map((t) => t.trim())
 				.filter(Boolean);
-			const isCrdList = tokens.length > 1 && tokens.every((t) => /^\d{1,10}$/.test(t));
+			let isCrdList = tokens.length > 1 && tokens.every((t) => /^\d{1,10}$/.test(t));
+
+			if (!isCrdList) {
+				const crdMatches = Array.from(q.matchAll(/CRD#?\s*(\d{1,10})/gi));
+				if (crdMatches.length > 0) {
+					tokens = crdMatches.map((m) => String(m[1]).trim());
+					if (tokens.length > 1) {
+						isCrdList = true;
+					} else {
+						q = tokens[0];
+					}
+				}
+			}
 
 			clearFetchStatus();
 			if (!(await ensureFetchRuntimeReady())) {
