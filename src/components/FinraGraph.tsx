@@ -281,11 +281,13 @@ export default function FinraGraph() {
 		} catch {}
 	}, []);
 
-	const toggleSidebarTools = () => {
-		const newState = !isSidebarToolsOpen;
-		setIsSidebarToolsOpen(newState);
-		localStorage.setItem('finra_sidebar_tools_open', String(newState));
-	};
+	const toggleSidebarTools = useCallback(() => {
+		setIsSidebarToolsOpen((prev) => {
+			const newState = !prev;
+			localStorage.setItem('finra_sidebar_tools_open', String(newState));
+			return newState;
+		});
+	}, []);
 	const [activeFindNodeId, setActiveFindNodeId] = useState<string | null>(null);
 	const [focusedFindNodeId, setFocusedFindNodeId] = useState<string | null>(null);
 	const pathname = usePathname();
@@ -293,9 +295,9 @@ export default function FinraGraph() {
 	const routeNodeId = useMemo(() => parseNodeIdFromPathname(browserPathname || pathname), [browserPathname, pathname]);
 	const findCounterText = useMemo(() => formatFindCounter(findMatchState.total, findMatchState.activeOrdinal), [findMatchState.activeOrdinal, findMatchState.total]);
 
-	const handleFetchQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
+	const handleFetchQueryChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
 		setFetchQuery(event.target.value);
-	};
+	}, []);
 
 	const isMobileSearchViewport = useCallback(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches, []);
 
@@ -463,7 +465,7 @@ export default function FinraGraph() {
 		window.dispatchEvent(new CustomEvent(FIND_NEXT_EVENT, { detail: { query } }));
 	}, [activeFindNodeId, browserPathname, closeFindBar, findQuery, focusedFindNodeId, pathname]);
 
-	const handleFindInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+	const handleFindInputKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
 		if (event.key === 'Enter') {
 			event.preventDefault();
 			submitFindQuery();
@@ -482,9 +484,9 @@ export default function FinraGraph() {
 				}),
 			);
 		}
-	};
+	}, [findQuery, submitFindQuery]);
 
-	const moveFindMatchByButton = (direction: 'ArrowLeft' | 'ArrowRight') => {
+	const moveFindMatchByButton = useCallback((direction: 'ArrowLeft' | 'ArrowRight') => {
 		const query = findQuery.trim();
 
 		if (!query) return;
@@ -493,7 +495,7 @@ export default function FinraGraph() {
 				detail: { direction, query },
 			}),
 		);
-	};
+	}, [findQuery]);
 
 	useEffect(() => {
 		isFindBarOpenRef.current = isFindBarOpen;

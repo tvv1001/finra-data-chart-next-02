@@ -5977,6 +5977,9 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 				}
 
 				if (!usedWasm) {
+					if (layoutNodes && layoutNodes.length >= 100) {
+						throw new Error('Graph too large: main thread fallback for layout is strictly forbidden for >100 nodes.');
+					}
 					refreshNodeLayout();
 				}
 
@@ -10503,8 +10506,22 @@ function renderGraph(_data) {
 		isHuge ? 0.004
 		: isLarge ? 0.006
 		: 0.01;
-	simulation = d3
-		.forceSimulation<GraphSimulationNode>(nodes)
+	if (nodes.length >= 100) {
+		console.warn('Graph too large for main thread simulation.');
+		// provide a dummy simulation object that satisfies basic APIs used later
+		simulation = {
+			stop: () => {},
+			alpha: () => 0,
+			alphaTarget: () => simulation,
+			alphaDecay: () => simulation,
+			velocityDecay: () => simulation,
+			force: () => simulation,
+			on: () => simulation,
+			restart: () => simulation
+		} as any;
+	} else {
+		simulation = d3
+			.forceSimulation<GraphSimulationNode>(nodes)
 		.alphaDecay(
 			isHuge ? 0.06
 			: isLarge ? 0.03
@@ -10568,6 +10585,7 @@ function renderGraph(_data) {
 				.radius((d) => getNodeCollisionRadius(d, nodeCount))
 				.strength(1.0),
 		);
+	}
 
 	// Build neighbor adjacency cache after D3 has resolved link source/target objects
 	neighborMap = buildNeighborMap(nodes, links);
