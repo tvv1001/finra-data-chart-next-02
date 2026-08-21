@@ -470,8 +470,8 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<FirmC
 		const result: FirmConnectionsPayload = {
 			...extras,
 			source: OFFICIAL_FIRM_ROSTER_SOURCE,
-			meta: { updatedAt: new Date().toISOString(), ttlSeconds: 24 * 60 * 60, generatedAt: new Date().toISOString() },
-			generatedAt: new Date().toISOString(),
+			officialTotals: official.officialTotals,
+			fetchedAt: official.fetchedAt,
 		};
 		await persistFirmConnections(result, cacheKey, emptyCacheKey, local.path);
 		return result;
