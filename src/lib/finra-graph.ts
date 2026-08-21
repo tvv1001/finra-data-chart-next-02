@@ -4021,54 +4021,8 @@ function updateSelectionLogUI() {
 		return;
 	}
 
-	// Fetch recent alerts and render them above the selection history.
-	// Keep a small cached copy to avoid thrashing the API.
-	let cachedAlerts: Array<any> = [];
-	let lastAlertsFetch = 0;
-	async function fetchRecentAlerts() {
-		try {
-			const now = Date.now();
-			if (now - lastAlertsFetch < 25000 && cachedAlerts.length) return cachedAlerts; // 25s cache
-			lastAlertsFetch = now;
-			const res = await fetch('/api/dashboard/alerts?limit=10');
-			if (!res.ok) return cachedAlerts;
-			const j = await res.json();
-			cachedAlerts =
-				Array.isArray(j?.alerts) ?
-					j.alerts.map((a: any) => {
-						try {
-							return typeof a === 'string' ? JSON.parse(a) : a;
-						} catch {
-							return a;
-						}
-					})
-				:	[];
-			return cachedAlerts;
-		} catch (e) {
-			return cachedAlerts;
-		}
-	}
-
 	containers.forEach((container) => {
 		container.innerHTML = '';
-
-		// render alerts container (above the selection history) with same style
-		// as the log entries so they appear visually consistent.
-		(async () => {
-			const alerts = await fetchRecentAlerts();
-			if (alerts && alerts.length) {
-				const alertsWrap = document.createElement('div');
-				alertsWrap.className = 'fg-selection-alerts';
-				alerts.forEach((a) => {
-					const div = document.createElement('div');
-					div.className = 'fg-log-entry alert';
-					const text = a && (a.prevName ? `${a.entity || a.id} name changed: ${a.prevName} → ${a.nextName}` : a.note || JSON.stringify(a));
-					div.innerHTML = `<span class="fg-log-text" title="Alert"><strong class="fg-log-label">${escapeHtml(String(text || 'Alert'))}</strong></span>`;
-					alertsWrap.appendChild(div);
-				});
-				container.appendChild(alertsWrap);
-			}
-		})();
 
 		selectedNodesLog
 			.slice()
