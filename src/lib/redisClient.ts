@@ -159,20 +159,16 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 								if (!db2Maxxed) promises.push(wrapped((client2 as any)[propStr](...args), 2));
 								else promises.push(Promise.resolve({ ok: false, dbIndex: 2 }));
 
-								// Return the first successful write result to reduce latency.
+								// Await both writes fully before returning. In Serverless/Edge 
+								// environments like Vercel, if we use Promise.race and return early, 
+								// the execution context freezes and the second write is silently dropped!
 								try {
-									const first = await Promise.race(promises);
-									if (first && first.ok) {
-										// Let the other promise finish in background; don't await here.
-										Promise.allSettled(promises).then(() => {});
-										return first.res;
-									}
-									// If the raced result wasn't ok (rare), wait for both and return
-									// any successful one, prefer DB2 result when available to keep
-									// previous behavior consistent.
 									const all = await Promise.all(promises);
-									for (const a of all) if (a && a.ok) return a.res;
-									return undefined;
+									let successRes = undefined;
+									for (const a of all) {
+										if (a && a.ok) successRes = a.res;
+									}
+									return successRes;
 								} catch (e) {
 									// If race threw (shouldn't), await both settled and return best-effort
 									const settled = await Promise.allSettled(promises);
