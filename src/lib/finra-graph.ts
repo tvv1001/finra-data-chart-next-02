@@ -6421,7 +6421,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 					const resolved = resolveIndividualSourceDetail(src);
 					const parsed = resolved.detail || src;
 
-					const crd = String(parsed?.basicInformation?.individualId || parsed?.ind_source_id || parsed?.ind_crd || '').trim();
+					const crd = String(parsed?.individualId || parsed?.basicInformation?.individualId || src?.ind_source_id || src?.ind_crd || '').trim();
 					if (!crd) return;
 					const existingGraphNode = findExistingPersonNode(crd);
 					const personId = existingGraphNode?.id || `person:${crd}`;

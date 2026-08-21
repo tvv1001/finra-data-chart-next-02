@@ -262,7 +262,7 @@ export default function FinraGraph() {
 	const [graphReady, setGraphReady] = useState(false);
 	const [browserPathname, setBrowserPathname] = useState('');
 	const [fetchQuery, setFetchQuery] = useState('');
-	const [searchType, setSearchType] = useState<'all' | 'people' | 'firms'>('all');
+	const [searchType, setSearchType] = useState<'all' | 'people' | 'firms'>('people');
 	const [isFindBarOpen, setIsFindBarOpen] = useState(false);
 	const [findQuery, setFindQuery] = useState('');
 	const [findMatchState, setFindMatchState] = useState({ total: 0, activeOrdinal: 0 });
