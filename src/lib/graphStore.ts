@@ -246,6 +246,12 @@ async function decodeRedisGraphRaw(raw: unknown): Promise<any | null> {
 	}
 }
 
+/**
+ * TODO(Performance): The JSON.parse(raw) here can block the event loop for massive graphs.
+ * To move this off the main thread, consider using a lightweight streaming parser 
+ * like stream-json, yield to the event loop using a chunked parser, or offload this 
+ * work to a Web Worker / Worker Thread.
+ */
 function parseGraphPayload(raw: unknown, sourceLabel: string) {
 	if (typeof raw === 'string') {
 		if (!raw.trim()) return { ...EMPTY_GRAPH };
