@@ -310,13 +310,21 @@ export default function FinraGraph() {
 	// Persist and enforce ?disable_analytics=1 in the URL on this machine only.
 	useEffect(() => {
 		if (typeof window === 'undefined') return;
+		
+		const urlHasParam = window.location.search.includes('disable_analytics=1');
+		const prefIsSet = (() => {
+			try { return localStorage.getItem('finra_disable_analytics_pref') === '1'; }
+			catch { return false; }
+		})();
+		
+		if (!urlHasParam && !prefIsSet) return;
+
 		try {
 			// Record the preference locally so this only affects this machine
 			localStorage.setItem('finra_disable_analytics_pref', '1');
 		} catch (e) {
 			/* ignore */
 		}
-
 		const addParamToUrl = (raw: string | null | undefined) => {
 			try {
 				const base = raw ? new URL(String(raw), window.location.origin) : new URL(window.location.href);
