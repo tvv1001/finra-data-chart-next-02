@@ -44,12 +44,12 @@ async function fetchFromRedis(bucket: string): Promise<any | null> {
 
 	try {
 		const key = `search:indexes:${bucket}`;
-		const parsedValue = parseStoredIndexPayload(await redis.get(key));
+		const parsedValue = await parseStoredIndexPayload(await redis.get(key));
 		if (parsedValue) return parsedValue;
 
 		const metaPayload = await redis.get(`${key}:meta`);
 
-		const meta = parseStoredIndexPayload(metaPayload) ?? (typeof metaPayload === 'string' ? JSON.parse(metaPayload) : metaPayload);
+		const meta = await parseStoredIndexPayload(metaPayload) ?? (typeof metaPayload === 'string' ? JSON.parse(metaPayload) : metaPayload);
 		const chunkCount = Number(meta?.chunks ?? meta?.parts ?? 0);
 		if (!chunkCount || chunkCount < 1) return null;
 
@@ -60,7 +60,7 @@ async function fetchFromRedis(bucket: string): Promise<any | null> {
 		const chunks = await Promise.all(partPromises);
 		if (chunks.some((chunk) => typeof chunk !== 'string' || !chunk)) return null;
 
-		return parseStoredIndexPayload(chunks.filter((c): c is string => c !== null).join(''));
+		return await parseStoredIndexPayload(chunks.filter((c): c is string => c !== null).join(''));
 	} catch (err) {
 		console.error(`[localSearch] Failed to fetch index from Redis for ${bucket}:`, err instanceof Error ? err.message : String(err));
 		return null;
@@ -358,7 +358,8 @@ async function loadIndex(bucket: LocalSearchBucket, baseUrl?: string, seedRoots:
 
 	async function readIndexPayload(filePath: string) {
 		const raw = await readFile(filePath);
-		const jsonText = filePath.endsWith('.gz') ? gunzipSync(raw).toString('utf-8') : raw.toString('utf-8');
+		const util = await import('node:util');
+		const jsonText = filePath.endsWith('.gz') ? (await util.promisify(require('node:zlib').gunzip)(raw)).toString('utf-8') : raw.toString('utf-8');
 		return JSON.parse(jsonText) as { generatedAt?: string; bucket?: string; docs?: LocalSearchDoc[] };
 	}
 
@@ -366,7 +367,8 @@ async function loadIndex(bucket: LocalSearchBucket, baseUrl?: string, seedRoots:
 		const response = await fetch(url);
 		if (!response.ok) return null;
 		const raw = Buffer.from(await response.arrayBuffer());
-		const jsonText = url.endsWith('.gz') ? gunzipSync(raw).toString('utf-8') : raw.toString('utf-8');
+		const util = await import('node:util');
+		const jsonText = url.endsWith('.gz') ? (await util.promisify(require('node:zlib').gunzip)(raw)).toString('utf-8') : raw.toString('utf-8');
 		return JSON.parse(jsonText) as { generatedAt?: string; bucket?: string; docs?: LocalSearchDoc[] };
 	}
 
@@ -1204,7 +1206,8 @@ export async function addRecordToSearchIndex(source: LocalSearchSource, type: Lo
 			const relativeFilePath = SEARCH_INDEX_RELATIVE_FILES[bucket];
 			const absolutePath = path.resolve(process.cwd(), relativeFilePath);
 			if (fsSync.existsSync(absolutePath)) {
-				const raw = fsSync.readFileSync(absolutePath, 'utf8');
+				const { readFile } = await import('node:fs/promises');
+				const raw = await readFile(absolutePath, 'utf8');
 				const parsed = JSON.parse(raw);
 				if (parsed && Array.isArray(parsed.docs)) {
 					const existingPos = parsed.docs.findIndex((d: any) => d.id === doc.id);
@@ -1214,13 +1217,15 @@ export async function addRecordToSearchIndex(source: LocalSearchSource, type: Lo
 						parsed.docs.push(doc);
 					}
 					parsed.generatedAt = new Date().toISOString();
-					fsSync.writeFileSync(absolutePath, JSON.stringify(parsed, null, 2), 'utf8');
+					const { writeFile } = await import('node:fs/promises');
+					await writeFile(absolutePath, JSON.stringify(parsed, null, 2), 'utf8');
 
 					// Also update gzip sidecar if it exists
 					const gzPath = `${absolutePath}.gz`;
 					if (fsSync.existsSync(gzPath)) {
-						const gzBuffer = zlib.gzipSync(Buffer.from(JSON.stringify(parsed, null, 2), 'utf8'), { level: 9 });
-						fsSync.writeFileSync(gzPath, gzBuffer);
+						const util = await import('node:util');
+						const gzBuffer = await util.promisify(zlib.gzip)(Buffer.from(JSON.stringify(parsed, null, 2), 'utf8'), { level: 9 });
+						await writeFile(gzPath, gzBuffer);
 					}
 				}
 			}
