@@ -16082,7 +16082,10 @@ function renderFirmDetail(d: any) {
 		primaryRegistrationStatusEntry ?
 			String(primaryRegistrationStatusEntry.status || primaryRegistrationStatusEntry.registrationStatus || primaryRegistrationStatusEntry.regStatus || '').trim()
 		:	'';
-	const firmStatusText = d.firmStatus ? String(d.firmStatus).trim() : registrationStatusText;
+	const firmStatusText =
+		d.firmStatus && !Array.isArray(d.firmStatus) && typeof d.firmStatus !== 'object' ?
+			String(d.firmStatus).trim()
+		:	registrationStatusText;
 	const statusDate =
 		d.firmStatusDate ||
 		(primaryRegistrationStatusEntry ?
