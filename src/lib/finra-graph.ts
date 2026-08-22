@@ -13986,7 +13986,7 @@ function highlightLinks(highlightState = null) {
 	if (!linkSel) return;
 	const state = highlightState && typeof highlightState === 'object' ? highlightState : computeHighlightState();
 
-	const hasNormalHighlights = state.rootIds.size > 0;
+	const hasNormalHighlights = state.linkKeys.size > 0;
 
 	if (!hasNormalHighlights && !isTraceMode && !isTraceLogMode) {
 		const selectionLinkEmphasis = getSelectionLinkEmphasis();
