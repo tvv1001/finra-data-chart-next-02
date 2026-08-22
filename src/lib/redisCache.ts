@@ -124,28 +124,6 @@ export async function setStringIfValid(
 			} else {
 				await redis.set(key, finalValue);
 			}
-
-			// Background Backup Mirroring: the cheapest way to keep the daily MIRROR alive
-			// without sending it every live application query.
-			try {
-				const mirrorUrl = process.env.UPSTASH_REDIS_REST_URL_MIRROR;
-				const mirrorToken = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR;
-				if (
-					mirrorUrl &&
-					mirrorToken &&
-					mirrorUrl !== process.env.UPSTASH_REDIS_REST_URL &&
-					mirrorUrl !== process.env.UPSTASH_REDIS_REST_URL_FINRASEC2
-				) {
-					import('@upstash/redis').then(({ Redis: UpstashRedis }) => {
-						const backup = new UpstashRedis({ url: mirrorUrl, token: mirrorToken });
-						if (ttlSeconds) {
-							backup.set(key, finalValue, { ex: ttlSeconds }).catch(() => {});
-						} else {
-							backup.set(key, finalValue).catch(() => {});
-						}
-					}).catch(() => {});
-				}
-			} catch (e) {}
 		});
 		return 'written';
 	} catch (e) {
