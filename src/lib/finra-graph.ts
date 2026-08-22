@@ -4624,26 +4624,7 @@ function computeHighlightState() {
 
 	const activeFindId = activeFindMatchIndex >= 0 && Array.isArray(activeFindMatchOrder) ? activeFindMatchOrder[activeFindMatchIndex] : null;
 
-	const nodeById = new Map<string, any>((layoutNodes || []).map((node) => [String(node.id), node]));
-
-	let tempRoots = [...highlightedSelections].filter((r) => {
-		const node = nodeById.get(r.id);
-		// Do not use firms as persistent highlight roots. If a firm is selected, 
-		// its edges should not automatically be highlighted when expanding children.
-		return node?.group !== 'firm';
-	});
-
-	if (isSelectionLogBold && Array.isArray(selectedNodesLog)) {
-		selectedNodesLog.forEach((entry) => {
-			const node = nodeById.get(entry.id);
-			if (node?.group === 'individual') {
-				if (!tempRoots.some((r) => String(r.id) === String(entry.id))) {
-					tempRoots.push({ id: entry.id, hops: 1 });
-				}
-			}
-		});
-	}
-
+	const tempRoots = [...highlightedSelections];
 	if (hoveredNodeId && !tempRoots.some((r) => r.id === hoveredNodeId)) {
 		tempRoots.push({ id: hoveredNodeId, hops: 1 });
 	}
@@ -4658,7 +4639,7 @@ function computeHighlightState() {
 		return { rootIds, nodeIds, hopNodeIds, linkKeys };
 	}
 
-
+	const nodeById = new Map<string, any>((layoutNodes || []).map((node) => [String(node.id), node]));
 	const adjacency = new Map<string, Array<{ nodeId: string; link: any }>>((layoutNodes || []).map((node) => [String(node.id), []]));
 	(layoutLinks || []).forEach((link) => {
 		const sourceId = link.source?.id ?? link.source;
