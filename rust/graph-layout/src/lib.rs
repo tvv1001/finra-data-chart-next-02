@@ -71,23 +71,20 @@ impl GraphSimulation {
             let mut fx = vec![0.0; n];
             let mut fy = vec![0.0; n];
 
-            // Calculate repulsion
+            // Calculate symmetric repulsion (N * (N-1) / 2 iterations instead of N^2)
             for i in 0..n {
                 let xi = self.positions[i * 2];
                 let yi = self.positions[i * 2 + 1];
                 let ri = self.r[i];
-                let mut fix = 0.0;
-                let mut fiy = 0.0;
 
-                for j in 0..n {
-                    if i == j { continue; }
+                for j in (i + 1)..n {
                     let dx = xi - self.positions[j * 2];
                     let dy = yi - self.positions[j * 2 + 1];
                     let dist2 = dx * dx + dy * dy + 12.0;
                     let force = repulsion_strength / dist2;
                     
-                    fix += (dx / dist2) * force;
-                    fiy += (dy / dist2) * force;
+                    let mut fix = (dx / dist2) * force;
+                    let mut fiy = (dy / dist2) * force;
                     
                     let rj = self.r[j];
                     if (ri + rj) > 0.0 {
@@ -96,9 +93,12 @@ impl GraphSimulation {
                         fix += dx.signum() * push / root;
                         fiy += dy.signum() * push / root;
                     }
+
+                    fx[i] += fix;
+                    fy[i] += fiy;
+                    fx[j] -= fix;
+                    fy[j] -= fiy;
                 }
-                fx[i] = fix;
-                fy[i] = fiy;
             }
 
             // Calculate links

@@ -17,7 +17,7 @@ async function build() {
 		}
 	}
 
-	const entry = path.join(process.cwd(), 'src', 'workers', 'd3-force-worker-src.js');
+	const entry = path.join(process.cwd(), 'src', 'workers', 'd3-force-worker-wasm.js');
 	const out = path.join(process.cwd(), 'public', 'workers', 'd3-force-worker.js');
 	const bundleOut = path.join(process.cwd(), 'public', 'workers', 'd3-force-worker.bundle.js');
 	try {
