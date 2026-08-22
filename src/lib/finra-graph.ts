@@ -3981,7 +3981,25 @@ function clearNonLogAction(button?: HTMLButtonElement) {
 
 function clearNonConnectedAction(button?: HTMLButtonElement) {
 	const rootId = selectedId || (selectedNodesLog.length ? selectedNodesLog[selectedNodesLog.length - 1].id : null);
-	if (!rootId || !graphData?.links?.length) {
+	
+	if (!rootId) {
+		if (!graphData?.nodes || !graphData?.links) {
+			if (button) flashSelectionLogActionButton(button, 'No nodes');
+			return;
+		}
+		const keepIds = new Set<string>();
+		for (const link of graphData.links) {
+			const sid = String(link?.source?.id ?? link?.source ?? '').trim();
+			const tid = String(link?.target?.id ?? link?.target ?? '').trim();
+			if (sid) keepIds.add(sid);
+			if (tid) keepIds.add(tid);
+		}
+		pruneGraphDataToKeepIds(keepIds);
+		if (button) flashSelectionLogActionButton(button, 'Pruned Isolated!');
+		return;
+	}
+
+	if (!graphData?.links?.length) {
 		updateFetchStatus('No current selection to connect from');
 		if (button) flashSelectionLogActionButton(button, 'No selection');
 		return;
