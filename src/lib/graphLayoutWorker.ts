@@ -15,7 +15,7 @@ export function createGraphLayoutWorker() {
 				}
 			};
 			worker.addEventListener('message', onmsg);
-			worker.postMessage({ type: 'compute', nodesJson: JSON.stringify(nodes), linksJson: JSON.stringify(links), width, height });
+			worker.postMessage({ type: 'compute', nodesJson: nodes, linksJson: links, width, height });
 		});
 	}
 
