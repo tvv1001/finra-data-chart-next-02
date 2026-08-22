@@ -393,7 +393,7 @@ let nodeLabelRenderMode: 'full' | 'compact' = 'full';
 // Canvas renderer mode for very large graphs
 let canvasModeActive = false;
 let canvasApi: any = null;
-let pixiModeActive = false;
+let pixiModeActive = true;
 let pixiApi: any = null;
 let overlayApi: any = null;
 let overlayRefreshFrameCounter = 0;
@@ -10388,7 +10388,7 @@ function renderGraph(_data) {
 	// The graph permanently uses the SVG DOM renderer so direct-route loads and
 	// large graphs share the same rendering path without switching modes.
 	canvasModeActive = false;
-	pixiModeActive = false;
+	pixiModeActive = true;
 	try {
 		if (pixiApi && pixiApi.destroy) pixiApi.destroy();
 		if (canvasApi && canvasApi.destroy) canvasApi.destroy();
@@ -10467,6 +10467,7 @@ function renderGraph(_data) {
 	}
 
 	const root = svg.append('g').attr('class', 'fg-root');
+	svg.classed('fg-huge-graph', isHuge);
 	rootGroup = root;
 
 	// Use root as the logical parent for link selections (individual layered groups exist separately)
@@ -10508,7 +10509,7 @@ function renderGraph(_data) {
 	simulation = d3
 			.forceSimulation<GraphSimulationNode>(nodes)
 		.alphaDecay(
-			isHuge ? 0.06
+			isHuge ? 0.15
 			: isLarge ? 0.03
 			: 0.012,
 		)
@@ -10544,7 +10545,7 @@ function renderGraph(_data) {
 					// Boost repulsion for dense nodes to give them more breathing room
 					return deg > 20 ? base * 1.65 : base;
 				})
-				.theta(isLarge ? 0.9 : 0.8),
+				.theta(isHuge ? 1.5 : isLarge ? 0.9 : 0.8),
 		)
 		// Use gentle forceX/Y instead of forceCenter — prevents the entire graph
 		// from sliding when the center of mass shifts after adding nodes.

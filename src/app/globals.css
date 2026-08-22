@@ -6458,3 +6458,17 @@ button[type='submit'],
 	flex: 1 1 150px;
 	max-width: 150px;
 }
+/* --- MASSIVE GRAPH OPTIMIZATIONS --- */
+.fg-huge-graph .fg-label {
+	display: none !important;
+}
+.fg-huge-graph .fg-node-overlay {
+	display: none !important;
+}
+.fg-huge-graph .fg-node-selected-ring {
+	display: none !important;
+}
+.fg-huge-graph .fg-link {
+	pointer-events: none !important;
+	stroke-width: 0.5px !important;
+}
