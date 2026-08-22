@@ -833,7 +833,10 @@ let batchPayloadsMap: Map<string, any> | null = null;
 
 async function prefetchPayloadsBatch(cards: CacheCard[]) {
 	batchPayloadsMap = new Map();
-	const redis = getRedisClientInstance();
+	const redis = getRedisClientInstance({
+		url: process.env.UPSTASH_REDIS_REST_URL || '',
+		token: process.env.UPSTASH_REDIS_REST_TOKEN || ''
+	});
 	if (!redis) return;
 
 	const keysToFetch = new Set<string>();
