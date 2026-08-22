@@ -69,3 +69,4 @@ notes.md
 data/orphan_validation_report.json
 data/firm-connections/
 data/firm-connections/**
+.notes.md
