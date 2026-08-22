@@ -7,7 +7,7 @@ import { getRedisClientInstance } from '@/lib/redisClient';
 import type { Redis } from '@upstash/redis';
 import { cachedFetch } from '@/lib/simpleCache';
 import { normalizeIndividualDetailPayload } from '@/lib/individualDetail';
-import { setStringIfValid } from '@/lib/redisCache';
+import { setStringIfValid, decompressPayload } from '@/lib/redisCache';
 import { isValidCrd, makeRedisKey } from '@/lib/crd';
 import { getFullGraph, saveGraph } from '@/lib/graphStore';
 import { getRecentSeedsFromStore, rememberRecentSeed } from '@/lib/seedStore';
@@ -829,15 +829,64 @@ export function fetchedPayloadHasSourceCoverage(payload: unknown, target: { sour
 	return target.source === 'finra' ? hasFirmFinraPresence(detail) : hasFirmSecPresence(detail);
 }
 
+let batchPayloadsMap: Map<string, any> | null = null;
+
+async function prefetchPayloadsBatch(cards: CacheCard[]) {
+	batchPayloadsMap = new Map();
+	const redis = getRedisClientInstance();
+	if (!redis) return;
+
+	const keysToFetch = new Set<string>();
+	for (const card of cards) {
+		for (const sourceEntry of card.sources) {
+			keysToFetch.add(`${sourceEntry.source}:${card.entity}:${card.id}`);
+		}
+	}
+	const keys = Array.from(keysToFetch);
+	if (keys.length === 0) return;
+
+	try {
+		const results = await redis.mget(...keys);
+		for (let i = 0; i < keys.length; i++) {
+			const raw = results[i];
+			if (raw == null) continue;
+			
+			let parsed = null;
+			if (typeof raw === 'string') {
+				const decompressed = decompressPayload(raw);
+				try {
+					parsed = JSON.parse(decompressed);
+				} catch {
+					parsed = null;
+				}
+			} else {
+				parsed = raw;
+			}
+			
+			if (parsed != null) {
+				batchPayloadsMap.set(keys[i], parsed);
+			}
+		}
+	} catch (error) {
+		console.warn('Batch fetch failed', error);
+	}
+}
+
 async function loadCachedIndividualPayload(source: 'finra' | 'sec', id: string) {
 	const key = `${source}:individual:${id}`;
-	const payload = await cachedFetch<any>(key, 60 * 60 * 24, async () => undefined as unknown as any);
+	let payload = batchPayloadsMap?.get(key);
+	if (!payload) {
+		payload = await cachedFetch<any>(key, 60 * 60 * 24, async () => undefined as unknown as any);
+	}
 	return parseIndividualDetailPayload(payload, source === 'finra' ? 'content' : 'iacontent', id);
 }
 
 async function loadCachedFirmPayload(source: 'finra' | 'sec', id: string) {
 	const key = `${source}:firm:${id}`;
-	const payload = await cachedFetch<any>(key, 60 * 60 * 24, async () => undefined as unknown as any);
+	let payload = batchPayloadsMap?.get(key);
+	if (!payload) {
+		payload = await cachedFetch<any>(key, 60 * 60 * 24, async () => undefined as unknown as any);
+	}
 	return parseFirmDetailPayload(payload, source === 'finra' ? 'content' : 'iacontent');
 }
 
@@ -2051,13 +2100,18 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 		};
 	}
 
+	const cardsToProcess = sortedForDisplay.slice(0, maxCards);
+	await prefetchPayloadsBatch(cardsToProcess);
+
 	const shownCards = await Promise.all(
-		sortedForDisplay.slice(0, maxCards).map(async (card) => {
+		cardsToProcess.map(async (card) => {
 			const normalized = await normalizeCardSourcesForDisplay(card);
 			const summary = await buildCardSummary(normalized);
 			return normalizeCardForDisplay({ ...normalized, ...summary });
 		}),
 	);
+	
+	batchPayloadsMap = null;
 
 	return {
 		ok: true,
@@ -2144,8 +2198,11 @@ async function listNewCrds(force = false) {
 		.sort((left, right) => Number(right.id) - Number(left.id))
 		.slice(0, 20);
 
+	const topCardsToProcess = [...topPeople, ...topFirms];
+	await prefetchPayloadsBatch(topCardsToProcess);
+
 	const formatted = await Promise.all(
-		[...topPeople, ...topFirms].map(async (card) => {
+		topCardsToProcess.map(async (card) => {
 			const normalizedSources = await normalizeCardSourcesForDisplay(card);
 			const summary = await buildCardSummary(normalizedSources);
 			const normalized = normalizeCardForDisplay({ ...normalizedSources, ...summary });
@@ -2159,6 +2216,8 @@ async function listNewCrds(force = false) {
 			};
 		}),
 	);
+	
+	batchPayloadsMap = null;
 
 	const result = {
 		newCrds: formatted,
