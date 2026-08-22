@@ -4624,22 +4624,34 @@ function computeHighlightState() {
 
 	const activeFindId = activeFindMatchIndex >= 0 && Array.isArray(activeFindMatchOrder) ? activeFindMatchOrder[activeFindMatchIndex] : null;
 
-	const tempRoots = [...highlightedSelections];
+	const nodeById = new Map<string, any>((layoutNodes || []).map((node) => [String(node.id), node]));
+
+	const tempRoots = highlightedSelections.map((r) => ({ ...r, isSelection: true }));
 	if (hoveredNodeId && !tempRoots.some((r) => r.id === hoveredNodeId)) {
-		tempRoots.push({ id: hoveredNodeId, hops: 1 });
+		tempRoots.push({ id: hoveredNodeId, hops: 1, isSelection: false });
 	}
 	if (focusedNodeId && !tempRoots.some((r) => r.id === focusedNodeId)) {
-		tempRoots.push({ id: focusedNodeId, hops: 1 });
+		tempRoots.push({ id: focusedNodeId, hops: 1, isSelection: false });
 	}
 	if (activeFindId && !tempRoots.some((r) => r.id === activeFindId)) {
-		tempRoots.push({ id: activeFindId, hops: 1 });
+		tempRoots.push({ id: activeFindId, hops: 1, isSelection: false });
+	}
+
+	if (isSelectionLogBold && Array.isArray(selectedNodesLog)) {
+		selectedNodesLog.forEach((entry) => {
+			const node = nodeById.get(entry.id);
+			if (node?.group === 'individual') {
+				if (!tempRoots.some((r) => String(r.id) === String(entry.id))) {
+					tempRoots.push({ id: entry.id, hops: 1, isSelection: false });
+				}
+			}
+		});
 	}
 
 	if (!tempRoots.length) {
 		return { rootIds, nodeIds, hopNodeIds, linkKeys };
 	}
 
-	const nodeById = new Map<string, any>((layoutNodes || []).map((node) => [String(node.id), node]));
 	const adjacency = new Map<string, Array<{ nodeId: string; link: any }>>((layoutNodes || []).map((node) => [String(node.id), []]));
 	(layoutLinks || []).forEach((link) => {
 		const sourceId = link.source?.id ?? link.source;
@@ -4659,6 +4671,10 @@ function computeHighlightState() {
 		nodeIds.add(entry.id);
 
 		if (!adjacency.has(entry.id)) return;
+
+		// Do not traverse edges if the root is a Firm that was explicitly clicked/selected.
+		// This prevents firm selections from lighting up the entire screen when expanded.
+		if (entryNode?.group === 'firm' && entry.isSelection) return;
 
 		// Use the entry's stored hops if they were explicitly requested (e.g. from an API expansion)
 		// but default to the global RUNTIME setting if we want the sliders to control existing highlights.
