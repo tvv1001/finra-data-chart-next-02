@@ -10676,9 +10676,12 @@ function renderGraph(_data) {
 	let _tickN = 0;
 	simulation.on('tick', () => {
 		_tickN++;
-		// During high-energy early layout, skip every other DOM write to cut paint time.
-		// Physics still advances every tick; only the SVG update is throttled.
-		if (simulation.alpha() > 0.15 && _tickN % 2 !== 0) return;
+		// During high-energy early layout, aggressively throttle SVG repaints 
+		// to allow the main thread to handle user inputs and D3 physics calculations.
+		if (isHuge && simulation.alpha() > 0.05 && _tickN % 10 !== 0) return;
+		if (isLarge && simulation.alpha() > 0.1 && _tickN % 4 !== 0) return;
+		if (!isHuge && !isLarge && simulation.alpha() > 0.15 && _tickN % 2 !== 0) return;
+		
 		scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
 	});
 
@@ -10964,8 +10967,13 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 	// Persist session so reload restores these nodes
 	saveSession();
 
-	// Update tick handler to cover new selections
+	let _updTick = 0;
 	simulation.on('tick', () => {
+		_updTick++;
+		const count = layoutNodes?.length || 0;
+		if (count > 1000 && simulation.alpha() > 0.05 && _updTick % 10 !== 0) return;
+		if (count > 300 && simulation.alpha() > 0.1 && _updTick % 4 !== 0) return;
+		
 		scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
 	});
 
@@ -13820,13 +13828,13 @@ function revealNeighbors(
 			if (activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
 			refreshTraceState();
 
+			let _revealTick = 0;
 			simulation.on('tick', () => {
-				linkSel
-					.attr('x1', (d) => d.source.x)
-					.attr('y1', (d) => d.source.y)
-					.attr('x2', (d) => d.target.x)
-					.attr('y2', (d) => d.target.y);
-				nodeSel.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
+				_revealTick++;
+				if (layoutNodes.length > 1000 && simulation.alpha() > 0.05 && _revealTick % 10 !== 0) return;
+				if (layoutNodes.length > 300 && simulation.alpha() > 0.1 && _revealTick % 4 !== 0) return;
+				
+				scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
 			});
 
 			refreshSoftLocationGroupingForces(layoutNodes);
