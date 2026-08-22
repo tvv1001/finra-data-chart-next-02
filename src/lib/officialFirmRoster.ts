@@ -122,16 +122,11 @@ export function mapOfficialSearchHitsToConnections(firmId: string, hits: any[], 
 		const hasExactCurrent = currentAtQuery.length > 0;
 		const hasExactPrevious = previousAtQuery.length > 0;
 
-		// Name-token hits (firm=72 → 724 CAPITAL) do not carry the query as firm_id.
-		// inner_hits are the employments the official search considered a match.
-		const nameCurrent = hasExactCurrent || hasExactPrevious ? [] : innerHitSources(hit, ['ind_current_employments', 'ind_ia_current_employments']);
-		const namePrevious = hasExactCurrent || hasExactPrevious ? [] : innerHitSources(hit, ['ind_previous_employments', 'ind_ia_previous_employments']);
-
-		const personIsCurrent = hasExactCurrent || nameCurrent.length > 0;
-		const personIsPrevious = !personIsCurrent && (hasExactPrevious || namePrevious.length > 0);
+		const personIsCurrent = hasExactCurrent;
+		const personIsPrevious = !personIsCurrent && hasExactPrevious;
 		if (personCrd && (personIsCurrent || personIsPrevious) && !seenPerson.has(`${personCrd}:${personIsCurrent ? '1' : '0'}`)) {
 			seenPerson.add(`${personCrd}:${personIsCurrent ? '1' : '0'}`);
-			const matchedEmp = personIsCurrent ? currentAtQuery[0] || nameCurrent[0] : previousAtQuery[0] || namePrevious[0];
+			const matchedEmp = personIsCurrent ? currentAtQuery[0] : previousAtQuery[0];
 			entries.push({
 				individualId: personCrd,
 				name: personName,
@@ -148,8 +143,6 @@ export function mapOfficialSearchHitsToConnections(firmId: string, hits: any[], 
 		const relatedEmployments = [
 			...currentAtQuery.map((entry) => ({ entry, isCurrent: true })),
 			...previousAtQuery.map((entry) => ({ entry, isCurrent: false })),
-			...nameCurrent.map((entry) => ({ entry, isCurrent: true })),
-			...namePrevious.map((entry) => ({ entry, isCurrent: false })),
 		];
 		for (const { entry, isCurrent } of relatedEmployments) {
 			const relatedId = employmentFirmId(entry);
