@@ -4672,10 +4672,6 @@ function computeHighlightState() {
 
 		if (!adjacency.has(entry.id)) return;
 
-		// Do not traverse edges if the root is a Firm that was explicitly clicked/selected.
-		// This prevents firm selections from lighting up the entire screen when expanded.
-		if (entryNode?.group === 'firm' && entry.isSelection) return;
-
 		// Use the entry's stored hops if they were explicitly requested (e.g. from an API expansion)
 		// but default to the global RUNTIME setting if we want the sliders to control existing highlights.
 		const runtime = getRuntimeHopDefaults();
@@ -4694,6 +4690,12 @@ function computeHighlightState() {
 
 				const neighborNode = nodeById.get(nodeId) || null;
 				if (!entryInactive && isNodeInactive(neighborNode)) return;
+
+				// If a firm is selected, do not highlight its connecting lines to person nodes.
+				// (Person nodes will highlight the lines to the firm if they are bolded).
+				if (entryNode?.group === 'firm' && entry.isSelection && neighborNode?.group === 'individual') {
+					return;
+				}
 
 				linkKeys.add(getLinkKey(link));
 				nodeIds.add(nodeId);
