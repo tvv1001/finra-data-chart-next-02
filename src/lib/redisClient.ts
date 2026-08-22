@@ -111,8 +111,14 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 
 								try {
 									let res = await (primary as any)[propStr](...args);
-									if ((res === null || res === undefined) && !db1Maxxed && !db2Maxxed) {
-										// Fallback if null (helpful during partial migrations), only if other DB is healthy
+									
+									// Fallback if null (helpful during partial migrations), only if other DB is healthy
+									let needsFallback = res === null || res === undefined;
+									if (Array.isArray(res) && res.length > 0 && res.some(item => item === null || item === undefined)) {
+										needsFallback = true;
+									}
+									
+									if (needsFallback && !db1Maxxed && !db2Maxxed) {
 										res = await (secondary as any)[propStr](...args);
 									}
 									return res;
@@ -153,19 +159,11 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 											return { ok: false, err: e, dbIndex };
 										});
 
-								let skipDb2 = false;
-								const firstArg = args[0];
-								if (typeof firstArg === 'string' && firstArg.startsWith('graph:')) skipDb2 = true;
-								else if (typeof firstArg === 'object' && firstArg !== null) {
-									const keys = Array.isArray(firstArg) ? firstArg.filter((_, i) => i % 2 === 0) : Object.keys(firstArg);
-									if (keys.some(k => typeof k === 'string' && k.startsWith('graph:'))) skipDb2 = true;
-								}
-
 								const promises: Array<Promise<any>> = [];
 								if (!db1Maxxed) promises.push(wrapped((client1 as any)[propStr](...args), 1));
 								else promises.push(Promise.resolve({ ok: false, dbIndex: 1 }));
 								
-								if (!db2Maxxed && !skipDb2) promises.push(wrapped((client2 as any)[propStr](...args), 2));
+								if (!db2Maxxed) promises.push(wrapped((client2 as any)[propStr](...args), 2));
 								else promises.push(Promise.resolve({ ok: false, dbIndex: 2 }));
 
 								// Await both writes fully before returning. In Serverless/Edge 
