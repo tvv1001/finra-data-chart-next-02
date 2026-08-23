@@ -4350,9 +4350,9 @@ function isProfileEnabled(profile) {
 }
 
 function getRefreshLayoutDurationMs(nodeCount = layoutNodes?.length || 0) {
-	if (nodeCount > 1000) return 1100;
-	if (nodeCount > 300) return 1300;
-	return 1500;
+	if (nodeCount > 1000) return 3000;
+	if (nodeCount > 300) return 3000;
+	return 3000;
 }
 
 function stopNodePulseLoop() {
@@ -5645,7 +5645,7 @@ function refreshNodeLayout() {
 		isHuge ? 10
 		: isLarge ? 8
 		: 6;
-	const refreshDurationMs = Math.min(
+	const refreshDurationMs = Math.max(
 		getRefreshLayoutDurationMs(nodeCount),
 		isHuge ? 900
 		: isLarge ? 1200
@@ -10509,7 +10509,7 @@ function renderGraph(_data) {
 	simulation = d3
 			.forceSimulation<GraphSimulationNode>(nodes)
 		.alphaDecay(
-			isHuge ? 0.15
+			isHuge ? 0.06
 			: isLarge ? 0.03
 			: 0.012,
 		)
@@ -13876,6 +13876,35 @@ function revealNeighbors(
 					revealBatches.length > 1 ? Math.max(16, plan.batchDelayMs) : 0,
 				);
 				return;
+			}
+			
+			// Final batch finished! If the graph is huge, use WASM to compute final positions instantly!
+			if (layoutNodes.length > 500) {
+				simulation.stop();
+				const main = document.getElementById('fg-main');
+				const W = main ? main.clientWidth : 800;
+				const H = main ? main.clientHeight : 600;
+				const nodesPayload = layoutNodes.map((n) => ({ id: n.id, x: n.x, y: n.y, group: n.group, _deg: n._deg }));
+				const linksPayload = layoutLinks.map((l) => ({ source: l.source?.id || l.source, target: l.target?.id || l.target }));
+				import('@/lib/graphLayoutWorker').then(mod => {
+					const createWorker = mod.default || mod.createGraphLayoutWorker;
+					if (typeof createWorker === 'function') {
+						const { compute } = createWorker();
+						compute(nodesPayload, linksPayload, W, H).then(positions => {
+							if (Array.isArray(positions)) {
+								const posMap = new Map(positions.map((p) => [String(p.id), p]));
+								for (const ln of layoutNodes) {
+									const p = posMap.get(String(ln.id));
+									if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
+										ln.x = p.x;
+										ln.y = p.y;
+									}
+								}
+								refreshNodeLayout(); // Animate gently into WASM positions
+							}
+						}).catch(e => console.error("WASM compute failed", e));
+					}
+				});
 			}
 
 			try {
