@@ -4068,6 +4068,7 @@ function updateSelectionLogUI() {
 
 	containers.forEach((container) => {
 		container.innerHTML = '';
+		const fragment = document.createDocumentFragment();
 
 		selectedNodesLog
 			.slice()
@@ -4100,25 +4101,46 @@ function updateSelectionLogUI() {
 						'<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M1 8h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
 					:	'<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
 
-				div.innerHTML = `
-				<span class="fg-log-text" title="${entryTextTitle}">
-					<strong class="fg-log-label">${entry.label}</strong>
-						${secondaryLineHidden ? '' : `<span class="fg-log-subtext">:: ${entry.secondaryId}</span>`}
-				</span>
-				<button class="${labelToggleClass}" title="${labelToggleTitle}" aria-label="${labelToggleTitle}" ${labelToggleDisabled ? 'disabled' : ''} data-log-id="${entry.id}">
-					${labelToggleIcon}
-				</button>
-				<button class="${actionButtonClass}" title="${actionButtonTitle}" aria-label="${actionButtonTitle}">
-					${actionButtonIcon}
-				</button>
-			`;
+				const textSpan = document.createElement('span');
+				textSpan.className = 'fg-log-text';
+				textSpan.title = entryTextTitle;
+				
+				const strongLabel = document.createElement('strong');
+				strongLabel.className = 'fg-log-label';
+				strongLabel.textContent = entry.label || '';
+				textSpan.appendChild(strongLabel);
+				
+				if (!secondaryLineHidden) {
+					const subtext = document.createElement('span');
+					subtext.className = 'fg-log-subtext';
+					subtext.textContent = ` :: ${entry.secondaryId || ''}`;
+					textSpan.appendChild(subtext);
+				}
+				div.appendChild(textSpan);
+				
+				const labelToggleBtn = document.createElement('button');
+				labelToggleBtn.className = labelToggleClass;
+				labelToggleBtn.title = labelToggleTitle;
+				labelToggleBtn.setAttribute('aria-label', labelToggleTitle);
+				if (labelToggleDisabled) labelToggleBtn.disabled = true;
+				labelToggleBtn.dataset.logId = String(entry.id);
+				labelToggleBtn.innerHTML = labelToggleIcon;
+				div.appendChild(labelToggleBtn);
+				
+				const actionBtn = document.createElement('button');
+				actionBtn.className = actionButtonClass;
+				actionBtn.title = actionButtonTitle;
+				actionBtn.setAttribute('aria-label', actionButtonTitle);
+				actionBtn.innerHTML = actionButtonIcon;
+				div.appendChild(actionBtn);
+
 				if (!isSelectionLogEditMode) {
-					div.querySelector('.fg-log-text')?.addEventListener('click', () => {
+					textSpan.addEventListener('click', () => {
 						copyToClipboard(text, div);
 						ensureNodeFetchedAndOnScreen(entry);
 					});
 				}
-				div.querySelector('.fg-log-item-action-btn')?.addEventListener('click', () => {
+				actionBtn.addEventListener('click', () => {
 					if (isSelectionLogEditMode) {
 						removeSelectionLogEntry(entry.id);
 						return;
@@ -4128,9 +4150,7 @@ function updateSelectionLogUI() {
 				});
 
 				// label toggle handler (show/hide enlarged label without clicking node)
-				const labelToggleBtn = div.querySelector('.fg-log-label-toggle-btn') as HTMLButtonElement | null;
 				if (labelToggleBtn) {
-					const childNode = isSelectionLogChildNode(entry.id);
 					div.classList.toggle('is-child-node', childNode);
 					div.classList.toggle('is-child-line-muted', childNode && !isLabelShown);
 					labelToggleBtn.addEventListener('click', (ev) => {
@@ -4157,8 +4177,9 @@ function updateSelectionLogUI() {
 						syncSelectionLogAuxiliaryRenderers();
 					});
 				}
-				container.appendChild(div);
+				fragment.appendChild(div);
 			});
+		container.appendChild(fragment);
 	});
 
 	updateSelectionLogTemplatesUI();
