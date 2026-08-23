@@ -489,6 +489,33 @@ function setGraphLabelRenderMode(nodeCount = layoutNodes?.length || 0) {
 	nodeLabelRenderMode = 'full';
 }
 
+
+function animateToWasmPositions(duration = 2500) {
+	if (simulation) simulation.stop();
+	if (graphTickFrameId != null) {
+		cancelAnimationFrame(graphTickFrameId);
+		graphTickFrameId = null;
+	}
+	if (nodeSel) {
+		nodeSel.transition().duration(duration).ease(d3.easeCubicOut)
+			.attr('transform', d => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
+	}
+	if (linkSel) {
+		linkSel.transition().duration(duration).ease(d3.easeCubicOut)
+			.attr('x1', d => (Number.isFinite(d.source?.x) ? d.source.x : 0))
+			.attr('y1', d => (Number.isFinite(d.source?.y) ? d.source.y : 0))
+			.attr('x2', d => (Number.isFinite(d.target?.x) ? d.target.x : 0))
+			.attr('y2', d => (Number.isFinite(d.target?.y) ? d.target.y : 0));
+	}
+	if (arrowSel) {
+		arrowSel.transition().duration(duration).ease(d3.easeCubicOut)
+			.attr('x1', d => (Number.isFinite(d.source?.x) ? d.source.x : 0))
+			.attr('y1', d => (Number.isFinite(d.source?.y) ? d.source.y : 0))
+			.attr('x2', d => (Number.isFinite(d.target?.x) ? d.target.x : 0))
+			.attr('y2', d => (Number.isFinite(d.target?.y) ? d.target.y : 0));
+	}
+}
+
 function updateGraphTickPositions(linkSelection, nodeSelection, arrowSelection) {
 	if (!linkSelection || !nodeSelection) return;
 	linkSelection
@@ -4350,9 +4377,9 @@ function isProfileEnabled(profile) {
 }
 
 function getRefreshLayoutDurationMs(nodeCount = layoutNodes?.length || 0) {
-	if (nodeCount > 1000) return 3000;
-	if (nodeCount > 300) return 3000;
-	return 3000;
+	if (nodeCount > 1000) return 1100;
+	if (nodeCount > 300) return 1300;
+	return 1500;
 }
 
 function stopNodePulseLoop() {
@@ -5645,7 +5672,7 @@ function refreshNodeLayout() {
 		isHuge ? 10
 		: isLarge ? 8
 		: 6;
-	const refreshDurationMs = Math.max(
+	const refreshDurationMs = Math.min(
 		getRefreshLayoutDurationMs(nodeCount),
 		isHuge ? 900
 		: isLarge ? 1200
@@ -5955,7 +5982,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 								}
 								// force a render
 								try {
-									requestRender();
+									animateToWasmPositions(2500);
 								} catch {}
 								usedWasm = true;
 							}
@@ -13900,7 +13927,7 @@ function revealNeighbors(
 										ln.y = p.y;
 									}
 								}
-								refreshNodeLayout(); // Animate gently into WASM positions
+								animateToWasmPositions(2500); // Animate smoothly using D3 transitions directly
 							}
 						}).catch(e => console.error("WASM compute failed", e));
 					}
