@@ -3166,10 +3166,6 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 	padding-bottom: 4px;
 }
 
-.fg-connections-filter-scope .fg-section-title--sticky {
-	top: calc(var(--fg-sidebar-sticky-offset) + 38px);
-}
-
 .fg-section-title--sticky {
 	position: sticky;
 	top: var(--fg-sidebar-sticky-offset);

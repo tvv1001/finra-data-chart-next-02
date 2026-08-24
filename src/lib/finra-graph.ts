@@ -16507,7 +16507,7 @@ function renderFirmDetail(d: any) {
 			<div class="fg-connections-filter-scope" data-fg-connections-filter-scope="firm-detail">
 			${
 				connections.length ?
-					`<div class="fg-section-title fg-section-title--sticky" data-fg-connections-section>Connected Nodes (${connections.length})</div>
+					`<div class="fg-section-title" data-fg-connections-section>Connected Nodes (${connections.length})</div>
 					<div class="fg-timeline">
 						${connections
 							.map((connection) => {
@@ -16539,7 +16539,7 @@ function renderFirmDetail(d: any) {
 			}
 			${
 				currentConnections.length ?
-					`<div class="fg-section-title fg-section-title--sticky" data-fg-connections-section>Current Connections (${currentConnections.length})</div>
+					`<div class="fg-section-title" data-fg-connections-section>Current Connections (${currentConnections.length})</div>
 					<div class="fg-timeline">
 						${currentConnections
 							.map((connection) => {
@@ -16563,7 +16563,7 @@ function renderFirmDetail(d: any) {
 			}
 			${
 				previousConnections.length ?
-					`<div class="fg-section-title fg-section-title--sticky" data-fg-connections-section>Previous Connections (${previousConnections.length})</div>
+					`<div class="fg-section-title" data-fg-connections-section>Previous Connections (${previousConnections.length})</div>
 					<div class="fg-timeline fg-timeline--previous">
 						${previousConnections
 							.map((connection) => {
