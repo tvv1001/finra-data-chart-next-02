@@ -3157,6 +3157,19 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 	--fg-sidebar-sticky-bleed-right: 10px;
 }
 
+.fg-connections-filter-row--sticky {
+	position: sticky;
+	top: var(--fg-sidebar-sticky-offset);
+	z-index: 3;
+	background: var(--surface);
+	padding-top: 4px;
+	padding-bottom: 4px;
+}
+
+.fg-connections-filter-scope .fg-section-title--sticky {
+	top: calc(var(--fg-sidebar-sticky-offset) + 38px);
+}
+
 .fg-section-title--sticky {
 	position: sticky;
 	top: var(--fg-sidebar-sticky-offset);

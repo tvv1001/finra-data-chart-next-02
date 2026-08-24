@@ -16499,7 +16499,7 @@ function renderFirmDetail(d: any) {
 
 			${
 				connections.length || currentConnections.length || previousConnections.length ?
-					`<div class="fg-connections-filter-row" style="margin: 8px 0;">
+					`<div class="fg-connections-filter-row fg-connections-filter-row--sticky" style="margin: 8px 0;">
 						<input type="text" class="fg-connections-filter" placeholder="Filter connections…" style="width: 100%; padding: 4px 8px; border: 1px solid var(--fg-border); border-radius: 4px; background: var(--fg-bg-secondary); color: var(--fg-text);" />
 					</div>`
 				:	''
