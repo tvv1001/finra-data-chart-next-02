@@ -8172,7 +8172,7 @@ async function filterGraph(rawQuery) {
 	if (!q) {
 		// reset
 		nodeSel.style('opacity', null).classed('filtered', false);
-		linkSel.style('stroke-opacity', null).attr('stroke-opacity', defaultLinkOpacity).style('opacity', null);
+		linkSel.style('stroke-opacity', null).attr('stroke-opacity', (d) => getScaledLinkStrokeOpacity(defaultLinkOpacity(d))).style('opacity', null);
 		// Restore the real layout count
 		if (graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
 		return;
@@ -9704,17 +9704,40 @@ function getLinkWidthPx(d) {
 	return `${getScaledLinkStrokeWidth(getLinkBaseWidth(d))}px`;
 }
 
+// When zoomed out far, thin/dim link colors (grays and low-opacity relationship lines)
+// become nearly invisible against the dark background. Boost stroke-opacity toward 1 as
+// the zoom scale drops below the point where nodes start getting visually tiny, so lines
+// stay legible at a distance without changing their appearance at normal/close zoom.
+const LINK_ZOOM_OUT_OPACITY_BOOST_THRESHOLD = 0.6;
+function getLinkZoomOutOpacityScale() {
+	const zoom = Math.max(0.02, Number(getCurrentGraphZoomScale()) || 1);
+	if (zoom >= LINK_ZOOM_OUT_OPACITY_BOOST_THRESHOLD) return 1;
+	// Linearly ramp the boost from 1x (at the threshold) up to ~2.2x at the minimum zoom.
+	const t = 1 - zoom / LINK_ZOOM_OUT_OPACITY_BOOST_THRESHOLD;
+	return 1 + t * 1.2;
+}
+
+function getScaledLinkStrokeOpacity(baseOpacity: number) {
+	const boosted = baseOpacity * getLinkZoomOutOpacityScale();
+	return Math.max(0, Math.min(1, boosted));
+}
+
 function refreshRenderedLinkStrokeWidthsForZoom() {
 	if (!linkSel) return;
 	const zoomScale = getLinkZoomOutScale();
+	const opacityScale = getLinkZoomOutOpacityScale();
 	linkSel.each(function (d) {
 		const sel = d3.select(this);
 		const storedBase = Number.parseFloat(String(sel.attr('data-fg-base-stroke-width') || ''));
 		const baseWidth = Number.isFinite(storedBase) ? storedBase : getLinkBaseWidth(d);
+		const storedBaseOpacity = Number.parseFloat(String(sel.attr('data-fg-base-stroke-opacity') || ''));
+		const baseOpacity = Number.isFinite(storedBaseOpacity) ? storedBaseOpacity : Number(defaultLinkOpacity(d)) || 1;
 		sel
 			.attr('data-fg-base-stroke-width', String(baseWidth))
 			.attr('stroke-width', baseWidth * zoomScale)
-			.style('--fg-link-width', `${baseWidth * zoomScale}px`);
+			.style('--fg-link-width', `${baseWidth * zoomScale}px`)
+			.attr('data-fg-base-stroke-opacity', String(baseOpacity))
+			.attr('stroke-opacity', Math.max(0, Math.min(1, baseOpacity * opacityScale)));
 	});
 }
 
@@ -9817,9 +9840,11 @@ function joinLayeredLinkGroup(groupSel, data, enterDuration = 0) {
 		.attr('stroke-width', (d) => getScaledLinkStrokeWidth(getLinkBaseWidth(d)))
 		.style('--fg-link-width', (d) => getLinkWidthPx(d))
 		.attr('stroke-dasharray', (d) => getLinkDash(d));
-	if (enterDuration > 0) entered.transition().duration(enterDuration).attr('stroke-opacity', defaultLinkOpacity);
-	else entered.attr('stroke-opacity', defaultLinkOpacity);
-	merged.attr('stroke-opacity', defaultLinkOpacity);
+	if (enterDuration > 0) entered.transition().duration(enterDuration).attr('stroke-opacity', (d) => getScaledLinkStrokeOpacity(defaultLinkOpacity(d)));
+	else entered.attr('stroke-opacity', (d) => getScaledLinkStrokeOpacity(defaultLinkOpacity(d)));
+	merged
+		.attr('data-fg-base-stroke-opacity', (d) => String(defaultLinkOpacity(d)))
+		.attr('stroke-opacity', (d) => getScaledLinkStrokeOpacity(defaultLinkOpacity(d)));
 	return merged;
 }
 
@@ -10459,8 +10484,8 @@ function renderGraph(_data) {
 	// ── Zoom ──────────────────────────────────────────────────────────────────
 	// LOD threshold: hide labels when zoomed out (less DOM paint, higher props)
 	const labelZoomThreshold =
-		isHuge ? 1.5
-		: isLarge ? 1.4
+		isHuge ? 0.9
+		: isLarge ? 0.7
 		: 0.5;
 	activeLabelZoomThreshold = labelZoomThreshold;
 	inactiveLabelCompactZoomThreshold = labelZoomThreshold * 1.35;
@@ -10655,8 +10680,7 @@ function renderGraph(_data) {
 			.join('line')
 			.attr('class', 'fg-link')
 			.attr('stroke', (d) => getLinkColor(d))
-			.attr('stroke-opacity', defaultLinkOpacity)
-			.attr('stroke-width', (d) => getLinkWidth(d))
+			.attr('stroke-opacity', (d) => getScaledLinkStrokeOpacity(defaultLinkOpacity(d)))
 			.style('--fg-link-width', (d) => getLinkWidthPx(d))
 			.attr('stroke-dasharray', (d) => getLinkDash(d));
 	}
