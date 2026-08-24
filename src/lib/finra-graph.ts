@@ -97,8 +97,8 @@ const GRAPH_COLORS = {
 	nodeControls: 'var(--color-highlight-controls)',
 	lineEmployedBy: 'var(--color-highlight-employed)',
 	lineControls: 'var(--color-highlight-controls)',
-	lineControlsHighlight: '#ff2222',
-	lineDisclosure: '#f97316',
+	lineControlsHighlight: 'rgba(200, 45, 2, 0.615)',
+	lineDisclosure: 'rgba(57, 243, 10, 0.818)',
 	lineInactive: 'var(--color-default-line)',
 	lineNeutral: 'var(--color-default-line)',
 	linePreviousEmployment: 'var(--color-default-line)',
@@ -489,7 +489,6 @@ function setGraphLabelRenderMode(nodeCount = layoutNodes?.length || 0) {
 	nodeLabelRenderMode = 'full';
 }
 
-
 function animateToWasmPositions(duration = 2500) {
 	if (simulation) simulation.stop();
 	if (graphTickFrameId != null) {
@@ -497,22 +496,31 @@ function animateToWasmPositions(duration = 2500) {
 		graphTickFrameId = null;
 	}
 	if (nodeSel) {
-		nodeSel.transition().duration(duration).ease(d3.easeCubicOut)
-			.attr('transform', d => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
+		nodeSel
+			.transition()
+			.duration(duration)
+			.ease(d3.easeCubicOut)
+			.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
 	}
 	if (linkSel) {
-		linkSel.transition().duration(duration).ease(d3.easeCubicOut)
-			.attr('x1', d => (Number.isFinite(d.source?.x) ? d.source.x : 0))
-			.attr('y1', d => (Number.isFinite(d.source?.y) ? d.source.y : 0))
-			.attr('x2', d => (Number.isFinite(d.target?.x) ? d.target.x : 0))
-			.attr('y2', d => (Number.isFinite(d.target?.y) ? d.target.y : 0));
+		linkSel
+			.transition()
+			.duration(duration)
+			.ease(d3.easeCubicOut)
+			.attr('x1', (d) => (Number.isFinite(d.source?.x) ? d.source.x : 0))
+			.attr('y1', (d) => (Number.isFinite(d.source?.y) ? d.source.y : 0))
+			.attr('x2', (d) => (Number.isFinite(d.target?.x) ? d.target.x : 0))
+			.attr('y2', (d) => (Number.isFinite(d.target?.y) ? d.target.y : 0));
 	}
 	if (arrowSel) {
-		arrowSel.transition().duration(duration).ease(d3.easeCubicOut)
-			.attr('x1', d => (Number.isFinite(d.source?.x) ? d.source.x : 0))
-			.attr('y1', d => (Number.isFinite(d.source?.y) ? d.source.y : 0))
-			.attr('x2', d => (Number.isFinite(d.target?.x) ? d.target.x : 0))
-			.attr('y2', d => (Number.isFinite(d.target?.y) ? d.target.y : 0));
+		arrowSel
+			.transition()
+			.duration(duration)
+			.ease(d3.easeCubicOut)
+			.attr('x1', (d) => (Number.isFinite(d.source?.x) ? d.source.x : 0))
+			.attr('y1', (d) => (Number.isFinite(d.source?.y) ? d.source.y : 0))
+			.attr('x2', (d) => (Number.isFinite(d.target?.x) ? d.target.x : 0))
+			.attr('y2', (d) => (Number.isFinite(d.target?.y) ? d.target.y : 0));
 	}
 }
 
@@ -2163,6 +2171,11 @@ let selectedNodesLog: Array<SelectionLogEntry> = [];
 let sidebarSelectedNode = null;
 let sidebarLogSticky = false; // true if user has explicitly opened log toggle
 let sidebarSourceToggle = 'finra';
+// Persists the sidebar "Filter connections…" search term across node selections
+// (renderSidebar() re-renders the whole panel on every click, which would
+// otherwise wipe out whatever the user typed). Cleared only when the user
+// clears/changes the input themselves.
+let sidebarConnectionsFilterQuery = '';
 let isTraceMode = false;
 let isTraceLogMode = false;
 let isSelectionLogBold = false;
@@ -4012,7 +4025,7 @@ function clearNonLogAction(button?: HTMLButtonElement) {
 
 function clearNonConnectedAction(button?: HTMLButtonElement) {
 	const rootId = selectedId || (selectedNodesLog.length ? selectedNodesLog[selectedNodesLog.length - 1].id : null);
-	
+
 	if (!rootId) {
 		if (!graphData?.nodes || !graphData?.links) {
 			if (button) flashSelectionLogActionButton(button, 'No nodes');
@@ -4108,12 +4121,12 @@ function updateSelectionLogUI() {
 				const textSpan = document.createElement('span');
 				textSpan.className = 'fg-log-text';
 				textSpan.title = entryTextTitle;
-				
+
 				const strongLabel = document.createElement('strong');
 				strongLabel.className = 'fg-log-label';
 				strongLabel.textContent = entry.label || '';
 				textSpan.appendChild(strongLabel);
-				
+
 				if (!secondaryLineHidden) {
 					const subtext = document.createElement('span');
 					subtext.className = 'fg-log-subtext';
@@ -4121,7 +4134,7 @@ function updateSelectionLogUI() {
 					textSpan.appendChild(subtext);
 				}
 				div.appendChild(textSpan);
-				
+
 				const labelToggleBtn = document.createElement('button');
 				labelToggleBtn.className = labelToggleClass;
 				labelToggleBtn.title = labelToggleTitle;
@@ -4130,7 +4143,7 @@ function updateSelectionLogUI() {
 				labelToggleBtn.dataset.logId = String(entry.id);
 				labelToggleBtn.innerHTML = labelToggleIcon;
 				div.appendChild(labelToggleBtn);
-				
+
 				const actionBtn = document.createElement('button');
 				actionBtn.className = actionButtonClass;
 				actionBtn.title = actionButtonTitle;
@@ -4764,8 +4777,12 @@ function computeHighlightState() {
 				if (!entryInactive && isNodeInactive(neighborNode)) return;
 
 				// If a firm is selected, do not highlight its connecting lines to person nodes.
-				// (Person nodes will highlight the lines to the firm if they are bolded).
-				if (entryNode?.group === 'firm' && entry.isSelection && neighborNode?.group === 'individual') {
+				// (Person nodes will highlight the lines to the firm if they are bolded). This
+				// keeps huge employee/registration rosters from lighting up the whole screen.
+				// Exception: Form BD — Direct Owners & Executive Officers (controls/owner/officer)
+				// links are a small, distinct set and must stay highlighted/red when their firm
+				// is selected.
+				if (entryNode?.group === 'firm' && entry.isSelection && neighborNode?.group === 'individual' && !isControlRelationship(link)) {
 					return;
 				}
 
@@ -6203,24 +6220,15 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 				const input = (target?.closest ? target.closest('.fg-connections-filter') : null) as HTMLInputElement | null;
 				if (!input) return;
 				const row = input.closest('.fg-connections-filter-row') as HTMLElement | null;
-				const scope = (row?.nextElementSibling?.classList.contains('fg-connections-filter-scope') ? row.nextElementSibling : (input.closest('.fg-connections-filter-scope') as HTMLElement | null)) as HTMLElement | null;
+				const scope = (
+					row?.nextElementSibling?.classList.contains('fg-connections-filter-scope') ?
+						row.nextElementSibling
+					:	(input.closest('.fg-connections-filter-scope') as HTMLElement | null)) as HTMLElement | null;
 				if (!scope) return;
-				const query = input.value.trim().toLowerCase();
-				const cards = scope.querySelectorAll<HTMLElement>('[data-fg-filter-text]');
-				cards.forEach((card) => {
-					const text = card.getAttribute('data-fg-filter-text') || '';
-					card.classList.toggle('fg-filter-hidden', Boolean(query) && !text.includes(query));
-				});
-				// Hide section titles/timelines that have no visible cards left
-				const sections = scope.querySelectorAll<HTMLElement>('[data-fg-connections-section]');
-				sections.forEach((titleEl) => {
-					const timelineEl = titleEl.nextElementSibling as HTMLElement | null;
-					if (!timelineEl || !timelineEl.classList.contains('fg-timeline')) return;
-					const visibleCount = timelineEl.querySelectorAll('[data-fg-filter-text]:not(.fg-filter-hidden)').length;
-					const shouldHide = Boolean(query) && visibleCount === 0;
-					titleEl.classList.toggle('fg-filter-hidden', shouldHide);
-					timelineEl.classList.toggle('fg-filter-hidden', shouldHide);
-				});
+				// Remember the term so it survives the next renderSidebar() re-render
+				// (e.g. clicking another node), instead of resetting on every click.
+				sidebarConnectionsFilterQuery = input.value;
+				applyConnectionsFilterToScope(scope, input.value);
 			});
 		}
 		sidebarInner.addEventListener('click', async (ev) => {
@@ -8213,7 +8221,10 @@ async function filterGraph(rawQuery) {
 	if (!q) {
 		// reset
 		nodeSel.style('opacity', null).classed('filtered', false);
-		linkSel.style('stroke-opacity', null).attr('stroke-opacity', (d) => getScaledLinkStrokeOpacity(defaultLinkOpacity(d))).style('opacity', null);
+		linkSel
+			.style('stroke-opacity', null)
+			.attr('stroke-opacity', (d) => getScaledLinkStrokeOpacity(defaultLinkOpacity(d)))
+			.style('opacity', null);
 		// Restore the real layout count
 		if (graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
 		return;
@@ -9881,11 +9892,13 @@ function joinLayeredLinkGroup(groupSel, data, enterDuration = 0) {
 		.attr('stroke-width', (d) => getScaledLinkStrokeWidth(getLinkBaseWidth(d)))
 		.style('--fg-link-width', (d) => getLinkWidthPx(d))
 		.attr('stroke-dasharray', (d) => getLinkDash(d));
-	if (enterDuration > 0) entered.transition().duration(enterDuration).attr('stroke-opacity', (d) => getScaledLinkStrokeOpacity(defaultLinkOpacity(d)));
+	if (enterDuration > 0)
+		entered
+			.transition()
+			.duration(enterDuration)
+			.attr('stroke-opacity', (d) => getScaledLinkStrokeOpacity(defaultLinkOpacity(d)));
 	else entered.attr('stroke-opacity', (d) => getScaledLinkStrokeOpacity(defaultLinkOpacity(d)));
-	merged
-		.attr('data-fg-base-stroke-opacity', (d) => String(defaultLinkOpacity(d)))
-		.attr('stroke-opacity', (d) => getScaledLinkStrokeOpacity(defaultLinkOpacity(d)));
+	merged.attr('data-fg-base-stroke-opacity', (d) => String(defaultLinkOpacity(d))).attr('stroke-opacity', (d) => getScaledLinkStrokeOpacity(defaultLinkOpacity(d)));
 	return merged;
 }
 
@@ -10631,7 +10644,7 @@ function renderGraph(_data) {
 		: isLarge ? 0.006
 		: 0.01;
 	simulation = d3
-			.forceSimulation<GraphSimulationNode>(nodes)
+		.forceSimulation<GraphSimulationNode>(nodes)
 		.alphaDecay(
 			isHuge ? 0.06
 			: isLarge ? 0.03
@@ -10669,7 +10682,11 @@ function renderGraph(_data) {
 					// Boost repulsion for dense nodes to give them more breathing room
 					return deg > 20 ? base * 1.65 : base;
 				})
-				.theta(isHuge ? 1.5 : isLarge ? 0.9 : 0.8),
+				.theta(
+					isHuge ? 1.5
+					: isLarge ? 0.9
+					: 0.8,
+				),
 		)
 		// Use gentle forceX/Y instead of forceCenter — prevents the entire graph
 		// from sliding when the center of mass shifts after adding nodes.
@@ -10818,12 +10835,12 @@ function renderGraph(_data) {
 	let _tickN = 0;
 	simulation.on('tick', () => {
 		_tickN++;
-		// During high-energy early layout, aggressively throttle SVG repaints 
+		// During high-energy early layout, aggressively throttle SVG repaints
 		// to allow the main thread to handle user inputs and D3 physics calculations.
 		if (isHuge && simulation.alpha() > 0.05 && _tickN % 10 !== 0) return;
 		if (isLarge && simulation.alpha() > 0.1 && _tickN % 4 !== 0) return;
 		if (!isHuge && !isLarge && simulation.alpha() > 0.15 && _tickN % 2 !== 0) return;
-		
+
 		scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
 	});
 
@@ -11115,7 +11132,7 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 		const count = layoutNodes?.length || 0;
 		if (count > 1000 && simulation.alpha() > 0.05 && _updTick % 10 !== 0) return;
 		if (count > 300 && simulation.alpha() > 0.1 && _updTick % 4 !== 0) return;
-		
+
 		scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
 	});
 
@@ -13038,9 +13055,42 @@ export function handleNodeKeyboardActivation(event, d, activateNode = handleNode
 	return true;
 }
 
+// Temporarily fixes (fx/fy) every already-settled node NOT in `allowedMovingIds`
+// to its current position, so a simulation reheat only lets the clicked node
+// and/or newly revealed neighbors move. Without this, restarting the shared
+// force simulation nudges every node on screen (via charge/link/collision
+// forces), which makes already-stable connections — including highlighted
+// "controls" lines — appear to float across the whole canvas before settling
+// back into roughly the same layout. Returns the list of nodes it froze so
+// they can be released again once the reheat window ends.
+function freezeSettledNodesExcept(allowedMovingIds: Set<any>) {
+	if (!Array.isArray(layoutNodes)) return [];
+	const frozen = [];
+	for (const n of layoutNodes) {
+		if (allowedMovingIds.has(n.id)) continue;
+		if (n.fx == null && n.fy == null) {
+			n.fx = n.x;
+			n.fy = n.y;
+			frozen.push(n);
+		}
+	}
+	return frozen;
+}
+
+function releaseFrozenNodes(frozenNodes) {
+	(frozenNodes || []).forEach((n) => {
+		n.fx = null;
+		n.fy = null;
+	});
+}
+
 function pinNodeAndReleaseOthers(pinnedNode) {
 	if (!pinnedNode?.id || !Array.isArray(layoutNodes)) return;
 
+	// Track nodes we deliberately unstick here so the anti-jitter freeze below
+	// never re-locks them — otherwise a just-released node looks "stuck" again
+	// (frozen) for the duration of the reheat window instead of staying free.
+	const releasedIds = new Set<any>();
 	for (const n of layoutNodes) {
 		if (n.id === pinnedNode.id) {
 			n.fx = n.x;
@@ -13048,13 +13098,21 @@ function pinNodeAndReleaseOthers(pinnedNode) {
 		} else if (n.fx != null || n.fy != null) {
 			n.fx = null;
 			n.fy = null;
+			releasedIds.add(n.id);
 		}
 	}
+
+	// Freeze the rest of the already-settled graph in place — only the clicked
+	// node (and any neighbors revealed by a follow-up spreadNeighbors() call)
+	// should move. Nodes we just released above are excluded so they actually
+	// stay free instead of being immediately re-pinned.
+	const frozen = freezeSettledNodesExcept(new Set([pinnedNode.id, ...releasedIds]));
 
 	if (simulation) {
 		simulation.alphaTarget(0.15).restart();
 		window.setTimeout(() => {
 			if (simulation) simulation.alphaTarget(0);
+			releaseFrozenNodes(frozen);
 		}, 300);
 	}
 }
@@ -13825,7 +13883,7 @@ function revealNeighbors(
 				_revealTick++;
 				if (layoutNodes.length > 1000 && simulation.alpha() > 0.05 && _revealTick % 10 !== 0) return;
 				if (layoutNodes.length > 300 && simulation.alpha() > 0.1 && _revealTick % 4 !== 0) return;
-				
+
 				scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
 			});
 
@@ -13850,7 +13908,7 @@ function revealNeighbors(
 				);
 				return;
 			}
-			
+
 			// Final batch finished! If the graph is huge, use WASM to compute final positions instantly!
 			if (layoutNodes.length > 500) {
 				simulation.stop();
@@ -13859,23 +13917,25 @@ function revealNeighbors(
 				const H = main ? main.clientHeight : 600;
 				const nodesPayload = layoutNodes.map((n) => ({ id: n.id, x: n.x, y: n.y, group: n.group, _deg: n._deg }));
 				const linksPayload = layoutLinks.map((l) => ({ source: l.source?.id || l.source, target: l.target?.id || l.target }));
-				import('@/lib/graphLayoutWorker').then(mod => {
+				import('@/lib/graphLayoutWorker').then((mod) => {
 					const createWorker = mod.default || mod.createGraphLayoutWorker;
 					if (typeof createWorker === 'function') {
 						const { compute } = createWorker();
-						compute(nodesPayload, linksPayload, W, H).then(positions => {
-							if (Array.isArray(positions)) {
-								const posMap = new Map(positions.map((p) => [String(p.id), p]));
-								for (const ln of layoutNodes) {
-									const p = posMap.get(String(ln.id));
-									if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
-										ln.x = p.x;
-										ln.y = p.y;
+						compute(nodesPayload, linksPayload, W, H)
+							.then((positions) => {
+								if (Array.isArray(positions)) {
+									const posMap = new Map(positions.map((p) => [String(p.id), p]));
+									for (const ln of layoutNodes) {
+										const p = posMap.get(String(ln.id));
+										if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
+											ln.x = p.x;
+											ln.y = p.y;
+										}
 									}
+									animateToWasmPositions(2500); // Animate smoothly using D3 transitions directly
 								}
-								animateToWasmPositions(2500); // Animate smoothly using D3 transitions directly
-							}
-						}).catch(e => console.error("WASM compute failed", e));
+							})
+							.catch((e) => console.error('WASM compute failed', e));
 					}
 				});
 			}
@@ -14155,9 +14215,18 @@ function spreadNeighbors(
 	if (neighborIdSet.size === 0) return;
 
 	// For performance, we can skip the animation and just update positions.
-	// The user is OK with reduced animation.
+	// The user is OK with reduced animation. Freeze every already-settled node
+	// first so this reheat only lets the clicked node and the newly revealed
+	// neighbors move — otherwise the whole graph (and its highlighted "controls"
+	// lines) visibly floats around before re-settling.
+	const allowedMoving = new Set(neighborIdSet);
+	allowedMoving.add(clickedNode.id);
+	const frozen = freezeSettledNodesExcept(allowedMoving);
 	simulation.alpha(0.1).restart();
-	setTimeout(() => simulation.stop(), 300);
+	setTimeout(() => {
+		simulation.stop();
+		releaseFrozenNodes(frozen);
+	}, 300);
 	return;
 
 	// The animation code below is being bypassed for performance.
@@ -14574,6 +14643,30 @@ function renderSidebarSelectionLogBody() {
 	`;
 }
 
+// Applies the "Filter connections…" search term to a rendered connections
+// scope: hides non-matching cards (data-fg-filter-text) and collapses section
+// titles/timelines left with no visible cards. Shared by the live 'input'
+// listener and renderSidebar() (so a persisted query re-applies after a
+// re-render triggered by selecting a different node).
+function applyConnectionsFilterToScope(scope: HTMLElement, rawQuery: string) {
+	const query = (rawQuery || '').trim().toLowerCase();
+	const cards = scope.querySelectorAll<HTMLElement>('[data-fg-filter-text]');
+	cards.forEach((card) => {
+		const text = card.getAttribute('data-fg-filter-text') || '';
+		card.classList.toggle('fg-filter-hidden', Boolean(query) && !text.includes(query));
+	});
+	// Hide section titles/timelines that have no visible cards left
+	const sections = scope.querySelectorAll<HTMLElement>('[data-fg-connections-section]');
+	sections.forEach((titleEl) => {
+		const timelineEl = titleEl.nextElementSibling as HTMLElement | null;
+		if (!timelineEl || !timelineEl.classList.contains('fg-timeline')) return;
+		const visibleCount = timelineEl.querySelectorAll('[data-fg-filter-text]:not(.fg-filter-hidden)').length;
+		const shouldHide = Boolean(query) && visibleCount === 0;
+		titleEl.classList.toggle('fg-filter-hidden', shouldHide);
+		timelineEl.classList.toggle('fg-filter-hidden', shouldHide);
+	});
+}
+
 function renderSidebar(d) {
 	const el = document.getElementById('fg-sidebar-inner');
 	const side = document.getElementById('fg-sidebar');
@@ -14648,6 +14741,13 @@ function renderSidebar(d) {
 		d.group === 'firm' ? renderFirmDetail(d)
 		: d.group === 'entity' ? renderEntityDetail(d)
 		: renderPersonDetail(d);
+	// Re-apply the persisted connections filter query, since the freshly rendered
+	// cards above start fully visible regardless of any earlier filtering.
+	if (sidebarConnectionsFilterQuery) {
+		el.querySelectorAll<HTMLElement>('.fg-connections-filter-scope').forEach((scope) => {
+			applyConnectionsFilterToScope(scope, sidebarConnectionsFilterQuery);
+		});
+	}
 	if (sidebarViewMode === 'log') {
 		const body = el.querySelector('.fg-sb-body');
 		if (body) {
@@ -16146,10 +16246,7 @@ function renderFirmDetail(d: any) {
 		primaryRegistrationStatusEntry ?
 			String(primaryRegistrationStatusEntry.status || primaryRegistrationStatusEntry.registrationStatus || primaryRegistrationStatusEntry.regStatus || '').trim()
 		:	'';
-	const firmStatusText =
-		d.firmStatus && !Array.isArray(d.firmStatus) && typeof d.firmStatus !== 'object' ?
-			String(d.firmStatus).trim()
-		:	registrationStatusText;
+	const firmStatusText = d.firmStatus && !Array.isArray(d.firmStatus) && typeof d.firmStatus !== 'object' ? String(d.firmStatus).trim() : registrationStatusText;
 	const statusDate =
 		d.firmStatusDate ||
 		(primaryRegistrationStatusEntry ?
@@ -16500,7 +16597,7 @@ function renderFirmDetail(d: any) {
 			${
 				connections.length || currentConnections.length || previousConnections.length ?
 					`<div class="fg-connections-filter-row fg-connections-filter-row--sticky" style="margin: 8px 0;">
-						<input type="text" class="fg-connections-filter" placeholder="Filter connections…" style="width: 100%; padding: 4px 8px; border: 1px solid var(--fg-border); border-radius: 4px; background: var(--fg-bg-secondary); color: var(--fg-text);" />
+						<input type="text" class="fg-connections-filter" placeholder="Filter connections…" value="${sidebarConnectionsFilterQuery.replace(/"/g, '&quot;')}" style="width: 100%; padding: 4px 8px; border: 1px solid var(--fg-border); border-radius: 4px; background: var(--fg-bg-secondary); color: var(--fg-text);" />
 					</div>`
 				:	''
 			}

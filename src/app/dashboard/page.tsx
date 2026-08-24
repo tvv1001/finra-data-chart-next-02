@@ -174,6 +174,31 @@ function getLatestGraphHrefFromHistory(entries: LocalHistoryEntry[]) {
 	return null;
 }
 
+// Builds the graph's `person:<crd>` / `firm:<crd>` node id for a dashboard entity+crd pair.
+function buildGraphNodeId(entity: 'individual' | 'firm' | null | undefined, id: string | null | undefined) {
+	const normalizedId = normalizeCrd(id);
+	if (!normalizedId) return null;
+	if (entity === 'firm') return `firm:${normalizedId}`;
+	if (entity === 'individual') return `person:${normalizedId}`;
+	return null;
+}
+
+// Collects the node ids that should be hydrated into the graph's selection log when
+// navigating "back to graph" from the dashboard — both Selection History (records viewed
+// in the dashboard) and Graph Click History (nodes already logged by the graph itself).
+function collectSelectedNodeIdsForGraphHref(localHistory: LocalHistoryEntry[], graphClickHistory: SelectionLogEntry[]) {
+	const ids = new Set<string>();
+	for (const entry of Array.isArray(localHistory) ? localHistory : []) {
+		const nodeId = buildGraphNodeId(entry.entity, entry.id);
+		if (nodeId) ids.add(nodeId);
+	}
+	for (const entry of Array.isArray(graphClickHistory) ? graphClickHistory : []) {
+		const nodeId = String(entry?.id || '').trim();
+		if (nodeId) ids.add(nodeId);
+	}
+	return Array.from(ids);
+}
+
 function parseQueueQueries(input: string) {
 	const HEADER_REGEX =
 		/^(crd|crd\s*#|crd\s*number|crd\s*id|individual\s*crd|firm\s*crd|individual\s*id|firm\s*id|id|crd_number|crd_id|individual_id|firm_id|individual_crd|firm_crd|representative\s*crd|rep\s*crd|name|individual\s*name|firm\s*name|representative\s*name|rep\s*name)$/i;
@@ -1259,6 +1284,10 @@ function DashboardPageInner() {
 	const [graphClickHistory, setGraphClickHistory] = useState<SelectionLogEntry[]>([]);
 	const [isSelectionHistoryOpen, setIsSelectionHistoryOpen] = useState(true);
 	const [isGraphClickHistoryOpen, setIsGraphClickHistoryOpen] = useState(true);
+	const [isSelectionHistoryEditMode, setIsSelectionHistoryEditMode] = useState(false);
+	const [selectedHistoryIds, setSelectedHistoryIds] = useState<Set<string>>(new Set());
+	const [isGraphClickHistoryEditMode, setIsGraphClickHistoryEditMode] = useState(false);
+	const [selectedGraphClickIndexes, setSelectedGraphClickIndexes] = useState<Set<number>>(new Set());
 	const [newCrdsOpen, setNewCrdsOpen] = useState(true);
 	const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
 	const [isSavingTemplate, setIsSavingTemplate] = useState(false);
@@ -1274,6 +1303,10 @@ function DashboardPageInner() {
 	const refreshInFlightByCrdRef = useRef(new Map<string, Promise<any>>());
 	const [connectionsLoadingFirmId, setConnectionsLoadingFirmId] = useState<string | null>(null);
 	const connectionsInFlightByCrdRef = useRef(new Map<string, Promise<any>>());
+	// "Filter connections…" search term for the Current/Previous Connections lists below.
+	// Persists across selecting other records (like the graph sidebar's equivalent filter)
+	// until the user clears or changes it themselves.
+	const [connectionsFilterQuery, setConnectionsFilterQuery] = useState('');
 	// The URL-driven auto-load effect below must only react to *external* navigation (initial
 	// deep link / hard refresh, or a real browser back-forward). If it also reacted every time
 	// `usePathname()` recomputes after our own syncSelectionToUrl() call (used to keep the URL
@@ -1309,14 +1342,21 @@ function DashboardPageInner() {
 	}, [routeSelection?.entity, routeSelection?.id]);
 
 	const graphHref = useMemo(() => {
-		const selectedHref = buildGraphHrefForEntity(currentRecordEntity, currentRecordId);
-		if (selectedHref) return selectedHref;
-		const routeHref = buildGraphHrefForEntity(routeSelection?.entity, routeSelection?.id);
-		if (routeHref) return routeHref;
-		const historyHref = getLatestGraphHrefFromHistory(localHistory);
-		if (historyHref) return historyHref;
-		return '/';
-	}, [currentRecordEntity, currentRecordId, routeSelection, localHistory]);
+		const baseHref =
+			buildGraphHrefForEntity(currentRecordEntity, currentRecordId) ||
+			buildGraphHrefForEntity(routeSelection?.entity, routeSelection?.id) ||
+			getLatestGraphHrefFromHistory(localHistory) ||
+			'/';
+		// Carry Selection History + Graph Click History node ids along via the graph's existing
+		// shared-link `?selected=` mechanism so they get fetched/hydrated into the selection log
+		// when the user navigates back to the graph, not just the single most-recent record.
+		const selectedNodeIds = collectSelectedNodeIdsForGraphHref(localHistory, graphClickHistory);
+		if (!selectedNodeIds.length) return baseHref;
+		const [path, existingQuery] = baseHref.split('?');
+		const params = new URLSearchParams(existingQuery || '');
+		params.set('selected', selectedNodeIds.join(','));
+		return `${path}?${params.toString()}`;
+	}, [currentRecordEntity, currentRecordId, routeSelection, localHistory, graphClickHistory]);
 
 	const handleGraphBackClick = useCallback(
 		(event: MouseEvent<HTMLAnchorElement>) => {
@@ -2048,6 +2088,72 @@ function DashboardPageInner() {
 				// ignore localStorage errors
 			}
 		}
+	}
+
+	function toggleSelectionHistoryEditMode() {
+		setIsSelectionHistoryEditMode((prev) => !prev);
+		setSelectedHistoryIds(new Set());
+	}
+
+	function toggleSelectedHistoryId(id: string) {
+		setSelectedHistoryIds((prev) => {
+			const next = new Set(prev);
+			if (next.has(id)) next.delete(id);
+			else next.add(id);
+			return next;
+		});
+	}
+
+	function deleteSelectedHistoryEntries() {
+		if (!selectedHistoryIds.size) return;
+		setLocalHistory((prev) => {
+			const next = prev.filter((entry) => !selectedHistoryIds.has(`${entry.entity}:${entry.id}`));
+			if (typeof window !== 'undefined') {
+				try {
+					localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(next));
+				} catch {
+					// ignore localStorage errors
+				}
+			}
+			return next;
+		});
+		setSelectedHistoryIds(new Set());
+	}
+
+	function toggleGraphClickHistoryEditMode() {
+		setIsGraphClickHistoryEditMode((prev) => !prev);
+		setSelectedGraphClickIndexes(new Set());
+	}
+
+	function toggleSelectedGraphClickIndex(idx: number) {
+		setSelectedGraphClickIndexes((prev) => {
+			const next = new Set(prev);
+			if (next.has(idx)) next.delete(idx);
+			else next.add(idx);
+			return next;
+		});
+	}
+
+	// Removing a "Graph Click History" entry must also be reflected in the actual node graph.
+	// The graph reads/writes the same `finra_selection_log` localStorage key (its in-memory
+	// `selectedNodesLog`), so rewriting that key here keeps the two in sync: the next time the
+	// graph is loaded/focused it will call `loadSelectionLog()` and pick up the reduced list. If
+	// the graph is already open in another tab/window, `FinraGraph.tsx`'s `localStorage.setItem`
+	// patch dispatches a `finra:selection-log-changed` event that the graph module can react to.
+	function deleteSelectedGraphClickEntries() {
+		if (!selectedGraphClickIndexes.size) return;
+		setGraphClickHistory((prev) => {
+			const next = prev.filter((_, idx) => !selectedGraphClickIndexes.has(idx));
+			if (typeof window !== 'undefined') {
+				try {
+					localStorage.setItem('finra_selection_log', JSON.stringify(next));
+				} catch {
+					// ignore localStorage errors
+				}
+			}
+			return next;
+		});
+		setSelectedGraphClickIndexes(new Set());
 	}
 
 	async function openQueueCard(card: QueueCard) {
@@ -3937,86 +4043,109 @@ function DashboardPageInner() {
 														</div>
 													</div>
 												</section>
-											:	<>
-													{detailedMainRecord.currentConnectionCards.length > 0 && (
-														<section className={styles.detailSection}>
-															<h4 className={styles.detailSectionTitle}>Current Connections ({detailedMainRecord.currentConnectionCards.length})</h4>
-															<div className={styles.detailList}>
-																{detailedMainRecord.currentConnectionCards.map((item, idx) => {
-																	const content = (
-																		<>
-																			<div className={styles.detailRowMain}>
-																				<span className={`${styles.detailRowName} ${styles.currentConnectionName}`}>{item.title}</span>
-																				{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
-																				{item.meta && <span className={`${styles.detailInlineTag} ${styles.currentConnectionTag}`}>{item.meta}</span>}
-																			</div>
-																			{item.subtitle && <div className={`${styles.detailRowMeta} ${styles.currentConnectionMeta}`}>{item.subtitle}</div>}
-																		</>
-																	);
+											:	(() => {
+													const connectionsFilterQueryNormalized = connectionsFilterQuery.trim().toLowerCase();
+													const matchesConnectionsFilter = (item: { title?: string; subtitle?: string; meta?: string; crd?: string }) => {
+														if (!connectionsFilterQueryNormalized) return true;
+														const haystack = [item.title, item.subtitle, item.meta, item.crd].filter(Boolean).join(' ').toLowerCase();
+														return haystack.includes(connectionsFilterQueryNormalized);
+													};
+													const filteredCurrentConnectionCards = detailedMainRecord.currentConnectionCards.filter(matchesConnectionsFilter);
+													const filteredPreviousConnectionCards = detailedMainRecord.previousConnectionCards.filter(matchesConnectionsFilter);
 
-																	if (item.crd) {
-																		return (
-																			<Link
-																				href={`/dashboard/${item.entity || 'firm'}/${item.crd}`}
-																				key={`current-conn-${idx}`}
-																				className={`${styles.detailRow} ${styles.detailRowInteractive} ${styles.currentEmploymentRow} ${styles.currentConnectionRow}`}>
-																				{content}
-																			</Link>
-																		);
-																	}
+													return (
+														<>
+															{(detailedMainRecord.currentConnectionCards.length > 0 || detailedMainRecord.previousConnectionCards.length > 0) && (
+																<input
+																	type='text'
+																	value={connectionsFilterQuery}
+																	onChange={(event) => setConnectionsFilterQuery(event.target.value)}
+																	placeholder='Filter connections…'
+																	className={styles.input}
+																	style={{ width: '100%', marginBottom: '8px' }}
+																/>
+															)}
 
-																	return (
-																		<div
-																			key={`current-conn-${idx}`}
-																			className={`${styles.detailRow} ${styles.currentConnectionRow}`}>
-																			{content}
-																		</div>
-																	);
-																})}
-															</div>
-														</section>
-													)}
+															{filteredCurrentConnectionCards.length > 0 && (
+																<section className={styles.detailSection}>
+																	<h4 className={styles.detailSectionTitle}>Current Connections ({detailedMainRecord.currentConnectionCards.length})</h4>
+																	<div className={styles.detailList}>
+																		{filteredCurrentConnectionCards.map((item, idx) => {
+																			const content = (
+																				<>
+																					<div className={styles.detailRowMain}>
+																						<span className={`${styles.detailRowName} ${styles.currentConnectionName}`}>{item.title}</span>
+																						{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
+																						{item.meta && <span className={`${styles.detailInlineTag} ${styles.currentConnectionTag}`}>{item.meta}</span>}
+																					</div>
+																					{item.subtitle && <div className={`${styles.detailRowMeta} ${styles.currentConnectionMeta}`}>{item.subtitle}</div>}
+																				</>
+																			);
 
-													{detailedMainRecord.previousConnectionCards.length > 0 && (
-														<section className={styles.detailSection}>
-															<h4 className={styles.detailSectionTitle}>Previous Connections ({detailedMainRecord.previousConnectionCards.length})</h4>
-															<div className={styles.detailList}>
-																{detailedMainRecord.previousConnectionCards.map((item, idx) => {
-																	const content = (
-																		<>
-																			<div className={styles.detailRowMain}>
-																				<span className={styles.detailRowName}>{item.title}</span>
-																				{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
-																				{item.meta && <span className={styles.detailInlineTag}>{item.meta}</span>}
-																			</div>
-																			{item.subtitle && <div className={styles.detailRowMeta}>{item.subtitle}</div>}
-																		</>
-																	);
+																			if (item.crd) {
+																				return (
+																					<Link
+																						href={`/dashboard/${item.entity || 'firm'}/${item.crd}`}
+																						key={`current-conn-${idx}`}
+																						className={`${styles.detailRow} ${styles.detailRowInteractive} ${styles.currentEmploymentRow} ${styles.currentConnectionRow}`}>
+																						{content}
+																					</Link>
+																				);
+																			}
 
-																	if (item.crd) {
-																		return (
-																			<Link
-																				href={`/dashboard/${item.entity || 'firm'}/${item.crd}`}
-																				key={`prev-conn-${idx}`}
-																				className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
-																				{content}
-																			</Link>
-																		);
-																	}
+																			return (
+																				<div
+																					key={`current-conn-${idx}`}
+																					className={`${styles.detailRow} ${styles.currentConnectionRow}`}>
+																					{content}
+																				</div>
+																			);
+																		})}
+																	</div>
+																</section>
+															)}
 
-																	return (
-																		<div
-																			key={`prev-conn-${idx}`}
-																			className={styles.detailRow}>
-																			{content}
-																		</div>
-																	);
-																})}
-															</div>
-														</section>
-													)}
-												</>
-											}
+															{filteredPreviousConnectionCards.length > 0 && (
+																<section className={styles.detailSection}>
+																	<h4 className={styles.detailSectionTitle}>Previous Connections ({detailedMainRecord.previousConnectionCards.length})</h4>
+																	<div className={styles.detailList}>
+																		{filteredPreviousConnectionCards.map((item, idx) => {
+																			const content = (
+																				<>
+																					<div className={styles.detailRowMain}>
+																						<span className={styles.detailRowName}>{item.title}</span>
+																						{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
+																						{item.meta && <span className={styles.detailInlineTag}>{item.meta}</span>}
+																					</div>
+																					{item.subtitle && <div className={styles.detailRowMeta}>{item.subtitle}</div>}
+																				</>
+																			);
+
+																			if (item.crd) {
+																				return (
+																					<Link
+																						href={`/dashboard/${item.entity || 'firm'}/${item.crd}`}
+																						key={`prev-conn-${idx}`}
+																						className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
+																						{content}
+																					</Link>
+																				);
+																			}
+
+																			return (
+																				<div
+																					key={`prev-conn-${idx}`}
+																					className={styles.detailRow}>
+																					{content}
+																				</div>
+																			);
+																		})}
+																	</div>
+																</section>
+															)}
+														</>
+													);
+												})()}
 
 											{detailedMainRecord?.disclosureSummary && detailedMainRecord.disclosureSummary.length > 0 && (
 												<section
@@ -4249,6 +4378,26 @@ function DashboardPageInner() {
 						<div className={styles.middlePaneTitle}>SELECTION HISTORY {isSelectionHistoryOpen ? '▼' : '▶'}</div>
 						<div className={styles.middlePaneActions}>
 							<span className={styles.middlePaneCount}>{displayCards.length}</span>
+							{isSelectionHistoryEditMode && selectedHistoryIds.size > 0 && (
+								<button
+									type='button'
+									className={styles.middlePaneClearBtn}
+									onClick={(e) => {
+										e.stopPropagation();
+										deleteSelectedHistoryEntries();
+									}}>
+									DELETE ({selectedHistoryIds.size})
+								</button>
+							)}
+							<button
+								type='button'
+								className={styles.middlePaneClearBtn}
+								onClick={(e) => {
+									e.stopPropagation();
+									toggleSelectionHistoryEditMode();
+								}}>
+								{isSelectionHistoryEditMode ? 'DONE' : 'EDIT'}
+							</button>
 							<button
 								type='button'
 								className={styles.middlePaneClearBtn}
@@ -4275,15 +4424,33 @@ function DashboardPageInner() {
 											: isActiveRecord && toText(mainJsonLabel) ? toText(mainJsonLabel)
 											: `${card.entity === 'firm' ? 'Firm' : 'Individual'} CRD #${card.id}`;
 										const { hasFinra, hasSec } = getQueueCardSources(card);
+										const historyKey = `${card.entity}:${card.id}`;
+										const isChecked = selectedHistoryIds.has(historyKey);
 
 										return (
 											<button
 												type='button'
-												key={`${card.entity}:${card.id}`}
+												key={historyKey}
 												className={`${styles.middlePaneItem} ${isActiveRecord ? styles.middlePaneItemSelected : ''}`}
 												aria-selected={isActiveRecord}
-												onClick={() => void openQueueCard(card)}>
+												style={{ display: 'flex', flexDirection: 'column', width: '100%', textAlign: 'left' }}
+												onClick={() => {
+													if (isSelectionHistoryEditMode) {
+														toggleSelectedHistoryId(historyKey);
+														return;
+													}
+													void openQueueCard(card);
+												}}>
 												<div className={styles.middlePaneItemTop}>
+													{isSelectionHistoryEditMode && (
+														<input
+															type='checkbox'
+															checked={isChecked}
+															onChange={() => toggleSelectedHistoryId(historyKey)}
+															onClick={(e) => e.stopPropagation()}
+															style={{ marginRight: '4px' }}
+														/>
+													)}
 													<span className={styles.middlePaneItemBadge}>{card.entity === 'firm' ? 'FIRM' : 'IND'}</span>
 													<span className={styles.middlePaneItemName}>{computedCardName}</span>
 													<div className={styles.cardTags}>
@@ -4313,6 +4480,26 @@ function DashboardPageInner() {
 						<div className={styles.middlePaneTitle}>GRAPH CLICK HISTORY {isGraphClickHistoryOpen ? '▼' : '▶'}</div>
 						<div className={styles.middlePaneActions}>
 							<span className={styles.middlePaneCount}>{graphClickHistory.length}</span>
+							{isGraphClickHistoryEditMode && selectedGraphClickIndexes.size > 0 && (
+								<button
+									type='button'
+									className={styles.middlePaneClearBtn}
+									onClick={(e) => {
+										e.stopPropagation();
+										deleteSelectedGraphClickEntries();
+									}}>
+									DELETE ({selectedGraphClickIndexes.size})
+								</button>
+							)}
+							<button
+								type='button'
+								className={styles.middlePaneClearBtn}
+								onClick={(e) => {
+									e.stopPropagation();
+									toggleGraphClickHistoryEditMode();
+								}}>
+								{isGraphClickHistoryEditMode ? 'DONE' : 'EDIT'}
+							</button>
 						</div>
 					</div>
 
@@ -4322,30 +4509,45 @@ function DashboardPageInner() {
 							style={{ flex: 1, minHeight: 0 }}>
 							{graphClickHistory.length > 0 ?
 								graphClickHistory
+									.map((entry, originalIdx) => ({ entry, originalIdx }))
 									.slice()
 									.reverse()
-									.map((entry, idx) => {
+									.map(({ entry, originalIdx }) => {
 										const entityForLink = entry.group === 'firm' ? 'firm' : 'individual';
 										const extractedCrd = entry.secondaryId.replace(/[^0-9]/g, '');
 										const isActiveRecord = currentRecordId === extractedCrd && currentRecordEntity === entityForLink;
+										const isChecked = selectedGraphClickIndexes.has(originalIdx);
 
 										return (
 											<button
 												type='button'
-												key={idx}
+												key={originalIdx}
 												className={`${styles.middlePaneItem} ${isActiveRecord ? styles.middlePaneItemSelected : ''}`}
 												aria-selected={isActiveRecord}
 												style={{ display: 'flex', flexDirection: 'column', width: '100%', textAlign: 'left' }}
-												onClick={() =>
+												onClick={() => {
+													if (isGraphClickHistoryEditMode) {
+														toggleSelectedGraphClickIndex(originalIdx);
+														return;
+													}
 													void openQueueCard({
 														id: extractedCrd,
 														entity: entityForLink,
 														files: 0,
 														sources: [],
 														name: entry.label,
-													})
-												}>
+													});
+												}}>
 												<div className={styles.middlePaneItemTop}>
+													{isGraphClickHistoryEditMode && (
+														<input
+															type='checkbox'
+															checked={isChecked}
+															onChange={() => toggleSelectedGraphClickIndex(originalIdx)}
+															onClick={(e) => e.stopPropagation()}
+															style={{ marginRight: '4px' }}
+														/>
+													)}
 													<span className={styles.middlePaneItemBadge}>{entityForLink === 'firm' ? 'FIRM' : 'IND'}</span>
 													<span className={styles.middlePaneItemName}>{entry.label}</span>
 												</div>

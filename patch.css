@@ -12,3 +12,6 @@
 	pointer-events: none !important;
 	stroke-width: 0.5px !important;
 }
+.test {
+	background: rgba(57, 243, 10, 0.818);
+}
