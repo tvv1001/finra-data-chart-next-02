@@ -2167,6 +2167,11 @@ let isTraceMode = false;
 let isTraceLogMode = false;
 let isSelectionLogBold = false;
 let isSelectionLogEditMode = false;
+// Set by clearHighlights() to temporarily suppress the "every selection-log individual
+// is a highlight root" behavior while Log Bold stays on. Cleared whenever a new
+// highlight root is introduced (selection, hover, focus, find match) so the button
+// only clears existing highlighting rather than disabling Log Bold itself.
+let logBoldHighlightRootsSuppressed = false;
 let selectionLogFilterText = '';
 // Node ids whose "large label" emphasis has been manually cleared via the
 // "Clear Labels" action while Log Bold is on. Re-selecting/re-clicking a node
@@ -4541,6 +4546,7 @@ function upsertHighlightedSelection(id, hops = getDefaultSelectionHops(), option
 	if (!id) return;
 	const normalizedHops = normalizeHighlightHops(hops);
 	const { replace = false } = options;
+	logBoldHighlightRootsSuppressed = false;
 	rememberPersistentSelection(id);
 	// Default: accumulate hop roots so prior selections still light their lines until Clear Highlight.
 	// replace: true is reserved for explicit reset-style selection if needed later.
@@ -4555,6 +4561,7 @@ function upsertHighlightedSelection(id, hops = getDefaultSelectionHops(), option
 function setHoveredNode(id) {
 	const nextId = id ? String(id).trim() : null;
 	if (hoveredNodeId === nextId) return;
+	if (nextId) logBoldHighlightRootsSuppressed = false;
 	hoveredNodeId = nextId;
 	reapplySelectionState();
 }
@@ -4562,6 +4569,7 @@ function setHoveredNode(id) {
 function setFocusedNode(id) {
 	const nextId = id ? String(id).trim() : null;
 	if (focusedNodeId === nextId) return;
+	if (nextId) logBoldHighlightRootsSuppressed = false;
 	focusedNodeId = nextId;
 	reapplySelectionState();
 }
@@ -4682,6 +4690,12 @@ function computeHighlightState() {
 
 	const activeFindId = activeFindMatchIndex >= 0 && Array.isArray(activeFindMatchOrder) ? activeFindMatchOrder[activeFindMatchIndex] : null;
 
+	// A new hover/focus/find/selection root means the user is actively highlighting again;
+	// lift the Clear Highlight suppression so Log Bold's selection-log roots resume normally.
+	if (logBoldHighlightRootsSuppressed && (hoveredNodeId || focusedNodeId || activeFindId || highlightedSelections.length)) {
+		logBoldHighlightRootsSuppressed = false;
+	}
+
 	const nodeById = new Map<string, any>((layoutNodes || []).map((node) => [String(node.id), node]));
 
 	const tempRoots = highlightedSelections.map((r) => ({ ...r, isSelection: true }));
@@ -4695,7 +4709,7 @@ function computeHighlightState() {
 		tempRoots.push({ id: activeFindId, hops: 1, isSelection: false });
 	}
 
-	if (isSelectionLogBold && Array.isArray(selectedNodesLog)) {
+	if (isSelectionLogBold && !logBoldHighlightRootsSuppressed && Array.isArray(selectedNodesLog)) {
 		selectedNodesLog.forEach((entry) => {
 			const node = nodeById.get(entry.id);
 			if (node?.group === 'individual') {
@@ -13960,19 +13974,11 @@ function clearHighlights() {
 	focusedNodeId = null;
 	highlightedSelections = [];
 	clearFindMatches();
-	// "Log Bold" forces every selection-log individual to act as a highlight root
-	// (computeHighlightState), which otherwise makes Clear Highlight a no-op whenever
-	// Log Bold is on (it defaults to on for new sessions) — turn it off here so the
-	// button genuinely clears all active highlighting, not just hover/find/selection roots.
-	if (isSelectionLogBold) {
-		isSelectionLogBold = false;
-		try {
-			saveSelectionLogBoldPreference();
-		} catch (e) {
-			/* ignore */
-		}
-		syncSelectionLogActionButtonStates();
-	}
+	// While Log Bold is on, every selection-log individual normally acts as a highlight
+	// root (computeHighlightState), which would otherwise make Clear Highlight a no-op.
+	// Suppress that behavior here (without disabling Log Bold itself) so lines/hops
+	// actually reset; the suppression lifts as soon as a new highlight root is created.
+	logBoldHighlightRootsSuppressed = true;
 	// Ensure active selection remains in the durable selected set.
 	if (selectedId) rememberPersistentSelection(selectedId);
 	reapplySelectionState();
