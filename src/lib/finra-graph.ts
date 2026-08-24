@@ -711,7 +711,6 @@ const TEXT_SEARCH_DETAIL_HYDRATION_CONCURRENCY = 4;
 
 const individualDetailRequestCache = new Map<string, Promise<void>>();
 const firmDetailRequestCache = new Map<string, Promise<void>>();
-const firmConnectionsRequestCache = new Map<string, Promise<void>>();
 const expansionRequestCache = new Map<string, Promise<any>>();
 
 function getDefaultSelectionHops(): number {
@@ -4625,6 +4624,17 @@ function isAutoExpansionLink(link) {
 	// General fallback for neutral or unlabeled links
 	if (!rel || rel === 'neutral') return true;
 	return false;
+}
+
+// Clicking a firm node should only reveal its Form BD — Direct Owners & Executive
+// Officers ("controls") connections, not employment/registration history — that
+// data is expensive to fetch/render for mega-firms and is dashboard-only now.
+function isFirmControlOnlyExpansionLink(link) {
+	if (!link) return false;
+	const rel = String(link.relationship || '')
+		.trim()
+		.toLowerCase();
+	return rel === 'controls' || rel === 'controlled_by' || rel === 'owner' || rel === 'officer';
 }
 
 function getDirectAutoExpansionNeighborCount(node) {
@@ -11829,149 +11839,6 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 	mergeIntoGraphData(dedupedNodes.nodes, dedupedLinks);
 }
 
-function countFirmEmploymentLinks(firmNodeId: string) {
-	const links = [...(layoutLinks || []), ...(graphData?.links || [])];
-	let count = 0;
-	for (const link of links) {
-		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
-		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
-		if (sourceId !== firmNodeId && targetId !== firmNodeId) continue;
-		if (String(link?.relationship || '').trim() === 'employed_by') count += 1;
-	}
-	return count;
-}
-
-function applyFirmConnectionPayload(firmNode: any, payload: { currentConnections?: any[]; previousConnections?: any[] } | null) {
-	if (!firmNode || !payload) return false;
-	const firmNodeId = String(firmNode.id || '').trim();
-	if (!firmNodeId) return false;
-
-	// Prefer current connections first, then previous — hard-cap canvas inject so mega-firms
-	// (Merrill, LPL, etc.) do not dump thousands of people when opened.
-	const rawCurrent = Array.isArray(payload.currentConnections) ? payload.currentConnections : [];
-	const rawPrevious = Array.isArray(payload.previousConnections) ? payload.previousConnections : [];
-	const cappedCurrent = rawCurrent.slice(0, MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND);
-	const remaining = Math.max(0, MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND - cappedCurrent.length);
-	const cappedPrevious = rawPrevious.slice(0, remaining);
-	const currentConnections = cappedCurrent;
-	const previousConnections = cappedPrevious;
-	firmNode.currentConnections = rawCurrent;
-	firmNode.previousConnections = rawPrevious;
-	firmNode._connectionsCanvasCapped = rawCurrent.length + rawPrevious.length > MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND;
-
-	const newNodes: any[] = [];
-	const newLinks: any[] = [];
-	const seenPerson = new Set<string>();
-
-	const addEntry = (entry: any, isCurrent: boolean) => {
-		if (entry?.firmId && !entry?.individualId) return;
-		const crd = String(entry?.individualId || entry?.crd || '').trim();
-		if (!crd || seenPerson.has(crd)) return;
-		seenPerson.add(crd);
-		const personNodeId = `person:${crd}`;
-		if (!layoutNodes?.some((n) => n.id === personNodeId) && !newNodes.some((n) => n.id === personNodeId) && !findExistingPersonNode(crd)) {
-			newNodes.push({
-				id: personNodeId,
-				label: normalizePersonLabel(entry?.name || `Person ${crd}`),
-				group: 'individual',
-				crd,
-				stub: true,
-			});
-		}
-		const hasLink = [...(layoutLinks || []), ...(graphData?.links || []), ...newLinks].some((link) => {
-			const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
-			const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
-			return (
-				((sourceId === personNodeId && targetId === firmNodeId) || (sourceId === firmNodeId && targetId === personNodeId)) &&
-				String(link?.relationship || '').trim() === 'employed_by'
-			);
-		});
-		if (!hasLink) {
-			newLinks.push({
-				source: personNodeId,
-				target: firmNodeId,
-				relationship: 'employed_by',
-				isCurrent,
-				startDate: entry?.startDate || null,
-				endDate: entry?.endDate || null,
-			});
-		}
-	};
-
-	for (const entry of currentConnections) addEntry(entry, true);
-	for (const entry of previousConnections) addEntry(entry, false);
-
-	if (newNodes.length || newLinks.length) {
-		const dedupedNodes = mergeGraphNodesForAppend([], newNodes);
-		const dedupedLinks = dedupeGraphLinksByIdentity(newLinks, dedupedNodes.idRewriteMap);
-		appendFetched?.(dedupedNodes.nodes, dedupedLinks);
-		mergeIntoGraphData(dedupedNodes.nodes, dedupedLinks);
-	}
-
-	return currentConnections.length > 0 || previousConnections.length > 0 || newLinks.length > 0;
-}
-
-async function injectFirmEmployeesFromSearch(firmId: string, firmNode: any) {
-	const firmNodeId = String(firmNode?.id || `firm:${firmId}`);
-	try {
-		const searchUrl = `${BASE}/api/finra/search?query=${encodeURIComponent(firmId)}&nrows=30`;
-		const searchRes = await Promise.race([fetch(searchUrl), new Promise<Response | null>((resolve) => setTimeout(() => resolve(null), 3500))]);
-		if (!searchRes || !searchRes.ok) return false;
-		const searchData = await searchRes.json();
-		const hits = searchData?.hits?.hits || searchData?.results || [];
-		const currentConnections: any[] = [];
-		const newNodes: any[] = [];
-		const newLinks: any[] = [];
-
-		for (const hit of hits) {
-			const src = hit._source || hit;
-			const pid = String(src.ind_source_id || src.ind_crd || src.individualId || '').trim();
-			if (!pid) continue;
-			const personNodeId = `person:${pid}`;
-			const label = normalizePersonLabel(
-				[src.ind_firstname || src.firstName, src.ind_middlename || src.middleName, src.ind_lastname || src.lastName].filter(Boolean).join(' ') || `Person ${pid}`,
-			);
-			if (!layoutNodes?.some((n) => n.id === personNodeId) && !newNodes.some((n) => n.id === personNodeId) && !findExistingPersonNode(pid)) {
-				newNodes.push({
-					id: personNodeId,
-					label,
-					group: 'individual',
-					crd: pid,
-					bcScope: src.ind_bc_scope || src.bcScope || null,
-					stub: true,
-				});
-			}
-			newLinks.push({
-				source: personNodeId,
-				target: firmNodeId,
-				relationship: 'employed_by',
-				isCurrent: true,
-			});
-			currentConnections.push({
-				individualId: pid,
-				name: label,
-				relationship: 'Current registration',
-				isCurrent: true,
-			});
-		}
-
-		if (newNodes.length || newLinks.length) {
-			const dedupedNodes = mergeGraphNodesForAppend([], newNodes);
-			const dedupedLinks = dedupeGraphLinksByIdentity(newLinks, dedupedNodes.idRewriteMap);
-			appendFetched?.(dedupedNodes.nodes, dedupedLinks);
-			mergeIntoGraphData(dedupedNodes.nodes, dedupedLinks);
-		}
-		if (currentConnections.length) {
-			firmNode.currentConnections = currentConnections;
-			if (!Array.isArray(firmNode.previousConnections)) firmNode.previousConnections = [];
-		}
-		return currentConnections.length > 0;
-	} catch (error) {
-		console.warn(`Failed to inject firm employees from search for ${firmId}:`, error);
-		return false;
-	}
-}
-
 /**
  * Lazy-load current/previous employment connections for a firm and inject them into the live graph.
  * Re-run is cheap: single Redis-backed /connections key after first warm, with search fallback.
@@ -11979,69 +11846,13 @@ async function injectFirmEmployeesFromSearch(firmId: string, firmNode: any) {
  */
 async function ensureFirmConnections(firmNode: any) {
 	if (!firmNode || firmNode.group !== 'firm') return;
-	const match = String(firmNode.id || '').match(/^(?:firm[:_])?(\d+)$/);
-	if (!match) return;
-	const firmId = match[1];
-	if (firmNode._connectionsLoaded) return;
-
-	const existingRequest = firmConnectionsRequestCache.get(firmId);
-	if (existingRequest) {
-		await existingRequest;
-		return;
-	}
-
-	const requestPromise = (async () => {
-		try {
-			// Already have employment edges in the live graph (e.g. session restore) — still mark loaded
-			// so we don't thrash Redis, but keep any richer server payload if available.
-			const alreadyLinked = countFirmEmploymentLinks(String(firmNode.id)) > 0;
-
-			let applied = false;
-			let connectionsRequestFailed = false;
-			try {
-				// Cold primed reverse-index builds can exceed 6s on serverless; allow more headroom
-				// once precomputed adj keys exist this is typically <500ms.
-				const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-				const timer = controller ? window.setTimeout(() => controller.abort(), 12000) : 0;
-				const res = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}/connections`, {
-					signal: controller?.signal,
-				});
-				if (timer) window.clearTimeout(timer);
-				if (res.ok) {
-					const payload = await res.json();
-					if (payload?.found !== false) {
-						applied = applyFirmConnectionPayload(firmNode, payload) || applied;
-					}
-				} else {
-					connectionsRequestFailed = true;
-				}
-			} catch {
-				// timeout / offline — fall through to search inject
-				connectionsRequestFailed = true;
-			}
-
-			if (!applied && !alreadyLinked) {
-				applied = (await injectFirmEmployeesFromSearch(firmId, firmNode)) || applied;
-			}
-
-			// Only sticky-mark loaded when we got edges or a successful empty response.
-			// Failed/timeouts must retry so firm people lists can appear after warm Redis/adj is ready.
-			if (applied || alreadyLinked || !connectionsRequestFailed) {
-				firmNode._connectionsLoaded = true;
-			}
-		} catch (error) {
-			console.warn(`ensureFirmConnections failed for ${firmId}:`, error);
-		}
-	})();
-
-	firmConnectionsRequestCache.set(firmId, requestPromise);
-	try {
-		await requestPromise;
-	} finally {
-		if (firmConnectionsRequestCache.get(firmId) === requestPromise) {
-			firmConnectionsRequestCache.delete(firmId);
-		}
-	}
+	// Node-view performance: employment connections (current + previous) are no longer
+	// fetched or injected here at all — only Form BD owners and "controls" (red-line)
+	// relationships are shown for firms clicked in the graph. Full employee rosters
+	// remain available in the dashboard's firm-connections view.
+	firmNode.currentConnections = [];
+	firmNode.previousConnections = [];
+	firmNode._connectionsLoaded = true;
 }
 
 // Fetch firm detail from the server (which checks local cache first, then FINRA API).
@@ -12221,7 +12032,10 @@ async function ensureFirmDetail(firmNode) {
 				firmNode.affiliateDisclosures = aff;
 			}
 
-			if (Array.isArray(detail.directOwners) && detail.directOwners.length) {
+			// Always set directOwners (even to []) once we have a validated detail response, so
+			// the graph knows a firm with zero Form BD owners has nothing left to reveal instead
+			// of perpetually looking like it might still have undiscovered control connections.
+			if (Array.isArray(detail.directOwners)) {
 				firmNode.directOwners = detail.directOwners;
 			}
 
@@ -12512,6 +12326,9 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 	const normalizedHops = normalizeHighlightHops(hops);
 	const maxHops = normalizedHops === 'all' ? 100 : Math.max(1, Number(normalizedHops) || 1);
 	const revealTiming = getNodeExpansionRevealTiming(layoutNodes?.length || 0, { isUserInitiated: true });
+	// Firms only reveal Form BD "controls" connections on click — employment/registration
+	// history and other relationship types stay hidden (dashboard-only, see ensureFirmConnections).
+	const expansionLinkFilter = clickedNode.group === 'firm' ? isFirmControlOnlyExpansionLink : isAutoExpansionLink;
 
 	const visitedIds = new Set([clickedNode.id]);
 	let currentWaveIds = [clickedNode.id];
@@ -12533,7 +12350,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 			}
 
 			(fullAdj.get(fId) || []).forEach(({ nodeId, link }) => {
-				if (!isAutoExpansionLink(link)) return;
+				if (!expansionLinkFilter(link)) return;
 				if (visitedIds.has(nodeId)) return;
 				visitedIds.add(nodeId);
 				waveFoundIds.push(nodeId);
@@ -12545,7 +12362,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 
 		if (hiddenIds.length) {
 			revealNeighbors(clickedNode, 'all', {
-				linkFilter: isAutoExpansionLink,
+				linkFilter: expansionLinkFilter,
 				restrictToIds: new Set(hiddenIds),
 				markSelected: true,
 			});
@@ -12597,7 +12414,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 			}
 
 			(postFetchAdj.get(fId) || []).forEach(({ nodeId, link }) => {
-				if (!isAutoExpansionLink(link)) return;
+				if (!expansionLinkFilter(link)) return;
 				if (visitedIds.has(nodeId)) return;
 				visitedIds.add(nodeId);
 				newlyFoundIds.push(nodeId);
@@ -12609,7 +12426,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 
 		if (hiddenAfterFetchIds.length) {
 			revealNeighbors(clickedNode, 'all', {
-				linkFilter: isAutoExpansionLink,
+				linkFilter: expansionLinkFilter,
 				restrictToIds: new Set(hiddenAfterFetchIds),
 				markSelected: true,
 			});
@@ -13077,12 +12894,14 @@ async function materializeRouteSelectionNeighborhood(node, hops: number = getDef
 		console.warn('Failed to fetch route-selected neighborhood from server:', error);
 	}
 
+	// Firms only auto-reveal Form BD "controls" connections (see isFirmControlOnlyExpansionLink);
+	// employment/registration history is dashboard-only now for performance.
 	revealNeighbors(node, normalizedHops, {
-		linkFilter: isAutoExpansionLink,
+		linkFilter: node.group === 'firm' ? isFirmControlOnlyExpansionLink : isAutoExpansionLink,
 		markSelected: true,
 	});
 
-	// Re-paint sidebar after neighborhood + employment links land (avoids empty connections until hard refresh).
+	// Re-paint sidebar after neighborhood + owner links land (avoids empty connections until hard refresh).
 	if (node.group === 'firm') {
 		try {
 			await ensureFirmConnections(node);

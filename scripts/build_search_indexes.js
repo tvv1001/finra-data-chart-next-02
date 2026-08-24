@@ -374,7 +374,11 @@ async function main() {
 	}
 }
 
-main().catch((error) => {
-	console.error('build_search_indexes failed:', error);
-	process.exit(1);
-});
+if (require.main === module) {
+	main().catch((error) => {
+		console.error('build_search_indexes failed:', error);
+		process.exit(1);
+	});
+}
+
+module.exports = { buildIndividualDoc, buildFirmDoc, collectScalarTexts, uniqueTexts };

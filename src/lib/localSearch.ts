@@ -728,10 +728,27 @@ function getStrictDocumentMatchScore(doc: PreparedLocalSearchDoc, normalizedQuer
 	if (tokens.length > 0) {
 		const matchedTokenCount = tokens.filter((token) => containsWholePhrase(strictText, token) || strictText.includes(token)).length;
 		if (matchedTokenCount === tokens.length) return 140 + matchedTokenCount * 10;
+		// Partial credit (some, not all, tokens found) still contributes to ranking a
+		// document that also matched some other way, but must never be treated as a
+		// standalone match — strictSearchText is a huge blob of every scalar field
+		// (exam names, addresses, employment history), so a single stray token like
+		// "register" hitting "REGISTERED OPTIONS PRINCIPAL EXAMINATION" would otherwise
+		// falsely match unrelated people (see hasStrictDocumentTokenMatch below).
 		if (matchedTokenCount > 0) return 60 + matchedTokenCount * 8;
 	}
 
 	return 0;
+}
+
+// Unlike getStrictDocumentMatchScore (used for ranking/scoring), this is used to decide
+// whether a document matches at all. It requires the whole phrase or ALL query tokens to
+// be present in the strict blob — a single incidental token match is not sufficient.
+function hasStrictDocumentTokenMatch(doc: PreparedLocalSearchDoc, normalizedQuery: string, tokens: string[]) {
+	const strictText = doc.normalizedStrictSearchText;
+	if (!strictText) return false;
+	if (containsWholePhrase(strictText, normalizedQuery) || strictText.includes(normalizedQuery)) return true;
+	if (!tokens.length) return false;
+	return tokens.every((token) => containsWholePhrase(strictText, token) || strictText.includes(token));
 }
 
 function getSortScore(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQuery: string, tokens: string[]) {
@@ -759,7 +776,7 @@ function matchesQuery(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQ
 	if (identifier === normalizedQuery || doc.id.toLowerCase().endsWith(`:${normalizedQuery}`) || containsWholePhrase(identifier, normalizedQuery)) return true;
 	if (hasEmploymentFirmIdMatch(doc, normalizedQuery)) return true;
 	if (getAddressMatchScore(doc, normalizedQuery, tokens) > 0) return true;
-	if (getStrictDocumentMatchScore(doc, normalizedQuery, tokens) > 0) return true;
+	if (hasStrictDocumentTokenMatch(doc, normalizedQuery, tokens)) return true;
 	const strictQuery = isStrictMatchQuery(normalizedQuery);
 	if (strictQuery) {
 		return hasStrictMatch(doc, normalizedQuery, tokens) || hasStrictTokenMatch(doc, tokens);
