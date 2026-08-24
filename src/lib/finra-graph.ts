@@ -13933,6 +13933,19 @@ function clearHighlights() {
 	focusedNodeId = null;
 	highlightedSelections = [];
 	clearFindMatches();
+	// "Log Bold" forces every selection-log individual to act as a highlight root
+	// (computeHighlightState), which otherwise makes Clear Highlight a no-op whenever
+	// Log Bold is on (it defaults to on for new sessions) — turn it off here so the
+	// button genuinely clears all active highlighting, not just hover/find/selection roots.
+	if (isSelectionLogBold) {
+		isSelectionLogBold = false;
+		try {
+			saveSelectionLogBoldPreference();
+		} catch (e) {
+			/* ignore */
+		}
+		syncSelectionLogActionButtonStates();
+	}
 	// Ensure active selection remains in the durable selected set.
 	if (selectedId) rememberPersistentSelection(selectedId);
 	reapplySelectionState();
