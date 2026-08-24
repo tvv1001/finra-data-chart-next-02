@@ -1,29 +1,26 @@
 let wasmReady = false;
 let mod = null;
 
-function tryImportGlue() {
+async function tryImportGlue() {
 	try {
-		try {
-			importScripts('/wasm/graph-layout/graph_layout.js');
-		} catch (e) {
-			importScripts('/wasm/graph-layout/graph-layout.js');
-		}
+		// This glue file lives in /public and is served as-is at runtime — it must not be
+		// statically resolved/bundled by Turbopack/webpack as a project module, hence the
+		// ignore comment forcing a genuine runtime dynamic import of the absolute URL.
+		const graph_layout = await import(/* webpackIgnore: true */ /* turbopackIgnore: true */ '/wasm/graph-layout/graph_layout.js');
+		await graph_layout.default();
 		wasmReady = true;
-		if (typeof graph_layout !== 'undefined') {
-			mod = graph_layout;
-		} else if (typeof wasm_bindgen !== 'undefined') {
-			mod = wasm_bindgen;
-		}
+		mod = graph_layout;
 	} catch (err) {
 		postMessage({ type: 'error', message: 'Failed to load WASM glue: ' + String(err) });
 	}
 }
 
-tryImportGlue();
+const readyPromise = tryImportGlue();
 
 onmessage = async (ev) => {
 	const msg = ev.data || {};
 	if (msg && msg.type === 'compute') {
+		await readyPromise;
 		if (!mod || typeof mod.GraphSimulation !== 'function') {
 			postMessage({ type: 'error', message: 'WASM GraphSimulation not available' });
 			return;

@@ -1,6 +1,6 @@
 // Simple wrapper to call the graph layout worker from the main thread.
 export function createGraphLayoutWorker() {
-	const worker = new Worker(new URL('../workers/graphLayout.worker.js', import.meta.url));
+	const worker = new Worker(new URL('../workers/graphLayout.worker.js', import.meta.url), { type: 'module' });
 
 	function compute(nodes, links, width = 800, height = 600) {
 		return new Promise((resolve, reject) => {
