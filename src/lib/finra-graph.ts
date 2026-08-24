@@ -11863,20 +11863,61 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 	mergeIntoGraphData(dedupedNodes.nodes, dedupedLinks);
 }
 
+const firmConnectionsRequestCache = new Map<string, Promise<void>>();
+
 /**
- * Lazy-load current/previous employment connections for a firm and inject them into the live graph.
- * Re-run is cheap: single Redis-backed /connections key after first warm, with search fallback.
- * Fixes "connections missing until hard refresh" when sidebar rendered before links were materialised.
+ * Lazy-load current/previous employment connections for a firm and expose them for the
+ * sidebar detail panel only — clicking a firm node in the graph no longer auto-reveals
+ * these as graph nodes/links (see isFirmControlOnlyExpansionLink), but the sidebar's
+ * Current/Previous Connections cards still show them and remain clickable (they route
+ * to/inject the target node on demand via the existing fg-node-link click handler).
  */
 async function ensureFirmConnections(firmNode: any) {
 	if (!firmNode || firmNode.group !== 'firm') return;
-	// Node-view performance: employment connections (current + previous) are no longer
-	// fetched or injected here at all — only Form BD owners and "controls" (red-line)
-	// relationships are shown for firms clicked in the graph. Full employee rosters
-	// remain available in the dashboard's firm-connections view.
-	firmNode.currentConnections = [];
-	firmNode.previousConnections = [];
-	firmNode._connectionsLoaded = true;
+	const match = String(firmNode.id || '').match(/^(?:firm[:_])?(\d+)$/);
+	if (!match) return;
+	const firmId = match[1];
+	if (firmNode._connectionsLoaded) return;
+
+	const existingRequest = firmConnectionsRequestCache.get(firmId);
+	if (existingRequest) {
+		await existingRequest;
+		return;
+	}
+
+	const requestPromise = (async () => {
+		try {
+			const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+			const timer = controller ? window.setTimeout(() => controller.abort(), 12000) : 0;
+			const res = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}/connections`, {
+				signal: controller?.signal,
+			});
+			if (timer) window.clearTimeout(timer);
+			if (res.ok) {
+				const payload = await res.json();
+				if (payload?.found !== false) {
+					// Sidebar-display only: store the raw lists on the node for renderFirmDetail to
+					// render as Current/Previous Connections cards. Do NOT inject nodes/links into
+					// the live graph canvas here — that's the expensive part we removed for performance.
+					firmNode.currentConnections = Array.isArray(payload.currentConnections) ? payload.currentConnections : [];
+					firmNode.previousConnections = Array.isArray(payload.previousConnections) ? payload.previousConnections : [];
+					firmNode._connectionsLoaded = true;
+				}
+			}
+		} catch (error) {
+			// timeout / offline — leave _connectionsLoaded unset so a future call can retry.
+			console.warn(`ensureFirmConnections failed for ${firmId}:`, error);
+		}
+	})();
+
+	firmConnectionsRequestCache.set(firmId, requestPromise);
+	try {
+		await requestPromise;
+	} finally {
+		if (firmConnectionsRequestCache.get(firmId) === requestPromise) {
+			firmConnectionsRequestCache.delete(firmId);
+		}
+	}
 }
 
 // Fetch firm detail from the server (which checks local cache first, then FINRA API).
