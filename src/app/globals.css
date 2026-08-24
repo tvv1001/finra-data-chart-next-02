@@ -3205,6 +3205,10 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 	gap: 6px;
 }
 
+.fg-filter-hidden {
+	display: none !important;
+}
+
 .fg-tl-entry {
 	background: var(--bg);
 	outline: 1px solid #30547050;

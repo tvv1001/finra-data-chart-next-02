@@ -6182,6 +6182,33 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 	// Inline sanction loader: delegate clicks on disclosure links and fetch full text
 	const sidebarInner = document.getElementById('fg-sidebar-inner');
 	if (sidebarInner) {
+		if (!(sidebarInner as any).dataset.fgConnectionsFilterBound) {
+			(sidebarInner as any).dataset.fgConnectionsFilterBound = '1';
+			sidebarInner.addEventListener('input', (ev) => {
+				const target = ev.target as HTMLElement | null;
+				const input = (target?.closest ? target.closest('.fg-connections-filter') : null) as HTMLInputElement | null;
+				if (!input) return;
+				const row = input.closest('.fg-connections-filter-row') as HTMLElement | null;
+				const scope = (row?.nextElementSibling?.classList.contains('fg-connections-filter-scope') ? row.nextElementSibling : (input.closest('.fg-connections-filter-scope') as HTMLElement | null)) as HTMLElement | null;
+				if (!scope) return;
+				const query = input.value.trim().toLowerCase();
+				const cards = scope.querySelectorAll<HTMLElement>('[data-fg-filter-text]');
+				cards.forEach((card) => {
+					const text = card.getAttribute('data-fg-filter-text') || '';
+					card.classList.toggle('fg-filter-hidden', Boolean(query) && !text.includes(query));
+				});
+				// Hide section titles/timelines that have no visible cards left
+				const sections = scope.querySelectorAll<HTMLElement>('[data-fg-connections-section]');
+				sections.forEach((titleEl) => {
+					const timelineEl = titleEl.nextElementSibling as HTMLElement | null;
+					if (!timelineEl || !timelineEl.classList.contains('fg-timeline')) return;
+					const visibleCount = timelineEl.querySelectorAll('[data-fg-filter-text]:not(.fg-filter-hidden)').length;
+					const shouldHide = Boolean(query) && visibleCount === 0;
+					titleEl.classList.toggle('fg-filter-hidden', shouldHide);
+					timelineEl.classList.toggle('fg-filter-hidden', shouldHide);
+				});
+			});
+		}
 		sidebarInner.addEventListener('click', async (ev) => {
 			const target = ev.target as HTMLElement | null;
 			const a = (target?.closest ? target.closest('.fg-dis-link') : null) as HTMLElement | null;
@@ -16465,8 +16492,16 @@ function renderFirmDetail(d: any) {
 			}
 
 			${
+				connections.length || currentConnections.length || previousConnections.length ?
+					`<div class="fg-connections-filter-row" style="margin: 8px 0;">
+						<input type="text" class="fg-connections-filter" placeholder="Filter connections…" style="width: 100%; padding: 4px 8px; border: 1px solid var(--fg-border); border-radius: 4px; background: var(--fg-bg-secondary); color: var(--fg-text);" />
+					</div>`
+				:	''
+			}
+			<div class="fg-connections-filter-scope" data-fg-connections-filter-scope="firm-detail">
+			${
 				connections.length ?
-					`<div class="fg-section-title fg-section-title--sticky">Connected Nodes (${connections.length})</div>
+					`<div class="fg-section-title fg-section-title--sticky" data-fg-connections-section>Connected Nodes (${connections.length})</div>
 					<div class="fg-timeline">
 						${connections
 							.map((connection) => {
@@ -16485,7 +16520,7 @@ function renderFirmDetail(d: any) {
 									:	'';
 								const datesHtml = connection.dateTexts.length ? `<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
 								const addrHtml = connection.address ? `<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
-								return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}">
+								return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}" data-fg-filter-text="${esc(String(connection.label || '').toLowerCase())} ${esc(String(connection.crd || '').toLowerCase())}">
 									<span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>
 									${relHtml}
 									${datesHtml}
@@ -16498,7 +16533,7 @@ function renderFirmDetail(d: any) {
 			}
 			${
 				currentConnections.length ?
-					`<div class="fg-section-title fg-section-title--sticky">Current Connections (${currentConnections.length})</div>
+					`<div class="fg-section-title fg-section-title--sticky" data-fg-connections-section>Current Connections (${currentConnections.length})</div>
 					<div class="fg-timeline">
 						${currentConnections
 							.map((connection) => {
@@ -16509,7 +16544,7 @@ function renderFirmDetail(d: any) {
 									:	'';
 								const datesHtml = connection.dateTexts.length ? `<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
 								const addrHtml = connection.address ? `<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
-								return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}">
+								return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}" data-fg-filter-text="${esc(String(connection.label || '').toLowerCase())} ${esc(String(connection.crd || '').toLowerCase())}">
 									<span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>
 									${relHtml}
 									${datesHtml}
@@ -16522,7 +16557,7 @@ function renderFirmDetail(d: any) {
 			}
 			${
 				previousConnections.length ?
-					`<div class="fg-section-title fg-section-title--sticky">Previous Connections (${previousConnections.length})</div>
+					`<div class="fg-section-title fg-section-title--sticky" data-fg-connections-section>Previous Connections (${previousConnections.length})</div>
 					<div class="fg-timeline fg-timeline--previous">
 						${previousConnections
 							.map((connection) => {
@@ -16533,7 +16568,7 @@ function renderFirmDetail(d: any) {
 									:	'';
 								const datesHtml = connection.dateTexts.length ? `<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
 								const addrHtml = connection.address ? `<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
-								return `<button type="button" class="fg-tl-entry fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}">
+								return `<button type="button" class="fg-tl-entry fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}" data-fg-filter-text="${esc(String(connection.label || '').toLowerCase())} ${esc(String(connection.crd || '').toLowerCase())}">
 									<span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>
 									${relHtml}
 									${datesHtml}
@@ -16544,6 +16579,7 @@ function renderFirmDetail(d: any) {
 					</div>`
 				:	''
 			}
+			</div>
     </div>
   `;
 }
