@@ -419,10 +419,24 @@ function evidenceSources(entry: GraphConnectionEntry): Array<'finra' | 'sec'> {
 	return sources.size ? Array.from(sources) : ['finra', 'sec'];
 }
 
+// Recognized evidence tags that actually prove this individual's own employment record
+// references the firm CRD in question (i.e. a real, verified connection to this specific
+// firm, not just a name/token match or an unverifiable search hit). Anything without one
+// of these tags — including stale 'implicit-previous-match' entries persisted by the old,
+// removed fallback logic in getConnectionsFromSearchIndex() — must be excluded from the
+// shared broker-id mirror keys.
+const VALID_FIRM_CONNECTION_EVIDENCE = new Set(['current-employment-record', 'matched-previous-employment', 'graph-edge', 'firm-emp-adj', 'primed-bundle']);
+
+function hasValidatedFirmConnectionEvidence(entry: GraphConnectionEntry): boolean {
+	const tags = Array.isArray(entry.evidence) ? entry.evidence : [];
+	return tags.some((tag) => VALID_FIRM_CONNECTION_EVIDENCE.has(tag));
+}
+
 // Write the shared broker-id list keys (finra|sec:firm:{firmId}_brokers:connected|previous)
 // that the sibling dashboard-crds app (and any other consumer of this shared Redis) reads.
-// Only individuals that have already been validated against their own detail record (i.e.
-// present in the merged/official connection lists) are written here — never raw search hits.
+// Only individuals whose entry carries genuine per-firm employment-record evidence (i.e.
+// their own detail record actually references this firm CRD) are written here — never raw
+// search hits or stale/unverifiable entries left over from older cached payloads.
 async function persistBrokerIdLists(firmId: string, payload: FirmConnectionsPayload) {
 	const redis = getRedisClient();
 	if (!redis) return;
@@ -433,11 +447,13 @@ async function persistBrokerIdLists(firmId: string, payload: FirmConnectionsPayl
 	};
 
 	for (const entry of payload.currentConnections || []) {
+		if (!hasValidatedFirmConnectionEvidence(entry)) continue;
 		const id = firstNonEmpty(entry.individualId);
 		if (!id || !/^\d{1,10}$/.test(id)) continue;
 		for (const source of evidenceSources(entry)) buckets[source].connected.add(id);
 	}
 	for (const entry of payload.previousConnections || []) {
+		if (!hasValidatedFirmConnectionEvidence(entry)) continue;
 		const id = firstNonEmpty(entry.individualId);
 		if (!id || !/^\d{1,10}$/.test(id)) continue;
 		for (const source of evidenceSources(entry)) buckets[source].previous.add(id);
