@@ -13128,11 +13128,15 @@ function pinNodeAndReleaseOthers(pinnedNode) {
 
 	if (simulation) {
 		simulation.alphaTarget(0.15).restart();
-		window.setTimeout(() => {
-			if (simulation) simulation.alphaTarget(0);
-			releaseFrozenNodes(frozen);
-		}, 300);
 	}
+	// Always release the frozen nodes after the reheat window, even if `simulation`
+	// was falsy above (e.g. mid-replacement during a concurrent fetch/expand) —
+	// otherwise these nodes keep fx/fy set forever and appear permanently stuck
+	// until a full page refresh or being clicked directly (which re-releases them).
+	window.setTimeout(() => {
+		if (simulation) simulation.alphaTarget(0);
+		releaseFrozenNodes(frozen);
+	}, 300);
 }
 
 export async function handleNodeOpen(event, d) {
