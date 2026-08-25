@@ -410,52 +410,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		// Queue background hydration of the external API to ensure cache stays hydrated
 		queueHydration('individual', crd);
 
-		// Monitor name changes for active individuals who have at least one other name.
-		// Maintain a monitored set and small per-CRD snapshot so we can cheaply
-		// notify operators when a main display name changes. Only run when a
-		// Redis client is available; failures must not block the response.
-		try {
-			const bi: any = detail.basicInformation || {};
-			const otherNames =
-				Array.isArray(bi.otherNames) ? bi.otherNames
-				: Array.isArray(detail.otherNames) ? detail.otherNames
-				: [];
-			const isActive = Boolean(detail.hasFinraData || detail.hasSecData || indicatesFinraCoverage(detail) || hasEmploymentLinkData(detail));
-			if (otherNames.length && isActive) {
-				const redis = getRedisClientInstance({ url: process.env.UPSTASH_REDIS_REST_URL || '', token: process.env.UPSTASH_REDIS_REST_TOKEN || '' });
-				const role = 'individual';
-				// add to monitored set (allows background jobs to iterate cheaply)
-				await redis.sadd(`dashboard:monitored-crds:${role}`, crd).catch(() => null);
-
-				// compute canonical display name
-				const mainName = [bi.firstName, bi.middleName, bi.lastName].filter(Boolean).join(' ') || bi.name || detail.personName || detail.displayName || `Person ${crd}`;
-				const snapKey = `dashboard:crd-name-snapshot:${role}:${crd}`;
-				const prevRaw = await redis.get(snapKey).catch(() => null);
-				let prev = null;
-				try {
-					const prevRawStr =
-						typeof prevRaw === 'string' ? prevRaw
-						: prevRaw == null ? null
-						: String(prevRaw);
-					prev = prevRawStr ? JSON.parse(prevRawStr) : null;
-				} catch {
-					prev = null;
-				}
-				if (!prev || String(prev.name || '') !== String(mainName || '')) {
-					// If a previous snapshot exists, push an alert for the name change.
-					if (prev && prev.name) {
-						await redis
-							.lpush('dashboard:alerts', JSON.stringify({ at: new Date().toISOString(), id: crd, entity: role, type: 'name-change', prevName: prev.name, nextName: mainName }))
-							.catch(() => null);
-						await redis.ltrim('dashboard:alerts', 0, 499).catch(() => null);
-					}
-					await redis.set(snapKey, JSON.stringify({ name: mainName, ts: Date.now() })).catch(() => null);
-				}
-			}
-		} catch (e: any) {
-			logger.warn('individual name-change monitor failed', { crd, error: e?.message || String(e) });
-		}
-
 		// Best-effort: index this individual's employers (many of which are scraped-only firm
 		// names/CRDs with no independent, searchable BrokerCheck/IAPD record) so a later lookup of
 		// one of those firm CRDs can resolve as an "orphan" reference instead of a bare not-found.

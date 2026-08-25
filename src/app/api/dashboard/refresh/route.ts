@@ -11,7 +11,7 @@ import { setStringIfValid, decompressPayload } from '@/lib/redisCache';
 import { isValidCrd, makeRedisKey } from '@/lib/crd';
 import { getFullGraph, saveGraph } from '@/lib/graphStore';
 import { getRecentSeedsFromStore, rememberRecentSeed } from '@/lib/seedStore';
-import { addRecordToSearchIndex } from '@/lib/localSearch';
+import { addRecordToSearchIndex, lookupNameFromSearchIndex } from '@/lib/localSearch';
 import { getRecordDisplayName } from '@/lib/recordDisplay';
 import { hasFirmSourceCoverage, hasIndividualSourceCoverage } from '@/lib/sourceTruth';
 
@@ -893,7 +893,7 @@ async function loadCachedFirmPayload(source: 'finra' | 'sec', id: string) {
 	return parseFirmDetailPayload(payload, source === 'finra' ? 'content' : 'iacontent');
 }
 
-async function normalizeCardSourcesForDisplay(card: CacheCard): Promise<CacheCard> {
+async function normalizeCardSourcesForDisplay(card: CacheCard): Promise<CacheCard & { hasVerifiedPayload?: boolean }> {
 	const normalizedSources: CacheCardSource[] = [];
 	let evaluatedSourceCount = 0;
 
@@ -918,13 +918,17 @@ async function normalizeCardSourcesForDisplay(card: CacheCard): Promise<CacheCar
 		if (includeSource) normalizedSources.push(sourceEntry);
 	}
 
-	// If none of the cached payloads could be loaded, keep the card unchanged rather than
-	// clearing its source tags based on incomplete information.
-	if (evaluatedSourceCount === 0) return card;
+	// If none of the cached payloads could be loaded, the card's ID was likely constructed from a
+	// zset/name-map entry (e.g. `dashboard:highest-crds:*`) that never actually got its detail
+	// record fetched/cached in Redis. Rather than keep the fabricated FINRA/SEC source tags (which
+	// showed up as fake "binary not converted" looking placeholders like "Individual <crd>" with
+	// both scopes checked), flag it so callers can drop it from user-facing lists.
+	if (evaluatedSourceCount === 0) return { ...card, hasVerifiedPayload: false };
 	return {
 		...card,
 		files: normalizedSources.length,
 		sources: normalizedSources,
+		hasVerifiedPayload: true,
 	};
 }
 
@@ -1123,6 +1127,18 @@ async function buildCardSummary(card: CacheCard) {
 	if (!summary.name) {
 		const logName = getCrdLogNameMap().get(`${card.entity}:${card.id}`);
 		if (logName) summary.name = logName;
+	}
+	if (!summary.name) {
+		// Fall back to the search-index sidecar (gzip file / Redis extensions hash) instead of a
+		// dashboard-only cache, so the real name is always used when available.
+		try {
+			const finraName = await lookupNameFromSearchIndex('finra', card.entity, card.id);
+			const secName = finraName ? null : await lookupNameFromSearchIndex('sec', card.entity, card.id);
+			const indexName = finraName || secName;
+			if (indexName) summary.name = indexName;
+		} catch {
+			// ignore lookup failures; fall through to generic placeholder below
+		}
 	}
 	if (!summary.name && card.entity === 'individual') summary.name = `Individual ${card.id}`;
 	if (!summary.name && card.entity === 'firm') summary.name = `Firm ${card.id}`;
@@ -2204,9 +2220,15 @@ async function listNewCrds(force = false) {
 	const topCardsToProcess = [...topPeople, ...topFirms];
 	await prefetchPayloadsBatch(topCardsToProcess);
 
-	const formatted = await Promise.all(
+	const formattedWithNulls = await Promise.all(
 		topCardsToProcess.map(async (card) => {
 			const normalizedSources = await normalizeCardSourcesForDisplay(card);
+			// Skip CRDs whose detail payload was never actually cached in Redis (e.g. an id present
+			// only in the `dashboard:highest-crds:*` zset). Without a real payload we can't verify
+			// the FINRA/SEC scopes or resolve a real name, so surfacing it here previously showed a
+			// fabricated "Individual <crd>" placeholder with both source tags checked, which looked
+			// like a data/decoding error.
+			if (normalizedSources.hasVerifiedPayload === false) return null;
 			const summary = await buildCardSummary(normalizedSources);
 			const normalized = normalizeCardForDisplay({ ...normalizedSources, ...summary });
 			return {
@@ -2219,7 +2241,8 @@ async function listNewCrds(force = false) {
 			};
 		}),
 	);
-	
+	const formatted = formattedWithNulls.filter((entry): entry is NonNullable<typeof entry> => entry != null);
+
 	batchPayloadsMap = null;
 
 	const result = {

@@ -782,7 +782,12 @@ function matchesQuery(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQ
 		return hasStrictMatch(doc, normalizedQuery, tokens) || hasStrictTokenMatch(doc, tokens);
 	}
 	if (isStrictSurnameQuery(rawQuery, normalizedQuery)) {
-		return getSurnameMatchScore(doc, rawQuery, normalizedQuery) > 0;
+		if (getSurnameMatchScore(doc, rawQuery, normalizedQuery) > 0) return true;
+		// Stub/minimal docs (e.g. label-only entries from lighter search indexes) may not
+		// carry a dedicated lastname field, so surnameCandidates ends up empty. Fall back to
+		// name-based matching (which considers doc.label/name/etc.) before giving up.
+		if (!doc.surnameCandidates.length && getNameMatchScore(doc, rawQuery, normalizedQuery, tokens) > 0) return true;
+		return false;
 	}
 	if (getNameMatchScore(doc, rawQuery, normalizedQuery, tokens) > 0) return true;
 	if (hasStrictMatch(doc, normalizedQuery, tokens)) return true;
@@ -1012,6 +1017,28 @@ async function fetchExtensionsFromRedis(bucket: LocalSearchBucket): Promise<Loca
 
 export function clearSearchIndexCache() {
 	indexPromiseCache.clear();
+}
+
+// Resolve a display name for a CRD straight from the search-index sidecar (gzip file, falling
+// back to the Redis `search:indexes:extensions:*` hash) instead of keeping a separate
+// dashboard-only name cache. This lets dashboard/graph "new CRD" cards show a real name without
+// duplicating data purely for the dashboard.
+export async function lookupNameFromSearchIndex(
+	source: LocalSearchSource,
+	type: LocalSearchEntity,
+	crd: string,
+	options: { baseUrl?: string; seedRoots?: Array<string | null | undefined> } = {},
+): Promise<string | null> {
+	const bucket = `${source}:${type}` as LocalSearchBucket;
+	const id = String(crd || '').trim();
+	if (!id) return null;
+	const index = await loadIndex(bucket, options.baseUrl, options.seedRoots || []);
+	if (!index || !Array.isArray(index.docs)) return null;
+	const doc = index.docs.find((d) => String(d?.id || '').toLowerCase().endsWith(`:${id}`) || String(d?.hit?.crd || '') === id);
+	const hit = (doc as any)?.hit;
+	if (!hit) return null;
+	const name = hit.label || hit.name || hit.firm_name || hit.firmName || [hit.ind_firstname, hit.ind_middlename, hit.ind_lastname].filter(Boolean).join(' ');
+	return name ? String(name).trim() || null : null;
 }
 
 function toText(value: any): string {

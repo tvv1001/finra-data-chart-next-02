@@ -602,47 +602,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		// Queue background hydration of the external API to ensure cache stays hydrated
 		queueHydration('firm', id);
 
-		// Monitor name changes for active firms which have at least one other name.
-		// Store monitored CRDs and per-CRD name snapshots in Redis so a lightweight
-		// background job can detect changes and alert operators.
-		try {
-			const bi: any = detail.basicInformation || {};
-			const otherNames =
-				Array.isArray(bi.otherNames) ? bi.otherNames
-				: Array.isArray(detail.otherNames) ? detail.otherNames
-				: [];
-			const isActive = Boolean(detail.hasFinraData || detail.hasSecData || hasPublicFinraFirmDetail(bcDetail, bcDetail?.basicInformation || {}));
-			if (otherNames.length && isActive) {
-				const redis = getRedisClientInstance({ url: process.env.UPSTASH_REDIS_REST_URL || '', token: process.env.UPSTASH_REDIS_REST_TOKEN || '' });
-				const role = 'firm';
-				await redis.sadd(`dashboard:monitored-crds:${role}`, id).catch(() => null);
-				const mainName = bi.firmName || detail.firmName || bi.name || detail.name || `Firm ${id}`;
-				const snapKey = `dashboard:crd-name-snapshot:${role}:${id}`;
-				const prevRaw = await redis.get(snapKey).catch(() => null);
-				let prev = null;
-				try {
-					const prevRawStr =
-						typeof prevRaw === 'string' ? prevRaw
-						: prevRaw == null ? null
-						: String(prevRaw);
-					prev = prevRawStr ? JSON.parse(prevRawStr) : null;
-				} catch {
-					prev = null;
-				}
-				if (!prev || String(prev.name || '') !== String(mainName || '')) {
-					if (prev && prev.name) {
-						await redis
-							.lpush('dashboard:alerts', JSON.stringify({ at: new Date().toISOString(), id, entity: role, type: 'name-change', prevName: prev.name, nextName: mainName }))
-							.catch(() => null);
-						await redis.ltrim('dashboard:alerts', 0, 499).catch(() => null);
-					}
-					await redis.set(snapKey, JSON.stringify({ name: mainName, ts: Date.now() })).catch(() => null);
-				}
-			}
-		} catch (e: any) {
-			logger.warn('firm name-change monitor failed', { id, error: e?.message || String(e) });
-		}
-
 		// Best-effort: index this firm's directOwners/indirectOwners so a later lookup of one of
 		// those individuals (many of whom have no independent, searchable FINRA/SEC record) can
 		// resolve as an "orphan" reference instead of a bare not-found. Never blocks the response.
