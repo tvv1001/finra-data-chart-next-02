@@ -3866,15 +3866,13 @@ function DashboardPageInner() {
 														})}
 													</div>
 													{detailedMainRecord.registrations.stateList?.length > 0 && (
-														<div style={{ marginTop: '12px' }}>
-															<h5 style={{ fontSize: '12px', fontWeight: 600, color: '#888', marginBottom: '8px', textTransform: 'uppercase' }}>
-																Registered States ({detailedMainRecord.registrations.stateList.length})
-															</h5>
-															<div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+														<div className={styles.registeredStatesWrap}>
+															<h5 className={styles.registeredStatesTitle}>Registered States ({detailedMainRecord.registrations.stateList.length})</h5>
+															<div className={styles.registeredStatesList}>
 																{detailedMainRecord.registrations.stateList.map((st: any, idx: number) => (
 																	<span
 																		key={`state-${idx}`}
-																		style={{ fontSize: '11px', background: '#333', color: '#eee', padding: '2px 8px', borderRadius: '12px', whiteSpace: 'nowrap' }}>
+																		className={styles.registeredStateTag}>
 																		{st.state || st.id || st.name || st}
 																	</span>
 																))}
