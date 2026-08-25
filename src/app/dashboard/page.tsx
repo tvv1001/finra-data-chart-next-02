@@ -30,6 +30,7 @@ type SearchResultCard = {
 	scope: string;
 	address: string;
 	detail: string;
+	otherNames: string[];
 	source: SearchResultSource;
 	entity: 'individual' | 'firm';
 	payload: SearchResult;
@@ -1119,6 +1120,10 @@ function extractSearchResultAddress(item: SearchResult): string {
 		...(Array.isArray(item?.ind_ia_current_employments) ? item.ind_ia_current_employments : []),
 		...(Array.isArray(item?.currentEmployments) ? item.currentEmployments : []),
 		...(Array.isArray(item?.currentIAEmployments) ? item.currentIAEmployments : []),
+		// Fall back to previous employments so inactive individuals (no current employer) still show
+		// a last-known address instead of nothing.
+		...(Array.isArray(item?.previousEmployments) ? item.previousEmployments : []),
+		...(Array.isArray(item?.previousIAEmployments) ? item.previousIAEmployments : []),
 	];
 
 	for (const row of employments) {
@@ -1135,6 +1140,42 @@ function extractSearchResultAddress(item: SearchResult): string {
 
 function extractSearchResultDetail(item: SearchResult): string {
 	return pickFirstNonEmpty(item?.bcScope, item?.iaScope, item?.status, item?.registrationStatus, item?.firm_bc_scope, item?.firm_ia_scope);
+}
+
+function extractSearchResultOtherNames(item: SearchResult): string[] {
+	const raw = item?.otherNames || item?.basicInformation?.otherNames || item?.ind_other_names || item?.firm_other_names || item?.aliases;
+	if (!Array.isArray(raw)) return [];
+	return raw.map((name) => toText(name)).filter(Boolean);
+}
+
+// Minimal FINRA/SEC search-index stub docs ({id, crd, label, type, source}) lack a real name,
+// address, or otherNames — the same way graph-search's direct-CRD fallback hydrates from the
+// full detail routes, fetch the merged record here so dashboard search cards show real data.
+async function hydrateSearchResultCard(card: SearchResultCard): Promise<SearchResultCard> {
+	try {
+		const url = card.entity === 'individual' ? `/api/finra/individual/${encodeURIComponent(card.id)}?merged=1` : `/api/finra/firm/${encodeURIComponent(card.id)}?merged=1`;
+		const res = await fetch(url, { headers: { Accept: 'application/json' } });
+		if (!res.ok) return card;
+		const detail = await res.json().catch(() => null);
+		if (!detail || detail?.found === false) return card;
+		const merged = detail?.merged || detail?.finraNode || detail?.secNode || detail || {};
+		const basic = merged?.basicInformation || {};
+
+		const rawLabel =
+			card.entity === 'firm' ?
+				pickFirstNonEmpty(basic?.firmName, merged?.firmName, merged?.name)
+			:	pickFirstNonEmpty([basic?.firstName, basic?.middleName, basic?.lastName].filter(Boolean).join(' '), basic?.name, merged?.name);
+		const label = rawLabel ? (card.entity === 'firm' ? formatFirmName(rawLabel) : formatPersonName(rawLabel)) : card.label;
+
+		const scope = pickFirstNonEmpty(merged?.bcScope, basic?.bcScope, merged?.iaScope, basic?.iaScope) || card.scope;
+		const address = extractSearchResultAddress(merged) || extractSearchResultAddress(basic) || card.address;
+		const otherNames = extractSearchResultOtherNames(basic).length ? extractSearchResultOtherNames(basic) : extractSearchResultOtherNames(merged).length ? extractSearchResultOtherNames(merged) : card.otherNames;
+		const detailText = extractSearchResultDetail(merged) || extractSearchResultDetail(basic) || card.detail;
+
+		return { ...card, label, scope, address, otherNames, detail: detailText };
+	} catch {
+		return card;
+	}
 }
 
 function OrphanProfileLinks({ parentCrd, parentType = 'firm' }: { parentCrd: string; parentType?: 'individual' | 'firm' }) {
@@ -3140,14 +3181,17 @@ function DashboardPageInner() {
 						continue;
 					}
 
+					// Minimal FINRA search-index stub docs only carry {id, crd, label, type, source} — no
+					// name/firstName/lastName fields — so fall back to the stub's own `label` field too.
 					const rawLabel =
-						String(item?.name || item?.fullName || item?.firmName || item?.firstName || item?.lastName || item?.title || '').trim() ||
+						String(item?.name || item?.fullName || item?.firmName || item?.firstName || item?.lastName || item?.title || item?.label || '').trim() ||
 						`${entity === 'firm' ? 'Firm' : 'Individual'} CRD #${id}`;
 					const label = entity === 'firm' ? formatFirmName(rawLabel) : formatPersonName(rawLabel);
 					const scope = String(item?.bcScope || item?.iaScope || item?.status || item?.registrationStatus || '').trim();
 					const address = extractSearchResultAddress(item);
 					const detail = extractSearchResultDetail(item);
-					cards.push({ id, label, scope, address, detail, source, entity, payload: item });
+					const otherNames = extractSearchResultOtherNames(item);
+					cards.push({ id, label, scope, address, detail, otherNames, source, entity, payload: item });
 				}
 
 				return { cards, skipped };
@@ -3167,7 +3211,19 @@ function DashboardPageInner() {
 			}
 
 			setSearchSkippedCount(skippedTotal);
-			setSearchResults([...finraIndividuals.cards, ...finraFirms.cards, ...secIndividuals.cards, ...secFirms.cards]);
+			const combinedCards = [...finraIndividuals.cards, ...finraFirms.cards, ...secIndividuals.cards, ...secFirms.cards];
+			setSearchResults(combinedCards);
+
+			// Hydrate cards (real name/address/otherNames) from full detail routes in the background,
+			// same approach as graph-search's direct-CRD fallback — minimal search-index stub docs
+			// only carry {id, crd, label, type, source}. Cap concurrency to avoid hammering the API.
+			const HYDRATE_LIMIT = 40;
+			void Promise.all(combinedCards.slice(0, HYDRATE_LIMIT).map((card) => hydrateSearchResultCard(card))).then((hydratedCards) => {
+				setSearchResults((current) => {
+					const byKey = new Map(hydratedCards.map((card) => [`${card.entity}:${card.id}:${card.source}`, card]));
+					return current.map((card) => byKey.get(`${card.entity}:${card.id}:${card.source}`) || card);
+				});
+			});
 		} catch (error: any) {
 			setSearchError(error?.message || String(error));
 		} finally {
@@ -3203,6 +3259,7 @@ function DashboardPageInner() {
 	function renderSearchResult(card: SearchResultCard, index: number) {
 		const sourceLabel = card.source === 'finra' ? 'FINRA' : 'SEC';
 		const rowAddress = card.address || card.detail || 'No address/details in cached index';
+		const otherNamesText = card.otherNames && card.otherNames.length > 0 ? `Also known as: ${card.otherNames.join(', ')}` : '';
 		const isSelected = currentRecordId === card.id && currentRecordEntity === card.entity;
 
 		return (
@@ -3219,6 +3276,7 @@ function DashboardPageInner() {
 						<span className={styles.searchResultCrd}>CRD #{card.id}</span>
 						<span className={styles.searchResultAddress}>{rowAddress}</span>
 					</div>
+					{otherNamesText && <div className={styles.searchResultOtherNames}>{otherNamesText}</div>}
 					<span className={styles.searchTag}>{sourceLabel}</span>
 				</button>
 			</div>

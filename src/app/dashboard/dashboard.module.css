@@ -1104,6 +1104,17 @@
 	text-overflow: ellipsis;
 }
 
+.searchResultOtherNames {
+	font-size: 11px;
+	line-height: 1.3;
+	color: #94a3b8;
+	font-style: italic;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	margin-top: 2px;
+}
+
 .searchSourceBtn {
 	border: 1px solid #1d4ed8;
 	background: #e0efff;
