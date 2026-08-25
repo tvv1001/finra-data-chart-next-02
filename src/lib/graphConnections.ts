@@ -401,7 +401,66 @@ function readLocalFirmConnectionsFile(firmId: string): { payload: FirmConnection
 	return { payload: null, path: localCachePath };
 }
 
-async function persistFirmConnections(payload: FirmConnectionsPayload, cacheKey: string, emptyCacheKey: string, localPath: string) {
+// Determine which upstream source(s) validated a connection entry from its evidence tags
+// (e.g. 'search-finra', 'official-search-sec', 'matched-previous-employment' — the latter
+// carries no source on its own, so we look at the sibling tag emitted alongside it).
+function evidenceSources(entry: GraphConnectionEntry): Array<'finra' | 'sec'> {
+	const tags = Array.isArray(entry.evidence) ? entry.evidence : [];
+	const sources = new Set<'finra' | 'sec'>();
+	for (const tag of tags) {
+		if (/finra/i.test(tag)) sources.add('finra');
+		if (/sec/i.test(tag)) sources.add('sec');
+	}
+	// Fall back to bcScope/iaScope presence when evidence tags are ambiguous/missing.
+	if (!sources.size) {
+		if (entry.bcScope) sources.add('finra');
+		if (entry.iaScope) sources.add('sec');
+	}
+	return sources.size ? Array.from(sources) : ['finra', 'sec'];
+}
+
+// Write the shared broker-id list keys (finra|sec:firm:{firmId}_brokers:connected|previous)
+// that the sibling dashboard-crds app (and any other consumer of this shared Redis) reads.
+// Only individuals that have already been validated against their own detail record (i.e.
+// present in the merged/official connection lists) are written here — never raw search hits.
+async function persistBrokerIdLists(firmId: string, payload: FirmConnectionsPayload) {
+	const redis = getRedisClient();
+	if (!redis) return;
+
+	const buckets: Record<'finra' | 'sec', { connected: Set<string>; previous: Set<string> }> = {
+		finra: { connected: new Set(), previous: new Set() },
+		sec: { connected: new Set(), previous: new Set() },
+	};
+
+	for (const entry of payload.currentConnections || []) {
+		const id = firstNonEmpty(entry.individualId);
+		if (!id || !/^\d{1,10}$/.test(id)) continue;
+		for (const source of evidenceSources(entry)) buckets[source].connected.add(id);
+	}
+	for (const entry of payload.previousConnections || []) {
+		const id = firstNonEmpty(entry.individualId);
+		if (!id || !/^\d{1,10}$/.test(id)) continue;
+		for (const source of evidenceSources(entry)) buckets[source].previous.add(id);
+	}
+
+	for (const source of ['finra', 'sec'] as const) {
+		const { connected, previous } = buckets[source];
+		// A person cannot be both current and previous for the same source — current wins.
+		for (const id of connected) previous.delete(id);
+		try {
+			if (connected.size) {
+				await setStringIfValid(`${source}:firm:${firmId}_brokers:connected`, JSON.stringify(Array.from(connected)), FIRM_CONNECTIONS_CACHE_TTL_SECONDS);
+			}
+			if (previous.size) {
+				await setStringIfValid(`${source}:firm:${firmId}_brokers:previous`, JSON.stringify(Array.from(previous)), FIRM_CONNECTIONS_CACHE_TTL_SECONDS);
+			}
+		} catch {
+			// best-effort; shared broker-id lists are a convenience mirror, not the source of truth
+		}
+	}
+}
+
+async function persistFirmConnections(payload: FirmConnectionsPayload, cacheKey: string, emptyCacheKey: string, localPath: string, firmId?: string) {
 	const total = countFirmConnectionEntries(payload);
 	const redis = getRedisClient();
 	if (redis) {
@@ -421,6 +480,11 @@ async function persistFirmConnections(payload: FirmConnectionsPayload, cacheKey:
 		}
 	} catch {
 		// best-effort cache
+	}
+	if (firmId && total > 0) {
+		await persistBrokerIdLists(firmId, payload).catch(() => {
+			// best-effort mirror; never block the primary response on this
+		});
 	}
 }
 
@@ -474,7 +538,7 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<FirmC
 			officialTotals: official.officialTotals,
 			fetchedAt: official.fetchedAt,
 		};
-		await persistFirmConnections(result, cacheKey, emptyCacheKey, local.path);
+		await persistFirmConnections(result, cacheKey, emptyCacheKey, local.path, normalizedFirmId);
 		return result;
 	}
 
@@ -496,6 +560,6 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<FirmC
 	}
 
 	const computed = await computeFirmConnectionsFromGraph(normalizedFirmId);
-	await persistFirmConnections(computed, cacheKey, emptyCacheKey, local.path);
+	await persistFirmConnections(computed, cacheKey, emptyCacheKey, local.path, normalizedFirmId);
 	return computed;
 }
