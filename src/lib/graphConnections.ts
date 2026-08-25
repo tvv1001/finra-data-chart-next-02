@@ -748,7 +748,22 @@ async function enrichConnectionEntriesFromIndividualCache(entries: GraphConnecti
 		const startDate = entry.startDate || firstNonEmpty(matchedEmployment?.registrationBeginDate, matchedEmployment?.startDate) || undefined;
 		const endDate = !entry.isCurrent ? entry.endDate || firstNonEmpty(matchedEmployment?.registrationEndDate, matchedEmployment?.endDate) || undefined : undefined;
 		const statusTag = entry.statusTag || computeConnectionStatusTag({ ...detail, bcScope, iaScope }, currentEmployments, entry.isCurrent);
-		return { ...entry, name: name || entry.name, bcScope, iaScope, otherNames, address, startDate, endDate, statusTag };
+		return { ...entry, name: name || entry.name, bcScope, iaScope, otherNames, address, startDate, endDate, statusTag, __employmentChecked: true, __employmentMatched: !!matchedEmployment } as GraphConnectionEntry;
+	});
+}
+
+// Drops broker-id-mirror entries whose own cached detail record was just fetched (in
+// enrichConnectionEntriesFromIndividualCache) and does NOT list this firm as a current/previous
+// employer. This catches stale/incorrect CRDs in the shared _brokers:current|previous mirror
+// keys (e.g. left over from a prior firmId typo, a since-corrected employment record, or manual
+// backfill error) — real per-firm employment evidence disproves them outright. Entries whose
+// detail wasn't cached (so membership couldn't be checked either way) are left untouched, since
+// we can't prove them wrong.
+function filterOutDisprovenBrokerMirrorEntries(entries: GraphConnectionEntry[]): GraphConnectionEntry[] {
+	return entries.filter((entry) => {
+		const anyEntry = entry as any;
+		if (!anyEntry.__employmentChecked) return true;
+		return anyEntry.__employmentMatched !== false;
 	});
 }
 
@@ -783,6 +798,14 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<FirmC
 			...result,
 			currentConnections: await enrichConnectionEntriesFromIndividualCache(result.currentConnections, normalizedFirmId, redis),
 			previousConnections: await enrichConnectionEntriesFromIndividualCache(result.previousConnections, normalizedFirmId, redis),
+		};
+		// Drop broker-id-mirror entries we just proved (via their own cached detail record) do
+		// NOT actually list this firm as an employer — stale/incorrect CRDs in the shared mirror
+		// keys, not just unhydrated ones.
+		result = {
+			...result,
+			currentConnections: filterOutDisprovenBrokerMirrorEntries(result.currentConnections),
+			previousConnections: filterOutDisprovenBrokerMirrorEntries(result.previousConnections),
 		};
 		// Generic name/detail backfill helper: fills in any still-missing fields on an entry from
 		// a matching entry (keyed by individualId) in some other source's connection list.
@@ -841,6 +864,15 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<FirmC
 				};
 			}
 		}
+		// Strip the internal-only employment-check markers used by filterOutDisprovenBrokerMirrorEntries
+		// before this ever gets serialized/persisted — they're not part of the public entry shape.
+		const stripInternalMarkers = (entries: GraphConnectionEntry[]) =>
+			entries.map(({ __employmentChecked, __employmentMatched, ...rest }: any) => rest as GraphConnectionEntry);
+		result = {
+			...result,
+			currentConnections: stripInternalMarkers(result.currentConnections),
+			previousConnections: stripInternalMarkers(result.previousConnections),
+		};
 		const payload: FirmConnectionsPayload = { ...result, source: 'broker-id-mirror' };
 		// IMPORTANT: do not run this payload through persistFirmConnections()/persistBrokerIdLists().
 		// Those mirror keys are exactly what we just read, and persistBrokerIdLists() only keeps
