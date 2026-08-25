@@ -214,17 +214,12 @@ async function getConnectionsFromSearchIndex(firmId: string): Promise<GraphConne
 					continue;
 				}
 
-				// External API hits often omit previousEmployments but return the hit because they matched the firm= ID.
-				// If they reached here, they must be a previous registration.
-				entries.push({
-					individualId: crd,
-					name,
-					relationship: 'Previous registration',
-					startDate: undefined,
-					endDate: undefined,
-					isCurrent: false,
-					evidence: [`search-${source}`, 'implicit-previous-match'],
-				});
+				// Do NOT assume a search hit is a valid connection just because the search API
+				// returned it (it may have matched on a firm-name token rather than this exact
+				// firm CRD, or on stale/expired data). A connection is only valid when this
+				// person's own employment record actually references the firm CRD — skip
+				// unverifiable hits rather than guessing (previously caused false-positive
+				// "previous connections", e.g. firm 343750 showing 47 unrelated people).
 			}
 		} catch {
 			// Best-effort
