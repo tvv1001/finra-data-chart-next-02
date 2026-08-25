@@ -432,7 +432,7 @@ function hasValidatedFirmConnectionEvidence(entry: GraphConnectionEntry): boolea
 	return tags.some((tag) => VALID_FIRM_CONNECTION_EVIDENCE.has(tag));
 }
 
-// Write the shared broker-id list keys (finra|sec:firm:{firmId}_brokers:connected|previous)
+// Write the shared broker-id list keys (finra|sec:firm:{firmId}_brokers:current|previous)
 // that the sibling dashboard-crds app (and any other consumer of this shared Redis) reads.
 // Only individuals whose entry carries genuine per-firm employment-record evidence (i.e.
 // their own detail record actually references this firm CRD) are written here — never raw
@@ -465,7 +465,7 @@ async function persistBrokerIdLists(firmId: string, payload: FirmConnectionsPayl
 		for (const id of connected) previous.delete(id);
 		try {
 			if (connected.size) {
-				await setStringIfValid(`${source}:firm:${firmId}_brokers:connected`, JSON.stringify(Array.from(connected)), FIRM_CONNECTIONS_CACHE_TTL_SECONDS);
+				await setStringIfValid(`${source}:firm:${firmId}_brokers:current`, JSON.stringify(Array.from(connected)), FIRM_CONNECTIONS_CACHE_TTL_SECONDS);
 			}
 			if (previous.size) {
 				await setStringIfValid(`${source}:firm:${firmId}_brokers:previous`, JSON.stringify(Array.from(previous)), FIRM_CONNECTIONS_CACHE_TTL_SECONDS);
@@ -483,7 +483,7 @@ async function persistBrokerIdLists(firmId: string, payload: FirmConnectionsPayl
 async function backfillBrokerIdListsIfMissing(firmId: string, payload: FirmConnectionsPayload) {
 	const redis = getRedisClient();
 	if (!redis) return;
-	const checkKeys = [`finra:firm:${firmId}_brokers:connected`, `finra:firm:${firmId}_brokers:previous`, `sec:firm:${firmId}_brokers:connected`, `sec:firm:${firmId}_brokers:previous`];
+	const checkKeys = [`finra:firm:${firmId}_brokers:current`, `finra:firm:${firmId}_brokers:previous`, `sec:firm:${firmId}_brokers:current`, `sec:firm:${firmId}_brokers:previous`];
 	let anyExists = false;
 	for (const key of checkKeys) {
 		try {

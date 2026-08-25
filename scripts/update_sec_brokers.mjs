@@ -49,7 +49,7 @@ async function updateSecBrokers(firmId) {
     console.log(`Firm ${firmId}: ${connected.size} connected, ${previous.size} previous.`);
     
     // update redis
-    await redis.set(`sec:firm:${firmId}_brokers:connected`, JSON.stringify(Array.from(connected)));
+    await redis.set(`sec:firm:${firmId}_brokers:current`, JSON.stringify(Array.from(connected)));
     await redis.set(`sec:firm:${firmId}_brokers:previous`, JSON.stringify(Array.from(previous)));
 }
 
