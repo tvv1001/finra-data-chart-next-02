@@ -26,7 +26,11 @@ function mergeUniqueArrays(...arrays: unknown[][]) {
 
 function buildBasicInformation(detail: AnyRecord, fallbackCrd = '') {
 	const bi: AnyRecord = isPlainObject(detail.basicInformation) ? { ...detail.basicInformation } : {};
-	const id = detail.individualId || detail.ind_source_id || detail.crd || fallbackCrd;
+	// Never fabricate an individualId from `crd` for docs explicitly typed as a firm (e.g. minimal
+	// search-index stubs like `{crd, label, type: 'firm'}`) — doing so previously caused firm search
+	// hits to be misclassified and rendered as individual nodes.
+	const isFirmTyped = String(detail.type || '').toLowerCase() === 'firm';
+	const id = detail.individualId || detail.ind_source_id || (isFirmTyped ? '' : detail.crd) || fallbackCrd;
 	if (id && !bi.individualId) bi.individualId = id;
 	if (!bi.firstName && detail.firstName) bi.firstName = detail.firstName;
 	if (!bi.middleName && detail.middleName) bi.middleName = detail.middleName;

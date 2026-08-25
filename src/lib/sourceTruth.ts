@@ -60,6 +60,10 @@ function buildIndividualRegistrationCount(source: AnyRecord) {
 
 export function buildIndividualSearchHitStub(source: unknown, fallbackCrd = ''): AnyRecord | null {
 	if (!isPlainObject(source)) return null;
+	// Never treat a doc explicitly typed as a firm (e.g. minimal FINRA search-index stubs
+	// like `{crd, label, type: 'firm'}`) as an individual — otherwise firm hits get
+	// misclassified as individual nodes when only a bare `crd` field is present.
+	if (String(source.type || '').toLowerCase() === 'firm') return null;
 	const crd = String(source.ind_source_id || source.ind_crd || source.individualId || source.crd || fallbackCrd || '').trim();
 	if (!crd) return null;
 	const firstName = String(source.ind_firstname || source.firstName || '').trim();

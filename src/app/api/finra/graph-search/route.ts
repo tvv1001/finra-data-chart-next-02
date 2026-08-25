@@ -367,7 +367,11 @@ export async function GET(request: NextRequest) {
 					const resolved = resolveIndividualSourceDetail(src);
 					const parsed = (resolved.detail || normalizeIndividualDetailFromSource(src)) as Record<string, any>;
 
-					const crd = String(parsed?.basicInformation?.individualId || src?.ind_source_id || src?.ind_crd || '').trim();
+					// FINRA local search-index docs are minimal stubs (`{id, crd, label, type, source}`)
+					// rather than full SEC-style records, so fall back to the stub's own `crd`/`type`
+					// fields when the richer SEC field names aren't present.
+					const isStubIndividual = String(src?.type || '').toLowerCase() === 'individual';
+					const crd = String(parsed?.basicInformation?.individualId || src?.ind_source_id || src?.ind_crd || (isStubIndividual ? src?.crd : '') || '').trim();
 					if (crd) {
 						const personId = `person:${crd}`;
 						if (!seenIds.has(personId)) {
@@ -379,7 +383,7 @@ export async function GET(request: NextRequest) {
 									parsed?.basicInformation?.lastName || src?.ind_lastname,
 								]
 									.filter(Boolean)
-									.join(' ') || `CRD ${crd}`;
+									.join(' ') || src?.label || `CRD ${crd}`;
 							const personNode: Record<string, any> = {
 								id: personId,
 								label,
@@ -445,14 +449,18 @@ export async function GET(request: NextRequest) {
 						continue;
 					}
 
-					const firmId = String(src?.firm_id || src?.firmId || src?.firm_source_id || '').trim();
+					// FINRA local search-index docs are minimal stubs (`{id, crd, label, type, source}`)
+					// rather than full SEC-style records, so fall back to the stub's own `crd` field
+					// when the richer SEC field names (`firm_id`, `firmId`, `firm_source_id`) aren't present.
+					const isStubFirm = String(src?.type || '').toLowerCase() === 'firm';
+					const firmId = String(src?.firm_id || src?.firmId || src?.firm_source_id || (isStubFirm ? src?.crd : '') || '').trim();
 					if (firmId) {
 						const firmNodeId = `firm:${firmId}`;
 						if (!seenIds.has(firmNodeId)) {
 							seenIds.add(firmNodeId);
 							newNodes.push({
 								id: firmNodeId,
-								label: src?.firm_name || src?.firmName || `Firm ${firmId}`,
+								label: src?.firm_name || src?.firmName || src?.label || `Firm ${firmId}`,
 								group: 'firm',
 								firmId,
 								_source: 'local-search',
