@@ -1072,9 +1072,16 @@
 
 .searchResultRow {
 	display: grid;
-	grid-template-columns: minmax(180px, 1.5fr) minmax(92px, auto) minmax(260px, 2fr) auto;
-	gap: 10px;
+	grid-template-columns: minmax(200px, 1.6fr) minmax(96px, auto) minmax(220px, 1.8fr) minmax(56px, auto);
+	gap: 12px;
 	align-items: center;
+}
+
+.searchResultNameCell {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
 }
 
 .searchResultName {
@@ -1092,7 +1099,7 @@
 	font-weight: 700;
 	color: var(--cyan);
 	white-space: nowrap;
-	position: relative;
+	text-align: left;
 }
 
 .searchResultAddress {
@@ -1107,40 +1114,41 @@
 .searchResultOtherNames {
 	font-size: 11px;
 	line-height: 1.3;
-	color: #94a3b8;
+	color: #7dd3fc;
 	font-style: italic;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	margin-top: 2px;
 }
 
 .searchSourceBtn {
-	border: 1px solid #1d4ed8;
-	background: #e0efff;
-	color: #7c3aed;
+	border: none;
+	background: transparent;
+	color: inherit;
 	border-radius: 0px;
-	padding: 2px 8px;
+	padding: 10px 12px;
 	font-size: 10px;
 	font-weight: 700;
 	cursor: pointer;
 	white-space: nowrap;
-	width: stretch;
+	width: 100%;
+	text-align: left;
 }
 .searchTag {
-	border: 1px solid #1d4ed8;
-	background: #e0efff;
-	color: #7c3aed;
-	border-radius: 0px;
-	padding: 2px 8px;
+	border: 1px solid rgba(56, 189, 248, 0.5);
+	background: rgba(6, 182, 212, 0.12);
+	color: #67e8f9;
+	border-radius: 3px;
+	padding: 3px 8px;
 	font-size: 10px;
-	position: absolute;
-	right: 12px;
-	top: 9px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	justify-self: end;
+	white-space: nowrap;
 }
 
 .searchSourceBtn:hover {
-	background: #cfe3ff;
+	background: rgba(6, 182, 212, 0.08);
 }
 
 .input {
@@ -2329,6 +2337,7 @@
 	max-height: 0;
 	overflow: hidden;
 	opacity: 0;
+	position: relative;
 	transform: translateY(14px);
 	transition:
 		max-height 220ms ease,
@@ -2336,6 +2345,30 @@
 		transform 220ms ease,
 		padding-top 180ms ease,
 		padding-bottom 180ms ease;
+}
+
+.searchResultsCloseBtn {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	z-index: 5;
+	width: 22px;
+	height: 22px;
+	line-height: 20px;
+	text-align: center;
+	border: 1px solid var(--border);
+	background: var(--content-surface, #0b1221);
+	color: var(--text-secondary, #94a3b8);
+	border-radius: 3px;
+	font-size: 15px;
+	cursor: pointer;
+	padding: 0;
+}
+
+.searchResultsCloseBtn:hover {
+	color: #f87171;
+	border-color: rgba(248, 113, 113, 0.6);
+	background: rgba(248, 113, 113, 0.08);
 }
 
 .searchResultsPaneOpen {
@@ -2385,22 +2418,6 @@
 	scrollbar-color: rgba(56, 78, 109, 0.8) var(--content-surface-muted);
 }
 
-.input {
-	border: 1px solid var(--border);
-	background: #fff1f1;
-	color: var(--text-primary);
-	border-radius: 0;
-	color: #000000;
-}
-.input::placeholder {
-	color: black;
-}
-.input:focus {
-	outline: 2px solid rgb(6, 181, 212);
-	outline-offset: 2px;
-	box-shadow: 0 0 4px rgba(212, 160, 6, 0.967);
-}
-
 .searchResultCard {
 	border: 1px solid var(--border);
 	background: #1f5483;
@@ -2427,56 +2444,6 @@
 	text-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
 }
 
-.searchResultRow {
-	display: grid;
-	grid-template-columns: minmax(180px, 1.5fr) minmax(92px, auto) minmax(260px, 2fr) auto;
-	gap: 10px;
-	text-align: left;
-}
-
-.searchResultName {
-	font-size: 14px;
-	font-weight: 700;
-	line-height: 1.2;
-	color: var(--text-primary);
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
-.searchResultCrd {
-	font-size: 12px;
-	font-weight: 700;
-	color: var(--cyan);
-	white-space: nowrap;
-}
-
-.searchResultAddress {
-	font-size: 12px;
-	line-height: 1.3;
-	color: var(--text-secondary);
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
-.searchSourceBtn {
-	border: 1px solid var(--border-cyan);
-	background: #0a0602f5;
-	color: var(--cyan);
-	border-radius: 0;
-	font-size: 10px;
-	font-weight: 800;
-	padding: 8px;
-	line-height: 1.2;
-}
-
-.searchSourceBtn:hover,
-.searchSourceBtn:focus-visible {
-	outline: 1px solid rgba(6, 182, 212, 0.8);
-	outline-offset: -2px;
-	background: rgba(6, 16, 32, 0.98);
-}
 .middlePane {
 	padding: 10px;
 	display: flex;

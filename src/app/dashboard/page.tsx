@@ -3259,7 +3259,7 @@ function DashboardPageInner() {
 	function renderSearchResult(card: SearchResultCard, index: number) {
 		const sourceLabel = card.source === 'finra' ? 'FINRA' : 'SEC';
 		const rowAddress = card.address || card.detail || 'No address/details in cached index';
-		const otherNamesText = card.otherNames && card.otherNames.length > 0 ? `Also known as: ${card.otherNames.join(', ')}` : '';
+		const otherNamesText = card.otherNames && card.otherNames.length > 0 ? `aka ${card.otherNames.join(', ')}` : '';
 		const isSelected = currentRecordId === card.id && currentRecordEntity === card.entity;
 
 		return (
@@ -3272,12 +3272,14 @@ function DashboardPageInner() {
 					className={styles.searchSourceBtn}
 					onClick={() => void setMainViewFromSearch(card)}>
 					<div className={styles.searchResultRow}>
-						<span className={styles.searchResultName}>{card.label}</span>
+						<span className={styles.searchResultNameCell}>
+							<span className={styles.searchResultName}>{card.label}</span>
+							{otherNamesText && <span className={styles.searchResultOtherNames}>{otherNamesText}</span>}
+						</span>
 						<span className={styles.searchResultCrd}>CRD #{card.id}</span>
 						<span className={styles.searchResultAddress}>{rowAddress}</span>
+						<span className={styles.searchTag}>{sourceLabel}</span>
 					</div>
-					{otherNamesText && <div className={styles.searchResultOtherNames}>{otherNamesText}</div>}
-					<span className={styles.searchTag}>{sourceLabel}</span>
 				</button>
 			</div>
 		);
@@ -4367,6 +4369,21 @@ function DashboardPageInner() {
 
 							<div className={`${styles.searchBarWrap} ${searchPaneOpen ? styles.searchBarWrapExpanded : ''}`}>
 								<div className={`${styles.searchResultsPane} ${searchPaneOpen ? styles.searchResultsPaneOpen : ''}`}>
+									{searchPaneOpen && (
+										<button
+											type='button'
+											className={styles.searchResultsCloseBtn}
+											aria-label='Close search results'
+											title='Close search results'
+											onClick={() => {
+												setSearchResults([]);
+												setSearchError(null);
+												setSearchSkippedCount(0);
+												setHasSearchRun(false);
+											}}>
+											×
+										</button>
+									)}
 									<div className={styles.searchSummary}>{searchSummary}</div>
 									{searchResults.length > 0 ?
 										<div className={styles.searchResultsList}>{searchResults.map(renderSearchResult)}</div>
