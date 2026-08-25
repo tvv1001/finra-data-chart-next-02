@@ -6494,6 +6494,9 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 					const baseId = String(src?.basicInformation?.individualId || src?.ind_source_id || src?.ind_crd || '').trim();
 					if (baseId) return baseId;
 					if (typeof src?.id === 'string' && src.id.startsWith('person:')) return src.id.split(':')[1] || '';
+					// Minimal FINRA search-index stub docs ({id, crd, label, type, source}) use ids like
+					// "finra:individual:<crd>" and carry a bare `crd` field — fall back to it when type matches.
+					if (src?.type === 'individual' && src?.crd) return String(src.crd).trim();
 					if (typeof src?.content === 'string') {
 						try {
 							const parsed = JSON.parse(src.content);
@@ -6510,6 +6513,9 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 					const baseId = String(src?.basicInformation?.firmId || src?.firm_id || src?.firmId || src?.firm_source_id || '').trim();
 					if (baseId) return baseId;
 					if (typeof src?.id === 'string' && src.id.startsWith('firm:')) return src.id.split(':')[1] || '';
+					// Minimal FINRA search-index stub docs ({id, crd, label, type, source}) use ids like
+					// "finra:firm:<crd>" and carry a bare `crd` field — fall back to it when type matches.
+					if (src?.type === 'firm' && src?.crd) return String(src.crd).trim();
 					if (typeof src?.content === 'string') {
 						try {
 							const parsed = JSON.parse(src.content);
@@ -6731,7 +6737,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 								}
 								return;
 							}
-							const firmId = String(src?.firm_id || src?.firmId || src?.firm_source_id || '').trim();
+							const firmId = getSearchHitFirmId(src);
 							if (firmId && /^\d+$/.test(firmId)) {
 								try {
 									const r = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`);
@@ -7090,7 +7096,10 @@ async function fetchAndInjectQuery(q) {
 		const resolved = resolveIndividualSourceDetail(src);
 		const parsed = resolved.detail || src;
 
-		const crd = String(parsed?.basicInformation?.individualId || src?.ind_source_id || src?.ind_crd || '').trim();
+		// Minimal FINRA search-index stub docs only carry {id, crd, label, type, source} — fall back
+		// to the stub's own bare `crd` field when explicitly type: 'individual' (never for type: 'firm').
+		const isStubIndividual = src?.type === 'individual' && src?.crd;
+		const crd = String(parsed?.basicInformation?.individualId || src?.ind_source_id || src?.ind_crd || (isStubIndividual ? src?.crd : '') || '').trim();
 
 		if (crd) {
 			const personId = `person:${crd}`;
@@ -7157,7 +7166,10 @@ async function fetchAndInjectQuery(q) {
 			continue;
 		}
 
-		const firmId = String(src?.firm_id || src?.firmId || src?.firm_source_id || '').trim();
+		// Minimal FINRA search-index stub docs only carry {id, crd, label, type, source} — fall back
+		// to the stub's own bare `crd` field when explicitly type: 'firm'.
+		const isStubFirm = src?.type === 'firm' && src?.crd;
+		const firmId = String(src?.firm_id || src?.firmId || src?.firm_source_id || (isStubFirm ? src?.crd : '') || '').trim();
 
 		if (firmId) {
 			const firmNodeId = `firm:${firmId}`;
@@ -7239,7 +7251,10 @@ async function fetchQueryBatch(q) {
 		const resolved = resolveIndividualSourceDetail(src);
 		const parsed = resolved.detail || src;
 
-		const crd = String(parsed?.basicInformation?.individualId || src?.ind_source_id || src?.ind_crd || '').trim();
+		// Minimal FINRA search-index stub docs only carry {id, crd, label, type, source} — fall back
+		// to the stub's own bare `crd` field when explicitly type: 'individual' (never for type: 'firm').
+		const isStubIndividual = src?.type === 'individual' && src?.crd;
+		const crd = String(parsed?.basicInformation?.individualId || src?.ind_source_id || src?.ind_crd || (isStubIndividual ? src?.crd : '') || '').trim();
 
 		if (crd) {
 			const personId = `person:${crd}`;
@@ -7305,7 +7320,10 @@ async function fetchQueryBatch(q) {
 			continue;
 		}
 
-		const firmId = String(src?.firm_id || src?.firmId || src?.firm_source_id || '').trim();
+		// Minimal FINRA search-index stub docs only carry {id, crd, label, type, source} — fall back
+		// to the stub's own bare `crd` field when explicitly type: 'firm'.
+		const isStubFirm = src?.type === 'firm' && src?.crd;
+		const firmId = String(src?.firm_id || src?.firmId || src?.firm_source_id || (isStubFirm ? src?.crd : '') || '').trim();
 		if (firmId) {
 			const firmNodeId = `firm:${firmId}`;
 			if (!seenNodes.has(firmNodeId)) {
