@@ -2890,16 +2890,10 @@ function DashboardPageInner() {
 			setCurrentRecordEntity(card.entity);
 			setCurrentRecordId(card.id);
 
-			const hasExistingConnections =
-				(Array.isArray(payload?.currentConnections) && payload.currentConnections.length > 0) ||
-				(Array.isArray(payload?.previousConnections) && payload.previousConnections.length > 0);
-
 			if (card.entity === 'firm') {
-				// A 1-person primed-bundle payload is not the full roster. Always try expand /
-				// /connections and merge so a thin includeConnections hit cannot hide people.
-				if (!hasExistingConnections) setConnectionsLoadingFirmId(card.id);
-				else setConnectionsLoadingFirmId(null);
-				void loadFirmConnections(card.id);
+				// Connections are already present in the persisted payload/graph data — no need to
+				// fetch/discover them from external FINRA/SEC registries on every card view.
+				setConnectionsLoadingFirmId(null);
 			} else {
 				setConnectionsLoadingFirmId(null);
 			}
@@ -4331,27 +4325,7 @@ function DashboardPageInner() {
 											)}
 
 											{currentRecordEntity === 'firm' && connectionsLoadingFirmId === currentRecordId ?
-												<section className={styles.detailSection}>
-													<div className={styles.detailSectionHeaderWithBadge}>
-														<h4 className={styles.detailSectionTitle}>Current & Previous Connections</h4>
-														<span className={styles.loadingPillBadge}>
-															<span className={styles.pulsingDot} />
-															Loading…
-														</span>
-													</div>
-													<div className={styles.connectionLoadingCard}>
-														<VectorLoader
-															size='md'
-															label='Discovering network connections across FINRA & SEC registries…'
-															sublabel='Analyzing associated representatives, previous registrations, and ownership graph links.'
-														/>
-														<div className={styles.connectionSkeletonList}>
-															<div className={styles.connectionSkeletonRow} />
-															<div className={styles.connectionSkeletonRow} />
-															<div className={styles.connectionSkeletonRow} />
-														</div>
-													</div>
-												</section>
+												null
 											:	(() => {
 													const matchesConnectionsFilter = (item: { title?: string; subtitle?: string; meta?: string; crd?: string }) => {
 														if (connectionsFilterTags.length === 0 && !connectionsFilterQuery.trim()) return true;
