@@ -127,6 +127,14 @@ export function mapOfficialSearchHitsToConnections(firmId: string, hits: any[], 
 		if (personCrd && (personIsCurrent || personIsPrevious) && !seenPerson.has(`${personCrd}:${personIsCurrent ? '1' : '0'}`)) {
 			seenPerson.add(`${personCrd}:${personIsCurrent ? '1' : '0'}`);
 			const matchedEmp = personIsCurrent ? currentAtQuery[0] : previousAtQuery[0];
+			const branch = toArraySafe(matchedEmp?.branchOfficeLocations)[0] || matchedEmp;
+			const city = firstNonEmpty(branch?.city, matchedEmp?.branch_city, matchedEmp?.branchCity);
+			const state = firstNonEmpty(branch?.state, matchedEmp?.branch_state, matchedEmp?.branchState);
+			const zip = firstNonEmpty(branch?.zipCode, branch?.zip, matchedEmp?.branch_zip, matchedEmp?.branchZip);
+			const street = firstNonEmpty(branch?.street1, branch?.street, matchedEmp?.branch_address, matchedEmp?.branchAddress, matchedEmp?.address);
+			const addressParts = [street, [city, state].filter(Boolean).join(', '), zip].filter(Boolean);
+			const otherNamesRaw = toArraySafe(src.ind_other_names).length ? src.ind_other_names : toArraySafe(src.otherNames);
+			const otherNames = otherNamesRaw.map((n: unknown) => String(n || '').trim()).filter(Boolean);
 			entries.push({
 				individualId: personCrd,
 				name: personName,
@@ -137,6 +145,8 @@ export function mapOfficialSearchHitsToConnections(firmId: string, hits: any[], 
 				evidence: [evidenceTag, personIsCurrent ? 'current-employment-record' : 'matched-previous-employment'],
 				bcScope: firstNonEmpty(src.ind_bc_scope, src.bcScope) || undefined,
 				iaScope: firstNonEmpty(src.ind_ia_scope, src.iaScope) || undefined,
+				otherNames: otherNames.length ? Array.from(new Set(otherNames)) : undefined,
+				address: addressParts.length ? addressParts.join(' ') : undefined,
 			});
 		}
 

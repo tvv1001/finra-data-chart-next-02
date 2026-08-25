@@ -4159,7 +4159,6 @@ function DashboardPageInner() {
 																					<div className={styles.detailRowMain}>
 																						<span className={`${styles.detailRowName} ${styles.currentConnectionName}`}>{item.title}</span>
 																						{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
-																						{item.meta && <span className={`${styles.detailInlineTag} ${styles.currentConnectionTag}`}>{item.meta}</span>}
 																						{item.statusTag && (
 																							<span
 																								className={`${styles.detailInlineTag} ${styles.currentConnectionStatusTag} ${
@@ -4211,8 +4210,10 @@ function DashboardPageInner() {
 																					<div className={styles.detailRowMain}>
 																						<span className={`${styles.detailRowName} ${styles.previousConnectionName}`}>{item.title}</span>
 																						{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
-																						{item.meta && <span className={`${styles.detailInlineTag} ${styles.previousConnectionTag}`}>{item.meta}</span>}
 																					</div>
+																					{item.otherNames && item.otherNames.length > 0 && (
+																						<div className={`${styles.detailRowMeta} ${styles.previousConnectionOtherNames}`}>Also known as: {item.otherNames.join(', ')}</div>
+																					)}
 																					{item.subtitle && <div className={`${styles.detailRowMeta} ${styles.previousConnectionMeta}`}>{item.subtitle}</div>}
 																				</>
 																			);

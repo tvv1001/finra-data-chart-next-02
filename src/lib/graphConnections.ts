@@ -326,6 +326,12 @@ async function getConnectionsFromGraphStore(firmId: string): Promise<GraphConnec
 
 		const currentEmployments = [...toArraySafe(otherNode?.currentEmployments), ...toArraySafe(otherNode?.currentIAEmployments)];
 		const previousEmployments = [...toArraySafe(otherNode?.previousEmployments), ...toArraySafe(otherNode?.previousIAEmployments)];
+		// Employment-record dates (registrationBeginDate/registrationEndDate) are the actual
+		// "years worked at this firm" signal — mono graph links themselves rarely carry dates,
+		// so prefer the matching employment record's own start/end over the link's.
+		const matchedEmployment = [...currentEmployments, ...previousEmployments].find((entry) => String(firstNonEmpty(entry?.firmId, entry?.firm_id)) === String(firmId));
+		const employmentStartDate = firstNonEmpty(matchedEmployment?.registrationBeginDate, matchedEmployment?.startDate);
+		const employmentEndDate = firstNonEmpty(matchedEmployment?.registrationEndDate, matchedEmployment?.endDate);
 
 		let isCurrent: boolean;
 		if (relationship === 'previous_employed_by') {
@@ -344,8 +350,8 @@ async function getConnectionsFromGraphStore(firmId: string): Promise<GraphConnec
 			individualId: crd,
 			name: firstNonEmpty(otherNode?.label),
 			relationship: isCurrent ? 'Current registration' : 'Previous registration',
-			startDate: startDate || undefined,
-			endDate: !isCurrent && endDate ? endDate : undefined,
+			startDate: firstNonEmpty(employmentStartDate, startDate) || undefined,
+			endDate: !isCurrent ? firstNonEmpty(employmentEndDate, endDate) || undefined : undefined,
 			isCurrent,
 			bcScope: firstNonEmpty(otherNode?.bcScope, otherNode?.basicInformation?.bcScope) || undefined,
 			iaScope: firstNonEmpty(otherNode?.iaScope, otherNode?.basicInformation?.iaScope) || undefined,
@@ -627,12 +633,31 @@ async function persistFirmConnections(payload: FirmConnectionsPayload, cacheKey:
 	}
 }
 
-// Fills in name/otherNames/address/statusTag for current-connection entries that the
+// Unwraps the raw cached finra:individual:<crd>/sec:individual:<crd> payload, which is stored
+// as the FINRA/SEC search API's response envelope ({hits:{hits:[{_source:{content:"..."}}]}})
+// rather than a flat detail object — mirrors parseDetailPayload() in the individual detail route.
+function unwrapCachedIndividualDetail(parsed: any): any {
+	if (!parsed || typeof parsed !== 'object') return null;
+	const hit = parsed?.hits?.hits?.[0]?._source;
+	const raw = hit?.content ?? hit?.iacontent ?? parsed?.content ?? parsed?.iacontent;
+	if (raw != null) {
+		try {
+			return typeof raw === 'string' ? JSON.parse(raw) : raw;
+		} catch {
+			return null;
+		}
+	}
+	// Already a flat detail object (e.g. from an older cache write shape).
+	if (parsed?.basicInformation || parsed?.individualId || parsed?.bcScope) return parsed;
+	return null;
+}
+
+// Fills in name/otherNames/address/statusTag for connection entries (current or previous) that the
 // broker-id-mirror + graph-store merge couldn't resolve (e.g. person not yet hydrated into
 // the mono graph). Reads only from already-cached finra:individual:<crd>/sec:individual:<crd>
 // Redis keys — never triggers an external FINRA/SEC fetch, so it stays fast and respects the
 // local-dev external-fetch gate. Bounded to a small batch per call to avoid large Redis scans.
-async function enrichCurrentConnectionsFromIndividualCache(entries: GraphConnectionEntry[], firmId: string, redis: ReturnType<typeof getRedisClient>): Promise<GraphConnectionEntry[]> {
+async function enrichConnectionEntriesFromIndividualCache(entries: GraphConnectionEntry[], firmId: string, redis: ReturnType<typeof getRedisClient>): Promise<GraphConnectionEntry[]> {
 	if (!redis || !entries.length) return entries;
 	const MAX_LOOKUPS = 400;
 	const needsEnrichment = entries.filter((entry) => entry.individualId && (!entry.name || !entry.statusTag)).slice(0, MAX_LOOKUPS);
@@ -647,13 +672,15 @@ async function enrichCurrentConnectionsFromIndividualCache(entries: GraphConnect
 				const raw = finraRaw || secRaw;
 				if (!raw) return;
 				const text = typeof raw === 'string' && raw.startsWith('br:') ? decompressPayload(raw) : raw;
-				const parsed = typeof text === 'string' ? JSON.parse(text) : text;
-				detailById.set(crd, parsed);
+				const rawParsed = typeof text === 'string' ? JSON.parse(text) : text;
+				const detail = unwrapCachedIndividualDetail(rawParsed);
+				if (detail) detailById.set(crd, detail);
 			} catch {
 				// best-effort; leave entry as-is
 			}
 		}),
 	);
+
 
 	if (!detailById.size) return entries;
 
@@ -667,8 +694,12 @@ async function enrichCurrentConnectionsFromIndividualCache(entries: GraphConnect
 		const otherNames = entry.otherNames?.length ? entry.otherNames : extractOtherNames(detail);
 		const address = entry.address || extractPrimaryAddress(detail, firmId);
 		const currentEmployments = [...toArraySafe(detail?.currentEmployments), ...toArraySafe(detail?.currentIAEmployments)];
+		const previousEmployments = [...toArraySafe(detail?.previousEmployments), ...toArraySafe(detail?.previousIAEmployments)];
+		const matchedEmployment = [...currentEmployments, ...previousEmployments].find((emp) => String(firstNonEmpty(emp?.firmId, emp?.firm_id)) === String(firmId));
+		const startDate = entry.startDate || firstNonEmpty(matchedEmployment?.registrationBeginDate, matchedEmployment?.startDate) || undefined;
+		const endDate = !entry.isCurrent ? entry.endDate || firstNonEmpty(matchedEmployment?.registrationEndDate, matchedEmployment?.endDate) || undefined : undefined;
 		const statusTag = entry.statusTag || computeConnectionStatusTag({ ...detail, bcScope, iaScope }, currentEmployments, entry.isCurrent);
-		return { ...entry, name: name || entry.name, bcScope, iaScope, otherNames, address, statusTag };
+		return { ...entry, name: name || entry.name, bcScope, iaScope, otherNames, address, startDate, endDate, statusTag };
 	});
 }
 
@@ -701,7 +732,8 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<FirmC
 		let result = mergeGraphConnectionEntries([enrichedEntries, graphEntries]);
 		result = {
 			...result,
-			currentConnections: await enrichCurrentConnectionsFromIndividualCache(result.currentConnections, normalizedFirmId, redis),
+			currentConnections: await enrichConnectionEntriesFromIndividualCache(result.currentConnections, normalizedFirmId, redis),
+			previousConnections: await enrichConnectionEntriesFromIndividualCache(result.previousConnections, normalizedFirmId, redis),
 		};
 		// Names still missing after the local-cache-only enrichment above mean the person isn't
 		// yet cached in Redis or the mono graph. Rather than fetching each individual one-by-one
@@ -710,21 +742,35 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<FirmC
 		// one paginated request — and use it purely to backfill names/otherNames/address on the
 		// broker-id-mirror entries that still lack them. Skipped entirely if every entry already
 		// has a name.
-		if (result.currentConnections.some((entry) => !entry.name)) {
+		if (result.currentConnections.some((entry) => !entry.name) || result.previousConnections.some((entry) => !entry.name)) {
 			const official = await fetchOfficialFirmRoster(normalizedFirmId).catch(() => null);
 			if (official) {
 				const officialById = new Map<string, GraphConnectionEntry>();
 				for (const entry of [...(official.currentConnections || []), ...(official.previousConnections || [])]) {
 					if (entry.individualId) officialById.set(entry.individualId, entry);
 				}
-				result = {
-					...result,
-					currentConnections: result.currentConnections.map((entry) => {
+				const backfillNames = (entries: GraphConnectionEntry[]) =>
+					entries.map((entry) => {
 						if (entry.name || !entry.individualId) return entry;
 						const match = officialById.get(entry.individualId);
 						if (!match) return entry;
-						return { ...entry, name: match.name || entry.name, startDate: entry.startDate || match.startDate, evidence: [...(entry.evidence || []), ...(match.evidence || [])] };
-					}),
+						return {
+							...entry,
+							name: match.name || entry.name,
+							startDate: entry.startDate || match.startDate,
+							endDate: entry.endDate || match.endDate,
+							address: entry.address || match.address,
+							otherNames: entry.otherNames?.length ? entry.otherNames : match.otherNames,
+							bcScope: entry.bcScope || match.bcScope,
+							iaScope: entry.iaScope || match.iaScope,
+							statusTag: entry.statusTag || computeConnectionStatusTag({ bcScope: entry.bcScope || match.bcScope, iaScope: entry.iaScope || match.iaScope }, [], entry.isCurrent),
+							evidence: [...(entry.evidence || []), ...(match.evidence || [])],
+						};
+					});
+				result = {
+					...result,
+					currentConnections: backfillNames(result.currentConnections),
+					previousConnections: backfillNames(result.previousConnections),
 				};
 			}
 		}
