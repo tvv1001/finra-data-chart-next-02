@@ -460,6 +460,30 @@ async function persistBrokerIdLists(firmId: string, payload: FirmConnectionsPayl
 	}
 }
 
+// Mirror a cache-hit payload into the shared broker-id keys only if they don't already
+// exist, so pre-existing cached firms (validated before persistBrokerIdLists() was added,
+// or whose TTL-expired mirror keys haven't been refreshed) get backfilled without forcing
+// a re-fetch/re-validation on every cache-hit request.
+async function backfillBrokerIdListsIfMissing(firmId: string, payload: FirmConnectionsPayload) {
+	const redis = getRedisClient();
+	if (!redis) return;
+	const checkKeys = [`finra:firm:${firmId}_brokers:connected`, `finra:firm:${firmId}_brokers:previous`, `sec:firm:${firmId}_brokers:connected`, `sec:firm:${firmId}_brokers:previous`];
+	let anyExists = false;
+	for (const key of checkKeys) {
+		try {
+			const type = await redis.type(key);
+			if (type && type !== 'none') {
+				anyExists = true;
+				break;
+			}
+		} catch {
+			// treat as missing on error; worst case we just re-write it
+		}
+	}
+	if (anyExists) return;
+	await persistBrokerIdLists(firmId, payload);
+}
+
 async function persistFirmConnections(payload: FirmConnectionsPayload, cacheKey: string, emptyCacheKey: string, localPath: string, firmId?: string) {
 	const total = countFirmConnectionEntries(payload);
 	const redis = getRedisClient();
@@ -510,6 +534,11 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<FirmC
 
 	const cachedOfficial = isOfficialFirmRoster(redisHit) ? redisHit : isOfficialFirmRoster(local.payload) ? local.payload : null;
 	if (cachedOfficial && countFirmConnectionEntries(cachedOfficial) > 0) {
+		// Backfill the shared broker-id mirror keys for firms that were cached before
+		// persistBrokerIdLists() existed (or whose mirror keys expired/were cleared).
+		// Best-effort and non-blocking; only runs when the mirror keys are missing so
+		// normal cache-hit requests stay fast.
+		void backfillBrokerIdListsIfMissing(normalizedFirmId, cachedOfficial).catch(() => {});
 		return cachedOfficial;
 	}
 
@@ -545,6 +574,7 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<FirmC
 	const combined = mergeGraphConnectionEntries([redisHit?.currentConnections || [], redisHit?.previousConnections || [], local.payload?.currentConnections || [], local.payload?.previousConnections || []]);
 
 	if (countFirmConnectionEntries(combined) > 0) {
+		void backfillBrokerIdListsIfMissing(normalizedFirmId, combined).catch(() => {});
 		return combined;
 	}
 
