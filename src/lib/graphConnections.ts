@@ -37,6 +37,12 @@ export type GraphConnectionEntry = {
 const FIRM_CONNECTIONS_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
 // Do not stick empty results for an hour — empty caches were masking recoveries.
 const EMPTY_FIRM_CONNECTIONS_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
+// The shared _brokers:current|previous mirror keys are a validated, permanent cache — once an
+// entry has real per-firm employment evidence it doesn't need to expire on a schedule. They are
+// only ever refreshed by proven change (write-time evidence gate here, or the external-validity
+// cron's change-detected updates), never by TTL expiry. `null` ttlSeconds means "no expiry" to
+// setStringIfValid()/redis.set().
+const MIRROR_KEY_TTL_SECONDS: number | null = null;
 // v10: do not treat a thin primed-bundle hit as the full roster (v9 poisoned mega-firms).
 export const FIRM_CONNECTIONS_CACHE_VERSION = 10;
 
@@ -570,10 +576,10 @@ async function persistBrokerIdLists(firmId: string, payload: FirmConnectionsPayl
 		for (const id of connected) previous.delete(id);
 		try {
 			if (connected.size) {
-				await setStringIfValid(`${source}:firm:${firmId}_brokers:current`, JSON.stringify(Array.from(connected)), FIRM_CONNECTIONS_CACHE_TTL_SECONDS);
+				await setStringIfValid(`${source}:firm:${firmId}_brokers:current`, JSON.stringify(Array.from(connected)), MIRROR_KEY_TTL_SECONDS);
 			}
 			if (previous.size) {
-				await setStringIfValid(`${source}:firm:${firmId}_brokers:previous`, JSON.stringify(Array.from(previous)), FIRM_CONNECTIONS_CACHE_TTL_SECONDS);
+				await setStringIfValid(`${source}:firm:${firmId}_brokers:previous`, JSON.stringify(Array.from(previous)), MIRROR_KEY_TTL_SECONDS);
 			}
 		} catch {
 			// best-effort; shared broker-id lists are a convenience mirror, not the source of truth
@@ -619,13 +625,77 @@ async function mergeBrokerIdListsAdditive(firmId: string, payload: FirmConnectio
 			// A person cannot be both current and previous for the same source — current wins.
 			for (const id of connected) previous.delete(id);
 			if (connected.size) {
-				await setStringIfValid(`${source}:firm:${firmId}_brokers:current`, JSON.stringify(Array.from(connected)), FIRM_CONNECTIONS_CACHE_TTL_SECONDS);
+				await setStringIfValid(`${source}:firm:${firmId}_brokers:current`, JSON.stringify(Array.from(connected)), MIRROR_KEY_TTL_SECONDS);
 			}
 			if (previous.size) {
-				await setStringIfValid(`${source}:firm:${firmId}_brokers:previous`, JSON.stringify(Array.from(previous)), FIRM_CONNECTIONS_CACHE_TTL_SECONDS);
+				await setStringIfValid(`${source}:firm:${firmId}_brokers:previous`, JSON.stringify(Array.from(previous)), MIRROR_KEY_TTL_SECONDS);
 			}
 		} catch {
 			// best-effort; shared broker-id lists are a convenience mirror, not the source of truth
+		}
+	}
+}
+
+export type IndividualEmploymentFirmIds = { current: string[]; previous: string[] };
+
+// Keeps the shared broker-id mirror keys in sync for a single individual whenever their own
+// detail record is (re)fetched and found to have actually changed employment — used by the
+// external-validity cron's existing per-CRD discovery/update pass so mirror-key drift gets
+// corrected automatically as a *side effect* of work it's already doing, without ever issuing
+// a dedicated extra external API call. `oldFirmIds`/`newFirmIds` are this individual's own
+// current-employer firm CRDs before/after the just-fetched record (the strongest possible
+// evidence: their own record). Firms gained get added to that firm's `_brokers:current`
+// mirror; firms lost get moved from `current` to `previous` for that firm (never dropped
+// outright — a past employment is still evidence of a real 'previous' connection).
+export async function syncBrokerIdMirrorForIndividualChange(crd: string, oldFirmIds: string[], newFirmIds: string[], sources: Array<'finra' | 'sec'> = ['finra', 'sec']): Promise<void> {
+	const redis = getRedisClient();
+	if (!redis) return;
+	const id = firstNonEmpty(crd);
+	if (!id || !/^\d{1,10}$/.test(id)) return;
+
+	const oldSet = new Set(oldFirmIds.map((f) => firstNonEmpty(f)).filter(Boolean));
+	const newSet = new Set(newFirmIds.map((f) => firstNonEmpty(f)).filter(Boolean));
+	const gained = [...newSet].filter((f) => !oldSet.has(f));
+	const lost = [...oldSet].filter((f) => !newSet.has(f));
+	if (!gained.length && !lost.length) return;
+
+	for (const source of sources) {
+		for (const firmId of gained) {
+			try {
+				const [connectedRaw, previousRaw] = await Promise.all([redis.get(`${source}:firm:${firmId}_brokers:current`).catch(() => null), redis.get(`${source}:firm:${firmId}_brokers:previous`).catch(() => null)]);
+				const connected = new Set(parseBrokerIdList(connectedRaw));
+				const previous = new Set(parseBrokerIdList(previousRaw));
+				if (connected.has(id)) continue;
+				connected.add(id);
+				previous.delete(id);
+				await setStringIfValid(`${source}:firm:${firmId}_brokers:current`, JSON.stringify(Array.from(connected)), MIRROR_KEY_TTL_SECONDS);
+				if (previous.size) await setStringIfValid(`${source}:firm:${firmId}_brokers:previous`, JSON.stringify(Array.from(previous)), MIRROR_KEY_TTL_SECONDS);
+			} catch {
+				// best-effort; shared broker-id lists are a convenience mirror, not the source of truth
+			}
+		}
+		for (const firmId of lost) {
+			try {
+				const [connectedRaw, previousRaw] = await Promise.all([redis.get(`${source}:firm:${firmId}_brokers:current`).catch(() => null), redis.get(`${source}:firm:${firmId}_brokers:previous`).catch(() => null)]);
+				const connected = new Set(parseBrokerIdList(connectedRaw));
+				if (!connected.has(id)) continue;
+				connected.delete(id);
+				const previous = new Set(parseBrokerIdList(previousRaw));
+				previous.add(id);
+				await setStringIfValid(`${source}:firm:${firmId}_brokers:current`, JSON.stringify(Array.from(connected)), MIRROR_KEY_TTL_SECONDS);
+				await setStringIfValid(`${source}:firm:${firmId}_brokers:previous`, JSON.stringify(Array.from(previous)), MIRROR_KEY_TTL_SECONDS);
+			} catch {
+				// best-effort; shared broker-id lists are a convenience mirror, not the source of truth
+			}
+		}
+	}
+	// Any firm whose mirror keys we just touched is now stale in the short-lived response cache
+	// (graph:firm-connections:v10:<firmId>); drop it so the next request recomputes fresh.
+	for (const firmId of [...gained, ...lost]) {
+		try {
+			await redis.del(firmConnectionsCacheKey(firmId));
+		} catch {
+			// best-effort
 		}
 	}
 }

@@ -569,7 +569,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		detail.hasFinraData = hasPublicFinraFirmDetail(bcDetail, bcDetail?.basicInformation || {});
 
 		const suppressSecLinks = SUPPRESSED_SEC_FIRM_IDS.has(id);
-		const secHasCoverage = secDetail ? hasFirmSourceCoverage(secDetail, 'sec') : false;
+		// FINRA's own BrokerCheck payload frequently embeds SEC/IA fields (iaScope, iaSECNumber, etc.)
+		// even when the separate SEC AdviserInfo fetch is unavailable (e.g. rate-limited or gated off
+		// locally). Treat that embedded coverage as equivalent to a direct SEC detail hit so the SEC
+		// tag/link isn't suppressed just because the secondary SEC fetch didn't run.
+		const secHasCoverage = (secDetail && hasFirmSourceCoverage(secDetail, 'sec')) || hasFirmSourceCoverage(detail, 'sec') || hasFirmSourceCoverage(bcDetail, 'sec');
 		detail.hasSecData = !suppressSecLinks && Boolean(secFirmId) && Boolean(secHasCoverage || detail?.hasSecData);
 
 		if (!suppressSecLinks && typeof detail.secSummaryDescription === 'string' && !detail.secSummaryDescription.trim()) {
@@ -577,8 +581,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		}
 
 		if (!suppressSecLinks && Boolean(secFirmId) && (!Array.isArray(detail.secDocumentLinks) || !detail.secDocumentLinks.length)) {
-			// Only attach SEC document links if the SEC summary page appears valid; otherwise hide the button
-			if (secPageValid) {
+			// Only attach SEC document links if the SEC summary page appears valid, or we otherwise
+			// have confirmed SEC/IA coverage for this firm (e.g. embedded in the FINRA payload even
+			// when the separate SEC summary-page fetch was gated off/unavailable locally).
+			if (secPageValid || secHasCoverage) {
 				detail.secDocumentLinks = buildSecDocumentLinks(secFirmId);
 			} else {
 				detail.secDocumentLinks = [];

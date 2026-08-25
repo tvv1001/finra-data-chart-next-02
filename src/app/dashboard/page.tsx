@@ -1925,16 +1925,18 @@ function DashboardPageInner() {
 			: currentRecordEntity === 'individual' ? hasIndividualSourceCoverage(body, 'sec')
 			: hasFirmSourceCoverage(body, 'sec');
 
-		const profileLinks = [];
+		const profileLinks: Array<{ label: string; href: string; source: 'finra' | 'sec' }> = [];
 		if (showFinra) {
 			profileLinks.push({
 				label: 'FINRA profile ↗',
 				href: `https://brokercheck.finra.org/${currentRecordEntity === 'firm' ? 'firm' : 'individual'}/summary/${currentRecordId}`,
+				source: 'finra',
 			});
 			if (currentRecordEntity === 'individual') {
 				profileLinks.push({
 					label: 'FINRA Detailed Report (PDF) ↗',
 					href: `https://files.brokercheck.finra.org/individual/individual_${currentRecordId}.pdf`,
+					source: 'finra',
 				});
 			}
 		}
@@ -1942,6 +1944,7 @@ function DashboardPageInner() {
 			profileLinks.push({
 				label: 'SEC profile ↗',
 				href: `https://adviserinfo.sec.gov/${currentRecordEntity === 'firm' ? 'firm' : 'individual'}/summary/${currentRecordId}`,
+				source: 'sec',
 			});
 		}
 
@@ -3503,20 +3506,46 @@ function DashboardPageInner() {
 														{detailedMainRecord.secActive}
 													</span>
 												)}
-												<div className={styles.mainViewToggle}>
-													<button
-														type='button'
-														className={`${styles.mainViewToggleBtn} ${mainViewMode === 'card' ? styles.mainViewToggleBtnActive : ''}`}
-														onClick={() => setMainViewMode('card')}>
-														Info
-													</button>
-													<button
-														type='button'
-														className={`${styles.mainViewToggleBtn} ${mainViewMode === 'json' ? styles.mainViewToggleBtnActive : ''}`}
-														onClick={() => setMainViewMode('json')}>
-														JSON
-													</button>
-												</div>
+												{currentRecordEntity === 'firm' &&
+													detailedMainRecord?.basicInformation &&
+													(() => {
+														const bi = detailedMainRecord.basicInformation as Record<string, unknown>;
+														const facts: Array<{ label: string; value: string }> = [
+															{ label: 'District', value: String(bi.districtName || '').trim() },
+															{ label: 'Type', value: String(bi.firmType || '').trim() },
+															{ label: 'State', value: String(bi.formedState || '').trim() },
+															{ label: 'Size', value: String(bi.firmSize || '').trim() },
+														].filter((fact) => fact.value !== '');
+														if (!facts.length) return null;
+														return (
+															<div className={styles.quickFactsPanel}>
+																{detailedMainRecord?.hasFinraData && (
+																	<span
+																		className='fg-firm-summary__role-icon fg-firm-summary__role-icon--broker'
+																		title='Regulated by FINRA'
+																		aria-hidden='true'>
+																		B
+																	</span>
+																)}
+																{detailedMainRecord?.hasSecData && (
+																	<span
+																		className='fg-firm-summary__role-icon fg-firm-summary__role-icon--ia'
+																		title='Investment Adviser (SEC)'
+																		aria-hidden='true'>
+																		IA
+																	</span>
+																)}
+																{facts.map((fact) => (
+																	<div
+																		key={fact.label}
+																		className={styles.quickFactsItem}>
+																		<span className={styles.quickFactsLabel}>{fact.label}</span>
+																		<span className={styles.quickFactsValue}>{fact.value}</span>
+																	</div>
+																))}
+															</div>
+														);
+													})()}
 											</div>
 											<h2 className={styles.recordTitle}>
 												{orphanRecord ?
@@ -3728,8 +3757,18 @@ function DashboardPageInner() {
 															href={link.href}
 															target='_blank'
 															rel='noopener noreferrer'
-															className={styles.detailLinkBtn}>
+															className={`${styles.detailLinkBtn} ${link.source === 'finra' ? styles.detailLinkBtnFinra : styles.detailLinkBtnSec}`}>
 															{link.label}
+														</a>
+													))}
+													{detailedMainRecord.documentLinkCards.map((link) => (
+														<a
+															key={link.href}
+															href={link.href}
+															target='_blank'
+															rel='noopener noreferrer'
+															className={`${styles.detailLinkBtn} ${styles.detailLinkBtnSec}`}>
+															{link.title} ↗
 														</a>
 													))}
 												</div>
@@ -3741,6 +3780,9 @@ function DashboardPageInner() {
 													<div className={styles.detailRawList}>
 														{Object.entries(detailedMainRecord.basicInformation).map(([key, value]) => {
 															if (value == null || typeof value === 'object' || String(value).trim() === '') return null;
+															// District Name/Firm Type/Formed State/Firm Size are already surfaced
+															// prominently in the record header's quick-facts panel for firms.
+															if (currentRecordEntity === 'firm' && ['districtName', 'firmType', 'formedState', 'firmSize'].includes(key)) return null;
 															return (
 																<div
 																	key={key}
@@ -3750,24 +3792,6 @@ function DashboardPageInner() {
 																</div>
 															);
 														})}
-													</div>
-												</section>
-											)}
-
-											{detailedMainRecord.documentLinkCards.length > 0 && (
-												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>SEC Document Links</h4>
-													<div className={styles.detailLinkRow}>
-														{detailedMainRecord.documentLinkCards.map((link) => (
-															<a
-																key={link.href}
-																href={link.href}
-																target='_blank'
-																rel='noopener noreferrer'
-																className={styles.detailLinkBtn}>
-																{link.title} ↗
-															</a>
-														))}
 													</div>
 												</section>
 											)}
@@ -3910,7 +3934,7 @@ function DashboardPageInner() {
 																	<Link
 																		href={`/dashboard/firm/${crd}`}
 																		key={`prev-emp-${idx}`}
-																		className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
+																		className={`${styles.detailRow} ${styles.detailRowInteractive} ${styles.previousEmploymentRow}`}>
 																		{content}
 																	</Link>
 																);
@@ -3919,12 +3943,166 @@ function DashboardPageInner() {
 															return (
 																<div
 																	key={`prev-emp-${idx}`}
-																	className={styles.detailRow}>
+																	className={`${styles.detailRow} ${styles.previousEmploymentRow}`}>
 																	{content}
 																</div>
 															);
 														})}
 													</div>
+												</section>
+											)}
+
+											{detailedMainRecord?.disclosureSummary && detailedMainRecord.disclosureSummary.length > 0 && (
+												<section
+													className={styles.detailSection}
+													style={{ marginTop: '12px' }}>
+													<h4 className={styles.detailSectionTitle}>Disclosures</h4>
+													<div className={styles.detailGrid}>
+														{detailedMainRecord.disclosureSummary.map((d: any) => (
+															<div
+																key={d.disclosureType}
+																className={styles.detailGridCard}>
+																<div className={styles.detailRowMain}>
+																	<span className={styles.detailRowName}>{d.disclosureType}</span>
+																	<span className={styles.detailInlineTag}>{d.disclosureCount}</span>
+																</div>
+															</div>
+														))}
+													</div>
+													{detailedMainRecord.rawDisclosures &&
+														detailedMainRecord.rawDisclosures.some((dis: any) => dis.disclosureDetail && Object.keys(dis.disclosureDetail).length > 0) && (
+															<div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+																{detailedMainRecord.rawDisclosures
+																	.filter((dis: any) => dis.disclosureDetail && Object.keys(dis.disclosureDetail).length > 0)
+																	.map((dis: any, idx: number) => {
+																		const dtype = String(dis.disclosureType || dis.type || '').trim();
+																		const ddate = String(dis.eventDate || dis.date || '').trim();
+																		const dres = String(dis.disclosureResolution || dis.resolution || '').trim();
+																		const dd = dis.disclosureDetail || {};
+																		const isObj = dd && typeof dd === 'object' && !Array.isArray(dd);
+																		if (!isObj) return null;
+
+																		const allegs = String(dd['Allegations'] || dd['allegations'] || '').trim();
+																		const initiatedBy = String(dd['Initiated By'] || dd['initiatedBy'] || '').trim();
+																		const resolution = String(dd['Resolution'] || dd['resolution'] || '').trim();
+																		const sanctionText = String(dd['Sanctions'] || dd['sanctions'] || '').trim();
+																		const sanctionDetails = Array.isArray(dd['SanctionDetails'] || dd['Sanction Details']) ? dd['SanctionDetails'] || dd['Sanction Details'] : [];
+																		const brokerCommentRaw = dd['Broker Comment'] || dd['brokerComment'] || null;
+																		const comments =
+																			Array.isArray(brokerCommentRaw) ? brokerCommentRaw
+																			: brokerCommentRaw ? [brokerCommentRaw]
+																			: [];
+																		const settlementAmt = String(dd['Settlement Amount'] || dd['settlementAmount'] || '').trim();
+																		const docketFDA = String(dd['DocketNumberFDA'] || '').trim();
+																		const docketAAO = String(dd['DocketNumberAAO'] || '').trim();
+																		const arbDocket = String(dd['arbitrationDocketNumber'] || '').trim();
+
+																		const sanctionBadges = sanctionDetails
+																			.map((s: any) => String(typeof s === 'object' ? s.Sanctions || s.sanctions || '' : s).trim())
+																			.filter(Boolean);
+
+																		const handledDetailKeys = new Set(
+																			[
+																				'Allegations',
+																				'allegations',
+																				'Initiated By',
+																				'initiatedBy',
+																				'Resolution',
+																				'resolution',
+																				'Sanctions',
+																				'sanctions',
+																				'SanctionDetails',
+																				'Sanction Details',
+																				'Broker Comment',
+																				'brokerComment',
+																				'Settlement Amount',
+																				'settlementAmount',
+																				'DocketNumberFDA',
+																				'DocketNumberAAO',
+																				'arbitrationDocketNumber',
+																			].map((k) => k.toLowerCase().replace(/[^a-z0-9]/g, '')),
+																		);
+
+																		const extraDetailRows = Object.entries(dd)
+																			.map(([key, value]) => ({ key, keyId: key.toLowerCase().replace(/[^a-z0-9]/g, ''), valueText: String(value).trim() }))
+																			.filter(({ keyId, valueText }) => valueText && !handledDetailKeys.has(keyId));
+
+																		return (
+																			<div
+																				key={idx}
+																				className='fg-disclosure'
+																				style={{ margin: 0 }}>
+																				<div className='fg-dis-header'>
+																					<span className='fg-dis-type'>{dtype}</span>
+																					{ddate && <span className='fg-dis-date'>{ddate}</span>}
+																					{dres && <span className={`fg-dis-res ${/final|settled/i.test(dres) ? 'final' : 'pending'}`}>{dres}</span>}
+																				</div>
+																				{initiatedBy && (
+																					<div className='fg-dis-row'>
+																						<span className='fg-dis-label'>Initiated by:</span> {initiatedBy}
+																					</div>
+																				)}
+																				{allegs && (
+																					<div className='fg-dis-row'>
+																						<span className='fg-dis-label'>Allegations:</span>
+																						<div className='fg-dis-text'>{allegs}</div>
+																					</div>
+																				)}
+																				{resolution && (
+																					<div className='fg-dis-row'>
+																						<span className='fg-dis-label'>Resolution:</span> {resolution}
+																					</div>
+																				)}
+																				{sanctionText && (
+																					<div className='fg-dis-row'>
+																						<span className='fg-dis-label'>Sanctions:</span>
+																						<div className='fg-dis-text'>{sanctionText}</div>
+																					</div>
+																				)}
+																				{settlementAmt && (
+																					<div className='fg-dis-row'>
+																						<span className='fg-dis-label'>Settlement:</span> <strong>{settlementAmt}</strong>
+																					</div>
+																				)}
+																				{sanctionBadges.length > 0 && (
+																					<div className='fg-dis-sanctions'>
+																						{sanctionBadges.map((s: any, i: number) => (
+																							<span
+																								key={i}
+																								className='fg-badge inactive'>
+																								{s}
+																							</span>
+																						))}
+																					</div>
+																				)}
+																				{comments.length > 0 && (
+																					<div className='fg-dis-row'>
+																						<span className='fg-dis-label'>Broker comment:</span>
+																						<div className='fg-dis-text fg-dis-comment'>
+																							{comments.map((c: any, i: number) => (
+																								<div key={i}>{String(c)}</div>
+																							))}
+																						</div>
+																					</div>
+																				)}
+																				{(docketFDA || docketAAO || arbDocket) && (
+																					<div className='fg-dis-row fg-dis-dockets'>
+																						{[docketFDA && `FDA: ${docketFDA}`, docketAAO && `AAO: ${docketAAO}`, arbDocket && `Arb: ${arbDocket}`].filter(Boolean).join('  |  ')}
+																					</div>
+																				)}
+																				{extraDetailRows.map(({ key, valueText }, i) => (
+																					<div
+																						key={`extra-${i}`}
+																						className='fg-dis-row'>
+																						<span className='fg-dis-label'>{key}:</span>
+																						<div className='fg-dis-text'>{valueText}</div>
+																					</div>
+																				))}
+																			</div>
+																		);
+																	})}
+															</div>
+														)}
 												</section>
 											)}
 
@@ -4337,159 +4515,6 @@ function DashboardPageInner() {
 												})()
 											}
 
-											{detailedMainRecord?.disclosureSummary && detailedMainRecord.disclosureSummary.length > 0 && (
-												<section
-													className={styles.detailSection}
-													style={{ marginTop: '12px' }}>
-													<h4 className={styles.detailSectionTitle}>Disclosures</h4>
-													<div className={styles.detailGrid}>
-														{detailedMainRecord.disclosureSummary.map((d: any) => (
-															<div
-																key={d.disclosureType}
-																className={styles.detailGridCard}>
-																<div className={styles.detailRowMain}>
-																	<span className={styles.detailRowName}>{d.disclosureType}</span>
-																	<span className={styles.detailInlineTag}>{d.disclosureCount}</span>
-																</div>
-															</div>
-														))}
-													</div>
-													{detailedMainRecord.rawDisclosures &&
-														detailedMainRecord.rawDisclosures.some((dis: any) => dis.disclosureDetail && Object.keys(dis.disclosureDetail).length > 0) && (
-															<div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-																{detailedMainRecord.rawDisclosures
-																	.filter((dis: any) => dis.disclosureDetail && Object.keys(dis.disclosureDetail).length > 0)
-																	.map((dis: any, idx: number) => {
-																		const dtype = String(dis.disclosureType || dis.type || '').trim();
-																		const ddate = String(dis.eventDate || dis.date || '').trim();
-																		const dres = String(dis.disclosureResolution || dis.resolution || '').trim();
-																		const dd = dis.disclosureDetail || {};
-																		const isObj = dd && typeof dd === 'object' && !Array.isArray(dd);
-																		if (!isObj) return null;
-
-																		const allegs = String(dd['Allegations'] || dd['allegations'] || '').trim();
-																		const initiatedBy = String(dd['Initiated By'] || dd['initiatedBy'] || '').trim();
-																		const resolution = String(dd['Resolution'] || dd['resolution'] || '').trim();
-																		const sanctionText = String(dd['Sanctions'] || dd['sanctions'] || '').trim();
-																		const sanctionDetails = Array.isArray(dd['SanctionDetails'] || dd['Sanction Details']) ? dd['SanctionDetails'] || dd['Sanction Details'] : [];
-																		const brokerCommentRaw = dd['Broker Comment'] || dd['brokerComment'] || null;
-																		const comments =
-																			Array.isArray(brokerCommentRaw) ? brokerCommentRaw
-																			: brokerCommentRaw ? [brokerCommentRaw]
-																			: [];
-																		const settlementAmt = String(dd['Settlement Amount'] || dd['settlementAmount'] || '').trim();
-																		const docketFDA = String(dd['DocketNumberFDA'] || '').trim();
-																		const docketAAO = String(dd['DocketNumberAAO'] || '').trim();
-																		const arbDocket = String(dd['arbitrationDocketNumber'] || '').trim();
-
-																		const sanctionBadges = sanctionDetails
-																			.map((s: any) => String(typeof s === 'object' ? s.Sanctions || s.sanctions || '' : s).trim())
-																			.filter(Boolean);
-
-																		const handledDetailKeys = new Set(
-																			[
-																				'Allegations',
-																				'allegations',
-																				'Initiated By',
-																				'initiatedBy',
-																				'Resolution',
-																				'resolution',
-																				'Sanctions',
-																				'sanctions',
-																				'SanctionDetails',
-																				'Sanction Details',
-																				'Broker Comment',
-																				'brokerComment',
-																				'Settlement Amount',
-																				'settlementAmount',
-																				'DocketNumberFDA',
-																				'DocketNumberAAO',
-																				'arbitrationDocketNumber',
-																			].map((k) => k.toLowerCase().replace(/[^a-z0-9]/g, '')),
-																		);
-
-																		const extraDetailRows = Object.entries(dd)
-																			.map(([key, value]) => ({ key, keyId: key.toLowerCase().replace(/[^a-z0-9]/g, ''), valueText: String(value).trim() }))
-																			.filter(({ keyId, valueText }) => valueText && !handledDetailKeys.has(keyId));
-
-																		return (
-																			<div
-																				key={idx}
-																				className='fg-disclosure'
-																				style={{ margin: 0 }}>
-																				<div className='fg-dis-header'>
-																					<span className='fg-dis-type'>{dtype}</span>
-																					{ddate && <span className='fg-dis-date'>{ddate}</span>}
-																					{dres && <span className={`fg-dis-res ${/final|settled/i.test(dres) ? 'final' : 'pending'}`}>{dres}</span>}
-																				</div>
-																				{initiatedBy && (
-																					<div className='fg-dis-row'>
-																						<span className='fg-dis-label'>Initiated by:</span> {initiatedBy}
-																					</div>
-																				)}
-																				{allegs && (
-																					<div className='fg-dis-row'>
-																						<span className='fg-dis-label'>Allegations:</span>
-																						<div className='fg-dis-text'>{allegs}</div>
-																					</div>
-																				)}
-																				{resolution && (
-																					<div className='fg-dis-row'>
-																						<span className='fg-dis-label'>Resolution:</span> {resolution}
-																					</div>
-																				)}
-																				{sanctionText && (
-																					<div className='fg-dis-row'>
-																						<span className='fg-dis-label'>Sanctions:</span>
-																						<div className='fg-dis-text'>{sanctionText}</div>
-																					</div>
-																				)}
-																				{settlementAmt && (
-																					<div className='fg-dis-row'>
-																						<span className='fg-dis-label'>Settlement:</span> <strong>{settlementAmt}</strong>
-																					</div>
-																				)}
-																				{sanctionBadges.length > 0 && (
-																					<div className='fg-dis-sanctions'>
-																						{sanctionBadges.map((s: any, i: number) => (
-																							<span
-																								key={i}
-																								className='fg-badge inactive'>
-																								{s}
-																							</span>
-																						))}
-																					</div>
-																				)}
-																				{comments.length > 0 && (
-																					<div className='fg-dis-row'>
-																						<span className='fg-dis-label'>Broker comment:</span>
-																						<div className='fg-dis-text fg-dis-comment'>
-																							{comments.map((c: any, i: number) => (
-																								<div key={i}>{String(c)}</div>
-																							))}
-																						</div>
-																					</div>
-																				)}
-																				{(docketFDA || docketAAO || arbDocket) && (
-																					<div className='fg-dis-row fg-dis-dockets'>
-																						{[docketFDA && `FDA: ${docketFDA}`, docketAAO && `AAO: ${docketAAO}`, arbDocket && `Arb: ${arbDocket}`].filter(Boolean).join('  |  ')}
-																					</div>
-																				)}
-																				{extraDetailRows.map(({ key, valueText }, i) => (
-																					<div
-																						key={`extra-${i}`}
-																						className='fg-dis-row'>
-																						<span className='fg-dis-label'>{key}:</span>
-																						<div className='fg-dis-text'>{valueText}</div>
-																					</div>
-																				))}
-																			</div>
-																		);
-																	})}
-															</div>
-														)}
-												</section>
-											)}
 										</>
 									:	<div className={styles.readableCardEmpty}>No readable fields found for this record.</div>}
 								</div>

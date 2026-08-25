@@ -3,6 +3,7 @@ import axios from 'axios';
 import { getRedisClientInstance } from '@/lib/redisClient';
 import { saveGraph, getFullGraph } from '@/lib/graphStore';
 import { getSeedBankFromStore } from '@/lib/graphStore';
+import { syncBrokerIdMirrorForIndividualChange } from '@/lib/graphConnections';
 import { DEFAULT_HEADERS } from '@/lib/requestConstants';
 import { randomUUID } from 'crypto';
 
@@ -395,6 +396,22 @@ function snapshotRecordForComparison(node: any) {
 	};
 }
 
+// Extracts the firm CRDs this individual's own record currently lists as a current employer
+// (FINRA broker-dealer + SEC investment-adviser employments both count) — the strongest
+// possible evidence for the shared _brokers:current|previous mirror keys.
+function extractCurrentEmployerFirmIds(node: any): string[] {
+	const employments = [
+		...(Array.isArray(node?.currentEmployments) ? node.currentEmployments : []),
+		...(Array.isArray(node?.currentIAEmployments) ? node.currentIAEmployments : []),
+	];
+	const ids = new Set<string>();
+	for (const employment of employments) {
+		const firmId = normalizeId(employment?.firm_id || employment?.firmId || employment?.firm_source_id || '');
+		if (isNumericId(firmId)) ids.add(firmId);
+	}
+	return Array.from(ids);
+}
+
 function hasRecordChanged(graph: any, node: any) {
 	const current = Array.isArray(graph?.nodes) ? graph.nodes.find((entry: any) => String(entry?.id || '') === String(node?.id || '')) : null;
 	return JSON.stringify(snapshotRecordForComparison(current)) !== JSON.stringify(snapshotRecordForComparison(node));
@@ -693,6 +710,23 @@ async function processCandidate(
 
 	const mergedGraph = mergeIntoGraph(graph, node, linksAccumulator);
 	await saveGraph(mergedGraph);
+
+	// Piggyback on this already-fetched/diffed record to keep the shared _brokers:current|previous
+	// mirror keys in sync — zero extra external API calls, just reconciling firm membership from
+	// data this cron run already pulled. Only meaningful for individuals (the entity that actually
+	// carries an "employer" list); firm-node changes don't directly imply individual membership.
+	if (kind === 'individual') {
+		try {
+			const oldFirmIds = extractCurrentEmployerFirmIds(existingNode);
+			const newFirmIds = extractCurrentEmployerFirmIds(node);
+			const sources: Array<'finra' | 'sec'> = [];
+			if (finra) sources.push('finra');
+			if (sec) sources.push('sec');
+			await syncBrokerIdMirrorForIndividualChange(normalizeId(id), oldFirmIds, newFirmIds, sources.length ? sources : ['finra', 'sec']);
+		} catch {
+			// best-effort; shared broker-id lists are a convenience mirror, not the source of truth
+		}
+	}
 
 	const domain = kind === 'individual' ? 'api.brokercheck.finra.org' : 'api.adviserinfo.sec.gov';
 	console.log(
