@@ -15,6 +15,15 @@ import styles from './dashboard.module.css';
 
 type DashboardAction = 'fetch-crds' | 'list-new-crds';
 
+// Per-record scroll position memory: keyed by "entity:id". Kept at module scope (not a
+// component-local ref) because navigating between the /dashboard, /dashboard/firm/[id], and
+// /dashboard/individual/[id] routes unmounts/remounts the shared DashboardPage component, which
+// would otherwise wipe out any component-local scroll history on every connection-card click or
+// browser back/forward navigation.
+const dashboardScrollPositionsByRecord = new Map<string, number>();
+let dashboardCurrentScrollRecordKey: string | null = null;
+
+
 type ApiResponse = {
 	ok: boolean;
 	error?: string;
@@ -1350,6 +1359,11 @@ function DashboardPageInner() {
 	const [currentRecordSource, setCurrentRecordSource] = useState<'finra' | 'sec' | null>(null);
 	const [currentRecordEntity, setCurrentRecordEntity] = useState<'individual' | 'firm' | null>(null);
 	const [currentRecordId, setCurrentRecordId] = useState<string | null>(null);
+	// Scroll container ref used together with the module-level scroll-position map above so
+	// revisiting a firm/individual detail page (via a connection-card click, the browser
+	// back/forward buttons, or re-opening the same card) restores the exact scroll position
+	// last seen on that record, instead of always resetting to the top.
+	const dashboardContentRef = useRef<HTMLDivElement | null>(null);
 	const [newCrds, setNewCrds] = useState<NewCrdEntry[]>([]);
 	const [searchQuery, setSearchQuery] = useState('');
 	const [searchBusy, setSearchBusy] = useState(false);
@@ -1718,6 +1732,21 @@ function DashboardPageInner() {
 			window.clearTimeout(timeoutId);
 		};
 	}, [mainJson, result, mainJsonLabel]);
+
+	// Restore the saved scroll position for the current record once it has finished loading and
+	// rendered (or scroll to top the first time a record is viewed). Runs whenever the visible
+	// record or its loading state changes so it covers connection-card clicks, browser back/
+	// forward navigation, and direct card selection alike.
+	useEffect(() => {
+		if (recordViewLoading || !currentRecordId || !currentRecordEntity) return;
+		const key = `${currentRecordEntity}:${currentRecordId}`;
+		const container = dashboardContentRef.current;
+		if (!container) return;
+		const raf = window.requestAnimationFrame(() => {
+			container.scrollTop = dashboardScrollPositionsByRecord.get(key) ?? 0;
+		});
+		return () => window.cancelAnimationFrame(raf);
+	}, [recordViewLoading, currentRecordId, currentRecordEntity]);
 
 	useEffect(() => {
 		if (!routeSelection || !routeSelectionEntityIdKey) return;
@@ -2785,6 +2814,14 @@ function DashboardPageInner() {
 		if (activeLoadSourceKeyRef.current === sourceKey) return;
 		activeLoadSourceKeyRef.current = sourceKey;
 		setActiveCardSourceKey(sourceKey);
+		// Persist the scroll position of the record we're navigating away from so returning to
+		// it later (connection-card click, back/forward, or re-opening the same card) restores
+		// where the user left off instead of always resetting to the top.
+		const outgoingScrollKey = dashboardCurrentScrollRecordKey;
+		if (outgoingScrollKey && dashboardContentRef.current) {
+			dashboardScrollPositionsByRecord.set(outgoingScrollKey, dashboardContentRef.current.scrollTop);
+		}
+		dashboardCurrentScrollRecordKey = `${card.entity}:${card.id}`;
 		setRecordViewLoading(true);
 		setMainJson(null);
 		setResult(null);
@@ -3439,7 +3476,13 @@ function DashboardPageInner() {
 			<div className={`${styles.layout} ${!newCrdsOpen ? styles.layoutRightHidden : ''}`}>
 				<section className={styles.centerPane}>
 					<div className={styles.dashboardMainStack}>
-						<div className={styles.dashboardContent}>
+						<div
+							ref={dashboardContentRef}
+							className={styles.dashboardContent}
+							onScroll={(e) => {
+								const key = dashboardCurrentScrollRecordKey;
+								if (key) dashboardScrollPositionsByRecord.set(key, e.currentTarget.scrollTop);
+							}}>
 							{crawlProgress && crawlProgress.active && (
 								<div className={styles.crawlBanner}>
 									<div>
