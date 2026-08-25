@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { buildJsonDisplayTree, coerceStructuredValue, normalizeRenderablePayload, renderJsonForDisplay } from '../../lib/dashboard-json';
 import { resolveMainRecordTitle } from '../../lib/dashboard-record-title';
 import { getRecordDisplayName } from '../../lib/recordDisplay';
@@ -3256,6 +3256,25 @@ function DashboardPageInner() {
 		);
 	}
 
+	function highlightSearchMatch(text: string, query: string): React.ReactNode {
+		const trimmedQuery = query.trim();
+		if (!trimmedQuery || !text) return text;
+		const tokens = Array.from(new Set(trimmedQuery.split(/\s+/).filter((token) => token.length >= 2))).sort((a, b) => b.length - a.length);
+		if (!tokens.length) return text;
+		const pattern = new RegExp(`(${tokens.map((token) => token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'ig');
+		const parts = text.split(pattern);
+		if (parts.length <= 1) return text;
+		return parts.map((part, index) =>
+			pattern.test(part) ?
+				<mark
+					key={index}
+					className={styles.searchResultHighlight}>
+					{part}
+				</mark>
+			:	<Fragment key={index}>{part}</Fragment>,
+		);
+	}
+
 	function renderSearchResult(card: SearchResultCard, index: number) {
 		const sourceLabel = card.source === 'finra' ? 'FINRA' : 'SEC';
 		const rowAddress = card.address || card.detail || 'No address/details in cached index';
@@ -3273,11 +3292,11 @@ function DashboardPageInner() {
 					onClick={() => void setMainViewFromSearch(card)}>
 					<div className={styles.searchResultRow}>
 						<span className={styles.searchResultNameCell}>
-							<span className={styles.searchResultName}>{card.label}</span>
-							{otherNamesText && <span className={styles.searchResultOtherNames}>{otherNamesText}</span>}
+							<span className={styles.searchResultName}>{highlightSearchMatch(card.label, searchQuery)}</span>
+							{otherNamesText && <span className={styles.searchResultOtherNames}>{highlightSearchMatch(otherNamesText, searchQuery)}</span>}
 						</span>
 						<span className={styles.searchResultCrd}>CRD #{card.id}</span>
-						<span className={styles.searchResultAddress}>{rowAddress}</span>
+						<span className={styles.searchResultAddress}>{highlightSearchMatch(rowAddress, searchQuery)}</span>
 						<span className={styles.searchTag}>{sourceLabel}</span>
 					</div>
 				</button>

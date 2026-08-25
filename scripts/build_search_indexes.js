@@ -17,6 +17,7 @@ const BUCKETS = [
 		type: 'individual',
 		dir: FINRA_DIR,
 		filePattern: /^(?:api\.brokercheck\.finra\.org_search_individual_|finra:individual:)\d+\.json$/,
+		redisPrefix: 'finra:individual:',
 	},
 	{
 		name: 'finra:firm',
@@ -24,6 +25,7 @@ const BUCKETS = [
 		type: 'firm',
 		dir: FINRA_DIR,
 		filePattern: /^(?:api\.brokercheck\.finra\.org_search_firm_|finra:firm:)\d+\.json$/,
+		redisPrefix: 'finra:firm:',
 	},
 	{
 		name: 'sec:individual',
@@ -31,6 +33,7 @@ const BUCKETS = [
 		type: 'individual',
 		dir: SEC_DIR,
 		filePattern: /^(?:api\.adviserinfo\.sec\.gov_search_individual_|sec:individual:)\d+\.json$/,
+		redisPrefix: 'sec:individual:',
 	},
 	{
 		name: 'sec:firm',
@@ -38,6 +41,7 @@ const BUCKETS = [
 		type: 'firm',
 		dir: SEC_DIR,
 		filePattern: /^(?:api\.adviserinfo\.sec\.gov_search_firm_|sec:firm:)\d+\.json$/,
+		redisPrefix: 'sec:firm:',
 	},
 ];
 
@@ -268,6 +272,70 @@ async function fileExists(filePath) {
 	}
 }
 
+function decodeRedisValue(raw) {
+	if (typeof raw !== 'string') return raw;
+	if (raw.startsWith('br:')) {
+		try {
+			return zlib.brotliDecompressSync(Buffer.from(raw.slice(3), 'base64')).toString('utf-8');
+		} catch {
+			return raw;
+		}
+	}
+	return raw;
+}
+
+// Rebuild the search-index sidecar from the same detail records the local Redis cache holds
+// (finra:individual:<crd>, finra:firm:<crd>, sec:individual:<crd>, sec:firm:<crd>) so the
+// dashboard/graph search sidecar carries real address/employment data instead of label-only
+// stubs. This mirrors the shape `getDetailRoot`/`buildIndividualDoc`/`buildFirmDoc` expect
+// (payload.content for finra, payload.iacontent for sec).
+async function readBucketDocsFromLocalRedis(bucket) {
+	let IORedis;
+	try {
+		IORedis = require('ioredis');
+	} catch {
+		return { docs: null, generatedAt: null, reason: 'ioredis module not available' };
+	}
+
+	const redis = new IORedis('redis://127.0.0.1:6379', { lazyConnect: true, maxRetriesPerRequest: 1 });
+	try {
+		await redis.connect();
+	} catch (error) {
+		return { docs: null, generatedAt: null, reason: `local Redis unavailable: ${error?.message || error}` };
+	}
+
+	try {
+		const keys = await redis.keys(`${bucket.redisPrefix}*`);
+		if (!keys.length) return { docs: null, generatedAt: null, reason: `no keys found for ${bucket.redisPrefix}*` };
+
+		const docs = [];
+		const BATCH_SIZE = 500;
+		for (let i = 0; i < keys.length; i += BATCH_SIZE) {
+			const batchKeys = keys.slice(i, i + BATCH_SIZE);
+			const values = await redis.mget(batchKeys);
+			for (const rawValue of values) {
+				if (!rawValue) continue;
+				try {
+					const decoded = decodeRedisValue(rawValue);
+					const payload = JSON.parse(decoded);
+					const source = payload?.hits?.hits?.[0]?._source || payload;
+					const detailField = bucket.source === 'finra' ? source?.content : source?.iacontent;
+					const detail = typeof detailField === 'string' ? JSON.parse(detailField) : detailField && typeof detailField === 'object' ? detailField : null;
+					if (!detail) continue;
+					const doc = bucket.type === 'individual' ? buildIndividualDoc(bucket.source, detail) : buildFirmDoc(bucket.source, detail);
+					if (doc) docs.push(doc);
+				} catch {
+					// skip malformed cache entries
+				}
+			}
+		}
+
+		return { docs, generatedAt: new Date().toISOString(), reason: null };
+	} finally {
+		redis.disconnect();
+	}
+}
+
 async function readBucketDocs(bucket) {
 	let fileNames = [];
 	try {
@@ -336,11 +404,28 @@ async function gzipExistingBucket(outputPath) {
 
 async function main() {
 	let skippedBuckets = 0;
+	const useLocalRedis = process.env.USE_LOCAL_REDIS === '1';
 
 	for (const bucket of BUCKETS) {
 		const outputPath = path.join(NATIONAL_DIR, `search-index.${bucket.source}.${bucket.type}.json`);
 		const gzPath = `${outputPath}.gz`;
-		const { docs, generatedAt, reason } = await readBucketDocs(bucket);
+		let { docs, generatedAt, reason } = await readBucketDocs(bucket);
+
+		// Prefer local Redis detail records over file-based/stub docs when running against
+		// the local dev cache — local Redis holds full detail payloads (address/employment
+		// data) mirroring what the same search sidecar gets in production, whereas the
+		// file-based source directories may only contain minimal label-only stubs.
+		if (useLocalRedis) {
+			const redisResult = await readBucketDocsFromLocalRedis(bucket);
+			if (Array.isArray(redisResult.docs) && redisResult.docs.length > (docs?.length || 0)) {
+				docs = redisResult.docs;
+				generatedAt = redisResult.generatedAt;
+				reason = null;
+				console.log(`Using local Redis detail records for ${bucket.name} (${docs.length} docs) instead of file-based source.`);
+			} else if (redisResult.reason) {
+				console.log(`Local Redis fallback skipped for ${bucket.name}: ${redisResult.reason}`);
+			}
+		}
 
 		if (Array.isArray(docs) && docs.length) {
 			await writeBucket(bucket, docs, generatedAt);

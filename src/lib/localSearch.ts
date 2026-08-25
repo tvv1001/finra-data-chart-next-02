@@ -538,8 +538,11 @@ function getBoundedEditDistance(left: string, right: string, maxDistance: number
 function locationTokensMatch(queryToken: string, candidateToken: string) {
 	if (!queryToken || !candidateToken) return false;
 	if (queryToken === candidateToken) return true;
+	if (candidateToken.includes(queryToken) && queryToken.length >= 3) return true;
+	if (queryToken.includes(candidateToken) && candidateToken.length >= 3) return true;
 	if (queryToken.length < 5 || candidateToken.length < 5) return false;
-	return getBoundedEditDistance(queryToken, candidateToken, 1) <= 1;
+	const maxDistance = Math.max(1, Math.floor(Math.min(queryToken.length, candidateToken.length) * 0.25));
+	return getBoundedEditDistance(queryToken, candidateToken, maxDistance) <= maxDistance;
 }
 
 function tokensFuzzyMatch(queryToken: string, candidateToken: string) {
