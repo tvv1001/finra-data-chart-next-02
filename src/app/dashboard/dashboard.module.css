@@ -3125,6 +3125,57 @@
 	font-weight: 700;
 }
 
+.currentConnectionStatusTag {
+	font-weight: 700;
+	background: rgba(74, 222, 128, 0.16);
+	border-color: rgba(74, 222, 128, 0.45);
+	color: #bbf7d0;
+}
+
+.currentConnectionStatusTagStub {
+	background: rgba(250, 204, 21, 0.16);
+	border-color: rgba(250, 204, 21, 0.45);
+	color: #fde68a;
+}
+
+.currentConnectionStatusTagInactive {
+	background: rgba(148, 163, 184, 0.16);
+	border-color: rgba(148, 163, 184, 0.45);
+	color: #cbd5e1;
+}
+
+.currentConnectionOtherNames {
+	color: #94a3b8;
+	font-size: 11px;
+	font-style: italic;
+}
+
+.previousConnectionRow {
+	padding: 12px 14px;
+	gap: 6px;
+	box-shadow: inset 0 0 0 1px #94a3b824;
+	background: #0b0b10;
+	border: 1px solid rgba(100, 116, 139, 0.4);
+}
+
+.previousConnectionName {
+	color: #cbd5e1;
+	font-size: 16px;
+}
+
+.previousConnectionMeta {
+	color: #94a3b8;
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.previousConnectionTag {
+	background: rgba(148, 163, 184, 0.14);
+	border-color: rgba(148, 163, 184, 0.4);
+	color: #e2e8f0;
+	font-weight: 700;
+}
+
 .orangeVectorContainer {
 	background: rgba(255, 153, 0, 0.05);
 	border: 2px solid #ff9900;

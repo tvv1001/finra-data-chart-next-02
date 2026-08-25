@@ -1053,18 +1053,22 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 				[toText(record?.city), toText(record?.state)].filter(Boolean).join(', '),
 			);
 			const subtitle = [dateText, addressText].filter(Boolean).join(' • ');
-			const result: { title: string; meta: string; subtitle: string; crd?: string; entity?: 'individual' | 'firm' } = {
+			const otherNamesArr = Array.isArray(record?.otherNames) ? record.otherNames.map((n: unknown) => String(n || '').trim()).filter(Boolean) : [];
+			const statusTag = pickFirstNonEmpty(record?.statusTag);
+			const result: { title: string; meta: string; subtitle: string; crd?: string; entity?: 'individual' | 'firm'; otherNames?: string[]; statusTag?: string } = {
 				title: title || '',
 				meta: meta || '',
 				subtitle: subtitle || '',
 			};
+			if (otherNamesArr.length) result.otherNames = otherNamesArr;
+			if (statusTag) result.statusTag = statusTag;
 			if (crd) {
 				result.crd = crd;
 				result.entity = entityType;
 			}
 			return title ? result : null;
 		})
-		.filter(Boolean) as Array<{ title: string; meta: string; subtitle: string; crd?: string; entity?: 'individual' | 'firm' }>;
+		.filter(Boolean) as Array<{ title: string; meta: string; subtitle: string; crd?: string; entity?: 'individual' | 'firm'; otherNames?: string[]; statusTag?: string }>;
 }
 
 function extractDocumentLinkCards(body: Record<string, any>) {
@@ -4156,7 +4160,20 @@ function DashboardPageInner() {
 																						<span className={`${styles.detailRowName} ${styles.currentConnectionName}`}>{item.title}</span>
 																						{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
 																						{item.meta && <span className={`${styles.detailInlineTag} ${styles.currentConnectionTag}`}>{item.meta}</span>}
+																						{item.statusTag && (
+																							<span
+																								className={`${styles.detailInlineTag} ${styles.currentConnectionStatusTag} ${
+																									item.statusTag === 'BD Stub Only' ? styles.currentConnectionStatusTagStub
+																									: item.statusTag === 'Inactive' ? styles.currentConnectionStatusTagInactive
+																									: ''
+																								}`}>
+																								{item.statusTag}
+																							</span>
+																						)}
 																					</div>
+																					{item.otherNames && item.otherNames.length > 0 && (
+																						<div className={`${styles.detailRowMeta} ${styles.currentConnectionOtherNames}`}>Also known as: {item.otherNames.join(', ')}</div>
+																					)}
 																					{item.subtitle && <div className={`${styles.detailRowMeta} ${styles.currentConnectionMeta}`}>{item.subtitle}</div>}
 																				</>
 																			);
@@ -4192,11 +4209,11 @@ function DashboardPageInner() {
 																			const content = (
 																				<>
 																					<div className={styles.detailRowMain}>
-																						<span className={styles.detailRowName}>{item.title}</span>
+																						<span className={`${styles.detailRowName} ${styles.previousConnectionName}`}>{item.title}</span>
 																						{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
-																						{item.meta && <span className={styles.detailInlineTag}>{item.meta}</span>}
+																						{item.meta && <span className={`${styles.detailInlineTag} ${styles.previousConnectionTag}`}>{item.meta}</span>}
 																					</div>
-																					{item.subtitle && <div className={styles.detailRowMeta}>{item.subtitle}</div>}
+																					{item.subtitle && <div className={`${styles.detailRowMeta} ${styles.previousConnectionMeta}`}>{item.subtitle}</div>}
 																				</>
 																			);
 
@@ -4205,7 +4222,7 @@ function DashboardPageInner() {
 																					<Link
 																						href={`/dashboard/${item.entity || 'firm'}/${item.crd}`}
 																						key={`prev-conn-${idx}`}
-																						className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
+																						className={`${styles.detailRow} ${styles.detailRowInteractive} ${styles.previousConnectionRow}`}>
 																						{content}
 																					</Link>
 																				);
@@ -4214,7 +4231,7 @@ function DashboardPageInner() {
 																			return (
 																				<div
 																					key={`prev-conn-${idx}`}
-																					className={styles.detailRow}>
+																					className={`${styles.detailRow} ${styles.previousConnectionRow}`}>
 																					{content}
 																				</div>
 																			);
