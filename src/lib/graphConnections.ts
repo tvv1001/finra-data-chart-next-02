@@ -77,6 +77,56 @@ function firstNonEmpty(...values: unknown[]) {
 	return '';
 }
 
+function parseBrokerIdList(raw: unknown): string[] {
+	if (raw == null) return [];
+	let data: any = raw;
+	if (typeof data === 'string') {
+		try {
+			const text = data.startsWith('br:') ? decompressPayload(data) : data;
+			data = JSON.parse(text);
+		} catch {
+			return [];
+		}
+	}
+	if (!Array.isArray(data)) return [];
+	return data.map((id) => String(id || '').trim()).filter((id) => /^\d{1,10}$/.test(id));
+}
+
+// Priority source: the shared broker-id mirror keys ({finra|sec}:firm:{firmId}_brokers:current|previous)
+// written by persistBrokerIdLists()/the legacy update_sec_brokers.mjs crawler. These are plain CRD-id
+// lists (no names), but they're the fastest, most authoritative signal of who is/was connected to a
+// firm — read them first and merge in graph-derived names where available.
+// Local-Redis-only: this must never read from a cloud Upstash DB (per project direction), so it's a
+// no-op unless USE_LOCAL_REDIS=1 has routed getRedisClient() to the local instance.
+async function getConnectionsFromBrokerIdMirror(firmId: string): Promise<GraphConnectionEntry[]> {
+	if (process.env.USE_LOCAL_REDIS !== '1') return [];
+	const redis = getRedisClient();
+	if (!redis) return [];
+
+	const [finraCurrentRaw, finraPreviousRaw, secCurrentRaw, secPreviousRaw] = await Promise.all([
+		redis.get(`finra:firm:${firmId}_brokers:current`).catch(() => null),
+		redis.get(`finra:firm:${firmId}_brokers:previous`).catch(() => null),
+		redis.get(`sec:firm:${firmId}_brokers:current`).catch(() => null),
+		redis.get(`sec:firm:${firmId}_brokers:previous`).catch(() => null),
+	]);
+
+	const currentIds = new Set<string>([...parseBrokerIdList(finraCurrentRaw), ...parseBrokerIdList(secCurrentRaw)]);
+	const previousIds = new Set<string>([...parseBrokerIdList(finraPreviousRaw), ...parseBrokerIdList(secPreviousRaw)]);
+	// A person cannot be both current and previous — current wins.
+	for (const id of currentIds) previousIds.delete(id);
+
+	if (!currentIds.size && !previousIds.size) return [];
+
+	const entries: GraphConnectionEntry[] = [];
+	for (const id of currentIds) {
+		entries.push({ individualId: id, name: '', relationship: 'Current registration', isCurrent: true, evidence: ['broker-id-mirror'] });
+	}
+	for (const id of previousIds) {
+		entries.push({ individualId: id, name: '', relationship: 'Previous registration', isCurrent: false, evidence: ['broker-id-mirror'] });
+	}
+	return entries;
+}
+
 async function searchIndividualsForFirmWithFallback(source: 'finra' | 'sec', firmId: string): Promise<any[]> {
 	const limit = 30;
 	let localHits: any[] = [];
@@ -537,6 +587,37 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<FirmC
 	const emptyCacheKey = `${cacheKey}:empty`;
 	const redis = getRedisClient();
 	const local = readLocalFirmConnectionsFile(normalizedFirmId);
+
+	// Priority source: shared broker-id mirror keys (sec:firm:{id}_brokers:current|previous,
+	// finra:firm:{id}_brokers:current|previous). Cheap single-key GETs and, per project
+	// direction, treated as the authoritative CRD roster ahead of every other source below.
+	// Merge in graph-derived names/dates where the graph store already has that person
+	// hydrated, then persist as the standard cache payload for future requests.
+	const brokerMirrorEntries = await getConnectionsFromBrokerIdMirror(normalizedFirmId).catch(() => [] as GraphConnectionEntry[]);
+	if (brokerMirrorEntries.length) {
+		const graphEntries = await getConnectionsFromGraphStore(normalizedFirmId).catch(() => [] as GraphConnectionEntry[]);
+		const graphEntryById = new Map<string, GraphConnectionEntry>();
+		for (const entry of graphEntries) {
+			if (entry.individualId) graphEntryById.set(entry.individualId, entry);
+		}
+		const enrichedEntries = brokerMirrorEntries.map((entry) => {
+			const graphMatch = entry.individualId ? graphEntryById.get(entry.individualId) : undefined;
+			return graphMatch ? { ...entry, ...graphMatch, evidence: [...(entry.evidence || []), ...(graphMatch.evidence || [])] } : entry;
+		});
+		const result = mergeGraphConnectionEntries([enrichedEntries, graphEntries]);
+		const payload: FirmConnectionsPayload = { ...result, source: 'broker-id-mirror' };
+		// IMPORTANT: do not run this payload through persistFirmConnections()/persistBrokerIdLists().
+		// Those mirror keys are exactly what we just read, and persistBrokerIdLists() only keeps
+		// entries carrying validated per-firm employment evidence — re-writing this
+		// 'broker-id-mirror'-tagged payload back through it would strip almost every entry and
+		// destructively overwrite the very keys we're prioritizing (previously caused a live
+		// firm's previous-connections mirror key to collapse from 2077 entries to 1). Only refresh
+		// the short-lived v10 response cache; never touch the local disk file or the mirror keys here.
+		if (redis && countFirmConnectionEntries(payload) > 0) {
+			await setStringIfValid(cacheKey, JSON.stringify(payload), FIRM_CONNECTIONS_CACHE_TTL_SECONDS).catch(() => {});
+		}
+		return payload;
+	}
 
 	let redisHit: FirmConnectionsPayload | null = null;
 	if (redis) {

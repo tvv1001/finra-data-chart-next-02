@@ -894,41 +894,13 @@ export default function FinraGraph() {
 		);
 	}, [graphReady, isMounted, routeNodeId]);
 
-	useEffect(() => {
-		if (!isMounted || !graphReady || !routeNodeId) return;
+	// Retry fallback disabled: previously this re-dispatched the route-node-request event up
+	// to 6 times (every 500ms) whenever the sidebar hadn't yet displayed routeNodeId. For nodes
+	// that genuinely can't be resolved (e.g. a firm-connection CRD card pointing at an
+	// individual with no cached detail record), this just repeated the same failed lookup and
+	// spammed the console with "not found" warnings. The single dispatch above is left in place
+	// for the normal case where the graph is still loading.
 
-		let cancelled = false;
-		let attempts = 0;
-		let retryTimer: number | null = null;
-
-		const requestRouteNodeSelection = () => {
-			if (cancelled) return;
-			const sidebar = document.getElementById('fg-sidebar');
-			const displayedId = sidebar?.dataset?.displayedId || '';
-			const inFlightId = sidebar?.dataset?.inFlightId || '';
-
-			if (displayedId === routeNodeId || inFlightId === routeNodeId || attempts >= 6) return;
-			attempts += 1;
-			window.dispatchEvent(
-				new CustomEvent(ROUTE_NODE_REQUEST_EVENT, {
-					detail: {
-						nodeId: routeNodeId,
-						autoExpand: true,
-						forceAutoExpand: true,
-					},
-				}),
-			);
-			retryTimer = window.setTimeout(requestRouteNodeSelection, 500);
-		};
-
-		retryTimer = window.setTimeout(requestRouteNodeSelection, 150);
-		return () => {
-			cancelled = true;
-			if (retryTimer) {
-				window.clearTimeout(retryTimer);
-			}
-		};
-	}, [graphReady, isMounted, routeNodeId]);
 
 	useEffect(() => {
 		if (!isMounted) return;

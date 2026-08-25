@@ -6485,3 +6485,27 @@ button[type='submit'],
 	pointer-events: none !important;
 	stroke-width: 0.5px !important;
 }
+
+.fg-route-unavailable-toast {
+	position: fixed;
+	left: 50%;
+	bottom: 32px;
+	transform: translate(-50%, 12px);
+	background: rgba(20, 20, 24, 0.94);
+	color: #fff;
+	padding: 10px 16px;
+	border-radius: 8px;
+	font-size: 13px;
+	line-height: 1.4;
+	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.18s ease, transform 0.18s ease;
+	z-index: 999999;
+	max-width: 320px;
+	text-align: center;
+}
+.fg-route-unavailable-toast.is-visible {
+	opacity: 1;
+	transform: translate(-50%, 0);
+}

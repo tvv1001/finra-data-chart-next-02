@@ -41,15 +41,17 @@ These two databases can silently drift apart over time (e.g. a dual-write path f
 ## Firm connections data flow (individual↔firm rosters)
 
 - A firm's "current/previous connections" (the roster of individuals employed there) is computed by `getFirmConnectionsFromGraph()` in `src/lib/graphConnections.ts`.
-- **Primary source**: the official FINRA/SEC individual-by-firm search endpoints — these are the authoritative roster source and must be used first:
+- **Priority source (local Redis only)**: `getConnectionsFromBrokerIdMirror()` reads the broker-id mirror keys — `sec:firm:<CRD>_brokers:current`, `sec:firm:<CRD>_brokers:previous`, `finra:firm:<CRD>_brokers:current`, `finra:firm:<CRD>_brokers:previous` — and, if any of them contain data, treats that CRD list as the authoritative roster ahead of every other source below. This lookup must only ever be served from the **local Redis instance** (`redis://127.0.0.1:6379`, i.e. only when `USE_LOCAL_REDIS=1` routes reads there) — never from the cloud Upstash DBs. These keys hold plain CRD-id arrays (no names), so results are enriched with names/dates from `getConnectionsFromGraphStore()` where the graph store already has that person hydrated.
+- **Primary source (when the mirror above is empty)**: the official FINRA/SEC individual-by-firm search endpoints — these are the authoritative roster source and must be used first:
   - `https://api.brokercheck.finra.org/search/individual?firm=<CRD>&includePrevious&hl=true`
   - `https://api.adviserinfo.sec.gov/search/individual?firm=<CRD>&includePrevious`
 - **Supplementary rule**: a connection can also be established purely because an individual's own detail record lists that firm CRD as a current/previous employer — even if the official firm-roster search missed that person (pagination gaps, rate limits, etc.). Graph-derived reverse links (from `getConnectionsFromGraphStore()`, which scans individual↔firm employment edges already present in the persisted graph) must always be merged in alongside the official roster results, not used only as a fallback when the official search is empty.
 - Result is cached at `graph:firm-connections:v10:<CRD>` in Redis (local + both cloud DBs) and in `data/firm-connections/<CRD>.json` locally.
 
-## Orphaned/legacy key patterns (do not extend)
+## Broker-id mirror keys (`{finra|sec}:firm:<CRD>_brokers:current|previous`)
 
-- `finra:firm:<CRD>_brokers:connected` / `_brokers:previous` (and `sec:firm:*` equivalents) are written only by a standalone, unwired script (`scripts/update_sec_brokers.mjs`) and are **not read by any application code**. Treat as legacy/orphaned; do not add new readers for this pattern — use the `graph:firm-connections:v10:<CRD>` roster mechanism above instead. Confirm with the user before deleting this data since it hasn't been removed yet.
+- These keys are actively read (local-Redis-only, see above) as the top-priority firm-connections source, and are also written by `persistBrokerIdLists()` in `src/lib/graphConnections.ts` (and, for pre-existing firms, by the standalone script `scripts/update_sec_brokers.mjs`) as a mirror for the sibling `dashboard-crds` app.
+- Do not add code that reads these keys from a **cloud** Upstash DB — only local Redis. If a future task needs this roster on Vercel/production, that requires an explicit separate decision (not an automatic extension of this rule).
 
 2. CRD discovery ordering
    - Any code that says or implies "check for new CRDs" must:

@@ -1989,42 +1989,41 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 		}
 	}
 
-	if (liveNode) return liveNode;
-
-	// Graph expand / id lookup are best-effort only and must not block deep-link selection for long.
-	// Shared Redis is multi-tenant — keep these calls short.
-	try {
-		const expansion = await Promise.race([
-			fetchExpansionDataForNodeIds([normalizedNodeId], getDefaultExpansionHops(), {
-				strictHops: true,
-				clickedNodeId: normalizedNodeId,
-				safeFirmExpand: true,
-			}),
-			new Promise<{ nodes: any[]; links: any[] }>((resolve) => setTimeout(() => resolve({ nodes: [], links: [] }), 4000)),
-		]);
-		if (expansion.nodes.length || expansion.links.length) {
-			mergeIntoGraphData(expansion.nodes, expansion.links);
-			appendFetched?.(expansion.nodes, expansion.links);
-			liveNode = layoutNodes?.find((node) => node.id === normalizedNodeId) || graphData?.nodes?.find((node) => node.id === normalizedNodeId) || null;
-		}
-	} catch (error) {
-		console.warn('Failed to expand route-selected node:', error);
-	}
-
-	if (liveNode) return liveNode;
-
-	try {
-		const fetchedNodes = await Promise.race([fetchNodesByIds([normalizedNodeId]), new Promise<any[]>((resolve) => setTimeout(() => resolve([]), 3000))]);
-		if (fetchedNodes.length) {
-			mergeIntoGraphData(fetchedNodes, []);
-			injectNodesById(fetchedNodes.map((node) => node.id));
-			liveNode = layoutNodes?.find((node) => node.id === normalizedNodeId) || graphData?.nodes?.find((node) => node.id === normalizedNodeId) || null;
-		}
-	} catch (error) {
-		console.warn('Failed to fetch route-selected node by id:', error);
-	}
-
+	// Disabled: the graph-expand / nodes-by-ids fallback stages that used to run after direct
+	// detail hydration failed were both best-effort and, for records that are genuinely not
+	// found (e.g. a firm connection card pointing at an individual with no cached detail
+	// record), redundant — they cost extra round-trips and repeated console warnings without
+	// ever resolving the node. If direct detail hydration didn't find the node, give up here.
 	return liveNode;
+}
+
+let routeNodeUnavailableToastTimer: ReturnType<typeof setTimeout> | null = null;
+
+// Clicking a CRD/connection card that isn't cached locally previously failed completely
+// silently (only a console.warn), so the click looked unresponsive/"not clickable". Surface
+// a brief, dismissible toast so it's clear the click was registered but the record isn't
+// available yet (e.g. blocked by the local-dev external-fetch gate).
+function showRouteNodeUnavailableToast(nodeId: string) {
+	if (typeof document === 'undefined') return;
+	const [prefix, rawId] = String(nodeId || '').split(':');
+	const label = prefix === 'firm' ? 'Firm' : 'Individual';
+
+	let toast = document.getElementById('fg-route-unavailable-toast');
+	if (!toast) {
+		toast = document.createElement('div');
+		toast.id = 'fg-route-unavailable-toast';
+		toast.className = 'fg-route-unavailable-toast';
+		toast.setAttribute('role', 'status');
+		toast.setAttribute('aria-live', 'polite');
+		document.body.appendChild(toast);
+	}
+	toast.textContent = `${label} ${rawId || nodeId} isn't available in the local cache yet.`;
+	toast.classList.add('is-visible');
+
+	if (routeNodeUnavailableToastTimer) clearTimeout(routeNodeUnavailableToastTimer);
+	routeNodeUnavailableToastTimer = setTimeout(() => {
+		toast?.classList.remove('is-visible');
+	}, 4000);
 }
 
 const routeNodeSelectionState = {
@@ -2052,7 +2051,20 @@ async function applyPendingRouteNodeSelection() {
 
 	const selectionPromise = (async () => {
 		const liveNode = await ensureRouteNodeAvailable(targetNodeId);
-		if (!liveNode) return false;
+		if (!liveNode) {
+			// Give up on this route selection rather than leaving pendingRouteNodeId set —
+			// otherwise every subsequent loadGraph() call retries the same unresolved node
+			// (e.g. a firm-connection CRD card pointing at an individual with no cached
+			// detail record) and spams the console indefinitely.
+			const latestPendingRouteNodeId = String(pendingRouteNodeId || '').trim();
+			if (latestPendingRouteNodeId === targetNodeId) {
+				pendingRouteNodeId = null;
+				pendingRouteAutoExpand = false;
+				pendingRouteForceAutoExpand = false;
+			}
+			showRouteNodeUnavailableToast(targetNodeId);
+			return false;
+		}
 
 		const latestPendingRouteNodeId = String(pendingRouteNodeId || '').trim();
 		if (selectionSeq !== routeNodeSelectionState.seq && latestPendingRouteNodeId && latestPendingRouteNodeId !== targetNodeId) {
@@ -15464,7 +15476,10 @@ function renderPersonDetail(d: any) {
 		}
 		return true;
 	});
-	const personSummaryLine = crd ? `CRD#: ${esc(String(crd))}` : '';
+	const personSummaryLine =
+		crd ?
+			`CRD#: <button type="button" class="fg-crd-link" data-crd="${esc(String(crd))}" data-crd-type="person" title="Focus this person">${esc(String(crd))}</button>`
+		:	'';
 
 	return `
     <div class="fg-sb-header individual">
@@ -16311,7 +16326,9 @@ function renderFirmDetail(d: any) {
 		return raw;
 	};
 	const secFirmId = normalizeSecFirmId(d.iaSecNumber || d.bdSecNumber || d.bdSECNumber || d.basicInformation?.iaSECNumber || d.basicInformation?.bdSECNumber);
-	const crdSec = [firmId ? `CRD#: ${firmId}` : null, secFirmId ? `SEC#: ${secFirmId}` : null].filter(Boolean).join(' / ');
+	const crdSecCrdHtml = firmId ? `CRD#: <button type="button" class="fg-crd-link" data-crd="${esc(String(firmId))}" data-crd-type="firm" title="Focus this firm">${esc(String(firmId))}</button>` : null;
+	const crdSecSecHtml = secFirmId ? `SEC#: ${esc(secFirmId)}` : null;
+	const crdSec = [crdSecCrdHtml, crdSecSecHtml].filter(Boolean).join(' / ');
 	const secSummaryUrl = firmId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(firmId)}` : null;
 	const secDocumentLinks =
 		hasSecPage ?
@@ -16449,7 +16466,7 @@ function renderFirmDetail(d: any) {
 			<div class="fg-firm-summary">
 				<div class="fg-firm-summary__header">
 					${d.otherNames?.length ? `<div class="fg-firm-summary__aliases">${escImpl(d.otherNames.map((n) => formatOtherNameImpl(n, true)).join(', '))}</div>` : ''}
-					${crdSec ? `<div class="fg-firm-summary__crd">${esc(crdSec)}</div>` : ''}
+					${crdSec ? `<div class="fg-firm-summary__crd">${crdSec}</div>` : ''}
 				</div>
 				${
 					hasOfficeAddress ?
