@@ -3,7 +3,7 @@ import { Urbanist } from 'next/font/google';
 import AnalyticsRouteBridge from '@/components/AnalyticsRouteBridge';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
 import AnalyticsClient from '@/components/AnalyticsClient';
-import { SpeedInsights } from "@vercel/speed-insights/next";
+import SpeedInsightsClient from '@/components/SpeedInsightsClient';
 import './globals.css';
 
 const urbanist = Urbanist({
@@ -121,7 +121,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 				{process.env.NODE_ENV === 'production' ?
 					<AnalyticsClient />
 				:	null}
-				<SpeedInsights />
+				<SpeedInsightsClient />
 			</body>
 		</html>
 	);
