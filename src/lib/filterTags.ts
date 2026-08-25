@@ -121,12 +121,12 @@ export function subscribeFilterText(cb: (text: string) => void): () => void {
 	};
 }
 
-/** True if `haystack` (already lowercased) contains every tag and the live text (all case-insensitive, AND logic). */
+/** True if `haystack` matches the filter: tags are OR'd together (any tag may match), and
+ * the live text (if present) is applied as an additional AND filter on top of that OR match.
+ * All comparisons are case-insensitive substring matches. */
 export function matchesFilterTags(haystack: string, tags: string[], liveText?: string): boolean {
 	const lower = haystack.toLowerCase();
-	for (const tag of tags) {
-		if (!lower.includes(tag.toLowerCase())) return false;
-	}
+	if (tags.length > 0 && !tags.some((tag) => lower.includes(tag.toLowerCase()))) return false;
 	const trimmedLive = (liveText || '').trim().toLowerCase();
 	if (trimmedLive && !lower.includes(trimmedLive)) return false;
 	return true;

@@ -4327,9 +4327,9 @@ function DashboardPageInner() {
 											{currentRecordEntity === 'firm' && connectionsLoadingFirmId === currentRecordId ?
 												null
 											:	(() => {
-													const matchesConnectionsFilter = (item: { title?: string; subtitle?: string; meta?: string; crd?: string }) => {
+													const matchesConnectionsFilter = (item: { title?: string; subtitle?: string; meta?: string; crd?: string; otherNames?: string[] }) => {
 														if (connectionsFilterTags.length === 0 && !connectionsFilterQuery.trim()) return true;
-														const haystack = [item.title, item.subtitle, item.meta, item.crd].filter(Boolean).join(' ');
+														const haystack = [item.title, item.subtitle, item.meta, item.crd, ...(item.otherNames || [])].filter(Boolean).join(' ');
 														return matchesFilterTags(haystack, connectionsFilterTags, connectionsFilterQuery);
 													};
 													const filteredCurrentConnectionCards = detailedMainRecord.currentConnectionCards.filter(matchesConnectionsFilter);
