@@ -6,6 +6,12 @@ let localIoRedis: IORedis | null = null;
 // invocation which adds latency and extra resource usage.
 const upstashClientCache = new Map<string, UpstashRedis>();
 
+function decodeRedisResult(value: any): any {
+	if (Buffer.isBuffer(value)) return value.toString('utf-8');
+	if (Array.isArray(value)) return value.map(decodeRedisResult);
+	return value;
+}
+
 async function executeLocalRequest(req: any): Promise<any> {
 	if (!localIoRedis) {
 		localIoRedis = new IORedis('redis://127.0.0.1:6379');
@@ -25,11 +31,11 @@ async function executeLocalRequest(req: any): Promise<any> {
 			pipeline.sendCommand(new IORedis.Command(cmd[0], cmd.slice(1)));
 		});
 		const res = await pipeline.exec();
-		return res?.map((r) => (r[0] ? { error: r[0].message } : { result: r[1] }));
+		return res?.map((r) => (r[0] ? { error: r[0].message } : { result: decodeRedisResult(r[1]) }));
 	} else if (Array.isArray(body)) {
 		try {
 			const res = await localIoRedis.sendCommand(new IORedis.Command(body[0], body.slice(1)));
-			return { result: res };
+			return { result: decodeRedisResult(res) };
 		} catch (e: any) {
 			return { error: e.message };
 		}
@@ -37,6 +43,7 @@ async function executeLocalRequest(req: any): Promise<any> {
 		return { error: 'Invalid payload' };
 	}
 }
+
 
 export function getRedisClientInstance(config: { url: string; token: string }) {
 	const isLocalhost = process.env.USE_LOCAL_REDIS === '1';
