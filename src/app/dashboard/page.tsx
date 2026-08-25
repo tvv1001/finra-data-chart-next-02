@@ -9,6 +9,7 @@ import { getRecordDisplayName } from '../../lib/recordDisplay';
 import { formatOtherName } from '@/lib/finra-graph/formatters';
 import { buildPersonName, formatEntityName, formatFirmName, formatPersonName } from '@/lib/nameFormat';
 import { hasFirmSourceCoverage, hasIndividualSourceCoverage } from '@/lib/sourceTruth';
+import { getFilterTags, getFilterText, matchesFilterTags, setFilterTags, setFilterText, subscribeFilterTags, subscribeFilterText } from '@/lib/filterTags';
 import VectorLoader from '@/components/VectorLoader';
 import styles from './dashboard.module.css';
 
@@ -1243,6 +1244,68 @@ function OrphanProfileLinks({ parentCrd, parentType = 'firm' }: { parentCrd: str
 	);
 }
 
+/**
+ * Tag-based "Filter connections…" input shared by the dashboard's Current/Previous
+ * Connections filter and (conceptually) mirrored by the graph sidebar's equivalent
+ * filter — both read/write the same localStorage-backed state in `src/lib/filterTags.ts`
+ * so committed tags stay in sync across the dashboard and graph pages/tabs.
+ * Typing text and pressing Enter (or comma) converts it into a removable tag chip;
+ * matching uses AND logic across all committed tags plus the live (uncommitted) text.
+ */
+function FilterTagsInput({
+	tags,
+	liveText,
+	onTagsChange,
+	onLiveTextChange,
+	placeholder,
+}: {
+	tags: string[];
+	liveText: string;
+	onTagsChange: (tags: string[]) => void;
+	onLiveTextChange: (text: string) => void;
+	placeholder?: string;
+}) {
+	const commitLiveTextAsTag = useCallback(() => {
+		const trimmed = liveText.trim();
+		if (!trimmed) return;
+		onTagsChange([...tags, trimmed]);
+		onLiveTextChange('');
+	}, [liveText, tags, onTagsChange, onLiveTextChange]);
+
+	return (
+		<div className={styles.filterTagsWrap}>
+			{tags.map((tag) => (
+				<span key={tag} className={styles.filterTagChip}>
+					{tag}
+					<button
+						type='button'
+						className={styles.filterTagChipRemove}
+						aria-label={`Remove filter tag ${tag}`}
+						onClick={() => onTagsChange(tags.filter((t) => t !== tag))}>
+						×
+					</button>
+				</span>
+			))}
+			<input
+				type='text'
+				value={liveText}
+				onChange={(event) => onLiveTextChange(event.target.value)}
+				onKeyDown={(event) => {
+					if (event.key === 'Enter' || event.key === ',') {
+						event.preventDefault();
+						commitLiveTextAsTag();
+					} else if (event.key === 'Backspace' && !liveText && tags.length > 0) {
+						onTagsChange(tags.slice(0, -1));
+					}
+				}}
+				onBlur={commitLiveTextAsTag}
+				placeholder={tags.length ? 'Add another filter…' : placeholder || 'Filter connections…'}
+				className={styles.filterTagsInput}
+			/>
+		</div>
+	);
+}
+
 function DashboardPageInner() {
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
@@ -1356,10 +1419,28 @@ function DashboardPageInner() {
 	const refreshInFlightByCrdRef = useRef(new Map<string, Promise<any>>());
 	const [connectionsLoadingFirmId, setConnectionsLoadingFirmId] = useState<string | null>(null);
 	const connectionsInFlightByCrdRef = useRef(new Map<string, Promise<any>>());
-	// "Filter connections…" search term for the Current/Previous Connections lists below.
-	// Persists across selecting other records (like the graph sidebar's equivalent filter)
-	// until the user clears or changes it themselves.
-	const [connectionsFilterQuery, setConnectionsFilterQuery] = useState('');
+	// "Filter connections…" tags + live text for the Current/Previous Connections lists below.
+	// Persisted to localStorage (see src/lib/filterTags.ts) so they survive navigation and stay
+	// in sync with the graph sidebar's equivalent filter (and other tabs).
+	const [connectionsFilterTags, setConnectionsFilterTagsState] = useState<string[]>([]);
+	const [connectionsFilterQuery, setConnectionsFilterQueryState] = useState('');
+	useEffect(() => {
+		setConnectionsFilterTagsState(getFilterTags());
+		setConnectionsFilterQueryState(getFilterText());
+		const unsubTags = subscribeFilterTags(setConnectionsFilterTagsState);
+		const unsubText = subscribeFilterText(setConnectionsFilterQueryState);
+		return () => {
+			unsubTags();
+			unsubText();
+		};
+	}, []);
+	const setConnectionsFilterTags = useCallback((tags: string[]) => {
+		setConnectionsFilterTagsState(setFilterTags(tags));
+	}, []);
+	const setConnectionsFilterQuery = useCallback((text: string) => {
+		setConnectionsFilterQueryState(text);
+		setFilterText(text);
+	}, []);
 	// The URL-driven auto-load effect below must only react to *external* navigation (initial
 	// deep link / hard refresh, or a real browser back-forward). If it also reacted every time
 	// `usePathname()` recomputes after our own syncSelectionToUrl() call (used to keep the URL
@@ -4136,11 +4217,10 @@ function DashboardPageInner() {
 													</div>
 												</section>
 											:	(() => {
-													const connectionsFilterQueryNormalized = connectionsFilterQuery.trim().toLowerCase();
 													const matchesConnectionsFilter = (item: { title?: string; subtitle?: string; meta?: string; crd?: string }) => {
-														if (!connectionsFilterQueryNormalized) return true;
-														const haystack = [item.title, item.subtitle, item.meta, item.crd].filter(Boolean).join(' ').toLowerCase();
-														return haystack.includes(connectionsFilterQueryNormalized);
+														if (connectionsFilterTags.length === 0 && !connectionsFilterQuery.trim()) return true;
+														const haystack = [item.title, item.subtitle, item.meta, item.crd].filter(Boolean).join(' ');
+														return matchesFilterTags(haystack, connectionsFilterTags, connectionsFilterQuery);
 													};
 													const filteredCurrentConnectionCards = detailedMainRecord.currentConnectionCards.filter(matchesConnectionsFilter);
 													const filteredPreviousConnectionCards = detailedMainRecord.previousConnectionCards.filter(matchesConnectionsFilter);
@@ -4148,13 +4228,12 @@ function DashboardPageInner() {
 													return (
 														<>
 															{(detailedMainRecord.currentConnectionCards.length > 0 || detailedMainRecord.previousConnectionCards.length > 0) && (
-																<input
-																	type='text'
-																	value={connectionsFilterQuery}
-																	onChange={(event) => setConnectionsFilterQuery(event.target.value)}
+																<FilterTagsInput
+																	tags={connectionsFilterTags}
+																	liveText={connectionsFilterQuery}
+																	onTagsChange={setConnectionsFilterTags}
+																	onLiveTextChange={setConnectionsFilterQuery}
 																	placeholder='Filter connections…'
-																	className={styles.input}
-																	style={{ width: '100%', marginBottom: '8px' }}
 																/>
 															)}
 

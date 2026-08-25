@@ -48,6 +48,7 @@ import { buildParentFirmSummaryLinks } from './finra-graph/externalLinks';
 import { resolveIndividualSourceDetail, hasIndividualSourceCoverage } from './sourceTruth';
 import { normalizeNodeRouteId, buildNodeRoutePath } from './node-route';
 import { requestRender } from './finra-graph-canvas';
+import { getFilterTags, getFilterText, matchesFilterTags, setFilterTags, setFilterText, subscribeFilterTags, subscribeFilterText } from './filterTags';
 
 // API base. When VITE_API_URL is not set, use relative paths so the dev
 // server proxy (`/api`) is used and we don't hardcode a backend port.
@@ -2183,11 +2184,23 @@ let selectedNodesLog: Array<SelectionLogEntry> = [];
 let sidebarSelectedNode = null;
 let sidebarLogSticky = false; // true if user has explicitly opened log toggle
 let sidebarSourceToggle = 'finra';
-// Persists the sidebar "Filter connections…" search term across node selections
-// (renderSidebar() re-renders the whole panel on every click, which would
-// otherwise wipe out whatever the user typed). Cleared only when the user
-// clears/changes the input themselves.
-let sidebarConnectionsFilterQuery = '';
+// Persists the sidebar "Filter connections…" search term and tags across node selections
+// (renderSidebar() re-renders the whole panel on every click, which would otherwise wipe out
+// whatever the user typed). Backed by localStorage (see ./filterTags.ts) so it also stays in
+// sync with the dashboard's Current/Previous Connections filter and survives navigation.
+let sidebarConnectionsFilterQuery = getFilterText();
+let sidebarConnectionsFilterTags: string[] = getFilterTags();
+if (typeof window !== 'undefined') {
+	// Keep the sidebar's filter state in sync when the dashboard (or another tab) changes it.
+	subscribeFilterTags((tags) => {
+		sidebarConnectionsFilterTags = tags;
+		renderSidebar(sidebarSelectedNode);
+	});
+	subscribeFilterText((text) => {
+		sidebarConnectionsFilterQuery = text;
+		renderSidebar(sidebarSelectedNode);
+	});
+}
 let isTraceMode = false;
 let isTraceLogMode = false;
 let isSelectionLogBold = false;
@@ -6225,22 +6238,54 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 	// Inline sanction loader: delegate clicks on disclosure links and fetch full text
 	const sidebarInner = document.getElementById('fg-sidebar-inner');
 	if (sidebarInner) {
+		const findFilterScope = (input: HTMLElement): HTMLElement | null => {
+			const row = input.closest('.fg-connections-filter-row') as HTMLElement | null;
+			return (
+				row?.nextElementSibling?.classList.contains('fg-connections-filter-scope') ?
+					(row.nextElementSibling as HTMLElement)
+				:	(input.closest('.fg-connections-filter-scope') as HTMLElement | null)
+			);
+		};
 		if (!(sidebarInner as any).dataset.fgConnectionsFilterBound) {
 			(sidebarInner as any).dataset.fgConnectionsFilterBound = '1';
 			sidebarInner.addEventListener('input', (ev) => {
 				const target = ev.target as HTMLElement | null;
 				const input = (target?.closest ? target.closest('.fg-connections-filter') : null) as HTMLInputElement | null;
 				if (!input) return;
-				const row = input.closest('.fg-connections-filter-row') as HTMLElement | null;
-				const scope = (
-					row?.nextElementSibling?.classList.contains('fg-connections-filter-scope') ?
-						row.nextElementSibling
-					:	(input.closest('.fg-connections-filter-scope') as HTMLElement | null)) as HTMLElement | null;
+				const scope = findFilterScope(input);
 				if (!scope) return;
 				// Remember the term so it survives the next renderSidebar() re-render
 				// (e.g. clicking another node), instead of resetting on every click.
 				sidebarConnectionsFilterQuery = input.value;
-				applyConnectionsFilterToScope(scope, input.value);
+				setFilterText(input.value);
+				applyConnectionsFilterToScope(scope, sidebarConnectionsFilterTags, input.value);
+			});
+			sidebarInner.addEventListener('keydown', (ev) => {
+				const keyEv = ev as KeyboardEvent;
+				const target = keyEv.target as HTMLElement | null;
+				const input = (target?.closest ? target.closest('.fg-connections-filter') : null) as HTMLInputElement | null;
+				if (!input) return;
+				if (keyEv.key === 'Enter' || keyEv.key === ',') {
+					keyEv.preventDefault();
+					const trimmed = input.value.trim();
+					if (!trimmed) return;
+					sidebarConnectionsFilterTags = setFilterTags([...sidebarConnectionsFilterTags, trimmed]);
+					sidebarConnectionsFilterQuery = '';
+					setFilterText('');
+					renderSidebar(sidebarSelectedNode);
+				} else if (keyEv.key === 'Backspace' && !input.value && sidebarConnectionsFilterTags.length > 0) {
+					sidebarConnectionsFilterTags = setFilterTags(sidebarConnectionsFilterTags.slice(0, -1));
+					renderSidebar(sidebarSelectedNode);
+				}
+			});
+			sidebarInner.addEventListener('click', (ev) => {
+				const target = ev.target as HTMLElement | null;
+				const removeBtn = (target?.closest ? target.closest('.fg-filter-tag-remove') : null) as HTMLElement | null;
+				if (!removeBtn) return;
+				ev.preventDefault();
+				const tag = removeBtn.getAttribute('data-fg-filter-tag') || '';
+				sidebarConnectionsFilterTags = setFilterTags(sidebarConnectionsFilterTags.filter((t) => t !== tag));
+				renderSidebar(sidebarSelectedNode);
 			});
 		}
 		sidebarInner.addEventListener('click', async (ev) => {
@@ -14684,12 +14729,12 @@ function renderSidebarSelectionLogBody() {
 // titles/timelines left with no visible cards. Shared by the live 'input'
 // listener and renderSidebar() (so a persisted query re-applies after a
 // re-render triggered by selecting a different node).
-function applyConnectionsFilterToScope(scope: HTMLElement, rawQuery: string) {
-	const query = (rawQuery || '').trim().toLowerCase();
+function applyConnectionsFilterToScope(scope: HTMLElement, tags: string[], liveText: string) {
+	const active = tags.length > 0 || Boolean((liveText || '').trim());
 	const cards = scope.querySelectorAll<HTMLElement>('[data-fg-filter-text]');
 	cards.forEach((card) => {
 		const text = card.getAttribute('data-fg-filter-text') || '';
-		card.classList.toggle('fg-filter-hidden', Boolean(query) && !text.includes(query));
+		card.classList.toggle('fg-filter-hidden', active && !matchesFilterTags(text, tags, liveText));
 	});
 	// Hide section titles/timelines that have no visible cards left
 	const sections = scope.querySelectorAll<HTMLElement>('[data-fg-connections-section]');
@@ -14697,10 +14742,30 @@ function applyConnectionsFilterToScope(scope: HTMLElement, rawQuery: string) {
 		const timelineEl = titleEl.nextElementSibling as HTMLElement | null;
 		if (!timelineEl || !timelineEl.classList.contains('fg-timeline')) return;
 		const visibleCount = timelineEl.querySelectorAll('[data-fg-filter-text]:not(.fg-filter-hidden)').length;
-		const shouldHide = Boolean(query) && visibleCount === 0;
+		const shouldHide = active && visibleCount === 0;
 		titleEl.classList.toggle('fg-filter-hidden', shouldHide);
 		timelineEl.classList.toggle('fg-filter-hidden', shouldHide);
 	});
+}
+
+// Renders the tag chips + live-text input for the sidebar's "Filter connections…" row,
+// mirroring the dashboard's FilterTagsInput (src/app/dashboard/page.tsx) so both surfaces
+// share the same look/behavior and the same underlying localStorage state (./filterTags.ts).
+function renderConnectionsFilterTagsHtml() {
+	const chips = sidebarConnectionsFilterTags
+		.map(
+			(tag) =>
+				`<span class="fg-filter-tag-chip" style="display:inline-flex;align-items:center;gap:4px;padding:3px 6px 3px 8px;border-radius:12px;background:rgba(59,130,246,0.18);border:1px solid rgba(59,130,246,0.45);color:var(--fg-text);font-size:11px;font-weight:600;white-space:nowrap;">${esc(
+					tag,
+				)}<button type="button" class="fg-filter-tag-remove" data-fg-filter-tag="${esc(tag).replace(/"/g, '&quot;')}" aria-label="Remove filter tag ${esc(
+					tag,
+				)}" style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border:none;border-radius:50%;background:transparent;color:inherit;cursor:pointer;font-size:11px;line-height:1;padding:0;">×</button></span>`,
+		)
+		.join('');
+	return `<div class="fg-filter-tags-wrap" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;width:100%;padding:4px 6px;border:1px solid var(--fg-border);border-radius:6px;background:var(--fg-bg-secondary);">
+		${chips}
+		<input type="text" class="fg-connections-filter" placeholder="${sidebarConnectionsFilterTags.length ? 'Add another filter…' : 'Filter connections…'}" value="${sidebarConnectionsFilterQuery.replace(/"/g, '&quot;')}" style="flex:1 1 120px;min-width:120px;border:none;outline:none;background:transparent;color:var(--fg-text);font-size:12px;padding:4px;" />
+	</div>`;
 }
 
 function renderSidebar(d) {
@@ -14777,11 +14842,11 @@ function renderSidebar(d) {
 		d.group === 'firm' ? renderFirmDetail(d)
 		: d.group === 'entity' ? renderEntityDetail(d)
 		: renderPersonDetail(d);
-	// Re-apply the persisted connections filter query, since the freshly rendered
+	// Re-apply the persisted connections filter (tags + live text), since the freshly rendered
 	// cards above start fully visible regardless of any earlier filtering.
-	if (sidebarConnectionsFilterQuery) {
+	if (sidebarConnectionsFilterQuery || sidebarConnectionsFilterTags.length > 0) {
 		el.querySelectorAll<HTMLElement>('.fg-connections-filter-scope').forEach((scope) => {
-			applyConnectionsFilterToScope(scope, sidebarConnectionsFilterQuery);
+			applyConnectionsFilterToScope(scope, sidebarConnectionsFilterTags, sidebarConnectionsFilterQuery);
 		});
 	}
 	if (sidebarViewMode === 'log') {
@@ -16639,7 +16704,7 @@ function renderFirmDetail(d: any) {
 			${
 				connections.length || currentConnections.length || previousConnections.length ?
 					`<div class="fg-connections-filter-row fg-connections-filter-row--sticky" style="margin: 8px 0;">
-						<input type="text" class="fg-connections-filter" placeholder="Filter connections…" value="${sidebarConnectionsFilterQuery.replace(/"/g, '&quot;')}" style="width: 100%; padding: 4px 8px; border: 1px solid var(--fg-border); border-radius: 4px; background: var(--fg-bg-secondary); color: var(--fg-text);" />
+						${renderConnectionsFilterTagsHtml()}
 					</div>`
 				:	''
 			}
