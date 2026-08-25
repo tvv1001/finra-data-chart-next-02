@@ -3774,48 +3774,6 @@ function DashboardPageInner() {
 												</div>
 											</section>
 
-											{detailedMainRecord.basicInformation && Object.keys(detailedMainRecord.basicInformation).length > 0 && (
-												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Basic Information</h4>
-													<div className={styles.detailRawList}>
-														{Object.entries(detailedMainRecord.basicInformation).map(([key, value]) => {
-															if (value == null || typeof value === 'object' || String(value).trim() === '') return null;
-															// District Name/Firm Type/Formed State/Firm Size are already surfaced
-															// prominently in the record header's quick-facts panel for firms.
-															if (currentRecordEntity === 'firm' && ['districtName', 'firmType', 'formedState', 'firmSize'].includes(key)) return null;
-															return (
-																<div
-																	key={key}
-																	className={styles.detailRawItem}>
-																	<div className={styles.detailRawLabel}>{key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}</div>
-																	<div className={styles.detailRawValue}>{String(value)}</div>
-																</div>
-															);
-														})}
-													</div>
-												</section>
-											)}
-
-											{(detailedMainRecord.bdDisclosureFlag || detailedMainRecord.iaDisclosureFlag) && (
-												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Disclosures</h4>
-													<div className={styles.detailRawList}>
-														{detailedMainRecord.bdDisclosureFlag && (
-															<div className={styles.detailRawItem}>
-																<div className={styles.detailRawLabel}>BD Disclosure Flag</div>
-																<div className={styles.detailRawValue}>{detailedMainRecord.bdDisclosureFlag}</div>
-															</div>
-														)}
-														{detailedMainRecord.iaDisclosureFlag && (
-															<div className={styles.detailRawItem}>
-																<div className={styles.detailRawLabel}>IA Disclosure Flag</div>
-																<div className={styles.detailRawValue}>{detailedMainRecord.iaDisclosureFlag}</div>
-															</div>
-														)}
-													</div>
-												</section>
-											)}
-
 											{detailedMainRecord.crs && (
 												<section className={styles.detailSection}>
 													<h4 className={styles.detailSectionTitle}>Form CRS</h4>
