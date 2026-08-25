@@ -3150,7 +3150,7 @@
 }
 
 .currentConnectionOtherNames {
-	color: #94a3b8;
+	color: #de91cf;
 	font-size: 14px;
 	font-style: italic;
 }
@@ -3221,7 +3221,7 @@
 	display: flex;
 	align-items: center;
 	gap: 12px;
-	text-transform: uppercase;
+	text-transform: capitalize;
 	letter-spacing: 2px;
 	position: relative;
 	z-index: 1;
@@ -3254,7 +3254,7 @@
 .orangeVectorLabel {
 	font-size: 0.9rem;
 	opacity: 0.9;
-	text-transform: uppercase;
+	text-transform: capitalize;
 	letter-spacing: 1px;
 }
 
@@ -3278,7 +3278,7 @@
 	font-weight: 600;
 	color: #888;
 	margin-bottom: 8px;
-	text-transform: uppercase;
+	text-transform: capitalize;
 }
 
 .registeredStatesList {

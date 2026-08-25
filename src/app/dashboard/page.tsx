@@ -6,7 +6,7 @@ import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState, 
 import { buildJsonDisplayTree, coerceStructuredValue, normalizeRenderablePayload, renderJsonForDisplay } from '../../lib/dashboard-json';
 import { resolveMainRecordTitle } from '../../lib/dashboard-record-title';
 import { getRecordDisplayName } from '../../lib/recordDisplay';
-import { formatOtherName } from '@/lib/finra-graph/formatters';
+import { formatOtherName, formatUiText } from '@/lib/finra-graph/formatters';
 import { buildPersonName, formatEntityName, formatFirmName, formatPersonName } from '@/lib/nameFormat';
 import { hasFirmSourceCoverage, hasIndividualSourceCoverage } from '@/lib/sourceTruth';
 import { getFilterTags, getFilterText, matchesFilterTags, setFilterTags, setFilterText, subscribeFilterTags, subscribeFilterText } from '@/lib/filterTags';
@@ -3599,7 +3599,7 @@ function DashboardPageInner() {
 															{orphanRecord.position && (
 																<div className={styles.detailRow}>
 																	<div className={styles.detailTextRow}>
-																		<strong>Position:</strong> {orphanRecord.position}
+																		<strong>Position:</strong> {formatUiText(orphanRecord.position)}
 																	</div>
 																</div>
 															)}
@@ -3643,7 +3643,7 @@ function DashboardPageInner() {
 																		<span className={styles.detailRowName}>{formatFirmName(orphanRecord.firmName)}</span>
 																		<span className={styles.detailInlineTag}>CRD#{orphanRecord.parentCrd}</span>
 																	</div>
-																	<div className={styles.detailRowMeta}>{orphanRecord.position}</div>
+																	<div className={styles.detailRowMeta}>{formatUiText(orphanRecord.position)}</div>
 																</Link>
 															</div>
 														</section>
@@ -3660,7 +3660,7 @@ function DashboardPageInner() {
 																		<span className={styles.detailRowName}>{formatPersonName(orphanRecord.name)}</span>
 																		<span className={styles.detailInlineTag}>CRD#{orphanRecord.parentCrd}</span>
 																	</div>
-																	<div className={styles.detailRowMeta}>{orphanRecord.position}</div>
+																	<div className={styles.detailRowMeta}>{formatUiText(orphanRecord.position)}</div>
 																</Link>
 															</div>
 														</section>
@@ -3675,7 +3675,7 @@ function DashboardPageInner() {
 																	className={styles.detailInlineTag}>
 																	Individual CRD#{orphanRecord.parentCrd}
 																</Link>
-																's employment history{orphanRecord.position ? ` as "${orphanRecord.position}"` : ''}, and has no live CRD of its own.
+																's employment history{orphanRecord.position ? ` as "${formatUiText(orphanRecord.position)}"` : ''}, and has no live CRD of its own.
 															</>
 														:	<>
 																No independent BrokerCheck/SEC record exists for CRD {currentRecordId}. This person was scraped from{' '}
@@ -3684,7 +3684,7 @@ function DashboardPageInner() {
 																	className={styles.detailInlineTag}>
 																	Firm CRD#{orphanRecord.parentCrd}
 																</Link>
-																's own detail record as "{orphanRecord.position}", and has no live CRD of its own.
+																's own detail record as "{formatUiText(orphanRecord.position)}", and has no live CRD of its own.
 															</>
 														}
 													</div>
@@ -3843,7 +3843,7 @@ function DashboardPageInner() {
 															const startDate = pickFirstNonEmpty(row.registrationBeginDate, row.effectiveDate, row.startDate);
 															const dateStr = startDate ? `Since ${startDate}` : '';
 															const metaParts = [address, dateStr].filter(Boolean);
-															const metaLine = metaParts.length > 0 ? metaParts.join(' • ') : pickFirstNonEmpty(row.position, row.currentRegistration, row.status);
+															const metaLine = metaParts.length > 0 ? metaParts.join(' • ') : formatUiText(pickFirstNonEmpty(row.position, row.currentRegistration, row.status));
 
 															const content = (
 																<>
@@ -3893,7 +3893,7 @@ function DashboardPageInner() {
 															else if (startDate) dateStr = startDate;
 
 															const metaParts = [address, dateStr].filter(Boolean);
-															const metaLine = metaParts.length > 0 ? metaParts.join(' • ') : pickFirstNonEmpty(row.position, row.currentRegistration, row.status);
+															const metaLine = metaParts.length > 0 ? metaParts.join(' • ') : formatUiText(pickFirstNonEmpty(row.position, row.currentRegistration, row.status));
 
 															const content = (
 																<>
@@ -3970,7 +3970,7 @@ function DashboardPageInner() {
 														{detailedMainRecord.directOwners.map((row, idx) => {
 															const crd = pickFirstValidCrd(row.crdNumber, row.crd, row.individualId);
 															const name = resolveEntityNodeLabel(row, 'individual', crd, idx);
-															const position = pickFirstNonEmpty(row.position, row.title);
+															const position = formatUiText(pickFirstNonEmpty(row.position, row.title));
 															const acquiredDate = pickFirstNonEmpty(row.acquiredDate, row.dateAcquired, row.startDate);
 															const addressText = [toText(row.city), toText(row.state)].filter(Boolean).join(', ');
 															const metaParts = [position, acquiredDate ? `Acquired: ${acquiredDate}` : '', addressText].filter(Boolean);
@@ -4015,7 +4015,7 @@ function DashboardPageInner() {
 														{detailedMainRecord.indirectOwners.map((row, idx) => {
 															const crd = pickFirstValidCrd(row.crdNumber, row.crd, row.individualId);
 															const name = resolveEntityNodeLabel(row, 'individual', crd, idx);
-															const position = pickFirstNonEmpty(row.position, row.title);
+															const position = formatUiText(pickFirstNonEmpty(row.position, row.title));
 															const acquiredDate = pickFirstNonEmpty(row.acquiredDate, row.dateAcquired, row.startDate);
 															const addressText = [toText(row.city), toText(row.state)].filter(Boolean).join(', ');
 															const metaParts = [position, acquiredDate ? `Acquired: ${acquiredDate}` : '', addressText].filter(Boolean);
@@ -4259,7 +4259,9 @@ function DashboardPageInner() {
 																						)}
 																					</div>
 																					{item.otherNames && item.otherNames.length > 0 && (
-																						<div className={`${styles.detailRowMeta} ${styles.currentConnectionOtherNames}`}>Also known as: {item.otherNames.join(', ')}</div>
+																						<div className={`${styles.detailRowMeta} ${styles.currentConnectionOtherNames}`}>
+																							Also known as: {item.otherNames.map((n) => formatOtherName(n, false)).join(', ')}
+																						</div>
 																					)}
 																					{item.subtitle && <div className={`${styles.detailRowMeta} ${styles.currentConnectionMeta}`}>{item.subtitle}</div>}
 																				</>
@@ -4300,7 +4302,9 @@ function DashboardPageInner() {
 																						{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
 																					</div>
 																					{item.otherNames && item.otherNames.length > 0 && (
-																						<div className={`${styles.detailRowMeta} ${styles.previousConnectionOtherNames}`}>Also known as: {item.otherNames.join(', ')}</div>
+																						<div className={`${styles.detailRowMeta} ${styles.previousConnectionOtherNames}`}>
+																							Also known as: {item.otherNames.map((n) => formatOtherName(n, false)).join(', ')}
+																						</div>
 																					)}
 																					{item.subtitle && <div className={`${styles.detailRowMeta} ${styles.previousConnectionMeta}`}>{item.subtitle}</div>}
 																				</>

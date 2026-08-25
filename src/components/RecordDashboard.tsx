@@ -293,7 +293,7 @@ export default function RecordDashboard() {
 						gap: 16,
 					}}>
 					<div>
-						<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#6b7280' }}>Dashboard</div>
+						<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'capitalize', color: '#6b7280' }}>Dashboard</div>
 						<h1 style={{ margin: '6px 0 4px', fontSize: 28 }}>{displayMeta.title}</h1>
 						<p style={{ margin: 0, color: '#4b5563' }}>{displayMeta.subtitle}</p>
 					</div>
@@ -314,7 +314,7 @@ export default function RecordDashboard() {
 							alignContent: 'start',
 						}}>
 						<div>
-							<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 8 }}>Selection summary</div>
+							<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'capitalize', color: '#6b7280', marginBottom: 8 }}>Selection summary</div>
 							<h2 style={{ margin: '0 0 8px', fontSize: 22 }}>{displayMeta.title}</h2>
 							<p style={{ margin: 0, color: '#4b5563' }}>{displayMeta.subtitle}</p>
 						</div>
@@ -322,7 +322,7 @@ export default function RecordDashboard() {
 						{error && <div style={{ color: 'crimson' }}>{error}</div>}
 						{summary.keyFacts.length > 0 && (
 							<div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
-								<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 8 }}>Highlights</div>
+								<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'capitalize', color: '#6b7280', marginBottom: 8 }}>Highlights</div>
 								<ul style={{ paddingLeft: 18, margin: 0, display: 'grid', gap: 8 }}>
 									{summary.keyFacts.map((fact) => (
 										<li
@@ -336,7 +336,7 @@ export default function RecordDashboard() {
 						)}
 						{detailSections.length > 0 && (
 							<div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
-								<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 8 }}>Quick facts</div>
+								<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'capitalize', color: '#6b7280', marginBottom: 8 }}>Quick facts</div>
 								<div style={{ display: 'grid', gap: 8 }}>
 									{detailSections.map((section) => (
 										<div key={section.label}>
@@ -350,7 +350,7 @@ export default function RecordDashboard() {
 					</aside>
 					<div style={{ display: 'grid', gap: 16 }}>
 						<section style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 16, padding: 20, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.06)' }}>
-							<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 8 }}>Overview</div>
+							<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'capitalize', color: '#6b7280', marginBottom: 8 }}>Overview</div>
 							<div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
 								{displayMeta.overviewCards.map((item) => (
 									<div
@@ -363,7 +363,7 @@ export default function RecordDashboard() {
 							</div>
 						</section>
 						<section style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 16, padding: 20, boxShadow: '0 8px 24px rgba(15, 23, 42, 0.06)' }}>
-							<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 12 }}>Raw payload</div>
+							<div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'capitalize', color: '#6b7280', marginBottom: 12 }}>Raw payload</div>
 							{detail ?
 								<pre style={{ whiteSpace: 'pre-wrap', background: '#111827', color: '#f9fafb', padding: 16, borderRadius: 12, overflowX: 'auto', margin: 0 }}>{detailBody}</pre>
 							:	<div style={{ color: '#6b7280' }}>No record loaded yet.</div>}

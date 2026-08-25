@@ -702,7 +702,7 @@ body {
 .fg-viewport-debug__title {
 	font: 700 12px/1.2 var(--sans);
 	letter-spacing: 0.02em;
-	text-transform: uppercase;
+	text-transform: capitalize;
 	color: #fbbf24;
 	margin-bottom: 2px;
 }
@@ -2776,7 +2776,7 @@ a,
 	font-size: 11px;
 	font-weight: 700;
 	letter-spacing: 0.06em;
-	text-transform: uppercase;
+	text-transform: capitalize;
 	color: var(--text-m);
 }
 
@@ -4150,7 +4150,7 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 	margin: 0 0 8px;
 	font: 800 11px/1 var(--sans);
 	letter-spacing: 0.08em;
-	text-transform: uppercase;
+	text-transform: capitalize;
 	color: #93c5fd;
 	display: inline-block;
 }
@@ -5330,7 +5330,7 @@ html[data-theme='dark'] .fg-crd-paste-import {
 .fg-mns-small {
 	font-size: 11px;
 	font-weight: 600;
-	text-transform: uppercase;
+	text-transform: capitalize;
 	letter-spacing: 0.05em;
 	color: var(--text-muted);
 	margin: 0 0 8px 0;
@@ -5742,7 +5742,7 @@ button[type='submit'],
 	display: inline-flex;
 }
 .banner-context-meta-label {
-	text-transform: uppercase;
+	text-transform: capitalize;
 	letter-spacing: 0.08em;
 	color: var(--text-muted);
 	font-size: 0.68rem;
@@ -5798,7 +5798,7 @@ button[type='submit'],
 	border-color: #10b98199;
 }
 .current-crd-label {
-	text-transform: uppercase;
+	text-transform: capitalize;
 	letter-spacing: 0.1em;
 	color: var(--cyan);
 	margin-bottom: 3px;
@@ -5990,7 +5990,7 @@ button[type='submit'],
 }
 .record-detail-other-names-label {
 	letter-spacing: 0.08em;
-	text-transform: uppercase;
+	text-transform: capitalize;
 	color: var(--text-muted);
 	font-size: 0.7rem;
 	font-weight: 800;
@@ -6038,7 +6038,7 @@ button[type='submit'],
 	color: var(--text-muted);
 }
 .record-detail-section-title {
-	text-transform: uppercase;
+	text-transform: capitalize;
 	letter-spacing: 0.06em;
 	color: #cbd5e1;
 	margin: 0;
@@ -6325,7 +6325,7 @@ button[type='submit'],
 }
 .record-side-title {
 	letter-spacing: 0.08em;
-	text-transform: uppercase;
+	text-transform: capitalize;
 	color: var(--text-primary);
 	margin: 0;
 	font-size: 0.8rem;
@@ -6345,7 +6345,7 @@ button[type='submit'],
 	appearance: none;
 	cursor: pointer;
 	letter-spacing: 0.04em;
-	text-transform: uppercase;
+	text-transform: capitalize;
 	border-radius: var(--r-pill);
 	color: var(--text-secondary);
 	background: #240310f2;
@@ -6361,7 +6361,7 @@ button[type='submit'],
 }
 .record-side-badge {
 	letter-spacing: 0.07em;
-	text-transform: uppercase;
+	text-transform: capitalize;
 	color: var(--text-muted);
 	background: var(--surface-3);
 	border: 1px solid #92224652;
