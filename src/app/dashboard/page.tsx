@@ -1169,11 +1169,19 @@ async function hydrateSearchResultCard(card: SearchResultCard): Promise<SearchRe
 			card.entity === 'firm' ?
 				pickFirstNonEmpty(basic?.firmName, merged?.firmName, merged?.name)
 			:	pickFirstNonEmpty([basic?.firstName, basic?.middleName, basic?.lastName].filter(Boolean).join(' '), basic?.name, merged?.name);
-		const label = rawLabel ? (card.entity === 'firm' ? formatFirmName(rawLabel) : formatPersonName(rawLabel)) : card.label;
+		const label =
+			rawLabel ?
+				card.entity === 'firm' ?
+					formatFirmName(rawLabel)
+				:	formatPersonName(rawLabel)
+			:	card.label;
 
 		const scope = pickFirstNonEmpty(merged?.bcScope, basic?.bcScope, merged?.iaScope, basic?.iaScope) || card.scope;
 		const address = extractSearchResultAddress(merged) || extractSearchResultAddress(basic) || card.address;
-		const otherNames = extractSearchResultOtherNames(basic).length ? extractSearchResultOtherNames(basic) : extractSearchResultOtherNames(merged).length ? extractSearchResultOtherNames(merged) : card.otherNames;
+		const otherNames =
+			extractSearchResultOtherNames(basic).length ? extractSearchResultOtherNames(basic)
+			: extractSearchResultOtherNames(merged).length ? extractSearchResultOtherNames(merged)
+			: card.otherNames;
 		const detailText = extractSearchResultDetail(merged) || extractSearchResultDetail(basic) || card.detail;
 
 		return { ...card, label, scope, address, otherNames, detail: detailText };
@@ -2496,7 +2504,10 @@ function DashboardPageInner() {
 			for (const entry of Array.isArray(list) ? list : []) {
 				const crd = String(entry?.individualId || entry?.crd || entry?.personCrd || entry?.firmId || '').trim();
 				if (!crd) continue;
-				const isCurrent = entry?.isCurrent === true ? true : entry?.isCurrent === false ? false : !String(entry?.endDate || '').trim();
+				const isCurrent =
+					entry?.isCurrent === true ? true
+					: entry?.isCurrent === false ? false
+					: !String(entry?.endDate || '').trim();
 				const key = `${crd}:${isCurrent ? '1' : '0'}`;
 				if (seen.has(key)) continue;
 				seen.add(key);
@@ -2836,7 +2847,7 @@ function DashboardPageInner() {
 				if (typeof window !== 'undefined') {
 					const nameForTitle = resolveMainRecordTitle({ mainJsonLabel: resolvedRecordName, fallbackName: resolvedRecordName || null, entity: card.entity, id: card.id });
 					const idPart = card.id ? ` / CRD# ${card.id}` : '';
-					document.title = `dash: ${nameForTitle}${idPart}`;
+					document.title = `${nameForTitle}${idPart}`;
 				}
 			} catch (e) {
 				/* ignore */
@@ -4242,7 +4253,8 @@ function DashboardPageInner() {
 															)}
 														</>
 													);
-												})()}
+												})()
+											}
 
 											{detailedMainRecord?.disclosureSummary && detailedMainRecord.disclosureSummary.length > 0 && (
 												<section

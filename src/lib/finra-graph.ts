@@ -14029,13 +14029,15 @@ function showSidebarHint(options: { keepOpen?: boolean } = {}) {
 }
 
 function updateShortDetail(d) {
+	// #fg-short-detail no longer exists in the current sidebar markup (replaced by
+	// .fg-sb-title), but document.title updates must still happen regardless of
+	// whether that legacy element is present.
 	const el = document.getElementById('fg-short-detail');
-	if (!el) return;
 	if (!d) {
-		el.textContent = '';
+		if (el) el.textContent = '';
 		try {
 			if (typeof window !== 'undefined') {
-				document.title = 'graph';
+				document.title = '';
 			}
 		} catch {}
 		return;
@@ -14044,11 +14046,11 @@ function updateShortDetail(d) {
 	const type = d?.group ? String(d.group).toUpperCase() : 'NODE';
 	const label = getPreferredNodeLabel(d) || 'Selected node';
 	const suffix = id ? ` • ${id}` : '';
-	el.textContent = `${type}: ${label}${suffix}`;
+	if (el) el.textContent = `${type}: ${label}${suffix}`;
 	try {
 		if (typeof window !== 'undefined') {
 			const idLabel = id ? ` / CRD# ${id}` : '';
-			document.title = `graph: ${label}${idLabel}`;
+			document.title = `${label}${idLabel}`;
 		}
 	} catch {}
 }
@@ -15477,9 +15479,7 @@ function renderPersonDetail(d: any) {
 		return true;
 	});
 	const personSummaryLine =
-		crd ?
-			`CRD#: <button type="button" class="fg-crd-link" data-crd="${esc(String(crd))}" data-crd-type="person" title="Focus this person">${esc(String(crd))}</button>`
-		:	'';
+		crd ? `CRD#: <button type="button" class="fg-crd-link" data-crd="${esc(String(crd))}" data-crd-type="person" title="Focus this person">${esc(String(crd))}</button>` : '';
 
 	return `
     <div class="fg-sb-header individual">
@@ -16326,7 +16326,10 @@ function renderFirmDetail(d: any) {
 		return raw;
 	};
 	const secFirmId = normalizeSecFirmId(d.iaSecNumber || d.bdSecNumber || d.bdSECNumber || d.basicInformation?.iaSECNumber || d.basicInformation?.bdSECNumber);
-	const crdSecCrdHtml = firmId ? `CRD#: <button type="button" class="fg-crd-link" data-crd="${esc(String(firmId))}" data-crd-type="firm" title="Focus this firm">${esc(String(firmId))}</button>` : null;
+	const crdSecCrdHtml =
+		firmId ?
+			`CRD#: <button type="button" class="fg-crd-link" data-crd="${esc(String(firmId))}" data-crd-type="firm" title="Focus this firm">${esc(String(firmId))}</button>`
+		:	null;
 	const crdSecSecHtml = secFirmId ? `SEC#: ${esc(secFirmId)}` : null;
 	const crdSec = [crdSecCrdHtml, crdSecSecHtml].filter(Boolean).join(' / ');
 	const secSummaryUrl = firmId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(firmId)}` : null;

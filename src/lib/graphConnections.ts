@@ -581,6 +581,55 @@ async function persistBrokerIdLists(firmId: string, payload: FirmConnectionsPayl
 	}
 }
 
+// Additive-only variant for the broker-id-mirror priority branch: unions newly-validated CRDs
+// (e.g. ones the official-roster backfill just proved via 'current-employment-record'/
+// 'matched-previous-employment' evidence) into the existing _brokers:current|previous keys,
+// but NEVER removes an existing id and never re-derives the lists from scratch. This is safe to
+// call even though the mirror keys are the priority *read* source for this branch, because it
+// can only grow the set, unlike persistBrokerIdLists() which fully recomputes (and can shrink) it.
+async function mergeBrokerIdListsAdditive(firmId: string, payload: FirmConnectionsPayload) {
+	const redis = getRedisClient();
+	if (!redis) return;
+
+	const newlyValidated: Record<'finra' | 'sec', { connected: Set<string>; previous: Set<string> }> = {
+		finra: { connected: new Set(), previous: new Set() },
+		sec: { connected: new Set(), previous: new Set() },
+	};
+	for (const entry of payload.currentConnections || []) {
+		if (!hasValidatedFirmConnectionEvidence(entry)) continue;
+		const id = firstNonEmpty(entry.individualId);
+		if (!id || !/^\d{1,10}$/.test(id)) continue;
+		for (const source of evidenceSources(entry)) newlyValidated[source].connected.add(id);
+	}
+	for (const entry of payload.previousConnections || []) {
+		if (!hasValidatedFirmConnectionEvidence(entry)) continue;
+		const id = firstNonEmpty(entry.individualId);
+		if (!id || !/^\d{1,10}$/.test(id)) continue;
+		for (const source of evidenceSources(entry)) newlyValidated[source].previous.add(id);
+	}
+	if (!newlyValidated.finra.connected.size && !newlyValidated.finra.previous.size && !newlyValidated.sec.connected.size && !newlyValidated.sec.previous.size) return;
+
+	for (const source of ['finra', 'sec'] as const) {
+		const { connected: newConnected, previous: newPrevious } = newlyValidated[source];
+		if (!newConnected.size && !newPrevious.size) continue;
+		try {
+			const [existingConnectedRaw, existingPreviousRaw] = await Promise.all([redis.get(`${source}:firm:${firmId}_brokers:current`).catch(() => null), redis.get(`${source}:firm:${firmId}_brokers:previous`).catch(() => null)]);
+			const connected = new Set<string>([...parseBrokerIdList(existingConnectedRaw), ...newConnected]);
+			const previous = new Set<string>([...parseBrokerIdList(existingPreviousRaw), ...newPrevious]);
+			// A person cannot be both current and previous for the same source — current wins.
+			for (const id of connected) previous.delete(id);
+			if (connected.size) {
+				await setStringIfValid(`${source}:firm:${firmId}_brokers:current`, JSON.stringify(Array.from(connected)), FIRM_CONNECTIONS_CACHE_TTL_SECONDS);
+			}
+			if (previous.size) {
+				await setStringIfValid(`${source}:firm:${firmId}_brokers:previous`, JSON.stringify(Array.from(previous)), FIRM_CONNECTIONS_CACHE_TTL_SECONDS);
+			}
+		} catch {
+			// best-effort; shared broker-id lists are a convenience mirror, not the source of truth
+		}
+	}
+}
+
 // Mirror a cache-hit payload into the shared broker-id keys only if they don't already
 // exist, so pre-existing cached firms (validated before persistBrokerIdLists() was added,
 // or whose TTL-expired mirror keys haven't been refreshed) get backfilled without forcing
@@ -735,6 +784,40 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<FirmC
 			currentConnections: await enrichConnectionEntriesFromIndividualCache(result.currentConnections, normalizedFirmId, redis),
 			previousConnections: await enrichConnectionEntriesFromIndividualCache(result.previousConnections, normalizedFirmId, redis),
 		};
+		// Generic name/detail backfill helper: fills in any still-missing fields on an entry from
+		// a matching entry (keyed by individualId) in some other source's connection list.
+		const backfillFrom = (entries: GraphConnectionEntry[], sourceById: Map<string, GraphConnectionEntry>) =>
+			entries.map((entry) => {
+				if (entry.name || !entry.individualId) return entry;
+				const match = sourceById.get(entry.individualId);
+				if (!match) return entry;
+				return {
+					...entry,
+					name: match.name || entry.name,
+					startDate: entry.startDate || match.startDate,
+					endDate: entry.endDate || match.endDate,
+					address: entry.address || match.address,
+					otherNames: entry.otherNames?.length ? entry.otherNames : match.otherNames,
+					bcScope: entry.bcScope || match.bcScope,
+					iaScope: entry.iaScope || match.iaScope,
+					statusTag: entry.statusTag || computeConnectionStatusTag({ bcScope: entry.bcScope || match.bcScope, iaScope: entry.iaScope || match.iaScope }, [], entry.isCurrent),
+					evidence: [...(entry.evidence || []), ...(match.evidence || [])],
+				};
+			});
+		// First, backfill from the local disk cache (data/firm-connections/{firmId}.json) — free,
+		// no external call, no rate-limit risk. It's often a partial snapshot from a prior official
+		// search, so it won't cover every entry, but every name it does have is real.
+		if (local.payload && (result.currentConnections.some((entry) => !entry.name) || result.previousConnections.some((entry) => !entry.name))) {
+			const localById = new Map<string, GraphConnectionEntry>();
+			for (const entry of [...(local.payload.currentConnections || []), ...(local.payload.previousConnections || [])]) {
+				if (entry.individualId) localById.set(entry.individualId, entry);
+			}
+			result = {
+				...result,
+				currentConnections: backfillFrom(result.currentConnections, localById),
+				previousConnections: backfillFrom(result.previousConnections, localById),
+			};
+		}
 		// Names still missing after the local-cache-only enrichment above mean the person isn't
 		// yet cached in Redis or the mono graph. Rather than fetching each individual one-by-one
 		// (which is what the client's per-node hydration already avoids doing), make a single
@@ -742,35 +825,19 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<FirmC
 		// one paginated request — and use it purely to backfill names/otherNames/address on the
 		// broker-id-mirror entries that still lack them. Skipped entirely if every entry already
 		// has a name.
+		let officialRosterFetched = false;
 		if (result.currentConnections.some((entry) => !entry.name) || result.previousConnections.some((entry) => !entry.name)) {
 			const official = await fetchOfficialFirmRoster(normalizedFirmId).catch(() => null);
 			if (official) {
+				officialRosterFetched = true;
 				const officialById = new Map<string, GraphConnectionEntry>();
 				for (const entry of [...(official.currentConnections || []), ...(official.previousConnections || [])]) {
 					if (entry.individualId) officialById.set(entry.individualId, entry);
 				}
-				const backfillNames = (entries: GraphConnectionEntry[]) =>
-					entries.map((entry) => {
-						if (entry.name || !entry.individualId) return entry;
-						const match = officialById.get(entry.individualId);
-						if (!match) return entry;
-						return {
-							...entry,
-							name: match.name || entry.name,
-							startDate: entry.startDate || match.startDate,
-							endDate: entry.endDate || match.endDate,
-							address: entry.address || match.address,
-							otherNames: entry.otherNames?.length ? entry.otherNames : match.otherNames,
-							bcScope: entry.bcScope || match.bcScope,
-							iaScope: entry.iaScope || match.iaScope,
-							statusTag: entry.statusTag || computeConnectionStatusTag({ bcScope: entry.bcScope || match.bcScope, iaScope: entry.iaScope || match.iaScope }, [], entry.isCurrent),
-							evidence: [...(entry.evidence || []), ...(match.evidence || [])],
-						};
-					});
 				result = {
 					...result,
-					currentConnections: backfillNames(result.currentConnections),
-					previousConnections: backfillNames(result.previousConnections),
+					currentConnections: backfillFrom(result.currentConnections, officialById),
+					previousConnections: backfillFrom(result.previousConnections, officialById),
 				};
 			}
 		}
@@ -784,6 +851,23 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<FirmC
 		// the short-lived v10 response cache; never touch the local disk file or the mirror keys here.
 		if (redis && countFirmConnectionEntries(payload) > 0) {
 			await setStringIfValid(cacheKey, JSON.stringify(payload), FIRM_CONNECTIONS_CACHE_TTL_SECONDS).catch(() => {});
+		}
+		// Once we've actually made a fresh official-roster call (the external API is the only
+		// source that proves validated per-firm employment evidence for previously-unnamed CRDs),
+		// durably persist the result so a future request never has to hit that rate-limited API
+		// again for these same individuals:
+		//  - additively merge any newly-validated CRDs into the _brokers:current|previous mirror
+		//    keys (never shrinks them — safe unlike the full persistBrokerIdLists() recompute)
+		//  - overwrite the local disk snapshot (data/firm-connections/{firmId}.json) with the
+		//    fully-enriched payload (names/otherNames/address/dates), since it's now more complete
+		//    than what was there before.
+		if (officialRosterFetched && countFirmConnectionEntries(payload) > 0) {
+			await mergeBrokerIdListsAdditive(normalizedFirmId, payload).catch(() => {});
+			try {
+				require('fs').writeFileSync(local.path, JSON.stringify(payload));
+			} catch {
+				// best-effort; the long-TTL v10 Redis cache key above is the primary durable cache
+			}
 		}
 		return payload;
 	}
