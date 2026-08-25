@@ -4320,6 +4320,9 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 	if (action === 'toggle-bold') {
 		closeSelectionLogClearLabelsMenu();
 		isSelectionLogBold = !isSelectionLogBold;
+		// Re-enabling Log Bold after a Clear Highlight should resume highlighting every
+		// selection-log individual again, so lift the suppression here explicitly.
+		if (isSelectionLogBold) logBoldHighlightRootsSuppressed = false;
 		saveSelectionLogBoldPreference();
 		updateSelectionLogUI();
 		syncSelectionLogActionButtonStates();
@@ -4584,7 +4587,6 @@ function upsertHighlightedSelection(id, hops = getDefaultSelectionHops(), option
 	if (!id) return;
 	const normalizedHops = normalizeHighlightHops(hops);
 	const { replace = false } = options;
-	logBoldHighlightRootsSuppressed = false;
 	rememberPersistentSelection(id);
 	// Default: accumulate hop roots so prior selections still light their lines until Clear Highlight.
 	// replace: true is reserved for explicit reset-style selection if needed later.
@@ -4599,7 +4601,6 @@ function upsertHighlightedSelection(id, hops = getDefaultSelectionHops(), option
 function setHoveredNode(id) {
 	const nextId = id ? String(id).trim() : null;
 	if (hoveredNodeId === nextId) return;
-	if (nextId) logBoldHighlightRootsSuppressed = false;
 	hoveredNodeId = nextId;
 	reapplySelectionState();
 }
@@ -4607,7 +4608,6 @@ function setHoveredNode(id) {
 function setFocusedNode(id) {
 	const nextId = id ? String(id).trim() : null;
 	if (focusedNodeId === nextId) return;
-	if (nextId) logBoldHighlightRootsSuppressed = false;
 	focusedNodeId = nextId;
 	reapplySelectionState();
 }
@@ -4727,12 +4727,6 @@ function computeHighlightState() {
 	const linkKeys = new Set();
 
 	const activeFindId = activeFindMatchIndex >= 0 && Array.isArray(activeFindMatchOrder) ? activeFindMatchOrder[activeFindMatchIndex] : null;
-
-	// A new hover/focus/find/selection root means the user is actively highlighting again;
-	// lift the Clear Highlight suppression so Log Bold's selection-log roots resume normally.
-	if (logBoldHighlightRootsSuppressed && (hoveredNodeId || focusedNodeId || activeFindId || highlightedSelections.length)) {
-		logBoldHighlightRootsSuppressed = false;
-	}
 
 	const nodeById = new Map<string, any>((layoutNodes || []).map((node) => [String(node.id), node]));
 
@@ -13162,38 +13156,25 @@ function releaseFrozenNodes(frozenNodes) {
 function pinNodeAndReleaseOthers(pinnedNode) {
 	if (!pinnedNode?.id || !Array.isArray(layoutNodes)) return;
 
-	// Track nodes we deliberately unstick here so the anti-jitter freeze below
-	// never re-locks them — otherwise a just-released node looks "stuck" again
-	// (frozen) for the duration of the reheat window instead of staying free.
-	const releasedIds = new Set<any>();
+	// Release every other node's fixed position so the shared force simulation is free
+	// to re-settle the whole graph around the newly clicked/pinned node, instead of only
+	// letting the clicked node (and any freshly revealed neighbors) move.
 	for (const n of layoutNodes) {
 		if (n.id === pinnedNode.id) {
 			n.fx = n.x;
 			n.fy = n.y;
-		} else if (n.fx != null || n.fy != null) {
+		} else {
 			n.fx = null;
 			n.fy = null;
-			releasedIds.add(n.id);
 		}
 	}
 
-	// Freeze the rest of the already-settled graph in place — only the clicked
-	// node (and any neighbors revealed by a follow-up spreadNeighbors() call)
-	// should move. Nodes we just released above are excluded so they actually
-	// stay free instead of being immediately re-pinned.
-	const frozen = freezeSettledNodesExcept(new Set([pinnedNode.id, ...releasedIds]));
-
 	if (simulation) {
 		simulation.alphaTarget(0.15).restart();
+		window.setTimeout(() => {
+			simulation.alphaTarget(0);
+		}, 300);
 	}
-	// Always release the frozen nodes after the reheat window, even if `simulation`
-	// was falsy above (e.g. mid-replacement during a concurrent fetch/expand) —
-	// otherwise these nodes keep fx/fy set forever and appear permanently stuck
-	// until a full page refresh or being clicked directly (which re-releases them).
-	window.setTimeout(() => {
-		if (simulation) simulation.alphaTarget(0);
-		releaseFrozenNodes(frozen);
-	}, 300);
 }
 
 export async function handleNodeOpen(event, d) {
@@ -14118,7 +14099,9 @@ function clearHighlights() {
 	// While Log Bold is on, every selection-log individual normally acts as a highlight
 	// root (computeHighlightState), which would otherwise make Clear Highlight a no-op.
 	// Suppress that behavior here (without disabling Log Bold itself) so lines/hops
-	// actually reset; the suppression lifts as soon as a new highlight root is created.
+	// actually reset. The suppression now persists across subsequent selections/hover/
+	// focus so newly selected nodes highlight only themselves; it only lifts when the
+	// user explicitly re-enables Log Bold via the toggle action.
 	logBoldHighlightRootsSuppressed = true;
 	// Ensure active selection remains in the durable selected set.
 	if (selectedId) rememberPersistentSelection(selectedId);
