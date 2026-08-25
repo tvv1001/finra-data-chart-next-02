@@ -459,9 +459,15 @@ export async function getFirmConnectionsFromGraph(firmId: string): Promise<FirmC
 	// firm-connections collection the UI already reads.
 	const official = await fetchOfficialFirmRoster(normalizedFirmId).catch(() => null);
 	if (official && countFirmConnectionEntries(official) > 0) {
+		// A connection can also exist purely because an individual's own detail record lists
+		// this firm CRD as a current/previous employer, even if the official firm-roster search
+		// (which can be incomplete/paginated/rate-limited) didn't surface that person. Always
+		// merge in graph-derived reverse links so the roster stays a superset, not a fallback-only source.
+		const graphEntries = await getConnectionsFromGraphStore(normalizedFirmId).catch(() => [] as GraphConnectionEntry[]);
 		const extras = mergeGraphConnectionEntries([
 			official.currentConnections || [],
 			official.previousConnections || [],
+			graphEntries,
 			redisHit?.currentConnections || [],
 			redisHit?.previousConnections || [],
 			local.payload?.currentConnections || [],
