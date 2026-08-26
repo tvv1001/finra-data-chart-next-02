@@ -8227,19 +8227,53 @@ async function loadGraph() {
 
 // Populates the selection log (without changing the focused/routed node) from ids
 // shared via a `?selected=` link, fetching any nodes not already present in the graph.
+// Large shared-selection links can carry 100+ ids (e.g. a firm's full connection list), so
+// nodes are hydrated with bounded concurrency instead of one-at-a-time sequential awaits —
+// previously this looped `for...of` with a blocking `await` per id, meaning a 200-id link took
+// ~200 sequential network round-trips before the page felt fully loaded. Selection-log UI
+// updates are also batched into a single refresh at the end instead of once per node.
 async function hydratePendingSelectedNodeIds() {
 	const ids = pendingSelectedNodeIds.slice();
 	pendingSelectedNodeIds = [];
-	for (const rawId of ids) {
-		const normalizedId = normalizeNodeRouteId(rawId) || String(rawId || '').trim();
-		if (!normalizedId) continue;
-		try {
-			const liveNode = await ensureRouteNodeAvailable(normalizedId);
-			if (liveNode) addToSelectionLog(liveNode);
-		} catch (error) {
-			console.warn(`Failed to hydrate shared selection for ${normalizedId}:`, error);
+	if (!ids.length) return;
+
+	const CONCURRENCY = 8;
+	const resolvedEntries: SelectionLogEntry[] = [];
+	let cursor = 0;
+
+	async function worker() {
+		while (cursor < ids.length) {
+			const rawId = ids[cursor++];
+			const normalizedId = normalizeNodeRouteId(rawId) || String(rawId || '').trim();
+			if (!normalizedId) continue;
+			try {
+				const liveNode = await ensureRouteNodeAvailable(normalizedId);
+				if (liveNode) {
+					resolvedEntries.push({
+						id: liveNode.id,
+						label: liveNode.label,
+						secondaryId: getSecondaryId(liveNode),
+						group: liveNode.group,
+					});
+				}
+			} catch (error) {
+				console.warn(`Failed to hydrate shared selection for ${normalizedId}:`, error);
+			}
 		}
 	}
+
+	await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ids.length) }, () => worker()));
+
+	if (!resolvedEntries.length) return;
+	let nextLog = selectedNodesLog;
+	for (const entry of resolvedEntries) {
+		nextLog = upsertSelectionLogEntry(nextLog, entry);
+		clearedSelectionLogLabelNodeIds.delete(String(entry.id || '').trim());
+	}
+	selectedNodesLog = nextLog;
+	saveSelectionLog();
+	updateSelectionLogUI();
+	syncSelectionLogAuxiliaryRenderers();
 }
 
 // Build a subgraph from `seedCount` random nodes plus all their N-hop neighbors.
