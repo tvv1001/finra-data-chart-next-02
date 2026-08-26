@@ -6240,6 +6240,30 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 				:	(input.closest('.fg-connections-filter-scope') as HTMLElement | null)
 			);
 		};
+		// Updates just the tag-chips/input row and re-applies the filter to the connections
+		// list in place, instead of calling the full renderSidebar() (which does
+		// `innerHTML = ...` on the whole panel). A full re-render destroys and recreates the
+		// <input> element on every tag add/remove, which steals focus away from the filter box
+		// and resets the sidebar's scroll position — very disruptive while actively filtering.
+		const refreshFilterRowInPlace = (input: HTMLInputElement, options: { refocus?: boolean } = {}) => {
+			const row = input.closest('.fg-connections-filter-row') as HTMLElement | null;
+			const scope = findFilterScope(input);
+			if (!row) return;
+			row.innerHTML = renderConnectionsFilterTagsHtml();
+			if (scope) applyConnectionsFilterToScope(scope, sidebarConnectionsFilterTags, sidebarConnectionsFilterQuery);
+			if (options.refocus !== false) {
+				const newInput = row.querySelector('.fg-connections-filter') as HTMLInputElement | null;
+				if (newInput) {
+					newInput.focus();
+					const pos = newInput.value.length;
+					try {
+						newInput.setSelectionRange(pos, pos);
+					} catch {
+						/* ignore (e.g. unsupported input type) */
+					}
+				}
+			}
+		};
 		if (!(sidebarInner as any).dataset.fgConnectionsFilterBound) {
 			(sidebarInner as any).dataset.fgConnectionsFilterBound = '1';
 			sidebarInner.addEventListener('input', (ev) => {
@@ -6263,13 +6287,15 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 					keyEv.preventDefault();
 					const trimmed = input.value.trim();
 					if (!trimmed) return;
+					// Multiple tags are OR'd together (matchesFilterTags), so adding a second tag
+					// broadens the match instead of narrowing it (tag1 OR tag2).
 					sidebarConnectionsFilterTags = setFilterTags([...sidebarConnectionsFilterTags, trimmed]);
 					sidebarConnectionsFilterQuery = '';
 					setFilterText('');
-					renderSidebar(sidebarSelectedNode);
+					refreshFilterRowInPlace(input);
 				} else if (keyEv.key === 'Backspace' && !input.value && sidebarConnectionsFilterTags.length > 0) {
 					sidebarConnectionsFilterTags = setFilterTags(sidebarConnectionsFilterTags.slice(0, -1));
-					renderSidebar(sidebarSelectedNode);
+					refreshFilterRowInPlace(input);
 				}
 			});
 			sidebarInner.addEventListener('click', (ev) => {
@@ -6279,7 +6305,14 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 				ev.preventDefault();
 				const tag = removeBtn.getAttribute('data-fg-filter-tag') || '';
 				sidebarConnectionsFilterTags = setFilterTags(sidebarConnectionsFilterTags.filter((t) => t !== tag));
-				renderSidebar(sidebarSelectedNode);
+				const row = removeBtn.closest('.fg-connections-filter-row') as HTMLElement | null;
+				const anyInput = row?.querySelector('.fg-connections-filter') as HTMLInputElement | null;
+				if (anyInput) refreshFilterRowInPlace(anyInput, { refocus: false });
+				else {
+					const scope =
+						row?.nextElementSibling?.classList.contains('fg-connections-filter-scope') ? (row.nextElementSibling as HTMLElement) : null;
+					if (scope) applyConnectionsFilterToScope(scope, sidebarConnectionsFilterTags, sidebarConnectionsFilterQuery);
+				}
 			});
 		}
 		sidebarInner.addEventListener('click', async (ev) => {

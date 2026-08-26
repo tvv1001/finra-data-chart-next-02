@@ -6472,8 +6472,12 @@ button[type='submit'],
 	flex: 1 1 150px;
 	max-width: 150px;
 }
-/* --- MASSIVE GRAPH OPTIMIZATIONS --- */
-.fg-huge-graph .fg-label {
+/* --- MASSIVE GRAPH OPTIMIZATIONS ---
+   Labels for huge graphs (1000+ nodes) are still governed by the zoom-based LOD toggle
+   (.fg-labels-hidden, set in finra-graph.ts based on activeLabelZoomThreshold) so zooming in
+   reveals them like any other graph size. Only force-hide them while zoomed out, matching the
+   LOD threshold instead of unconditionally suppressing all labels regardless of zoom. */
+.fg-huge-graph .fg-root.fg-labels-hidden .fg-label {
 	display: none !important;
 }
 .fg-huge-graph .fg-node-overlay {
