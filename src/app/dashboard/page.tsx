@@ -2299,12 +2299,12 @@ function DashboardPageInner() {
     [graphHref],
   );
 
-  async function loadNewCrdsFromRedis() {
+  async function loadNewCrdsFromRedis(force = false) {
     try {
       const res = await fetch("/api/dashboard/refresh", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "list-new-crds" }),
+        body: JSON.stringify({ action: "list-new-crds", force }),
       });
       const data = await res.json().catch(() => null);
       if (data?.ok) {
@@ -2442,7 +2442,14 @@ function DashboardPageInner() {
       console.error("Failed to load graph selection log:", err);
     }
 
-    void loadNewCrdsFromRedis();
+    void loadNewCrdsFromRedis(true);
+  }, []);
+
+  // Collapse the New CRDs panel by default on mobile viewports (desktop stays open); runs once
+  // after mount so it doesn't affect SSR/hydration.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.innerWidth <= 720) setNewCrdsOpen(false);
   }, []);
 
   useEffect(() => {
@@ -4550,7 +4557,7 @@ function DashboardPageInner() {
           type: "success",
         },
       ]);
-      void loadNewCrdsFromRedis();
+      void loadNewCrdsFromRedis(true);
       return;
     }
 

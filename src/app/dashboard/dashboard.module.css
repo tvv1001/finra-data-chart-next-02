@@ -23,10 +23,10 @@
 }
 
 /* When the right column is hidden, let center+middle fill the space */
-.layoutRightHidden {
+/* .layoutRightHidden {
   grid-template-columns: minmax(0, 1fr) 280px !important;
   grid-template-areas: "center middle" !important;
-}
+} */
 
 .dashboardMainStack {
   display: flex;
@@ -535,6 +535,7 @@
 
 .recordHeaderRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   margin-bottom: 4px;
@@ -1122,10 +1123,9 @@
 
 .searchResultRow {
   display: grid;
-  grid-template-columns: minmax(200px, 1.6fr) minmax(96px, auto) minmax(
-      220px,
-      1.8fr
-    ) minmax(56px, auto);
+  grid-template-columns:
+    minmax(200px, 1.6fr) minmax(96px, auto) minmax(220px, 1.8fr)
+    minmax(56px, auto);
   gap: 12px;
   align-items: center;
 }
@@ -1666,11 +1666,21 @@
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px 320px;
+  grid-template-columns: minmax(0, 1fr) 320px 320px;
   grid-template-areas: "center middle right";
   gap: 12px;
   height: calc(100vh - 50px);
   background: var(--midnight);
+  transition: grid-template-columns 0.2s ease;
+}
+
+/* When the New CRDs (right) panel is collapsed, let center+middle expand to fill the freed
+   column instead of leaving a gap. Desktop/tablet only — below 1280px the layout switches to a
+   single stacked column (see the max-width: 1280px query) and must not be overridden here. */
+@media (min-width: 1281px) {
+  .layoutRightHidden {
+    grid-template-columns: minmax(0, 1fr) 320px 0px !important;
+  }
 }
 
 .centerPane,
@@ -1705,6 +1715,20 @@
   min-height: 0;
   height: 100%;
   align-self: stretch;
+  overflow: hidden;
+}
+
+/* Collapse the rightColumn's own border/spacing to zero when its grid track is 0px wide, so no
+   sliver of border/background remains once the New CRDs panel is hidden and center+middle have
+   expanded to fill the freed space. Desktop/tablet only — matches the .layoutRightHidden column
+   override above, which itself only applies above the 1280px mobile-stack breakpoint. */
+@media (min-width: 1281px) {
+  .layoutRightHidden .rightColumn {
+    width: 0;
+    min-width: 0;
+    padding: 0;
+    border: none;
+  }
 }
 
 .centerPane {

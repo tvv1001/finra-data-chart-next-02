@@ -310,13 +310,16 @@ export default function FinraGraph() {
 	// Persist and enforce ?disable_analytics=1 in the URL on this machine only.
 	useEffect(() => {
 		if (typeof window === 'undefined') return;
-		
+
 		const urlHasParam = window.location.search.includes('disable_analytics=1');
 		const prefIsSet = (() => {
-			try { return localStorage.getItem('finra_disable_analytics_pref') === '1'; }
-			catch { return false; }
+			try {
+				return localStorage.getItem('finra_disable_analytics_pref') === '1';
+			} catch {
+				return false;
+			}
 		})();
-		
+
 		if (!urlHasParam && !prefIsSet) return;
 
 		try {
@@ -473,37 +476,43 @@ export default function FinraGraph() {
 		window.dispatchEvent(new CustomEvent(FIND_NEXT_EVENT, { detail: { query } }));
 	}, [activeFindNodeId, browserPathname, closeFindBar, findQuery, focusedFindNodeId, pathname]);
 
-	const handleFindInputKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
-		if (event.key === 'Enter') {
-			event.preventDefault();
-			submitFindQuery();
+	const handleFindInputKeyDown = useCallback(
+		(event: React.KeyboardEvent<HTMLInputElement>) => {
+			if (event.key === 'Enter') {
+				event.preventDefault();
+				submitFindQuery();
 
-			return;
-		}
-		if (event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-			event.preventDefault();
+				return;
+			}
+			if (event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+				event.preventDefault();
 
+				window.dispatchEvent(
+					new CustomEvent(FIND_MOVE_EVENT, {
+						detail: {
+							direction: event.key,
+							query: findQuery.trim(),
+						},
+					}),
+				);
+			}
+		},
+		[findQuery, submitFindQuery],
+	);
+
+	const moveFindMatchByButton = useCallback(
+		(direction: 'ArrowLeft' | 'ArrowRight') => {
+			const query = findQuery.trim();
+
+			if (!query) return;
 			window.dispatchEvent(
 				new CustomEvent(FIND_MOVE_EVENT, {
-					detail: {
-						direction: event.key,
-						query: findQuery.trim(),
-					},
+					detail: { direction, query },
 				}),
 			);
-		}
-	}, [findQuery, submitFindQuery]);
-
-	const moveFindMatchByButton = useCallback((direction: 'ArrowLeft' | 'ArrowRight') => {
-		const query = findQuery.trim();
-
-		if (!query) return;
-		window.dispatchEvent(
-			new CustomEvent(FIND_MOVE_EVENT, {
-				detail: { direction, query },
-			}),
-		);
-	}, [findQuery]);
+		},
+		[findQuery],
+	);
 
 	useEffect(() => {
 		isFindBarOpenRef.current = isFindBarOpen;
@@ -537,29 +546,6 @@ export default function FinraGraph() {
 				e.stopPropagation();
 				routeSidebarNodeSelection({
 					nodeId: String(nodeBtn.dataset.nodeId || '').trim(),
-					browserPathname,
-					pathname,
-					setBrowserPathname,
-					pulseDuration: 5000,
-					autoExpand: true,
-				});
-				return;
-			}
-			const crdBtn = target.closest('.fg-crd-link') as HTMLElement | null;
-			if (crdBtn && crdBtn.dataset.crd) {
-				e.preventDefault();
-				e.stopPropagation();
-				const crd = String(crdBtn.dataset.crd || '').trim();
-				const type = String(crdBtn.dataset.crdType || '').trim();
-				let nodeId = crd;
-				if (type) {
-					nodeId = `${type}:${crd}`;
-				} else if (/^\d+$/.test(crd)) {
-					// Legacy behavior: assume numeric CRD clicked from employment means firm
-					nodeId = `firm:${crd}`;
-				}
-				routeSidebarNodeSelection({
-					nodeId,
 					browserPathname,
 					pathname,
 					setBrowserPathname,
@@ -900,7 +886,6 @@ export default function FinraGraph() {
 	// individual with no cached detail record), this just repeated the same failed lookup and
 	// spammed the console with "not found" warnings. The single dispatch above is left in place
 	// for the normal case where the graph is still loading.
-
 
 	useEffect(() => {
 		if (!isMounted) return;
@@ -1531,13 +1516,14 @@ export default function FinraGraph() {
 							<h4 className='fg-empty-title'>Fetch nodes with the search field above.</h4>
 							<ul className='fg-empty-steps'>
 								<li>Manage visible nodes within the log panel.</li>
+								<li>Explore within the Dashboard to search for all of the possible connections.</li>
 							</ul>
 							<br />
 							<a
-								href='https://dashboard-crds.vercel.app/'
+								href='https://github.com/tvv1001'
 								target='_blank'
 								rel='noopener noreferrer'>
-								Canvas & WebGL versions - in progress..
+								GitHub Repository -- https://github.com/tvv1001
 							</a>
 						</div>
 					</div>

@@ -201,11 +201,26 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			next: { revalidate: 3600 },
 		};
 
+		// Track upstream fetch outcomes (esp. 429 rate-limiting) so callers can distinguish
+		// "genuinely not found" from "temporarily unreachable" instead of both collapsing to
+		// `found:false`. See scripts/check_internal_api_health.mjs for a diagnostic that relies
+		// on this signal.
+		const upstreamStatus: { finra: { rateLimited: boolean; retryAfterSec: number | null; httpStatus: number | null }; sec: { rateLimited: boolean; retryAfterSec: number | null; httpStatus: number | null } } = {
+			finra: { rateLimited: false, retryAfterSec: null, httpStatus: null },
+			sec: { rateLimited: false, retryAfterSec: null, httpStatus: null },
+		};
+
 		const requests = await Promise.allSettled([
 			cachedFetch(makeRedisKey('finra', 'individual', crdNorm), 60 * 60 * 24, async () => {
 				try {
 					const url = `https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`;
 					const res = await fetch(url, fetchOptions);
+					upstreamStatus.finra.httpStatus = res.status;
+					if (res.status === 429) {
+						upstreamStatus.finra.rateLimited = true;
+						const retryAfter = res.headers.get('retry-after');
+						upstreamStatus.finra.retryAfterSec = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) : null;
+					}
 					if (!res.ok) throw new Error(`HTTP ${res.status}`);
 					return res.json();
 				} catch (err: any) {
@@ -217,6 +232,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				try {
 					const url = `https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`;
 					const res = await fetch(url, fetchOptions);
+					upstreamStatus.sec.httpStatus = res.status;
+					if (res.status === 429) {
+						upstreamStatus.sec.rateLimited = true;
+						const retryAfter = res.headers.get('retry-after');
+						upstreamStatus.sec.retryAfterSec = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) : null;
+					}
 					if (!res.ok) throw new Error(`HTTP ${res.status}`);
 					return res.json();
 				} catch (err: any) {
@@ -228,6 +249,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		const finraData = requests[0].status === 'fulfilled' ? requests[0].value : null;
 		const secData = requests[1].status === 'fulfilled' ? requests[1].value : null;
+
+		const anyRateLimited = upstreamStatus.finra.rateLimited || upstreamStatus.sec.rateLimited;
+		const rateLimitedRetryAfterSec = Math.max(upstreamStatus.finra.retryAfterSec || 0, upstreamStatus.sec.retryAfterSec || 0) || null;
 
 		function isPoorIndividualPayload(detail: any, raw: any) {
 			// Null parsing => poor
@@ -383,6 +407,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					},
 					{ headers: sharedCacheHeaders(3600) },
 				);
+			}
+			if (anyRateLimited) {
+				const headers: Record<string, string> = { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' };
+				if (rateLimitedRetryAfterSec) headers['Retry-After'] = String(rateLimitedRetryAfterSec);
+				return NextResponse.json({ found: false, crd, rateLimited: true, retryAfterSec: rateLimitedRetryAfterSec }, { status: 429, headers });
 			}
 			return NextResponse.json({ found: false, crd }, { status: 200, headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } });
 		}

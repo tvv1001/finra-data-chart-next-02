@@ -272,22 +272,13 @@ html[data-theme='dark'] .fg-tl-entry {
 	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.26);
 }
 
-/* html[data-theme='dark'] .fg-owner-row:hover,
-html[data-theme='dark'] .fg-owner-row:focus,
-html[data-theme='dark'] .fg-tl-entry:hover,
-html[data-theme='dark'] .fg-tl-entry:focus {
-	background: rgba(8, 17, 47, 0.599);
-	border-color: rgba(148, 163, 184, 0.16);
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.26);
-} */
-
 html[data-theme='dark'] .fg-action-btn,
 html[data-theme='dark'] .fg-mobile-menu-toggle,
 html[data-theme='dark'] .fg-ghost-btn {
-	background: var(--surface);
-	border-color: var(--surface);
 	color: var(--text);
-	border: 1px solid var(--border);
+	background: #1e3c85e6;
+	border-radius: 0px;
+	box-shadow: 2px 2px 4px #0000002e;
 }
 
 html[data-theme='dark'] .fg-action-btn:hover,

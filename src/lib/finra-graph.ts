@@ -15593,8 +15593,7 @@ function renderPersonDetail(d: any) {
 		}
 		return true;
 	});
-	const personSummaryLine =
-		crd ? `CRD#: <button type="button" class="fg-crd-link" data-crd="${esc(String(crd))}" data-crd-type="person" title="Focus this person">${esc(String(crd))}</button>` : '';
+	const personSummaryLine = crd ? `CRD#: ${esc(String(crd))}` : '';
 
 	return `
     <div class="fg-sb-header individual">
@@ -16441,10 +16440,7 @@ function renderFirmDetail(d: any) {
 		return raw;
 	};
 	const secFirmId = normalizeSecFirmId(d.iaSecNumber || d.bdSecNumber || d.bdSECNumber || d.basicInformation?.iaSECNumber || d.basicInformation?.bdSECNumber);
-	const crdSecCrdHtml =
-		firmId ?
-			`CRD#: <button type="button" class="fg-crd-link" data-crd="${esc(String(firmId))}" data-crd-type="firm" title="Focus this firm">${esc(String(firmId))}</button>`
-		:	null;
+	const crdSecCrdHtml = firmId ? `CRD#: ${esc(String(firmId))}` : null;
 	const crdSecSecHtml = secFirmId ? `SEC#: ${esc(secFirmId)}` : null;
 	const crdSec = [crdSecCrdHtml, crdSecSecHtml].filter(Boolean).join(' / ');
 	const secSummaryUrl = firmId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(firmId)}` : null;
