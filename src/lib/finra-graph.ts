@@ -11625,9 +11625,10 @@ async function ensureIndividualDetail(
 
 	if (personNode._detailLoaded && hasRichIndividualDetail(personNode)) {
 		// Detail already on the node (e.g. session restore / prior current-only inject).
-		// Still materialize employment firm stubs — including previous — onto the canvas.
+		// Keep the graph reveal limited to current firm links; previous employers remain
+		// detailed in the sidebar rather than auto-expanding into the graph.
 		if (injectEmploymentGraph) {
-			syncIndividualConnectionsFromDetail(personNode, personNode, { includePrevious: true });
+			syncIndividualConnectionsFromDetail(personNode, personNode, { includePrevious: false });
 		}
 		return;
 	}
@@ -11718,10 +11719,10 @@ async function ensureIndividualDetail(
 
 			try {
 				applyIndividualDetail(personNode, detail, crd);
-				// Expansion frontier hydration must not pull hop-2 employers into the canvas.
-				// Full employment graph is injected when the user explicitly opens that person.
+				// Fetching a person node should reveal only the active, on-graph firm links.
+				// Previous employers stay in the sidebar detail stack instead of expanding the graph.
 				if (injectEmploymentGraph) {
-					syncIndividualConnectionsFromDetail(personNode, detail);
+					syncIndividualConnectionsFromDetail(personNode, detail, { includePrevious: false });
 				}
 				personNode._trustedCurrentRelationshipData = hasRichIndividualDetail(detail);
 				personNode._detailLoaded = true;
@@ -11756,10 +11757,10 @@ function isControlPositionText(text) {
 
 function syncIndividualConnectionsFromDetail(personNode, detail, options: { includePrevious?: boolean } = {}) {
 	if (!personNode || !detail) return;
-	// Inject current + previous employers as firm stubs linked to this person (true 1-hop).
-	// Previous firms must appear on the graph for people like CRD 2301267. Flood risk is
-	// expanding those firms' coworker graphs — blocked separately by safeFirmExpand + caps.
-	const { includePrevious = true } = options;
+	// Keep fetched person nodes limited to their active firm links in the graph.
+	// Previous employers remain available in the sidebar detail, but are not auto-revealed
+	// as graph neighbors during a normal fetch.
+	const { includePrevious = false } = options;
 
 	const personId = personNode.id;
 	const newNodes = [];
