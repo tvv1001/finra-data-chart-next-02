@@ -20,12 +20,31 @@ export type OwnerReference = {
 	phone?: string;
 };
 
-function ownerRefKey(crd: string): string {
-	return `owner-ref:individual:${String(crd).trim()}`;
+// Local-only namespace for stubbed/non-live CRDs; do not push these records to the
+// cloud Upstash mirrors for routine local work.
+function nonLiveCrdKey(kind: 'individual' | 'firm', crd: string): string {
+	return `non-live-crds:${kind}:${String(crd).trim()}`;
+}
+
+function legacyNonLiveCrdKey(kind: 'individual' | 'firm', crd: string): string {
+	return `owner-ref:${kind}:${String(crd).trim()}`;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
 	return value != null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function parseRedisReference(raw: unknown): OwnerReference | null {
+	if (raw == null) return null;
+	if (typeof raw === 'string') {
+		try {
+			return JSON.parse(raw) as OwnerReference;
+		} catch {
+			return null;
+		}
+	}
+	if (isPlainObject(raw)) return raw as OwnerReference;
+	return null;
 }
 
 /** Best-effort, non-blocking write. Never throws — callers should fire-and-forget this. */
@@ -36,7 +55,7 @@ export async function recordOwnerReference(reference: OwnerReference): Promise<v
 	if (!redis) return;
 
 	try {
-		await redis.set(ownerRefKey(crd), JSON.stringify(reference), { ex: OWNER_REF_TTL_SECONDS });
+		await redis.set(nonLiveCrdKey('individual', crd), JSON.stringify(reference), { ex: OWNER_REF_TTL_SECONDS });
 	} catch {
 		// swallow: this is a best-effort index, never allow it to break the firm fetch response
 	}
@@ -89,16 +108,11 @@ export async function lookupOwnerReference(crd: string): Promise<OwnerReference 
 	if (!redis) return null;
 
 	try {
-		const raw = await redis.get(ownerRefKey(normalizedCrd));
-		if (raw == null) return null;
-		if (typeof raw === 'string') {
-			try {
-				return JSON.parse(raw) as OwnerReference;
-			} catch {
-				return null;
-			}
+		for (const key of [nonLiveCrdKey('individual', normalizedCrd), legacyNonLiveCrdKey('individual', normalizedCrd)]) {
+			const raw = await redis.get(key);
+			const parsed = parseRedisReference(raw);
+			if (parsed) return parsed;
 		}
-		if (isPlainObject(raw)) return raw as OwnerReference;
 		return null;
 	} catch {
 		return null;
@@ -113,7 +127,7 @@ export async function lookupOwnerReference(crd: string): Promise<OwnerReference 
 // CRDs and surface the scraped firm name/address metadata instead of a bare "not found" response.
 
 function firmRefKey(crd: string): string {
-	return `owner-ref:firm:${String(crd).trim()}`;
+	return nonLiveCrdKey('firm', crd);
 }
 
 /** Best-effort, non-blocking write. Never throws — callers should fire-and-forget this. */
@@ -184,16 +198,11 @@ export async function lookupFirmReference(crd: string): Promise<OwnerReference |
 	if (!redis) return null;
 
 	try {
-		const raw = await redis.get(firmRefKey(normalizedCrd));
-		if (raw == null) return null;
-		if (typeof raw === 'string') {
-			try {
-				return JSON.parse(raw) as OwnerReference;
-			} catch {
-				return null;
-			}
+		for (const key of [firmRefKey(normalizedCrd), legacyNonLiveCrdKey('firm', normalizedCrd)]) {
+			const raw = await redis.get(key);
+			const parsed = parseRedisReference(raw);
+			if (parsed) return parsed;
 		}
-		if (isPlainObject(raw)) return raw as OwnerReference;
 		return null;
 	} catch {
 		return null;

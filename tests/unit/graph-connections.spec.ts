@@ -64,7 +64,10 @@ describe('firm connection merge and cache', () => {
 
 	it('prefers the local firm-connections roster over stale verified Redis payloads', async () => {
 		mockRedis.get.mockImplementation(async (key: string) => {
-			if (key === 'graph:firm-connections-verified:v10:2525') {
+			if (key === 'firm-connections:firm:2525:verified') {
+				return '1';
+			}
+			if (key === 'firm-connections:firm:2525') {
 				return JSON.stringify({
 					currentConnections: [{ individualId: '999', name: 'Stale only', relationship: 'Current registration', isCurrent: true, evidence: ['stale'] }],
 					previousConnections: [],

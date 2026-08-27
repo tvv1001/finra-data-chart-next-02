@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractPayloadFromDetail, mergeEmploymentCardsAcrossSources, overlayMergedEmploymentHistory, resolveOrderedSourcesFromDetail } from '@/lib/dashboard-detail';
+import { extractPayloadFromDetail, mergeEmploymentCardsAcrossSources, overlayMergedEmploymentHistory, resolveOrderedSourcesFromDetail, sortByMostRecentStartDate } from '@/lib/dashboard-detail';
 
 const silkDetail = {
 	hasFinraData: false,
@@ -93,5 +93,17 @@ describe('merge employment cards across FINRA and SEC', () => {
 		expect(merged).toHaveLength(2);
 		expect(merged.every((row) => String(row.firmId) === '107342')).toBe(true);
 		expect(merged.map((row) => row.sourceTags).flat()).toEqual(['FINRA', 'SEC']);
+	});
+});
+
+describe('sortByMostRecentStartDate', () => {
+	it('puts the most recent hire first and missing dates last', () => {
+		expect(
+			sortByMostRecentStartDate([
+				{ name: 'old', startDate: '3/7/2003' },
+				{ name: 'missing' },
+				{ name: 'new', startDate: '4/9/2018' },
+			]).map((row) => row.name),
+		).toEqual(['new', 'old', 'missing']);
 	});
 });

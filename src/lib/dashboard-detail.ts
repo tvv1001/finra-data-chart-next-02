@@ -67,10 +67,24 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 function parseEmploymentDateMs(value: unknown) {
 	const raw = String(value ?? '').trim();
 	if (!raw) return null;
-	const short = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-	if (short) return Date.UTC(Number(short[3]), Number(short[1]) - 1, Number(short[2]));
+	const short = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+	if (short) {
+		const year = short[3].length === 2 ? 2000 + Number(short[3]) : Number(short[3]);
+		return Date.UTC(year, Number(short[1]) - 1, Number(short[2]));
+	}
 	const parsed = Date.parse(raw);
 	return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function sortByMostRecentStartDate<T extends { startDate?: string }>(items: T[]): T[] {
+	return items.slice().sort((left, right) => {
+		const leftTime = parseEmploymentDateMs(left.startDate);
+		const rightTime = parseEmploymentDateMs(right.startDate);
+		if (leftTime == null && rightTime == null) return 0;
+		if (leftTime == null) return 1;
+		if (rightTime == null) return -1;
+		return rightTime - leftTime;
+	});
 }
 
 function datesWithinOneWeek(left: unknown, right: unknown) {

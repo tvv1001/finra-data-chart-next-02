@@ -2,10 +2,11 @@
 // Sources (cheap → expensive):
 //   1. Official FINRA/SEC individual-by-firm search (paginated), stored in
 //      data/firm-connections/{firmId}.json — the collection the UI already reads
-//   2. Cached official roster in Redis graph:firm-connections:v10:{firmId}
+//   2. Cached official roster in Redis firm-connections:firm:{firmId}
 //   3. Primed individual reverse index / precomputed adj
 //   4. Local/search fallbacks and opt-in full Redis SCAN
-// Results are cached at graph:firm-connections:v10:{firmId}.
+// Results are cached at firm-connections:firm:{firmId}. Do not also write
+// graph:firm-connections:v10:{firmId} — that duplicated the same roster payload.
 // Note: the mono graph store's employed_by links (getFullGraph) were previously merged in as a
 // connection source but have been removed — that artifact could carry stale/incorrect data
 // forward independent of the individual's own record. Validation now comes exclusively from
@@ -61,13 +62,25 @@ export function firmConnectionsCacheKey(firmId: string): string {
   return `firm-connections:firm:${String(firmId || "").trim()}`;
 }
 
-function legacyFirmConnectionsCacheKeys(firmId: string): string[] {
+function leftoverFirmConnectionsCacheKeys(firmId: string): string[] {
   const normalized = String(firmId || "").trim();
   if (!normalized) return [];
   return [
     `graph:firm-connections:v${FIRM_CONNECTIONS_CACHE_VERSION}:${normalized}`,
     `graph:firm-connections:v${FIRM_CONNECTIONS_CACHE_VERSION}:${normalized}:empty`,
+    `graph:firm-connections-verified:v${FIRM_CONNECTIONS_CACHE_VERSION}:${normalized}`,
   ];
+}
+
+async function dropLeftoverFirmConnectionsCacheKeys(redis: any, firmId: string) {
+  if (!redis) return;
+  for (const key of leftoverFirmConnectionsCacheKeys(firmId)) {
+    try {
+      await redis.del(key);
+    } catch {
+      // leftover keys are optional cleanup
+    }
+  }
 }
 
 // Once every connection entry for a firm carries validated per-firm employment evidence (see
@@ -960,12 +973,13 @@ export async function syncBrokerIdMirrorForIndividualChange(
       }
     }
   }
-  // Any firm whose mirror keys we just touched is now stale in the short-lived response cache
-  // (graph:firm-connections:v10:<firmId>); drop it so the next request recomputes fresh.
+  // Any firm whose mirror keys we just touched is now stale in the response cache; drop it
+  // so the next request recomputes fresh.
   for (const firmId of [...gained, ...lost]) {
     try {
       await redis.del(firmConnectionsCacheKey(firmId));
       await redis.del(firmConnectionsFullyValidatedCacheKey(firmId));
+      await dropLeftoverFirmConnectionsCacheKeys(redis, firmId);
     } catch {
       // best-effort
     }
@@ -1021,13 +1035,7 @@ async function persistFirmConnections(
           JSON.stringify(payload),
           FIRM_CONNECTIONS_CACHE_TTL_SECONDS,
         );
-        for (const legacyKey of legacyFirmConnectionsCacheKeys(String(firmId || "").trim())) {
-          await setStringIfValid(
-            legacyKey,
-            JSON.stringify(payload),
-            FIRM_CONNECTIONS_CACHE_TTL_SECONDS,
-          ).catch(() => {});
-        }
+        await dropLeftoverFirmConnectionsCacheKeys(redis, String(firmId || "").trim());
       } else {
         await setStringIfValid(
           emptyCacheKey,
@@ -1060,7 +1068,12 @@ function unwrapCachedIndividualDetail(parsed: any): any {
   if (!parsed || typeof parsed !== "object") return null;
   const hit = parsed?.hits?.hits?.[0]?._source;
   const raw =
-    hit?.content ?? hit?.iacontent ?? parsed?.content ?? parsed?.iacontent;
+    hit?.content ??
+    hit?.iacontent ??
+    hit?.bccontent ??
+    parsed?.content ??
+    parsed?.iacontent ??
+    parsed?.bccontent;
   if (raw != null) {
     try {
       return typeof raw === "string" ? JSON.parse(raw) : raw;
@@ -1097,12 +1110,52 @@ async function enrichConnectionEntriesFromIndividualCache(
         entry.individualId &&
         (!entry.name ||
           !entry.statusTag ||
-          !hasValidatedFirmConnectionEvidence(entry)),
+          !hasValidatedFirmConnectionEvidence(entry) ||
+          !entry.evidence?.includes("display-enriched")),
     )
     .slice(0, MAX_LOOKUPS);
   if (!needsEnrichment.length) return entries;
 
   const detailById = new Map<string, any>();
+  const parseCachedDetail = (raw: unknown) => {
+    if (raw == null) return null;
+    const text =
+      typeof raw === "string" && raw.startsWith("br:")
+        ? decompressPayload(raw)
+        : raw;
+    const rawParsed = typeof text === "string" ? JSON.parse(text) : text;
+    return unwrapCachedIndividualDetail(rawParsed);
+  };
+  const mergeCachedDetails = (details: any[]) => {
+    if (!details.length) return null;
+    if (details.length === 1) return details[0];
+    const otherNames = Array.from(
+      new Set(
+        details.flatMap((detail) => extractOtherNames(detail) || []),
+      ),
+    );
+    return {
+      ...details[0],
+      ...details[1],
+      basicInformation: {
+        ...(details[0]?.basicInformation || {}),
+        ...(details[1]?.basicInformation || {}),
+      },
+      currentEmployments: details.flatMap((detail) =>
+        toArraySafe(detail?.currentEmployments),
+      ),
+      previousEmployments: details.flatMap((detail) =>
+        toArraySafe(detail?.previousEmployments),
+      ),
+      currentIAEmployments: details.flatMap((detail) =>
+        toArraySafe(detail?.currentIAEmployments),
+      ),
+      previousIAEmployments: details.flatMap((detail) =>
+        toArraySafe(detail?.previousIAEmployments),
+      ),
+      otherNames,
+    };
+  };
   await Promise.all(
     needsEnrichment.map(async (entry) => {
       const crd = entry.individualId!;
@@ -1111,14 +1164,10 @@ async function enrichConnectionEntriesFromIndividualCache(
           redis.get(`finra:individual:${crd}`).catch(() => null),
           redis.get(`sec:individual:${crd}`).catch(() => null),
         ]);
-        const raw = finraRaw || secRaw;
-        if (!raw) return;
-        const text =
-          typeof raw === "string" && raw.startsWith("br:")
-            ? decompressPayload(raw)
-            : raw;
-        const rawParsed = typeof text === "string" ? JSON.parse(text) : text;
-        const detail = unwrapCachedIndividualDetail(rawParsed);
+        const details = [parseCachedDetail(finraRaw), parseCachedDetail(secRaw)].filter(
+          Boolean,
+        );
+        const detail = mergeCachedDetails(details);
         if (detail) detailById.set(crd, detail);
       } catch {
         // best-effort; leave entry as-is
@@ -1200,7 +1249,8 @@ async function enrichConnectionEntriesFromIndividualCache(
     const evidence =
       provenTag && !entry.evidence?.includes(provenTag)
         ? [...(entry.evidence || []), provenTag]
-        : entry.evidence;
+        : [...(entry.evidence || [])];
+    if (!evidence.includes("display-enriched")) evidence.push("display-enriched");
     return {
       ...entry,
       name: name || entry.name,
@@ -1225,6 +1275,31 @@ async function enrichConnectionEntriesFromIndividualCache(
 // backfill error) — real per-firm employment evidence disproves them outright. Entries whose
 // detail wasn't cached (so membership couldn't be checked either way) are left untouched, since
 // we can't prove them wrong.
+async function attachConnectionDisplayFields(
+  payload: FirmConnectionsPayload,
+  firmId: string,
+  redis: ReturnType<typeof getRedisClient>,
+): Promise<FirmConnectionsPayload> {
+  if (!payload) return { currentConnections: [], previousConnections: [] };
+  const currentConnections = await enrichConnectionEntriesFromIndividualCache(
+    payload.currentConnections || [],
+    firmId,
+    redis,
+  );
+  const previousConnections = await enrichConnectionEntriesFromIndividualCache(
+    payload.previousConnections || [],
+    firmId,
+    redis,
+  );
+  const stripInternalMarkers = (entries: GraphConnectionEntry[]) =>
+    entries.map(({ __employmentChecked, __employmentMatched, ...rest }: any) => rest as GraphConnectionEntry);
+  return {
+    ...payload,
+    currentConnections: stripInternalMarkers(currentConnections),
+    previousConnections: stripInternalMarkers(previousConnections),
+  };
+}
+
 function filterOutDisprovenBrokerMirrorEntries(
   entries: GraphConnectionEntry[],
 ): GraphConnectionEntry[] {
@@ -1250,7 +1325,7 @@ export async function getFirmConnectionsFromGraph(
   const readRedisFirmConnections = async (): Promise<FirmConnectionsPayload | null> => {
     if (!redis) return null;
     try {
-      const keysToCheck = [cacheKey, ...legacyFirmConnectionsCacheKeys(normalizedFirmId)];
+      const keysToCheck = [cacheKey];
       for (const key of keysToCheck) {
         const raw = await redis.get(key);
         if (raw == null) continue;
@@ -1274,7 +1349,7 @@ export async function getFirmConnectionsFromGraph(
     if (redis) {
       void backfillBrokerIdListsIfMissing(normalizedFirmId, local.payload).catch(() => {});
     }
-    return local.payload;
+    return attachConnectionDisplayFields(local.payload, normalizedFirmId, redis);
   }
 
   // Fast path: this firm's connections were already fully validated in a prior request (every
@@ -1283,12 +1358,12 @@ export async function getFirmConnectionsFromGraph(
   // already-computed, already-verified payload straight from its single cache key.
   if (redis) {
     try {
-      const verifiedRaw = await redis.get(firmConnectionsFullyValidatedCacheKey(normalizedFirmId));
-      const legacyVerifiedRaw = await redis.get(`graph:firm-connections-verified:v${FIRM_CONNECTIONS_CACHE_VERSION}:${normalizedFirmId}`);
-      const cachedRaw = verifiedRaw || legacyVerifiedRaw;
+      const cachedRaw = await redis.get(firmConnectionsFullyValidatedCacheKey(normalizedFirmId));
       if (cachedRaw) {
         const cached = await readRedisFirmConnections();
-        if (cached && countFirmConnectionEntries(cached) > 0) return cached;
+        if (cached && countFirmConnectionEntries(cached) > 0) {
+          return attachConnectionDisplayFields(cached, normalizedFirmId, redis);
+        }
       }
     } catch {
       // fall through to the normal, slower resolution path below
@@ -1519,7 +1594,7 @@ export async function getFirmConnectionsFromGraph(
         // best-effort; the long-TTL v10 Redis cache key above is the primary durable cache
       }
     }
-    return payload;
+    return attachConnectionDisplayFields(payload, normalizedFirmId, redis);
   }
 
   let redisHit: FirmConnectionsPayload | null = null;
@@ -1544,7 +1619,7 @@ export async function getFirmConnectionsFromGraph(
     void backfillBrokerIdListsIfMissing(normalizedFirmId, cachedOfficial).catch(
       () => {},
     );
-    return cachedOfficial;
+    return attachConnectionDisplayFields(cachedOfficial, normalizedFirmId, redis);
   }
 
   // Incomplete crawl/primed collections are not the roster. Refresh from the
@@ -1581,7 +1656,7 @@ export async function getFirmConnectionsFromGraph(
       local.path,
       normalizedFirmId,
     );
-    return result;
+    return attachConnectionDisplayFields(result, normalizedFirmId, redis);
   }
 
   const combined = mergeGraphConnectionEntries([
@@ -1595,7 +1670,7 @@ export async function getFirmConnectionsFromGraph(
     void backfillBrokerIdListsIfMissing(normalizedFirmId, combined).catch(
       () => {},
     );
-    return combined;
+    return attachConnectionDisplayFields(combined, normalizedFirmId, redis);
   }
 
   if (redis) {
@@ -1617,5 +1692,5 @@ export async function getFirmConnectionsFromGraph(
     local.path,
     normalizedFirmId,
   );
-  return computed;
+  return attachConnectionDisplayFields(computed, normalizedFirmId, redis);
 }

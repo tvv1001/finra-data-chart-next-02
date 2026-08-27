@@ -9,8 +9,26 @@ import { getRecordDisplayName } from '../../lib/recordDisplay';
 import { formatOtherName, formatUiText } from '@/lib/finra-graph/formatters';
 import { buildPersonName, formatEntityName, formatFirmName, formatPersonName } from '@/lib/nameFormat';
 import { hasFirmSourceCoverage, hasIndividualSourceCoverage } from '@/lib/sourceTruth';
-import { extractPayloadFromDetail, mergeEmploymentCardsAcrossSources, overlayMergedEmploymentHistory, resolveOrderedSourcesFromDetail } from '@/lib/dashboard-detail';
-import { getFilterTags, getFilterText, matchesFilterTags, setFilterTags, setFilterText, subscribeFilterTags, subscribeFilterText } from '@/lib/filterTags';
+import {
+	extractPayloadFromDetail,
+	mergeEmploymentCardsAcrossSources,
+	overlayMergedEmploymentHistory,
+	resolveOrderedSourcesFromDetail,
+	sortByMostRecentStartDate,
+} from '@/lib/dashboard-detail';
+import {
+	getFilterEnabled,
+	getFilterTags,
+	getFilterText,
+	matchesConnectionsFilter,
+	setFilterEnabled,
+	setFilterTags,
+	setFilterText,
+	shouldPreviewUnfilteredConnections,
+	subscribeFilterEnabled,
+	subscribeFilterTags,
+	subscribeFilterText,
+} from '@/lib/filterTags';
 import VectorLoader from '@/components/VectorLoader';
 import styles from './dashboard.module.css';
 
@@ -1114,6 +1132,9 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 				entity?: 'individual' | 'firm';
 				otherNames?: string[];
 				statusTag?: string;
+				startDate?: string;
+				endDate?: string;
+				address?: string;
 			} = {
 				title: title || '',
 				meta: meta || '',
@@ -1121,6 +1142,9 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 			};
 			if (otherNamesArr.length) result.otherNames = otherNamesArr;
 			if (statusTag) result.statusTag = statusTag;
+			if (startDate) result.startDate = startDate;
+			if (endDate) result.endDate = endDate;
+			if (addressText) result.address = addressText;
 			if (crd) {
 				result.crd = crd;
 				result.entity = entityType;
@@ -1135,6 +1159,9 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 		entity?: 'individual' | 'firm';
 		otherNames?: string[];
 		statusTag?: string;
+		startDate?: string;
+		endDate?: string;
+		address?: string;
 	}>;
 }
 
@@ -1329,22 +1356,30 @@ function FilterTagsInput({
 	onTagsChange,
 	onLiveTextChange,
 	placeholder,
+	disabled,
+	onFocusChange,
+	onCommitTag,
 }: {
 	tags: string[];
 	liveText: string;
 	onTagsChange: (tags: string[]) => void;
 	onLiveTextChange: (text: string) => void;
 	placeholder?: string;
+	disabled?: boolean;
+	onFocusChange?: (focused: boolean) => void;
+	onCommitTag?: () => void;
 }) {
 	const commitLiveTextAsTag = useCallback(() => {
 		const trimmed = liveText.trim();
-		if (!trimmed) return;
+		if (!trimmed) return false;
+		onCommitTag?.();
 		onTagsChange([...tags, trimmed]);
 		onLiveTextChange('');
-	}, [liveText, tags, onTagsChange, onLiveTextChange]);
+		return true;
+	}, [liveText, tags, onTagsChange, onLiveTextChange, onCommitTag]);
 
 	return (
-		<div className={styles.filterTagsWrap}>
+		<div className={`${styles.filterTagsWrap} ${disabled ? styles.filterTagsWrapDisabled : ''}`}>
 			{tags.map((tag) => (
 				<span
 					key={tag}
@@ -1363,6 +1398,7 @@ function FilterTagsInput({
 				type='text'
 				value={liveText}
 				onChange={(event) => onLiveTextChange(event.target.value)}
+				onFocus={() => onFocusChange?.(true)}
 				onKeyDown={(event) => {
 					if (event.key === 'Enter' || event.key === ',') {
 						event.preventDefault();
@@ -1371,7 +1407,10 @@ function FilterTagsInput({
 						onTagsChange(tags.slice(0, -1));
 					}
 				}}
-				onBlur={commitLiveTextAsTag}
+				onBlur={() => {
+					commitLiveTextAsTag();
+					onFocusChange?.(false);
+				}}
 				placeholder={tags.length ? 'Add another filter…' : placeholder || 'Filter connections…'}
 				className={styles.filterTagsInput}
 			/>
@@ -1579,14 +1618,22 @@ function DashboardPageInner() {
 	// in sync with the graph sidebar's equivalent filter (and other tabs).
 	const [connectionsFilterTags, setConnectionsFilterTagsState] = useState<string[]>([]);
 	const [connectionsFilterQuery, setConnectionsFilterQueryState] = useState('');
+	const [connectionsFilterEnabled, setConnectionsFilterEnabledState] = useState(true);
+	const [connectionsSelectMode, setConnectionsSelectMode] = useState(false);
+	const [selectedConnectionKeys, setSelectedConnectionKeys] = useState<Set<string>>(new Set());
+	const [connectionsFilterFocused, setConnectionsFilterFocused] = useState(false);
+	const [connectionsFilterJustCommitted, setConnectionsFilterJustCommitted] = useState(false);
 	useEffect(() => {
 		setConnectionsFilterTagsState(getFilterTags());
 		setConnectionsFilterQueryState(getFilterText());
+		setConnectionsFilterEnabledState(getFilterEnabled());
 		const unsubTags = subscribeFilterTags(setConnectionsFilterTagsState);
 		const unsubText = subscribeFilterText(setConnectionsFilterQueryState);
+		const unsubEnabled = subscribeFilterEnabled(setConnectionsFilterEnabledState);
 		return () => {
 			unsubTags();
 			unsubText();
+			unsubEnabled();
 		};
 	}, []);
 	const setConnectionsFilterTags = useCallback((tags: string[]) => {
@@ -1596,6 +1643,15 @@ function DashboardPageInner() {
 		setConnectionsFilterQueryState(text);
 		setFilterText(text);
 	}, []);
+	const setConnectionsFilterEnabled = useCallback((enabled: boolean) => {
+		setConnectionsFilterEnabledState(setFilterEnabled(enabled));
+	}, []);
+	useEffect(() => {
+		setConnectionsSelectMode(false);
+		setSelectedConnectionKeys(new Set());
+		setConnectionsFilterFocused(false);
+		setConnectionsFilterJustCommitted(false);
+	}, [currentRecordId, currentRecordEntity]);
 	// The URL-driven auto-load effect below must only react to *external* navigation (initial
 	// deep link / hard refresh, or a real browser back-forward). If it also reacted every time
 	// `usePathname()` recomputes after our own syncSelectionToUrl() call (used to keep the URL
@@ -2414,6 +2470,58 @@ function DashboardPageInner() {
 		});
 	}
 
+	function recordHistoryEntries(
+		entries: Array<{
+			id: string;
+			entity: 'individual' | 'firm';
+			source?: SearchResultSource;
+			sources?: SearchResultSource[];
+			name?: string;
+		}>,
+	) {
+		if (typeof window === 'undefined' || !entries.length) return;
+		const now = new Date().toISOString();
+		setLocalHistory((prev) => {
+			let next = prev.slice();
+			// Process last-to-first so the first visible selected row ends up at the front.
+			for (const item of [...entries].reverse()) {
+				const id = String(item.id || '').trim();
+				if (!id) continue;
+				const incomingName = toText(item.name);
+				const incomingSources: SearchResultSource[] =
+					item.sources && item.sources.length > 0 ? item.sources
+					: item.source ? [item.source]
+					: ['finra', 'sec'];
+				const existing = next.find((entry) => entry.entity === item.entity && entry.id === id);
+				const existingName = toText(existing?.name);
+				const resolvedName =
+					incomingName && !looksLikeGenericEntityLabel(incomingName) ? incomingName
+					: existingName && !looksLikeGenericEntityLabel(existingName) ? existingName
+					: incomingName || existingName || undefined;
+				const updatedEntry: LocalHistoryEntry = {
+					id,
+					entity: item.entity,
+					sources: incomingSources.map((src) => ({
+						source: src,
+						status: 'ok' as const,
+					})),
+					fetchedAt: existing?.fetchedAt || now,
+					name: resolvedName,
+					visitCount: (existing?.visitCount || 0) + 1,
+					lastVisitedAt: now,
+				};
+				next = [updatedEntry, ...next.filter((entry) => !(entry.entity === item.entity && entry.id === id))];
+			}
+			const combined = next.slice(0, LOCAL_HISTORY_MAX);
+			try {
+				localStorage.setItem(LOCAL_HISTORY_KEY, JSON.stringify(combined));
+			} catch {
+				// ignore persistence errors
+			}
+			return combined;
+		});
+	}
+
 	async function setMainViewFromSearch(card: SearchResultCard) {
 		const orderedSources: SearchResultSource[] = card.source === 'sec' ? ['sec', 'finra'] : ['finra', 'sec'];
 		await loadQueueSourceJson(
@@ -2786,9 +2894,17 @@ function DashboardPageInner() {
 	}
 
 	function mergeFirmConnectionLists(lists: any[][]) {
-		const currentConnections: any[] = [];
-		const previousConnections: any[] = [];
-		const seen = new Set<string>();
+		const connectionRichness = (entry: any) => {
+			let score = 0;
+			if (entry?.name) score += 1;
+			if (entry?.startDate || entry?.registrationBeginDate) score += 3;
+			if (entry?.endDate || entry?.registrationEndDate) score += 1;
+			if (entry?.address) score += 3;
+			if (Array.isArray(entry?.otherNames) && entry.otherNames.length) score += 3;
+			return score;
+		};
+		const currentByKey = new Map<string, any>();
+		const previousByKey = new Map<string, any>();
 		for (const list of lists) {
 			for (const entry of Array.isArray(list) ? list : []) {
 				const crd = String(entry?.individualId || entry?.crd || entry?.personCrd || entry?.firmId || '').trim();
@@ -2798,12 +2914,14 @@ function DashboardPageInner() {
 					: entry?.isCurrent === false ? false
 					: !String(entry?.endDate || '').trim();
 				const key = `${crd}:${isCurrent ? '1' : '0'}`;
-				if (seen.has(key)) continue;
-				seen.add(key);
-				(isCurrent ? currentConnections : previousConnections).push(entry);
+				const bucket = isCurrent ? currentByKey : previousByKey;
+				const existing = bucket.get(key);
+				if (!existing || connectionRichness(entry) > connectionRichness(existing)) {
+					bucket.set(key, entry);
+				}
 			}
 		}
-		return { currentConnections, previousConnections };
+		return { currentConnections: Array.from(currentByKey.values()), previousConnections: Array.from(previousByKey.values()) };
 	}
 
 	function applyFirmConnectionsToState(firmId: string, currentConnections: any[], previousConnections: any[]) {
@@ -3655,6 +3773,26 @@ function DashboardPageInner() {
 					<div key={`${child.key || 'child'}-${index}`}>{renderJsonTree(child, depth + 1)}</div>
 				))}
 			</div>
+		);
+	}
+
+	function highlightConnectionMatch(text: string, query: string): React.ReactNode {
+		const trimmedQuery = query.trim();
+		if (!trimmedQuery || !text) return text;
+		const tokens = Array.from(new Set(trimmedQuery.split(/\s+/).filter(Boolean))).sort((a, b) => b.length - a.length);
+		if (!tokens.length) return text;
+		const pattern = new RegExp(`(${tokens.map((token) => token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'ig');
+		const parts = text.split(pattern);
+		if (parts.length <= 1) return text;
+		const tokenSet = new Set(tokens.map((token) => token.toLowerCase()));
+		return parts.map((part, index) =>
+			tokenSet.has(part.toLowerCase()) ?
+				<mark
+					key={index}
+					className={styles.connectionMatchHighlight}>
+					{part}
+				</mark>
+			:	<Fragment key={index}>{part}</Fragment>,
 		);
 	}
 
@@ -4709,83 +4847,222 @@ function DashboardPageInner() {
 
 											{currentRecordEntity === 'firm' && connectionsLoadingFirmId === currentRecordId ? null : (
 												(() => {
-													const matchesConnectionsFilter = (item: { title?: string; subtitle?: string; meta?: string; crd?: string; otherNames?: string[] }) => {
-														if (connectionsFilterTags.length === 0 && !connectionsFilterQuery.trim()) return true;
-														const haystack = [item.title, item.subtitle, item.meta, item.crd, ...(item.otherNames || [])].filter(Boolean).join(' ');
-														return matchesFilterTags(haystack, connectionsFilterTags, connectionsFilterQuery);
+													const matchesConnectionsFilterFn = (item: {
+														title?: string;
+														subtitle?: string;
+														meta?: string;
+														crd?: string;
+														otherNames?: string[];
+														address?: string;
+													}) => {
+														if (!connectionsFilterEnabled) return true;
+														// Empty focus and live typing keep the full list visible so matches can
+														// be highlighted. After Enter, committed tags filter again.
+														if (connectionsFilterFocused && connectionsFilterQuery.trim()) return true;
+														const previewUnfiltered = shouldPreviewUnfilteredConnections({
+															focused: connectionsFilterFocused,
+															liveText: connectionsFilterQuery,
+															justCommitted: connectionsFilterJustCommitted,
+														});
+														if (previewUnfiltered) return true;
+														if (connectionsFilterTags.length === 0) return true;
+														const haystack = [item.title, item.subtitle, item.meta, item.crd, item.address, ...(item.otherNames || [])]
+															.filter(Boolean)
+															.join(' ');
+														return matchesConnectionsFilter(haystack, connectionsFilterTags, '', connectionsFilterEnabled, previewUnfiltered);
 													};
-													const filteredCurrentConnectionCards = detailedMainRecord.currentConnectionCards.filter(matchesConnectionsFilter);
-													const filteredPreviousConnectionCards = detailedMainRecord.previousConnectionCards.filter(matchesConnectionsFilter);
+													const connectionKey = (item: { crd?: string; entity?: string }) =>
+														item.crd ? `${item.entity || 'individual'}:${item.crd}` : '';
+													const filteredCurrentConnectionCards = sortByMostRecentStartDate(
+														detailedMainRecord.currentConnectionCards.filter(matchesConnectionsFilterFn),
+													);
+													const filteredPreviousConnectionCards = detailedMainRecord.previousConnectionCards.filter(matchesConnectionsFilterFn);
+													const selectableConnections = [...filteredCurrentConnectionCards, ...filteredPreviousConnectionCards].filter((item) => item.crd);
+													const toggleConnectionKey = (key: string) => {
+														if (!key) return;
+														setSelectedConnectionKeys((prev) => {
+															const next = new Set(prev);
+															if (next.has(key)) next.delete(key);
+															else next.add(key);
+															return next;
+														});
+													};
+													const selectAllVisibleConnections = () => {
+														setSelectedConnectionKeys(new Set(selectableConnections.map((item) => connectionKey(item)).filter(Boolean)));
+													};
+													const finishConnectionSelectMode = () => {
+														const selected = selectableConnections.filter((item) => selectedConnectionKeys.has(connectionKey(item)));
+														if (selected.length) {
+															recordHistoryEntries(
+																selected.map((item) => ({
+																	id: String(item.crd),
+																	entity: item.entity === 'firm' ? 'firm' : 'individual',
+																	sources: ['finra', 'sec'],
+																	name: item.title,
+																})),
+															);
+														}
+														setConnectionsSelectMode(false);
+														setSelectedConnectionKeys(new Set());
+													};
+
+													const renderConnectionRow = (
+														item: (typeof filteredCurrentConnectionCards)[number],
+														idx: number,
+														kind: 'current' | 'previous',
+													) => {
+														const key = connectionKey(item);
+														const isSelected = connectionsSelectMode && Boolean(key) && selectedConnectionKeys.has(key);
+														const nameClass = kind === 'current' ? styles.currentConnectionName : styles.previousConnectionName;
+														const otherNamesClass = kind === 'current' ? styles.currentConnectionOtherNames : styles.previousConnectionOtherNames;
+														const metaClass = kind === 'current' ? styles.currentConnectionMeta : styles.previousConnectionMeta;
+														const rowKindClass = kind === 'current' ? styles.currentConnectionRow : styles.previousConnectionRow;
+														const liveHighlight = connectionsFilterFocused ? connectionsFilterQuery : '';
+														const dateStr =
+															kind === 'current' ?
+																item.startDate ? `Since ${item.startDate}`
+																:	''
+															: item.startDate && item.endDate ? `${item.startDate} - ${item.endDate}`
+															: item.startDate || item.endDate || '';
+														const otherNames = (item.otherNames || []).map((n) => formatOtherName(n, false)).filter(Boolean);
+														const content = (
+															<>
+																<div className={styles.detailRowMain}>
+																	<div className={styles.employmentRowNameWrap}>
+																		<span className={`${styles.detailRowName} ${nameClass}`}>{highlightConnectionMatch(item.title, liveHighlight)}</span>
+																		{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
+																		{item.statusTag && (
+																			<span
+																				className={`${styles.detailInlineTag} ${styles.currentConnectionStatusTag} ${
+																					item.statusTag === 'BD Stub Only' ? styles.currentConnectionStatusTagStub
+																					: item.statusTag === 'Inactive' ? styles.currentConnectionStatusTagInactive
+																					: ''
+																				}`}>
+																				{item.statusTag}
+																			</span>
+																		)}
+																	</div>
+																</div>
+																{otherNames.length > 0 && (
+																	<div className={`${styles.detailRowMeta} ${otherNamesClass}`}>
+																		aka{' '}
+																		{otherNames.map((name, nameIdx) => (
+																			<Fragment key={`${kind}-aka-${idx}-${nameIdx}`}>
+																				{nameIdx > 0 ? ', ' : ''}
+																				{highlightConnectionMatch(name, liveHighlight)}
+																			</Fragment>
+																		))}
+																	</div>
+																)}
+																{item.address && <div className={`${styles.detailRowMeta} ${metaClass}`}>{item.address}</div>}
+																{dateStr && <div className={`${styles.detailRowMeta} ${metaClass}`}>{dateStr}</div>}
+																{!item.address && !dateStr && item.meta && !/^current registration|previous registration$/i.test(item.meta) && (
+																	<div className={`${styles.detailRowMeta} ${metaClass}`}>{item.meta}</div>
+																)}
+															</>
+														);
+
+														if (connectionsSelectMode && key) {
+															return (
+																<button
+																	type='button'
+																	key={`${kind}-conn-${idx}`}
+																	className={`${styles.detailRow} ${styles.detailRowInteractive} ${kind === 'current' ? styles.currentEmploymentRow : ''} ${rowKindClass} ${styles.connectionSelectRow} ${isSelected ? styles.connectionSelectRowSelected : ''}`}
+																	onClick={() => toggleConnectionKey(key)}>
+																	<input
+																		type='checkbox'
+																		checked={isSelected}
+																		readOnly
+																		tabIndex={-1}
+																		aria-hidden='true'
+																	/>
+																	<div>{content}</div>
+																</button>
+															);
+														}
+
+														if (item.crd) {
+															return (
+																<Link
+																	href={`/dashboard/${item.entity || 'firm'}/${item.crd}${item.title ? `?fromName=${encodeURIComponent(item.title)}` : ''}`}
+																	key={`${kind}-conn-${idx}`}
+																	className={`${styles.detailRow} ${styles.detailRowInteractive} ${kind === 'current' ? styles.currentEmploymentRow : ''} ${rowKindClass}`}>
+																	{content}
+																</Link>
+															);
+														}
+
+														return (
+															<div
+																key={`${kind}-conn-${idx}`}
+																className={`${styles.detailRow} ${rowKindClass}`}>
+																{content}
+															</div>
+														);
+													};
 
 													return (
 														<>
 															{(detailedMainRecord.currentConnectionCards.length > 0 || detailedMainRecord.previousConnectionCards.length > 0) && (
-																<FilterTagsInput
-																	tags={connectionsFilterTags}
-																	liveText={connectionsFilterQuery}
-																	onTagsChange={setConnectionsFilterTags}
-																	onLiveTextChange={setConnectionsFilterQuery}
-																	placeholder='Filter connections…'
-																/>
+																<div className={styles.filterLine}>
+																	<label className={styles.filterEnabledLabel}>
+																		<input
+																			type='checkbox'
+																			checked={connectionsFilterEnabled}
+																			onChange={(event) => setConnectionsFilterEnabled(event.target.checked)}
+																			aria-label='Apply filter tags'
+																		/>
+																		Tags
+																	</label>
+																	<FilterTagsInput
+																		tags={connectionsFilterTags}
+																		liveText={connectionsFilterQuery}
+																		onTagsChange={setConnectionsFilterTags}
+																		onLiveTextChange={(text) => {
+																			if (text.trim()) setConnectionsFilterJustCommitted(false);
+																			setConnectionsFilterQuery(text);
+																		}}
+																		onFocusChange={(focused) => {
+																			setConnectionsFilterFocused(focused);
+																			if (!focused) setConnectionsFilterJustCommitted(false);
+																		}}
+																		onCommitTag={() => setConnectionsFilterJustCommitted(true)}
+																		placeholder='Filter connections…'
+																		disabled={!connectionsFilterEnabled}
+																	/>
+																	{connectionsSelectMode ?
+																		<>
+																			<button
+																				type='button'
+																				className={styles.filterLineBtn}
+																				onClick={selectAllVisibleConnections}>
+																				Select all
+																			</button>
+																			<button
+																				type='button'
+																				className={`${styles.filterLineBtn} ${styles.filterLineBtnActive}`}
+																				onClick={finishConnectionSelectMode}>
+																				Done{selectedConnectionKeys.size ? ` (${selectedConnectionKeys.size})` : ''}
+																			</button>
+																		</>
+																	:	<button
+																			type='button'
+																			className={styles.filterLineBtn}
+																			onClick={() => {
+																				setConnectionsSelectMode(true);
+																				setSelectedConnectionKeys(new Set());
+																			}}>
+																			Select mode
+																		</button>
+																	}
+																</div>
 															)}
 
 															{filteredCurrentConnectionCards.length > 0 && (
 																<section className={styles.detailSection}>
 																	<h4 className={styles.detailSectionTitle}>Current Connections ({detailedMainRecord.currentConnectionCards.length})</h4>
 																	<div className={styles.detailList}>
-																		{filteredCurrentConnectionCards.map((item, idx) => {
-																			const content = (
-																				<>
-																					<div className={styles.detailRowMain}>
-																						<div className={styles.employmentRowNameWrap}>
-																							<span className={`${styles.detailRowName} ${styles.currentConnectionName}`}>{item.title}</span>
-																							{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
-																							{item.statusTag && (
-																								<span
-																									className={`${styles.detailInlineTag} ${styles.currentConnectionStatusTag} ${
-																										item.statusTag === 'BD Stub Only' ? styles.currentConnectionStatusTagStub
-																										: item.statusTag === 'Inactive' ? styles.currentConnectionStatusTagInactive
-																										: ''
-																									}`}>
-																									{item.statusTag}
-																								</span>
-																							)}
-																						</div>
-																					</div>
-																					{item.otherNames && item.otherNames.length > 0 && (
-																						<div className={`${styles.detailRowMeta} ${styles.currentConnectionOtherNames}`}>
-																							Also known as: {item.otherNames.map((n) => formatOtherName(n, false)).join(', ')}
-																						</div>
-																					)}
-																					{item.meta && (
-																						<div className={`${styles.detailRowMeta} ${styles.currentConnectionMeta}`}>
-																							Employed at: {item.meta}
-																							{item.subtitle ? ` • ${item.subtitle}` : ''}
-																						</div>
-																					)}
-																					{!item.meta && item.subtitle && <div className={`${styles.detailRowMeta} ${styles.currentConnectionMeta}`}>{item.subtitle}</div>}
-																				</>
-																			);
-
-																			if (item.crd) {
-																				return (
-																					<Link
-																						href={`/dashboard/${item.entity || 'firm'}/${item.crd}${item.title ? `?fromName=${encodeURIComponent(item.title)}` : ''}`}
-																						key={`current-conn-${idx}`}
-																						className={`${styles.detailRow} ${styles.detailRowInteractive} ${styles.currentEmploymentRow} ${styles.currentConnectionRow}`}>
-																						{content}
-																					</Link>
-																				);
-																			}
-
-																			return (
-																				<div
-																					key={`current-conn-${idx}`}
-																					className={`${styles.detailRow} ${styles.currentConnectionRow}`}>
-																					{content}
-																				</div>
-																			);
-																		})}
+																		{filteredCurrentConnectionCards.map((item, idx) => renderConnectionRow(item, idx, 'current'))}
 																	</div>
 																</section>
 															)}
@@ -4794,55 +5071,7 @@ function DashboardPageInner() {
 																<section className={styles.detailSection}>
 																	<h4 className={styles.detailSectionTitle}>Previous Connections ({detailedMainRecord.previousConnectionCards.length})</h4>
 																	<div className={styles.detailList}>
-																		{filteredPreviousConnectionCards.map((item, idx) => {
-																			const content = (
-																				<>
-																					<div className={styles.detailRowMain}>
-																						<div className={styles.employmentRowNameWrap}>
-																							<span className={`${styles.detailRowName} ${styles.previousConnectionName}`}>{item.title}</span>
-																							{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
-																							{item.statusTag && (
-																								<span
-																									className={`${styles.detailInlineTag} ${styles.currentConnectionStatusTag} ${item.statusTag === 'Inactive' ? styles.currentConnectionStatusTagInactive : ''}`}>
-																									{item.statusTag}
-																								</span>
-																							)}
-																						</div>
-																					</div>
-																					{item.otherNames && item.otherNames.length > 0 && (
-																						<div className={`${styles.detailRowMeta} ${styles.previousConnectionOtherNames}`}>
-																							Also known as: {item.otherNames.map((n) => formatOtherName(n, false)).join(', ')}
-																						</div>
-																					)}
-																					{item.meta && (
-																						<div className={`${styles.detailRowMeta} ${styles.previousConnectionMeta}`}>
-																							Employed at: {item.meta}
-																							{item.subtitle ? ` • ${item.subtitle}` : ''}
-																						</div>
-																					)}
-																					{!item.meta && item.subtitle && <div className={`${styles.detailRowMeta} ${styles.previousConnectionMeta}`}>{item.subtitle}</div>}
-																				</>
-																			);
-
-																			if (item.crd) {
-																				return (
-																					<Link
-																						href={`/dashboard/${item.entity || 'firm'}/${item.crd}${item.title ? `?fromName=${encodeURIComponent(item.title)}` : ''}`}
-																						key={`prev-conn-${idx}`}
-																						className={`${styles.detailRow} ${styles.detailRowInteractive} ${styles.previousConnectionRow}`}>
-																						{content}
-																					</Link>
-																				);
-																			}
-
-																			return (
-																				<div
-																					key={`prev-conn-${idx}`}
-																					className={`${styles.detailRow} ${styles.previousConnectionRow}`}>
-																					{content}
-																				</div>
-																			);
-																		})}
+																		{filteredPreviousConnectionCards.map((item, idx) => renderConnectionRow(item, idx, 'previous'))}
 																	</div>
 																</section>
 															)}

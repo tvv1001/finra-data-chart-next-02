@@ -12,8 +12,10 @@
 
 export const FILTER_TAGS_STORAGE_KEY = 'finra_connections_filter_tags';
 export const FILTER_TEXT_STORAGE_KEY = 'finra_connections_filter_text';
+export const FILTER_ENABLED_STORAGE_KEY = 'finra_connections_filter_enabled';
 const FILTER_TAGS_EVENT = 'finra:filter-tags-changed';
 const FILTER_TEXT_EVENT = 'finra:filter-text-changed';
+const FILTER_ENABLED_EVENT = 'finra:filter-enabled-changed';
 
 function hasWindow(): boolean {
 	return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
@@ -106,6 +108,44 @@ export function subscribeFilterTags(cb: (tags: string[]) => void): () => void {
 	};
 }
 
+export function getFilterEnabled(): boolean {
+	if (!hasWindow()) return true;
+	try {
+		const raw = window.localStorage.getItem(FILTER_ENABLED_STORAGE_KEY);
+		if (raw == null) return true;
+		return raw !== '0' && raw !== 'false';
+	} catch {
+		return true;
+	}
+}
+
+export function setFilterEnabled(enabled: boolean): boolean {
+	if (hasWindow()) {
+		try {
+			window.localStorage.setItem(FILTER_ENABLED_STORAGE_KEY, enabled ? '1' : '0');
+			window.dispatchEvent(new CustomEvent(FILTER_ENABLED_EVENT, { detail: enabled }));
+		} catch {
+			// ignore localStorage/CustomEvent errors (e.g. private browsing quota)
+		}
+	}
+	return enabled;
+}
+
+/** Subscribes to the tags on/off toggle. Returns an unsubscribe fn. */
+export function subscribeFilterEnabled(cb: (enabled: boolean) => void): () => void {
+	if (!hasWindow()) return () => {};
+	const onCustom = (ev: Event) => cb((ev as CustomEvent<boolean>).detail ?? getFilterEnabled());
+	const onStorage = (ev: StorageEvent) => {
+		if (ev.key === FILTER_ENABLED_STORAGE_KEY) cb(getFilterEnabled());
+	};
+	window.addEventListener(FILTER_ENABLED_EVENT, onCustom as EventListener);
+	window.addEventListener('storage', onStorage);
+	return () => {
+		window.removeEventListener(FILTER_ENABLED_EVENT, onCustom as EventListener);
+		window.removeEventListener('storage', onStorage);
+	};
+}
+
 /** Subscribes to changes in the live (uncommitted) filter text. Returns an unsubscribe fn. */
 export function subscribeFilterText(cb: (text: string) => void): () => void {
 	if (!hasWindow()) return () => {};
@@ -130,4 +170,28 @@ export function matchesFilterTags(haystack: string, tags: string[], liveText?: s
 	const trimmedLive = (liveText || '').trim().toLowerCase();
 	if (trimmedLive && !lower.includes(trimmedLive)) return false;
 	return true;
+}
+
+/** Empty focused input previews the full list. After the first typed character, tags + live
+ * text apply again. After Enter commits a tag, stay filtered even if the input is still focused. */
+export function shouldPreviewUnfilteredConnections(opts: {
+	focused?: boolean;
+	liveText?: string;
+	justCommitted?: boolean;
+}): boolean {
+	if (opts.justCommitted) return false;
+	if (!opts.focused) return false;
+	return !(opts.liveText || '').trim();
+}
+
+/** When `enabled` is false or the input is in the empty-focus preview, every haystack passes. */
+export function matchesConnectionsFilter(
+	haystack: string,
+	tags: string[],
+	liveText?: string,
+	enabled = true,
+	previewUnfiltered = false,
+): boolean {
+	if (!enabled || previewUnfiltered) return true;
+	return matchesFilterTags(haystack, tags, liveText);
 }

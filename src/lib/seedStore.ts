@@ -11,9 +11,9 @@ export type RecentSeeds = {
 	updatedAt: string;
 };
 
-const REDIS_PROFILES_KEY = 'finra:seed-profiles';
-const REDIS_SEEDS_KEY = 'finra:seeds';
-const REDIS_RECENT_SEEDS_KEY = 'finra:recent-seeds';
+const REDIS_PROFILES_KEY = 'graph:seed-profiles';
+const REDIS_SEEDS_KEY = 'graph:seeds';
+const REDIS_RECENT_SEEDS_KEY = 'graph:recent-seeds';
 
 let redisClient: Redis | null = null;
 let profilesCache: any = null;

@@ -23,7 +23,7 @@ This app (and the sibling `dashboard-crds` app — see cross-app note below) wri
 These two databases can silently drift apart over time (e.g. a dual-write path fails on one side, or a serverless read auto-caches into only one DB). When reconciling:
 - Never assume one side is authoritative by default — compare key sets (`SCAN`) across local, DB1, and DB2 first.
 - **Merge, don't overwrite blindly.** Keys present only on one cloud DB (e.g. freshly fetched `finra:firm:<CRD>`, `graph:firm-connections:v10:<CRD>` roster caches written by live prod traffic) are real data, not garbage — pull them into local and the other cloud DB rather than deleting them.
-- Keys present only in local (e.g. manually-added `owner-ref:*` keys) should be pushed to both cloud DBs so all three stay consistent.
+- Keys present only in local (e.g. manually-added `non-live-crds:*` keys) should be pushed to both cloud DBs so all three stay consistent.
 - After reconciliation, verify with an exact key-count match across all three stores (local, DB1, DB2) plus spot-checks of specific keys (byte-for-byte value comparison, not just presence).
 - Chunk large single-command payloads (e.g. big hash `HSET`s with thousands of fields) into sub-batches of ~500 fields before writing to Upstash — a single oversized command can exceed Upstash's 10MB REST request-size limit even with pipeline-level batching.
 

@@ -251,7 +251,7 @@ export async function GET(request: NextRequest) {
 		// If Redis contains a graph with >= 70000 nodes, skip warming work
 		try {
 			if (upstash) {
-				const rawGraph = await upstash.get('finra:graph');
+				const rawGraph = await upstash.get('graph:snapshot');
 				if (rawGraph) {
 					try {
 						const parsed = typeof rawGraph === 'string' ? JSON.parse(rawGraph) : rawGraph;

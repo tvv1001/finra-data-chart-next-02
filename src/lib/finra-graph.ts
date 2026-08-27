@@ -48,7 +48,19 @@ import { buildParentFirmSummaryLinks } from './finra-graph/externalLinks';
 import { resolveIndividualSourceDetail, hasIndividualSourceCoverage } from './sourceTruth';
 import { normalizeNodeRouteId, buildNodeRoutePath } from './node-route';
 import { requestRender } from './finra-graph-canvas';
-import { getFilterTags, getFilterText, matchesFilterTags, setFilterTags, setFilterText, subscribeFilterTags, subscribeFilterText } from './filterTags';
+import {
+	getFilterEnabled,
+	getFilterTags,
+	getFilterText,
+	matchesFilterTags,
+	setFilterEnabled,
+	setFilterTags,
+	setFilterText,
+	shouldPreviewUnfilteredConnections,
+	subscribeFilterEnabled,
+	subscribeFilterTags,
+	subscribeFilterText,
+} from './filterTags';
 
 // API base. When VITE_API_URL is not set, use relative paths so the dev
 // server proxy (`/api`) is used and we don't hardcode a backend port.
@@ -2190,6 +2202,10 @@ let sidebarSourceToggle = 'finra';
 // sync with the dashboard's Current/Previous Connections filter and survives navigation.
 let sidebarConnectionsFilterQuery = getFilterText();
 let sidebarConnectionsFilterTags: string[] = getFilterTags();
+let sidebarConnectionsFilterEnabled = getFilterEnabled();
+let sidebarConnectionsFilterFocused = false;
+let sidebarConnectionsFilterJustCommitted = false;
+let sidebarConnectionsFilterRowRefreshing = false;
 if (typeof window !== 'undefined') {
 	// Keep the sidebar's filter state in sync when the dashboard (or another tab) changes it.
 	subscribeFilterTags((tags) => {
@@ -2198,6 +2214,10 @@ if (typeof window !== 'undefined') {
 	});
 	subscribeFilterText((text) => {
 		sidebarConnectionsFilterQuery = text;
+		renderSidebar(sidebarSelectedNode);
+	});
+	subscribeFilterEnabled((enabled) => {
+		sidebarConnectionsFilterEnabled = enabled;
 		renderSidebar(sidebarSelectedNode);
 	});
 }
@@ -6259,6 +6279,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 			const row = input.closest('.fg-connections-filter-row') as HTMLElement | null;
 			const scope = findFilterScope(input);
 			if (!row) return;
+			sidebarConnectionsFilterRowRefreshing = true;
 			row.innerHTML = renderConnectionsFilterTagsHtml();
 			if (scope) applyConnectionsFilterToScope(scope, sidebarConnectionsFilterTags, sidebarConnectionsFilterQuery);
 			if (options.refocus !== false) {
@@ -6273,6 +6294,7 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 					}
 				}
 			}
+			sidebarConnectionsFilterRowRefreshing = false;
 		};
 		if (!(sidebarInner as any).dataset.fgConnectionsFilterBound) {
 			(sidebarInner as any).dataset.fgConnectionsFilterBound = '1';
@@ -6285,8 +6307,27 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 				// Remember the term so it survives the next renderSidebar() re-render
 				// (e.g. clicking another node), instead of resetting on every click.
 				sidebarConnectionsFilterQuery = input.value;
+				if (input.value.trim()) sidebarConnectionsFilterJustCommitted = false;
 				setFilterText(input.value);
 				applyConnectionsFilterToScope(scope, sidebarConnectionsFilterTags, input.value);
+			});
+			sidebarInner.addEventListener('focusin', (ev) => {
+				const target = ev.target as HTMLElement | null;
+				const input = (target?.closest ? target.closest('.fg-connections-filter') : null) as HTMLInputElement | null;
+				if (!input) return;
+				sidebarConnectionsFilterFocused = true;
+				const scope = findFilterScope(input);
+				if (scope) applyConnectionsFilterToScope(scope, sidebarConnectionsFilterTags, sidebarConnectionsFilterQuery);
+			});
+			sidebarInner.addEventListener('focusout', (ev) => {
+				if (sidebarConnectionsFilterRowRefreshing) return;
+				const target = ev.target as HTMLElement | null;
+				const input = (target?.closest ? target.closest('.fg-connections-filter') : null) as HTMLInputElement | null;
+				if (!input) return;
+				sidebarConnectionsFilterFocused = false;
+				sidebarConnectionsFilterJustCommitted = false;
+				const scope = findFilterScope(input);
+				if (scope) applyConnectionsFilterToScope(scope, sidebarConnectionsFilterTags, sidebarConnectionsFilterQuery);
 			});
 			sidebarInner.addEventListener('keydown', (ev) => {
 				const keyEv = ev as KeyboardEvent;
@@ -6302,10 +6343,26 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 					sidebarConnectionsFilterTags = setFilterTags([...sidebarConnectionsFilterTags, trimmed]);
 					sidebarConnectionsFilterQuery = '';
 					setFilterText('');
+					sidebarConnectionsFilterJustCommitted = true;
+					sidebarConnectionsFilterFocused = true;
 					refreshFilterRowInPlace(input);
 				} else if (keyEv.key === 'Backspace' && !input.value && sidebarConnectionsFilterTags.length > 0) {
 					sidebarConnectionsFilterTags = setFilterTags(sidebarConnectionsFilterTags.slice(0, -1));
 					refreshFilterRowInPlace(input);
+				}
+			});
+			sidebarInner.addEventListener('change', (ev) => {
+				const target = ev.target as HTMLElement | null;
+				const enabledInput = (target?.closest ? target.closest('.fg-filter-enabled') : null) as HTMLInputElement | null;
+				if (!enabledInput) return;
+				sidebarConnectionsFilterEnabled = setFilterEnabled(enabledInput.checked);
+				const row = enabledInput.closest('.fg-connections-filter-row') as HTMLElement | null;
+				const anyInput = row?.querySelector('.fg-connections-filter') as HTMLInputElement | null;
+				if (anyInput) refreshFilterRowInPlace(anyInput, { refocus: false });
+				else {
+					const scope =
+						row?.nextElementSibling?.classList.contains('fg-connections-filter-scope') ? (row.nextElementSibling as HTMLElement) : null;
+					if (scope) applyConnectionsFilterToScope(scope, sidebarConnectionsFilterTags, sidebarConnectionsFilterQuery);
 				}
 			});
 			sidebarInner.addEventListener('click', (ev) => {
@@ -15131,7 +15188,16 @@ function renderSidebarSelectionLogBody() {
 // listener and renderSidebar() (so a persisted query re-applies after a
 // re-render triggered by selecting a different node).
 function applyConnectionsFilterToScope(scope: HTMLElement, tags: string[], liveText: string) {
-	const active = tags.length > 0 || Boolean((liveText || '').trim());
+	const previewUnfiltered = shouldPreviewUnfilteredConnections({
+		focused: sidebarConnectionsFilterFocused,
+		liveText,
+		justCommitted: sidebarConnectionsFilterJustCommitted,
+	});
+	const active =
+		sidebarConnectionsFilterEnabled &&
+		!previewUnfiltered &&
+		!(sidebarConnectionsFilterFocused && String(liveText || '').trim()) &&
+		tags.length > 0;
 	const cards = scope.querySelectorAll<HTMLElement>('[data-fg-filter-text]');
 	cards.forEach((card) => {
 		const text = card.getAttribute('data-fg-filter-text') || '';
@@ -15163,9 +15229,15 @@ function renderConnectionsFilterTagsHtml() {
 				)}" style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border:none;border-radius:50%;background:transparent;color:inherit;cursor:pointer;font-size:11px;line-height:1;padding:0;">×</button></span>`,
 		)
 		.join('');
-	return `<div class="fg-filter-tags-wrap" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;width:100%;padding:4px 6px;border:1px solid var(--fg-border);border-radius:6px;background:var(--fg-bg-secondary);">
+	return `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;width:100%;">
+		<label class="fg-filter-enabled-label" style="display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--fg-text);cursor:pointer;white-space:nowrap;">
+			<input type="checkbox" class="fg-filter-enabled" ${sidebarConnectionsFilterEnabled ? 'checked' : ''} aria-label="Apply filter tags" />
+			Tags
+		</label>
+		<div class="fg-filter-tags-wrap" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;flex:1 1 160px;min-width:140px;padding:4px 6px;border:1px solid var(--fg-border);border-radius:6px;background:var(--fg-bg-secondary);${sidebarConnectionsFilterEnabled ? '' : 'opacity:0.55;'}">
 		${chips}
 		<input type="text" class="fg-connections-filter" placeholder="${sidebarConnectionsFilterTags.length ? 'Add another filter…' : 'Filter connections…'}" value="${sidebarConnectionsFilterQuery.replace(/"/g, '&quot;')}" style="flex:1 1 120px;min-width:120px;border:none;outline:none;background:transparent;color:var(--fg-text);font-size:12px;padding:4px;" />
+		</div>
 	</div>`;
 }
 

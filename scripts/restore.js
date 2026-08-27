@@ -17,7 +17,7 @@ async function restore() {
     
     console.log(`Uploading graph of size ${b64.length} bytes...`);
     
-    const res = await fetch(`${url}/set/finra:graph`, {
+    const res = await fetch(`${url}/set/graph:snapshot`, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${token}`
@@ -47,7 +47,7 @@ async function restore() {
         seeds: graphJson.nodes.map(n => n.id)
     };
     
-    const seedRes = await fetch(`${url}/set/finra:seed-bank`, {
+    const seedRes = await fetch(`${url}/set/graph:seed-bank`, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${token}`

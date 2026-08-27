@@ -771,9 +771,11 @@ export async function GET(
           : null;
       const searchHit = bcSearchHit || secSearchHit;
 
+      const firmReference = await lookupFirmReference(id).catch(() => null);
       let orphan = null;
       // Strict orphan rule: only return an orphan when an upstream detail page exists
-      // (FINRA or SEC summary). Do NOT construct orphans from plain search hits.
+      // (FINRA or SEC summary) or the record is already known as a legacy scraped-only
+      // firm reference from a person's employment history.
       const externalDetailPageExists = Boolean(secPageValid || finraPageValid);
       if (searchHit && externalDetailPageExists) {
         orphan = {
@@ -794,10 +796,22 @@ export async function GET(
           iaSECNumber: searchHit.firm_ia_sec_number || searchHit.iaSecNumber,
           _externalPages: { finra: finraPageValid, sec: secPageValid },
         };
+      } else if (firmReference) {
+        orphan = {
+          firmId: id,
+          firmName: firmReference.firmName || `Firm ${id}`,
+          name: firmReference.name,
+          parentCrd: firmReference.parentCrd || id,
+          parentType: firmReference.parentType || "individual",
+          bcScope: "NotInScope",
+          iaScope: "NotInScope",
+          firmStatus: "Legacy / non-live",
+          officeAddress: firmReference.officeAddress,
+          mailingAddress: firmReference.mailingAddress,
+          phone: firmReference.phone,
+          _externalPages: { finra: finraPageValid, sec: secPageValid },
+        };
       }
-
-      // NOTE: lookupFirmReference is intentionally NOT used here — per the strict rule,
-      // orphan template is reserved only for records with an actual API detail page.
 
       if (orphan) {
         return NextResponse.json(

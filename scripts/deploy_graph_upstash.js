@@ -5,8 +5,8 @@ const { Redis } = require('@upstash/redis');
 
 const ROOT = process.cwd();
 const GRAPH_FILE = path.join(ROOT, 'data', 'national', 'finra-graph.json');
-const REDIS_KEY = 'finra:graph';
-const MANIFEST_KEY = 'finra:graph:manifest';
+const REDIS_KEY = 'graph:snapshot';
+const MANIFEST_KEY = 'graph:manifest';
 
 function getRedis() {
 	const url = process.env.UPSTASH_REDIS_REST_URL;

@@ -391,7 +391,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					iaScope: searchHit.iaScope || 'NotInScope',
 				};
 			} else {
-				// Last resort: check the owner-reference index
+				// Last resort: check the non-live CRD index
 				orphan = await lookupOwnerReference(crd).catch(() => null);
 			}
 

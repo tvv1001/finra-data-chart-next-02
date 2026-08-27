@@ -13,10 +13,12 @@ import { setStringIfValid, decompressPayload } from '@/lib/redisCache';
 import { gzipOffload, gunzipOffload } from './gzipWorker';
 import { GRAPH_FILE, RECENT_SEEDS_FILE, SEED_BANK_FILE, SEED_PROFILES_FILE, SEEDS_FILE } from './graphDataPaths';
 
-const REDIS_GRAPH_KEY = 'finra:graph';
-const REDIS_GRAPH_UPDATED_AT_KEY = 'finra:graph:updated-at';
-const REDIS_SEED_BANK_KEY = 'finra:seed-bank';
-const REDIS_RECENT_SEEDS_KEY = 'finra:recent-seeds';
+// Graph runtime state lives under `graph:`. `finra:` / `sec:` are source-record
+// folders only (individual/firm payloads), treated equally.
+const REDIS_GRAPH_KEY = 'graph:snapshot';
+const REDIS_GRAPH_UPDATED_AT_KEY = 'graph:updated-at';
+const REDIS_SEED_BANK_KEY = 'graph:seed-bank';
+const REDIS_RECENT_SEEDS_KEY = 'graph:recent-seeds';
 const EMPTY_GRAPH = { nodes: [], links: [], meta: {} };
 
 type SeedBank = {
@@ -716,7 +718,7 @@ export async function getFullGraph() {
 
 			// Chunked national graph parts can be multi-MB. Redis is shared with other apps —
 			// only pull parts when mono key is missing AND FINRA_LOAD_CHUNKED_GRAPH=1.
-			// Deploy/admin scripts should rehydrate a compact `finra:graph` offline instead of
+			// Deploy/admin scripts should rehydrate a compact `graph:snapshot` offline instead of
 			// serving multi-MB parts on every serverless cold start.
 			if (!raw && process.env.FINRA_LOAD_CHUNKED_GRAPH === '1') {
 				const manifestKey = `${REDIS_GRAPH_KEY}:manifest`;
@@ -922,8 +924,8 @@ export function invalidateProfilesCache() {
 	_profilesCache = null;
 }
 
-const REDIS_PROFILES_KEY = 'finra:seed-profiles';
-const REDIS_SEEDS_KEY = 'finra:seeds';
+const REDIS_PROFILES_KEY = 'graph:seed-profiles';
+const REDIS_SEEDS_KEY = 'graph:seeds';
 
 export async function getProfilesFromStore(): Promise<any> {
 	const redis = getRedis();

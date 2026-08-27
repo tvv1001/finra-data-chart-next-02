@@ -10,8 +10,8 @@ const FINRA = path.join(BASE, 'brokercheck.finra.org');
 const SEC = path.join(BASE, 'adviserinfo.sec.gov');
 const GRAPH_FILE = path.join(BASE, 'finra-graph.json');
 const SEED_BANK_FILE = path.join(BASE, 'finra-seed-bank.json');
-const REDIS_GRAPH_KEY = 'finra:graph';
-const REDIS_SEED_BANK_KEY = 'finra:seed-bank';
+const REDIS_GRAPH_KEY = 'graph:snapshot';
+const REDIS_SEED_BANK_KEY = 'graph:seed-bank';
 
 function personId(crd) {
 	return `person:${crd}`;

@@ -138,6 +138,8 @@ describe('extractConnectionCards', () => {
 				title: 'Northstar Advisory',
 				meta: 'Former owner',
 				subtitle: '2020-01-01 • 123 Market St, Denver, CO',
+				startDate: '2020-01-01',
+				address: '123 Market St, Denver, CO',
 			},
 		]);
 	});
@@ -157,6 +159,7 @@ describe('extractConnectionCards', () => {
 				title: 'Horizon Partners',
 				meta: 'Principal',
 				subtitle: '2024-06-01',
+				startDate: '2024-06-01',
 			},
 		]);
 	});
