@@ -9,6 +9,7 @@ import { getRecordDisplayName } from '../../lib/recordDisplay';
 import { formatOtherName, formatUiText } from '@/lib/finra-graph/formatters';
 import { buildPersonName, formatEntityName, formatFirmName, formatPersonName } from '@/lib/nameFormat';
 import { hasFirmSourceCoverage, hasIndividualSourceCoverage } from '@/lib/sourceTruth';
+import { extractPayloadFromDetail, mergeEmploymentCardsAcrossSources, overlayMergedEmploymentHistory, resolveOrderedSourcesFromDetail } from '@/lib/dashboard-detail';
 import { getFilterTags, getFilterText, matchesFilterTags, setFilterTags, setFilterText, subscribeFilterTags, subscribeFilterText } from '@/lib/filterTags';
 import VectorLoader from '@/components/VectorLoader';
 import styles from './dashboard.module.css';
@@ -2060,8 +2061,18 @@ function DashboardPageInner() {
 			});
 		};
 
-		const currentEmployment = sortEmployment([...toArray(body.currentEmployments), ...toArray(body.currentIAEmployments), ...toArray(body.currentEmployment)]);
-		const previousEmployment = sortEmployment([...toArray(body.previousEmployments), ...toArray(body.previousIAEmployments)]);
+		const currentEmployment = sortEmployment(
+			mergeEmploymentCardsAcrossSources({
+				finra: [...toArray(body.currentEmployments), ...toArray(body.currentEmployment)],
+				sec: toArray(body.currentIAEmployments),
+			}),
+		);
+		const previousEmployment = sortEmployment(
+			mergeEmploymentCardsAcrossSources({
+				finra: toArray(body.previousEmployments),
+				sec: toArray(body.previousIAEmployments),
+			}),
+		);
 		const registrationCards = extractRegistrationCards(body);
 		const currentConnectionCards = extractConnectionCards(body, 'currentConnections');
 		const previousConnectionCards = extractConnectionCards(body, 'previousConnections');
@@ -2598,52 +2609,6 @@ function DashboardPageInner() {
 		void loadQueueSourceJson(card, parsed.source);
 	}
 
-	function extractPayloadFromDetail(detail: any, source: SearchResultSource) {
-		if (!detail || typeof detail !== 'object') return null;
-
-		const hasOrphan = Boolean(detail?.orphan && typeof detail.orphan === 'object');
-		const candidate =
-			source === 'finra' ?
-				(detail?.sources?.finra?.bccontent ?? detail?.sources?.finra?.content ?? detail?.sources?.finra ?? detail?.finraNode ?? detail?.merged ?? detail?.bccontent ?? null)
-			:	(detail?.sources?.sec?.iacontent ?? detail?.sources?.sec?.content ?? detail?.sources?.sec ?? detail?.finraNode ?? detail?.merged ?? detail?.iacontent ?? null);
-
-		const candidateHasRealData =
-			candidate &&
-			typeof candidate === 'object' &&
-			candidate.found !== false &&
-			(Boolean(candidate.basicInformation) ||
-				Boolean(candidate.content) ||
-				Boolean(candidate.iacontent) ||
-				Boolean(candidate.hits) ||
-				Boolean(candidate.individualId) ||
-				Boolean(candidate.firmId) ||
-				Boolean(candidate.firstName) ||
-				Boolean(candidate.lastName) ||
-				Boolean(candidate.legalName) ||
-				Boolean(candidate.firmName));
-
-		if (candidateHasRealData) {
-			return candidate;
-		}
-
-		if (hasOrphan) {
-			return detail;
-		}
-
-		if (candidate && candidate.found !== false) return candidate;
-		return null;
-	}
-
-	function resolveOrderedSourcesFromDetail(detail: any, requestedSource: SearchResultSource, declaredSources: SearchResultSource[]): SearchResultSource[] {
-		const base = [requestedSource, ...declaredSources].filter((entry, index, arr) => (entry === 'finra' || entry === 'sec') && arr.indexOf(entry) === index);
-		const hasFinraData = detail?.hasFinraData === true || Boolean(detail?.sources?.finra) || Boolean(detail?.finraNode?.bccontent || detail?.bccontent);
-		const hasSecData = detail?.hasSecData === true || Boolean(detail?.sources?.sec) || Boolean(detail?.finraNode?.iacontent || detail?.iacontent);
-
-		if (!hasFinraData && hasSecData) return ['sec', 'finra'];
-		if (hasFinraData && !hasSecData) return ['finra', 'sec'];
-		return base.length > 0 ? base : ['finra', 'sec'];
-	}
-
 	async function loadInventoryOnlyFromRedis() {
 		try {
 			const response = await fetch('/api/dashboard/refresh', {
@@ -3051,6 +3016,7 @@ function DashboardPageInner() {
 				payload = extractPayloadFromDetail(mergedDetail, candidateSource);
 				if (payload) {
 					resolvedSource = candidateSource;
+					payload = overlayMergedEmploymentHistory(payload, mergedDetail);
 					break;
 				}
 			}
@@ -3066,6 +3032,7 @@ function DashboardPageInner() {
 						payload = extractPayloadFromDetail(fallbackDetail, candidateSource);
 						if (payload) {
 							resolvedSource = candidateSource;
+							payload = overlayMergedEmploymentHistory(payload, fallbackDetail);
 							break;
 						}
 					}
@@ -3082,6 +3049,7 @@ function DashboardPageInner() {
 							payload = extractPayloadFromDetail(refreshedDetail, candidateSource);
 							if (payload) {
 								resolvedSource = candidateSource;
+								payload = overlayMergedEmploymentHistory(payload, refreshedDetail);
 								break;
 							}
 						}
@@ -4192,6 +4160,7 @@ function DashboardPageInner() {
 															const otherNames = (crd && employmentFirmOtherNames[String(crd)]) || [];
 															const statusKey = pickFirstNonEmpty(row.statusTag, row.status, 'Active');
 															const rowStatusClass = /inactive/i.test(String(statusKey)) ? styles.currentConnectionStatusTagInactive : styles.currentConnectionStatusTag;
+															const sourceTags = Array.from(new Set([...(Array.isArray(row.sourceTags) ? row.sourceTags : []), row.sourceTag].filter(Boolean)));
 
 															const content = (
 																<>
@@ -4199,6 +4168,8 @@ function DashboardPageInner() {
 																		<div className={styles.employmentRowNameWrap}>
 																			<span className={styles.detailRowName}>{rowName}</span>
 																			{crd && <span className={styles.detailInlineTag}>CRD#{crd}</span>}
+																			{sourceTags.includes('FINRA') && <span className={styles.tagFinra}>FINRA</span>}
+																			{sourceTags.includes('SEC') && <span className={styles.tagSec}>SEC</span>}
 																			{statusKey && (
 																				<span className={`${styles.detailInlineTag} ${rowStatusClass}`}>
 																					{String(statusKey)}
@@ -4257,6 +4228,7 @@ function DashboardPageInner() {
 															const otherNames = (crd && employmentFirmOtherNames[String(crd)]) || [];
 															const statusKey = pickFirstNonEmpty(row.statusTag, row.status, 'Inactive');
 															const rowStatusClass = /inactive/i.test(String(statusKey)) ? styles.currentConnectionStatusTagInactive : styles.currentConnectionStatusTag;
+															const sourceTags = Array.from(new Set([...(Array.isArray(row.sourceTags) ? row.sourceTags : []), row.sourceTag].filter(Boolean)));
 
 															const content = (
 																<>
@@ -4264,6 +4236,8 @@ function DashboardPageInner() {
 																		<div className={styles.employmentRowNameWrap}>
 																			<span className={styles.detailRowName}>{rowName}</span>
 																			{crd && <span className={styles.detailInlineTag}>CRD#{crd}</span>}
+																			{sourceTags.includes('FINRA') && <span className={styles.tagFinra}>FINRA</span>}
+																			{sourceTags.includes('SEC') && <span className={styles.tagSec}>SEC</span>}
 																			{statusKey && (
 																				<span className={`${styles.detailInlineTag} ${rowStatusClass}`}>
 																					{String(statusKey)}
