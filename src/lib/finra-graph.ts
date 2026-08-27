@@ -4665,11 +4665,12 @@ function isAutoExpansionLink(link) {
 		.toLowerCase();
 	// Ownership/control links are always revealable in the graph.
 	if (rel === 'controls' || rel === 'controlled_by' || rel === 'owner' || rel === 'officer' || rel === 'associated_with') return true;
-	// Only reveal current employment/registration links; previous history remains sidebar-only.
+	// Person clicks should reveal the full relationship web, including prior employers, so
+	// previous employment/registration links stay visible rather than being suppressed to the sidebar.
 	if (rel.includes('employed') || rel.includes('registered')) {
-		if (rel === 'previous_employed_by' || rel === 'previous_registered_by') return false;
+		if (rel === 'previous_employed_by' || rel === 'previous_registered_by') return true;
 		if (rel === 'employed_by' || rel === 'registered_by') return isCurrentRegistration(link) || (typeof link.isCurrent === 'boolean' ? link.isCurrent : true);
-		return link.isCurrent !== false && !isPreviousEmploymentLink(link);
+		return link.isCurrent !== false || rel.includes('previous');
 	}
 	// Direct entity relationships
 	if (rel === 'subsidiary_of' || rel === 'parent_of') return true;
@@ -11648,11 +11649,10 @@ async function ensureIndividualDetail(
 	}
 
 	if (personNode._detailLoaded && hasRichIndividualDetail(personNode)) {
-		// Detail already on the node (e.g. session restore / prior current-only inject).
-		// Keep the graph reveal limited to current firm links; previous employers remain
-		// detailed in the sidebar rather than auto-expanding into the graph.
+		// Detail already on the node (e.g. session restore / prior inject).
+		// Preserve the full person relationship graph on click, including earlier firms.
 		if (injectEmploymentGraph) {
-			syncIndividualConnectionsFromDetail(personNode, personNode, { includePrevious: false });
+			syncIndividualConnectionsFromDetail(personNode, personNode, { includePrevious: true });
 		}
 		return;
 	}
@@ -11743,10 +11743,9 @@ async function ensureIndividualDetail(
 
 			try {
 				applyIndividualDetail(personNode, detail, crd);
-				// Fetching a person node should reveal only the active, on-graph firm links.
-				// Previous employers stay in the sidebar detail stack instead of expanding the graph.
+				// Clicking a person should reveal its full employment history, including previous firms.
 				if (injectEmploymentGraph) {
-					syncIndividualConnectionsFromDetail(personNode, detail, { includePrevious: false });
+					syncIndividualConnectionsFromDetail(personNode, detail, { includePrevious: true });
 				}
 				personNode._trustedCurrentRelationshipData = hasRichIndividualDetail(detail);
 				personNode._detailLoaded = true;
@@ -11781,10 +11780,9 @@ function isControlPositionText(text) {
 
 function syncIndividualConnectionsFromDetail(personNode, detail, options: { includePrevious?: boolean } = {}) {
 	if (!personNode || !detail) return;
-	// Keep fetched person nodes limited to their active firm links in the graph.
-	// Previous employers remain available in the sidebar detail, but are not auto-revealed
-	// as graph neighbors during a normal fetch.
-	const { includePrevious = false } = options;
+	// Clicking a person node should surface all of its known firm links, including previous/
+	// historical employers, so the graph matches the person's full relationship history.
+	const { includePrevious = true } = options;
 
 	const personId = personNode.id;
 	const newNodes = [];
