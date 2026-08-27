@@ -9,6 +9,7 @@
 		-apple-system,
 		Segoe UI,
 		sans-serif;
+	letter-spacing: 0.7px;
 }
 
 .layout {
@@ -2094,11 +2095,11 @@
 }
 
 .employmentRowOtherNames {
-	font-size: 11px;
-	font-weight: 500;
-	color: var(--text-muted);
+	color: #006aff;
 	white-space: normal;
 	word-break: break-word;
+	font-size: 14px;
+	font-weight: 400;
 }
 
 .headerOtherNameText {
@@ -3114,7 +3115,8 @@
 	background: linear-gradient(135deg, #0b1f3d 0%, #0a2a4a 100%);
 	border: 1px solid rgba(59, 130, 246, 0.5);
 }
-.detailRowInteractive:hover {
+.detailRowInteractive:hover,
+.detailRowInteractive:focus-visible {
 	background: rgba(37, 99, 235, 0.16);
 	border-color: rgba(96, 165, 250, 0.9);
 	cursor: pointer;
@@ -3132,6 +3134,12 @@
 	transition: all 0.2s;
 	position: relative;
 	overflow: hidden;
+}
+.currentEmploymentRow:hover,
+.currentEmploymentRow:focus-visible {
+	background: rgba(37, 99, 235, 0.16);
+	border-color: rgba(96, 165, 250, 0.9);
+	cursor: pointer;
 }
 
 .currentEmploymentRow::before {
@@ -3152,34 +3160,33 @@
 }
 
 .previousEmploymentRow {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-	padding: 10px 12px;
-	background: linear-gradient(135deg, #000001 0%, #000306 100%);
-	border-color: rgba(27, 47, 75, 0.968);
-	border-radius: 0px;
-	text-decoration: none;
-	transition: all 0.2s;
 	position: relative;
+	padding: 12px 14px;
+	gap: 6px;
+	box-shadow: inset 0 0 0 1px #64748b24;
+	background: linear-gradient(135deg, #010f26 0%, #31353e34 100%);
+	border: 1px solid rgba(13, 61, 128, 0.95);
+	border-radius: 0px;
 	overflow: hidden;
 }
 
 .previousEmploymentRow::before {
-	content: '';
-	position: absolute;
-	inset: 0;
-	background-image: radial-gradient(rgba(148, 163, 184, 0.14) 1px, transparent 1px);
-	background-size: 12px 12px;
-	opacity: 0.5;
-	pointer-events: none;
+	position: relative;
+	padding: 12px 14px;
+	gap: 6px;
+	box-shadow: inset 0 0 0 1px #64748b24;
+	background: linear-gradient(135deg, #070424a8 0%, #010916 100%);
+	border: 1px solid rgba(13, 61, 128, 0.95);
+	border-radius: 0px;
+	overflow: hidden;
 }
 
 .previousEmploymentRow:hover,
 .previousEmploymentRow:focus-visible {
-	background: linear-gradient(135deg, #010409 0%, #000102 100%);
-	border-color: rgba(78, 109, 153, 0.917);
+	background: linear-gradient(135deg, #0b0c25bd 0%, #000209f5 100%);
+	border-color: rgb(24, 128, 254);
 	outline: none;
+	cursor: pointer;
 }
 
 .profileLinksRow {
@@ -3227,7 +3234,7 @@
 .detailRowName {
 	font-weight: 700;
 	color: #f1f1ff;
-	font-size: 13px;
+	font-size: 15px;
 	letter-spacing: 0.04em;
 	text-transform: capitalize;
 }
@@ -3265,8 +3272,8 @@
 
 .currentConnectionRow:hover,
 .currentConnectionRow:focus-visible {
-	background: linear-gradient(135deg, #020d20 0%, #06062f 100%);
-	border-color: rgba(96, 165, 250, 0.9);
+	background: linear-gradient(135deg, #040f26b7 0%, #01010e 100%);
+	border-color: rgb(24, 128, 254);
 	outline: none;
 }
 
@@ -3343,10 +3350,18 @@
 	padding: 12px 14px;
 	gap: 6px;
 	box-shadow: inset 0 0 0 1px #64748b24;
-	background: linear-gradient(135deg, #010f26 0%, #31353e34 100%);
+	background: linear-gradient(135deg, #070424a8 0%, #010916 100%);
 	border: 1px solid rgba(13, 61, 128, 0.95);
 	border-radius: 0px;
 	overflow: hidden;
+}
+
+.previousConnectionRow:hover,
+.previousConnectionRow:focus-visible {
+	background: linear-gradient(135deg, #0b0c25bd 0%, #000209f5 100%);
+	border-color: rgb(24, 128, 254);
+	outline: none;
+	cursor: pointer;
 }
 
 .previousConnectionName {
@@ -3535,17 +3550,22 @@
 .filterTagsInput {
 	width: 100%;
 	border-radius: 0px;
-	border: 1px solid #6968a8;
 	padding: 8px;
 	font-size: 16px;
-	background: #010102;
+	background: linear-gradient(135deg, #000204 0%, #010406 100%);
+	border: 1px solid rgba(59, 130, 246, 0.5);
 	color: #e6edf7;
-}
-.input:focus,
-.filterTagsInput:focus {
-	border-color: #bdcaf7;
 	outline: none;
 }
+
+.input:focus,
+.filterTagsInput:focus {
+	background: rgba(1, 6, 15, 0.497);
+	border: 1px solid rgba(7, 73, 160, 0.9);
+	outline: none;
+	cursor: pointer;
+}
+
 .input::placeholder,
 .filterTagsInput::placeholder {
 	color: #8b96a8;
