@@ -4659,13 +4659,18 @@ function isNonGrayExpansionLink(link) {
 
 function isAutoExpansionLink(link) {
 	if (!link) return false;
+	if (isForcedGrayConnectionLink(link) || hasInactiveEndpoint(link)) return false;
 	const rel = String(link.relationship || '')
 		.trim()
 		.toLowerCase();
-	// Ownership/control (include both current and previous)
+	// Ownership/control links are always revealable in the graph.
 	if (rel === 'controls' || rel === 'controlled_by' || rel === 'owner' || rel === 'officer' || rel === 'associated_with') return true;
-	// Employment/Registration history (include both current and previous)
-	if (rel.includes('employed') || rel.includes('registered')) return true;
+	// Only reveal current employment/registration links; previous history remains sidebar-only.
+	if (rel.includes('employed') || rel.includes('registered')) {
+		if (rel === 'previous_employed_by' || rel === 'previous_registered_by') return false;
+		if (rel === 'employed_by' || rel === 'registered_by') return isCurrentRegistration(link) || (typeof link.isCurrent === 'boolean' ? link.isCurrent : true);
+		return link.isCurrent !== false && !isPreviousEmploymentLink(link);
+	}
 	// Direct entity relationships
 	if (rel === 'subsidiary_of' || rel === 'parent_of') return true;
 	// General fallback for neutral or unlabeled links
@@ -6748,12 +6753,12 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 							),
 						);
 					}
-					// Build firm connections from embedded employment data
+					// Build graph-visible firm connections from embedded employment data.
+					// Historical/previous employers stay in the sidebar detail stack; they should
+					// not be injected as graph neighbors during a search fetch.
 					const emps = [
 						...(parsed?.currentEmployments || []).map((e) => ({ ...e, _isCurrent: true })),
 						...(parsed?.currentIAEmployments || []).map((e) => ({ ...e, _isCurrent: true })),
-						...(parsed?.previousEmployments || []).map((e) => ({ ...e, _isCurrent: false })),
-						...(parsed?.previousIAEmployments || []).map((e) => ({ ...e, _isCurrent: false })),
 					];
 					for (const e of emps) {
 						const fid = String(e?.firmId || e?.firm_id || e?.firmIdNumber || e?.firmId || '').trim();
@@ -7694,6 +7699,22 @@ export function mergeGraphNodesByIdentity(existingNodes = [], incomingNodes = []
 	return mergeIncomingNodesIntoExistingNodes(existingNodes, incomingNodes).nodes;
 }
 
+function filterRevealableGraphPayload(payload, linkFilter) {
+	const nextNodes = Array.isArray(payload?.nodes) ? payload.nodes : [];
+	const nextLinks = Array.isArray(payload?.links) ? payload.links : [];
+	if (typeof linkFilter !== 'function') return { nodes: nextNodes, links: nextLinks };
+	const keptLinks = nextLinks.filter((link) => linkFilter(link));
+	const keptNodeIds = new Set<string>();
+	for (const link of keptLinks) {
+		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+		if (sourceId) keptNodeIds.add(sourceId);
+		if (targetId) keptNodeIds.add(targetId);
+	}
+	const keptNodes = nextNodes.filter((node) => !node?.id || keptNodeIds.has(String(node.id).trim()) || node.id === payload?._rootNodeId || node.id === payload?._selectedNodeId);
+	return { nodes: keptNodes, links: keptLinks };
+}
+
 function mergeIntoGraphData(newNodes, newLinks) {
 	if (!graphData) return;
 	invalidateFullAdjacencyMap();
@@ -7702,7 +7723,8 @@ function mergeIntoGraphData(newNodes, newLinks) {
 	const mergedNodes = mergeResult.nodes;
 	const addedIds = mergedNodes.filter((node) => !existingNodes.some((entry) => entry.id === node.id)).map((node) => node.id);
 	graphData.nodes = mergedNodes;
-	const rewrittenLinks = rewriteLinksForNodeIdMap(newLinks, mergeResult.idRewriteMap);
+	const revealableLinks = Array.isArray(newLinks) ? newLinks.filter((link) => isAutoExpansionLink(link)) : [];
+	const rewrittenLinks = rewriteLinksForNodeIdMap(revealableLinks, mergeResult.idRewriteMap);
 	const gLinkKeys = new Set(graphData.links.map((l) => getLinkIdentityKey(l)));
 	rewrittenLinks
 		.filter((l) => {
@@ -7742,7 +7764,8 @@ function persistToServer(nodes, links) {
 		let nodeIdx = 0;
 		let linkIdx = 0;
 		const totalNodes = Array.isArray(nodes) ? nodes.length : 0;
-		const totalLinks = Array.isArray(links) ? links.length : 0;
+		const revealableLinks = Array.isArray(links) ? links.filter((link) => isAutoExpansionLink(link)) : [];
+		const totalLinks = revealableLinks.length;
 
 		while (nodeIdx < totalNodes || linkIdx < totalLinks) {
 			const batchNodes = [];
@@ -7761,7 +7784,7 @@ function persistToServer(nodes, links) {
 
 			// Add links until size limit reached
 			while (linkIdx < totalLinks) {
-				batchLinks.push(links[linkIdx]);
+				batchLinks.push(revealableLinks[linkIdx]);
 				const size = new TextEncoder().encode(JSON.stringify({ nodes: batchNodes, links: batchLinks })).length;
 				if (size > maxBytes) {
 					batchLinks.pop();
@@ -7776,7 +7799,7 @@ function persistToServer(nodes, links) {
 				nodeIdx++;
 			}
 			if (batchLinks.length === 0 && linkIdx < totalLinks) {
-				batchLinks.push(links[linkIdx]);
+				batchLinks.push(revealableLinks[linkIdx]);
 				linkIdx++;
 			}
 
@@ -7798,9 +7821,9 @@ async function fetchIndividualBatch(crd, queryLabel = null, options: { includePr
 	if (!/^[0-9]+$/.test(String(crd))) {
 		throw new Error(`invalid individual id ${crd}`);
 	}
-	// Include previous employers as 1-hop firm stubs on the canvas. Safe: we do NOT expand
-	// those firms' employee rosters unless the user clicks a firm (mega-firm cap still applies).
-	const { includePreviousEmployments = true } = options;
+	// Graph fetches should stay limited to active links; historical employment remains
+	// sidebar-only until the user explicitly expands a firm/person path.
+	const { includePreviousEmployments = false } = options;
 
 	const nodes = [];
 	const links = [];
@@ -10561,7 +10584,8 @@ function appendFetchedImpl(newNodes, newLinks) {
 	const mergedNodes = mergeResult.nodes;
 	const uniqNodes = mergedNodes.filter((node) => !layoutNodes.some((entry) => entry?.id === node?.id));
 	const incomingNodeIdRewrites = mergeResult.idRewriteMap;
-	const rewrittenLinks = rewriteLinksForNodeIdMap(Array.isArray(newLinks) ? newLinks : [], incomingNodeIdRewrites);
+	const revealableIncomingLinks = Array.isArray(newLinks) ? newLinks.filter((link) => isAutoExpansionLink(link)) : [];
+	const rewrittenLinks = rewriteLinksForNodeIdMap(revealableIncomingLinks, incomingNodeIdRewrites);
 
 	// Place newly-added nodes near the expand origin (parent node) if known,
 	// otherwise fall back to the viewport center so they're visible immediately.
@@ -12725,8 +12749,9 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 			hydrationPromise,
 			firmConnectionPromise,
 			expansionPromise.then(async (expansion) => {
-				if (expansion.nodes.length || expansion.links.length) {
-					mergeIntoGraphData(expansion.nodes, expansion.links);
+				const filteredExpansion = filterRevealableGraphPayload(expansion, expansionLinkFilter);
+				if (filteredExpansion.nodes.length || filteredExpansion.links.length) {
+					mergeIntoGraphData(filteredExpansion.nodes, filteredExpansion.links);
 				}
 			}),
 		]);
