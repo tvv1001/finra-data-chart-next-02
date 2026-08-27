@@ -5,7 +5,7 @@ import { getNeighborsForNodes } from '@/lib/graphStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
 import { tryLoadPersonCluster } from '@/lib/peopleClusterCache';
-import { searchLocalIndex } from '@/lib/localSearch';
+import { hydrateFirmNodeLabelsFromSearchSidecar, searchLocalIndex } from '@/lib/localSearch';
 import { getFirmConnectionsFromGraph } from '@/lib/graphConnections';
 import { lookupFirmEmploymentEdgesFromPrimed } from '@/lib/firmEmploymentFromPrimed';
 
@@ -67,6 +67,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				if (isValidCrd(crd)) {
 					const cluster = await tryLoadPersonCluster(crd);
 					if (cluster) {
+						await hydrateFirmNodeLabelsFromSearchSidecar(cluster.nodes || [], { baseUrl });
 						return NextResponse.json({ nodes: cluster.nodes || [], links: cluster.links || [] }, { headers: sharedCacheHeaders(300) });
 					}
 				} else {
@@ -85,6 +86,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				if (redis) {
 					const cached = await redis.get<any>(`finra:expand:${nodeId}:1`);
 					if (cached) {
+						await hydrateFirmNodeLabelsFromSearchSidecar(cached.nodes || [], { baseUrl });
 						return NextResponse.json(cached, { headers: sharedCacheHeaders(300) });
 					}
 				}
@@ -274,6 +276,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			}
 		}
 
+		await hydrateFirmNodeLabelsFromSearchSidecar(result.nodes || [], { baseUrl });
 		return NextResponse.json(result, { headers: sharedCacheHeaders(300) });
 	} catch (err: any) {
 		logger.error('expand error', { error: err.message });

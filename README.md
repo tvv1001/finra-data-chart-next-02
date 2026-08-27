@@ -15,6 +15,9 @@ Live demo: https://finra-data-chart-next-02.vercel.app
 - Expand the graph incrementally from searches, fetched records, and saved profiles
 - Inspect rich sidebar detail with timelines, disclosures, and ownership context
 - Run locally from cached artifacts or deploy with bundled graph and primed cache data
+- Hydrate search, expand, and graph **firm names** from gzip search-index sidecars (`public/search-indexes/search-index.*.json.gz`) so nodes do not stay stuck as `Firm <CRD>`
+
+See `docs/search-sidecar.md` for the sidecar hydration path.
 
 ---
 

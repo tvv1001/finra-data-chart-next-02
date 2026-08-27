@@ -3,7 +3,14 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { afterEach, describe, expect, it } from 'vitest';
-import { searchLocalIndex, cleanSearchQuery, extractSearchQueries, searchQueriesSequentially } from '@/lib/localSearch';
+import {
+	searchLocalIndex,
+	cleanSearchQuery,
+	extractSearchQueries,
+	searchQueriesSequentially,
+	hydrateFirmNodeLabelsFromSearchSidecar,
+	lookupFirmNamesFromSearchSidecar,
+} from '@/lib/localSearch';
 import { getSearchIndexFilePath } from '@/lib/searchDataPaths';
 
 async function withTempSearchIndex(fileName: string, content: string | Buffer, run: (root: string) => Promise<void>) {
@@ -68,6 +75,40 @@ describe('local search indexes', () => {
 
 		expect(attemptedQueries).toEqual(['11111', '22222']);
 		expect(result).toEqual([{ total: 1, results: [{ id: '22222' }] }]);
+	});
+
+	it('looks up firm names from the gzip sidecar by CRD', async () => {
+		const payload = JSON.stringify({
+			generatedAt: '2026-01-01T00:00:00.000Z',
+			bucket: 'finra:firm',
+			docs: [
+				{
+					id: 'finra:firm:31194',
+					type: 'firm',
+					source: 'finra',
+					nameSearchText: 'rbc capital markets',
+					strictSearchText: 'rbc capital markets 31194',
+					searchText: '31194 rbc capital markets',
+					hit: {
+						firm_id: '31194',
+						firmId: '31194',
+						firm_source_id: '31194',
+						firm_name: 'RBC CAPITAL MARKETS, LLC',
+						firmName: 'RBC CAPITAL MARKETS, LLC',
+					},
+				},
+			],
+		});
+
+		await withTempSearchIndex('search-index.finra.firm.json.gz', gzipSync(Buffer.from(payload)), async (root) => {
+			const names = await lookupFirmNamesFromSearchSidecar(['31194'], { seedRoots: [root] });
+			expect(names.get('31194')).toBe('RBC CAPITAL MARKETS, LLC');
+
+			const nodes = [{ id: 'firm:31194', group: 'firm', label: 'Firm 31194', firmId: '31194' }];
+			await hydrateFirmNodeLabelsFromSearchSidecar(nodes, { seedRoots: [root] });
+			expect(nodes[0].label).toBe('RBC CAPITAL MARKETS, LLC');
+			expect(nodes[0].firmName).toBe('RBC CAPITAL MARKETS, LLC');
+		});
 	});
 
 	it('returns FINRA individual results from the local index', async () => {

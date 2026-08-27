@@ -3,7 +3,7 @@ import { getFullGraph, saveGraph } from '@/lib/graphStore';
 import { Redis as UpstashRedis } from '@upstash/redis';
 import { logger } from '@/lib/logger';
 import { sharedCacheHeaders } from '@/lib/httpCache';
-import { searchLocalIndexMany, extractSearchQueries } from '@/lib/localSearch';
+import { extractSearchQueries, hydrateFirmNodeLabelsFromSearchSidecar, searchLocalIndexMany } from '@/lib/localSearch';
 import { normalizeIndividualDetailFromSource } from '@/lib/individualDetail';
 import { resolveIndividualSourceDetail } from '@/lib/sourceTruth';
 import { tryLoadPersonCluster } from '@/lib/peopleClusterCache';
@@ -115,6 +115,7 @@ function buildNodesFromFirmDetail(detail: any, id: string) {
 
 async function persistGraphSearchNodesAndLinks(newNodes: any[], newLinks: any[]) {
 	try {
+		await hydrateFirmNodeLabelsFromSearchSidecar(newNodes);
 		const graph = await getFullGraph();
 		const existingIds = new Set((graph.nodes || []).map((node: any) => String(node.id)));
 		const addedNodeIds: string[] = [];

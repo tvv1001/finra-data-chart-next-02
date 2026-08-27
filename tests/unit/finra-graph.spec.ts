@@ -313,6 +313,32 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(node.label).toBe('Node person:123');
 	});
 
+	it('does not replace a real firm name with a longer generic Firm CRD label', () => {
+		const merged = mergeGraphNodesByIdentity(
+			[{ id: 'firm:31194', group: 'firm', label: 'RBC', firmName: 'RBC' }],
+			[{ id: 'firm:31194', group: 'firm', label: 'Firm 31194' }],
+		);
+		expect(merged[0].label).toBe('RBC');
+		expect(merged[0].firmName).toBe('RBC');
+	});
+
+	it('restores cached real firm names over Node firm placeholders', () => {
+		window.localStorage.setItem(
+			'finra_node_label_cache',
+			JSON.stringify({
+				'firm:5393': {
+					label: 'CHARLES SCHWAB & CO., INC.',
+					firmName: 'CHARLES SCHWAB & CO., INC.',
+					ts: Date.now(),
+				},
+			}),
+		);
+		const node = { id: 'firm:5393', group: 'firm', label: 'Node firm:5393' } as any;
+		normalizeNodeLabelInPlace(node);
+		expect(node.label).toBe('CHARLES SCHWAB & CO., INC.');
+		expect(node.firmName).toBe('CHARLES SCHWAB & CO., INC.');
+	});
+
 	it('renderNodeContents creates a dedicated hit-area for hover and focus interactions', () => {
 		const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 		const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');

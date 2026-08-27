@@ -23,6 +23,8 @@ When working from `data/raw/` or the external imported raw set:
 - When syncing or rebuilding derived caches, use append-safe logic that skips records already present instead of assuming a full rebuild.
 - If a task involves docs or prompts, describe the source as the latest source of truth and avoid implying that local derived caches are canonical.
 
+Graph node display names are hydrated from the gzip search-index sidecars (`data/national/search-index.*.json.gz` → `public/search-indexes/`), not from live upstream detail as the first pass. Firm labels must keep sidecar `firm_name` values and must not revert to `Firm <CRD>` after a later merge. See `docs/search-sidecar.md`.
+
 # FINRA / SEC API pattern guidelines
 
 This instruction supplements `.github/copilot-instructions.md` for work that touches upstream FINRA BrokerCheck and SEC AdviserInfo integrations.

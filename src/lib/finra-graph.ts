@@ -7587,21 +7587,30 @@ function mergeGraphNodePayload(targetNode, incomingNode) {
 			...Object.fromEntries(Object.entries(incomingNode.basicInformation || {}).filter(([, value]) => value != null)),
 		};
 	}
-	if (incomingNode.name && !targetNode.name) targetNode.name = incomingNode.name;
-	if (incomingNode.firmName && !targetNode.firmName) targetNode.firmName = incomingNode.firmName;
-	if (incomingNode.firmName) {
-		targetNode.firmName = String(incomingNode.firmName).trim() || targetNode.firmName;
+	if (incomingNode.name && !targetNode.name && !isGenericOrPlaceholderLabel(incomingNode.name, targetNode.group)) targetNode.name = incomingNode.name;
+	const incomingFirmName = String(incomingNode.firmName || '').trim();
+	if (incomingFirmName && !isGenericOrPlaceholderLabel(incomingFirmName, 'firm')) {
+		if (!targetNode.firmName || isGenericOrPlaceholderLabel(targetNode.firmName, 'firm')) targetNode.firmName = incomingFirmName;
 		if (!targetNode.basicInformation) targetNode.basicInformation = {};
-		if (!targetNode.basicInformation.firmName) targetNode.basicInformation.firmName = targetNode.firmName;
+		if (!targetNode.basicInformation.firmName || isGenericOrPlaceholderLabel(targetNode.basicInformation.firmName, 'firm')) {
+			targetNode.basicInformation.firmName = incomingFirmName;
+		}
 	}
 	if (incomingNode.crd && !targetNode.crd) targetNode.crd = incomingNode.crd;
 	if (incomingNode.individualId && !targetNode.individualId) targetNode.individualId = incomingNode.individualId;
 	const currentLabel = String(targetNode.label || '').trim();
 	const incomingLabel = String(incomingNode.label || '').trim();
-	const currentLabelIsPlaceholder = !currentLabel || isPlaceholderExpansionLabel(currentLabel, targetNode.group) || /^node\s+/i.test(currentLabel);
-	const shouldAdoptIncomingLabel = Boolean(incomingLabel) && (currentLabelIsPlaceholder || incomingLabel.length > currentLabel.length);
+	const currentLabelIsPlaceholder = isGenericOrPlaceholderLabel(currentLabel, targetNode.group);
+	const incomingLabelIsPlaceholder = isGenericOrPlaceholderLabel(incomingLabel, targetNode.group);
+	const shouldAdoptIncomingLabel =
+		Boolean(incomingLabel) && !incomingLabelIsPlaceholder && (currentLabelIsPlaceholder || incomingLabel.length > currentLabel.length);
 	if (shouldAdoptIncomingLabel) {
 		targetNode.label = targetNode.group === 'individual' ? normalizePersonLabel(incomingLabel) || incomingLabel : incomingLabel;
+		if (targetNode.group === 'firm') {
+			targetNode.firmName = incomingLabel;
+			if (!targetNode.basicInformation) targetNode.basicInformation = {};
+			targetNode.basicInformation.firmName = incomingLabel;
+		}
 		return targetNode;
 	}
 	if (!targetNode.label || isPlaceholderExpansionLabel(targetNode.label, targetNode.group)) {
@@ -10590,12 +10599,75 @@ async function fetchAndInjectOrphanNodes(links, knownIds) {
 	}
 }
 
+function scheduleSidecarFirmLabelHydration(nodes) {
+	const placeholders = (Array.isArray(nodes) ? nodes : []).filter((node) => node?.group === 'firm' && isGenericOrPlaceholderLabel(node.label, 'firm'));
+	if (!placeholders.length) return;
+	const ids = Array.from(
+		new Set(
+			placeholders
+				.map((node) =>
+					String(node.firmId || node.id || '')
+						.replace(/^firm:/i, '')
+						.trim(),
+				)
+				.filter(Boolean),
+		),
+	);
+	if (!ids.length) return;
+	void (async () => {
+		try {
+			const res = await fetch(`${BASE}/api/finra/search?type=firm&query=${encodeURIComponent(ids.join(' '))}&nrows=${Math.min(Math.max(ids.length, 12), 200)}`);
+			if (!res.ok) return;
+			const payload = await res.json();
+			const docs = Array.isArray(payload?.results) ? payload.results : Array.isArray(payload?.response?.docs) ? payload.response.docs : [];
+			const names = new Map();
+			for (const doc of docs) {
+				const id = String(doc?.firm_id || doc?.firmId || doc?.firm_source_id || '').trim();
+				const name = String(doc?.firm_name || doc?.firmName || doc?.name || doc?.label || '').trim();
+				if (id && name && !isGenericOrPlaceholderLabel(name, 'firm')) names.set(id, name);
+			}
+			if (!names.size) return;
+			const applyName = (node) => {
+				if (!node || node.group !== 'firm') return false;
+				const id = String(node.firmId || node.id || '')
+					.replace(/^firm:/i, '')
+					.trim();
+				const name = names.get(id);
+				if (!name || !isGenericOrPlaceholderLabel(node.label, 'firm')) return false;
+				node.label = name;
+				node.firmName = name;
+				if (!node.basicInformation) node.basicInformation = {};
+				node.basicInformation.firmName = name;
+				normalizeNodeLabelInPlace(node);
+				return true;
+			};
+			const changedIds = [];
+			for (const node of placeholders) {
+				if (applyName(node)) changedIds.push(node.id);
+			}
+			for (const node of graphData?.nodes || []) {
+				applyName(node);
+			}
+			if (!changedIds.length) return;
+			rerenderGraphNodesByIds(changedIds);
+			try {
+				saveSession();
+			} catch {
+				/* ignore */
+			}
+		} catch {
+			/* ignore sidecar label hydration failures */
+		}
+	})();
+}
+
 function appendFetchedImpl(newNodes, newLinks) {
 	if (!Array.isArray(newNodes)) newNodes = [];
 	if (!Array.isArray(newLinks)) newLinks = [];
 	if (!layoutNodes || !layoutLinks) {
 		if (graphData && Array.isArray(newNodes) && Array.isArray(newLinks)) {
 			mergeIntoGraphData(newNodes, newLinks);
+			scheduleSidecarFirmLabelHydration(graphData.nodes);
 		}
 		return;
 	}
@@ -10627,6 +10699,7 @@ function appendFetchedImpl(newNodes, newLinks) {
 	}
 
 	layoutNodes = mergedNodes;
+	scheduleSidecarFirmLabelHydration(mergedNodes);
 	// Rebind any pre-existing links to the merged node objects so the visualization
 	// keeps them attached after a fetch updates the node list.
 	resolveLinkEndpoints(layoutLinks, layoutNodes);
@@ -12287,51 +12360,72 @@ async function ensureFirmDetail(firmNode) {
 
 	const requestPromise = (async () => {
 		try {
-			// First try the local merged record (fast, no external call)
 			let detail = null;
+			let mergedApplied = false;
+			const applyMergedFirmNodeFields = (fn) => {
+				if (!fn || typeof fn !== 'object') return;
+				if (fn.firmStatus) firmNode.firmStatus = fn.firmStatus;
+				if (fn.firmStatusDate) firmNode.firmStatusDate = fn.firmStatusDate;
+				if (fn.firmType) firmNode.firmType = fn.firmType;
+				if (fn.bcScope) firmNode.bcScope = fn.bcScope;
+				if (fn.regulator) firmNode.regulator = fn.regulator;
+				if (fn.formedState) firmNode.formedState = fn.formedState;
+				if (fn.formedDate) firmNode.formedDate = fn.formedDate;
+				if (fn.isLegacy) firmNode.isLegacy = fn.isLegacy;
+				if (fn.bdSecNumber) firmNode.bdSecNumber = fn.bdSecNumber;
+				if (Array.isArray(fn.otherNames)) firmNode.otherNames = fn.otherNames;
+				if (Array.isArray(fn.directOwners)) firmNode.directOwners = fn.directOwners;
+				if (Array.isArray(fn.disclosures)) firmNode.disclosures = fn.disclosures;
+				if (Array.isArray(fn.activeStates)) firmNode.activeStates = fn.activeStates;
+				if (Array.isArray(fn.selfRegulatoryOrgs)) firmNode.selfRegulatoryOrgs = fn.selfRegulatoryOrgs;
+				if (fn.firmSize) firmNode.firmSize = fn.firmSize;
+				if (fn.iaSecNumber) firmNode.iaSecNumber = fn.iaSecNumber;
+				if (fn.fiscalYearEnd) firmNode.fiscalYearEnd = fn.fiscalYearEnd;
+				if (Array.isArray(fn.currentConnections)) firmNode.currentConnections = fn.currentConnections;
+				if (Array.isArray(fn.previousConnections)) firmNode.previousConnections = fn.previousConnections;
+			};
+			const hasUsableFirmDetail = (payload) => {
+				if (!payload || typeof payload !== 'object' || payload.found === false) return false;
+				return Boolean(
+					payload.basicInformation ||
+						payload.firmName ||
+						payload.name ||
+						payload.firmStatus ||
+						payload.bcScope ||
+						payload.officeAddress ||
+						(Array.isArray(payload.directOwners) && payload.directOwners.length) ||
+						(Array.isArray(payload.disclosures) && payload.disclosures.length),
+				);
+			};
+
+			// Fast merged Form BD payload only. Do not request includeConnections=1 —
+			// that blocks sidebar paint on getFirmConnectionsFromGraph (employee roster).
 			try {
-				const localRes = await fetch(`${BASE}/api/finra/merged/firm/${encodeURIComponent(firmId)}?includeConnections=1`);
+				const localRes = await fetch(`${BASE}/api/finra/merged/firm/${encodeURIComponent(firmId)}`);
 				if (localRes.ok) {
 					const merged = await localRes.json();
-					if (merged?.found && merged?.finraNode) {
-						// finraNode is already a graph node — merge any enriched fields
-						const fn = merged.finraNode;
-						if (fn.firmStatus) firmNode.firmStatus = fn.firmStatus;
-						if (fn.firmStatusDate) firmNode.firmStatusDate = fn.firmStatusDate;
-						if (fn.firmType) firmNode.firmType = fn.firmType;
-						if (fn.bcScope) firmNode.bcScope = fn.bcScope;
-						if (fn.regulator) firmNode.regulator = fn.regulator;
-						if (fn.formedState) firmNode.formedState = fn.formedState;
-						if (fn.formedDate) firmNode.formedDate = fn.formedDate;
-						if (fn.isLegacy) firmNode.isLegacy = fn.isLegacy;
-						if (fn.bdSecNumber) firmNode.bdSecNumber = fn.bdSecNumber;
-						if (Array.isArray(fn.otherNames)) firmNode.otherNames = fn.otherNames;
-						if (Array.isArray(fn.directOwners)) firmNode.directOwners = fn.directOwners;
-						if (Array.isArray(fn.disclosures)) firmNode.disclosures = fn.disclosures;
-						if (Array.isArray(fn.activeStates)) firmNode.activeStates = fn.activeStates;
-						if (Array.isArray(fn.selfRegulatoryOrgs)) firmNode.selfRegulatoryOrgs = fn.selfRegulatoryOrgs;
-						if (fn.firmSize) firmNode.firmSize = fn.firmSize;
-						if (fn.iaSecNumber) firmNode.iaSecNumber = fn.iaSecNumber;
-						if (fn.fiscalYearEnd) firmNode.fiscalYearEnd = fn.fiscalYearEnd;
-						// For IA-only firms the merged node is sparse (no firmStatus, bcScope, activeStates).
-						// Do not assume local merged data is complete for all firms; continue to live FINRA fetch.
-						// If the live API fails, we'll still keep any fields merged from the local record.
+					const fn = merged?.finraNode || merged?.merged;
+					if (merged?.found !== false && fn) {
+						applyMergedFirmNodeFields(fn);
+						detail = unwrapDetailPayload(fn) || fn;
+						mergedApplied = hasUsableFirmDetail(detail) || Boolean(fn.firmStatus || fn.firmName || fn.directOwners);
 					}
 				}
 			} catch {
 				// local lookup failed — fall through to live API
 			}
 
-			// Fall back to live FINRA API (server-side cached for 7 days)
-			try {
-				const res = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`);
-				if (!res.ok) {
-					console.warn(`Failed to fetch firm detail for ${firmId}:`, res.status);
-				} else {
-					detail = unwrapDetailPayload(await res.json());
+			if (!hasUsableFirmDetail(detail)) {
+				try {
+					const res = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`);
+					if (!res.ok) {
+						console.warn(`Failed to fetch firm detail for ${firmId}:`, res.status);
+					} else {
+						detail = unwrapDetailPayload(await res.json());
+					}
+				} catch (err) {
+					console.warn(`Local API fetch failed for firm ${firmId}:`, err);
 				}
-			} catch (err) {
-				console.warn(`Local API fetch failed for firm ${firmId}:`, err);
 			}
 
 			// Scraped-only reference record (e.g. an employer entry scraped directly from an
@@ -12343,7 +12437,7 @@ async function ensureFirmDetail(firmNode) {
 				firmNode.hasFinraData = false;
 				firmNode.hasSecData = false;
 				const preferredFirmName = String(orphan.firmName || '').trim();
-				if (preferredFirmName && (isPlaceholderExpansionLabel(firmNode.label, 'firm') || preferredFirmName.length > String(firmNode.label || '').length)) {
+				if (preferredFirmName && (isGenericOrPlaceholderLabel(firmNode.label, 'firm') || preferredFirmName.length > String(firmNode.label || '').length)) {
 					firmNode.label = preferredFirmName;
 					firmNode.firmName = preferredFirmName;
 				}
@@ -12358,6 +12452,15 @@ async function ensureFirmDetail(firmNode) {
 			}
 
 			if (!detail || (detail.found === false && !detail.basicInformation && !detail.firmName)) {
+				if (mergedApplied) {
+					syncFirmConnectionsFromDetail(firmNode, detail || {});
+					firmNode._detailLoaded = true;
+					firmNode._detailMissing = false;
+					firmNode._detailValidated = true;
+					if (selectedId === firmNode.id) renderSidebar(firmNode);
+					void ensureFirmConnections(firmNode);
+					return;
+				}
 				firmNode._detailMissing = true;
 				firmNode._detailValidated = true;
 				console.debug(`Firm ${firmId} not found`);
@@ -12366,7 +12469,7 @@ async function ensureFirmDetail(firmNode) {
 
 			const bi = detail?.basicInformation || {};
 			const preferredFirmName = String(bi.firmName || detail?.firmName || detail?.name || '').trim();
-			if (preferredFirmName && (isPlaceholderExpansionLabel(firmNode.label, 'firm') || preferredFirmName.length > String(firmNode.label || '').length)) {
+			if (preferredFirmName && (isGenericOrPlaceholderLabel(firmNode.label, 'firm') || preferredFirmName.length > String(firmNode.label || '').length)) {
 				firmNode.label = preferredFirmName;
 			}
 			if (preferredFirmName) {
@@ -12483,8 +12586,9 @@ async function ensureFirmDetail(firmNode) {
 			firmNode._detailMissing = false;
 			firmNode._detailValidated = true;
 			logDetailLoadDebug(`Firm detail loaded for ID ${firmId}: ${firmNode.disclosures?.length || 0} disclosures, ${firmNode.directOwners?.length || 0} owners`);
+			if (selectedId === firmNode.id) renderSidebar(firmNode);
 
-			// Owners are control links; employment connections load async and re-paint the sidebar.
+			// Employment connections load async and re-paint the sidebar when they arrive.
 			void ensureFirmConnections(firmNode).then(() => {
 				if (selectedId === firmNode.id) {
 					renderSidebar(firmNode);
@@ -12994,6 +13098,13 @@ function isPlaceholderExpansionLabel(label, group) {
 	return false;
 }
 
+function isGenericOrPlaceholderLabel(label, group) {
+	const text = String(label || '').trim();
+	if (!text) return true;
+	if (/^node\s+/i.test(text)) return true;
+	return isPlaceholderExpansionLabel(text, group);
+}
+
 function firstMeaningfulText(...values) {
 	for (const value of values) {
 		const text = String(value || '').trim();
@@ -13052,7 +13163,10 @@ function getPreferredNodeLabel(node) {
 			node.displayName,
 			getSourceBackedFirmName(node),
 		);
-		if (firmName && (isPlaceholderExpansionLabel(node.label, 'firm') || isNodeIdPlaceholder || firmName.length >= currentLabel.length)) {
+		if (firmName && isGenericOrPlaceholderLabel(firmName, 'firm')) {
+			return currentLabel && !isGenericOrPlaceholderLabel(currentLabel, 'firm') ? currentLabel : firstMeaningfulText(currentLabel);
+		}
+		if (firmName && (isGenericOrPlaceholderLabel(node.label, 'firm') || isNodeIdPlaceholder || firmName.length >= currentLabel.length)) {
 			return firmName;
 		}
 	}
@@ -13099,8 +13213,13 @@ function normalizeNodeLabelInPlace(node) {
 					// meaningful label to avoid clobbering freshly-fetched
 					// authoritative names.
 					const currentLabel = String(node.label || '').trim();
-					if (!currentLabel || /^(?:node\s+|person\s+|firm\s+)\d+/i.test(currentLabel)) {
+					if (isGenericOrPlaceholderLabel(currentLabel, node.group)) {
 						node.label = entry.label;
+						if (entry.firmName && (node.group === 'firm' || String(node.id || '').startsWith('firm:'))) {
+							node.firmName = entry.firmName;
+							if (!node.basicInformation) node.basicInformation = {};
+							if (!node.basicInformation.firmName) node.basicInformation.firmName = entry.firmName;
+						}
 					}
 				}
 			}
@@ -13109,16 +13228,17 @@ function normalizeNodeLabelInPlace(node) {
 		// ignore cache errors
 	}
 	const preferredLabel = getPreferredNodeLabel(node);
-	// Prefer a rich/preferred label when available
-	if (preferredLabel && preferredLabel !== node.label) {
-		// persist chosen preferred label so subsequent mounts show it quickly
+	if (preferredLabel && !isGenericOrPlaceholderLabel(preferredLabel, node.group)) {
 		try {
-			if (typeof window !== 'undefined' && window.localStorage) {
+			if (typeof window !== 'undefined' && window.localStorage && node.id) {
 				const key = 'finra_node_label_cache';
 				const raw = window.localStorage.getItem(key) || '{}';
 				const map = JSON.parse(raw || '{}');
-				map[node.id] = { label: preferredLabel, ts: Date.now() };
-				// keep cache small: remove entries older than 14 days when writing
+				map[node.id] = {
+					label: preferredLabel,
+					firmName: node.group === 'firm' ? preferredLabel : undefined,
+					ts: Date.now(),
+				};
 				const TTL = 1000 * 60 * 60 * 24 * 14;
 				for (const k of Object.keys(map)) {
 					try {
@@ -13132,7 +13252,12 @@ function normalizeNodeLabelInPlace(node) {
 		} catch (e) {
 			// ignore cache write errors
 		}
-		node.label = preferredLabel;
+		if (preferredLabel !== node.label) node.label = preferredLabel;
+		if (node.group === 'firm') {
+			node.firmName = preferredLabel;
+			if (!node.basicInformation) node.basicInformation = {};
+			node.basicInformation.firmName = preferredLabel;
+		}
 		return node;
 	}
 
@@ -13172,7 +13297,11 @@ function mergeExpansionNodeIntoExistingNode(targetNodeId, incomingNode) {
 		Object.entries(incomingNode).forEach(([key, value]) => {
 			if (key === 'id' || key.startsWith('_') || value == null) return;
 			if (key === 'label') {
-				if (incomingLabel && (isPlaceholderExpansionLabel(targetNode.label, targetNode.group) || String(incomingLabel).length > String(targetNode.label || '').length)) {
+				if (
+					incomingLabel &&
+					!isGenericOrPlaceholderLabel(incomingLabel, targetNode.group) &&
+					(isGenericOrPlaceholderLabel(targetNode.label, targetNode.group) || String(incomingLabel).length > String(targetNode.label || '').length)
+				) {
 					targetNode.label = incomingLabel;
 				}
 				return;

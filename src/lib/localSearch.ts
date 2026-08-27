@@ -486,6 +486,107 @@ async function loadIndex(bucket: LocalSearchBucket, baseUrl?: string, seedRoots:
 	return (await indexPromiseCache.get(cacheKey)) ?? null;
 }
 
+const hitByIdCache = new Map<string, Map<string, LocalSearchHit>>();
+
+function isGenericFirmDisplayName(value: unknown): boolean {
+	const text = String(value || '').trim();
+	if (!text) return true;
+	return /^firm\s+\d+$/i.test(text) || /^node\s+/i.test(text) || /^sec\s+#?:?\s*8?-?\d+$/i.test(text);
+}
+
+function collectDocLookupIds(doc: PreparedLocalSearchDoc): string[] {
+	const hit = doc.hit || {};
+	return [hit.firm_id, hit.firmId, hit.firm_source_id, hit.ind_source_id, hit.ind_crd, String(doc.id || '').split(':').pop()]
+		.map((value) => String(value || '').trim())
+		.filter(Boolean);
+}
+
+async function getHitByIdMap(bucket: LocalSearchBucket, baseUrl?: string, seedRoots: Array<string | null | undefined> = []): Promise<Map<string, LocalSearchHit>> {
+	const cacheKey = `${bucket}::${baseUrl || ''}::${seedRoots.filter(Boolean).join('|')}`;
+	const cached = hitByIdCache.get(cacheKey);
+	if (cached) return cached;
+
+	const index = await loadIndex(bucket, baseUrl, seedRoots);
+	const map = new Map<string, LocalSearchHit>();
+	for (const doc of index?.docs || []) {
+		const hit = doc.hit || {};
+		for (const id of collectDocLookupIds(doc)) {
+			if (!map.has(id)) map.set(id, hit);
+		}
+	}
+	hitByIdCache.set(cacheKey, map);
+	return map;
+}
+
+export async function lookupLocalSearchHitsByIds(
+	source: LocalSearchSource,
+	type: LocalSearchEntity,
+	ids: Array<string | number | null | undefined>,
+	options: LocalSearchOptions = {},
+): Promise<Map<string, LocalSearchHit>> {
+	const wanted = new Set((ids || []).map((id) => String(id || '').trim()).filter(Boolean));
+	const matches = new Map<string, LocalSearchHit>();
+	if (!wanted.size) return matches;
+	const map = await getHitByIdMap(`${source}:${type}` as LocalSearchBucket, options.baseUrl, options.seedRoots || []);
+	for (const id of wanted) {
+		const hit = map.get(id);
+		if (hit) matches.set(id, hit);
+	}
+	return matches;
+}
+
+export async function lookupFirmNamesFromSearchSidecar(
+	firmIds: Array<string | number | null | undefined>,
+	options: LocalSearchOptions = {},
+): Promise<Map<string, string>> {
+	const names = new Map<string, string>();
+	const remaining = new Set((firmIds || []).map((id) => String(id || '').replace(/^firm:/i, '').trim()).filter(Boolean));
+	if (!remaining.size) return names;
+
+	for (const source of ['finra', 'sec'] as LocalSearchSource[]) {
+		if (!remaining.size) break;
+		const hits = await lookupLocalSearchHitsByIds(source, 'firm', [...remaining], options);
+		for (const [id, hit] of hits) {
+			const name = String(hit?.firm_name || hit?.firmName || hit?.name || hit?.label || '').trim();
+			if (!name || isGenericFirmDisplayName(name)) continue;
+			names.set(id, name);
+			remaining.delete(id);
+		}
+	}
+	return names;
+}
+
+export async function hydrateFirmNodeLabelsFromSearchSidecar(nodes: any[] = [], options: LocalSearchOptions = {}): Promise<any[]> {
+	const list = Array.isArray(nodes) ? nodes : [];
+	const neededIds: string[] = [];
+	for (const node of list) {
+		const group = String(node?.group || (String(node?.id || '').startsWith('firm:') ? 'firm' : '')).toLowerCase();
+		if (group !== 'firm') continue;
+		const firmId = String(node?.firmId || node?.id || '')
+			.replace(/^firm:/i, '')
+			.trim();
+		const label = String(node?.label || node?.firmName || node?.name || '').trim();
+		if (firmId && isGenericFirmDisplayName(label)) neededIds.push(firmId);
+	}
+	if (!neededIds.length) return list;
+
+	const names = await lookupFirmNamesFromSearchSidecar(neededIds, options);
+	for (const node of list) {
+		const group = String(node?.group || (String(node?.id || '').startsWith('firm:') ? 'firm' : '')).toLowerCase();
+		if (group !== 'firm') continue;
+		const firmId = String(node?.firmId || node?.id || '')
+			.replace(/^firm:/i, '')
+			.trim();
+		const name = names.get(firmId);
+		if (!name) continue;
+		node.label = name;
+		node.firmName = name;
+		if (!node.basicInformation) node.basicInformation = {};
+		if (!node.basicInformation.firmName) node.basicInformation.firmName = name;
+	}
+	return list;
+}
+
 function getIdentifierText(doc: PreparedLocalSearchDoc) {
 	const hit = doc.hit || {};
 	return normalizeText(hit.ind_source_id || hit.ind_crd || hit.firm_id || hit.firmId || hit.firm_source_id || hit.bdSecNumber || hit.iaSecNumber || doc.id);

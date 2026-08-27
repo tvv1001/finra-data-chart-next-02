@@ -8,7 +8,7 @@ This project is an interactive relationship explorer for FINRA BrokerCheck and S
 - **Core Architecture (Redis-Only)**:
   - **Source of Truth**: All runtime data (graph, seed bank, recent seeds) is stored in a **local Redis server**.
   - **Graph Storage**: Managed in `src/lib/graphStore.ts`. Supports chunked manifests and gzipped/base64 payloads for large graphs.
-  - **Search Sidecar**: Search uses gzipped flatfiles (`search-index.*.json.gz`) located in `public/search-indexes/` for fast, low-memory local lookups.
+  - **Search Sidecar**: The gzipped flatfiles (`search-index.*.json.gz` in `data/national/` and `public/search-indexes/`) hydrate the entire app — search, expand, and graph node labels. Firm display names must come from sidecar `firm_name` lookups, not from generic `Firm <CRD>` stubs. See `docs/search-sidecar.md`.
   - **Synchronization**: The main app and the dashboard (`/dashboard`) are kept in sync by reading from and writing to the same Redis instance.
   - **Performance**: Pre-generated artifacts are still used to bootstrap Redis, but `next.config.ts` excludes large local data from serverless bundles.
 
@@ -37,7 +37,7 @@ This project is an interactive relationship explorer for FINRA BrokerCheck and S
 ### Coding Style & Architecture
 
 - **Redis-First**: Always assume data is in Redis. Use `src/lib/graphStore.ts` and `src/lib/cache.ts` for all data access.
-- **Search Logic**: Search lookups are performed via `src/lib/localSearch.ts`, which prefers the gzipped sidecar files.
+- **Search Logic**: Search lookups are performed via `src/lib/localSearch.ts`, which prefers the gzipped sidecar files. Those same sidecar hits are the CRD→name catalog for graph hydration.
 - **Dashboard Sync**: Use `/api/dashboard/refresh` to fetch and integrate new CRDs. This automatically merges data into the Redis-backed graph.
 - **No Local Files at Runtime**: Avoid logic that depends on `data/national` or `data/raw` during runtime on Vercel; these folders are excluded from deployment.
 
