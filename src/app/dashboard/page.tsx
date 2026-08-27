@@ -2270,25 +2270,23 @@ function DashboardPageInner() {
       buildGraphHrefForEntity(routeSelection?.entity, routeSelection?.id) ||
       getLatestGraphHrefFromHistory(localHistory) ||
       "/";
-    // Carry Selection History + Graph Click History node ids along via the graph's existing
-    // shared-link `?selected=` mechanism so they get fetched/hydrated into the selection log
-    // when the user navigates back to the graph, not just the single most-recent record.
-    const selectedNodeIds = collectSelectedNodeIdsForGraphHref(
-      localHistory,
-      graphClickHistory,
-    );
+    // Carry Selection History node ids along via the graph's existing shared-link
+    // `?selected=` mechanism so they get fetched/hydrated when navigating back to the graph.
+    // Graph Click History is intentionally excluded here — it mirrors the graph's own
+    // all-time `finra_selection_log`, not just what was picked in this dashboard session,
+    // and including it caused "back to graph" links to balloon to hundreds of stale ids.
+    const selectedNodeIds = collectSelectedNodeIdsForGraphHref(localHistory, []);
     if (!selectedNodeIds.length) return baseHref;
     const [path, existingQuery] = baseHref.split("?");
     const params = new URLSearchParams(existingQuery || "");
     params.set("selected", selectedNodeIds.join(","));
+    // Signal the graph to render ONLY the selected nodes (+ the routed node), not the
+    // full baseline graph, so "back to graph" from a curated dashboard selection shows
+    // exactly what was picked.
+    params.set("isolate", "1");
     return `${path}?${params.toString()}`;
-  }, [
-    currentRecordEntity,
-    currentRecordId,
-    routeSelection,
-    localHistory,
-    graphClickHistory,
-  ]);
+  }, [currentRecordEntity, currentRecordId, routeSelection, localHistory]);
+
 
   const handleGraphBackClick = useCallback(
     (event: MouseEvent<HTMLAnchorElement>) => {

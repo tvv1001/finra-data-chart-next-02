@@ -45,8 +45,8 @@ describe('firm connection merge and cache', () => {
 		mockRedis.mget.mockResolvedValue([]);
 	});
 
-	it('builds the versioned cache key', () => {
-		expect(firmConnectionsCacheKey('2525')).toBe('graph:firm-connections:v10:2525');
+	it('builds the local firm cache key', () => {
+		expect(firmConnectionsCacheKey('2525')).toBe('firm-connections:firm:2525');
 	});
 
 	it('merges current and previous lists without dropping distinct people', () => {
@@ -60,6 +60,22 @@ describe('firm connection merge and cache', () => {
 		expect(merged.currentConnections).toHaveLength(1);
 		expect(merged.previousConnections).toHaveLength(1);
 		expect(countFirmConnectionEntries(merged)).toBe(2);
+	});
+
+	it('prefers the local firm-connections roster over stale verified Redis payloads', async () => {
+		mockRedis.get.mockImplementation(async (key: string) => {
+			if (key === 'graph:firm-connections-verified:v10:2525') {
+				return JSON.stringify({
+					currentConnections: [{ individualId: '999', name: 'Stale only', relationship: 'Current registration', isCurrent: true, evidence: ['stale'] }],
+					previousConnections: [],
+				});
+			}
+			return null;
+		});
+		const result = await getFirmConnectionsFromGraph('2525');
+		expect(result.currentConnections.length).toBeGreaterThan(100);
+		expect(result.currentConnections.some((entry) => entry.individualId === '100001')).toBe(true);
+		expect(result.previousConnections.some((entry) => entry.individualId === '821381')).toBe(true);
 	});
 
 	it('does not let a thin primed redis cache hide the local firm-connections roster', async () => {

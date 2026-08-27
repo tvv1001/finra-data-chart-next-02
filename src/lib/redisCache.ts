@@ -26,7 +26,28 @@ export function isEmptyHitsObj(obj: any): boolean {
 	return totalVal === 0 && Array.isArray(h.hits) && h.hits.length === 0;
 }
 
+function isPlainNumericIdArray(value: string): boolean {
+	const trimmed = value.trim();
+	if (!trimmed.startsWith('[') || !trimmed.endsWith(']')) return false;
+	try {
+		const parsed = JSON.parse(trimmed);
+		return (
+			Array.isArray(parsed) &&
+			parsed.every((item) => {
+				if (typeof item === 'number') return Number.isFinite(item);
+				if (typeof item === 'string') return /^\d{1,10}$/.test(item.trim());
+				return false;
+			})
+		);
+	} catch {
+		return false;
+	}
+}
+
 export function compressPayload(value: string): string {
+	if (isPlainNumericIdArray(value)) {
+		return value;
+	}
 	try {
 		if (value.length > 512) {
 			return 'br:' + zlib.brotliCompressSync(Buffer.from(value)).toString('base64');

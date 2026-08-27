@@ -2131,7 +2131,10 @@ a,
 
 .fg-sidebar[data-mobile-expanded='true'][data-view-mode='log'],
 .fg-sidebar[data-mobile-expanded='true'][data-view-mode='info'] {
-	max-height: 94svh;
+	/* Cap against the sidebar's own positioned container (100%), not the raw viewport
+	   (94svh), which ignored the header bar above it and pushed the sidebar's bottom
+	   edge past the actual viewport bottom — making the last card unclickable. */
+	max-height: min(calc(100% - 16px), 94svh);
 	overflow-y: hidden;
 	padding: 0;
 	margin-top: 0;

@@ -17,8 +17,9 @@ This project is an interactive relationship explorer for FINRA BrokerCheck and S
 ### Key Commands
 
 - `pnpm install`: Install dependencies.
-- `pnpm run dev`: Starts the local Redis server automatically (via `start-redis.sh`) and then starts the Next.js dev server.
-- `pnpm run dev:clean`: Start the development server with a clean Next.js cache (also starts Redis automatically).
+- `pnpm run dev`: Starts local Redis (`127.0.0.1:6379`, db0), Redis Commander (`http://127.0.0.1:8081/`), then the Next.js dev server.
+- `pnpm run dev:clean`: Same as `dev`, but with a clean Next.js cache.
+- `pnpm run redis:start` / `pnpm run redis:commander`: Start Redis or Redis Commander on their own.
 - `pnpm run build`: Production build. Regenerates search indexes and artifacts.
 - `pnpm run deploy:upstash-artifacts`: **Critical**. Rebuilds and syncs all graph and search artifacts to Redis.
 - `pnpm run prime:all`: Iteratively expand the local cache (before deploying to Redis).

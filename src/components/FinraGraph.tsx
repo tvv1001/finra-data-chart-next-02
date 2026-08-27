@@ -555,6 +555,25 @@ export default function FinraGraph() {
 				return;
 			}
 
+			// CRD-based links (e.g. owner rows, firm/person CRD references) carry data-crd + data-crd-type
+			const crdBtn = target.closest('[data-crd]') as HTMLElement | null;
+			if (crdBtn && crdBtn.dataset.crd) {
+				e.preventDefault();
+				e.stopPropagation();
+				const crd = String(crdBtn.dataset.crd || '').trim();
+				const crdType = String(crdBtn.dataset.crdType || '').trim().toLowerCase();
+				const nodeId = crdType === 'person' || crdType === 'individual' ? `person:${crd}` : `firm:${crd}`;
+				routeSidebarNodeSelection({
+					nodeId,
+					browserPathname,
+					pathname,
+					setBrowserPathname,
+					pulseDuration: 5000,
+					autoExpand: true,
+				});
+				return;
+			}
+
 			// If the clicked row carries a data-search-query attribute (or a nearby firm span), use that to search-by-name
 			const searchBtn = target.closest('[data-search-query]') as HTMLElement | null;
 			if (searchBtn) {
@@ -916,9 +935,11 @@ export default function FinraGraph() {
 					.split(',')
 					.map((id) => id.trim())
 					.filter(Boolean);
+				const isolateToSelection = searchParams.get('isolate') === '1';
 				init(combinedD3, {
 					initialRouteNodeId: routeNodeId,
 					initialSelectedNodeIds: sharedSelectedIds,
+					isolateToSelection,
 				});
 				setGraphReady(true);
 				// Try to initialize the wasm thread pool (if a parallel/threads build was produced)

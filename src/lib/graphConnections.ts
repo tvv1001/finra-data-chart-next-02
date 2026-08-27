@@ -58,7 +58,16 @@ const MIRROR_KEY_TTL_SECONDS: number | null = null;
 export const FIRM_CONNECTIONS_CACHE_VERSION = 10;
 
 export function firmConnectionsCacheKey(firmId: string): string {
-  return `graph:firm-connections:v${FIRM_CONNECTIONS_CACHE_VERSION}:${String(firmId || "").trim()}`;
+  return `firm-connections:firm:${String(firmId || "").trim()}`;
+}
+
+function legacyFirmConnectionsCacheKeys(firmId: string): string[] {
+  const normalized = String(firmId || "").trim();
+  if (!normalized) return [];
+  return [
+    `graph:firm-connections:v${FIRM_CONNECTIONS_CACHE_VERSION}:${normalized}`,
+    `graph:firm-connections:v${FIRM_CONNECTIONS_CACHE_VERSION}:${normalized}:empty`,
+  ];
 }
 
 // Once every connection entry for a firm carries validated per-firm employment evidence (see
@@ -71,7 +80,7 @@ export function firmConnectionsCacheKey(firmId: string): string {
 // validated" -> "fully validated", never lose entries once this key exists, matching the
 // project's additive-only mirror-key semantics).
 function firmConnectionsFullyValidatedCacheKey(firmId: string): string {
-  return `graph:firm-connections-verified:v${FIRM_CONNECTIONS_CACHE_VERSION}:${String(firmId || "").trim()}`;
+  return `firm-connections:firm:${String(firmId || "").trim()}:verified`;
 }
 
 export function firmConnectionsVerifiedCacheKey(firmId: string): string {
@@ -1012,6 +1021,13 @@ async function persistFirmConnections(
           JSON.stringify(payload),
           FIRM_CONNECTIONS_CACHE_TTL_SECONDS,
         );
+        for (const legacyKey of legacyFirmConnectionsCacheKeys(String(firmId || "").trim())) {
+          await setStringIfValid(
+            legacyKey,
+            JSON.stringify(payload),
+            FIRM_CONNECTIONS_CACHE_TTL_SECONDS,
+          ).catch(() => {});
+        }
       } else {
         await setStringIfValid(
           emptyCacheKey,
@@ -1231,26 +1247,53 @@ export async function getFirmConnectionsFromGraph(
   const emptyCacheKey = `${cacheKey}:empty`;
   const redis = getRedisClient();
 
+  const readRedisFirmConnections = async (): Promise<FirmConnectionsPayload | null> => {
+    if (!redis) return null;
+    try {
+      const keysToCheck = [cacheKey, ...legacyFirmConnectionsCacheKeys(normalizedFirmId)];
+      for (const key of keysToCheck) {
+        const raw = await redis.get(key);
+        if (raw == null) continue;
+        const parsed = parseCachedConnectionsPayload(raw);
+        if (parsed && countFirmConnectionEntries(parsed) > 0) {
+          return parsed;
+        }
+      }
+    } catch {
+      // fall through
+    }
+    return null;
+  };
+
+  const local = readLocalFirmConnectionsFile(normalizedFirmId);
+
+  // Prefer the on-disk roster snapshot for the app's canonical per-firm cache. This keeps the
+  // dashboard and graph on the verified source-of-truth data in data/firm-connections/<id>.json
+  // even when stale legacy Redis verification keys still exist from older runs.
+  if (local.payload && countFirmConnectionEntries(local.payload) > 0) {
+    if (redis) {
+      void backfillBrokerIdListsIfMissing(normalizedFirmId, local.payload).catch(() => {});
+    }
+    return local.payload;
+  }
+
   // Fast path: this firm's connections were already fully validated in a prior request (every
   // entry carries genuine per-firm employment evidence). Skip all mirror-key reads,
   // per-individual enrichment, and disprove-filtering below entirely — just serve the
   // already-computed, already-verified payload straight from its single cache key.
   if (redis) {
     try {
-      const verifiedRaw = await redis.get(cacheKey);
-      const isVerified = await redis.get(
-        firmConnectionsFullyValidatedCacheKey(normalizedFirmId),
-      );
-      if (isVerified && verifiedRaw) {
-        const cached = parseCachedConnectionsPayload(verifiedRaw);
+      const verifiedRaw = await redis.get(firmConnectionsFullyValidatedCacheKey(normalizedFirmId));
+      const legacyVerifiedRaw = await redis.get(`graph:firm-connections-verified:v${FIRM_CONNECTIONS_CACHE_VERSION}:${normalizedFirmId}`);
+      const cachedRaw = verifiedRaw || legacyVerifiedRaw;
+      if (cachedRaw) {
+        const cached = await readRedisFirmConnections();
         if (cached && countFirmConnectionEntries(cached) > 0) return cached;
       }
     } catch {
       // fall through to the normal, slower resolution path below
     }
   }
-
-  const local = readLocalFirmConnectionsFile(normalizedFirmId);
 
   // Priority source: shared broker-id mirror keys (sec:firm:{id}_brokers:current|previous,
   // finra:firm:{id}_brokers:current|previous). Cheap single-key GETs and, per project
@@ -1347,18 +1390,21 @@ export async function getFirmConnectionsFromGraph(
         ),
       };
     }
-    // Names still missing after the local-cache-only enrichment above mean the person isn't
-    // yet cached in Redis or the mono graph. Rather than fetching each individual one-by-one
-    // (which is what the client's per-node hydration already avoids doing), make a single
-    // firm-level official-roster search call — it returns real names for the whole roster in
-    // one paginated request — and use it purely to backfill names/otherNames/address on the
-    // broker-id-mirror entries that still lack them. Skipped entirely if every entry already
-    // has a name.
+    // Backfill names/details AND merge in any individuals the shared broker-id mirror is
+    // missing entirely. The mirror keys can be stale/incomplete for large firms (a partial
+    // crawl or a mirror that was written before the roster grew) — previously this call was
+    // skipped whenever every existing mirror entry already had a name, which silently hid any
+    // CRD the official roster has but the mirror doesn't. Now it fetches whenever the mirror
+    // entry count looks like it could be short of the roster (no names OR any hint the mirror
+    // may be partial), and always additively merges in newly-discovered individuals, not just
+    // name backfills for entries we already have.
+    const existingIds = new Set<string>(
+      [...result.currentConnections, ...result.previousConnections]
+        .map((entry) => entry.individualId)
+        .filter((id): id is string => Boolean(id)),
+    );
     let officialRosterFetched = false;
-    if (
-      result.currentConnections.some((entry) => !entry.name) ||
-      result.previousConnections.some((entry) => !entry.name)
-    ) {
+    {
       const official = await fetchOfficialFirmRoster(normalizedFirmId).catch(
         () => null,
       );
@@ -1382,6 +1428,21 @@ export async function getFirmConnectionsFromGraph(
             officialById,
           ),
         };
+        // Additively merge in individuals the official roster has that the broker-id mirror
+        // is missing entirely — this is the actual completeness fix, not just a name backfill.
+        const newFromOfficial = [
+          ...(official.currentConnections || []),
+          ...(official.previousConnections || []),
+        ].filter(
+          (entry) => entry.individualId && !existingIds.has(entry.individualId),
+        );
+        if (newFromOfficial.length) {
+          result = mergeGraphConnectionEntries([
+            result.currentConnections,
+            result.previousConnections,
+            newFromOfficial,
+          ]);
+        }
       }
     }
     // Strip the internal-only employment-check markers used by filterOutDisprovenBrokerMirrorEntries
@@ -1414,14 +1475,21 @@ export async function getFirmConnectionsFromGraph(
         FIRM_CONNECTIONS_CACHE_TTL_SECONDS,
       ).catch(() => {});
       // Once every single entry for this firm carries validated per-firm employment evidence
-      // (nothing left unverified/disproven-but-unchecked), mark the firm as fully validated so
-      // future requests take the fast path above and skip mirror-key reads + per-individual
+      // (nothing left unverified/disproven-but-unchecked) AND we've actually cross-checked
+      // against the official roster this run, mark the firm as fully validated so future
+      // requests take the fast path above and skip mirror-key reads + per-individual
       // enrichment + disprove-filtering entirely — no further reads/writes needed for this firm.
+      // Requiring officialRosterFetched here is critical: without it, a firm whose mirror keys
+      // only ever held a handful of entries (all individually valid, but a tiny fraction of a
+      // large firm's true roster) would get marked "fully validated" permanently the first time
+      // every one of those few entries passed evidence checks — freezing an incomplete roster
+      // forever, since the fast-path above skips this whole function on subsequent requests.
       const allEntries = [
         ...payload.currentConnections,
         ...payload.previousConnections,
       ];
       const allValidated =
+        officialRosterFetched &&
         allEntries.length > 0 &&
         allEntries.every((entry) => hasValidatedFirmConnectionEvidence(entry));
       if (allValidated) {
@@ -1457,9 +1525,7 @@ export async function getFirmConnectionsFromGraph(
   let redisHit: FirmConnectionsPayload | null = null;
   if (redis) {
     try {
-      redisHit = parseCachedConnectionsPayload(await redis.get(cacheKey));
-      if (redisHit && countFirmConnectionEntries(redisHit) === 0)
-        redisHit = null;
+      redisHit = await readRedisFirmConnections();
     } catch {
       redisHit = null;
     }

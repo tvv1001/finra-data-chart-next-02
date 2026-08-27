@@ -2222,6 +2222,7 @@ let pendingRoutePulseDuration: number | null = null; // optional pulse duration 
 let pendingRouteAutoExpand = false; // optional auto-expand requested with route
 let pendingRouteForceAutoExpand = false; // allow route requests to expand even when the node is already selected
 let pendingSelectedNodeIds: string[] = []; // node ids to hydrate into the selection log from a shared `?selected=` link
+let isolateToSharedSelection = false; // when true, skip the baseline/profile graph load and render only the shared `?selected=` + routed nodes
 let routeNodeRequestListenerBound = false;
 let findRequestListenersBound = false;
 let traceShortestIds = new Set<string>(); // node and link IDs
@@ -5863,16 +5864,19 @@ function drawDisclosureIndicator(g, d, r) {
 }
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
-export function init(_d3, options: { initialRouteNodeId?: string | null; initialSelectedNodeIds?: Array<string | null | undefined> } = {}) {
+export function init(_d3, options: { initialRouteNodeId?: string | null; initialSelectedNodeIds?: Array<string | null | undefined>; isolateToSelection?: boolean } = {}) {
 	d3 = _d3;
 	const initialRouteNodeId = String(options?.initialRouteNodeId || '').trim();
 	pendingRouteNodeId = initialRouteNodeId || pendingRouteNodeId;
-	if (initialRouteNodeId) {
-		pendingRouteAutoExpand = true;
-		pendingRouteForceAutoExpand = true;
-	}
 	pendingSelectedNodeIds =
 		Array.isArray(options?.initialSelectedNodeIds) ? options.initialSelectedNodeIds.map((id) => String(id || '').trim()).filter(Boolean) : pendingSelectedNodeIds;
+	isolateToSharedSelection = Boolean(options?.isolateToSelection) && pendingSelectedNodeIds.length > 0;
+	if (initialRouteNodeId) {
+		// In isolate mode, don't auto-expand the routed node's neighbors — only the explicitly
+		// shared `?selected=` nodes (+ the routed node itself) should be rendered.
+		pendingRouteAutoExpand = !isolateToSharedSelection;
+		pendingRouteForceAutoExpand = !isolateToSharedSelection;
+	}
 
 	if (!routeNodeRequestListenerBound && typeof window !== 'undefined') {
 		window.addEventListener(ROUTE_NODE_REQUEST_EVENT, ((event: Event) => {
@@ -8071,6 +8075,60 @@ async function fetchFirmBatch(firmId, queryLabel = null) {
 
 async function loadGraph() {
 	try {
+		// Isolate mode: a shared `?selected=...&isolate=1` link from the dashboard requests that
+		// ONLY the selected nodes (+ the routed node) be rendered — skip loading the baseline/
+		// profile graph and any saved session entirely, then prune away any employer/owner
+		// "stub" nodes that the per-node detail fetchers pull in automatically so exactly the
+		// requested set (and nothing else) ends up on screen.
+		if (isolateToSharedSelection) {
+			const keepIds = new Set<string>(pendingSelectedNodeIds.map((id) => normalizeNodeRouteId(id) || String(id || '').trim()).filter(Boolean));
+			const routedId = String(pendingRouteNodeId || '').trim();
+			if (routedId) keepIds.add(routedId);
+
+			// If the user already had a graph on screen (a saved session), restore it first and
+			// APPEND the newly selected nodes on top rather than wiping the canvas — the isolate
+			// param only means "don't load the default baseline/profile graph," not "discard
+			// whatever the user already had rendered."
+			const existingSession = await loadSessionAsync();
+			const hasExistingSessionData = Boolean(
+				existingSession &&
+				!existingSession.cleared &&
+				(existingSession.extraNodes?.length ||
+					existingSession.extraNodeIds?.length ||
+					existingSession.renderedServerIds?.length ||
+					existingSession.selectedNodeId ||
+					existingSession.highlightedNodes?.length),
+			);
+
+			if (hasExistingSessionData) {
+				graphData = { nodes: [], links: [], meta: {} };
+				initialServerNodeIds = new Set();
+				initialServerLinkKeys = new Set();
+				isSubsetMode = false;
+				renderGraph(graphData);
+				showEmpty(false);
+				updateMeta({ totalIndividuals: 0, totalFirms: 0, totalLinks: 0 });
+				await restoreSavedSession(existingSession);
+				if (pendingRouteNodeId) {
+					await applyPendingRouteNodeSelection();
+				}
+				if (pendingSelectedNodeIds.length) {
+					await hydratePendingSelectedNodeIds();
+				}
+				return;
+			}
+
+			clearGraphData();
+			if (pendingRouteNodeId) {
+				await applyPendingRouteNodeSelection();
+			}
+			if (pendingSelectedNodeIds.length) {
+				await hydratePendingSelectedNodeIds();
+			}
+			pruneGraphDataToKeepIds(keepIds);
+			return;
+		}
+
 		const hasProfileParam = new URLSearchParams(window.location.search).has('profile');
 		const profileName = hasProfileParam ? new URLSearchParams(window.location.search).get('profile') : 'custom';
 		currentProfileName = profileName;
@@ -8087,6 +8145,7 @@ async function loadGraph() {
 			(session.extraNodes?.length || session.extraNodeIds?.length || session.renderedServerIds?.length || session.selectedNodeId || session.highlightedNodes?.length),
 		);
 		const shouldStartEmptyForCustomProfile = profileName === 'custom' && !pendingRouteNodeId && !profileHasExplicitSeedTargets(profileData) && !hasSavedSessionData;
+
 
 		if (!currentProfileEnabled) {
 			if (session && !clearedSession) {
@@ -10019,7 +10078,19 @@ function joinLayeredLinkGroup(groupSel, data, enterDuration = 0) {
 	if (!groupSel) return null;
 	const bound = groupSel.selectAll('line').data(data, (d) => getLinkDataKey(d));
 	bound.exit().remove();
-	const entered = bound.enter().append('line').attr('class', 'fg-link').attr('stroke-opacity', 0);
+	const entered = bound
+		.enter()
+		.append('line')
+		.attr('class', 'fg-link')
+		.attr('stroke-opacity', 0)
+		// Set the real endpoint positions immediately so newly (re-)entered lines (e.g. when a
+		// link is reassigned to a different render-priority layer, which forces a fresh DOM
+		// enter()) never briefly render at the default (0,0) origin and visibly slide in from
+		// the top-left corner before the next simulation tick repositions them.
+		.attr('x1', (d) => (Number.isFinite(d.source?.x) ? d.source.x : 0))
+		.attr('y1', (d) => (Number.isFinite(d.source?.y) ? d.source.y : 0))
+		.attr('x2', (d) => (Number.isFinite(d.target?.x) ? d.target.x : 0))
+		.attr('y2', (d) => (Number.isFinite(d.target?.y) ? d.target.y : 0));
 	const merged = entered.merge(bound);
 	merged
 		.attr('class', 'fg-link')

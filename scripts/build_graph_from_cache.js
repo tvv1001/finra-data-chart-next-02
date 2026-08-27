@@ -230,9 +230,20 @@ function pickRegisteredState(records) {
 	return '';
 }
 
+function parseEmbeddedJson(value) {
+	if (!value || typeof value !== 'string') return value;
+	try {
+		const parsed = JSON.parse(value);
+		return parsed;
+	} catch {
+		return value;
+	}
+}
+
 function getDetailPayload(record) {
 	if (!record || typeof record !== 'object') return null;
-	return record.content || record.iacontent || null;
+	const raw = record.content ?? record.iacontent ?? null;
+	return parseEmbeddedJson(raw);
 }
 
 function getLocationHintsFromDetail(detail, group) {
@@ -549,14 +560,15 @@ function extractPeopleAndFirmsFromHits(json, employmentOptions) {
 	for (const h of hits) {
 		const src = h._source || {};
 		const detail = getDetailPayload(src);
+		const parsedDetail = detail && typeof detail === 'string' ? parseEmbeddedJson(detail) : detail;
 		const crd =
 			src.ind_source_id ||
 			src.person?.crd ||
-			(detail &&
+			(parsedDetail &&
 				(() => {
 					try {
-						const p = detail;
-						return p?.basicInformation?.crd || p?.basicInformation?.individualId;
+						const p = parsedDetail;
+						return p?.basicInformation?.crd || p?.basicInformation?.individualId || p?.individualId || p?.crd;
 					} catch {
 						return null;
 					}
@@ -601,9 +613,10 @@ function extractPeopleAndFirmsFromHits(json, employmentOptions) {
 	}
 
 	const detail = getDetailPayload(json);
-	if (detail?.basicInformation) {
-		const basic = detail.basicInformation || {};
-		const crd = basic.crd || basic.individualId;
+	const parsedDetail = detail && typeof detail === 'string' ? parseEmbeddedJson(detail) : detail;
+	if (parsedDetail?.basicInformation) {
+		const basic = parsedDetail.basicInformation || {};
+		const crd = basic.crd || basic.individualId || parsedDetail.individualId || parsedDetail.crd;
 		if (crd) {
 			nodes.people.set(String(crd), { ...(nodes.people.get(String(crd)) || {}), ...buildIndividualNode(crd, detail) });
 			const emps = collectEmploymentRecords(detail, employmentOptions);

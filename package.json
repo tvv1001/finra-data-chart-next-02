@@ -3,8 +3,10 @@
 	"version": "0.1.0",
 	"private": true,
 	"scripts": {
-		"dev": "bash /home/lenny/Dev/db/redis/start-redis.sh && NODE_OPTIONS=--max-old-space-size=8192 next dev -p 4444",
-		"dev:clean": "bash /home/lenny/Dev/db/redis/start-redis.sh && rm -rf .next && next dev -p 4444",
+		"dev": "bash scripts/start-local-redis.sh && NODE_OPTIONS=--max-old-space-size=8192 next dev -p 4444",
+		"dev:clean": "bash scripts/start-local-redis.sh && rm -rf .next && next dev -p 4444",
+		"redis:start": "bash /home/lenny/Dev/db/redis/start-redis.sh",
+		"redis:commander": "npx --yes redis-commander --noload --nosave --redis-host 127.0.0.1 --redis-port 6379 --redis-db 0 --redis-label local --address 127.0.0.1 --port 8081",
 		"prebuild": "node scripts/prebuild.js",
 		"build:workers": "node scripts/build_workers.js",
 		"build:wasm": "cd rust/graph-layout && wasm-pack build --target web --out-dir ../../public/wasm/graph-layout",
