@@ -815,10 +815,10 @@ export async function saveGraph(data: any) {
 		try {
 			normalizeGraphLabelsInPlace(data);
 		} catch (e) {}
-		// Before storing in Redis, strip simulation state and compress payload
+		// Before storing in Redis, strip simulation state, heavy nested details, and compress payload
 		try {
 			const compact = {
-				nodes: Array.isArray(data.nodes) ? data.nodes.map((n: any) => stripSimState(n)) : [],
+				nodes: Array.isArray(data.nodes) ? data.nodes.map((n: any) => toCompactNode(n)) : [],
 				links:
 					Array.isArray(data.links) ?
 						data.links.map((l: any) => ({
@@ -893,6 +893,30 @@ const D3_SIM_KEYS = ['x', 'y', 'vx', 'vy', 'fx', 'fy', 'index', '_detailLoaded']
 export function stripSimState(obj: Record<string, any>) {
 	const out: Record<string, any> = {};
 	for (const [k, v] of Object.entries(obj)) if (!D3_SIM_KEYS.includes(k)) out[k] = v;
+	return out;
+}
+
+export function toCompactNode(node: any): any {
+	if (!node || typeof node !== 'object') return node;
+	const out: Record<string, any> = {};
+	for (const [k, v] of Object.entries(node)) {
+		if (D3_SIM_KEYS.includes(k)) continue;
+		// Skip heavy nested structures that belong only in sidebar detail APIs
+		if (
+			k === 'disclosures' ||
+			k === 'iaDisclosures' ||
+			k === 'brokerDetails' ||
+			k === 'stateExamCategory' ||
+			k === 'principalExamCategory' ||
+			k === 'productExamCategory' ||
+			k === 'registeredSROs' ||
+			k === 'directOwners' ||
+			k === 'indirectOwners'
+		) {
+			continue;
+		}
+		out[k] = v;
+	}
 	return out;
 }
 

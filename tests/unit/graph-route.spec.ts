@@ -8,6 +8,7 @@ vi.mock('@/lib/finra-graph-defaults', () => ({
 vi.mock('@/lib/graphStore', () => ({
 	getFullGraph: vi.fn(),
 	getSeedBankFromStore: vi.fn(),
+	toCompactNode: vi.fn((node) => node),
 }));
 
 vi.mock('@/lib/seedStore', () => ({

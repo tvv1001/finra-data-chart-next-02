@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRedisClient } from '@/lib/redisCache';
 import { isValidCrd, ensureFirmCrd, ensurePersonCrd, makeRedisKey } from '@/lib/crd';
-import { getNeighborsForNodes } from '@/lib/graphStore';
+import { getNeighborsForNodes, toCompactNode } from '@/lib/graphStore';
 import { sharedCacheHeaders } from '@/lib/httpCache';
 import { logger } from '@/lib/logger';
 import { tryLoadPersonCluster } from '@/lib/peopleClusterCache';
@@ -277,7 +277,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		}
 
 		await hydrateFirmNodeLabelsFromSearchSidecar(result.nodes || [], { baseUrl });
-		return NextResponse.json(result, { headers: sharedCacheHeaders(300) });
+		return NextResponse.json(
+			{
+				nodes: Array.isArray(result.nodes) ? result.nodes.map(toCompactNode) : [],
+				links: result.links || [],
+			},
+			{ headers: sharedCacheHeaders(300) },
+		);
 	} catch (err: any) {
 		logger.error('expand error', { error: err.message });
 		return NextResponse.json({ error: 'Failed to expand node.' }, { status: 500 });

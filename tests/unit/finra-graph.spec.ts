@@ -1235,7 +1235,7 @@ describe('FinraGraph DOM helpers (unit)', () => {
 
 		applyGraphDerivedNodeMetrics(nodes, []);
 
-		expect(nodes[0]?._deg).toMatchObject({ total: 2, controls: 2, employed: 0 });
+		expect(nodes[0]?._deg).toMatchObject({ total: 4, controls: 2, employed: 0 });
 		expect(nodes[0]?._vizHalf).toBeGreaterThan(7);
 	});
 

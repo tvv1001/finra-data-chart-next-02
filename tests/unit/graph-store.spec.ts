@@ -37,7 +37,7 @@ vi.mock('node:fs/promises', async () => {
 });
 
 import { RECENT_SEEDS_FILE } from '@/lib/constants';
-import { getRecentSeedsFromStore, rememberRecentSeed, saveRecentSeedsToStore } from '@/lib/graphStore';
+import { getRecentSeedsFromStore, rememberRecentSeed, saveRecentSeedsToStore, toCompactNode } from '@/lib/graphStore';
 
 beforeEach(() => {
 	mockRedisGet.mockReset();
@@ -109,5 +109,43 @@ describe('graphStore recent seed ordering', () => {
 
 		expect(graph.nodes.length).toBeGreaterThan(0);
 		expect(graph.links).toBeDefined();
+	});
+
+	it('toCompactNode strips simulation keys and heavy nested detail records', () => {
+		const heavyNode = {
+			id: 'person:123',
+			label: 'John Doe',
+			group: 'individual',
+			crd: '123',
+			x: 100,
+			y: 200,
+			vx: 0.1,
+			vy: 0.2,
+			fx: null,
+			fy: null,
+			index: 5,
+			_detailLoaded: true,
+			disclosures: [{ text: 'allegation' }],
+			iaDisclosures: [{ text: 'ia allegation' }],
+			brokerDetails: { exams: [] },
+			stateExamCategory: ['Series 7'],
+			principalExamCategory: ['Series 24'],
+			productExamCategory: [],
+			registeredSROs: [{ name: 'FINRA' }],
+			directOwners: [{ crd: '999' }],
+			indirectOwners: [],
+		};
+
+		const compact = toCompactNode(heavyNode);
+
+		expect(compact).toEqual({
+			id: 'person:123',
+			label: 'John Doe',
+			group: 'individual',
+			crd: '123',
+		});
+		expect(compact.x).toBeUndefined();
+		expect(compact.disclosures).toBeUndefined();
+		expect(compact.directOwners).toBeUndefined();
 	});
 });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getFullGraph, getSeedBankFromStore } from '@/lib/graphStore';
+import { getFullGraph, getSeedBankFromStore, toCompactNode } from '@/lib/graphStore';
 import { getProfilesFromStore } from '@/lib/seedStore';
 import { DEFAULT_EXPANSION_HOPS } from '@/lib/finra-graph-defaults';
 import { sharedCacheHeaders } from '@/lib/httpCache';
@@ -262,7 +262,7 @@ export async function GET(request: NextRequest) {
 
 		return NextResponse.json(
 			{
-				nodes: nodes.filter((n) => neighborIds.has(n.id)),
+				nodes: nodes.filter((n) => neighborIds.has(n.id)).map(toCompactNode),
 				links: links.filter((l) => {
 					const s = l.source?.id ?? l.source;
 					const t = l.target?.id ?? l.target;
@@ -301,5 +301,11 @@ export async function GET(request: NextRequest) {
 
 	// Return full graph from store (Redis on Vercel, filesystem locally)
 	const graph = await getFullGraph();
-	return NextResponse.json(graph, { headers: sharedCacheHeaders(120) });
+	return NextResponse.json(
+		{
+			...graph,
+			nodes: Array.isArray(graph?.nodes) ? graph.nodes.map(toCompactNode) : [],
+		},
+		{ headers: sharedCacheHeaders(120) },
+	);
 }
