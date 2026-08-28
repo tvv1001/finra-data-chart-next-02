@@ -13,6 +13,7 @@ import {
 	extractPayloadFromDetail,
 	mergeEmploymentCardsAcrossSources,
 	overlayMergedEmploymentHistory,
+	resolveEmploymentStatusTag,
 	resolveOrderedSourcesFromDetail,
 	sortByMostRecentStartDate,
 } from '@/lib/dashboard-detail';
@@ -1418,64 +1419,88 @@ function FilterTagsInput({
 	);
 }
 
-// Module-scoped cache of firm CRD -> other-names lists, shared across the whole dashboard so
-// re-rendering different records (or revisiting the same firm's employment rows) doesn't
-// re-fetch names already looked up this session. Employment rows only carry the firm's name at
-// the time of that registration, so a firm that has since renamed needs its *current*
-// basicInformation.otherNames list fetched from its own detail record to show alongside it.
-const firmOtherNamesCache = new Map<string, string[] | null>();
-const firmOtherNamesInFlight = new Map<string, Promise<string[] | null>>();
+// Module-scoped cache of firm CRD -> firm info (other-names, firmName, scope/status),
+// shared across the whole dashboard so re-rendering different records (or revisiting the same
+// firm's employment rows) doesn't re-fetch data already looked up this session.
+type CachedFirmInfo = {
+	otherNames: string[];
+	firmName?: string;
+	bcScope?: string;
+	iaScope?: string;
+	firmStatus?: string;
+	isActive?: boolean;
+};
 
-async function fetchFirmOtherNames(crd: string): Promise<string[] | null> {
-	if (firmOtherNamesCache.has(crd)) return firmOtherNamesCache.get(crd) ?? null;
-	if (firmOtherNamesInFlight.has(crd)) return firmOtherNamesInFlight.get(crd)!;
+const firmInfoCache = new Map<string, CachedFirmInfo | null>();
+const firmInfoInFlight = new Map<string, Promise<CachedFirmInfo | null>>();
+
+async function fetchFirmInfo(crd: string): Promise<CachedFirmInfo | null> {
+	if (firmInfoCache.has(crd)) return firmInfoCache.get(crd) ?? null;
+	if (firmInfoInFlight.has(crd)) return firmInfoInFlight.get(crd)!;
 	const promise = (async () => {
 		try {
 			const res = await fetch(`/api/finra/firm/${encodeURIComponent(crd)}?merged=1`, { headers: { Accept: 'application/json' } });
 			if (!res.ok) return null;
 			const data = await res.json().catch(() => null);
 			const merged = data?.merged || data?.finraNode || data?.secNode || data || {};
-			const names = extractSearchResultOtherNames(merged?.basicInformation || merged || {});
-			const result = names.length ? names : null;
-			firmOtherNamesCache.set(crd, result);
+			const basic = merged?.basicInformation && typeof merged.basicInformation === 'object' ? merged.basicInformation : merged;
+			const names = extractSearchResultOtherNames(basic);
+			const firmName = pickFirstNonEmpty(basic?.iaFirmName, basic?.firmName, merged?.firmName);
+			const bcScope = pickFirstNonEmpty(basic?.bcScope, merged?.bcScope, basic?.brokerCheckScope, merged?.brokerCheckScope);
+			const iaScope = pickFirstNonEmpty(basic?.iaScope, merged?.iaScope, basic?.secScope, merged?.secScope);
+			const firmStatus = pickFirstNonEmpty(basic?.firmStatus, merged?.firmStatus, basic?.status, merged?.status);
+			const bcActive = String(bcScope || '').trim().toUpperCase() === 'ACTIVE';
+			const iaActive = String(iaScope || '').trim().toUpperCase() === 'ACTIVE';
+			const statusActive = /^(approved|active)$/i.test(String(firmStatus || '').trim());
+			const isActive = bcActive || iaActive || statusActive;
+
+			const result: CachedFirmInfo = {
+				otherNames: names,
+				firmName,
+				bcScope,
+				iaScope,
+				firmStatus,
+				isActive,
+			};
+			firmInfoCache.set(crd, result);
 			return result;
 		} catch {
-			firmOtherNamesCache.set(crd, null);
+			firmInfoCache.set(crd, null);
 			return null;
 		} finally {
-			firmOtherNamesInFlight.delete(crd);
+			firmInfoInFlight.delete(crd);
 		}
 	})();
-	firmOtherNamesInFlight.set(crd, promise);
+	firmInfoInFlight.set(crd, promise);
 	return promise;
 }
 
-/** Fetches (and caches) other-names for a batch of firm CRDs, exposing the results as a plain
- * `{ [crd]: string[] }` map that re-renders once each lookup resolves. Used by the Current/
- * Previous Employment lists so each row can show the firm's other names inline. */
-function useFirmOtherNamesByCrd(crds: string[]): Record<string, string[]> {
-	const [namesByCrd, setNamesByCrd] = useState<Record<string, string[]>>({});
+/** Fetches (and caches) firm information for a batch of firm CRDs, exposing the results as a plain
+ * `{ [crd]: CachedFirmInfo }` map that re-renders once each lookup resolves. Used by the Current/
+ * Previous Employment lists so each row can show the firm's other names inline and resolve status. */
+function useFirmInfoByCrd(crds: string[]): Record<string, CachedFirmInfo> {
+	const [infoByCrd, setInfoByCrd] = useState<Record<string, CachedFirmInfo>>({});
 	const key = crds.filter(Boolean).join(',');
 	useEffect(() => {
 		const list = key ? key.split(',') : [];
 		if (!list.length) return;
 		let cancelled = false;
 		(async () => {
-			const pending = list.filter((crd) => !firmOtherNamesCache.has(crd));
-			await Promise.all(pending.map((crd) => fetchFirmOtherNames(crd)));
+			const pending = list.filter((crd) => !firmInfoCache.has(crd));
+			await Promise.all(pending.map((crd) => fetchFirmInfo(crd)));
 			if (cancelled) return;
-			const next: Record<string, string[]> = {};
+			const next: Record<string, CachedFirmInfo> = {};
 			for (const crd of list) {
-				const names = firmOtherNamesCache.get(crd);
-				if (names && names.length) next[crd] = names;
+				const info = firmInfoCache.get(crd);
+				if (info) next[crd] = info;
 			}
-			setNamesByCrd(next);
+			setInfoByCrd(next);
 		})();
 		return () => {
 			cancelled = true;
 		};
 	}, [key]);
-	return namesByCrd;
+	return infoByCrd;
 }
 
 function DashboardPageInner() {
@@ -1687,26 +1712,12 @@ function DashboardPageInner() {
 	}, [routeSelection?.entity, routeSelection?.id]);
 
 	const graphHref = useMemo(() => {
-		const baseHref =
+		return (
 			buildGraphHrefForEntity(currentRecordEntity, currentRecordId) ||
 			buildGraphHrefForEntity(routeSelection?.entity, routeSelection?.id) ||
 			getLatestGraphHrefFromHistory(localHistory) ||
-			'/';
-		// Carry Selection History node ids along via the graph's existing shared-link
-		// `?selected=` mechanism so they get fetched/hydrated when navigating back to the graph.
-		// Graph Click History is intentionally excluded here — it mirrors the graph's own
-		// all-time `finra_selection_log`, not just what was picked in this dashboard session,
-		// and including it caused "back to graph" links to balloon to hundreds of stale ids.
-		const selectedNodeIds = collectSelectedNodeIdsForGraphHref(localHistory, []);
-		if (!selectedNodeIds.length) return baseHref;
-		const [path, existingQuery] = baseHref.split('?');
-		const params = new URLSearchParams(existingQuery || '');
-		params.set('selected', selectedNodeIds.join(','));
-		// Signal the graph to render ONLY the selected nodes (+ the routed node), not the
-		// full baseline graph, so "back to graph" from a curated dashboard selection shows
-		// exactly what was picked.
-		params.set('isolate', '1');
-		return `${path}?${params.toString()}`;
+			'/'
+		);
 	}, [currentRecordEntity, currentRecordId, routeSelection, localHistory]);
 
 	const handleGraphBackClick = useCallback(
@@ -2312,7 +2323,7 @@ function DashboardPageInner() {
 		}
 		return Array.from(ids);
 	}, [detailedMainRecord]);
-	const employmentFirmOtherNames = useFirmOtherNamesByCrd(employmentFirmCrds);
+	const employmentFirmInfo = useFirmInfoByCrd(employmentFirmCrds);
 
 	// When arriving here via a connection card whose displayed firm name differs from this
 	// firm's current name (e.g. the firm has since renamed), the referring card passes that
@@ -4289,14 +4300,29 @@ function DashboardPageInner() {
 													<div className={styles.detailList}>
 														{detailedMainRecord.currentEmployment.map((row, idx) => {
 															const crd = pickFirstValidCrd(row.crdNumber, row.crd, row.firmId);
+															const firmInfo = crd ? employmentFirmInfo[String(crd)] : undefined;
 															const address = formatAddress(row.branchOfficeLocations?.[0]) || (row.city && row.state ? `${row.city}, ${row.state}` : '');
 															const startDate = pickFirstNonEmpty(row.registrationBeginDate, row.effectiveDate, row.startDate);
 															const dateStr = startDate ? `Since ${startDate}` : '';
 															const metaParts = [address, dateStr].filter(Boolean);
 															const metaLine = metaParts.length > 0 ? metaParts.join(' • ') : formatUiText(pickFirstNonEmpty(row.position, row.currentRegistration, row.status));
 															const rowName = resolveEntityNodeLabel(row, 'firm', crd, idx);
-															const otherNames = (crd && employmentFirmOtherNames[String(crd)]) || [];
-															const statusKey = pickFirstNonEmpty(row.statusTag, row.status, 'Active');
+															const currentFirmName = firmInfo?.firmName ? String(firmInfo.firmName).trim() : '';
+															const normRowName = String(rowName || row.firmName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+															const normCurrentFirmName = currentFirmName.toLowerCase().replace(/[^a-z0-9]/g, '');
+															const isRenamed = Boolean(normCurrentFirmName && normRowName && normCurrentFirmName !== normRowName);
+
+															let displayOtherNames = [...(firmInfo?.otherNames || [])];
+															if (isRenamed && currentFirmName) {
+																const alreadyInList = displayOtherNames.some(
+																	(n) => String(n).toLowerCase().replace(/[^a-z0-9]/g, '') === normCurrentFirmName,
+																);
+																if (!alreadyInList) {
+																	displayOtherNames.unshift(currentFirmName);
+																}
+															}
+
+															const statusKey = resolveEmploymentStatusTag(row, firmInfo);
 															const rowStatusClass = /inactive/i.test(String(statusKey)) ? styles.currentConnectionStatusTagInactive : styles.currentConnectionStatusTag;
 															const sourceTags = Array.from(new Set([...(Array.isArray(row.sourceTags) ? row.sourceTags : []), row.sourceTag].filter(Boolean)));
 
@@ -4315,8 +4341,24 @@ function DashboardPageInner() {
 																			)}
 																		</div>
 																	</div>
-																	{otherNames.length > 0 && (
-																		<span className={styles.employmentRowOtherNames}>aka {otherNames.map((n) => formatOtherName(n, true)).join(', ')}</span>
+																	{displayOtherNames.length > 0 && (
+																		<span className={styles.employmentRowOtherNames}>
+																			aka{' '}
+																			{displayOtherNames.map((n, nIdx) => {
+																				const formatted = formatOtherName(n, true);
+																				const normFormatted = String(formatted).toLowerCase().replace(/[^a-z0-9]/g, '');
+																				const normRaw = String(n).toLowerCase().replace(/[^a-z0-9]/g, '');
+																				const isHighlighted = isRenamed && (normFormatted === normCurrentFirmName || normRaw === normCurrentFirmName);
+																				return (
+																					<Fragment key={`cur-emp-other-${idx}-${nIdx}`}>
+																						{nIdx > 0 && ', '}
+																						<span className={isHighlighted ? styles.employmentOtherNameHighlighted : undefined}>
+																							{formatted}
+																						</span>
+																					</Fragment>
+																				);
+																			})}
+																		</span>
 																	)}
 																	<div className={styles.detailRowMeta}>{metaLine}</div>
 																</>
@@ -4352,6 +4394,7 @@ function DashboardPageInner() {
 													<div className={styles.detailList}>
 														{detailedMainRecord.previousEmployment.map((row, idx) => {
 															const crd = pickFirstValidCrd(row.crdNumber, row.crd, row.firmId);
+															const firmInfo = crd ? employmentFirmInfo[String(crd)] : undefined;
 															const address = formatAddress(row.branchOfficeLocations?.[0]) || (row.city && row.state ? `${row.city}, ${row.state}` : '');
 															const startDate = pickFirstNonEmpty(row.registrationBeginDate, row.effectiveDate, row.startDate);
 															const endDate = pickFirstNonEmpty(row.registrationEndDate, row.endDate);
@@ -4363,8 +4406,22 @@ function DashboardPageInner() {
 															const metaParts = [address, dateStr].filter(Boolean);
 															const metaLine = metaParts.length > 0 ? metaParts.join(' • ') : formatUiText(pickFirstNonEmpty(row.position, row.currentRegistration, row.status));
 															const rowName = resolveEntityNodeLabel(row, 'firm', crd, idx);
-															const otherNames = (crd && employmentFirmOtherNames[String(crd)]) || [];
-															const statusKey = pickFirstNonEmpty(row.statusTag, row.status, 'Inactive');
+															const currentFirmName = firmInfo?.firmName ? String(firmInfo.firmName).trim() : '';
+															const normRowName = String(rowName || row.firmName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+															const normCurrentFirmName = currentFirmName.toLowerCase().replace(/[^a-z0-9]/g, '');
+															const isRenamed = Boolean(normCurrentFirmName && normRowName && normCurrentFirmName !== normRowName);
+
+															let displayOtherNames = [...(firmInfo?.otherNames || [])];
+															if (isRenamed && currentFirmName) {
+																const alreadyInList = displayOtherNames.some(
+																	(n) => String(n).toLowerCase().replace(/[^a-z0-9]/g, '') === normCurrentFirmName,
+																);
+																if (!alreadyInList) {
+																	displayOtherNames.unshift(currentFirmName);
+																}
+															}
+
+															const statusKey = resolveEmploymentStatusTag(row, firmInfo);
 															const rowStatusClass = /inactive/i.test(String(statusKey)) ? styles.currentConnectionStatusTagInactive : styles.currentConnectionStatusTag;
 															const sourceTags = Array.from(new Set([...(Array.isArray(row.sourceTags) ? row.sourceTags : []), row.sourceTag].filter(Boolean)));
 
@@ -4383,8 +4440,24 @@ function DashboardPageInner() {
 																			)}
 																		</div>
 																	</div>
-																	{otherNames.length > 0 && (
-																		<span className={styles.employmentRowOtherNames}>aka {otherNames.map((n) => formatOtherName(n, true)).join(', ')}</span>
+																	{displayOtherNames.length > 0 && (
+																		<span className={styles.employmentRowOtherNames}>
+																			aka{' '}
+																			{displayOtherNames.map((n, nIdx) => {
+																				const formatted = formatOtherName(n, true);
+																				const normFormatted = String(formatted).toLowerCase().replace(/[^a-z0-9]/g, '');
+																				const normRaw = String(n).toLowerCase().replace(/[^a-z0-9]/g, '');
+																				const isHighlighted = isRenamed && (normFormatted === normCurrentFirmName || normRaw === normCurrentFirmName);
+																				return (
+																					<Fragment key={`prev-emp-other-${idx}-${nIdx}`}>
+																						{nIdx > 0 && ', '}
+																						<span className={isHighlighted ? styles.employmentOtherNameHighlighted : undefined}>
+																							{formatted}
+																						</span>
+																					</Fragment>
+																				);
+																			})}
+																		</span>
 																	)}
 																	<div className={styles.detailRowMeta}>{metaLine}</div>
 																</>
@@ -4854,22 +4927,15 @@ function DashboardPageInner() {
 														crd?: string;
 														otherNames?: string[];
 														address?: string;
+														statusTag?: string;
 													}) => {
 														if (!connectionsFilterEnabled) return true;
-														// Empty focus and live typing keep the full list visible so matches can
-														// be highlighted. After Enter, committed tags filter again.
-														if (connectionsFilterFocused && connectionsFilterQuery.trim()) return true;
-														const previewUnfiltered = shouldPreviewUnfilteredConnections({
-															focused: connectionsFilterFocused,
-															liveText: connectionsFilterQuery,
-															justCommitted: connectionsFilterJustCommitted,
-														});
-														if (previewUnfiltered) return true;
-														if (connectionsFilterTags.length === 0) return true;
-														const haystack = [item.title, item.subtitle, item.meta, item.crd, item.address, ...(item.otherNames || [])]
+														const trimmedQuery = connectionsFilterQuery.trim();
+														if (connectionsFilterTags.length === 0 && !trimmedQuery) return true;
+														const haystack = [item.title, item.subtitle, item.meta, item.crd, item.address, item.statusTag, ...(item.otherNames || [])]
 															.filter(Boolean)
 															.join(' ');
-														return matchesConnectionsFilter(haystack, connectionsFilterTags, '', connectionsFilterEnabled, previewUnfiltered);
+														return matchesConnectionsFilter(haystack, connectionsFilterTags, trimmedQuery, connectionsFilterEnabled, false);
 													};
 													const connectionKey = (item: { crd?: string; entity?: string }) =>
 														item.crd ? `${item.entity || 'individual'}:${item.crd}` : '';
@@ -4917,7 +4983,7 @@ function DashboardPageInner() {
 														const otherNamesClass = kind === 'current' ? styles.currentConnectionOtherNames : styles.previousConnectionOtherNames;
 														const metaClass = kind === 'current' ? styles.currentConnectionMeta : styles.previousConnectionMeta;
 														const rowKindClass = kind === 'current' ? styles.currentConnectionRow : styles.previousConnectionRow;
-														const liveHighlight = connectionsFilterFocused ? connectionsFilterQuery : '';
+														const liveHighlight = [connectionsFilterQuery.trim(), ...connectionsFilterTags].filter(Boolean).join(' ');
 														const dateStr =
 															kind === 'current' ?
 																item.startDate ? `Since ${item.startDate}`

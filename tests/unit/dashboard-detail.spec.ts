@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { extractPayloadFromDetail, mergeEmploymentCardsAcrossSources, overlayMergedEmploymentHistory, resolveOrderedSourcesFromDetail, sortByMostRecentStartDate } from '@/lib/dashboard-detail';
+import {
+	extractPayloadFromDetail,
+	mergeEmploymentCardsAcrossSources,
+	overlayMergedEmploymentHistory,
+	resolveEmploymentStatusTag,
+	resolveOrderedSourcesFromDetail,
+	sortByMostRecentStartDate,
+} from '@/lib/dashboard-detail';
 
 const silkDetail = {
 	hasFinraData: false,
@@ -107,3 +114,27 @@ describe('sortByMostRecentStartDate', () => {
 		).toEqual(['new', 'old', 'missing']);
 	});
 });
+
+describe('resolveEmploymentStatusTag', () => {
+	it('returns Active when row has active firmBCScope or firmIAScope even if previous employment', () => {
+		expect(resolveEmploymentStatusTag({ firmBCScope: 'ACTIVE', firmIAScope: 'ACTIVE' })).toBe('Active');
+		expect(resolveEmploymentStatusTag({ firmBCScope: 'ACTIVE', firmIAScope: 'NOTINSCOPE' })).toBe('Active');
+		expect(resolveEmploymentStatusTag({ firmBCScope: 'NOTINSCOPE', firmIAScope: 'ACTIVE' })).toBe('Active');
+	});
+
+	it('returns Active when cached firm info is active', () => {
+		expect(resolveEmploymentStatusTag({ firmBCScope: 'NOTINSCOPE' }, { isActive: true })).toBe('Active');
+		expect(resolveEmploymentStatusTag({}, { bcScope: 'Active', iaScope: 'NotInScope' })).toBe('Active');
+		expect(resolveEmploymentStatusTag({}, { firmStatus: 'approved' })).toBe('Active');
+	});
+
+	it('returns Inactive when firm scope indicates inactive or terminated', () => {
+		expect(resolveEmploymentStatusTag({ firmBCScope: 'INACTIVE', firmIAScope: 'TERMINATED' })).toBe('Inactive');
+		expect(resolveEmploymentStatusTag({}, { bcScope: 'Inactive', iaScope: 'Terminated', isActive: false })).toBe('Inactive');
+	});
+
+	it('respects explicit statusTag if not "Inactive"', () => {
+		expect(resolveEmploymentStatusTag({ statusTag: 'Pending' })).toBe('Pending');
+	});
+});
+

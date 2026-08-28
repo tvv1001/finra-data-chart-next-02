@@ -235,3 +235,47 @@ export function resolveOrderedSourcesFromDetail(detail: any, requestedSource: Da
 	if (hasFinraData && !hasSecData) return ['finra', 'sec'];
 	return base.length > 0 ? base : ['finra', 'sec'];
 }
+
+export function resolveEmploymentStatusTag(
+	row: any,
+	firmInfo?: {
+		isActive?: boolean;
+		bcScope?: string;
+		iaScope?: string;
+		firmStatus?: string;
+	},
+): string {
+	if (row?.statusTag && !/^inactive$/i.test(String(row.statusTag))) {
+		return String(row.statusTag);
+	}
+	const rowBc = String(row?.firmBCScope || row?.bcScope || '').trim().toUpperCase();
+	const rowIa = String(row?.firmIAScope || row?.iaScope || '').trim().toUpperCase();
+	const rowFirmStatus = String(row?.firmStatus || '').trim().toLowerCase();
+
+	if (rowBc === 'ACTIVE' || rowIa === 'ACTIVE' || rowFirmStatus === 'approved' || rowFirmStatus === 'active') {
+		return 'Active';
+	}
+
+	if (firmInfo) {
+		if (firmInfo.isActive) return 'Active';
+		const infoBc = String(firmInfo.bcScope || '').trim().toUpperCase();
+		const infoIa = String(firmInfo.iaScope || '').trim().toUpperCase();
+		const infoStatus = String(firmInfo.firmStatus || '').trim().toLowerCase();
+		if (infoBc === 'ACTIVE' || infoIa === 'ACTIVE' || infoStatus === 'approved' || infoStatus === 'active') {
+			return 'Active';
+		}
+		if (infoBc === 'INACTIVE' || infoBc === 'TERMINATED' || infoIa === 'INACTIVE' || infoIa === 'TERMINATED') {
+			return 'Inactive';
+		}
+	}
+
+	if (rowBc === 'INACTIVE' || rowBc === 'TERMINATED' || rowIa === 'INACTIVE' || rowIa === 'TERMINATED') {
+		return 'Inactive';
+	}
+
+	if (row?.status && String(row.status).trim()) {
+		return String(row.status).trim();
+	}
+
+	return 'Active';
+}

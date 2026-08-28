@@ -104,7 +104,9 @@ describe('local search indexes', () => {
 			const names = await lookupFirmNamesFromSearchSidecar(['31194'], { seedRoots: [root] });
 			expect(names.get('31194')).toBe('RBC CAPITAL MARKETS, LLC');
 
-			const nodes = [{ id: 'firm:31194', group: 'firm', label: 'Firm 31194', firmId: '31194' }];
+			const nodes: Array<{ id: string; group: string; label: string; firmId: string; firmName?: string }> = [
+				{ id: 'firm:31194', group: 'firm', label: 'Firm 31194', firmId: '31194' },
+			];
 			await hydrateFirmNodeLabelsFromSearchSidecar(nodes, { seedRoots: [root] });
 			expect(nodes[0].label).toBe('RBC CAPITAL MARKETS, LLC');
 			expect(nodes[0].firmName).toBe('RBC CAPITAL MARKETS, LLC');
