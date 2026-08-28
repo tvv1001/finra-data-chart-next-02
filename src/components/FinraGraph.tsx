@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } f
 import ThemeToggle from './ThemeToggle';
 import { buildNodeRouteHref, buildNodeRoutePath, parseNodeIdFromPathname } from '@/lib/node-route';
 import { RUNTIME_CLICK_EXPANSION_HOPS, RUNTIME_EXPANSION_HOPS, RUNTIME_SELECTION_HOPS } from '@/lib/finra-graph-defaults';
+import { consumeQueueGraphBridge } from '@/lib/queueGraphBridge';
 
 const MOBILE_TOUCH_SLOP_PX = 12;
 const MOBILE_TOUCH_CLICK_SUPPRESSION_MS = 250;
@@ -931,11 +932,16 @@ export default function FinraGraph() {
 				const combinedD3 = { ...d3Module, ...d3ForceModule };
 				(window as any).d3 = combinedD3;
 				const defaultSelected = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEFAULT_SELECTED) || '';
-				const sharedSelectedIds = (searchParams.get('selected') || defaultSelected || '')
+				// Prefer the dashboard Queue graph sessionStorage bridge (no query string).
+				// Keep legacy `?selected=` support for shared links only.
+				const bridgedSelectedIds = consumeQueueGraphBridge();
+				const querySelectedIds = (searchParams.get('selected') || defaultSelected || '')
 					.split(',')
 					.map((id) => id.trim())
 					.filter(Boolean);
-				const isolateToSelection = searchParams.get('isolate') === '1';
+				const sharedSelectedIds = Array.from(new Set([...bridgedSelectedIds, ...querySelectedIds]));
+				// Bridge hydrates onto the existing session graph; isolate only for explicit share links.
+				const isolateToSelection = bridgedSelectedIds.length === 0 && searchParams.get('isolate') === '1';
 				init(combinedD3, {
 					initialRouteNodeId: routeNodeId,
 					initialSelectedNodeIds: sharedSelectedIds,

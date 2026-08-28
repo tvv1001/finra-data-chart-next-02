@@ -31,6 +31,7 @@ import {
 	subscribeFilterText,
 } from '@/lib/filterTags';
 import VectorLoader from '@/components/VectorLoader';
+import { writeQueueGraphBridge } from '@/lib/queueGraphBridge';
 import styles from './dashboard.module.css';
 
 type DashboardAction = 'fetch-crds' | 'list-new-crds';
@@ -1788,9 +1789,13 @@ function DashboardPageInner() {
 		(event: MouseEvent<HTMLAnchorElement>) => {
 			if (typeof window === 'undefined') return;
 			event.preventDefault();
+			// Bridge Queue graph CRDs to the graph page via sessionStorage (no query string).
+			// The graph consumes this once on init and background-fetches missing nodes onto the canvas.
+			const queueNodeIds = collectSelectedNodeIdsForGraphHref(localHistory, []);
+			writeQueueGraphBridge(queueNodeIds);
 			window.location.assign(graphHref || '/');
 		},
-		[graphHref],
+		[graphHref, localHistory],
 	);
 
 	async function loadNewCrdsFromRedis(force = false) {

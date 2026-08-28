@@ -536,6 +536,18 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(result.nodes[0].label).toBe('Megan Vogt Omoruyi');
 	});
 
+	it('mergeIncomingNodesIntoExistingNodes preserves existing layout node object identity', () => {
+		const existingNode = { id: 'person:42', group: 'individual', crd: '42', label: 'Settled', fx: 10, fy: 20, x: 10, y: 20 } as any;
+		const incoming = [{ id: 'person:99', group: 'individual', crd: '99', label: 'New' } as any];
+
+		const result = mergeIncomingNodesIntoExistingNodes([existingNode], incoming);
+
+		expect(result.nodes[0]).toBe(existingNode);
+		expect(result.nodes[0].fx).toBe(10);
+		expect(result.nodes[0].fy).toBe(20);
+		expect(result.added).toEqual(['person:99']);
+	});
+
 	it('mergeGraphNodesForAppend keeps the canonical person id when an alternate id arrives', () => {
 		const existing = [{ id: 'person:7212646', group: 'individual', crd: '7212646', label: 'Melinda Q Liu' } as any];
 		const incoming = [{ id: 'person_7212646', group: 'individual', crd: '7212646', label: 'Melinda Q Liu', basicInformation: { firstName: 'Melinda' } } as any];

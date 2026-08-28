@@ -7725,7 +7725,7 @@ export function mergeIncomingNodesIntoExistingNodes(existingNodes = [], incoming
 	const identityMap = new Map<string, any>();
 	const idRewriteMap = new Map<string, string>();
 
-	const upsertNode = (node) => {
+	const upsertNode = (node, { clone = true } = {}) => {
 		if (!node || typeof node !== 'object') return null;
 		const key = getNodeIdentityKey(node);
 		if (key && identityMap.has(key)) {
@@ -7737,7 +7737,8 @@ export function mergeIncomingNodesIntoExistingNodes(existingNodes = [], incoming
 			return targetNode;
 		}
 
-		const nodeToAdd = { ...node };
+		// Reuse existing layout node objects so fx/fy freeze lists and simulation refs stay valid.
+		const nodeToAdd = clone ? { ...node } : node;
 		normalizeNodeLabelInPlace(nodeToAdd);
 		if (key) identityMap.set(key, nodeToAdd);
 		mergedNodes.push(nodeToAdd);
@@ -7748,11 +7749,11 @@ export function mergeIncomingNodesIntoExistingNodes(existingNodes = [], incoming
 	};
 
 	(Array.isArray(existingNodes) ? existingNodes : []).forEach((node) => {
-		upsertNode(node);
+		upsertNode(node, { clone: false });
 	});
 
 	(Array.isArray(incomingNodes) ? incomingNodes : []).forEach((incomingNode) => {
-		upsertNode(incomingNode);
+		upsertNode(incomingNode, { clone: true });
 	});
 
 	return {
@@ -12720,8 +12721,25 @@ function anchorNode(node) {
 	if (!node || !Number.isFinite(node.x) || !Number.isFinite(node.y)) return;
 	node.fx = node.x;
 	node.fy = node.y;
-	if (simulation) {
+	// Soft reheat only after freezing everyone else so settled nodes stay put.
+	if (simulation && Array.isArray(layoutNodes)) {
+		const allowed = new Set([node.id]);
+		if (activeSpreadFrozenNodes.length) {
+			releaseFrozenNodes(activeSpreadFrozenNodes);
+			activeSpreadFrozenNodes = [];
+		}
+		activeSpreadFrozenNodes = freezeSettledNodesExcept(allowed);
 		simulation.alphaTarget(0.05).restart();
+		if (spreadReleaseTimer) {
+			clearTimeout(spreadReleaseTimer);
+			spreadReleaseTimer = null;
+		}
+		spreadReleaseTimer = setTimeout(() => {
+			simulation?.alphaTarget?.(0);
+			releaseFrozenNodes(activeSpreadFrozenNodes);
+			activeSpreadFrozenNodes = [];
+			spreadReleaseTimer = null;
+		}, 300);
 	}
 }
 
@@ -13647,10 +13665,12 @@ function freezeSettledNodesExcept(allowedMovingIds: Set<any>) {
 	if (!Array.isArray(layoutNodes)) return [];
 	const frozen = [];
 	for (const n of layoutNodes) {
-		if (allowedMovingIds.has(n.id)) continue;
-		if (n.fx == null && n.fy == null) {
+		if (allowedMovingIds.has(n?.id)) continue;
+		if (n.fx == null && n.fy == null && Number.isFinite(n.x) && Number.isFinite(n.y)) {
 			n.fx = n.x;
 			n.fy = n.y;
+			n.vx = 0;
+			n.vy = 0;
 			frozen.push(n);
 		}
 	}
@@ -13667,29 +13687,16 @@ function releaseFrozenNodes(frozenNodes) {
 function pinNodeAndReleaseOthers(pinnedNode) {
 	if (!pinnedNode?.id || !Array.isArray(layoutNodes)) return;
 
-	// Release every other node's fixed position so the shared force simulation is free
-	// to re-settle the whole graph around the newly clicked/pinned node, instead of only
-	// letting the clicked node (and any freshly revealed neighbors) move.
-	for (const n of layoutNodes) {
-		if (n.id === pinnedNode.id) {
-			n.fx = n.x;
-			n.fy = n.y;
-		} else {
-			n.fx = null;
-			n.fy = null;
-		}
+	// Pin only the clicked node. Do NOT unpin the rest of the graph or fire a blanket
+	// simulation reheat — that re-animates every already-settled node on each click.
+	// Neighbor reveal paths freeze settled nodes and allow only the click + new nodes to move.
+	if (Number.isFinite(pinnedNode.x) && Number.isFinite(pinnedNode.y)) {
+		pinnedNode.fx = pinnedNode.x;
+		pinnedNode.fy = pinnedNode.y;
 	}
-
-	if (simulation) {
-		if (nodePinReleaseTimer) {
-			clearTimeout(nodePinReleaseTimer);
-			nodePinReleaseTimer = null;
-		}
-		simulation.alphaTarget(0.15).restart();
-		nodePinReleaseTimer = window.setTimeout(() => {
-			simulation.alphaTarget(0);
-			nodePinReleaseTimer = null;
-		}, 300);
+	if (nodePinReleaseTimer) {
+		clearTimeout(nodePinReleaseTimer);
+		nodePinReleaseTimer = null;
 	}
 }
 
@@ -14468,7 +14475,25 @@ function revealNeighbors(
 			simulation.force('link').links(layoutLinks);
 			simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
 
+			// Freeze settled nodes before reheat so only the clicked node + this batch move.
+			const allowedMoving = new Set(batchNodeIds);
+			if (clickedNode?.id) allowedMoving.add(clickedNode.id);
+			if (activeSpreadFrozenNodes.length) {
+				releaseFrozenNodes(activeSpreadFrozenNodes);
+				activeSpreadFrozenNodes = [];
+			}
+			activeSpreadFrozenNodes = freezeSettledNodesExcept(allowedMoving);
 			simulation.alpha(getIncrementalRestartAlpha(layoutNodes.length, batchNodes.length)).restart();
+			if (spreadReleaseTimer) {
+				clearTimeout(spreadReleaseTimer);
+				spreadReleaseTimer = null;
+			}
+			spreadReleaseTimer = setTimeout(() => {
+				simulation?.stop?.();
+				releaseFrozenNodes(activeSpreadFrozenNodes);
+				activeSpreadFrozenNodes = [];
+				spreadReleaseTimer = null;
+			}, 300);
 
 			if (batchIndex < revealBatches.length - 1) {
 				const plan = getLargeNodeRevealBatchPlan(hiddenIds.length, layoutNodes.length);
@@ -14485,36 +14510,8 @@ function revealNeighbors(
 				return;
 			}
 
-			// Final batch finished! If the graph is huge, use WASM to compute final positions instantly!
-			if (layoutNodes.length > 500) {
-				simulation.stop();
-				const main = document.getElementById('fg-main');
-				const W = main ? main.clientWidth : 800;
-				const H = main ? main.clientHeight : 600;
-				const nodesPayload = layoutNodes.map((n) => ({ id: n.id, x: n.x, y: n.y, group: n.group, _deg: n._deg }));
-				const linksPayload = layoutLinks.map((l) => ({ source: l.source?.id || l.source, target: l.target?.id || l.target }));
-				import('@/lib/graphLayoutWorker').then((mod) => {
-					const createWorker = mod.default || mod.createGraphLayoutWorker;
-					if (typeof createWorker === 'function') {
-						const { compute } = createWorker();
-						compute(nodesPayload, linksPayload, W, H)
-							.then((positions) => {
-								if (Array.isArray(positions)) {
-									const posMap = new Map(positions.map((p) => [String(p.id), p]));
-									for (const ln of layoutNodes) {
-										const p = posMap.get(String(ln.id));
-										if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
-											ln.x = p.x;
-											ln.y = p.y;
-										}
-									}
-									animateToWasmPositions(2500); // Animate smoothly using D3 transitions directly
-								}
-							})
-							.catch((e) => console.error('WASM compute failed', e));
-					}
-				});
-			}
+			// Intentionally skip full-graph WASM relayout + animateToWasmPositions on incremental
+			// click reveals — that path reassigned every node and replayed the entrance motion.
 
 			try {
 				saveSession();
