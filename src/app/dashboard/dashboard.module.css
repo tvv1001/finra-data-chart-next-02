@@ -3638,6 +3638,16 @@
 	background: rgba(59, 130, 246, 0.14);
 }
 
+/* Keyword filter: unmatched firm connection cards stay visible below matches. */
+.connectionFilterUnmatched {
+	opacity: 0.55;
+}
+
+.connectionFilterUnmatched:hover,
+.connectionFilterUnmatched:focus-visible {
+	opacity: 0.85;
+}
+
 .connectionMatchHighlight {
 	background: #facc15;
 	color: #111827;

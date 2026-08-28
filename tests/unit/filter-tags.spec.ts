@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { matchesConnectionsFilter, matchesFilterTags, shouldPreviewUnfilteredConnections } from '@/lib/filterTags';
+import { matchesConnectionsFilter, matchesFilterTags, partitionConnectionsByFilter, shouldPreviewUnfilteredConnections } from '@/lib/filterTags';
 
 describe('matchesConnectionsFilter', () => {
 	it('matches tags when enabled', () => {
@@ -31,5 +31,26 @@ describe('shouldPreviewUnfilteredConnections', () => {
 
 	it('stays filtered after Enter commits a tag', () => {
 		expect(shouldPreviewUnfilteredConnections({ focused: true, liveText: '', justCommitted: true })).toBe(false);
+	});
+});
+
+describe('partitionConnectionsByFilter', () => {
+	it('keeps unmatched items after matched ones instead of dropping them', () => {
+		const items = [
+			{ name: 'Alice Smith' },
+			{ name: 'Bob Jones' },
+			{ name: 'Carol Smith' },
+		];
+		const result = partitionConnectionsByFilter(items, (item) => item.name, ['smith'], '', true, false);
+		expect(result.matched.map((item) => item.name)).toEqual(['Alice Smith', 'Carol Smith']);
+		expect(result.unmatched.map((item) => item.name)).toEqual(['Bob Jones']);
+		expect(result.ordered.map((item) => item.name)).toEqual(['Alice Smith', 'Carol Smith', 'Bob Jones']);
+	});
+
+	it('treats every item as matched when filtering is disabled', () => {
+		const items = [{ name: 'Alice' }, { name: 'Bob' }];
+		const result = partitionConnectionsByFilter(items, (item) => item.name, ['zzz'], '', false, false);
+		expect(result.matched).toHaveLength(2);
+		expect(result.unmatched).toHaveLength(0);
 	});
 });

@@ -22,6 +22,7 @@ import {
 	getFilterTags,
 	getFilterText,
 	matchesConnectionsFilter,
+	partitionConnectionsByFilter,
 	setFilterEnabled,
 	setFilterTags,
 	setFilterText,
@@ -5087,7 +5088,7 @@ function DashboardPageInner() {
 
 											{currentRecordEntity === 'firm' && connectionsLoadingFirmId === currentRecordId ? null : (
 												(() => {
-													const matchesConnectionsFilterFn = (item: {
+													const connectionHaystack = (item: {
 														title?: string;
 														subtitle?: string;
 														meta?: string;
@@ -5095,16 +5096,47 @@ function DashboardPageInner() {
 														otherNames?: string[];
 														address?: string;
 														statusTag?: string;
-													}) => {
-														if (!connectionsFilterEnabled) return true;
-														const trimmedQuery = connectionsFilterQuery.trim();
-														if (connectionsFilterTags.length === 0 && !trimmedQuery) return true;
-														const haystack = [item.title, item.subtitle, item.meta, item.crd, item.address, item.statusTag, ...(item.otherNames || [])].filter(Boolean).join(' ');
-														return matchesConnectionsFilter(haystack, connectionsFilterTags, trimmedQuery, connectionsFilterEnabled, false);
-													};
+													}) => [item.title, item.subtitle, item.meta, item.crd, item.address, item.statusTag, ...(item.otherNames || [])].filter(Boolean).join(' ');
+													const previewUnfiltered = shouldPreviewUnfilteredConnections({
+														focused: connectionsFilterFocused,
+														liveText: connectionsFilterQuery,
+														justCommitted: connectionsFilterJustCommitted,
+													});
+													const matchesConnectionsFilterFn = (item: Parameters<typeof connectionHaystack>[0]) =>
+														matchesConnectionsFilter(
+															connectionHaystack(item),
+															connectionsFilterTags,
+															connectionsFilterQuery.trim(),
+															connectionsFilterEnabled,
+															previewUnfiltered,
+														);
 													const connectionKey = (item: { crd?: string; entity?: string }) => (item.crd ? `${item.entity || 'individual'}:${item.crd}` : '');
-													const filteredCurrentConnectionCards = sortByMostRecentStartDate(detailedMainRecord.currentConnectionCards.filter(matchesConnectionsFilterFn));
-													const filteredPreviousConnectionCards = detailedMainRecord.previousConnectionCards.filter(matchesConnectionsFilterFn);
+													// Keyword tags reorder (matched first) instead of hiding unmatched firm connection cards.
+													const currentConnectionPartition = partitionConnectionsByFilter(
+														detailedMainRecord.currentConnectionCards,
+														connectionHaystack,
+														connectionsFilterTags,
+														connectionsFilterQuery.trim(),
+														connectionsFilterEnabled,
+														previewUnfiltered,
+													);
+													const previousConnectionPartition = partitionConnectionsByFilter(
+														detailedMainRecord.previousConnectionCards,
+														connectionHaystack,
+														connectionsFilterTags,
+														connectionsFilterQuery.trim(),
+														connectionsFilterEnabled,
+														previewUnfiltered,
+													);
+													const filteredCurrentConnectionCards = [
+														...sortByMostRecentStartDate(currentConnectionPartition.matched),
+														...sortByMostRecentStartDate(currentConnectionPartition.unmatched),
+													];
+													const filteredPreviousConnectionCards = previousConnectionPartition.ordered;
+													const matchedSelectableConnections = [
+														...sortByMostRecentStartDate(currentConnectionPartition.matched),
+														...previousConnectionPartition.matched,
+													].filter((item) => item.crd);
 													const selectableConnections = [...filteredCurrentConnectionCards, ...filteredPreviousConnectionCards].filter((item) => item.crd);
 													const toggleConnectionKey = (key: string) => {
 														if (!key) return;
@@ -5116,7 +5148,8 @@ function DashboardPageInner() {
 														});
 													};
 													const selectAllVisibleConnections = () => {
-														setSelectedConnectionKeys(new Set(selectableConnections.map((item) => connectionKey(item)).filter(Boolean)));
+														// Select all only covers keyword-matched cards, not the unmatched ones listed below.
+														setSelectedConnectionKeys(new Set(matchedSelectableConnections.map((item) => connectionKey(item)).filter(Boolean)));
 													};
 													const finishConnectionSelectMode = () => {
 														const selected = selectableConnections.filter((item) => selectedConnectionKeys.has(connectionKey(item)));
@@ -5137,10 +5170,12 @@ function DashboardPageInner() {
 													const renderConnectionRow = (item: (typeof filteredCurrentConnectionCards)[number], idx: number, kind: 'current' | 'previous') => {
 														const key = connectionKey(item);
 														const isSelected = connectionsSelectMode && Boolean(key) && selectedConnectionKeys.has(key);
+														const isUnmatched = !matchesConnectionsFilterFn(item);
 														const nameClass = kind === 'current' ? styles.currentConnectionName : styles.previousConnectionName;
 														const otherNamesClass = kind === 'current' ? styles.currentConnectionOtherNames : styles.previousConnectionOtherNames;
 														const metaClass = kind === 'current' ? styles.currentConnectionMeta : styles.previousConnectionMeta;
 														const rowKindClass = kind === 'current' ? styles.currentConnectionRow : styles.previousConnectionRow;
+														const unmatchedClass = isUnmatched ? styles.connectionFilterUnmatched : '';
 														const liveHighlight = [connectionsFilterQuery.trim(), ...connectionsFilterTags].filter(Boolean).join(' ');
 														const dateStr =
 															kind === 'current' ?
@@ -5192,7 +5227,7 @@ function DashboardPageInner() {
 																<button
 																	type='button'
 																	key={`${kind}-conn-${idx}`}
-																	className={`${styles.detailRow} ${styles.detailRowInteractive} ${kind === 'current' ? styles.currentEmploymentRow : ''} ${rowKindClass} ${styles.connectionSelectRow} ${isSelected ? styles.connectionSelectRowSelected : ''}`}
+																	className={`${styles.detailRow} ${styles.detailRowInteractive} ${kind === 'current' ? styles.currentEmploymentRow : ''} ${rowKindClass} ${unmatchedClass} ${styles.connectionSelectRow} ${isSelected ? styles.connectionSelectRowSelected : ''}`}
 																	onClick={() => toggleConnectionKey(key)}>
 																	<input
 																		type='checkbox'
@@ -5211,7 +5246,7 @@ function DashboardPageInner() {
 																<Link
 																	href={`/dashboard/${item.entity || 'firm'}/${item.crd}${item.title ? `?fromName=${encodeURIComponent(item.title)}` : ''}`}
 																	key={`${kind}-conn-${idx}`}
-																	className={`${styles.detailRow} ${styles.detailRowInteractive} ${kind === 'current' ? styles.currentEmploymentRow : ''} ${rowKindClass}`}>
+																	className={`${styles.detailRow} ${styles.detailRowInteractive} ${kind === 'current' ? styles.currentEmploymentRow : ''} ${rowKindClass} ${unmatchedClass}`}>
 																	{content}
 																</Link>
 															);
@@ -5220,7 +5255,7 @@ function DashboardPageInner() {
 														return (
 															<div
 																key={`${kind}-conn-${idx}`}
-																className={`${styles.detailRow} ${rowKindClass}`}>
+																className={`${styles.detailRow} ${rowKindClass} ${unmatchedClass}`}>
 																{content}
 															</div>
 														);

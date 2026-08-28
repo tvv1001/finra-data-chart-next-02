@@ -195,3 +195,25 @@ export function matchesConnectionsFilter(
 	if (!enabled || previewUnfiltered) return true;
 	return matchesFilterTags(haystack, tags, liveText);
 }
+
+/**
+ * Keep all items visible: matched first, unmatched after.
+ * Used by dashboard firm connections so keyword tags reorder instead of hide.
+ */
+export function partitionConnectionsByFilter<T>(
+	items: T[],
+	getHaystack: (item: T) => string,
+	tags: string[],
+	liveText?: string,
+	enabled = true,
+	previewUnfiltered = false,
+): { matched: T[]; unmatched: T[]; ordered: T[] } {
+	const matched: T[] = [];
+	const unmatched: T[] = [];
+	for (const item of Array.isArray(items) ? items : []) {
+		const haystack = getHaystack(item);
+		if (matchesConnectionsFilter(haystack, tags, liveText, enabled, previewUnfiltered)) matched.push(item);
+		else unmatched.push(item);
+	}
+	return { matched, unmatched, ordered: [...matched, ...unmatched] };
+}
