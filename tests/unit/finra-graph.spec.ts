@@ -14,6 +14,7 @@ import {
 } from '../../src/components/FinraGraph';
 import {
 	applyGraphDerivedNodeMetrics,
+	bindSimulationTickHandler,
 	getNodeLabelFontSize,
 	isNodeInactive,
 	isRevealableChainExhausted,
@@ -122,6 +123,33 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		window.sessionStorage.removeItem('finra_sidebar_view_mode');
 
 		expect(loadPersistedSidebarViewMode()).toBe('info');
+	});
+
+	it('bindSimulationTickHandler replaces previous tick listeners instead of stacking them', () => {
+		const listeners = new Map<string, Function>();
+		const simulation = {
+			on: (name: string, handler?: Function | null) => {
+				if (!name || !name.startsWith('tick.')) return;
+				if (!handler) {
+					listeners.delete(name);
+					return;
+				}
+				listeners.set(name, handler);
+			},
+		};
+		const first = vi.fn();
+		const second = vi.fn();
+
+		bindSimulationTickHandler(simulation as any, first);
+		bindSimulationTickHandler(simulation as any, second);
+
+		const active = Array.from(listeners.values());
+		expect(active).toHaveLength(1);
+		expect(active[0]).toBe(second);
+
+		active[0]!();
+		expect(second).toHaveBeenCalledTimes(1);
+		expect(first).not.toHaveBeenCalled();
 	});
 
 	it('routeSidebarNodeSelection preserves the query string when routing a node', () => {

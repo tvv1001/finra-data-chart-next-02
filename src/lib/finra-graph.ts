@@ -10825,7 +10825,7 @@ function appendFetchedImpl(newNodes, newLinks) {
 	}
 
 	// Replace tick handler so it covers the full updated selections.
-	simulation.on('tick', () => {
+	bindSimulationTickHandler(simulation, () => {
 		scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
 	});
 
@@ -11212,7 +11212,7 @@ function renderGraph(_data) {
 
 	// ── Tick ──────────────────────────────────────────────────────────────────
 	let _tickN = 0;
-	simulation.on('tick', () => {
+	bindSimulationTickHandler(simulation, () => {
 		_tickN++;
 		// During high-energy early layout, aggressively throttle SVG repaints
 		// to allow the main thread to handle user inputs and D3 physics calculations.
@@ -11259,6 +11259,18 @@ function renderGraph(_data) {
 
 	refreshGraphColors();
 	reapplySelectionState();
+}
+
+export function bindSimulationTickHandler(simulationRef: any, handler: () => void, namespace = 'graph-layout') {
+	if (!simulationRef || typeof simulationRef.on !== 'function') return;
+	try {
+		simulationRef.on(`tick.${namespace}`, null);
+	} catch (e) {
+		// ignore if the simulation implementation doesn't support namespaced listeners
+	}
+	if (typeof handler === 'function') {
+		simulationRef.on(`tick.${namespace}`, handler);
+	}
 }
 
 // ── Fluid Drag (simulation-driven neighbor repulsion) ────────────────────
@@ -11506,7 +11518,7 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 	saveSession();
 
 	let _updTick = 0;
-	simulation.on('tick', () => {
+	bindSimulationTickHandler(simulation, () => {
 		_updTick++;
 		const count = layoutNodes?.length || 0;
 		if (count > 1000 && simulation.alpha() > 0.05 && _updTick % 10 !== 0) return;
@@ -14411,7 +14423,7 @@ function revealNeighbors(
 			refreshTraceState();
 
 			let _revealTick = 0;
-			simulation.on('tick', () => {
+			bindSimulationTickHandler(simulation, () => {
 				_revealTick++;
 				if (layoutNodes.length > 1000 && simulation.alpha() > 0.05 && _revealTick % 10 !== 0) return;
 				if (layoutNodes.length > 300 && simulation.alpha() > 0.1 && _revealTick % 4 !== 0) return;
