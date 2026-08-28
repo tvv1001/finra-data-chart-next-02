@@ -13284,13 +13284,9 @@ function getRenderedNodeLabel(node, { skipTruncation = false }: { skipTruncation
 	if (!isNodeIdLabel && isPlaceholderExpansionLabel(preferredLabel, node?.group)) return '';
 	if (node?.group === 'firm') {
 		const fullLabel = formatNodeLabel(preferredLabel, 'firm');
-		const clippedLabel = skipTruncation || nodeLabelRenderMode !== 'compact' ? fullLabel : clipFirmLabelAtWord(preferredLabel, 18);
-		return !isNodeIdLabel && isPlaceholderExpansionLabel(clippedLabel, node?.group) ? '' : clippedLabel;
+		return !isNodeIdLabel && isPlaceholderExpansionLabel(fullLabel, node?.group) ? '' : fullLabel;
 	}
 	const formattedLabel = formatNodeLabel(preferredLabel, node?.group);
-	if (!skipTruncation && nodeLabelRenderMode === 'compact') {
-		return truncate(formattedLabel, 18);
-	}
 	return !isNodeIdLabel && isPlaceholderExpansionLabel(formattedLabel, node?.group) ? '' : formattedLabel;
 }
 

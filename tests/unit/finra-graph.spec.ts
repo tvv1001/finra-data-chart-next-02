@@ -163,7 +163,7 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		};
 		const selection = d3.select(container).datum(node);
 		renderNodeContents(selection);
-		expect(selection.select('text').text().length).toBeLessThan(node.label.length);
+		expect(selection.select('text').text()).toBe(node.label);
 		expect(selection.selectAll('.fg-node-selected-ring').size()).toBe(0);
 	});
 
