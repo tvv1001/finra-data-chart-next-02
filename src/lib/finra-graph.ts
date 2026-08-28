@@ -4823,12 +4823,9 @@ function computeHighlightState() {
 				if (!entryInactive && isNodeInactive(neighborNode)) return;
 
 				// If a firm is selected, do not highlight its connecting lines to person nodes.
-				// (Person nodes will highlight the lines to the firm if they are bolded). This
-				// keeps huge employee/registration rosters from lighting up the whole screen.
-				// Exception: Form BD — Direct Owners & Executive Officers (controls/owner/officer)
-				// links are a small, distinct set and must stay highlighted/red when their firm
-				// is selected.
-				if (entryNode?.group === 'firm' && entry.isSelection && neighborNode?.group === 'individual' && !isControlRelationship(link)) {
+				// Person nodes will highlight the lines to the firm when they are selected,
+				// keeping the firm's large roster from lighting up the entire graph.
+				if (entryNode?.group === 'firm' && entry.isSelection && neighborNode?.group === 'individual') {
 					return;
 				}
 
