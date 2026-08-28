@@ -16,6 +16,7 @@ import {
 	applyGraphDerivedNodeMetrics,
 	bindSimulationTickHandler,
 	getNodeLabelFontSize,
+	setGraphLabelRenderMode,
 	isNodeInactive,
 	isRevealableChainExhausted,
 	loadPersistedSidebarViewMode,
@@ -150,6 +151,20 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		active[0]!();
 		expect(second).toHaveBeenCalledTimes(1);
 		expect(first).not.toHaveBeenCalled();
+	});
+
+	it('setGraphLabelRenderMode prefers compact node labels for the default graph experience', () => {
+		setGraphLabelRenderMode(5000);
+		const container = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+		const node = {
+			id: 'person:123',
+			group: 'individual',
+			label: 'Alexander Hamilton Longname',
+		};
+		const selection = d3.select(container).datum(node);
+		renderNodeContents(selection);
+		expect(selection.select('text').text().length).toBeLessThan(node.label.length);
+		expect(selection.selectAll('.fg-node-selected-ring').size()).toBe(0);
 	});
 
 	it('routeSidebarNodeSelection preserves the query string when routing a node', () => {

@@ -501,8 +501,11 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 	updateInactiveLabelZoomState(rootGroup, normalizedScale);
 }
 
-function setGraphLabelRenderMode(nodeCount = layoutNodes?.length || 0) {
-	nodeLabelRenderMode = 'full';
+export function setGraphLabelRenderMode(_nodeCount = layoutNodes?.length || 0) {
+	// The reduced-detail graph presentation is now the default experience: it keeps
+	// the layout responsive while preserving readable node labels and selected-node
+	// focus states.
+	nodeLabelRenderMode = 'compact';
 }
 
 function animateToWasmPositions(duration = 2500) {
@@ -9840,6 +9843,7 @@ export function renderNodeContents(selection) {
 		const inactive = isNodeInactive(d);
 		const deg = d._deg || { total: 0, controls: 0, employed: 0 };
 		const isControlNode = Boolean(deg.controls > 0);
+		const compactMode = nodeLabelRenderMode === 'compact';
 		g.classed('fg-node--inactive', inactive)
 			.classed('fg-node--individual', d.group === 'individual')
 			.classed('fg-node--firm', d.group === 'firm')
@@ -9882,7 +9886,7 @@ export function renderNodeContents(selection) {
 			}
 
 			// Draw minority stroke as a larger hexagon if needed
-			if (!inactive && deg.controls > 0 && deg.employed > 0) {
+			if (!inactive && deg.controls > 0 && deg.employed > 0 && !compactMode) {
 				const minorityStroke = deg.controls > deg.employed ? GRAPH_COLORS.nodeFirmEmployedStroke : GRAPH_COLORS.nodeFirmControlsStroke;
 				g.append('polygon')
 					.attr('points', hexPoints((s + 8) / 2))
@@ -9913,14 +9917,16 @@ export function renderNodeContents(selection) {
 				.attr('stroke', 'none')
 				.attr('pointer-events', 'all');
 
-			g.append('polygon')
-				.attr('class', 'fg-node-overlay')
-				.attr('points', hexPoints(s / 2));
+			if (!compactMode) {
+				g.append('polygon')
+					.attr('class', 'fg-node-overlay')
+					.attr('points', hexPoints(s / 2));
 
-			g.append('polygon')
-				.attr('class', 'fg-node-selected-ring')
-				.attr('points', hexPoints(s / 2 + 4))
-				.attr('fill', 'none');
+				g.append('polygon')
+					.attr('class', 'fg-node-selected-ring')
+					.attr('points', hexPoints(s / 2 + 4))
+					.attr('fill', 'none');
+			}
 		} else if (d.group === 'entity') {
 			const s = r * 1.5;
 			g.append('polygon')
@@ -9936,11 +9942,13 @@ export function renderNodeContents(selection) {
 				.attr('fill', 'transparent')
 				.attr('stroke', 'none')
 				.attr('pointer-events', 'all');
-			g.append('polygon').attr('class', 'fg-node-overlay').attr('points', `0,${-s} ${s},0 0,${s} ${-s},0`);
-			g.append('polygon')
-				.attr('class', 'fg-node-selected-ring')
-				.attr('points', `0,${-(s + 4)} ${s + 4},0 0,${s + 4} ${-(s + 4)},0`)
-				.attr('fill', 'none');
+			if (!compactMode) {
+				g.append('polygon').attr('class', 'fg-node-overlay').attr('points', `0,${-s} ${s},0 0,${s} ${-s},0`);
+				g.append('polygon')
+					.attr('class', 'fg-node-selected-ring')
+					.attr('points', `0,${-(s + 4)} ${s + 4},0 0,${s + 4} ${-(s + 4)},0`)
+					.attr('fill', 'none');
+			}
 		} else {
 			const rv = d._vizHalf != null ? d._vizHalf : r;
 			g.append('circle')
@@ -9951,14 +9959,18 @@ export function renderNodeContents(selection) {
 				.attr('stroke-width', null)
 				.attr('opacity', null);
 			g.append('circle').attr('class', 'fg-node-hit-area').attr('r', rv).attr('fill', 'transparent').attr('stroke', 'none').attr('pointer-events', 'all');
-			g.append('circle').attr('class', 'fg-node-overlay').attr('r', rv);
-			g.append('circle')
-				.attr('class', 'fg-node-selected-ring')
-				.attr('r', rv + 4)
-				.attr('fill', 'none');
+			if (!compactMode) {
+				g.append('circle').attr('class', 'fg-node-overlay').attr('r', rv);
+				g.append('circle')
+					.attr('class', 'fg-node-selected-ring')
+					.attr('r', rv + 4)
+					.attr('fill', 'none');
+			}
 		}
 
-		drawDisclosureIndicator(g, d, r);
+		if (!compactMode) {
+			drawDisclosureIndicator(g, d, r);
+		}
 
 		const labelText = getNodeVisualLabelText(d);
 		const labelY = (d._vizHalf != null ? d._vizHalf : r) + DEFAULT_NODE_LABEL_GAP_PX;
@@ -13271,10 +13283,14 @@ function getRenderedNodeLabel(node, { skipTruncation = false }: { skipTruncation
 	const isNodeIdLabel = /^Node\s+/i.test(preferredLabel);
 	if (!isNodeIdLabel && isPlaceholderExpansionLabel(preferredLabel, node?.group)) return '';
 	if (node?.group === 'firm') {
-		const clippedLabel = skipTruncation ? formatNodeLabel(preferredLabel, 'firm') : clipFirmLabelAtWord(preferredLabel);
+		const fullLabel = formatNodeLabel(preferredLabel, 'firm');
+		const clippedLabel = skipTruncation || nodeLabelRenderMode !== 'compact' ? fullLabel : clipFirmLabelAtWord(preferredLabel, 18);
 		return !isNodeIdLabel && isPlaceholderExpansionLabel(clippedLabel, node?.group) ? '' : clippedLabel;
 	}
 	const formattedLabel = formatNodeLabel(preferredLabel, node?.group);
+	if (!skipTruncation && nodeLabelRenderMode === 'compact') {
+		return truncate(formattedLabel, 18);
+	}
 	return !isNodeIdLabel && isPlaceholderExpansionLabel(formattedLabel, node?.group) ? '' : formattedLabel;
 }
 
