@@ -43,6 +43,39 @@ type DashboardAction = 'fetch-crds' | 'list-new-crds';
 const dashboardScrollPositionsByRecord = new Map<string, number>();
 let dashboardCurrentScrollRecordKey: string | null = null;
 
+function persistDashboardScroll(container?: HTMLElement | null) {
+	const key = dashboardCurrentScrollRecordKey;
+	if (!key || !container) return;
+	const top = container.scrollTop;
+	// After a Next.js route remount (firm <-> individual), the new pane is empty and
+	// reports scrollTop 0. Do not clobber a previously saved position with that.
+	if (top <= 0 && container.scrollHeight <= container.clientHeight + 1) return;
+	dashboardScrollPositionsByRecord.set(key, top);
+}
+
+type DashboardRecordSnapshot = {
+	payload: Record<string, any>;
+	source: 'finra' | 'sec';
+	label: string;
+	detectedSources: Array<'finra' | 'sec'>;
+	recordName: string;
+	updatedAt?: string | null;
+};
+
+const DASHBOARD_RECORD_CACHE_MAX = 40;
+const dashboardMergedDetailCache = new Map<string, any>();
+const dashboardRecordSnapshotCache = new Map<string, DashboardRecordSnapshot>();
+
+function rememberDashboardRecordSnapshot(key: string, snapshot: DashboardRecordSnapshot) {
+	dashboardRecordSnapshotCache.delete(key);
+	dashboardRecordSnapshotCache.set(key, snapshot);
+	while (dashboardRecordSnapshotCache.size > DASHBOARD_RECORD_CACHE_MAX) {
+		const oldest = dashboardRecordSnapshotCache.keys().next().value;
+		if (oldest == null) break;
+		dashboardRecordSnapshotCache.delete(oldest);
+	}
+}
+
 type ApiResponse = {
 	ok: boolean;
 	error?: string;
@@ -1449,8 +1482,14 @@ async function fetchFirmInfo(crd: string): Promise<CachedFirmInfo | null> {
 			const bcScope = pickFirstNonEmpty(basic?.bcScope, merged?.bcScope, basic?.brokerCheckScope, merged?.brokerCheckScope);
 			const iaScope = pickFirstNonEmpty(basic?.iaScope, merged?.iaScope, basic?.secScope, merged?.secScope);
 			const firmStatus = pickFirstNonEmpty(basic?.firmStatus, merged?.firmStatus, basic?.status, merged?.status);
-			const bcActive = String(bcScope || '').trim().toUpperCase() === 'ACTIVE';
-			const iaActive = String(iaScope || '').trim().toUpperCase() === 'ACTIVE';
+			const bcActive =
+				String(bcScope || '')
+					.trim()
+					.toUpperCase() === 'ACTIVE';
+			const iaActive =
+				String(iaScope || '')
+					.trim()
+					.toUpperCase() === 'ACTIVE';
 			const statusActive = /^(approved|active)$/i.test(String(firmStatus || '').trim());
 			const isActive = bcActive || iaActive || statusActive;
 
@@ -1501,6 +1540,31 @@ function useFirmInfoByCrd(crds: string[]): Record<string, CachedFirmInfo> {
 		};
 	}, [key]);
 	return infoByCrd;
+}
+
+/** Renders the Redis connection label. The wording depends on `window.location.hostname`, which
+ * is unavailable during SSR, so it is resolved after mount to keep the server-rendered text and
+ * the first client render identical (otherwise React throws a hydration text mismatch). */
+function RedisConnectionLabel() {
+	const [label, setLabel] = useState('LOCAL REDIS ONLINE');
+	useEffect(() => {
+		if (typeof window === 'undefined' || !window.location?.hostname) return;
+		const host = window.location.hostname.toLowerCase();
+		if (host.includes('vercel.app') || host.includes('vercel.com')) setLabel('Redis connected');
+	}, []);
+	return (
+		<span
+			style={{
+				marginRight: '8px',
+				color: '#10b981',
+				fontWeight: 600,
+				padding: '2px 6px',
+				backgroundColor: 'rgba(16, 185, 129, 0.1)',
+				borderRadius: '4px',
+			}}>
+			{label}
+		</span>
+	);
 }
 
 function DashboardPageInner() {
@@ -1631,7 +1695,7 @@ function DashboardPageInner() {
 	const [editTemplateName, setEditTemplateName] = useState('');
 	const [editTemplateQueries, setEditTemplateQueries] = useState('');
 
-	const mergedDetailCacheRef = useRef(new Map<string, any>());
+	const mergedDetailCacheRef = useRef(dashboardMergedDetailCache);
 	const jsonStringCacheRef = useRef(new Map<string, string>());
 	const activeLoadSourceKeyRef = useRef<string | null>(null);
 	const jsonRenderInFlightKeyRef = useRef<string | null>(null);
@@ -1961,15 +2025,54 @@ function DashboardPageInner() {
 	// record or its loading state changes so it covers connection-card clicks, browser back/
 	// forward navigation, and direct card selection alike.
 	useEffect(() => {
+		return () => {
+			persistDashboardScroll(dashboardContentRef.current);
+		};
+	}, []);
+
+	useEffect(() => {
 		if (recordViewLoading || !currentRecordId || !currentRecordEntity) return;
 		const key = `${currentRecordEntity}:${currentRecordId}`;
+		const target = dashboardScrollPositionsByRecord.get(key) ?? 0;
 		const container = dashboardContentRef.current;
 		if (!container) return;
+		if (target <= 0) {
+			container.scrollTop = 0;
+			return;
+		}
+
+		let cancelled = false;
+		let restored = false;
+		const apply = () => {
+			if (cancelled || restored) return;
+			const el = dashboardContentRef.current;
+			if (!el) return;
+			const max = Math.max(0, el.scrollHeight - el.clientHeight);
+			if (max + 1 < target) {
+				el.scrollTop = max;
+				return;
+			}
+			el.scrollTop = target;
+			restored = true;
+		};
+
+		apply();
 		const raf = window.requestAnimationFrame(() => {
-			container.scrollTop = dashboardScrollPositionsByRecord.get(key) ?? 0;
+			apply();
+			window.requestAnimationFrame(apply);
 		});
-		return () => window.cancelAnimationFrame(raf);
-	}, [recordViewLoading, currentRecordId, currentRecordEntity]);
+		const t1 = window.setTimeout(apply, 50);
+		const t2 = window.setTimeout(apply, 250);
+		const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(apply) : null;
+		ro?.observe(container);
+		return () => {
+			cancelled = true;
+			window.cancelAnimationFrame(raf);
+			window.clearTimeout(t1);
+			window.clearTimeout(t2);
+			ro?.disconnect();
+		};
+	}, [recordViewLoading, currentRecordId, currentRecordEntity, mainJson]);
 
 	useEffect(() => {
 		if (!routeSelection || !routeSelectionEntityIdKey) return;
@@ -3117,16 +3220,46 @@ function DashboardPageInner() {
 	async function loadQueueSourceJson(card: QueueCard, source: SearchResultSource) {
 		const sourceKey = `${card.entity}:${card.id}:${source}`;
 		if (activeLoadSourceKeyRef.current === sourceKey) return;
+		persistDashboardScroll(dashboardContentRef.current);
+		dashboardCurrentScrollRecordKey = `${card.entity}:${card.id}`;
+		const cacheKey = `${card.entity}:${card.id}`;
+		const snapshot = dashboardRecordSnapshotCache.get(cacheKey);
+		if (snapshot) {
+			setRecordViewLoading(false);
+			setResult(null);
+			setMainJson(snapshot.payload);
+			setCurrentRecordSource(snapshot.source);
+			setCurrentRecordEntity(card.entity);
+			setCurrentRecordId(card.id);
+			setMainJsonLabel(snapshot.label);
+			setConnectionsLoadingFirmId(null);
+			if (snapshot.updatedAt) markRecordUpdatedAt(snapshot.updatedAt);
+			try {
+				if (typeof window !== 'undefined') {
+					const idPart = card.id ? ` / CRD# ${card.id}` : '';
+					document.title = `${snapshot.recordName}${idPart}`;
+				}
+			} catch {
+				/* ignore */
+			}
+			recordHistoryEntry({
+				id: card.id,
+				entity: card.entity,
+				source: snapshot.source,
+				sources: snapshot.detectedSources,
+				name: snapshot.recordName || undefined,
+			});
+			syncSelectionToUrl({
+				entity: card.entity,
+				id: card.id,
+				source: snapshot.source,
+				availableSources: snapshot.detectedSources.length > 0 ? snapshot.detectedSources : card.sources.map((entry) => entry.source),
+			});
+			return;
+		}
+
 		activeLoadSourceKeyRef.current = sourceKey;
 		setActiveCardSourceKey(sourceKey);
-		// Persist the scroll position of the record we're navigating away from so returning to
-		// it later (connection-card click, back/forward, or re-opening the same card) restores
-		// where the user left off instead of always resetting to the top.
-		const outgoingScrollKey = dashboardCurrentScrollRecordKey;
-		if (outgoingScrollKey && dashboardContentRef.current) {
-			dashboardScrollPositionsByRecord.set(outgoingScrollKey, dashboardContentRef.current.scrollTop);
-		}
-		dashboardCurrentScrollRecordKey = `${card.entity}:${card.id}`;
 		setRecordViewLoading(true);
 		setMainJson(null);
 		setResult(null);
@@ -3134,7 +3267,6 @@ function DashboardPageInner() {
 		setCodeBlock('');
 		try {
 			let orderedSources: SearchResultSource[] = [source, ...card.sources.map((entry) => entry.source).filter((candidate) => candidate !== source)];
-			const cacheKey = `${card.entity}:${card.id}`;
 
 			let payload: any = null;
 			let resolvedSource: SearchResultSource = source;
@@ -3172,6 +3304,7 @@ function DashboardPageInner() {
 					const refreshedItems = Array.isArray(refreshPayload?.results) ? refreshPayload.results : [];
 					if (refreshedItems.length > 0) {
 						mergedDetailCacheRef.current.delete(cacheKey);
+						dashboardRecordSnapshotCache.delete(cacheKey);
 						const refreshedDetail = await fetchMergedDetail(card);
 						orderedSources = resolveOrderedSourcesFromDetail(refreshedDetail, source, orderedSources);
 						for (const candidateSource of orderedSources) {
@@ -3230,7 +3363,8 @@ function DashboardPageInner() {
 			if (!isOrphanPayload && detectedSourcesSet.size === 0 && resolvedSource) detectedSourcesSet.add(resolvedSource);
 			const detectedSources = Array.from(detectedSourcesSet);
 
-			setMainJson(normalizePayloadForCleanView(payload) as Record<string, any>);
+			const normalizedPayload = normalizePayloadForCleanView(payload) as Record<string, any>;
+			setMainJson(normalizedPayload);
 			setCurrentRecordSource(resolvedSource);
 			setCurrentRecordEntity(card.entity);
 			setCurrentRecordId(card.id);
@@ -3280,7 +3414,27 @@ function DashboardPageInner() {
 			} catch (e) {
 				/* ignore */
 			}
-			markRecordUpdatedAt();
+			const updatedAt = new Date().toISOString();
+			markRecordUpdatedAt(updatedAt);
+			rememberDashboardRecordSnapshot(cacheKey, {
+				payload: normalizedPayload,
+				source: resolvedSource,
+				label: resolveMainRecordTitle({
+					mainJsonLabel: formatMainPanelTitle({
+						source: resolvedSource,
+						entity: card.entity,
+						id: card.id,
+						name: resolvedRecordName,
+						payload,
+					}),
+					fallbackName: resolvedRecordName || null,
+					entity: card.entity,
+					id: card.id,
+				}),
+				detectedSources,
+				recordName: resolvedRecordName,
+				updatedAt,
+			});
 			recordHistoryEntry({
 				id: card.id,
 				entity: card.entity,
@@ -3901,8 +4055,10 @@ function DashboardPageInner() {
 							ref={dashboardContentRef}
 							className={styles.dashboardContent}
 							onScroll={(e) => {
-								const key = dashboardCurrentScrollRecordKey;
-								if (key) dashboardScrollPositionsByRecord.set(key, e.currentTarget.scrollTop);
+								persistDashboardScroll(e.currentTarget);
+							}}
+							onClickCapture={() => {
+								persistDashboardScroll(dashboardContentRef.current);
 							}}>
 							{crawlProgress && crawlProgress.active && (
 								<div className={styles.crawlBanner}>
@@ -4308,14 +4464,19 @@ function DashboardPageInner() {
 															const metaLine = metaParts.length > 0 ? metaParts.join(' • ') : formatUiText(pickFirstNonEmpty(row.position, row.currentRegistration, row.status));
 															const rowName = resolveEntityNodeLabel(row, 'firm', crd, idx);
 															const currentFirmName = firmInfo?.firmName ? String(firmInfo.firmName).trim() : '';
-															const normRowName = String(rowName || row.firmName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+															const normRowName = String(rowName || row.firmName || '')
+																.toLowerCase()
+																.replace(/[^a-z0-9]/g, '');
 															const normCurrentFirmName = currentFirmName.toLowerCase().replace(/[^a-z0-9]/g, '');
 															const isRenamed = Boolean(normCurrentFirmName && normRowName && normCurrentFirmName !== normRowName);
 
 															let displayOtherNames = [...(firmInfo?.otherNames || [])];
 															if (isRenamed && currentFirmName) {
 																const alreadyInList = displayOtherNames.some(
-																	(n) => String(n).toLowerCase().replace(/[^a-z0-9]/g, '') === normCurrentFirmName,
+																	(n) =>
+																		String(n)
+																			.toLowerCase()
+																			.replace(/[^a-z0-9]/g, '') === normCurrentFirmName,
 																);
 																if (!alreadyInList) {
 																	displayOtherNames.unshift(currentFirmName);
@@ -4334,11 +4495,7 @@ function DashboardPageInner() {
 																			{crd && <span className={styles.detailInlineTag}>CRD#{crd}</span>}
 																			{sourceTags.includes('FINRA') && <span className={styles.tagFinra}>FINRA</span>}
 																			{sourceTags.includes('SEC') && <span className={styles.tagSec}>SEC</span>}
-																			{statusKey && (
-																				<span className={`${styles.detailInlineTag} ${rowStatusClass}`}>
-																					{String(statusKey)}
-																				</span>
-																			)}
+																			{statusKey && <span className={`${styles.detailInlineTag} ${rowStatusClass}`}>{String(statusKey)}</span>}
 																		</div>
 																	</div>
 																	{displayOtherNames.length > 0 && (
@@ -4346,15 +4503,17 @@ function DashboardPageInner() {
 																			aka{' '}
 																			{displayOtherNames.map((n, nIdx) => {
 																				const formatted = formatOtherName(n, true);
-																				const normFormatted = String(formatted).toLowerCase().replace(/[^a-z0-9]/g, '');
-																				const normRaw = String(n).toLowerCase().replace(/[^a-z0-9]/g, '');
+																				const normFormatted = String(formatted)
+																					.toLowerCase()
+																					.replace(/[^a-z0-9]/g, '');
+																				const normRaw = String(n)
+																					.toLowerCase()
+																					.replace(/[^a-z0-9]/g, '');
 																				const isHighlighted = isRenamed && (normFormatted === normCurrentFirmName || normRaw === normCurrentFirmName);
 																				return (
 																					<Fragment key={`cur-emp-other-${idx}-${nIdx}`}>
 																						{nIdx > 0 && ', '}
-																						<span className={isHighlighted ? styles.employmentOtherNameHighlighted : undefined}>
-																							{formatted}
-																						</span>
+																						<span className={isHighlighted ? styles.employmentOtherNameHighlighted : undefined}>{formatted}</span>
 																					</Fragment>
 																				);
 																			})}
@@ -4407,14 +4566,19 @@ function DashboardPageInner() {
 															const metaLine = metaParts.length > 0 ? metaParts.join(' • ') : formatUiText(pickFirstNonEmpty(row.position, row.currentRegistration, row.status));
 															const rowName = resolveEntityNodeLabel(row, 'firm', crd, idx);
 															const currentFirmName = firmInfo?.firmName ? String(firmInfo.firmName).trim() : '';
-															const normRowName = String(rowName || row.firmName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+															const normRowName = String(rowName || row.firmName || '')
+																.toLowerCase()
+																.replace(/[^a-z0-9]/g, '');
 															const normCurrentFirmName = currentFirmName.toLowerCase().replace(/[^a-z0-9]/g, '');
 															const isRenamed = Boolean(normCurrentFirmName && normRowName && normCurrentFirmName !== normRowName);
 
 															let displayOtherNames = [...(firmInfo?.otherNames || [])];
 															if (isRenamed && currentFirmName) {
 																const alreadyInList = displayOtherNames.some(
-																	(n) => String(n).toLowerCase().replace(/[^a-z0-9]/g, '') === normCurrentFirmName,
+																	(n) =>
+																		String(n)
+																			.toLowerCase()
+																			.replace(/[^a-z0-9]/g, '') === normCurrentFirmName,
 																);
 																if (!alreadyInList) {
 																	displayOtherNames.unshift(currentFirmName);
@@ -4433,11 +4597,7 @@ function DashboardPageInner() {
 																			{crd && <span className={styles.detailInlineTag}>CRD#{crd}</span>}
 																			{sourceTags.includes('FINRA') && <span className={styles.tagFinra}>FINRA</span>}
 																			{sourceTags.includes('SEC') && <span className={styles.tagSec}>SEC</span>}
-																			{statusKey && (
-																				<span className={`${styles.detailInlineTag} ${rowStatusClass}`}>
-																					{String(statusKey)}
-																				</span>
-																			)}
+																			{statusKey && <span className={`${styles.detailInlineTag} ${rowStatusClass}`}>{String(statusKey)}</span>}
 																		</div>
 																	</div>
 																	{displayOtherNames.length > 0 && (
@@ -4445,15 +4605,17 @@ function DashboardPageInner() {
 																			aka{' '}
 																			{displayOtherNames.map((n, nIdx) => {
 																				const formatted = formatOtherName(n, true);
-																				const normFormatted = String(formatted).toLowerCase().replace(/[^a-z0-9]/g, '');
-																				const normRaw = String(n).toLowerCase().replace(/[^a-z0-9]/g, '');
+																				const normFormatted = String(formatted)
+																					.toLowerCase()
+																					.replace(/[^a-z0-9]/g, '');
+																				const normRaw = String(n)
+																					.toLowerCase()
+																					.replace(/[^a-z0-9]/g, '');
 																				const isHighlighted = isRenamed && (normFormatted === normCurrentFirmName || normRaw === normCurrentFirmName);
 																				return (
 																					<Fragment key={`prev-emp-other-${idx}-${nIdx}`}>
 																						{nIdx > 0 && ', '}
-																						<span className={isHighlighted ? styles.employmentOtherNameHighlighted : undefined}>
-																							{formatted}
-																						</span>
+																						<span className={isHighlighted ? styles.employmentOtherNameHighlighted : undefined}>{formatted}</span>
 																					</Fragment>
 																				);
 																			})}
@@ -4932,16 +5094,11 @@ function DashboardPageInner() {
 														if (!connectionsFilterEnabled) return true;
 														const trimmedQuery = connectionsFilterQuery.trim();
 														if (connectionsFilterTags.length === 0 && !trimmedQuery) return true;
-														const haystack = [item.title, item.subtitle, item.meta, item.crd, item.address, item.statusTag, ...(item.otherNames || [])]
-															.filter(Boolean)
-															.join(' ');
+														const haystack = [item.title, item.subtitle, item.meta, item.crd, item.address, item.statusTag, ...(item.otherNames || [])].filter(Boolean).join(' ');
 														return matchesConnectionsFilter(haystack, connectionsFilterTags, trimmedQuery, connectionsFilterEnabled, false);
 													};
-													const connectionKey = (item: { crd?: string; entity?: string }) =>
-														item.crd ? `${item.entity || 'individual'}:${item.crd}` : '';
-													const filteredCurrentConnectionCards = sortByMostRecentStartDate(
-														detailedMainRecord.currentConnectionCards.filter(matchesConnectionsFilterFn),
-													);
+													const connectionKey = (item: { crd?: string; entity?: string }) => (item.crd ? `${item.entity || 'individual'}:${item.crd}` : '');
+													const filteredCurrentConnectionCards = sortByMostRecentStartDate(detailedMainRecord.currentConnectionCards.filter(matchesConnectionsFilterFn));
 													const filteredPreviousConnectionCards = detailedMainRecord.previousConnectionCards.filter(matchesConnectionsFilterFn);
 													const selectableConnections = [...filteredCurrentConnectionCards, ...filteredPreviousConnectionCards].filter((item) => item.crd);
 													const toggleConnectionKey = (key: string) => {
@@ -4972,11 +5129,7 @@ function DashboardPageInner() {
 														setSelectedConnectionKeys(new Set());
 													};
 
-													const renderConnectionRow = (
-														item: (typeof filteredCurrentConnectionCards)[number],
-														idx: number,
-														kind: 'current' | 'previous',
-													) => {
+													const renderConnectionRow = (item: (typeof filteredCurrentConnectionCards)[number], idx: number, kind: 'current' | 'previous') => {
 														const key = connectionKey(item);
 														const isSelected = connectionsSelectMode && Boolean(key) && selectedConnectionKeys.has(key);
 														const nameClass = kind === 'current' ? styles.currentConnectionName : styles.previousConnectionName;
@@ -4986,7 +5139,8 @@ function DashboardPageInner() {
 														const liveHighlight = [connectionsFilterQuery.trim(), ...connectionsFilterTags].filter(Boolean).join(' ');
 														const dateStr =
 															kind === 'current' ?
-																item.startDate ? `Since ${item.startDate}`
+																item.startDate ?
+																	`Since ${item.startDate}`
 																:	''
 															: item.startDate && item.endDate ? `${item.startDate} - ${item.endDate}`
 															: item.startDate || item.endDate || '';
@@ -5127,18 +5281,14 @@ function DashboardPageInner() {
 															{filteredCurrentConnectionCards.length > 0 && (
 																<section className={styles.detailSection}>
 																	<h4 className={styles.detailSectionTitle}>Current Connections ({detailedMainRecord.currentConnectionCards.length})</h4>
-																	<div className={styles.detailList}>
-																		{filteredCurrentConnectionCards.map((item, idx) => renderConnectionRow(item, idx, 'current'))}
-																	</div>
+																	<div className={styles.detailList}>{filteredCurrentConnectionCards.map((item, idx) => renderConnectionRow(item, idx, 'current'))}</div>
 																</section>
 															)}
 
 															{filteredPreviousConnectionCards.length > 0 && (
 																<section className={styles.detailSection}>
 																	<h4 className={styles.detailSectionTitle}>Previous Connections ({detailedMainRecord.previousConnectionCards.length})</h4>
-																	<div className={styles.detailList}>
-																		{filteredPreviousConnectionCards.map((item, idx) => renderConnectionRow(item, idx, 'previous'))}
-																	</div>
+																	<div className={styles.detailList}>{filteredPreviousConnectionCards.map((item, idx) => renderConnectionRow(item, idx, 'previous'))}</div>
 																</section>
 															)}
 														</>
@@ -5180,29 +5330,7 @@ function DashboardPageInner() {
 									<div className={styles.searchDockTitleRow}>
 										<div className={styles.searchTitle}>REDIS SEARCH ({searchResults.length.toLocaleString()})</div>
 										<div className={styles.searchDockMeta}>
-											{(() => {
-												let label = 'LOCAL REDIS ONLINE';
-												if (typeof window !== 'undefined' && window.location && window.location.hostname) {
-													const host = window.location.hostname.toLowerCase();
-													if (host.includes('vercel.app') || host.includes('vercel.com') || host === 'finra-data-chart-next-02.vercel.app') {
-														label = 'Redis connected';
-													}
-												}
-												return (
-													<span
-														style={{
-															marginRight: '8px',
-															color: '#10b981',
-															fontWeight: 600,
-															padding: '2px 6px',
-															backgroundColor: 'rgba(16, 185, 129, 0.1)',
-															borderRadius: '4px',
-														}}>
-														{label}
-													</span>
-												);
-											})()}{' '}
-											Redis CRDs: {uniqueCrdCounts.total.toLocaleString()}
+											<RedisConnectionLabel /> Redis CRDs: {uniqueCrdCounts.total.toLocaleString()}
 										</div>
 									</div>
 									<div className={styles.searchRow}>
@@ -5242,7 +5370,7 @@ function DashboardPageInner() {
 						className={styles.middlePaneHeader}
 						style={{ cursor: 'pointer', userSelect: 'none' }}
 						onClick={() => setIsSelectionHistoryOpen(!isSelectionHistoryOpen)}>
-						<div className={styles.middlePaneTitle}>SELECTION HISTORY {isSelectionHistoryOpen ? '▼' : '▶'}</div>
+						<div className={styles.middlePaneTitle}> Queue graph {isSelectionHistoryOpen ? '▼' : '▶'}</div>
 						<div className={styles.middlePaneActions}>
 							<span className={styles.middlePaneCount}>{displayCards.length}</span>
 							{isSelectionHistoryEditMode && selectedHistoryIds.size > 0 && (

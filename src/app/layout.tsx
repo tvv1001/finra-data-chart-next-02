@@ -6,10 +6,17 @@ import AnalyticsClient from '@/components/AnalyticsClient';
 import SpeedInsightsClient from '@/components/SpeedInsightsClient';
 import './globals.css';
 
+// `preload: false` is deliberate. On Vercel, `experimental.runtimeServerDeploymentId` is
+// auto-enabled, so the HTML `<link rel="preload">` href is stamped with the *runtime* deployment
+// id while the `@font-face` src inside the built CSS keeps the *build-time* id. The two `?dpl=`
+// values differ, so the preload never matches the request the CSS makes: the browser warns
+// "preloaded but not used" and downloads the woff2 twice. Dropping the preload keeps a single
+// request; `display: swap` plus the size-adjusted fallback covers the brief swap.
 const urbanist = Urbanist({
 	subsets: ['latin'],
 	variable: '--font-urbanist',
 	display: 'swap',
+	preload: false,
 });
 
 const siteUrl = 'https://finra-data-chart-next-02.vercel.app';
