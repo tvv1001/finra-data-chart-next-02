@@ -38,7 +38,8 @@ test('Graph button bridges Queue graph CRDs without query string', async ({ page
 		});
 	});
 
-	await page.addInitScript(() => {
+	await page.goto('/dashboard');
+	await page.evaluate(() => {
 		localStorage.setItem(
 			'finra_dashboard_history',
 			JSON.stringify([
@@ -54,8 +55,7 @@ test('Graph button bridges Queue graph CRDs without query string', async ({ page
 			]),
 		);
 	});
-
-	await page.goto('/dashboard');
+	await page.reload();
 	await expect(page.getByText('Queue graph', { exact: false })).toBeVisible();
 	const graphLink = page.getByRole('link', { name: 'Graph' });
 	await expect(graphLink).toHaveAttribute('href', /\/individual\/3102054/);
@@ -82,5 +82,13 @@ test('Graph button bridges Queue graph CRDs without query string', async ({ page
 				}, QUEUE_GRAPH_BRIDGE_KEY),
 			{ timeout: 30_000, message: 'expected the one-shot bridge to be consumed after graph init' },
 		)
+		.toBeNull();
+
+	// Graph click ends the Queue graph session — history is cleared for the next dashboard visit.
+	await expect
+		.poll(async () => page.evaluate(() => localStorage.getItem('finra_dashboard_history')), {
+			timeout: 5_000,
+			message: 'expected Queue graph history to be cleared after Graph navigation',
+		})
 		.toBeNull();
 });

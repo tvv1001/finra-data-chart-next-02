@@ -47,6 +47,8 @@ On **localhost**, HTTP/app/DB caching that would hide freshness issues should st
 - Dashboard middle pane **“Queue graph”** = dashboard selection history (`localHistory`).
 - **“GRAPH CLICK HISTORY”** mirrors the graph’s `finra_selection_log` (localStorage).
 - **Graph** button (back to the node graph): CRDs listed in **Queue graph** are passed via a **sessionStorage bridge** (`src/lib/queueGraphBridge.ts`) — **no query string**. The graph consumes the bridge once on init and **background-fetches** those CRDs onto the canvas (`hydratePendingSelectedNodeIds` / `ensureRouteNodeAvailable`).
+- Clicking **Graph** ends the current Queue graph session: dashboard selection history (`finra_dashboard_history`) is cleared immediately so the next visit to `/dashboard` starts a **new empty Queue graph**.
+- Queue graph list has **no item cap** — show the full selection history.
 - Shared selection helpers live around `collectSelectedNodeIdsForGraphHref` / `finra_selection_log` in `src/app/dashboard/page.tsx` and `src/lib/finra-graph.ts`.
 
 ## Click animation contract

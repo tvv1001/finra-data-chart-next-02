@@ -1794,6 +1794,16 @@ function DashboardPageInner() {
 			// The graph consumes this once on init and background-fetches missing nodes onto the canvas.
 			const queueNodeIds = collectSelectedNodeIdsForGraphHref(localHistory, []);
 			writeQueueGraphBridge(queueNodeIds);
+			// Sending the queue to the graph ends this Queue graph session. Returning to the
+			// dashboard starts a fresh empty selection history.
+			try {
+				localStorage.removeItem(LOCAL_HISTORY_KEY);
+			} catch {
+				/* ignore */
+			}
+			setLocalHistory([]);
+			setSelectedHistoryIds(new Set());
+			setIsSelectionHistoryEditMode(false);
 			window.location.assign(graphHref || '/');
 		},
 		[graphHref, localHistory],
@@ -2467,10 +2477,10 @@ function DashboardPageInner() {
 					.filter(Boolean)
 			:	[];
 		const filtered = tokens.length ? localHistory.filter((e) => tokens.some((t) => e.id === t || e.id.includes(t))) : localHistory;
+		// No cap: Queue graph selection history can grow without truncating the list.
 		return filtered
 			.slice()
 			.sort((a, b) => new Date(b.fetchedAt).getTime() - new Date(a.fetchedAt).getTime())
-			.slice(0, 15)
 			.map((e) => ({
 				id: e.id,
 				entity: e.entity,
