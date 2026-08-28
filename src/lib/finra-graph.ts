@@ -352,6 +352,9 @@ let layoutNodes: GraphSimulationNode[] | null = null; // node objects with x/y p
 let layoutLinks: GraphSimulationLink[] | null = null; // link objects (source/target resolved to objects)
 let fullAdjacencyMap = null; // Map<nodeId, Array<{ nodeId, link }>> — cached full graph adjacency
 let spreadAnimId = null; // rAF handle for neighbor spread animation
+let spreadReleaseTimer = null; // timeout released when reheat freeze animation expires
+let activeSpreadFrozenNodes = []; // nodes frozen during click spread/reveal reheat
+let nodePinReleaseTimer = null; // timeout for pinned-node reheat decay
 let isSubsetMode = false; // true when only a random sample is rendered
 let neighborMap = null; // Map<nodeId, Set<nodeId>> — rebuilt each renderGraph
 let nodeGroup = null; // <g.fg-nodes> selection — for live node injection
@@ -10846,6 +10849,18 @@ function renderGraph(_data) {
 		cancelAnimationFrame(spreadAnimId);
 		spreadAnimId = null;
 	}
+	if (spreadReleaseTimer) {
+		clearTimeout(spreadReleaseTimer);
+		spreadReleaseTimer = null;
+	}
+	if (nodePinReleaseTimer) {
+		clearTimeout(nodePinReleaseTimer);
+		nodePinReleaseTimer = null;
+	}
+	if (activeSpreadFrozenNodes.length) {
+		releaseFrozenNodes(activeSpreadFrozenNodes);
+		activeSpreadFrozenNodes = [];
+	}
 	const svg = d3.select('#fg-svg');
 	svg.selectAll('*').remove();
 
@@ -13654,9 +13669,14 @@ function pinNodeAndReleaseOthers(pinnedNode) {
 	}
 
 	if (simulation) {
+		if (nodePinReleaseTimer) {
+			clearTimeout(nodePinReleaseTimer);
+			nodePinReleaseTimer = null;
+		}
 		simulation.alphaTarget(0.15).restart();
-		window.setTimeout(() => {
+		nodePinReleaseTimer = window.setTimeout(() => {
 			simulation.alphaTarget(0);
+			nodePinReleaseTimer = null;
 		}, 300);
 	}
 }
@@ -14752,6 +14772,14 @@ function spreadNeighbors(
 		cancelAnimationFrame(spreadAnimId);
 		spreadAnimId = null;
 	}
+	if (spreadReleaseTimer) {
+		clearTimeout(spreadReleaseTimer);
+		spreadReleaseTimer = null;
+	}
+	if (activeSpreadFrozenNodes.length) {
+		releaseFrozenNodes(activeSpreadFrozenNodes);
+		activeSpreadFrozenNodes = [];
+	}
 
 	const { duration = 240 } = options;
 
@@ -14770,10 +14798,13 @@ function spreadNeighbors(
 	const allowedMoving = new Set(neighborIdSet);
 	allowedMoving.add(clickedNode.id);
 	const frozen = freezeSettledNodesExcept(allowedMoving);
+	activeSpreadFrozenNodes = frozen;
 	simulation.alpha(0.1).restart();
-	setTimeout(() => {
+	spreadReleaseTimer = setTimeout(() => {
 		simulation.stop();
-		releaseFrozenNodes(frozen);
+		releaseFrozenNodes(activeSpreadFrozenNodes);
+		activeSpreadFrozenNodes = [];
+		spreadReleaseTimer = null;
 	}, 300);
 	return;
 
