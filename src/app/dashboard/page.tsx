@@ -5088,21 +5088,15 @@ function DashboardPageInner() {
 
 											{currentRecordEntity === 'firm' && connectionsLoadingFirmId === currentRecordId ? null : (
 												(() => {
-													const connectionHaystack = (item: {
-														title?: string;
-														subtitle?: string;
-														meta?: string;
-														crd?: string;
-														otherNames?: string[];
-														address?: string;
-														statusTag?: string;
-													}) => [item.title, item.subtitle, item.meta, item.crd, item.address, item.statusTag, ...(item.otherNames || [])].filter(Boolean).join(' ');
+													type ConnectionCard = (typeof detailedMainRecord.currentConnectionCards)[number];
+													const connectionHaystack = (item: ConnectionCard) =>
+														[item.title, item.subtitle, item.meta, item.crd, item.address, item.statusTag, ...(item.otherNames || [])].filter(Boolean).join(' ');
 													const previewUnfiltered = shouldPreviewUnfilteredConnections({
 														focused: connectionsFilterFocused,
 														liveText: connectionsFilterQuery,
 														justCommitted: connectionsFilterJustCommitted,
 													});
-													const matchesConnectionsFilterFn = (item: Parameters<typeof connectionHaystack>[0]) =>
+													const matchesConnectionsFilterFn = (item: ConnectionCard) =>
 														matchesConnectionsFilter(
 															connectionHaystack(item),
 															connectionsFilterTags,
@@ -5114,7 +5108,7 @@ function DashboardPageInner() {
 													// Keyword tags reorder (matched first) instead of hiding unmatched firm connection cards.
 													const currentConnectionPartition = partitionConnectionsByFilter(
 														detailedMainRecord.currentConnectionCards,
-														connectionHaystack,
+														(item) => connectionHaystack(item),
 														connectionsFilterTags,
 														connectionsFilterQuery.trim(),
 														connectionsFilterEnabled,
@@ -5122,7 +5116,7 @@ function DashboardPageInner() {
 													);
 													const previousConnectionPartition = partitionConnectionsByFilter(
 														detailedMainRecord.previousConnectionCards,
-														connectionHaystack,
+														(item) => connectionHaystack(item),
 														connectionsFilterTags,
 														connectionsFilterQuery.trim(),
 														connectionsFilterEnabled,
