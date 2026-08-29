@@ -1,11 +1,415 @@
 {
   "firms": [
     {
+      "id": 615,
+      "name": "NEW ENGLAND SECURITIES CORPORATION"
+    },
+    {
+      "id": 6403,
+      "name": "INTEGRATED RESOURCES EQUITY CORPORATION"
+    },
+    {
+      "id": 117125,
+      "name": "ALEGRIA ASSET MANAGEMENT"
+    },
+    {
+      "id": 23131,
+      "name": "OSAIC WEALTH, INC."
+    },
+    {
+      "id": 16361,
+      "name": "BANC OF AMERICA INVESTMENT SERVICES, INC."
+    },
+    {
+      "id": 26091,
+      "name": "BANC OF AMERICA SECURITIES LLC"
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 19585,
+      "name": "HSBC SECURITIES (USA) INC."
+    },
+    {
+      "id": 6363,
+      "name": "AMERICAN EXPRESS FINANCIAL ADVISORS INC."
+    },
+    {
+      "id": 2809,
+      "name": "MONARCH SECURITIES, INC."
+    },
+    {
+      "id": 5181,
+      "name": "JOHN HANCOCK MUTUAL LIFE INSURANCE COMPANY"
+    },
+    {
+      "id": 468,
+      "name": "JOHN HANCOCK DISTRIBUTORS, INC."
+    },
+    {
+      "id": 13941,
+      "name": "CUNA BROKERAGE SERVICES, INC."
+    },
+    {
+      "id": 42132,
+      "name": "CUSO FINANCIAL SERVICES, L.P."
+    },
+    {
+      "id": 13686,
+      "name": "AVANTAX INVESTMENT SERVICES, INC."
+    },
+    {
+      "id": 4284,
+      "name": "ADA SECURITIES CORPORATION"
+    },
+    {
+      "id": 136,
+      "name": "C. A. MANAGEMENT CORPORATION"
+    },
+    {
+      "id": 1000006,
+      "name": "GREAT RUPUBLIC SECURITIES CORPORATION"
+    },
+    {
+      "id": 1777,
+      "name": "FML FUNDS DISTRIBUTION COMPANY"
+    },
+    {
+      "id": 2243,
+      "name": "SOMERSET EQUITIES CORPORATION"
+    },
+    {
+      "id": 15611,
+      "name": "FIRST REGISTRY, INC."
+    },
+    {
+      "id": 7981,
+      "name": "BLACKWELL DONALDSON & COMPANY"
+    },
+    {
+      "id": 5670,
+      "name": "PAULSON INVESTMENT COMPANY, INC."
+    },
+    {
+      "id": 112097,
+      "name": "JHS CAPITAL ADVISORS, LLC"
+    },
+    {
+      "id": 135288,
+      "name": "AMERICAN INDEPENDENT SECURITIES GROUP, LLC"
+    },
+    {
+      "id": 283942,
+      "name": "BOFA SECURITIES, INC."
+    },
+    {
+      "id": 14536,
+      "name": "FIRSTAR INVESTMENT SERVICES,INC."
+    },
+    {
+      "id": 17868,
+      "name": "U.S. BANCORP INVESTMENTS, INC."
+    },
+    {
+      "id": 14455,
+      "name": "U.S. BANCORP ADVISORS, LLC"
+    },
+    {
+      "id": 6914,
+      "name": "VAN CLEMENS & CO. INCORPORATED"
+    },
+    {
+      "id": 7192,
+      "name": "ARNOLD SECURITIES, INC."
+    },
+    {
+      "id": 40692,
+      "name": "STOCKWALK.COM, INC."
+    },
+    {
+      "id": 694,
+      "name": "MILLER JOHNSON STEICHEN KINNARD, INC."
+    },
+    {
+      "id": 31194,
+      "name": "RBC CAPITAL MARKETS CORPORATION"
+    },
+    {
+      "id": 43100,
+      "name": "QUESTAR CAPITAL CORPORATION"
+    },
+    {
+      "id": 165244,
+      "name": "FELTL ADVISORS"
+    },
+    {
+      "id": 6905,
+      "name": "FELTL & COMPANY"
+    },
+    {
+      "id": 156607,
+      "name": "MERCAP SECURITIES, LLC"
+    },
+    {
+      "id": 126514,
+      "name": "THE STRATEGIC FINANCIAL ALLIANCE, INC."
+    },
+    {
+      "id": 298131,
+      "name": "TIMBREL CAPITAL, LLC"
+    },
+    {
+      "id": 23734,
+      "name": "PCS SECURITIES, INC."
+    },
+    {
+      "id": 42886,
+      "name": "INSTINET, LLC"
+    },
+    {
+      "id": 20746,
+      "name": "INET ATS, INC."
+    },
+    {
+      "id": 8209,
+      "name": "MORGAN STANLEY & CO. LLC"
+    },
+    {
+      "id": 148390,
+      "name": "VIRTU FINANCIAL BD LLC"
+    },
+    {
+      "id": 45986,
+      "name": "VIRTU FINANCIAL CAPITAL MARKETS LLC"
+    },
+    {
+      "id": 29299,
+      "name": "VIRTU ITG LLC"
+    },
+    {
+      "id": 47867,
+      "name": "VIRTU ALTERNET SECURITIES LLC"
+    },
+    {
+      "id": 149823,
+      "name": "VIRTU AMERICAS LLC"
+    },
+    {
+      "id": 7569,
+      "name": "NATIONAL SECURITIES CORPORATION"
+    },
+    {
+      "id": 40881,
+      "name": "BLOOMBERG TRADEBOOK LLC"
+    },
+    {
+      "id": 313267,
+      "name": "BLOOMBERG TRADEBOOK CANADA COMPANY"
+    },
+    {
+      "id": 19616,
+      "name": "WELLS FARGO ADVISORS, LLC"
+    },
+    {
+      "id": 46173,
+      "name": "PARK AVENUE SECURITIES LLC"
+    },
+    {
+      "id": 110826,
+      "name": "EAGLE STRATEGIES LLC"
+    },
+    {
+      "id": 5167,
+      "name": "NYLIFE SECURITIES LLC"
+    },
+    {
+      "id": 43803,
+      "name": "CLARK/BARDES FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 165998,
+      "name": "ROBINHOOD FINANCIAL, LLC"
+    },
+    {
+      "id": 283390,
+      "name": "TRUIST ADVISORY SERVICES, INC."
+    },
+    {
+      "id": 17499,
+      "name": "TRUIST INVESTMENT SERVICES, INC."
+    },
+    {
+      "id": 7471,
+      "name": "PRUDENTIAL SECURITIES INCORPORATED"
+    },
+    {
+      "id": 7059,
+      "name": "CITIGROUP GLOBAL MARKETS INC."
+    },
+    {
+      "id": 149777,
+      "name": "MORGAN STANLEY SMITH BARNEY"
+    },
+    {
+      "id": 129052,
+      "name": "PNC INVESTMENTS"
+    },
+    {
+      "id": 16986,
+      "name": "THE HUNTINGTON INVESTMENT COMPANY"
+    },
+    {
+      "id": 128892,
+      "name": "CORNERSTONE FINANCIAL ADVISORS INC."
+    },
+    {
+      "id": 7461,
+      "name": "FSC SECURITIES CORPORATION"
+    },
+    {
+      "id": 4031,
+      "name": "HORNOR, TOWNSEND & KENT, INC."
+    },
+    {
+      "id": 29604,
+      "name": "NATIONAL PLANNING CORPORATION"
+    },
+    {
+      "id": 6413,
+      "name": "LPL FINANCIAL LLC"
+    },
+    {
+      "id": 34954,
+      "name": "TCF INVESTMENTS, INC."
+    },
+    {
+      "id": 14416,
+      "name": "IFMG SECURITIES, INC."
+    },
+    {
+      "id": 13787,
+      "name": "UVEST FINANCIAL SERVICES GROUP, INC."
+    },
+    {
+      "id": 105644,
+      "name": "CETERA INVESTMENT ADVISERS LLC"
+    },
+    {
+      "id": 15340,
+      "name": "CETERA INVESTMENT SERVICES LLC"
+    },
+    {
+      "id": 119241,
+      "name": "HERITAGE ADVISORY SERVICES, INC."
+    },
+    {
+      "id": 5249,
+      "name": "MANEQUITY, INC."
+    },
+    {
+      "id": 8174,
+      "name": "UBS PAINEWEBBER INC."
+    },
+    {
+      "id": 6321,
+      "name": "IDS LIFE INSURANCE COMPANY"
+    },
+    {
+      "id": 18272,
+      "name": "ALLSTATE FINANCIAL SERVICES, LLC"
+    },
+    {
+      "id": 45915,
+      "name": "SUMMITALLIANCE SECURITIES, L.L.C."
+    },
+    {
+      "id": 133019,
+      "name": "HERITAGE FINANCIAL SYSTEMS, INC."
+    },
+    {
+      "id": 11469,
+      "name": "WESTMORELAND CAPITAL CORPORATION"
+    },
+    {
+      "id": 103863,
+      "name": "FARMERS FINANCIAL SOLUTIONS, LLC"
+    },
+    {
       "id": 322799,
       "name": "Tecp LLC"
     }
   ],
   "individuals": [
+    {
+      "id": 1048318,
+      "name": "CRAIG BOYD MENDENHALL"
+    },
+    {
+      "id": 3218732,
+      "name": "SALVATORE FRANK CAMPIONE"
+    },
+    {
+      "id": 1654875,
+      "name": "G R YOUNG"
+    },
+    {
+      "id": 22729,
+      "name": "JOSEPH MICHAEL BLACKWELL"
+    },
+    {
+      "id": 4589866,
+      "name": "Oliver WENG KEONG Wong"
+    },
+    {
+      "id": 2857006,
+      "name": "Karen Lois Wichman"
+    },
+    {
+      "id": 1289150,
+      "name": "DIRK GARRET VAN KREVELEN"
+    },
+    {
+      "id": 6952957,
+      "name": "Randy Scott Gold"
+    },
+    {
+      "id": 4468202,
+      "name": "STEPHEN JOHN CAVOLI"
+    },
+    {
+      "id": 5601000,
+      "name": "GREGORY BENDER"
+    },
+    {
+      "id": 5350768,
+      "name": "THOMAS NOLAN PENDLETON"
+    },
+    {
+      "id": 3261303,
+      "name": "CECILIA MAVICO"
+    },
+    {
+      "id": 6616297,
+      "name": "NINA DANIELLE OWENS"
+    },
+    {
+      "id": 2407621,
+      "name": "THOMAS JOSEPH O'REILLY"
+    },
+    {
+      "id": 2094366,
+      "name": "MICHAEL JOSEPH LAMAINA"
+    },
+    {
+      "id": 4821114,
+      "name": "JAMES RODERICK SCATTERGOOD"
+    },
+    {
+      "id": 1085996,
+      "name": "Timothy Dale Register"
+    },
     {
       "id": 322799,
       "name": "Peter Dennis Mathews"

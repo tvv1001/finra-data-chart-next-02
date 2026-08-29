@@ -80,6 +80,7 @@ Node-click reveal/spread may move the clicked node and newly revealed neighbors 
 - **Do** keep local Redis, DB1, and DB2 reconciled when syncing; merge drift, don’t blind-overwrite unique live keys.
 - **Do** prefer Redis + sidecars + in-memory reuse over live upstream on interactive paths.
 - **Do** keep crawl/validation sequential and cron-paced.
+- **Do** treat person current/previous employment as the freshest reverse index for firm rosters (official firm-roster search is incomplete for many low/old firm CRDs). Prefer the low-frequency Redis-only job: `pnpm run reverse-index:firm-connections` (cursor SCAN, skip-unchanged writes, no external APIs). Optional monthly cron: `/api/finra/firm-connections-reverse-index`. Individual page loads may also upsert with skip-unchanged.
 - **Don’t** treat incomplete `data/` as a blocker for Redis-only / PWA paths.
 - **Don’t** write production Upstash unless the user explicitly requests deploy/sync.
 - **Don’t** invent alternate ingestion paths; dashboard + approved cron/scripts own CRD intake.

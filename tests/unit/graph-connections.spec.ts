@@ -35,7 +35,13 @@ vi.mock('@/lib/officialFirmRoster', async (importOriginal) => {
 	};
 });
 
-import { countFirmConnectionEntries, firmConnectionsCacheKey, getFirmConnectionsFromGraph, mergeGraphConnectionEntries } from '@/lib/graphConnections';
+import {
+	countFirmConnectionEntries,
+	extractIndividualEmployerLinksFromDetail,
+	firmConnectionsCacheKey,
+	getFirmConnectionsFromGraph,
+	mergeGraphConnectionEntries,
+} from '@/lib/graphConnections';
 
 describe('firm connection merge and cache', () => {
 	beforeEach(() => {
@@ -47,6 +53,44 @@ describe('firm connection merge and cache', () => {
 
 	it('builds the local firm cache key', () => {
 		expect(firmConnectionsCacheKey('2525')).toBe('firm-connections:firm:2525');
+	});
+
+	it('extracts current and previous employer firm links from individual detail', () => {
+		const links = extractIndividualEmployerLinksFromDetail({
+			basicInformation: { firstName: 'Tim', lastName: 'Register' },
+			currentEmployments: [{ firmId: 100, firmName: 'Current Firm', registrationBeginDate: '1/1/2020' }],
+			previousEmployments: [
+				{
+					firmId: 7691,
+					firmName: 'MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED',
+					registrationBeginDate: '12/21/1982',
+					registrationEndDate: '6/17/1983',
+				},
+			],
+			previousIAEmployments: [{ firmId: 7691, firmName: 'Merrill', registrationBeginDate: '12/21/1982', registrationEndDate: '6/17/1983' }],
+		});
+		expect(links).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ firmId: '100', isCurrent: true }),
+				expect.objectContaining({
+					firmId: '7691',
+					isCurrent: false,
+					startDate: '12/21/1982',
+					endDate: '6/17/1983',
+					sources: expect.arrayContaining(['finra', 'sec']),
+				}),
+			]),
+		);
+	});
+
+	it('lets current employment win when the same firm appears in previous too', () => {
+		const links = extractIndividualEmployerLinksFromDetail({
+			currentEmployments: [{ firmId: '50', firmName: 'Now', registrationBeginDate: '1/1/2024' }],
+			previousEmployments: [{ firmId: '50', firmName: 'Then', registrationBeginDate: '1/1/2020', registrationEndDate: '12/31/2023' }],
+		});
+		expect(links).toHaveLength(1);
+		expect(links[0]).toMatchObject({ firmId: '50', isCurrent: true });
+		expect(links[0].endDate).toBeUndefined();
 	});
 
 	it('merges current and previous lists without dropping distinct people', () => {

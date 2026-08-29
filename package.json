@@ -30,6 +30,7 @@
 		"push:firm-connections:all": "node scripts/push_all_firm_connections_to_redis.mjs",
 		"push:firm-connections:watch": "node scripts/watch_and_push_firm_connections.mjs",
 		"crd-log": "node scripts/generate-crd-log.js",
+		"reverse-index:firm-connections": "node scripts/reverse_index_firm_connections.mjs",
 		"split:crds": "node scripts/split_crds_into_batches.js",
 		"deploy:primed-cache": "pnpm run build:primed-cache && PEOPLE_CLUSTER_ALLOW_MISSING_GRAPH=true pnpm run build:people-clusters && node scripts/deploy_primed_cache_to_redis.js",
 		"deploy:graph": "node scripts/deploy_graph_upstash.js",

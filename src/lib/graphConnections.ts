@@ -986,6 +986,315 @@ export async function syncBrokerIdMirrorForIndividualChange(
   }
 }
 
+export type IndividualEmployerLink = {
+  firmId: string;
+  firmName?: string;
+  startDate?: string;
+  endDate?: string;
+  isCurrent: boolean;
+  sources: Array<"finra" | "sec">;
+};
+
+const MAX_EMPLOYER_FIRMS_PER_INDIVIDUAL_UPSERT = 80;
+
+/**
+ * Official firm-roster endpoints are incomplete for many low/old firm CRDs.
+ * Person detail current/previous employment is the freshest reverse index: extract those
+ * firm links so a loaded individual page can upsert into each employer's firm-connections.
+ */
+export function extractIndividualEmployerLinksFromDetail(
+  detail: any,
+): IndividualEmployerLink[] {
+  if (!detail || typeof detail !== "object") return [];
+
+  type Acc = {
+    firmId: string;
+    firmName?: string;
+    startDate?: string;
+    endDate?: string;
+    isCurrent: boolean;
+    sources: Set<"finra" | "sec">;
+  };
+  const byFirm = new Map<string, Acc>();
+
+  const ingest = (
+    rows: unknown,
+    isCurrent: boolean,
+    source: "finra" | "sec",
+  ) => {
+    for (const row of toArraySafe(rows)) {
+      if (!row || typeof row !== "object") continue;
+      const firmId = firstNonEmpty(
+        (row as any).firmId,
+        (row as any).firm_id,
+        (row as any).organizationCrd,
+      );
+      if (!firmId || !/^\d{1,10}$/.test(firmId)) continue;
+      const firmName = firstNonEmpty(
+        (row as any).firmName,
+        (row as any).firm_name,
+        (row as any).name,
+      );
+      const startDate = firstNonEmpty(
+        (row as any).registrationBeginDate,
+        (row as any).effectiveDate,
+        (row as any).startDate,
+        (row as any).fromDate,
+      );
+      const endDate = firstNonEmpty(
+        (row as any).registrationEndDate,
+        (row as any).endDate,
+        (row as any).toDate,
+      );
+      const existing = byFirm.get(firmId);
+      if (!existing) {
+        byFirm.set(firmId, {
+          firmId,
+          firmName: firmName || undefined,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+          isCurrent,
+          sources: new Set([source]),
+        });
+        continue;
+      }
+      existing.sources.add(source);
+      if (firmName && !existing.firmName) existing.firmName = firmName;
+      if (startDate && !existing.startDate) existing.startDate = startDate;
+      if (endDate && !existing.endDate) existing.endDate = endDate;
+      // Current wins when the same firm appears in both buckets.
+      if (isCurrent) {
+        existing.isCurrent = true;
+        existing.endDate = undefined;
+      }
+    }
+  };
+
+  ingest(detail.currentEmployments, true, "finra");
+  ingest(detail.currentIAEmployments, true, "sec");
+  ingest(detail.previousEmployments, false, "finra");
+  ingest(detail.previousIAEmployments, false, "sec");
+
+  return Array.from(byFirm.values())
+    .slice(0, MAX_EMPLOYER_FIRMS_PER_INDIVIDUAL_UPSERT)
+    .map((entry) => ({
+      firmId: entry.firmId,
+      firmName: entry.firmName,
+      startDate: entry.startDate,
+      endDate: entry.isCurrent ? undefined : entry.endDate,
+      isCurrent: entry.isCurrent,
+      sources: Array.from(entry.sources),
+    }));
+}
+
+async function applyIndividualEmploymentToBrokerMirrors(
+  personCrd: string,
+  currentFirmIds: string[],
+  previousFirmIds: string[],
+  sources: Array<"finra" | "sec"> = ["finra", "sec"],
+) {
+  const redis = getRedisClient();
+  if (!redis) return;
+  const id = firstNonEmpty(personCrd);
+  if (!id || !/^\d{1,10}$/.test(id)) return;
+
+  const place = async (
+    firmId: string,
+    bucket: "current" | "previous",
+  ) => {
+    for (const source of sources) {
+      try {
+        const [connectedRaw, previousRaw] = await Promise.all([
+          redis.get(`${source}:firm:${firmId}_brokers:current`).catch(() => null),
+          redis.get(`${source}:firm:${firmId}_brokers:previous`).catch(() => null),
+        ]);
+        const connected = new Set(parseBrokerIdList(connectedRaw));
+        const previous = new Set(parseBrokerIdList(previousRaw));
+        if (bucket === "current") {
+          connected.add(id);
+          previous.delete(id);
+        } else {
+          previous.add(id);
+          connected.delete(id);
+        }
+        await setStringIfValid(
+          `${source}:firm:${firmId}_brokers:current`,
+          JSON.stringify(Array.from(connected)),
+          MIRROR_KEY_TTL_SECONDS,
+        );
+        await setStringIfValid(
+          `${source}:firm:${firmId}_brokers:previous`,
+          JSON.stringify(Array.from(previous)),
+          MIRROR_KEY_TTL_SECONDS,
+        );
+      } catch {
+        // best-effort
+      }
+    }
+  };
+
+  for (const firmId of currentFirmIds) await place(firmId, "current");
+  for (const firmId of previousFirmIds) await place(firmId, "previous");
+}
+
+export type UpsertIndividualEmployerOptions = {
+  /** Skip Redis/disk writes when the person is already in the correct current/previous bucket. Default true. */
+  skipUnchanged?: boolean;
+  /** Extra evidence tag for the write path (default individual-detail-load). */
+  evidenceTag?: string;
+  /** Cap how many employer firms may be written in one call. */
+  maxFirmWrites?: number;
+};
+
+/**
+ * When an individual detail page/API loads (or a Redis-only reverse-index job runs), treat that
+ * person's employment history as the source of truth and upsert them into each employer firm's
+ * local + Redis firm-connections roster (and broker CRD arrays). Official firm-by-individual
+ * search is incomplete for many older/low firm CRDs; reverse links from person detail close that gap.
+ */
+export async function upsertIndividualIntoEmployerFirmConnections(
+  crd: string,
+  detail: any,
+  options: UpsertIndividualEmployerOptions = {},
+): Promise<{ firmsTouched: string[]; firmsSkippedUnchanged: string[] }> {
+  const personCrd = firstNonEmpty(crd);
+  if (!personCrd || !/^\d{1,10}$/.test(personCrd)) {
+    return { firmsTouched: [], firmsSkippedUnchanged: [] };
+  }
+  if (!detail || typeof detail !== "object") {
+    return { firmsTouched: [], firmsSkippedUnchanged: [] };
+  }
+
+  const skipUnchanged = options.skipUnchanged !== false;
+  const evidenceTag = firstNonEmpty(options.evidenceTag) || "individual-detail-load";
+  const maxFirmWrites =
+    typeof options.maxFirmWrites === "number" && options.maxFirmWrites > 0
+      ? Math.floor(options.maxFirmWrites)
+      : Number.POSITIVE_INFINITY;
+
+  const links = extractIndividualEmployerLinksFromDetail(detail);
+  if (!links.length) return { firmsTouched: [], firmsSkippedUnchanged: [] };
+
+  const bi: any = detail.basicInformation || {};
+  const personName =
+    [bi.firstName, bi.middleName, bi.lastName].filter(Boolean).join(" ").trim() ||
+    `Individual ${personCrd}`;
+  const otherNames = Array.isArray(bi.otherNames)
+    ? bi.otherNames.map((n: unknown) => String(n || "").trim()).filter(Boolean)
+    : [];
+
+  const firmsTouched: string[] = [];
+  const firmsSkippedUnchanged: string[] = [];
+  const currentFirmIds: string[] = [];
+  const previousFirmIds: string[] = [];
+  const fs = require("fs");
+  let writesUsed = 0;
+
+  for (const link of links) {
+    const firmId = firstNonEmpty(link.firmId);
+    if (!firmId) continue;
+
+    const local = readLocalFirmConnectionsFile(firmId);
+    const existing =
+      local.payload ||
+      ({
+        currentConnections: [],
+        previousConnections: [],
+      } as FirmConnectionsPayload);
+
+    const inCurrent = (existing.currentConnections || []).some(
+      (entry) => String(entry?.individualId || "").trim() === personCrd,
+    );
+    const inPrevious = (existing.previousConnections || []).some(
+      (entry) => String(entry?.individualId || "").trim() === personCrd,
+    );
+    if (
+      skipUnchanged &&
+      ((link.isCurrent && inCurrent && !inPrevious) ||
+        (!link.isCurrent && inPrevious && !inCurrent))
+    ) {
+      firmsSkippedUnchanged.push(firmId);
+      continue;
+    }
+    if (writesUsed >= maxFirmWrites) break;
+
+    const stripPerson = (entries: GraphConnectionEntry[] = []) =>
+      entries.filter((entry) => String(entry?.individualId || "").trim() !== personCrd);
+
+    const evidence = [
+      link.isCurrent ? "current-employment-record" : "matched-previous-employment",
+      evidenceTag,
+      ...link.sources.map((source) =>
+        source === "finra" ? "search-finra" : "official-search-sec",
+      ),
+    ];
+
+    const entry: GraphConnectionEntry = {
+      individualId: personCrd,
+      name: personName,
+      relationship: link.isCurrent
+        ? "Current registration"
+        : "Previous registration",
+      startDate: link.startDate,
+      endDate: link.isCurrent ? undefined : link.endDate,
+      isCurrent: link.isCurrent,
+      evidence,
+      ...(otherNames.length ? { otherNames } : {}),
+      ...(bi.bcScope ? { bcScope: String(bi.bcScope) } : {}),
+      ...(bi.iaScope ? { iaScope: String(bi.iaScope) } : {}),
+    };
+
+    const nextPayload: FirmConnectionsPayload = {
+      currentConnections: stripPerson(existing.currentConnections),
+      previousConnections: stripPerson(existing.previousConnections),
+      source: existing.source || evidenceTag,
+    };
+    if (link.isCurrent) nextPayload.currentConnections.push(entry);
+    else nextPayload.previousConnections.push(entry);
+
+    try {
+      fs.mkdirSync(require("path").dirname(local.path), { recursive: true });
+      fs.writeFileSync(local.path, JSON.stringify(nextPayload, null, 2) + "\n");
+    } catch {
+      // best-effort disk
+    }
+
+    const redis = getRedisClient();
+    if (redis) {
+      try {
+        await setStringIfValid(
+          firmConnectionsCacheKey(firmId),
+          JSON.stringify(nextPayload),
+          FIRM_CONNECTIONS_CACHE_TTL_SECONDS,
+        );
+        await redis.del(firmConnectionsFullyValidatedCacheKey(firmId));
+        await dropLeftoverFirmConnectionsCacheKeys(redis, firmId);
+      } catch {
+        // best-effort redis
+      }
+    }
+
+    if (link.isCurrent) currentFirmIds.push(firmId);
+    else previousFirmIds.push(firmId);
+    firmsTouched.push(firmId);
+    writesUsed += 1;
+  }
+
+  if (currentFirmIds.length || previousFirmIds.length) {
+    await applyIndividualEmploymentToBrokerMirrors(
+      personCrd,
+      currentFirmIds,
+      previousFirmIds,
+      ["finra", "sec"],
+    );
+  }
+
+  return {
+    firmsTouched: Array.from(new Set(firmsTouched)),
+    firmsSkippedUnchanged: Array.from(new Set(firmsSkippedUnchanged)),
+  };
+}
+
 // Mirror a cache-hit payload into the shared broker-id keys only if they don't already
 // exist, so pre-existing cached firms (validated before persistBrokerIdLists() was added,
 // or whose TTL-expired mirror keys haven't been refreshed) get backfilled without forcing
@@ -1064,7 +1373,7 @@ async function persistFirmConnections(
 // Unwraps the raw cached finra:individual:<crd>/sec:individual:<crd> payload, which is stored
 // as the FINRA/SEC search API's response envelope ({hits:{hits:[{_source:{content:"..."}}]}})
 // rather than a flat detail object — mirrors parseDetailPayload() in the individual detail route.
-function unwrapCachedIndividualDetail(parsed: any): any {
+export function unwrapCachedIndividualDetail(parsed: any): any {
   if (!parsed || typeof parsed !== "object") return null;
   const hit = parsed?.hits?.hits?.[0]?._source;
   const raw =
