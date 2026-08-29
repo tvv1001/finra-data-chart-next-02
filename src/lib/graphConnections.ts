@@ -1,12 +1,7 @@
 // Server-side firm connections for dashboard + graph sidebar.
-// Sources (cheap → expensive):
-//   1. Official FINRA/SEC individual-by-firm search (paginated), stored in
-//      data/firm-connections/{firmId}.json — the collection the UI already reads
-//   2. Cached official roster in Redis firm-connections:firm:{firmId}
-//   3. Primed individual reverse index / precomputed adj
-//   4. Local/search fallbacks and opt-in full Redis SCAN
-// Results are cached at firm-connections:firm:{firmId}. Do not also write
-// graph:firm-connections:v10:{firmId} — that duplicated the same roster payload.
+// Display roster: Redis firm-connections:firm:{firmId} (curated CRD arrays / entries).
+// Other sources (disk, broker-id mirrors, official search, primed adj) only backfill that key.
+// Do not also write graph:firm-connections:v10:{firmId} — that duplicated the same roster payload.
 // Note: the mono graph store's employed_by links (getFullGraph) were previously merged in as a
 // connection source but have been removed — that artifact could carry stale/incorrect data
 // forward independent of the individual's own record. Validation now comes exclusively from
@@ -586,6 +581,58 @@ type FirmConnectionsPayload = {
   fetchedAt?: string;
 };
 
+function connectionEntryFromCachedValue(
+  value: unknown,
+  isCurrent: boolean,
+): GraphConnectionEntry | null {
+  if (value == null) return null;
+  if (typeof value === "number" || typeof value === "string") {
+    const individualId = String(value).trim();
+    if (!/^\d{1,10}$/.test(individualId)) return null;
+    return {
+      individualId,
+      name: "",
+      relationship: isCurrent ? "Current registration" : "Previous registration",
+      isCurrent,
+    };
+  }
+  if (typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const individualId = firstNonEmpty(
+    record.individualId,
+    record.crd,
+    record.personId,
+    record.id,
+  );
+  if (!individualId) return null;
+  return {
+    ...(record as GraphConnectionEntry),
+    individualId,
+    name: String(record.name || "").trim(),
+    relationship:
+      String(record.relationship || "").trim() ||
+      (isCurrent ? "Current registration" : "Previous registration"),
+    isCurrent,
+  };
+}
+
+function normalizeCachedConnectionList(
+  list: unknown,
+  isCurrent: boolean,
+): GraphConnectionEntry[] {
+  if (!Array.isArray(list)) return [];
+  const out: GraphConnectionEntry[] = [];
+  const seen = new Set<string>();
+  for (const value of list) {
+    const entry = connectionEntryFromCachedValue(value, isCurrent);
+    const id = connectionEntryId(entry);
+    if (!entry || !id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(entry);
+  }
+  return out;
+}
+
 function parseCachedConnectionsPayload(
   raw: unknown,
 ): FirmConnectionsPayload | null {
@@ -599,14 +646,24 @@ function parseCachedConnectionsPayload(
       return null;
     }
   }
+  if (Array.isArray(data)) {
+    return {
+      currentConnections: normalizeCachedConnectionList(data, true),
+      previousConnections: [],
+    };
+  }
   if (!data || typeof data !== "object") return null;
+  const currentConnections = normalizeCachedConnectionList(
+    data.currentConnections ?? data.current ?? data.currentIds ?? data.connected,
+    true,
+  );
+  const previousConnections = normalizeCachedConnectionList(
+    data.previousConnections ?? data.previous ?? data.previousIds,
+    false,
+  );
   return {
-    currentConnections: Array.isArray(data.currentConnections)
-      ? data.currentConnections
-      : [],
-    previousConnections: Array.isArray(data.previousConnections)
-      ? data.previousConnections
-      : [],
+    currentConnections,
+    previousConnections,
     source: typeof data.source === "string" ? data.source : undefined,
     officialTotals:
       data.officialTotals && typeof data.officialTotals === "object"
@@ -1650,33 +1707,15 @@ export async function getFirmConnectionsFromGraph(
   };
 
   const local = readLocalFirmConnectionsFile(normalizedFirmId);
+  const redisRoster = await readRedisFirmConnections();
 
-  // Prefer the on-disk roster snapshot for the app's canonical per-firm cache. This keeps the
-  // dashboard and graph on the verified source-of-truth data in data/firm-connections/<id>.json
-  // even when stale legacy Redis verification keys still exist from older runs.
-  if (local.payload && countFirmConnectionEntries(local.payload) > 0) {
-    if (redis) {
-      void backfillBrokerIdListsIfMissing(normalizedFirmId, local.payload).catch(() => {});
-    }
-    return attachConnectionDisplayFields(local.payload, normalizedFirmId, redis);
-  }
-
-  // Fast path: this firm's connections were already fully validated in a prior request (every
-  // entry carries genuine per-firm employment evidence). Skip all mirror-key reads,
-  // per-individual enrichment, and disprove-filtering below entirely — just serve the
-  // already-computed, already-verified payload straight from its single cache key.
-  if (redis) {
-    try {
-      const cachedRaw = await redis.get(firmConnectionsFullyValidatedCacheKey(normalizedFirmId));
-      if (cachedRaw) {
-        const cached = await readRedisFirmConnections();
-        if (cached && countFirmConnectionEntries(cached) > 0) {
-          return attachConnectionDisplayFields(cached, normalizedFirmId, redis);
-        }
-      }
-    } catch {
-      // fall through to the normal, slower resolution path below
-    }
+  // Redis `firm-connections:firm:{id}` is the only curated CRD roster for sidebar/dashboard.
+  // Other sources (disk, broker-id mirrors, graph expand) may backfill this key, but they
+  // must not add people to the UI on their own.
+  if (redisRoster && countFirmConnectionEntries(redisRoster) > 0) {
+    // Return the curated CRD roster immediately. Per-person Redis enrichment can take
+    // longer than the graph sidebar's fetch budget and left the menu empty locally.
+    return redisRoster;
   }
 
   // Priority source: shared broker-id mirror keys (sec:firm:{id}_brokers:current|previous,

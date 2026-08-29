@@ -12401,7 +12401,7 @@ async function ensureFirmConnections(firmNode: any) {
 	const requestPromise = (async () => {
 		try {
 			const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-			const timer = controller ? window.setTimeout(() => controller.abort(), 12000) : 0;
+			const timer = controller ? window.setTimeout(() => controller.abort(), 30000) : 0;
 			const res = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}/connections`, {
 				signal: controller?.signal,
 			});
@@ -12552,7 +12552,9 @@ async function ensureFirmDetail(firmNode) {
 					firmNode._detailMissing = false;
 					firmNode._detailValidated = true;
 					if (selectedId === firmNode.id) renderSidebar(firmNode);
-					void ensureFirmConnections(firmNode);
+					void ensureFirmConnections(firmNode).then(() => {
+						if (selectedId === firmNode.id) renderSidebar(firmNode);
+					});
 					return;
 				}
 				firmNode._detailMissing = true;

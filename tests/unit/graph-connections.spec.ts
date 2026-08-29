@@ -106,49 +106,35 @@ describe('firm connection merge and cache', () => {
 		expect(countFirmConnectionEntries(merged)).toBe(2);
 	});
 
-	it('prefers the local firm-connections roster over stale verified Redis payloads', async () => {
+	it('uses Redis firm-connections:firm as the only curated roster', async () => {
 		mockRedis.get.mockImplementation(async (key: string) => {
-			if (key === 'firm-connections:firm:2525:verified') {
-				return '1';
-			}
-			if (key === 'firm-connections:firm:2525') {
+			if (key === firmConnectionsCacheKey('2525')) {
 				return JSON.stringify({
-					currentConnections: [{ individualId: '999', name: 'Stale only', relationship: 'Current registration', isCurrent: true, evidence: ['stale'] }],
+					currentConnections: [{ individualId: '999', name: 'Curated only', relationship: 'Current registration', isCurrent: true }],
 					previousConnections: [],
 				});
 			}
 			return null;
 		});
 		const result = await getFirmConnectionsFromGraph('2525');
-		expect(result.currentConnections.length).toBeGreaterThan(100);
-		expect(result.currentConnections.some((entry) => entry.individualId === '100001')).toBe(true);
-		expect(result.previousConnections.some((entry) => entry.individualId === '821381')).toBe(true);
+		expect(result.currentConnections).toHaveLength(1);
+		expect(result.currentConnections[0]).toMatchObject({ individualId: '999', name: 'Curated only' });
+		expect(result.previousConnections).toHaveLength(0);
 	});
 
-	it('does not let a thin primed redis cache hide the local firm-connections roster', async () => {
+	it('hydrates Redis CRD arrays into connection entries', async () => {
 		mockRedis.get.mockImplementation(async (key: string) => {
-			if (key === firmConnectionsCacheKey('2525')) {
-				return {
-					currentConnections: [],
-					previousConnections: [
-						{
-							individualId: '821381',
-							name: 'FRANKLIN RUSSELL BEARD',
-							relationship: 'Previous registration',
-							isCurrent: false,
-							evidence: ['primed-bundle'],
-						},
-					],
-				};
+			if (key === firmConnectionsCacheKey('900000001')) {
+				return JSON.stringify({
+					current: [42, '43'],
+					previous: ['44'],
+				});
 			}
 			return null;
 		});
-		mockRedis.mget.mockImplementation(async (...keys: string[]) => keys.map(() => 'present'));
 
-		const result = await getFirmConnectionsFromGraph('2525');
-		expect(result.currentConnections.length).toBeGreaterThan(0);
-		expect(result.previousConnections.length).toBeGreaterThan(1);
-		expect(countFirmConnectionEntries(result)).toBeGreaterThanOrEqual(185);
-		expect(result.previousConnections.some((entry) => entry.individualId === '821381')).toBe(true);
+		const result = await getFirmConnectionsFromGraph('900000001');
+		expect(result.currentConnections.map((entry) => entry.individualId).sort()).toEqual(['42', '43']);
+		expect(result.previousConnections.map((entry) => entry.individualId)).toEqual(['44']);
 	});
 });

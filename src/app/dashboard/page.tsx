@@ -3060,9 +3060,8 @@ function DashboardPageInner() {
 		if (cached && typeof cached === 'object') {
 			for (const target of [cached, cached?.merged, cached?.sources?.finra, cached?.sources?.sec, cached?.finraNode]) {
 				if (target && typeof target === 'object') {
-					const merged = mergeFirmConnectionLists([target.currentConnections, target.previousConnections, currentConnections, previousConnections]);
-					target.currentConnections = merged.currentConnections;
-					target.previousConnections = merged.previousConnections;
+					target.currentConnections = currentConnections;
+					target.previousConnections = previousConnections;
 				}
 			}
 		}
@@ -3071,11 +3070,10 @@ function DashboardPageInner() {
 			if (!prev) return prev;
 			const prevCrd = String(prev?.basicInformation?.firmId || prev?.firmId || prev?.id || '').trim();
 			if (prevCrd && prevCrd !== firmId) return prev;
-			const merged = mergeFirmConnectionLists([prev.currentConnections, prev.previousConnections, currentConnections, previousConnections]);
 			return {
 				...prev,
-				currentConnections: merged.currentConnections,
-				previousConnections: merged.previousConnections,
+				currentConnections,
+				previousConnections,
 			};
 		});
 	}
@@ -3156,25 +3154,6 @@ function DashboardPageInner() {
 
 		const fetchPromise = (async () => {
 			try {
-				// Expand hydrates the graph; /connections is the firm-connections collection
-				// (official FINRA/SEC individual-by-firm search). Always merge both.
-				try {
-					const expandRes = await fetch(`/api/finra/expand/${encodeURIComponent(`firm:${firmId}`)}?hops=1`, {
-						method: 'GET',
-						headers: { Accept: 'application/json' },
-						cache: 'default',
-					});
-					if (expandRes.ok) {
-						const expandData = await expandRes.json().catch(() => null);
-						const fromExpand = connectionsFromExpandPayload(firmId, expandData);
-						if (fromExpand) {
-							applyFirmConnectionsToState(firmId, fromExpand.currentConnections, fromExpand.previousConnections);
-						}
-					}
-				} catch (expandErr) {
-					console.warn('Firm expand connections fallback failed', expandErr);
-				}
-
 				const response = await fetch(`/api/finra/firm/${encodeURIComponent(firmId)}/connections`, {
 					method: 'GET',
 					headers: { Accept: 'application/json' },

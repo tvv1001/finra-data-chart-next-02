@@ -1,6 +1,54 @@
 {
   "firms": [
     {
+      "id": 119241,
+      "name": "HERITAGE ADVISORY SERVICES, INC."
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 7471,
+      "name": "PRUDENTIAL-BACHE SECURITIES INC."
+    },
+    {
+      "id": 5249,
+      "name": "MANEQUITY, INC."
+    },
+    {
+      "id": 8174,
+      "name": "UBS PAINEWEBBER INC."
+    },
+    {
+      "id": 6321,
+      "name": "IDS LIFE INSURANCE COMPANY"
+    },
+    {
+      "id": 18272,
+      "name": "ALLSTATE FINANCIAL SERVICES, LLC"
+    },
+    {
+      "id": 6363,
+      "name": "AMERIPRISE FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 45915,
+      "name": "SUMMITALLIANCE SECURITIES, L.L.C."
+    },
+    {
+      "id": 133019,
+      "name": "HERITAGE FINANCIAL SYSTEMS, INC."
+    },
+    {
+      "id": 11469,
+      "name": "WESTMORELAND CAPITAL CORPORATION"
+    },
+    {
+      "id": 103863,
+      "name": "FARMERS FINANCIAL SOLUTIONS, LLC"
+    },
+    {
       "id": 615,
       "name": "NEW ENGLAND SECURITIES CORPORATION"
     },
@@ -25,16 +73,8 @@
       "name": "BANC OF AMERICA SECURITIES LLC"
     },
     {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
-    },
-    {
       "id": 19585,
       "name": "HSBC SECURITIES (USA) INC."
-    },
-    {
-      "id": 6363,
-      "name": "AMERICAN EXPRESS FINANCIAL ADVISORS INC."
     },
     {
       "id": 2809,
@@ -241,10 +281,6 @@
       "name": "TRUIST INVESTMENT SERVICES, INC."
     },
     {
-      "id": 7471,
-      "name": "PRUDENTIAL SECURITIES INCORPORATED"
-    },
-    {
       "id": 7059,
       "name": "CITIGROUP GLOBAL MARKETS INC."
     },
@@ -301,47 +337,19 @@
       "name": "CETERA INVESTMENT SERVICES LLC"
     },
     {
-      "id": 119241,
-      "name": "HERITAGE ADVISORY SERVICES, INC."
-    },
-    {
-      "id": 5249,
-      "name": "MANEQUITY, INC."
-    },
-    {
-      "id": 8174,
-      "name": "UBS PAINEWEBBER INC."
-    },
-    {
-      "id": 6321,
-      "name": "IDS LIFE INSURANCE COMPANY"
-    },
-    {
-      "id": 18272,
-      "name": "ALLSTATE FINANCIAL SERVICES, LLC"
-    },
-    {
-      "id": 45915,
-      "name": "SUMMITALLIANCE SECURITIES, L.L.C."
-    },
-    {
-      "id": 133019,
-      "name": "HERITAGE FINANCIAL SYSTEMS, INC."
-    },
-    {
-      "id": 11469,
-      "name": "WESTMORELAND CAPITAL CORPORATION"
-    },
-    {
-      "id": 103863,
-      "name": "FARMERS FINANCIAL SOLUTIONS, LLC"
-    },
-    {
       "id": 322799,
       "name": "Tecp LLC"
     }
   ],
   "individuals": [
+    {
+      "id": 1085996,
+      "name": "Timothy Dale Register"
+    },
+    {
+      "id": 1170940,
+      "name": "THERESA ANN WARD"
+    },
     {
       "id": 1048318,
       "name": "CRAIG BOYD MENDENHALL"
@@ -405,10 +413,6 @@
     {
       "id": 4821114,
       "name": "JAMES RODERICK SCATTERGOOD"
-    },
-    {
-      "id": 1085996,
-      "name": "Timothy Dale Register"
     },
     {
       "id": 322799,
