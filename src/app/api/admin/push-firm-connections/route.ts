@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
-import { setStringIfValid, getRedisClient } from "@/lib/redisCache";
-import {
-  firmConnectionsCacheKey,
-  firmConnectionsVerifiedCacheKey,
-} from "@/lib/graphConnections";
-
-type PushResult = { firmId: string; ok: boolean; reason?: string };
+import { getRedisClient } from "@/lib/redisCache";
 
 async function auditLogEntry(req: NextRequest, entry: Record<string, any>) {
   try {
@@ -45,7 +39,6 @@ function allowedSecretMatches(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     if (!allowedSecretMatches(req)) {
-      // audit unauthorized attempt
       await auditLogEntry(req, {
         action: "push-firm-connections-attempt",
         ok: false,
@@ -62,85 +55,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json().catch(() => ({}));
-    const firmIds: string[] = [];
-    if (typeof body?.firmId === "string" && body.firmId.trim())
-      firmIds.push(String(body.firmId).trim());
-    if (Array.isArray(body?.firmIds))
-      for (const f of body.firmIds) if (f) firmIds.push(String(f).trim());
-    if (!firmIds.length)
-      return NextResponse.json(
-        { ok: false, error: "no firmId(s) provided" },
-        { status: 400 },
-      );
+    await auditLogEntry(req, {
+      action: "push-firm-connections-attempt",
+      ok: false,
+      reason: "read-only-firm-connections-cache",
+      ua: req.headers.get("user-agent") || "",
+      ip:
+        req.headers.get("x-forwarded-for") ||
+        req.headers.get("x-real-ip") ||
+        "local",
+    }).catch(() => null);
 
-    const results: PushResult[] = [];
-    for (const firmId of firmIds) {
-      try {
-        const file = path.join(
-          process.cwd(),
-          "data",
-          "firm-connections",
-          `${firmId}.json`,
-        );
-        if (!fs.existsSync(file)) {
-          results.push({ firmId, ok: false, reason: "file not found" });
-          continue;
-        }
-        const raw = fs.readFileSync(file, "utf8");
-        const cacheKey = firmConnectionsCacheKey(firmId);
-        const emptyKey = `${cacheKey}:empty`;
-
-        const res = await setStringIfValid(cacheKey, raw, 60 * 60 * 24 * 30);
-        // remove empty sentinel and any stale "fully validated" fast-path flag (this
-        // pushed snapshot hasn't necessarily been re-verified) if present
-        try {
-          const redis = getRedisClient();
-          if (redis) {
-            const v = await redis.get(emptyKey).catch(() => null);
-            if (v != null) await redis.del(emptyKey).catch(() => null);
-            await redis
-              .del(firmConnectionsVerifiedCacheKey(firmId))
-              .catch(() => null);
-          }
-        } catch {}
-
-        if (res === "written") {
-          results.push({ firmId, ok: true });
-          await auditLogEntry(req, {
-            action: "push-firm-connections",
-            firmId,
-            ok: true,
-            method: "disk->redis",
-            actor: req.headers.get("x-admin-secret") ? "admin" : "unknown",
-            ua: req.headers.get("user-agent") || "",
-            ip:
-              req.headers.get("x-forwarded-for") ||
-              req.headers.get("x-real-ip") ||
-              "local",
-          });
-        } else {
-          results.push({ firmId, ok: false, reason: String(res) });
-          await auditLogEntry(req, {
-            action: "push-firm-connections",
-            firmId,
-            ok: false,
-            reason: String(res),
-            method: "disk->redis",
-            actor: req.headers.get("x-admin-secret") ? "admin" : "unknown",
-            ua: req.headers.get("user-agent") || "",
-            ip:
-              req.headers.get("x-forwarded-for") ||
-              req.headers.get("x-real-ip") ||
-              "local",
-          });
-        }
-      } catch (e: any) {
-        results.push({ firmId, ok: false, reason: String(e?.message || e) });
-      }
-    }
-
-    return NextResponse.json({ ok: true, results });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "firm-connections:firm:* is read-only; no writes are allowed from app code or admin pushes.",
+      },
+      { status: 403 },
+    );
   } catch (err: any) {
     return NextResponse.json(
       { ok: false, error: String(err?.message || err) },

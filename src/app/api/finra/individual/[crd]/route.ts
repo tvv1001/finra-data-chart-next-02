@@ -12,7 +12,7 @@ import { queueHydration } from '@/lib/hydration';
 import { getRedisClientInstance } from '@/lib/redisClient';
 import { addRecordToSearchIndex } from '@/lib/localSearch';
 import { lookupOwnerReference, recordFirmReferencesForIndividual } from '@/lib/ownerReferenceIndex';
-import { upsertIndividualIntoEmployerFirmConnections, extractIndividualEmployerLinksFromDetail } from '@/lib/graphConnections';
+import { extractIndividualEmployerLinksFromDetail, upsertIndividualIntoEmployerFirmConnections } from '@/lib/graphConnections';
 import { rememberCrdLogEntries } from '@/lib/crdLog';
 
 function parseDetailPayload(data: any, contentKey = 'content') {
@@ -462,35 +462,33 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				logger.warn('failed to record firm reference index for individual', { crd, error: err?.message || String(err) });
 			});
 
-			// Person detail employment is the freshest reverse index for firm rosters (official
-			// firm-by-individual search is incomplete for many low/old firm CRDs). Upsert this
-			// person into each employer firm's local + Redis firm-connections, then inventory
-			// the person + employer firms in the CRD log.
-			void upsertIndividualIntoEmployerFirmConnections(crd, detail)
-				.then(async (result) => {
-					const employerLinks = extractIndividualEmployerLinksFromDetail(detail);
-					const logEntries: Array<{ kind: 'firm' | 'individual'; id: string | number; name?: string }> = [
-						{ kind: 'individual', id: crd, name: individualName },
-						...employerLinks.map((link) => ({
-							kind: 'firm' as const,
-							id: link.firmId,
-							name: link.firmName,
-						})),
-					];
-					await rememberCrdLogEntries(logEntries);
-					if (result.firmsTouched.length) {
-						logger.info('upserted individual into employer firm-connections from detail load', {
-							crd,
-							firmsTouched: result.firmsTouched.length,
-						});
-					}
-				})
-				.catch((err: any) => {
+			const employerLinks = extractIndividualEmployerLinksFromDetail(detail);
+			const logEntries: Array<{ kind: 'firm' | 'individual'; id: string | number; name?: string }> = [
+				{ kind: 'individual', id: crd, name: individualName },
+				...employerLinks.map((link) => ({
+					kind: 'firm' as const,
+					id: link.firmId,
+					name: link.firmName,
+				})),
+			];
+			void rememberCrdLogEntries(logEntries).catch((err: any) => {
+				logger.warn('failed to record firm reference index for individual', {
+					crd,
+					error: err?.message || String(err),
+				});
+			});
+
+			if (employerLinks.length) {
+				void upsertIndividualIntoEmployerFirmConnections(crd, detail, {
+					skipUnchanged: true,
+					maxFirmWrites: 25,
+				}).catch((err: any) => {
 					logger.warn('failed to upsert individual into employer firm-connections', {
 						crd,
 						error: err?.message || String(err),
 					});
 				});
+			}
 		}
 
 		if (isMergedRoute) {

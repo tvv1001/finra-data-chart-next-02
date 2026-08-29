@@ -830,146 +830,141 @@ export async function upsertIndividualIntoEmployerFirmConnections(
   detail: any,
   options: UpsertIndividualEmployerOptions = {},
 ): Promise<{ firmsTouched: string[]; firmsSkippedUnchanged: string[] }> {
-  const personCrd = firstNonEmpty(crd);
-  if (!personCrd || !/^\d{1,10}$/.test(personCrd)) {
-    return { firmsTouched: [], firmsSkippedUnchanged: [] };
-  }
-  if (!detail || typeof detail !== "object") {
+  const normalizedCrd = String(crd || "").trim();
+  if (!normalizedCrd || !/^\d{1,10}$/.test(normalizedCrd)) {
     return { firmsTouched: [], firmsSkippedUnchanged: [] };
   }
 
-  const skipUnchanged = options.skipUnchanged !== false;
-  const evidenceTag = firstNonEmpty(options.evidenceTag) || "individual-detail-load";
-  const maxFirmWrites =
-    typeof options.maxFirmWrites === "number" && options.maxFirmWrites > 0
-      ? Math.floor(options.maxFirmWrites)
-      : Number.POSITIVE_INFINITY;
+  const redis = getRedisClient();
+  if (!redis) {
+    return { firmsTouched: [], firmsSkippedUnchanged: [] };
+  }
 
-  const links = extractIndividualEmployerLinksFromDetail(detail);
-  if (!links.length) return { firmsTouched: [], firmsSkippedUnchanged: [] };
+  const links = extractIndividualEmployerLinksFromDetail(detail).slice(
+    0,
+    Math.max(1, Math.min(80, Number(options.maxFirmWrites) || 25)),
+  );
+  if (!links.length) {
+    return { firmsTouched: [], firmsSkippedUnchanged: [] };
+  }
 
-  const bi: any = detail.basicInformation || {};
   const personName =
-    [bi.firstName, bi.middleName, bi.lastName].filter(Boolean).join(" ").trim() ||
-    `Individual ${personCrd}`;
-  const otherNames = Array.isArray(bi.otherNames)
-    ? bi.otherNames.map((n: unknown) => String(n || "").trim()).filter(Boolean)
-    : [];
+    firstNonEmpty(
+      detail?.basicInformation?.firstName,
+      detail?.firstName,
+      detail?.basicInformation?.name,
+      detail?.name,
+      detail?.personName,
+      detail?.displayName,
+    ) ||
+    [
+      detail?.basicInformation?.firstName,
+      detail?.firstName,
+      detail?.basicInformation?.middleName,
+      detail?.middleName,
+      detail?.basicInformation?.lastName,
+      detail?.lastName,
+    ]
+      .filter(Boolean)
+      .join(" ") ||
+    `Individual ${normalizedCrd}`;
 
   const firmsTouched: string[] = [];
   const firmsSkippedUnchanged: string[] = [];
-  let writesUsed = 0;
-  const redis = getRedisClient();
 
   for (const link of links) {
-    const firmId = firstNonEmpty(link.firmId);
-    if (!firmId) continue;
+    const firmId = String(link.firmId || "").trim();
+    if (!firmId || !/^\d{1,10}$/.test(firmId)) continue;
 
-    let existing: FirmConnectionsPayload = {
+    const cacheKey = firmConnectionsCacheKey(firmId);
+    const raw = await redis.get(cacheKey).catch(() => null);
+    const payload = parseCachedConnectionsPayload(raw) ?? {
       currentConnections: [],
       previousConnections: [],
     };
-    let redisCount = 0;
-    // Redis `firm-connections:firm:{id}` is the curated roster. Never rebuild it from the
-    // thinner disk snapshot — that dropped people the official firm endpoint already had.
-    if (redis) {
-      try {
-        const raw = await redis.get(firmConnectionsCacheKey(firmId));
-        if (raw != null) {
-          const parsed = parseCachedConnectionsPayload(raw);
-          const n = countFirmConnectionEntries(parsed);
-          if (n > 0) {
-            existing = parsed;
-            redisCount = n;
-          } else {
-            // Opaque/unparsed roster — never replace it with this one person.
-            firmsSkippedUnchanged.push(firmId);
-            continue;
-          }
-        }
-      } catch {
-        firmsSkippedUnchanged.push(firmId);
-        continue;
-      }
-    }
 
-    const inCurrent = (existing.currentConnections || []).some(
-      (entry) => String(entry?.individualId || "").trim() === personCrd,
+    const currentById = new Map(
+      (payload.currentConnections || []).map((entry) => [
+        String(connectionEntryId(entry)),
+        entry,
+      ]),
     );
-    const inPrevious = (existing.previousConnections || []).some(
-      (entry) => String(entry?.individualId || "").trim() === personCrd,
+    const previousById = new Map(
+      (payload.previousConnections || []).map((entry) => [
+        String(connectionEntryId(entry)),
+        entry,
+      ]),
     );
-    if (
-      skipUnchanged &&
-      ((link.isCurrent && inCurrent && !inPrevious) ||
-        (!link.isCurrent && inPrevious && !inCurrent))
-    ) {
-      firmsSkippedUnchanged.push(firmId);
-      continue;
-    }
-    if (writesUsed >= maxFirmWrites) break;
-
-    const stripPerson = (entries: GraphConnectionEntry[] = []) =>
-      entries.filter((entry) => String(entry?.individualId || "").trim() !== personCrd);
 
     const evidence = [
       link.isCurrent ? "current-employment-record" : "matched-previous-employment",
-      evidenceTag,
-      ...link.sources.map((source) =>
-        source === "finra" ? "search-finra" : "official-search-sec",
-      ),
+      options.evidenceTag || "individual-detail-load",
     ];
-
     const entry: GraphConnectionEntry = {
-      individualId: personCrd,
+      individualId: normalizedCrd,
       name: personName,
       relationship: link.isCurrent
         ? "Current registration"
         : "Previous registration",
-      startDate: link.startDate,
-      endDate: link.isCurrent ? undefined : link.endDate,
+      startDate: link.startDate || undefined,
+      endDate: link.isCurrent ? undefined : link.endDate || undefined,
       isCurrent: link.isCurrent,
       evidence,
-      ...(otherNames.length ? { otherNames } : {}),
-      ...(bi.bcScope ? { bcScope: String(bi.bcScope) } : {}),
-      ...(bi.iaScope ? { iaScope: String(bi.iaScope) } : {}),
+      sourceTags: ["redis-upsert"],
+      bcScope: detail?.bcScope || undefined,
+      iaScope: detail?.iaScope || undefined,
     };
+
+    if (link.isCurrent) {
+      const existing = currentById.get(normalizedCrd);
+      previousById.delete(normalizedCrd);
+      if (
+        options.skipUnchanged !== false &&
+        existing &&
+        existing.name === entry.name &&
+        existing.startDate === entry.startDate &&
+        existing.endDate === entry.endDate &&
+        existing.isCurrent === entry.isCurrent
+      ) {
+        firmsSkippedUnchanged.push(firmId);
+        continue;
+      }
+      currentById.set(normalizedCrd, entry);
+    } else {
+      const existing = previousById.get(normalizedCrd);
+      currentById.delete(normalizedCrd);
+      if (
+        options.skipUnchanged !== false &&
+        existing &&
+        existing.name === entry.name &&
+        existing.startDate === entry.startDate &&
+        existing.endDate === entry.endDate &&
+        existing.isCurrent === entry.isCurrent
+      ) {
+        firmsSkippedUnchanged.push(firmId);
+        continue;
+      }
+      previousById.set(normalizedCrd, entry);
+    }
 
     const nextPayload: FirmConnectionsPayload = {
-      currentConnections: stripPerson(existing.currentConnections),
-      previousConnections: stripPerson(existing.previousConnections),
-      source: existing.source || evidenceTag,
+      currentConnections: Array.from(currentById.values()),
+      previousConnections: Array.from(previousById.values()),
+      source: payload.source || "individual-detail-upsert",
+      fetchedAt: new Date().toISOString(),
     };
-    if (link.isCurrent) nextPayload.currentConnections.push(entry);
-    else nextPayload.previousConnections.push(entry);
 
-    if (redisCount > 0 && countFirmConnectionEntries(nextPayload) < redisCount) {
-      firmsSkippedUnchanged.push(firmId);
-      continue;
-    }
-
-    if (redis) {
-      try {
-        await setStringIfValid(
-          firmConnectionsCacheKey(firmId),
-          JSON.stringify(nextPayload),
-          FIRM_CONNECTIONS_CACHE_TTL_SECONDS,
-        );
-        await redis.del(firmConnectionsFullyValidatedCacheKey(firmId));
-        await dropLeftoverFirmConnectionsCacheKeys(redis, firmId);
-      } catch {
-        // best-effort redis
-      }
-    }
-
+    const localPath = require("path").join(
+      process.cwd(),
+      "data",
+      "firm-connections",
+      `${firmId}.json`,
+    );
+    await persistFirmConnections(nextPayload, cacheKey, `${cacheKey}:empty`, localPath, firmId);
     firmsTouched.push(firmId);
-    writesUsed += 1;
   }
 
-  return {
-    firmsTouched: Array.from(new Set(firmsTouched)),
-    firmsSkippedUnchanged: Array.from(new Set(firmsSkippedUnchanged)),
-  };
+  return { firmsTouched, firmsSkippedUnchanged };
 }
 
 async function persistFirmConnections(
@@ -979,44 +974,24 @@ async function persistFirmConnections(
   localPath: string,
   firmId?: string,
 ) {
-  const total = countFirmConnectionEntries(payload);
-  const redis = getRedisClient();
-  if (redis) {
-    try {
-      if (total > 0) {
-        try {
-          const existingRaw = await redis.get(cacheKey);
-          const existingParsed = parseCachedConnectionsPayload(existingRaw);
-          const existingCount = countFirmConnectionEntries(existingParsed);
-          if (existingCount > total) {
-            return;
-          }
-        } catch {
-          // if we cannot compare, still persist the new payload
-        }
-        await setStringIfValid(
-          cacheKey,
-          JSON.stringify(payload),
-          FIRM_CONNECTIONS_CACHE_TTL_SECONDS,
-        );
-        await dropLeftoverFirmConnectionsCacheKeys(redis, String(firmId || "").trim());
-      } else {
-        await setStringIfValid(
-          emptyCacheKey,
-          JSON.stringify({ empty: true, at: Date.now() }),
-          EMPTY_FIRM_CONNECTIONS_CACHE_TTL_SECONDS,
-        );
-      }
-    } catch {
-      // best-effort cache
-    }
-  }
   try {
-    if (localPath && total > 0) {
-      require("fs").writeFileSync(localPath, JSON.stringify(payload));
+    const json = JSON.stringify(payload);
+    await setStringIfValid(cacheKey, json, FIRM_CONNECTIONS_CACHE_TTL_SECONDS);
+
+    const fs = require("fs");
+    const path = require("path");
+    fs.mkdirSync(path.dirname(localPath), { recursive: true });
+    fs.writeFileSync(localPath, json + "\n");
+
+    if (countFirmConnectionEntries(payload) === 0) {
+      try {
+        await setStringIfValid(emptyCacheKey, "1", EMPTY_FIRM_CONNECTIONS_CACHE_TTL_SECONDS);
+      } catch {
+        // empty result marker is optional
+      }
     }
   } catch {
-    // best-effort cache
+    // swallow write failures; the read path still works without the generated roster update
   }
 }
 
