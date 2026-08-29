@@ -773,7 +773,7 @@
 
 .readableCardGrid {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
 	gap: 8px;
 }
 
@@ -1722,6 +1722,8 @@
 	display: flex;
 	flex-direction: column;
 	min-height: 0;
+	min-width: 0;
+	overflow-x: hidden;
 }
 
 .dashboardMainStack {
@@ -1729,6 +1731,7 @@
 	display: flex;
 	flex-direction: column;
 	min-height: 0;
+	min-width: 0;
 	height: 100%;
 }
 
@@ -1737,8 +1740,10 @@
 	flex-direction: column;
 	gap: 8px;
 	min-height: 0;
+	min-width: 0;
 	height: 100%;
-	overflow: auto;
+	overflow-x: hidden;
+	overflow-y: auto;
 }
 
 .dashboardHero {
@@ -1866,6 +1871,8 @@
 	letter-spacing: 0.04em;
 	font-weight: 800;
 	margin: 4px 0 2px;
+	overflow-wrap: anywhere;
+	word-break: break-word;
 }
 
 .recordSubtitle {
@@ -2008,6 +2015,8 @@
 	border-radius: 0;
 	display: grid;
 	gap: 8px;
+	min-width: 0;
+	max-width: 100%;
 }
 
 .detailSectionTitle {
@@ -2072,7 +2081,10 @@
 	font-size: 12px;
 	font-weight: 700;
 	letter-spacing: 0.03em;
-	white-space: nowrap;
+	white-space: normal;
+	overflow-wrap: anywhere;
+	word-break: break-word;
+	max-width: 100%;
 	border-radius: 0;
 }
 
@@ -2271,7 +2283,7 @@
 
 .detailExamGrid {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
 	gap: 8px;
 }
 
@@ -2987,12 +2999,13 @@
 
 @media (max-width: 1280px) {
 	.layout {
-		grid-template-columns: 1fr;
+		grid-template-columns: minmax(0, 1fr);
 		grid-template-areas:
 			'right'
 			'center'
 			'middle';
 		height: auto;
+		overflow-x: hidden;
 	}
 
 	.centerPane,
@@ -3096,11 +3109,15 @@
 	transition: all 0.2s;
 	background: var(--content-surface-muted);
 	border: 1px solid var(--border);
+	min-width: 0;
+	max-width: 100%;
+	overflow-wrap: anywhere;
+	word-break: break-word;
 }
 
 .detailGrid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
 	gap: 8px;
 }
 
@@ -3115,6 +3132,8 @@
 	text-decoration: none;
 	transition: all 0.2s;
 	min-width: 0;
+	max-width: 100%;
+	overflow-wrap: anywhere;
 }
 
 .detailGridCard .detailRowName {
@@ -3128,7 +3147,7 @@
 
 @media (max-width: 720px) {
 	.detailGrid {
-		grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr));
 	}
 }
 
@@ -3155,6 +3174,8 @@
 	transition: all 0.2s;
 	position: relative;
 	overflow: hidden;
+	min-width: 0;
+	max-width: 100%;
 }
 .currentEmploymentRow:hover,
 .currentEmploymentRow:focus-visible {
@@ -3248,8 +3269,11 @@
 
 .detailRowMain {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: baseline;
 	gap: 8px;
+	min-width: 0;
+	max-width: 100%;
 }
 
 .detailRowName {
@@ -3258,6 +3282,11 @@
 	font-size: 15px;
 	letter-spacing: 0.04em;
 	text-transform: capitalize;
+	min-width: 0;
+	flex: 1 1 auto;
+	white-space: normal;
+	overflow-wrap: anywhere;
+	word-break: break-word;
 }
 
 .detailRowMeta {
@@ -3265,6 +3294,9 @@
 	color: #94a3b8;
 	font-family: inherit;
 	letter-spacing: 0.02em;
+	white-space: normal;
+	overflow-wrap: anywhere;
+	word-break: break-word;
 }
 
 .currentConnectionRow {
@@ -3279,6 +3311,8 @@
 	transition: all 0.2s;
 	position: relative;
 	overflow: hidden;
+	min-width: 0;
+	max-width: 100%;
 }
 
 .currentConnectionRow::before {
@@ -3450,7 +3484,7 @@
 
 .orangeVectorGrid {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
 	gap: 16px;
 	position: relative;
 	z-index: 1;
@@ -3580,8 +3614,9 @@
 	align-items: center;
 	gap: 6px;
 	flex: 1 1 180px;
-	min-width: 160px;
+	min-width: 0;
 	width: auto;
+	max-width: 100%;
 	margin-bottom: 0;
 	padding: 4px 6px;
 	border: 1px solid rgba(71, 85, 105, 0.4);
@@ -3604,7 +3639,9 @@
 	color: #bfdbfe;
 	font-size: 11px;
 	font-weight: 600;
-	white-space: nowrap;
+	white-space: normal;
+	overflow-wrap: anywhere;
+	max-width: 100%;
 }
 
 .filterTagChipRemove {

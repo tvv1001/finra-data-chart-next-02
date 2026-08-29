@@ -1,12 +1,36 @@
 {
   "firms": [
     {
-      "id": 16361,
-      "name": "BANC OF AMERICA INVESTMENT SERVICES, INC."
+      "id": 7471,
+      "name": "PRUDENTIAL-BACHE SECURITIES INC."
+    },
+    {
+      "id": 630,
+      "name": "OPPENHEIMER & CO., INC."
+    },
+    {
+      "id": 4,
+      "name": "A. G. EDWARDS & SONS, INC."
+    },
+    {
+      "id": 599,
+      "name": "WM FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 41506,
+      "name": "STERLING FINANCIAL INVESTMENT GROUP, INC."
+    },
+    {
+      "id": 104065,
+      "name": "NEWBRIDGE SECURITIES CORPORATION"
     },
     {
       "id": 7691,
       "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 16361,
+      "name": "BANC OF AMERICA INVESTMENT SERVICES, INC."
     },
     {
       "id": 104536,
@@ -35,10 +59,6 @@
     {
       "id": 119241,
       "name": "HERITAGE ADVISORY SERVICES, INC."
-    },
-    {
-      "id": 7471,
-      "name": "PRUDENTIAL-BACHE SECURITIES INC."
     },
     {
       "id": 5249,
@@ -358,6 +378,10 @@
     }
   ],
   "individuals": [
+    {
+      "id": 1447695,
+      "name": "NANCY VEGA-SELLITRI"
+    },
     {
       "id": 2218549,
       "name": "AMBER CARDEN"
