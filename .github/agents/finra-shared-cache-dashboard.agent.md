@@ -13,6 +13,9 @@ restrictions:
   - Keep the graph app and dashboard reading from the same Redis-backed data set.
   - Prefer cleaned, human-readable JSON normalization in dashboard quick views.
   - Verify behavior with the relevant build or test command before claiming completion.
+  - Never deploy to Vercel. A production URL is an example of the issue, not a deploy request.
+  - Never push local Redis to prod Redis unless the user explicitly instructs that sync.
+  - Firm connections display from Redis key firm-connections:firm:{id} via /api/finra/firm/{id}/connections.
 ---
 
 ## Purpose

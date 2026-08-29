@@ -10,7 +10,7 @@ Summary
 
 ## Local-first policy (current)
 
-- Default to local Redis for all reads/writes during local development and routine debugging. Do not write to the cloud Upstash databases unless the user explicitly instructs a deploy/push/sync-to-prod action.
+- Default to local Redis for all reads/writes during local development and routine debugging. Do not write to the cloud Upstash databases unless the user explicitly instructs a deploy/push/sync-to-prod action. A production URL is only an example of a bug; it is not permission to sync Redis or deploy Vercel.
 - Local Redis reads are safe at any time for comparing/validating against cloud data (read-only diagnostics).
 - Only push local → cloud (or flush/replace cloud data) when the user explicitly asks for a deploy/sync/migration step. Always confirm before any destructive operation (`FLUSHALL`, bulk overwrite) on a cloud DB.
 
@@ -22,7 +22,7 @@ This app (and the sibling `dashboard-crds` app — see cross-app note below) wri
 
 These two databases can silently drift apart over time (e.g. a dual-write path fails on one side, or a serverless read auto-caches into only one DB). When reconciling:
 - Never assume one side is authoritative by default — compare key sets (`SCAN`) across local, DB1, and DB2 first.
-- **Merge, don't overwrite blindly.** Keys present only on one cloud DB (e.g. freshly fetched `finra:firm:<CRD>`, `graph:firm-connections:v10:<CRD>` roster caches written by live prod traffic) are real data, not garbage — pull them into local and the other cloud DB rather than deleting them.
+- **Merge, don't overwrite blindly.** Keys present only on one cloud DB (e.g. freshly fetched `finra:firm:<CRD>`, `firm-connections:firm:<CRD>` rosters) are real data, not garbage — pull them into local and the other cloud DB rather than deleting them. Never do that merge unless the user asked for a Redis sync.
 - Keys present only in local (e.g. manually-added `non-live-crds:*` keys) should be pushed to both cloud DBs so all three stay consistent.
 - After reconciliation, verify with an exact key-count match across all three stores (local, DB1, DB2) plus spot-checks of specific keys (byte-for-byte value comparison, not just presence).
 - Chunk large single-command payloads (e.g. big hash `HSET`s with thousands of fields) into sub-batches of ~500 fields before writing to Upstash — a single oversized command can exceed Upstash's 10MB REST request-size limit even with pipeline-level batching.
@@ -46,7 +46,7 @@ These two databases can silently drift apart over time (e.g. a dual-write path f
   - `https://api.brokercheck.finra.org/search/individual?firm=<CRD>&includePrevious&hl=true`
   - `https://api.adviserinfo.sec.gov/search/individual?firm=<CRD>&includePrevious`
 - **Supplementary rule**: a connection can also be established purely because an individual's own detail record lists that firm CRD as a current/previous employer — even if the official firm-roster search missed that person (pagination gaps, rate limits, etc.). Graph-derived reverse links (from `getConnectionsFromGraphStore()`, which scans individual↔firm employment edges already present in the persisted graph) must always be merged in alongside the official roster results, not used only as a fallback when the official search is empty.
-- Result is cached at `graph:firm-connections:v10:<CRD>` in Redis (local + both cloud DBs) and in `data/firm-connections/<CRD>.json` locally.
+- Display roster is Redis `firm-connections:firm:<CRD>` (local when `USE_LOCAL_REDIS=1`). Dashboard and graph load it via `/api/finra/firm/<CRD>/connections`. Do not inline that roster into `?merged=1` firm detail. Disk `data/firm-connections/<CRD>.json` is a local compute artifact, not the UI source. Push that key to cloud Redis only when the user explicitly asks.
 
 ## Broker-id mirror keys (`{finra|sec}:firm:<CRD>_brokers:current|previous`)
 

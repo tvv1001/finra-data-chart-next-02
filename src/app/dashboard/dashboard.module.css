@@ -3099,6 +3099,12 @@
 	gap: 6px;
 }
 
+.connectionsLazySentinel {
+	height: 1px;
+	width: 100%;
+	pointer-events: none;
+}
+
 .detailRow {
 	display: flex;
 	flex-direction: column;

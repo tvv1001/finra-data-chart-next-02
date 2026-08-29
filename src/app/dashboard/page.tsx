@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Fragment, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { Fragment, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type MouseEvent, type RefObject } from 'react';
 import { buildJsonDisplayTree, coerceStructuredValue, normalizeRenderablePayload, renderJsonForDisplay } from '../../lib/dashboard-json';
 import { resolveMainRecordTitle } from '../../lib/dashboard-record-title';
 import { getRecordDisplayName } from '../../lib/recordDisplay';
@@ -66,6 +66,36 @@ type DashboardRecordSnapshot = {
 };
 
 const DASHBOARD_RECORD_CACHE_MAX = 40;
+const CONNECTION_PAGE_SIZE = 80;
+
+function ConnectionsLazySentinel({
+	rootRef,
+	enabled,
+	page,
+	onLoadMore,
+}: {
+	rootRef: RefObject<HTMLElement | null>;
+	enabled: boolean;
+	page: number;
+	onLoadMore: () => void;
+}) {
+	const nodeRef = useRef<HTMLDivElement | null>(null);
+	useEffect(() => {
+		if (!enabled) return;
+		const node = nodeRef.current;
+		if (!node) return;
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries.some((entry) => entry.isIntersecting)) onLoadMore();
+			},
+			{ root: rootRef.current, rootMargin: '360px 0px', threshold: 0 },
+		);
+		observer.observe(node);
+		return () => observer.disconnect();
+	}, [enabled, onLoadMore, page, rootRef]);
+	if (!enabled) return null;
+	return <div ref={nodeRef} className={styles.connectionsLazySentinel} aria-hidden='true' />;
+}
 const dashboardMergedDetailCache = new Map<string, any>();
 const dashboardRecordSnapshotCache = new Map<string, DashboardRecordSnapshot>();
 
@@ -2513,9 +2543,14 @@ function DashboardPageInner() {
 		liveText: connectionsFilterQuery,
 		justCommitted: connectionsFilterJustCommitted,
 	});
-	const CONNECTION_PAGE_SIZE = 80;
 	const [currentRenderCount, setCurrentRenderCount] = useState(CONNECTION_PAGE_SIZE);
 	const [previousRenderCount, setPreviousRenderCount] = useState(CONNECTION_PAGE_SIZE);
+	const loadMoreCurrentConnections = useCallback(() => {
+		setCurrentRenderCount((count) => count + CONNECTION_PAGE_SIZE);
+	}, []);
+	const loadMorePreviousConnections = useCallback(() => {
+		setPreviousRenderCount((count) => count + CONNECTION_PAGE_SIZE);
+	}, []);
 	const currentConnectionPartition = useMemo(() => {
 		const cards = detailedMainRecord?.currentConnectionCards || [];
 		return partitionConnectionsByFilter(
@@ -5468,14 +5503,12 @@ function DashboardPageInner() {
 																<section className={styles.detailSection}>
 																	<h4 className={styles.detailSectionTitle}>Current Connections ({detailedMainRecord.currentConnectionCards.length})</h4>
 																	<div className={styles.detailList}>{filteredCurrentConnectionCards.map((item, idx) => renderConnectionRow(item, idx, 'current'))}</div>
-																	{currentRenderCount < filteredCurrentConnectionCardsAll.length ?
-																		<button
-																			type='button'
-																			className={styles.filterLineBtn}
-																			onClick={() => setCurrentRenderCount((count) => count + 200)}>
-																			Show more current ({(filteredCurrentConnectionCardsAll.length - currentRenderCount).toLocaleString()} remaining)
-																		</button>
-																	:	null}
+																	<ConnectionsLazySentinel
+																		rootRef={dashboardContentRef}
+																		enabled={currentRenderCount < filteredCurrentConnectionCardsAll.length}
+																		page={currentRenderCount}
+																		onLoadMore={loadMoreCurrentConnections}
+																	/>
 																</section>
 															)}
 
@@ -5483,14 +5516,12 @@ function DashboardPageInner() {
 																<section className={styles.detailSection}>
 																	<h4 className={styles.detailSectionTitle}>Previous Connections ({detailedMainRecord.previousConnectionCards.length})</h4>
 																	<div className={styles.detailList}>{filteredPreviousConnectionCards.map((item, idx) => renderConnectionRow(item, idx, 'previous'))}</div>
-																	{previousRenderCount < filteredPreviousConnectionCardsAll.length ?
-																		<button
-																			type='button'
-																			className={styles.filterLineBtn}
-																			onClick={() => setPreviousRenderCount((count) => count + 200)}>
-																			Show more previous ({(filteredPreviousConnectionCardsAll.length - previousRenderCount).toLocaleString()} remaining)
-																		</button>
-																	:	null}
+																	<ConnectionsLazySentinel
+																		rootRef={dashboardContentRef}
+																		enabled={previousRenderCount < filteredPreviousConnectionCardsAll.length}
+																		page={previousRenderCount}
+																		onLoadMore={loadMorePreviousConnections}
+																	/>
 																</section>
 															)}
 														</>

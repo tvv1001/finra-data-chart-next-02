@@ -17,7 +17,7 @@ This app is a **PWA** and is designed to run from **Redis cache only** when conf
 3. **Two Upstash cloud Redis DBs** (primary + mirror) — must **stay in sync**. Used in production to balance load / avoid bottlenecks when hydrating many nodes. Never mutate cloud casually; sync/deploy only when the user asks.
 4. **Search sidecars** (`data/national/search-index.*.json.gz` → `public/search-indexes/`) — CRD→name catalog for search/expand/labels. Prefer sidecar `firm_name` over `Firm <CRD>` stubs. See `docs/search-sidecar.md`.
 
-**Production is reference-only** for agent work: read/audit OK; writes/deploys go `develop` → normal release. Details: `.github/instructions/prod-reference-workflow.instructions.md` and `.github/instructions/upstash-redis-and-crd-check.instructions.md`.
+**Production is reference-only** for agent work: read/audit OK; writes/deploys go `develop` → normal release. A shared production URL is **an example of the issue** — never deploy to Vercel from the agent, and never push local Redis to prod Redis unless the user explicitly instructs that sync. Details: `.github/instructions/prod-reference-workflow.instructions.md` and `.github/instructions/upstash-redis-and-crd-check.instructions.md`. Grok workflow: `/local-first-fix` (`.grok/workflows/local-first-fix.rhai`).
 
 ## Env flags (see `.env.local`)
 
@@ -83,4 +83,6 @@ Node-click reveal/spread may move the clicked node and newly revealed neighbors 
 - **Do** treat person current/previous employment as the freshest reverse index for firm rosters (official firm-roster search is incomplete for many low/old firm CRDs). Prefer the low-frequency Redis-only job: `pnpm run reverse-index:firm-connections` (cursor SCAN, skip-unchanged writes, no external APIs). Optional monthly cron: `/api/finra/firm-connections-reverse-index`. Individual page loads may also upsert with skip-unchanged.
 - **Don’t** treat incomplete `data/` as a blocker for Redis-only / PWA paths.
 - **Don’t** write production Upstash unless the user explicitly requests deploy/sync.
+- **Don’t** deploy to Vercel from an agent session. Don’t treat a prod URL as a deploy request.
 - **Don’t** invent alternate ingestion paths; dashboard + approved cron/scripts own CRD intake.
+- **Do** treat Redis `firm-connections:firm:{id}` as the dashboard/graph people roster. Firm detail stays small; `/connections` reads that key.

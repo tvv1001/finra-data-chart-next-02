@@ -5,60 +5,6 @@ let localIoRedis: IORedis | null = null;
 // Cache Upstash client instances to avoid recreating HTTP clients on every
 // invocation which adds latency and extra resource usage.
 const upstashClientCache = new Map<string, UpstashRedis>();
-let prodReplicaClients: UpstashRedis[] | null = null;
-
-const CANONICAL_FIRM_CONNECTIONS_KEY = /^firm-connections:firm:\d{1,10}$/;
-
-function getProdReplicaClients(): UpstashRedis[] {
-	if (prodReplicaClients) return prodReplicaClients;
-	const clients: UpstashRedis[] = [];
-	const url1 = process.env.UPSTASH_REDIS_REST_URL;
-	const token1 = process.env.UPSTASH_REDIS_REST_TOKEN;
-	const url2 = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2;
-	const token2 = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN__2;
-	if (url1 && token1) clients.push(new UpstashRedis({ url: url1, token: token1 }));
-	if (url2 && token2) clients.push(new UpstashRedis({ url: url2, token: token2 }));
-	prodReplicaClients = clients;
-	return clients;
-}
-
-function isCanonicalFirmConnectionsKey(key: unknown): key is string {
-	return CANONICAL_FIRM_CONNECTIONS_KEY.test(String(key || ''));
-}
-
-async function replicateFirmConnectionCommands(commands: any[][]) {
-	if (String(process.env.UPSTASH_ALLOW_WRITES || '0') !== '1') return;
-	const clients = getProdReplicaClients();
-	if (!clients.length) return;
-
-	for (const cmd of commands) {
-		if (!Array.isArray(cmd) || !cmd.length) continue;
-		const op = String(cmd[0] || '').toUpperCase();
-		if (op === 'SET' && isCanonicalFirmConnectionsKey(cmd[1])) {
-			const key = String(cmd[1]);
-			const value = cmd[2];
-			const exAt = cmd.findIndex((part) => String(part).toUpperCase() === 'EX');
-			const ex = exAt >= 0 ? Number(cmd[exAt + 1]) : null;
-			await Promise.all(
-				clients.map((client) =>
-					(ex && Number.isFinite(ex) ? client.set(key, value, { ex }) : client.set(key, value)).catch((err: any) => {
-						console.warn(`[Redis] prod replica SET failed for ${key}:`, err?.message || err);
-					}),
-				),
-			);
-		} else if (op === 'DEL') {
-			const keys = cmd.slice(1).filter(isCanonicalFirmConnectionsKey);
-			if (!keys.length) continue;
-			await Promise.all(
-				clients.map((client) =>
-					client.del(...keys).catch((err: any) => {
-						console.warn('[Redis] prod replica DEL failed:', err?.message || err);
-					}),
-				),
-			);
-		}
-	}
-}
 
 function decodeRedisResult(value: any): any {
 	if (Buffer.isBuffer(value)) return value.toString('utf-8');
@@ -85,15 +31,10 @@ async function executeLocalRequest(req: any): Promise<any> {
 			pipeline.sendCommand(new IORedis.Command(cmd[0], cmd.slice(1)));
 		});
 		const res = await pipeline.exec();
-		const mapped = res?.map((r) => (r[0] ? { error: r[0].message } : { result: decodeRedisResult(r[1]) }));
-		if (!mapped?.some((row) => row && 'error' in row && row.error)) {
-			await replicateFirmConnectionCommands(body);
-		}
-		return mapped;
+		return res?.map((r) => (r[0] ? { error: r[0].message } : { result: decodeRedisResult(r[1]) }));
 	} else if (Array.isArray(body)) {
 		try {
 			const res = await localIoRedis.sendCommand(new IORedis.Command(body[0], body.slice(1)));
-			await replicateFirmConnectionCommands([body]);
 			return { result: decodeRedisResult(res) };
 		} catch (e: any) {
 			return { error: e.message };
