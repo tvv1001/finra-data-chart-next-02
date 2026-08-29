@@ -45,6 +45,51 @@ type DashboardAction = 'fetch-crds' | 'list-new-crds';
 // browser back/forward navigation.
 const dashboardScrollPositionsByRecord = new Map<string, number>();
 let dashboardCurrentScrollRecordKey: string | null = null;
+// One-shot: firm → connection → person → reopen same firm scrolls to the connections filter.
+// Kept in sessionStorage too so a route remount still sees it.
+const FIRM_CONNECTIONS_RETURN_STORAGE_KEY = 'finra_dashboard_connections_return';
+const FIRM_CONNECTIONS_ANCHOR_ID = 'dashboard-firm-connections';
+let pendingFirmConnectionsReturnFirmId: string | null = null;
+// While set, skip restoring a stale firm scrollTop so the connections anchor can win.
+let skipScrollRestoreForKey: string | null = null;
+
+function getScrollParent(el: HTMLElement | null): HTMLElement | null {
+	let node = el?.parentElement ?? null;
+	while (node && node !== document.body) {
+		const style = window.getComputedStyle(node);
+		const overflowY = style.overflowY;
+		if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight + 1) {
+			return node;
+		}
+		node = node.parentElement;
+	}
+	return null;
+}
+
+function readPendingFirmConnectionsReturn(): string | null {
+	if (pendingFirmConnectionsReturnFirmId) return pendingFirmConnectionsReturnFirmId;
+	if (typeof window === 'undefined') return null;
+	try {
+		const raw = window.sessionStorage.getItem(FIRM_CONNECTIONS_RETURN_STORAGE_KEY);
+		const firmId = String(raw || '').trim();
+		if (!firmId) return null;
+		pendingFirmConnectionsReturnFirmId = firmId;
+		return firmId;
+	} catch {
+		return null;
+	}
+}
+
+function writePendingFirmConnectionsReturn(firmId: string | null) {
+	pendingFirmConnectionsReturnFirmId = firmId;
+	if (typeof window === 'undefined') return;
+	try {
+		if (!firmId) window.sessionStorage.removeItem(FIRM_CONNECTIONS_RETURN_STORAGE_KEY);
+		else window.sessionStorage.setItem(FIRM_CONNECTIONS_RETURN_STORAGE_KEY, firmId);
+	} catch {
+		// ignore
+	}
+}
 
 function persistDashboardScroll(container?: HTMLElement | null) {
 	const key = dashboardCurrentScrollRecordKey;
@@ -2143,6 +2188,11 @@ function DashboardPageInner() {
 	useEffect(() => {
 		if (recordViewLoading || !currentRecordId || !currentRecordEntity) return;
 		const key = `${currentRecordEntity}:${currentRecordId}`;
+		// Firm→connection return trip uses the connections-filter anchor instead of raw scrollTop.
+		const pendingReturnFirmId = readPendingFirmConnectionsReturn();
+		if (skipScrollRestoreForKey === key || (pendingReturnFirmId && pendingReturnFirmId === currentRecordId)) {
+			return;
+		}
 		const target = dashboardScrollPositionsByRecord.get(key) ?? 0;
 		const container = dashboardContentRef.current;
 		if (!container) return;
@@ -2608,6 +2658,71 @@ function DashboardPageInner() {
 		[filteredPreviousConnectionCardsAll, previousRenderCount],
 	);
 
+	// One-shot return: firm → connection → person → same firm card scrolls to the connections filter.
+	useEffect(() => {
+		if (recordViewLoading || currentRecordEntity !== 'firm' || !currentRecordId) return;
+		const pendingFirmId = readPendingFirmConnectionsReturn();
+		if (!pendingFirmId || pendingFirmId !== currentRecordId) return;
+
+		const stillLoadingConnections =
+			connectionsLoadingFirmId === currentRecordId &&
+			(detailedMainRecord?.currentConnectionCards.length || 0) === 0 &&
+			(detailedMainRecord?.previousConnectionCards.length || 0) === 0;
+		if (stillLoadingConnections) return;
+
+		let cancelled = false;
+		let done = false;
+		const tryScroll = () => {
+			if (cancelled || done) return;
+			const el = document.getElementById(FIRM_CONNECTIONS_ANCHOR_ID);
+			if (!el) return;
+			const preferred = dashboardContentRef.current;
+			const container =
+				preferred && preferred.scrollHeight > preferred.clientHeight + 1 ? preferred : getScrollParent(el);
+			if (!container || container.scrollHeight <= container.clientHeight + 1) return;
+
+			const containerRect = container.getBoundingClientRect();
+			const elRect = el.getBoundingClientRect();
+			const nextTop = container.scrollTop + (elRect.top - containerRect.top) - 16;
+			container.scrollTop = Math.max(0, nextTop);
+
+			const afterRect = el.getBoundingClientRect();
+			if (afterRect.top > containerRect.top + 48) return;
+
+			dashboardScrollPositionsByRecord.set(`firm:${currentRecordId}`, container.scrollTop);
+			writePendingFirmConnectionsReturn(null);
+			if (skipScrollRestoreForKey === `firm:${currentRecordId}`) {
+				skipScrollRestoreForKey = null;
+			}
+			done = true;
+		};
+		tryScroll();
+		const raf = window.requestAnimationFrame(() => {
+			tryScroll();
+			window.requestAnimationFrame(tryScroll);
+		});
+		const timers = [50, 150, 350, 800, 1600, 3000].map((ms) => window.setTimeout(tryScroll, ms));
+		const giveUp = window.setTimeout(() => {
+			if (done || cancelled) return;
+			writePendingFirmConnectionsReturn(null);
+			if (skipScrollRestoreForKey === `firm:${currentRecordId}`) skipScrollRestoreForKey = null;
+		}, 5000);
+		return () => {
+			cancelled = true;
+			window.cancelAnimationFrame(raf);
+			for (const timer of timers) window.clearTimeout(timer);
+			window.clearTimeout(giveUp);
+		};
+	}, [
+		recordViewLoading,
+		currentRecordId,
+		currentRecordEntity,
+		mainJson,
+		connectionsLoadingFirmId,
+		detailedMainRecord?.currentConnectionCards.length,
+		detailedMainRecord?.previousConnectionCards.length,
+	]);
+
 	const additionalDetailsSourceLabel = useMemo(() => {
 		if (!mainJson || typeof mainJson !== 'object') {
 			return currentRecordSource ? String(currentRecordSource).toUpperCase() : '';
@@ -2990,6 +3105,13 @@ function DashboardPageInner() {
 
 		event.preventDefault();
 		event.stopPropagation();
+
+		// Leaving a firm via a connection card: on return to this firm, scroll to the connections filter.
+		if (currentRecordEntity === 'firm' && currentRecordId && parsed.entity === 'individual') {
+			writePendingFirmConnectionsReturn(currentRecordId);
+			skipScrollRestoreForKey = `firm:${currentRecordId}`;
+			dashboardScrollPositionsByRecord.delete(`firm:${currentRecordId}`);
+		}
 
 		const orderedSources: SearchResultSource[] = parsed.source === 'sec' ? ['sec', 'finra'] : ['finra', 'sec'];
 
@@ -4245,8 +4367,9 @@ function DashboardPageInner() {
 							onScroll={(e) => {
 								persistDashboardScroll(e.currentTarget);
 							}}
-							onClickCapture={() => {
+							onClickCapture={(event) => {
 								persistDashboardScroll(dashboardContentRef.current);
+								handleInternalDashboardLinkClick(event);
 							}}>
 							{crawlProgress && crawlProgress.active && (
 								<div className={styles.crawlBanner}>
@@ -5268,7 +5391,7 @@ function DashboardPageInner() {
 											connectionsLoadingFirmId === currentRecordId &&
 											detailedMainRecord.currentConnectionCards.length === 0 &&
 											detailedMainRecord.previousConnectionCards.length === 0 ? (
-												<section className={styles.detailSection}>
+												<section id={FIRM_CONNECTIONS_ANCHOR_ID} className={styles.detailSection}>
 													<h4 className={styles.detailSectionTitle}>Loading connections…</h4>
 												</section>
 											) : (
@@ -5411,9 +5534,10 @@ function DashboardPageInner() {
 														}
 
 														if (item.crd) {
+															const entity = item.entity || 'individual';
 															return (
 																<Link
-																	href={`/dashboard/${item.entity || 'firm'}/${item.crd}`}
+																	href={`/dashboard/${entity}/${item.crd}`}
 																	key={`${kind}-conn-${idx}`}
 																	className={`${styles.detailRow} ${styles.detailRowInteractive} ${kind === 'current' ? styles.currentEmploymentRow : ''} ${rowKindClass} ${unmatchedClass}`}>
 																	{content}
@@ -5433,7 +5557,7 @@ function DashboardPageInner() {
 													return (
 														<>
 															{(detailedMainRecord.currentConnectionCards.length > 0 || detailedMainRecord.previousConnectionCards.length > 0) && (
-																<div className={styles.filterLine}>
+																<div id={FIRM_CONNECTIONS_ANCHOR_ID} className={styles.filterLine}>
 																	<label className={styles.filterEnabledLabel}>
 																		<input
 																			type='checkbox'

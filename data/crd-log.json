@@ -1,24 +1,92 @@
 {
   "firms": [
     {
-      "id": 10111,
-      "name": "FIRST AMERICAN NATIONAL SECURITIES, INC."
+      "id": 7471,
+      "name": "PRUDENTIAL-BACHE SECURITIES INC."
+    },
+    {
+      "id": 630,
+      "name": "OPPENHEIMER & CO., INC."
+    },
+    {
+      "id": 4,
+      "name": "A. G. EDWARDS & SONS, INC."
+    },
+    {
+      "id": 599,
+      "name": "WM FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 41506,
+      "name": "STERLING FINANCIAL INVESTMENT GROUP, INC."
+    },
+    {
+      "id": 104065,
+      "name": "NEWBRIDGE SECURITIES CORPORATION"
     },
     {
       "id": 7691,
       "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
     },
     {
-      "id": 199,
-      "name": "D.A. DAVIDSON & CO."
+      "id": 829,
+      "name": "THOMSON MCKINNON SECURITIES INC."
+    },
+    {
+      "id": 501,
+      "name": "L. F. ROTHSCHILD, UNTERBERG, TOWBIN"
+    },
+    {
+      "id": 7059,
+      "name": "SMITH BARNEY, HARRIS UPHAM & CO., INCORPORATED"
+    },
+    {
+      "id": 7382,
+      "name": "BALFOUR SECURITIES CORPORATION"
+    },
+    {
+      "id": 249,
+      "name": "EDWARD A. VINER & CO., INC."
     },
     {
       "id": 8174,
-      "name": "UBS FINANCIAL SERVICES INC."
+      "name": "PAINEWEBBER INCORPORATED"
     },
     {
-      "id": 7471,
-      "name": "PRUDENTIAL SECURITIES INCORPORATED"
+      "id": 453,
+      "name": "J.J.B. HILLIARD, W.L. LYONS, INC."
+    },
+    {
+      "id": 19616,
+      "name": "WACHOVIA SECURITIES, LLC"
+    },
+    {
+      "id": 3496,
+      "name": "STEPHENS"
+    },
+    {
+      "id": 463,
+      "name": "JANNEY MONTGOMERY SCOTT LLC"
+    },
+    {
+      "id": 6363,
+      "name": "AMERIPRISE FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 572,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH, INC."
+    },
+    {
+      "id": 7506,
+      "name": "LEHMAN BROTHERS INC."
+    },
+    {
+      "id": 10111,
+      "name": "FIRST AMERICAN NATIONAL SECURITIES, INC."
+    },
+    {
+      "id": 199,
+      "name": "D.A. DAVIDSON & CO."
     },
     {
       "id": 283942,
@@ -37,24 +105,12 @@
       "name": "GREENWAY CAPITAL CORP."
     },
     {
-      "id": 4,
-      "name": "A. G. EDWARDS & SONS, INC."
-    },
-    {
       "id": 372,
       "name": "GRUNTAL & CO. INCORPORATED"
     },
     {
-      "id": 463,
-      "name": "JANNEY MONTGOMERY SCOTT INC."
-    },
-    {
       "id": 298,
       "name": "FIRST ALBANY CORPORATION"
-    },
-    {
-      "id": 19616,
-      "name": "FIRST UNION SECURITIES, INC."
     },
     {
       "id": 11217,
@@ -77,36 +133,12 @@
       "name": "BANC OF AMERICA SECURITIES LLC"
     },
     {
-      "id": 630,
-      "name": "OPPENHEIMER & CO., INC."
-    },
-    {
-      "id": 599,
-      "name": "WM FINANCIAL SERVICES, INC."
-    },
-    {
-      "id": 41506,
-      "name": "STERLING FINANCIAL INVESTMENT GROUP, INC."
-    },
-    {
-      "id": 104065,
-      "name": "NEWBRIDGE SECURITIES CORPORATION"
-    },
-    {
       "id": 104536,
       "name": "KAYNE ANDERSON CAPITAL ADVISORS LP"
     },
     {
       "id": 101180,
       "name": "FALLBROOK CAPITAL SECURITIES CORP."
-    },
-    {
-      "id": 7506,
-      "name": "LEHMAN BROTHERS INC."
-    },
-    {
-      "id": 7059,
-      "name": "CITIGROUP GLOBAL MARKETS INC."
     },
     {
       "id": 7556,
@@ -131,10 +163,6 @@
     {
       "id": 18272,
       "name": "ALLSTATE FINANCIAL SERVICES, LLC"
-    },
-    {
-      "id": 6363,
-      "name": "AMERIPRISE FINANCIAL SERVICES, INC."
     },
     {
       "id": 45915,
@@ -419,6 +447,18 @@
   ],
   "individuals": [
     {
+      "id": 1447695,
+      "name": "NANCY VEGA-SELLITRI"
+    },
+    {
+      "id": 724416,
+      "name": "GLENDA GAIL MCCONNEGHEY"
+    },
+    {
+      "id": 804997,
+      "name": "JOSEPH HOWARD EVELO"
+    },
+    {
       "id": 1552056,
       "name": "DON RAY MCDONALD"
     },
@@ -457,10 +497,6 @@
     {
       "id": 1547727,
       "name": "Ronald J DiPrinzio"
-    },
-    {
-      "id": 1447695,
-      "name": "NANCY VEGA-SELLITRI"
     },
     {
       "id": 2218549,
