@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { Fragment, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { buildJsonDisplayTree, coerceStructuredValue, normalizeRenderablePayload, renderJsonForDisplay } from '../../lib/dashboard-json';
 import { resolveMainRecordTitle } from '../../lib/dashboard-record-title';
 import { getRecordDisplayName } from '../../lib/recordDisplay';
@@ -33,6 +33,7 @@ import {
 } from '@/lib/filterTags';
 import VectorLoader from '@/components/VectorLoader';
 import { writeQueueGraphBridge } from '@/lib/queueGraphBridge';
+import { readVisited, readVisitedSync, rememberVisited, visitConnectionsKey, visitDetailKey, visitSnapshotKey } from '@/lib/clientVisitCache';
 import styles from './dashboard.module.css';
 
 type DashboardAction = 'fetch-crds' | 'list-new-crds';
@@ -75,6 +76,19 @@ function rememberDashboardRecordSnapshot(key: string, snapshot: DashboardRecordS
 		const oldest = dashboardRecordSnapshotCache.keys().next().value;
 		if (oldest == null) break;
 		dashboardRecordSnapshotCache.delete(oldest);
+	}
+	const [entity, id] = key.split(':');
+	if ((entity === 'firm' || entity === 'individual') && id) {
+		rememberVisited(visitSnapshotKey(entity, id), snapshot);
+		rememberVisited(visitDetailKey(entity, id), snapshot.payload);
+		if (entity === 'firm') {
+			const payload = snapshot.payload as Record<string, any>;
+			rememberVisited(visitConnectionsKey(id), {
+				found: true,
+				currentConnections: payload?.currentConnections || [],
+				previousConnections: payload?.previousConnections || [],
+			});
+		}
 	}
 }
 
@@ -1159,7 +1173,26 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 			);
 			const subtitle = [dateText, addressText].filter(Boolean).join(' • ');
 			const otherNamesArr = Array.isArray(record?.otherNames) ? record.otherNames.map((n: unknown) => String(n || '').trim()).filter(Boolean) : [];
-			const statusTag = pickFirstNonEmpty(record?.statusTag);
+			const bcScope = pickFirstNonEmpty(record?.bcScope, record?.firmBCScope);
+			const iaScope = pickFirstNonEmpty(record?.iaScope, record?.firmIAScope);
+			const evidence = Array.isArray(record?.evidence) ? record.evidence.map((tag: unknown) => String(tag || '')) : [];
+			const sourceTags = Array.from(
+				new Set(
+					[
+						...(Array.isArray(record?.sourceTags) ? record.sourceTags : []),
+						...(bcScope || record?.hasFinraData === true || evidence.some((tag) => /finra/i.test(tag)) ? ['FINRA'] : []),
+						...(iaScope || record?.hasSecData === true || evidence.some((tag) => /sec/i.test(tag)) ? ['SEC'] : []),
+					]
+						.map((tag) => String(tag || '').toUpperCase())
+						.filter((tag) => tag === 'FINRA' || tag === 'SEC'),
+				),
+			);
+			const statusTag = resolveEmploymentStatusTag({
+				...record,
+				statusTag: /^(active|inactive)$/i.test(String(record?.statusTag || '')) ? record.statusTag : undefined,
+				bcScope,
+				iaScope,
+			});
 			const result: {
 				title: string;
 				meta: string;
@@ -1168,9 +1201,13 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 				entity?: 'individual' | 'firm';
 				otherNames?: string[];
 				statusTag?: string;
+				sourceTags?: string[];
+				bcScope?: string;
+				iaScope?: string;
 				startDate?: string;
 				endDate?: string;
 				address?: string;
+				haystack?: string;
 			} = {
 				title: title || '',
 				meta: meta || '',
@@ -1178,6 +1215,9 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 			};
 			if (otherNamesArr.length) result.otherNames = otherNamesArr;
 			if (statusTag) result.statusTag = statusTag;
+			if (sourceTags.length) result.sourceTags = sourceTags;
+			if (bcScope) result.bcScope = bcScope;
+			if (iaScope) result.iaScope = iaScope;
 			if (startDate) result.startDate = startDate;
 			if (endDate) result.endDate = endDate;
 			if (addressText) result.address = addressText;
@@ -1185,6 +1225,10 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 				result.crd = crd;
 				result.entity = entityType;
 			}
+			result.haystack = [title, subtitle, meta, crd, addressText, statusTag, ...(sourceTags || []), ...otherNamesArr]
+				.filter(Boolean)
+				.join(' ')
+				.toLowerCase();
 			return title ? result : null;
 		})
 		.filter(Boolean) as Array<{
@@ -1195,9 +1239,13 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 		entity?: 'individual' | 'firm';
 		otherNames?: string[];
 		statusTag?: string;
+		sourceTags?: string[];
+		bcScope?: string;
+		iaScope?: string;
 		startDate?: string;
 		endDate?: string;
 		address?: string;
+		haystack?: string;
 	}>;
 }
 
@@ -1697,6 +1745,7 @@ function DashboardPageInner() {
 	const [editTemplateName, setEditTemplateName] = useState('');
 	const [editTemplateQueries, setEditTemplateQueries] = useState('');
 
+	const recordLoadGenRef = useRef(0);
 	const mergedDetailCacheRef = useRef(dashboardMergedDetailCache);
 	const jsonStringCacheRef = useRef(new Map<string, string>());
 	const activeLoadSourceKeyRef = useRef<string | null>(null);
@@ -2444,13 +2493,80 @@ function DashboardPageInner() {
 	}, [detailedMainRecord]);
 	const employmentFirmInfo = useFirmInfoByCrd(employmentFirmCrds);
 
-	// When arriving here via a connection card whose displayed firm name differs from this
-	// firm's current name (e.g. the firm has since renamed), the referring card passes that
-	// clicked name via `?fromName=` so we can highlight the matching other-name for context.
-	const highlightOtherNameFromNav = useMemo(() => {
-		const raw = searchParams?.get('fromName');
-		return raw ? raw.trim().toLowerCase() : '';
-	}, [searchParams]);
+	const connectionFilterPreviewUnfiltered = shouldPreviewUnfilteredConnections({
+		focused: connectionsFilterFocused,
+		liveText: connectionsFilterQuery,
+		justCommitted: connectionsFilterJustCommitted,
+	});
+	const currentConnectionPartition = useMemo(() => {
+		const cards = detailedMainRecord?.currentConnectionCards || [];
+		return partitionConnectionsByFilter(
+			cards,
+			(item) => item.haystack || [item.title, item.subtitle, item.meta, item.crd, item.address, item.statusTag, ...(item.sourceTags || []), ...(item.otherNames || [])].filter(Boolean).join(' '),
+			connectionsFilterTags,
+			connectionsFilterQuery.trim(),
+			connectionsFilterEnabled,
+			connectionFilterPreviewUnfiltered,
+		);
+	}, [
+		detailedMainRecord?.currentConnectionCards,
+		connectionsFilterTags,
+		connectionsFilterQuery,
+		connectionsFilterEnabled,
+		connectionFilterPreviewUnfiltered,
+	]);
+	const filteredCurrentConnectionCards = useMemo(
+		() => [...sortByMostRecentStartDate(currentConnectionPartition.matched), ...sortByMostRecentStartDate(currentConnectionPartition.unmatched)],
+		[currentConnectionPartition],
+	);
+
+	const deferredPreviousConnectionCards = useDeferredValue(detailedMainRecord?.previousConnectionCards || []);
+	const deferredPreviousFilterTags = useDeferredValue(connectionsFilterTags);
+	const deferredPreviousFilterQuery = useDeferredValue(connectionsFilterQuery);
+	const deferredPreviousFilterEnabled = useDeferredValue(connectionsFilterEnabled);
+	const deferredPreviousPreviewUnfiltered = useDeferredValue(connectionFilterPreviewUnfiltered);
+	const previousConnectionPartition = useMemo(() => {
+		return partitionConnectionsByFilter(
+			deferredPreviousConnectionCards,
+			(item) => item.haystack || [item.title, item.subtitle, item.meta, item.crd, item.address, item.statusTag, ...(item.sourceTags || []), ...(item.otherNames || [])].filter(Boolean).join(' '),
+			deferredPreviousFilterTags,
+			deferredPreviousFilterQuery.trim(),
+			deferredPreviousFilterEnabled,
+			deferredPreviousPreviewUnfiltered,
+		);
+	}, [
+		deferredPreviousConnectionCards,
+		deferredPreviousFilterTags,
+		deferredPreviousFilterQuery,
+		deferredPreviousFilterEnabled,
+		deferredPreviousPreviewUnfiltered,
+	]);
+	const filteredPreviousConnectionCardsAll = previousConnectionPartition.ordered;
+	const [previousRenderCount, setPreviousRenderCount] = useState(0);
+	useEffect(() => {
+		setPreviousRenderCount(0);
+		const total = filteredPreviousConnectionCardsAll.length;
+		if (!total) return;
+		let count = 0;
+		let raf = 0;
+		const pump = () => {
+			count = Math.min(total, count === 0 ? Math.min(80, total) : count + 160);
+			setPreviousRenderCount(count);
+			if (count < total) raf = window.requestAnimationFrame(pump);
+		};
+		raf = window.requestAnimationFrame(pump);
+		return () => window.cancelAnimationFrame(raf);
+	}, [
+		currentRecordId,
+		filteredPreviousConnectionCardsAll,
+		deferredPreviousFilterQuery,
+		deferredPreviousFilterTags,
+		deferredPreviousFilterEnabled,
+	]);
+	const filteredPreviousConnectionCards = useMemo(
+		() => filteredPreviousConnectionCardsAll.slice(0, previousRenderCount),
+		[filteredPreviousConnectionCardsAll, previousRenderCount],
+	);
 
 	const additionalDetailsSourceLabel = useMemo(() => {
 		if (!mainJson || typeof mainJson !== 'object') {
@@ -2988,8 +3104,13 @@ function DashboardPageInner() {
 
 	async function fetchMergedDetail(card: QueueCard) {
 		const cacheKey = `${card.entity}:${card.id}`;
-		const cached = mergedDetailCacheRef.current.get(cacheKey);
+		const cached = mergedDetailCacheRef.current.get(cacheKey) || readVisitedSync(visitDetailKey(card.entity, card.id));
 		if (cached) return cached;
+		const persisted = await readVisited(visitDetailKey(card.entity, card.id));
+		if (persisted) {
+			mergedDetailCacheRef.current.set(cacheKey, persisted);
+			return persisted;
+		}
 
 		const route = card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1&includeConnections=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
 		try {
@@ -3004,6 +3125,14 @@ function DashboardPageInner() {
 			const detail = await response.json();
 			if (detail && typeof detail === 'object') {
 				mergedDetailCacheRef.current.set(cacheKey, detail);
+				rememberVisited(visitDetailKey(card.entity, card.id), detail);
+				if (card.entity === 'firm') {
+					rememberVisited(visitConnectionsKey(card.id), {
+						found: true,
+						currentConnections: detail?.currentConnections || detail?.merged?.currentConnections || [],
+						previousConnections: detail?.previousConnections || detail?.merged?.previousConnections || [],
+					});
+				}
 			}
 			return detail;
 		} catch (err: any) {
@@ -3214,12 +3343,25 @@ function DashboardPageInner() {
 
 	async function loadQueueSourceJson(card: QueueCard, source: SearchResultSource) {
 		const sourceKey = `${card.entity}:${card.id}:${source}`;
-		if (activeLoadSourceKeyRef.current === sourceKey) return;
+		const loadGen = ++recordLoadGenRef.current;
+		const stillCurrent = () => recordLoadGenRef.current === loadGen;
 		persistDashboardScroll(dashboardContentRef.current);
 		dashboardCurrentScrollRecordKey = `${card.entity}:${card.id}`;
 		const cacheKey = `${card.entity}:${card.id}`;
-		const snapshot = dashboardRecordSnapshotCache.get(cacheKey);
-		if (snapshot) {
+		const snapshot =
+			dashboardRecordSnapshotCache.get(cacheKey) ||
+			readVisitedSync<DashboardRecordSnapshot>(visitSnapshotKey(card.entity, card.id));
+		if (!snapshot) {
+			const persistedSnapshot = await readVisited<DashboardRecordSnapshot>(visitSnapshotKey(card.entity, card.id));
+			if (!stillCurrent()) return;
+			if (persistedSnapshot?.payload) {
+				dashboardRecordSnapshotCache.set(cacheKey, persistedSnapshot);
+			}
+		}
+		if (!stillCurrent()) return;
+		const resolvedSnapshot = snapshot || dashboardRecordSnapshotCache.get(cacheKey);
+		if (resolvedSnapshot) {
+			const snapshot = resolvedSnapshot;
 			setRecordViewLoading(false);
 			setResult(null);
 			setMainJson(snapshot.payload);
@@ -3267,6 +3409,7 @@ function DashboardPageInner() {
 			let resolvedSource: SearchResultSource = source;
 
 			const mergedDetail = await fetchMergedDetail(card);
+			if (!stillCurrent()) return;
 			orderedSources = resolveOrderedSourcesFromDetail(mergedDetail, source, orderedSources);
 			for (const candidateSource of orderedSources) {
 				payload = extractPayloadFromDetail(mergedDetail, candidateSource);
@@ -3282,6 +3425,7 @@ function DashboardPageInner() {
 				const mergedHasAnySource = Boolean(mergedDetail?.sources?.finra || mergedDetail?.sources?.sec || mergedDetail?.finraNode || mergedDetail?.merged);
 				if (mergedFound || mergedHasAnySource) {
 					const fallbackDetail = await fetchFallbackDetail(card);
+					if (!stillCurrent()) return;
 					mergedDetailCacheRef.current.set(cacheKey, fallbackDetail);
 					orderedSources = resolveOrderedSourcesFromDetail(fallbackDetail, source, orderedSources);
 					for (const candidateSource of orderedSources) {
@@ -3296,6 +3440,7 @@ function DashboardPageInner() {
 
 				if (!payload) {
 					const refreshPayload = await refreshSingleCardRecord(card);
+					if (!stillCurrent()) return;
 					const refreshedItems = Array.isArray(refreshPayload?.results) ? refreshPayload.results : [];
 					if (refreshedItems.length > 0) {
 						mergedDetailCacheRef.current.delete(cacheKey);
@@ -3358,6 +3503,7 @@ function DashboardPageInner() {
 			if (!isOrphanPayload && detectedSourcesSet.size === 0 && resolvedSource) detectedSourcesSet.add(resolvedSource);
 			const detectedSources = Array.from(detectedSourcesSet);
 
+			if (!stillCurrent()) return;
 			const normalizedPayload = normalizePayloadForCleanView(payload) as Record<string, any>;
 			setMainJson(normalizedPayload);
 			setCurrentRecordSource(resolvedSource);
@@ -3444,8 +3590,10 @@ function DashboardPageInner() {
 				availableSources: detectedSources.length > 0 ? detectedSources : card.sources.map((entry) => entry.source),
 			});
 		} catch (error: any) {
+			if (!stillCurrent()) return;
 			setResult({ ok: false, error: error?.message || String(error) });
 		} finally {
+			if (!stillCurrent()) return;
 			setRecordViewLoading(false);
 			setActiveCardSourceKey((current) => (current === sourceKey ? null : current));
 			if (activeLoadSourceKeyRef.current === sourceKey) {
@@ -4355,12 +4503,10 @@ function DashboardPageInner() {
 														style={{ margin: 0 }}>
 														{detailedMainRecord.otherNames.map((name) => {
 															const formatted = formatOtherName(name, currentRecordEntity === 'firm');
-															const isHighlighted =
-																currentRecordEntity === 'firm' && highlightOtherNameFromNav && String(formatted).trim().toLowerCase() === highlightOtherNameFromNav;
 															return (
 																<span
 																	key={name}
-																	className={`${styles.headerOtherNameTag} ${isHighlighted ? styles.headerOtherNameTagHighlighted : ''}`}>
+																	className={styles.headerOtherNameTag}>
 																	{formatted}
 																</span>
 															);
@@ -4518,8 +4664,7 @@ function DashboardPageInner() {
 																</>
 															);
 															if (crd) {
-																const rowNameText = typeof rowName === 'string' ? rowName : '';
-																const href = rowNameText ? `/dashboard/firm/${crd}?fromName=${encodeURIComponent(rowNameText)}` : `/dashboard/firm/${crd}`;
+																const href = `/dashboard/firm/${crd}`;
 																return (
 																	<Link
 																		href={href}
@@ -4621,8 +4766,7 @@ function DashboardPageInner() {
 															);
 
 															if (crd) {
-																const rowNameText = typeof rowName === 'string' ? rowName : '';
-																const href = rowNameText ? `/dashboard/firm/${crd}?fromName=${encodeURIComponent(rowNameText)}` : `/dashboard/firm/${crd}`;
+																const href = `/dashboard/firm/${crd}`;
 																return (
 																	<Link
 																		href={href}
@@ -5079,48 +5223,23 @@ function DashboardPageInner() {
 												(() => {
 													type ConnectionCard = (typeof detailedMainRecord.currentConnectionCards)[number];
 													const connectionHaystack = (item: ConnectionCard) =>
-														[item.title, item.subtitle, item.meta, item.crd, item.address, item.statusTag, ...(item.otherNames || [])].filter(Boolean).join(' ');
-													const previewUnfiltered = shouldPreviewUnfilteredConnections({
-														focused: connectionsFilterFocused,
-														liveText: connectionsFilterQuery,
-														justCommitted: connectionsFilterJustCommitted,
-													});
+														item.haystack ||
+														[item.title, item.subtitle, item.meta, item.crd, item.address, item.statusTag, ...(item.sourceTags || []), ...(item.otherNames || [])]
+															.filter(Boolean)
+															.join(' ');
 													const matchesConnectionsFilterFn = (item: ConnectionCard) =>
 														matchesConnectionsFilter(
 															connectionHaystack(item),
 															connectionsFilterTags,
 															connectionsFilterQuery.trim(),
 															connectionsFilterEnabled,
-															previewUnfiltered,
+															connectionFilterPreviewUnfiltered,
 														);
 													const connectionKey = (item: { crd?: string; entity?: string }) => (item.crd ? `${item.entity || 'individual'}:${item.crd}` : '');
-													// Keyword tags reorder (matched first) instead of hiding unmatched firm connection cards.
-													const currentConnectionPartition = partitionConnectionsByFilter(
-														detailedMainRecord.currentConnectionCards,
-														(item) => connectionHaystack(item),
-														connectionsFilterTags,
-														connectionsFilterQuery.trim(),
-														connectionsFilterEnabled,
-														previewUnfiltered,
-													);
-													const previousConnectionPartition = partitionConnectionsByFilter(
-														detailedMainRecord.previousConnectionCards,
-														(item) => connectionHaystack(item),
-														connectionsFilterTags,
-														connectionsFilterQuery.trim(),
-														connectionsFilterEnabled,
-														previewUnfiltered,
-													);
-													const filteredCurrentConnectionCards = [
-														...sortByMostRecentStartDate(currentConnectionPartition.matched),
-														...sortByMostRecentStartDate(currentConnectionPartition.unmatched),
-													];
-													const filteredPreviousConnectionCards = previousConnectionPartition.ordered;
-													const matchedSelectableConnections = [
-														...sortByMostRecentStartDate(currentConnectionPartition.matched),
-														...previousConnectionPartition.matched,
-													].filter((item) => item.crd);
-													const selectableConnections = [...filteredCurrentConnectionCards, ...filteredPreviousConnectionCards].filter((item) => item.crd);
+													const matchedSelectableCurrent = currentConnectionPartition.matched.filter((item) => item.crd);
+													const matchedSelectablePrevious = previousConnectionPartition.matched.filter((item) => item.crd);
+													const matchedSelectableConnections = [...matchedSelectableCurrent, ...matchedSelectablePrevious];
+													const selectableConnections = [...filteredCurrentConnectionCards, ...filteredPreviousConnectionCardsAll].filter((item) => item.crd);
 													const toggleConnectionKey = (key: string) => {
 														if (!key) return;
 														setSelectedConnectionKeys((prev) => {
@@ -5130,9 +5249,12 @@ function DashboardPageInner() {
 															return next;
 														});
 													};
-													const selectAllVisibleConnections = () => {
-														// Select all only covers keyword-matched cards, not the unmatched ones listed below.
-														setSelectedConnectionKeys(new Set(matchedSelectableConnections.map((item) => connectionKey(item)).filter(Boolean)));
+													const selectConnectionGroup = (group: 'all' | 'current' | 'previous') => {
+														const items =
+															group === 'current' ? matchedSelectableCurrent
+															: group === 'previous' ? matchedSelectablePrevious
+															: matchedSelectableConnections;
+														setSelectedConnectionKeys(new Set(items.map((item) => connectionKey(item)).filter(Boolean)));
 													};
 													const finishConnectionSelectMode = () => {
 														const selected = selectableConnections.filter((item) => selectedConnectionKeys.has(connectionKey(item)));
@@ -5159,7 +5281,8 @@ function DashboardPageInner() {
 														const metaClass = kind === 'current' ? styles.currentConnectionMeta : styles.previousConnectionMeta;
 														const rowKindClass = kind === 'current' ? styles.currentConnectionRow : styles.previousConnectionRow;
 														const unmatchedClass = isUnmatched ? styles.connectionFilterUnmatched : '';
-														const liveHighlight = [connectionsFilterQuery.trim(), ...connectionsFilterTags].filter(Boolean).join(' ');
+														const liveHighlight =
+															isUnmatched ? '' : [connectionsFilterQuery.trim(), ...connectionsFilterTags].filter(Boolean).join(' ');
 														const dateStr =
 															kind === 'current' ?
 																item.startDate ?
@@ -5167,27 +5290,38 @@ function DashboardPageInner() {
 																:	''
 															: item.startDate && item.endDate ? `${item.startDate} - ${item.endDate}`
 															: item.startDate || item.endDate || '';
-														const otherNames = (item.otherNames || []).map((n) => formatOtherName(n, false)).filter(Boolean);
+														const otherNames = (item.otherNames || []).map((n) => formatOtherName(n, true)).filter(Boolean);
+														const visitedPerson =
+															item.entity === 'individual' && item.crd ?
+																dashboardRecordSnapshotCache.get(`individual:${item.crd}`)?.payload ||
+																readVisitedSync<any>(visitSnapshotKey('individual', item.crd))?.payload ||
+																readVisitedSync<any>(visitDetailKey('individual', item.crd))
+															:	null;
+														const sourceTags = Array.from(
+															new Set(
+																[
+																	...(item.sourceTags || []),
+																	...(visitedPerson && (visitedPerson.hasFinraData === true || hasIndividualSourceCoverage(visitedPerson, 'finra')) ? ['FINRA'] : []),
+																	...(visitedPerson && (visitedPerson.hasSecData === true || hasIndividualSourceCoverage(visitedPerson, 'sec')) ? ['SEC'] : []),
+																].filter(Boolean),
+															),
+														);
+														const statusKey = resolveEmploymentStatusTag(item);
+														const rowStatusClass = /inactive/i.test(String(statusKey)) ? styles.currentConnectionStatusTagInactive : styles.currentConnectionStatusTag;
+														const metaLine = [item.address, dateStr].filter(Boolean).join(' • ');
 														const content = (
 															<>
 																<div className={styles.detailRowMain}>
 																	<div className={styles.employmentRowNameWrap}>
 																		<span className={`${styles.detailRowName} ${nameClass}`}>{highlightConnectionMatch(item.title, liveHighlight)}</span>
 																		{item.crd && <span className={styles.detailInlineTag}>CRD#{item.crd}</span>}
-																		{item.statusTag && (
-																			<span
-																				className={`${styles.detailInlineTag} ${styles.currentConnectionStatusTag} ${
-																					item.statusTag === 'BD Stub Only' ? styles.currentConnectionStatusTagStub
-																					: item.statusTag === 'Inactive' ? styles.currentConnectionStatusTagInactive
-																					: ''
-																				}`}>
-																				{item.statusTag}
-																			</span>
-																		)}
+																		{sourceTags.includes('FINRA') && <span className={styles.tagFinra}>FINRA</span>}
+																		{sourceTags.includes('SEC') && <span className={styles.tagSec}>SEC</span>}
+																		{statusKey && <span className={`${styles.detailInlineTag} ${rowStatusClass}`}>{String(statusKey)}</span>}
 																	</div>
 																</div>
 																{otherNames.length > 0 && (
-																	<div className={`${styles.detailRowMeta} ${otherNamesClass}`}>
+																	<span className={styles.employmentRowOtherNames}>
 																		aka{' '}
 																		{otherNames.map((name, nameIdx) => (
 																			<Fragment key={`${kind}-aka-${idx}-${nameIdx}`}>
@@ -5195,12 +5329,12 @@ function DashboardPageInner() {
 																				{highlightConnectionMatch(name, liveHighlight)}
 																			</Fragment>
 																		))}
-																	</div>
+																	</span>
 																)}
-																{item.address && <div className={`${styles.detailRowMeta} ${metaClass}`}>{item.address}</div>}
-																{dateStr && <div className={`${styles.detailRowMeta} ${metaClass}`}>{dateStr}</div>}
-																{!item.address && !dateStr && item.meta && !/^current registration|previous registration$/i.test(item.meta) && (
-																	<div className={`${styles.detailRowMeta} ${metaClass}`}>{item.meta}</div>
+																{(metaLine || (item.meta && !/^current registration|previous registration$/i.test(item.meta))) && (
+																	<div className={`${styles.detailRowMeta} ${metaClass}`}>
+																		{metaLine || item.meta}
+																	</div>
 																)}
 															</>
 														);
@@ -5227,7 +5361,7 @@ function DashboardPageInner() {
 														if (item.crd) {
 															return (
 																<Link
-																	href={`/dashboard/${item.entity || 'firm'}/${item.crd}${item.title ? `?fromName=${encodeURIComponent(item.title)}` : ''}`}
+																	href={`/dashboard/${item.entity || 'firm'}/${item.crd}`}
 																	key={`${kind}-conn-${idx}`}
 																	className={`${styles.detailRow} ${styles.detailRowInteractive} ${kind === 'current' ? styles.currentEmploymentRow : ''} ${rowKindClass} ${unmatchedClass}`}>
 																	{content}
@@ -5278,8 +5412,20 @@ function DashboardPageInner() {
 																			<button
 																				type='button'
 																				className={styles.filterLineBtn}
-																				onClick={selectAllVisibleConnections}>
+																				onClick={() => selectConnectionGroup('all')}>
 																				Select all
+																			</button>
+																			<button
+																				type='button'
+																				className={styles.filterLineBtn}
+																				onClick={() => selectConnectionGroup('current')}>
+																				Current
+																			</button>
+																			<button
+																				type='button'
+																				className={styles.filterLineBtn}
+																				onClick={() => selectConnectionGroup('previous')}>
+																				Previous
 																			</button>
 																			<button
 																				type='button'
@@ -5312,6 +5458,11 @@ function DashboardPageInner() {
 																<section className={styles.detailSection}>
 																	<h4 className={styles.detailSectionTitle}>Previous Connections ({detailedMainRecord.previousConnectionCards.length})</h4>
 																	<div className={styles.detailList}>{filteredPreviousConnectionCards.map((item, idx) => renderConnectionRow(item, idx, 'previous'))}</div>
+																	{previousRenderCount < filteredPreviousConnectionCardsAll.length ?
+																		<div className={styles.detailRowMeta}>
+																			Loading remaining previous connections… {previousRenderCount.toLocaleString()} / {filteredPreviousConnectionCardsAll.length.toLocaleString()}
+																		</div>
+																	:	null}
 																</section>
 															)}
 														</>

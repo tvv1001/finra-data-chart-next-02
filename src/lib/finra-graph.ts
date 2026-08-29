@@ -61,6 +61,7 @@ import {
 	subscribeFilterTags,
 	subscribeFilterText,
 } from './filterTags';
+import { readVisited, readVisitedSync, rememberVisited, visitConnectionsKey, visitDetailKey } from './clientVisitCache';
 
 // API base. When VITE_API_URL is not set, use relative paths so the dev
 // server proxy (`/api`) is used and we don't hardcode a backend port.
@@ -11888,10 +11889,17 @@ async function ensureIndividualDetail(
 			let detail = null;
 			let localDetail = null;
 			try {
-				const localRes = await fetch(`${BASE}/api/finra/merged/individual/${encodeURIComponent(crd)}`);
-				if (localRes.ok) {
-					const merged = await localRes.json();
-					const candidate = merged?.merged;
+				const cachedMerged = readVisitedSync<any>(visitDetailKey('individual', crd)) || (await readVisited<any>(visitDetailKey('individual', crd)));
+				let merged = cachedMerged;
+				if (!merged) {
+					const localRes = await fetch(`${BASE}/api/finra/merged/individual/${encodeURIComponent(crd)}`);
+					if (localRes.ok) {
+						merged = await localRes.json();
+						if (merged && merged.found !== false) rememberVisited(visitDetailKey('individual', crd), merged);
+					}
+				}
+				if (merged) {
+					const candidate = merged?.merged || (merged?.basicInformation ? merged : null);
 					if (candidate) {
 						const normalized = normalizeIndividualDetailPayload(candidate, crd);
 						if (normalized?.basicInformation && (normalized.basicInformation.individualId || normalized.basicInformation.firstName || normalized.basicInformation.lastName)) {
@@ -12400,6 +12408,15 @@ async function ensureFirmConnections(firmNode: any) {
 
 	const requestPromise = (async () => {
 		try {
+			const cached =
+				readVisitedSync<{ currentConnections?: any[]; previousConnections?: any[]; found?: boolean }>(visitConnectionsKey(firmId)) ||
+				(await readVisited<{ currentConnections?: any[]; previousConnections?: any[]; found?: boolean }>(visitConnectionsKey(firmId)));
+			if (cached && cached.found !== false) {
+				firmNode.currentConnections = Array.isArray(cached.currentConnections) ? cached.currentConnections : [];
+				firmNode.previousConnections = Array.isArray(cached.previousConnections) ? cached.previousConnections : [];
+				firmNode._connectionsLoaded = true;
+				return;
+			}
 			const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
 			const timer = controller ? window.setTimeout(() => controller.abort(), 30000) : 0;
 			const res = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}/connections`, {
@@ -12415,6 +12432,7 @@ async function ensureFirmConnections(firmNode: any) {
 					firmNode.currentConnections = Array.isArray(payload.currentConnections) ? payload.currentConnections : [];
 					firmNode.previousConnections = Array.isArray(payload.previousConnections) ? payload.previousConnections : [];
 					firmNode._connectionsLoaded = true;
+					rememberVisited(visitConnectionsKey(firmId), payload);
 				}
 			}
 		} catch (error) {
@@ -12495,10 +12513,17 @@ async function ensureFirmDetail(firmNode) {
 			// Fast merged Form BD payload only. Do not request includeConnections=1 —
 			// that blocks sidebar paint on getFirmConnectionsFromGraph (employee roster).
 			try {
-				const localRes = await fetch(`${BASE}/api/finra/merged/firm/${encodeURIComponent(firmId)}`);
-				if (localRes.ok) {
-					const merged = await localRes.json();
-					const fn = merged?.finraNode || merged?.merged;
+				const cachedMerged = readVisitedSync<any>(visitDetailKey('firm', firmId)) || (await readVisited<any>(visitDetailKey('firm', firmId)));
+				let merged = cachedMerged;
+				if (!merged) {
+					const localRes = await fetch(`${BASE}/api/finra/merged/firm/${encodeURIComponent(firmId)}`);
+					if (localRes.ok) {
+						merged = await localRes.json();
+						if (merged && merged.found !== false) rememberVisited(visitDetailKey('firm', firmId), merged);
+					}
+				}
+				if (merged) {
+					const fn = merged?.finraNode || merged?.merged || (merged?.basicInformation ? merged : null);
 					if (merged?.found !== false && fn) {
 						applyMergedFirmNodeFields(fn);
 						detail = unwrapDetailPayload(fn) || fn;

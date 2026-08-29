@@ -1,12 +1,40 @@
 {
   "firms": [
     {
-      "id": 119241,
-      "name": "HERITAGE ADVISORY SERVICES, INC."
+      "id": 16361,
+      "name": "BANC OF AMERICA INVESTMENT SERVICES, INC."
     },
     {
       "id": 7691,
       "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 104536,
+      "name": "KAYNE ANDERSON CAPITAL ADVISORS LP"
+    },
+    {
+      "id": 101180,
+      "name": "FALLBROOK CAPITAL SECURITIES CORP."
+    },
+    {
+      "id": 7506,
+      "name": "LEHMAN BROTHERS INC."
+    },
+    {
+      "id": 7059,
+      "name": "CITIGROUP GLOBAL MARKETS INC."
+    },
+    {
+      "id": 7556,
+      "name": "MORGAN STANLEY DW INC."
+    },
+    {
+      "id": 8209,
+      "name": "MORGAN STANLEY & CO. INCORPORATED"
+    },
+    {
+      "id": 119241,
+      "name": "HERITAGE ADVISORY SERVICES, INC."
     },
     {
       "id": 7471,
@@ -63,10 +91,6 @@
     {
       "id": 23131,
       "name": "OSAIC WEALTH, INC."
-    },
-    {
-      "id": 16361,
-      "name": "BANC OF AMERICA INVESTMENT SERVICES, INC."
     },
     {
       "id": 26091,
@@ -213,10 +237,6 @@
       "name": "INET ATS, INC."
     },
     {
-      "id": 8209,
-      "name": "MORGAN STANLEY & CO. LLC"
-    },
-    {
       "id": 148390,
       "name": "VIRTU FINANCIAL BD LLC"
     },
@@ -281,10 +301,6 @@
       "name": "TRUIST INVESTMENT SERVICES, INC."
     },
     {
-      "id": 7059,
-      "name": "CITIGROUP GLOBAL MARKETS INC."
-    },
-    {
       "id": 149777,
       "name": "MORGAN STANLEY SMITH BARNEY"
     },
@@ -343,8 +359,28 @@
   ],
   "individuals": [
     {
+      "id": 2218549,
+      "name": "AMBER CARDEN"
+    },
+    {
+      "id": 1951020,
+      "name": "KRISHNAN RAMASWAMI"
+    },
+    {
+      "id": 2298343,
+      "name": "SCOTT A KELLY"
+    },
+    {
+      "id": 707816,
+      "name": "MARY JO MCGEE"
+    },
+    {
       "id": 1085996,
       "name": "Timothy Dale Register"
+    },
+    {
+      "id": 1731988,
+      "name": "MEGAN BRASSIL"
     },
     {
       "id": 1170940,

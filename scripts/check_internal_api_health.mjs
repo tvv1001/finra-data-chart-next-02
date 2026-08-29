@@ -177,8 +177,8 @@ async function checkKnownGoodCrds() {
 
 async function checkFirmConnectionsShape() {
 	console.log('\n[4] Firm connections route shape + data-quality sample');
-	const firmKeys = await redis.keys('finra:firm:*_brokers:current');
-	const sampleFirms = SAMPLE_FIRM ? [SAMPLE_FIRM] : firmKeys.map((k) => k.match(/finra:firm:(.+)_brokers:current/)[1]).slice(0, 5);
+	const firmKeys = await redis.keys('firm-connections:firm:*');
+	const sampleFirms = SAMPLE_FIRM ? [SAMPLE_FIRM] : firmKeys.map((k) => (k.match(/^firm-connections:firm:(\d+)$/) || [])[1]).filter(Boolean).slice(0, 5);
 	for (const firmId of sampleFirms) {
 		const url = `${BASE}/api/finra/firm/${encodeURIComponent(firmId)}/connections`;
 		try {

@@ -266,28 +266,8 @@ async function main() {
     }
 
     console.log(
-      `\n--write: replacing firm ${FIRM_ID} broker-id-mirror keys with cache-scan results${KEEP_UNCONFIRMED ? " (+ unconfirmed old entries kept)" : " (unconfirmed old entries dropped)"}...`,
+      `\n--write: skipped finra/sec:firm:*_brokers:* writes. Use Redis firm-connections:firm:${FIRM_ID} as the roster.`,
     );
-    for (const prefix of ["finra", "sec"]) {
-      for (const suffix of ["current", "previous"]) {
-        const key = `${prefix}:firm:${FIRM_ID}_brokers:${suffix}`;
-        const set =
-          suffix === "current"
-            ? currentBySource[prefix]
-            : previousBySource[prefix];
-        const arr = [...set];
-        if (arr.length) {
-          await redis.set(key, compress(JSON.stringify(arr)));
-          console.log(`  ${key}: ${arr.length} CRDs`);
-        } else {
-          await redis.del(key);
-          console.log(`  ${key}: deleted (empty)`);
-        }
-      }
-    }
-    const connKey = `graph:firm-connections:v10:${FIRM_ID}`;
-    await redis.del(connKey);
-    console.log(`Evicted ${connKey} — app will recompute on next request.`);
   }
 
   await redis.quit();

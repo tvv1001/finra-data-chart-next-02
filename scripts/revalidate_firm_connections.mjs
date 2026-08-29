@@ -82,29 +82,28 @@ async function appendLog(entry) {
 }
 
 async function getFirmMirrorCrds(firmId) {
-	const [fc, fp, sc, sp] = await Promise.all([
-		redis.get(`finra:firm:${firmId}_brokers:current`).catch(() => null),
-		redis.get(`finra:firm:${firmId}_brokers:previous`).catch(() => null),
-		redis.get(`sec:firm:${firmId}_brokers:current`).catch(() => null),
-		redis.get(`sec:firm:${firmId}_brokers:previous`).catch(() => null),
-	]);
+	const raw = await redis.get(`firm-connections:firm:${firmId}`).catch(() => null);
 	const all = new Set();
-	for (const raw of [fc, fp, sc, sp]) {
-		if (!raw) continue;
-		try {
-			const arr = JSON.parse(decompress(raw));
-			if (Array.isArray(arr)) arr.forEach((c) => all.add(String(c)));
-		} catch {}
-	}
+	if (!raw) return [];
+	try {
+		const text = typeof raw === 'string' && raw.startsWith('br:') ? decompress(raw) : raw;
+		const parsed = typeof text === 'string' ? JSON.parse(text) : text;
+		for (const entry of [...(parsed?.currentConnections || []), ...(parsed?.previousConnections || [])]) {
+			const id = String(entry?.individualId || entry?.crd || entry || '').trim();
+			if (/^\d{1,10}$/.test(id)) all.add(id);
+		}
+	} catch {}
 	return Array.from(all);
 }
 
 async function listAllFirmIds() {
-	const finraKeys = await redis.keys('finra:firm:*_brokers:current');
-	const secKeys = await redis.keys('sec:firm:*_brokers:current');
-	const finraIds = new Set(finraKeys.map((k) => k.match(/finra:firm:(.+)_brokers:current/)[1]));
-	const secIds = new Set(secKeys.map((k) => k.match(/sec:firm:(.+)_brokers:current/)[1]));
-	return Array.from(new Set([...finraIds, ...secIds]));
+	const keys = await redis.keys('firm-connections:firm:*');
+	const ids = new Set();
+	for (const key of keys) {
+		const match = key.match(/^firm-connections:firm:(\d+)$/);
+		if (match) ids.add(match[1]);
+	}
+	return Array.from(ids);
 }
 
 // Backoff-aware fetch of one individual via the local app route (which does the real

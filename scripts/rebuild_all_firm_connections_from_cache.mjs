@@ -112,18 +112,15 @@ async function main() {
   const allKeys = [...new Set([...finraKeys, ...secKeys])];
   console.log(`Total cached individual keys to scan: ${allKeys.length}`);
 
-  // firmId -> { finra: {current:Set, previous:Set}, sec: {current:Set, previous:Set} }
+  // firmId -> { current: Map<crd,{name}>, previous: Map<crd,{name}> }
   const firmIndex = new Map();
-  function getBucket(firmId, source) {
+  function getBucket(firmId) {
     let entry = firmIndex.get(firmId);
     if (!entry) {
-      entry = {
-        finra: { current: new Set(), previous: new Set() },
-        sec: { current: new Set(), previous: new Set() },
-      };
+      entry = { current: new Map(), previous: new Map() };
       firmIndex.set(firmId, entry);
     }
-    return entry[source];
+    return entry;
   }
 
   let scanned = 0;
@@ -149,12 +146,20 @@ async function main() {
         const { currentFirmIds, previousFirmIds } = employmentFirmIds(content);
         if (currentFirmIds.length || previousFirmIds.length)
           individualsWithEmployment++;
+        const bi = content?.basicInformation || {};
+        const name =
+          [bi.firstName, bi.middleName, bi.lastName].filter(Boolean).join(" ").trim() ||
+          `Individual ${crd}`;
         const currentSet = new Set(currentFirmIds);
         const previousSet = new Set(previousFirmIds);
-        // A firm the person is CURRENTLY at should not also count as a "previous" firm here.
-        for (const fid of currentSet) getBucket(fid, source).current.add(crd);
+        for (const fid of currentSet) {
+          const bucket = getBucket(fid);
+          bucket.current.set(crd, { name });
+          bucket.previous.delete(crd);
+        }
         for (const fid of previousSet) {
-          if (!currentSet.has(fid)) getBucket(fid, source).previous.add(crd);
+          const bucket = getBucket(fid);
+          if (!bucket.current.has(crd)) bucket.previous.set(crd, { name });
         }
       } catch {
         parseErrors++;
@@ -171,19 +176,13 @@ async function main() {
     `Distinct firms referenced by cached individuals: ${firmIndex.size}`,
   );
 
-  // Also gather the set of firms that currently HAVE mirror keys, so we can clear out
-  // any firm whose mirror data is now entirely unconfirmed (zero cache-confirmed CRDs).
-  const existingFirmKeys = await redis.keys("*:firm:*_brokers:*");
+  const existingFirmKeys = await redis.keys("firm-connections:firm:*");
   const existingFirmIds = new Set();
   for (const key of existingFirmKeys) {
-    const m = key.match(
-      /^(?:finra|sec):firm:(.+)_brokers:(?:current|previous)$/,
-    );
+    const m = key.match(/^firm-connections:firm:(\d+)$/);
     if (m) existingFirmIds.add(m[1]);
   }
-  console.log(
-    `Firms with existing broker-id-mirror keys: ${existingFirmIds.size}`,
-  );
+  console.log(`Existing firm-connections:firm keys: ${existingFirmIds.size}`);
 
   const allFirmIds = new Set([...firmIndex.keys(), ...existingFirmIds]);
   console.log(
@@ -194,76 +193,141 @@ async function main() {
     let totalCurrent = 0;
     let totalPrevious = 0;
     let firmsGainingConnections = 0;
-    let firmsLosingAllConnections = 0;
     for (const firmId of allFirmIds) {
       const entry = firmIndex.get(firmId);
-      const curCount = entry
-        ? entry.finra.current.size + entry.sec.current.size
-        : 0;
-      const prevCount = entry
-        ? entry.finra.previous.size + entry.sec.previous.size
-        : 0;
+      const curCount = entry ? entry.current.size : 0;
+      const prevCount = entry ? entry.previous.size : 0;
       totalCurrent += curCount;
       totalPrevious += prevCount;
       if (curCount + prevCount > 0 && !existingFirmIds.has(firmId))
         firmsGainingConnections++;
-      if (curCount + prevCount === 0 && existingFirmIds.has(firmId))
-        firmsLosingAllConnections++;
     }
     console.log(
-      `\n[DRY RUN] Would write ${totalCurrent} total current-connection entries and ${totalPrevious} total previous-connection entries across ${allFirmIds.size} firms.`,
+      `\n[DRY RUN] Person employment references ${totalCurrent} current and ${totalPrevious} previous memberships across ${allFirmIds.size} firms.`,
     );
     console.log(
-      `[DRY RUN] Firms newly confirmed (had no mirror key before): ${firmsGainingConnections}`,
+      `[DRY RUN] Firms referenced by people but missing a firm-connections key: ${firmsGainingConnections}`,
     );
-    console.log(
-      `[DRY RUN] Firms losing ALL mirror data (had a key, zero cache-confirmed CRDs now): ${firmsLosingAllConnections}`,
-    );
-    console.log(`\nRe-run with --write to apply.`);
+    console.log(`\nRe-run with --write to additively merge into firm-connections:firm:<id>.`);
     await redis.quit();
     return;
   }
 
-  // WRITE mode: replace every firm's mirror keys, batching pipeline writes.
+  function parseRoster(raw) {
+    if (!raw) return { currentConnections: [], previousConnections: [] };
+    try {
+      const json = JSON.parse(decompress(raw));
+      const asEntries = (list, isCurrent) => {
+        if (!Array.isArray(list)) return [];
+        return list
+          .map((item) => {
+            if (item == null) return null;
+            if (typeof item === "number" || typeof item === "string") {
+              const id = String(item).trim();
+              if (!/^\d{1,10}$/.test(id)) return null;
+              return {
+                individualId: id,
+                name: `Individual ${id}`,
+                relationship: isCurrent ? "Current registration" : "Previous registration",
+                isCurrent,
+              };
+            }
+            const id = String(item.individualId || item.crd || "").trim();
+            if (!/^\d{1,10}$/.test(id)) return null;
+            return { ...item, individualId: id, isCurrent };
+          })
+          .filter(Boolean);
+      };
+      return {
+        currentConnections: asEntries(json.currentConnections || json.current || [], true),
+        previousConnections: asEntries(json.previousConnections || json.previous || [], false),
+        source: json.source,
+      };
+    } catch {
+      return { currentConnections: [], previousConnections: [] };
+    }
+  }
+
+  const fs = await import("fs");
+  const path = await import("path");
+  const diskDir = path.join(process.cwd(), "data", "firm-connections");
+  fs.mkdirSync(diskDir, { recursive: true });
+
   let firmsProcessed = 0;
-  let keysWritten = 0;
-  let keysDeleted = 0;
+  let firmsUpdated = 0;
+  let peopleAdded = 0;
   const firmIdList = [...allFirmIds];
-  const WRITE_BATCH = 300;
+  const WRITE_BATCH = 100;
   for (let i = 0; i < firmIdList.length; i += WRITE_BATCH) {
     const batch = firmIdList.slice(i, i + WRITE_BATCH);
-    const pipeline = redis.pipeline();
-    for (const firmId of batch) {
-      const entry = firmIndex.get(firmId) || {
-        finra: { current: new Set(), previous: new Set() },
-        sec: { current: new Set(), previous: new Set() },
+    const readPipe = redis.pipeline();
+    for (const firmId of batch) readPipe.get(`firm-connections:firm:${firmId}`);
+    const existingRaws = await readPipe.exec();
+    const writePipe = redis.pipeline();
+    for (let j = 0; j < batch.length; j++) {
+      const firmId = batch[j];
+      const discovered = firmIndex.get(firmId) || {
+        current: new Map(),
+        previous: new Map(),
       };
-      for (const source of ["finra", "sec"]) {
-        for (const suffix of ["current", "previous"]) {
-          const key = `${source}:firm:${firmId}_brokers:${suffix}`;
-          const arr = [...entry[source][suffix]];
-          if (arr.length) {
-            pipeline.set(key, compress(JSON.stringify(arr)));
-            keysWritten++;
-          } else {
-            pipeline.del(key);
-            keysDeleted++;
-          }
+      const raw = existingRaws[j]?.[1];
+      const existing = parseRoster(raw);
+      const currentById = new Map(
+        (existing.currentConnections || []).map((e) => [String(e.individualId), e]),
+      );
+      const previousById = new Map(
+        (existing.previousConnections || []).map((e) => [String(e.individualId), e]),
+      );
+      let added = 0;
+      for (const [crd, meta] of discovered.current) {
+        if (!currentById.has(crd)) {
+          currentById.set(crd, {
+            individualId: crd,
+            name: meta.name,
+            relationship: "Current registration",
+            isCurrent: true,
+            evidence: ["current-employment-record", "reverse-index-redis-only"],
+          });
+          previousById.delete(crd);
+          added += 1;
         }
       }
-      pipeline.del(`graph:firm-connections:v10:${firmId}`);
+      for (const [crd, meta] of discovered.previous) {
+        if (currentById.has(crd) || previousById.has(crd)) continue;
+        previousById.set(crd, {
+          individualId: crd,
+          name: meta.name,
+          relationship: "Previous registration",
+          isCurrent: false,
+          evidence: ["matched-previous-employment", "reverse-index-redis-only"],
+        });
+        added += 1;
+      }
+      firmsProcessed += 1;
+      if (!added) continue;
+      const payload = {
+        currentConnections: [...currentById.values()],
+        previousConnections: [...previousById.values()],
+        source: existing.source || "reverse-index-redis-only",
+      };
+      writePipe.set(
+        `firm-connections:firm:${firmId}`,
+        compress(JSON.stringify(payload)),
+      );
+      fs.writeFileSync(
+        path.join(diskDir, `${firmId}.json`),
+        JSON.stringify(payload) + "\n",
+      );
+      firmsUpdated += 1;
+      peopleAdded += added;
     }
-    await pipeline.exec();
-    firmsProcessed += batch.length;
-    if (firmsProcessed % 3000 < WRITE_BATCH)
-      console.log(`  wrote ${firmsProcessed}/${firmIdList.length} firms...`);
+    await writePipe.exec();
+    if (firmsProcessed % 1000 < WRITE_BATCH)
+      console.log(`  merged ${firmsProcessed}/${firmIdList.length} firms (updated ${firmsUpdated}, added ${peopleAdded})...`);
   }
 
   console.log(
-    `\nDone. Firms processed: ${firmsProcessed}. Mirror keys set: ${keysWritten}. Mirror keys deleted (empty): ${keysDeleted}.`,
-  );
-  console.log(
-    `All graph:firm-connections:v10:<id> cache keys for touched firms evicted — app will recompute on next request.`,
+    `\nDone. Firms processed: ${firmsProcessed}. Firms updated: ${firmsUpdated}. People added from employment history: ${peopleAdded}.`,
   );
 
   await redis.quit();

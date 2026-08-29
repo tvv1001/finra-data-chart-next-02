@@ -1,3 +1,6 @@
+console.error('update_sec_brokers.mjs is retired. Firm rosters live only in Redis firm-connections:firm:<id>. Do not write finra/sec:firm:*_brokers:* keys.');
+process.exit(1);
+
 import fetch from 'node-fetch';
 import Redis from 'ioredis';
 

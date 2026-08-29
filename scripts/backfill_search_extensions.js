@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+console.error(
+	'search:indexes:extensions:* is retired. Search uses gzip sidecars; new CRDs are collected and validated in-app before any Redis write.',
+);
+process.exit(0);
 // Scans all cached FINRA/SEC detail records in Upstash Redis (finra:individual:*,
 // finra:firm:*, sec:individual:*, sec:firm:*) and ensures every CRD is represented in
 // the local search index. Any CRD missing from the static gzip sidecar (built by

@@ -1,13 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockRedis = {
-	get: vi.fn(),
-	mget: vi.fn(),
-};
+const { mockRedis, setStringIfValid } = vi.hoisted(() => ({
+	mockRedis: {
+		get: vi.fn(),
+		mget: vi.fn(),
+		del: vi.fn(),
+	},
+	setStringIfValid: vi.fn(async () => 'written'),
+}));
 
 vi.mock('@/lib/redisCache', () => ({
 	getRedisClient: () => mockRedis,
-	setStringIfValid: vi.fn(async () => 'written'),
+	setStringIfValid,
 	decompressPayload: (value: string) => value,
 }));
 
@@ -41,14 +45,17 @@ import {
 	firmConnectionsCacheKey,
 	getFirmConnectionsFromGraph,
 	mergeGraphConnectionEntries,
+	upsertIndividualIntoEmployerFirmConnections,
 } from '@/lib/graphConnections';
 
 describe('firm connection merge and cache', () => {
 	beforeEach(() => {
 		mockRedis.get.mockReset();
 		mockRedis.mget.mockReset();
+		mockRedis.del.mockReset();
 		mockRedis.get.mockResolvedValue(null);
 		mockRedis.mget.mockResolvedValue([]);
+		setStringIfValid.mockClear();
 	});
 
 	it('builds the local firm cache key', () => {
@@ -136,5 +143,40 @@ describe('firm connection merge and cache', () => {
 		const result = await getFirmConnectionsFromGraph('900000001');
 		expect(result.currentConnections.map((entry) => entry.individualId).sort()).toEqual(['42', '43']);
 		expect(result.previousConnections.map((entry) => entry.individualId)).toEqual(['44']);
+	});
+
+	it('adds a person from employment history without shrinking Redis roster', async () => {
+		const existing = {
+			currentConnections: Array.from({ length: 5 }, (_, i) => ({
+				individualId: String(100 + i),
+				name: `P${i}`,
+				relationship: 'Current registration',
+				isCurrent: true,
+			})),
+			previousConnections: [{ individualId: '200', name: 'Prev', relationship: 'Previous registration', isCurrent: false }],
+		};
+		mockRedis.get.mockImplementation(async (key: string) => {
+			if (key === firmConnectionsCacheKey('7691')) return JSON.stringify(existing);
+			return null;
+		});
+		setStringIfValid.mockClear();
+		const result = await upsertIndividualIntoEmployerFirmConnections('1085996', {
+			basicInformation: { firstName: 'Timothy', lastName: 'Register' },
+			previousEmployments: [
+				{
+					firmId: '7691',
+					firmName: 'Merrill',
+					registrationBeginDate: '12/21/1982',
+					registrationEndDate: '6/17/1983',
+				},
+			],
+		});
+		expect(result.firmsTouched).toEqual(['7691']);
+		expect(setStringIfValid).toHaveBeenCalledTimes(1);
+		const written = JSON.parse(setStringIfValid.mock.calls[0][1]);
+		expect(written.currentConnections).toHaveLength(5);
+		expect(written.previousConnections.map((e: { individualId: string }) => e.individualId)).toEqual(
+			expect.arrayContaining(['200', '1085996']),
+		);
 	});
 });

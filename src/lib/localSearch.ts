@@ -3,9 +3,8 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { gunzipSync } from 'node:zlib';
 import { getRedisClientInstance } from '@/lib/redisClient';
-import { getSearchIndexFilePaths, SEARCH_INDEX_RELATIVE_FILES } from './searchDataPaths';
-import * as path from 'node:path';
-import * as fsSync from 'node:fs';
+import { getSearchIndexFilePaths } from './searchDataPaths';
+import { isValidCrd } from '@/lib/crd';
 import * as zlib from 'node:zlib';
 
 let cachedRedisClient: Redis | null = null;
@@ -130,6 +129,36 @@ export type LocalSearchResponse = {
 };
 
 const indexPromiseCache = new Map<string, Promise<LocalSearchIndex | null>>();
+/** In-app, validated extras. Never written to Redis from this path. */
+const validatedSearchExtensions = new Map<LocalSearchBucket, Map<string, LocalSearchDoc>>();
+
+function extensionDisplayName(doc: LocalSearchDoc | null | undefined): string {
+	const hit = doc?.hit as LocalSearchHit | undefined;
+	const name = [
+		hit?.label,
+		hit?.name,
+		hit?.firm_name,
+		hit?.firmName,
+		[hit?.ind_firstname, hit?.ind_middlename, hit?.ind_lastname].filter(Boolean).join(' '),
+	]
+		.map((value) => String(value || '').trim())
+		.find(Boolean);
+	return name || '';
+}
+
+function mergeExtensionDoc(index: LocalSearchIndex, doc: LocalSearchDoc) {
+	const prepared = prepareDoc(doc);
+	const pos = index.docs.findIndex((d) => d.id === prepared.id);
+	if (pos === -1) index.docs.push(prepared);
+	else index.docs[pos] = prepared;
+}
+
+function applyValidatedExtensions(bucket: LocalSearchBucket, index: LocalSearchIndex) {
+	const extras = validatedSearchExtensions.get(bucket);
+	if (!extras?.size) return index;
+	for (const doc of extras.values()) mergeExtensionDoc(index, doc);
+	return index;
+}
 const STRICT_MATCH_QUERY_ALLOWLIST = new Set(['mason', 'bryan']);
 
 function simplifyName(name: string): string {
@@ -453,29 +482,7 @@ async function loadIndex(bucket: LocalSearchBucket, baseUrl?: string, seedRoots:
 				}
 
 				if (index) {
-					// Load dynamic extensions from Redis and append them
-					const extensions = await fetchExtensionsFromRedis(bucket);
-					if (extensions.length > 0) {
-						// Avoid duplicates: keep track of IDs in the static index
-						const existingIds = new Set<string>();
-						for (const doc of index.docs) {
-							existingIds.add(doc.id);
-						}
-
-						for (const extDoc of extensions) {
-							if (!existingIds.has(extDoc.id)) {
-								index.docs.push(prepareDoc(extDoc));
-								existingIds.add(extDoc.id);
-							} else {
-								// Upgrade/overwrite the existing doc in place with the latest dynamic data
-								const pos = index.docs.findIndex((d) => d.id === extDoc.id);
-								if (pos !== -1) {
-									index.docs[pos] = prepareDoc(extDoc);
-								}
-							}
-						}
-					}
-					return index;
+					return applyValidatedExtensions(bucket, index);
 				}
 
 				console.error(`[localSearch] Failed to load index for bucket ${bucket}.`);
@@ -1076,57 +1083,12 @@ export async function searchLocalIndexMany(source: LocalSearchSource, type: Loca
 	};
 }
 
-async function fetchExtensionsFromRedis(bucket: LocalSearchBucket): Promise<LocalSearchDoc[]> {
-	const redis = getUpstashClient();
-	if (!redis) return [];
-	try {
-		const key = `search:indexes:extensions:${bucket}`;
-		const docs: LocalSearchDoc[] = [];
-
-		const keys = await redis.hkeys(key);
-		if (!keys || !keys.length) return [];
-
-		// Chunk keys to avoid Upstash 10MB response limits (hscan ignores count sometimes)
-		const chunkSize = 500;
-		for (let i = 0; i < keys.length; i += chunkSize) {
-			const chunk = keys.slice(i, i + chunkSize);
-			const vals = await redis.hmget<Record<string, unknown>>(key, ...chunk);
-
-			if (vals && typeof vals === 'object') {
-				// hmget returns an object mapping key to value
-				for (const raw of Object.values(vals)) {
-					if (!raw) continue;
-					if (typeof raw === 'object') {
-						docs.push(raw as LocalSearchDoc);
-					} else if (typeof raw === 'string') {
-						try {
-							const doc = JSON.parse(raw);
-							if (doc && typeof doc === 'object') {
-								docs.push(doc);
-							}
-						} catch {
-							// ignore
-						}
-					}
-				}
-			}
-		}
-
-		return docs;
-	} catch (err) {
-		console.error(`[localSearch] Failed to fetch extensions from Redis for ${bucket}:`, err);
-		return [];
-	}
-}
 
 export function clearSearchIndexCache() {
 	indexPromiseCache.clear();
 }
 
-// Resolve a display name for a CRD straight from the search-index sidecar (gzip file, falling
-// back to the Redis `search:indexes:extensions:*` hash) instead of keeping a separate
-// dashboard-only name cache. This lets dashboard/graph "new CRD" cards show a real name without
-// duplicating data purely for the dashboard.
+// Resolve a display name for a CRD from the gzip sidecar (plus in-app validated extras).
 export async function lookupNameFromSearchIndex(
 	source: LocalSearchSource,
 	type: LocalSearchEntity,
@@ -1336,56 +1298,27 @@ export function buildFirmDoc(source: string, detail: any): LocalSearchDoc | null
 }
 
 export async function addRecordToSearchIndex(source: LocalSearchSource, type: LocalSearchEntity, crd: string, detail: any) {
+	const id = String(crd || '').trim();
+	if (!isValidCrd(id) || !detail || typeof detail !== 'object') return false;
+
 	const bucket: LocalSearchBucket = `${source}:${type}`;
 	const doc = type === 'individual' ? buildIndividualDoc(source, detail) : buildFirmDoc(source, detail);
-	if (!doc) return false;
+	if (!doc?.id || !extensionDisplayName(doc)) return false;
 
-	const redis = getUpstashClient();
-	if (!redis) return false;
-
-	try {
-		const key = `search:indexes:extensions:${bucket}`;
-		await redis.hset(key, { [crd]: JSON.stringify(doc) });
-		// Clear local memory cache so subsequent searches reload the index with the new extension
-		indexPromiseCache.clear();
-
-		// Also write to local filesystem if we are running locally and files exist
-		try {
-			const relativeFilePath = SEARCH_INDEX_RELATIVE_FILES[bucket];
-			const absolutePath = path.resolve(process.cwd(), relativeFilePath);
-			if (fsSync.existsSync(absolutePath)) {
-				const { readFile } = await import('node:fs/promises');
-				const raw = await readFile(absolutePath, 'utf8');
-				const parsed = JSON.parse(raw);
-				if (parsed && Array.isArray(parsed.docs)) {
-					const existingPos = parsed.docs.findIndex((d: any) => d.id === doc.id);
-					if (existingPos !== -1) {
-						parsed.docs[existingPos] = doc;
-					} else {
-						parsed.docs.push(doc);
-					}
-					parsed.generatedAt = new Date().toISOString();
-					const { writeFile } = await import('node:fs/promises');
-					await writeFile(absolutePath, JSON.stringify(parsed, null, 2), 'utf8');
-
-					// Also update gzip sidecar if it exists
-					const gzPath = `${absolutePath}.gz`;
-					if (fsSync.existsSync(gzPath)) {
-						const util = await import('node:util');
-						const gzBuffer = await util.promisify(zlib.gzip)(Buffer.from(JSON.stringify(parsed, null, 2), 'utf8'), { level: 9 });
-						await writeFile(gzPath, gzBuffer);
-					}
-				}
-			}
-		} catch (fileErr: any) {
-			console.warn(`[localSearch] Skipping filesystem update: ${fileErr?.message || fileErr}`);
-		}
-
-		return true;
-	} catch (err) {
-		console.error(`[localSearch] Failed to save dynamic search extension to Redis for ${bucket}:${crd}`, err);
-		return false;
+	let extras = validatedSearchExtensions.get(bucket);
+	if (!extras) {
+		extras = new Map();
+		validatedSearchExtensions.set(bucket, extras);
 	}
+	extras.set(id, doc);
+
+	for (const [cacheKey, pending] of indexPromiseCache) {
+		if (cacheKey !== bucket && !cacheKey.startsWith(`${bucket}|`)) continue;
+		void pending.then((index) => {
+			if (index) mergeExtensionDoc(index, doc);
+		});
+	}
+	return true;
 }
 
 function normalizeExtractedCrd(value: string): string {
