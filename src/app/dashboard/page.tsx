@@ -1283,6 +1283,8 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 				bcScope,
 				iaScope,
 			});
+			const currentFirmId = pickFirstValidCrd(record?.currentFirmId, record?.currentEmployerCrd, record?.currentEmployerId);
+			const currentFirmName = pickFirstNonEmpty(record?.currentFirmName, record?.currentEmployerName, record?.currentEmployer);
 			const result: {
 				title: string;
 				meta: string;
@@ -1297,6 +1299,8 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 				startDate?: string;
 				endDate?: string;
 				address?: string;
+				currentFirmId?: string;
+				currentFirmName?: string;
 				haystack?: string;
 			} = {
 				title: title || '',
@@ -1311,11 +1315,24 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 			if (startDate) result.startDate = startDate;
 			if (endDate) result.endDate = endDate;
 			if (addressText) result.address = addressText;
+			if (currentFirmId) result.currentFirmId = currentFirmId;
+			if (currentFirmName) result.currentFirmName = currentFirmName;
 			if (crd) {
 				result.crd = crd;
 				result.entity = entityType;
 			}
-			result.haystack = [title, subtitle, meta, crd, addressText, statusTag, ...(sourceTags || []), ...otherNamesArr]
+			result.haystack = [
+				title,
+				subtitle,
+				meta,
+				crd,
+				addressText,
+				statusTag,
+				currentFirmName,
+				currentFirmId,
+				...(sourceTags || []),
+				...otherNamesArr,
+			]
 				.filter(Boolean)
 				.join(' ')
 				.toLowerCase();
@@ -1335,6 +1352,8 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 		startDate?: string;
 		endDate?: string;
 		address?: string;
+		currentFirmId?: string;
+		currentFirmName?: string;
 		haystack?: string;
 	}>;
 }
@@ -5484,6 +5503,35 @@ function DashboardPageInner() {
 														const statusKey = resolveEmploymentStatusTag(item);
 														const rowStatusClass = /inactive/i.test(String(statusKey)) ? styles.currentConnectionStatusTagInactive : styles.currentConnectionStatusTag;
 														const metaLine = [item.address, dateStr].filter(Boolean).join(' • ');
+														const visitedCurrentEmployer =
+															kind === 'previous' && visitedPerson ?
+																(() => {
+																	const employments = [
+																		...toArray(visitedPerson?.currentEmployments),
+																		...toArray(visitedPerson?.currentIAEmployments),
+																	];
+																	const excludeFirmId = String(currentRecordId || '');
+																	const match =
+																		employments.find((emp: any) => {
+																			const id = String(pickFirstValidCrd(emp?.firmId, emp?.firm_id, emp?.crdNumber, emp?.crd) || '');
+																			return id && id !== excludeFirmId;
+																		}) || employments[0];
+																	if (!match) return null;
+																	return {
+																		currentFirmId: pickFirstValidCrd(match?.firmId, match?.firm_id, match?.crdNumber, match?.crd) || undefined,
+																		currentFirmName:
+																			pickFirstNonEmpty(match?.firmName, match?.iaFirmName, match?.legalName, match?.name) || undefined,
+																	};
+																})()
+															:	null;
+														const currentFirmId = item.currentFirmId || visitedCurrentEmployer?.currentFirmId;
+														const currentFirmName = item.currentFirmName || visitedCurrentEmployer?.currentFirmName;
+														const currentEmployerLabel =
+															kind === 'previous' && (currentFirmName || currentFirmId) ?
+																['curr:', currentFirmName ? formatFirmName(currentFirmName) : 'Firm', currentFirmId ? `CRD#${currentFirmId}` : '']
+																	.filter(Boolean)
+																	.join(' ')
+															:	'';
 														const content = (
 															<>
 																<div className={styles.detailRowMain}>
@@ -5510,6 +5558,9 @@ function DashboardPageInner() {
 																	<div className={`${styles.detailRowMeta} ${metaClass}`}>
 																		{metaLine || item.meta}
 																	</div>
+																)}
+																{currentEmployerLabel && (
+																	<div className={`${styles.detailRowMeta} ${metaClass}`}>{currentEmployerLabel}</div>
 																)}
 															</>
 														);

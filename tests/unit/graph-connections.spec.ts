@@ -40,11 +40,15 @@ vi.mock('@/lib/officialFirmRoster', async (importOriginal) => {
 });
 
 import {
+	composeIndividualDisplayName,
+	connectionNeedsDisplayEnrichment,
 	countFirmConnectionEntries,
+	extractCurrentEmployerFromDetail,
 	extractIndividualEmployerLinksFromDetail,
 	firmConnectionsCacheKey,
 	getFirmConnectionsFromGraph,
 	mergeGraphConnectionEntries,
+	preferRicherPersonName,
 	upsertIndividualIntoEmployerFirmConnections,
 } from '@/lib/graphConnections';
 
@@ -184,5 +188,134 @@ describe('firm connection merge and cache', () => {
 		expect(written.previousConnections.map((e: { individualId: string }) => e.individualId)).toEqual(
 			expect.arrayContaining(['200', '1085996']),
 		);
+		const upserted = written.previousConnections.find((e: { individualId: string }) => e.individualId === '1085996');
+		expect(upserted.name).toBe('Timothy Register');
+	});
+
+	it('composes full person names and upgrades thin connection names', () => {
+		expect(
+			composeIndividualDisplayName({
+				basicInformation: { firstName: 'Susan', middleName: 'F', lastName: 'Axelrod' },
+			}),
+		).toBe('Susan F Axelrod');
+		expect(preferRicherPersonName('Susan', 'Susan F Axelrod')).toBe('Susan F Axelrod');
+		expect(preferRicherPersonName('Susan F Axelrod', 'Susan')).toBe('Susan F Axelrod');
+		expect(connectionNeedsDisplayEnrichment({ individualId: '1', name: 'Susan', relationship: 'Current registration', isCurrent: true })).toBe(true);
+		expect(
+			connectionNeedsDisplayEnrichment({
+				individualId: '1',
+				name: 'Susan F Axelrod',
+				address: 'LAS VEGAS, NV 89145',
+				relationship: 'Current registration',
+				isCurrent: true,
+			}),
+		).toBe(false);
+		expect(
+			connectionNeedsDisplayEnrichment({
+				individualId: '1',
+				name: 'Matthew Joseph McGowan',
+				address: 'NEW YORK, NY',
+				relationship: 'Previous registration',
+				isCurrent: false,
+			}),
+		).toBe(false);
+		expect(
+			extractCurrentEmployerFromDetail(
+				{
+					currentEmployments: [
+						{ firmId: '7691', firmName: 'Merrill' },
+						{ firmId: '283942', firmName: 'BOFA SECURITIES, INC.' },
+					],
+				},
+				'7691',
+			),
+		).toEqual({ currentFirmId: '283942', currentFirmName: 'BOFA SECURITIES, INC.' });
+	});
+
+	it('enriches thin Redis connection display fields from cached individual details', async () => {
+		mockRedis.get.mockImplementation(async (key: string) => {
+			if (key === firmConnectionsCacheKey('7691')) {
+				return JSON.stringify({
+					currentConnections: [
+						{
+							individualId: '6949587',
+							name: 'Susan',
+							relationship: 'Current registration',
+							isCurrent: true,
+							evidence: ['individual-detail-load'],
+						},
+					],
+					previousConnections: [],
+				});
+			}
+			if (key === 'finra:individual:6949587') {
+				return JSON.stringify({
+					hits: {
+						hits: [
+							{
+								_source: {
+									content: JSON.stringify({
+										basicInformation: { firstName: 'Susan', middleName: 'F', lastName: 'Axelrod', bcScope: 'Active' },
+										currentEmployments: [
+											{
+												firmId: '7691',
+												branchOfficeLocations: [{ street1: '400 S RAMPART BLVD', city: 'LAS VEGAS', state: 'NV', zipCode: '89145' }],
+											},
+										],
+									}),
+								},
+							},
+						],
+					},
+				});
+			}
+			return null;
+		});
+		setStringIfValid.mockClear();
+		const result = await getFirmConnectionsFromGraph('7691');
+		expect(result.currentConnections[0]).toMatchObject({
+			individualId: '6949587',
+			name: 'Susan F Axelrod',
+		});
+		expect(String(result.currentConnections[0].address || '')).toMatch(/LAS VEGAS/i);
+		expect(setStringIfValid).toHaveBeenCalled();
+	});
+
+	it('stores current employer on previous-firm upserts', async () => {
+		mockRedis.get.mockImplementation(async (key: string) => {
+			if (key === firmConnectionsCacheKey('7691')) {
+				return JSON.stringify({ currentConnections: [], previousConnections: [] });
+			}
+			return null;
+		});
+		setStringIfValid.mockClear();
+		await upsertIndividualIntoEmployerFirmConnections('2266159', {
+			basicInformation: { firstName: 'Matthew', middleName: 'Joseph', lastName: 'McGowan' },
+			currentEmployments: [{ firmId: '283942', firmName: 'BOFA SECURITIES, INC.' }],
+			previousEmployments: [
+				{
+					firmId: '7691',
+					firmName: 'Merrill',
+					registrationBeginDate: '1/1/2010',
+					registrationEndDate: '1/1/2015',
+				},
+			],
+		});
+		expect(setStringIfValid).toHaveBeenCalled();
+		const previousWrite = setStringIfValid.mock.calls
+			.map((call: unknown[]) => {
+				try {
+					return JSON.parse(String(call[1] || ''));
+				} catch {
+					return null;
+				}
+			})
+			.find((payload: any) => payload?.previousConnections?.some((entry: any) => entry.individualId === '2266159'));
+		expect(previousWrite?.previousConnections?.[0]).toMatchObject({
+			individualId: '2266159',
+			name: 'Matthew Joseph McGowan',
+			currentFirmId: '283942',
+			currentFirmName: 'BOFA SECURITIES, INC.',
+		});
 	});
 });

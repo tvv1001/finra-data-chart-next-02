@@ -22,6 +22,7 @@ import {
   isOfficialFirmRoster,
   OFFICIAL_FIRM_ROSTER_SOURCE,
 } from "@/lib/officialFirmRoster";
+import { buildPersonName } from "@/lib/nameFormat";
 
 export type GraphConnectionEntry = {
   individualId?: string;
@@ -36,10 +37,13 @@ export type GraphConnectionEntry = {
   // Evidence tags describing why this connection was inferred (e.g. 'primed', 'graph-edge', 'search-finra')
   evidence?: string[];
   sourceTags?: string[];
-  // Enrichment (current connections only, see enrichCurrentConnectionsWithIndividualDetail()):
+  // Display enrichment from cached individual detail:
   otherNames?: string[];
   address?: string;
   statusTag?: "Broker" | "BD Stub Only" | "Inactive";
+  /** Current employer for people on a firm's previous-connections list. */
+  currentFirmId?: string;
+  currentFirmName?: string;
 };
 
 const FIRM_CONNECTIONS_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
@@ -141,6 +145,95 @@ function firstNonEmpty(...values: unknown[]) {
     if (text) return text;
   }
   return "";
+}
+
+function nameTokenCount(name: string | undefined | null): number {
+  return String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+}
+
+/** Prefer the candidate when it has more name tokens (or equal tokens but longer text). */
+export function preferRicherPersonName(
+  existing: string | undefined | null,
+  candidate: string | undefined | null,
+): string {
+  const current = String(existing || "").trim();
+  const next = String(candidate || "").trim();
+  if (!next) return current;
+  if (!current) return next;
+  const currentTokens = nameTokenCount(current);
+  const nextTokens = nameTokenCount(next);
+  if (nextTokens > currentTokens) return next;
+  if (nextTokens === currentTokens && next.length > current.length) return next;
+  return current;
+}
+
+/** Build a full person display name from a cached individual detail payload. */
+export function composeIndividualDisplayName(detail: any): string {
+  const basic = detail?.basicInformation || detail || {};
+  const composed = buildPersonName(
+    basic?.firstName ?? detail?.firstName,
+    basic?.middleName ?? detail?.middleName,
+    basic?.lastName ?? detail?.lastName,
+    basic?.suffix ?? detail?.suffix,
+  );
+  return firstNonEmpty(
+    composed,
+    basic?.fullName,
+    basic?.individualName,
+    basic?.name,
+    detail?.name,
+    detail?.personName,
+    detail?.displayName,
+  );
+}
+
+export function connectionNeedsDisplayEnrichment(
+  entry: GraphConnectionEntry | null | undefined,
+): boolean {
+  if (!entry) return false;
+  const displayChecked = entry.evidence?.includes("display-enriched");
+  const name = String(entry.name || "").trim();
+  if ((!name || nameTokenCount(name) < 2) && !displayChecked) return true;
+  if (!String(entry.address || "").trim() && !displayChecked) return true;
+  return false;
+}
+
+/** Pick a current employer for previous-connection display (prefer not the firm being viewed). */
+export function extractCurrentEmployerFromDetail(
+  detail: any,
+  excludeFirmId?: string,
+): { currentFirmId?: string; currentFirmName?: string } {
+  const employments = [
+    ...toArraySafe(detail?.currentEmployments),
+    ...toArraySafe(detail?.currentIAEmployments),
+  ];
+  if (!employments.length) return {};
+  const excluded = String(excludeFirmId || "").trim();
+  const match =
+    employments.find((emp) => {
+      const id = String(firstNonEmpty(emp?.firmId, emp?.firm_id, emp?.crdNumber, emp?.crd) || "").trim();
+      return id && (!excluded || id !== excluded);
+    }) ||
+    employments.find((emp) =>
+      Boolean(firstNonEmpty(emp?.firmId, emp?.firm_id, emp?.firmName, emp?.iaFirmName, emp?.name)),
+    );
+  if (!match) return {};
+  const currentFirmId =
+    String(firstNonEmpty(match?.firmId, match?.firm_id, match?.crdNumber, match?.crd) || "").trim() ||
+    undefined;
+  const currentFirmName =
+    firstNonEmpty(
+      match?.firmName,
+      match?.iaFirmName,
+      match?.legalName,
+      match?.name,
+      match?.organizationName,
+    ) || undefined;
+  if (!currentFirmId && !currentFirmName) return {};
+  return { currentFirmId, currentFirmName };
 }
 
 async function searchIndividualsForFirmWithFallback(
@@ -848,26 +941,9 @@ export async function upsertIndividualIntoEmployerFirmConnections(
     return { firmsTouched: [], firmsSkippedUnchanged: [] };
   }
 
+  // Never prefer firstName alone — that produced connection cards like "Susan" for Susan F Axelrod.
   const personName =
-    firstNonEmpty(
-      detail?.basicInformation?.firstName,
-      detail?.firstName,
-      detail?.basicInformation?.name,
-      detail?.name,
-      detail?.personName,
-      detail?.displayName,
-    ) ||
-    [
-      detail?.basicInformation?.firstName,
-      detail?.firstName,
-      detail?.basicInformation?.middleName,
-      detail?.middleName,
-      detail?.basicInformation?.lastName,
-      detail?.lastName,
-    ]
-      .filter(Boolean)
-      .join(" ") ||
-    `Individual ${normalizedCrd}`;
+    composeIndividualDisplayName(detail) || `Individual ${normalizedCrd}`;
 
   const firmsTouched: string[] = [];
   const firmsSkippedUnchanged: string[] = [];
@@ -900,7 +976,10 @@ export async function upsertIndividualIntoEmployerFirmConnections(
       link.isCurrent ? "current-employment-record" : "matched-previous-employment",
       options.evidenceTag || "individual-detail-load",
     ];
-    const entry: GraphConnectionEntry = {
+    const currentEmployer = link.isCurrent
+      ? {}
+      : extractCurrentEmployerFromDetail(detail, firmId);
+    const incoming: GraphConnectionEntry = {
       individualId: normalizedCrd,
       name: personName,
       relationship: link.isCurrent
@@ -913,15 +992,50 @@ export async function upsertIndividualIntoEmployerFirmConnections(
       sourceTags: ["redis-upsert"],
       bcScope: detail?.bcScope || undefined,
       iaScope: detail?.iaScope || undefined,
+      ...(currentEmployer.currentFirmId
+        ? { currentFirmId: currentEmployer.currentFirmId }
+        : {}),
+      ...(currentEmployer.currentFirmName
+        ? { currentFirmName: currentEmployer.currentFirmName }
+        : {}),
+    };
+
+    const mergeConnectionEntry = (
+      existing: GraphConnectionEntry | undefined,
+      next: GraphConnectionEntry,
+    ): GraphConnectionEntry => {
+      if (!existing) return next;
+      const mergedEvidence = Array.from(
+        new Set([...(existing.evidence || []), ...(next.evidence || [])].filter(Boolean)),
+      );
+      const mergedSourceTags = Array.from(
+        new Set([...(existing.sourceTags || []), ...(next.sourceTags || [])].filter(Boolean)),
+      );
+      return {
+        ...existing,
+        ...next,
+        name: preferRicherPersonName(existing.name, next.name),
+        address: next.address || existing.address,
+        otherNames: next.otherNames?.length ? next.otherNames : existing.otherNames,
+        statusTag: next.statusTag || existing.statusTag,
+        bcScope: next.bcScope || existing.bcScope,
+        iaScope: next.iaScope || existing.iaScope,
+        currentFirmId: next.currentFirmId || existing.currentFirmId,
+        currentFirmName: next.currentFirmName || existing.currentFirmName,
+        evidence: mergedEvidence,
+        sourceTags: mergedSourceTags,
+      };
     };
 
     if (link.isCurrent) {
       const existing = currentById.get(normalizedCrd);
       previousById.delete(normalizedCrd);
+      const entry = mergeConnectionEntry(existing, incoming);
       if (
         options.skipUnchanged !== false &&
         existing &&
         existing.name === entry.name &&
+        existing.address === entry.address &&
         existing.startDate === entry.startDate &&
         existing.endDate === entry.endDate &&
         existing.isCurrent === entry.isCurrent
@@ -933,10 +1047,12 @@ export async function upsertIndividualIntoEmployerFirmConnections(
     } else {
       const existing = previousById.get(normalizedCrd);
       currentById.delete(normalizedCrd);
+      const entry = mergeConnectionEntry(existing, incoming);
       if (
         options.skipUnchanged !== false &&
         existing &&
         existing.name === entry.name &&
+        existing.address === entry.address &&
         existing.startDate === entry.startDate &&
         existing.endDate === entry.endDate &&
         existing.isCurrent === entry.isCurrent
@@ -1030,23 +1146,23 @@ async function enrichConnectionEntriesFromIndividualCache(
   entries: GraphConnectionEntry[],
   firmId: string,
   redis: ReturnType<typeof getRedisClient>,
+  options: { displayIncompleteOnly?: boolean; maxLookups?: number } = {},
 ): Promise<GraphConnectionEntry[]> {
   if (!redis || !entries.length) return entries;
-  const MAX_LOOKUPS = 400;
-  // Also re-check entries that already have a name/statusTag (e.g. filled in from the graph
-  // store) but still lack real per-firm employment evidence — otherwise a firm whose entries
-  // were only ever name-enriched (never proven) could never reach the "fully validated" fast
-  // path once their individual detail records do get cached (e.g. by the background
-  // revalidation job), since they'd be skipped here forever.
+  const MAX_LOOKUPS = Math.max(1, Math.min(2000, Number(options.maxLookups) || 400));
+  // displayIncompleteOnly: cheap path for Redis rosters that already exist but have thin
+  // display fields (first-name-only / missing address). Full path also re-checks validation.
   const needsEnrichment = entries
-    .filter(
-      (entry) =>
-        entry.individualId &&
-        (!entry.name ||
-          !entry.statusTag ||
-          !hasValidatedFirmConnectionEvidence(entry) ||
-          !entry.evidence?.includes("display-enriched")),
-    )
+    .filter((entry) => {
+      if (!entry.individualId) return false;
+      if (options.displayIncompleteOnly) return connectionNeedsDisplayEnrichment(entry);
+      return (
+        connectionNeedsDisplayEnrichment(entry) ||
+        !entry.statusTag ||
+        !hasValidatedFirmConnectionEvidence(entry) ||
+        !entry.evidence?.includes("display-enriched")
+      );
+    })
     .slice(0, MAX_LOOKUPS);
   if (!needsEnrichment.length) return entries;
 
@@ -1109,21 +1225,28 @@ async function enrichConnectionEntriesFromIndividualCache(
     }),
   );
 
-  if (!detailById.size) return entries;
+  const attemptedIds = new Set(
+    needsEnrichment.map((entry) => String(entry.individualId || "").trim()).filter(Boolean),
+  );
+  if (!detailById.size && !attemptedIds.size) return entries;
 
   return entries.map((entry) => {
     const detail = entry.individualId
       ? detailById.get(entry.individualId)
       : undefined;
-    if (!detail) return entry;
+    if (!detail) {
+      // Only mark cache-miss completion for entries we actually attempted to look up.
+      if (!attemptedIds.has(String(entry.individualId || "").trim())) return entry;
+      const evidence = [...(entry.evidence || [])];
+      if (!evidence.includes("display-enriched")) evidence.push("display-enriched");
+      if (entry.isCurrent === false && !evidence.includes("curr-employer-enriched")) {
+        evidence.push("curr-employer-enriched");
+      }
+      return { ...entry, evidence };
+    }
     const basic = detail?.basicInformation || detail || {};
-    const name = firstNonEmpty(
-      entry.name,
-      basic?.name,
-      [basic?.firstName, basic?.middleName, basic?.lastName]
-        .filter(Boolean)
-        .join(" "),
-    );
+    // Upgrade thin names ("Susan") when the cached detail has a fuller composed name.
+    const name = preferRicherPersonName(entry.name, composeIndividualDisplayName(detail));
     const bcScope =
       firstNonEmpty(entry.bcScope, detail?.bcScope, basic?.bcScope) ||
       undefined;
@@ -1185,6 +1308,16 @@ async function enrichConnectionEntriesFromIndividualCache(
         ? [...(entry.evidence || []), provenTag]
         : [...(entry.evidence || [])];
     if (!evidence.includes("display-enriched")) evidence.push("display-enriched");
+
+    let currentFirmId = entry.currentFirmId;
+    let currentFirmName = entry.currentFirmName;
+    if (entry.isCurrent === false) {
+      const currentEmployer = extractCurrentEmployerFromDetail(detail, firmId);
+      currentFirmId = currentFirmId || currentEmployer.currentFirmId;
+      currentFirmName = currentFirmName || currentEmployer.currentFirmName;
+      if (!evidence.includes("curr-employer-enriched")) evidence.push("curr-employer-enriched");
+    }
+
     return {
       ...entry,
       name: name || entry.name,
@@ -1196,6 +1329,8 @@ async function enrichConnectionEntriesFromIndividualCache(
       endDate,
       statusTag,
       evidence,
+      ...(currentFirmId ? { currentFirmId } : {}),
+      ...(currentFirmName ? { currentFirmName } : {}),
       __employmentChecked: true,
       __employmentMatched: !!matchedEmployment,
     } as GraphConnectionEntry;
@@ -1213,17 +1348,20 @@ async function attachConnectionDisplayFields(
   payload: FirmConnectionsPayload,
   firmId: string,
   redis: ReturnType<typeof getRedisClient>,
+  options: { displayIncompleteOnly?: boolean; maxLookups?: number } = {},
 ): Promise<FirmConnectionsPayload> {
   if (!payload) return { currentConnections: [], previousConnections: [] };
   const currentConnections = await enrichConnectionEntriesFromIndividualCache(
     payload.currentConnections || [],
     firmId,
     redis,
+    options,
   );
   const previousConnections = await enrichConnectionEntriesFromIndividualCache(
     payload.previousConnections || [],
     firmId,
     redis,
+    options,
   );
   const stripInternalMarkers = (entries: GraphConnectionEntry[]) =>
     entries.map(({ __employmentChecked, __employmentMatched, ...rest }: any) => rest as GraphConnectionEntry);
@@ -1232,6 +1370,25 @@ async function attachConnectionDisplayFields(
     currentConnections: stripInternalMarkers(currentConnections),
     previousConnections: stripInternalMarkers(previousConnections),
   };
+}
+
+function firmConnectionsDisplayFingerprint(payload: FirmConnectionsPayload): string {
+  const rows = [
+    ...(payload.currentConnections || []),
+    ...(payload.previousConnections || []),
+  ].map((entry) =>
+    [
+      entry.individualId || "",
+      entry.name || "",
+      entry.address || "",
+      entry.statusTag || "",
+      entry.currentFirmId || "",
+      entry.currentFirmName || "",
+      (entry.otherNames || []).join("|"),
+      entry.evidence?.includes("curr-employer-enriched") ? "1" : "0",
+    ].join("\t"),
+  );
+  return rows.join("\n");
 }
 
 export async function getFirmConnectionsFromGraph(
@@ -1269,9 +1426,32 @@ export async function getFirmConnectionsFromGraph(
   // graph expand may backfill that key from scripts (`computeIfMissing`), but they must
   // not add people to the dashboard or sidebar on their own.
   if (redisRoster && countFirmConnectionEntries(redisRoster) > 0) {
-    // Redis already stores display-ready entries. Do not re-walk search sidecars
-    // for every person (mega-firms like 7691 are 10k+ lookups and freeze the page).
-    return redisRoster;
+    // Only fill thin display fields (first-name-only / missing address) from already-cached
+    // individual details. Do not re-walk search sidecars for every person on mega-firms.
+    const before = firmConnectionsDisplayFingerprint(redisRoster);
+    const incompleteCount = [
+      ...(redisRoster.currentConnections || []),
+      ...(redisRoster.previousConnections || []),
+    ].filter(connectionNeedsDisplayEnrichment).length;
+    if (!incompleteCount) return redisRoster;
+
+    const enriched = await attachConnectionDisplayFields(redisRoster, normalizedFirmId, redis, {
+      displayIncompleteOnly: true,
+      maxLookups: 800,
+    });
+    const after = firmConnectionsDisplayFingerprint(enriched);
+    if (after !== before && redis) {
+      try {
+        await setStringIfValid(
+          cacheKey,
+          JSON.stringify(enriched),
+          FIRM_CONNECTIONS_CACHE_TTL_SECONDS,
+        );
+      } catch {
+        // read path still returns the enriched payload even if the write-back fails
+      }
+    }
+    return enriched;
   }
 
   if (!options?.computeIfMissing) {
