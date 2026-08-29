@@ -1,4 +1,5 @@
-const VERSION = 'v2';
+const serviceWorkerVersion = new URL(self.location.href).searchParams.get('v') ?? 'dev';
+const VERSION = `v-${serviceWorkerVersion}`;
 const STATIC_CACHE = `finra-static-${VERSION}`;
 const RUNTIME_CACHE = `finra-runtime-${VERSION}`;
 const OFFLINE_URL = '/offline.html';

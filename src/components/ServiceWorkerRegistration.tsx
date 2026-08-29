@@ -46,7 +46,8 @@ export default function ServiceWorkerRegistration() {
 
 		const register = async () => {
 			try {
-				const registration = await navigator.serviceWorker.register('/sw.js', {
+				const buildStamp = Date.now().toString();
+				const registration = await navigator.serviceWorker.register(`/sw.js?v=${buildStamp}`, {
 					updateViaCache: 'none',
 				});
 

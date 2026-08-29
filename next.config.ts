@@ -25,6 +25,14 @@ const nextConfig: NextConfig = {
 					{ key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version' },
 				],
 			},
+			{
+				source: '/sw.js',
+				headers: [
+					{ key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+					{ key: 'Pragma', value: 'no-cache' },
+					{ key: 'Expires', value: '0' },
+				],
+			},
 		];
 	},
 };
