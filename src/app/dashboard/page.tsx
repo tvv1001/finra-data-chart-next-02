@@ -353,16 +353,11 @@ function buildGraphNodeId(entity: 'individual' | 'firm' | null | undefined, id: 
 }
 
 // Collects the node ids that should be hydrated into the graph's selection log when
-// navigating "back to graph" from the dashboard — both Selection History (records viewed
-// in the dashboard) and Graph Click History (nodes already logged by the graph itself).
-function collectSelectedNodeIdsForGraphHref(localHistory: LocalHistoryEntry[], graphClickHistory: SelectionLogEntry[]) {
+// navigating "back to graph" from the dashboard (Queue / selection history).
+function collectSelectedNodeIdsForGraphHref(localHistory: LocalHistoryEntry[]) {
 	const ids = new Set<string>();
 	for (const entry of Array.isArray(localHistory) ? localHistory : []) {
 		const nodeId = buildGraphNodeId(entry.entity, entry.id);
-		if (nodeId) ids.add(nodeId);
-	}
-	for (const entry of Array.isArray(graphClickHistory) ? graphClickHistory : []) {
-		const nodeId = String(entry?.id || '').trim();
 		if (nodeId) ids.add(nodeId);
 	}
 	return Array.from(ids);
@@ -1015,13 +1010,6 @@ type LocalHistoryEntry = {
 	name?: string;
 	visitCount?: number;
 	lastVisitedAt?: string;
-};
-
-type SelectionLogEntry = {
-	id: string;
-	label: string;
-	secondaryId: string;
-	group: string;
 };
 
 type NewCrdEntry = {
@@ -1786,6 +1774,7 @@ function DashboardPageInner() {
 	const [searchResults, setSearchResults] = useState<SearchResultCard[]>([]);
 	const [searchSkippedCount, setSearchSkippedCount] = useState(0);
 	const [hasSearchRun, setHasSearchRun] = useState(false);
+	const [isSearchMenuOpen, setIsSearchMenuOpen] = useState(false);
 	const [crawlProgress, setCrawlProgress] = useState<{
 		active: boolean;
 		current: number;
@@ -1839,13 +1828,9 @@ function DashboardPageInner() {
 	>([]);
 	const [sessionHasFetched, setSessionHasFetched] = useState(false);
 	const [localHistory, setLocalHistory] = useState<LocalHistoryEntry[]>([]);
-	const [graphClickHistory, setGraphClickHistory] = useState<SelectionLogEntry[]>([]);
 	const [isSelectionHistoryOpen, setIsSelectionHistoryOpen] = useState(true);
-	const [isGraphClickHistoryOpen, setIsGraphClickHistoryOpen] = useState(true);
 	const [isSelectionHistoryEditMode, setIsSelectionHistoryEditMode] = useState(false);
 	const [selectedHistoryIds, setSelectedHistoryIds] = useState<Set<string>>(new Set());
-	const [isGraphClickHistoryEditMode, setIsGraphClickHistoryEditMode] = useState(false);
-	const [selectedGraphClickIndexes, setSelectedGraphClickIndexes] = useState<Set<number>>(new Set());
 	const [newCrdsOpen, setNewCrdsOpen] = useState(true);
 	const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
 	const [isSavingTemplate, setIsSavingTemplate] = useState(false);
@@ -1950,7 +1935,7 @@ function DashboardPageInner() {
 			event.preventDefault();
 			// Bridge Queue graph CRDs to the graph page via sessionStorage (no query string).
 			// The graph consumes this once on init and background-fetches missing nodes onto the canvas.
-			const queueNodeIds = collectSelectedNodeIdsForGraphHref(localHistory, []);
+			const queueNodeIds = collectSelectedNodeIdsForGraphHref(localHistory);
 			writeQueueGraphBridge(queueNodeIds);
 			// Sending the queue to the graph ends this Queue graph session. Returning to the
 			// dashboard starts a fresh empty selection history.
@@ -2088,15 +2073,6 @@ function DashboardPageInner() {
 			}
 		} catch (err) {
 			console.error('Failed to load saved templates:', err);
-		}
-
-		try {
-			const rawGraphLog = localStorage.getItem('finra_selection_log');
-			if (rawGraphLog) {
-				setGraphClickHistory(JSON.parse(rawGraphLog) as SelectionLogEntry[]);
-			}
-		} catch (err) {
-			console.error('Failed to load graph selection log:', err);
 		}
 
 		void loadNewCrdsFromRedis(true);
@@ -3012,42 +2988,6 @@ function DashboardPageInner() {
 			return next;
 		});
 		setSelectedHistoryIds(new Set());
-	}
-
-	function toggleGraphClickHistoryEditMode() {
-		setIsGraphClickHistoryEditMode((prev) => !prev);
-		setSelectedGraphClickIndexes(new Set());
-	}
-
-	function toggleSelectedGraphClickIndex(idx: number) {
-		setSelectedGraphClickIndexes((prev) => {
-			const next = new Set(prev);
-			if (next.has(idx)) next.delete(idx);
-			else next.add(idx);
-			return next;
-		});
-	}
-
-	// Removing a "Graph Click History" entry must also be reflected in the actual node graph.
-	// The graph reads/writes the same `finra_selection_log` localStorage key (its in-memory
-	// `selectedNodesLog`), so rewriting that key here keeps the two in sync: the next time the
-	// graph is loaded/focused it will call `loadSelectionLog()` and pick up the reduced list. If
-	// the graph is already open in another tab/window, `FinraGraph.tsx`'s `localStorage.setItem`
-	// patch dispatches a `finra:selection-log-changed` event that the graph module can react to.
-	function deleteSelectedGraphClickEntries() {
-		if (!selectedGraphClickIndexes.size) return;
-		setGraphClickHistory((prev) => {
-			const next = prev.filter((_, idx) => !selectedGraphClickIndexes.has(idx));
-			if (typeof window !== 'undefined') {
-				try {
-					localStorage.setItem('finra_selection_log', JSON.stringify(next));
-				} catch {
-					// ignore localStorage errors
-				}
-			}
-			return next;
-		});
-		setSelectedGraphClickIndexes(new Set());
 	}
 
 	async function openQueueCard(card: QueueCard) {
@@ -4142,6 +4082,7 @@ function DashboardPageInner() {
 			return;
 		}
 
+		setIsSearchMenuOpen(true);
 		setHasSearchRun(true);
 		setSearchBusy(true);
 		setSearchError(null);
@@ -4415,6 +4356,77 @@ function DashboardPageInner() {
 									))}
 								</div>
 							)}
+
+							<div className={styles.searchMenu}>
+								<button
+									type='button'
+									className={styles.searchMenuToggle}
+									aria-expanded={isSearchMenuOpen}
+									onClick={() => setIsSearchMenuOpen((open) => !open)}>
+									<span className={styles.searchMenuToggleTitle}>
+										REDIS SEARCH {isSearchMenuOpen ? '▼' : '▶'}
+										{searchResults.length > 0 ? ` (${searchResults.length.toLocaleString()})` : ''}
+									</span>
+									<span className={styles.searchMenuToggleMeta}>
+										<RedisConnectionLabel /> Redis CRDs: {uniqueCrdCounts.total.toLocaleString()}
+									</span>
+								</button>
+								{isSearchMenuOpen && (
+									<div className={styles.searchMenuBody}>
+										<div className={styles.searchDock}>
+											<div className={styles.searchRow}>
+												<input
+													value={searchQuery}
+													onChange={(event) => setSearchQuery(event.target.value)}
+													spellCheck={false}
+													autoCorrect='off'
+													autoCapitalize='none'
+													onKeyDown={(event) => {
+														if (event.key === 'Enter') {
+															event.preventDefault();
+															void runRedisSearch();
+														}
+													}}
+													className={styles.input}
+													placeholder='Search Redis-saved records by name...'
+												/>
+											</div>
+											<div className={styles.searchDockActions}>
+												<button
+													type='button'
+													className={styles.primaryBtn}
+													onClick={() => void runRedisSearch()}
+													disabled={searchBusy}>
+													{searchBusy ? 'Searching…' : 'Search Redis'}
+												</button>
+												{hasSearchRun && (
+													<button
+														type='button'
+														className={styles.filterLineBtn}
+														onClick={() => {
+															setSearchResults([]);
+															setSearchError(null);
+															setSearchSkippedCount(0);
+															setHasSearchRun(false);
+														}}>
+														Clear
+													</button>
+												)}
+											</div>
+										</div>
+										{searchPaneOpen && (
+											<div className={styles.searchResultsPane}>
+												<div className={styles.searchSummary}>{searchSummary}</div>
+												{searchResults.length > 0 ?
+													<div className={styles.searchResultsList}>{searchResults.map(renderSearchResult)}</div>
+												: !searchBusy ?
+													<div className={styles.searchResultsEmpty}>No Redis results yet for this query.</div>
+												:	null}
+											</div>
+										)}
+									</div>
+								)}
+							</div>
 
 							{hasCurrentRecord && (
 								<>
@@ -5708,67 +5720,7 @@ function DashboardPageInner() {
 								</div>
 							)}
 
-							{!hasCurrentRecord && <div className={styles.searchSummary}>No node selected yet. Search for a specific CRD below.</div>}
-
-							<div className={`${styles.searchBarWrap} ${searchPaneOpen ? styles.searchBarWrapExpanded : ''}`}>
-								<div className={`${styles.searchResultsPane} ${searchPaneOpen ? styles.searchResultsPaneOpen : ''}`}>
-									{searchPaneOpen && (
-										<button
-											type='button'
-											className={styles.searchResultsCloseBtn}
-											aria-label='Close search results'
-											title='Close search results'
-											onClick={() => {
-												setSearchResults([]);
-												setSearchError(null);
-												setSearchSkippedCount(0);
-												setHasSearchRun(false);
-											}}>
-											×
-										</button>
-									)}
-									<div className={styles.searchSummary}>{searchSummary}</div>
-									{searchResults.length > 0 ?
-										<div className={styles.searchResultsList}>{searchResults.map(renderSearchResult)}</div>
-									: searchPaneOpen && !searchBusy ?
-										<div className={styles.searchResultsEmpty}>No Redis results yet for this query.</div>
-									:	null}
-								</div>
-								<div className={styles.searchDock}>
-									<div className={styles.searchDockTitleRow}>
-										<div className={styles.searchTitle}>REDIS SEARCH ({searchResults.length.toLocaleString()})</div>
-										<div className={styles.searchDockMeta}>
-											<RedisConnectionLabel /> Redis CRDs: {uniqueCrdCounts.total.toLocaleString()}
-										</div>
-									</div>
-									<div className={styles.searchRow}>
-										<input
-											value={searchQuery}
-											onChange={(event) => setSearchQuery(event.target.value)}
-											spellCheck={false}
-											autoCorrect='off'
-											autoCapitalize='none'
-											onKeyDown={(event) => {
-												if (event.key === 'Enter') {
-													event.preventDefault();
-													runRedisSearch();
-												}
-											}}
-											className={styles.input}
-											placeholder='Search Redis-saved records by name...'
-										/>
-									</div>
-									<div className={styles.searchDockActions}>
-										<button
-											type='button'
-											className={styles.primaryBtn}
-											onClick={runRedisSearch}
-											disabled={searchBusy}>
-											{searchBusy ? 'Searching…' : 'Search Redis'}
-										</button>
-									</div>
-								</div>
-							</div>
+							{!hasCurrentRecord && <div className={styles.searchSummary}>No node selected yet. Open Redis Search above to look up a CRD.</div>}
 						</div>
 					</div>
 				</section>
@@ -5875,102 +5827,6 @@ function DashboardPageInner() {
 						</div>
 					)}
 
-					<div
-						className={styles.middlePaneHeader}
-						style={{
-							marginTop: isSelectionHistoryOpen ? '16px' : '0',
-							paddingTop: isSelectionHistoryOpen ? '16px' : '0',
-							borderTop: isSelectionHistoryOpen ? '1px solid var(--border)' : 'none',
-							cursor: 'pointer',
-							userSelect: 'none',
-						}}
-						onClick={() => setIsGraphClickHistoryOpen(!isGraphClickHistoryOpen)}>
-						<div className={styles.middlePaneTitle}>GRAPH CLICK HISTORY {isGraphClickHistoryOpen ? '▼' : '▶'}</div>
-						<div className={styles.middlePaneActions}>
-							<span className={styles.middlePaneCount}>{graphClickHistory.length}</span>
-							{isGraphClickHistoryEditMode && selectedGraphClickIndexes.size > 0 && (
-								<button
-									type='button'
-									className={styles.middlePaneClearBtn}
-									onClick={(e) => {
-										e.stopPropagation();
-										deleteSelectedGraphClickEntries();
-									}}>
-									DELETE ({selectedGraphClickIndexes.size})
-								</button>
-							)}
-							<button
-								type='button'
-								className={styles.middlePaneClearBtn}
-								onClick={(e) => {
-									e.stopPropagation();
-									toggleGraphClickHistoryEditMode();
-								}}>
-								{isGraphClickHistoryEditMode ? 'DONE' : 'EDIT'}
-							</button>
-						</div>
-					</div>
-
-					{isGraphClickHistoryOpen && (
-						<div
-							className={styles.middlePaneList}
-							style={{ flex: 1, minHeight: 0 }}>
-							{graphClickHistory.length > 0 ?
-								graphClickHistory
-									.map((entry, originalIdx) => ({ entry, originalIdx }))
-									.slice()
-									.reverse()
-									.map(({ entry, originalIdx }) => {
-										const entityForLink = entry.group === 'firm' ? 'firm' : 'individual';
-										const extractedCrd = entry.secondaryId.replace(/[^0-9]/g, '');
-										const isActiveRecord = currentRecordId === extractedCrd && currentRecordEntity === entityForLink;
-										const isChecked = selectedGraphClickIndexes.has(originalIdx);
-
-										return (
-											<button
-												type='button'
-												key={originalIdx}
-												className={`${styles.middlePaneItem} ${isActiveRecord ? styles.middlePaneItemSelected : ''}`}
-												aria-selected={isActiveRecord}
-												style={{
-													display: 'flex',
-													flexDirection: 'column',
-													width: '100%',
-													textAlign: 'left',
-												}}
-												onClick={() => {
-													if (isGraphClickHistoryEditMode) {
-														toggleSelectedGraphClickIndex(originalIdx);
-														return;
-													}
-													void openQueueCard({
-														id: extractedCrd,
-														entity: entityForLink,
-														files: 0,
-														sources: [],
-														name: entry.label,
-													});
-												}}>
-												<div className={styles.middlePaneItemTop}>
-													{isGraphClickHistoryEditMode && (
-														<input
-															type='checkbox'
-															checked={isChecked}
-															onChange={() => toggleSelectedGraphClickIndex(originalIdx)}
-															onClick={(e) => e.stopPropagation()}
-															style={{ marginRight: '4px' }}
-														/>
-													)}
-													<span className={styles.middlePaneItemBadge}>{entityForLink === 'firm' ? 'FIRM' : 'IND'}</span>
-													<span className={styles.middlePaneItemName}>{entry.label}</span>
-												</div>
-												<div className={styles.middlePaneItemMeta}>CRD #{extractedCrd}</div>
-											</button>
-										);
-									})
-							:	<div className={styles.middlePaneEmpty}>No graph clicks yet.</div>}
-						</div>
-					)}
 				</aside>
 
 				<div
