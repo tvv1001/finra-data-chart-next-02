@@ -1,16 +1,84 @@
 {
   "firms": [
     {
-      "id": 7471,
-      "name": "PRUDENTIAL-BACHE SECURITIES INC."
+      "id": 10111,
+      "name": "FIRST AMERICAN NATIONAL SECURITIES, INC."
     },
     {
-      "id": 630,
-      "name": "OPPENHEIMER & CO., INC."
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 199,
+      "name": "D.A. DAVIDSON & CO."
+    },
+    {
+      "id": 8174,
+      "name": "UBS FINANCIAL SERVICES INC."
+    },
+    {
+      "id": 7471,
+      "name": "PRUDENTIAL SECURITIES INCORPORATED"
+    },
+    {
+      "id": 283942,
+      "name": "BOFA SECURITIES, INC."
+    },
+    {
+      "id": 316331,
+      "name": "BOFA SECURITIES PRIME, INC."
+    },
+    {
+      "id": 7887,
+      "name": "MONTANO SECURITIES CORPORATION"
+    },
+    {
+      "id": 25152,
+      "name": "GREENWAY CAPITAL CORP."
     },
     {
       "id": 4,
       "name": "A. G. EDWARDS & SONS, INC."
+    },
+    {
+      "id": 372,
+      "name": "GRUNTAL & CO. INCORPORATED"
+    },
+    {
+      "id": 463,
+      "name": "JANNEY MONTGOMERY SCOTT INC."
+    },
+    {
+      "id": 298,
+      "name": "FIRST ALBANY CORPORATION"
+    },
+    {
+      "id": 19616,
+      "name": "FIRST UNION SECURITIES, INC."
+    },
+    {
+      "id": 11217,
+      "name": "QUICK & REILLY, INC."
+    },
+    {
+      "id": 16361,
+      "name": "BANC OF AMERICA INVESTMENT SERVICES, INC."
+    },
+    {
+      "id": 6413,
+      "name": "LPL FINANCIAL LLC"
+    },
+    {
+      "id": 13071,
+      "name": "FLEET SECURITIES, INC."
+    },
+    {
+      "id": 26091,
+      "name": "BANC OF AMERICA SECURITIES LLC"
+    },
+    {
+      "id": 630,
+      "name": "OPPENHEIMER & CO., INC."
     },
     {
       "id": 599,
@@ -23,14 +91,6 @@
     {
       "id": 104065,
       "name": "NEWBRIDGE SECURITIES CORPORATION"
-    },
-    {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
-    },
-    {
-      "id": 16361,
-      "name": "BANC OF AMERICA INVESTMENT SERVICES, INC."
     },
     {
       "id": 104536,
@@ -63,10 +123,6 @@
     {
       "id": 5249,
       "name": "MANEQUITY, INC."
-    },
-    {
-      "id": 8174,
-      "name": "UBS PAINEWEBBER INC."
     },
     {
       "id": 6321,
@@ -111,10 +167,6 @@
     {
       "id": 23131,
       "name": "OSAIC WEALTH, INC."
-    },
-    {
-      "id": 26091,
-      "name": "BANC OF AMERICA SECURITIES LLC"
     },
     {
       "id": 19585,
@@ -183,10 +235,6 @@
     {
       "id": 135288,
       "name": "AMERICAN INDEPENDENT SECURITIES GROUP, LLC"
-    },
-    {
-      "id": 283942,
-      "name": "BOFA SECURITIES, INC."
     },
     {
       "id": 14536,
@@ -289,10 +337,6 @@
       "name": "BLOOMBERG TRADEBOOK CANADA COMPANY"
     },
     {
-      "id": 19616,
-      "name": "WELLS FARGO ADVISORS, LLC"
-    },
-    {
       "id": 46173,
       "name": "PARK AVENUE SECURITIES LLC"
     },
@@ -349,10 +393,6 @@
       "name": "NATIONAL PLANNING CORPORATION"
     },
     {
-      "id": 6413,
-      "name": "LPL FINANCIAL LLC"
-    },
-    {
       "id": 34954,
       "name": "TCF INVESTMENTS, INC."
     },
@@ -378,6 +418,46 @@
     }
   ],
   "individuals": [
+    {
+      "id": 1552056,
+      "name": "DON RAY MCDONALD"
+    },
+    {
+      "id": 842198,
+      "name": "BRUCE JAMES READY"
+    },
+    {
+      "id": 4429443,
+      "name": "LINDSAY DENARDO HANS"
+    },
+    {
+      "id": 1024364,
+      "name": "Cynthia Clark"
+    },
+    {
+      "id": 7616382,
+      "name": "Sara Rathbone Mooney"
+    },
+    {
+      "id": 6949587,
+      "name": "Susan F Axelrod"
+    },
+    {
+      "id": 2392225,
+      "name": "EVAN JAY ADELGLASS"
+    },
+    {
+      "id": 4553207,
+      "name": "Brian THOMAS Moynihan"
+    },
+    {
+      "id": 5149837,
+      "name": "Kathleen A Knox"
+    },
+    {
+      "id": 1547727,
+      "name": "Ronald J DiPrinzio"
+    },
     {
       "id": 1447695,
       "name": "NANCY VEGA-SELLITRI"
