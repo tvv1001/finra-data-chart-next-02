@@ -14,33 +14,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	}
 
 	try {
+		const bucket = String(request.nextUrl.searchParams.get('bucket') || 'all').trim().toLowerCase();
 		const { currentConnections, previousConnections } = await getFirmConnectionsFromGraph(id);
+		const current = bucket === 'previous' ? [] : currentConnections || [];
+		const previous = bucket === 'current' ? [] : previousConnections || [];
 
-		// Optional companion docs produced by scripts/generate_firm_connection_docs.js
-		let docsById: Record<string, any> | null = null;
-		try {
-			const fs = await import('fs');
-			const path = await import('path');
-			const docsPath = path.join(process.cwd(), 'data', 'firm-connections', `${id}-docs.json`);
-			if (fs.existsSync(docsPath)) {
-				const raw = fs.readFileSync(docsPath, 'utf-8');
-				const parsed = JSON.parse(raw);
-				if (Array.isArray(parsed.entries)) {
-					docsById = Object.fromEntries(parsed.entries.map((e: any) => [String(e.individualId), e]));
-				}
-			}
-		} catch (e) {
-			// best-effort; ignore
-		}
 		return NextResponse.json(
 			{
 				firmId: id,
 				found: true,
-				currentConnections: currentConnections || [],
-				previousConnections: previousConnections || [],
-				docs: docsById,
+				currentConnections: current,
+				previousConnections: previous,
 			},
-			{ headers: { 'Cache-Control': 'no-store' } },
+			{ headers: { 'Cache-Control': 'public, max-age=0, s-maxage=60, stale-while-revalidate=86400' } },
 		);
 	} catch (err: any) {
 		logger.warn('Failed to load firm connections from graph route', { id, error: err?.message || String(err) });

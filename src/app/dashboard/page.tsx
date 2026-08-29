@@ -2513,6 +2513,9 @@ function DashboardPageInner() {
 		liveText: connectionsFilterQuery,
 		justCommitted: connectionsFilterJustCommitted,
 	});
+	const CONNECTION_PAGE_SIZE = 80;
+	const [currentRenderCount, setCurrentRenderCount] = useState(CONNECTION_PAGE_SIZE);
+	const [previousRenderCount, setPreviousRenderCount] = useState(CONNECTION_PAGE_SIZE);
 	const currentConnectionPartition = useMemo(() => {
 		const cards = detailedMainRecord?.currentConnectionCards || [];
 		return partitionConnectionsByFilter(
@@ -2530,9 +2533,13 @@ function DashboardPageInner() {
 		connectionsFilterEnabled,
 		connectionFilterPreviewUnfiltered,
 	]);
-	const filteredCurrentConnectionCards = useMemo(
+	const filteredCurrentConnectionCardsAll = useMemo(
 		() => [...sortByMostRecentStartDate(currentConnectionPartition.matched), ...sortByMostRecentStartDate(currentConnectionPartition.unmatched)],
 		[currentConnectionPartition],
+	);
+	const filteredCurrentConnectionCards = useMemo(
+		() => filteredCurrentConnectionCardsAll.slice(0, currentRenderCount),
+		[filteredCurrentConnectionCardsAll, currentRenderCount],
 	);
 
 	const deferredPreviousConnectionCards = useDeferredValue(detailedMainRecord?.previousConnectionCards || []);
@@ -2557,27 +2564,10 @@ function DashboardPageInner() {
 		deferredPreviousPreviewUnfiltered,
 	]);
 	const filteredPreviousConnectionCardsAll = previousConnectionPartition.ordered;
-	const [previousRenderCount, setPreviousRenderCount] = useState(0);
 	useEffect(() => {
-		setPreviousRenderCount(0);
-		const total = filteredPreviousConnectionCardsAll.length;
-		if (!total) return;
-		let count = 0;
-		let raf = 0;
-		const pump = () => {
-			count = Math.min(total, count === 0 ? Math.min(80, total) : count + 160);
-			setPreviousRenderCount(count);
-			if (count < total) raf = window.requestAnimationFrame(pump);
-		};
-		raf = window.requestAnimationFrame(pump);
-		return () => window.cancelAnimationFrame(raf);
-	}, [
-		currentRecordId,
-		filteredPreviousConnectionCardsAll,
-		deferredPreviousFilterQuery,
-		deferredPreviousFilterTags,
-		deferredPreviousFilterEnabled,
-	]);
+		setCurrentRenderCount(CONNECTION_PAGE_SIZE);
+		setPreviousRenderCount(CONNECTION_PAGE_SIZE);
+	}, [currentRecordId, deferredPreviousFilterQuery, deferredPreviousFilterTags, deferredPreviousFilterEnabled, connectionsFilterQuery, connectionsFilterTags, connectionsFilterEnabled]);
 	const filteredPreviousConnectionCards = useMemo(
 		() => filteredPreviousConnectionCardsAll.slice(0, previousRenderCount),
 		[filteredPreviousConnectionCardsAll, previousRenderCount],
@@ -3191,15 +3181,19 @@ function DashboardPageInner() {
 		return { currentConnections: Array.from(currentByKey.values()), previousConnections: Array.from(previousByKey.values()) };
 	}
 
-	function applyFirmConnectionsToState(firmId: string, currentConnections: any[], previousConnections: any[]) {
+	function applyFirmConnectionsToState(
+		firmId: string,
+		currentConnections?: any[] | null,
+		previousConnections?: any[] | null,
+	) {
 		setMainJson((prev) => {
 			if (!prev) return prev;
 			const prevCrd = String(prev?.basicInformation?.firmId || prev?.firmId || prev?.id || '').trim();
 			if (prevCrd && prevCrd !== firmId) return prev;
 			return {
 				...prev,
-				currentConnections,
-				previousConnections,
+				...(Array.isArray(currentConnections) ? { currentConnections } : {}),
+				...(Array.isArray(previousConnections) ? { previousConnections } : {}),
 			};
 		});
 	}
@@ -3281,20 +3275,27 @@ function DashboardPageInner() {
 		setConnectionsLoadingFirmId(firmId);
 		const fetchPromise = (async () => {
 			try {
-				const response = await fetch(`/api/finra/firm/${encodeURIComponent(firmId)}/connections`, {
-					method: 'GET',
-					headers: { Accept: 'application/json' },
-					cache: 'no-store',
-				});
-				if (!response.ok) return null;
-				const data = await response.json().catch(() => null);
-				if (!data || !data.found) return null;
+				const loadBucket = async (bucket: 'current' | 'previous') => {
+					const response = await fetch(`/api/finra/firm/${encodeURIComponent(firmId)}/connections?bucket=${bucket}`, {
+						method: 'GET',
+						headers: { Accept: 'application/json' },
+					});
+					if (!response.ok) return null;
+					return response.json().catch(() => null);
+				};
 
-				const roster = firmConnectionRosterFrom(data);
-				if (!roster) return data;
-				rememberVisited(visitConnectionsKey(firmId), { found: true, ...roster });
-				applyFirmConnectionsToState(firmId, roster.currentConnections, roster.previousConnections);
-				return data;
+				const currentData = await loadBucket('current');
+				if (currentData?.found) {
+					applyFirmConnectionsToState(firmId, currentData.currentConnections || [], undefined);
+					setConnectionsLoadingFirmId((current) => (current === firmId ? null : current));
+				}
+
+				const previousData = await loadBucket('previous');
+				if (previousData?.found) {
+					applyFirmConnectionsToState(firmId, undefined, previousData.previousConnections || []);
+				}
+
+				return previousData || currentData;
 			} catch (err) {
 				console.warn('Failed to lazy load firm connections', err);
 				return null;
@@ -5255,7 +5256,7 @@ function DashboardPageInner() {
 													const matchedSelectableCurrent = currentConnectionPartition.matched.filter((item) => item.crd);
 													const matchedSelectablePrevious = previousConnectionPartition.matched.filter((item) => item.crd);
 													const matchedSelectableConnections = [...matchedSelectableCurrent, ...matchedSelectablePrevious];
-													const selectableConnections = [...filteredCurrentConnectionCards, ...filteredPreviousConnectionCardsAll].filter((item) => item.crd);
+													const selectableConnections = [...filteredCurrentConnectionCardsAll, ...filteredPreviousConnectionCardsAll].filter((item) => item.crd);
 													const toggleConnectionKey = (key: string) => {
 														if (!key) return;
 														setSelectedConnectionKeys((prev) => {
@@ -5467,6 +5468,14 @@ function DashboardPageInner() {
 																<section className={styles.detailSection}>
 																	<h4 className={styles.detailSectionTitle}>Current Connections ({detailedMainRecord.currentConnectionCards.length})</h4>
 																	<div className={styles.detailList}>{filteredCurrentConnectionCards.map((item, idx) => renderConnectionRow(item, idx, 'current'))}</div>
+																	{currentRenderCount < filteredCurrentConnectionCardsAll.length ?
+																		<button
+																			type='button'
+																			className={styles.filterLineBtn}
+																			onClick={() => setCurrentRenderCount((count) => count + 200)}>
+																			Show more current ({(filteredCurrentConnectionCardsAll.length - currentRenderCount).toLocaleString()} remaining)
+																		</button>
+																	:	null}
 																</section>
 															)}
 
@@ -5475,9 +5484,12 @@ function DashboardPageInner() {
 																	<h4 className={styles.detailSectionTitle}>Previous Connections ({detailedMainRecord.previousConnectionCards.length})</h4>
 																	<div className={styles.detailList}>{filteredPreviousConnectionCards.map((item, idx) => renderConnectionRow(item, idx, 'previous'))}</div>
 																	{previousRenderCount < filteredPreviousConnectionCardsAll.length ?
-																		<div className={styles.detailRowMeta}>
-																			Loading remaining previous connections… {previousRenderCount.toLocaleString()} / {filteredPreviousConnectionCardsAll.length.toLocaleString()}
-																		</div>
+																		<button
+																			type='button'
+																			className={styles.filterLineBtn}
+																			onClick={() => setPreviousRenderCount((count) => count + 200)}>
+																			Show more previous ({(filteredPreviousConnectionCardsAll.length - previousRenderCount).toLocaleString()} remaining)
+																		</button>
 																	:	null}
 																</section>
 															)}

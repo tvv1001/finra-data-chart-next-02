@@ -7,7 +7,7 @@
 // forward independent of the individual's own record. Validation now comes exclusively from
 // each individual's own cached current/previous employment history
 // (see enrichConnectionEntriesFromIndividualCache / hasValidatedFirmConnectionEvidence below).
-import { searchLocalIndex, hasMinimumSearchQuery, lookupLocalSearchHitsByIds } from "@/lib/localSearch";
+import { searchLocalIndex, hasMinimumSearchQuery } from "@/lib/localSearch";
 import { searchGraphFallback } from "@/lib/searchGraphFallback";
 import { searchDirectRedisFallback } from "@/lib/searchDirectFallback";
 import { getFirmEmploymentEdgesFromFullScan } from "@/lib/firmEmploymentIndex";
@@ -1209,65 +1209,6 @@ async function enrichConnectionEntriesFromIndividualCache(
 // backfill error) — real per-firm employment evidence disproves them outright. Entries whose
 // detail wasn't cached (so membership couldn't be checked either way) are left untouched, since
 // we can't prove them wrong.
-function connectionPersonId(entry: GraphConnectionEntry) {
-  return String(entry?.individualId || (entry as any)?.crd || (entry as any)?.personId || "").trim();
-}
-
-async function hydrateConnectionsFromSearchSidecar(
-  payload: FirmConnectionsPayload,
-): Promise<FirmConnectionsPayload> {
-  const current = Array.isArray(payload?.currentConnections) ? payload.currentConnections : [];
-  const previous = Array.isArray(payload?.previousConnections) ? payload.previousConnections : [];
-  const ids = [...current, ...previous].map(connectionPersonId).filter(Boolean);
-  if (!ids.length) return payload;
-  try {
-    const [finraHits, secHits] = await Promise.all([
-      lookupLocalSearchHitsByIds("finra", "individual", ids),
-      lookupLocalSearchHitsByIds("sec", "individual", ids),
-    ]);
-    const apply = (entries: GraphConnectionEntry[]) =>
-      entries.map((entry) => {
-        const id = connectionPersonId(entry);
-        const finra = id ? finraHits.get(id) : null;
-        const sec = id ? secHits.get(id) : null;
-        const sourceTags = Array.from(
-          new Set(
-            [
-              ...(Array.isArray(entry.sourceTags) ? entry.sourceTags : []),
-              ...(finra ? ["FINRA"] : []),
-              ...(sec ? ["SEC"] : []),
-            ].filter(Boolean),
-          ),
-        );
-        const bcScope = entry.bcScope || finra?.ind_bc_scope || finra?.bcScope || undefined;
-        const iaScope = entry.iaScope || sec?.ind_ia_scope || sec?.iaScope || undefined;
-        const otherNames =
-          Array.isArray(entry.otherNames) && entry.otherNames.length ?
-            entry.otherNames
-          : Array.isArray(finra?.ind_other_names) ? finra.ind_other_names
-          : Array.isArray(sec?.ind_other_names) ? sec.ind_other_names
-          : Array.isArray(finra?.otherNames) ? finra.otherNames
-          : Array.isArray(sec?.otherNames) ? sec.otherNames
-          : entry.otherNames;
-        if (!sourceTags.length && !bcScope && !iaScope && otherNames === entry.otherNames) return entry;
-        return {
-          ...entry,
-          ...(sourceTags.length ? { sourceTags } : {}),
-          ...(bcScope ? { bcScope: String(bcScope) } : {}),
-          ...(iaScope ? { iaScope: String(iaScope) } : {}),
-          ...(Array.isArray(otherNames) && otherNames.length ? { otherNames } : {}),
-        };
-      });
-    return {
-      ...payload,
-      currentConnections: apply(current),
-      previousConnections: apply(previous),
-    };
-  } catch {
-    return payload;
-  }
-}
-
 async function attachConnectionDisplayFields(
   payload: FirmConnectionsPayload,
   firmId: string,
@@ -1328,7 +1269,9 @@ export async function getFirmConnectionsFromGraph(
   // graph expand may backfill that key from scripts (`computeIfMissing`), but they must
   // not add people to the dashboard or sidebar on their own.
   if (redisRoster && countFirmConnectionEntries(redisRoster) > 0) {
-    return hydrateConnectionsFromSearchSidecar(redisRoster);
+    // Redis already stores display-ready entries. Do not re-walk search sidecars
+    // for every person (mega-firms like 7691 are 10k+ lookups and freeze the page).
+    return redisRoster;
   }
 
   if (!options?.computeIfMissing) {
