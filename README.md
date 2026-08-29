@@ -211,16 +211,9 @@ For runtime performance in production:
 
 ## Cron & revalidation
 
-The app now uses a single Vercel cron job at `/api/finra/external-validity` to keep the internal data source fresh.
+There are **no Vercel cron jobs**. Search and roster data are local Redis + gzip sidecars. External FINRA/SEC fetches are not scheduled on a timer.
 
-That cron job:
-
-- checks higher-number CRDs first
-- backfills older CRDs after the newest range is checked
-- writes fresh upstream detail back into the internal graph/cache
-- pauses for 6–11 minutes after a `429` before resuming
-
-Search behavior remains local-first: the app queries the local graph store first and only reaches external FINRA/SEC search endpoints when local data for the query is missing. That fetched data is then merged into the local graph and persisted.
+Search behavior remains local-first: the app queries the gzip search sidecar first and only reaches external FINRA/SEC search endpoints when that is missing.
 
 ## CONTRIBUTING & TESTS
 
@@ -592,8 +585,7 @@ node scripts/enrich_nodes.js
 
 ### Vercel
 
-- `vercel.json` schedules **one daily cron**:
-  - `GET /api/finra/prime-check` at `0 3 * * *`
+- `vercel.json` does **not** schedule crons.
 - API routes under `src/app/api/**` are configured with `maxDuration: 30`
 
 ### Runtime bundle contents

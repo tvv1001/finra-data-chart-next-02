@@ -1,15 +1,5 @@
 {
 	"buildCommand": "pnpm run vercel-build",
-	"crons": [
-		{
-			"path": "/api/finra/external-validity",
-			"schedule": "0 0 1 * *"
-		},
-		{
-			"path": "/api/finra/firm-connections-reverse-index",
-			"schedule": "0 3 15 * *"
-		}
-	],
 	"functions": {
 		"src/app/api/**": {
 			"maxDuration": 30

@@ -1,70 +1,6 @@
-import type { Redis } from '@upstash/redis';
-import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { gunzipSync } from 'node:zlib';
-import { getRedisClientInstance } from '@/lib/redisClient';
 import { getSearchIndexFilePaths } from './searchDataPaths';
 import { isValidCrd } from '@/lib/crd';
-import * as zlib from 'node:zlib';
-
-let cachedRedisClient: Redis | null = null;
-function getUpstashClient() {
-	if (cachedRedisClient) return cachedRedisClient;
-	const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
-	const token = process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN;
-	if (!url || !token) return null;
-	cachedRedisClient = getRedisClientInstance({ url, token });
-	return cachedRedisClient;
-}
-
-async function fetchFromRedis(bucket: string): Promise<any | null> {
-	const redis = getUpstashClient();
-	if (!redis) {
-		return null;
-	}
-
-	function parseStoredIndexPayload(value: unknown) {
-		if (typeof value !== 'string' || !value.trim()) return null;
-		const trimmed = value.trim();
-		try {
-			if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-				return JSON.parse(trimmed);
-			}
-			if (trimmed.startsWith('br:')) {
-				const decoded = zlib.brotliDecompressSync(Buffer.from(trimmed.slice(3), 'base64')).toString('utf-8');
-				return JSON.parse(decoded);
-			}
-			const decoded = zlib.gunzipSync(Buffer.from(trimmed, 'base64')).toString('utf-8');
-			return JSON.parse(decoded);
-		} catch {
-			return null;
-		}
-	}
-
-	try {
-		const key = `search:indexes:${bucket}`;
-		const parsedValue = await parseStoredIndexPayload(await redis.get(key));
-		if (parsedValue) return parsedValue;
-
-		const metaPayload = await redis.get(`${key}:meta`);
-
-		const meta = await parseStoredIndexPayload(metaPayload) ?? (typeof metaPayload === 'string' ? JSON.parse(metaPayload) : metaPayload);
-		const chunkCount = Number(meta?.chunks ?? meta?.parts ?? 0);
-		if (!chunkCount || chunkCount < 1) return null;
-
-		const partPromises: Promise<string | null>[] = [];
-		for (let index = 0; index < chunkCount; index += 1) {
-			partPromises.push(redis.get<string>(`${key}:part:${index}`));
-		}
-		const chunks = await Promise.all(partPromises);
-		if (chunks.some((chunk) => typeof chunk !== 'string' || !chunk)) return null;
-
-		return await parseStoredIndexPayload(chunks.filter((c): c is string => c !== null).join(''));
-	} catch (err) {
-		console.error(`[localSearch] Failed to fetch index from Redis for ${bucket}:`, err instanceof Error ? err.message : String(err));
-		return null;
-	}
-}
 
 export type LocalSearchSource = 'finra' | 'sec';
 export type LocalSearchEntity = 'individual' | 'firm';
@@ -446,7 +382,7 @@ async function loadIndex(bucket: LocalSearchBucket, baseUrl?: string, seedRoots:
 							docs: allDocs.map(prepareDoc),
 						};
 					} catch (err: any) {
-						console.warn(`[localSearch] Failed to load local search indexes for ${bucket}, trying Redis...`);
+						console.warn(`[localSearch] Failed to load gzip search sidecar for ${bucket}:`, err?.message || err);
 					}
 				}
 
@@ -463,21 +399,8 @@ async function loadIndex(bucket: LocalSearchBucket, baseUrl?: string, seedRoots:
 								};
 							}
 						} catch (err: any) {
-							console.warn(`[localSearch] Failed to fetch remote search index for ${bucket} from ${remoteUrl}, trying Redis...`);
+							console.warn(`[localSearch] Failed to fetch gzip search sidecar for ${bucket} from ${remoteUrl}:`, err?.message || err);
 						}
-					}
-				}
-
-				if (!index) {
-					// Fall back to Redis if local files are unavailable
-					console.warn(`[localSearch] Local files not available for ${bucket}, trying Redis...`);
-					const redisData = await fetchFromRedis(bucket);
-					if (redisData) {
-						index = {
-							generatedAt: redisData?.generatedAt,
-							bucket: redisData?.bucket,
-							docs: Array.isArray(redisData?.docs) ? redisData.docs.map(prepareDoc) : [],
-						};
 					}
 				}
 

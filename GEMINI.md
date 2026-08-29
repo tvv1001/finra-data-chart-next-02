@@ -15,7 +15,7 @@ This app is a **PWA** and is designed to run from **Redis cache only** when conf
 1. **`data/` (raw + derived)** — offline source of truth for imports/rebuilds. Completeness is **not guaranteed**; some CRDs may still be missing downloads. Treat as read/import material, not as something every runtime path must hit.
 2. **Local Redis** (`redis://127.0.0.1:6379`, Commander UI `http://127.0.0.1:8081/`) — **main Redis DB on localhost** when `USE_LOCAL_REDIS=1`. Graph + dashboard share this store.
 3. **Two Upstash cloud Redis DBs** (primary + mirror) — must **stay in sync**. Used in production to balance load / avoid bottlenecks when hydrating many nodes. Never mutate cloud casually; sync/deploy only when the user asks.
-4. **Search sidecars** (`data/national/search-index.*.json.gz` → `public/search-indexes/`) — CRD→name catalog for search/expand/labels. Prefer sidecar `firm_name` over `Firm <CRD>` stubs. See `docs/search-sidecar.md`.
+4. **Search sidecars** (`data/national/search-index.*.json.gz` → `public/search-indexes/`) — gzip flatfiles for dashboard + graph search and CRD name hydration. Prefer sidecar `firm_name` over `Firm <CRD>` stubs. **Never store or query search indexes in Redis** (`search:indexes:*` is retired). See `docs/search-sidecar.md`.
 
 **Production is reference-only** for agent work: read/audit OK; writes/deploys go `develop` → normal release. A shared production URL is **an example of the issue** — never deploy to Vercel from the agent, and never push local Redis to prod Redis unless the user explicitly instructs that sync. Details: `.github/instructions/prod-reference-workflow.instructions.md` and `.github/instructions/upstash-redis-and-crd-check.instructions.md`. Grok workflow: `/local-first-fix` (`.grok/workflows/local-first-fix.rhai`).
 
@@ -38,7 +38,7 @@ On **localhost**, HTTP/app/DB caching that would hide freshness issues should st
 
 - Optimize for **high throughput** and smooth graph interaction (large node sets).
 - **Minimize Redis reads/writes** (Upstash cost + latency). Batch, reuse in-memory results, avoid chatty key scans in hot paths.
-- External FINRA/SEC validation is **slow and deliberate** (cron / queued jobs), not on every click. Sequential crawl, respect 429 / `retry-after`.
+- External FINRA/SEC validation is **slow and deliberate**, not on every click. Sequential crawl, respect 429 / `retry-after`. There are **no Vercel crons**.
 - Dual cloud DBs exist to **load-balance** node loading — keep them mirrored; do not assume one side is disposable.
 
 ## Graph ↔ dashboard contract
@@ -79,10 +79,11 @@ Node-click reveal/spread may move the clicked node and newly revealed neighbors 
 
 - **Do** keep local Redis, DB1, and DB2 reconciled when syncing; merge drift, don’t blind-overwrite unique live keys.
 - **Do** prefer Redis + sidecars + in-memory reuse over live upstream on interactive paths.
-- **Do** keep crawl/validation sequential and cron-paced.
-- **Do** treat person current/previous employment as the freshest reverse index for firm rosters (official firm-roster search is incomplete for many low/old firm CRDs). Prefer the low-frequency Redis-only job: `pnpm run reverse-index:firm-connections` (cursor SCAN, skip-unchanged writes, no external APIs). Optional monthly cron: `/api/finra/firm-connections-reverse-index`. Individual page loads may also upsert with skip-unchanged.
+- **Do** keep crawl/validation sequential when you run it locally.
+- **Do** treat person current/previous employment as the freshest reverse index for firm rosters (official firm-roster search is incomplete for many low/old firm CRDs). Optional local job only: `pnpm run reverse-index:firm-connections`. Individual page loads may also upsert with skip-unchanged. There is no Vercel cron for this.
 - **Don’t** treat incomplete `data/` as a blocker for Redis-only / PWA paths.
 - **Don’t** write production Upstash unless the user explicitly requests deploy/sync.
 - **Don’t** deploy to Vercel from an agent session. Don’t treat a prod URL as a deploy request.
 - **Don’t** invent alternate ingestion paths; dashboard + approved cron/scripts own CRD intake.
+- **Don’t** put search indexes in Redis. Graph and dashboard search/name hydration use gzip sidecars only.
 - **Do** treat Redis `firm-connections:firm:{id}` as the dashboard/graph people roster. Firm detail stays small; `/connections` reads that key.
