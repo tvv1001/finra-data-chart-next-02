@@ -12408,27 +12408,17 @@ async function ensureFirmConnections(firmNode: any) {
 
 	const requestPromise = (async () => {
 		try {
-			const cached =
-				readVisitedSync<{ currentConnections?: any[]; previousConnections?: any[]; found?: boolean }>(visitConnectionsKey(firmId)) ||
-				(await readVisited<{ currentConnections?: any[]; previousConnections?: any[]; found?: boolean }>(visitConnectionsKey(firmId)));
-			if (cached && cached.found !== false) {
-				firmNode.currentConnections = Array.isArray(cached.currentConnections) ? cached.currentConnections : [];
-				firmNode.previousConnections = Array.isArray(cached.previousConnections) ? cached.previousConnections : [];
-				firmNode._connectionsLoaded = true;
-				return;
-			}
 			const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
 			const timer = controller ? window.setTimeout(() => controller.abort(), 30000) : 0;
 			const res = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}/connections`, {
 				signal: controller?.signal,
+				cache: 'no-store',
 			});
 			if (timer) window.clearTimeout(timer);
 			if (res.ok) {
 				const payload = await res.json();
 				if (payload?.found !== false) {
-					// Sidebar-display only: store the raw lists on the node for renderFirmDetail to
-					// render as Current/Previous Connections cards. Do NOT inject nodes/links into
-					// the live graph canvas here — that's the expensive part we removed for performance.
+					// Sidebar-display only: Redis firm-connections:firm:{id} via /connections.
 					firmNode.currentConnections = Array.isArray(payload.currentConnections) ? payload.currentConnections : [];
 					firmNode.previousConnections = Array.isArray(payload.previousConnections) ? payload.previousConnections : [];
 					firmNode._connectionsLoaded = true;

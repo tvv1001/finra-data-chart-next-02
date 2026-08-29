@@ -32,7 +32,7 @@ let firmId = '';
 		console.log('Computing firm connections for', firmId);
 		// dynamic import of graphConnections using tsconfig paths support provided by tsconfig-paths/register
 		const mod = await import(path.join(process.cwd(), 'src', 'lib', 'graphConnections')).catch(() => import(path.join(process.cwd(), 'src', 'lib', 'graphConnections.ts')));
-		const res = await (mod?.getFirmConnectionsFromGraph ? mod.getFirmConnectionsFromGraph(firmId) : mod?.default?.getFirmConnectionsFromGraph?.(firmId));
+		const res = await (mod?.getFirmConnectionsFromGraph ? mod.getFirmConnectionsFromGraph(firmId, { computeIfMissing: true }) : mod?.default?.getFirmConnectionsFromGraph?.(firmId, { computeIfMissing: true }));
 		const outDir = path.join(process.cwd(), 'data', 'firm-connections');
 		fs.mkdirSync(outDir, { recursive: true });
 		const outPath = path.join(outDir, `${firmId}.json`);

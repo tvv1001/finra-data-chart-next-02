@@ -46,6 +46,7 @@ describe('firm connections route and deferConnections option', () => {
 		expect(data.currentConnections[0].name).toBe('John Doe');
 		expect(data.previousConnections).toHaveLength(1);
 		expect(data.previousConnections[0].name).toBe('Jane Smith');
+		expect(response.headers.get('cache-control')).toBe('no-store');
 	});
 
 	it('handles invalid firm id gracefully', async () => {

@@ -8,11 +8,6 @@ import { getRedisClientInstance } from "@/lib/redisClient";
 import { compressPayload, setStringIfValid } from "@/lib/redisCache";
 import { addRecordToSearchIndex } from "@/lib/localSearch";
 import {
-  firmConnectionsCacheKey,
-  firmConnectionsVerifiedCacheKey,
-  getFirmConnectionsFromGraph,
-} from "@/lib/graphConnections";
-import {
   recordOwnerReferencesForFirm,
   lookupFirmReference,
 } from "@/lib/ownerReferenceIndex";
@@ -253,15 +248,12 @@ export async function GET(
   }
 
   if (forceRefresh) {
-    // Evict upstream detail caches and the precomputed firm-connections cache
-    const graphConnKey = firmConnectionsCacheKey(id);
+    // Evict firm detail caches only. Do not delete Redis `firm-connections:firm:{id}` —
+    // that roster is the curated people list and is already populated independently.
     await Promise.allSettled([
       evictCacheKey(`finra:firm:${id}`),
       evictCacheKey(`sec:firm:${id}`),
       evictCacheKey(`sec:firm:summaryHtml:${id}`),
-      evictCacheKey(graphConnKey),
-      evictCacheKey(`${graphConnKey}:empty`),
-      evictCacheKey(firmConnectionsVerifiedCacheKey(id)),
     ]);
 
     if (writeRequested) {
@@ -1032,47 +1024,9 @@ export async function GET(
     }
 
     if (isMergedRoute) {
-      // Default: defer connections so firm detail (single Redis key GETs) stays fast on a
-      // shared Redis. Opt in with includeConnections=1. Explicit defer/lazy still honor skip.
-      const includeConnections =
-        request.nextUrl.searchParams.get("includeConnections") === "1";
-      const deferConnections =
-        !includeConnections ||
-        request.nextUrl.searchParams.get("deferConnections") === "1" ||
-        request.nextUrl.searchParams.get("lazyConnections") === "1" ||
-        request.nextUrl.searchParams.get("includeConnections") === "0";
-
-      // Mirror the interactive graph's node-click side panel (collectFirmConnectionEntries /
-      // renderFirmDetail in finra-graph.ts) so the dashboard's firm view shows the same
-      // Current/Previous Connections (individuals employed by or registered with this firm).
-      // Best-effort only: never let a graph lookup failure break the primary firm detail response.
-      // Keep the roster off nested finraNode/merged/sources copies. Inlining it on all
-      // three for a mega-firm (e.g. 7691) serialized a 12MB JSON body and froze the
-      // dashboard. Callers that need people should hit /connections or read these
-      // top-level fields.
-      let connectionFields: {
-        currentConnections?: unknown[];
-        previousConnections?: unknown[];
-      } = {};
-      if (
-        !deferConnections &&
-        (!Array.isArray(detail.currentConnections) ||
-          !detail.currentConnections.length ||
-          !Array.isArray(detail.previousConnections) ||
-          !detail.previousConnections.length)
-      ) {
-        try {
-          const { currentConnections, previousConnections } =
-            await getFirmConnectionsFromGraph(id);
-          connectionFields = { currentConnections, previousConnections };
-        } catch (graphConnErr: any) {
-          logger.warn("failed to derive firm connections from graph", {
-            id,
-            error: graphConnErr?.message || String(graphConnErr),
-          });
-        }
-      }
-
+      // People lists live on Redis `firm-connections:firm:{id}` and are loaded from
+      // /api/finra/firm/{id}/connections. Never inline them here — mega-firms (7691)
+      // became a 12MB JSON body and froze production.
       return NextResponse.json(
         {
           firmId: id,
@@ -1085,7 +1039,6 @@ export async function GET(
             sec: secDetail,
           },
           merged: detail,
-          ...connectionFields,
         },
         { headers: sharedCacheHeaders(3600) },
       );

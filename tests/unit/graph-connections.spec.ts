@@ -113,6 +113,12 @@ describe('firm connection merge and cache', () => {
 		expect(countFirmConnectionEntries(merged)).toBe(2);
 	});
 
+	it('returns empty when Redis firm-connections:firm is missing instead of using other sources', async () => {
+		mockRedis.get.mockResolvedValue(null);
+		const result = await getFirmConnectionsFromGraph('7691');
+		expect(result).toEqual({ currentConnections: [], previousConnections: [] });
+	});
+
 	it('uses Redis firm-connections:firm as the only curated roster', async () => {
 		mockRedis.get.mockImplementation(async (key: string) => {
 			if (key === firmConnectionsCacheKey('2525')) {

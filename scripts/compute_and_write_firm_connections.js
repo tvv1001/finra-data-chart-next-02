@@ -16,7 +16,7 @@ if (!firmId) {
 (async () => {
 	try {
 		console.log('Computing firm connections for', firmId);
-		const res = await getFirmConnectionsFromGraph(firmId);
+		const res = await getFirmConnectionsFromGraph(firmId, { computeIfMissing: true });
 		const outDir = path.join(process.cwd(), 'data', 'firm-connections');
 		fs.mkdirSync(outDir, { recursive: true });
 		const outPath = path.join(outDir, `${firmId}.json`);

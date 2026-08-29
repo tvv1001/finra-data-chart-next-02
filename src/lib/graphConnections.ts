@@ -1295,6 +1295,7 @@ async function attachConnectionDisplayFields(
 
 export async function getFirmConnectionsFromGraph(
   firmId: string,
+  options?: { computeIfMissing?: boolean },
 ): Promise<FirmConnectionsPayload> {
   const normalizedFirmId = String(firmId || "").trim();
   if (!normalizedFirmId)
@@ -1308,14 +1309,11 @@ export async function getFirmConnectionsFromGraph(
   const readRedisFirmConnections = async (): Promise<FirmConnectionsPayload | null> => {
     if (!redis) return null;
     try {
-      const keysToCheck = [cacheKey];
-      for (const key of keysToCheck) {
-        const raw = await redis.get(key);
-        if (raw == null) continue;
-        const parsed = parseCachedConnectionsPayload(raw);
-        if (parsed && countFirmConnectionEntries(parsed) > 0) {
-          return parsed;
-        }
+      const raw = await redis.get(cacheKey);
+      if (raw == null) return null;
+      const parsed = parseCachedConnectionsPayload(raw);
+      if (parsed && countFirmConnectionEntries(parsed) > 0) {
+        return parsed;
       }
     } catch {
       // fall through
@@ -1326,14 +1324,15 @@ export async function getFirmConnectionsFromGraph(
   const local = readLocalFirmConnectionsFile(normalizedFirmId);
   const redisRoster = await readRedisFirmConnections();
 
-  // Redis `firm-connections:firm:{id}` is the only curated CRD roster for sidebar/dashboard.
-  // Other sources (disk, official search, graph expand) may backfill this key, but they
-  // must not add people to the UI on their own.
+  // Display roster is Redis `firm-connections:firm:{id}` only. Disk / official search /
+  // graph expand may backfill that key from scripts (`computeIfMissing`), but they must
+  // not add people to the dashboard or sidebar on their own.
   if (redisRoster && countFirmConnectionEntries(redisRoster) > 0) {
-    // Return the curated CRD roster immediately. Per-person Redis enrichment can take
-    // longer than the graph sidebar's fetch budget and left the menu empty locally.
-    // Sidecar catalog lookup is in-memory after first load and supplies FINRA/SEC tags.
     return hydrateConnectionsFromSearchSidecar(redisRoster);
+  }
+
+  if (!options?.computeIfMissing) {
+    return { currentConnections: [], previousConnections: [] };
   }
 
   let redisHit: FirmConnectionsPayload | null = null;

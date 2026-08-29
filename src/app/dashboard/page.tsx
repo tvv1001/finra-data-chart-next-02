@@ -3284,7 +3284,7 @@ function DashboardPageInner() {
 				const response = await fetch(`/api/finra/firm/${encodeURIComponent(firmId)}/connections`, {
 					method: 'GET',
 					headers: { Accept: 'application/json' },
-					cache: 'default',
+					cache: 'no-store',
 				});
 				if (!response.ok) return null;
 				const data = await response.json().catch(() => null);
@@ -3308,20 +3308,9 @@ function DashboardPageInner() {
 		return fetchPromise;
 	}
 
-	async function ensureFirmConnectionsLoaded(firmId: string, payload?: any) {
+	async function ensureFirmConnectionsLoaded(firmId: string) {
 		const normalizedFirmId = String(firmId || '').trim();
 		if (!normalizedFirmId) return;
-		if (firmConnectionRosterFrom(payload)) return;
-
-		const cached =
-			readVisitedSync<any>(visitConnectionsKey(normalizedFirmId)) ||
-			(await readVisited<any>(visitConnectionsKey(normalizedFirmId)));
-		const cachedRoster = firmConnectionRosterFrom(cached);
-		if (cachedRoster) {
-			applyFirmConnectionsToState(normalizedFirmId, cachedRoster.currentConnections, cachedRoster.previousConnections);
-			return;
-		}
-
 		await loadFirmConnections(normalizedFirmId);
 	}
 
@@ -3388,7 +3377,7 @@ function DashboardPageInner() {
 			setCurrentRecordId(card.id);
 			setMainJsonLabel(snapshot.label);
 			if (card.entity === 'firm') {
-				void ensureFirmConnectionsLoaded(card.id, snapshot.payload);
+				void ensureFirmConnectionsLoaded(card.id);
 			} else {
 				setConnectionsLoadingFirmId(null);
 			}
@@ -3533,7 +3522,7 @@ function DashboardPageInner() {
 			setCurrentRecordId(card.id);
 
 			if (card.entity === 'firm') {
-				void ensureFirmConnectionsLoaded(card.id, normalizedPayload);
+				void ensureFirmConnectionsLoaded(card.id);
 			} else {
 				setConnectionsLoadingFirmId(null);
 			}
@@ -5239,7 +5228,14 @@ function DashboardPageInner() {
 												</section>
 											)}
 
-											{currentRecordEntity === 'firm' && connectionsLoadingFirmId === currentRecordId ? null : (
+											{currentRecordEntity === 'firm' &&
+											connectionsLoadingFirmId === currentRecordId &&
+											detailedMainRecord.currentConnectionCards.length === 0 &&
+											detailedMainRecord.previousConnectionCards.length === 0 ? (
+												<section className={styles.detailSection}>
+													<h4 className={styles.detailSectionTitle}>Loading connections…</h4>
+												</section>
+											) : (
 												(() => {
 													type ConnectionCard = (typeof detailedMainRecord.currentConnectionCards)[number];
 													const connectionHaystack = (item: ConnectionCard) =>
