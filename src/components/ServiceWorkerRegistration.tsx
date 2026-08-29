@@ -46,7 +46,13 @@ export default function ServiceWorkerRegistration() {
 
 		const register = async () => {
 			try {
-				const buildStamp = Date.now().toString();
+				// Must be stable across reloads. Date.now() made every visit look like a new
+				// worker; skipWaiting + clients.claim then fired controllerchange and reloaded
+				// the page in a loop on production.
+				const buildStamp =
+					process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
+					process.env.NEXT_PUBLIC_VERCEL_DEPLOYMENT_ID ||
+					'static';
 				const registration = await navigator.serviceWorker.register(`/sw.js?v=${buildStamp}`, {
 					updateViaCache: 'none',
 				});
@@ -72,6 +78,16 @@ export default function ServiceWorkerRegistration() {
 				const handleControllerChange = () => {
 					if (hasReloadedForUpdate) {
 						return;
+					}
+
+					try {
+						const reloadKey = `finra-sw-reloaded:${buildStamp}`;
+						if (sessionStorage.getItem(reloadKey) === '1') {
+							return;
+						}
+						sessionStorage.setItem(reloadKey, '1');
+					} catch {
+						// sessionStorage may be unavailable
 					}
 
 					hasReloadedForUpdate = true;

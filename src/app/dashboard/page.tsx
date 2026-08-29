@@ -69,25 +69,40 @@ const DASHBOARD_RECORD_CACHE_MAX = 40;
 const dashboardMergedDetailCache = new Map<string, any>();
 const dashboardRecordSnapshotCache = new Map<string, DashboardRecordSnapshot>();
 
+function stripFirmConnectionLists<T>(payload: T): T {
+	if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload;
+	const record = payload as Record<string, any>;
+	if (!('currentConnections' in record) && !('previousConnections' in record)) return payload;
+	const { currentConnections: _current, previousConnections: _previous, ...rest } = record;
+	return rest as T;
+}
+
+function firmConnectionRosterFrom(value: any): { currentConnections: any[]; previousConnections: any[] } | null {
+	const currentConnections = Array.isArray(value?.currentConnections) ? value.currentConnections : [];
+	const previousConnections = Array.isArray(value?.previousConnections) ? value.previousConnections : [];
+	if (!currentConnections.length && !previousConnections.length) return null;
+	return { currentConnections, previousConnections };
+}
+
 function rememberDashboardRecordSnapshot(key: string, snapshot: DashboardRecordSnapshot) {
+	const [entity, id] = key.split(':');
+	const payloadForCache =
+		entity === 'firm' ? stripFirmConnectionLists(snapshot.payload) : snapshot.payload;
+	const snapshotForCache =
+		payloadForCache === snapshot.payload ? snapshot : { ...snapshot, payload: payloadForCache };
 	dashboardRecordSnapshotCache.delete(key);
-	dashboardRecordSnapshotCache.set(key, snapshot);
+	dashboardRecordSnapshotCache.set(key, snapshotForCache);
 	while (dashboardRecordSnapshotCache.size > DASHBOARD_RECORD_CACHE_MAX) {
 		const oldest = dashboardRecordSnapshotCache.keys().next().value;
 		if (oldest == null) break;
 		dashboardRecordSnapshotCache.delete(oldest);
 	}
-	const [entity, id] = key.split(':');
 	if ((entity === 'firm' || entity === 'individual') && id) {
-		rememberVisited(visitSnapshotKey(entity, id), snapshot);
-		rememberVisited(visitDetailKey(entity, id), snapshot.payload);
+		rememberVisited(visitSnapshotKey(entity, id), snapshotForCache);
+		rememberVisited(visitDetailKey(entity, id), payloadForCache);
 		if (entity === 'firm') {
-			const payload = snapshot.payload as Record<string, any>;
-			rememberVisited(visitConnectionsKey(id), {
-				found: true,
-				currentConnections: payload?.currentConnections || [],
-				previousConnections: payload?.previousConnections || [],
-			});
+			const roster = firmConnectionRosterFrom(snapshot.payload);
+			if (roster) rememberVisited(visitConnectionsKey(id), { found: true, ...roster });
 		}
 	}
 }
@@ -3112,7 +3127,7 @@ function DashboardPageInner() {
 			return persisted;
 		}
 
-		const route = card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1&includeConnections=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
+		const route = card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
 		try {
 			const response = await fetch(route, {
 				method: 'GET',
@@ -3126,13 +3141,6 @@ function DashboardPageInner() {
 			if (detail && typeof detail === 'object') {
 				mergedDetailCacheRef.current.set(cacheKey, detail);
 				rememberVisited(visitDetailKey(card.entity, card.id), detail);
-				if (card.entity === 'firm') {
-					rememberVisited(visitConnectionsKey(card.id), {
-						found: true,
-						currentConnections: detail?.currentConnections || detail?.merged?.currentConnections || [],
-						previousConnections: detail?.previousConnections || detail?.merged?.previousConnections || [],
-					});
-				}
 			}
 			return detail;
 		} catch (err: any) {
@@ -3141,7 +3149,7 @@ function DashboardPageInner() {
 	}
 
 	async function fetchFallbackDetail(card: QueueCard) {
-		const route = card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1&includeConnections=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
+		const route = card.entity === 'firm' ? `/api/finra/firm/${card.id}?merged=1` : `/api/finra/individual/${card.id}?merged=1&includePrevious=true`;
 
 		const response = await fetch(route, {
 			method: 'GET',
@@ -3184,17 +3192,6 @@ function DashboardPageInner() {
 	}
 
 	function applyFirmConnectionsToState(firmId: string, currentConnections: any[], previousConnections: any[]) {
-		const cacheKey = `firm:${firmId}`;
-		const cached = mergedDetailCacheRef.current.get(cacheKey);
-		if (cached && typeof cached === 'object') {
-			for (const target of [cached, cached?.merged, cached?.sources?.finra, cached?.sources?.sec, cached?.finraNode]) {
-				if (target && typeof target === 'object') {
-					target.currentConnections = currentConnections;
-					target.previousConnections = previousConnections;
-				}
-			}
-		}
-
 		setMainJson((prev) => {
 			if (!prev) return prev;
 			const prevCrd = String(prev?.basicInformation?.firmId || prev?.firmId || prev?.id || '').trim();
@@ -3281,6 +3278,7 @@ function DashboardPageInner() {
 		const existingPromise = connectionsInFlightByCrdRef.current.get(firmId);
 		if (existingPromise) return existingPromise;
 
+		setConnectionsLoadingFirmId(firmId);
 		const fetchPromise = (async () => {
 			try {
 				const response = await fetch(`/api/finra/firm/${encodeURIComponent(firmId)}/connections`, {
@@ -3292,8 +3290,10 @@ function DashboardPageInner() {
 				const data = await response.json().catch(() => null);
 				if (!data || !data.found) return null;
 
-				const { currentConnections = [], previousConnections = [] } = data;
-				applyFirmConnectionsToState(firmId, currentConnections, previousConnections);
+				const roster = firmConnectionRosterFrom(data);
+				if (!roster) return data;
+				rememberVisited(visitConnectionsKey(firmId), { found: true, ...roster });
+				applyFirmConnectionsToState(firmId, roster.currentConnections, roster.previousConnections);
 				return data;
 			} catch (err) {
 				console.warn('Failed to lazy load firm connections', err);
@@ -3306,6 +3306,23 @@ function DashboardPageInner() {
 
 		connectionsInFlightByCrdRef.current.set(firmId, fetchPromise);
 		return fetchPromise;
+	}
+
+	async function ensureFirmConnectionsLoaded(firmId: string, payload?: any) {
+		const normalizedFirmId = String(firmId || '').trim();
+		if (!normalizedFirmId) return;
+		if (firmConnectionRosterFrom(payload)) return;
+
+		const cached =
+			readVisitedSync<any>(visitConnectionsKey(normalizedFirmId)) ||
+			(await readVisited<any>(visitConnectionsKey(normalizedFirmId)));
+		const cachedRoster = firmConnectionRosterFrom(cached);
+		if (cachedRoster) {
+			applyFirmConnectionsToState(normalizedFirmId, cachedRoster.currentConnections, cachedRoster.previousConnections);
+			return;
+		}
+
+		await loadFirmConnections(normalizedFirmId);
 	}
 
 	async function refreshSingleCardRecord(card: QueueCard) {
@@ -3362,14 +3379,19 @@ function DashboardPageInner() {
 		const resolvedSnapshot = snapshot || dashboardRecordSnapshotCache.get(cacheKey);
 		if (resolvedSnapshot) {
 			const snapshot = resolvedSnapshot;
+			const snapshotPayload = card.entity === 'firm' ? stripFirmConnectionLists(snapshot.payload) : snapshot.payload;
 			setRecordViewLoading(false);
 			setResult(null);
-			setMainJson(snapshot.payload);
+			setMainJson(snapshotPayload);
 			setCurrentRecordSource(snapshot.source);
 			setCurrentRecordEntity(card.entity);
 			setCurrentRecordId(card.id);
 			setMainJsonLabel(snapshot.label);
-			setConnectionsLoadingFirmId(null);
+			if (card.entity === 'firm') {
+				void ensureFirmConnectionsLoaded(card.id, snapshot.payload);
+			} else {
+				setConnectionsLoadingFirmId(null);
+			}
 			if (snapshot.updatedAt) markRecordUpdatedAt(snapshot.updatedAt);
 			try {
 				if (typeof window !== 'undefined') {
@@ -3511,9 +3533,7 @@ function DashboardPageInner() {
 			setCurrentRecordId(card.id);
 
 			if (card.entity === 'firm') {
-				// Connections are already present in the persisted payload/graph data — no need to
-				// fetch/discover them from external FINRA/SEC registries on every card view.
-				setConnectionsLoadingFirmId(null);
+				void ensureFirmConnectionsLoaded(card.id, normalizedPayload);
 			} else {
 				setConnectionsLoadingFirmId(null);
 			}

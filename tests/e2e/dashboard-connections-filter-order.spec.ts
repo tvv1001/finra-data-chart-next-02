@@ -1,16 +1,16 @@
 import { expect, test } from '@playwright/test';
 
+const firmConnections = [
+	{ individualId: '1', name: 'Alice Smith', isCurrent: true, relationship: 'Current registration' },
+	{ individualId: '2', name: 'Bob Jones', isCurrent: true, relationship: 'Current registration' },
+	{ individualId: '3', name: 'Carol Smith', isCurrent: true, relationship: 'Current registration' },
+];
+
 const firmPayload = {
 	basicInformation: { firmId: '143571', firmName: 'Regression Firm Two' },
 	firmId: '143571',
 	firmName: 'Regression Firm Two',
 	hasFinraData: true,
-	currentConnections: [
-		{ individualId: '1', name: 'Alice Smith', isCurrent: true, relationship: 'Current registration' },
-		{ individualId: '2', name: 'Bob Jones', isCurrent: true, relationship: 'Current registration' },
-		{ individualId: '3', name: 'Carol Smith', isCurrent: true, relationship: 'Current registration' },
-	],
-	previousConnections: [],
 };
 
 test('firm connection keyword filter keeps unmatched cards below matches; Select all only matched', async ({ page }) => {
@@ -31,7 +31,7 @@ test('firm connection keyword filter keeps unmatched cards below matches; Select
 				body: JSON.stringify({
 					found: true,
 					firmId: '143571',
-					currentConnections: firmPayload.currentConnections,
+					currentConnections: firmConnections,
 					previousConnections: [],
 				}),
 			});

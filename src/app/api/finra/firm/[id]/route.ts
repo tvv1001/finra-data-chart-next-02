@@ -1046,6 +1046,14 @@ export async function GET(
       // renderFirmDetail in finra-graph.ts) so the dashboard's firm view shows the same
       // Current/Previous Connections (individuals employed by or registered with this firm).
       // Best-effort only: never let a graph lookup failure break the primary firm detail response.
+      // Keep the roster off nested finraNode/merged/sources copies. Inlining it on all
+      // three for a mega-firm (e.g. 7691) serialized a 12MB JSON body and froze the
+      // dashboard. Callers that need people should hit /connections or read these
+      // top-level fields.
+      let connectionFields: {
+        currentConnections?: unknown[];
+        previousConnections?: unknown[];
+      } = {};
       if (
         !deferConnections &&
         (!Array.isArray(detail.currentConnections) ||
@@ -1056,15 +1064,7 @@ export async function GET(
         try {
           const { currentConnections, previousConnections } =
             await getFirmConnectionsFromGraph(id);
-          // Attach to both bcDetail and secDetail (they're distinct objects) so the connections
-          // survive regardless of which source (finra/sec) extractPayloadFromDetail() resolves to.
-          for (const target of [detail, bcDetail, secDetail]) {
-            if (!target || typeof target !== "object") continue;
-            if (currentConnections.length)
-              target.currentConnections = currentConnections;
-            if (previousConnections.length)
-              target.previousConnections = previousConnections;
-          }
+          connectionFields = { currentConnections, previousConnections };
         } catch (graphConnErr: any) {
           logger.warn("failed to derive firm connections from graph", {
             id,
@@ -1085,6 +1085,7 @@ export async function GET(
             sec: secDetail,
           },
           merged: detail,
+          ...connectionFields,
         },
         { headers: sharedCacheHeaders(3600) },
       );
