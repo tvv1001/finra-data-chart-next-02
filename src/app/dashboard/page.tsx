@@ -1774,7 +1774,7 @@ function DashboardPageInner() {
 	const [searchResults, setSearchResults] = useState<SearchResultCard[]>([]);
 	const [searchSkippedCount, setSearchSkippedCount] = useState(0);
 	const [hasSearchRun, setHasSearchRun] = useState(false);
-	const [isSearchMenuOpen, setIsSearchMenuOpen] = useState(false);
+	const [searchType, setSearchType] = useState<'all' | 'people' | 'firms'>('people');
 	const [crawlProgress, setCrawlProgress] = useState<{
 		active: boolean;
 		current: number;
@@ -4082,7 +4082,6 @@ function DashboardPageInner() {
 			return;
 		}
 
-		setIsSearchMenuOpen(true);
 		setHasSearchRun(true);
 		setSearchBusy(true);
 		setSearchError(null);
@@ -4090,18 +4089,20 @@ function DashboardPageInner() {
 		setSearchSkippedCount(0);
 
 		try {
+			const includePeople = searchType === 'all' || searchType === 'people';
+			const includeFirms = searchType === 'all' || searchType === 'firms';
 			const [finraIndividualRes, finraFirmRes, secIndividualRes, secFirmRes] = await Promise.all([
-				fetch(`/api/finra/search?type=individual&query=${encodeURIComponent(query)}&rows=8`),
-				fetch(`/api/finra/search?type=firm&query=${encodeURIComponent(query)}&rows=8`),
-				fetch(`/api/finra/sec-search?query=${encodeURIComponent(query)}&rows=8`),
-				fetch(`/api/finra/sec-search-firm?query=${encodeURIComponent(query)}&rows=8`),
+				includePeople ? fetch(`/api/finra/search?type=individual&query=${encodeURIComponent(query)}&rows=8`) : Promise.resolve(null),
+				includeFirms ? fetch(`/api/finra/search?type=firm&query=${encodeURIComponent(query)}&rows=8`) : Promise.resolve(null),
+				includePeople ? fetch(`/api/finra/sec-search?query=${encodeURIComponent(query)}&rows=8`) : Promise.resolve(null),
+				includeFirms ? fetch(`/api/finra/sec-search-firm?query=${encodeURIComponent(query)}&rows=8`) : Promise.resolve(null),
 			]);
 
 			const [finraIndividualJson, finraFirmJson, secIndividualJson, secFirmJson] = await Promise.all([
-				finraIndividualRes.json(),
-				finraFirmRes.json(),
-				secIndividualRes.json(),
-				secFirmRes.json(),
+				finraIndividualRes ? finraIndividualRes.json() : Promise.resolve(null),
+				finraFirmRes ? finraFirmRes.json() : Promise.resolve(null),
+				secIndividualRes ? secIndividualRes.json() : Promise.resolve(null),
+				secFirmRes ? secFirmRes.json() : Promise.resolve(null),
 			]);
 
 			const getItems = (payload: any) =>
@@ -4152,10 +4153,10 @@ function DashboardPageInner() {
 				return { cards, skipped };
 			};
 
-			const finraIndividuals = normalize(getItems(finraIndividualJson), 'finra', 'individual');
-			const finraFirms = normalize(getItems(finraFirmJson), 'finra', 'firm');
-			const secIndividuals = normalize(getItems(secIndividualJson), 'sec', 'individual');
-			const secFirms = normalize(getItems(secFirmJson), 'sec', 'firm');
+			const finraIndividuals = includePeople ? normalize(getItems(finraIndividualJson), 'finra', 'individual') : { cards: [], skipped: 0 };
+			const finraFirms = includeFirms ? normalize(getItems(finraFirmJson), 'finra', 'firm') : { cards: [], skipped: 0 };
+			const secIndividuals = includePeople ? normalize(getItems(secIndividualJson), 'sec', 'individual') : { cards: [], skipped: 0 };
+			const secFirms = includeFirms ? normalize(getItems(secFirmJson), 'sec', 'firm') : { cards: [], skipped: 0 };
 
 			const skippedTotal = finraIndividuals.skipped + finraFirms.skipped + secIndividuals.skipped + secFirms.skipped;
 			if (skippedTotal > 0) {
@@ -4290,7 +4291,59 @@ function DashboardPageInner() {
 							FINRA/SEC
 						</h1>
 					</div>
-					<div className='fg-header-controls'></div>
+					<div
+						id='fg-header-controls'
+						className='fg-header-controls'>
+						<div className='fg-fetch-status'>
+							<div className='fg-fetch'>
+								<div className='fg-fetch-field'>
+									<input
+										id='fg-fetch-input'
+										className='fg-fetch-input'
+										type='search'
+										value={searchQuery}
+										onChange={(event) => setSearchQuery(event.target.value)}
+										onKeyDown={(event) => {
+											if (event.key === 'Enter') {
+												event.preventDefault();
+												void runRedisSearch();
+											}
+										}}
+										placeholder='firm, person, CRD/SEC#'
+										autoComplete='off'
+										autoCorrect='off'
+										autoCapitalize='off'
+										spellCheck={false}
+									/>
+								</div>
+								<button
+									id='fg-database-search'
+									type='button'
+									className='fg-btn-primary fg-action-btn'
+									title='Search all records in the local database'
+									data-fetching={searchBusy ? 'true' : 'false'}
+									disabled={searchBusy}
+									onClick={() => void runRedisSearch()}>
+									<span className='fg-search-button-content'>
+										Search
+										<select
+											id='fg-search-type'
+											className='fg-search-type-inside'
+											value={searchType}
+											onChange={(event) => setSearchType(event.target.value as 'all' | 'people' | 'firms')}
+											onClick={(event) => event.stopPropagation()}
+											onMouseDown={(event) => event.stopPropagation()}
+											title='Search type: all, people, or firms'
+											aria-label='Search type'>
+											<option value='all'>All</option>
+											<option value='people'>People</option>
+											<option value='firms'>Firms</option>
+										</select>
+									</span>
+								</button>
+							</div>
+						</div>
+					</div>
 					<div
 						className='fg-header-right-controls'
 						style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -4357,76 +4410,35 @@ function DashboardPageInner() {
 								</div>
 							)}
 
-							<div className={styles.searchMenu}>
-								<button
-									type='button'
-									className={styles.searchMenuToggle}
-									aria-expanded={isSearchMenuOpen}
-									onClick={() => setIsSearchMenuOpen((open) => !open)}>
-									<span className={styles.searchMenuToggleTitle}>
-										REDIS SEARCH {isSearchMenuOpen ? '▼' : '▶'}
-										{searchResults.length > 0 ? ` (${searchResults.length.toLocaleString()})` : ''}
-									</span>
-									<span className={styles.searchMenuToggleMeta}>
-										<RedisConnectionLabel /> Redis CRDs: {uniqueCrdCounts.total.toLocaleString()}
-									</span>
-								</button>
-								{isSearchMenuOpen && (
-									<div className={styles.searchMenuBody}>
-										<div className={styles.searchDock}>
-											<div className={styles.searchRow}>
-												<input
-													value={searchQuery}
-													onChange={(event) => setSearchQuery(event.target.value)}
-													spellCheck={false}
-													autoCorrect='off'
-													autoCapitalize='none'
-													onKeyDown={(event) => {
-														if (event.key === 'Enter') {
-															event.preventDefault();
-															void runRedisSearch();
-														}
-													}}
-													className={styles.input}
-													placeholder='Search Redis-saved records by name...'
-												/>
-											</div>
-											<div className={styles.searchDockActions}>
-												<button
-													type='button'
-													className={styles.primaryBtn}
-													onClick={() => void runRedisSearch()}
-													disabled={searchBusy}>
-													{searchBusy ? 'Searching…' : 'Search Redis'}
-												</button>
-												{hasSearchRun && (
-													<button
-														type='button'
-														className={styles.filterLineBtn}
-														onClick={() => {
-															setSearchResults([]);
-															setSearchError(null);
-															setSearchSkippedCount(0);
-															setHasSearchRun(false);
-														}}>
-														Clear
-													</button>
-												)}
-											</div>
-										</div>
-										{searchPaneOpen && (
-											<div className={styles.searchResultsPane}>
-												<div className={styles.searchSummary}>{searchSummary}</div>
-												{searchResults.length > 0 ?
-													<div className={styles.searchResultsList}>{searchResults.map(renderSearchResult)}</div>
-												: !searchBusy ?
-													<div className={styles.searchResultsEmpty}>No Redis results yet for this query.</div>
-												:	null}
-											</div>
-										)}
+							{searchPaneOpen && (
+								<div className={styles.searchResultsPane}>
+									<button
+										type='button'
+										className={styles.searchResultsCloseBtn}
+										aria-label='Close search results'
+										title='Close search results'
+										onClick={() => {
+											setSearchResults([]);
+											setSearchError(null);
+											setSearchSkippedCount(0);
+											setHasSearchRun(false);
+										}}>
+										×
+									</button>
+									<div className={styles.searchSummary}>
+										{searchSummary}
+										<span className={styles.searchDockMeta}>
+											{' · '}
+											<RedisConnectionLabel /> Redis CRDs: {uniqueCrdCounts.total.toLocaleString()}
+										</span>
 									</div>
-								)}
-							</div>
+									{searchResults.length > 0 ?
+										<div className={styles.searchResultsList}>{searchResults.map(renderSearchResult)}</div>
+									: !searchBusy ?
+										<div className={styles.searchResultsEmpty}>No Redis results yet for this query.</div>
+									:	null}
+								</div>
+							)}
 
 							{hasCurrentRecord && (
 								<>
@@ -5720,7 +5732,7 @@ function DashboardPageInner() {
 								</div>
 							)}
 
-							{!hasCurrentRecord && <div className={styles.searchSummary}>No node selected yet. Open Redis Search above to look up a CRD.</div>}
+							{!hasCurrentRecord && <div className={styles.searchSummary}>No node selected yet. Search for a firm, person, or CRD above.</div>}
 						</div>
 					</div>
 				</section>

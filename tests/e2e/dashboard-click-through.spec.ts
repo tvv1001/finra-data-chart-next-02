@@ -50,8 +50,8 @@ test('Dashboard selection history clicks through to a record detail view', async
 
 	await page.goto('/dashboard');
 
-	await page.getByPlaceholder('Search Redis-saved records by name...').fill('Seon Lyndon Harry');
-	await page.getByPlaceholder('Search Redis-saved records by name...').press('Enter');
+	await page.getByPlaceholder('firm, person, CRD/SEC#').fill('Seon Lyndon Harry');
+	await page.getByPlaceholder('firm, person, CRD/SEC#').press('Enter');
 
 	const resultCard = page.locator('.searchResultsList .searchResultCard').filter({ hasText: 'Seon Lyndon Harry' });
 	await expect(resultCard).toBeVisible();
