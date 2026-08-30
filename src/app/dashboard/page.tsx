@@ -5548,12 +5548,10 @@ function DashboardPageInner() {
 														});
 													};
 													const selectConnectionGroup = (group: 'all' | 'current' | 'previous') => {
-														// "Select all" includes every connection with a CRD (matched + unmatched).
-														// Current/Previous buttons keep the filter-matched subset for precision.
 														const items =
 															group === 'current' ? matchedSelectableCurrent
 															: group === 'previous' ? matchedSelectablePrevious
-															: selectableConnections;
+															: matchedSelectableConnections;
 														setSelectedConnectionKeys(new Set(items.map((item) => connectionKey(item)).filter(Boolean)));
 													};
 													const finishConnectionSelectMode = () => {

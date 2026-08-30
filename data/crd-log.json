@@ -1,28 +1,36 @@
 {
   "firms": [
     {
-      "id": 18309,
-      "name": "MFS FINANCIAL SERVICES, INC."
+      "id": 79,
+      "name": "J.P. MORGAN SECURITIES LLC"
     },
     {
-      "id": 17507,
-      "name": "FIDELITY INVESTMENTS INSTITUTIONAL SERVICES COMPANY, INC."
-    },
-    {
-      "id": 7784,
-      "name": "FIDELITY BROKERAGE SERVICES, INC."
-    },
-    {
-      "id": 7325,
-      "name": "PUTNAM RETAIL MANAGEMENT LIMITED PARTNERSHIP"
+      "id": 8301,
+      "name": "E.V.I. GROUP LIMITED, INC."
     },
     {
       "id": 7691,
       "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
     },
     {
-      "id": 283942,
-      "name": "BOFA SECURITIES, INC."
+      "id": 628,
+      "name": "FIFTH THIRD/THE OHIO COMPANY"
+    },
+    {
+      "id": 7471,
+      "name": "PRUDENTIAL SECURITIES INCORPORATED"
+    },
+    {
+      "id": 19616,
+      "name": "WELLS FARGO CLEARING SERVICES, LLC"
+    },
+    {
+      "id": 11025,
+      "name": "WELLS FARGO ADVISORS FINANCIAL NETWORK, LLC"
+    },
+    {
+      "id": 104204,
+      "name": "MACQUARIE PRIVATE WEALTH CORP"
     },
     {
       "id": 8174,
@@ -31,6 +39,10 @@
     {
       "id": 16139,
       "name": "MERRILL LYNCH PROFESSIONAL CLEARING CORP."
+    },
+    {
+      "id": 283942,
+      "name": "BOFA SECURITIES, INC."
     },
     {
       "id": 316331,
@@ -57,20 +69,8 @@
       "name": "MCADAMS WRIGHT RAGEN, INC."
     },
     {
-      "id": 19616,
-      "name": "WELLS FARGO CLEARING SERVICES, LLC"
-    },
-    {
-      "id": 11025,
-      "name": "WELLS FARGO ADVISORS FINANCIAL NETWORK, LLC"
-    },
-    {
       "id": 25574,
       "name": "CHASE INVESTMENT SERVICES CORP."
-    },
-    {
-      "id": 79,
-      "name": "J.P. MORGAN SECURITIES LLC"
     },
     {
       "id": 110778,
@@ -95,6 +95,14 @@
     {
       "id": 105644,
       "name": "CETERA INVESTMENT ADVISERS LLC"
+    },
+    {
+      "id": 7784,
+      "name": "FIDELITY BROKERAGE SERVICES LLC"
+    },
+    {
+      "id": 17507,
+      "name": "FIDELITY INVESTMENTS INSTITUTIONAL SERVICES COMPANY, INC."
     },
     {
       "id": 5393,
@@ -293,6 +301,14 @@
       "name": "MUTUAL OF OMAHA INVESTOR SERVICES, INC."
     },
     {
+      "id": 18309,
+      "name": "MFS FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 7325,
+      "name": "PUTNAM RETAIL MANAGEMENT LIMITED PARTNERSHIP"
+    },
+    {
       "id": 137631,
       "name": "AARP FINANCIAL"
     },
@@ -327,10 +343,6 @@
     {
       "id": 18353,
       "name": "PRUDENTIAL INVESTMENT MANAGEMENT SERVICES LLC"
-    },
-    {
-      "id": 7471,
-      "name": "PRUDENTIAL SECURITIES INCORPORATED"
     },
     {
       "id": 16686,
@@ -523,14 +535,6 @@
     {
       "id": 13755,
       "name": "FIRST MONTAUK SECURITIES CORP."
-    },
-    {
-      "id": 8301,
-      "name": "E.V.I. GROUP LIMITED, INC."
-    },
-    {
-      "id": 628,
-      "name": "FIFTH THIRD/THE OHIO COMPANY"
     },
     {
       "id": 5361,
@@ -979,10 +983,6 @@
     {
       "id": 288933,
       "name": "CLEAR STREET LLC"
-    },
-    {
-      "id": 104204,
-      "name": "MACQUARIE PRIVATE WEALTH CORP"
     },
     {
       "id": 16307,
@@ -1479,8 +1479,16 @@
   ],
   "individuals": [
     {
-      "id": 1740255,
-      "name": "David C Tyrie"
+      "id": 7166749,
+      "name": "ALBANY LOUISE BRECKENRIDGE"
+    },
+    {
+      "id": 1206793,
+      "name": "ROBERT TOWNSEND EDWARDS"
+    },
+    {
+      "id": 2494318,
+      "name": "ERIC A SCHIMPF"
     },
     {
       "id": 4429443,
@@ -1611,6 +1619,10 @@
       "name": "CHRISTOPHER RYAN STRINGER"
     },
     {
+      "id": 1740255,
+      "name": "David C Tyrie"
+    },
+    {
       "id": 7616382,
       "name": "Sara Rathbone Mooney"
     },
@@ -1707,10 +1719,6 @@
       "name": "JOHN GATTULLI"
     },
     {
-      "id": 1206793,
-      "name": "ROBERT TOWNSEND EDWARDS"
-    },
-    {
       "id": 1026456,
       "name": "TIMOTHY ERIC PEOPLES"
     },
@@ -1745,10 +1753,6 @@
     {
       "id": 4520285,
       "name": "AIMEE MARGARET LLOYD"
-    },
-    {
-      "id": 7166749,
-      "name": "ALBANY LOUISE BRECKENRIDGE"
     },
     {
       "id": 3013195,
@@ -1841,10 +1845,6 @@
     {
       "id": 1016294,
       "name": "TIMOTHY PHILIP DUNHAM"
-    },
-    {
-      "id": 2494318,
-      "name": "ERIC A SCHIMPF"
     },
     {
       "id": 1335937,
