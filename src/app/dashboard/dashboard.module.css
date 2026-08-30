@@ -2442,21 +2442,13 @@
 }
 
 .searchResultsCloseBtn {
-	position: absolute;
-	top: 8px;
-	right: 8px;
-	z-index: 5;
-	width: 22px;
-	height: 22px;
-	line-height: 20px;
-	text-align: center;
+	padding: 4px 12px;
 	border: 1px solid var(--border);
 	background: var(--content-surface, #0b1221);
 	color: var(--text-secondary, #94a3b8);
 	border-radius: 3px;
-	font-size: 15px;
+	font-size: 12px;
 	cursor: pointer;
-	padding: 0;
 }
 
 .searchResultsCloseBtn:hover {

@@ -6345,6 +6345,25 @@ export function init(
 				const scope = findFilterScope(input);
 				if (scope) applyConnectionsFilterToScope(scope, sidebarConnectionsFilterTags, sidebarConnectionsFilterQuery);
 			});
+			sidebarInner.addEventListener('paste', (ev) => {
+				const pasteEv = ev as ClipboardEvent;
+				const target = pasteEv.target as HTMLElement | null;
+				const input = (target?.closest ? target.closest('.fg-connections-filter') : null) as HTMLInputElement | null;
+				if (!input) return;
+				const pasted = pasteEv.clipboardData?.getData('text') || '';
+				if (pasted.includes(',')) {
+					pasteEv.preventDefault();
+					const newTags = pasted.split(',').map(t => t.trim()).filter(Boolean);
+					if (newTags.length) {
+						sidebarConnectionsFilterTags = setFilterTags([...sidebarConnectionsFilterTags, ...newTags]);
+						sidebarConnectionsFilterQuery = '';
+						setFilterText('');
+						sidebarConnectionsFilterJustCommitted = true;
+						sidebarConnectionsFilterFocused = true;
+						refreshFilterRowInPlace(input);
+					}
+				}
+			});
 			sidebarInner.addEventListener('keydown', (ev) => {
 				const keyEv = ev as KeyboardEvent;
 				const target = keyEv.target as HTMLElement | null;
@@ -6354,14 +6373,15 @@ export function init(
 					keyEv.preventDefault();
 					const trimmed = input.value.trim();
 					if (!trimmed) return;
-					// Multiple tags are OR'd together (matchesFilterTags), so adding a second tag
-					// broadens the match instead of narrowing it (tag1 OR tag2).
-					sidebarConnectionsFilterTags = setFilterTags([...sidebarConnectionsFilterTags, trimmed]);
-					sidebarConnectionsFilterQuery = '';
-					setFilterText('');
-					sidebarConnectionsFilterJustCommitted = true;
-					sidebarConnectionsFilterFocused = true;
-					refreshFilterRowInPlace(input);
+					const newTags = trimmed.split(',').map(t => t.trim()).filter(Boolean);
+					if (newTags.length) {
+						sidebarConnectionsFilterTags = setFilterTags([...sidebarConnectionsFilterTags, ...newTags]);
+						sidebarConnectionsFilterQuery = '';
+						setFilterText('');
+						sidebarConnectionsFilterJustCommitted = true;
+						sidebarConnectionsFilterFocused = true;
+						refreshFilterRowInPlace(input);
+					}
 				} else if (keyEv.key === 'Backspace' && !input.value && sidebarConnectionsFilterTags.length > 0) {
 					sidebarConnectionsFilterTags = setFilterTags(sidebarConnectionsFilterTags.slice(0, -1));
 					refreshFilterRowInPlace(input);

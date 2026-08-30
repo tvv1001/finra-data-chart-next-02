@@ -1570,13 +1570,15 @@ function FilterTagsInput({
 	onCommitTag?: () => void;
 }) {
 	const commitLiveTextAsTag = useCallback(() => {
-		const trimmed = liveText.trim();
-		if (!trimmed) return false;
-		onCommitTag?.();
-		onTagsChange([...tags, trimmed]);
-		onLiveTextChange('');
-		return true;
-	}, [liveText, tags, onTagsChange, onLiveTextChange, onCommitTag]);
+			const trimmed = liveText.trim();
+			if (!trimmed) return false;
+			const newTags = trimmed.split(',').map(t => t.trim()).filter(Boolean);
+			if (!newTags.length) return false;
+			onCommitTag?.();
+			onTagsChange([...tags, ...newTags]);
+			onLiveTextChange('');
+			return true;
+		}, [liveText, tags, onTagsChange, onLiveTextChange, onCommitTag]);
 
 	return (
 		<div className={`${styles.filterTagsWrap} ${disabled ? styles.filterTagsWrapDisabled : ''}`}>
@@ -1599,7 +1601,18 @@ function FilterTagsInput({
 				value={liveText}
 				onChange={(event) => onLiveTextChange(event.target.value)}
 				onFocus={() => onFocusChange?.(true)}
-				onKeyDown={(event) => {
+				onPaste={(event) => {
+						const pasted = event.clipboardData.getData('text');
+						if (pasted.includes(',')) {
+							event.preventDefault();
+							const newTags = pasted.split(',').map(t => t.trim()).filter(Boolean);
+							if (newTags.length) {
+								onCommitTag?.();
+								onTagsChange([...tags, ...newTags]);
+							}
+						}
+					}}
+					onKeyDown={(event) => {
 					if (event.key === 'Enter' || event.key === ',') {
 						event.preventDefault();
 						commitLiveTextAsTag();
@@ -4523,19 +4536,7 @@ function DashboardPageInner() {
 
 							{searchPaneOpen && (
 								<div className={styles.searchResultsPane}>
-									<button
-										type='button'
-										className={styles.searchResultsCloseBtn}
-										aria-label='Close search results'
-										title='Close search results'
-										onClick={() => {
-											setSearchResults([]);
-											setSearchError(null);
-											setSearchSkippedCount(0);
-											setHasSearchRun(false);
-										}}>
-										×
-									</button>
+									
 									<div className={styles.searchSummary}>
 										{searchSummary}
 										<span className={styles.searchDockMeta}>
@@ -4548,8 +4549,23 @@ function DashboardPageInner() {
 									: !searchBusy ?
 										<div className={styles.searchResultsEmpty}>No Redis results yet for this query.</div>
 									:	null}
-								</div>
-							)}
+										<div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+											<button
+												type='button'
+												className={styles.searchResultsCloseBtn}
+												aria-label='Close search results'
+												title='Close search results'
+												onClick={() => {
+													setSearchResults([]);
+													setSearchError(null);
+													setSearchSkippedCount(0);
+													setHasSearchRun(false);
+												}}>
+												Close Results
+											</button>
+										</div>
+									</div>
+								)}
 
 							{hasCurrentRecord && (
 								<>
