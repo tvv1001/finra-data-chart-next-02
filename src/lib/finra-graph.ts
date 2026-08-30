@@ -15551,7 +15551,52 @@ function renderNoSelectionSidebar() {
 }
 
 // ── Person detail ────────────────────────────────────────────────────────────
+
+function renderSidebarSkeleton() {
+	return `
+		<style>
+			@keyframes fgPulse {
+				0%, 100% { opacity: 1; }
+				50% { opacity: 0.5; }
+			}
+			.fg-skeleton {
+				background-color: var(--color-default-line, rgba(113, 117, 123, 0.38));
+				animation: fgPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+				border-radius: 4px;
+			}
+			.fg-sb-header.skeleton { border-bottom: 1px solid var(--color-default-line, rgba(113, 117, 123, 0.38)); }
+			.fg-sb-body.skeleton { border-top: none; padding-top: 16px; }
+		</style>
+		<div class="fg-sb-header skeleton" style="display:flex; flex-direction:column; gap:8px;">
+			<div class="fg-skeleton" style="width: 70%; height: 20px; margin-top: 4px;"></div>
+			<div style="display:flex; gap:6px; margin-top: 4px;">
+				<div class="fg-skeleton" style="width: 48px; height: 18px; border-radius: 12px;"></div>
+				<div class="fg-skeleton" style="width: 36px; height: 18px; border-radius: 12px;"></div>
+			</div>
+			<div class="fg-sb-title-actions fg-sb-title-actions--below-tags" style="margin-top: 8px;">
+				${renderMobileSidebarToggle()}
+				${renderSidebarSelectionLogToggle()}
+			</div>
+		</div>
+		<div class="fg-sb-body skeleton" style="display:flex; flex-direction:column; gap:20px;">
+			<div style="display:flex; flex-direction:column; gap:8px;">
+				<div class="fg-skeleton" style="width: 100%; height: 28px;"></div>
+				<div class="fg-skeleton" style="width: 90%; height: 28px;"></div>
+				<div class="fg-skeleton" style="width: 95%; height: 28px;"></div>
+			</div>
+			<div style="display:flex; flex-direction:column; gap:8px;">
+				<div class="fg-skeleton" style="width: 30%; height: 14px; margin-bottom: 4px;"></div>
+				<div class="fg-skeleton" style="width: 100%; height: 50px;"></div>
+			</div>
+		</div>
+	`;
+}
+
 function renderPersonDetail(d: any) {
+	if (!d._detailLoaded && !d._detailMissing && !d.orphan) {
+		return renderSidebarSkeleton();
+	}
+
 	const bi = d.basicInformation || {};
 	const hasFinraPage = hasIndividualFinraPresence(d);
 	const hasSecPage = hasIndividualSecPresence(d);
@@ -16688,6 +16733,9 @@ export function collectFirmConnectionEntries({
 
 // ── Firm detail ──────────────────────────────────────────────────────────────
 function renderFirmDetail(d: any) {
+	if (!d._detailLoaded && !d._detailMissing && !d.orphan) {
+		return renderSidebarSkeleton();
+	}
 	// Scraped-only reference record (e.g. an employer entry scraped directly from an
 	// individual's BrokerCheck page, with no independent FINRA/SEC firm record).
 	if (d.orphan && typeof d.orphan === 'object') {

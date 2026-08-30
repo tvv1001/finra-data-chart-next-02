@@ -3088,7 +3088,8 @@ function DashboardPageInner() {
 		const recordId = normalizedId;
 
 		const nextPath = `/dashboard/${entity}/${encodeURIComponent(recordId)}`;
-		window.history.replaceState({}, '', nextPath);
+			if (window.location.pathname === nextPath) return;
+		window.history.pushState({}, '', nextPath);
 	}
 
 	function isSelectedCardSource(card: QueueCard, source: SearchResultSource) {
@@ -4393,12 +4394,14 @@ function DashboardPageInner() {
 			<header className='fg-header'>
 				<div className='fg-header-bar'>
 					<div className='fg-header-brand'>
-						<h1
-							className='fg-title'
-							style={{ fontSize: '14px' }}>
-							FINRA/SEC
-						</h1>
-					</div>
+							<a href="/" style={{ textDecoration: 'none', color: 'inherit' }}>
+								<h1
+									className='fg-title'
+									style={{ fontSize: '14px' }}>
+									FINRA/SEC
+								</h1>
+							</a>
+						</div>
 					<div
 						id='fg-header-controls'
 						className='fg-header-controls'>

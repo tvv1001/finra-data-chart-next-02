@@ -1,6 +1,94 @@
 {
   "firms": [
     {
+      "id": 15246,
+      "name": "CAREY FINANCIAL, LLC"
+    },
+    {
+      "id": 283250,
+      "name": "OWL ROCK SECURITIES"
+    },
+    {
+      "id": 32205,
+      "name": "TRANSAMERICA INVESTORS SECURITIES, LLC"
+    },
+    {
+      "id": 24928,
+      "name": "AELTUS CAPITAL, INC"
+    },
+    {
+      "id": 34815,
+      "name": "ING FINANCIAL ADVISERS, LLC"
+    },
+    {
+      "id": 2882,
+      "name": "VOYA FINANCIAL ADVISORS, INC."
+    },
+    {
+      "id": 3978,
+      "name": "LINCOLN FINANCIAL ADVISORS CORPORATION"
+    },
+    {
+      "id": 107319,
+      "name": "TRANSAMERICA RETIREMENT ADVISORS, LLC"
+    },
+    {
+      "id": 7506,
+      "name": "LEHMAN BROTHERS INC."
+    },
+    {
+      "id": 19714,
+      "name": "BARCLAYS CAPITAL INC."
+    },
+    {
+      "id": 361,
+      "name": "GOLDMAN SACHS & CO. LLC"
+    },
+    {
+      "id": 42405,
+      "name": "EVERCORE GROUP L.L.C."
+    },
+    {
+      "id": 2908,
+      "name": "NEUBERGER BERMAN, LLC"
+    },
+    {
+      "id": 7560,
+      "name": "DONALDSON, LUFKIN & JENRETTE SECURITIES CORPORATION"
+    },
+    {
+      "id": 816,
+      "name": "CREDIT SUISSE SECURITIES (USA) LLC"
+    },
+    {
+      "id": 8209,
+      "name": "MORGAN STANLEY & CO., INCORPORATED"
+    },
+    {
+      "id": 79,
+      "name": "BEAR, STEARNS & CO. INC."
+    },
+    {
+      "id": 1650,
+      "name": "SBC WARBURG DILLON READ INC."
+    },
+    {
+      "id": 7654,
+      "name": "UBS WARBURG LLC"
+    },
+    {
+      "id": 101020,
+      "name": "CASCADIA CAPITAL, LLC"
+    },
+    {
+      "id": 305908,
+      "name": "FINALIS SECURITIES LLC"
+    },
+    {
+      "id": 319484,
+      "name": "49 FINANCIAL"
+    },
+    {
       "id": 7691,
       "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
     },
@@ -65,32 +153,12 @@
       "name": "CHARLES SCHWAB & CO., INC."
     },
     {
-      "id": 816,
-      "name": "CREDIT SUISSE SECURITIES (USA) LLC"
-    },
-    {
       "id": 28195,
       "name": "INTERNATIONAL STRATEGY & INVESTMENT GROUP LLC"
     },
     {
-      "id": 42405,
-      "name": "EVERCORE GROUP L.L.C."
-    },
-    {
       "id": 16361,
       "name": "BANC OF AMERICA INVESTMENT SERVICES, INC."
-    },
-    {
-      "id": 101020,
-      "name": "CASCADIA CAPITAL, LLC"
-    },
-    {
-      "id": 305908,
-      "name": "FINALIS SECURITIES LLC"
-    },
-    {
-      "id": 319484,
-      "name": "49 FINANCIAL"
     },
     {
       "id": 3487,
@@ -99,10 +167,6 @@
     {
       "id": 43036,
       "name": "STATE FARM VP MANAGEMENT CORP."
-    },
-    {
-      "id": 79,
-      "name": "J.P. MORGAN SECURITIES LLC"
     },
     {
       "id": 8301,
@@ -201,10 +265,6 @@
       "name": "FIDELITY INVESTMENTS INSTITUTIONAL SERVICES COMPANY, INC."
     },
     {
-      "id": 8209,
-      "name": "MORGAN STANLEY & CO. INCORPORATED"
-    },
-    {
       "id": 149777,
       "name": "MORGAN STANLEY"
     },
@@ -285,10 +345,6 @@
       "name": "BLINDER, ROBINSON & CO., INC."
     },
     {
-      "id": 7506,
-      "name": "LEHMAN BROTHERS INC."
-    },
-    {
       "id": 235,
       "name": "E. F. HUTTON & COMPANY INC"
     },
@@ -343,14 +399,6 @@
     {
       "id": 35350,
       "name": "NYLIFE DISTRIBUTORS LLC"
-    },
-    {
-      "id": 19714,
-      "name": "BARCLAYS CAPITAL INC."
-    },
-    {
-      "id": 361,
-      "name": "GOLDMAN SACHS & CO. LLC"
     },
     {
       "id": 157767,
@@ -455,10 +503,6 @@
     {
       "id": 21675,
       "name": "DIRECTED SERVICES LLC"
-    },
-    {
-      "id": 2882,
-      "name": "ING FINANCIAL PARTNERS, INC."
     },
     {
       "id": 10409,
@@ -1297,10 +1341,6 @@
       "name": "BUTLER CAPITAL PARTNERS"
     },
     {
-      "id": 7560,
-      "name": "DONALDSON, LUFKIN & JENRETTE SECURITIES CORPORATION"
-    },
-    {
       "id": 599,
       "name": "WM FINANCIAL SERVICES, INC."
     },
@@ -1543,6 +1583,58 @@
   ],
   "individuals": [
     {
+      "id": 6173588,
+      "name": "Mark Judson Powers"
+    },
+    {
+      "id": 2818725,
+      "name": "Gregg William Holgate"
+    },
+    {
+      "id": 4582020,
+      "name": "Jenna Myers"
+    },
+    {
+      "id": 2079036,
+      "name": "MICHAEL JOSEPH PALIOTTA"
+    },
+    {
+      "id": 4436810,
+      "name": "KENNETH ALFRED MASOTTI"
+    },
+    {
+      "id": 2270483,
+      "name": "TIMOTHY GILBERT LALONDE"
+    },
+    {
+      "id": 5008055,
+      "name": "LISA K FUND"
+    },
+    {
+      "id": 5100611,
+      "name": "MICHAEL MARTINEZ"
+    },
+    {
+      "id": 8310479,
+      "name": "Debarshi Roy"
+    },
+    {
+      "id": 8308456,
+      "name": "Lucas Jackson Lantz"
+    },
+    {
+      "id": 8310481,
+      "name": "Matthew David Underhill"
+    },
+    {
+      "id": 8322475,
+      "name": "Jeffrey Rombach"
+    },
+    {
+      "id": 8322626,
+      "name": "WILLIAM JEFFREY COUCHMAN"
+    },
+    {
       "id": 2639358,
       "name": "MICHAEL SHAWN MCGEE"
     },
@@ -1567,18 +1659,6 @@
       "name": "AMBER CARDEN"
     },
     {
-      "id": 8308456,
-      "name": "Lucas Jackson Lantz"
-    },
-    {
-      "id": 8310481,
-      "name": "Matthew David Underhill"
-    },
-    {
-      "id": 8322475,
-      "name": "Jeffrey Rombach"
-    },
-    {
       "id": 8322604,
       "name": "ISABELLE DARLING HADEL"
     },
@@ -1597,10 +1677,6 @@
     {
       "id": 8311478,
       "name": "Jacob David Smith Cohen"
-    },
-    {
-      "id": 8322626,
-      "name": "WILLIAM JEFFREY COUCHMAN"
     },
     {
       "id": 7166749,
