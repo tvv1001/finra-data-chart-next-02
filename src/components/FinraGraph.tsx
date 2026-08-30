@@ -940,12 +940,11 @@ export default function FinraGraph() {
 					.split(',')
 					.map((id) => id.trim())
 					.filter(Boolean);
-				const sharedSelectedIds = Array.from(new Set([...bridgedSelectedIds, ...querySelectedIds]));
-				// Bridge hydrates onto the existing session graph; isolate only for explicit share links.
 				const isolateToSelection = bridgedSelectedIds.length === 0 && searchParams.get('isolate') === '1';
-				init(combinedD3, {
-					initialRouteNodeId: routeNodeId,
-					initialSelectedNodeIds: sharedSelectedIds,
+					init(combinedD3, {
+						initialRouteNodeId: routeNodeId,
+						initialSelectedNodeIds: querySelectedIds,
+						initialCanvasNodeIds: bridgedSelectedIds,
 					isolateToSelection,
 					queueGraphSeed: bridgePayload
 						? {
