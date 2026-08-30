@@ -1,6 +1,86 @@
 {
   "firms": [
     {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 7059,
+      "name": "CITIGROUP GLOBAL MARKETS INC."
+    },
+    {
+      "id": 5979,
+      "name": "H&R BLOCK FINANCIAL ADVISORS, INC."
+    },
+    {
+      "id": 13174,
+      "name": "BENTLEY-LAWRENCE SECURITIES, INC."
+    },
+    {
+      "id": 21125,
+      "name": "PROFESSIONAL ASSET MANAGEMENT, INC."
+    },
+    {
+      "id": 38535,
+      "name": "MOLONEY SECURITIES CO., INC."
+    },
+    {
+      "id": 5397,
+      "name": "DAVID LERNER ASSOCIATES, INC."
+    },
+    {
+      "id": 680,
+      "name": "THE PRUDENTIAL INSURANCE COMPANY OF AMERICA"
+    },
+    {
+      "id": 5685,
+      "name": "PRUCO SECURITIES CORPORATION"
+    },
+    {
+      "id": 7839,
+      "name": "RICKEL & ASSOCIATES, INC."
+    },
+    {
+      "id": 6413,
+      "name": "LINSCO/PRIVATE LEDGER CORP."
+    },
+    {
+      "id": 35830,
+      "name": "WALL STREET FINANCIAL GROUP, INC."
+    },
+    {
+      "id": 41794,
+      "name": "RUSSIAN RIVER FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 7452,
+      "name": "VANGUARD MARKETING CORPORATION"
+    },
+    {
+      "id": 31150,
+      "name": "401(K) INVESTMENT SERVICES, INC."
+    },
+    {
+      "id": 5393,
+      "name": "CHARLES SCHWAB & CO., INC."
+    },
+    {
+      "id": 816,
+      "name": "CREDIT SUISSE SECURITIES (USA) LLC"
+    },
+    {
+      "id": 28195,
+      "name": "INTERNATIONAL STRATEGY & INVESTMENT GROUP LLC"
+    },
+    {
+      "id": 42405,
+      "name": "EVERCORE GROUP L.L.C."
+    },
+    {
+      "id": 16361,
+      "name": "BANC OF AMERICA INVESTMENT SERVICES, INC."
+    },
+    {
       "id": 101020,
       "name": "CASCADIA CAPITAL, LLC"
     },
@@ -27,10 +107,6 @@
     {
       "id": 8301,
       "name": "E.V.I. GROUP LIMITED, INC."
-    },
-    {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
     },
     {
       "id": 628,
@@ -125,10 +201,6 @@
       "name": "FIDELITY INVESTMENTS INSTITUTIONAL SERVICES COMPANY, INC."
     },
     {
-      "id": 5393,
-      "name": "CHARLES SCHWAB & CO., INC."
-    },
-    {
       "id": 8209,
       "name": "MORGAN STANLEY & CO. INCORPORATED"
     },
@@ -143,14 +215,6 @@
     {
       "id": 15340,
       "name": "CETERA INVESTMENT SERVICES LLC"
-    },
-    {
-      "id": 7059,
-      "name": "CITIGROUP GLOBAL MARKETS INC."
-    },
-    {
-      "id": 5979,
-      "name": "AMERIPRISE ADVISOR SERVICES, INC."
     },
     {
       "id": 6363,
@@ -357,10 +421,6 @@
       "name": "SANTANDER SECURITIES LLC"
     },
     {
-      "id": 5685,
-      "name": "PRUCO SECURITIES CORPORATION"
-    },
-    {
       "id": 18353,
       "name": "PRUDENTIAL INVESTMENT MANAGEMENT SERVICES LLC"
     },
@@ -473,10 +533,6 @@
       "name": "PRIVATE ADVISOR GROUP, LLC"
     },
     {
-      "id": 6413,
-      "name": "LPL FINANCIAL LLC"
-    },
-    {
       "id": 42846,
       "name": "AMERICAN CENTURY BROKERAGE, INC."
     },
@@ -491,10 +547,6 @@
     {
       "id": 169804,
       "name": "ASSETMARK BROKERAGE, LLC"
-    },
-    {
-      "id": 816,
-      "name": "CS FIRST BOSTON CORPORATION"
     },
     {
       "id": 22068,
@@ -881,10 +933,6 @@
       "name": "FARMERS FINANCIAL SOLUTIONS, LLC"
     },
     {
-      "id": 680,
-      "name": "THE PRUDENTIAL INSURANCE COMPANY OF AMERICA"
-    },
-    {
       "id": 332,
       "name": "FRANKLIN DISTRIBUTORS, INC."
     },
@@ -1063,10 +1111,6 @@
     {
       "id": 32542,
       "name": "NATIONSSECURITIES"
-    },
-    {
-      "id": 16361,
-      "name": "BANC OF AMERICA INVESTMENT SERVICES, INC."
     },
     {
       "id": 15655,
@@ -1498,6 +1542,30 @@
     }
   ],
   "individuals": [
+    {
+      "id": 2639358,
+      "name": "MICHAEL SHAWN MCGEE"
+    },
+    {
+      "id": 2051965,
+      "name": "BRADLEY JOHN HOPPER"
+    },
+    {
+      "id": 1421707,
+      "name": "DONALD PAUL MCGEE"
+    },
+    {
+      "id": 1467462,
+      "name": "BARBARA H DRISCOLL"
+    },
+    {
+      "id": 2754561,
+      "name": "JAMES PALMER HOPPER"
+    },
+    {
+      "id": 2218549,
+      "name": "AMBER CARDEN"
+    },
     {
       "id": 8308456,
       "name": "Lucas Jackson Lantz"
@@ -2097,10 +2165,6 @@
     {
       "id": 1547727,
       "name": "Ronald J DiPrinzio"
-    },
-    {
-      "id": 2218549,
-      "name": "AMBER CARDEN"
     },
     {
       "id": 1951020,

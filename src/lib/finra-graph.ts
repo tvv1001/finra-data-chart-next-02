@@ -2248,7 +2248,8 @@ let pendingRouteNodeId: string | null = null;
 let pendingRoutePulseDuration: number | null = null; // optional pulse duration (ms) requested with route
 let pendingRouteAutoExpand = false; // optional auto-expand requested with route
 let pendingRouteForceAutoExpand = false; // allow route requests to expand even when the node is already selected
-let pendingSelectedNodeIds: string[] = []; // node ids to hydrate into the selection log from a shared `?selected=` link
+let pendingSelectedNodeIds: string[] = []; // node ids to hydrate into the selection log
+let pendingCanvasNodeIds: string[] = []; // node ids to fetch and add to canvas (but not log) from a shared `?selected=` link
 let isolateToSharedSelection = false; // when true, skip the baseline/profile graph load and render only the shared `?selected=` + routed nodes
 let routeNodeRequestListenerBound = false;
 let findRequestListenersBound = false;
@@ -5899,6 +5900,7 @@ export function init(
 	options: {
 		initialRouteNodeId?: string | null;
 		initialSelectedNodeIds?: Array<string | null | undefined>;
+		initialCanvasNodeIds?: Array<string | null | undefined>;
 		isolateToSelection?: boolean;
 		queueGraphSeed?: any;
 	} = {},
@@ -5908,7 +5910,9 @@ export function init(
 	pendingRouteNodeId = initialRouteNodeId || pendingRouteNodeId;
 	pendingSelectedNodeIds =
 		Array.isArray(options?.initialSelectedNodeIds) ? options.initialSelectedNodeIds.map((id) => String(id || '').trim()).filter(Boolean) : pendingSelectedNodeIds;
-	isolateToSharedSelection = Boolean(options?.isolateToSelection) && pendingSelectedNodeIds.length > 0;
+	pendingCanvasNodeIds =
+		Array.isArray(options?.initialCanvasNodeIds) ? options.initialCanvasNodeIds.map((id) => String(id || '').trim()).filter(Boolean) : pendingCanvasNodeIds;
+	isolateToSharedSelection = Boolean(options?.isolateToSelection) && (pendingSelectedNodeIds.length > 0 || pendingCanvasNodeIds.length > 0);
 	if (initialRouteNodeId) {
 		// In isolate mode, don't auto-expand the routed node's neighbors — only the explicitly
 		// shared `?selected=` nodes (+ the routed node itself) should be rendered.
@@ -8184,7 +8188,7 @@ async function loadGraph() {
 		// "stub" nodes that the per-node detail fetchers pull in automatically so exactly the
 		// requested set (and nothing else) ends up on screen.
 		if (isolateToSharedSelection) {
-			const keepIds = new Set<string>(pendingSelectedNodeIds.map((id) => normalizeNodeRouteId(id) || String(id || '').trim()).filter(Boolean));
+			const keepIds = new Set<string>([...pendingSelectedNodeIds, ...pendingCanvasNodeIds].map((id) => normalizeNodeRouteId(id) || String(id || '').trim()).filter(Boolean));
 			const routedId = String(pendingRouteNodeId || '').trim();
 			if (routedId) keepIds.add(routedId);
 
@@ -8215,8 +8219,13 @@ async function loadGraph() {
 				if (pendingRouteNodeId) {
 					await applyPendingRouteNodeSelection();
 				}
-				if (pendingSelectedNodeIds.length) {
-					await hydratePendingSelectedNodeIds();
+				if (pendingSelectedNodeIds.length || pendingCanvasNodeIds.length) {
+					const toLog = pendingSelectedNodeIds.slice();
+					const toCanvas = pendingCanvasNodeIds.slice();
+					pendingSelectedNodeIds = [];
+					pendingCanvasNodeIds = [];
+					await hydratePendingNodeIds(toLog, true);
+					await hydratePendingNodeIds(toCanvas, false);
 				}
 				return;
 			}
@@ -8225,9 +8234,14 @@ async function loadGraph() {
 			if (pendingRouteNodeId) {
 				await applyPendingRouteNodeSelection();
 			}
-			if (pendingSelectedNodeIds.length) {
-				await hydratePendingSelectedNodeIds();
-			}
+			if (pendingSelectedNodeIds.length || pendingCanvasNodeIds.length) {
+					const toLog = pendingSelectedNodeIds.slice();
+					const toCanvas = pendingCanvasNodeIds.slice();
+					pendingSelectedNodeIds = [];
+					pendingCanvasNodeIds = [];
+					await hydratePendingNodeIds(toLog, true);
+					await hydratePendingNodeIds(toCanvas, false);
+				}
 			pruneGraphDataToKeepIds(keepIds);
 			return;
 		}
@@ -8381,9 +8395,13 @@ async function loadGraph() {
 			}
 			void applyPendingRouteNodeSelection();
 		}
-		if (pendingSelectedNodeIds.length) {
-			void hydratePendingSelectedNodeIds();
-		}
+		if (pendingSelectedNodeIds.length || pendingCanvasNodeIds.length) {
+				const toLog = pendingSelectedNodeIds.slice();
+				const toCanvas = pendingCanvasNodeIds.slice();
+				pendingSelectedNodeIds = [];
+				pendingCanvasNodeIds = [];
+				void hydratePendingNodeIds(toLog, true).then(() => hydratePendingNodeIds(toCanvas, false));
+			}
 	}
 }
 
@@ -8394,9 +8412,7 @@ async function loadGraph() {
 // previously this looped `for...of` with a blocking `await` per id, meaning a 200-id link took
 // ~200 sequential network round-trips before the page felt fully loaded. Selection-log UI
 // updates are also batched into a single refresh at the end instead of once per node.
-async function hydratePendingSelectedNodeIds() {
-	const ids = pendingSelectedNodeIds.slice();
-	pendingSelectedNodeIds = [];
+async function hydratePendingNodeIds(ids: string[], addToLog: boolean) {
 	if (!ids.length) return;
 
 	const CONCURRENCY = 8;
@@ -8427,15 +8443,17 @@ async function hydratePendingSelectedNodeIds() {
 	await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ids.length) }, () => worker()));
 
 	if (!resolvedEntries.length) return;
-	let nextLog = selectedNodesLog;
-	for (const entry of resolvedEntries) {
-		nextLog = upsertSelectionLogEntry(nextLog, entry);
-		clearedSelectionLogLabelNodeIds.delete(String(entry.id || '').trim());
-	}
-	selectedNodesLog = nextLog;
-	saveSelectionLog();
-	updateSelectionLogUI();
-	syncSelectionLogAuxiliaryRenderers();
+		if (addToLog) {
+			let nextLog = selectedNodesLog;
+			for (const entry of resolvedEntries) {
+				nextLog = upsertSelectionLogEntry(nextLog, entry);
+				clearedSelectionLogLabelNodeIds.delete(String(entry.id || '').trim());
+			}
+			selectedNodesLog = nextLog;
+			saveSelectionLog();
+			updateSelectionLogUI();
+			syncSelectionLogAuxiliaryRenderers();
+		}
 }
 
 // Build a subgraph from `seedCount` random nodes plus all their N-hop neighbors.
