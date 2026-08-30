@@ -153,6 +153,10 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 
 	// If DB2 is explicitly disabled via env, prefer DB1 when available and avoid the dual-proxy.
 	if (hasDb1 && hasDb2 && !disableDb2) {
+		const dualCacheKey = `dual:${url1}:${token1}:${url2}:${token2}:co`;
+		const existingProxy = upstashClientCache.get(dualCacheKey);
+		if (existingProxy) return existingProxy;
+
 		const cacheKey1 = `${url1}:${token1}`;
 		const cacheKey2 = `${url2}:${token2}`;
 		const client1 = upstashClientCache.get(cacheKey1) ?? new UpstashRedis({ url: url1, token: token1 });
@@ -221,16 +225,6 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 
 								try {
 									let res = await (primary as any)[propStr](...args);
-
-									// Fallback if null (helpful during partial migrations), only if other DB is healthy
-									let needsFallback = res === null || res === undefined;
-									if (Array.isArray(res) && res.length > 0 && res.some((item) => item === null || item === undefined)) {
-										needsFallback = true;
-									}
-
-									if (needsFallback && !db1Maxxed && !db2Maxxed) {
-										res = await (secondary as any)[propStr](...args);
-									}
 									return res;
 								} catch (err: any) {
 									checkMaxxed(err, primaryIndex);
@@ -291,7 +285,9 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 			},
 		}) as UpstashRedis;
 
-		return wrapClientForCacheOnly(dualProxy);
+		const wrappedProxy = wrapClientForCacheOnly(dualProxy);
+		upstashClientCache.set(dualCacheKey, wrappedProxy);
+		return wrappedProxy;
 	}
 
 	// Single-instance behavior. Prefer DB1 when present; otherwise use DB2 or the provided config.
@@ -375,9 +371,6 @@ export function getReadOnlyRedisClientInstance(config?: { url?: string; token?: 
 							}
 							try {
 								let res = await (primary as any)[propStr](...args);
-								if (res === null || res === undefined) {
-									res = await (secondary as any)[propStr](...args);
-								}
 								return res;
 							} catch (err: any) {
 								checkMaxxed(err, 1);
