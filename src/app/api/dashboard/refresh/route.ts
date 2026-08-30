@@ -88,6 +88,7 @@ function getCrdLogNameMap(): Map<string, string> {
 }
 
 async function writeCrdLog(log: CrdLog) {
+	if (process.env.VERCEL) return false;
 	try {
 		await fs.mkdir(path.dirname(CRD_LOG_PATH), { recursive: true });
 		await fs.writeFile(CRD_LOG_PATH, JSON.stringify(log, null, 2), 'utf8');
@@ -1429,6 +1430,7 @@ async function exists(targetPath: string) {
 }
 
 async function writeJsonFile(filePath: string, payload: unknown) {
+	if (process.env.VERCEL) return;
 	await fs.mkdir(path.dirname(filePath), { recursive: true });
 	await fs.writeFile(filePath, JSON.stringify(payload, null, 2), 'utf8');
 }
@@ -1479,8 +1481,8 @@ async function fetchJson(url: string, options: { timeoutMs?: number } = {}) {
 async function keyExistsInRedis(redis: Redis | null, key: string) {
 	if (!redis || !key) return false;
 	try {
-		const type = await redis.type(key);
-		return Boolean(type && type !== 'none');
+		const exists = await redis.exists(key);
+		return Boolean(exists);
 	} catch {
 		return false;
 	}

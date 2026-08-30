@@ -10976,7 +10976,25 @@ function appendFetchedImpl(newNodes, newLinks) {
 	simulation.nodes(layoutNodes);
 	simulation.force('link').links(layoutLinks);
 	simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
+
+	// Freeze settled nodes before reheat so only the new batch moves.
+	const allowedMoving = new Set(uniqNodes.map((n) => n.id));
+	if (activeSpreadFrozenNodes.length) {
+		releaseFrozenNodes(activeSpreadFrozenNodes);
+		activeSpreadFrozenNodes = [];
+	}
+	activeSpreadFrozenNodes = freezeSettledNodesExcept(allowedMoving);
 	simulation.alpha(getIncrementalRestartAlpha(layoutNodes.length, uniqNodes.length)).restart();
+	if (spreadReleaseTimer) {
+		clearTimeout(spreadReleaseTimer);
+		spreadReleaseTimer = null;
+	}
+	spreadReleaseTimer = setTimeout(() => {
+		simulation?.stop?.();
+		releaseFrozenNodes(activeSpreadFrozenNodes);
+		activeSpreadFrozenNodes = [];
+		spreadReleaseTimer = null;
+	}, 300);
 }
 
 function renderGraph(_data) {
@@ -11666,7 +11684,25 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 	simulation.nodes(layoutNodes);
 	simulation.force('link').links(layoutLinks);
 	simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
+
+	// Freeze settled nodes before reheat so only the new batch moves.
+	const allowedMoving = new Set(toAdd.map((n) => n.id));
+	if (activeSpreadFrozenNodes.length) {
+		releaseFrozenNodes(activeSpreadFrozenNodes);
+		activeSpreadFrozenNodes = [];
+	}
+	activeSpreadFrozenNodes = freezeSettledNodesExcept(allowedMoving);
 	simulation.alpha(getIncrementalRestartAlpha(layoutNodes.length, toAdd.length)).restart();
+	if (spreadReleaseTimer) {
+		clearTimeout(spreadReleaseTimer);
+		spreadReleaseTimer = null;
+	}
+	spreadReleaseTimer = setTimeout(() => {
+		simulation?.stop?.();
+		releaseFrozenNodes(activeSpreadFrozenNodes);
+		activeSpreadFrozenNodes = [];
+		spreadReleaseTimer = null;
+	}, 300);
 
 	// Persist session so reload restores these nodes
 	saveSession();
@@ -12640,7 +12676,7 @@ async function ensureFirmConnections(firmNode: any) {
 		try {
 			const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
 			const timer = controller ? window.setTimeout(() => controller.abort(), 30000) : 0;
-			const res = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}/connections`, {
+			const res = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}/connections?light=1`, {
 				signal: controller?.signal,
 				cache: 'no-store',
 			});

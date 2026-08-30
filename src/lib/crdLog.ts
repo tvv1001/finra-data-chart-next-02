@@ -45,6 +45,7 @@ export function loadCrdLogSync(): CrdLog {
 }
 
 async function writeCrdLog(log: CrdLog) {
+	if (process.env.VERCEL) return false;
 	try {
 		await fs.mkdir(path.dirname(CRD_LOG_PATH), { recursive: true });
 		await fs.writeFile(CRD_LOG_PATH, JSON.stringify(log, null, 2), 'utf8');
