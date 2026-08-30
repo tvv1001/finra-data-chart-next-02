@@ -1,4 +1,5 @@
 import { getRedisClient } from '@/lib/redisCache';
+import { canWriteToRedis, isRedisCacheOnly } from '@/lib/redisAvailability';
 
 // Individuals who are scraped-only references (e.g. FINRA/SEC firm-page "Direct Owners &
 // Executive Officers" entries) frequently have no independent, searchable BrokerCheck/IAPD
@@ -51,6 +52,7 @@ function parseRedisReference(raw: unknown): OwnerReference | null {
 export async function recordOwnerReference(reference: OwnerReference): Promise<void> {
 	const crd = String(reference.crd || '').trim();
 	if (!/^\d{1,10}$/.test(crd)) return;
+	if (!canWriteToRedis()) return;
 	const redis = getRedisClient();
 	if (!redis) return;
 
@@ -104,6 +106,7 @@ export async function recordOwnerReferencesForFirm(params: {
 export async function lookupOwnerReference(crd: string): Promise<OwnerReference | null> {
 	const normalizedCrd = String(crd || '').trim();
 	if (!/^\d{1,10}$/.test(normalizedCrd)) return null;
+	if (isRedisCacheOnly()) return null;
 	const redis = getRedisClient();
 	if (!redis) return null;
 
@@ -134,6 +137,7 @@ function firmRefKey(crd: string): string {
 export async function recordFirmReference(reference: OwnerReference): Promise<void> {
 	const crd = String(reference.crd || '').trim();
 	if (!/^\d{1,10}$/.test(crd)) return;
+	if (!canWriteToRedis()) return;
 	const redis = getRedisClient();
 	if (!redis) return;
 
@@ -194,6 +198,7 @@ export async function recordFirmReferencesForIndividual(params: { parentCrd: str
 export async function lookupFirmReference(crd: string): Promise<OwnerReference | null> {
 	const normalizedCrd = String(crd || '').trim();
 	if (!/^\d{1,10}$/.test(normalizedCrd)) return null;
+	if (isRedisCacheOnly()) return null;
 	const redis = getRedisClient();
 	if (!redis) return null;
 

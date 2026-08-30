@@ -5,6 +5,7 @@ import zlib from 'node:zlib';
 import { getRedisClientInstance } from '@/lib/redisClient';
 import { setStringIfValid } from '@/lib/redisCache';
 import { canCallExternalApis } from '@/lib/externalApiGate';
+import { isRedisCacheOnly } from '@/lib/redisAvailability';
 
 type MemStore = Map<string, { value: unknown; expiresAt: number }>;
 type PrimedBundle = Record<string, unknown>;
@@ -53,6 +54,7 @@ function parseRedisValue<T>(raw: unknown): T | null {
 }
 
 function getUpstash(): Redis | null {
+	if (isRedisCacheOnly()) return null;
 	if (upstash !== null) return upstash;
 	// prefer MIRROR env var first, fall back to legacy _2 names
 	const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
@@ -271,6 +273,10 @@ export async function waitExternalFetchLimit(service: string) {
 
 export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher: () => Promise<T>): Promise<T> {
 	const key = normalizeKey(rawKey);
+	const mem = getMem();
+	const memHit = memGet(mem, key);
+	if (memHit !== null) return memHit as T;
+
 	const redis = getUpstash();
 
 	if (redis) {
@@ -298,7 +304,10 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 								}
 							}
 						}
-						if (!malformed) return parsed;
+						if (!malformed) {
+							memSet(mem, key, parsed, ttlSeconds);
+							return parsed;
+						}
 						// If malformed, proactively remove the bad Redis key so later
 						// primed/disk/external fetch paths can provide a clean value.
 						try {
@@ -314,11 +323,13 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 			}
 			const primed = await getPrimedCacheValue<T>(key);
 			if (primed != null) {
+				memSet(mem, key, primed, ttlSeconds);
 				await setStringIfValid(key, JSON.stringify(primed), ttlSeconds);
 				return primed;
 			}
 			const disk = await getDiskCacheValue<T>(key);
 			if (disk != null) {
+				memSet(mem, key, disk, ttlSeconds);
 				await setStringIfValid(key, JSON.stringify(disk), ttlSeconds);
 				return disk;
 			}
@@ -326,10 +337,6 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 			// fall through to in-memory cache / fetch
 		}
 	}
-
-	const mem = getMem();
-	const cached = memGet(mem, key);
-	if (cached !== null) return cached as T;
 
 	const primed = await getPrimedCacheValue<T>(key);
 	if (primed != null) {
@@ -341,6 +348,11 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 	if (diskValue != null) {
 		memSet(mem, key, diskValue, ttlSeconds);
 		return diskValue;
+	}
+
+	// When Redis is unusable, stay on caches — do not open external FINRA/SEC floodgates.
+	if (isRedisCacheOnly()) {
+		return undefined as unknown as T;
 	}
 
 	const service = getExternalService(key);

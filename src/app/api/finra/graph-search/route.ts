@@ -130,21 +130,26 @@ async function persistGraphSearchNodesAndLinks(newNodes: any[], newLinks: any[])
 		await saveGraph(graph);
 
 		try {
-			// prefer MIRROR env var but fall back to legacy _2 names
-			const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
-			const token = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN;
-			if (url && token) {
-				const redis = new UpstashRedis({ url, token });
-				const ts = new Date().toISOString();
-				const entry = {
-					ts,
-					action: 'persist-local-search-hits',
-					source: 'graph-search',
-					added: addedNodeIds.length,
-					sample: addedNodeIds.slice(0, 5),
-				};
-				await redis.lpush('finra:redis-monitor', JSON.stringify(entry));
-				await redis.ltrim('finra:redis-monitor', 0, 199);
+			const { canWriteToRedis } = await import('@/lib/redisAvailability');
+			if (!canWriteToRedis()) {
+				// skip telemetry writes when Redis writes are off or cache-only
+			} else {
+				// prefer MIRROR env var but fall back to legacy _2 names
+				const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
+				const token = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN;
+				if (url && token) {
+					const redis = new UpstashRedis({ url, token });
+					const ts = new Date().toISOString();
+					const entry = {
+						ts,
+						action: 'persist-local-search-hits',
+						source: 'graph-search',
+						added: addedNodeIds.length,
+						sample: addedNodeIds.slice(0, 5),
+					};
+					await redis.lpush('finra:redis-monitor', JSON.stringify(entry));
+					await redis.ltrim('finra:redis-monitor', 0, 199);
+				}
 			}
 		} catch {
 			// ignore monitor failures

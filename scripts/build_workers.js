@@ -1,23 +1,13 @@
 #!/usr/bin/env node
+/**
+ * Bundle the pure JS d3-force layout worker for the browser.
+ * Rust/WASM layout has been removed — do not invoke wasm-pack here.
+ */
 const esbuild = require('esbuild');
-const { execSync } = require('child_process');
 const path = require('path');
 
 async function build() {
-	if (process.env.VERCEL) {
-		console.log('Running in Vercel: Skipping Rust/WASM worker build (using prebuilt or JS fallback).');
-	} else {
-		try {
-			execSync('cd rust/graph-layout && wasm-pack build --target web --out-dir ../../public/wasm/graph-layout', {
-				stdio: 'inherit',
-			});
-			console.log('Built Rust/WASM layout worker');
-		} catch (e) {
-			console.warn('Rust/WASM worker build skipped or failed. Falling back to JS worker only.', e.message || e);
-		}
-	}
-
-	const entry = path.join(process.cwd(), 'src', 'workers', 'd3-force-worker-wasm.js');
+	const entry = path.join(process.cwd(), 'src', 'workers', 'd3-force-worker-src.js');
 	const out = path.join(process.cwd(), 'public', 'workers', 'd3-force-worker.js');
 	const bundleOut = path.join(process.cwd(), 'public', 'workers', 'd3-force-worker.bundle.js');
 	try {

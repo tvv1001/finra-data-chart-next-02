@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { QUEUE_GRAPH_BRIDGE_KEY, consumeQueueGraphBridge, writeQueueGraphBridge } from '../../src/lib/queueGraphBridge';
+import {
+	QUEUE_GRAPH_BRIDGE_KEY,
+	consumeQueueGraphBridge,
+	consumeQueueGraphBridgePayload,
+	writeQueueGraphBridge,
+} from '../../src/lib/queueGraphBridge';
 
 describe('queueGraphBridge', () => {
 	beforeEach(() => {
@@ -43,5 +48,26 @@ describe('queueGraphBridge', () => {
 		writeQueueGraphBridge(['person:9']);
 		writeQueueGraphBridge([]);
 		expect(sessionStorage.getItem(QUEUE_GRAPH_BRIDGE_KEY)).toBeNull();
+	});
+
+	it('stores firm seed people metadata for bulk connection → graph hydrate', () => {
+		writeQueueGraphBridge(['person:10'], {
+			anchorFirmId: '7691',
+			anchorFirmName: 'Merrill',
+			people: [
+				{ crd: '10', name: 'A', isCurrent: true },
+				{ crd: '11', name: 'B', isCurrent: false },
+				{ crd: '10', name: 'dup' },
+			],
+		});
+		const payload = consumeQueueGraphBridgePayload();
+		expect(payload?.anchorFirmId).toBe('7691');
+		expect(payload?.anchorFirmName).toBe('Merrill');
+		expect(payload?.nodeIds).toEqual(expect.arrayContaining(['firm:7691', 'person:10', 'person:11']));
+		expect(payload?.people).toEqual([
+			{ crd: '10', name: 'A', isCurrent: true },
+			{ crd: '11', name: 'B', isCurrent: false },
+		]);
+		expect(consumeQueueGraphBridgePayload()).toBeNull();
 	});
 });

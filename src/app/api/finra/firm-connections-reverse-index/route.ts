@@ -27,11 +27,13 @@ export async function GET(request: NextRequest) {
 		const url = new URL(request.url);
 		const batchSize = Number(url.searchParams.get('batchSize') || 25);
 		const maxFirmWrites = Number(url.searchParams.get('maxFirmWrites') || 40);
+		const scanCount = Number(url.searchParams.get('scanCount') || Math.max(64, batchSize));
 		const resetCursor = url.searchParams.get('reset') === '1';
 
 		const result = await runFirmConnectionsReverseIndexPass({
 			batchSize,
 			maxFirmWrites,
+			scanCount,
 			resetCursor,
 			updateCrdLog: true,
 		});

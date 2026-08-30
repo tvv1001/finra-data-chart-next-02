@@ -32,8 +32,17 @@ import {
 	subscribeFilterText,
 } from '@/lib/filterTags';
 import VectorLoader from '@/components/VectorLoader';
-import { writeQueueGraphBridge } from '@/lib/queueGraphBridge';
-import { readVisited, readVisitedSync, rememberVisited, visitConnectionsKey, visitDetailKey, visitSnapshotKey } from '@/lib/clientVisitCache';
+import { writeQueueGraphBridge, type QueueGraphBridgePerson } from '@/lib/queueGraphBridge';
+import {
+	readVisited,
+	readVisitedSync,
+	rememberFirmConnectionsCache,
+	rememberVisited,
+	visitConnectionsKey,
+	visitDetailKey,
+	visitSnapshotKey,
+	type CachedFirmConnectionsPayload,
+} from '@/lib/clientVisitCache';
 import styles from './dashboard.module.css';
 
 type DashboardAction = 'fetch-crds' | 'list-new-crds';
@@ -49,6 +58,13 @@ let dashboardCurrentScrollRecordKey: string | null = null;
 // Kept in sessionStorage too so a route remount still sees it.
 const FIRM_CONNECTIONS_RETURN_STORAGE_KEY = 'finra_dashboard_connections_return';
 const FIRM_CONNECTIONS_ANCHOR_ID = 'dashboard-firm-connections';
+/** Sync buffer so Graph can read multi-select results before React localHistory flushes. */
+let pendingQueueGraphSeed: {
+	nodeIds: string[];
+	people: QueueGraphBridgePerson[];
+	anchorFirmId?: string;
+	anchorFirmName?: string;
+} | null = null;
 let pendingFirmConnectionsReturnFirmId: string | null = null;
 // While set, skip restoring a stale firm scrollTop so the connections anchor can win.
 let skipScrollRestoreForKey: string | null = null;
@@ -112,6 +128,8 @@ type DashboardRecordSnapshot = {
 
 const DASHBOARD_RECORD_CACHE_MAX = 40;
 const CONNECTION_PAGE_SIZE = 80;
+/** When a filter is active, paint more matched rows at once so CRD/name hits aren't stuck behind the sentinel. */
+const CONNECTION_FILTER_PAGE_SIZE = 240;
 
 function ConnectionsLazySentinel({
 	rootRef,
@@ -1933,10 +1951,21 @@ function DashboardPageInner() {
 		(event: MouseEvent<HTMLAnchorElement>) => {
 			if (typeof window === 'undefined') return;
 			event.preventDefault();
-			// Bridge Queue graph CRDs to the graph page via sessionStorage (no query string).
-			// The graph consumes this once on init and background-fetches missing nodes onto the canvas.
-			const queueNodeIds = collectSelectedNodeIdsForGraphHref(localHistory);
-			writeQueueGraphBridge(queueNodeIds);
+			// Bridge Queue graph CRDs via sessionStorage. Prefer the sync seed written when
+			// connection Select→Done finishes (avoids React setState race that dropped most of
+			// a 100+ multi-select), then fall back to Queue graph history.
+			const historyIds = collectSelectedNodeIdsForGraphHref(localHistory);
+			const seed = pendingQueueGraphSeed;
+			pendingQueueGraphSeed = null;
+			const nodeIds = Array.from(new Set([...(seed?.nodeIds || []), ...historyIds]));
+			const firmId =
+				seed?.anchorFirmId ||
+				(currentRecordEntity === 'firm' && currentRecordId ? String(currentRecordId) : undefined);
+			writeQueueGraphBridge(nodeIds, {
+				anchorFirmId: firmId,
+				anchorFirmName: seed?.anchorFirmName,
+				people: seed?.people,
+			});
 			// Sending the queue to the graph ends this Queue graph session. Returning to the
 			// dashboard starts a fresh empty selection history.
 			try {
@@ -1949,7 +1978,7 @@ function DashboardPageInner() {
 			setIsSelectionHistoryEditMode(false);
 			window.location.assign(graphHref || '/');
 		},
-		[graphHref, localHistory],
+		[graphHref, localHistory, currentRecordEntity, currentRecordId],
 	);
 
 	async function loadNewCrdsFromRedis(force = false) {
@@ -2590,11 +2619,15 @@ function DashboardPageInner() {
 	});
 	const [currentRenderCount, setCurrentRenderCount] = useState(CONNECTION_PAGE_SIZE);
 	const [previousRenderCount, setPreviousRenderCount] = useState(CONNECTION_PAGE_SIZE);
+	const connectionsFilterActive =
+		Boolean(connectionsFilterQuery.trim()) ||
+		(connectionsFilterEnabled && connectionsFilterTags.length > 0);
+	const connectionPageSize = connectionsFilterActive ? CONNECTION_FILTER_PAGE_SIZE : CONNECTION_PAGE_SIZE;
 	const loadMoreCurrentConnections = useCallback(() => {
-		setCurrentRenderCount((count) => count + CONNECTION_PAGE_SIZE);
+		setCurrentRenderCount((count) => count + CONNECTION_FILTER_PAGE_SIZE);
 	}, []);
 	const loadMorePreviousConnections = useCallback(() => {
-		setPreviousRenderCount((count) => count + CONNECTION_PAGE_SIZE);
+		setPreviousRenderCount((count) => count + CONNECTION_FILTER_PAGE_SIZE);
 	}, []);
 	const currentConnectionPartition = useMemo(() => {
 		const cards = detailedMainRecord?.currentConnectionCards || [];
@@ -2613,10 +2646,24 @@ function DashboardPageInner() {
 		connectionsFilterEnabled,
 		connectionFilterPreviewUnfiltered,
 	]);
-	const filteredCurrentConnectionCardsAll = useMemo(
-		() => [...sortByMostRecentStartDate(currentConnectionPartition.matched), ...sortByMostRecentStartDate(currentConnectionPartition.unmatched)],
-		[currentConnectionPartition],
-	);
+	const filteredCurrentConnectionCardsAll = useMemo(() => {
+		const filterActive =
+			!connectionFilterPreviewUnfiltered &&
+			(Boolean(connectionsFilterQuery.trim()) ||
+				(connectionsFilterEnabled && connectionsFilterTags.length > 0));
+		// Keep relevance order from partitionConnectionsByFilter when filtering; otherwise newest first.
+		if (filterActive) return currentConnectionPartition.ordered;
+		return [
+			...sortByMostRecentStartDate(currentConnectionPartition.matched),
+			...sortByMostRecentStartDate(currentConnectionPartition.unmatched),
+		];
+	}, [
+		currentConnectionPartition,
+		connectionsFilterEnabled,
+		connectionFilterPreviewUnfiltered,
+		connectionsFilterTags,
+		connectionsFilterQuery,
+	]);
 	const filteredCurrentConnectionCards = useMemo(
 		() => filteredCurrentConnectionCardsAll.slice(0, currentRenderCount),
 		[filteredCurrentConnectionCardsAll, currentRenderCount],
@@ -2645,9 +2692,18 @@ function DashboardPageInner() {
 	]);
 	const filteredPreviousConnectionCardsAll = previousConnectionPartition.ordered;
 	useEffect(() => {
-		setCurrentRenderCount(CONNECTION_PAGE_SIZE);
-		setPreviousRenderCount(CONNECTION_PAGE_SIZE);
-	}, [currentRecordId, deferredPreviousFilterQuery, deferredPreviousFilterTags, deferredPreviousFilterEnabled, connectionsFilterQuery, connectionsFilterTags, connectionsFilterEnabled]);
+		setCurrentRenderCount(connectionPageSize);
+		setPreviousRenderCount(connectionPageSize);
+	}, [
+		currentRecordId,
+		deferredPreviousFilterQuery,
+		deferredPreviousFilterTags,
+		deferredPreviousFilterEnabled,
+		connectionsFilterQuery,
+		connectionsFilterTags,
+		connectionsFilterEnabled,
+		connectionPageSize,
+	]);
 	const filteredPreviousConnectionCards = useMemo(
 		() => filteredPreviousConnectionCardsAll.slice(0, previousRenderCount),
 		[filteredPreviousConnectionCardsAll, previousRenderCount],
@@ -3388,14 +3444,29 @@ function DashboardPageInner() {
 		const existingPromise = connectionsInFlightByCrdRef.current.get(firmId);
 		if (existingPromise) return existingPromise;
 
-		setConnectionsLoadingFirmId(firmId);
+		const cacheKey = visitConnectionsKey(firmId);
+		const cached =
+			readVisitedSync<CachedFirmConnectionsPayload>(cacheKey) ||
+			(await readVisited<CachedFirmConnectionsPayload>(cacheKey));
+		if (cached?.found && (cached.currentConnections?.length || cached.previousConnections?.length)) {
+			applyFirmConnectionsToState(firmId, cached.currentConnections || [], cached.previousConnections || []);
+			setConnectionsLoadingFirmId(null);
+		} else {
+			setConnectionsLoadingFirmId(firmId);
+		}
+
 		const fetchPromise = (async () => {
 			try {
 				const loadBucket = async (bucket: 'current' | 'previous') => {
-					const response = await fetch(`/api/finra/firm/${encodeURIComponent(firmId)}/connections?bucket=${bucket}`, {
-						method: 'GET',
-						headers: { Accept: 'application/json' },
-					});
+					// light=1 skips Redis detail enrichment; server still hydrates names from
+					// search-index gzip sidecars. Client hard-caches the full roster in IDB.
+					const response = await fetch(
+						`/api/finra/firm/${encodeURIComponent(firmId)}/connections?bucket=${bucket}&light=1`,
+						{
+							method: 'GET',
+							headers: { Accept: 'application/json' },
+						},
+					);
 					if (!response.ok) return null;
 					return response.json().catch(() => null);
 				};
@@ -3403,7 +3474,6 @@ function DashboardPageInner() {
 				const currentData = await loadBucket('current');
 				if (currentData?.found) {
 					applyFirmConnectionsToState(firmId, currentData.currentConnections || [], undefined);
-					setConnectionsLoadingFirmId((current) => (current === firmId ? null : current));
 				}
 
 				const previousData = await loadBucket('previous');
@@ -3411,10 +3481,20 @@ function DashboardPageInner() {
 					applyFirmConnectionsToState(firmId, undefined, previousData.previousConnections || []);
 				}
 
-				return previousData || currentData;
+				const currentConnections = currentData?.found
+					? currentData.currentConnections || []
+					: cached?.currentConnections || [];
+				const previousConnections = previousData?.found
+					? previousData.previousConnections || []
+					: cached?.previousConnections || [];
+				if (currentData?.found || previousData?.found) {
+					rememberFirmConnectionsCache(firmId, { currentConnections, previousConnections });
+				}
+
+				return previousData || currentData || cached || null;
 			} catch (err) {
 				console.warn('Failed to lazy load firm connections', err);
-				return null;
+				return cached || null;
 			} finally {
 				connectionsInFlightByCrdRef.current.delete(firmId);
 				setConnectionsLoadingFirmId((current) => (current === firmId ? null : current));
@@ -5468,15 +5548,47 @@ function DashboardPageInner() {
 														});
 													};
 													const selectConnectionGroup = (group: 'all' | 'current' | 'previous') => {
+														// "Select all" includes every connection with a CRD (matched + unmatched).
+														// Current/Previous buttons keep the filter-matched subset for precision.
 														const items =
 															group === 'current' ? matchedSelectableCurrent
 															: group === 'previous' ? matchedSelectablePrevious
-															: matchedSelectableConnections;
+															: selectableConnections;
 														setSelectedConnectionKeys(new Set(items.map((item) => connectionKey(item)).filter(Boolean)));
 													};
 													const finishConnectionSelectMode = () => {
 														const selected = selectableConnections.filter((item) => selectedConnectionKeys.has(connectionKey(item)));
 														if (selected.length) {
+															const currentCrdSet = new Set(
+																(detailedMainRecord?.currentConnectionCards || [])
+																	.map((item) => String(item.crd || '').trim())
+																	.filter(Boolean),
+															);
+															const people: QueueGraphBridgePerson[] = selected
+																.filter((item) => item.entity !== 'firm' && item.crd)
+																.map((item) => ({
+																	crd: String(item.crd),
+																	name: item.title,
+																	isCurrent: currentCrdSet.has(String(item.crd)),
+																}));
+															const nodeIds = selected
+																.map((item) =>
+																	item.entity === 'firm' ? `firm:${item.crd}` : `person:${item.crd}`,
+																)
+																.filter(Boolean);
+															const firmId =
+																currentRecordEntity === 'firm' && currentRecordId ? String(currentRecordId) : undefined;
+															const firmName =
+																firmId ?
+																	formatFirmName(pickFirstNonEmpty(mainJsonLabel, `Firm ${firmId}`) || `Firm ${firmId}`)
+																:	undefined;
+															if (firmId) nodeIds.unshift(`firm:${firmId}`);
+															pendingQueueGraphSeed = {
+																nodeIds: Array.from(new Set(nodeIds)),
+																people,
+																anchorFirmId: firmId,
+																anchorFirmName: firmName,
+															};
 															recordHistoryEntries(
 																selected.map((item) => ({
 																	id: String(item.crd),
@@ -5638,12 +5750,12 @@ function DashboardPageInner() {
 																			type='checkbox'
 																			checked={connectionsFilterEnabled}
 																			onChange={(event) => setConnectionsFilterEnabled(event.target.checked)}
-																			aria-label='Apply filter tags'
+																			aria-label='Apply committed filter tags'
 																		/>
 																		Tags
 																	</label>
 																	<FilterTagsInput
-																		tags={connectionsFilterTags}
+																		tags={connectionsFilterEnabled ? connectionsFilterTags : []}
 																		liveText={connectionsFilterQuery}
 																		onTagsChange={setConnectionsFilterTags}
 																		onLiveTextChange={(text) => {
@@ -5655,9 +5767,17 @@ function DashboardPageInner() {
 																			if (!focused) setConnectionsFilterJustCommitted(false);
 																		}}
 																		onCommitTag={() => setConnectionsFilterJustCommitted(true)}
-																		placeholder='Filter connections…'
-																		disabled={!connectionsFilterEnabled}
+																		placeholder='Filter connections… name or CRD'
 																	/>
+																	{connectionsFilterTags.length > 0 && (
+																		<button
+																			type='button'
+																			className={styles.filterLineBtn}
+																			onClick={() => setConnectionsFilterTags([])}
+																			title='Clear committed filter tags'>
+																			Clear tags
+																		</button>
+																	)}
 																	{connectionsSelectMode ?
 																		<>
 																			<button

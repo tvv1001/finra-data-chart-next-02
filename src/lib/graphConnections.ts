@@ -7,7 +7,11 @@
 // forward independent of the individual's own record. Validation now comes exclusively from
 // each individual's own cached current/previous employment history
 // (see enrichConnectionEntriesFromIndividualCache / hasValidatedFirmConnectionEvidence below).
-import { searchLocalIndex, hasMinimumSearchQuery } from "@/lib/localSearch";
+import {
+  searchLocalIndex,
+  hasMinimumSearchQuery,
+  lookupLocalSearchHitsByIds,
+} from "@/lib/localSearch";
 import { searchGraphFallback } from "@/lib/searchGraphFallback";
 import { searchDirectRedisFallback } from "@/lib/searchDirectFallback";
 import { getFirmEmploymentEdgesFromFullScan } from "@/lib/firmEmploymentIndex";
@@ -17,6 +21,7 @@ import {
   setStringIfValid,
   decompressPayload,
 } from "@/lib/redisCache";
+import { canWriteToRedis, isRedisCacheOnly } from "@/lib/redisAvailability";
 import {
   fetchOfficialFirmRoster,
   isOfficialFirmRoster,
@@ -199,6 +204,114 @@ export function connectionNeedsDisplayEnrichment(
   if ((!name || nameTokenCount(name) < 2) && !displayChecked) return true;
   if (!String(entry.address || "").trim() && !displayChecked) return true;
   return false;
+}
+
+function composeAddressFromSearchHit(hit: any, preferFirmId?: string): string {
+  const preferId = String(preferFirmId || "").trim();
+  const employments = [
+    ...(Array.isArray(hit?.ind_current_employments) ? hit.ind_current_employments : []),
+    ...(Array.isArray(hit?.ind_ia_current_employments) ? hit.ind_ia_current_employments : []),
+    ...(Array.isArray(hit?.ind_previous_employments) ? hit.ind_previous_employments : []),
+    ...(Array.isArray(hit?.ind_ia_previous_employments) ? hit.ind_ia_previous_employments : []),
+  ];
+  const preferred =
+    (preferId
+      ? employments.find((row) => String(row?.firmId || row?.firm_id || "").trim() === preferId)
+      : null) || employments[0];
+  if (preferred) {
+    const branch = Array.isArray(preferred?.branchOfficeLocations)
+      ? preferred.branchOfficeLocations[0]
+      : null;
+    const city = String(branch?.city || preferred?.city || "").trim();
+    const state = String(branch?.state || preferred?.state || "").trim();
+    const zip = String(branch?.zipCode || preferred?.zipCode || "").trim();
+    const line = [city, state].filter(Boolean).join(", ");
+    if (line && zip) return `${line} ${zip}`;
+    if (line) return line;
+  }
+  return String(hit?.addressSearchText || hit?.address || "").trim();
+}
+
+function composeNameFromSearchHit(hit: any): string {
+  return firstNonEmpty(
+    buildPersonName(hit?.ind_firstname, hit?.ind_middlename, hit?.ind_lastname),
+    hit?.label,
+    hit?.name,
+    [hit?.ind_firstname, hit?.ind_middlename, hit?.ind_lastname].filter(Boolean).join(" "),
+  );
+}
+
+/**
+ * Fill thin firm-connection display fields from gzip search sidecars (no Redis detail GETs).
+ * Safe for light=1 / mega-firm paths — indexes are process-local after first load.
+ */
+export async function hydrateFirmConnectionsFromSearchSidecar(
+  payload: FirmConnectionsPayload,
+  firmId?: string,
+  options: { baseUrl?: string } = {},
+): Promise<FirmConnectionsPayload> {
+  const current = Array.isArray(payload?.currentConnections) ? payload.currentConnections : [];
+  const previous = Array.isArray(payload?.previousConnections) ? payload.previousConnections : [];
+  const needs = [...current, ...previous].filter(connectionNeedsDisplayEnrichment);
+  if (!needs.length) return payload;
+
+  const ids = Array.from(
+    new Set(
+      needs
+        .map((entry) => String(entry.individualId || entry.firmId || "").trim())
+        .filter((id) => /^\d{1,10}$/.test(id)),
+    ),
+  );
+  if (!ids.length) return payload;
+
+  const hits = new Map<string, any>();
+  for (const source of ["finra", "sec"] as const) {
+    const remaining = ids.filter((id) => !hits.has(id));
+    if (!remaining.length) break;
+    const batch = await lookupLocalSearchHitsByIds(source, "individual", remaining, {
+      baseUrl: options.baseUrl,
+    });
+    for (const [id, hit] of batch) hits.set(id, hit);
+  }
+  if (!hits.size) return payload;
+
+  const preferFirmId = String(firmId || "").trim();
+  const hydrateEntry = (entry: GraphConnectionEntry): GraphConnectionEntry => {
+    if (!connectionNeedsDisplayEnrichment(entry)) return entry;
+    const crd = String(entry.individualId || "").trim();
+    const hit = hits.get(crd);
+    if (!hit) return entry;
+    const name = preferRicherPersonName(entry.name, composeNameFromSearchHit(hit));
+    const otherNames = Array.from(
+      new Set(
+        [
+          ...(Array.isArray(entry.otherNames) ? entry.otherNames : []),
+          ...(Array.isArray(hit.ind_other_names) ? hit.ind_other_names : []),
+          ...(Array.isArray(hit.otherNames) ? hit.otherNames : []),
+        ]
+          .map((value) => String(value || "").trim())
+          .filter(Boolean),
+      ),
+    );
+    const address = entry.address || composeAddressFromSearchHit(hit, preferFirmId) || undefined;
+    const evidence = Array.from(
+      new Set([...(entry.evidence || []), "sidecar-hydrated"].filter(Boolean)),
+    );
+    return {
+      ...entry,
+      name: name || entry.name,
+      ...(otherNames.length ? { otherNames } : {}),
+      ...(address ? { address } : {}),
+      bcScope: entry.bcScope || hit.ind_bc_scope || undefined,
+      iaScope: entry.iaScope || hit.ind_ia_scope || undefined,
+      evidence,
+    };
+  };
+
+  return {
+    currentConnections: current.map(hydrateEntry),
+    previousConnections: previous.map(hydrateEntry),
+  };
 }
 
 /** Pick a current employer for previous-connection display (prefer not the firm being viewed). */
@@ -913,10 +1026,10 @@ export type UpsertIndividualEmployerOptions = {
 };
 
 /**
- * When an individual detail page/API loads (or a Redis-only reverse-index job runs), treat that
+ * Page-load firm-connections update: when an individual detail page/API loads, treat that
  * person's employment history as the source of truth and upsert them into each employer firm's
- * local + Redis firm-connections roster. Official firm-by-individual
- * search is incomplete for many older/low firm CRDs; reverse links from person detail close that gap.
+ * Redis firm-connections roster. Official firm-by-individual search is incomplete for many
+ * older/low firm CRDs; reverse links from person detail close that gap.
  */
 export async function upsertIndividualIntoEmployerFirmConnections(
   crd: string,
@@ -928,6 +1041,9 @@ export async function upsertIndividualIntoEmployerFirmConnections(
     return { firmsTouched: [], firmsSkippedUnchanged: [] };
   }
 
+  if (!canWriteToRedis()) {
+    return { firmsTouched: [], firmsSkippedUnchanged: [] };
+  }
   const redis = getRedisClient();
   if (!redis) {
     return { firmsTouched: [], firmsSkippedUnchanged: [] };
@@ -1393,7 +1509,7 @@ function firmConnectionsDisplayFingerprint(payload: FirmConnectionsPayload): str
 
 export async function getFirmConnectionsFromGraph(
   firmId: string,
-  options?: { computeIfMissing?: boolean },
+  options?: { computeIfMissing?: boolean; skipEnrichment?: boolean },
 ): Promise<FirmConnectionsPayload> {
   const normalizedFirmId = String(firmId || "").trim();
   if (!normalizedFirmId)
@@ -1403,6 +1519,7 @@ export async function getFirmConnectionsFromGraph(
   const cacheKey = firmConnectionsCacheKey(normalizedFirmId);
   const emptyCacheKey = `${cacheKey}:empty`;
   const redis = getRedisClient();
+  const skipEnrichment = Boolean(options?.skipEnrichment);
 
   const readRedisFirmConnections = async (): Promise<FirmConnectionsPayload | null> => {
     if (!redis) return null;
@@ -1426,21 +1543,28 @@ export async function getFirmConnectionsFromGraph(
   // graph expand may backfill that key from scripts (`computeIfMissing`), but they must
   // not add people to the dashboard or sidebar on their own.
   if (redisRoster && countFirmConnectionEntries(redisRoster) > 0) {
-    // Only fill thin display fields (first-name-only / missing address) from already-cached
-    // individual details. Do not re-walk search sidecars for every person on mega-firms.
-    const before = firmConnectionsDisplayFingerprint(redisRoster);
-    const incompleteCount = [
-      ...(redisRoster.currentConnections || []),
-      ...(redisRoster.previousConnections || []),
-    ].filter(connectionNeedsDisplayEnrichment).length;
-    if (!incompleteCount) return redisRoster;
+    // Gzip search-sidecar hydration is cheap (no Redis GETs). light=1 still uses it; only
+    // the Redis individual-detail enrichment pass below is skipped.
+    const sidecarHydrated = await hydrateFirmConnectionsFromSearchSidecar(
+      redisRoster,
+      normalizedFirmId,
+    );
+    if (skipEnrichment || isRedisCacheOnly()) return sidecarHydrated;
 
-    const enriched = await attachConnectionDisplayFields(redisRoster, normalizedFirmId, redis, {
+    const before = firmConnectionsDisplayFingerprint(sidecarHydrated);
+    const incompleteCount = [
+      ...(sidecarHydrated.currentConnections || []),
+      ...(sidecarHydrated.previousConnections || []),
+    ].filter(connectionNeedsDisplayEnrichment).length;
+    if (!incompleteCount) return sidecarHydrated;
+
+    // Cap enrichment hard — mega-firm 800×2 Redis GETs can exhaust Upstash quickly.
+    const enriched = await attachConnectionDisplayFields(sidecarHydrated, normalizedFirmId, redis, {
       displayIncompleteOnly: true,
-      maxLookups: 800,
+      maxLookups: 40,
     });
     const after = firmConnectionsDisplayFingerprint(enriched);
-    if (after !== before && redis) {
+    if (after !== before && redis && canWriteToRedis()) {
       try {
         await setStringIfValid(
           cacheKey,
@@ -1452,6 +1576,11 @@ export async function getFirmConnectionsFromGraph(
       }
     }
     return enriched;
+  }
+
+  // Cache-only / Redis miss: serve local firm-connections disk file for display.
+  if (local.payload && countFirmConnectionEntries(local.payload) > 0) {
+    return hydrateFirmConnectionsFromSearchSidecar(local.payload, normalizedFirmId);
   }
 
   if (!options?.computeIfMissing) {

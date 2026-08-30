@@ -1,12 +1,14 @@
 import type { Redis } from '@upstash/redis';
 import Bottleneck from 'bottleneck';
 import { getRedisClientInstance } from '@/lib/redisClient';
+import { canWriteToRedis, isRedisCacheOnly, noteRedisError } from '@/lib/redisAvailability';
 import zlib from 'zlib';
 
 export const DEFAULT_TTL_SECONDS = Number(process.env.REDIS_CACHE_TTL_SECONDS || 86400);
 
 let client: Redis | null = null;
 export function getRedisClient(): Redis | null {
+	if (isRedisCacheOnly()) return null;
 	if (client) return client;
 	// prefer MIRROR env var but allow legacy _2 names
 	const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
@@ -76,25 +78,12 @@ export async function setIfValid(
 ): Promise<'written' | 'skipped-empty' | 'skipped-nonstring' | 'no-client' | 'error'> {
 	try {
 		if (isEmptyHitsObj(value)) return 'skipped-empty';
-		// Safety: only allow writes when UPSTASH_ALLOW_WRITES=1 to avoid accidental
-		// data deployments during code pushes (e.g., Vercel builds). When disabled,
-		// behave as if no redis client is configured.
-		if (String(process.env.UPSTASH_ALLOW_WRITES || '0') !== '1') {
-			// eslint-disable-next-line no-console
-			console.warn('Redis writes are disabled (set UPSTASH_ALLOW_WRITES=1 to enable)');
+		// UPSTASH_ALLOW_WRITES + cache-only gate — avoid accidental / wasted Upstash writes.
+		if (!canWriteToRedis()) {
 			return 'no-client';
 		}
 		const redis = getRedisClient();
 		if (!redis) return 'no-client';
-
-		// check type to avoid WRONGTYPE errors
-		let t = 'none';
-		try {
-			t = await redis.type(key);
-		} catch (e) {
-			// continue and let set fail later
-		}
-		if (t && t !== 'none' && t !== 'string') return 'skipped-nonstring';
 
 		await limiter.schedule(async () => {
 			const finalValue = compressPayload(JSON.stringify(value));
@@ -105,9 +94,10 @@ export async function setIfValid(
 			}
 		});
 		return 'written';
-	} catch (e) {
-		// swallow but signal error
-		// eslint-disable-next-line no-console
+	} catch (e: any) {
+		noteRedisError(e, 'setIfValid');
+		const msg = String(e?.message || e || '').toLowerCase();
+		if (msg.includes('wrongtype')) return 'skipped-nonstring';
 		console.warn('redisCache.setIfValid error', e?.message || e);
 		return 'error';
 	}
@@ -126,18 +116,12 @@ export async function setStringIfValid(
 			parsed = null;
 		}
 		if (isEmptyHitsObj(parsed)) return 'skipped-empty';
-		if (String(process.env.UPSTASH_ALLOW_WRITES || '0') !== '1') {
-			// eslint-disable-next-line no-console
-			console.warn('Redis writes are disabled (set UPSTASH_ALLOW_WRITES=1 to enable)');
+		if (!canWriteToRedis()) {
 			return 'no-client';
 		}
 		const redis = getRedisClient();
 		if (!redis) return 'no-client';
-		let t = 'none';
-		try {
-			t = await redis.type(key);
-		} catch {}
-		if (t && t !== 'none' && t !== 'string') return 'skipped-nonstring';
+		// Skip TYPE-before-SET (saves ~1 command per write). WRONGTYPE → skipped-nonstring.
 		await limiter.schedule(async () => {
 			const finalValue = compressPayload(raw);
 			if (ttlSeconds) {
@@ -147,8 +131,10 @@ export async function setStringIfValid(
 			}
 		});
 		return 'written';
-	} catch (e) {
-		// eslint-disable-next-line no-console
+	} catch (e: any) {
+		noteRedisError(e, 'setStringIfValid');
+		const msg = String(e?.message || e || '').toLowerCase();
+		if (msg.includes('wrongtype')) return 'skipped-nonstring';
 		console.warn('redisCache.setStringIfValid error', e?.message || e);
 		return 'error';
 	}

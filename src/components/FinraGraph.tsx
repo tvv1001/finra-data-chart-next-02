@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } f
 import ThemeToggle from './ThemeToggle';
 import { buildNodeRouteHref, buildNodeRoutePath, parseNodeIdFromPathname } from '@/lib/node-route';
 import { RUNTIME_CLICK_EXPANSION_HOPS, RUNTIME_EXPANSION_HOPS, RUNTIME_SELECTION_HOPS } from '@/lib/finra-graph-defaults';
-import { consumeQueueGraphBridge } from '@/lib/queueGraphBridge';
+import { consumeQueueGraphBridgePayload } from '@/lib/queueGraphBridge';
 
 const MOBILE_TOUCH_SLOP_PX = 12;
 const MOBILE_TOUCH_CLICK_SUPPRESSION_MS = 250;
@@ -934,7 +934,8 @@ export default function FinraGraph() {
 				const defaultSelected = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEFAULT_SELECTED) || '';
 				// Prefer the dashboard Queue graph sessionStorage bridge (no query string).
 				// Keep legacy `?selected=` support for shared links only.
-				const bridgedSelectedIds = consumeQueueGraphBridge();
+				const bridgePayload = consumeQueueGraphBridgePayload();
+				const bridgedSelectedIds = bridgePayload?.nodeIds || [];
 				const querySelectedIds = (searchParams.get('selected') || defaultSelected || '')
 					.split(',')
 					.map((id) => id.trim())
@@ -946,29 +947,15 @@ export default function FinraGraph() {
 					initialRouteNodeId: routeNodeId,
 					initialSelectedNodeIds: sharedSelectedIds,
 					isolateToSelection,
+					queueGraphSeed: bridgePayload
+						? {
+								anchorFirmId: bridgePayload.anchorFirmId,
+								anchorFirmName: bridgePayload.anchorFirmName,
+								people: bridgePayload.people,
+							}
+						: null,
 				});
 				setGraphReady(true);
-				// Try to initialize the wasm thread pool (if a parallel/threads build was produced)
-				try {
-					if (typeof window !== 'undefined' && (self as any).crossOriginIsolated) {
-						try {
-							// Use eval-import to avoid bundler static analysis resolving the path at build time
-							const mod = await eval("import('/wasm/graph-layout/graph_layout.js')");
-							if (mod && typeof mod.initThreadPool === 'function') {
-								const threads = navigator.hardwareConcurrency ? Math.max(2, Math.min(8, navigator.hardwareConcurrency - 1)) : 4;
-								try {
-									await mod.initThreadPool(threads);
-								} catch (e) {
-									console.info('wasm thread pool init failed:', e);
-								}
-							}
-						} catch (_) {
-							// ignore missing wasm or module
-						}
-					}
-				} catch (e) {
-					// ignore
-				}
 			});
 		};
 

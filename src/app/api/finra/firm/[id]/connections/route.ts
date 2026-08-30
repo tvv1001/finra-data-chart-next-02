@@ -15,7 +15,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 	try {
 		const bucket = String(request.nextUrl.searchParams.get('bucket') || 'all').trim().toLowerCase();
-		const { currentConnections, previousConnections } = await getFirmConnectionsFromGraph(id);
+		const light =
+			String(request.nextUrl.searchParams.get('light') || '').trim() === '1' ||
+			String(request.nextUrl.searchParams.get('skipEnrichment') || '').trim() === '1';
+		const { currentConnections, previousConnections } = await getFirmConnectionsFromGraph(id, {
+			skipEnrichment: light,
+		});
 		const current = bucket === 'previous' ? [] : currentConnections || [];
 		const previous = bucket === 'current' ? [] : previousConnections || [];
 
@@ -25,6 +30,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				found: true,
 				currentConnections: current,
 				previousConnections: previous,
+				...(light ? { light: true } : {}),
 			},
 			{ headers: { 'Cache-Control': 'public, max-age=0, s-maxage=60, stale-while-revalidate=86400' } },
 		);

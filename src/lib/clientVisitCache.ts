@@ -4,11 +4,14 @@
  */
 
 const MEMORY_MAX = 40;
+/** Firm connection rosters are large; keep a separate small hot set so they aren't evicted by detail clicks. */
+const CONNECTIONS_MEMORY_MAX = 12;
 const IDB_NAME = 'finra-visit-cache';
 const IDB_STORE = 'records';
 const IDB_VERSION = 1;
 
 const memory = new Map<string, unknown>();
+const connectionsMemory = new Map<string, unknown>();
 
 function touchMemory(key: string, value: unknown) {
 	memory.delete(key);
@@ -18,6 +21,20 @@ function touchMemory(key: string, value: unknown) {
 		if (oldest == null) break;
 		memory.delete(oldest);
 	}
+}
+
+function touchConnectionsMemory(key: string, value: unknown) {
+	connectionsMemory.delete(key);
+	connectionsMemory.set(key, value);
+	while (connectionsMemory.size > CONNECTIONS_MEMORY_MAX) {
+		const oldest = connectionsMemory.keys().next().value;
+		if (oldest == null) break;
+		connectionsMemory.delete(oldest);
+	}
+}
+
+function isConnectionsKey(key: string) {
+	return key.startsWith('connections:firm:');
 }
 
 export function visitDetailKey(entity: 'firm' | 'individual', id: string) {
@@ -34,6 +51,10 @@ export function visitConnectionsKey(firmId: string) {
 
 export function readVisitedSync<T = unknown>(key: string): T | null {
 	if (!key) return null;
+	if (isConnectionsKey(key)) {
+		const value = connectionsMemory.get(key);
+		return value == null ? null : (value as T);
+	}
 	const value = memory.get(key);
 	return value == null ? null : (value as T);
 }
@@ -69,7 +90,10 @@ export async function readVisited<T = unknown>(key: string): Promise<T | null> {
 			const req = tx.objectStore(IDB_STORE).get(key);
 			req.onsuccess = () => {
 				const value = req.result;
-				if (value != null) touchMemory(key, value);
+				if (value != null) {
+					if (isConnectionsKey(key)) touchConnectionsMemory(key, value);
+					else touchMemory(key, value);
+				}
 				resolve(value == null ? null : (value as T));
 			};
 			req.onerror = () => resolve(null);
@@ -81,7 +105,8 @@ export async function readVisited<T = unknown>(key: string): Promise<T | null> {
 
 export function rememberVisited(key: string, value: unknown) {
 	if (!key || value == null) return;
-	touchMemory(key, value);
+	if (isConnectionsKey(key)) touchConnectionsMemory(key, value);
+	else touchMemory(key, value);
 	void (async () => {
 		const db = await openVisitDb();
 		if (!db) return;
@@ -89,7 +114,31 @@ export function rememberVisited(key: string, value: unknown) {
 			const tx = db.transaction(IDB_STORE, 'readwrite');
 			tx.objectStore(IDB_STORE).put(value, key);
 		} catch {
-			// ignore quota / clone errors on oversized payloads
+			// ignore quota / clone errors on oversized payloads (mega-firm previous lists)
 		}
 	})();
+}
+
+export type CachedFirmConnectionsPayload = {
+	found: true;
+	firmId: string;
+	currentConnections: any[];
+	previousConnections: any[];
+	cachedAt: number;
+};
+
+/** Persist a firm roster for instant dashboard revisits (memory + IndexedDB). */
+export function rememberFirmConnectionsCache(
+	firmId: string,
+	payload: { currentConnections?: any[]; previousConnections?: any[] },
+) {
+	const id = String(firmId || '').trim();
+	if (!id) return;
+	rememberVisited(visitConnectionsKey(id), {
+		found: true,
+		firmId: id,
+		currentConnections: Array.isArray(payload.currentConnections) ? payload.currentConnections : [],
+		previousConnections: Array.isArray(payload.previousConnections) ? payload.previousConnections : [],
+		cachedAt: Date.now(),
+	} satisfies CachedFirmConnectionsPayload);
 }

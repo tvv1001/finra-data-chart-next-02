@@ -39,6 +39,14 @@ vi.mock('@/lib/officialFirmRoster', async (importOriginal) => {
 	};
 });
 
+vi.mock('@/lib/localSearch', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('@/lib/localSearch')>();
+	return {
+		...actual,
+		lookupLocalSearchHitsByIds: vi.fn(async () => new Map()),
+	};
+});
+
 import {
 	composeIndividualDisplayName,
 	connectionNeedsDisplayEnrichment,
@@ -60,6 +68,8 @@ describe('firm connection merge and cache', () => {
 		mockRedis.get.mockResolvedValue(null);
 		mockRedis.mget.mockResolvedValue([]);
 		setStringIfValid.mockClear();
+		process.env.UPSTASH_ALLOW_WRITES = '1';
+		delete process.env.REDIS_CACHE_ONLY;
 	});
 
 	it('builds the local firm cache key', () => {
@@ -117,10 +127,17 @@ describe('firm connection merge and cache', () => {
 		expect(countFirmConnectionEntries(merged)).toBe(2);
 	});
 
-	it('returns empty when Redis firm-connections:firm is missing instead of using other sources', async () => {
+	it('returns empty when Redis and local disk firm-connections are both missing', async () => {
+		mockRedis.get.mockResolvedValue(null);
+		// Use a CRD that should not have data/firm-connections/{id}.json on disk.
+		const result = await getFirmConnectionsFromGraph('900000999');
+		expect(result).toEqual({ currentConnections: [], previousConnections: [] });
+	});
+
+	it('falls back to local disk firm-connections when Redis roster is missing', async () => {
 		mockRedis.get.mockResolvedValue(null);
 		const result = await getFirmConnectionsFromGraph('7691');
-		expect(result).toEqual({ currentConnections: [], previousConnections: [] });
+		expect(countFirmConnectionEntries(result)).toBeGreaterThan(0);
 	});
 
 	it('uses Redis firm-connections:firm as the only curated roster', async () => {

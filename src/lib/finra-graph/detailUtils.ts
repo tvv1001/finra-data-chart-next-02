@@ -77,7 +77,7 @@ export function findExistingFirmNode(firmId, layoutNodes, { label = '' }: { labe
 export function applyIndividualDetail(targetNode, detail, fallbackCrd = null) {
 	if (!targetNode || !detail) return targetNode;
 
-	// Scraped-only reference record (no live FINRA/SEC detail available for this CRD).
+	// Scraped-only / non-live CRD (no BrokerCheck/IAPD individual record).
 	if (detail.orphan && typeof detail.orphan === 'object') {
 		const orphan = detail.orphan;
 		targetNode.crd = String(orphan.crd || fallbackCrd || targetNode.crd || '');
@@ -94,6 +94,24 @@ export function applyIndividualDetail(targetNode, detail, fallbackCrd = null) {
 		if (orphan.phone) targetNode.orphanPhone = orphan.phone;
 		if (orphan.parentCrd) targetNode.orphanParentCrd = orphan.parentCrd;
 		if (orphan.parentType) targetNode.orphanParentType = orphan.parentType;
+		// Synthesize an employment/affiliation card so the sidebar shows the parent firm
+		// (Form BD owners are non-live and have no individual employment history payload).
+		const parentCrd = String(orphan.parentCrd || '').trim();
+		const parentType = String(orphan.parentType || 'firm').trim().toLowerCase();
+		if (parentCrd && parentType !== 'individual') {
+			targetNode.currentEmployments = [
+				{
+					firmId: parentCrd,
+					firmName: orphan.firmName || `Firm ${parentCrd}`,
+					position: orphan.position || undefined,
+					_isCurrent: true,
+					_orphanAffiliation: true,
+				},
+			];
+			targetNode.previousEmployments = Array.isArray(targetNode.previousEmployments) ? targetNode.previousEmployments : [];
+			targetNode.currentIAEmployments = Array.isArray(targetNode.currentIAEmployments) ? targetNode.currentIAEmployments : [];
+			targetNode.previousIAEmployments = Array.isArray(targetNode.previousIAEmployments) ? targetNode.previousIAEmployments : [];
+		}
 		return targetNode;
 	}
 

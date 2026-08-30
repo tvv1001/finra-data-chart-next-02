@@ -12,6 +12,7 @@ import { getRedisClient, decompressPayload } from '@/lib/redisCache';
 import {
 	extractIndividualEmployerLinksFromDetail,
 	unwrapCachedIndividualDetail,
+	upsertIndividualIntoEmployerFirmConnections,
 } from '@/lib/graphConnections';
 import { rememberCrdLogEntries } from '@/lib/crdLog';
 
@@ -182,10 +183,13 @@ export async function runFirmConnectionsReverseIndexPass(
 		const remainingWrites = Math.max(0, maxFirmWrites - firmsWritten);
 		if (remainingWrites <= 0) break;
 
-		// Read-only reverse index pass: keep the firm reference inventory, but do not mutate
-		// the canonical Redis `firm-connections:firm:<id>` roster from cached individual data.
-		firmsWritten += 0;
-		firmsSkippedUnchanged += 0;
+		const result = await upsertIndividualIntoEmployerFirmConnections(crd, detail, {
+			skipUnchanged: true,
+			evidenceTag: 'reverse-index-redis-only',
+			maxFirmWrites: remainingWrites,
+		});
+		firmsWritten += result.firmsTouched.length;
+		firmsSkippedUnchanged += result.firmsSkippedUnchanged.length;
 
 		if (updateCrdLog) {
 			const bi: any = detail.basicInformation || {};

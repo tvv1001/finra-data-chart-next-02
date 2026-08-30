@@ -460,6 +460,8 @@ export function getSelectionLinkEmphasis(zoomScale = getCurrentGraphZoomScale())
 export function getSelectionLinkOpacity(d, selectionLinkEmphasis, options: { connected?: boolean } = {}) {
 	const isGrayLine = hasInactiveEndpoint(d) || isPreviousEmploymentLink(d) || isForcedGrayConnectionLink(d);
 	if (isGrayLine) {
+		// Selected control/affiliation edges to inactive firms should read clearly.
+		if (options.connected && isControlRelationship(d)) return Math.min(1, 0.96);
 		return 0.84;
 	}
 	if (options.connected) {
@@ -507,41 +509,6 @@ export function setGraphLabelRenderMode(_nodeCount = layoutNodes?.length || 0) {
 	// the layout responsive while preserving readable node labels and selected-node
 	// focus states.
 	nodeLabelRenderMode = 'compact';
-}
-
-function animateToWasmPositions(duration = 2500) {
-	if (simulation) simulation.stop();
-	if (graphTickFrameId != null) {
-		cancelAnimationFrame(graphTickFrameId);
-		graphTickFrameId = null;
-	}
-	if (nodeSel) {
-		nodeSel
-			.transition()
-			.duration(duration)
-			.ease(d3.easeCubicOut)
-			.attr('transform', (d) => `translate(${Number.isFinite(d.x) ? d.x : 0},${Number.isFinite(d.y) ? d.y : 0})`);
-	}
-	if (linkSel) {
-		linkSel
-			.transition()
-			.duration(duration)
-			.ease(d3.easeCubicOut)
-			.attr('x1', (d) => (Number.isFinite(d.source?.x) ? d.source.x : 0))
-			.attr('y1', (d) => (Number.isFinite(d.source?.y) ? d.source.y : 0))
-			.attr('x2', (d) => (Number.isFinite(d.target?.x) ? d.target.x : 0))
-			.attr('y2', (d) => (Number.isFinite(d.target?.y) ? d.target.y : 0));
-	}
-	if (arrowSel) {
-		arrowSel
-			.transition()
-			.duration(duration)
-			.ease(d3.easeCubicOut)
-			.attr('x1', (d) => (Number.isFinite(d.source?.x) ? d.source.x : 0))
-			.attr('y1', (d) => (Number.isFinite(d.source?.y) ? d.source.y : 0))
-			.attr('x2', (d) => (Number.isFinite(d.target?.x) ? d.target.x : 0))
-			.attr('y2', (d) => (Number.isFinite(d.target?.y) ? d.target.y : 0));
-	}
 }
 
 function updateGraphTickPositions(linkSelection, nodeSelection, arrowSelection) {
@@ -1965,7 +1932,10 @@ async function fetchNodesByIds(nodeIds: string[] = []) {
 	return response.json();
 }
 
-async function ensureRouteNodeAvailable(nodeId: string) {
+async function ensureRouteNodeAvailable(
+	nodeId: string,
+	options: { includePreviousEmployments?: boolean } = {},
+) {
 	const normalizedNodeId = normalizeNodeRouteId(nodeId) || String(nodeId || '').trim();
 	if (!normalizedNodeId) return null;
 
@@ -1998,7 +1968,12 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 	const [nodePrefix, rawNodeId] = normalizedNodeId.split(':');
 	if (rawNodeId && /^[0-9]+$/.test(rawNodeId) && (nodePrefix === 'person' || nodePrefix === 'firm')) {
 		try {
-			const fetchedBatch = nodePrefix === 'person' ? await fetchIndividualBatch(rawNodeId) : await fetchFirmBatch(rawNodeId);
+			const fetchedBatch =
+				nodePrefix === 'person' ?
+					await fetchIndividualBatch(rawNodeId, null, {
+						includePreviousEmployments: options.includePreviousEmployments === true,
+					})
+				:	await fetchFirmBatch(rawNodeId);
 			if (fetchedBatch.nodes.length || fetchedBatch.links.length) {
 				mergeIntoGraphData(fetchedBatch.nodes, fetchedBatch.links);
 				appendFetched?.(fetchedBatch.nodes, fetchedBatch.links);
@@ -2250,6 +2225,12 @@ let pendingRouteAutoExpand = false; // optional auto-expand requested with route
 let pendingRouteForceAutoExpand = false; // allow route requests to expand even when the node is already selected
 let pendingSelectedNodeIds: string[] = []; // node ids to hydrate into the selection log from a shared `?selected=` link
 let isolateToSharedSelection = false; // when true, skip the baseline/profile graph load and render only the shared `?selected=` + routed nodes
+/** Firm-connection multi-select seed from the dashboard Queue graph bridge. */
+let pendingQueueGraphSeed: {
+	anchorFirmId?: string;
+	anchorFirmName?: string;
+	people?: Array<{ crd: string; name?: string; isCurrent?: boolean }>;
+} | null = null;
 let routeNodeRequestListenerBound = false;
 let findRequestListenersBound = false;
 let traceShortestIds = new Set<string>(); // node and link IDs
@@ -4706,9 +4687,9 @@ function isAutoExpansionLink(link) {
 	return false;
 }
 
-// Clicking a firm node should only reveal its Form BD — Direct Owners & Executive
-// Officers ("controls") connections, not employment/registration history — that
-// data is expensive to fetch/render for mega-firms and is dashboard-only now.
+// Firm open / search-fetch / firm-click expand: only Form BD Direct Owners & Executive
+// Officers ("controls" = red). Employment/registration history is dashboard-only (or
+// explicit Queue-graph multi-select seed), never auto-attached on firm fetch.
 function isFirmControlOnlyExpansionLink(link) {
 	if (!link) return false;
 	const rel = String(link.relationship || '')
@@ -4827,7 +4808,9 @@ function computeHighlightState() {
 				if (maxHops !== 'all' && nextDist > maxHops) return;
 
 				const neighborNode = nodeById.get(nodeId) || null;
-				if (!entryInactive && isNodeInactive(neighborNode)) return;
+				const controlEdge = isControlRelationship(link);
+				// Still highlight Form BD control edges to inactive/terminated firms.
+				if (!entryInactive && isNodeInactive(neighborNode) && !controlEdge) return;
 
 				// If a firm is selected, do not highlight its connecting lines to person nodes.
 				// Person nodes will highlight the lines to the firm when they are selected,
@@ -5894,12 +5877,25 @@ function drawDisclosureIndicator(g, d, r) {
 }
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
-export function init(_d3, options: { initialRouteNodeId?: string | null; initialSelectedNodeIds?: Array<string | null | undefined>; isolateToSelection?: boolean } = {}) {
+export function init(
+	_d3,
+	options: {
+		initialRouteNodeId?: string | null;
+		initialSelectedNodeIds?: Array<string | null | undefined>;
+		isolateToSelection?: boolean;
+		queueGraphSeed?: {
+			anchorFirmId?: string;
+			anchorFirmName?: string;
+			people?: Array<{ crd: string; name?: string; isCurrent?: boolean }>;
+		} | null;
+	} = {},
+) {
 	d3 = _d3;
 	const initialRouteNodeId = String(options?.initialRouteNodeId || '').trim();
 	pendingRouteNodeId = initialRouteNodeId || pendingRouteNodeId;
 	pendingSelectedNodeIds =
 		Array.isArray(options?.initialSelectedNodeIds) ? options.initialSelectedNodeIds.map((id) => String(id || '').trim()).filter(Boolean) : pendingSelectedNodeIds;
+	pendingQueueGraphSeed = options?.queueGraphSeed || null;
 	isolateToSharedSelection = Boolean(options?.isolateToSelection) && pendingSelectedNodeIds.length > 0;
 	if (initialRouteNodeId) {
 		// In isolate mode, don't auto-expand the routed node's neighbors — only the explicitly
@@ -6062,56 +6058,8 @@ export function init(_d3, options: { initialRouteNodeId?: string | null; initial
 				button.setAttribute('aria-busy', 'true');
 			});
 			try {
-				// Attempt to run the Rust/WASM layout in a worker for a quick, non-blocking layout
-				let usedWasm = false;
-				try {
-					if (typeof window !== 'undefined' && Array.isArray(layoutNodes) && layoutNodes.length && Array.isArray(layoutLinks)) {
-						const width = document.getElementById('fg-main')?.clientWidth || 800;
-						const height = document.getElementById('fg-main')?.clientHeight || 600;
-						// build minimal node/link payloads
-						const nodesPayload = layoutNodes.map((n) => ({
-							id: n.id,
-							x: n.x,
-							y: n.y,
-							r: n._vizHalf,
-							locX: n._locationBiasX,
-							locY: n._locationBiasY,
-							locStrength: n._locationBiasStrength,
-						}));
-						const linksPayload = layoutLinks.map((l) => ({ source: l.source?.id || l.source, target: l.target?.id || l.target }));
-						// dynamic import to avoid bundling when not needed
-						const mod = await import('@/lib/graphLayoutWorker');
-						const createWorker = mod.default || mod.createGraphLayoutWorker;
-						if (typeof createWorker === 'function') {
-							const { compute } = createWorker();
-							const positions = await compute(nodesPayload, linksPayload, width, height);
-							if (Array.isArray(positions)) {
-								// apply positions to layoutNodes
-								const posMap = new Map(positions.map((p) => [String(p.id), p]));
-								for (const ln of layoutNodes) {
-									const p = posMap.get(String(ln.id));
-									if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
-										ln.x = p.x;
-										ln.y = p.y;
-									}
-								}
-								// force a render
-								try {
-									animateToWasmPositions(2500);
-								} catch {}
-								usedWasm = true;
-							}
-						}
-					}
-				} catch (wasmErr) {
-					// swallow and fall back to JS simulation
-					console.info('WASM layout failed, falling back to JS/D3 simulation:', wasmErr?.message || wasmErr);
-				}
-
-				if (!usedWasm) {
-					refreshNodeLayout();
-				}
-
+				// Pure D3 / Node path — Rust/WASM layout acceleration has been removed.
+				refreshNodeLayout();
 				void fetchCacheStats();
 			} catch (err) {
 				console.error('refreshNodeLayout failed:', err);
@@ -7901,55 +7849,89 @@ async function fetchIndividualBatch(crd, queryLabel = null, options: { includePr
 	const links = [];
 	const r = await fetch(`${BASE}/api/finra/individual/${encodeURIComponent(crd)}`);
 	if (!r.ok) throw new Error(`individual HTTP ${r.status}`);
-	const detail = unwrapDetailPayload(await r.json());
-	if (detail?.found === false) throw new Error(`individual ${crd} not found`);
+	const raw = await r.json();
+	// Keep non-live orphan payloads intact (unwrap can lose the nested orphan block).
+	const detail =
+		raw?.orphan && typeof raw.orphan === 'object' ?
+			{ found: true, orphan: raw.orphan, crd: raw.crd || crd, hasFinraData: false, hasSecData: false }
+		:	unwrapDetailPayload(raw);
+	if (detail?.found === false && !detail?.orphan) throw new Error(`individual ${crd} not found`);
 
 	const personId = `person:${crd}`;
+	const orphanName = detail?.orphan?.name || '';
 	const personLabel = normalizePersonLabel(
 		(detail?.basicInformation && [detail.basicInformation.firstName, detail.basicInformation.middleName, detail.basicInformation.lastName].filter(Boolean).join(' ')) ||
 			detail?.basicInformation?.name ||
+			orphanName ||
 			queryLabel ||
 			`CRD ${crd}`,
 	);
 
-	nodes.push(
-		applyIndividualDetail(
-			{
-				id: personId,
-				label: personLabel,
-				group: 'individual',
-				crd,
-			},
-			detail,
+	const personNode = applyIndividualDetail(
+		{
+			id: personId,
+			label: personLabel,
+			group: 'individual',
 			crd,
-		),
+		},
+		detail,
+		crd,
 	);
+	nodes.push(personNode);
 
-	const emps = flattenEmploymentRecords(detail, { includeGeneric: true }).filter((employment) => includePreviousEmployments || employment?._isCurrent !== false);
+	// Prefer synthesized orphan affiliation / employment arrays on the node when present.
+	const emps = flattenEmploymentRecords(
+		Array.isArray(personNode?.currentEmployments) || Array.isArray(personNode?.previousEmployments) ? personNode : detail,
+		{ includeGeneric: true },
+	).filter((employment) => includePreviousEmployments || employment?._isCurrent !== false);
 
-	for (const e of emps) {
-		const rawFirmId = String(e?.firmId || e?.firm_id || e?.firmIdNumber || e?.organizationId || e?.orgId || '').trim();
-		const secFirmId = String(e?.bdSECNumber || e?.bdSecNumber || e?.iaSECNumber || e?.iaSecNumber || e?.firm_bd_sec_number || '').trim();
-		const fid = rawFirmId || secFirmId || null;
-		if (!fid) continue;
-		const existingFirmNode = findExistingFirmNode(fid, { label: e?.firmName || e?.name || '' });
-		const firmNodeId = existingFirmNode?.id || `firm:${fid}`;
-		if (!existingFirmNode && !nodes.some((n) => n.id === firmNodeId)) {
-			nodes.push({
-				id: firmNodeId,
-				label: e?.firmName || e?.name || `Firm ${fid}`,
-				group: 'firm',
-				firmId: String(fid),
-				bdSecNumber: e?.bdSECNumber || e?.bdSecNumber || e?.firm_bd_sec_number || null,
-				iaSecNumber: e?.iaSECNumber || e?.iaSecNumber || null,
+	// Non-live Form BD owners: always link back to the parent firm (controls).
+	if (detail?.orphan && typeof detail.orphan === 'object') {
+		const parentCrd = String(detail.orphan.parentCrd || '').trim();
+		const parentType = String(detail.orphan.parentType || 'firm').toLowerCase();
+		if (parentCrd && parentType !== 'individual') {
+			const firmNodeId = `firm:${parentCrd}`;
+			if (!nodes.some((n) => n.id === firmNodeId) && !findExistingFirmNode(parentCrd, { label: detail.orphan.firmName || '' })) {
+				nodes.push({
+					id: firmNodeId,
+					label: detail.orphan.firmName || `Firm ${parentCrd}`,
+					group: 'firm',
+					firmId: parentCrd,
+				});
+			}
+			links.push({
+				source: personId,
+				target: firmNodeId,
+				relationship: isControlPositionText(detail.orphan.position) ? 'controls' : 'employed_by',
+				isCurrent: true,
+				position: detail.orphan.position || null,
 			});
 		}
-		links.push({
-			source: personId,
-			target: firmNodeId,
-			relationship: getEmploymentRelationship(e),
-			isCurrent: e._isCurrent,
-		});
+	} else {
+		for (const e of emps) {
+			const rawFirmId = String(e?.firmId || e?.firm_id || e?.firmIdNumber || e?.organizationId || e?.orgId || '').trim();
+			const secFirmId = String(e?.bdSECNumber || e?.bdSecNumber || e?.iaSECNumber || e?.iaSecNumber || e?.firm_bd_sec_number || '').trim();
+			const fid = rawFirmId || secFirmId || null;
+			if (!fid) continue;
+			const existingFirmNode = findExistingFirmNode(fid, { label: e?.firmName || e?.name || '' });
+			const firmNodeId = existingFirmNode?.id || `firm:${fid}`;
+			if (!existingFirmNode && !nodes.some((n) => n.id === firmNodeId)) {
+				nodes.push({
+					id: firmNodeId,
+					label: e?.firmName || e?.name || `Firm ${fid}`,
+					group: 'firm',
+					firmId: String(fid),
+					bdSecNumber: e?.bdSECNumber || e?.bdSecNumber || e?.firm_bd_sec_number || null,
+					iaSecNumber: e?.iaSECNumber || e?.iaSecNumber || null,
+				});
+			}
+			links.push({
+				source: personId,
+				target: firmNodeId,
+				relationship: getEmploymentRelationship(e),
+				isCurrent: e._isCurrent,
+			});
+		}
 	}
 
 	return { nodes, links };
@@ -8101,6 +8083,9 @@ async function fetchFirmBatch(firmId, queryLabel = null) {
 		iaScope: detail?.iaScope || detail?.basicInformation?.iaScope || null,
 	});
 
+	// Form BD — Direct Owners & Executive Officers only (red "controls" links).
+	// Do not attach employment spokes on firm fetch/load or search hydrate; those stay
+	// dashboard-only / explicit multi-select seed (see isFirmControlOnlyExpansionLink).
 	for (const owner of detail?.directOwners || detail?.owners || []) {
 		const pid = owner?.crdNumber || owner?.crd || owner?.personId || null;
 		if (!pid) continue;
@@ -8120,45 +8105,8 @@ async function fetchFirmBatch(firmId, queryLabel = null) {
 			source: personNodeId,
 			target: firmNodeId,
 			relationship: 'controls',
+			position: owner?.position || null,
 		});
-	}
-
-	// Optional employee stubs for the firm. Cap time so deep links (/firm/:id) stay responsive
-	// and shared Redis is not held by a long search fallback chain during initial hydrate.
-	try {
-		const searchUrl = `${BASE}/api/finra/search?query=${encodeURIComponent(firmId)}&nrows=30`;
-		const searchRes = await Promise.race([fetch(searchUrl), new Promise<Response | null>((resolve) => setTimeout(() => resolve(null), 3500))]);
-		if (searchRes && searchRes.ok) {
-			const searchData = await searchRes.json();
-			const hits = searchData?.hits?.hits || searchData?.results || [];
-			for (const hit of hits) {
-				const src = hit._source || hit;
-				const pid = src.ind_source_id || src.ind_crd || src.individualId || null;
-				if (!pid) continue;
-				const personNodeId = `person:${pid}`;
-				if (!nodes.some((n) => n.id === personNodeId) && !findExistingPersonNode(pid)) {
-					const label = normalizePersonLabel(
-						[src.ind_firstname || src.firstName, src.ind_middlename || src.middleName, src.ind_lastname || src.lastName].filter(Boolean).join(' ') || `Person ${pid}`,
-					);
-					nodes.push({
-						id: personNodeId,
-						label,
-						group: 'individual',
-						crd: pid,
-						bcScope: src.ind_bc_scope || src.bcScope || null,
-						stub: true,
-					});
-				}
-				links.push({
-					source: personNodeId,
-					target: firmNodeId,
-					relationship: 'employed_by',
-					isCurrent: true,
-				});
-			}
-		}
-	} catch (e) {
-		console.warn(`Failed to fetch additional employees for firm ${firmId}:`, e);
 	}
 
 	const mergedNodes = mergeGraphNodesForAppend([], nodes);
@@ -8380,28 +8328,88 @@ async function loadGraph() {
 }
 
 // Populates the selection log (without changing the focused/routed node) from ids
-// shared via a `?selected=` link, fetching any nodes not already present in the graph.
-// Large shared-selection links can carry 100+ ids (e.g. a firm's full connection list), so
-// nodes are hydrated with bounded concurrency instead of one-at-a-time sequential awaits —
-// previously this looped `for...of` with a blocking `await` per id, meaning a 200-id link took
-// ~200 sequential network round-trips before the page felt fully loaded. Selection-log UI
-// updates are also batched into a single refresh at the end instead of once per node.
+// shared via a `?selected=` link / Queue graph bridge.
+// Firm-connection multi-selects ship lightweight people metadata + anchorFirmId so we can
+// inject 100+ person nodes and gray employment links in one shot (no N detail fetches).
+// Remaining ids still hydrate with bounded concurrency.
 async function hydratePendingSelectedNodeIds() {
 	const ids = pendingSelectedNodeIds.slice();
 	pendingSelectedNodeIds = [];
-	if (!ids.length) return;
+	const seed = pendingQueueGraphSeed;
+	pendingQueueGraphSeed = null;
+	if (!ids.length && !(seed?.people?.length)) return;
+
+	const resolvedEntries: SelectionLogEntry[] = [];
+	const seededPersonIds = new Set<string>();
+
+	const anchorFirmId = String(seed?.anchorFirmId || '').trim();
+	const people = Array.isArray(seed?.people) ? seed.people : [];
+	if (people.length && /^\d{1,10}$/.test(anchorFirmId)) {
+		const firmNodeId = `firm:${anchorFirmId}`;
+		const seedNodes: any[] = [];
+		const seedLinks: any[] = [];
+		if (!getNodeById(firmNodeId) && !(graphData?.nodes || []).some((n) => n?.id === firmNodeId)) {
+			seedNodes.push({
+				id: firmNodeId,
+				label: seed?.anchorFirmName || `Firm ${anchorFirmId}`,
+				group: 'firm',
+				firmId: anchorFirmId,
+			});
+		}
+		for (const person of people) {
+			const crd = String(person?.crd || '').trim();
+			if (!/^\d{1,10}$/.test(crd)) continue;
+			const personId = `person:${crd}`;
+			seededPersonIds.add(personId);
+			const label = normalizePersonLabel(person?.name || `CRD ${crd}`);
+			if (!getNodeById(personId) && !(graphData?.nodes || []).some((n) => n?.id === personId)) {
+				seedNodes.push({
+					id: personId,
+					label,
+					group: 'individual',
+					crd,
+				});
+			}
+			const isCurrent = person?.isCurrent === true;
+			seedLinks.push({
+				source: personId,
+				target: firmNodeId,
+				relationship: isCurrent ? 'employed_by' : 'previous_employed_by',
+				isCurrent,
+			});
+			resolvedEntries.push({
+				id: personId,
+				label,
+				secondaryId: `CRD# ${crd}`,
+				group: 'individual',
+			});
+		}
+		resolvedEntries.push({
+			id: firmNodeId,
+			label: seed?.anchorFirmName || `Firm ${anchorFirmId}`,
+			secondaryId: `CRD# ${anchorFirmId}`,
+			group: 'firm',
+		});
+		if (seedNodes.length || seedLinks.length) {
+			mergeIntoGraphData(seedNodes, seedLinks);
+			appendFetched?.(seedNodes, seedLinks);
+		}
+	}
+
+	const remainingIds = ids
+		.map((rawId) => normalizeNodeRouteId(rawId) || String(rawId || '').trim())
+		.filter((id) => id && !seededPersonIds.has(id) && !(anchorFirmId && id === `firm:${anchorFirmId}`));
 
 	const CONCURRENCY = 8;
-	const resolvedEntries: SelectionLogEntry[] = [];
 	let cursor = 0;
 
 	async function worker() {
-		while (cursor < ids.length) {
-			const rawId = ids[cursor++];
-			const normalizedId = normalizeNodeRouteId(rawId) || String(rawId || '').trim();
+		while (cursor < remainingIds.length) {
+			const normalizedId = remainingIds[cursor++];
 			if (!normalizedId) continue;
 			try {
-				const liveNode = await ensureRouteNodeAvailable(normalizedId);
+				// Include previous employments so historical firm links (gray lines) appear.
+				const liveNode = await ensureRouteNodeAvailable(normalizedId, { includePreviousEmployments: true });
 				if (liveNode) {
 					resolvedEntries.push({
 						id: liveNode.id,
@@ -8416,7 +8424,9 @@ async function hydratePendingSelectedNodeIds() {
 		}
 	}
 
-	await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ids.length) }, () => worker()));
+	if (remainingIds.length) {
+		await Promise.all(Array.from({ length: Math.min(CONCURRENCY, remainingIds.length) }, () => worker()));
+	}
 
 	if (!resolvedEntries.length) return;
 	let nextLog = selectedNodesLog;
@@ -8428,6 +8438,11 @@ async function hydratePendingSelectedNodeIds() {
 	saveSelectionLog();
 	updateSelectionLogUI();
 	syncSelectionLogAuxiliaryRenderers();
+	try {
+		saveSession();
+	} catch {
+		/* ignore */
+	}
 }
 
 // Build a subgraph from `seedCount` random nodes plus all their N-hop neighbors.
@@ -9492,6 +9507,10 @@ function hasIndividualFinraPresence(node: any) {
 		)
 	)
 		return false;
+	// Non-live Form BD / scraped CRDs have no BrokerCheck individual page — synthesized
+	// parent-firm employment cards must not count as FINRA presence.
+	if (node.orphan && typeof node.orphan === 'object') return false;
+	if (node.hasFinraData === false && Boolean(node.orphanParentCrd)) return false;
 	if (isNotInScopeValue(node?.bcScope) || isNotInScopeValue(node?.basicInformation?.bcScope)) return false;
 	if (node.hasFinraData === true) return true;
 	if (hasPublicFinraIndividualPage(node, node.basicInformation || {})) return true;
@@ -9719,17 +9738,25 @@ function hasInactiveEndpoint(link) {
 
 function isPreviousEmploymentLink(link) {
 	if (!link) return false;
+	// Control / ownership edges are never "previous employment" — they stay solid red when active.
+	if (isControlRelationship(link)) return false;
 	if (isForcedGrayConnectionLink(link)) return true;
-	const rel = String(link.relationship || '').trim().toLowerCase();
+	const rel = String(link.relationship || '')
+		.trim()
+		.toLowerCase();
 	if (!rel) {
 		if (link.isCurrent === false) return true;
 		if (link.endDate && String(link.endDate).trim() !== '') return true;
 		return false;
 	}
 	if (rel === 'previous_employed_by' || rel === 'previous_registered_by') return true;
+	// Explicit current employment must stay blue/solid even if the same firm also appears
+	// in previousEmployments (re-hire / re-registration timelines).
+	if (link.isCurrent === true) return false;
 	if (link.isCurrent === false) return true;
 	if ((rel === 'employed_by' || rel === 'registered_by') && link.endDate && String(link.endDate).trim() !== '') return true;
 	if (rel === 'employed_by' || rel === 'registered_by') {
+		if (isCurrentRegistration(link)) return false;
 		const sourceNode = resolveLinkEndpointNode(link.source);
 		if (sourceNode?.group === 'individual') {
 			const targetId = String(typeof link.target === 'object' ? link.target?.id : link.target || '').replace(/^firm:/, '').trim();
@@ -9762,6 +9789,50 @@ function usesCurrentEmploymentStyling(link) {
 function isCurrentActiveConnection(link) {
 	if (!link || hasInactiveEndpoint(link) || isForcedGrayConnectionLink(link)) return false;
 	return usesCurrentEmploymentStyling(link) || isControlRelationship(link);
+}
+
+/** Undirected endpoint pair key used to suppress stacked red/blue + dashed edges. */
+function getUndirectedPairKey(link) {
+	const a = String(link?.source?.id ?? link?.source ?? '').trim();
+	const b = String(link?.target?.id ?? link?.target ?? '').trim();
+	if (!a || !b) return '';
+	return a < b ? `${a}||${b}` : `${b}||${a}`;
+}
+
+/**
+ * Visual rank for an undirected node pair:
+ * 2 = active control (solid red), 1 = current employment (solid blue), 0 = gray/other.
+ * Higher rank wins; weaker links on the same pair are not drawn.
+ */
+function getActivePairVisualRank(link) {
+	if (!link || isForcedGrayConnectionLink(link) || hasInactiveEndpoint(link)) return 0;
+	if (isControlRelationship(link)) return 2;
+	if (usesCurrentEmploymentStyling(link)) return 1;
+	return 0;
+}
+
+function buildActivePairRankMap(links = layoutLinks) {
+	const ranks = new Map();
+	for (const link of links || []) {
+		const key = getUndirectedPairKey(link);
+		if (!key) continue;
+		const rank = getActivePairVisualRank(link);
+		if (rank > (ranks.get(key) || 0)) ranks.set(key, rank);
+	}
+	return ranks;
+}
+
+/** Hide gray/dashed (and weaker blue) edges when the same pair already has a stronger red/blue edge. */
+function shouldSuppressOverlappingGraphLink(link, pairMaxRank = buildActivePairRankMap()) {
+	if (!link) return false;
+	const key = getUndirectedPairKey(link);
+	if (!key) return false;
+	const maxRank = pairMaxRank.get(key) || 0;
+	if (maxRank <= 0) return false;
+	const myRank = getActivePairVisualRank(link);
+	if (myRank > 0) return myRank < maxRank;
+	// Any non-active (previous / forced-gray / inactive-endpoint) link yields to red/blue.
+	return true;
 }
 
 function getLinkHighlightColor(link) {
@@ -10032,6 +10103,8 @@ function isCurrentRegistration(d) {
 }
 
 function getLinkColor(d) {
+	// Inactive/terminated parent firms (e.g. IDS Life 6321) render control edges as
+	// previous-connection gray, same as historical employment.
 	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d)) return GRAPH_COLORS.nodeInactiveStroke;
 	if (isControlRelationship(d)) return GRAPH_COLORS.lineControls;
 	if (isPreviousEmploymentLink(d)) return GRAPH_COLORS.nodeInactiveStroke;
@@ -10044,11 +10117,14 @@ function getLinkMarker(d) {
 }
 
 function getLinkDash(d) {
+	// Active control (red) and current employment (blue) are always solid — never dashed.
+	if (getActivePairVisualRank(d) > 0) return null;
 	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d) || isPreviousEmploymentLink(d)) return '2 3';
 	return null;
 }
 
 function getLinkWidth(d) {
+	if (getActivePairVisualRank(d) > 0) return `${DEFAULT_LINK_WIDTH}px`;
 	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d) || isPreviousEmploymentLink(d)) return '0.6px';
 	return `${DEFAULT_LINK_WIDTH}px`;
 }
@@ -10254,7 +10330,10 @@ function refreshLayeredLinkSelections({ enterDuration = 0, highlightState = comp
 	const bottomLinks = [];
 	const midLinks = [];
 	const topLinks = [];
+	const activePairRanks = buildActivePairRankMap(layoutLinks);
 	for (const link of layoutLinks) {
+		// Do not stack dashed gray (or weaker blue) edges on top of a solid red/blue pair edge.
+		if (shouldSuppressOverlappingGraphLink(link, activePairRanks)) continue;
 		const priority = getLinkRenderPriority(link, highlightState);
 		if (priority <= 0) bottomLinks.push(link);
 		else if (priority >= 3) topLinks.push(link);
@@ -11803,6 +11882,32 @@ async function mergeIndividualOwnerEvidence(personNode, options: { allowFirmDeta
 		if ((isPlaceholderExpansionLabel(personNode.label, 'individual') || !personNode.label) && (owner?.legalName || owner?.name)) {
 			personNode.label = normalizePersonLabel(owner.legalName || owner.name);
 		}
+		const parentFirmId = String(firmNode.firmId || String(firmNodeId || '').replace(/^firm:/, '') || '').trim();
+		const parentFirmName = String(firmNode.label || owner?.firmName || '').trim();
+		const ownerPosition = String(owner?.position || owner?.title || '').trim();
+		if (parentFirmId) {
+			// Sidebar employment card fallback for Form BD-only / NotInScope people until
+			// (or if) the non-live orphan payload hydrates a richer affiliation record.
+			const hasEmploymentCard =
+				(Array.isArray(personNode.currentEmployments) && personNode.currentEmployments.some((e) => String(e?.firmId || '').trim() === parentFirmId)) ||
+				(Array.isArray(personNode.previousEmployments) && personNode.previousEmployments.some((e) => String(e?.firmId || '').trim() === parentFirmId));
+			if (!hasEmploymentCard) {
+				personNode.currentEmployments = [
+					...(Array.isArray(personNode.currentEmployments) ? personNode.currentEmployments : []),
+					{
+						firmId: parentFirmId,
+						firmName: parentFirmName || `Firm ${parentFirmId}`,
+						position: ownerPosition || undefined,
+						_isCurrent: true,
+						_orphanAffiliation: true,
+					},
+				];
+			}
+			if (!personNode.orphanParentCrd) personNode.orphanParentCrd = parentFirmId;
+			if (!personNode.orphanParentType) personNode.orphanParentType = 'firm';
+			if (ownerPosition && !personNode.orphanPosition) personNode.orphanPosition = ownerPosition;
+			if (parentFirmName && !personNode.orphanFirmName) personNode.orphanFirmName = parentFirmName;
+		}
 		merged = true;
 	}
 
@@ -11899,13 +12004,24 @@ async function ensureIndividualDetail(
 					}
 				}
 				if (merged) {
-					const candidate = merged?.merged || (merged?.basicInformation ? merged : null);
-					if (candidate) {
-						const normalized = normalizeIndividualDetailPayload(candidate, crd);
-						if (normalized?.basicInformation && (normalized.basicInformation.individualId || normalized.basicInformation.firstName || normalized.basicInformation.lastName)) {
-							localDetail = normalized;
-							if (hasRichIndividualDetail(normalized)) {
-								detail = normalized;
+					// Non-live CRDs are stored as `{ found, orphan }` (no basicInformation / merged wrapper).
+					if (merged?.orphan && typeof merged.orphan === 'object') {
+						detail = {
+							found: true,
+							orphan: merged.orphan,
+							crd: merged.crd || crd,
+							hasFinraData: false,
+							hasSecData: false,
+						};
+					} else {
+						const candidate = merged?.merged || (merged?.basicInformation ? merged : null);
+						if (candidate) {
+							const normalized = normalizeIndividualDetailPayload(candidate, crd);
+							if (normalized?.basicInformation && (normalized.basicInformation.individualId || normalized.basicInformation.firstName || normalized.basicInformation.lastName)) {
+								localDetail = normalized;
+								if (hasRichIndividualDetail(normalized)) {
+									detail = normalized;
+								}
 							}
 						}
 					}
@@ -11914,6 +12030,9 @@ async function ensureIndividualDetail(
 				// local lookup failed — fall through to live API
 			}
 
+			// Owner-only Form BD stubs (NotInScope + controls link) used to return here and skip
+			// `/api/finra/individual`, which drops the non-live orphan employment card. Still mark
+			// owner evidence, then continue so orphan/non-live payloads can hydrate the sidebar.
 			const ownerEvidenceAvailable =
 				!detail && !localDetail && !hasRichIndividualDetail(personNode) ?
 					await mergeIndividualOwnerEvidence(personNode, { allowFirmDetailFetch: allowOwnerEvidenceFirmFetch })
@@ -11922,6 +12041,21 @@ async function ensureIndividualDetail(
 				personNode.stub = true;
 				personNode._ownerEvidenceLoaded = true;
 				personNode._detailMissing = false;
+			}
+
+			// Apply cached/local orphan immediately (before another network hop).
+			if (detail?.orphan && typeof detail.orphan === 'object') {
+				applyIndividualDetail(personNode, detail, crd);
+				if (injectEmploymentGraph) {
+					syncIndividualConnectionsFromDetail(personNode, detail, { includePrevious: true });
+					revealPersonEmploymentNeighbors(personNode);
+					revealIncidentRenderedLinks(personNode, (link) => isAutoExpansionLink(link) || isPreviousEmploymentLink(link) || isControlRelationship(link));
+				}
+				personNode.stub = true;
+				personNode._detailLoaded = true;
+				personNode._detailMissing = false;
+				personNode._trustedCurrentRelationshipData = false;
+				if (typeof refreshGraphColors === 'function') refreshGraphColors();
 				return;
 			}
 
@@ -11933,10 +12067,33 @@ async function ensureIndividualDetail(
 					if (!response.ok) {
 						console.warn(`Failed to fetch individual detail for ${crd}:`, response.status);
 					} else {
-						detail = unwrapDetailPayload(await response.json());
+						const raw = await response.json();
+						// Preserve non-live orphan payloads (`non-live-crds:*`) before unwrap/normalize
+						// can drop the nested `orphan` block.
+						if (raw?.orphan && typeof raw.orphan === 'object') {
+							detail = { found: true, orphan: raw.orphan, crd: raw.crd || crd, hasFinraData: false, hasSecData: false };
+						} else {
+							detail = unwrapDetailPayload(raw);
+						}
 					}
 				} catch (err) {
 					console.warn(`Local API fetch failed for individual ${crd}:`, err);
+				}
+
+				if (detail?.orphan && typeof detail.orphan === 'object') {
+					// Non-live CRD: apply orphan template immediately (no search / owner-only early exit).
+					applyIndividualDetail(personNode, detail, crd);
+					if (injectEmploymentGraph) {
+						syncIndividualConnectionsFromDetail(personNode, detail, { includePrevious: true });
+						revealPersonEmploymentNeighbors(personNode);
+						revealIncidentRenderedLinks(personNode, (link) => isAutoExpansionLink(link) || isPreviousEmploymentLink(link) || isControlRelationship(link));
+					}
+					personNode.stub = true;
+					personNode._detailLoaded = true;
+					personNode._detailMissing = false;
+					personNode._trustedCurrentRelationshipData = false;
+					if (typeof refreshGraphColors === 'function') refreshGraphColors();
+					return;
 				}
 
 				if (!detail || detail.found === false || (!detail.basicInformation && !detail.hits)) {
@@ -11979,6 +12136,7 @@ async function ensureIndividualDetail(
 				// Clicking a person should reveal its full employment history, including previous firms.
 				if (injectEmploymentGraph) {
 					syncIndividualConnectionsFromDetail(personNode, detail, { includePrevious: true });
+					revealPersonEmploymentNeighbors(personNode);
 				}
 				personNode._trustedCurrentRelationshipData = hasRichIndividualDetail(detail);
 				personNode._detailLoaded = true;
@@ -12045,12 +12203,24 @@ function syncIndividualConnectionsFromDetail(personNode, detail, options: { incl
 						},
 				);
 			}
+			const isControl = isControlPositionText(orphan.position);
 			const candidateLink = {
 				source: personId,
 				target: parentNodeId,
-				relationship: isControlPositionText(orphan.position) ? 'officer' : 'employed_by',
+				// Prefer `controls` so firm-open red links and orphan clicks share one edge identity.
+				relationship: isControl ? 'controls' : 'employed_by',
+				isCurrent: true,
+				position: orphan.position || null,
 			};
-			const hasLayoutLink = layoutLinks.some((link) => getLinkIdentityKey(link) === getLinkIdentityKey(candidateLink));
+			const hasLayoutLink = layoutLinks.some((link) => {
+				const sourceId = String(link.source?.id ?? link.source ?? '');
+				const targetId = String(link.target?.id ?? link.target ?? '');
+				const samePair =
+					(sourceId === personId && targetId === parentNodeId) || (sourceId === parentNodeId && targetId === personId);
+				if (!samePair) return false;
+				const rel = String(link.relationship || '').toLowerCase();
+				return rel === 'controls' || rel === 'officer' || rel === 'employed_by' || rel === candidateLink.relationship;
+			});
 			if (!hasLayoutLink) newLinks.push(candidateLink);
 		}
 		if (!newNodes.length && !newLinks.length) return;
@@ -12097,6 +12267,20 @@ function syncIndividualConnectionsFromDetail(personNode, detail, options: { incl
 			startDate: employment?.registrationBeginDate || employment?.startDate || employment?.fromDate || null,
 			endDate: employment._isCurrent ? null : employment?.registrationEndDate || employment?.endDate || employment?.toDate || null,
 		};
+		// If this person↔firm pair already has a solid red control edge (or a stronger
+		// current-employment edge), skip weaker employment spokes so dashed gray/blue
+		// lines do not stack on the active colored line.
+		const pairAlreadyHasStrongerEdge = [...(layoutLinks || []), ...newLinks].some((link) => {
+			const sourceId = String(link.source?.id ?? link.source ?? '');
+			const targetId = String(link.target?.id ?? link.target ?? '');
+			const samePair =
+				(sourceId === personId && targetId === firmNodeId) || (sourceId === firmNodeId && targetId === personId);
+			if (!samePair) return false;
+			const existingRank = getActivePairVisualRank(link);
+			const candidateRank = getActivePairVisualRank(candidateLink);
+			return existingRank > candidateRank;
+		});
+		if (pairAlreadyHasStrongerEdge) continue;
 		const hasLayoutLink = layoutLinks.some((link) => getLinkIdentityKey(link) === getLinkIdentityKey(candidateLink));
 		const hasPendingLink = newLinks.some((link) => getLinkIdentityKey(link) === getLinkIdentityKey(candidateLink));
 		if (!hasLayoutLink && !hasPendingLink) {
@@ -14527,7 +14711,7 @@ function revealNeighbors(
 				return;
 			}
 
-			// Intentionally skip full-graph WASM relayout + animateToWasmPositions on incremental
+			// Intentionally skip full-graph relayout animation on incremental
 			// click reveals — that path reassigned every node and replayed the entrance motion.
 
 			try {
@@ -15530,7 +15714,11 @@ function renderPersonDetail(d: any) {
 	const links = (graphData?.links || []).filter((l: any) => (l.source?.id || l.source) === d.id || (l.target?.id || l.target) === d.id);
 	const controlLinks = links.filter((l) => l.relationship === 'controls');
 
-	const stubBadge = d.stub ? `<span class="fg-badge stub">Form BD stub</span>` : '';
+	const isOrphanPerson = Boolean(d.orphan && typeof d.orphan === 'object') || Boolean(d.orphanParentCrd);
+	const stubBadge =
+		isOrphanPerson ? `<span class="fg-badge inactive" title="No live FINRA/SEC individual record — non-live CRD from parent firm">No live CRD</span>`
+		: d.stub ? `<span class="fg-badge stub">Form BD stub</span>`
+		: '';
 
 	// ── Scope badges ──────────────────────────────────────────────────────────
 	function formatDomainScopeBadge(text, domain, sourceTitle) {
@@ -15545,12 +15733,14 @@ function renderPersonDetail(d: any) {
 
 	const finraScopeText = d.bcScope || bi.bcScope || (hasFinraPage ? 'Active' : '');
 	const secScopeText = hasSecPage ? d.iaScope || bi.iaScope || 'Active' : '';
-	const scopeBadgesHtml = [
-		showFinra ? formatDomainScopeBadge(finraScopeText, 'finra', 'FINRA') : null,
-		showSec ? formatDomainScopeBadge(secScopeText, 'sec', 'SEC AdvisorInfo') : null,
-	]
-		.filter(Boolean)
-		.join(' ');
+	const scopeBadgesHtml =
+		isOrphanPerson ? ''
+		:	[
+				showFinra ? formatDomainScopeBadge(finraScopeText, 'finra', 'FINRA') : null,
+				showSec ? formatDomainScopeBadge(secScopeText, 'sec', 'SEC AdvisorInfo') : null,
+			]
+				.filter(Boolean)
+				.join(' ');
 
 	// ── All disclosures (BC + IA) ─────────────────────────────────────────────
 	// Deduplicate: for each (type, date) pair keep the entry with the most content.
@@ -15645,6 +15835,7 @@ function renderPersonDetail(d: any) {
 			end: emp.registrationEndDate || emp.endDate || emp.toDate || null,
 			isCurrent: isCurrent || !(emp.registrationEndDate || emp.endDate || emp.toDate),
 			employmentStatus: emp.employmentStatus || emp.registrationStatus || emp.status || emp.currentStatus || '',
+			position: emp.position || emp.title || '',
 			iaOnly: emp.iaOnly === 'Y',
 			firmBCScope: emp.firmBCScope,
 			firmIAScope: emp.firmIAScope,
@@ -15655,11 +15846,12 @@ function renderPersonDetail(d: any) {
 	}
 
 	function getEmploymentDetailLine(entry) {
-		return entry.addr || entry.loc || '';
+		return entry.position || entry.addr || entry.loc || '';
 	}
 
 	function getEmploymentScopeTags(entry) {
 		return [
+			entry.position && !entry.addr ? formatUiText(entry.position) : null,
 			entry.employmentStatus ? formatUiText(entry.employmentStatus) : null,
 			showSecReferences && entry.iaOnly ? 'IA only' : null,
 			entry.firmBCScope && entry.firmBCScope !== 'ACTIVE' ? `Firm FINRA: ${formatUiText(entry.firmBCScope)}` : null,
@@ -15830,10 +16022,12 @@ function renderPersonDetail(d: any) {
 
 	let empEntries = [];
 	if (hasStoredEmps) {
+		// Orphan/non-live people still get the synthesized parent-firm employment card even
+		// though they have no live FINRA/SEC individual page (showFinra/showSec are false).
 		empEntries = [
-			...(showFinra ? d.currentEmployments || [] : []).map((e) => empToEntry(e, true)),
+			...(showFinra || isOrphanPerson ? d.currentEmployments || [] : []).map((e) => empToEntry(e, true)),
 			...(showSec ? d.currentIAEmployments || [] : []).map((e) => empToEntry(e, true)),
-			...(showFinra ? d.previousEmployments || [] : []).map((e) => empToEntry(e, false)),
+			...(showFinra || isOrphanPerson ? d.previousEmployments || [] : []).map((e) => empToEntry(e, false)),
 			...(showSec ? d.previousIAEmployments || [] : []).map((e) => empToEntry(e, false)),
 		];
 		const seen = new Set();
@@ -15845,20 +16039,39 @@ function renderPersonDetail(d: any) {
 		});
 		empEntries.sort((a, b) => compareCurrentFirstByDates(a, b, { dateKeys: ['end', 'start'] }));
 	} else {
-		const empLinks = links.filter((l) => l.relationship === 'employed_by');
+		const empLinks = links.filter((l) => {
+			const rel = String(l.relationship || '').toLowerCase();
+			return rel === 'employed_by' || rel === 'previous_employed_by' || rel === 'controls' || rel === 'officer';
+		});
 		empEntries = empLinks.map((l) => {
-			const firmNode = graphData.nodes.find((n) => n.id === (l.target?.id || l.target));
+			const otherId = (l.source?.id || l.source) === d.id ? l.target?.id || l.target : l.source?.id || l.source;
+			const firmNode = graphData.nodes.find((n) => n.id === otherId);
+			const rel = String(l.relationship || '').toLowerCase();
 			return {
-				firmName: firmNode?.label || l.firmName || '',
-				firmId: firmNode?.firmId || l.firmId || null,
+				firmName: firmNode?.label || l.firmName || d.orphanFirmName || '',
+				firmId: firmNode?.firmId || String(otherId || '').replace(/^firm:/, '') || d.orphanParentCrd || null,
 				start: l.startDate || '',
 				end: l.endDate || null,
-				isCurrent: !l.endDate,
+				isCurrent: rel === 'controls' || rel === 'officer' ? true : !l.endDate,
+				position: l.position || d.orphanPosition || null,
 				iaOnly: false,
 				addr: firmNode?.officeAddress || l.officeAddress || l.address || d.orphanOfficeAddress || d.orphanMailingAddress || null,
 				loc: formatLocationText([l.city, l.state].filter(Boolean).join(', ')),
 			};
 		});
+		if (!empEntries.length && d.orphanParentCrd && String(d.orphanParentType || 'firm').toLowerCase() !== 'individual') {
+			empEntries.push({
+				firmName: d.orphanFirmName || `Firm ${d.orphanParentCrd}`,
+				firmId: String(d.orphanParentCrd),
+				start: '',
+				end: null,
+				isCurrent: true,
+				position: d.orphanPosition || null,
+				iaOnly: false,
+				addr: d.orphanOfficeAddress || d.orphanMailingAddress || null,
+				loc: '',
+			});
+		}
 		empEntries.sort((a, b) => compareCurrentFirstByDates(a, b, { dateKeys: ['end', 'start'] }));
 	}
 
@@ -16047,10 +16260,21 @@ function renderPersonDetail(d: any) {
 
 	const crd = bi.individualId || d.crd || String(d.id).replace(/^person[:_]/, '');
 
-	// Only show links if the data is present for each source
-	const brokerCheckSummaryUrl = crd && hasFinraPage ? `https://brokercheck.finra.org/individual/summary/${encodeURIComponent(crd)}` : null;
-	const brokerCheckReportUrl = crd && hasFinraPage ? `https://files.brokercheck.finra.org/individual/individual_${encodeURIComponent(crd)}.pdf` : null;
-	const secSummaryUrl = crd && hasSecPage ? `https://adviserinfo.sec.gov/individual/summary/${encodeURIComponent(crd)}` : null;
+	// Only show individual FINRA/SEC links when this CRD has a live record.
+	// Non-live orphans link to the parent firm's public pages instead.
+	const brokerCheckSummaryUrl = !isOrphanPerson && crd && hasFinraPage ? `https://brokercheck.finra.org/individual/summary/${encodeURIComponent(crd)}` : null;
+	const brokerCheckReportUrl = !isOrphanPerson && crd && hasFinraPage ? `https://files.brokercheck.finra.org/individual/individual_${encodeURIComponent(crd)}.pdf` : null;
+	const secSummaryUrl = !isOrphanPerson && crd && hasSecPage ? `https://adviserinfo.sec.gov/individual/summary/${encodeURIComponent(crd)}` : null;
+	const orphanParentCrd = String(d.orphanParentCrd || d.orphan?.parentCrd || '').trim();
+	const orphanParentType = String(d.orphanParentType || d.orphan?.parentType || 'firm').toLowerCase();
+	const orphanParentFirmFinraUrl =
+		isOrphanPerson && orphanParentCrd && orphanParentType !== 'individual' ?
+			`https://brokercheck.finra.org/firm/summary/${encodeURIComponent(orphanParentCrd)}`
+		:	null;
+	const orphanParentFirmSecUrl =
+		isOrphanPerson && orphanParentCrd && orphanParentType !== 'individual' ?
+			`https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(orphanParentCrd)}`
+		:	null;
 	const parentFirmSummaryLinks = buildParentFirmSummaryLinks(d, currentEmploymentEntries);
 	const parentFirmSummaryLinksFiltered = (parentFirmSummaryLinks || []).filter((link: any) => {
 		const fid = link?.firmId || (typeof link?.href === 'string' ? String(link.href).split('/').pop() : null);
@@ -16106,24 +16330,27 @@ function renderPersonDetail(d: any) {
 				${showFinra && brokerCheckSummaryUrl ? `<a class="fg-ext-link bc" href="${brokerCheckSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
 				${showFinra && brokerCheckReportUrl ? `<a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>` : ''}
 				${showSec && secSummaryUrl ? `<a class="fg-ext-link sec" href="${secSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo Summary</a>` : ''}
+				${orphanParentFirmFinraUrl ? `<a class="fg-ext-link bc" href="${orphanParentFirmFinraUrl}" target="_blank" rel="noopener noreferrer">&#x2197; Parent firm FINRA Summary</a>` : ''}
+				${orphanParentFirmSecUrl ? `<a class="fg-ext-link sec" href="${orphanParentFirmSecUrl}" target="_blank" rel="noopener noreferrer">&#x2197; Parent firm SEC Summary</a>` : ''}
 				${parentFirmSummaryLinksFiltered.map((link) => `<a class="fg-ext-link ${link.className}" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer">&#x2197; ${esc(link.label)}</a>`).join('')}
 			</div>
 		<div class="fg-sb-copy-below-links">
 
-      ${bi.individualId ? row('CRD', `<code>${bi.individualId}</code>`) : ''}
-		${row('ID source check', esc(formatNodeSourceTruthSummary(d)))}
+      ${bi.individualId || d.crd || d.orphanParentCrd ? row('CRD', `<code>${esc(String(bi.individualId || d.crd || ''))}</code>`) : ''}
+		${isOrphanPerson ? row('Record type', 'Non-live CRD (Form BD / scraped reference)') : row('ID source check', esc(formatNodeSourceTruthSummary(d)))}
       ${d.orphanPosition ? row('Position', esc(String(d.orphanPosition))) : ''}
       ${d.orphanFirmName ? row('Affiliated Firm', esc(String(d.orphanFirmName))) : ''}
       ${d.orphanParentCrd ? row('Parent Firm CRD', `<button type="button" class="fg-crd-link" data-crd="${esc(String(d.orphanParentCrd))}" data-crd-type="${d.orphanParentType === 'individual' ? 'individual' : 'firm'}">Firm #${esc(String(d.orphanParentCrd))}</button>`) : ''}
       ${aliases.length ? row('Also known as', esc(aliases.join('; '))) : ''}
       ${
-				d.yearsExperience != null ? row('Years of Experience', esc(String(d.yearsExperience)))
+				isOrphanPerson ? ''
+				: d.yearsExperience != null ? row('Years of Experience', esc(String(d.yearsExperience)))
 				: d.daysInIndustry != null ? row('Days in Industry', d.daysInIndustry.toLocaleString())
 				: ''
 			}
-      ${typeof d.firmCount === 'number' ? row('Firms (all time)', esc(String(d.firmCount))) : ''}
-      ${licenseCount ? row('State Licenses', esc(String(licenseCount))) : ''}
-      ${row('Disclosures', esc(String(disclosureCount)))}
+      ${!isOrphanPerson && typeof d.firmCount === 'number' ? row('Firms (all time)', esc(String(d.firmCount))) : ''}
+      ${!isOrphanPerson && licenseCount ? row('State Licenses', esc(String(licenseCount))) : ''}
+      ${!isOrphanPerson ? row('Disclosures', esc(String(disclosureCount))) : ''}
 	      ${d.primaryOffice?.address ? row('Primary Office', esc(formatLocationText(d.primaryOffice.address)), 'fg-detail-row--stacked') : ''}
       ${
 				d.registrationCount ?

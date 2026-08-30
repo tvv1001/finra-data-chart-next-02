@@ -14,6 +14,7 @@ import { addRecordToSearchIndex } from '@/lib/localSearch';
 import { lookupOwnerReference, recordFirmReferencesForIndividual } from '@/lib/ownerReferenceIndex';
 import { extractIndividualEmployerLinksFromDetail, upsertIndividualIntoEmployerFirmConnections } from '@/lib/graphConnections';
 import { rememberCrdLogEntries } from '@/lib/crdLog';
+import { canWriteToRedis } from '@/lib/redisAvailability';
 
 function parseDetailPayload(data: any, contentKey = 'content') {
 	if (!data) return null;
@@ -478,10 +479,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				});
 			});
 
-			if (employerLinks.length) {
+			if (employerLinks.length && canWriteToRedis()) {
+				// Page-load upsert only when writes are allowed and Redis is usable.
+				// Fire-and-forget so TTFB stays low; skip-unchanged keeps repeat views cheap.
 				void upsertIndividualIntoEmployerFirmConnections(crd, detail, {
 					skipUnchanged: true,
-					maxFirmWrites: 25,
+					maxFirmWrites: 40,
+					evidenceTag: 'individual-detail-load',
 				}).catch((err: any) => {
 					logger.warn('failed to upsert individual into employer firm-connections', {
 						crd,

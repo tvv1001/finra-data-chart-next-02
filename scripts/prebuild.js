@@ -78,12 +78,13 @@ if (url && token) {
 		ensureLocalGraphArtifact(process.env.VERCEL ? 'Vercel build' : 'CI build without FINRA_LOCAL_URL');
 	} else {
 		try {
-			execSync('node scripts/ensure_remote_graph.js', {
-				stdio: 'inherit',
-			});
-			execSync('node scripts/fetch_graph_from_server.js', {
-				stdio: 'inherit',
-			});
+			const fetchGraph = path.join(process.cwd(), 'scripts', 'fetch_graph_from_server.js');
+			if (fs.existsSync(fetchGraph)) {
+				execSync(`node ${fetchGraph}`, { stdio: 'inherit' });
+			} else {
+				console.warn('scripts/fetch_graph_from_server.js missing; using local graph artifact.');
+				ensureLocalGraphArtifact('missing fetch_graph_from_server');
+			}
 		} catch (error) {
 			console.warn('Remote graph sync failed; falling back to local graph artifact handling.');
 			ensureLocalGraphArtifact('remote graph sync failure');

@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 /**
- * Local runner for the Redis-only firm-connections reverse index.
- * Calls the Next API (same code path as the rare Vercel cron) so we don't
- * re-bootstrap the huge TS graph module graph outside Next.
+ * OPTIONAL bulk scan — not the normal update path.
  *
+ * Prefer: open the individual page / call GET /api/finra/individual/{crd}
+ * which upserts that person into employer firm-connections.
+ *
+ * This script walks all Redis individuals via the reverse-index API.
  * Usage (dev server on :4444):
- *   pnpm run reverse-index:firm-connections
- *   pnpm run reverse-index:firm-connections -- --batch=50 --writes=40 --loops=10
- *   pnpm run reverse-index:firm-connections -- --reset
+ *   pnpm run firm-connections:reverse-index:optional
+ *   pnpm run firm-connections:reverse-index:optional -- --batch=50 --writes=40 --loops=10
+ *   pnpm run firm-connections:reverse-index:optional -- --reset
  */
 import minimist from 'minimist';
 

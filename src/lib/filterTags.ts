@@ -161,15 +161,62 @@ export function subscribeFilterText(cb: (text: string) => void): () => void {
 	};
 }
 
-/** True if `haystack` matches the filter: tags are OR'd together (any tag may match), and
- * the live text (if present) is applied as an additional AND filter on top of that OR match.
- * All comparisons are case-insensitive substring matches. */
+/** Split a filter phrase into tokens. Multi-word phrases require every token (AND). */
+export function tokenizeFilterPhrase(phrase: string): string[] {
+	return String(phrase || '')
+		.toLowerCase()
+		.split(/[^a-z0-9#]+/i)
+		.map((token) => token.trim())
+		.filter((token) => token.length > 0);
+}
+
+/** True when every token appears somewhere in haystack (order-independent). */
+export function haystackMatchesAllTokens(haystack: string, tokens: string[]): boolean {
+	if (!tokens.length) return true;
+	const lower = haystack.toLowerCase();
+	return tokens.every((token) => lower.includes(token));
+}
+
+/**
+ * True if `haystack` matches the filter:
+ * - within a tag / live text, whitespace-separated tokens are AND'd
+ *   so "timothy dale" matches "Timothy Dale Register"
+ * - when live text is non-empty, it is the active query (committed tags do not AND-block it).
+ *   Leftover tags in localStorage were causing "1085996" / "timothy dale" to return no rows.
+ * - when live text is empty, tags are OR'd (any tag may match)
+ */
 export function matchesFilterTags(haystack: string, tags: string[], liveText?: string): boolean {
 	const lower = haystack.toLowerCase();
-	if (tags.length > 0 && !tags.some((tag) => lower.includes(tag.toLowerCase()))) return false;
-	const trimmedLive = (liveText || '').trim().toLowerCase();
-	if (trimmedLive && !lower.includes(trimmedLive)) return false;
+	const liveTokens = tokenizeFilterPhrase(liveText || '');
+	if (liveTokens.length) {
+		return haystackMatchesAllTokens(lower, liveTokens);
+	}
+	if (tags.length > 0) {
+		return tags.some((tag) => haystackMatchesAllTokens(lower, tokenizeFilterPhrase(tag)));
+	}
 	return true;
+}
+
+/** Higher score = better match for sorting filtered connection cards. */
+export function scoreConnectionFilterMatch(haystack: string, tags: string[], liveText?: string): number {
+	const lower = haystack.toLowerCase();
+	let score = 0;
+	const live = String(liveText || '').trim().toLowerCase();
+	if (live && lower.includes(live)) score += 50;
+	for (const token of tokenizeFilterPhrase(live)) {
+		if (lower.includes(token)) score += 10;
+	}
+	for (const tag of tags) {
+		const normalizedTag = tag.trim().toLowerCase();
+		if (!normalizedTag) continue;
+		if (lower.includes(normalizedTag)) score += 40;
+		for (const token of tokenizeFilterPhrase(tag)) {
+			if (lower.includes(token)) score += 8;
+		}
+	}
+	// Prefer CRD / exact id hits
+	if (/^\d{1,10}$/.test(live) && lower.includes(live)) score += 100;
+	return score;
 }
 
 /** Empty focused input previews the full list. After the first typed character, tags + live
@@ -184,7 +231,10 @@ export function shouldPreviewUnfilteredConnections(opts: {
 	return !(opts.liveText || '').trim();
 }
 
-/** When `enabled` is false or the input is in the empty-focus preview, every haystack passes. */
+/**
+ * `enabled` gates committed tags only. Live text always filters when present so users can
+ * type a CRD/name even with the Tags checkbox off. Empty-focus preview still shows everyone.
+ */
 export function matchesConnectionsFilter(
 	haystack: string,
 	tags: string[],
@@ -192,8 +242,11 @@ export function matchesConnectionsFilter(
 	enabled = true,
 	previewUnfiltered = false,
 ): boolean {
-	if (!enabled || previewUnfiltered) return true;
-	return matchesFilterTags(haystack, tags, liveText);
+	if (previewUnfiltered) return true;
+	const effectiveTags = enabled ? tags : [];
+	const hasLive = Boolean(String(liveText || '').trim());
+	if (!enabled && !hasLive) return true;
+	return matchesFilterTags(haystack, effectiveTags, liveText);
 }
 
 /**
@@ -214,6 +267,15 @@ export function partitionConnectionsByFilter<T>(
 		const haystack = getHaystack(item);
 		if (matchesConnectionsFilter(haystack, tags, liveText, enabled, previewUnfiltered)) matched.push(item);
 		else unmatched.push(item);
+	}
+	// When a filter is active, rank matched cards by relevance so "timothy dale" surfaces
+	// Register near the top instead of burying a 1980s hire under thousands of "Timothy *" hits.
+	if (enabled && !previewUnfiltered && (tags.length > 0 || String(liveText || '').trim())) {
+		matched.sort((a, b) => {
+			const scoreDelta =
+				scoreConnectionFilterMatch(getHaystack(b), tags, liveText) - scoreConnectionFilterMatch(getHaystack(a), tags, liveText);
+			return scoreDelta;
+		});
 	}
 	return { matched, unmatched, ordered: [...matched, ...unmatched] };
 }
