@@ -225,6 +225,16 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 
 								try {
 									let res = await (primary as any)[propStr](...args);
+
+									// Fallback if null (helpful during partial migrations), only if other DB is healthy
+									let needsFallback = res === null || res === undefined;
+									if (Array.isArray(res) && res.length > 0 && res.some((item) => item === null || item === undefined)) {
+										needsFallback = true;
+									}
+
+									if (needsFallback && !db1Maxxed && !db2Maxxed) {
+										res = await (secondary as any)[propStr](...args);
+									}
 									return res;
 								} catch (err: any) {
 									checkMaxxed(err, primaryIndex);
@@ -371,6 +381,9 @@ export function getReadOnlyRedisClientInstance(config?: { url?: string; token?: 
 							}
 							try {
 								let res = await (primary as any)[propStr](...args);
+								if (res === null || res === undefined) {
+									res = await (secondary as any)[propStr](...args);
+								}
 								return res;
 							} catch (err: any) {
 								checkMaxxed(err, 1);

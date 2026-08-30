@@ -1,6 +1,114 @@
 {
   "firms": [
     {
+      "id": 10409,
+      "name": "MML INVESTORS SERVICES, LLC"
+    },
+    {
+      "id": 38030,
+      "name": "MML DISTRIBUTORS, LLC"
+    },
+    {
+      "id": 21675,
+      "name": "DIRECTED SERVICES LLC"
+    },
+    {
+      "id": 2882,
+      "name": "ING FINANCIAL PARTNERS, INC."
+    },
+    {
+      "id": 14251,
+      "name": "MSI FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 105670,
+      "name": "PRUDENTIAL INVESTMENTS LLC"
+    },
+    {
+      "id": 25929,
+      "name": "COLONIAL INVESTMENT SERVICES"
+    },
+    {
+      "id": 30683,
+      "name": "LIBERTY FUNDS DISTRIBUTOR, INC."
+    },
+    {
+      "id": 18353,
+      "name": "PRUDENTIAL INVESTMENT MANAGEMENT SERVICES LLC"
+    },
+    {
+      "id": 10410,
+      "name": "WS GRIFFITH SECURITIES, INC."
+    },
+    {
+      "id": 6604,
+      "name": "HARTFORD EQUITY SALES COMPANY INC."
+    },
+    {
+      "id": 119003,
+      "name": "MMLISI FINANCIAL ALLIANCES, LLC"
+    },
+    {
+      "id": 168638,
+      "name": "MML STRATEGIC DISTRIBUTORS, LLC"
+    },
+    {
+      "id": 46173,
+      "name": "PARK AVENUE SECURITIES LLC"
+    },
+    {
+      "id": 4031,
+      "name": "HORNOR, TOWNSEND & KENT, INC."
+    },
+    {
+      "id": 4039,
+      "name": "THE EQUITABLE LIFE ASSURANCE SOCIETY OF THE UNITED STATES"
+    },
+    {
+      "id": 6627,
+      "name": "EQ FINANCIAL CONSULTANTS, INC."
+    },
+    {
+      "id": 23131,
+      "name": "ROYAL ALLIANCE ASSOCIATES, INC."
+    },
+    {
+      "id": 25900,
+      "name": "EQUITABLE DISTRIBUTORS, INC."
+    },
+    {
+      "id": 6695,
+      "name": "METLIFE INVESTORS DISTRIBUTION COMPANY"
+    },
+    {
+      "id": 833,
+      "name": "TOWER SQUARE SECURITIES, INC."
+    },
+    {
+      "id": 615,
+      "name": "NEW ENGLAND SECURITIES"
+    },
+    {
+      "id": 107622,
+      "name": "METLIFE INVESTORS DISTRIBUTION COMPANY"
+    },
+    {
+      "id": 15840,
+      "name": "WALNUT STREET SECURITIES, INC."
+    },
+    {
+      "id": 150366,
+      "name": "BEACON ROCK INVESTMENT CONSULTING, LLC"
+    },
+    {
+      "id": 154331,
+      "name": "DESERT ROSE CAPITAL MANAGEMENT INC."
+    },
+    {
+      "id": 310415,
+      "name": "DOCEO WEALTH, LLC"
+    },
+    {
       "id": 866,
       "name": "WADDELL & REED, INC."
     },
@@ -43,10 +151,6 @@
     {
       "id": 6413,
       "name": "LPL FINANCIAL LLC"
-    },
-    {
-      "id": 10410,
-      "name": "W. S. GRIFFITH & CO., INC."
     },
     {
       "id": 7119,
@@ -265,10 +369,6 @@
       "name": "DUKE & CO., INC."
     },
     {
-      "id": 23131,
-      "name": "ROYAL ALLIANCE ASSOCIATES, INC."
-    },
-    {
       "id": 5167,
       "name": "NYLIFE SECURITIES INC."
     },
@@ -449,10 +549,6 @@
       "name": "KEY INVESTMENT SERVICES LLC"
     },
     {
-      "id": 15840,
-      "name": "WALNUT STREET SECURITIES, INC."
-    },
-    {
       "id": 13572,
       "name": "CETERA ADVISOR NETWORKS LLC"
     },
@@ -503,10 +599,6 @@
     {
       "id": 304569,
       "name": "THRIVENT ADVISOR NETWORK, LLC"
-    },
-    {
-      "id": 6627,
-      "name": "AXA ADVISORS, LLC"
     },
     {
       "id": 21000,
@@ -645,10 +737,6 @@
       "name": "BANC OF AMERICA INVESTMENT SERVICES, INC."
     },
     {
-      "id": 30683,
-      "name": "COLUMBIA MANAGEMENT DISTRIBUTORS, INC."
-    },
-    {
       "id": 840,
       "name": "COLUMBIA MANAGEMENT INVESTMENT DISTRIBUTORS, INC."
     },
@@ -765,10 +853,6 @@
       "name": "TEXAKOMA FINANCIAL, INC."
     },
     {
-      "id": 4031,
-      "name": "HORNOR, TOWNSEND & KENT, INC."
-    },
-    {
       "id": 42150,
       "name": "FORTUNE FINANCIAL SERVICES, INC."
     },
@@ -783,10 +867,6 @@
     {
       "id": 110518,
       "name": "SECURITIES AMERICA ADVISORS, INC."
-    },
-    {
-      "id": 833,
-      "name": "TRAVELERS EQUITIES SALES, INC."
     },
     {
       "id": 10641,
@@ -1177,10 +1257,6 @@
       "name": "INDEPENDENT BROKERAGE NETWORK SECURITIES, L.L.C."
     },
     {
-      "id": 4039,
-      "name": "THE EQUITABLE LIFE ASSURANCE SOCIETY OF THE UNITED STATES"
-    },
-    {
       "id": 5181,
       "name": "JOHN HANCOCK MUTUAL LIFE INSURANCE COMPANY"
     },
@@ -1207,10 +1283,6 @@
     {
       "id": 2682,
       "name": "MASSACHUSETTS MUTUAL LIFE INSURANCE COMPANY"
-    },
-    {
-      "id": 10409,
-      "name": "MML INVESTORS SERVICES, INC."
     },
     {
       "id": 11039,
@@ -1925,10 +1997,6 @@
       "name": "INTERCAL SECURITIES CO."
     },
     {
-      "id": 615,
-      "name": "NEW ENGLAND SECURITIES"
-    },
-    {
       "id": 4386,
       "name": "MONY SECURITIES CORPORATION"
     },
@@ -2213,10 +2281,6 @@
       "name": "METROPOLITAN LIFE INSURANCE COMPANY"
     },
     {
-      "id": 14251,
-      "name": "METLIFE SECURITIES INC."
-    },
-    {
       "id": 14007,
       "name": "GPC SECURITIES, INC."
     },
@@ -2353,10 +2417,6 @@
       "name": "GUARDIAN INVESTOR SERVICES CORPORATION"
     },
     {
-      "id": 46173,
-      "name": "PARK AVENUE SECURITIES LLC"
-    },
-    {
       "id": 30115,
       "name": "UTENDAHL CAPITAL PARTNERS, L.P."
     },
@@ -2475,10 +2535,6 @@
     {
       "id": 1000001,
       "name": "R W PRESSPRICH & CO INCORPORATED"
-    },
-    {
-      "id": 2882,
-      "name": "WASHINGTON SQUARE SECURITIES, INC."
     },
     {
       "id": 18484,
@@ -2769,10 +2825,6 @@
       "name": "PEOPLE'S SECURITIES, INC."
     },
     {
-      "id": 18353,
-      "name": "PRUDENTIAL INVESTMENT MANAGEMENT SERVICES LLC"
-    },
-    {
       "id": 112058,
       "name": "EMPOWER ADVISORY GROUP, LLC"
     },
@@ -2811,10 +2863,6 @@
     {
       "id": 15794,
       "name": "BNP PARIBAS SECURITIES CORP."
-    },
-    {
-      "id": 38030,
-      "name": "MML DISTRIBUTORS, LLC"
     },
     {
       "id": 14840,
@@ -3217,10 +3265,6 @@
       "name": "SAGE DISTRIBUTORS, INC."
     },
     {
-      "id": 21675,
-      "name": "DIRECTED SERVICES LLC"
-    },
-    {
       "id": 105644,
       "name": "CETERA INVESTMENT ADVISERS LLC"
     },
@@ -3269,10 +3313,6 @@
       "name": "AVANTAX ADVISORY SERVICES"
     },
     {
-      "id": 6604,
-      "name": "HARTFORD EQUITY SALES COMPANY INC."
-    },
-    {
       "id": 13686,
       "name": "AVANTAX INVESTMENT SERVICES, INC."
     },
@@ -3311,10 +3351,6 @@
     {
       "id": 453,
       "name": "J.J.B. HILLIARD, W.L. LYONS, INC."
-    },
-    {
-      "id": 107622,
-      "name": "METLIFE INVESTORS DISTRIBUTION COMPANY"
     },
     {
       "id": 20991,
@@ -3371,10 +3407,6 @@
     {
       "id": 42738,
       "name": "MECHANICS INVESTMENT SERVICES, INC."
-    },
-    {
-      "id": 168638,
-      "name": "MML STRATEGIC DISTRIBUTORS, LLC"
     },
     {
       "id": 26249,
@@ -4227,10 +4259,6 @@
     {
       "id": 17490,
       "name": "NATCITY INVESTMENTS, INC."
-    },
-    {
-      "id": 25900,
-      "name": "EQUITABLE DISTRIBUTORS, LLC"
     },
     {
       "id": 120222,
@@ -7049,10 +7077,6 @@
       "name": "PENDULUM SECURITIES, LLC"
     },
     {
-      "id": 25929,
-      "name": "COLONIAL INVESTMENT SERVICES"
-    },
-    {
       "id": 375,
       "name": "H.C. WAINWRIGHT & CO., INC."
     },
@@ -9293,10 +9317,6 @@
       "name": "LEO BROKERAGE, LLC"
     },
     {
-      "id": 6695,
-      "name": "METLIFE INVESTORS DISTRIBUTION COMPANY"
-    },
-    {
       "id": 13301,
       "name": "MPACT BROKERS INC."
     },
@@ -10923,10 +10943,6 @@
     {
       "id": 13420,
       "name": "FLAGSHIP FUNDS INC."
-    },
-    {
-      "id": 119003,
-      "name": "MMLISI FINANCIAL ALLIANCES, LLC"
     },
     {
       "id": 293019,
@@ -19983,25 +19999,37 @@
     {
       "id": 35221,
       "name": "GOLDEN STREAM SECURITIES, INC."
-    },
-    {
-      "id": 15011,
-      "name": "SOUTHWESTERN CAPITAL MARKETS, INC."
-    },
-    {
-      "id": 47100,
-      "name": "CSCA CAPITAL ADVISORS, LLC"
-    },
-    {
-      "id": 13281,
-      "name": "SECONDCAP AMERICA LLC"
-    },
-    {
-      "id": 135778,
-      "name": "CENTENIUM ADVISORS, LLC"
     }
   ],
   "individuals": [
+    {
+      "id": 5026710,
+      "name": "DOUGLAS ROBERT STEELE"
+    },
+    {
+      "id": 2159909,
+      "name": "MARY BEA WILKINSON"
+    },
+    {
+      "id": 2264004,
+      "name": "JOHN ARTHUR VACCARO"
+    },
+    {
+      "id": 4231618,
+      "name": "JOSEPH PATRICK MALLEE"
+    },
+    {
+      "id": 2237245,
+      "name": "PAUL ANTHONY LAPIANA"
+    },
+    {
+      "id": 4759472,
+      "name": "THOMAS K BAUER"
+    },
+    {
+      "id": 5387684,
+      "name": "REUBEN SCOTT MASON"
+    },
     {
       "id": 1680627,
       "name": "MARIETTA MARVIN MASON"
@@ -36551,10 +36579,6 @@
       "name": "THOMAS PATRICK BROWN"
     },
     {
-      "id": 5026710,
-      "name": "DOUGLAS ROBERT STEELE"
-    },
-    {
       "id": 4694449,
       "name": "AMANDA JO ALBALADEJO"
     },
@@ -37062,5 +37086,7 @@
       "id": 322799,
       "name": "Peter Dennis Mathews"
     }
+  ]
+}  }
   ]
 }
