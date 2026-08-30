@@ -9727,6 +9727,7 @@ function hasInactiveEndpoint(link) {
 
 function isPreviousEmploymentLink(link) {
 	if (!link) return false;
+	if (isCurrentRegistration(link)) return false;
 	if (isForcedGrayConnectionLink(link)) return true;
 	const rel = String(link.relationship || '').trim().toLowerCase();
 	if (!rel) {
@@ -9760,7 +9761,7 @@ function isControlRelationship(link) {
 }
 
 function usesCurrentEmploymentStyling(link) {
-	if (!link || hasInactiveEndpoint(link) || isForcedGrayConnectionLink(link)) return false;
+	if (!link || isForcedGrayConnectionLink(link)) return false;
 	// Only treat links that are current registrations as "current employment" styling.
 	// Previous employment links should NOT be included here so they render with the
 	// previous-employment (gray/dashed) styling.
@@ -10040,6 +10041,7 @@ function isCurrentRegistration(d) {
 }
 
 function getLinkColor(d) {
+	if (usesCurrentEmploymentStyling(d)) return GRAPH_COLORS.lineEmployedBy;
 	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d)) return GRAPH_COLORS.nodeInactiveStroke;
 	if (isControlRelationship(d)) return GRAPH_COLORS.lineControls;
 	if (isPreviousEmploymentLink(d)) return GRAPH_COLORS.nodeInactiveStroke;
@@ -10052,11 +10054,13 @@ function getLinkMarker(d) {
 }
 
 function getLinkDash(d) {
+	if (usesCurrentEmploymentStyling(d)) return null;
 	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d) || isPreviousEmploymentLink(d)) return '2 3';
 	return null;
 }
 
 function getLinkWidth(d) {
+	if (usesCurrentEmploymentStyling(d)) return '1px';
 	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d) || isPreviousEmploymentLink(d)) return '0.6px';
 	return `${DEFAULT_LINK_WIDTH}px`;
 }
@@ -10783,9 +10787,9 @@ function appendFetchedImpl(newNodes, newLinks) {
 	// keeps them attached after a fetch updates the node list.
 	resolveLinkEndpoints(layoutLinks, layoutNodes);
 	const resolvedNewLinks = resolveLinkEndpoints(rewrittenLinks, layoutNodes);
-	const currentLayoutNodeIds = new Set(layoutNodes.map((n) => n.id));
-	layoutLinks.push(
-		...resolvedNewLinks.filter((l) => {
+		const currentLayoutNodeIds = new Set(layoutNodes.map((n) => n.id));
+		layoutLinks.push(
+			...resolvedNewLinks.filter((l) => {
 			const s = l.source?.id ?? l.source;
 			const t = l.target?.id ?? l.target;
 			// only include link if both nodes are currently rendered
@@ -10797,7 +10801,8 @@ function appendFetchedImpl(newNodes, newLinks) {
 			);
 		}),
 	);
-	applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
+	layoutLinks = deduplicateLayoutLinks(layoutLinks);
+		applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
 	setGraphLabelRenderMode(layoutNodes.length);
 
 	// Rebuild neighbor cache and update info
@@ -10910,7 +10915,7 @@ function renderGraph(_data) {
 	});
 	layoutNodes = nodes;
 	const resolvedLinks = resolveLinkEndpoints(links, nodes);
-	layoutLinks = resolvedLinks;
+		layoutLinks = deduplicateLayoutLinks(resolvedLinks);
 	// Async-resolve any orphaned link endpoints so they appear once fetched
 	if (orphanLinks.length) fetchAndInjectOrphanNodes(orphanLinks, nodeIdSet);
 
@@ -16152,14 +16157,15 @@ function renderPersonDetail(d: any) {
 					.map((e) => {
 						const detailLine = getEmploymentDetailLine(e);
 						const scopeTags = getEmploymentScopeTags(e);
-						const datesHtml = `<span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>`;
+						const datesHtml = ` <span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>`;
 						const detailHtml = detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : '';
 						const scopeHtml = scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : '';
 						const secHtml = showSecReferences && e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : '';
+						const crdHtml = e.firmId ? ` <small>CRD#<strong class="fg-highlight-text">${esc(e.firmId)}</strong></small>` : '';
 						if (e.firmId) {
-							return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-crd-link" data-crd="${esc(e.firmId)}" data-crd-type="firm">${esc(e.firmName)}${secHtml}${datesHtml}${detailHtml}${scopeHtml}</button>`;
+							return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-crd-link" data-crd="${esc(e.firmId)}" data-crd-type="firm">${esc(e.firmName)}${crdHtml}${secHtml}${datesHtml}${detailHtml}${scopeHtml}</button>`;
 						}
-						return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable" data-search-query="${esc(e.firmName)}">${esc(e.firmName)}${secHtml}${datesHtml}${detailHtml}${scopeHtml}</button>`;
+						return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable" data-search-query="${esc(e.firmName)}">${esc(e.firmName)}${crdHtml}${secHtml}${datesHtml}${detailHtml}${scopeHtml}</button>`;
 					})
 					.join('')}
             </div>`
@@ -16175,15 +16181,16 @@ function renderPersonDetail(d: any) {
 						const cls = `fg-tl-entry${e.isCurrent ? ' active-pos' : ''}`;
 						const detailLine = getEmploymentDetailLine(e);
 						const scopeTags = getEmploymentScopeTags(e);
-						const datesHtml = `<span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>`;
+						const datesHtml = ` <span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>`;
 						const detailHtml = detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : '';
 						const scopeHtml = scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : '';
 						const expelledHtml = e.expelledDate ? `<span class="fg-badge inactive">Expelled ${esc(e.expelledDate)}</span>` : '';
 						const secHtml = showSecReferences && e.bdSecNumber ? ` <small>SEC#${esc(e.bdSecNumber)}</small>` : '';
+						const crdHtml = e.firmId ? ` <small>CRD#<strong class="fg-highlight-text">${esc(e.firmId)}</strong></small>` : '';
 						if (e.firmId) {
-							return `<button type="button" class="${cls} fg-card-clickable fg-crd-link" data-crd="${esc(e.firmId)}" data-crd-type="firm">${esc(e.firmName)}${secHtml}${datesHtml}${detailHtml}${scopeHtml}${expelledHtml}</button>`;
+							return `<button type="button" class="${cls} fg-card-clickable fg-crd-link" data-crd="${esc(e.firmId)}" data-crd-type="firm">${esc(e.firmName)}${crdHtml}${secHtml}${datesHtml}${detailHtml}${scopeHtml}${expelledHtml}</button>`;
 						}
-						return `<button type="button" class="${cls} fg-card-clickable" data-search-query="${esc(e.firmName)}">${esc(e.firmName)}${secHtml}${datesHtml}${detailHtml}${scopeHtml}${expelledHtml}</button>`;
+						return `<button type="button" class="${cls} fg-card-clickable" data-search-query="${esc(e.firmName)}">${esc(e.firmName)}${crdHtml}${secHtml}${datesHtml}${detailHtml}${scopeHtml}${expelledHtml}</button>`;
 					})
 					.join('')}
             </div>`
@@ -16198,12 +16205,12 @@ function renderPersonDetail(d: any) {
 			  ${currentRegistrations
 					.map((reg) => {
 						const roleFirm = `${renderRegistrationRole(reg.role)} ${esc(reg.firmName)}`;
-						const crdHtml = reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : '';
+						const crdHtml = reg.firmId ? ` <small>CRD#<strong class="fg-highlight-text">${esc(String(reg.firmId))}</strong></small>` : '';
 						const locHtml =
 							reg.officeAddress ? `<span class="fg-tl-loc">${esc(reg.officeAddress)}</span>`
 							: reg.cityState ? `<span class="fg-tl-loc">${esc(reg.cityState)}</span>`
 							: '';
-						const datesHtml = reg.start ? `<span class="fg-tl-dates">Registered since ${esc(reg.start)}</span>` : '';
+						const datesHtml = reg.start ? ` <span class="fg-tl-dates">Registered since ${esc(reg.start)}</span>` : '';
 						if (reg.firmId) {
 							return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-crd-link" data-crd="${esc(reg.firmId)}" data-crd-type="firm"><span class="fg-tl-firm">${roleFirm}${crdHtml}</span>${locHtml}${datesHtml}</button>`;
 						}
@@ -16220,12 +16227,12 @@ function renderPersonDetail(d: any) {
 				    <div class="fg-timeline fg-timeline--previous">
 			  ${previousRegistrations
 					.map((reg) => {
-						const crdHtml = reg.firmId ? ` (CRD#${esc(String(reg.firmId))})` : '';
+						const crdHtml = reg.firmId ? ` <small>CRD#<strong class="fg-highlight-text">${esc(String(reg.firmId))}</strong></small>` : '';
 						const locHtml =
 							reg.officeAddress ? `<span class="fg-tl-loc">${esc(reg.officeAddress)}</span>`
 							: reg.cityState ? `<span class="fg-tl-loc">${esc(reg.cityState)}</span>`
 							: '';
-						const datesHtml = `<span class="fg-tl-dates">${esc(reg.start || '–')} → ${esc(reg.end || 'present')}</span>`;
+						const datesHtml = ` <span class="fg-tl-dates">${esc(reg.start || '–')} → ${esc(reg.end || 'present')}</span>`;
 						if (reg.firmId) {
 							return `<button type="button" class="fg-tl-entry fg-card-clickable fg-crd-link" data-crd="${esc(reg.firmId)}" data-crd-type="firm">${esc(reg.firmName)}${crdHtml}${locHtml}${datesHtml}</button>`;
 						}
@@ -17411,4 +17418,24 @@ function openSidebarToggles() {
 
 function row(label, value, extraClass = '') {
 	return rowImpl(label, value, extraClass);
+}
+
+function deduplicateLayoutLinks(linksArray) {
+	const linkMap = new Map();
+	for (const l of linksArray) {
+		const s = String(l.source?.id ?? l.source);
+		const t = String(l.target?.id ?? l.target);
+		const key = s < t ? `${s}|${t}` : `${t}|${s}`;
+		if (!linkMap.has(key)) {
+			linkMap.set(key, l);
+		} else {
+			const existing = linkMap.get(key);
+			const p1 = isControlRelationship(l) ? 3 : (usesCurrentEmploymentStyling(l) ? 2 : (isPreviousEmploymentLink(l) ? 1 : 0));
+			const p2 = isControlRelationship(existing) ? 3 : (usesCurrentEmploymentStyling(existing) ? 2 : (isPreviousEmploymentLink(existing) ? 1 : 0));
+			if (p1 > p2) {
+				linkMap.set(key, l);
+			}
+		}
+	}
+	return Array.from(linkMap.values());
 }
