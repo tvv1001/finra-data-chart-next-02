@@ -1519,9 +1519,22 @@ export default function FinraGraph() {
 					<div
 						id='fg-empty'
 						className='fg-empty hidden'>
-						<div className='fg-empty-card'>
-							<div
-								className='fg-empty-card__arrow'
+						<div id="fg-session-prompt" className="fg-empty-card hidden" style={{textAlign: 'center', maxWidth: '400px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px'}}>
+									<h3 style={{margin: 0, color: 'var(--text-primary)'}}>Resume Previous Session?</h3>
+									<p style={{margin: 0, color: 'var(--text-secondary)', fontSize: '13px'}}>You have a saved graph layout from a previous visit. Would you like to restore it?</p>
+									<div style={{display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '8px'}}>
+										<button id="fg-btn-resume-session" className="fg-sidebar-action-btn fg-sidebar-action-btn--primary" style={{flex: 1, padding: '8px 16px', height: 'auto'}}>Load Previous Session</button>
+										<button id="fg-btn-reset-session" className="fg-sidebar-action-btn fg-sidebar-action-btn--secondary" style={{flex: 1, padding: '8px 16px', height: 'auto', border: '1px solid var(--border)'}}>Reset Session</button>
+									</div>
+								</div>
+								<div id="fg-session-loader" className="fg-empty-card hidden" style={{textAlign: 'center', maxWidth: '300px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center'}}>
+									<div className="fg-skeleton" style={{width: '48px', height: '48px', borderRadius: '50%', marginBottom: '8px'}}></div>
+									<div className="fg-skeleton" style={{width: '80%', height: '20px', borderRadius: '4px'}}></div>
+									<div className="fg-skeleton" style={{width: '60%', height: '14px', borderRadius: '4px'}}></div>
+								</div>
+								<div id="fg-empty-default" className='fg-empty-card'>
+									<div
+										className='fg-empty-card__arrow'
 								aria-hidden='true'>
 								<span className='fg-empty-card__arrow-line'></span>
 								<span className='fg-empty-card__arrow-head'></span>
@@ -1537,9 +1550,9 @@ export default function FinraGraph() {
 								target='_blank'
 								rel='noopener noreferrer'>
 								GitHub Repository -- https://github.com/tvv1001
-							</a>
+								</a>
+							</div>
 						</div>
-					</div>
 				</main>
 			</div>
 

@@ -8274,7 +8274,8 @@ async function loadGraph() {
 		const [profileData, session] = await Promise.all([loadProfile(profileName), loadSessionAsync()]);
 
 		currentProfileEnabled = isProfileEnabled(profileData);
-		const clearedSession = Boolean(session?.cleared);
+		
+		let clearedSession = Boolean(session?.cleared);
 		isSessionCleared = clearedSession;
 		const hasSavedSessionData = Boolean(
 			session &&
@@ -8282,6 +8283,54 @@ async function loadGraph() {
 			(session.extraNodes?.length || session.extraNodeIds?.length || session.renderedServerIds?.length || session.selectedNodeId || session.highlightedNodes?.length),
 		);
 		const shouldStartEmptyForCustomProfile = profileName === 'custom' && !pendingRouteNodeId && !profileHasExplicitSeedTargets(profileData) && !hasSavedSessionData;
+
+		const isFreshBrowserSession = !sessionStorage.getItem('fg_session_active');
+		sessionStorage.setItem('fg_session_active', '1');
+
+		if (hasSavedSessionData && !pendingRouteNodeId && !pendingSelectedNodeIds.length && !pendingCanvasNodeIds.length) {
+			if (isFreshBrowserSession) {
+				document.getElementById('fg-empty-default')?.classList.add('hidden');
+				document.getElementById('fg-session-loader')?.classList.add('hidden');
+				document.getElementById('fg-session-prompt')?.classList.remove('hidden');
+				document.getElementById('fg-empty')?.classList.remove('hidden');
+				document.getElementById('finra-app')?.setAttribute('data-graph-empty', 'true');
+				
+				await new Promise((resolve) => {
+					const btnResume = document.getElementById('fg-btn-resume-session');
+					const btnReset = document.getElementById('fg-btn-reset-session');
+					
+					const resumeHandler = () => {
+						btnResume?.removeEventListener('click', resumeHandler);
+						btnReset?.removeEventListener('click', resetHandler);
+						document.getElementById('fg-session-prompt')?.classList.add('hidden');
+						document.getElementById('fg-session-loader')?.classList.remove('hidden');
+						resolve(true);
+					};
+					
+					const resetHandler = () => {
+						btnResume?.removeEventListener('click', resumeHandler);
+						btnReset?.removeEventListener('click', resetHandler);
+						document.getElementById('fg-session-prompt')?.classList.add('hidden');
+						document.getElementById('fg-empty-default')?.classList.remove('hidden');
+						isSessionCleared = true;
+						session.cleared = true;
+						clearedSession = true;
+						try { localStorage.removeItem('finra_session'); } catch {}
+						resolve(false);
+					};
+					
+					btnResume?.addEventListener('click', resumeHandler);
+					btnReset?.addEventListener('click', resetHandler);
+				});
+			} else {
+				document.getElementById('fg-empty-default')?.classList.add('hidden');
+				document.getElementById('fg-session-prompt')?.classList.add('hidden');
+				document.getElementById('fg-session-loader')?.classList.remove('hidden');
+				document.getElementById('fg-empty')?.classList.remove('hidden');
+				document.getElementById('finra-app')?.setAttribute('data-graph-empty', 'true');
+			}
+		}
+
 
 
 		if (!currentProfileEnabled) {
