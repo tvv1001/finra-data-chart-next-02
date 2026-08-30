@@ -165,14 +165,33 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 
 		const checkMaxxed = (err: any, dbIndex: 1 | 2) => {
 			const msg = String(err?.message || '').toLowerCase();
-			if (msg.includes('max') || msg.includes('limit') || msg.includes('exceeded') || msg.includes('daily') || msg.includes('quota')) {
-				if (dbIndex === 1) db1Maxxed = true;
-				else db2Maxxed = true;
-				console.warn(`[Redis LB] DB${dbIndex} marked as maxxed out!`);
+			// Treat auth failures like a dead DB for this process so we stop retrying a bad
+			// token on every request (prod WRONGPASS on DB1 was doubling latency).
+			const authDead =
+				msg.includes('wrongpass') ||
+				msg.includes('invalid or missing auth') ||
+				msg.includes('unauthorized') ||
+				msg.includes('forbidden') ||
+				msg.includes('401') ||
+				msg.includes('403');
+			const quotaDead =
+				msg.includes('max') ||
+				msg.includes('limit') ||
+				msg.includes('exceeded') ||
+				msg.includes('daily') ||
+				msg.includes('quota') ||
+				msg.includes('too many requests') ||
+				msg.includes('429');
+			if (!authDead && !quotaDead) return;
+			if (dbIndex === 1) db1Maxxed = true;
+			else db2Maxxed = true;
+			console.warn(`[Redis LB] DB${dbIndex} marked offline (${authDead ? 'auth' : 'quota'})!`);
+			// Only flip global cache-only when BOTH DBs are unusable — a single bad
+			// credential must not disable the healthy mirror.
+			if (db1Maxxed && db2Maxxed) {
+				markRedisUnusable(authDead ? 'both Upstash DBs auth-failed' : 'both Upstash DBs maxxed');
+			} else if (quotaDead) {
 				noteRedisError(err, `DB${dbIndex}`);
-				if (db1Maxxed && db2Maxxed) {
-					markRedisUnusable('both Upstash DBs maxxed');
-				}
 			}
 		};
 

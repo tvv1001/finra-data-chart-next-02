@@ -1,6 +1,102 @@
 {
   "firms": [
     {
+      "id": 16175,
+      "name": "GREAT LAKES EQUITIES CO."
+    },
+    {
+      "id": 16977,
+      "name": "FIRST DEVONSHIRE SECURITIES, INC."
+    },
+    {
+      "id": 11064,
+      "name": "WAKEFIELD FINANCIAL CORPORATION"
+    },
+    {
+      "id": 17579,
+      "name": "CARONA & HODGES SECURITIES, INC."
+    },
+    {
+      "id": 317,
+      "name": "FITZGERALD, DEARMAN & ROBERTS, INC."
+    },
+    {
+      "id": 25170,
+      "name": "SHEEHAN & PURCELL SECURITIES INC."
+    },
+    {
+      "id": 13755,
+      "name": "FIRST MONTAUK SECURITIES CORP."
+    },
+    {
+      "id": 35747,
+      "name": "PURSHE KAPLAN STERLING INVESTMENTS"
+    },
+    {
+      "id": 125648,
+      "name": "PKS ADVISORY SERVICES, LLC"
+    },
+    {
+      "id": 304569,
+      "name": "THRIVENT ADVISOR NETWORK, LLC"
+    },
+    {
+      "id": 6627,
+      "name": "AXA ADVISORS, LLC"
+    },
+    {
+      "id": 21000,
+      "name": "OAKWOOD CAPITAL SECURITIES, INC."
+    },
+    {
+      "id": 319484,
+      "name": "49 FINANCIAL"
+    },
+    {
+      "id": 137839,
+      "name": "Q3 ASSET MANAGEMENT CORPORATION"
+    },
+    {
+      "id": 139534,
+      "name": "THE COASTAL ADVISORY GROUP, LLC"
+    },
+    {
+      "id": 134952,
+      "name": "COASTAL INVESTMENT ADVISORS"
+    },
+    {
+      "id": 124064,
+      "name": "MICHIGAN ADVISORS, INC"
+    },
+    {
+      "id": 468,
+      "name": "SIGNATOR INVESTORS, INC."
+    },
+    {
+      "id": 23769,
+      "name": "COASTAL EQUITIES, INC."
+    },
+    {
+      "id": 101600,
+      "name": "MICHIGAN SECURITIES, INC."
+    },
+    {
+      "id": 37031,
+      "name": "PACKERLAND BROKERAGE SERVICES, INC."
+    },
+    {
+      "id": 8112,
+      "name": "FIRST UNION BROKERAGE SERVICES, INC."
+    },
+    {
+      "id": 149124,
+      "name": "CAPITAL INVESTMENT ADVISORY SERVICES, LLC"
+    },
+    {
+      "id": 14752,
+      "name": "CAPITAL INVESTMENT GROUP, INC."
+    },
+    {
       "id": 6321,
       "name": "IDS LIFE INSURANCE COMPANY"
     },
@@ -283,10 +379,6 @@
     {
       "id": 15251,
       "name": "VISUN SECURITIES CORPORATION"
-    },
-    {
-      "id": 37031,
-      "name": "PACKERLAND BROKERAGE SERVICES, INC."
     },
     {
       "id": 110518,
@@ -773,24 +865,12 @@
       "name": "THE EQUITABLE LIFE ASSURANCE SOCIETY OF THE UNITED STATES"
     },
     {
-      "id": 6627,
-      "name": "EQUICO SECURITIES, INC."
-    },
-    {
       "id": 5181,
       "name": "JOHN HANCOCK MUTUAL LIFE INSURANCE COMPANY"
     },
     {
-      "id": 468,
-      "name": "JOHN HANCOCK DISTRIBUTORS, INC."
-    },
-    {
       "id": 25454,
       "name": "ESSEX NATIONAL SECURITIES, INC."
-    },
-    {
-      "id": 8112,
-      "name": "FIRST UNION BROKERAGE SERVICES, INC."
     },
     {
       "id": 17437,
@@ -2457,10 +2537,6 @@
       "name": "FUTUREADVISOR, INC."
     },
     {
-      "id": 14752,
-      "name": "CAPITAL INVESTMENT GROUP, INC."
-    },
-    {
       "id": 46588,
       "name": "WEBSTER INVESTMENT SERVICES, INC."
     },
@@ -3117,10 +3193,6 @@
       "name": "MEADOWBROOK SECURITIES INC."
     },
     {
-      "id": 101600,
-      "name": "MICHIGAN SECURITIES, INC."
-    },
-    {
       "id": 106352,
       "name": "USAA FINANCIAL PLANNING SERVICES"
     },
@@ -3195,10 +3267,6 @@
     {
       "id": 318850,
       "name": "TAG CAPITAL PARTNERS"
-    },
-    {
-      "id": 35747,
-      "name": "PURSHE KAPLAN STERLING INVESTMENTS"
     },
     {
       "id": 547,
@@ -3915,10 +3983,6 @@
     {
       "id": 689,
       "name": "DICKINSON & CO."
-    },
-    {
-      "id": 13755,
-      "name": "FIRST MONTAUK SECURITIES CORP."
     },
     {
       "id": 39347,
@@ -7857,10 +7921,6 @@
       "name": "COUNTRY CAPITAL MANAGEMENT COMPANY"
     },
     {
-      "id": 304569,
-      "name": "THRIVENT ADVISOR NETWORK, LLC"
-    },
-    {
       "id": 13256,
       "name": "AETNA LIFE INSURANCE AND ANNUITY COMPANY"
     },
@@ -10147,10 +10207,6 @@
     {
       "id": 145767,
       "name": "JOHN CARRIS INVESTMENTS LLC"
-    },
-    {
-      "id": 23769,
-      "name": "COASTAL EQUITIES, INC."
     },
     {
       "id": 44848,
@@ -14177,10 +14233,6 @@
       "name": "ALPHASTAR CAPITAL MANAGEMENT"
     },
     {
-      "id": 21000,
-      "name": "OAKWOOD CAPITAL SECURITIES, INC."
-    },
-    {
       "id": 963,
       "name": "ZAHORIK COMPANY, INC."
     },
@@ -16143,10 +16195,6 @@
     {
       "id": 16198,
       "name": "BEURET & COMPANY, LTD."
-    },
-    {
-      "id": 11064,
-      "name": "WAKEFIELD FINANCIAL CORPORATION"
     },
     {
       "id": 14406,
@@ -18817,10 +18865,6 @@
       "name": "CAPITAL INVESTMENT COUNSEL INC"
     },
     {
-      "id": 149124,
-      "name": "CAPITAL INVESTMENT ADVISORY SERVICES, LLC"
-    },
-    {
       "id": 40657,
       "name": "CAPITAL INVESTMENT BROKERAGE, INC."
     },
@@ -18923,26 +18967,6 @@
     {
       "id": 158195,
       "name": "GHS TRADING LLC"
-    },
-    {
-      "id": 137839,
-      "name": "Q3 ASSET MANAGEMENT CORPORATION"
-    },
-    {
-      "id": 139534,
-      "name": "THE COASTAL ADVISORY GROUP, LLC"
-    },
-    {
-      "id": 134952,
-      "name": "COASTAL INVESTMENT ADVISORS"
-    },
-    {
-      "id": 124064,
-      "name": "MICHIGAN ADVISORS, INC"
-    },
-    {
-      "id": 125648,
-      "name": "PKS ADVISORY SERVICES, LLC"
     },
     {
       "id": 29462,
@@ -19975,33 +19999,33 @@
     {
       "id": 156515,
       "name": "BUILDER ADVISOR GROUP, LLC"
-    },
-    {
-      "id": 305935,
-      "name": "TIFIN PRIVATE MARKETS LLC"
-    },
-    {
-      "id": 333160,
-      "name": "RETOKENS CAPITAL LLC"
-    },
-    {
-      "id": 328256,
-      "name": "UPHORIZON, LLC"
-    },
-    {
-      "id": 310408,
-      "name": "FNB AMERICA SECURITIES LLC"
-    },
-    {
-      "id": 311789,
-      "name": "VESTED SECURITIES"
-    },
-    {
-      "id": 308543,
-      "name": "CROW HOLDINGS SECURITIES, L.L.C."
     }
   ],
   "individuals": [
+    {
+      "id": 1664678,
+      "name": "JOHN PETER PURCELL"
+    },
+    {
+      "id": 7023735,
+      "name": "Connor Hart Bradley"
+    },
+    {
+      "id": 6637384,
+      "name": "Patrick Douglas Mundlin"
+    },
+    {
+      "id": 5582525,
+      "name": "CHRISTOPHER THOMAS BOKMULLER"
+    },
+    {
+      "id": 2392839,
+      "name": "WANDA NEWTON COOPER"
+    },
+    {
+      "id": 4826937,
+      "name": "TRACEY LEA BOHLEY"
+    },
     {
       "id": 1975307,
       "name": "GUMER CRUZ ALVERO"
@@ -31705,10 +31729,6 @@
     {
       "id": 4146449,
       "name": "MICHAEL MONTALVO"
-    },
-    {
-      "id": 5582525,
-      "name": "CHRISTOPHER THOMAS BOKMULLER"
     },
     {
       "id": 2203777,

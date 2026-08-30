@@ -1012,6 +1012,9 @@ function buildSessionPayload({ compact = false, extraNodeMode = 'full' }: { comp
 		// Node selected chrome that survives Clear Highlight (line emphasis only).
 		selectedNodeIds: Array.from(persistentSelectedIds),
 		visitedNodeIds: Array.from(visitedNodeIds),
+		// Remember Clear-Highlight / Queue-bridge Log-Bold suppression across dashboard trips.
+		logBoldHighlightRootsSuppressed: Boolean(logBoldHighlightRootsSuppressed),
+		clearedSelectionLogLabelNodeIds: Array.from(clearedSelectionLogLabelNodeIds),
 		nodePositions: getPersistedNodePositions({ compact: shouldCompactLayout }),
 		extraNodes:
 			includeExtraNodeObjects ?
@@ -4991,6 +4994,17 @@ function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: 
 	const restoreSelection = () => {
 		selectionRestoreTimer = null;
 
+		// Restore Queue-bridge / Clear-Highlight Log-Bold suppression so dashboard
+		// round-trips do not re-bold every selection-log label or re-select every line.
+		if (typeof session?.logBoldHighlightRootsSuppressed === 'boolean') {
+			logBoldHighlightRootsSuppressed = session.logBoldHighlightRootsSuppressed;
+		}
+		if (Array.isArray(session?.clearedSelectionLogLabelNodeIds)) {
+			clearedSelectionLogLabelNodeIds = new Set(
+				session.clearedSelectionLogLabelNodeIds.map((id) => String(id || '').trim()).filter(Boolean),
+			);
+		}
+
 		if (!restoredHighlights.length) {
 			selectedId =
 				typeof session?.selectedNodeId === 'string' && Array.isArray(layoutNodes) && layoutNodes.some((node) => node.id === session.selectedNodeId) ? session.selectedNodeId : null;
@@ -8315,15 +8329,20 @@ async function loadGraph() {
 		console.error('loadGraph:', err);
 		showEmpty(true);
 	} finally {
-		if (pendingRouteNodeId) {
-			if (!graphData || !layoutNodes) {
-				clearGraphData();
+		// Route selection and Queue-bridge hydrate both touch selection chrome. Run them in
+		// order so a bulk Queue import cannot race ahead of (or wipe) the routed node select,
+		// and so Log-Bold suppression is applied after the route highlight exists.
+		void (async () => {
+			if (pendingRouteNodeId) {
+				if (!graphData || !layoutNodes) {
+					clearGraphData();
+				}
+				await applyPendingRouteNodeSelection();
 			}
-			void applyPendingRouteNodeSelection();
-		}
-		if (pendingSelectedNodeIds.length) {
-			void hydratePendingSelectedNodeIds();
-		}
+			if (pendingSelectedNodeIds.length || pendingQueueGraphSeed) {
+				await hydratePendingSelectedNodeIds();
+			}
+		})();
 	}
 }
 
@@ -8429,15 +8448,42 @@ async function hydratePendingSelectedNodeIds() {
 	}
 
 	if (!resolvedEntries.length) return;
+	const bridgeSeededIds = new Set(
+		resolvedEntries
+			.map((entry) => String(entry?.id || '').trim())
+			.filter(Boolean),
+	);
+	// Queue-graph bulk hydrate can inject 100+ people into the selection log. If Log Bold is
+	// on, every logged individual becomes a highlight root (bold labels + selected lines).
+	// Preserve the user's prior highlight/selection chrome; only suppress that bulk flood.
+	const isQueueGraphBulkSeed = Boolean(seed?.people?.length) || bridgeSeededIds.size > 1;
+
 	let nextLog = selectedNodesLog;
 	for (const entry of resolvedEntries) {
 		nextLog = upsertSelectionLogEntry(nextLog, entry);
-		clearedSelectionLogLabelNodeIds.delete(String(entry.id || '').trim());
+		const entryId = String(entry.id || '').trim();
+		if (!entryId) continue;
+		if (isQueueGraphBulkSeed) {
+			// Do not auto-enlarge / bold every newly bridged Queue label.
+			clearedSelectionLogLabelNodeIds.add(entryId);
+		} else {
+			clearedSelectionLogLabelNodeIds.delete(entryId);
+		}
 	}
 	selectedNodesLog = nextLog;
 	saveSelectionLog();
 	updateSelectionLogUI();
 	syncSelectionLogAuxiliaryRenderers();
+
+	if (isQueueGraphBulkSeed) {
+		// Same as Clear Highlight for Log-Bold roots: lines/labels reset for the bulk set,
+		// Log Bold toggle preference stays, and session highlight roots stay intact.
+		logBoldHighlightRootsSuppressed = true;
+		if (typeof reapplySelectionState === 'function') reapplySelectionState();
+		if (typeof syncTraceLabelPresentation === 'function') syncTraceLabelPresentation();
+		if (typeof syncSelectionLogActionButtonStates === 'function') syncSelectionLogActionButtonStates();
+	}
+
 	try {
 		saveSession();
 	} catch {
