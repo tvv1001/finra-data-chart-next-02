@@ -5894,7 +5894,15 @@ function drawDisclosureIndicator(g, d, r) {
 }
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
-export function init(_d3, options: { initialRouteNodeId?: string | null; initialSelectedNodeIds?: Array<string | null | undefined>; isolateToSelection?: boolean } = {}) {
+export function init(
+	_d3,
+	options: {
+		initialRouteNodeId?: string | null;
+		initialSelectedNodeIds?: Array<string | null | undefined>;
+		isolateToSelection?: boolean;
+		queueGraphSeed?: any;
+	} = {},
+) {
 	d3 = _d3;
 	const initialRouteNodeId = String(options?.initialRouteNodeId || '').trim();
 	pendingRouteNodeId = initialRouteNodeId || pendingRouteNodeId;
