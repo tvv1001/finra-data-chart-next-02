@@ -1,6 +1,166 @@
 {
   "firms": [
     {
+      "id": 21675,
+      "name": "DIRECTED SERVICES LLC"
+    },
+    {
+      "id": 2882,
+      "name": "ING FINANCIAL PARTNERS, INC."
+    },
+    {
+      "id": 14251,
+      "name": "MSI FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 10409,
+      "name": "MML INVESTORS SERVICES, LLC"
+    },
+    {
+      "id": 168638,
+      "name": "MML STRATEGIC DISTRIBUTORS, LLC"
+    },
+    {
+      "id": 38030,
+      "name": "MML DISTRIBUTORS, LLC"
+    },
+    {
+      "id": 8209,
+      "name": "MORGAN STANLEY & CO. INCORPORATED"
+    },
+    {
+      "id": 149777,
+      "name": "MORGAN STANLEY"
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 282580,
+      "name": "AE WEALTH MANAGEMENT, LLC"
+    },
+    {
+      "id": 158819,
+      "name": "CORECAP ADVISORS"
+    },
+    {
+      "id": 285310,
+      "name": "SMITH & WYATT"
+    },
+    {
+      "id": 165031,
+      "name": "ARGENT RETIREMENT PLAN ADVISORS, LLC"
+    },
+    {
+      "id": 283390,
+      "name": "TRUIST ADVISORY SERVICES, INC."
+    },
+    {
+      "id": 17499,
+      "name": "TRUIST INVESTMENT SERVICES, INC."
+    },
+    {
+      "id": 324549,
+      "name": "DIVERGENT CAPITAL ASSET MANAGEMENT LLC"
+    },
+    {
+      "id": 14942,
+      "name": "WILMINGTON BROKERAGE SERVICES COMPANY"
+    },
+    {
+      "id": 19616,
+      "name": "WELLS FARGO ADVISORS, LLC"
+    },
+    {
+      "id": 7927,
+      "name": "NORTHERN TRUST SECURITIES, INC."
+    },
+    {
+      "id": 107769,
+      "name": "HUDSON ADVISOR SERVICES, INC."
+    },
+    {
+      "id": 304163,
+      "name": "HUDSON CAPITAL ADVISORY, INC."
+    },
+    {
+      "id": 27834,
+      "name": "COASTAL SECURITIES, INC."
+    },
+    {
+      "id": 46346,
+      "name": "FTN FINANCIAL SECURITIES CORP"
+    },
+    {
+      "id": 615,
+      "name": "NEW ENGLAND SECURITIES"
+    },
+    {
+      "id": 15296,
+      "name": "SECURIAN FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 155216,
+      "name": "PRIVATE ADVISOR GROUP, LLC"
+    },
+    {
+      "id": 6413,
+      "name": "LPL FINANCIAL LLC"
+    },
+    {
+      "id": 42846,
+      "name": "AMERICAN CENTURY BROKERAGE, INC."
+    },
+    {
+      "id": 17437,
+      "name": "AMERICAN CENTURY INVESTMENT SERVICES INC."
+    },
+    {
+      "id": 7870,
+      "name": "TD AMERITRADE, INC."
+    },
+    {
+      "id": 5393,
+      "name": "CHARLES SCHWAB & CO., INC."
+    },
+    {
+      "id": 169804,
+      "name": "ASSETMARK BROKERAGE, LLC"
+    },
+    {
+      "id": 816,
+      "name": "CS FIRST BOSTON CORPORATION"
+    },
+    {
+      "id": 22068,
+      "name": "WASSERSTEIN PERELLA & CO., INC."
+    },
+    {
+      "id": 7506,
+      "name": "LEHMAN BROTHERS INC."
+    },
+    {
+      "id": 19714,
+      "name": "BARCLAYS CAPITAL INC."
+    },
+    {
+      "id": 198516,
+      "name": "INTREPID PARTNERS, LLC"
+    },
+    {
+      "id": 150366,
+      "name": "BEACON ROCK INVESTMENT CONSULTING, LLC"
+    },
+    {
+      "id": 154331,
+      "name": "DESERT ROSE CAPITAL MANAGEMENT INC."
+    },
+    {
+      "id": 310415,
+      "name": "DOCEO WEALTH, LLC"
+    },
+    {
       "id": 32625,
       "name": "WMA SECURITIES, INC."
     },
@@ -11,10 +171,6 @@
     {
       "id": 23131,
       "name": "OSAIC WEALTH, INC."
-    },
-    {
-      "id": 155216,
-      "name": "PRIVATE ADVISOR GROUP, LLC"
     },
     {
       "id": 5685,
@@ -35,14 +191,6 @@
     {
       "id": 7059,
       "name": "CITIGROUP GLOBAL MARKETS INC."
-    },
-    {
-      "id": 6413,
-      "name": "LPL FINANCIAL LLC"
-    },
-    {
-      "id": 5393,
-      "name": "CHARLES SCHWAB & CO., INC."
     },
     {
       "id": 4386,
@@ -69,20 +217,12 @@
       "name": "E.V.I. GROUP LIMITED, INC."
     },
     {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
-    },
-    {
       "id": 628,
       "name": "FIFTH THIRD/THE OHIO COMPANY"
     },
     {
       "id": 7471,
       "name": "PRUDENTIAL SECURITIES INCORPORATED"
-    },
-    {
-      "id": 19616,
-      "name": "WELLS FARGO CLEARING SERVICES, LLC"
     },
     {
       "id": 11025,
@@ -169,14 +309,6 @@
       "name": "METROPOLITAN LIFE INSURANCE COMPANY"
     },
     {
-      "id": 615,
-      "name": "NEW ENGLAND SECURITIES"
-    },
-    {
-      "id": 14251,
-      "name": "METLIFE SECURITIES INC."
-    },
-    {
       "id": 110826,
       "name": "EAGLE STRATEGIES LLC"
     },
@@ -187,10 +319,6 @@
     {
       "id": 8192,
       "name": "AUTRANET, INC."
-    },
-    {
-      "id": 7506,
-      "name": "SHEARSON LEHMAN BROTHERS INC."
     },
     {
       "id": 3801,
@@ -377,10 +505,6 @@
       "name": "KIDDER, PEABODY & CO. INCORPORATED"
     },
     {
-      "id": 8209,
-      "name": "MORGAN STANLEY & CO., INCORPORATED"
-    },
-    {
       "id": 19794,
       "name": "MORGAN STANLEY MARKET PRODUCTS INC."
     },
@@ -445,24 +569,12 @@
       "name": "PARK AVENUE SECURITIES LLC"
     },
     {
-      "id": 149777,
-      "name": "MORGAN STANLEY"
-    },
-    {
       "id": 110476,
       "name": "BBVA WEALTH SOLUTIONS INC."
     },
     {
       "id": 27060,
       "name": "BBVA SECURITIES INC."
-    },
-    {
-      "id": 158819,
-      "name": "CORECAP ADVISORS"
-    },
-    {
-      "id": 15296,
-      "name": "SECURIAN FINANCIAL SERVICES, INC."
     },
     {
       "id": 37068,
@@ -865,10 +977,6 @@
       "name": "ADVEST, INC."
     },
     {
-      "id": 7870,
-      "name": "TD AMERITRADE, INC."
-    },
-    {
       "id": 14675,
       "name": "CITICORP FINANCIAL SERVICES,INC."
     },
@@ -911,10 +1019,6 @@
     {
       "id": 114242,
       "name": "BUTLER CAPITAL PARTNERS"
-    },
-    {
-      "id": 19714,
-      "name": "BARCLAYS CAPITAL INC."
     },
     {
       "id": 4,
@@ -1157,14 +1261,6 @@
       "name": "ROBINHOOD FINANCIAL, LLC"
     },
     {
-      "id": 283390,
-      "name": "TRUIST ADVISORY SERVICES, INC."
-    },
-    {
-      "id": 17499,
-      "name": "TRUIST INVESTMENT SERVICES, INC."
-    },
-    {
       "id": 129052,
       "name": "PNC INVESTMENTS"
     },
@@ -1206,6 +1302,58 @@
     }
   ],
   "individuals": [
+    {
+      "id": 2159909,
+      "name": "MARY BEA WILKINSON"
+    },
+    {
+      "id": 5374512,
+      "name": "COURTNEY MCKENZIE ROGERS REID"
+    },
+    {
+      "id": 4725044,
+      "name": "Vaughn CHARLES Bowman"
+    },
+    {
+      "id": 7164471,
+      "name": "Eddie Joe McGee"
+    },
+    {
+      "id": 6333091,
+      "name": "THOMAS WILSON MCGEE"
+    },
+    {
+      "id": 3201847,
+      "name": "Michael Patrick McGee"
+    },
+    {
+      "id": 5314485,
+      "name": "BRIAN MCGEE FOLK"
+    },
+    {
+      "id": 2395931,
+      "name": "ROBERT KELLY MCGEE"
+    },
+    {
+      "id": 1050110,
+      "name": "HARRY STEPHEN LODGE"
+    },
+    {
+      "id": 2203397,
+      "name": "BRIDGET MCGEE REBER"
+    },
+    {
+      "id": 6494734,
+      "name": "ARTHUREAN MCGEE"
+    },
+    {
+      "id": 1782899,
+      "name": "HUGH EDWARD MCGEE"
+    },
+    {
+      "id": 5387684,
+      "name": "REUBEN SCOTT MASON"
+    },
     {
       "id": 1067519,
       "name": "EDWARD MITCHELL GARDNER"

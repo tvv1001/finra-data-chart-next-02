@@ -17237,92 +17237,17 @@ function renderFirmDetail(d: any) {
 			}
 
 			${
-				connections.length || currentConnections.length || previousConnections.length ?
-					`<div class="fg-connections-filter-row fg-connections-filter-row--sticky" style="margin: 8px 0;">
-						${renderConnectionsFilterTagsHtml()}
-					</div>`
-				:	''
-			}
-			<div class="fg-connections-filter-scope" data-fg-connections-filter-scope="firm-detail">
-			${
-				connections.length ?
-					`<div class="fg-section-title" data-fg-connections-section>Connected Nodes (${connections.length})</div>
-					<div class="fg-timeline">
-						${connections
-							.map((connection) => {
-								const displaySecondary =
-									connection.group === 'firm' ?
-										(() => {
-											const connectedFirmId = String(connection.id || '')
-												.replace(/^(?:firm[:_])?/, '')
-												.trim();
-											return connectedFirmId ? ` <small>CRD#${esc(connectedFirmId)}</small>` : '';
-										})()
-									:	'';
-								const relHtml =
-									connection.relationshipLabels.length || connection.positions.length ?
-										`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>`
-									:	'';
-								const datesHtml = connection.dateTexts.length ? `<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
-								const addrHtml = connection.address ? `<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
-								return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}" data-fg-filter-text="${esc(String(connection.label || '').toLowerCase())} ${esc(String(connection.crd || '').toLowerCase())}">
-									<span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>
-									${relHtml}
-									${datesHtml}
-									${addrHtml}
-								</button>`;
-							})
-							.join('')}
-					</div>`
-				:	''
-			}
-			${
-				currentConnections.length ?
-					`<div class="fg-section-title" data-fg-connections-section>Current Connections (${currentConnections.length})</div>
-					<div class="fg-timeline">
-						${currentConnections
-							.map((connection) => {
-								const displaySecondary = connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>` : '';
-								const relHtml =
-									connection.relationshipLabels.length || connection.positions.length ?
-										`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>`
-									:	'';
-								const datesHtml = connection.dateTexts.length ? `<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
-								const addrHtml = connection.address ? `<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
-								return `<button type="button" class="fg-tl-entry active-pos fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}" data-fg-filter-text="${esc(String(connection.label || '').toLowerCase())} ${esc(String(connection.crd || '').toLowerCase())}">
-									<span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>
-									${relHtml}
-									${datesHtml}
-									${addrHtml}
-								</button>`;
-							})
-							.join('')}
-					</div>`
-				:	''
-			}
-			${
-				previousConnections.length ?
-					`<div class="fg-section-title" data-fg-connections-section>Previous Connections (${previousConnections.length})</div>
-					<div class="fg-timeline fg-timeline--previous">
-						${previousConnections
-							.map((connection) => {
-								const displaySecondary = connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>` : '';
-								const relHtml =
-									connection.relationshipLabels.length || connection.positions.length ?
-										`<span class="fg-tl-loc"><strong>${esc([connection.relationshipLabels.join(', '), ...connection.positions].filter(Boolean).join(' · '))}</strong></span>`
-									:	'';
-								const datesHtml = connection.dateTexts.length ? `<span class="fg-tl-dates">${esc(Array.from(connection.dateTexts).join(', '))}</span>` : '';
-								const addrHtml = connection.address ? `<span class="fg-tl-loc fg-control-card__address">${esc(connection.address)}</span>` : '';
-								return `<button type="button" class="fg-tl-entry fg-card-clickable fg-node-link" data-node-id="${esc(connection.id)}" data-fg-filter-text="${esc(String(connection.label || '').toLowerCase())} ${esc(String(connection.crd || '').toLowerCase())}">
-									<span class="fg-tl-firm">${esc(connection.label)}${displaySecondary}</span>
-									${relHtml}
-									${datesHtml}
-									${addrHtml}
-								</button>`;
-							})
-							.join('')}
-					</div>`
-				:	''
+				(() => {
+					const totalConn = connections.length + currentConnections.length + previousConnections.length;
+					if (totalConn > 0 && firmId) {
+						return `
+							<a href="/dashboard/firm/${encodeURIComponent(firmId)}" class="fg-tl-entry fg-card-clickable" style="display: block; text-decoration: none; text-align: center; margin-top: 16px; padding: 12px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--bg-secondary);">
+								<strong>Full connection list (${totalConn}) view on Dashboard</strong>
+							</a>
+						`;
+					}
+					return '';
+				})()
 			}
 			</div>
     </div>

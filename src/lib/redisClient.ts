@@ -1,10 +1,95 @@
 import { Redis as UpstashRedis } from '@upstash/redis';
 import IORedis from 'ioredis';
+import { isRedisCacheOnly, markRedisUnusable, noteRedisError } from '@/lib/redisAvailability';
 
 let localIoRedis: IORedis | null = null;
 // Cache Upstash client instances to avoid recreating HTTP clients on every
 // invocation which adds latency and extra resource usage.
 const upstashClientCache = new Map<string, UpstashRedis>();
+
+const READ_METHODS = new Set([
+	'get',
+	'mget',
+	'scan',
+	'zrange',
+	'smembers',
+	'hgetall',
+	'exists',
+	'dbsize',
+	'type',
+	'keys',
+	'hget',
+	'zrevrange',
+	'zscore',
+	'zrank',
+	'lrange',
+]);
+const WRITE_METHODS = new Set([
+	'set',
+	'mset',
+	'hset',
+	'zadd',
+	'sadd',
+	'del',
+	'incr',
+	'incrby',
+	'expire',
+	'flushall',
+	'flushdb',
+	'lpush',
+	'ltrim',
+	'rpush',
+]);
+
+function emptyReadResult(method: string): unknown {
+	if (method === 'scan') return ['0', []];
+	if (method === 'mget' || method === 'zrange' || method === 'zrevrange' || method === 'smembers' || method === 'keys' || method === 'lrange')
+		return [];
+	if (method === 'exists' || method === 'dbsize') return 0;
+	if (method === 'hgetall') return {};
+	return null;
+}
+
+/** When cache-only, short-circuit Redis; on limit-class errors, flip cache-only. */
+function wrapClientForCacheOnly(client: UpstashRedis): UpstashRedis {
+	return new Proxy(client, {
+		get(target, prop) {
+			const val = (target as any)[prop];
+			if (typeof val !== 'function') return val;
+			const propStr = String(prop);
+			return function (...args: any[]) {
+				if (isRedisCacheOnly()) {
+					if (WRITE_METHODS.has(propStr)) return Promise.resolve(undefined);
+					if (READ_METHODS.has(propStr)) return Promise.resolve(emptyReadResult(propStr));
+					return Promise.resolve(undefined);
+				}
+				try {
+					const result = val.apply(target, args);
+					if (result && typeof result.then === 'function') {
+						return result.catch((err: any) => {
+							noteRedisError(err, propStr);
+							if (isRedisCacheOnly()) {
+								if (WRITE_METHODS.has(propStr)) return undefined;
+								if (READ_METHODS.has(propStr)) return emptyReadResult(propStr);
+								return undefined;
+							}
+							throw err;
+						});
+					}
+					return result;
+				} catch (err) {
+					noteRedisError(err, propStr);
+					if (isRedisCacheOnly()) {
+						if (WRITE_METHODS.has(propStr)) return Promise.resolve(undefined);
+						if (READ_METHODS.has(propStr)) return Promise.resolve(emptyReadResult(propStr));
+						return Promise.resolve(undefined);
+					}
+					throw err;
+				}
+			};
+		},
+	});
+}
 
 function decodeRedisResult(value: any): any {
 	if (Buffer.isBuffer(value)) return value.toString('utf-8');
@@ -49,9 +134,11 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 	const isLocalhost = process.env.USE_LOCAL_REDIS === '1';
 
 	if (isLocalhost) {
-		return new UpstashRedis({
-			request: executeLocalRequest,
-		} as any);
+		return wrapClientForCacheOnly(
+			new UpstashRedis({
+				request: executeLocalRequest,
+			} as any),
+		);
 	}
 
 	const url1 = process.env.UPSTASH_REDIS_REST_URL;
@@ -66,6 +153,10 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 
 	// If DB2 is explicitly disabled via env, prefer DB1 when available and avoid the dual-proxy.
 	if (hasDb1 && hasDb2 && !disableDb2) {
+		const dualCacheKey = `dual:${url1}:${token1}:${url2}:${token2}:co`;
+		const existingProxy = upstashClientCache.get(dualCacheKey);
+		if (existingProxy) return existingProxy;
+
 		const cacheKey1 = `${url1}:${token1}`;
 		const cacheKey2 = `${url2}:${token2}`;
 		const client1 = upstashClientCache.get(cacheKey1) ?? new UpstashRedis({ url: url1, token: token1 });
@@ -73,35 +164,51 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 		upstashClientCache.set(cacheKey1, client1);
 		upstashClientCache.set(cacheKey2, client2);
 
-		const readMethods = new Set(['get', 'mget', 'scan', 'zrange', 'smembers', 'hgetall', 'exists', 'dbsize', 'type', 'keys', 'hget', 'zrevrange']);
-		const writeMethods = new Set(['set', 'mset', 'hset', 'zadd', 'sadd', 'del', 'incr', 'incrby', 'expire', 'flushall', 'flushdb']);
-
 		let db1Maxxed = false;
 		let db2Maxxed = false;
 
 		const checkMaxxed = (err: any, dbIndex: 1 | 2) => {
 			const msg = String(err?.message || '').toLowerCase();
-			if (msg.includes('max') || msg.includes('limit') || msg.includes('exceeded') || msg.includes('daily')) {
-				if (dbIndex === 1) db1Maxxed = true;
-				else db2Maxxed = true;
-				console.warn(`[Redis LB] DB${dbIndex} marked as maxxed out!`);
+			// Treat auth failures like a dead DB for this process so we stop retrying a bad
+			// token on every request (prod WRONGPASS on DB1 was doubling latency).
+			const authDead =
+				msg.includes('wrongpass') ||
+				msg.includes('invalid or missing auth') ||
+				msg.includes('unauthorized') ||
+				msg.includes('forbidden') ||
+				msg.includes('401') ||
+				msg.includes('403');
+			const quotaDead =
+				msg.includes('max') ||
+				msg.includes('limit') ||
+				msg.includes('exceeded') ||
+				msg.includes('daily') ||
+				msg.includes('quota') ||
+				msg.includes('too many requests') ||
+				msg.includes('429');
+			if (!authDead && !quotaDead) return;
+			if (dbIndex === 1) db1Maxxed = true;
+			else db2Maxxed = true;
+			console.warn(`[Redis LB] DB${dbIndex} marked offline (${authDead ? 'auth' : 'quota'})!`);
+			// Only flip global cache-only when BOTH DBs are unusable — a single bad
+			// credential must not disable the healthy mirror.
+			if (db1Maxxed && db2Maxxed) {
+				markRedisUnusable(authDead ? 'both Upstash DBs auth-failed' : 'both Upstash DBs maxxed');
+			} else if (quotaDead) {
+				noteRedisError(err, `DB${dbIndex}`);
 			}
 		};
 
-		return new Proxy(client2, {
+		const dualProxy = new Proxy(client2, {
 			get(target, prop) {
 				const val = (target as any)[prop];
 				if (typeof val === 'function') {
 					return function (...args: any[]) {
 						const propStr = prop as string;
-						if (readMethods.has(propStr)) {
+						if (READ_METHODS.has(propStr)) {
 							return (async () => {
-								if (db1Maxxed && db2Maxxed) {
-									if (propStr === 'scan') return ['0', []];
-									if (propStr === 'mget' || propStr === 'zrange' || propStr === 'zrevrange' || propStr === 'smembers' || propStr === 'keys') return [];
-									if (propStr === 'exists' || propStr === 'dbsize') return 0;
-									if (propStr === 'hgetall') return {};
-									return null;
+								if (isRedisCacheOnly() || (db1Maxxed && db2Maxxed)) {
+									return emptyReadResult(propStr);
 								}
 
 								let primary = client2;
@@ -118,13 +225,13 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 
 								try {
 									let res = await (primary as any)[propStr](...args);
-									
+
 									// Fallback if null (helpful during partial migrations), only if other DB is healthy
 									let needsFallback = res === null || res === undefined;
-									if (Array.isArray(res) && res.length > 0 && res.some(item => item === null || item === undefined)) {
+									if (Array.isArray(res) && res.length > 0 && res.some((item) => item === null || item === undefined)) {
 										needsFallback = true;
 									}
-									
+
 									if (needsFallback && !db1Maxxed && !db2Maxxed) {
 										res = await (secondary as any)[propStr](...args);
 									}
@@ -132,31 +239,22 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 								} catch (err: any) {
 									checkMaxxed(err, primaryIndex);
 									if (db1Maxxed && db2Maxxed) {
-										if (propStr === 'scan') return ['0', []];
-										if (propStr === 'mget' || propStr === 'zrange' || propStr === 'zrevrange' || propStr === 'smembers' || propStr === 'keys') return [];
-										if (propStr === 'exists' || propStr === 'dbsize') return 0;
-										if (propStr === 'hgetall') return {};
-										return null;
+										return emptyReadResult(propStr);
 									}
 									console.warn(`[Redis LB] Error on DB${primaryIndex} for ${propStr}, falling back to DB${secondaryIndex}... (${err.message})`);
 									try {
 										return await (secondary as any)[propStr](...args);
 									} catch (err2: any) {
 										checkMaxxed(err2, secondaryIndex);
-										if (propStr === 'scan') return ['0', []];
-										if (propStr === 'mget' || propStr === 'zrange' || propStr === 'zrevrange' || propStr === 'smembers' || propStr === 'keys') return [];
-										if (propStr === 'exists' || propStr === 'dbsize') return 0;
-										if (propStr === 'hgetall') return {};
-										return null;
+										return emptyReadResult(propStr);
 									}
 								}
 							})();
-						} else if (writeMethods.has(propStr)) {
+						} else if (WRITE_METHODS.has(propStr)) {
 							return (async () => {
-								// Perform writes to both DBs concurrently but return the fastest
-								// successful response to minimize latency. The other write
-								// continues in the background; failures are logged and may mark
-								// the DB as maxxed.
+								if (isRedisCacheOnly()) return undefined;
+								// Perform writes to both DBs concurrently. Await both fully before
+								// returning so Serverless/Edge does not drop the second write.
 								const wrapped = (p: Promise<any>, dbIndex: 1 | 2) =>
 									p
 										.then((res) => ({ ok: true, res, dbIndex }))
@@ -169,13 +267,10 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 								const promises: Array<Promise<any>> = [];
 								if (!db1Maxxed) promises.push(wrapped((client1 as any)[propStr](...args), 1));
 								else promises.push(Promise.resolve({ ok: false, dbIndex: 1 }));
-								
+
 								if (!db2Maxxed) promises.push(wrapped((client2 as any)[propStr](...args), 2));
 								else promises.push(Promise.resolve({ ok: false, dbIndex: 2 }));
 
-								// Await both writes fully before returning. In Serverless/Edge 
-								// environments like Vercel, if we use Promise.race and return early, 
-								// the execution context freezes and the second write is silently dropped!
 								try {
 									const all = await Promise.all(promises);
 									let successRes = undefined;
@@ -183,8 +278,7 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 										if (a && a.ok) successRes = a.res;
 									}
 									return successRes;
-								} catch (e) {
-									// If race threw (shouldn't), await both settled and return best-effort
+								} catch {
 									const settled = await Promise.allSettled(promises);
 									for (const s of settled) {
 										if ((s as any).status === 'fulfilled' && (s as any).value && (s as any).value.ok) return (s as any).value.res;
@@ -199,25 +293,35 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 				}
 				return val;
 			},
-		});
+		}) as UpstashRedis;
+
+		const wrappedProxy = wrapClientForCacheOnly(dualProxy);
+		upstashClientCache.set(dualCacheKey, wrappedProxy);
+		return wrappedProxy;
 	}
 
 	// Single-instance behavior. Prefer DB1 when present; otherwise use DB2 or the provided config.
 	if (hasDb1) {
-		const cacheKey = `${url1}:${token1}`;
-		const c = upstashClientCache.get(cacheKey) ?? new UpstashRedis({ url: url1, token: token1 });
+		const cacheKey = `${url1}:${token1}:co`;
+		const c =
+			upstashClientCache.get(cacheKey) ??
+			wrapClientForCacheOnly(new UpstashRedis({ url: url1, token: token1 }));
 		upstashClientCache.set(cacheKey, c);
 		return c;
 	}
 	if (hasDb2) {
-		const cacheKey = `${url2}:${token2}`;
-		const c = upstashClientCache.get(cacheKey) ?? new UpstashRedis({ url: url2, token: token2 });
+		const cacheKey = `${url2}:${token2}:co`;
+		const c =
+			upstashClientCache.get(cacheKey) ??
+			wrapClientForCacheOnly(new UpstashRedis({ url: url2, token: token2 }));
 		upstashClientCache.set(cacheKey, c);
 		return c;
 	}
 
-	const cfgKey = `${config.url}:${config.token}`;
-	const c = upstashClientCache.get(cfgKey) ?? new UpstashRedis({ url: config.url, token: config.token });
+	const cfgKey = `${config.url}:${config.token}:co`;
+	const c =
+		upstashClientCache.get(cfgKey) ??
+		wrapClientForCacheOnly(new UpstashRedis({ url: config.url, token: config.token }));
 	upstashClientCache.set(cfgKey, c);
 	return c;
 }
