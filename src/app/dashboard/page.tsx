@@ -218,6 +218,7 @@ type SearchResultCard = {
 	detail: string;
 	otherNames: string[];
 	source: SearchResultSource;
+	availableSources?: SearchResultSource[];
 	entity: 'individual' | 'firm';
 	payload: SearchResult;
 };
@@ -2369,18 +2370,18 @@ function DashboardPageInner() {
 	}, [localHistory]);
 
 	const peopleCrdEntries = useMemo(() => {
-		return newCrds
-			.filter((item) => inferEntityTypeFromNewCrd(item) === 'individual')
-			.sort((left, right) => Number(right.id) - Number(left.id))
-			.slice(0, 20);
-	}, [newCrds]);
+			return newCrds
+				.filter((item) => inferEntityTypeFromNewCrd(item) === 'individual')
+				.sort((left, right) => Number(right.id) - Number(left.id))
+				.slice(0, 16);
+		}, [newCrds]);
 
 	const firmCrdEntries = useMemo(() => {
-		return newCrds
-			.filter((item) => inferEntityTypeFromNewCrd(item) === 'firm')
-			.sort((left, right) => Number(right.id) - Number(left.id))
-			.slice(0, 20);
-	}, [newCrds]);
+			return newCrds
+				.filter((item) => inferEntityTypeFromNewCrd(item) === 'firm')
+				.sort((left, right) => Number(right.id) - Number(left.id))
+				.slice(0, 16);
+		}, [newCrds]);
 
 	const orphanRecord = useMemo(() => {
 		if (!mainJson || typeof mainJson !== 'object') return null;
@@ -2975,7 +2976,7 @@ function DashboardPageInner() {
 	}
 
 	async function setMainViewFromSearch(card: SearchResultCard) {
-		const orderedSources: SearchResultSource[] = card.source === 'sec' ? ['sec', 'finra'] : ['finra', 'sec'];
+		const orderedSources: SearchResultSource[] = card.availableSources && card.availableSources.length > 0 ? card.availableSources : card.source === 'sec' ? ['sec', 'finra'] : ['finra', 'sec'];
 		await loadQueueSourceJson(
 			{
 				id: card.id,
@@ -4246,9 +4247,34 @@ function DashboardPageInner() {
 				});
 			}
 
+			
 			setSearchSkippedCount(skippedTotal);
-			const combinedCards = [...finraIndividuals.cards, ...finraFirms.cards, ...secIndividuals.cards, ...secFirms.cards];
+			const rawCards = [...finraIndividuals.cards, ...finraFirms.cards, ...secIndividuals.cards, ...secFirms.cards];
+			const mergedCardsMap = new Map<string, SearchResultCard>();
+			
+			for (const card of rawCards) {
+				const key = `${card.entity}:${card.id}`;
+				if (mergedCardsMap.has(key)) {
+					const existing = mergedCardsMap.get(key)!;
+					const sources = new Set(existing.availableSources || [existing.source]);
+					sources.add(card.source);
+					existing.availableSources = Array.from(sources);
+					// If FINRA has richer detail, prefer it, otherwise keep SEC
+					if (card.source === 'finra' && existing.source === 'sec') {
+						existing.source = 'finra';
+						existing.label = card.label;
+						existing.address = card.address || existing.address;
+						existing.detail = card.detail || existing.detail;
+					}
+				} else {
+					card.availableSources = [card.source];
+					mergedCardsMap.set(key, card);
+				}
+			}
+			
+			const combinedCards = Array.from(mergedCardsMap.values());
 			setSearchResults(combinedCards);
+
 
 			// Hydrate cards (real name/address/otherNames) from full detail routes in the background,
 			// same approach as graph-search's direct-CRD fallback — minimal search-index stub docs
@@ -4332,7 +4358,9 @@ function DashboardPageInner() {
 	}
 
 	function renderSearchResult(card: SearchResultCard, index: number) {
-		const sourceLabel = card.source === 'finra' ? 'FINRA' : 'SEC';
+		const hasFinra = card.availableSources ? card.availableSources.includes('finra') : card.source === 'finra';
+			const hasSec = card.availableSources ? card.availableSources.includes('sec') : card.source === 'sec';
+			const sourceLabel = [hasFinra && 'FINRA', hasSec && 'SEC'].filter(Boolean).join(' / ');
 		const rowAddress = card.address || card.detail || 'No address/details in cached index';
 		const otherNamesText = card.otherNames && card.otherNames.length > 0 ? `aka ${card.otherNames.join(', ')}` : '';
 		const isSelected = currentRecordId === card.id && currentRecordEntity === card.entity;

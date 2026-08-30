@@ -2170,13 +2170,13 @@ async function listNewCrds(force = false) {
 		}
 	} catch (err) {}
 
-	let topIndividualIds = (await redis.zrange('dashboard:highest-crds:individual', 0, 19, { rev: true })) as string[];
-	let topFirmIds = (await redis.zrange('dashboard:highest-crds:firm', 0, 19, { rev: true })) as string[];
+	let topIndividualIds = (await redis.zrange('dashboard:highest-crds:individual', 0, 49, { rev: true })) as string[];
+	let topFirmIds = (await redis.zrange('dashboard:highest-crds:firm', 0, 49, { rev: true })) as string[];
 
 	if (topIndividualIds.length === 0 && topFirmIds.length === 0) {
 		const recentSeeds = await getRecentSeedsFromStore();
-		topIndividualIds = recentSeeds.individualIds.slice(0, 20);
-		topFirmIds = recentSeeds.firmIds.slice(0, 20);
+		topIndividualIds = recentSeeds.individualIds.slice(0, 50);
+		topFirmIds = recentSeeds.firmIds.slice(0, 50);
 	}
 
 	// Final fallback for local development where recent lists are completely uninitialized
@@ -2188,8 +2188,8 @@ async function listNewCrds(force = false) {
 			const indKeysArr = Array.isArray(indKeys) ? indKeys : [];
 			const firmKeysArr = Array.isArray(firmKeys) ? firmKeys : [];
 
-			topIndividualIds = indKeysArr.slice(0, 20).map((k) => String(k).split(':').pop() || '');
-			topFirmIds = firmKeysArr.slice(0, 20).map((k) => String(k).split(':').pop() || '');
+			topIndividualIds = indKeysArr.slice(0, 50).map((k) => String(k).split(':').pop() || '');
+			topFirmIds = firmKeysArr.slice(0, 50).map((k) => String(k).split(':').pop() || '');
 		} catch (e) {
 			// ignore keys errors
 		}
@@ -2210,16 +2210,17 @@ async function listNewCrds(force = false) {
 	const cards = buildCacheCardsFromRedisKeys(keysToFetch, getCrdLogNameMap());
 
 	const topPeople = cards
-		.filter((card) => card.entity === 'individual')
-		.sort((left, right) => Number(right.id) - Number(left.id))
-		.slice(0, 20);
+			.filter((card) => card.entity === 'individual')
+			.sort((left, right) => Number(right.id) - Number(left.id));
 
 	const topFirms = cards
-		.filter((card) => card.entity === 'firm')
-		.sort((left, right) => Number(right.id) - Number(left.id))
-		.slice(0, 20);
+			.filter((card) => card.entity === 'firm')
+			.sort((left, right) => Number(right.id) - Number(left.id));
 
+	
 	const topCardsToProcess = [...topPeople, ...topFirms];
+	
+	
 	await prefetchPayloadsBatch(topCardsToProcess);
 
 	const formattedWithNulls = await Promise.all(
@@ -2243,7 +2244,23 @@ async function listNewCrds(force = false) {
 			};
 		}),
 	);
-	const formatted = formattedWithNulls.filter((entry): entry is NonNullable<typeof entry> => entry != null);
+	const validEntries = formattedWithNulls.filter((entry): entry is NonNullable<typeof entry> => entry != null);
+	const formattedPeople = validEntries.filter(e => e.type === 'INDIVIDUAL').slice(0, 16);
+	const formattedFirms = validEntries.filter(e => e.type === 'FIRM').slice(0, 16);
+	const formatted = [...formattedPeople, ...formattedFirms];
+	
+	// Do a background check on the external APIs for these verified top CRDs
+	if (formatted.length > 0) {
+		const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://127.0.0.1:4444';
+		Promise.all(
+			formatted.map((c) => 
+				fetch(`${baseUrl}/api/finra/${c.type === 'FIRM' ? 'firm' : 'individual'}/${c.id}?refresh=1`, { 
+					method: 'GET', 
+					headers: { 'x-background-refresh': '1' } 
+				}).catch(() => null)
+			)
+		).catch(() => null);
+	}
 
 	batchPayloadsMap = null;
 

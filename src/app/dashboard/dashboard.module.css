@@ -539,7 +539,7 @@
 	align-items: center;
 	flex-wrap: wrap;
 	gap: 4px 10px;
-	margin-left: auto;
+
 	padding: 6px 10px;
 	background: linear-gradient(135deg, #010a16 0%, #03052b 100%);
 	border: 1px solid rgba(59, 130, 246, 0.4);

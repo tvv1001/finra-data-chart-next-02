@@ -1,6 +1,26 @@
 {
   "firms": [
     {
+      "id": 101020,
+      "name": "CASCADIA CAPITAL, LLC"
+    },
+    {
+      "id": 305908,
+      "name": "FINALIS SECURITIES LLC"
+    },
+    {
+      "id": 319484,
+      "name": "49 FINANCIAL"
+    },
+    {
+      "id": 3487,
+      "name": "STATE FARM INVESTMENT MANAGEMENT CORP."
+    },
+    {
+      "id": 43036,
+      "name": "STATE FARM VP MANAGEMENT CORP."
+    },
+    {
       "id": 79,
       "name": "J.P. MORGAN SECURITIES LLC"
     },
@@ -1478,6 +1498,42 @@
     }
   ],
   "individuals": [
+    {
+      "id": 8308456,
+      "name": "Lucas Jackson Lantz"
+    },
+    {
+      "id": 8310481,
+      "name": "Matthew David Underhill"
+    },
+    {
+      "id": 8322475,
+      "name": "Jeffrey Rombach"
+    },
+    {
+      "id": 8322604,
+      "name": "ISABELLE DARLING HADEL"
+    },
+    {
+      "id": 8322548,
+      "name": "Timothy Adam McGallian"
+    },
+    {
+      "id": 8322617,
+      "name": "EVAN CHRISTIAN MILLER"
+    },
+    {
+      "id": 8322276,
+      "name": "Frank A Fragoso"
+    },
+    {
+      "id": 8311478,
+      "name": "Jacob David Smith Cohen"
+    },
+    {
+      "id": 8322626,
+      "name": "WILLIAM JEFFREY COUCHMAN"
+    },
     {
       "id": 7166749,
       "name": "ALBANY LOUISE BRECKENRIDGE"
