@@ -1,6 +1,86 @@
 {
   "firms": [
     {
+      "id": 101020,
+      "name": "CASCADIA CAPITAL, LLC"
+    },
+    {
+      "id": 104204,
+      "name": "MACQUARIE PRIVATE WEALTH CORP"
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 16139,
+      "name": "MERRILL LYNCH PROFESSIONAL CLEARING CORP."
+    },
+    {
+      "id": 283942,
+      "name": "BOFA SECURITIES, INC."
+    },
+    {
+      "id": 316331,
+      "name": "BOFA SECURITIES PRIME, INC."
+    },
+    {
+      "id": 5096,
+      "name": "BLINDER, ROBINSON & CO.,INC."
+    },
+    {
+      "id": 816,
+      "name": "CREDIT SUISSE SECURITIES (USA) LLC"
+    },
+    {
+      "id": 19714,
+      "name": "BARCLAYS CAPITAL INC."
+    },
+    {
+      "id": 2580,
+      "name": "THE LINCOLN NATIONAL LIFE INSURANCE COMPANY"
+    },
+    {
+      "id": 10205,
+      "name": "SECURITIES AMERICA, INC."
+    },
+    {
+      "id": 29604,
+      "name": "NATIONAL PLANNING CORPORATION"
+    },
+    {
+      "id": 136300,
+      "name": "KEY INVESTMENT SERVICES LLC"
+    },
+    {
+      "id": 15840,
+      "name": "WALNUT STREET SECURITIES, INC."
+    },
+    {
+      "id": 13572,
+      "name": "CETERA ADVISOR NETWORKS LLC"
+    },
+    {
+      "id": 31256,
+      "name": "SAFEGUARD SECURITIES, INC."
+    },
+    {
+      "id": 129914,
+      "name": "INVERNESS SECURITIES, LLC"
+    },
+    {
+      "id": 79,
+      "name": "J.P. MORGAN SECURITIES LLC"
+    },
+    {
+      "id": 3978,
+      "name": "OSAIC FA, INC."
+    },
+    {
+      "id": 23131,
+      "name": "OSAIC WEALTH, INC."
+    },
+    {
       "id": 16175,
       "name": "GREAT LAKES EQUITIES CO."
     },
@@ -293,10 +373,6 @@
       "name": "HERITAGE ADVISORY SERVICES, INC."
     },
     {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
-    },
-    {
       "id": 7471,
       "name": "PRUDENTIAL-BACHE SECURITIES INC."
     },
@@ -397,14 +473,6 @@
       "name": "WALL STREET FINANCIAL GROUP, INC."
     },
     {
-      "id": 10205,
-      "name": "SECURITIES AMERICA, INC."
-    },
-    {
-      "id": 23131,
-      "name": "OSAIC WEALTH, INC."
-    },
-    {
       "id": 212,
       "name": "DELAWARE MANAGEMENT COMPANY, INC."
     },
@@ -503,14 +571,6 @@
     {
       "id": 14229,
       "name": "GREAT WESTERN FINANCIAL SECURITIES CORPORATION"
-    },
-    {
-      "id": 816,
-      "name": "CREDIT SUISSE SECURITIES (USA) LLC"
-    },
-    {
-      "id": 79,
-      "name": "J.P. MORGAN SECURITIES LLC"
     },
     {
       "id": 7784,
@@ -681,18 +741,6 @@
       "name": "BROKER DEALER FINANCIAL SERVICES CORP."
     },
     {
-      "id": 13572,
-      "name": "FINANCIAL NETWORK INVESTMENT CORPORATION"
-    },
-    {
-      "id": 2580,
-      "name": "THE LINCOLN NATIONAL LIFE INSURANCE COMPANY"
-    },
-    {
-      "id": 3978,
-      "name": "LINCOLN FINANCIAL ADVISORS CORPORATION"
-    },
-    {
       "id": 42046,
       "name": "NFP SECURITIES, INC."
     },
@@ -733,10 +781,6 @@
       "name": "ABN AMRO INCORPORATED"
     },
     {
-      "id": 19714,
-      "name": "BARCLAYS CAPITAL INC."
-    },
-    {
       "id": 2525,
       "name": "DEUTSCHE BANK SECURITIES INC."
     },
@@ -751,18 +795,6 @@
     {
       "id": 26091,
       "name": "BANC OF AMERICA SECURITIES LLC"
-    },
-    {
-      "id": 16139,
-      "name": "MERRILL LYNCH PROFESSIONAL CLEARING CORP."
-    },
-    {
-      "id": 283942,
-      "name": "BOFA SECURITIES, INC."
-    },
-    {
-      "id": 316331,
-      "name": "BOFA SECURITIES PRIME, INC."
     },
     {
       "id": 17832,
@@ -1053,26 +1085,6 @@
       "name": "OSAIC INSTITUTIONS, INC."
     },
     {
-      "id": 29604,
-      "name": "NATIONAL PLANNING CORPORATION"
-    },
-    {
-      "id": 136300,
-      "name": "KEY INVESTMENT SERVICES LLC"
-    },
-    {
-      "id": 15840,
-      "name": "WALNUT STREET SECURITIES, INC."
-    },
-    {
-      "id": 31256,
-      "name": "SAFEGUARD SECURITIES, INC."
-    },
-    {
-      "id": 129914,
-      "name": "INVERNESS SECURITIES, LLC"
-    },
-    {
       "id": 105316,
       "name": "IFG ADVISORY SERVICES INC"
     },
@@ -1277,10 +1289,6 @@
       "name": "SOUTHTRUST SECURITIES, LLC"
     },
     {
-      "id": 104204,
-      "name": "MACQUARIE PRIVATE WEALTH CORP"
-    },
-    {
       "id": 141430,
       "name": "NRP ADVISORS, INC."
     },
@@ -1371,10 +1379,6 @@
     {
       "id": 8052,
       "name": "CREWS & ASSOCIATES, INC."
-    },
-    {
-      "id": 5096,
-      "name": "BLINDER, ROBINSON & CO., INC."
     },
     {
       "id": 8158,
@@ -10415,10 +10419,6 @@
     {
       "id": 288632,
       "name": "TORREYA CAPITAL, LLC"
-    },
-    {
-      "id": 101020,
-      "name": "CASCADIA CAPITAL, LLC"
     },
     {
       "id": 238786,
@@ -20003,6 +20003,42 @@
   ],
   "individuals": [
     {
+      "id": 8310479,
+      "name": "Debarshi Roy"
+    },
+    {
+      "id": 2494318,
+      "name": "ERIC A SCHIMPF"
+    },
+    {
+      "id": 5290525,
+      "name": "Vincent C. Santanna"
+    },
+    {
+      "id": 1011188,
+      "name": "GERALD RUSSELL JACK"
+    },
+    {
+      "id": 1009053,
+      "name": "FRANK D DI ROCCO"
+    },
+    {
+      "id": 1006786,
+      "name": "Annunziata ANN Romanzo"
+    },
+    {
+      "id": 3107600,
+      "name": "Merrell Hora"
+    },
+    {
+      "id": 1004778,
+      "name": "FRANK CEBURN SHERRILL"
+    },
+    {
+      "id": 3025591,
+      "name": "MELINA FELICIA MERRILL"
+    },
+    {
       "id": 1664678,
       "name": "JOHN PETER PURCELL"
     },
@@ -20235,10 +20271,6 @@
       "name": "David C Tyrie"
     },
     {
-      "id": 5290525,
-      "name": "Vincent C. Santanna"
-    },
-    {
       "id": 6949587,
       "name": "Susan F Axelrod"
     },
@@ -20303,10 +20335,6 @@
       "name": "GREGORY ALLEN CORNICK"
     },
     {
-      "id": 3025591,
-      "name": "MELINA FELICIA MERRILL"
-    },
-    {
       "id": 1796543,
       "name": "PATRICK HENRY MCEVOY"
     },
@@ -20349,10 +20377,6 @@
     {
       "id": 3093297,
       "name": "S JAY PARKER"
-    },
-    {
-      "id": 2494318,
-      "name": "ERIC A SCHIMPF"
     },
     {
       "id": 7616382,
@@ -20741,10 +20765,6 @@
     {
       "id": 1216942,
       "name": "WALTER JOSEPH BALDOWSKI"
-    },
-    {
-      "id": 1006786,
-      "name": "Annunziata ANN Romanzo"
     },
     {
       "id": 728128,
@@ -27401,10 +27421,6 @@
     {
       "id": 6280558,
       "name": "Craig J Reid"
-    },
-    {
-      "id": 3107600,
-      "name": "Merrell Hora"
     },
     {
       "id": 856248,
@@ -36873,14 +36889,6 @@
     {
       "id": 1013092,
       "name": "JANET MOCK WILLINGHAM"
-    },
-    {
-      "id": 1011188,
-      "name": "GERALD RUSSELL JACK"
-    },
-    {
-      "id": 1009053,
-      "name": "FRANK D DI ROCCO"
     },
     {
       "id": 1007891,
