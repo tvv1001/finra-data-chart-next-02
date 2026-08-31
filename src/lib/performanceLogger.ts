@@ -1,6 +1,16 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { logger } from '@/lib/logger';
+import { getRedisClient } from '@/lib/redisCache';
+import { canWriteToRedis } from '@/lib/redisAvailability';
+
+// Serverless deployments (Vercel) mount the bundle read-only and each
+// invocation gets a fresh/ephemeral filesystem, so data/logs/performance.jsonl
+// never persists or is even writable in production. Mirror recent entries
+// into a capped Redis list so "check performance in prod" has something
+// durable to read across invocations.
+const REDIS_PERF_KEY = 'finra:perf:log';
+const REDIS_PERF_MAX_ENTRIES = 500;
 
 export type PerformanceLogEntry = {
 	label: string;
@@ -30,7 +40,32 @@ function getPerformanceLogPath() {
 	return path.join(process.cwd(), 'data', 'logs', 'performance.jsonl');
 }
 
-export async function readPerformanceLogEntries(limit = 250): Promise<PerformanceLogEntry[]> {
+async function readPerformanceLogEntriesFromRedis(limit: number): Promise<PerformanceLogEntry[]> {
+	const client = getRedisClient();
+	if (!client) return [];
+	try {
+		// Most recent entries are pushed to the head (lpush), so 0..limit-1 is newest-first.
+		const raw: string[] = await client.lrange(REDIS_PERF_KEY, 0, limit - 1);
+		if (!Array.isArray(raw) || raw.length === 0) return [];
+		return raw
+			.map((line) => {
+				try {
+					return (typeof line === 'string' ? JSON.parse(line) : line) as PerformanceLogEntry;
+				} catch {
+					return null;
+				}
+			})
+			.filter((entry): entry is PerformanceLogEntry => Boolean(entry))
+			.reverse(); // oldest-first, matching the local-file reader's ordering
+	} catch (error) {
+		logger.warn('performance analytics: redis read failed', {
+			error: error instanceof Error ? error.message : String(error),
+		});
+		return [];
+	}
+}
+
+async function readPerformanceLogEntriesFromFile(limit: number): Promise<PerformanceLogEntry[]> {
 	const logPath = getPerformanceLogPath();
 	if (!logPath) return [];
 	try {
@@ -54,6 +89,91 @@ export async function readPerformanceLogEntries(limit = 250): Promise<Performanc
 	}
 }
 
+export async function readPerformanceLogEntries(limit = 250): Promise<PerformanceLogEntry[]> {
+	// Prefer Redis (works across serverless invocations); fall back to the
+	// local file for environments without Redis configured (plain local dev).
+	const fromRedis = await readPerformanceLogEntriesFromRedis(limit);
+	if (fromRedis.length > 0) return fromRedis;
+	return readPerformanceLogEntriesFromFile(limit);
+}
+
+export type PerformanceLogLabelSummary = {
+	label: string;
+	count: number;
+	avgMs: number;
+	p95Ms: number;
+	maxMs: number;
+	errors: number;
+	peakHeapMb: number;
+};
+
+export type PerformanceLogSummary = {
+	entryCount: number;
+	firstAt: string | null;
+	lastAt: string | null;
+	byLabel: PerformanceLogLabelSummary[];
+	memoryLeakRisk: boolean;
+};
+
+/** Mirrors scripts/perf-report.mjs so the same summary is available via API in prod. */
+export function summarizePerformanceLogEntries(entries: PerformanceLogEntry[]): PerformanceLogSummary {
+	if (entries.length === 0) {
+		return { entryCount: 0, firstAt: null, lastAt: null, byLabel: [], memoryLeakRisk: false };
+	}
+
+	const byLabelMap = new Map<string, PerformanceLogEntry[]>();
+	for (const entry of entries) {
+		const label = String(entry.label || 'unknown');
+		const bucket = byLabelMap.get(label) || [];
+		bucket.push(entry);
+		byLabelMap.set(label, bucket);
+	}
+
+	const byLabel: PerformanceLogLabelSummary[] = [...byLabelMap.entries()]
+		.sort((a, b) => b[1].length - a[1].length)
+		.map(([label, items]) => {
+			const durations = items.map((item) => Number(item.durationMs || 0)).filter((n) => Number.isFinite(n));
+			const heapValues = items.map((item) => Number(item.heapUsedMb || 0)).filter((n) => Number.isFinite(n));
+			const avgMs = durations.length ? durations.reduce((sum, value) => sum + value, 0) / durations.length : 0;
+			const maxMs = durations.length ? Math.max(...durations) : 0;
+			const sorted = durations.slice().sort((a, b) => a - b);
+			const p95Ms = sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] : 0;
+			const peakHeapMb = heapValues.length ? Math.max(...heapValues) : 0;
+			const errors = items.filter((item) => item.status === 'error').length;
+			return {
+				label,
+				count: items.length,
+				avgMs: Number(avgMs.toFixed(1)),
+				p95Ms: Number(p95Ms.toFixed(1)),
+				maxMs: Number(maxMs.toFixed(1)),
+				errors,
+				peakHeapMb: Number(peakHeapMb.toFixed(2)),
+			};
+		});
+
+	const leakCandidates = entries
+		.filter((item) => item.heapUsedMb != null && Number(item.heapUsedMb) > 0)
+		.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+
+	let memoryLeakRisk = false;
+	for (let i = 1; i < leakCandidates.length; i += 1) {
+		const prev = Number(leakCandidates[i - 1].heapUsedMb || 0);
+		const curr = Number(leakCandidates[i].heapUsedMb || 0);
+		if (curr > prev + 20) {
+			memoryLeakRisk = true;
+			break;
+		}
+	}
+
+	return {
+		entryCount: entries.length,
+		firstAt: entries[0]?.at ?? null,
+		lastAt: entries[entries.length - 1]?.at ?? null,
+		byLabel,
+		memoryLeakRisk,
+	};
+}
+
 export async function writePerformanceMetric(entry: Omit<PerformanceLogEntry, 'at'> & { at?: string }) {
 	const logPath = getPerformanceLogPath();
 	const memory = getMemorySnapshot();
@@ -74,7 +194,24 @@ export async function writePerformanceMetric(entry: Omit<PerformanceLogEntry, 'a
 			await fs.mkdir(path.dirname(logPath), { recursive: true });
 			await fs.appendFile(logPath, `${JSON.stringify(payload)}\n`, 'utf8');
 		} catch (error) {
-			logger.warn('performance analytics write failed', {
+			// Expected in serverless/read-only environments; Redis (below) is the
+			// durable path there, so don't spam logs at warn level for this case.
+			logger.debug('performance analytics local file write skipped', {
+				label: payload.label,
+				error: error instanceof Error ? error.message : String(error),
+			});
+		}
+	}
+
+	if (canWriteToRedis()) {
+		try {
+			const client = getRedisClient();
+			if (client) {
+				await client.lpush(REDIS_PERF_KEY, JSON.stringify(payload));
+				await client.ltrim(REDIS_PERF_KEY, 0, REDIS_PERF_MAX_ENTRIES - 1);
+			}
+		} catch (error) {
+			logger.warn('performance analytics redis write failed', {
 				label: payload.label,
 				error: error instanceof Error ? error.message : String(error),
 			});
