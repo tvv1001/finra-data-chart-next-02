@@ -66,14 +66,6 @@ finra-data-large-view.code-workspace
 
 notes.md
 data/orphan_validation_report.json
-data/firm-connections/
-data/firm-connections/**
-.notes.md
-scripts/backfill_search_extensions.js
-patch_**
 
-# Runtime app logs
-data/logs/*.log
-data/logs/*.jsonl
-\n# Local test scripts\ntest-scripts/
-test-scripts/
+data/**
+patch_**
