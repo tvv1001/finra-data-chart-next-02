@@ -30,7 +30,7 @@ vi.mock('@/lib/graphConnections', async (importOriginal) => {
 	};
 });
 
-import { runFirmConnectionsReverseIndexPass, REVERSE_INDEX_STATE_KEY } from '@/lib/firmConnectionsReverseIndex';
+import { runFirmConnectionsReverseIndexPass } from '@/lib/firmConnectionsReverseIndex';
 
 describe('runFirmConnectionsReverseIndexPass', () => {
 	beforeEach(() => {
@@ -41,7 +41,6 @@ describe('runFirmConnectionsReverseIndexPass', () => {
 		upsertMock.mockClear();
 		rememberMock.mockClear();
 		mockRedis.get.mockImplementation(async (key: string) => {
-			if (key === REVERSE_INDEX_STATE_KEY) return null;
 			if (key === 'finra:individual:1085996') {
 				return JSON.stringify({
 					hits: {
@@ -78,7 +77,7 @@ describe('runFirmConnectionsReverseIndexPass', () => {
 		expect(result.individualsProcessed).toBe(1);
 		expect(result.individualsWithEmployment).toBe(1);
 		expect(upsertMock).toHaveBeenCalled();
-		expect(mockRedis.set).toHaveBeenCalledWith(REVERSE_INDEX_STATE_KEY, expect.any(String));
+		expect(mockRedis.set).not.toHaveBeenCalled();
 		expect(rememberMock).toHaveBeenCalled();
 	});
 });

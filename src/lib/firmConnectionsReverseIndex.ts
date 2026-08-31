@@ -16,8 +16,6 @@ import {
 } from '@/lib/graphConnections';
 import { rememberCrdLogEntries } from '@/lib/crdLog';
 
-export const REVERSE_INDEX_STATE_KEY = 'firm-connections:reverse-index:state';
-
 const PATTERNS = ['finra:individual:*', 'sec:individual:*'] as const;
 
 export type ReverseIndexState = {
@@ -152,7 +150,7 @@ export async function runFirmConnectionsReverseIndexPass(
 	const maxFirmWrites = Math.max(1, Math.min(200, Number(options.maxFirmWrites) || 40));
 	const updateCrdLog = options.updateCrdLog !== false;
 
-	let state = options.resetCursor ? defaultState() : parseState(await redis.get(REVERSE_INDEX_STATE_KEY).catch(() => null));
+	const state = defaultState();
 	const pattern = PATTERNS[state.patternIndex] || PATTERNS[0];
 	const cursorStart = state.cursor || '0';
 
@@ -226,7 +224,6 @@ export async function runFirmConnectionsReverseIndexPass(
 		cycle,
 	};
 
-	await redis.set(REVERSE_INDEX_STATE_KEY, JSON.stringify(nextState)).catch(() => null);
 	if (updateCrdLog && crdLogEntries.length) {
 		await rememberCrdLogEntries(crdLogEntries);
 	}

@@ -28,9 +28,11 @@ describe('matchesConnectionsFilter', () => {
 		expect(matchesFilterTags('dale register timothy', [], 'timothy dale')).toBe(true);
 	});
 
-	it('requires all tokens inside a multi-word tag', () => {
-		expect(matchesFilterTags('timothy dale register', ['timothy dale'], '')).toBe(true);
-		expect(matchesFilterTags('timothy ryan', ['timothy dale'], '')).toBe(false);
+	it('matches committed tags as ordered phrases, even when the phrase is a prefix inside a longer word', () => {
+		expect(matchesFilterTags('timothy d register', ['timothy d'], '')).toBe(true);
+		expect(matchesFilterTags('timothy dale register', ['timothy d'], '')).toBe(true);
+		expect(matchesFilterTags('dale smith register', ['dale smith'], '')).toBe(true);
+		expect(matchesFilterTags('smith dale register', ['dale smith'], '')).toBe(false);
 	});
 
 	it('does not let leftover tags block a live CRD / name query', () => {

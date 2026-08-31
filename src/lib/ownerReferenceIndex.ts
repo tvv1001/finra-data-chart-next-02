@@ -133,6 +133,27 @@ function firmRefKey(crd: string): string {
 	return nonLiveCrdKey('firm', crd);
 }
 
+async function hasLiveFirmDetail(crd: string): Promise<boolean> {
+	const redis = getRedisClient();
+	if (!redis) return false;
+
+	for (const key of [
+		`finra:firm:${crd}`,
+		`sec:firm:${crd}`,
+		`finra:firm:summaryHtml:${crd}`,
+		`sec:firm:summaryHtml:${crd}`,
+	]) {
+		try {
+			const value = await redis.get(key);
+			if (value != null && value !== '') return true;
+		} catch {
+			// Best-effort check; move on to the next candidate key if a read fails.
+		}
+	}
+
+	return false;
+}
+
 /** Best-effort, non-blocking write. Never throws — callers should fire-and-forget this. */
 export async function recordFirmReference(reference: OwnerReference): Promise<void> {
 	const crd = String(reference.crd || '').trim();
@@ -142,6 +163,10 @@ export async function recordFirmReference(reference: OwnerReference): Promise<vo
 	if (!redis) return;
 
 	try {
+		// Only keep a firm in the `non-live-crds:firm:*` bucket when it is not already known to have
+		// a live BrokerCheck/SEC detail payload cached locally. This prevents stale person-detail
+		// employment rows from being promoted into the non-live index for firms that are already real.
+		if (await hasLiveFirmDetail(crd)) return;
 		await redis.set(firmRefKey(crd), JSON.stringify(reference), { ex: OWNER_REF_TTL_SECONDS });
 	} catch {
 		// swallow: this is a best-effort index, never allow it to break the individual fetch response

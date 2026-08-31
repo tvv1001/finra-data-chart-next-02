@@ -177,10 +177,26 @@ export function haystackMatchesAllTokens(haystack: string, tokens: string[]): bo
 	return tokens.every((token) => lower.includes(token));
 }
 
+function normalizeFilterPhrase(value: string): string {
+	return String(value || '')
+		.toLowerCase()
+		.replace(/[’']/g, '')
+		.replace(/[^a-z0-9]+/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+
+function haystackMatchesExactTag(haystack: string, tag: string): boolean {
+	const normalizedHaystack = normalizeFilterPhrase(haystack);
+	const normalizedTag = normalizeFilterPhrase(tag);
+	if (!normalizedTag) return true;
+	return normalizedHaystack.includes(normalizedTag);
+}
+
 /**
  * True if `haystack` matches the filter:
- * - within a tag / live text, whitespace-separated tokens are AND'd
- *   so "timothy dale" matches "Timothy Dale Register"
+ * - live text keeps the existing token-based AND logic so queries like "timothy dale" match a name in either order.
+ * - committed tags are treated as ordered phrase matches so "timothy d" matches "Timothy Dale" while "smith dale" does not.
  * - when live text is non-empty, it is the active query (committed tags do not AND-block it).
  *   Leftover tags in localStorage were causing "1085996" / "timothy dale" to return no rows.
  * - when live text is empty, tags are OR'd (any tag may match)
@@ -192,7 +208,7 @@ export function matchesFilterTags(haystack: string, tags: string[], liveText?: s
 		return haystackMatchesAllTokens(lower, liveTokens);
 	}
 	if (tags.length > 0) {
-		return tags.some((tag) => haystackMatchesAllTokens(lower, tokenizeFilterPhrase(tag)));
+		return tags.some((tag) => haystackMatchesExactTag(haystack, tag));
 	}
 	return true;
 }
@@ -200,6 +216,7 @@ export function matchesFilterTags(haystack: string, tags: string[], liveText?: s
 /** Higher score = better match for sorting filtered connection cards. */
 export function scoreConnectionFilterMatch(haystack: string, tags: string[], liveText?: string): number {
 	const lower = haystack.toLowerCase();
+	const normalizedHaystack = normalizeFilterPhrase(haystack);
 	let score = 0;
 	const live = String(liveText || '').trim().toLowerCase();
 	if (live && lower.includes(live)) score += 50;
@@ -207,9 +224,9 @@ export function scoreConnectionFilterMatch(haystack: string, tags: string[], liv
 		if (lower.includes(token)) score += 10;
 	}
 	for (const tag of tags) {
-		const normalizedTag = tag.trim().toLowerCase();
+		const normalizedTag = normalizeFilterPhrase(tag);
 		if (!normalizedTag) continue;
-		if (lower.includes(normalizedTag)) score += 40;
+		if (normalizedHaystack.includes(normalizedTag)) score += 40;
 		for (const token of tokenizeFilterPhrase(tag)) {
 			if (lower.includes(token)) score += 8;
 		}
