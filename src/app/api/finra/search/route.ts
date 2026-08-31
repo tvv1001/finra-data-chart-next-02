@@ -77,14 +77,37 @@ export async function GET(request: NextRequest) {
 		const limit = Math.min(Number.parseInt(params.get('nrows') || '12', 10) || 12, 200);
 		const offset = Number.parseInt(params.get('start') || '0', 10) || 0;
 		const entity = type === 'firm' ? 'firm' : 'individual';
-		const data = await searchLocalIndexMany('finra', entity, rawQuery, { limit, offset, baseUrl });
+		const emptyResponse = {
+			hits: { hits: [] },
+			response: { docs: [], numFound: 0, start: 0 },
+			results: [],
+			total: 0,
+			currentPage: [],
+			pageNumber: 1,
+			pageSize: 0,
+		};
+
+		let data: any = emptyResponse;
+		try {
+			data = await searchLocalIndexMany('finra', entity, rawQuery, { limit, offset, baseUrl });
+		} catch (err: any) {
+			logger.warn('local search index lookup failed for FINRA query', { query: rawQuery, error: err?.message || String(err) });
+			data = emptyResponse;
+		}
 		if (data.total > 0) return jsonNoStore(data);
 
 		const fallbackQueries = searchQueries.slice(0, 5);
 
 		const graphResponses = await searchQueriesSequentially(
 			fallbackQueries,
-			async (candidate) => searchGraphFallback('finra', entity, candidate, { limit, offset }),
+			async (candidate) => {
+				try {
+					return await searchGraphFallback('finra', entity, candidate, { limit, offset });
+				} catch (err: any) {
+					logger.warn('graph fallback search failed for FINRA query', { candidate, error: err?.message || String(err) });
+					return null;
+				}
+			},
 			(value) => Boolean(value && value.total > 0),
 		);
 		if (graphResponses.length > 0) {
@@ -94,7 +117,14 @@ export async function GET(request: NextRequest) {
 
 		const directResponses = await searchQueriesSequentially(
 			fallbackQueries,
-			async (candidate) => searchDirectRedisFallback('finra', entity, candidate, { limit, offset }),
+			async (candidate) => {
+				try {
+					return await searchDirectRedisFallback('finra', entity, candidate, { limit, offset });
+				} catch (err: any) {
+					logger.warn('direct Redis fallback search failed for FINRA query', { candidate, error: err?.message || String(err) });
+					return null;
+				}
+			},
 			(value) => Boolean(value),
 		);
 		if (directResponses.length > 0) {
@@ -103,16 +133,23 @@ export async function GET(request: NextRequest) {
 
 		const externalResponses = await searchQueriesSequentially(
 			fallbackQueries,
-			async (candidate) => searchExternalFallback('finra', entity, candidate, baseUrl),
+			async (candidate) => {
+				try {
+					return await searchExternalFallback('finra', entity, candidate, baseUrl);
+				} catch (err: any) {
+					logger.warn('external fallback search failed for FINRA query', { candidate, error: err?.message || String(err) });
+					return null;
+				}
+			},
 			(value) => Boolean(value),
 		);
 		if (externalResponses.length > 0) {
 			const merged = mergeLocalSearchResponses(externalResponses as any[], { bucket: `finra:${entity}`, limit, offset });
 			return jsonNoStore(merged);
 		}
-		return jsonNoStore({ hits: { hits: [] }, response: { docs: [], numFound: 0, start: 0 }, results: [], total: 0, currentPage: [], pageNumber: 1, pageSize: 0 });
+		return jsonNoStore(emptyResponse);
 	} catch (err: any) {
-		logger.error('search error', { error: err.message });
-		return jsonNoStore({ error: 'Failed to search FINRA.' }, { status: 502 });
+		logger.error('search error', { error: err?.message || String(err), query: request.nextUrl?.searchParams?.get('query') || '' });
+		return jsonNoStore({ hits: { hits: [] }, response: { docs: [], numFound: 0, start: 0 }, results: [], total: 0, currentPage: [], pageNumber: 1, pageSize: 0 });
 	}
 }

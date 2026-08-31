@@ -9,6 +9,23 @@ const publicDestDir = path.join(root, 'public', 'search-indexes');
 const files = ['search-index.finra.individual.json.gz', 'search-index.finra.firm.json.gz', 'search-index.sec.individual.json.gz', 'search-index.sec.firm.json.gz'];
 const maxChunkSize = 90 * 1024 * 1024; // 90 MB
 
+function findSidecarCandidates(fileName) {
+	const prefix = path.basename(fileName, '.json');
+	const exact = [fileName];
+	const extras = [];
+	try {
+		for (const entry of fs.readdirSync(dataDir)) {
+			if (entry === fileName) continue;
+			if (entry.startsWith(prefix) && (entry.endsWith('.json') || entry.endsWith('.json.gz') || entry.includes('.part'))) {
+				extras.push(entry);
+			}
+		}
+	} catch {
+		return exact;
+	}
+	return [...new Set([...exact, ...extras])];
+}
+
 function writeJsonFile(dest, json) {
 	fs.writeFileSync(dest, JSON.stringify(json));
 }
@@ -23,8 +40,10 @@ try {
 
 let count = 0;
 for (const file of files) {
-	const src = path.join(dataDir, file);
+	const candidates = findSidecarCandidates(file);
+	const src = candidates.find((candidate) => fs.existsSync(path.join(dataDir, candidate))) ? path.join(dataDir, candidates.find((candidate) => fs.existsSync(path.join(dataDir, candidate)))) : path.join(dataDir, file);
 	const prefix = path.basename(file, '.json');
+	const actualFile = path.basename(src);
 
 	try {
 		if (!fs.existsSync(src)) {
@@ -36,14 +55,14 @@ for (const file of files) {
 
 		const stats = fs.statSync(src);
 		if (stats.size <= maxChunkSize) {
-			const publicDest = path.join(publicDestDir, file);
+			const publicDest = path.join(publicDestDir, actualFile);
 			fs.copyFileSync(src, publicDest);
-			console.log(`✓ Copied ${file}`);
+			console.log(`✓ Copied ${actualFile}`);
 			count++;
 			continue;
 		}
 
-		console.log(`⚡ Splitting ${file} into chunks for deployment (size ${Math.round(stats.size / 1024 / 1024)} MB)`);
+		console.log(`⚡ Splitting ${actualFile} into chunks for deployment (size ${Math.round(stats.size / 1024 / 1024)} MB)`);
 		const raw = fs.readFileSync(src, 'utf-8');
 		const json = JSON.parse(raw);
 		const docs = Array.isArray(json.docs) ? json.docs : [];
