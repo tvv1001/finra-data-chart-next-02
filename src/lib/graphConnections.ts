@@ -1322,24 +1322,34 @@ async function enrichConnectionEntriesFromIndividualCache(
       otherNames,
     };
   };
-  await Promise.all(
-    needsEnrichment.map(async (entry) => {
-      const crd = entry.individualId!;
-      try {
-        const [finraRaw, secRaw] = await Promise.all([
-          redis.get(`finra:individual:${crd}`).catch(() => null),
-          redis.get(`sec:individual:${crd}`).catch(() => null),
-        ]);
-        const details = [parseCachedDetail(finraRaw), parseCachedDetail(secRaw)].filter(
-          Boolean,
-        );
-        const detail = mergeCachedDetails(details);
-        if (detail) detailById.set(crd, detail);
-      } catch {
-        // best-effort; leave entry as-is
-      }
-    }),
-  );
+  // Batch all lookups into two mget calls (one per source) instead of one GET pair
+  // per entry — this turns up to MAX_LOOKUPS*2 sequential round-trips into 2 total.
+  const crds = needsEnrichment.map((entry) => entry.individualId!);
+  const finraKeys = crds.map((crd) => `finra:individual:${crd}`);
+  const secKeys = crds.map((crd) => `sec:individual:${crd}`);
+  let finraRaws: unknown[] = [];
+  let secRaws: unknown[] = [];
+  try {
+    [finraRaws, secRaws] = await Promise.all([
+      finraKeys.length ? redis.mget(...finraKeys).catch(() => new Array(finraKeys.length).fill(null)) : Promise.resolve([]),
+      secKeys.length ? redis.mget(...secKeys).catch(() => new Array(secKeys.length).fill(null)) : Promise.resolve([]),
+    ]);
+  } catch {
+    finraRaws = new Array(finraKeys.length).fill(null);
+    secRaws = new Array(secKeys.length).fill(null);
+  }
+  crds.forEach((crd, index) => {
+    try {
+      const details = [
+        parseCachedDetail(finraRaws[index]),
+        parseCachedDetail(secRaws[index]),
+      ].filter(Boolean);
+      const detail = mergeCachedDetails(details);
+      if (detail) detailById.set(crd, detail);
+    } catch {
+      // best-effort; leave entry as-is
+    }
+  });
 
   const attemptedIds = new Set(
     needsEnrichment.map((entry) => String(entry.individualId || "").trim()).filter(Boolean),

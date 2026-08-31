@@ -250,6 +250,25 @@ describe('firm connection merge and cache', () => {
 	});
 
 	it('enriches thin Redis connection display fields from cached individual details', async () => {
+		const finraDetailJson = JSON.stringify({
+			hits: {
+				hits: [
+					{
+						_source: {
+							content: JSON.stringify({
+								basicInformation: { firstName: 'Susan', middleName: 'F', lastName: 'Axelrod', bcScope: 'Active' },
+								currentEmployments: [
+									{
+										firmId: '7691',
+										branchOfficeLocations: [{ street1: '400 S RAMPART BLVD', city: 'LAS VEGAS', state: 'NV', zipCode: '89145' }],
+									},
+								],
+							}),
+						},
+					},
+				],
+			},
+		});
 		mockRedis.get.mockImplementation(async (key: string) => {
 			if (key === firmConnectionsCacheKey('7691')) {
 				return JSON.stringify({
@@ -266,27 +285,13 @@ describe('firm connection merge and cache', () => {
 				});
 			}
 			if (key === 'finra:individual:6949587') {
-				return JSON.stringify({
-					hits: {
-						hits: [
-							{
-								_source: {
-									content: JSON.stringify({
-										basicInformation: { firstName: 'Susan', middleName: 'F', lastName: 'Axelrod', bcScope: 'Active' },
-										currentEmployments: [
-											{
-												firmId: '7691',
-												branchOfficeLocations: [{ street1: '400 S RAMPART BLVD', city: 'LAS VEGAS', state: 'NV', zipCode: '89145' }],
-											},
-										],
-									}),
-								},
-							},
-						],
-					},
-				});
+				return finraDetailJson;
 			}
 			return null;
+		});
+		// Enrichment now batches per-source lookups via mget instead of one get() per entry.
+		mockRedis.mget.mockImplementation(async (...keys: string[]) => {
+			return keys.map((key) => (key === 'finra:individual:6949587' ? finraDetailJson : null));
 		});
 		setStringIfValid.mockClear();
 		const result = await getFirmConnectionsFromGraph('7691');
