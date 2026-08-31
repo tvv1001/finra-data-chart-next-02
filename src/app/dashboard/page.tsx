@@ -1526,38 +1526,33 @@ function extractSearchResultOtherNames(item: SearchResult): string[] {
 // Minimal FINRA/SEC search-index stub docs ({id, crd, label, type, source}) lack a real name,
 // address, or otherNames — the same way graph-search's direct-CRD fallback hydrates from the
 // full detail routes, fetch the merged record here so dashboard search cards show real data.
-async function hydrateSearchResultCard(card: SearchResultCard): Promise<SearchResultCard> {
+async function hydrateSearchResultCardsBatch(cards: SearchResultCard[]): Promise<SearchResultCard[]> {
+	if (!cards.length) return cards;
 	try {
-		const url = card.entity === 'individual' ? `/api/finra/individual/${encodeURIComponent(card.id)}?merged=1` : `/api/finra/firm/${encodeURIComponent(card.id)}?merged=1`;
-		const res = await fetch(url, { headers: { Accept: 'application/json' } });
-		if (!res.ok) return card;
-		const detail = await res.json().catch(() => null);
-		if (!detail || detail?.found === false) return card;
-		const merged = detail?.merged || detail?.finraNode || detail?.secNode || detail || {};
-		const basic = merged?.basicInformation || {};
-
-		const rawLabel =
-			card.entity === 'firm' ?
-				pickFirstNonEmpty(basic?.firmName, merged?.firmName, merged?.name)
-			:	pickFirstNonEmpty([basic?.firstName, basic?.middleName, basic?.lastName].filter(Boolean).join(' '), basic?.name, merged?.name);
-		const label =
-			rawLabel ?
-				card.entity === 'firm' ?
-					formatFirmName(rawLabel)
-				:	formatPersonName(rawLabel)
-			:	card.label;
-
-		const scope = pickFirstNonEmpty(merged?.bcScope, basic?.bcScope, merged?.iaScope, basic?.iaScope) || card.scope;
-		const address = extractSearchResultAddress(merged) || extractSearchResultAddress(basic) || card.address;
-		const otherNames =
-			extractSearchResultOtherNames(basic).length ? extractSearchResultOtherNames(basic)
-			: extractSearchResultOtherNames(merged).length ? extractSearchResultOtherNames(merged)
-			: card.otherNames;
-		const detailText = extractSearchResultDetail(merged) || extractSearchResultDetail(basic) || card.detail;
-
-		return { ...card, label, scope, address, otherNames, detail: detailText };
+		const res = await fetch('/api/finra/hydrate-search-cards', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ cards }),
+		});
+		if (!res.ok) return cards;
+		const payload = await res.json();
+		return Array.isArray(payload?.cards) ? payload.cards.map((c: any, i: number) => {
+			if (!c.hydratedFromSidecar) return cards[i];
+			const label =
+				c.rawLabel ?
+					c.entity === 'firm' ?
+						formatFirmName(c.rawLabel)
+					:	formatPersonName(c.rawLabel)
+				:	c.label;
+			return {
+				...c,
+				label,
+				address: c.rawAddress || c.address,
+				otherNames: c.otherNames || [],
+			};
+		}) : cards;
 	} catch {
-		return card;
+		return cards;
 	}
 }
 
@@ -4501,7 +4496,7 @@ function DashboardPageInner() {
 			// same approach as graph-search's direct-CRD fallback — minimal search-index stub docs
 			// only carry {id, crd, label, type, source}. Cap concurrency to avoid hammering the API.
 			const HYDRATE_LIMIT = 40;
-			void Promise.all(combinedCards.slice(0, HYDRATE_LIMIT).map((card) => hydrateSearchResultCard(card))).then((hydratedCards) => {
+			void hydrateSearchResultCardsBatch(combinedCards.slice(0, HYDRATE_LIMIT)).then((hydratedCards) => {
 				setSearchResults((current) => {
 					const byKey = new Map(hydratedCards.map((card) => [`${card.entity}:${card.id}:${card.source}`, card]));
 					return current.map((card) => byKey.get(`${card.entity}:${card.id}:${card.source}`) || card);

@@ -111,7 +111,7 @@ describe('extractConnectionCards', () => {
 
 		expect(cards).toEqual([
 			{
-				title: 'Example Advisory',
+				title: 'Example Advisory', haystack: 'example advisory owner active', statusTag: 'Active',
 				meta: 'Owner',
 				subtitle: '',
 			},
@@ -135,7 +135,7 @@ describe('extractConnectionCards', () => {
 
 		expect(cards).toEqual([
 			{
-				title: 'Northstar Advisory',
+				title: 'Northstar Advisory', haystack: 'northstar advisory 2020-01-01 • 123 market st, denver, co former owner 123 market st, denver, co active', statusTag: 'Active',
 				meta: 'Former owner',
 				subtitle: '2020-01-01 • 123 Market St, Denver, CO',
 				startDate: '2020-01-01',
@@ -156,7 +156,7 @@ describe('extractConnectionCards', () => {
 
 		expect(cards).toEqual([
 			{
-				title: 'Horizon Partners',
+				title: 'Horizon Partners', haystack: 'horizon partners 2024-06-01 principal active', statusTag: 'Active',
 				meta: 'Principal',
 				subtitle: '2024-06-01',
 				startDate: '2024-06-01',

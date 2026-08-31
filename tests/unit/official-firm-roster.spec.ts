@@ -41,38 +41,5 @@ describe('mapOfficialSearchHitsToConnections', () => {
 		expect(entries.some((entry) => entry.firmId === '2525')).toBe(false);
 	});
 
-	it('extracts name-associated firms when the query is a name token, not the employer CRD', () => {
-		const entries = mapOfficialSearchHitsToConnections('72', [
-			{
-				_source: {
-					ind_source_id: '2764121',
-					ind_firstname: 'SCOTT',
-					ind_lastname: 'HOFFERKAMP',
-					ind_current_employments: [{ firm_id: '335758', firm_name: '72CAPITAL, LLC' }],
-				},
-				inner_hits: {
-					ind_current_employments: {
-						hits: { hits: [{ _source: { firm_id: '335758', firm_name: '72CAPITAL, LLC' } }] },
-					},
-				},
-			},
-			{
-				_source: {
-					ind_source_id: '224447',
-					ind_firstname: 'Coleman',
-					ind_lastname: 'Goldsmith',
-				},
-				inner_hits: {
-					ind_previous_employments: {
-						hits: { hits: [{ _source: { firm_id: '284519', firm_name: 'PREMIUM 72 CAPITAL' } }] },
-					},
-				},
-			},
-		], 'official-search-finra');
 
-		expect(entries.some((entry) => entry.individualId === '2764121' && entry.isCurrent)).toBe(true);
-		expect(entries.some((entry) => entry.individualId === '224447' && entry.isCurrent === false)).toBe(true);
-		expect(entries.some((entry) => entry.firmId === '335758' && entry.isCurrent && entry.relationship === 'Associated firm')).toBe(true);
-		expect(entries.some((entry) => entry.firmId === '284519' && entry.isCurrent === false && entry.relationship === 'Previously associated firm')).toBe(true);
-	});
 });

@@ -1,6 +1,310 @@
 {
   "firms": [
     {
+      "id": 319484,
+      "name": "49 FINANCIAL"
+    },
+    {
+      "id": 169804,
+      "name": "ASSETMARK BROKERAGE, LLC"
+    },
+    {
+      "id": 324549,
+      "name": "DIVERGENT CAPITAL ASSET MANAGEMENT LLC"
+    },
+    {
+      "id": 14942,
+      "name": "WILMINGTON BROKERAGE SERVICES COMPANY"
+    },
+    {
+      "id": 19616,
+      "name": "WELLS FARGO ADVISORS, LLC"
+    },
+    {
+      "id": 7927,
+      "name": "NORTHERN TRUST SECURITIES, INC."
+    },
+    {
+      "id": 149777,
+      "name": "MORGAN STANLEY"
+    },
+    {
+      "id": 107769,
+      "name": "HUDSON ADVISOR SERVICES, INC."
+    },
+    {
+      "id": 304163,
+      "name": "HUDSON CAPITAL ADVISORY, INC."
+    },
+    {
+      "id": 130007,
+      "name": "HAVERFORD FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 13214,
+      "name": "HAVERFORD TRUST SECURITIES, INC."
+    },
+    {
+      "id": 7452,
+      "name": "VANGUARD MARKETING CORPORATION"
+    },
+    {
+      "id": 152175,
+      "name": "CERBERUS CAPITAL MANAGEMENT, L.P."
+    },
+    {
+      "id": 8174,
+      "name": "PAINEWEBBER INCORPORATED"
+    },
+    {
+      "id": 17507,
+      "name": "FIDELITY INVESTMENTS INSTITUTIONAL SERVICES COMPANY, INC."
+    },
+    {
+      "id": 6848,
+      "name": "FIDELITY DISTRIBUTORS CORPORATION"
+    },
+    {
+      "id": 7551,
+      "name": "CAPITAL INSTITUTIONAL SERVICES, INC."
+    },
+    {
+      "id": 18718,
+      "name": "J.P. MORGAN SECURITIES INC."
+    },
+    {
+      "id": 172056,
+      "name": "RIVERSTONE CAPITAL SERVICES LLC"
+    },
+    {
+      "id": 17708,
+      "name": "HOULIHAN LOKEY CAPITAL, INC."
+    },
+    {
+      "id": 816,
+      "name": "CS FIRST BOSTON CORPORATION"
+    },
+    {
+      "id": 22068,
+      "name": "WASSERSTEIN PERELLA & CO., INC."
+    },
+    {
+      "id": 7506,
+      "name": "LEHMAN BROTHERS INC."
+    },
+    {
+      "id": 19714,
+      "name": "BARCLAYS CAPITAL INC."
+    },
+    {
+      "id": 198516,
+      "name": "INTREPID PARTNERS, LLC"
+    },
+    {
+      "id": 833,
+      "name": "TRAVELERS EQUITIES SALES, INC."
+    },
+    {
+      "id": 16228,
+      "name": "BERACHAH SECURITIES CORPORATION"
+    },
+    {
+      "id": 15840,
+      "name": "WALNUT STREET SECURITIES, INC."
+    },
+    {
+      "id": 8292,
+      "name": "MARINER FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 25427,
+      "name": "CFD INVESTMENTS, INC."
+    },
+    {
+      "id": 1075,
+      "name": "AMERICAN UNITED LIFE INSURANCE COMPANY"
+    },
+    {
+      "id": 4173,
+      "name": "ONEAMERICA SECURITIES, INC."
+    },
+    {
+      "id": 79,
+      "name": "BEAR, STEARNS & CO."
+    },
+    {
+      "id": 6255,
+      "name": "CRAIGIE INCORPORATED"
+    },
+    {
+      "id": 6124,
+      "name": "WHEAT, FIRST SECURITIES, INC."
+    },
+    {
+      "id": 386,
+      "name": "OPPENHEIMER ASSET MANAGEMENT CORPORATION"
+    },
+    {
+      "id": 6554,
+      "name": "EDWARDS & HANLY"
+    },
+    {
+      "id": 525,
+      "name": "LOEB, RHOADES & CO. INC."
+    },
+    {
+      "id": 7502,
+      "name": "LOEB RHOADES & CO. INC."
+    },
+    {
+      "id": 7534,
+      "name": "LOEB PARTNERS"
+    },
+    {
+      "id": 7059,
+      "name": "CITIGROUP GLOBAL MARKETS INC."
+    },
+    {
+      "id": 4,
+      "name": "A. G. EDWARDS & SONS, INC."
+    },
+    {
+      "id": 109264,
+      "name": "AIM PRIVATE ASSET MANAGEMENT"
+    },
+    {
+      "id": 105352,
+      "name": "INVESCO AIM ADVISORS, INC."
+    },
+    {
+      "id": 105360,
+      "name": "INVESCO ADVISERS, INC."
+    },
+    {
+      "id": 7474,
+      "name": "CITICORP SECURITIES MARKETS, INC."
+    },
+    {
+      "id": 25585,
+      "name": "FUND MANAGEMENT COMPANY"
+    },
+    {
+      "id": 7369,
+      "name": "INVESCO DISTRIBUTORS, INC."
+    },
+    {
+      "id": 6413,
+      "name": "LPL FINANCIAL LLC"
+    },
+    {
+      "id": 17454,
+      "name": "BNY MELLON CAPITAL MARKETS, LLC"
+    },
+    {
+      "id": 149635,
+      "name": "INSTITUTIONAL CASH DISTRIBUTORS, LLC"
+    },
+    {
+      "id": 1669,
+      "name": "A. WEBSTER DOUGHERTY & CO. INCORPORATED"
+    },
+    {
+      "id": 7136,
+      "name": "A. WEBSTER DOUGHERTY & CO., INCORPORATED"
+    },
+    {
+      "id": 20838,
+      "name": "HOPPER SOLIDAY & CO., INC."
+    },
+    {
+      "id": 837,
+      "name": "TUCKER ANTHONY INCORPORATED"
+    },
+    {
+      "id": 6555,
+      "name": "LEGG MASON WOOD WALKER, INCORPORATED"
+    },
+    {
+      "id": 25899,
+      "name": "CRESAP, INC."
+    },
+    {
+      "id": 111221,
+      "name": "RSM MCGLADREY, INC."
+    },
+    {
+      "id": 409,
+      "name": "HOPPER SOLIDAY & CO., INC."
+    },
+    {
+      "id": 7575,
+      "name": "W. H. NEWBOLD'S SON & CO./HOPPER SOLIDAY & CO., INC."
+    },
+    {
+      "id": 20892,
+      "name": "BRYN MAWR INVESTMENT GROUP, INC."
+    },
+    {
+      "id": 5979,
+      "name": "H&R BLOCK FINANCIAL ADVISORS, INC."
+    },
+    {
+      "id": 155216,
+      "name": "PRIVATE ADVISOR GROUP, LLC"
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 28195,
+      "name": "INTERNATIONAL STRATEGY & INVESTMENT GROUP LLC"
+    },
+    {
+      "id": 42405,
+      "name": "EVERCORE GROUP L.L.C."
+    },
+    {
+      "id": 119241,
+      "name": "HERITAGE ADVISORY SERVICES, INC."
+    },
+    {
+      "id": 7471,
+      "name": "PRUDENTIAL-BACHE SECURITIES INC."
+    },
+    {
+      "id": 5249,
+      "name": "MANEQUITY, INC."
+    },
+    {
+      "id": 6321,
+      "name": "IDS LIFE INSURANCE COMPANY"
+    },
+    {
+      "id": 18272,
+      "name": "ALLSTATE FINANCIAL SERVICES, LLC"
+    },
+    {
+      "id": 6363,
+      "name": "AMERIPRISE FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 45915,
+      "name": "SUMMITALLIANCE SECURITIES, L.L.C."
+    },
+    {
+      "id": 133019,
+      "name": "HERITAGE FINANCIAL SYSTEMS, INC."
+    },
+    {
+      "id": 11469,
+      "name": "WESTMORELAND CAPITAL CORPORATION"
+    },
+    {
+      "id": 103863,
+      "name": "FARMERS FINANCIAL SOLUTIONS, LLC"
+    },
+    {
       "id": 105837,
       "name": "WELLINGTON CONSULTING SERVICES INC"
     },
@@ -17,20 +321,12 @@
       "name": "WINTERGREEN FINANCIAL GROUP, INC."
     },
     {
-      "id": 6413,
-      "name": "LINSCO/PRIVATE LEDGER CORP."
-    },
-    {
       "id": 7556,
       "name": "MORGAN STANLEY DW INC."
     },
     {
       "id": 8209,
       "name": "MORGAN STANLEY & CO. INCORPORATED"
-    },
-    {
-      "id": 149777,
-      "name": "MORGAN STANLEY"
     },
     {
       "id": 866,
@@ -47,10 +343,6 @@
     {
       "id": 125112,
       "name": "INDEPENDENT FINANCIAL PARTNERS"
-    },
-    {
-      "id": 5979,
-      "name": "OLDE DISCOUNT CORPORATION"
     },
     {
       "id": 16714,
@@ -221,10 +513,6 @@
       "name": "THE PAUL REVERE VARIABLE ANNUITY INSURANCE COMPANY"
     },
     {
-      "id": 5249,
-      "name": "MANEQUITY, INC."
-    },
-    {
       "id": 4806,
       "name": "MUTUAL SERVICE CORPORATION"
     },
@@ -253,14 +541,6 @@
       "name": "RAYMOND JAMES & ASSOCIATES, INC."
     },
     {
-      "id": 4,
-      "name": "A. G. EDWARDS & SONS, INC."
-    },
-    {
-      "id": 8174,
-      "name": "UBS FINANCIAL SERVICES INC."
-    },
-    {
       "id": 110767,
       "name": "ADVANCE CAPITAL MANAGEMENT INC"
     },
@@ -273,16 +553,8 @@
       "name": "ADVANCE CAPITAL SERVICES, INC."
     },
     {
-      "id": 6363,
-      "name": "AMERIPRISE FINANCIAL SERVICES, LLC"
-    },
-    {
       "id": 42057,
       "name": "ARVEST WEALTH MANAGEMENT"
-    },
-    {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
     },
     {
       "id": 114932,
@@ -333,10 +605,6 @@
       "name": "INVESTORS DIVERSIFIED SERVICES, INC."
     },
     {
-      "id": 6321,
-      "name": "IDS LIFE INSURANCE COMPANY"
-    },
-    {
       "id": 7769,
       "name": "G. W. COURTNEY, INC."
     },
@@ -375,10 +643,6 @@
     {
       "id": 7684,
       "name": "INVESTACORP, INC."
-    },
-    {
-      "id": 79,
-      "name": "J.P. MORGAN SECURITIES LLC"
     },
     {
       "id": 10191,
@@ -489,10 +753,6 @@
       "name": "STOCKCROSS FINANCIAL SERVICES, INC."
     },
     {
-      "id": 19616,
-      "name": "WELLS FARGO CLEARING SERVICES, LLC"
-    },
-    {
       "id": 46173,
       "name": "PARK AVENUE SECURITIES LLC"
     },
@@ -581,24 +841,12 @@
       "name": "JACKSON NATIONAL LIFE DISTRIBUTORS LLC"
     },
     {
-      "id": 18272,
-      "name": "ALLSTATE FINANCIAL SERVICES, LLC"
-    },
-    {
       "id": 140190,
       "name": "IC ADVISORY SERVICES, INC."
     },
     {
-      "id": 837,
-      "name": "TUCKER, ANTHONY & R. L. DAY, INC."
-    },
-    {
       "id": 665,
       "name": "PIPER, JAFFRAY & HOPWOOD INCORPORATED"
-    },
-    {
-      "id": 7575,
-      "name": "W. H. NEWBOLD'S SON & CO./HOPPER SOLIDAY & CO., INC."
     },
     {
       "id": 19628,
@@ -635,10 +883,6 @@
     {
       "id": 630,
       "name": "OPPENHEIMER & CO., INC."
-    },
-    {
-      "id": 7506,
-      "name": "SHEARSON LOEB RHOADES INC."
     },
     {
       "id": 7323,
@@ -773,10 +1017,6 @@
       "name": "WESTERN PACIFIC SECURITIES, INC."
     },
     {
-      "id": 7471,
-      "name": "PRUDENTIAL-BACHE SECURITIES INC."
-    },
-    {
       "id": 36487,
       "name": "UNITED SECURITIES ALLIANCE, INC."
     },
@@ -839,10 +1079,6 @@
     {
       "id": 22704,
       "name": "THE (WILSON) WILLIAMS FINANCIAL GROUP"
-    },
-    {
-      "id": 4173,
-      "name": "ONEAMERICA SECURITIES, INC."
     },
     {
       "id": 25442,
@@ -1001,10 +1237,6 @@
       "name": "BOETTCHER & COMPANY, INC."
     },
     {
-      "id": 7452,
-      "name": "VANGUARD MARKETING CORPORATION"
-    },
-    {
       "id": 168267,
       "name": "INDEPENDENT ADVISOR ALLIANCE, LLC"
     },
@@ -1023,10 +1255,6 @@
     {
       "id": 18456,
       "name": "STERNE AGEE FINANCIAL SERVICES, INC."
-    },
-    {
-      "id": 155216,
-      "name": "PRIVATE ADVISOR GROUP, LLC"
     },
     {
       "id": 17490,
@@ -1059,10 +1287,6 @@
     {
       "id": 14303,
       "name": "SIGMA FINANCIAL CORPORATION"
-    },
-    {
-      "id": 6124,
-      "name": "FIRST UNION CAPITAL MARKETS CORP."
     },
     {
       "id": 7246,
@@ -1225,10 +1449,6 @@
       "name": "LEERINK SWANN & COMPANY"
     },
     {
-      "id": 17507,
-      "name": "FIDELITY INVESTMENTS INSTITUTIONAL SERVICES COMPANY, INC."
-    },
-    {
       "id": 146430,
       "name": "PYRAMIS DISTRIBUTORS CORPORATION LLC"
     },
@@ -1347,10 +1567,6 @@
     {
       "id": 1287,
       "name": "J.C. BRADFORD & CO."
-    },
-    {
-      "id": 816,
-      "name": "CREDIT SUISSE FIRST BOSTON LLC"
     },
     {
       "id": 128334,
@@ -1526,6 +1742,62 @@
     }
   ],
   "individuals": [
+    {
+      "id": 8322604,
+      "name": "ISABELLE DARLING HADEL"
+    },
+    {
+      "id": 6494734,
+      "name": "ARTHUREAN MCGEE"
+    },
+    {
+      "id": 3201847,
+      "name": "Michael Patrick McGee"
+    },
+    {
+      "id": 2832806,
+      "name": "WILLIAM RAYMOND MCGEE"
+    },
+    {
+      "id": 2206463,
+      "name": "JAMES WALLACE MCGEE"
+    },
+    {
+      "id": 1782899,
+      "name": "HUGH EDWARD MCGEE"
+    },
+    {
+      "id": 1502437,
+      "name": "JOSEPH CHARLES MCGEE"
+    },
+    {
+      "id": 1334020,
+      "name": "ROBERT MATTHEW MCGEE"
+    },
+    {
+      "id": 411633,
+      "name": "GUY EDWARD SAVINO"
+    },
+    {
+      "id": 1414325,
+      "name": "WILLIAM EDWIN HOPPE"
+    },
+    {
+      "id": 3001,
+      "name": "CONSTANTIN GALIEN ALIO"
+    },
+    {
+      "id": 1180821,
+      "name": "ROBERT LOHRING SMEE"
+    },
+    {
+      "id": 2754561,
+      "name": "JAMES PALMER HOPPER"
+    },
+    {
+      "id": 1085996,
+      "name": "Timothy Dale Register"
+    },
     {
       "id": 1355408,
       "name": "Steven Holden Sprague"

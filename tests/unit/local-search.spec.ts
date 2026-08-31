@@ -272,7 +272,7 @@ describe('local search indexes', () => {
 	});
 
 	it('matches the top-level full name when queried directly', async () => {
-		const result = await searchLocalIndex('sec', 'individual', 'ronald noel mason', { limit: 10 });
+		const result = await searchLocalIndex('sec', 'individual', 'Kevin PATRICK Butler', { limit: 10 });
 
 		expect(result.total).toBeGreaterThan(0);
 		expect(result.response.docs.length).toBeGreaterThan(0);

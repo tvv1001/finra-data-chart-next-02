@@ -277,7 +277,7 @@ export async function GET(request: NextRequest) {
 			}
 		}
 
-		if (matchedIds.size < limit) {
+		if (matchedIds.size === 0) {
 			// Not enough graph matches — search the local FINRA/SEC indexes and persist discovered nodes into the graph cache.
 			try {
 				let allHits = (
