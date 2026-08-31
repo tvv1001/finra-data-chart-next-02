@@ -1,6 +1,114 @@
 {
   "firms": [
     {
+      "id": 131242,
+      "name": "ALLEGIS ADVISORS, INC."
+    },
+    {
+      "id": 4386,
+      "name": "MONY SECURITIES CORPORATION"
+    },
+    {
+      "id": 265,
+      "name": "EQUITY SERVICES, INC."
+    },
+    {
+      "id": 136433,
+      "name": "INSPHERE SECURITIES, INC."
+    },
+    {
+      "id": 19061,
+      "name": "SIGNATOR FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 3866,
+      "name": "KMS FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 6321,
+      "name": "IDS LIFE INSURANCE COMPANY"
+    },
+    {
+      "id": 6363,
+      "name": "AMERICAN EXPRESS FINANCIAL ADVISORS INC."
+    },
+    {
+      "id": 21111,
+      "name": "AMERICAN INVESTMENT SERVICES, INC."
+    },
+    {
+      "id": 46227,
+      "name": "ALLIED BEACON PARTNERS, INC."
+    },
+    {
+      "id": 112097,
+      "name": "JHS CAPITAL ADVISORS, LLC"
+    },
+    {
+      "id": 40673,
+      "name": "WILBANKS SECURITIES, INC."
+    },
+    {
+      "id": 159712,
+      "name": "CABOT LODGE SECURITIES LLC"
+    },
+    {
+      "id": 10111,
+      "name": "PFS INVESTMENTS INC."
+    },
+    {
+      "id": 15261,
+      "name": "LAWSON FINANCIAL CORPORATION"
+    },
+    {
+      "id": 15487,
+      "name": "ICON SECURITIES CORP."
+    },
+    {
+      "id": 39979,
+      "name": "COMMONWEALTH CAPITAL SECURITIES CORP."
+    },
+    {
+      "id": 128642,
+      "name": "PROVIDENT ASSET MANAGEMENT, LLC"
+    },
+    {
+      "id": 111963,
+      "name": "FIRST STAR SECURITIES CORPORATION"
+    },
+    {
+      "id": 16944,
+      "name": "NEWPORT COAST SECURITIES, INC."
+    },
+    {
+      "id": 135862,
+      "name": "FOUNDATION FREEDOM ADVISORY SERVICES"
+    },
+    {
+      "id": 149018,
+      "name": "RAYMOND JAMES FINANCIAL SERVICES ADVISORS, INC"
+    },
+    {
+      "id": 146,
+      "name": "ADVANTAGE CAPITAL CORPORATION"
+    },
+    {
+      "id": 6694,
+      "name": "RAYMOND JAMES FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 250,
+      "name": "EDWARD JONES"
+    },
+    {
+      "id": 15708,
+      "name": "PROEQUITIES, INC."
+    },
+    {
+      "id": 47275,
+      "name": "SCF SECURITIES, INC."
+    },
+    {
       "id": 5181,
       "name": "JOHN HANCOCK MUTUAL LIFE INSURANCE COMPANY"
     },
@@ -57,10 +165,6 @@
       "name": "PURSHE KAPLAN STERLING INVESTMENTS"
     },
     {
-      "id": 159712,
-      "name": "CABOT LODGE SECURITIES LLC"
-    },
-    {
       "id": 101600,
       "name": "PKS SECURITIES, INC."
     },
@@ -79,10 +183,6 @@
     {
       "id": 15876,
       "name": "EQUITY ANALYSTS INC."
-    },
-    {
-      "id": 15708,
-      "name": "PROTECTIVE EQUITY SERVICES, INC."
     },
     {
       "id": 10332,
@@ -241,10 +341,6 @@
       "name": "ROBERT THOMAS SECURITIES, INC"
     },
     {
-      "id": 6694,
-      "name": "RAYMOND JAMES FINANCIAL SERVICES, INC."
-    },
-    {
       "id": 7556,
       "name": "MORGAN STANLEY DW INC."
     },
@@ -254,6 +350,34 @@
     }
   ],
   "individuals": [
+    {
+      "id": 3008152,
+      "name": "JAMES CHRISTOPHER MASON"
+    },
+    {
+      "id": 2625517,
+      "name": "WILLIAM WOODWARD MASON"
+    },
+    {
+      "id": 2320473,
+      "name": "EUGENE ARTHUR MASON"
+    },
+    {
+      "id": 2206257,
+      "name": "CHARLES TUTTLE MASON"
+    },
+    {
+      "id": 2144049,
+      "name": "MAX LELAND MASON"
+    },
+    {
+      "id": 1586322,
+      "name": "Richard Lee Mason"
+    },
+    {
+      "id": 1285286,
+      "name": "WILLIAM MCCLELLAN MASON"
+    },
     {
       "id": 2404467,
       "name": "SONALI NMN VIRENDRA"
