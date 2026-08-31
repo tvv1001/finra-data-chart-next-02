@@ -621,8 +621,8 @@ function cancelGraphTickPositions() {
 	graphTickFrameId = null;
 }
 
-function applyStatusPresentation(text, options: { transient?: boolean; dismissible?: boolean; pinned?: boolean } = {}) {
-	const { transient = false, dismissible = false, pinned = false } = options;
+function applyStatusPresentation(text: string, options: { transient?: boolean; dismissible?: boolean; pinned?: boolean; loading?: boolean } = {}) {
+	const { transient = false, dismissible = false, pinned = false, loading = false } = options;
 	const info = document.getElementById('fg-subset-info');
 	const wrap = info?.closest('.fg-toolbar-status--top') as HTMLElement | null;
 	const pinBtn = document.getElementById('fg-subset-info-pin') as HTMLButtonElement | null;
@@ -631,18 +631,19 @@ function applyStatusPresentation(text, options: { transient?: boolean; dismissib
 		info.dataset.transient = transient ? 'true' : 'false';
 		info.dataset.dismissible = dismissible ? 'true' : 'false';
 		info.dataset.pinned = pinned ? 'true' : 'false';
-		info.dataset.fetchLocked = dismissible ? 'true' : 'false';
+		info.dataset.fetchLocked = loading ? 'true' : 'false';
 	}
 	if (wrap) {
 		wrap.dataset.dismissible = dismissible ? 'true' : 'false';
 		wrap.dataset.pinned = pinned ? 'true' : 'false';
-		wrap.dataset.fetchLocked = dismissible ? 'true' : 'false';
+		wrap.dataset.fetchLocked = loading ? 'true' : 'false';
 	}
 	if (pinBtn) {
 		pinBtn.classList.toggle('is-active', pinned);
 		pinBtn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
 		pinBtn.setAttribute('title', 'Dismiss status');
 		pinBtn.setAttribute('aria-label', 'Dismiss status');
+		pinBtn.classList.toggle('is-hidden', loading);
 	}
 }
 
@@ -655,7 +656,7 @@ function hasLockedFetchStatus() {
 function clearFetchStatus() {
 	activeFetchStatusMessage = null;
 	activeFetchStatusPinned = false;
-	applyStatusPresentation('', { transient: false, dismissible: false, pinned: false });
+	applyStatusPresentation('', { transient: false, dismissible: false, pinned: false, loading: false });
 	const pinBtn = document.getElementById('fg-subset-info-pin') as HTMLButtonElement | null;
 	if (pinBtn) {
 		pinBtn.setAttribute('aria-pressed', 'false');
@@ -665,9 +666,9 @@ function clearFetchStatus() {
 	}
 }
 
-function updateFetchStatus(msg: string) {
+function updateFetchStatus(msg: string, loading = false) {
 	activeFetchStatusMessage = msg;
-	applyStatusPresentation(msg, { transient: true, dismissible: true, pinned: activeFetchStatusPinned });
+	applyStatusPresentation(msg, { transient: true, dismissible: true, pinned: activeFetchStatusPinned, loading });
 }
 
 function setFetchStatusPinned(pinned: boolean) {
@@ -1576,7 +1577,7 @@ export async function applyGraphTemplate(templateId: string) {
 	}
 
 	applyingGraphTemplate = true;
-	updateFetchStatus(`Loading template “${template.name}”…`);
+	updateFetchStatus(`Loading template “${template.name}”…`, true);
 	try {
 		selectedNodesLog = sanitizeSelectionLogEntries(template.selectionLog);
 		saveSelectionLog();
@@ -3863,7 +3864,7 @@ async function ensureNodeFetchedAndOnScreen(entry: SelectionLogEntry) {
 	const crd = entryId.split(':').pop() || '';
 	if (!crd) return;
 
-	updateFetchStatus(`Fetching CRD ${crd} into graph...`);
+	updateFetchStatus(`Fetching CRD ${crd} into graph...`, true);
 	try {
 		const success = await fetchAndInjectLocalQuery(crd);
 		if (success && graphData && Array.isArray(graphData.nodes)) {
@@ -6052,6 +6053,7 @@ export function init(
 	document.addEventListener('click', handleSelectionLogClearLabelsOutsideClick);
 	const handleFetchStatusDismissal = (event: Event) => {
 		if (!activeFetchStatusMessage || activeFetchStatusPinned) return;
+		if (hasLockedFetchStatus()) return;
 		const target = event.target as Node | null;
 		if (!target) return;
 		const fetchArea = document.querySelector<HTMLElement>('.fg-fetch');
