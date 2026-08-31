@@ -585,6 +585,9 @@ function tokensFuzzyMatch(queryToken: string, candidateToken: string) {
 	const nicknames = NICKNAME_MAP.get(queryToken);
 	if (nicknames && nicknames.includes(candidateToken)) return true;
 
+	// Fast-fail: fuzzy matches should generally share the same starting letter
+	if (queryToken[0] !== candidateToken[0]) return false;
+
 	// Candidate token contains the query token (e.g. 'hooten' contains 'hoot')
 	if (candidateToken.includes(queryToken) && queryToken.length >= 3) return true;
 

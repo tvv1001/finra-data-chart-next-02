@@ -227,7 +227,7 @@ export async function GET(request: NextRequest) {
 		const q = searchQueries[0] || '';
 		const baseUrl = new URL(request.url).origin;
 		const type = searchParams.get('type') || 'all';
-		const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);
+		const limit = Math.min(parseInt(searchParams.get('limit') || searchParams.get('nrows') || '50', 10), 200);
 		const rawStart = searchParams.get('start');
 		const rawPageNumber = searchParams.get('pageNumber');
 		const offset =
@@ -247,7 +247,10 @@ export async function GET(request: NextRequest) {
 			.slice(0, limit);
 		const matchedIds = new Set(matchedNodes.map((node) => String(node?.id || '').trim()).filter(Boolean));
 
-		if (matchedIds.size === 1) {
+		const isIdentifierLike = /^[0-9-]+$/.test(q);
+		const isSpecificQuery = isIdentifierLike || q.split(/\s+/).filter(Boolean).length > 1;
+
+		if (matchedIds.size === 1 && isSpecificQuery) {
 			const matchedNode = matchedNodes[0];
 			const matchedId = String(matchedNode?.id || '').trim();
 			if (matchedNode && matchedNode.group === 'individual' && matchedId.startsWith('person:')) {
@@ -274,8 +277,8 @@ export async function GET(request: NextRequest) {
 			}
 		}
 
-		if (!matchedIds.size) {
-			// No graph matches — search the local FINRA/SEC indexes and persist discovered nodes into the graph cache.
+		if (matchedIds.size < limit) {
+			// Not enough graph matches — search the local FINRA/SEC indexes and persist discovered nodes into the graph cache.
 			try {
 				let allHits = (
 					await Promise.all([
@@ -288,7 +291,9 @@ export async function GET(request: NextRequest) {
 					.flatMap((result) => result?.hits?.hits || [])
 					.slice(0, limit);
 
-				if (!allHits.length) {
+				// Fall back to external search if local indexes yield very few results (often true when sidecars are small subsets)
+				// similar to the threshold in api/finra/search/route.ts but higher since we merge 4 buckets here.
+				if (allHits.length < Math.min(limit, 50)) {
 					const externalResults = await Promise.all([
 						searchExternalFallback('finra', 'individual', q, baseUrl),
 						searchExternalFallback('finra', 'firm', q, baseUrl),
