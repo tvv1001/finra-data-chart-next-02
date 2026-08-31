@@ -1,0 +1,30 @@
+--- src/lib/officialFirmRoster.ts
++++ src/lib/officialFirmRoster.ts
+@@ -102,15 +102,16 @@
+ 		const personCrd = firstNonEmpty(src.ind_source_id, src.ind_crd, src.individualId, src.id);
+ 		const personName = firstNonEmpty([src.ind_firstname, src.ind_middlename, src.ind_lastname].filter(Boolean).join(' '), src.individualName, src.name);
+ 
++		const currentInner = innerHitSources(hit, ['ind_current_employments', 'ind_ia_current_employments']);
+ 		const currentMatched = [
+-			...innerHitSources(hit, ['ind_current_employments', 'ind_ia_current_employments']),
++			...currentInner,
+ 			...toArraySafe(src.ind_current_employments),
+ 			...toArraySafe(src.currentEmployments),
+ 			...toArraySafe(src.currentIAEmployments),
+ 		];
++		const previousInner = innerHitSources(hit, ['ind_previous_employments', 'ind_ia_previous_employments']);
+ 		const previousMatched = [
+-			...innerHitSources(hit, ['ind_previous_employments', 'ind_ia_previous_employments']),
++			...previousInner,
+ 			...toArraySafe(src.ind_previous_employments),
+ 			...toArraySafe(src.ind_ia_previous_employments),
+ 			...toArraySafe(src.previousEmployments),
+ 			...toArraySafe(src.previousIAEmployments),
+ 		];
+ 
+-		const currentAtQuery = currentMatched.filter((entry) => employmentFirmId(entry) === query);
+-		const previousAtQuery = previousMatched.filter((entry) => employmentFirmId(entry) === query);
++		const currentAtQuery = currentMatched.filter((entry) => employmentFirmId(entry) === query || currentInner.some(i => employmentFirmId(i) === employmentFirmId(entry)));
++		const previousAtQuery = previousMatched.filter((entry) => employmentFirmId(entry) === query || previousInner.some(i => employmentFirmId(i) === employmentFirmId(entry)));
+ 		const hasExactCurrent = currentAtQuery.length > 0;
+ 		const hasExactPrevious = previousAtQuery.length > 0;
