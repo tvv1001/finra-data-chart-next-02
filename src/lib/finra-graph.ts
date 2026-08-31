@@ -793,11 +793,15 @@ function hasTrustedCurrentRelationshipData(node) {
 function hasKnownRevealableChildCount(node) {
 	if (!node || typeof node !== 'object') return false;
 	if (node.group === 'individual') {
-		const hasKnownCurrentEmployments = Array.isArray(node.currentEmployments) && Array.isArray(node.currentIAEmployments);
-		if (!hasKnownCurrentEmployments) return false;
+		const hasAnyKnownEmploymentHistory =
+			Array.isArray(node.currentEmployments) ||
+			Array.isArray(node.currentIAEmployments) ||
+			Array.isArray(node.previousEmployments) ||
+			Array.isArray(node.previousIAEmployments);
+		if (!hasAnyKnownEmploymentHistory) return false;
 		if (!isNodeInactive(node)) return true;
 
-		const hasKnownPreviousEmployments = Array.isArray(node.previousEmployments);
+		const hasKnownPreviousEmployments = !Object.prototype.hasOwnProperty.call(node, 'previousEmployments') || Array.isArray(node.previousEmployments);
 		const hasKnownPreviousIaEmployments = !Object.prototype.hasOwnProperty.call(node, 'previousIAEmployments') || Array.isArray(node.previousIAEmployments);
 		return hasKnownPreviousEmployments && hasKnownPreviousIaEmployments;
 	}
