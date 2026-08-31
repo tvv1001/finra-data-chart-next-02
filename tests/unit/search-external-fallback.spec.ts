@@ -7,12 +7,14 @@ describe('searchExternalFallback', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
 		global.fetch = vi.fn();
+		process.env.EXTERNAL_API_ENABLED = '1';
 	});
 
 	afterEach(() => {
 		vi.useRealTimers();
 		global.fetch = originalFetch;
 		vi.restoreAllMocks();
+		delete process.env.EXTERNAL_API_ENABLED;
 	});
 
 	it('queries external BrokerCheck and parses results to LocalSearchResponse, triggering background calls', async () => {

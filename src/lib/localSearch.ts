@@ -324,7 +324,8 @@ async function loadIndex(bucket: LocalSearchBucket, baseUrl?: string, seedRoots:
 	async function readIndexPayload(filePath: string) {
 		const raw = await readFile(filePath);
 		const util = await import('node:util');
-		const jsonText = filePath.endsWith('.gz') ? (await util.promisify(require('node:zlib').gunzip)(raw)).toString('utf-8') : raw.toString('utf-8');
+		const isGzip = raw.length > 2 && raw[0] === 0x1f && raw[1] === 0x8b;
+		const jsonText = isGzip ? (await util.promisify(require('node:zlib').gunzip)(raw)).toString('utf-8') : raw.toString('utf-8');
 		return JSON.parse(jsonText) as { generatedAt?: string; bucket?: string; docs?: LocalSearchDoc[] };
 	}
 
@@ -333,7 +334,8 @@ async function loadIndex(bucket: LocalSearchBucket, baseUrl?: string, seedRoots:
 		if (!response.ok) return null;
 		const raw = Buffer.from(await response.arrayBuffer());
 		const util = await import('node:util');
-		const jsonText = url.endsWith('.gz') ? (await util.promisify(require('node:zlib').gunzip)(raw)).toString('utf-8') : raw.toString('utf-8');
+		const isGzip = raw.length > 2 && raw[0] === 0x1f && raw[1] === 0x8b;
+		const jsonText = isGzip ? (await util.promisify(require('node:zlib').gunzip)(raw)).toString('utf-8') : raw.toString('utf-8');
 		return JSON.parse(jsonText) as { generatedAt?: string; bucket?: string; docs?: LocalSearchDoc[] };
 	}
 
