@@ -193,6 +193,42 @@ describe('local search indexes', () => {
 		);
 	});
 
+	it('allows state/street exact matches but blocks partial state or street matches', async () => {
+		await withTempSearchIndex(
+			'search-index.sec.individual.json',
+			JSON.stringify({
+				generatedAt: '2026-06-07T00:00:00.000Z',
+				bucket: 'sec:individual',
+				docs: [
+					{
+						id: 'sec:individual:99',
+						type: 'individual',
+						source: 'sec',
+						nameSearchText: 'Jane Doe',
+						strictSearchText: 'Jane Doe Dallas Texas 123 Main Street',
+						searchText: '99 Jane Doe Dallas Texas 123 Main Street',
+						hit: {
+							ind_source_id: '99',
+							ind_firstname: 'Jane',
+							ind_lastname: 'Doe',
+							ind_current_employments: [{ state: 'Texas', street1: '123 Main Street', city: 'Dallas' }],
+						},
+					},
+				],
+			}),
+			async (root) => {
+				const exactState = await searchLocalIndex('sec', 'individual', 'texas', { limit: 10, seedRoots: [root] });
+				const partialState = await searchLocalIndex('sec', 'individual', 'tex', { limit: 10, seedRoots: [root] });
+				const exactStreet = await searchLocalIndex('sec', 'individual', '123 main street', { limit: 10, seedRoots: [root] });
+				const partialStreet = await searchLocalIndex('sec', 'individual', 'main', { limit: 10, seedRoots: [root] });
+				expect(exactState.total).toBe(1);
+				expect(partialState.total).toBe(0);
+				expect(exactStreet.total).toBe(1);
+				expect(partialStreet.total).toBe(0);
+			},
+		);
+	});
+
 	it('treats Bryan as a strict term instead of fuzzy matching close spellings', async () => {
 		await withTempSearchIndex(
 			'search-index.sec.individual.json',

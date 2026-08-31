@@ -27,9 +27,56 @@ function isStrictMatchQuery(value: string) {
 	return STRICT_MATCH_QUERY_ALLOWLIST.has(value);
 }
 
+function collectAliasLikeValues(...sources: unknown[]) {
+	const collected: string[] = [];
+	for (const source of sources) {
+		if (source == null) continue;
+		const values = Array.isArray(source) ? source : [source];
+		for (const value of values) {
+			if (value == null) continue;
+			const text = String(value).trim();
+			if (!text) continue;
+			collected.push(text);
+		}
+	}
+	return collected;
+}
+
+function collectExactAddressValues(node: any) {
+	const basic = node?.basicInformation || {};
+	const exactValues = [
+		node?.address,
+		node?.addressSearchText,
+		basic?.address,
+		basic?.state,
+		basic?.street1,
+		basic?.street2,
+		node?.state,
+		node?.street1,
+		node?.street2,
+		...(Array.isArray(node?.currentEmployments) ? node.currentEmployments.flatMap((job: any) => [job?.state, job?.city]) : []),
+		...(Array.isArray(node?.previousEmployments) ? node.previousEmployments.flatMap((job: any) => [job?.state, job?.city]) : []),
+	];
+	return collectAliasLikeValues(...exactValues);
+}
+
 export function collectSearchableNodeKeys(node: any) {
 	const basic = node?.basicInformation || {};
 	const group = node?.group || (node?.type === 'firm' || node?.firmId || node?.firm_id ? 'firm' : 'individual');
+	const aliasValues = collectAliasLikeValues(
+		Array.isArray(node?.otherNames) ? node.otherNames : [],
+		Array.isArray(basic?.otherNames) ? basic.otherNames : [],
+		Array.isArray(node?.aliases) ? node.aliases : [],
+		Array.isArray(basic?.aliases) ? basic.aliases : [],
+		Array.isArray(node?.previousNames) ? node.previousNames : [],
+		Array.isArray(basic?.previousNames) ? basic.previousNames : [],
+		Array.isArray(node?.aka) ? node.aka : [],
+		Array.isArray(basic?.aka) ? basic.aka : [],
+		Array.isArray(node?.formerNames) ? node.formerNames : [],
+		Array.isArray(basic?.formerNames) ? basic.formerNames : [],
+		Array.isArray(node?.dbaNames) ? node.dbaNames : [],
+		Array.isArray(basic?.dbaNames) ? basic.dbaNames : [],
+	);
 	if (group === 'firm') {
 		return [
 			node?.id,
@@ -43,8 +90,7 @@ export function collectSearchableNodeKeys(node: any) {
 			basic?.name,
 			basic?.bdSECNumber,
 			basic?.iaSECNumber,
-			...(Array.isArray(node?.otherNames) ? node.otherNames : []),
-			...(Array.isArray(basic?.otherNames) ? basic.otherNames : []),
+			...aliasValues,
 			node?.firm_source_id,
 		]
 			.map((value) => normalizeText(value))
@@ -54,7 +100,6 @@ export function collectSearchableNodeKeys(node: any) {
 		node?.id,
 		node?.label,
 		node?.name,
-		node?.addressSearchText,
 		node?.crd,
 		node?.firmId,
 		node?.bdSecNumber,
@@ -65,8 +110,7 @@ export function collectSearchableNodeKeys(node: any) {
 		basic?.bdSECNumber,
 		basic?.iaSECNumber,
 		[basic?.firstName, basic?.middleName, basic?.lastName].filter(Boolean).join(' '),
-		...(Array.isArray(node?.otherNames) ? node.otherNames : []),
-		...(Array.isArray(basic?.otherNames) ? basic.otherNames : []),
+		...aliasValues,
 		node?.ind_source_id,
 		node?.firm_source_id,
 	]
@@ -112,8 +156,10 @@ export function matchesSearchableNodeQuery(node: any, query: string) {
 	if (!normalizedQuery) return false;
 	const queryTokens = normalizedQuery.split(/\s+/).filter(Boolean);
 	const keys = collectSearchableNodeKeys(node);
+	const exactAddressTerms = collectExactAddressValues(node).map((value) => normalizeText(value));
 	const identifierLikeQuery = isIdentifierLikeQuery(normalizedQuery);
 	const strictQuery = isStrictMatchQuery(normalizedQuery);
+	if (exactAddressTerms.some((term) => term === normalizedQuery || containsWholePhrase(term, normalizedQuery))) return true;
 	if (keys.some((key) => key === normalizedQuery || containsWholePhrase(key, normalizedQuery))) return true;
 	if (strictQuery) {
 		return (

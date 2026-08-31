@@ -71,3 +71,7 @@ data/firm-connections/**
 .notes.md
 scripts/backfill_search_extensions.js
 patch_**
+
+# Runtime app logs
+data/logs/*.log
+data/logs/*.jsonl

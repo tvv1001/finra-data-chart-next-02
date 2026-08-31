@@ -722,9 +722,19 @@ function getNameMatchScore(doc: PreparedLocalSearchDoc, rawQuery: string, normal
 	return Math.max(bestScore, getSurnameMatchScore(doc, rawQuery, normalizedQuery));
 }
 
+function hasExactAddressTermMatch(text: string | undefined, normalizedQuery: string, tokens: string[]) {
+	if (!text) return false;
+	const candidates = [text, ...tokenizeQuery(text)];
+	if (candidates.some((candidate) => normalizeText(candidate) === normalizedQuery)) return true;
+	if (tokens.length > 1) {
+		return tokens.every((token) => candidates.some((candidate) => normalizeText(candidate) === token));
+	}
+	return false;
+}
+
 function getAddressFieldMatchScore(text: string, normalizedQuery: string, tokens: string[]) {
 	if (!text) return 0;
-	if (containsWholePhrase(text, normalizedQuery)) return 180;
+	if (hasExactAddressTermMatch(text, normalizedQuery, tokens)) return 180;
 	const fieldTokens = tokenizeQuery(text);
 	if (tokens.length > 0 && tokens.every((token) => fieldTokens.some((fieldToken) => locationTokensMatch(token, fieldToken)))) {
 		return 140 + tokens.length * 10;
@@ -777,12 +787,45 @@ function getStrictDocumentMatchScore(doc: PreparedLocalSearchDoc, normalizedQuer
 // Unlike getStrictDocumentMatchScore (used for ranking/scoring), this is used to decide
 // whether a document matches at all. It requires the whole phrase or ALL query tokens to
 // be present in the strict blob — a single incidental token match is not sufficient.
+function getStateStreetExactValues(doc: PreparedLocalSearchDoc): string[] {
+	const hit = doc.hit || {};
+	const values: string[] = [];
+	const push = (...items: unknown[]) => {
+		for (const item of items) {
+			if (item == null) continue;
+			const text = normalizeText(item);
+			if (text) values.push(text);
+		}
+	};
+	push(
+		hit.state,
+		hit.street1,
+		hit.street2,
+		...(Array.isArray(hit.ind_current_employments) ? hit.ind_current_employments.flatMap((job: any) => [job?.state, job?.street1, job?.street2]) : []),
+		...(Array.isArray(hit.ind_previous_employments) ? hit.ind_previous_employments.flatMap((job: any) => [job?.state, job?.street1, job?.street2]) : []),
+		...(Array.isArray(hit.ind_ia_current_employments) ? hit.ind_ia_current_employments.flatMap((job: any) => [job?.state, job?.street1, job?.street2]) : []),
+		...(Array.isArray(hit.ind_ia_previous_employments) ? hit.ind_ia_previous_employments.flatMap((job: any) => [job?.state, job?.street1, job?.street2]) : []),
+	); 
+	return Array.from(new Set(values));
+}
+
+function hasPartialStateStreetMatch(doc: PreparedLocalSearchDoc, normalizedQuery: string) {
+	if (!normalizedQuery) return false;
+	const values = getStateStreetExactValues(doc);
+	if (!values.length) return false;
+	return values.some((value) => value !== normalizedQuery && (value.includes(normalizedQuery) || normalizedQuery.includes(value)));
+}
+
 function hasStrictDocumentTokenMatch(doc: PreparedLocalSearchDoc, normalizedQuery: string, tokens: string[]) {
 	const strictText = doc.normalizedStrictSearchText;
 	if (!strictText) return false;
+	if (hasPartialStateStreetMatch(doc, normalizedQuery)) return false;
 	if (containsWholePhrase(strictText, normalizedQuery) || strictText.includes(normalizedQuery)) return true;
 	if (!tokens.length) return false;
-	return tokens.every((token) => containsWholePhrase(strictText, token) || strictText.includes(token));
+	return tokens.every((token) => {
+		if (hasPartialStateStreetMatch(doc, token)) return false;
+		return containsWholePhrase(strictText, token) || strictText.includes(token);
+	});
 }
 
 function getSortScore(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQuery: string, tokens: string[]) {
@@ -1136,8 +1179,8 @@ export function buildIndividualDoc(source: string, detail: any): LocalSearchDoc 
 	const registrationCount = getRegistrationCount(detail);
 
 	const currentAddressTexts = uniqueTexts([
-		...currentEmployments.flatMap((e: any) => [e.city, e.state, ...e.branchOfficeLocations.flatMap((l: any) => [l.street1, l.street2, l.city, l.state])]),
-		...currentIAEmployments.flatMap((e: any) => [e.city, e.state, ...e.branchOfficeLocations.flatMap((l: any) => [l.street1, l.street2, l.city, l.state])]),
+		...currentEmployments.flatMap((e: any) => [e.city, e.zipCode, ...e.branchOfficeLocations.flatMap((l: any) => [l.city, l.zipCode])]),
+		...currentIAEmployments.flatMap((e: any) => [e.city, e.zipCode, ...e.branchOfficeLocations.flatMap((l: any) => [l.city, l.zipCode])]),
 	]);
 
 	const nameTexts = uniqueTexts([basicInformation.firstName, basicInformation.middleName, basicInformation.lastName, ...otherNames]);
@@ -1188,7 +1231,7 @@ export function buildFirmDoc(source: string, detail: any): LocalSearchDoc | null
 	const addressDetails = detail.firmAddressDetails || {};
 	const office = addressDetails.officeAddress || {};
 	const mailing = addressDetails.mailingAddress || {};
-	const currentAddressTexts = uniqueTexts([office.city, office.state, office.street1, office.street2, mailing.city, mailing.state, mailing.street1, mailing.street2]);
+	const currentAddressTexts = uniqueTexts([office.city, office.zipCode, mailing.city, mailing.zipCode]);
 
 	const nameTexts = uniqueTexts([firmName, ...otherNames]);
 	const hit = {

@@ -278,21 +278,27 @@ export function partitionConnectionsByFilter<T>(
 	enabled = true,
 	previewUnfiltered = false,
 ): { matched: T[]; unmatched: T[]; ordered: T[] } {
-	const matched: T[] = [];
+	const matchedEntries: Array<{ item: T; haystack: string; score: number }> = [];
 	const unmatched: T[] = [];
+	const hasActiveFilter = enabled && !previewUnfiltered && (tags.length > 0 || String(liveText || '').trim());
+
 	for (const item of Array.isArray(items) ? items : []) {
 		const haystack = getHaystack(item);
-		if (matchesConnectionsFilter(haystack, tags, liveText, enabled, previewUnfiltered)) matched.push(item);
-		else unmatched.push(item);
+		if (matchesConnectionsFilter(haystack, tags, liveText, enabled, previewUnfiltered)) {
+			matchedEntries.push({
+				item,
+				haystack,
+				score: hasActiveFilter ? scoreConnectionFilterMatch(haystack, tags, liveText) : 0,
+			});
+		} else {
+			unmatched.push(item);
+		}
 	}
-	// When a filter is active, rank matched cards by relevance so "timothy dale" surfaces
-	// Register near the top instead of burying a 1980s hire under thousands of "Timothy *" hits.
-	if (enabled && !previewUnfiltered && (tags.length > 0 || String(liveText || '').trim())) {
-		matched.sort((a, b) => {
-			const scoreDelta =
-				scoreConnectionFilterMatch(getHaystack(b), tags, liveText) - scoreConnectionFilterMatch(getHaystack(a), tags, liveText);
-			return scoreDelta;
-		});
+
+	if (hasActiveFilter) {
+		matchedEntries.sort((a, b) => b.score - a.score);
 	}
+
+	const matched = matchedEntries.map(({ item }) => item);
 	return { matched, unmatched, ordered: [...matched, ...unmatched] };
 }

@@ -14,6 +14,7 @@ import { getRecentSeedsFromStore, rememberRecentSeed } from '@/lib/seedStore';
 import { addRecordToSearchIndex, lookupNameFromSearchIndex } from '@/lib/localSearch';
 import { getRecordDisplayName } from '@/lib/recordDisplay';
 import { hasFirmSourceCoverage, hasIndividualSourceCoverage } from '@/lib/sourceTruth';
+import { writePerformanceMetric } from '@/lib/performanceLogger';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -2628,48 +2629,87 @@ async function deployPrimedBundlesToRedis() {
 }
 
 export async function POST(request: NextRequest) {
+	const startedAt = Date.now();
+	const memoryBefore = typeof process !== 'undefined' && process.memoryUsage ? process.memoryUsage().heapUsed : undefined;
 	let body: RefreshRequestBody;
 	try {
 		body = (await request.json()) as RefreshRequestBody;
 	} catch {
+		await writePerformanceMetric({
+			label: 'dashboard-refresh:invalid-json',
+			durationMs: Date.now() - startedAt,
+			heapUsedMb: memoryBefore ? Number((memoryBefore / 1024 / 1024).toFixed(2)) : undefined,
+			status: 'error',
+			phase: 'end',
+			meta: { path: '/api/dashboard/refresh' },
+		});
 		return NextResponse.json({ ok: false, error: 'invalid-json' }, { status: 400 });
 	}
 
 	const action = body.action;
 	if (!action || !['fetch-crds', 'sync-and-deploy-primed', 'list-cache-cards', 'list-new-crds', 'get-inventory-counter', 'increment-inventory-counter'].includes(action)) {
+		await writePerformanceMetric({
+			label: 'dashboard-refresh:invalid-action',
+			durationMs: Date.now() - startedAt,
+			heapUsedMb: memoryBefore ? Number((memoryBefore / 1024 / 1024).toFixed(2)) : undefined,
+			status: 'error',
+			phase: 'end',
+			meta: { path: '/api/dashboard/refresh', action: String(action || 'missing') },
+		});
 		return NextResponse.json({ ok: false, error: 'invalid-action' }, { status: 400 });
 	}
 
 	try {
 		if (action === 'get-inventory-counter') {
-			return NextResponse.json({ ok: true, action, count: await getInventoryCounterFromRedis(), at: new Date().toISOString() });
+			const result = { ok: true, action, count: await getInventoryCounterFromRedis(), at: new Date().toISOString() };
+			await writePerformanceMetric({
+				label: 'dashboard-refresh:get-inventory-counter',
+				durationMs: Date.now() - startedAt,
+				heapUsedMb: typeof process !== 'undefined' && process.memoryUsage ? Number((process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)) : undefined,
+				status: 'ok',
+				phase: 'end',
+				meta: { path: '/api/dashboard/refresh', action },
+			});
+			return NextResponse.json(result);
 		}
 
 		if (action === 'increment-inventory-counter') {
 			const amount = Math.max(1, Number(body.amount || 1));
-			return NextResponse.json({ ok: true, action, ...(await incrementInventoryCounterInRedis(amount)), at: new Date().toISOString() });
+			const result = { ok: true, action, ...(await incrementInventoryCounterInRedis(amount)), at: new Date().toISOString() };
+			await writePerformanceMetric({
+				label: 'dashboard-refresh:increment-inventory-counter',
+				durationMs: Date.now() - startedAt,
+				heapUsedMb: typeof process !== 'undefined' && process.memoryUsage ? Number((process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)) : undefined,
+				status: 'ok',
+				phase: 'end',
+				meta: { path: '/api/dashboard/refresh', action, amount },
+			});
+			return NextResponse.json(result);
 		}
 
 		if (action === 'list-new-crds') {
 			const listed = await listNewCrds(Boolean(body.force));
-			return NextResponse.json({
+			const result = {
 				ok: true,
 				action,
 				...listed,
 				at: new Date().toISOString(),
+			};
+			await writePerformanceMetric({
+				label: 'dashboard-refresh:list-new-crds',
+				durationMs: Date.now() - startedAt,
+				heapUsedMb: typeof process !== 'undefined' && process.memoryUsage ? Number((process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)) : undefined,
+				status: 'ok',
+				phase: 'end',
+				meta: { path: '/api/dashboard/refresh', action, shownCount: listed.shownCount || 0 },
 			});
+			return NextResponse.json(result);
 		}
 
 		if (action === 'list-cache-cards') {
 			const maxCards = Math.max(1, Math.min(1000, Number(body.maxCards || 10)));
 			const listed = await listCacheCards(maxCards, String(body.crdFilter || ''));
-			if ((listed as any).ok === false) {
-				return NextResponse.json(
-					{ ok: false, error: (listed as any).error || 'list-cache-cards-failed', cards: [], shownCount: 0, totalCount: 0, totalCacheKeys: 0 },
-					{ status: 200 },
-				);
-			}
-			return NextResponse.json({
+			const result = {
 				ok: true,
 				action,
 				cards: listed.cards,
@@ -2681,7 +2721,22 @@ export async function POST(request: NextRequest) {
 				sourceMode: listed.sourceMode,
 				persistenceNotice: (listed as any).persistenceNotice ?? null,
 				at: new Date().toISOString(),
+			};
+			await writePerformanceMetric({
+				label: 'dashboard-refresh:list-cache-cards',
+				durationMs: Date.now() - startedAt,
+				heapUsedMb: typeof process !== 'undefined' && process.memoryUsage ? Number((process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)) : undefined,
+				status: 'ok',
+				phase: 'end',
+				meta: { path: '/api/dashboard/refresh', action, shownCount: result.cards.length, totalCacheKeys: result.totalCacheKeys },
 			});
+			if ((listed as any).ok === false) {
+				return NextResponse.json(
+					{ ok: false, error: (listed as any).error || 'list-cache-cards-failed', cards: [], shownCount: 0, totalCount: 0, totalCacheKeys: 0 },
+					{ status: 200 },
+				);
+			}
+			return NextResponse.json(result);
 		}
 
 		if (action === 'fetch-crds') {
@@ -2716,6 +2771,14 @@ export async function POST(request: NextRequest) {
 			const targets = Array.from(targetMap.values());
 			if (!targets.length) {
 				const hasErrors = resolvedFromQueries.resolution.some((r) => (r as any).error);
+				await writePerformanceMetric({
+					label: 'dashboard-refresh:fetch-crds-no-targets',
+					durationMs: Date.now() - startedAt,
+					heapUsedMb: typeof process !== 'undefined' && process.memoryUsage ? Number((process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)) : undefined,
+					status: 'error',
+					phase: 'end',
+					meta: { path: '/api/dashboard/refresh', action, queries: queries.length, targetCount: 0 },
+				});
 				return NextResponse.json(
 					{
 						ok: false,
@@ -2731,7 +2794,7 @@ export async function POST(request: NextRequest) {
 			console.log(`[fetch-crds] Fetching ${targets.length} targets...`);
 			const fetched = await fetchCrdsToCacheAndRedis(targets, { includePayload: Boolean(body.includePayload) });
 			resetDashboardInventoryCaches();
-			return NextResponse.json({
+			const result = {
 				ok: true,
 				action,
 				queries,
@@ -2739,22 +2802,47 @@ export async function POST(request: NextRequest) {
 				resolution: resolvedFromQueries.resolution,
 				...fetched,
 				at: new Date().toISOString(),
+			};
+			await writePerformanceMetric({
+				label: 'dashboard-refresh:fetch-crds',
+				durationMs: Date.now() - startedAt,
+				heapUsedMb: typeof process !== 'undefined' && process.memoryUsage ? Number((process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)) : undefined,
+				status: 'ok',
+				phase: 'end',
+				meta: { path: '/api/dashboard/refresh', action, targetCount: targets.length, summary: fetched?.summary || null },
 			});
+			return NextResponse.json(result);
 		}
 
 		const externalRawDir = String(body.externalRawDir || process.env.EXTERNAL_RAW_DIR || DEFAULT_EXTERNAL_RAW_DIR).trim();
 		const syncResult = await syncExternalRawToLocal(externalRawDir);
 		const deployResult = await deployPrimedBundlesToRedis();
 		resetDashboardInventoryCaches();
-
-		return NextResponse.json({
+		const result = {
 			ok: true,
 			action,
 			syncResult,
 			deployResult,
 			at: new Date().toISOString(),
+		};
+		await writePerformanceMetric({
+			label: 'dashboard-refresh:sync-and-deploy-primed',
+			durationMs: Date.now() - startedAt,
+			heapUsedMb: typeof process !== 'undefined' && process.memoryUsage ? Number((process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)) : undefined,
+			status: 'ok',
+			phase: 'end',
+			meta: { path: '/api/dashboard/refresh', action, syncResult, deployResult },
 		});
+		return NextResponse.json(result);
 	} catch (error: any) {
+		await writePerformanceMetric({
+			label: 'dashboard-refresh:error',
+			durationMs: Date.now() - startedAt,
+			heapUsedMb: typeof process !== 'undefined' && process.memoryUsage ? Number((process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)) : undefined,
+			status: 'error',
+			phase: 'end',
+			meta: { path: '/api/dashboard/refresh', action: String(body?.action || 'unknown'), error: error?.message || String(error) },
+		});
 		return NextResponse.json(
 			{
 				ok: false,
