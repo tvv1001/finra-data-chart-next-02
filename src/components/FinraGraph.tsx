@@ -302,7 +302,16 @@ export default function FinraGraph() {
 
 	const isMobileSearchViewport = useCallback(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches, []);
 
+	const isSearchTypeFirstRenderRef = useRef(true);
 	useEffect(() => {
+		// Skip the mount-time run: the load-from-storage effect above hasn't
+		// applied its (possibly different) persisted value to `searchType` yet
+		// during this same commit, so writing here would clobber storage with
+		// the initial default before the real value ever takes effect.
+		if (isSearchTypeFirstRenderRef.current) {
+			isSearchTypeFirstRenderRef.current = false;
+			return;
+		}
 		try {
 			localStorage.setItem('finra_search_type', searchType);
 		} catch {}
