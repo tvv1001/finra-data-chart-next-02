@@ -21,7 +21,7 @@ Desktop.ini
 .vscode/
 
 # Misc
-*.local
+# *.local
 *.cache
 .tmp/
 *.swp
@@ -69,3 +69,9 @@ data/orphan_validation_report.json
 
 data/**
 patch_**
+
+# Unignore .local/scripts for Vercel
+!.local/scripts/
+!.local/scripts/**
+/.local/*
+!/.local/scripts/
