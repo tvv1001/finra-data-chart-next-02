@@ -1338,6 +1338,15 @@ export function extractSearchQueries(query: string): string[] {
 	}
 
 	if (candidates.length > 0) return candidates;
+
+	// Split by comma for multiple distinct text queries
+	const commaSeparated = trimmed
+		.split(',')
+		.map((t) => t.trim())
+		.filter(Boolean);
+		
+	if (commaSeparated.length > 0) return commaSeparated;
+	
 	return trimmed.length > 0 ? [trimmed] : [];
 }
 

@@ -1,6 +1,1074 @@
 {
   "firms": [
     {
+      "id": 305,
+      "name": "FIRST INVESTORS CORPORATION"
+    },
+    {
+      "id": 10,
+      "name": "ADVEST, INC."
+    },
+    {
+      "id": 8174,
+      "name": "PAINEWEBBER INCORPORATED"
+    },
+    {
+      "id": 10147,
+      "name": "ROBERT THOMAS SECURITIES, INC"
+    },
+    {
+      "id": 6694,
+      "name": "RAYMOND JAMES FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 144884,
+      "name": "HENLEY & COMPANY WEALTH MANAGEMENT LLC"
+    },
+    {
+      "id": 131453,
+      "name": "HENLEY & COMPANY LLC"
+    },
+    {
+      "id": 16783,
+      "name": "QUEST CAPITAL STRATEGIES, INC."
+    },
+    {
+      "id": 6627,
+      "name": "AXA ADVISORS, LLC"
+    },
+    {
+      "id": 409,
+      "name": "HOPPER SOLIDAY & CO., INC."
+    },
+    {
+      "id": 7575,
+      "name": "W. H. NEWBOLD'S SON & CO./HOPPER SOLIDAY & CO., INC."
+    },
+    {
+      "id": 15275,
+      "name": "PHILADELPHIA CORPORATION FOR INVESTMENT SERVICES"
+    },
+    {
+      "id": 38537,
+      "name": "PETERSEN INVESTMENTS, INC."
+    },
+    {
+      "id": 135729,
+      "name": "BORER DENTON & ASSOCIATES, INC."
+    },
+    {
+      "id": 659,
+      "name": "PHILIPS, APPEL & WALDEN, INC."
+    },
+    {
+      "id": 705,
+      "name": "RAYMOND JAMES & ASSOCIATES, INC."
+    },
+    {
+      "id": 31029,
+      "name": "NATIONWIDE PLANNING ASSOCIATES INC."
+    },
+    {
+      "id": 7556,
+      "name": "MORGAN STANLEY DW INC."
+    },
+    {
+      "id": 19585,
+      "name": "HSBC SECURITIES (USA) INC."
+    },
+    {
+      "id": 129400,
+      "name": "PALLADIUM CAPITAL ADVISORS, LLC"
+    },
+    {
+      "id": 6554,
+      "name": "EDWARDS & HANLY"
+    },
+    {
+      "id": 6517,
+      "name": "BUTCHER & SINGER INC."
+    },
+    {
+      "id": 6361,
+      "name": "BLYTH EASTMAN DILLON & CO. INCORPORATED"
+    },
+    {
+      "id": 640,
+      "name": "PAINE, WEBBER, JACKSON & CURTIS INCORPORATED"
+    },
+    {
+      "id": 630,
+      "name": "OPPENHEIMER & CO., INC."
+    },
+    {
+      "id": 7323,
+      "name": "DREXEL BURNHAM LAMBERT INCORPORATED"
+    },
+    {
+      "id": 107518,
+      "name": "PENN MUTUAL ASSET MANAGEMENT, LLC"
+    },
+    {
+      "id": 6321,
+      "name": "IDS LIFE INSURANCE COMPANY"
+    },
+    {
+      "id": 6363,
+      "name": "AMERICAN EXPRESS FINANCIAL ADVISORS INC."
+    },
+    {
+      "id": 7452,
+      "name": "VANGUARD MARKETING CORPORATION"
+    },
+    {
+      "id": 46106,
+      "name": "FORESIDE FUND SERVICES, LLC"
+    },
+    {
+      "id": 4031,
+      "name": "HORNOR, TOWNSEND & KENT, LLC"
+    },
+    {
+      "id": 339539,
+      "name": "MYWORTH LLC"
+    },
+    {
+      "id": 14754,
+      "name": "QA3 FINANCIAL CORP."
+    },
+    {
+      "id": 7072,
+      "name": "CAPE SECURITIES INC."
+    },
+    {
+      "id": 14869,
+      "name": "AMERITAS INVESTMENT COMPANY, LLC"
+    },
+    {
+      "id": 740,
+      "name": "SALOMON BROTHERS INC."
+    },
+    {
+      "id": 15390,
+      "name": "JAMES CAPEL INCORPORATED"
+    },
+    {
+      "id": 5967,
+      "name": "AIG EQUITY SALES CORP."
+    },
+    {
+      "id": 126500,
+      "name": "UOB GLOBAL EQUITY SALES LLC"
+    },
+    {
+      "id": 171277,
+      "name": "W CAMPION CAPITAL LLC"
+    },
+    {
+      "id": 109524,
+      "name": "ALLSTATE FINANCIAL ADVISORS, LLC"
+    },
+    {
+      "id": 7110,
+      "name": "NATIONWIDE INVESTMENT SERVICES CORPORATION"
+    },
+    {
+      "id": 11173,
+      "name": "NATIONWIDE SECURITIES, INC."
+    },
+    {
+      "id": 23131,
+      "name": "ROYAL ALLIANCE ASSOCIATES, INC."
+    },
+    {
+      "id": 42803,
+      "name": "VALIC FINANCIAL ADVISORS, INC."
+    },
+    {
+      "id": 47076,
+      "name": "STUART SECURITIES CORP."
+    },
+    {
+      "id": 4095,
+      "name": "METROPOLITAN LIFE INSURANCE COMPANY"
+    },
+    {
+      "id": 14251,
+      "name": "METLIFE SECURITIES INC."
+    },
+    {
+      "id": 34815,
+      "name": "ING FINANCIAL ADVISERS, LLC"
+    },
+    {
+      "id": 7059,
+      "name": "CITIGROUP GLOBAL MARKETS INC."
+    },
+    {
+      "id": 149777,
+      "name": "MORGAN STANLEY SMITH BARNEY"
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 42132,
+      "name": "CUSO FINANCIAL SERVICES, L.P."
+    },
+    {
+      "id": 30999,
+      "name": "LEGEND EQUITIES CORPORATION"
+    },
+    {
+      "id": 43036,
+      "name": "STATE FARM VP MANAGEMENT CORP."
+    },
+    {
+      "id": 18272,
+      "name": "ALLSTATE FINANCIAL SERVICES, LLC"
+    },
+    {
+      "id": 250,
+      "name": "EDWARD JONES"
+    },
+    {
+      "id": 107319,
+      "name": "TRANSAMERICA RETIREMENT ADVISORS, LLC"
+    },
+    {
+      "id": 32205,
+      "name": "TRANSAMERICA INVESTORS SECURITIES, LLC"
+    },
+    {
+      "id": 42846,
+      "name": "AMERICAN CENTURY BROKERAGE, INC."
+    },
+    {
+      "id": 17437,
+      "name": "AMERICAN CENTURY INVESTMENT SERVICES INC."
+    },
+    {
+      "id": 7870,
+      "name": "TD AMERITRADE, INC."
+    },
+    {
+      "id": 5393,
+      "name": "CHARLES SCHWAB & CO., INC."
+    },
+    {
+      "id": 17433,
+      "name": "ACADEMY SECURITIES, INC."
+    },
+    {
+      "id": 324549,
+      "name": "DIVERGENT CAPITAL ASSET MANAGEMENT LLC"
+    },
+    {
+      "id": 14942,
+      "name": "WILMINGTON BROKERAGE SERVICES COMPANY"
+    },
+    {
+      "id": 19616,
+      "name": "WELLS FARGO ADVISORS, LLC"
+    },
+    {
+      "id": 7927,
+      "name": "NORTHERN TRUST SECURITIES, INC."
+    },
+    {
+      "id": 107769,
+      "name": "HUDSON ADVISOR SERVICES, INC."
+    },
+    {
+      "id": 304163,
+      "name": "HUDSON CAPITAL ADVISORY, INC."
+    },
+    {
+      "id": 816,
+      "name": "CS FIRST BOSTON CORPORATION"
+    },
+    {
+      "id": 22068,
+      "name": "WASSERSTEIN PERELLA & CO., INC."
+    },
+    {
+      "id": 7506,
+      "name": "LEHMAN BROTHERS INC."
+    },
+    {
+      "id": 19714,
+      "name": "BARCLAYS CAPITAL INC."
+    },
+    {
+      "id": 198516,
+      "name": "INTREPID PARTNERS, LLC"
+    },
+    {
+      "id": 375,
+      "name": "H.C.WAINWRIGHT & CO., LLC"
+    },
+    {
+      "id": 125334,
+      "name": "CASTLEOAK SECURITIES, LP"
+    },
+    {
+      "id": 342026,
+      "name": "AQUA MARKETS LLC"
+    },
+    {
+      "id": 153563,
+      "name": "INDEPENDENT BROKERAGE SOLUTIONS LLC"
+    },
+    {
+      "id": 334916,
+      "name": "RAINBRIDGE SECURITIES LLC"
+    },
+    {
+      "id": 47069,
+      "name": "CIC MARKET SOLUTIONS, INC."
+    },
+    {
+      "id": 305000,
+      "name": "MEC GLOBAL PARTNERS LLC"
+    },
+    {
+      "id": 340762,
+      "name": "THE TIE CAPITAL LLC"
+    },
+    {
+      "id": 44734,
+      "name": "PARETO SECURITIES INC."
+    },
+    {
+      "id": 322826,
+      "name": "EQTE BROKERAGE LLC"
+    },
+    {
+      "id": 277056,
+      "name": "CVC FUNDING, LLC"
+    },
+    {
+      "id": 148143,
+      "name": "MACRO RISK ADVISORS LLC"
+    },
+    {
+      "id": 148088,
+      "name": "HOCKING CAPITAL, LLC"
+    },
+    {
+      "id": 143787,
+      "name": "GLOBEOP MARKETS LIMITED"
+    },
+    {
+      "id": 28195,
+      "name": "INTERNATIONAL STRATEGY & INVESTMENT GROUP LLC"
+    },
+    {
+      "id": 17442,
+      "name": "BESSEMER INVESTOR SERVICES, INC."
+    },
+    {
+      "id": 132503,
+      "name": "CUE CAPITAL LIMITED PARTNERSHIP"
+    },
+    {
+      "id": 159795,
+      "name": "CCB INTERNATIONAL OVERSEAS (USA) INC."
+    },
+    {
+      "id": 143529,
+      "name": "TRIAGO"
+    },
+    {
+      "id": 174952,
+      "name": "ICR CAPITAL LLC"
+    },
+    {
+      "id": 291361,
+      "name": "ROCKEFELLER FINANCIAL LLC"
+    },
+    {
+      "id": 159175,
+      "name": "TORCH PARTNERS CORPORATE FINANCE INC"
+    },
+    {
+      "id": 305330,
+      "name": "ASHFORD SECURITIES LLC"
+    },
+    {
+      "id": 292240,
+      "name": "CEBILE CAPITAL LLC"
+    },
+    {
+      "id": 100960,
+      "name": "OUTCOME CAPITAL, LLC"
+    },
+    {
+      "id": 168935,
+      "name": "NEBARI SECURITIES, LLC"
+    },
+    {
+      "id": 150892,
+      "name": "WATERMILL INSTITUTIONAL TRADING LLC"
+    },
+    {
+      "id": 172729,
+      "name": "HOWDEN TIGER CAPITAL MARKETS & ADVISORY, LLC"
+    },
+    {
+      "id": 298809,
+      "name": "HUATAI SECURITIES (USA), INC."
+    },
+    {
+      "id": 157321,
+      "name": "PEEL HUNT INC."
+    },
+    {
+      "id": 304761,
+      "name": "GEMINI GALACTIC MARKETS, LLC"
+    },
+    {
+      "id": 10963,
+      "name": "PAPAMARKOU WELLNER & CO., INC."
+    },
+    {
+      "id": 167601,
+      "name": "BREAKWATER GROUP DISTRIBUTION SERVICES, LLC"
+    },
+    {
+      "id": 158419,
+      "name": "SQUARE GLOBAL MARKETS"
+    },
+    {
+      "id": 337850,
+      "name": "PATIENT SQUARE CAPITAL MARKETS, LLC"
+    },
+    {
+      "id": 5478,
+      "name": "CAPITAL ANALYSTS, INCORPORATED"
+    },
+    {
+      "id": 7291,
+      "name": "LOWRY FINANCIAL SERVICES CORPORATION"
+    },
+    {
+      "id": 14646,
+      "name": "CARILLON INVESTMENTS, INC."
+    },
+    {
+      "id": 164814,
+      "name": "MTS MARKETS INTERNATIONAL, INC."
+    },
+    {
+      "id": 107165,
+      "name": "MOLECULAR SECURITIES INC."
+    },
+    {
+      "id": 131226,
+      "name": "STERN CAPITAL LLC"
+    },
+    {
+      "id": 128985,
+      "name": "SKYWORKS SECURITIES, LLC"
+    },
+    {
+      "id": 299729,
+      "name": "ABSA SECURITIES U.S. INC."
+    },
+    {
+      "id": 27861,
+      "name": "MAYBANK SECURITIES USA INC."
+    },
+    {
+      "id": 153192,
+      "name": "CODE ADVISORS LLC"
+    },
+    {
+      "id": 43875,
+      "name": "BONDS.COM LLC"
+    },
+    {
+      "id": 137873,
+      "name": "RAINE SECURITIES LLC"
+    },
+    {
+      "id": 281740,
+      "name": "TRITOWER REAL ESTATE CAPITAL, LLC"
+    },
+    {
+      "id": 288891,
+      "name": "CURRENT CAPITAL SECURITIES LLC"
+    },
+    {
+      "id": 166318,
+      "name": "CR GLOBAL MARKETS INC."
+    },
+    {
+      "id": 144634,
+      "name": "GLOBAL FRONTERA MARKETS INC."
+    },
+    {
+      "id": 153974,
+      "name": "CITCO SECURITIES INC."
+    },
+    {
+      "id": 146871,
+      "name": "EAST WEST MARKETS, LLC"
+    },
+    {
+      "id": 122341,
+      "name": "FOCUSPOINT PRIVATE CAPITAL GROUP"
+    },
+    {
+      "id": 143869,
+      "name": "TRANSPACIFIC GROUP LLC"
+    },
+    {
+      "id": 326979,
+      "name": "ZOE SECURITIES LLC"
+    },
+    {
+      "id": 152424,
+      "name": "LARRAINVIAL SECURITIES US LLC"
+    },
+    {
+      "id": 314958,
+      "name": "RMB SECURITIES (USA) INC."
+    },
+    {
+      "id": 307780,
+      "name": "MOMENTUS SECURITIES LLC"
+    },
+    {
+      "id": 42820,
+      "name": "TRIPLETREE, LLC"
+    },
+    {
+      "id": 45763,
+      "name": "KIPPSDESANTO & COMPANY"
+    },
+    {
+      "id": 44158,
+      "name": "CAPITAL ONE SECURITIES, INC."
+    },
+    {
+      "id": 35699,
+      "name": "GLOBAL FINANCIAL SERVICES, L.L.C."
+    },
+    {
+      "id": 329919,
+      "name": "WISE US ASSETS INC"
+    },
+    {
+      "id": 339111,
+      "name": "ZS SECURITIES, LLC"
+    },
+    {
+      "id": 285480,
+      "name": "PANTHEON SECURITIES, LLC"
+    },
+    {
+      "id": 317428,
+      "name": "NCMG LLC"
+    },
+    {
+      "id": 18718,
+      "name": "J.P. MORGAN SECURITIES INC."
+    },
+    {
+      "id": 79,
+      "name": "J.P. MORGAN SECURITIES LLC"
+    },
+    {
+      "id": 316511,
+      "name": "THL CAPITAL MARKETS, LLC"
+    },
+    {
+      "id": 38986,
+      "name": "IRONHORSE SECURITIES INC."
+    },
+    {
+      "id": 43512,
+      "name": "BBA SECURITIES CORP."
+    },
+    {
+      "id": 104251,
+      "name": "STREETEDGE CAPITAL, INC."
+    },
+    {
+      "id": 38485,
+      "name": "HANDELSBANKEN MARKETS SECURITIES, INC."
+    },
+    {
+      "id": 118939,
+      "name": "FREEMAN & CO. SECURITIES LLC"
+    },
+    {
+      "id": 138970,
+      "name": "ATLAS STRATEGIC ADVISORS, LLC"
+    },
+    {
+      "id": 135790,
+      "name": "GOODBODY SECURITIES INC"
+    },
+    {
+      "id": 133994,
+      "name": "SEACAP SECURITIES LLC"
+    },
+    {
+      "id": 146482,
+      "name": "JLTS, LLC"
+    },
+    {
+      "id": 146269,
+      "name": "MILLENNIUM GLOBAL CAPITAL, LLC"
+    },
+    {
+      "id": 126822,
+      "name": "SKANDIA SECURITIES AMERICAS, INC."
+    },
+    {
+      "id": 128333,
+      "name": "UPDATA SECURITIES, INC."
+    },
+    {
+      "id": 104063,
+      "name": "NEWOAK CAPITAL MARKETS LLC"
+    },
+    {
+      "id": 128144,
+      "name": "PCS DUNBAR SECURITIES, LLC"
+    },
+    {
+      "id": 41916,
+      "name": "SEABURY SECURITIES LLC"
+    },
+    {
+      "id": 150847,
+      "name": "FLETCHERBENNETT CAPITAL LLC"
+    },
+    {
+      "id": 135778,
+      "name": "CENTENIUM ADVISORS, LLC"
+    },
+    {
+      "id": 164783,
+      "name": "FANTEX BROKERAGE SERVICES, LLC"
+    },
+    {
+      "id": 127314,
+      "name": "UOB KAY HIAN (U.S.) INC."
+    },
+    {
+      "id": 157233,
+      "name": "STANDARD LIFE INVESTMENTS SECURITIES LLC"
+    },
+    {
+      "id": 150695,
+      "name": "DMS CAPITAL SOLUTIONS, INC."
+    },
+    {
+      "id": 145860,
+      "name": "FIRST AVENUE"
+    },
+    {
+      "id": 146250,
+      "name": "GSP SECURITIES LLC"
+    },
+    {
+      "id": 304600,
+      "name": "REVOLUT SECURITIES INC."
+    },
+    {
+      "id": 300947,
+      "name": "BC PARTNERS SECURITIES LLC"
+    },
+    {
+      "id": 175356,
+      "name": "AFL-CIO ITC FINANCIAL, LLC"
+    },
+    {
+      "id": 166384,
+      "name": "CLARION PARTNERS SECURITIES, LLC"
+    },
+    {
+      "id": 24129,
+      "name": "SCHRODER FUND ADVISORS LLC"
+    },
+    {
+      "id": 154725,
+      "name": "HEDGESERV INVESTMENT SERVICES LLC"
+    },
+    {
+      "id": 175456,
+      "name": "BAIN CAPITAL MARKETS, LLC"
+    },
+    {
+      "id": 305007,
+      "name": "PACENOTE CAPITAL LLC"
+    },
+    {
+      "id": 111514,
+      "name": "AMERIVEST INVESTMENT MANAGEMENT, LLC"
+    },
+    {
+      "id": 42159,
+      "name": "E*TRADE CAPITAL MANAGEMENT, LLC"
+    },
+    {
+      "id": 140808,
+      "name": "KOVACK ADVISORS, INC."
+    },
+    {
+      "id": 25023,
+      "name": "BILTMORE SECURITIES, INC"
+    },
+    {
+      "id": 19415,
+      "name": "GKN SECURITIES CORP."
+    },
+    {
+      "id": 23988,
+      "name": "CITICORP INVESTMENT SERVICES"
+    },
+    {
+      "id": 29106,
+      "name": "E*TRADE SECURITIES LLC"
+    },
+    {
+      "id": 17499,
+      "name": "SUNTRUST INVESTMENT SERVICES, INC."
+    },
+    {
+      "id": 44848,
+      "name": "KOVACK SECURITIES INC."
+    },
+    {
+      "id": 149794,
+      "name": "SNOWDEN ACCOUNT SERVICES LLC"
+    },
+    {
+      "id": 325914,
+      "name": "BALANZ CAPITAL USA LLC"
+    },
+    {
+      "id": 151604,
+      "name": "CONCORDE INVESTMENT SERVICES, LLC"
+    },
+    {
+      "id": 2780,
+      "name": "MILBROOK SECURITIES CO., INC."
+    },
+    {
+      "id": 12963,
+      "name": "MONEY CONCEPTS CAPITAL CORP"
+    },
+    {
+      "id": 15986,
+      "name": "MAGELLAN SECURITIES INC"
+    },
+    {
+      "id": 43100,
+      "name": "QUESTAR CAPITAL CORPORATION"
+    },
+    {
+      "id": 39806,
+      "name": "EQUITAS AMERICA, LLC"
+    },
+    {
+      "id": 309956,
+      "name": "AMERICAN ALTERNATIVE CAPITAL, LLC"
+    },
+    {
+      "id": 140367,
+      "name": "CONCORDE ASSET MANAGEMENT, LLC"
+    },
+    {
+      "id": 36559,
+      "name": "AMERITRADE"
+    },
+    {
+      "id": 36807,
+      "name": "DATEK ONLINE FINANCIAL SERVICES LLC"
+    },
+    {
+      "id": 8206,
+      "name": "SCOTTRADE, INC."
+    },
+    {
+      "id": 5633,
+      "name": "TD AMERITRADE CLEARING, INC."
+    },
+    {
+      "id": 6413,
+      "name": "LPL FINANCIAL LLC"
+    },
+    {
+      "id": 25025,
+      "name": "E*TRADE CLEARING LLC"
+    },
+    {
+      "id": 145562,
+      "name": "OPTIONSHOUSE"
+    },
+    {
+      "id": 866,
+      "name": "WADDELL & REED"
+    },
+    {
+      "id": 8733,
+      "name": "LPL ENTERPRISE, LLC"
+    },
+    {
+      "id": 7784,
+      "name": "FIDELITY BROKERAGE SERVICES LLC"
+    },
+    {
+      "id": 111528,
+      "name": "G1 EXECUTION SERVICES, LLC"
+    },
+    {
+      "id": 11025,
+      "name": "WELLS FARGO ADVISORS FINANCIAL NETWORK, LLC"
+    },
+    {
+      "id": 42890,
+      "name": "E*TRADE GLOBAL ASSET MANAGEMENT, INC."
+    },
+    {
+      "id": 138164,
+      "name": "FORTIGENT, LLC"
+    },
+    {
+      "id": 116797,
+      "name": "CITADEL SECURITIES LLC"
+    },
+    {
+      "id": 324528,
+      "name": "EAGLE POINT SECURITIES LLC"
+    },
+    {
+      "id": 136865,
+      "name": "CAPITAL ONE ADVISORS, LLC"
+    },
+    {
+      "id": 134952,
+      "name": "COASTAL INVESTMENT ADVISORS"
+    },
+    {
+      "id": 167958,
+      "name": "SOFI WEALTH LLC"
+    },
+    {
+      "id": 45744,
+      "name": "CAPITAL ONE INVESTING, LLC"
+    },
+    {
+      "id": 23769,
+      "name": "COASTAL EQUITIES, INC."
+    },
+    {
+      "id": 151717,
+      "name": "SOFI SECURITIES LLC"
+    },
+    {
+      "id": 154132,
+      "name": "SB1 CAPITAL MARKETS INC"
+    },
+    {
+      "id": 326041,
+      "name": "ALDER SECURITIES LLC"
+    },
+    {
+      "id": 12984,
+      "name": "INVEST FINANCIAL CORPORATION"
+    },
+    {
+      "id": 3870,
+      "name": "JEFFERSON PILOT SECURITIES CORPORATION"
+    },
+    {
+      "id": 612,
+      "name": "ALLIANZ LIFE FINANCIAL SERVICES, LLC"
+    },
+    {
+      "id": 139135,
+      "name": "RIVERSOURCE DISTRIBUTORS, INC."
+    },
+    {
+      "id": 141277,
+      "name": "STEADFAST CAPITAL MARKETS GROUP, LLC"
+    },
+    {
+      "id": 151152,
+      "name": "SC DISTRIBUTORS, LLC"
+    },
+    {
+      "id": 130032,
+      "name": "EMERSON EQUITY LLC"
+    },
+    {
+      "id": 152550,
+      "name": "WEALTHFORGE SECURITIES, LLC"
+    },
+    {
+      "id": 47957,
+      "name": "GARY GOLDBERG & CO., LLC"
+    },
+    {
+      "id": 323859,
+      "name": "KYBORA CAPITAL LLC"
+    },
+    {
+      "id": 31741,
+      "name": "HALLIDAY FINANCIAL, LLC"
+    },
+    {
+      "id": 35747,
+      "name": "PURSHE KAPLAN STERLING INVESTMENTS"
+    },
+    {
+      "id": 2617,
+      "name": "MABON, NUGENT & CO."
+    },
+    {
+      "id": 19418,
+      "name": "BANCA IMI SECURITIES CORP."
+    },
+    {
+      "id": 103746,
+      "name": "COLLINS STEWART (SECURITIES) INC."
+    },
+    {
+      "id": 47414,
+      "name": "COLLINS STEWART INC."
+    },
+    {
+      "id": 20431,
+      "name": "PREBON SECURITIES (USA) INC."
+    },
+    {
+      "id": 19717,
+      "name": "TULLETT LIBERTY BROKERAGE INC."
+    },
+    {
+      "id": 29551,
+      "name": "PREBON FINANCIAL PRODUCTS INC."
+    },
+    {
+      "id": 28196,
+      "name": "TULLETT PREBON FINANCIAL SERVICES LLC"
+    },
+    {
+      "id": 13681,
+      "name": "MINT BROKERS"
+    },
+    {
+      "id": 19982,
+      "name": "GFI SECURITIES LLC"
+    },
+    {
+      "id": 19801,
+      "name": "BGC FINANCIAL, L.P."
+    },
+    {
+      "id": 154075,
+      "name": "FMX EXECUTION, LLC"
+    },
+    {
+      "id": 46709,
+      "name": "KBC FINANCIAL PRODUCTS USA, INC."
+    },
+    {
+      "id": 25027,
+      "name": "FBR CAPITAL MARKETS & CO."
+    },
+    {
+      "id": 793,
+      "name": "STIFEL, NICOLAUS & COMPANY, INCORPORATED"
+    },
+    {
+      "id": 2186,
+      "name": "HERZOG, HEINE, GEDULD, INC."
+    },
+    {
+      "id": 7471,
+      "name": "PRUDENTIAL SECURITIES INCORPORATED"
+    },
+    {
+      "id": 39310,
+      "name": "WEXFORD CLEARING SERVICES, LLC"
+    },
+    {
+      "id": 24790,
+      "name": "C.E. UNTERBERG, TOWBIN, LLC."
+    },
+    {
+      "id": 41957,
+      "name": "DRESDNER KLEINWORT SECURITIES LLC"
+    },
+    {
+      "id": 21787,
+      "name": "COMMERZBANK CAPITAL MARKETS CORP."
+    },
+    {
+      "id": 124737,
+      "name": "SOLEIL SECURITIES CORPORATION"
+    },
+    {
+      "id": 7671,
+      "name": "TICONDEROGA SECURITIES LLC"
+    },
+    {
+      "id": 40638,
+      "name": "GUGGENHEIM SECURITIES, LLC"
+    },
+    {
+      "id": 21774,
+      "name": "AIG FINANCIAL SECURITIES CORP."
+    },
+    {
+      "id": 118936,
+      "name": "RBS SECURITIES CORPORATION"
+    },
+    {
+      "id": 11707,
+      "name": "RBS SECURITIES INC."
+    },
+    {
+      "id": 298276,
+      "name": "EXOS SECURITIES LLC"
+    },
+    {
+      "id": 134,
+      "name": "CANTOR FITZGERALD & CO."
+    },
+    {
+      "id": 19660,
+      "name": "CANTOR FITZGERALD SECURITIES"
+    },
+    {
+      "id": 23741,
+      "name": "CHAPDELAINE CORPORATE SECURITIES & CO"
+    },
+    {
+      "id": 7017,
+      "name": "CHAPDELAINE TULLETT PREBON, LLC"
+    },
+    {
+      "id": 19739,
+      "name": "ICAP SECURITIES USA LLC"
+    },
+    {
+      "id": 2762,
+      "name": "ICAP CORPORATES LLC"
+    },
+    {
+      "id": 151012,
+      "name": "SUNRISE BROKERS LLC"
+    },
+    {
       "id": 106342,
       "name": "RHONE GROUP ADVISORS LLC"
     },
@@ -13,20 +1081,12 @@
       "name": "RHONE GROUP L.L.C."
     },
     {
-      "id": 7059,
-      "name": "SALOMON SMITH BARNEY INC."
-    },
-    {
       "id": 7654,
       "name": "UBS SECURITIES LLC"
     },
     {
       "id": 2347,
       "name": "JEFFERIES LLC"
-    },
-    {
-      "id": 134,
-      "name": "CANTOR FITZGERALD & CO."
     },
     {
       "id": 18476,
@@ -45,20 +1105,8 @@
       "name": "CF SECURED, LLC"
     },
     {
-      "id": 8174,
-      "name": "UBS PAINEWEBBER INC."
-    },
-    {
       "id": 2525,
       "name": "DEUTSCHE BANK SECURITIES INC."
-    },
-    {
-      "id": 19714,
-      "name": "BARCLAYS CAPITAL INC."
-    },
-    {
-      "id": 816,
-      "name": "CREDIT SUISSE SECURITIES (USA) LLC"
     },
     {
       "id": 1232,
@@ -81,16 +1129,8 @@
       "name": "WILLIAM O'NEIL SECURITIES"
     },
     {
-      "id": 740,
-      "name": "SALOMON BROTHERS INC."
-    },
-    {
       "id": 7613,
       "name": "KIDDER, PEABODY & CO. INCORPORATED"
-    },
-    {
-      "id": 7506,
-      "name": "LEHMAN BROTHERS INC."
     },
     {
       "id": 35957,
@@ -105,10 +1145,6 @@
       "name": "SEAPORT GLOBAL SECURITIES LLC"
     },
     {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
-    },
-    {
       "id": 26091,
       "name": "BANC OF AMERICA SECURITIES LLC"
     },
@@ -121,16 +1157,8 @@
       "name": "HD BROUS & CO., INC."
     },
     {
-      "id": 149777,
-      "name": "MORGAN STANLEY SMITH BARNEY"
-    },
-    {
       "id": 133763,
       "name": "SAGEPOINT FINANCIAL, INC."
-    },
-    {
-      "id": 23131,
-      "name": "ROYAL ALLIANCE ASSOCIATES, INC."
     },
     {
       "id": 7461,
@@ -139,10 +1167,6 @@
     {
       "id": 421,
       "name": "WOODBURY FINANCIAL SERVICES, INC."
-    },
-    {
-      "id": 17499,
-      "name": "SUNTRUST INVESTMENT SERVICES, INC."
     },
     {
       "id": 44337,
@@ -157,24 +1181,12 @@
       "name": "RESOURCE HORIZONS INVESTMENT ADVISORY, INC."
     },
     {
-      "id": 140808,
-      "name": "KOVACK ADVISORS, INC."
-    },
-    {
       "id": 133025,
       "name": "KALOS MANAGEMENT"
     },
     {
       "id": 104368,
       "name": "RESOURCE HORIZONS GROUP LLC"
-    },
-    {
-      "id": 44848,
-      "name": "KOVACK SECURITIES INC."
-    },
-    {
-      "id": 28195,
-      "name": "INTERNATIONAL STRATEGY & INVESTMENT GROUP INC."
     },
     {
       "id": 104022,
@@ -209,16 +1221,8 @@
       "name": "J.P. MORGAN SECURITIES INC."
     },
     {
-      "id": 18718,
-      "name": "J.P. MORGAN SECURITIES INC."
-    },
-    {
       "id": 31184,
       "name": "CARNEGIE, INC."
-    },
-    {
-      "id": 38485,
-      "name": "HANDELSBANKEN MARKETS SECURITIES, INC."
     },
     {
       "id": 6579,
@@ -265,36 +1269,8 @@
       "name": "CFWP SECURITIES, LLC"
     },
     {
-      "id": 151012,
-      "name": "SUNRISE BROKERS LLC"
-    },
-    {
-      "id": 13681,
-      "name": "MINT BROKERS"
-    },
-    {
-      "id": 19982,
-      "name": "GFI SECURITIES LLC"
-    },
-    {
-      "id": 154075,
-      "name": "FENICS EXECUTION, LLC"
-    },
-    {
-      "id": 19801,
-      "name": "BGC FINANCIAL, L.P."
-    },
-    {
       "id": 47681,
       "name": "AQUA SECURITIES L.P."
-    },
-    {
-      "id": 125334,
-      "name": "CASTLEOAK SECURITIES, LP"
-    },
-    {
-      "id": 153563,
-      "name": "INDEPENDENT BROKERAGE SOLUTIONS LLC"
     },
     {
       "id": 304839,
@@ -337,10 +1313,6 @@
       "name": "SMITH & WYATT"
     },
     {
-      "id": 198516,
-      "name": "INTREPID PARTNERS, LLC"
-    },
-    {
       "id": 104312,
       "name": "IATMARKETS LLC"
     },
@@ -353,16 +1325,8 @@
       "name": "SCURA PALEY SECURITIES LLC"
     },
     {
-      "id": 132503,
-      "name": "CUE CAPITAL LIMITED PARTNERSHIP"
-    },
-    {
       "id": 142008,
       "name": "FATOR SECURITIES LLC"
-    },
-    {
-      "id": 107165,
-      "name": "MOLECULAR SECURITIES INC."
     },
     {
       "id": 148084,
@@ -391,10 +1355,6 @@
     {
       "id": 226580,
       "name": "DIRECT MATCH"
-    },
-    {
-      "id": 277056,
-      "name": "CVC FUNDING, LLC"
     },
     {
       "id": 153501,
@@ -437,14 +1397,6 @@
       "name": "AFW ASSOCIATES LLC"
     },
     {
-      "id": 324528,
-      "name": "EAGLE POINT SECURITIES LLC"
-    },
-    {
-      "id": 323859,
-      "name": "KYBORA CAPITAL LLC"
-    },
-    {
       "id": 10332,
       "name": "VESTAX SECURITIES CORPORATION"
     },
@@ -455,14 +1407,6 @@
     {
       "id": 1075,
       "name": "AMERICAN UNITED LIFE INSURANCE COMPANY"
-    },
-    {
-      "id": 6321,
-      "name": "IDS LIFE INSURANCE COMPANY"
-    },
-    {
-      "id": 6363,
-      "name": "AMERIPRISE FINANCIAL SERVICES, INC."
     },
     {
       "id": 46047,
@@ -481,10 +1425,6 @@
       "name": "STRATEGIC ADVISERS, INC."
     },
     {
-      "id": 7784,
-      "name": "FIDELITY BROKERAGE SERVICES LLC"
-    },
-    {
       "id": 628,
       "name": "FIFTH THIRD SECURITIES, INC."
     },
@@ -493,20 +1433,12 @@
       "name": "U.S. BANCORP ADVISORS, LLC"
     },
     {
-      "id": 7556,
-      "name": "DEAN WITTER REYNOLDS INC."
-    },
-    {
       "id": 13648,
       "name": "GLENFED BROKERAGE SERVICES"
     },
     {
       "id": 11217,
       "name": "QUICK & REILLY, INC."
-    },
-    {
-      "id": 6694,
-      "name": "RAYMOND JAMES FINANCIAL SERVICES, INC."
     },
     {
       "id": 14068,
@@ -523,14 +1455,6 @@
     {
       "id": 15708,
       "name": "CONCOURSE FINANCIAL GROUP SECURITIES, INC."
-    },
-    {
-      "id": 250,
-      "name": "EDWARD JONES"
-    },
-    {
-      "id": 79,
-      "name": "J.P. MORGAN SECURITIES LLC"
     },
     {
       "id": 1790,
@@ -561,20 +1485,8 @@
       "name": "NFP SECURITIES, INC."
     },
     {
-      "id": 7110,
-      "name": "NATIONWIDE INVESTMENT SERVICES CORPORATION"
-    },
-    {
-      "id": 6413,
-      "name": "LPL FINANCIAL LLC"
-    },
-    {
       "id": 6950,
       "name": "DUNCAN-WILLIAMS, INC."
-    },
-    {
-      "id": 5393,
-      "name": "CHARLES SCHWAB & CO., INC."
     },
     {
       "id": 6220,
@@ -613,24 +1525,8 @@
       "name": "BANC OF AMERICA INVESTMENT SERVICES, INC."
     },
     {
-      "id": 793,
-      "name": "STIFEL, NICOLAUS & COMPANY, INCORPORATED"
-    },
-    {
       "id": 5309,
       "name": "FBL MARKETING SERVICES, LLC"
-    },
-    {
-      "id": 7471,
-      "name": "PRUDENTIAL SECURITIES INCORPORATED"
-    },
-    {
-      "id": 19616,
-      "name": "WACHOVIA SECURITIES, LLC"
-    },
-    {
-      "id": 705,
-      "name": "RAYMOND JAMES & ASSOCIATES, INC."
     },
     {
       "id": 134139,
@@ -651,10 +1547,6 @@
     {
       "id": 105644,
       "name": "CETERA INVESTMENT ADVISERS LLC"
-    },
-    {
-      "id": 305,
-      "name": "FORESTERS FINANCIAL SERVICES, INC."
     },
     {
       "id": 15340,
@@ -685,14 +1577,6 @@
       "name": "PERSONAL CAPITAL ADVISORS CORPORATION"
     },
     {
-      "id": 111514,
-      "name": "TD AMERITRADE INVESTMENT MANAGEMENT, LLC"
-    },
-    {
-      "id": 7870,
-      "name": "TD AMERITRADE, INC."
-    },
-    {
       "id": 27834,
       "name": "COASTAL SECURITIES, INC."
     },
@@ -711,10 +1595,6 @@
     {
       "id": 27143,
       "name": "JOSEPH CARL SECURITIES, INC."
-    },
-    {
-      "id": 11025,
-      "name": "WACHOVIA SECURITIES FINANCIAL NETWORK, LLC"
     },
     {
       "id": 132038,
@@ -739,10 +1619,6 @@
     {
       "id": 126291,
       "name": "CAPFINANCIAL SECURITIES, LLC."
-    },
-    {
-      "id": 22068,
-      "name": "WASSERSTEIN PERELLA & CO., INC."
     },
     {
       "id": 833,
@@ -837,24 +1713,8 @@
       "name": "STATE FARM INVESTMENT MANAGEMENT CORP."
     },
     {
-      "id": 43036,
-      "name": "STATE FARM VP MANAGEMENT CORP."
-    },
-    {
       "id": 19662,
       "name": "DEALERWEB INC."
-    },
-    {
-      "id": 19739,
-      "name": "ICAP SECURITIES USA LLC"
-    },
-    {
-      "id": 2762,
-      "name": "TP ICAP GLOBAL MARKETS AMERICAS LLC"
-    },
-    {
-      "id": 12984,
-      "name": "INVEST FINANCIAL CORPORATION"
     },
     {
       "id": 13941,
@@ -933,24 +1793,12 @@
       "name": "NYLIFE SECURITIES LLC"
     },
     {
-      "id": 866,
-      "name": "WADDELL & REED"
-    },
-    {
       "id": 2908,
       "name": "NEUBERGER BERMAN BD LLC"
     },
     {
       "id": 39473,
       "name": "TRADESTATION SECURITIES, INC."
-    },
-    {
-      "id": 6627,
-      "name": "AXA ADVISORS, LLC"
-    },
-    {
-      "id": 7452,
-      "name": "VANGUARD MARKETING CORPORATION"
     },
     {
       "id": 143830,
@@ -971,10 +1819,6 @@
     {
       "id": 5685,
       "name": "PRUCO SECURITIES, LLC."
-    },
-    {
-      "id": 29106,
-      "name": "E*TRADE SECURITIES LLC"
     },
     {
       "id": 46173,
@@ -1021,10 +1865,6 @@
       "name": "PNC WEALTH MANAGEMENT LLC"
     },
     {
-      "id": 42803,
-      "name": "VALIC FINANCIAL ADVISORS, INC."
-    },
-    {
       "id": 171346,
       "name": "DESTINY WEALTH PARTNERS, LLC"
     },
@@ -1043,10 +1883,6 @@
     {
       "id": 615,
       "name": "NEW ENGLAND SECURITIES"
-    },
-    {
-      "id": 46106,
-      "name": "FORESIDE FUND SERVICES, LLC"
     },
     {
       "id": 103848,
@@ -1157,20 +1993,12 @@
       "name": "BBVA WEALTH SOLUTIONS INC."
     },
     {
-      "id": 14251,
-      "name": "METLIFE SECURITIES INC."
-    },
-    {
       "id": 17086,
       "name": "BBVA COMPASS INVESTMENT SOLUTIONS, INC"
     },
     {
       "id": 27060,
       "name": "BBVA SECURITIES INC."
-    },
-    {
-      "id": 4095,
-      "name": "METROPOLITAN LIFE INSURANCE COMPANY"
     },
     {
       "id": 173,
@@ -1213,10 +2041,6 @@
       "name": "SPARTAN CAPITAL SECURITIES, LLC"
     },
     {
-      "id": 12963,
-      "name": "MONEY CONCEPTS CAPITAL CORP"
-    },
-    {
       "id": 42405,
       "name": "EVERCORE GROUP L.L.C."
     },
@@ -1239,10 +2063,6 @@
     {
       "id": 36671,
       "name": "PERSHING ADVISOR SOLUTIONS LLC"
-    },
-    {
-      "id": 25025,
-      "name": "E*TRADE CLEARING LLC"
     },
     {
       "id": 103821,
@@ -1349,10 +2169,6 @@
       "name": "J.P. MORGAN PRIME INC."
     },
     {
-      "id": 19418,
-      "name": "BANCA IMI SECURITIES CORP."
-    },
-    {
       "id": 15776,
       "name": "ABN AMRO INCORPORATED"
     },
@@ -1393,10 +2209,6 @@
       "name": "ESPEED BROKERAGE, L.P."
     },
     {
-      "id": 19585,
-      "name": "HSBC SECURITIES (USA) INC."
-    },
-    {
       "id": 25853,
       "name": "RAYMOND JAMES LTD (USA), INC."
     },
@@ -1411,10 +2223,6 @@
     {
       "id": 8158,
       "name": "ROBERT W. BAIRD & CO. INCORPORATED"
-    },
-    {
-      "id": 35747,
-      "name": "PURSHE KAPLAN STERLING INVESTMENTS"
     },
     {
       "id": 159255,
@@ -1461,10 +2269,6 @@
       "name": "TUCKER, ANTHONY & R. L. DAY, INC."
     },
     {
-      "id": 7575,
-      "name": "W. H. NEWBOLD'S SON & CO./HOPPER SOLIDAY & CO., INC."
-    },
-    {
       "id": 19628,
       "name": "REDSTONE SECURITIES, INC."
     },
@@ -1473,24 +2277,8 @@
       "name": "THE INVESTMENT CENTER, INC."
     },
     {
-      "id": 409,
-      "name": "HOPPER SOLIDAY & CO., INC."
-    },
-    {
-      "id": 15275,
-      "name": "PHILADELPHIA CORPORATION FOR INVESTMENT SERVICES"
-    },
-    {
       "id": 13787,
       "name": "UVEST FINANCIAL SERVICES GROUP, INC."
-    },
-    {
-      "id": 38537,
-      "name": "PETERSEN INVESTMENTS, INC."
-    },
-    {
-      "id": 131453,
-      "name": "HENLEY & COMPANY LLC"
     },
     {
       "id": 20892,
@@ -1565,20 +2353,12 @@
       "name": "PML SECURITIES COMPANY"
     },
     {
-      "id": 10147,
-      "name": "ROBERT THOMAS SECURITIES, INC"
-    },
-    {
       "id": 13755,
       "name": "FIRST MONTAUK SECURITIES CORP."
     },
     {
       "id": 10641,
       "name": "CADARET, GRANT & CO., INC."
-    },
-    {
-      "id": 8733,
-      "name": "LPL ENTERPRISE, LLC"
     },
     {
       "id": 132650,
@@ -1607,10 +2387,6 @@
     {
       "id": 129035,
       "name": "USAA FINANCIAL ADVISORS, INC."
-    },
-    {
-      "id": 8206,
-      "name": "SCOTTRADE, INC."
     },
     {
       "id": 7315,
@@ -1655,10 +2431,6 @@
     {
       "id": 10582,
       "name": "WELLS FARGO INVESTMENTS, LLC"
-    },
-    {
-      "id": 7927,
-      "name": "NORTHERN TRUST SECURITIES, INC."
     },
     {
       "id": 19258,
@@ -1777,10 +2549,6 @@
       "name": "CITICORP FINANCIAL SERVICES,INC."
     },
     {
-      "id": 23988,
-      "name": "CITICORP INVESTMENT SERVICES"
-    },
-    {
       "id": 17776,
       "name": "ZIONS INVESTMENT SECURITIES, INC."
     },
@@ -1843,10 +2611,6 @@
     {
       "id": 10410,
       "name": "W. S. GRIFFITH & CO., INC."
-    },
-    {
-      "id": 4031,
-      "name": "PENN MUTUAL EQUITY SERVICES, INC."
     },
     {
       "id": 8097,
@@ -2073,10 +2837,6 @@
       "name": "INLAND SECURITIES CORPORATION"
     },
     {
-      "id": 130032,
-      "name": "EMERSON EQUITY LLC"
-    },
-    {
       "id": 18353,
       "name": "PRUDENTIAL INVESTMENT MANAGEMENT SERVICES LLC"
     },
@@ -2269,10 +3029,6 @@
       "name": "ATLANTIC - PACIFIC CAPITAL, INC."
     },
     {
-      "id": 6517,
-      "name": "BUTCHER & SINGER INC."
-    },
-    {
       "id": 29993,
       "name": "FOLEY MUFSON HOWE & COMPANY"
     },
@@ -2329,10 +3085,6 @@
       "name": "OSAIC ADVISORY SERVICES, LLC"
     },
     {
-      "id": 18272,
-      "name": "LAUGHLIN GROUP ADVISORS, INC."
-    },
-    {
       "id": 20373,
       "name": "ABN AMRO FINANCIAL SERVICES, INC."
     },
@@ -2351,10 +3103,6 @@
     {
       "id": 20,
       "name": "ALEX. BROWN & SONS INCORPORATED"
-    },
-    {
-      "id": 10,
-      "name": "ADVEST, INC."
     },
     {
       "id": 22081,
@@ -2445,16 +3193,8 @@
       "name": "GOVERNMENT CAPITAL SECURITIES CORPORATION"
     },
     {
-      "id": 17433,
-      "name": "ACADEMY SECURITIES, INC."
-    },
-    {
       "id": 386,
       "name": "OPPENHEIMER ASSET MANAGEMENT CORPORATION"
-    },
-    {
-      "id": 6554,
-      "name": "EDWARDS & HANLY"
     },
     {
       "id": 525,
@@ -2721,38 +3461,6 @@
       "name": "SANFORD C. BERNSTEIN & CO., LLC"
     },
     {
-      "id": 109524,
-      "name": "ALLSTATE FINANCIAL ADVISORS, LLC"
-    },
-    {
-      "id": 11173,
-      "name": "NATIONWIDE SECURITIES, INC."
-    },
-    {
-      "id": 47076,
-      "name": "STUART SECURITIES CORP."
-    },
-    {
-      "id": 34815,
-      "name": "ING FINANCIAL ADVISERS, LLC"
-    },
-    {
-      "id": 42132,
-      "name": "CUSO FINANCIAL SERVICES, L.P."
-    },
-    {
-      "id": 30999,
-      "name": "LEGEND EQUITIES CORPORATION"
-    },
-    {
-      "id": 107319,
-      "name": "TRANSAMERICA RETIREMENT ADVISORS, LLC"
-    },
-    {
-      "id": 32205,
-      "name": "TRANSAMERICA INVESTORS SECURITIES, LLC"
-    },
-    {
       "id": 7656,
       "name": "PRESCOTT, BALL & TURBEN, INC."
     },
@@ -2821,10 +3529,6 @@
       "name": "MCGINN, SMITH & CO., INC."
     },
     {
-      "id": 31741,
-      "name": "HRC INVESTMENT SERVICES, INC."
-    },
-    {
       "id": 159712,
       "name": "CABOT LODGE SECURITIES LLC"
     },
@@ -2835,10 +3539,6 @@
     {
       "id": 106693,
       "name": "GOLDMAN SACHS AYCO PERSONAL FINANCIAL MANAGEMENT"
-    },
-    {
-      "id": 291361,
-      "name": "ROCKEFELLER FINANCIAL LLC"
     },
     {
       "id": 112158,
@@ -2882,6 +3582,222 @@
     }
   ],
   "individuals": [
+    {
+      "id": 1701429,
+      "name": "EDWARD JOHN SCHNEPF"
+    },
+    {
+      "id": 7638884,
+      "name": "JANE FIORELLA KNOX"
+    },
+    {
+      "id": 4685804,
+      "name": "IRA IRVING ROUSSO"
+    },
+    {
+      "id": 1321620,
+      "name": "ALBERT LOUIS DENTON"
+    },
+    {
+      "id": 721009,
+      "name": "PAMELA JAFFE ROSENFELD"
+    },
+    {
+      "id": 4333202,
+      "name": "ANGELA ALBANESE"
+    },
+    {
+      "id": 4404986,
+      "name": "MARIA TERESA GERMANO-ALESSI"
+    },
+    {
+      "id": 219616,
+      "name": "FRANCIS PATRICK GEMINO"
+    },
+    {
+      "id": 4556827,
+      "name": "VICTORIA MARIE ROBINSON"
+    },
+    {
+      "id": 5300554,
+      "name": "HEATHER JILL NAGENGAST"
+    },
+    {
+      "id": 1932766,
+      "name": "HOWARD CRAIG BERKENFELD"
+    },
+    {
+      "id": 4375267,
+      "name": "DAVID TUVIA GOSS"
+    },
+    {
+      "id": 7505197,
+      "name": "Valentina Lopez"
+    },
+    {
+      "id": 6421222,
+      "name": "NICHOLAS DAVID RAWDON-JONES"
+    },
+    {
+      "id": 6323329,
+      "name": "EDWARD JAMES BRADLEY-NORMAN"
+    },
+    {
+      "id": 2669126,
+      "name": "Kelly L Davis"
+    },
+    {
+      "id": 2203397,
+      "name": "BRIDGET MCGEE REBER"
+    },
+    {
+      "id": 8154061,
+      "name": "John Quincy Mcgee"
+    },
+    {
+      "id": 707816,
+      "name": "MARY JO MCGEE"
+    },
+    {
+      "id": 3201847,
+      "name": "Michael Patrick McGee"
+    },
+    {
+      "id": 1782899,
+      "name": "HUGH EDWARD MCGEE"
+    },
+    {
+      "id": 7663258,
+      "name": "Abhijeet Regatte"
+    },
+    {
+      "id": 7980639,
+      "name": "Joseph Robert DeMarco"
+    },
+    {
+      "id": 4991095,
+      "name": "HUWAIDA HASSAN"
+    },
+    {
+      "id": 6117665,
+      "name": "DMITRIY RUTITSKIY"
+    },
+    {
+      "id": 3130318,
+      "name": "RUSSELL GORDON CHONG"
+    },
+    {
+      "id": 312203,
+      "name": "GREGORY WILLARD LONG"
+    },
+    {
+      "id": 6250921,
+      "name": "PHYLLIS NYUK FAH CHIN"
+    },
+    {
+      "id": 5060751,
+      "name": "JAIME ALDAMA"
+    },
+    {
+      "id": 7253452,
+      "name": "Radford Michael Gunzenhauser"
+    },
+    {
+      "id": 5374395,
+      "name": "GREGORY ROSS MAXON"
+    },
+    {
+      "id": 1905741,
+      "name": "ROBERT ANTHONY FORTINO"
+    },
+    {
+      "id": 2566724,
+      "name": "Marc Anthony Morell"
+    },
+    {
+      "id": 810171,
+      "name": "JOHN HERBERT GAKENHEIMER"
+    },
+    {
+      "id": 2758924,
+      "name": "JUDITH KOHOSKIE RICKETTS"
+    },
+    {
+      "id": 3254859,
+      "name": "BRENT BLAIN SIMONICH"
+    },
+    {
+      "id": 5109512,
+      "name": "Richard C Steinmeier"
+    },
+    {
+      "id": 3178848,
+      "name": "STEVEN THOMAS MALFITANO"
+    },
+    {
+      "id": 7248335,
+      "name": "Aneri Jambusaria"
+    },
+    {
+      "id": 6052977,
+      "name": "JAMES MCHALE"
+    },
+    {
+      "id": 4003349,
+      "name": "MATTHEW JON AUDETTE"
+    },
+    {
+      "id": 4194266,
+      "name": "MATTHEW KLAUS ENYEDI"
+    },
+    {
+      "id": 7673254,
+      "name": "Joseph Harris Roth"
+    },
+    {
+      "id": 6140462,
+      "name": "Alexander Jeremy Hecker"
+    },
+    {
+      "id": 2620553,
+      "name": "Jenniffer Alyce Daigle"
+    },
+    {
+      "id": 7194049,
+      "name": "Carl A Vanderborght"
+    },
+    {
+      "id": 5841363,
+      "name": "Sarah Bush"
+    },
+    {
+      "id": 1483052,
+      "name": "LOUIS JAMES SCOTTO"
+    },
+    {
+      "id": 4824739,
+      "name": "MARK J RINALDO"
+    },
+    {
+      "id": 2483562,
+      "name": "MICHAEL CARL SULFARO"
+    },
+    {
+      "id": 4163331,
+      "name": "JASON WILLIAMS HAUF"
+    },
+    {
+      "id": 2684821,
+      "name": "THOMAS JOSEPH LEWIS"
+    },
+    {
+      "id": 5612726,
+      "name": "MARTIN LYNCH"
+    },
+    {
+      "id": 5596046,
+      "name": "JEAN PIERRE AUBIN"
+    },
     {
       "id": 5423116,
       "name": "MARSHA ALLISON STEINER"
@@ -3101,14 +4017,6 @@
     {
       "id": 1284353,
       "name": "DENISE MCGEE BUCHANAN"
-    },
-    {
-      "id": 707816,
-      "name": "MARY JO MCGEE"
-    },
-    {
-      "id": 1782899,
-      "name": "HUGH EDWARD MCGEE"
     },
     {
       "id": 4516520,
@@ -4035,10 +4943,6 @@
       "name": "TIMOTHY GLENN TEMPLE"
     },
     {
-      "id": 8154061,
-      "name": "John Quincy Mcgee"
-    },
-    {
       "id": 1421707,
       "name": "DONALD PAUL MCGEE"
     },
@@ -4133,10 +5037,6 @@
     {
       "id": 2337001,
       "name": "W S PARKER"
-    },
-    {
-      "id": 2669126,
-      "name": "Kelly L Davis"
     },
     {
       "id": 326904,

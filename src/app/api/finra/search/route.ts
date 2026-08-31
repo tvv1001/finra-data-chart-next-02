@@ -89,16 +89,48 @@ export async function GET(request: NextRequest) {
 
 		let data: any = emptyResponse;
 		try {
-			data = await searchLocalIndexMany('finra', entity, rawQuery, { limit, offset, baseUrl });
+			if (rawQuery.includes(',')) {
+				// User explicitly provided multiple distinct queries; run them all and merge results
+				const responses = await Promise.all(
+					searchQueries.map((q) => searchLocalIndexMany('finra', entity, q, { limit, offset, baseUrl }))
+				);
+				data = mergeLocalSearchResponses(responses as any[], { bucket: `finra:${entity}`, limit, offset });
+			} else {
+				// Single query; use variations but stop when we find enough hits
+				const localResponses = await searchQueriesSequentially(
+					searchQueries,
+					(candidate) => searchLocalIndexMany('finra', entity, candidate, { limit, offset, baseUrl }),
+					(response) => {
+						const total = response?.hits?.total || 0;
+						return total >= 50;
+					},
+				);
+				data = localResponses.length > 0 ? mergeLocalSearchResponses(localResponses as any[], { bucket: `finra:${entity}`, limit, offset }) : emptyResponse;
+			}
 		} catch (err: any) {
 			logger.warn('local search index lookup failed for FINRA query', { query: rawQuery, error: err?.message || String(err) });
 			data = emptyResponse;
 		}
-		if (data.total > 0) return jsonNoStore(data);
+		const total = data?.total || 0;
+		// In a partial/sidecar environment, if we get fewer than expected results
+		// (e.g. searching for a common name and getting < 50 hits), treat it as a miss
+		// to allow fallback layers to fetch the full set.
+		if (total >= 50) return jsonNoStore(data);
 
-		const fallbackQueries = searchQueries.slice(0, 5);
+		const fallbackQueries = rawQuery.includes(',') ? searchQueries : searchQueries.slice(0, 5);
 
-		const graphResponses = await searchQueriesSequentially(
+		const graphResponses = rawQuery.includes(',') ?
+			await Promise.all(
+				fallbackQueries.map(async (candidate) => {
+					try {
+						return await searchGraphFallback('finra', entity, candidate, { limit, offset });
+					} catch (err: any) {
+						logger.warn('graph fallback search failed for FINRA query', { candidate, error: err?.message || String(err) });
+						return null;
+					}
+				})
+			).then(res => res.filter(Boolean))
+			: await searchQueriesSequentially(
 			fallbackQueries,
 			async (candidate) => {
 				try {
@@ -111,11 +143,22 @@ export async function GET(request: NextRequest) {
 			(value) => Boolean(value && value.total > 0),
 		);
 		if (graphResponses.length > 0) {
-			const merged = mergeLocalSearchResponses(graphResponses, { bucket: `finra:${entity}`, limit, offset });
+			const merged = mergeLocalSearchResponses(graphResponses as any[], { bucket: `finra:${entity}`, limit, offset });
 			return jsonNoStore(merged);
 		}
 
-		const directResponses = await searchQueriesSequentially(
+		const directResponses = rawQuery.includes(',') ?
+			await Promise.all(
+				fallbackQueries.map(async (candidate) => {
+					try {
+						return await searchDirectRedisFallback('finra', entity, candidate, { limit, offset });
+					} catch (err: any) {
+						logger.warn('direct Redis fallback search failed for FINRA query', { candidate, error: err?.message || String(err) });
+						return null;
+					}
+				})
+			).then(res => res.filter(Boolean))
+			: await searchQueriesSequentially(
 			fallbackQueries,
 			async (candidate) => {
 				try {
@@ -131,18 +174,33 @@ export async function GET(request: NextRequest) {
 			return jsonNoStore(mergeLocalSearchResponses(directResponses as any[], { bucket: `finra:${entity}`, limit, offset }));
 		}
 
-		const externalResponses = await searchQueriesSequentially(
-			fallbackQueries,
-			async (candidate) => {
+		// Throttle external responses when using multiple comma separated values to avoid 429
+		const externalResponses: any[] = [];
+		if (rawQuery.includes(',')) {
+			for (const candidate of fallbackQueries) {
 				try {
-					return await searchExternalFallback('finra', entity, candidate, baseUrl);
+					const res = await searchExternalFallback('finra', entity, candidate, baseUrl);
+					if (res) externalResponses.push(res);
+					await new Promise((resolve) => setTimeout(resolve, 500));
 				} catch (err: any) {
 					logger.warn('external fallback search failed for FINRA query', { candidate, error: err?.message || String(err) });
-					return null;
 				}
-			},
-			(value) => Boolean(value),
-		);
+			}
+		} else {
+			const seqResp = await searchQueriesSequentially(
+				fallbackQueries,
+				async (candidate) => {
+					try {
+						return await searchExternalFallback('finra', entity, candidate, baseUrl);
+					} catch (err: any) {
+						logger.warn('external fallback search failed for FINRA query', { candidate, error: err?.message || String(err) });
+						return null;
+					}
+				},
+				(value) => Boolean(value),
+			);
+			externalResponses.push(...seqResp.filter(Boolean));
+		}
 		if (externalResponses.length > 0) {
 			const merged = mergeLocalSearchResponses(externalResponses as any[], { bucket: `finra:${entity}`, limit, offset });
 			return jsonNoStore(merged);

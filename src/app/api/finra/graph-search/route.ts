@@ -281,12 +281,14 @@ export async function GET(request: NextRequest) {
 			// Not enough graph matches — search the local FINRA/SEC indexes and persist discovered nodes into the graph cache.
 			try {
 				let allHits = (
-					await Promise.all([
-						searchLocalIndexMany('finra', 'individual', q, { limit, offset, baseUrl }),
-						searchLocalIndexMany('finra', 'firm', q, { limit, offset, baseUrl }),
-						searchLocalIndexMany('sec', 'individual', q, { limit, offset, baseUrl }),
-						searchLocalIndexMany('sec', 'firm', q, { limit, offset, baseUrl }),
-					])
+					await Promise.all(
+						searchQueries.flatMap((sq) => [
+							searchLocalIndexMany('finra', 'individual', sq, { limit, offset, baseUrl }),
+							searchLocalIndexMany('finra', 'firm', sq, { limit, offset, baseUrl }),
+							searchLocalIndexMany('sec', 'individual', sq, { limit, offset, baseUrl }),
+							searchLocalIndexMany('sec', 'firm', sq, { limit, offset, baseUrl }),
+						])
+					)
 				)
 					.flatMap((result) => result?.hits?.hits || [])
 					.slice(0, limit);
@@ -294,12 +296,19 @@ export async function GET(request: NextRequest) {
 				// Fall back to external search if local indexes yield very few results (often true when sidecars are small subsets)
 				// similar to the threshold in api/finra/search/route.ts but higher since we merge 4 buckets here.
 				if (allHits.length < Math.min(limit, 50)) {
-					const externalResults = await Promise.all([
-						searchExternalFallback('finra', 'individual', q, baseUrl),
-						searchExternalFallback('finra', 'firm', q, baseUrl),
-						searchExternalFallback('sec', 'individual', q, baseUrl),
-						searchExternalFallback('sec', 'firm', q, baseUrl),
-					]);
+					const externalResults = [];
+					for (const sq of searchQueries) {
+						const results = await Promise.all([
+							searchExternalFallback('finra', 'individual', sq, baseUrl),
+							searchExternalFallback('finra', 'firm', sq, baseUrl),
+							searchExternalFallback('sec', 'individual', sq, baseUrl),
+							searchExternalFallback('sec', 'firm', sq, baseUrl),
+						]);
+						externalResults.push(...results);
+						if (searchQueries.length > 1) {
+							await new Promise((resolve) => setTimeout(resolve, 500));
+						}
+					}
 					const extHits = externalResults.flatMap((result) => result?.hits?.hits || []).slice(0, limit);
 					if (extHits.length) {
 						allHits = extHits;
