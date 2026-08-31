@@ -189,14 +189,14 @@ pnpm install
 pnpm run test:unit
 ```
 
-If you want full E2E visual/functional coverage, run the Playwright suite inside Docker (recommended) or in CI. See `scripts/run-e2e.README.md` and `docker-compose.playwright.yml` for a ready-to-run container.
+If you want full E2E visual/functional coverage, run the Playwright suite inside Docker (recommended) or in CI. See `.local/scripts/run-e2e.README.md` and `docker-compose.playwright.yml` for a ready-to-run container.
 
 ### Production optimization
 
 Before deploying, ensure you:
 
 - Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in your environment if you want shared Redis caching.
-- Warm the primed cache bundle if you rely on deployment-time hydration: `node scripts/build_primed_cache_bundle.js` (run automatically in `pnpm build`).
+- Warm the primed cache bundle if you rely on deployment-time hydration: `node .local/scripts/build_primed_cache_bundle.js` (run automatically in `pnpm build`).
 - Increase Node heap if building very large graphs:
 
 ```bash
@@ -237,7 +237,7 @@ Run Playwright inside Docker (recommended when host can't install browsers):
 
 ```bash
 # run all tests inside Playwright image (installs browsers automatically)
-./scripts/run-e2e-docker.sh --env-file .env.test
+./.local/scripts/run-e2e-docker.sh --env-file .env.test
 
 # or use docker compose
 docker compose -f docker-compose.playwright.yml run --rm playwright
@@ -278,7 +278,7 @@ env NODE_OPTIONS=--max-old-space-size=8192 pnpm build
 - To warm caches for production, run the primed cache builder before deploy:
 
 ```bash
-node scripts/build_primed_cache_bundle.js
+node .local/scripts/build_primed_cache_bundle.js
 ```
 
 If you want, I can add a CONTRIBUTING.md with pull-request/checklist templates and a GitHub Actions status badge — tell me and I'll draft it.
@@ -444,7 +444,7 @@ data/
     primed-cache/
   external/
 
-scripts/
+.local/scripts/
   build_graph_from_cache.js
   build_primed_cache_bundle.js
   download_all_api_data.js
@@ -454,7 +454,6 @@ scripts/
   recompute_graph_meta.js
   check_local_integrity.js
   enrich_nodes.js
-
 src/
   app/
     page.tsx
@@ -478,7 +477,7 @@ src/
 ### Build graph artifacts from cached JSON
 
 ```bash
-node scripts/build_graph_from_cache.js --employment-scope all --no-redis
+node .local/scripts/build_graph_from_cache.js --employment-scope all --no-redis
 ```
 
 What it does:
@@ -499,7 +498,7 @@ Supported employment scopes:
 ### Build deployment cache bundles
 
 ```bash
-node scripts/build_primed_cache_bundle.js
+node .local/scripts/build_primed_cache_bundle.js
 ```
 
 This creates merged JSON bundles in `data/national/primed-cache/` from canonical cached filenames such as:
@@ -512,7 +511,7 @@ This creates merged JSON bundles in `data/national/primed-cache/` from canonical
 ### Iterative priming / expansion
 
 ```bash
-node scripts/download_all_api_data.js
+node .local/scripts/download_all_api_data.js
 ```
 
 This script:
@@ -525,11 +524,11 @@ This script:
 ### Other maintenance scripts
 
 ```bash
-node scripts/batch_crawl_and_build.js
-node scripts/continuous_crawl_and_rebuild.js
-node scripts/recompute_graph_meta.js
-node scripts/check_local_integrity.js
-node scripts/enrich_nodes.js
+node .local/scripts/batch_crawl_and_build.js
+node .local/scripts/continuous_crawl_and_rebuild.js
+node .local/scripts/recompute_graph_meta.js
+node .local/scripts/check_local_integrity.js
+node .local/scripts/enrich_nodes.js
 ```
 
 ---

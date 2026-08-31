@@ -19,7 +19,7 @@ header_html = """		<div className={styles.page}>
 							className={styles.rightPaneToggle}
 							onClick={() => setNewCrdsOpen((open) => !open)}
 							aria-expanded={newCrdsOpen}>
-							{newCrdsOpen ? 'Hide Panel' : 'Show Panel'}
+							{newCrdsOpen ? 'Hide Panel' : 'new CRDs'}
 						</button>
 						<Link
 							href={graphHref}

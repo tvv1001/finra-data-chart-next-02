@@ -173,9 +173,63 @@ function firmConnectionRosterFrom(value: any): { currentConnections: any[]; prev
 	return { currentConnections, previousConnections };
 }
 
+/** Non-live Form BD people must carry parent firm CRD + name for employment/profile cards. */
+function getNonLiveOrphanBody(payload: unknown): Record<string, any> | null {
+	if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+	const obj = payload as Record<string, any>;
+	if (obj.orphan && typeof obj.orphan === 'object') return obj.orphan as Record<string, any>;
+	const scope = String(obj.bcScope || '').toLowerCase().replace(/\s+/g, '');
+	const source = String(obj.source || '');
+	if (source.includes('form-bd') || scope === 'notinscope' || (obj.parentCrd && obj.position && obj.hasFinraData !== true)) {
+		return obj;
+	}
+	return null;
+}
+
+function isCompleteNonLiveOrphanPayload(payload: unknown): boolean {
+	const orphan = getNonLiveOrphanBody(payload);
+	if (!orphan) return true; // not a non-live payload — snapshot OK as-is
+	const parentCrd = pickFirstValidCrd(orphan.parentCrd);
+	const firmName = String(orphan.firmName || '').trim();
+	const name = String(orphan.name || '').trim();
+	return Boolean(parentCrd && (firmName || name));
+}
+
+function ensureOrphanEnvelope(payload: unknown, crd: string): Record<string, any> {
+	if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+		return { found: true, crd, orphan: null, hasFinraData: false, hasSecData: false };
+	}
+	const obj = payload as Record<string, any>;
+	if (obj.orphan && typeof obj.orphan === 'object') {
+		return {
+			found: obj.found !== false,
+			crd: String(obj.crd || crd),
+			orphan: obj.orphan,
+			sources: obj.sources || { finra: { found: false }, sec: { found: false } },
+			hasFinraData: false,
+			hasSecData: false,
+		};
+	}
+	const body = getNonLiveOrphanBody(obj);
+	if (body) {
+		return {
+			found: true,
+			crd: String(body.crd || crd),
+			orphan: body,
+			sources: { finra: { found: false }, sec: { found: false } },
+			hasFinraData: false,
+			hasSecData: false,
+		};
+	}
+	return obj;
+}
+
 function rememberDashboardRecordSnapshot(key: string, snapshot: DashboardRecordSnapshot) {
 	const [entity, id] = key.split(':');
-	const payloadForCache = entity === 'firm' ? stripFirmConnectionLists(snapshot.payload) : snapshot.payload;
+	let payloadForCache = entity === 'firm' ? stripFirmConnectionLists(snapshot.payload) : snapshot.payload;
+	if (entity === 'individual' && id && getNonLiveOrphanBody(payloadForCache)) {
+		payloadForCache = ensureOrphanEnvelope(payloadForCache, id);
+	}
 	const snapshotForCache = payloadForCache === snapshot.payload ? snapshot : { ...snapshot, payload: payloadForCache };
 	dashboardRecordSnapshotCache.delete(key);
 	dashboardRecordSnapshotCache.set(key, snapshotForCache);
@@ -1060,7 +1114,10 @@ function readCachedNewCrds(): NewCrdEntry[] {
 		const raw = window.localStorage.getItem(NEW_CRD_CLIENT_CACHE_KEY);
 		if (!raw) return [];
 		const parsed = JSON.parse(raw) as { fetchedAt?: number; newCrds?: NewCrdEntry[] } | NewCrdEntry[];
-		const entryList = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.newCrds) ? parsed.newCrds : [];
+		const entryList =
+			Array.isArray(parsed) ? parsed
+			: Array.isArray(parsed?.newCrds) ? parsed.newCrds
+			: [];
 		const fetchedAt = Array.isArray(parsed) ? 0 : Number(parsed?.fetchedAt || 0);
 		if (fetchedAt && Date.now() - fetchedAt > NEW_CRD_CLIENT_CACHE_TTL_MS) return [];
 		return Array.isArray(entryList) ? entryList : [];
@@ -1506,26 +1563,41 @@ async function hydrateSearchResultCard(card: SearchResultCard): Promise<SearchRe
 
 function resolveParentSummaryUrl(data: Record<string, any> | null | undefined, parentType: 'individual' | 'firm', parentCrd: string) {
 	const route = parentType === 'individual' ? 'individual' : 'firm';
-	const secLinks = Array.isArray(data?.secDocumentLinks) ? data.secDocumentLinks : [];
-	const secSummaryLink = secLinks.find((link: any) => typeof link?.href === 'string' && /adviserinfo\.sec\.gov\//.test(link.href) && /\/summary\//.test(link.href));
-	if (secSummaryLink?.href) return secSummaryLink.href;
+	const roots = [data, data?.merged, data?.finraNode, data?.secNode, data?.basicInformation].filter((v) => v && typeof v === 'object');
+	for (const root of roots) {
+		const secLinks = Array.isArray((root as any)?.secDocumentLinks) ? (root as any).secDocumentLinks : [];
+		const secSummaryLink = secLinks.find(
+			(link: any) => typeof link?.href === 'string' && /adviserinfo\.sec\.gov\//.test(link.href) && /\/summary\//.test(link.href),
+		);
+		if (secSummaryLink?.href) return String(secSummaryLink.href);
+	}
 
-	const secId = pickFirstNonEmpty(
-		data?.iaSECNumber,
-		data?.secNumber,
-		data?.basicInformation?.iaSECNumber,
-		data?.basicInformation?.secNumber,
-		data?.ia_sec_number,
-		data?.sec_number,
-		data?.basicInformation?.ia_sec_number,
-		data?.basicInformation?.sec_number,
-	);
-	if (secId) {
+	for (const root of roots) {
+		const r = root as any;
+		const secId = pickFirstNonEmpty(
+			r?.iaSECNumber,
+			r?.secNumber,
+			r?.basicInformation?.iaSECNumber,
+			r?.basicInformation?.secNumber,
+			r?.ia_sec_number,
+			r?.sec_number,
+			r?.basicInformation?.ia_sec_number,
+			r?.basicInformation?.sec_number,
+		);
+		if (!secId) continue;
 		const normalizedId = String(secId).trim();
-		if (/^8-\d+$/i.test(normalizedId) || /^\d{1,10}$/.test(normalizedId)) {
-			const summaryId = /^8-\d+$/i.test(normalizedId) ? normalizedId : `8-${normalizedId}`;
-			return `https://adviserinfo.sec.gov/${route}/summary/${encodeURIComponent(summaryId)}`;
+		// Prefer explicit 8-#### adviser numbers; bare CRDs are only used for firm parents when no better link exists.
+		if (/^8-\d+$/i.test(normalizedId)) {
+			return `https://adviserinfo.sec.gov/${route}/summary/${encodeURIComponent(normalizedId)}`;
 		}
+		if (parentType === 'firm' && /^\d{1,10}$/.test(normalizedId) && normalizedId !== String(parentCrd)) {
+			return `https://adviserinfo.sec.gov/${route}/summary/${encodeURIComponent(`8-${normalizedId}`)}`;
+		}
+	}
+
+	// Last resort for firm parents: adviserinfo often accepts the firm CRD path.
+	if (parentType === 'firm' && pickFirstValidCrd(parentCrd)) {
+		return `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(String(pickFirstValidCrd(parentCrd)))}`;
 	}
 
 	return null;
@@ -1534,43 +1606,71 @@ function resolveParentSummaryUrl(data: Record<string, any> | null | undefined, p
 function OrphanProfileLinks({ parentCrd, parentType = 'firm' }: { parentCrd: string; parentType?: 'individual' | 'firm' }) {
 	const [status, setStatus] = useState<{ finra: boolean; sec: boolean; secUrl: string | null } | null>(null);
 	const isParentIndividual = parentType === 'individual';
+	const safeParentCrd = pickFirstValidCrd(parentCrd) || '';
 
 	useEffect(() => {
 		let active = true;
 		setStatus(null);
-		fetch(isParentIndividual ? `/api/finra/individual/${parentCrd}` : `/api/finra/firm/${parentCrd}`)
+		if (!safeParentCrd) {
+			setStatus({ finra: false, sec: false, secUrl: null });
+			return () => {
+				active = false;
+			};
+		}
+		const endpoint = isParentIndividual
+			? `/api/finra/individual/${encodeURIComponent(safeParentCrd)}?merged=1`
+			: `/api/finra/firm/${encodeURIComponent(safeParentCrd)}?merged=1`;
+		fetch(endpoint)
 			.then((res) => res.json())
 			.then((data) => {
-				if (active && data && typeof data === 'object') {
-					const secUrl = resolveParentSummaryUrl(data, isParentIndividual ? 'individual' : 'firm', parentCrd);
-					setStatus({
-						finra: Boolean(data.hasFinraData),
-						sec: Boolean(data.hasSecData && secUrl),
-						secUrl,
-					});
-				}
+				if (!active || !data || typeof data !== 'object') return;
+				const secUrl = resolveParentSummaryUrl(data, isParentIndividual ? 'individual' : 'firm', safeParentCrd);
+				const hasFinra =
+					data.hasFinraData === true ||
+					data.hasFinraData === false
+						? Boolean(data.hasFinraData)
+						: true; // non-live people always get a parent FINRA summary link when parent CRD is known
+				const hasSec =
+					Boolean(secUrl) &&
+					(data.hasSecData === true || data.hasSecData === false ? Boolean(data.hasSecData) || Boolean(secUrl) : Boolean(secUrl));
+				setStatus({
+					// Firm parents with a CRD always expose BrokerCheck firm summary for non-live people.
+					finra: isParentIndividual ? hasFinra : true,
+					sec: Boolean(hasSec && secUrl),
+					secUrl,
+				});
 			})
 			.catch(() => {
-				if (active) setStatus({ finra: true, sec: false, secUrl: null }); // Fallback
+				if (active) {
+					setStatus({
+						finra: true,
+						sec: !isParentIndividual,
+						secUrl: !isParentIndividual ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(safeParentCrd)}` : null,
+					});
+				}
 			});
 		return () => {
 			active = false;
 		};
-	}, [parentCrd, isParentIndividual]);
+	}, [safeParentCrd, isParentIndividual]);
+
+	if (!safeParentCrd) return <div style={{ fontSize: '13px', color: '#64748b' }}>No parent firm CRD available for external links.</div>;
 
 	if (!status) return <div style={{ fontSize: '13px', color: '#64748b' }}>Validating parent {isParentIndividual ? 'individual' : 'firm'} sources...</div>;
 
 	if (!status.finra && !status.sec) return <div style={{ fontSize: '13px', color: '#64748b' }}>No external parent links available.</div>;
 
+	// Non-live people have no individual BrokerCheck/IAPD page — surface the parent
+	// firm's FINRA/SEC summary links with the same button labels as a live person profile.
 	return (
-		<div className={styles.profileLinksRow}>
+		<div className={styles.detailLinkRow}>
 			{status.finra && (
 				<a
-					href={`https://brokercheck.finra.org/${isParentIndividual ? 'individual' : 'firm'}/summary/${parentCrd}`}
+					href={`https://brokercheck.finra.org/${isParentIndividual ? 'individual' : 'firm'}/summary/${safeParentCrd}`}
 					target='_blank'
 					rel='noopener noreferrer'
-					className={styles.profileLinkBtn}>
-					Parent {isParentIndividual ? 'individual' : 'firm'} FINRA profile ↗
+					className={`${styles.detailLinkBtn} ${styles.detailLinkBtnFinra}`}>
+					FINRA profile ↗
 				</a>
 			)}
 			{status.sec && status.secUrl && (
@@ -1578,8 +1678,8 @@ function OrphanProfileLinks({ parentCrd, parentType = 'firm' }: { parentCrd: str
 					href={status.secUrl}
 					target='_blank'
 					rel='noopener noreferrer'
-					className={styles.profileLinkBtn}>
-					Parent {isParentIndividual ? 'individual' : 'firm'} SEC profile ↗
+					className={`${styles.detailLinkBtn} ${styles.detailLinkBtnSec}`}>
+					SEC profile ↗
 				</a>
 			)}
 		</div>
@@ -1691,17 +1791,23 @@ type CachedFirmInfo = {
 	iaScope?: string;
 	firmStatus?: string;
 	isActive?: boolean;
+	hasFinraData?: boolean;
+	hasSecData?: boolean;
+	officeAddress?: unknown;
+	address?: unknown;
 };
 
 const firmInfoCache = new Map<string, CachedFirmInfo | null>();
 const firmInfoInFlight = new Map<string, Promise<CachedFirmInfo | null>>();
 
 async function fetchFirmInfo(crd: string): Promise<CachedFirmInfo | null> {
-	if (firmInfoCache.has(crd)) return firmInfoCache.get(crd) ?? null;
-	if (firmInfoInFlight.has(crd)) return firmInfoInFlight.get(crd)!;
+	const safeCrd = pickFirstValidCrd(crd) || '';
+	if (!safeCrd) return null;
+	if (firmInfoCache.has(safeCrd)) return firmInfoCache.get(safeCrd) ?? null;
+	if (firmInfoInFlight.has(safeCrd)) return firmInfoInFlight.get(safeCrd)!;
 	const promise = (async () => {
 		try {
-			const res = await fetch(`/api/finra/firm/${encodeURIComponent(crd)}?merged=1`, { headers: { Accept: 'application/json' } });
+			const res = await fetch(`/api/finra/firm/${encodeURIComponent(safeCrd)}?merged=1`, { headers: { Accept: 'application/json' } });
 			if (!res.ok) return null;
 			const data = await res.json().catch(() => null);
 			const merged = data?.merged || data?.finraNode || data?.secNode || data || {};
@@ -1721,6 +1827,9 @@ async function fetchFirmInfo(crd: string): Promise<CachedFirmInfo | null> {
 					.toUpperCase() === 'ACTIVE';
 			const statusActive = /^(approved|active)$/i.test(String(firmStatus || '').trim());
 			const isActive = bcActive || iaActive || statusActive;
+			const officeAddress = merged?.firmAddressDetails?.officeAddress || merged?.iaFirmAddressDetails?.officeAddress || basic?.officeAddress || null;
+			const hasFinraData = data?.hasFinraData === true || data?.hasFinraData === false ? Boolean(data.hasFinraData) : Boolean(bcScope) || Boolean(data?.finraNode);
+			const hasSecData = data?.hasSecData === true || data?.hasSecData === false ? Boolean(data.hasSecData) : Boolean(iaScope) || Boolean(data?.secNode);
 
 			const result: CachedFirmInfo = {
 				otherNames: names,
@@ -1729,17 +1838,21 @@ async function fetchFirmInfo(crd: string): Promise<CachedFirmInfo | null> {
 				iaScope,
 				firmStatus,
 				isActive,
+				hasFinraData,
+				hasSecData,
+				officeAddress,
+				address: officeAddress,
 			};
-			firmInfoCache.set(crd, result);
+			firmInfoCache.set(safeCrd, result);
 			return result;
 		} catch {
-			firmInfoCache.set(crd, null);
+			firmInfoCache.set(safeCrd, null);
 			return null;
 		} finally {
-			firmInfoInFlight.delete(crd);
+			firmInfoInFlight.delete(safeCrd);
 		}
 	})();
-	firmInfoInFlight.set(crd, promise);
+	firmInfoInFlight.set(safeCrd, promise);
 	return promise;
 }
 
@@ -1748,7 +1861,10 @@ async function fetchFirmInfo(crd: string): Promise<CachedFirmInfo | null> {
  * Previous Employment lists so each row can show the firm's other names inline and resolve status. */
 function useFirmInfoByCrd(crds: string[]): Record<string, CachedFirmInfo> {
 	const [infoByCrd, setInfoByCrd] = useState<Record<string, CachedFirmInfo>>({});
-	const key = crds.filter(Boolean).join(',');
+	const key = crds
+		.map((crd) => pickFirstValidCrd(crd) || '')
+		.filter(Boolean)
+		.join(',');
 	useEffect(() => {
 		const list = key ? key.split(',') : [];
 		if (!list.length) return;
@@ -2468,7 +2584,13 @@ function DashboardPageInner() {
 	const orphanRecord = useMemo(() => {
 		if (!mainJson || typeof mainJson !== 'object') return null;
 		const obj = mainJson as any;
-		if (obj.orphan && typeof obj.orphan === 'object') return obj.orphan;
+		if (obj.orphan && typeof obj.orphan === 'object') return obj.orphan as Record<string, any>;
+		// Flattened non-live payloads (legacy visit-cache / direct redis shapes).
+		const looksNonLive =
+			String(obj.source || '').includes('form-bd') ||
+			String(obj.bcScope || '').toLowerCase().replace(/\s+/g, '') === 'notinscope' ||
+			Boolean(obj.parentCrd && (obj.position || obj.firmName) && obj.hasFinraData !== true && obj.hasSecData !== true);
+		if (looksNonLive && (obj.parentCrd || obj.firmName || obj.name)) return obj as Record<string, any>;
 		return null;
 	}, [mainJson]);
 
@@ -2681,18 +2803,31 @@ function DashboardPageInner() {
 
 	// Firm "other names" for Current/Previous Employment rows, keyed by CRD, fetched lazily.
 	const employmentFirmCrds = useMemo(() => {
-		if (!detailedMainRecord) return [];
 		const ids = new Set<string>();
-		for (const row of detailedMainRecord.currentEmployment) {
-			const crd = pickFirstValidCrd(row.crdNumber, row.crd, row.firmId);
-			if (crd) ids.add(String(crd));
+		if (detailedMainRecord) {
+			for (const row of detailedMainRecord.currentEmployment) {
+				const crd = pickFirstValidCrd(row.crdNumber, row.crd, row.firmId);
+				if (crd) ids.add(String(crd));
+			}
+			for (const row of detailedMainRecord.previousEmployment) {
+				const crd = pickFirstValidCrd(row.crdNumber, row.crd, row.firmId);
+				if (crd) ids.add(String(crd));
+			}
 		}
-		for (const row of detailedMainRecord.previousEmployment) {
-			const crd = pickFirstValidCrd(row.crdNumber, row.crd, row.firmId);
-			if (crd) ids.add(String(crd));
-		}
+		// Non-live / orphan people: hydrate the parent firm card the same way as coworker employment rows.
+		const orphanParent = pickFirstValidCrd(
+			(mainJson as any)?.orphan?.parentCrd,
+			(mainJson as any)?.parentCrd,
+			orphanRecord?.parentCrd,
+		);
+		const orphanParentType = String(
+			(mainJson as any)?.orphan?.parentType || (mainJson as any)?.parentType || orphanRecord?.parentType || 'firm',
+		)
+			.trim()
+			.toLowerCase();
+		if (orphanParent && orphanParentType !== 'individual') ids.add(orphanParent);
 		return Array.from(ids);
-	}, [detailedMainRecord]);
+	}, [detailedMainRecord, mainJson, orphanRecord]);
 	const employmentFirmInfo = useFirmInfoByCrd(employmentFirmCrds);
 
 	const connectionFilterPreviewUnfiltered = shouldPreviewUnfilteredConnections({
@@ -3599,19 +3734,29 @@ function DashboardPageInner() {
 		persistDashboardScroll(dashboardContentRef.current);
 		dashboardCurrentScrollRecordKey = `${card.entity}:${card.id}`;
 		const cacheKey = `${card.entity}:${card.id}`;
-		const snapshot = dashboardRecordSnapshotCache.get(cacheKey) || readVisitedSync<DashboardRecordSnapshot>(visitSnapshotKey(card.entity, card.id));
+		let snapshot = dashboardRecordSnapshotCache.get(cacheKey) || readVisitedSync<DashboardRecordSnapshot>(visitSnapshotKey(card.entity, card.id));
 		if (!snapshot) {
 			const persistedSnapshot = await readVisited<DashboardRecordSnapshot>(visitSnapshotKey(card.entity, card.id));
 			if (!stillCurrent()) return;
 			if (persistedSnapshot?.payload) {
 				dashboardRecordSnapshotCache.set(cacheKey, persistedSnapshot);
+				snapshot = persistedSnapshot;
 			}
 		}
 		if (!stillCurrent()) return;
+		// Stale visit-cache for Form BD people often predates parent firm fields — don't reuse those.
+		if (snapshot?.payload && card.entity === 'individual' && !isCompleteNonLiveOrphanPayload(snapshot.payload)) {
+			dashboardRecordSnapshotCache.delete(cacheKey);
+			mergedDetailCacheRef.current.delete(cacheKey);
+			snapshot = undefined as unknown as DashboardRecordSnapshot;
+		}
 		const resolvedSnapshot = snapshot || dashboardRecordSnapshotCache.get(cacheKey);
-		if (resolvedSnapshot) {
+		if (resolvedSnapshot && (card.entity !== 'individual' || isCompleteNonLiveOrphanPayload(resolvedSnapshot.payload))) {
 			const snapshot = resolvedSnapshot;
-			const snapshotPayload = card.entity === 'firm' ? stripFirmConnectionLists(snapshot.payload) : snapshot.payload;
+			let snapshotPayload = card.entity === 'firm' ? stripFirmConnectionLists(snapshot.payload) : snapshot.payload;
+			if (card.entity === 'individual' && getNonLiveOrphanBody(snapshotPayload)) {
+				snapshotPayload = ensureOrphanEnvelope(snapshotPayload, card.id);
+			}
 			setRecordViewLoading(false);
 			setResult(null);
 			setMainJson(snapshotPayload);
@@ -3758,7 +3903,10 @@ function DashboardPageInner() {
 			const detectedSources = Array.from(detectedSourcesSet);
 
 			if (!stillCurrent()) return;
-			const normalizedPayload = normalizePayloadForCleanView(payload) as Record<string, any>;
+			let normalizedPayload = normalizePayloadForCleanView(payload) as Record<string, any>;
+			if (card.entity === 'individual' && (isOrphanPayload || getNonLiveOrphanBody(normalizedPayload))) {
+				normalizedPayload = ensureOrphanEnvelope(normalizedPayload, card.id);
+			}
 			setMainJson(normalizedPayload);
 			setCurrentRecordSource(resolvedSource);
 			setCurrentRecordEntity(card.entity);
@@ -4514,7 +4662,7 @@ function DashboardPageInner() {
 							className={styles.rightPaneToggle}
 							onClick={() => setNewCrdsOpen((open) => !open)}
 							aria-expanded={newCrdsOpen}>
-							{newCrdsOpen ? 'Hide Panel' : 'Show Panel'}
+							{newCrdsOpen ? 'Hide Panel' : 'new CRDs'}
 						</button>
 					</div>
 				</div>
@@ -4524,7 +4672,7 @@ function DashboardPageInner() {
 				className={styles.rightPaneToggle}
 				onClick={() => setNewCrdsOpen((open) => !open)}
 				aria-expanded={newCrdsOpen}>
-				{newCrdsOpen ? 'Hide Panel' : 'Show Panel'}
+				{newCrdsOpen ? 'Hide Panel' : 'new CRDs'}
 			</button>
 			<div className={`${styles.layout} ${!newCrdsOpen ? styles.layoutRightHidden : ''}`}>
 				<section className={styles.centerPane}>
@@ -4621,6 +4769,25 @@ function DashboardPageInner() {
 												{currentRecordId && <span className={styles.recordBadgeCrd}>CRD {currentRecordId}</span>}
 												{detailedMainRecord?.hasFinraData && <span className={styles.tagFinra}>FINRA</span>}
 												{detailedMainRecord?.hasSecData && <span className={styles.tagSec}>SEC</span>}
+												{orphanRecord &&
+													!detailedMainRecord?.hasFinraData &&
+													!detailedMainRecord?.hasSecData &&
+													(() => {
+														const firmStatus = String((orphanRecord as any).firmStatus || (orphanRecord as any).status || '').trim();
+														const inactive = /inactive|terminated|revoked|suspended|notinscope/i.test(firmStatus.replace(/\s+/g, ''));
+														const label = inactive ? 'FINRA: Inactive' : 'FINRA: Active';
+														return (
+															<>
+																<span className={styles.tagFinra}>FINRA</span>
+																<span className={inactive ? styles.recordBadgeInactive : styles.recordBadgeActive}>{label}</span>
+																<span
+																	className={styles.recordBadgeFormBd}
+																	title='Form BD Direct Owners & Executive Officers'>
+																	Form BD — Direct Owners & Executive Officers
+																</span>
+															</>
+														);
+													})()}
 												{detailedMainRecord?.finraActive && (
 													<span className={detailedMainRecord.finraActive.toLowerCase().includes('inactive') ? styles.recordBadgeInactive : styles.recordBadgeActive}>
 														{detailedMainRecord.finraActive}
@@ -4718,45 +4885,74 @@ function DashboardPageInner() {
 											const isFirmOrphan = currentRecordEntity === 'firm';
 											const parentType = String(orphanRecord.parentType || (isFirmOrphan ? 'individual' : 'firm')).toLowerCase();
 											const parentIsIndividual = parentType === 'individual';
-											const parentDashboardHref = `/dashboard/${parentIsIndividual ? 'individual' : 'firm'}/${orphanRecord.parentCrd}`;
+											const parentCrd = pickFirstValidCrd(orphanRecord.parentCrd) || '';
+											const parentDashboardHref = parentCrd
+												? `/dashboard/${parentIsIndividual ? 'individual' : 'firm'}/${parentCrd}`
+												: '#';
 											const parentLabel = parentIsIndividual ? 'Individual' : 'Firm';
+											const personName = formatPersonName(orphanRecord.name || mainJsonLabel || '');
+											const personPosition = formatUiText(orphanRecord.position) || '';
+											const mainAddressLine =
+												formatAddress(orphanRecord.officeAddress) ||
+												(Array.isArray(orphanRecord.addresses) ? formatAddress(orphanRecord.addresses[0]) : '') ||
+												formatAddress(orphanRecord.address) ||
+												'';
+											const mailingAddressLine = formatAddress(orphanRecord.mailingAddress) || '';
+											const firmInfo = parentCrd && !parentIsIndividual ? employmentFirmInfo[parentCrd] : undefined;
+											const firmStatus = String(
+												(orphanRecord as any).firmStatus ||
+													(orphanRecord as any).status ||
+													firmInfo?.bcScope ||
+													firmInfo?.firmStatus ||
+													'',
+											).trim();
+											const inactiveParent =
+												firmInfo?.isActive === false ||
+												/inactive|terminated|revoked|suspended|notinscope/i.test(firmStatus.replace(/\s+/g, ''));
 											return (
 												<>
-													<div className={styles.detailList}>
-														{orphanRecord.officeAddress && (
-															<div className={styles.detailTextRow}>
-																<strong>Main Address:</strong> {formatAddress(orphanRecord.officeAddress)}
-															</div>
-														)}
-														{orphanRecord.mailingAddress && (
-															<div className={styles.detailTextRow}>
-																<strong>Mailing:</strong> {formatAddress(orphanRecord.mailingAddress)}
-															</div>
-														)}
-														{orphanRecord.phone && (
-															<div className={styles.detailTextRow}>
-																<strong>Phone:</strong> {orphanRecord.phone}
-															</div>
-														)}
-													</div>
+													{(mainAddressLine || mailingAddressLine || orphanRecord.phone) && (
+														<div className={styles.detailAddressCard}>
+															{mainAddressLine && (
+																<div className={styles.detailAddressLine}>
+																	<strong style={{ color: 'var(--text-secondary)' }}>Main Address:</strong> {mainAddressLine}
+																</div>
+															)}
+															{mailingAddressLine && mailingAddressLine !== mainAddressLine && (
+																<div className={styles.detailAddressLine}>
+																	<strong style={{ color: 'var(--text-secondary)' }}>Mailing:</strong> {mailingAddressLine}
+																</div>
+															)}
+															{mailingAddressLine && mailingAddressLine === mainAddressLine && (
+																<div className={styles.detailAddressLine}>
+																	<strong style={{ color: 'var(--text-secondary)' }}>Mailing:</strong> {mailingAddressLine}
+																</div>
+															)}
+															{orphanRecord.phone && (
+																<div className={styles.detailAddressLine}>
+																	<strong style={{ color: 'var(--text-secondary)' }}>Phone:</strong> {orphanRecord.phone}
+																</div>
+															)}
+														</div>
+													)}
 
-													<section
-														className={styles.detailSection}
-														style={{ marginTop: '24px' }}>
-														<h4 className={styles.detailSectionTitle}>Profile Links</h4>
-														<OrphanProfileLinks
-															parentCrd={String(orphanRecord.parentCrd)}
-															parentType={parentIsIndividual ? 'individual' : 'firm'}
-														/>
-													</section>
+													{parentCrd && (
+														<section className={styles.detailSection}>
+															<h4 className={styles.detailSectionTitle}>Profile Links</h4>
+															<OrphanProfileLinks
+																parentCrd={parentCrd}
+																parentType={parentIsIndividual ? 'individual' : 'firm'}
+															/>
+														</section>
+													)}
 
 													<section className={styles.detailSection}>
 														<h4 className={styles.detailSectionTitle}>General Information</h4>
 														<div className={styles.detailList}>
-															{!isFirmOrphan && orphanRecord.name && (
+															{!isFirmOrphan && personName && (
 																<div className={styles.detailRow}>
 																	<div className={styles.detailTextRow}>
-																		<strong>Name:</strong> {formatPersonName(orphanRecord.name)}
+																		<strong>Name:</strong> {personName}
 																	</div>
 																</div>
 															)}
@@ -4765,10 +4961,10 @@ function DashboardPageInner() {
 																	<strong>{isFirmOrphan ? 'Firm' : 'Individual'} CRD:</strong> {currentRecordId}
 																</div>
 															</div>
-															{orphanRecord.position && (
+															{personPosition && (
 																<div className={styles.detailRow}>
 																	<div className={styles.detailTextRow}>
-																		<strong>Position:</strong> {formatUiText(orphanRecord.position)}
+																		<strong>Position:</strong> {personPosition}
 																	</div>
 																</div>
 															)}
@@ -4786,14 +4982,14 @@ function DashboardPageInner() {
 																	</div>
 																</div>
 															)}
-															{orphanRecord.parentCrd && (
+															{parentCrd && (
 																<div className={styles.detailRow}>
 																	<div className={styles.detailTextRow}>
 																		<strong>Parent {parentLabel} CRD:</strong>{' '}
 																		<Link
 																			href={parentDashboardHref}
 																			className={styles.detailInlineTag}>
-																			{parentLabel} #{orphanRecord.parentCrd}
+																			{parentLabel} #{parentCrd}
 																		</Link>
 																	</div>
 																</div>
@@ -4801,24 +4997,95 @@ function DashboardPageInner() {
 														</div>
 													</section>
 
-													{!isFirmOrphan && orphanRecord.firmName && orphanRecord.parentCrd && (
-														<section className={styles.detailSection}>
-															<h4 className={styles.detailSectionTitle}>Current Employment (1)</h4>
-															<div className={styles.detailList}>
-																<Link
-																	href={parentDashboardHref}
-																	className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
-																	<div className={styles.detailRowMain}>
-																		<span className={styles.detailRowName}>{formatFirmName(orphanRecord.firmName)}</span>
-																		<span className={styles.detailInlineTag}>CRD#{orphanRecord.parentCrd}</span>
-																	</div>
-																	<div className={styles.detailRowMeta}>{formatUiText(orphanRecord.position)}</div>
-																</Link>
-															</div>
-														</section>
-													)}
+													{!isFirmOrphan && parentCrd && !parentIsIndividual && (() => {
+															const statusLabel = inactiveParent ? 'Inactive' : 'Active';
+															const rowStatusClass = inactiveParent
+																? styles.currentConnectionStatusTagInactive
+																: styles.currentConnectionStatusTag;
+															const rowName =
+																formatFirmName(firmInfo?.firmName || orphanRecord.firmName) ||
+																formatFirmName(orphanRecord.firmName) ||
+																`Firm ${parentCrd}`;
+															const currentFirmName = firmInfo?.firmName ? String(firmInfo.firmName).trim() : '';
+															const normRowName = String(rowName || '')
+																.toLowerCase()
+																.replace(/[^a-z0-9]/g, '');
+															const normCurrentFirmName = currentFirmName.toLowerCase().replace(/[^a-z0-9]/g, '');
+															const isRenamed = Boolean(normCurrentFirmName && normRowName && normCurrentFirmName !== normRowName);
+															let displayOtherNames = [...(firmInfo?.otherNames || [])];
+															if (isRenamed && currentFirmName) {
+																const alreadyInList = displayOtherNames.some(
+																	(n) =>
+																		String(n)
+																			.toLowerCase()
+																			.replace(/[^a-z0-9]/g, '') === normCurrentFirmName,
+																);
+																if (!alreadyInList) displayOtherNames.unshift(currentFirmName);
+															}
+															const addressLine =
+																mainAddressLine ||
+																formatAddress(firmInfo?.officeAddress) ||
+																formatAddress(firmInfo?.address) ||
+																'';
+															const metaLine = [
+																addressLine,
+																inactiveParent ? 'Inactive' : personPosition || 'Currently Employed',
+															]
+																.filter(Boolean)
+																.join(' • ');
+															const sectionTitle = inactiveParent ? 'Previous Employment (1)' : 'Current Employment (1)';
+															const rowClass = inactiveParent ? styles.previousEmploymentRow : styles.currentEmploymentRow;
+															const sourceTags: string[] = [];
+															if (firmInfo?.hasFinraData !== false) sourceTags.push('FINRA');
+															if (firmInfo?.hasSecData) sourceTags.push('SEC');
+															if (!sourceTags.length) sourceTags.push('FINRA');
 
-													{isFirmOrphan && orphanRecord.name && orphanRecord.parentCrd && (
+															return (
+																<section className={styles.detailSection}>
+																	<h4 className={styles.detailSectionTitle}>{sectionTitle}</h4>
+																	<div className={styles.detailList}>
+																		<Link
+																			href={parentDashboardHref}
+																			className={`${styles.detailRow} ${styles.detailRowInteractive} ${rowClass}`}>
+																			<div className={styles.detailRowMain}>
+																				<div className={styles.employmentRowNameWrap}>
+																					<span className={styles.detailRowName}>{rowName}</span>
+																					<span className={styles.detailInlineTag}>CRD#{parentCrd}</span>
+																					{sourceTags.includes('FINRA') && <span className={styles.tagFinra}>FINRA</span>}
+																					{sourceTags.includes('SEC') && <span className={styles.tagSec}>SEC</span>}
+																					<span className={`${styles.detailInlineTag} ${rowStatusClass}`}>{statusLabel}</span>
+																				</div>
+																			</div>
+																			{displayOtherNames.length > 0 && (
+																				<span className={styles.employmentRowOtherNames}>
+																					aka{' '}
+																					{displayOtherNames.map((n, nIdx) => {
+																						const formatted = formatOtherName(n, true);
+																						const normFormatted = String(formatted)
+																							.toLowerCase()
+																							.replace(/[^a-z0-9]/g, '');
+																						const normRaw = String(n)
+																							.toLowerCase()
+																							.replace(/[^a-z0-9]/g, '');
+																						const isHighlighted =
+																							isRenamed && (normFormatted === normCurrentFirmName || normRaw === normCurrentFirmName);
+																						return (
+																							<Fragment key={`orphan-emp-other-${nIdx}`}>
+																								{nIdx > 0 && ', '}
+																								<span className={isHighlighted ? styles.employmentOtherNameHighlighted : undefined}>{formatted}</span>
+																							</Fragment>
+																						);
+																					})}
+																				</span>
+																			)}
+																			{metaLine && <div className={styles.detailRowMeta}>{metaLine}</div>}
+																		</Link>
+																	</div>
+																</section>
+															);
+														})()}
+
+													{isFirmOrphan && orphanRecord.name && parentCrd && (
 														<section className={styles.detailSection}>
 															<h4 className={styles.detailSectionTitle}>Scraped From (1)</h4>
 															<div className={styles.detailList}>
@@ -4827,9 +5094,9 @@ function DashboardPageInner() {
 																	className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
 																	<div className={styles.detailRowMain}>
 																		<span className={styles.detailRowName}>{formatPersonName(orphanRecord.name)}</span>
-																		<span className={styles.detailInlineTag}>CRD#{orphanRecord.parentCrd}</span>
+																		<span className={styles.detailInlineTag}>CRD#{parentCrd}</span>
 																	</div>
-																	<div className={styles.detailRowMeta}>{formatUiText(orphanRecord.position)}</div>
+																	<div className={styles.detailRowMeta}>{personPosition}</div>
 																</Link>
 															</div>
 														</section>
@@ -4839,22 +5106,27 @@ function DashboardPageInner() {
 														{isFirmOrphan ?
 															<>
 																No independent BrokerCheck/SEC record exists for Firm CRD {currentRecordId}. This firm was scraped from{' '}
-																<Link
-																	href={parentDashboardHref}
-																	className={styles.detailInlineTag}>
-																	Individual CRD#{orphanRecord.parentCrd}
-																</Link>
+																{parentCrd ?
+																	<Link
+																		href={parentDashboardHref}
+																		className={styles.detailInlineTag}>
+																		Individual CRD#{parentCrd}
+																	</Link>
+																:	'an individual'}
 																's employment history
-																{orphanRecord.position ? ` as "${formatUiText(orphanRecord.position)}"` : ''}, and has no live CRD of its own.
+																{personPosition ? ` as "${personPosition}"` : ''}, and has no live CRD of its own.
 															</>
 														:	<>
 																No independent BrokerCheck/SEC record exists for CRD {currentRecordId}. This person was scraped from{' '}
-																<Link
-																	href={parentDashboardHref}
-																	className={styles.detailInlineTag}>
-																	Firm CRD#{orphanRecord.parentCrd}
-																</Link>
-																's own detail record as "{formatUiText(orphanRecord.position)}", and has no live CRD of its own.
+																{parentCrd ?
+																	<Link
+																		href={parentDashboardHref}
+																		className={styles.detailInlineTag}>
+																		Firm CRD#{parentCrd}
+																	</Link>
+																:	'a firm'}
+																's own detail record
+																{personPosition ? ` as "${personPosition}"` : ''}, and has no live CRD of its own.
 															</>
 														}
 													</div>

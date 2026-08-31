@@ -94,6 +94,19 @@ export function applyIndividualDetail(targetNode, detail, fallbackCrd = null) {
 		if (orphan.phone) targetNode.orphanPhone = orphan.phone;
 		if (orphan.parentCrd) targetNode.orphanParentCrd = orphan.parentCrd;
 		if (orphan.parentType) targetNode.orphanParentType = orphan.parentType;
+		if (orphan.firmStatus || orphan.status) {
+			targetNode.firmStatus = orphan.firmStatus || orphan.status;
+		}
+		// Parent firm active → person node active; inactive parent → inactive person node.
+		const parentStatus = String(orphan.firmStatus || orphan.status || orphan.registrationStatus || '').trim();
+		if (parentStatus) {
+			const inactive = /inactive|terminated|revoked|suspended|notinscope/i.test(parentStatus.replace(/\s+/g, ''));
+			targetNode.bcScope = inactive ? 'Inactive' : 'Active';
+			targetNode.inactive = inactive;
+		} else {
+			// Default Form BD control persons to Active when parent status is unknown.
+			targetNode.bcScope = targetNode.bcScope || 'Active';
+		}
 		// Synthesize an employment/affiliation card so the sidebar shows the parent firm
 		// (Form BD owners are non-live and have no individual employment history payload).
 		const parentCrd = String(orphan.parentCrd || '').trim();
@@ -104,6 +117,25 @@ export function applyIndividualDetail(targetNode, detail, fallbackCrd = null) {
 					firmId: parentCrd,
 					firmName: orphan.firmName || `Firm ${parentCrd}`,
 					position: orphan.position || undefined,
+					firmBCScope: parentStatus || 'ACTIVE',
+					employmentStatus: /inactive|terminated|revoked|suspended|notinscope/i.test(String(parentStatus).replace(/\s+/g, ''))
+						? 'Inactive'
+						: orphan.position || 'Currently Employed',
+					branchOfficeLocations: orphan.officeAddress
+						? [
+								(() => {
+									const addr = orphan.officeAddress as Record<string, any>;
+									return {
+										street1: addr.street1 || addr.street || '',
+										street2: addr.street2 || '',
+										city: addr.city || '',
+										state: addr.state || '',
+										zipCode: addr.postalCode || addr.zipCode || addr.zip || '',
+										country: addr.country || '',
+									};
+								})(),
+							]
+						: undefined,
 					_isCurrent: true,
 					_orphanAffiliation: true,
 				},
@@ -111,6 +143,15 @@ export function applyIndividualDetail(targetNode, detail, fallbackCrd = null) {
 			targetNode.previousEmployments = Array.isArray(targetNode.previousEmployments) ? targetNode.previousEmployments : [];
 			targetNode.currentIAEmployments = Array.isArray(targetNode.currentIAEmployments) ? targetNode.currentIAEmployments : [];
 			targetNode.previousIAEmployments = Array.isArray(targetNode.previousIAEmployments) ? targetNode.previousIAEmployments : [];
+			// Control-position degree so the node paints like other Form BD officers.
+			targetNode.controlPositions = [
+				{
+					firmId: parentCrd,
+					firmName: orphan.firmName || `Firm ${parentCrd}`,
+					position: orphan.position || undefined,
+					firmStatus: parentStatus || 'ACTIVE',
+				},
+			];
 		}
 		return targetNode;
 	}

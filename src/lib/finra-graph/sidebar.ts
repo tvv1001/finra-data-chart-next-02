@@ -245,31 +245,86 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 
 	if (d.orphan && typeof d.orphan === 'object') {
 		const orphan = d.orphan;
-		const parentCrd = orphan.parentCrd ? String(orphan.parentCrd).trim() : '';
-		const parentType = String(orphan.parentType || 'firm')
+		const parentCrd = orphan.parentCrd ? String(orphan.parentCrd).trim() : String(d.orphanParentCrd || '').trim();
+		const parentType = String(orphan.parentType || d.orphanParentType || 'firm')
 			.trim()
 			.toLowerCase();
+		const firmName = formatFirmName(orphan.firmName || d.orphanFirmName || '');
+		const position = formatUiText(orphan.position || d.orphanPosition || '');
+		const firmStatusRaw = String(orphan.firmStatus || orphan.status || d.firmStatus || '').trim();
+		const firmIsInactive = /inactive|terminated|revoked|suspended|notinscope/i.test(firmStatusRaw.replace(/\s+/g, ''));
+		const employmentStatusLabel = firmIsInactive ? 'Inactive' : position || 'Currently Employed';
+		const officeObj = orphan.officeAddress && typeof orphan.officeAddress === 'object' ? (orphan.officeAddress as Record<string, any>) : null;
+		const mailingObj = orphan.mailingAddress && typeof orphan.mailingAddress === 'object' ? (orphan.mailingAddress as Record<string, any>) : null;
+		const officeAddress = formatLocationText(
+			officeObj
+				? [officeObj.street1 || officeObj.street, officeObj.street2, officeObj.city, officeObj.state, officeObj.postalCode || officeObj.zipCode || officeObj.zip, officeObj.country]
+						.filter(Boolean)
+						.join(', ')
+				: typeof orphan.officeAddress === 'string'
+					? orphan.officeAddress
+					: '',
+		);
+		const mailingAddress = formatLocationText(
+			mailingObj
+				? [
+						mailingObj.street1 || mailingObj.street,
+						mailingObj.street2,
+						mailingObj.city,
+						mailingObj.state,
+						mailingObj.postalCode || mailingObj.zipCode || mailingObj.zip,
+						mailingObj.country,
+					]
+						.filter(Boolean)
+						.join(', ')
+				: typeof orphan.mailingAddress === 'string'
+					? orphan.mailingAddress
+					: '',
+		);
 		const parentFirmUrl = parentCrd ? `https://brokercheck.finra.org/${parentType === 'individual' ? 'individual' : 'firm'}/summary/${encodeURIComponent(parentCrd)}` : null;
-		function orphanRow(label: string, value: unknown) {
-			const text = String(value || '').trim();
-			if (!text) return '';
-			return `<div class='fg-detail-row'><span class='fg-detail-label'>${esc(label)}</span><span class='fg-detail-value'>${esc(text)}</span></div>`;
-		}
+		const parentSecUrl = parentCrd && parentType !== 'individual' ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(parentCrd)}` : null;
+		const dashboardHref = buildDashboardDetailsHref(d);
+		const parentFirmButton =
+			parentCrd ?
+				`<button class='fg-crd-link' data-crd='${esc(parentCrd)}' data-crd-type='${parentType === 'individual' ? 'individual' : 'firm'}' title='View this CRD'>${esc(firmName || `Firm ${parentCrd}`)}</button>`
+			:	esc(firmName || '');
+		const employmentSectionTitle = firmIsInactive ? 'Previous Employment (1)' : 'Current Employment (1)';
+		const employmentCard =
+			parentCrd && (firmName || parentCrd) ?
+				`<div class='fg-section-title fg-section-title--sticky'>${employmentSectionTitle}</div>
+            <div class='fg-timeline${firmIsInactive ? ' fg-timeline--previous' : ''}'>
+              <div class='fg-tl-entry${firmIsInactive ? '' : ' active-pos'}'>
+                <span class='fg-tl-firm'>${parentFirmButton} <small>CRD#${esc(parentCrd)}</small></span>
+                <span class='fg-tl-dates'> – → present </span>
+                ${officeAddress ? `<span class='fg-tl-loc'>${esc(officeAddress)}</span>` : ''}
+                <span class='fg-tl-loc' style='color:var(--text-m)'>${esc([employmentStatusLabel, firmIsInactive ? 'Inactive' : 'Active FINRA'].filter(Boolean).join(' · '))}</span>
+              </div>
+            </div>`
+			:	'';
+
 		return `
     <div class='fg-sb-header individual'>
       <div class='fg-sb-title'>${esc(normalizePersonLabel(d.label || orphan.name || ''))}</div>
       <div class='fg-sb-badges'>
-        <span class='fg-badge inactive' title='No live FINRA/SEC record — scraped reference only'>No live CRD — scraped reference only</span>
+        <span class='fg-badge ${firmIsInactive ? 'inactive' : 'active'}' title='Parent firm registration status'>${firmIsInactive ? 'Inactive' : 'Active'} finra</span>
+        <span class='fg-badge stub' title='Form BD Direct Owners &amp; Executive Officers reference'>Form BD — Direct Owners &amp; Executive Officers</span>
       </div>
     </div>
     <div class='fg-sb-body fg-sb-body--person'>
-      ${parentFirmUrl ? `<div class='fg-ext-links'><a class='fg-ext-link bc' href='${parentFirmUrl}' target='_blank' rel='noopener noreferrer'>&#x2197; Parent Firm Summary</a></div>` : ''}
-      ${orphanRow('CRD', orphan.crd)}
-      ${orphanRow('Position', orphan.position)}
-      ${orphanRow('Firm', orphan.firmName)}
-      ${orphanRow('Office Address', orphan.officeAddress)}
-      ${orphanRow('Mailing Address', orphan.mailingAddress)}
-      ${orphanRow('Phone', orphan.phone)}
+      ${officeAddress ? row('Main Address', esc(officeAddress), 'fg-detail-row--stacked') : ''}
+      ${mailingAddress && mailingAddress !== officeAddress ? row('Mailing', esc(mailingAddress), 'fg-detail-row--stacked') : ''}
+      ${orphan.phone ? row('Phone', esc(String(orphan.phone))) : ''}
+      <div class='fg-ext-links'>
+        ${
+					// No live individual detail page — link FINRA/SEC to the parent firm instead.
+					parentFirmUrl ? `<a class='fg-ext-link bc' href='${parentFirmUrl}' target='_blank' rel='noopener noreferrer'>&#x2197; FINRA profile</a>` : ''
+				}
+        ${parentSecUrl ? `<a class='fg-ext-link sec' href='${parentSecUrl}' target='_blank' rel='noopener noreferrer'>&#x2197; SEC profile</a>` : ''}
+        ${dashboardHref ? `<a class='fg-ext-link dashboard' href='${esc(dashboardHref)}' onclick='event.stopPropagation()'>Dashboard details</a>` : ''}
+      </div>
+      ${position ? row('Position', esc(position)) : ''}
+      ${parentCrd ? row('CRD', `<code>${esc(String(orphan.crd || d.crd || ''))}</code>`) : ''}
+      ${employmentCard}
     </div>`;
 	}
 

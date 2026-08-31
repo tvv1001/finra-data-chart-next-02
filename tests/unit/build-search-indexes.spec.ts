@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 
 const repoRoot = path.resolve(__dirname, '..', '..');
-const scriptPath = path.join(repoRoot, 'scripts', 'build_search_indexes.js');
+const scriptPath = path.join(repoRoot, '.local', 'scripts', 'build_search_indexes.js');
 
 async function withTempRepo(run: (root: string) => void | Promise<void>) {
 	const root = await mkdtemp(path.join(os.tmpdir(), 'finra-build-search-indexes-'));

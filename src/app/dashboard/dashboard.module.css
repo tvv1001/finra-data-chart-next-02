@@ -1859,6 +1859,20 @@
 	text-transform: capitalize;
 }
 
+/* Form BD non-live owner badge — red control-link treatment */
+.recordBadgeFormBd {
+	display: inline-flex;
+	align-items: center;
+	padding: 4px 8px;
+	border: 1px solid rgba(239, 68, 68, 0.65);
+	background: rgba(127, 29, 29, 0.45);
+	color: #fecaca;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: none;
+}
+
 .recordTitle {
 	color: var(--text-primary);
 	font-size: 22px;

@@ -11993,6 +11993,11 @@ async function ensureIndividualDetail(
 			try {
 				const cachedMerged = readVisitedSync<any>(visitDetailKey('individual', crd)) || (await readVisited<any>(visitDetailKey('individual', crd)));
 				let merged = cachedMerged;
+				// Stale Form BD / non-live visit-cache often lacks parent firm — force network refresh.
+				const cachedOrphan = merged?.orphan && typeof merged.orphan === 'object' ? merged.orphan : null;
+				if (cachedOrphan && !String(cachedOrphan.parentCrd || '').trim()) {
+					merged = null;
+				}
 				if (!merged) {
 					const localRes = await fetch(`${BASE}/api/finra/merged/individual/${encodeURIComponent(crd)}`);
 					if (localRes.ok) {
@@ -12000,7 +12005,11 @@ async function ensureIndividualDetail(
 						if (merged && merged.found !== false) rememberVisited(visitDetailKey('individual', crd), merged);
 					}
 				}
-				if (merged) {
+				if (merged?.orphan && typeof merged.orphan === 'object' && String(merged.orphan.parentCrd || '').trim()) {
+					// Prefer the orphan envelope so parent firm employment/control links hydrate.
+					detail = merged;
+					localDetail = merged;
+				} else if (merged) {
 					const candidate = merged?.merged || (merged?.basicInformation ? merged : null);
 					if (candidate) {
 						const normalized = normalizeIndividualDetailPayload(candidate, crd);
@@ -12150,7 +12159,10 @@ function syncIndividualConnectionsFromDetail(personNode, detail, options: { incl
 			const candidateLink = {
 				source: personId,
 				target: parentNodeId,
-				relationship: isControlPositionText(orphan.position) ? 'officer' : 'employed_by',
+				// Form BD owners/officers always use control styling (red line) so non-live
+				// people match the direct-owner graph treatment on the parent firm.
+				relationship: isControlPositionText(orphan.position) || parentType === 'firm' ? 'controls' : 'employed_by',
+				position: orphan.position || null,
 			};
 			const hasLayoutLink = layoutLinks.some((link) => getLinkIdentityKey(link) === getLinkIdentityKey(candidateLink));
 			if (!hasLayoutLink) newLinks.push(candidateLink);
@@ -12424,7 +12436,8 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 			const candidateLink = {
 				source: parentNodeId,
 				target: firmNodeId,
-				relationship: isControlPositionText(orphan.position) ? 'officer' : 'employed_by',
+				relationship: isControlPositionText(orphan.position) || !isParentIndividual ? 'controls' : 'employed_by',
+				position: orphan.position || null,
 			};
 			const hasLayoutLink = layoutLinks.some((link) => getLinkIdentityKey(link) === getLinkIdentityKey(candidateLink));
 			if (!hasLayoutLink) newLinks.push(candidateLink);
@@ -12442,14 +12455,29 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 		if (!personId) continue;
 
 		const personNodeId = `person:${personId}`;
+		const ownerBcScope = String(owner?.bcScope || '')
+			.trim()
+			.toLowerCase()
+			.replace(/\s+/g, '');
+		const isNonLiveOwner = !ownerBcScope || ownerBcScope === 'notinscope';
+		const parentFirmActive = !/inactive|terminated|revoked|suspended/i.test(
+			String(detail?.basicInformation?.bcScope || detail?.bcScope || firmNode?.bcScope || firmNode?.firmStatus || 'ACTIVE')
+				.replace(/\s+/g, ''),
+		);
 		if (!layoutNodes.some((node) => node.id === personNodeId) && !newNodes.some((node) => node.id === personNodeId)) {
 			newNodes.push({
 				id: personNodeId,
 				label: normalizePersonLabel(owner?.legalName || owner?.name || `Person ${personId}`),
 				group: 'individual',
 				crd: personId,
-				bcScope: owner?.bcScope || null,
-				stub: true,
+				// Form BD NotInScope owners have no live individual CRD — inherit parent firm active/inactive
+				// so they style like coworkers instead of all rendering as gray inactive stubs.
+				bcScope: isNonLiveOwner ? (parentFirmActive ? 'Active' : 'Inactive') : owner?.bcScope || null,
+				stub: isNonLiveOwner,
+				orphanParentCrd: isNonLiveOwner ? String(firmNode?.firmId || firmNodeId.replace(/^firm[:_]/, '') || '').trim() || null : null,
+				orphanParentType: isNonLiveOwner ? 'firm' : null,
+				orphanFirmName: isNonLiveOwner ? firmNode?.label || detail?.basicInformation?.firmName || null : null,
+				orphanPosition: isNonLiveOwner ? owner?.position || null : null,
 			});
 		}
 
@@ -15669,8 +15697,10 @@ function renderPersonDetail(d: any) {
 	}
 
 	const bi = d.basicInformation || {};
-	const hasFinraPage = hasIndividualFinraPresence(d);
-	const hasSecPage = hasIndividualSecPresence(d);
+	const isNonLiveOrphanPerson = Boolean(d.orphan && typeof d.orphan === 'object') || Boolean(d.orphanParentCrd);
+	// Non-live people never have their own individual FINRA/SEC pages.
+	const hasFinraPage = isNonLiveOrphanPerson ? false : hasIndividualFinraPresence(d);
+	const hasSecPage = isNonLiveOrphanPerson ? false : hasIndividualSecPresence(d);
 	const showFinra = hasFinraPage;
 	const showSec = hasSecPage;
 	const showSecReferences = hasSecPage;
@@ -16246,9 +16276,11 @@ function renderPersonDetail(d: any) {
 	const parentFirmSummaryHref = d.orphanParentType === 'firm' && d.orphanParentCrd ? `https://brokercheck.finra.org/firm/summary/${encodeURIComponent(String(d.orphanParentCrd))}` : null;
 	const parentSecSummaryHref = d.orphanParentType === 'firm' && d.orphanParentCrd ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(String(d.orphanParentCrd))}` : null;
 	const showParentFirmOnlyLinks = Boolean(d.orphanParentCrd && d.orphanParentType === 'firm');
+	// Non-live Form BD people have no individual BrokerCheck/IAPD page — point FINRA/SEC
+	// profile buttons at the parent firm with the same labels as a live coworker profile.
 	const primaryExternalLinks = showParentFirmOnlyLinks ? [
-		parentFirmSummaryHref ? `<a class="fg-ext-link bc" href="${esc(parentFirmSummaryHref)}" target="_blank" rel="noopener noreferrer">&#x2197; Parent firm FINRA profile</a>` : '',
-		parentSecSummaryHref ? `<a class="fg-ext-link sec" href="${esc(parentSecSummaryHref)}" target="_blank" rel="noopener noreferrer">&#x2197; Parent firm SEC profile</a>` : '',
+		parentFirmSummaryHref ? `<a class="fg-ext-link bc" href="${esc(parentFirmSummaryHref)}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA profile</a>` : '',
+		parentSecSummaryHref ? `<a class="fg-ext-link sec" href="${esc(parentSecSummaryHref)}" target="_blank" rel="noopener noreferrer">&#x2197; SEC profile</a>` : '',
 	].filter(Boolean).join('') : [
 		showFinra && brokerCheckSummaryUrl ? `<a class="fg-ext-link bc" href="${brokerCheckSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : '',
 		showFinra && brokerCheckReportUrl ? `<a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>` : '',

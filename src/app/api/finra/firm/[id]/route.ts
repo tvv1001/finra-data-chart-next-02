@@ -960,6 +960,7 @@ export async function GET(
         officeAddress: detail.firmAddressDetails?.officeAddress,
         mailingAddress: detail.firmAddressDetails?.mailingAddress,
         phone: detail.firmAddressDetails?.businessPhoneNumber,
+        firmStatus: detail.basicInformation?.bcScope || detail.basicInformation?.firmStatus || detail.bcScope || undefined,
         owners: ownerReferenceRows,
       }).catch((err: any) => {
         logger.warn("failed to record owner reference index for firm", {

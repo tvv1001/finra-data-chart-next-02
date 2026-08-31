@@ -26,9 +26,16 @@ export type OwnerReference = {
 	officeAddress?: Record<string, unknown>;
 	mailingAddress?: Record<string, unknown>;
 	phone?: string;
+	firmStatus?: string;
+	status?: string;
 };
 
-// Legacy local namespace for orphaned CRDs that are kept in Redis for lookup-only fallback.
+// Primary local namespace for scraped/non-live CRDs surfaced as orphan references.
+function nonLiveReferenceKey(kind: 'individual' | 'firm', crd: string): string {
+	return `non-live-crds:${kind}:${String(crd).trim()}`;
+}
+
+// Legacy local namespace retained only as a migration fallback.
 function legacyOwnerReferenceKey(kind: 'individual' | 'firm', crd: string): string {
 	return `owner-ref:${kind}:${String(crd).trim()}`;
 }
@@ -191,6 +198,17 @@ async function hasLiveCrdDetail(kind: 'individual' | 'firm', crd: string): Promi
 	return false;
 }
 
+async function clearStoredOwnerReference(kind: 'individual' | 'firm', crd: string): Promise<void> {
+	const redis = getRedisClient();
+	if (redis) {
+		try {
+			await redis.del(nonLiveReferenceKey(kind, crd), legacyOwnerReferenceKey(kind, crd));
+		} catch {
+			// ignore cleanup failures
+		}
+	}
+}
+
 async function clearLegacyOwnerReference(kind: 'individual' | 'firm', crd: string): Promise<void> {
 	const redis = getRedisClient();
 	if (redis) {
@@ -209,13 +227,14 @@ export async function recordOwnerReference(reference: OwnerReference): Promise<v
 
 	try {
 		if (await hasLiveCrdDetail('individual', crd)) {
-			await clearLegacyOwnerReference('individual', crd);
+			await clearStoredOwnerReference('individual', crd);
 			return;
 		}
 		const redis = getRedisClient();
 		if (redis && canWriteToRedis()) {
 			const payload = createOrphanPayload(reference);
-			await redis.set(legacyOwnerReferenceKey('individual', crd), compressPayload(JSON.stringify(payload)), { ex: OWNER_REF_TTL_SECONDS });
+			await redis.set(nonLiveReferenceKey('individual', crd), compressPayload(JSON.stringify(payload)), { ex: OWNER_REF_TTL_SECONDS });
+			await clearLegacyOwnerReference('individual', crd);
 		}
 	} catch {
 		// swallow: this is a best-effort index, never allow it to break the firm fetch response
@@ -233,6 +252,7 @@ export async function recordOwnerReferencesForFirm(params: {
 	officeAddress?: Record<string, unknown>;
 	mailingAddress?: Record<string, unknown>;
 	phone?: string;
+	firmStatus?: string;
 	owners: Array<Record<string, unknown>>;
 }): Promise<void> {
 	const parentCrd = String(params.parentCrd || '').trim();
@@ -257,6 +277,7 @@ export async function recordOwnerReferencesForFirm(params: {
 				officeAddress: params.officeAddress,
 				mailingAddress: params.mailingAddress,
 				phone: params.phone,
+				firmStatus: typeof params.firmStatus === 'string' ? params.firmStatus : undefined,
 			}),
 		);
 	}
@@ -272,9 +293,24 @@ export async function lookupOwnerReference(crd: string): Promise<OwnerReference 
 	try {
 		const redis = getRedisClient();
 		if (!redis) return null;
-		const raw = await redis.get(legacyOwnerReferenceKey('individual', normalizedCrd));
-		const parsed = parseRedisReference(raw);
-		if (parsed) return parsed;
+
+		const primaryKey = nonLiveReferenceKey('individual', normalizedCrd);
+		const fallbackKey = legacyOwnerReferenceKey('individual', normalizedCrd);
+		for (const key of [primaryKey, fallbackKey]) {
+			try {
+				const raw = await redis.get(key);
+				const parsed = parseRedisReference(raw);
+				if (parsed) {
+					if (key === fallbackKey && canWriteToRedis()) {
+						await redis.set(primaryKey, compressPayload(JSON.stringify(createOrphanPayload(parsed))), { ex: OWNER_REF_TTL_SECONDS });
+						await redis.del(fallbackKey);
+					}
+					return parsed;
+				}
+			} catch {
+				// continue to the next key
+			}
+		}
 		return null;
 	} catch {
 		return null;

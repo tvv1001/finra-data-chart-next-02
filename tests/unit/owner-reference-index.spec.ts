@@ -101,7 +101,7 @@ describe('recordFirmReference', () => {
 		});
 
 		expect(mockRedis.set).toHaveBeenCalledWith(
-			'owner-ref:individual:5972432',
+			'non-live-crds:individual:5972432',
 			expect.any(String),
 			{ ex: expect.any(Number) },
 		);
@@ -122,7 +122,7 @@ describe('recordFirmReference', () => {
 		});
 
 		expect(mockRedis.set).toHaveBeenCalledWith(
-			'owner-ref:individual:5972432',
+			'non-live-crds:individual:5972432',
 			expect.any(String),
 			{ ex: expect.any(Number) },
 		);
