@@ -2056,6 +2056,7 @@ function DashboardPageInner() {
 	const [selectedConnectionKeys, setSelectedConnectionKeys] = useState<Set<string>>(new Set());
 	const [connectionsFilterFocused, setConnectionsFilterFocused] = useState(false);
 	const [connectionsFilterJustCommitted, setConnectionsFilterJustCommitted] = useState(false);
+
 	useEffect(() => {
 		setConnectionsFilterTagsState(getFilterTags());
 		setConnectionsFilterQueryState(getFilterText());
@@ -2300,11 +2301,34 @@ function DashboardPageInner() {
 		void loadNewCrdsFromRedis(false);
 	}, []);
 
-	// Collapse the New CRDs panel by default on mobile viewports (desktop stays open); runs once
-	// after mount so it doesn't affect SSR/hydration.
+	// Collapse the New CRDs panel by default on tablet/mobile viewports; runs once
+	// after mount. It also listens to resize events to auto-toggle unless explicitly overridden.
+	const toggleNewCrdsOpen = useCallback(() => {
+		setNewCrdsOpen((prev) => {
+			const next = !prev;
+			localStorage.setItem('finra_new_crds_state', next ? 'open' : 'closed');
+			return next;
+		});
+	}, []);
+
 	useEffect(() => {
 		if (typeof window === 'undefined') return;
-		if (window.innerWidth <= 720) setNewCrdsOpen(false);
+		const stored = localStorage.getItem('finra_new_crds_state');
+		if (stored === 'open') {
+			setNewCrdsOpen(true);
+		} else if (stored === 'closed') {
+			setNewCrdsOpen(false);
+		} else {
+			if (window.innerWidth <= 1280) setNewCrdsOpen(false);
+		}
+
+		const handleResize = () => {
+			if (localStorage.getItem('finra_new_crds_state')) return; // Explicit choice overrides responsive
+			setNewCrdsOpen(window.innerWidth > 1280);
+		};
+
+		window.addEventListener('resize', handleResize);
+		return () => window.removeEventListener('resize', handleResize);
 	}, []);
 
 	useEffect(() => {
@@ -4660,7 +4684,7 @@ function DashboardPageInner() {
 						<button
 							type='button'
 							className={styles.rightPaneToggle}
-							onClick={() => setNewCrdsOpen((open) => !open)}
+							onClick={toggleNewCrdsOpen}
 							aria-expanded={newCrdsOpen}>
 							{newCrdsOpen ? 'Hide Panel' : 'new CRDs'}
 						</button>
@@ -4670,7 +4694,7 @@ function DashboardPageInner() {
 			<button
 				type='button'
 				className={styles.rightPaneToggle}
-				onClick={() => setNewCrdsOpen((open) => !open)}
+				onClick={toggleNewCrdsOpen}
 				aria-expanded={newCrdsOpen}>
 				{newCrdsOpen ? 'Hide Panel' : 'new CRDs'}
 			</button>
