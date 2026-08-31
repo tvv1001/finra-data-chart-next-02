@@ -319,9 +319,25 @@ async function readBucketDocsFromLocalRedis(bucket) {
 					const decoded = decodeRedisValue(rawValue);
 					const payload = JSON.parse(decoded);
 					const source = payload?.hits?.hits?.[0]?._source || payload;
+					let detail = null;
+
+					// Extract the nested JSON string if it's wrapped in content/iacontent
 					const detailField = bucket.source === 'finra' ? source?.content : source?.iacontent;
-					const detail = typeof detailField === 'string' ? JSON.parse(detailField) : detailField && typeof detailField === 'object' ? detailField : null;
-					if (!detail) continue;
+					if (typeof detailField === 'string') {
+						try {
+							detail = JSON.parse(detailField);
+						} catch {}
+					} else if (detailField && typeof detailField === 'object') {
+						detail = detailField;
+					} else {
+						// It might be already un-stringified in the root, or wrapped in finraBrokerCheck
+						detail = source;
+					}
+
+					// If the resulting detail wraps the actual data in finraBrokerCheck (or similar), unwrap it
+					if (detail && detail.finraBrokerCheck && typeof detail.finraBrokerCheck === 'object') {
+						detail = { ...detail, ...detail.finraBrokerCheck };
+					}
 					const doc = bucket.type === 'individual' ? buildIndividualDoc(bucket.source, detail) : buildFirmDoc(bucket.source, detail);
 					if (doc) docs.push(doc);
 				} catch {
