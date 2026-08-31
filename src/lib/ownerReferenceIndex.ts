@@ -1,4 +1,6 @@
-import { getRedisClient } from '@/lib/redisCache';
+import { promises as fs, readFileSync } from 'fs';
+import path from 'path';
+import { compressPayload, decompressPayload, getRedisClient } from '@/lib/redisCache';
 import { canWriteToRedis, isRedisCacheOnly } from '@/lib/redisAvailability';
 
 // Individuals who are scraped-only references (e.g. FINRA/SEC firm-page "Direct Owners &
@@ -8,6 +10,11 @@ import { canWriteToRedis, isRedisCacheOnly } from '@/lib/redisAvailability';
 // surface the scraped name/position/firm metadata instead of a bare "not found" response.
 
 const OWNER_REF_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
+const SHOULD_CHECK_LIVE_API = process.env.CHECK_LIVE_CRD_API === '1';
+
+function shouldCheckLiveApi(): boolean {
+	return SHOULD_CHECK_LIVE_API;
+}
 
 export type OwnerReference = {
 	crd: string;
@@ -21,13 +28,8 @@ export type OwnerReference = {
 	phone?: string;
 };
 
-// Local-only namespace for stubbed/non-live CRDs; do not push these records to the
-// cloud Upstash mirrors for routine local work.
-function nonLiveCrdKey(kind: 'individual' | 'firm', crd: string): string {
-	return `non-live-crds:${kind}:${String(crd).trim()}`;
-}
-
-function legacyNonLiveCrdKey(kind: 'individual' | 'firm', crd: string): string {
+// Legacy local namespace for orphaned CRDs that are kept in Redis for lookup-only fallback.
+function legacyOwnerReferenceKey(kind: 'individual' | 'firm', crd: string): string {
 	return `owner-ref:${kind}:${String(crd).trim()}`;
 }
 
@@ -35,29 +37,186 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 	return value != null && typeof value === 'object' && !Array.isArray(value);
 }
 
+function isOrphanPayload(value: unknown): value is { orphan: OwnerReference; sources?: Record<string, unknown> } {
+	if (!isPlainObject(value)) return false;
+	if (isPlainObject(value.orphan)) return true;
+	return Boolean(value.found === false && value.orphan && isPlainObject(value.orphan));
+}
+
 function parseRedisReference(raw: unknown): OwnerReference | null {
 	if (raw == null) return null;
+	let parsed: unknown = raw;
 	if (typeof raw === 'string') {
+		const unwrapped = raw.startsWith('br:') ? decompressPayload(raw) : raw;
 		try {
-			return JSON.parse(raw) as OwnerReference;
+			parsed = JSON.parse(unwrapped);
 		} catch {
 			return null;
 		}
 	}
-	if (isPlainObject(raw)) return raw as OwnerReference;
+	if (isOrphanPayload(parsed)) return parsed.orphan as OwnerReference;
+	if (isPlainObject(parsed)) return parsed as OwnerReference;
 	return null;
+}
+
+function getRootLevelKeys(kind: 'individual' | 'firm', crd: string): string[] {
+	if (kind === 'individual') return [`finra:individual:${crd}`, `sec:individual:${crd}`];
+	return [`finra:firm:${crd}`, `sec:firm:${crd}`];
+}
+
+function createOrphanPayload(reference: OwnerReference) {
+	return {
+		found: true,
+		crd: reference.crd,
+		orphan: reference,
+		sources: {
+			finra: { found: false },
+			sec: { found: false },
+		},
+		hasFinraData: false,
+		hasSecData: false,
+	};
+}
+
+function looksLikeLiveCrdPayload(kind: 'individual' | 'firm', value: unknown): boolean {
+	if (!value || typeof value !== 'object') return false;
+	const record = value as Record<string, unknown>;
+	const hits = record.hits;
+	if (isPlainObject(hits) && Array.isArray(hits.hits) && hits.hits.length > 0) return true;
+	if (kind === 'individual') {
+		return Boolean(record.basicInformation || record.individualId || record.crdNumber || record.name);
+	}
+	return Boolean(record.basicInformation || record.firmId || record.firmName || record.name);
+}
+
+function hasLocalLiveCrdRecord(kind: 'individual' | 'firm', crd: string): boolean {
+	const root = path.join(process.cwd(), 'data', 'national');
+	const fileCandidates = kind === 'individual'
+		? [
+			path.join(root, 'brokercheck.finra.org', `api.brokercheck.finra.org_search_individual_${crd}.json`),
+			path.join(root, 'adviserinfo.sec.gov', `api.adviserinfo.sec.gov_search_individual_${crd}.json`),
+		]
+		: [
+			path.join(root, 'brokercheck.finra.org', `api.brokercheck.finra.org_search_firm_${crd}.json`),
+			path.join(root, 'adviserinfo.sec.gov', `api.adviserinfo.sec.gov_search_firm_${crd}.json`),
+		];
+
+	for (const filePath of fileCandidates) {
+		try {
+			const raw = readFileSync(filePath, 'utf8');
+			if (!raw || !raw.trim()) continue;
+			const parsed = JSON.parse(raw);
+			if (parsed == null || typeof parsed !== 'object') continue;
+
+			const record = parsed as Record<string, unknown>;
+			const hits = record.hits;
+			if (isPlainObject(hits) && Array.isArray(hits.hits) && hits.hits.length > 0) {
+				const first = hits.hits[0] as Record<string, unknown> | undefined;
+				const source = first?._source as Record<string, unknown> | undefined;
+				const content = source?.content ?? source?.iacontent;
+				if (typeof content === 'string') {
+					const payload = JSON.parse(content);
+					if (looksLikeLiveCrdPayload(kind, payload)) return true;
+				}
+				if (looksLikeLiveCrdPayload(kind, source)) return true;
+			}
+
+			if (looksLikeLiveCrdPayload(kind, parsed)) return true;
+		} catch {
+			// Empty/invalid local cache is not evidence of a live CRD.
+		}
+	}
+
+	return false;
+}
+
+async function hasLiveCrdDetail(kind: 'individual' | 'firm', crd: string): Promise<boolean> {
+	if (hasLocalLiveCrdRecord(kind, crd)) return true;
+
+	const redis = getRedisClient();
+	if (redis) {
+		const keys = kind === 'individual'
+			? [`finra:individual:${crd}`, `sec:individual:${crd}`]
+			: [`finra:firm:${crd}`, `sec:firm:${crd}`, `finra:firm:summaryHtml:${crd}`, `sec:firm:summaryHtml:${crd}`];
+		for (const key of keys) {
+			try {
+				const value = await redis.get(key);
+				if (value == null || value === '') continue;
+				const parsed = parseRedisReference(value);
+				if (isOrphanPayload(value) || isOrphanPayload(parsed)) continue;
+				return true;
+			} catch {
+				// Ignore lookup failures and fall back to the remote check below.
+			}
+		}
+	}
+
+	if (!shouldCheckLiveApi()) return false;
+
+	const urls = kind === 'individual'
+		? [
+			`https://brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?includePrevious=true&hl=true&wt=json`,
+			`https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?includePrevious=true&wt=json`,
+		]
+		: [
+			`https://brokercheck.finra.org/firm/summary/${encodeURIComponent(crd)}`,
+			`https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(crd)}`,
+		];
+
+	for (const url of urls) {
+		try {
+			const response = await fetch(url, {
+				method: 'GET',
+				redirect: 'manual',
+				headers: {
+					'User-Agent': 'Mozilla/5.0 (compatible; finra-local-check/1.0)',
+					'Accept': 'application/json,text/html,application/xhtml+xml',
+				},
+			});
+			if (response.status < 200 || response.status >= 400) continue;
+			const text = await response.text();
+			if (!text || !text.trim()) continue;
+			if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) continue;
+			try {
+				const parsed = JSON.parse(text);
+				if (looksLikeLiveCrdPayload(kind, parsed)) return true;
+			} catch {
+				// Ignore non-JSON HTML/text responses; a valid live CRD needs a real payload.
+			}
+		} catch {
+			// Ignore network errors; this is a strict guard, but it must fail open only when the live endpoint is unavailable.
+		}
+	}
+
+	return false;
+}
+
+async function clearLegacyOwnerReference(kind: 'individual' | 'firm', crd: string): Promise<void> {
+	const redis = getRedisClient();
+	if (redis) {
+		try {
+			await redis.del(legacyOwnerReferenceKey(kind, crd));
+		} catch {
+			// ignore cleanup failures
+		}
+	}
 }
 
 /** Best-effort, non-blocking write. Never throws — callers should fire-and-forget this. */
 export async function recordOwnerReference(reference: OwnerReference): Promise<void> {
 	const crd = String(reference.crd || '').trim();
 	if (!/^\d{1,10}$/.test(crd)) return;
-	if (!canWriteToRedis()) return;
-	const redis = getRedisClient();
-	if (!redis) return;
 
 	try {
-		await redis.set(nonLiveCrdKey('individual', crd), JSON.stringify(reference), { ex: OWNER_REF_TTL_SECONDS });
+		if (await hasLiveCrdDetail('individual', crd)) {
+			await clearLegacyOwnerReference('individual', crd);
+			return;
+		}
+		const redis = getRedisClient();
+		if (redis && canWriteToRedis()) {
+			const payload = createOrphanPayload(reference);
+			await redis.set(legacyOwnerReferenceKey('individual', crd), compressPayload(JSON.stringify(payload)), { ex: OWNER_REF_TTL_SECONDS });
+		}
 	} catch {
 		// swallow: this is a best-effort index, never allow it to break the firm fetch response
 	}
@@ -82,6 +241,8 @@ export async function recordOwnerReferencesForFirm(params: {
 	const writes: Promise<void>[] = [];
 	for (const owner of params.owners) {
 		if (!isPlainObject(owner)) continue;
+		const bcScope = String(owner.bcScope ?? owner.bc_scope ?? owner.scope ?? '').trim().toLowerCase();
+		if (!bcScope || bcScope !== 'notinscope') continue;
 		const crd = String(owner.crdNumber ?? owner.crd ?? owner.individualId ?? '').trim();
 		if (!/^\d{1,10}$/.test(crd)) continue;
 
@@ -107,15 +268,13 @@ export async function lookupOwnerReference(crd: string): Promise<OwnerReference 
 	const normalizedCrd = String(crd || '').trim();
 	if (!/^\d{1,10}$/.test(normalizedCrd)) return null;
 	if (isRedisCacheOnly()) return null;
-	const redis = getRedisClient();
-	if (!redis) return null;
 
 	try {
-		for (const key of [nonLiveCrdKey('individual', normalizedCrd), legacyNonLiveCrdKey('individual', normalizedCrd)]) {
-			const raw = await redis.get(key);
-			const parsed = parseRedisReference(raw);
-			if (parsed) return parsed;
-		}
+		const redis = getRedisClient();
+		if (!redis) return null;
+		const raw = await redis.get(legacyOwnerReferenceKey('individual', normalizedCrd));
+		const parsed = parseRedisReference(raw);
+		if (parsed) return parsed;
 		return null;
 	} catch {
 		return null;
@@ -129,45 +288,79 @@ export async function lookupOwnerReference(crd: string): Promise<OwnerReference 
 // above but keyed by the firm's CRD, so `/api/finra/firm/[id]` can recognize these "orphan" firm
 // CRDs and surface the scraped firm name/address metadata instead of a bare "not found" response.
 
-function firmRefKey(crd: string): string {
-	return nonLiveCrdKey('firm', crd);
+async function hasPublishedFirmDetailPage(crd: string): Promise<boolean> {
+	if (!shouldCheckLiveApi()) return false;
+
+	const urls = [
+		`https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(crd)}?wt=json`,
+		`https://api.adviserinfo.sec.gov/search/firm/${encodeURIComponent(crd)}?wt=json`,
+		`https://brokercheck.finra.org/firm/summary/${encodeURIComponent(crd)}`,
+		`https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(crd)}`,
+	];
+
+	for (const url of urls) {
+		try {
+			const response = await fetch(url, {
+				method: 'GET',
+				redirect: 'manual',
+				headers: {
+					'User-Agent': 'Mozilla/5.0 (compatible; finra-local-check/1.0)',
+					'Accept': 'text/html,application/xhtml+xml,application/json',
+				},
+			});
+			if (response.status < 200 || response.status >= 400) continue;
+			const text = await response.text();
+			if (!text || !text.trim()) continue;
+			if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) continue;
+			try {
+				const parsed = JSON.parse(text);
+				if (looksLikeLiveCrdPayload('firm', parsed)) return true;
+			} catch {
+				// HTML summary pages are not enough to prove the CRD exists; a production live firm must have structured payload data.
+			}
+		} catch {
+			// best-effort external validation; ignore network failures and continue
+		}
+	}
+	return false;
 }
 
 async function hasLiveFirmDetail(crd: string): Promise<boolean> {
 	const redis = getRedisClient();
-	if (!redis) return false;
-
-	for (const key of [
-		`finra:firm:${crd}`,
-		`sec:firm:${crd}`,
-		`finra:firm:summaryHtml:${crd}`,
-		`sec:firm:summaryHtml:${crd}`,
-	]) {
-		try {
-			const value = await redis.get(key);
-			if (value != null && value !== '') return true;
-		} catch {
-			// Best-effort check; move on to the next candidate key if a read fails.
+	if (redis) {
+		for (const key of [
+			`finra:firm:${crd}`,
+			`sec:firm:${crd}`,
+			`finra:firm:summaryHtml:${crd}`,
+			`sec:firm:summaryHtml:${crd}`,
+		]) {
+			try {
+				const value = await redis.get(key);
+				if (value != null && value !== '') return true;
+			} catch {
+				// Best-effort check; move on to the next candidate key if a read fails.
+			}
 		}
 	}
 
-	return false;
+	return await hasPublishedFirmDetailPage(crd);
 }
 
 /** Best-effort, non-blocking write. Never throws — callers should fire-and-forget this. */
 export async function recordFirmReference(reference: OwnerReference): Promise<void> {
 	const crd = String(reference.crd || '').trim();
 	if (!/^\d{1,10}$/.test(crd)) return;
-	if (!canWriteToRedis()) return;
-	const redis = getRedisClient();
-	if (!redis) return;
 
 	try {
-		// Only keep a firm in the `non-live-crds:firm:*` bucket when it is not already known to have
-		// a live BrokerCheck/SEC detail payload cached locally. This prevents stale person-detail
-		// employment rows from being promoted into the non-live index for firms that are already real.
-		if (await hasLiveFirmDetail(crd)) return;
-		await redis.set(firmRefKey(crd), JSON.stringify(reference), { ex: OWNER_REF_TTL_SECONDS });
+		if (await hasLiveCrdDetail('firm', crd)) {
+			await clearLegacyOwnerReference('firm', crd);
+			return;
+		}
+		const redis = getRedisClient();
+		if (redis && canWriteToRedis()) {
+			const payload = createOrphanPayload(reference);
+			await redis.set(legacyOwnerReferenceKey('firm', crd), compressPayload(JSON.stringify(payload)), { ex: OWNER_REF_TTL_SECONDS });
+		}
 	} catch {
 		// swallow: this is a best-effort index, never allow it to break the individual fetch response
 	}
@@ -224,15 +417,17 @@ export async function lookupFirmReference(crd: string): Promise<OwnerReference |
 	const normalizedCrd = String(crd || '').trim();
 	if (!/^\d{1,10}$/.test(normalizedCrd)) return null;
 	if (isRedisCacheOnly()) return null;
-	const redis = getRedisClient();
-	if (!redis) return null;
 
 	try {
-		for (const key of [firmRefKey(normalizedCrd), legacyNonLiveCrdKey('firm', normalizedCrd)]) {
-			const raw = await redis.get(key);
-			const parsed = parseRedisReference(raw);
-			if (parsed) return parsed;
+		if (await hasLiveCrdDetail('firm', normalizedCrd)) {
+			await clearLegacyOwnerReference('firm', normalizedCrd);
+			return null;
 		}
+		const redis = getRedisClient();
+		if (!redis) return null;
+		const raw = await redis.get(legacyOwnerReferenceKey('firm', normalizedCrd));
+		const parsed = parseRedisReference(raw);
+		if (parsed) return parsed;
 		return null;
 	} catch {
 		return null;

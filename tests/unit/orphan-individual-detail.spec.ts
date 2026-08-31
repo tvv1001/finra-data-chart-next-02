@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyIndividualDetail } from '@/lib/finra-graph/detailUtils';
+import { buildParentFirmSummaryLinks } from '@/lib/finra-graph/externalLinks';
 
 describe('non-live / orphan individual detail', () => {
 	it('synthesizes a parent-firm employment card for non-live CRDs', () => {
@@ -62,5 +63,16 @@ describe('non-live / orphan individual detail', () => {
 		]);
 		expect(node.hasFinraData).toBe(false);
 		expect(node.orphanParentCrd).toBe('6321');
+	});
+
+	it('uses the SEC registration number for SEC summary links instead of the CRD', () => {
+		const links = buildParentFirmSummaryLinks({
+			bcScope: 'Active',
+			currentEmployments: [{ firmId: '37404' }],
+			iaSecNumber: '8-47739',
+			basicInformation: { iaSECNumber: '8-47739' },
+		});
+
+		expect(links.find((link) => link.className === 'sec')?.href).toBe('https://adviserinfo.sec.gov/firm/summary/8-47739');
 	});
 });

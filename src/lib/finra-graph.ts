@@ -15774,13 +15774,17 @@ function renderPersonDetail(d: any) {
 			typeof emp?.officeAddress === 'object' && emp.officeAddress ? emp.officeAddress
 			: typeof bo?.officeAddress === 'object' && bo?.officeAddress ? bo.officeAddress
 			: null;
+		const rawAddressText =
+			typeof emp?.officeAddress === 'string' ? emp.officeAddress
+			: typeof bo?.officeAddress === 'string' ? bo.officeAddress
+			: '';
 		const city = emp.city || bo?.city || officeAddress?.city || '';
 		const state = emp.state || bo?.state || officeAddress?.state || '';
-		const street1 = emp.street1 || bo?.street1 || officeAddress?.street1 || officeAddress?.address1 || '';
-		const street2 = emp.street2 || bo?.street2 || officeAddress?.street2 || officeAddress?.address2 || '';
-		const zip = emp.zipCode || emp.postalCode || bo?.zipCode || bo?.postalCode || officeAddress?.zipCode || officeAddress?.postalCode || '';
+		const street1 = emp.street1 || emp.address1 || emp.addressLine1 || emp.line1 || bo?.street1 || officeAddress?.street1 || officeAddress?.address1 || officeAddress?.addressLine1 || officeAddress?.line1 || '';
+		const street2 = emp.street2 || emp.address2 || emp.addressLine2 || emp.line2 || bo?.street2 || officeAddress?.street2 || officeAddress?.address2 || officeAddress?.addressLine2 || officeAddress?.line2 || '';
+		const zip = emp.zipCode || emp.postalCode || emp.zip || bo?.zipCode || bo?.postalCode || officeAddress?.zipCode || officeAddress?.postalCode || officeAddress?.zip || '';
 		const loc = formatLocationText([city, state].filter(Boolean).join(', '));
-		const addr = formatLocationText([street1, street2, city, state, zip].filter(Boolean).join(', '));
+		const addr = formatLocationText([rawAddressText, street1, street2, city, state, zip].filter(Boolean).join(', '));
 		return {
 			firmName: emp.firmName || emp.legalName || emp.organizationName || emp.name || '',
 			firmId: emp.firmId,
@@ -15799,8 +15803,15 @@ function renderPersonDetail(d: any) {
 		};
 	}
 
+	function formatEmploymentDateText(start, end, isCurrent) {
+		if (start && end) return `${start} → ${end}`;
+		if (start) return isCurrent ? `Employed since ${start}` : `Started ${start}`;
+		if (end) return `Until ${end}`;
+		return isCurrent ? 'Employed' : 'Previous';
+	}
+
 	function getEmploymentDetailLine(entry) {
-		return entry.addr || entry.loc || '';
+		return entry.addr || entry.loc || entry.officeAddress || entry.cityState || '';
 	}
 
 	function getEmploymentScopeTags(entry) {
@@ -15830,16 +15841,18 @@ function renderPersonDetail(d: any) {
 			office ?
 				formatLocationText(
 					[
-						emp.street1 || office.street1 || officeObj?.street1 || officeObj?.address1,
-						emp.street2 || office.street2 || officeObj?.street2 || officeObj?.address2,
+						emp.street1 || emp.address1 || emp.addressLine1 || emp.line1 || office.street1 || officeObj?.street1 || officeObj?.address1 || officeObj?.addressLine1 || officeObj?.line1,
+						emp.street2 || emp.address2 || emp.addressLine2 || emp.line2 || office.street2 || officeObj?.street2 || officeObj?.address2 || officeObj?.addressLine2 || officeObj?.line2,
 						emp.city || office.city || officeObj?.city,
 						emp.state || office.state || officeObj?.state,
-						emp.zipCode || emp.postalCode || office.zipCode || office.postalCode || officeObj?.zipCode || officeObj?.postalCode,
+						emp.zipCode || emp.postalCode || emp.zip || office.zipCode || office.postalCode || officeObj?.zipCode || officeObj?.postalCode || officeObj?.zip,
 					]
 						.filter(Boolean)
 						.join(', '),
 				)
-			:	'';
+			: typeof emp?.officeAddress === 'string' ? formatLocationText(emp.officeAddress)
+			: typeof officeObj?.officeAddress === 'string' ? formatLocationText(String(officeObj.officeAddress))
+			: '';
 		const cityState = formatLocationText([emp.city || office?.city || officeObj?.city || '', emp.state || office?.state || officeObj?.state || ''].filter(Boolean).join(', '));
 		return {
 			role,
@@ -16228,6 +16241,18 @@ function renderPersonDetail(d: any) {
 		return true;
 	});
 	const personSummaryLine = crd ? `CRD#: ${esc(String(crd))}` : '';
+	const parentFirmSummaryHref = d.orphanParentType === 'firm' && d.orphanParentCrd ? `https://brokercheck.finra.org/firm/summary/${encodeURIComponent(String(d.orphanParentCrd))}` : null;
+	const parentSecSummaryHref = d.orphanParentType === 'firm' && d.orphanParentCrd ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(String(d.orphanParentCrd))}` : null;
+	const showParentFirmOnlyLinks = Boolean(d.orphanParentCrd && d.orphanParentType === 'firm');
+	const primaryExternalLinks = showParentFirmOnlyLinks ? [
+		parentFirmSummaryHref ? `<a class="fg-ext-link bc" href="${esc(parentFirmSummaryHref)}" target="_blank" rel="noopener noreferrer">&#x2197; Parent firm FINRA profile</a>` : '',
+		parentSecSummaryHref ? `<a class="fg-ext-link sec" href="${esc(parentSecSummaryHref)}" target="_blank" rel="noopener noreferrer">&#x2197; Parent firm SEC profile</a>` : '',
+	].filter(Boolean).join('') : [
+		showFinra && brokerCheckSummaryUrl ? `<a class="fg-ext-link bc" href="${brokerCheckSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : '',
+		showFinra && brokerCheckReportUrl ? `<a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>` : '',
+		showSec && secSummaryUrl ? `<a class="fg-ext-link sec" href="${secSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo Summary</a>` : '',
+		...parentFirmSummaryLinksFiltered.map((link) => `<a class="fg-ext-link ${link.className}" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer">&#x2197; ${esc(link.label)}</a>`),
+	].filter(Boolean).join('');
 
 	return `
     <div class="fg-sb-header individual">
@@ -16248,10 +16273,7 @@ function renderPersonDetail(d: any) {
     </div>
     <div class="fg-sb-body fg-sb-body--person">
 			<div class="fg-ext-links">
-				${showFinra && brokerCheckSummaryUrl ? `<a class="fg-ext-link bc" href="${brokerCheckSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : ''}
-				${showFinra && brokerCheckReportUrl ? `<a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>` : ''}
-				${showSec && secSummaryUrl ? `<a class="fg-ext-link sec" href="${secSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo Summary</a>` : ''}
-				${parentFirmSummaryLinksFiltered.map((link) => `<a class="fg-ext-link ${link.className}" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer">&#x2197; ${esc(link.label)}</a>`).join('')}
+				${primaryExternalLinks}
 			</div>
 		<div class="fg-sb-copy-below-links">
 
@@ -16289,7 +16311,7 @@ function renderPersonDetail(d: any) {
 					.map((e) => {
 						const detailLine = getEmploymentDetailLine(e);
 						const scopeTags = getEmploymentScopeTags(e);
-						const datesHtml = ` <span class="fg-tl-dates">${esc(e.start || '–')} → ${esc(e.end || 'present')}</span>`;
+						const datesHtml = ` <span class="fg-tl-dates">${esc(formatEmploymentDateText(e.start || '', e.end || '', true))}</span>`;
 						const detailHtml = detailLine ? `<span class="fg-tl-loc">${esc(detailLine)}</span>` : '';
 						const scopeHtml = scopeTags.length ? `<span class="fg-tl-loc" style="color:var(--text-m)">${esc(scopeTags.join(' · '))}</span>` : '';
 						const secHtml = showSecReferences && e.bdSecNumber ? ` <small>SEC#${esc(String(e.bdSecNumber))}</small>` : '';
@@ -16463,7 +16485,7 @@ function renderPersonDetail(d: any) {
 									}
 								}
 
-								const dateRange = startDate ? `${esc(startDate)} → ${esc(endDate || 'present')}` : null;
+								const dateRange = startDate ? `${esc(startDate)} → ${esc(endDate || 'present')}` : endDate ? `Until ${esc(endDate)}` : 'Present';
 								const location =
 									l.location ||
 									employmentMatch?.loc ||
@@ -16533,6 +16555,7 @@ function formatFirmConnectionDateText(startDate: string, endDate: string, isCurr
 	if (startDate && endDate) return `${startDate} → ${endDate}`;
 	if (startDate) return isCurrent ? `Since ${startDate}` : `Started ${startDate}`;
 	if (endDate) return `Until ${endDate}`;
+	if (isCurrent) return 'Present';
 	return '';
 }
 
@@ -17078,21 +17101,21 @@ function renderFirmDetail(d: any) {
 		if (/^\d+$/.test(raw)) return `8-${raw}`;
 		return raw;
 	};
-	const secFirmId = normalizeSecFirmId(d.iaSecNumber || d.bdSecNumber || d.bdSECNumber || d.basicInformation?.iaSECNumber || d.basicInformation?.bdSECNumber);
+	const secFirmId = normalizeSecFirmId(d.iaSecNumber || d.iaSECNumber || d.bdSecNumber || d.bdSECNumber || d.basicInformation?.iaSecNumber || d.basicInformation?.iaSECNumber || d.basicInformation?.bdSecNumber || d.basicInformation?.bdSECNumber);
 	const crdSecCrdHtml = firmId ? `CRD#: ${esc(String(firmId))}` : null;
 	const crdSecSecHtml = secFirmId ? `SEC#: ${esc(secFirmId)}` : null;
 	const crdSec = [crdSecCrdHtml, crdSecSecHtml].filter(Boolean).join(' / ');
-	const secSummaryUrl = firmId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(firmId)}` : null;
+	const secSummaryUrl = secFirmId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(secFirmId)}` : null;
 	const secDocumentLinks =
 		hasSecPage ?
 			(() => {
 				const defaultLinks =
-					firmId ?
+					secFirmId ?
 						[
 							{ label: 'SEC AdvisorInfo Summary', href: secSummaryUrl },
-							{ label: 'Latest Form ADV filed', href: `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(firmId)}/PDF/${encodeURIComponent(firmId)}.pdf` },
-							{ label: 'SEC firm brochure', href: `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(firmId)}` },
-							{ label: 'SEC Form CRS', href: `https://reports.adviserinfo.sec.gov/crs/crs_${encodeURIComponent(firmId)}.pdf` },
+							{ label: 'Latest Form ADV filed', href: `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(secFirmId)}/PDF/${encodeURIComponent(secFirmId)}.pdf` },
+							{ label: 'SEC firm brochure', href: `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(secFirmId)}` },
+							{ label: 'SEC Form CRS', href: `https://reports.adviserinfo.sec.gov/crs/crs_${encodeURIComponent(secFirmId)}.pdf` },
 						]
 					:	[];
 
@@ -17105,14 +17128,14 @@ function renderFirmDetail(d: any) {
 					if (/^Latest Form ADV filed$/i.test(label)) {
 						return {
 							...link,
-							href: `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(firmId)}/PDF/${encodeURIComponent(firmId)}.pdf`,
+							href: secFirmId ? `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(secFirmId)}/PDF/${encodeURIComponent(secFirmId)}.pdf` : null,
 						};
 					}
 					if (/^SEC firm brochure$/i.test(label)) {
-						return { ...link, href: `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(firmId)}` };
+						return { ...link, href: secFirmId ? `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(secFirmId)}` : null };
 					}
 					if (/^SEC Form CRS$/i.test(label)) {
-						return { ...link, href: `https://reports.adviserinfo.sec.gov/crs/crs_${encodeURIComponent(firmId)}.pdf` };
+						return { ...link, href: secFirmId ? `https://reports.adviserinfo.sec.gov/crs/crs_${encodeURIComponent(secFirmId)}.pdf` : null };
 					}
 					return link;
 				});

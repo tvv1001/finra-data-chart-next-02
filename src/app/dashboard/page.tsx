@@ -131,17 +131,7 @@ const CONNECTION_PAGE_SIZE = 80;
 /** When a filter is active, paint more matched rows at once so CRD/name hits aren't stuck behind the sentinel. */
 const CONNECTION_FILTER_PAGE_SIZE = 240;
 
-function ConnectionsLazySentinel({
-	rootRef,
-	enabled,
-	page,
-	onLoadMore,
-}: {
-	rootRef: RefObject<HTMLElement | null>;
-	enabled: boolean;
-	page: number;
-	onLoadMore: () => void;
-}) {
+function ConnectionsLazySentinel({ rootRef, enabled, page, onLoadMore }: { rootRef: RefObject<HTMLElement | null>; enabled: boolean; page: number; onLoadMore: () => void }) {
 	const nodeRef = useRef<HTMLDivElement | null>(null);
 	useEffect(() => {
 		if (!enabled) return;
@@ -157,7 +147,13 @@ function ConnectionsLazySentinel({
 		return () => observer.disconnect();
 	}, [enabled, onLoadMore, page, rootRef]);
 	if (!enabled) return null;
-	return <div ref={nodeRef} className={styles.connectionsLazySentinel} aria-hidden='true' />;
+	return (
+		<div
+			ref={nodeRef}
+			className={styles.connectionsLazySentinel}
+			aria-hidden='true'
+		/>
+	);
 }
 const dashboardMergedDetailCache = new Map<string, any>();
 const dashboardRecordSnapshotCache = new Map<string, DashboardRecordSnapshot>();
@@ -179,10 +175,8 @@ function firmConnectionRosterFrom(value: any): { currentConnections: any[]; prev
 
 function rememberDashboardRecordSnapshot(key: string, snapshot: DashboardRecordSnapshot) {
 	const [entity, id] = key.split(':');
-	const payloadForCache =
-		entity === 'firm' ? stripFirmConnectionLists(snapshot.payload) : snapshot.payload;
-	const snapshotForCache =
-		payloadForCache === snapshot.payload ? snapshot : { ...snapshot, payload: payloadForCache };
+	const payloadForCache = entity === 'firm' ? stripFirmConnectionLists(snapshot.payload) : snapshot.payload;
+	const snapshotForCache = payloadForCache === snapshot.payload ? snapshot : { ...snapshot, payload: payloadForCache };
 	dashboardRecordSnapshotCache.delete(key);
 	dashboardRecordSnapshotCache.set(key, snapshotForCache);
 	while (dashboardRecordSnapshotCache.size > DASHBOARD_RECORD_CACHE_MAX) {
@@ -1328,18 +1322,7 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 				result.crd = crd;
 				result.entity = entityType;
 			}
-			result.haystack = [
-				title,
-				subtitle,
-				meta,
-				crd,
-				addressText,
-				statusTag,
-				currentFirmName,
-				currentFirmId,
-				...(sourceTags || []),
-				...otherNamesArr,
-			]
+			result.haystack = [title, subtitle, meta, crd, addressText, statusTag, currentFirmName, currentFirmId, ...(sourceTags || []), ...otherNamesArr]
 				.filter(Boolean)
 				.join(' ')
 				.toLowerCase();
@@ -1489,8 +1472,35 @@ async function hydrateSearchResultCard(card: SearchResultCard): Promise<SearchRe
 	}
 }
 
+function resolveParentSummaryUrl(data: Record<string, any> | null | undefined, parentType: 'individual' | 'firm', parentCrd: string) {
+	const route = parentType === 'individual' ? 'individual' : 'firm';
+	const secLinks = Array.isArray(data?.secDocumentLinks) ? data.secDocumentLinks : [];
+	const secSummaryLink = secLinks.find((link: any) => typeof link?.href === 'string' && /adviserinfo\.sec\.gov\//.test(link.href) && /\/summary\//.test(link.href));
+	if (secSummaryLink?.href) return secSummaryLink.href;
+
+	const secId = pickFirstNonEmpty(
+		data?.iaSECNumber,
+		data?.secNumber,
+		data?.basicInformation?.iaSECNumber,
+		data?.basicInformation?.secNumber,
+		data?.ia_sec_number,
+		data?.sec_number,
+		data?.basicInformation?.ia_sec_number,
+		data?.basicInformation?.sec_number,
+	);
+	if (secId) {
+		const normalizedId = String(secId).trim();
+		if (/^8-\d+$/i.test(normalizedId) || /^\d{1,10}$/.test(normalizedId)) {
+			const summaryId = /^8-\d+$/i.test(normalizedId) ? normalizedId : `8-${normalizedId}`;
+			return `https://adviserinfo.sec.gov/${route}/summary/${encodeURIComponent(summaryId)}`;
+		}
+	}
+
+	return null;
+}
+
 function OrphanProfileLinks({ parentCrd, parentType = 'firm' }: { parentCrd: string; parentType?: 'individual' | 'firm' }) {
-	const [status, setStatus] = useState<{ finra: boolean; sec: boolean } | null>(null);
+	const [status, setStatus] = useState<{ finra: boolean; sec: boolean; secUrl: string | null } | null>(null);
 	const isParentIndividual = parentType === 'individual';
 
 	useEffect(() => {
@@ -1500,14 +1510,16 @@ function OrphanProfileLinks({ parentCrd, parentType = 'firm' }: { parentCrd: str
 			.then((res) => res.json())
 			.then((data) => {
 				if (active && data && typeof data === 'object') {
+					const secUrl = resolveParentSummaryUrl(data, isParentIndividual ? 'individual' : 'firm', parentCrd);
 					setStatus({
 						finra: Boolean(data.hasFinraData),
-						sec: Boolean(data.hasSecData),
+						sec: Boolean(data.hasSecData && secUrl),
+						secUrl,
 					});
 				}
 			})
 			.catch(() => {
-				if (active) setStatus({ finra: true, sec: true }); // Fallback
+				if (active) setStatus({ finra: true, sec: false, secUrl: null }); // Fallback
 			});
 		return () => {
 			active = false;
@@ -1529,9 +1541,9 @@ function OrphanProfileLinks({ parentCrd, parentType = 'firm' }: { parentCrd: str
 					Parent {isParentIndividual ? 'individual' : 'firm'} FINRA profile ↗
 				</a>
 			)}
-			{status.sec && (
+			{status.sec && status.secUrl && (
 				<a
-					href={`https://adviserinfo.sec.gov/${isParentIndividual ? 'individual' : 'firm'}/summary/${parentCrd}`}
+					href={status.secUrl}
 					target='_blank'
 					rel='noopener noreferrer'
 					className={styles.profileLinkBtn}>
@@ -1570,15 +1582,18 @@ function FilterTagsInput({
 	onCommitTag?: () => void;
 }) {
 	const commitLiveTextAsTag = useCallback(() => {
-			const trimmed = liveText.trim();
-			if (!trimmed) return false;
-			const newTags = trimmed.split(',').map(t => t.trim()).filter(Boolean);
-			if (!newTags.length) return false;
-			onCommitTag?.();
-			onTagsChange([...tags, ...newTags]);
-			onLiveTextChange('');
-			return true;
-		}, [liveText, tags, onTagsChange, onLiveTextChange, onCommitTag]);
+		const trimmed = liveText.trim();
+		if (!trimmed) return false;
+		const newTags = trimmed
+			.split(',')
+			.map((t) => t.trim())
+			.filter(Boolean);
+		if (!newTags.length) return false;
+		onCommitTag?.();
+		onTagsChange([...tags, ...newTags]);
+		onLiveTextChange('');
+		return true;
+	}, [liveText, tags, onTagsChange, onLiveTextChange, onCommitTag]);
 
 	return (
 		<div className={`${styles.filterTagsWrap} ${disabled ? styles.filterTagsWrapDisabled : ''}`}>
@@ -1602,17 +1617,20 @@ function FilterTagsInput({
 				onChange={(event) => onLiveTextChange(event.target.value)}
 				onFocus={() => onFocusChange?.(true)}
 				onPaste={(event) => {
-						const pasted = event.clipboardData.getData('text');
-						if (pasted.includes(',')) {
-							event.preventDefault();
-							const newTags = pasted.split(',').map(t => t.trim()).filter(Boolean);
-							if (newTags.length) {
-								onCommitTag?.();
-								onTagsChange([...tags, ...newTags]);
-							}
+					const pasted = event.clipboardData.getData('text');
+					if (pasted.includes(',')) {
+						event.preventDefault();
+						const newTags = pasted
+							.split(',')
+							.map((t) => t.trim())
+							.filter(Boolean);
+						if (newTags.length) {
+							onCommitTag?.();
+							onTagsChange([...tags, ...newTags]);
 						}
-					}}
-					onKeyDown={(event) => {
+					}
+				}}
+				onKeyDown={(event) => {
 					if (event.key === 'Enter' || event.key === ',') {
 						event.preventDefault();
 						commitLiveTextAsTag();
@@ -1794,6 +1812,7 @@ function DashboardPageInner() {
 	const [currentRecordSource, setCurrentRecordSource] = useState<'finra' | 'sec' | null>(null);
 	const [currentRecordEntity, setCurrentRecordEntity] = useState<'individual' | 'firm' | null>(null);
 	const [currentRecordId, setCurrentRecordId] = useState<string | null>(null);
+	const [detailCollectionsOpen, setDetailCollectionsOpen] = useState(false);
 	// Scroll container ref used together with the module-level scroll-position map above so
 	// revisiting a firm/individual detail page (via a connection-card click, the browser
 	// back/forward buttons, or re-opening the same card) restores the exact scroll position
@@ -1917,6 +1936,7 @@ function DashboardPageInner() {
 		setSelectedConnectionKeys(new Set());
 		setConnectionsFilterFocused(false);
 		setConnectionsFilterJustCommitted(false);
+		setDetailCollectionsOpen(true);
 	}, [currentRecordId, currentRecordEntity]);
 	// The URL-driven auto-load effect below must only react to *external* navigation (initial
 	// deep link / hard refresh, or a real browser back-forward). If it also reacted every time
@@ -1972,9 +1992,7 @@ function DashboardPageInner() {
 			const seed = pendingQueueGraphSeed;
 			pendingQueueGraphSeed = null;
 			const nodeIds = Array.from(new Set([...(seed?.nodeIds || []), ...historyIds]));
-			const firmId =
-				seed?.anchorFirmId ||
-				(currentRecordEntity === 'firm' && currentRecordId ? String(currentRecordId) : undefined);
+			const firmId = seed?.anchorFirmId || (currentRecordEntity === 'firm' && currentRecordId ? String(currentRecordId) : undefined);
 			writeQueueGraphBridge(nodeIds, {
 				anchorFirmId: firmId,
 				anchorFirmName: seed?.anchorFirmName,
@@ -2383,18 +2401,18 @@ function DashboardPageInner() {
 	}, [localHistory]);
 
 	const peopleCrdEntries = useMemo(() => {
-			return newCrds
-				.filter((item) => inferEntityTypeFromNewCrd(item) === 'individual')
-				.sort((left, right) => Number(right.id) - Number(left.id))
-				.slice(0, 16);
-		}, [newCrds]);
+		return newCrds
+			.filter((item) => inferEntityTypeFromNewCrd(item) === 'individual')
+			.sort((left, right) => Number(right.id) - Number(left.id))
+			.slice(0, 16);
+	}, [newCrds]);
 
 	const firmCrdEntries = useMemo(() => {
-			return newCrds
-				.filter((item) => inferEntityTypeFromNewCrd(item) === 'firm')
-				.sort((left, right) => Number(right.id) - Number(left.id))
-				.slice(0, 16);
-		}, [newCrds]);
+		return newCrds
+			.filter((item) => inferEntityTypeFromNewCrd(item) === 'firm')
+			.sort((left, right) => Number(right.id) - Number(left.id))
+			.slice(0, 16);
+	}, [newCrds]);
 
 	const orphanRecord = useMemo(() => {
 		if (!mainJson || typeof mainJson !== 'object') return null;
@@ -2633,9 +2651,7 @@ function DashboardPageInner() {
 	});
 	const [currentRenderCount, setCurrentRenderCount] = useState(CONNECTION_PAGE_SIZE);
 	const [previousRenderCount, setPreviousRenderCount] = useState(CONNECTION_PAGE_SIZE);
-	const connectionsFilterActive =
-		Boolean(connectionsFilterQuery.trim()) ||
-		(connectionsFilterEnabled && connectionsFilterTags.length > 0);
+	const connectionsFilterActive = Boolean(connectionsFilterQuery.trim()) || (connectionsFilterEnabled && connectionsFilterTags.length > 0);
 	const connectionPageSize = connectionsFilterActive ? CONNECTION_FILTER_PAGE_SIZE : CONNECTION_PAGE_SIZE;
 	const loadMoreCurrentConnections = useCallback(() => {
 		setCurrentRenderCount((count) => count + CONNECTION_FILTER_PAGE_SIZE);
@@ -2647,41 +2663,22 @@ function DashboardPageInner() {
 		const cards = detailedMainRecord?.currentConnectionCards || [];
 		return partitionConnectionsByFilter(
 			cards,
-			(item) => item.haystack || [item.title, item.subtitle, item.meta, item.crd, item.address, item.statusTag, ...(item.sourceTags || []), ...(item.otherNames || [])].filter(Boolean).join(' '),
+			(item) =>
+				item.haystack ||
+				[item.title, item.subtitle, item.meta, item.crd, item.address, item.statusTag, ...(item.sourceTags || []), ...(item.otherNames || [])].filter(Boolean).join(' '),
 			connectionsFilterTags,
 			connectionsFilterQuery.trim(),
 			connectionsFilterEnabled,
 			connectionFilterPreviewUnfiltered,
 		);
-	}, [
-		detailedMainRecord?.currentConnectionCards,
-		connectionsFilterTags,
-		connectionsFilterQuery,
-		connectionsFilterEnabled,
-		connectionFilterPreviewUnfiltered,
-	]);
+	}, [detailedMainRecord?.currentConnectionCards, connectionsFilterTags, connectionsFilterQuery, connectionsFilterEnabled, connectionFilterPreviewUnfiltered]);
 	const filteredCurrentConnectionCardsAll = useMemo(() => {
-		const filterActive =
-			!connectionFilterPreviewUnfiltered &&
-			(Boolean(connectionsFilterQuery.trim()) ||
-				(connectionsFilterEnabled && connectionsFilterTags.length > 0));
+		const filterActive = !connectionFilterPreviewUnfiltered && (Boolean(connectionsFilterQuery.trim()) || (connectionsFilterEnabled && connectionsFilterTags.length > 0));
 		// Keep relevance order from partitionConnectionsByFilter when filtering; otherwise newest first.
 		if (filterActive) return currentConnectionPartition.ordered;
-		return [
-			...sortByMostRecentStartDate(currentConnectionPartition.matched),
-			...sortByMostRecentStartDate(currentConnectionPartition.unmatched),
-		];
-	}, [
-		currentConnectionPartition,
-		connectionsFilterEnabled,
-		connectionFilterPreviewUnfiltered,
-		connectionsFilterTags,
-		connectionsFilterQuery,
-	]);
-	const filteredCurrentConnectionCards = useMemo(
-		() => filteredCurrentConnectionCardsAll.slice(0, currentRenderCount),
-		[filteredCurrentConnectionCardsAll, currentRenderCount],
-	);
+		return [...sortByMostRecentStartDate(currentConnectionPartition.matched), ...sortByMostRecentStartDate(currentConnectionPartition.unmatched)];
+	}, [currentConnectionPartition, connectionsFilterEnabled, connectionFilterPreviewUnfiltered, connectionsFilterTags, connectionsFilterQuery]);
+	const filteredCurrentConnectionCards = useMemo(() => filteredCurrentConnectionCardsAll.slice(0, currentRenderCount), [filteredCurrentConnectionCardsAll, currentRenderCount]);
 
 	const deferredPreviousConnectionCards = useDeferredValue(detailedMainRecord?.previousConnectionCards || []);
 	const deferredPreviousFilterTags = useDeferredValue(connectionsFilterTags);
@@ -2691,19 +2688,15 @@ function DashboardPageInner() {
 	const previousConnectionPartition = useMemo(() => {
 		return partitionConnectionsByFilter(
 			deferredPreviousConnectionCards,
-			(item) => item.haystack || [item.title, item.subtitle, item.meta, item.crd, item.address, item.statusTag, ...(item.sourceTags || []), ...(item.otherNames || [])].filter(Boolean).join(' '),
+			(item) =>
+				item.haystack ||
+				[item.title, item.subtitle, item.meta, item.crd, item.address, item.statusTag, ...(item.sourceTags || []), ...(item.otherNames || [])].filter(Boolean).join(' '),
 			deferredPreviousFilterTags,
 			deferredPreviousFilterQuery.trim(),
 			deferredPreviousFilterEnabled,
 			deferredPreviousPreviewUnfiltered,
 		);
-	}, [
-		deferredPreviousConnectionCards,
-		deferredPreviousFilterTags,
-		deferredPreviousFilterQuery,
-		deferredPreviousFilterEnabled,
-		deferredPreviousPreviewUnfiltered,
-	]);
+	}, [deferredPreviousConnectionCards, deferredPreviousFilterTags, deferredPreviousFilterQuery, deferredPreviousFilterEnabled, deferredPreviousPreviewUnfiltered]);
 	const filteredPreviousConnectionCardsAll = previousConnectionPartition.ordered;
 	useEffect(() => {
 		setCurrentRenderCount(connectionPageSize);
@@ -2742,8 +2735,7 @@ function DashboardPageInner() {
 			const el = document.getElementById(FIRM_CONNECTIONS_ANCHOR_ID);
 			if (!el) return;
 			const preferred = dashboardContentRef.current;
-			const container =
-				preferred && preferred.scrollHeight > preferred.clientHeight + 1 ? preferred : getScrollParent(el);
+			const container = preferred && preferred.scrollHeight > preferred.clientHeight + 1 ? preferred : getScrollParent(el);
 			if (!container || container.scrollHeight <= container.clientHeight + 1) return;
 
 			const containerRect = container.getBoundingClientRect();
@@ -2989,7 +2981,10 @@ function DashboardPageInner() {
 	}
 
 	async function setMainViewFromSearch(card: SearchResultCard) {
-		const orderedSources: SearchResultSource[] = card.availableSources && card.availableSources.length > 0 ? card.availableSources : card.source === 'sec' ? ['sec', 'finra'] : ['finra', 'sec'];
+		const orderedSources: SearchResultSource[] =
+			card.availableSources && card.availableSources.length > 0 ? card.availableSources
+			: card.source === 'sec' ? ['sec', 'finra']
+			: ['finra', 'sec'];
 		await loadQueueSourceJson(
 			{
 				id: card.id,
@@ -3101,7 +3096,7 @@ function DashboardPageInner() {
 		const recordId = normalizedId;
 
 		const nextPath = `/dashboard/${entity}/${encodeURIComponent(recordId)}`;
-			if (window.location.pathname === nextPath) return;
+		if (window.location.pathname === nextPath) return;
 		window.history.pushState({}, '', nextPath);
 	}
 
@@ -3368,11 +3363,7 @@ function DashboardPageInner() {
 		return { currentConnections: Array.from(currentByKey.values()), previousConnections: Array.from(previousByKey.values()) };
 	}
 
-	function applyFirmConnectionsToState(
-		firmId: string,
-		currentConnections?: any[] | null,
-		previousConnections?: any[] | null,
-	) {
+	function applyFirmConnectionsToState(firmId: string, currentConnections?: any[] | null, previousConnections?: any[] | null) {
 		setMainJson((prev) => {
 			if (!prev) return prev;
 			const prevCrd = String(prev?.basicInformation?.firmId || prev?.firmId || prev?.id || '').trim();
@@ -3460,9 +3451,7 @@ function DashboardPageInner() {
 		if (existingPromise) return existingPromise;
 
 		const cacheKey = visitConnectionsKey(firmId);
-		const cached =
-			readVisitedSync<CachedFirmConnectionsPayload>(cacheKey) ||
-			(await readVisited<CachedFirmConnectionsPayload>(cacheKey));
+		const cached = readVisitedSync<CachedFirmConnectionsPayload>(cacheKey) || (await readVisited<CachedFirmConnectionsPayload>(cacheKey));
 		if (cached?.found && (cached.currentConnections?.length || cached.previousConnections?.length)) {
 			applyFirmConnectionsToState(firmId, cached.currentConnections || [], cached.previousConnections || []);
 			setConnectionsLoadingFirmId(null);
@@ -3475,13 +3464,10 @@ function DashboardPageInner() {
 				const loadBucket = async (bucket: 'current' | 'previous') => {
 					// light=1 skips Redis detail enrichment; server still hydrates names from
 					// search-index gzip sidecars. Client hard-caches the full roster in IDB.
-					const response = await fetch(
-						`/api/finra/firm/${encodeURIComponent(firmId)}/connections?bucket=${bucket}&light=1`,
-						{
-							method: 'GET',
-							headers: { Accept: 'application/json' },
-						},
-					);
+					const response = await fetch(`/api/finra/firm/${encodeURIComponent(firmId)}/connections?bucket=${bucket}&light=1`, {
+						method: 'GET',
+						headers: { Accept: 'application/json' },
+					});
 					if (!response.ok) return null;
 					return response.json().catch(() => null);
 				};
@@ -3496,12 +3482,8 @@ function DashboardPageInner() {
 					applyFirmConnectionsToState(firmId, undefined, previousData.previousConnections || []);
 				}
 
-				const currentConnections = currentData?.found
-					? currentData.currentConnections || []
-					: cached?.currentConnections || [];
-				const previousConnections = previousData?.found
-					? previousData.previousConnections || []
-					: cached?.previousConnections || [];
+				const currentConnections = currentData?.found ? currentData.currentConnections || [] : cached?.currentConnections || [];
+				const previousConnections = previousData?.found ? previousData.previousConnections || [] : cached?.previousConnections || [];
 				if (currentData?.found || previousData?.found) {
 					rememberFirmConnectionsCache(firmId, { currentConnections, previousConnections });
 				}
@@ -3566,9 +3548,7 @@ function DashboardPageInner() {
 		persistDashboardScroll(dashboardContentRef.current);
 		dashboardCurrentScrollRecordKey = `${card.entity}:${card.id}`;
 		const cacheKey = `${card.entity}:${card.id}`;
-		const snapshot =
-			dashboardRecordSnapshotCache.get(cacheKey) ||
-			readVisitedSync<DashboardRecordSnapshot>(visitSnapshotKey(card.entity, card.id));
+		const snapshot = dashboardRecordSnapshotCache.get(cacheKey) || readVisitedSync<DashboardRecordSnapshot>(visitSnapshotKey(card.entity, card.id));
 		if (!snapshot) {
 			const persistedSnapshot = await readVisited<DashboardRecordSnapshot>(visitSnapshotKey(card.entity, card.id));
 			if (!stillCurrent()) return;
@@ -4261,11 +4241,10 @@ function DashboardPageInner() {
 				});
 			}
 
-			
 			setSearchSkippedCount(skippedTotal);
 			const rawCards = [...finraIndividuals.cards, ...finraFirms.cards, ...secIndividuals.cards, ...secFirms.cards];
 			const mergedCardsMap = new Map<string, SearchResultCard>();
-			
+
 			for (const card of rawCards) {
 				const key = `${card.entity}:${card.id}`;
 				if (mergedCardsMap.has(key)) {
@@ -4285,10 +4264,9 @@ function DashboardPageInner() {
 					mergedCardsMap.set(key, card);
 				}
 			}
-			
+
 			const combinedCards = Array.from(mergedCardsMap.values());
 			setSearchResults(combinedCards);
-
 
 			// Hydrate cards (real name/address/otherNames) from full detail routes in the background,
 			// same approach as graph-search's direct-CRD fallback — minimal search-index stub docs
@@ -4373,8 +4351,8 @@ function DashboardPageInner() {
 
 	function renderSearchResult(card: SearchResultCard, index: number) {
 		const hasFinra = card.availableSources ? card.availableSources.includes('finra') : card.source === 'finra';
-			const hasSec = card.availableSources ? card.availableSources.includes('sec') : card.source === 'sec';
-			const sourceLabel = [hasFinra && 'FINRA', hasSec && 'SEC'].filter(Boolean).join(' / ');
+		const hasSec = card.availableSources ? card.availableSources.includes('sec') : card.source === 'sec';
+		const sourceLabel = [hasFinra && 'FINRA', hasSec && 'SEC'].filter(Boolean).join(' / ');
 		const rowAddress = card.address || card.detail || 'No address/details in cached index';
 		const otherNamesText = card.otherNames && card.otherNames.length > 0 ? `aka ${card.otherNames.join(', ')}` : '';
 		const isSelected = currentRecordId === card.id && currentRecordEntity === card.entity;
@@ -4407,14 +4385,16 @@ function DashboardPageInner() {
 			<header className='fg-header'>
 				<div className='fg-header-bar'>
 					<div className='fg-header-brand'>
-							<a href="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-								<h1
-									className='fg-title'
-									style={{ fontSize: '14px' }}>
-									FINRA/SEC
-								</h1>
-							</a>
-						</div>
+						<a
+							href='/'
+							style={{ textDecoration: 'none', color: 'inherit' }}>
+							<h1
+								className='fg-title'
+								style={{ fontSize: '14px' }}>
+								FINRA/SEC
+							</h1>
+						</a>
+					</div>
 					<div
 						id='fg-header-controls'
 						className='fg-header-controls'>
@@ -4536,7 +4516,6 @@ function DashboardPageInner() {
 
 							{searchPaneOpen && (
 								<div className={styles.searchResultsPane}>
-									
 									<div className={styles.searchSummary}>
 										{searchSummary}
 										<span className={styles.searchDockMeta}>
@@ -4549,23 +4528,23 @@ function DashboardPageInner() {
 									: !searchBusy ?
 										<div className={styles.searchResultsEmpty}>No Redis results yet for this query.</div>
 									:	null}
-										<div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
-											<button
-												type='button'
-												className={styles.searchResultsCloseBtn}
-												aria-label='Close search results'
-												title='Close search results'
-												onClick={() => {
-													setSearchResults([]);
-													setSearchError(null);
-													setSearchSkippedCount(0);
-													setHasSearchRun(false);
-												}}>
-												Close Results
-											</button>
-										</div>
+									<div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+										<button
+											type='button'
+											className={styles.searchResultsCloseBtn}
+											aria-label='Close search results'
+											title='Close search results'
+											onClick={() => {
+												setSearchResults([]);
+												setSearchError(null);
+												setSearchSkippedCount(0);
+												setHasSearchRun(false);
+											}}>
+											Close Results
+										</button>
 									</div>
-								)}
+								</div>
+							)}
 
 							{hasCurrentRecord && (
 								<>
@@ -4911,21 +4890,91 @@ function DashboardPageInner() {
 												</section>
 											)}
 
-											{detailedMainRecord.affiliateDisclosures && (
+											{((detailedMainRecord.affiliateDisclosures && Object.keys(detailedMainRecord.affiliateDisclosures).length > 0) ||
+												(detailedMainRecord.registrations && Object.keys(detailedMainRecord.registrations).length > 0)) && (
 												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Affiliate Disclosures</h4>
-													<div className={styles.detailGrid}>
-														{Object.entries(detailedMainRecord.affiliateDisclosures).map(([key, val]) => (
-															<div
-																key={key}
-																className={styles.detailGridCard}>
-																<div className={styles.detailRowMain}>
-																	<span className={styles.detailRowName}>{humanizeKey(key)}</span>
-																	<span className={styles.detailInlineTag}>{String(val)}</span>
+													<button
+														type='button'
+														className={styles.detailToggleBar}
+														onClick={() => setDetailCollectionsOpen((open) => !open)}
+														aria-expanded={detailCollectionsOpen}>
+														<h4 className={styles.detailSectionTitle}>Disclosures & Registrations</h4>
+														<div className={styles.detailToggleStats}>
+															{detailedMainRecord.affiliateDisclosures && Object.keys(detailedMainRecord.affiliateDisclosures).length > 0 && (
+																<span className={styles.detailToggleStat}>Affiliate: {Object.keys(detailedMainRecord.affiliateDisclosures).length}</span>
+															)}
+															{detailedMainRecord.registrations && Object.keys(detailedMainRecord.registrations).length > 0 && (
+																<span className={styles.detailToggleStat}>Registrations: {Object.keys(detailedMainRecord.registrations).length}</span>
+															)}
+															{detailedMainRecord.registrations?.stateList?.length > 0 && (
+																<span className={styles.detailToggleStat}>States: {detailedMainRecord.registrations.stateList.length}</span>
+															)}
+														</div>
+														<span
+															className={styles.detailToggleChevron}
+															aria-hidden='true'>
+															{detailCollectionsOpen ? '−' : '+'}
+														</span>
+													</button>
+													{detailCollectionsOpen && (
+														<>
+															{detailedMainRecord.affiliateDisclosures && Object.keys(detailedMainRecord.affiliateDisclosures).length > 0 && (
+																<div
+																	className={styles.detailSection}
+																	style={{ border: '0', padding: '0', background: 'transparent' }}>
+																	<h4 className={styles.detailSectionTitle}>Affiliate Disclosures</h4>
+																	<div className={styles.detailGrid}>
+																		{Object.entries(detailedMainRecord.affiliateDisclosures).map(([key, val]) => (
+																			<div
+																				key={key}
+																				className={styles.detailGridCard}>
+																				<div className={styles.detailRowMain}>
+																					<span className={styles.detailRowName}>{humanizeKey(key)}</span>
+																					<span className={styles.detailInlineTag}>{String(val)}</span>
+																				</div>
+																			</div>
+																		))}
+																	</div>
 																</div>
-															</div>
-														))}
-													</div>
+															)}
+															{detailedMainRecord.registrations && Object.keys(detailedMainRecord.registrations).length > 0 && (
+																<div
+																	className={styles.detailSection}
+																	style={{ border: '0', padding: '0', background: 'transparent' }}>
+																	<h4 className={styles.detailSectionTitle}>Registrations</h4>
+																	<div className={styles.detailGrid}>
+																		{Object.entries(detailedMainRecord.registrations).map(([k, v]) => {
+																			if (k === 'stateList' || !v) return null;
+																			return (
+																				<div
+																					key={`reg-${k}`}
+																					className={styles.detailGridCard}>
+																					<div className={styles.detailRowMain}>
+																						<span className={styles.detailRowName}>{k.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => (str as string).toUpperCase())}</span>
+																						<span className={styles.detailInlineTag}>{String(v)}</span>
+																					</div>
+																				</div>
+																			);
+																		})}
+																	</div>
+																	{detailedMainRecord.registrations.stateList?.length > 0 && (
+																		<div className={styles.registeredStatesWrap}>
+																			<h5 className={styles.registeredStatesTitle}>Registered States ({detailedMainRecord.registrations.stateList.length})</h5>
+																			<div className={styles.registeredStatesList}>
+																				{detailedMainRecord.registrations.stateList.map((st: any, idx: number) => (
+																					<span
+																						key={`state-${idx}`}
+																						className={styles.registeredStateTag}>
+																						{st.state || st.id || st.name || st}
+																					</span>
+																				))}
+																			</div>
+																		</div>
+																	)}
+																</div>
+															)}
+														</>
+													)}
 												</section>
 											)}
 
@@ -5291,41 +5340,6 @@ function DashboardPageInner() {
 												</section>
 											)}
 
-											{detailedMainRecord.registrations && Object.keys(detailedMainRecord.registrations).length > 0 && (
-												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Registrations</h4>
-													<div className={styles.detailGrid}>
-														{Object.entries(detailedMainRecord.registrations).map(([k, v]) => {
-															if (k === 'stateList' || !v) return null;
-															return (
-																<div
-																	key={`reg-${k}`}
-																	className={styles.detailGridCard}>
-																	<div className={styles.detailRowMain}>
-																		<span className={styles.detailRowName}>{k.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => (str as string).toUpperCase())}</span>
-																		<span className={styles.detailInlineTag}>{String(v)}</span>
-																	</div>
-																</div>
-															);
-														})}
-													</div>
-													{detailedMainRecord.registrations.stateList?.length > 0 && (
-														<div className={styles.registeredStatesWrap}>
-															<h5 className={styles.registeredStatesTitle}>Registered States ({detailedMainRecord.registrations.stateList.length})</h5>
-															<div className={styles.registeredStatesList}>
-																{detailedMainRecord.registrations.stateList.map((st: any, idx: number) => (
-																	<span
-																		key={`state-${idx}`}
-																		className={styles.registeredStateTag}>
-																		{st.state || st.id || st.name || st}
-																	</span>
-																))}
-															</div>
-														</div>
-													)}
-												</section>
-											)}
-
 											{detailedMainRecord.directOwners?.length > 0 && (
 												<section className={styles.detailSection}>
 													<h4 className={styles.detailSectionTitle}>Direct Owners & Executive Officers ({detailedMainRecord.directOwners.length})</h4>
@@ -5557,15 +5571,18 @@ function DashboardPageInner() {
 												</section>
 											)}
 
-											{currentRecordEntity === 'firm' &&
-											connectionsLoadingFirmId === currentRecordId &&
-											detailedMainRecord.currentConnectionCards.length === 0 &&
-											detailedMainRecord.previousConnectionCards.length === 0 ? (
-												<section id={FIRM_CONNECTIONS_ANCHOR_ID} className={styles.detailSection}>
+											{(
+												currentRecordEntity === 'firm' &&
+												connectionsLoadingFirmId === currentRecordId &&
+												detailedMainRecord.currentConnectionCards.length === 0 &&
+												detailedMainRecord.previousConnectionCards.length === 0
+											) ?
+												<section
+													id={FIRM_CONNECTIONS_ANCHOR_ID}
+													className={styles.detailSection}>
 													<h4 className={styles.detailSectionTitle}>Loading connections…</h4>
 												</section>
-											) : (
-												(() => {
+											:	(() => {
 													type ConnectionCard = (typeof detailedMainRecord.currentConnectionCards)[number];
 													const connectionHaystack = (item: ConnectionCard) =>
 														item.haystack ||
@@ -5604,11 +5621,7 @@ function DashboardPageInner() {
 													const finishConnectionSelectMode = () => {
 														const selected = selectableConnections.filter((item) => selectedConnectionKeys.has(connectionKey(item)));
 														if (selected.length) {
-															const currentCrdSet = new Set(
-																(detailedMainRecord?.currentConnectionCards || [])
-																	.map((item) => String(item.crd || '').trim())
-																	.filter(Boolean),
-															);
+															const currentCrdSet = new Set((detailedMainRecord?.currentConnectionCards || []).map((item) => String(item.crd || '').trim()).filter(Boolean));
 															const people: QueueGraphBridgePerson[] = selected
 																.filter((item) => item.entity !== 'firm' && item.crd)
 																.map((item) => ({
@@ -5616,17 +5629,9 @@ function DashboardPageInner() {
 																	name: item.title,
 																	isCurrent: currentCrdSet.has(String(item.crd)),
 																}));
-															const nodeIds = selected
-																.map((item) =>
-																	item.entity === 'firm' ? `firm:${item.crd}` : `person:${item.crd}`,
-																)
-																.filter(Boolean);
-															const firmId =
-																currentRecordEntity === 'firm' && currentRecordId ? String(currentRecordId) : undefined;
-															const firmName =
-																firmId ?
-																	formatFirmName(pickFirstNonEmpty(mainJsonLabel, `Firm ${firmId}`) || `Firm ${firmId}`)
-																:	undefined;
+															const nodeIds = selected.map((item) => (item.entity === 'firm' ? `firm:${item.crd}` : `person:${item.crd}`)).filter(Boolean);
+															const firmId = currentRecordEntity === 'firm' && currentRecordId ? String(currentRecordId) : undefined;
+															const firmName = firmId ? formatFirmName(pickFirstNonEmpty(mainJsonLabel, `Firm ${firmId}`) || `Firm ${firmId}`) : undefined;
 															if (firmId) nodeIds.unshift(`firm:${firmId}`);
 															pendingQueueGraphSeed = {
 																nodeIds: Array.from(new Set(nodeIds)),
@@ -5656,8 +5661,7 @@ function DashboardPageInner() {
 														const metaClass = kind === 'current' ? styles.currentConnectionMeta : styles.previousConnectionMeta;
 														const rowKindClass = kind === 'current' ? styles.currentConnectionRow : styles.previousConnectionRow;
 														const unmatchedClass = isUnmatched ? styles.connectionFilterUnmatched : '';
-														const liveHighlight =
-															isUnmatched ? '' : [connectionsFilterQuery.trim(), ...connectionsFilterTags].filter(Boolean).join(' ');
+														const liveHighlight = isUnmatched ? '' : [connectionsFilterQuery.trim(), ...connectionsFilterTags].filter(Boolean).join(' ');
 														const dateStr =
 															kind === 'current' ?
 																item.startDate ?
@@ -5687,10 +5691,7 @@ function DashboardPageInner() {
 														const visitedCurrentEmployer =
 															kind === 'previous' && visitedPerson ?
 																(() => {
-																	const employments = [
-																		...toArray(visitedPerson?.currentEmployments),
-																		...toArray(visitedPerson?.currentIAEmployments),
-																	];
+																	const employments = [...toArray(visitedPerson?.currentEmployments), ...toArray(visitedPerson?.currentIAEmployments)];
 																	const excludeFirmId = String(currentRecordId || '');
 																	const match =
 																		employments.find((emp: any) => {
@@ -5700,8 +5701,7 @@ function DashboardPageInner() {
 																	if (!match) return null;
 																	return {
 																		currentFirmId: pickFirstValidCrd(match?.firmId, match?.firm_id, match?.crdNumber, match?.crd) || undefined,
-																		currentFirmName:
-																			pickFirstNonEmpty(match?.firmName, match?.iaFirmName, match?.legalName, match?.name) || undefined,
+																		currentFirmName: pickFirstNonEmpty(match?.firmName, match?.iaFirmName, match?.legalName, match?.name) || undefined,
 																	};
 																})()
 															:	null;
@@ -5709,9 +5709,7 @@ function DashboardPageInner() {
 														const currentFirmName = item.currentFirmName || visitedCurrentEmployer?.currentFirmName;
 														const currentEmployerLabel =
 															kind === 'previous' && (currentFirmName || currentFirmId) ?
-																['curr:', currentFirmName ? formatFirmName(currentFirmName) : 'Firm', currentFirmId ? `CRD#${currentFirmId}` : '']
-																	.filter(Boolean)
-																	.join(' ')
+																['curr:', currentFirmName ? formatFirmName(currentFirmName) : 'Firm', currentFirmId ? `CRD#${currentFirmId}` : ''].filter(Boolean).join(' ')
 															:	'';
 														const content = (
 															<>
@@ -5736,13 +5734,9 @@ function DashboardPageInner() {
 																	</span>
 																)}
 																{(metaLine || (item.meta && !/^current registration|previous registration$/i.test(item.meta))) && (
-																	<div className={`${styles.detailRowMeta} ${metaClass}`}>
-																		{metaLine || item.meta}
-																	</div>
+																	<div className={`${styles.detailRowMeta} ${metaClass}`}>{metaLine || item.meta}</div>
 																)}
-																{currentEmployerLabel && (
-																	<div className={`${styles.detailRowMeta} ${metaClass}`}>{currentEmployerLabel}</div>
-																)}
+																{currentEmployerLabel && <div className={`${styles.detailRowMeta} ${metaClass}`}>{currentEmployerLabel}</div>}
 															</>
 														);
 
@@ -5789,7 +5783,9 @@ function DashboardPageInner() {
 													return (
 														<>
 															{(detailedMainRecord.currentConnectionCards.length > 0 || detailedMainRecord.previousConnectionCards.length > 0) && (
-																<div id={FIRM_CONNECTIONS_ANCHOR_ID} className={styles.filterLine}>
+																<div
+																	id={FIRM_CONNECTIONS_ANCHOR_ID}
+																	className={styles.filterLine}>
 																	<label className={styles.filterEnabledLabel}>
 																		<input
 																			type='checkbox'
@@ -5891,7 +5887,7 @@ function DashboardPageInner() {
 														</>
 													);
 												})()
-											)}
+											}
 										</>
 									:	<div className={styles.readableCardEmpty}>No readable fields found for this record.</div>}
 								</div>
@@ -6003,7 +5999,6 @@ function DashboardPageInner() {
 							:	<div className={styles.middlePaneEmpty}>No selection history yet.</div>}
 						</div>
 					)}
-
 				</aside>
 
 				<div
@@ -6014,7 +6009,7 @@ function DashboardPageInner() {
 						aria-hidden={!newCrdsOpen}>
 						{newCrdsOpen && (
 							<>
-								<div className={styles.rightPaneCountCard}>{uniqueCrdCounts.total.toLocaleString()} unique CRDs saved in Redis</div>
+								<div className={styles.rightPaneCountCard}>newly added CRDs, 32 of {uniqueCrdCounts.total.toLocaleString()} </div>
 
 								<div className={styles.rightPaneSection}>
 									<div className={styles.rightPaneSectionTitle}>PEOPLE</div>

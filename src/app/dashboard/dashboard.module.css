@@ -2014,6 +2014,62 @@
 	max-width: 100%;
 }
 
+.detailToggleBar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	width: 100%;
+	padding: 0;
+	background: transparent;
+	border: 0;
+	color: inherit;
+	cursor: pointer;
+	text-align: left;
+}
+
+.detailToggleBar:hover .detailSectionTitle,
+.detailToggleBar:focus-visible .detailSectionTitle {
+	color: #b7ecff;
+}
+
+.detailToggleStats {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	align-items: center;
+	justify-content: flex-end;
+}
+
+.detailToggleStat {
+	display: inline-flex;
+	align-items: center;
+	padding: 3px 8px;
+	border: 1px solid rgba(59, 130, 246, 0.45);
+	background: rgba(59, 130, 246, 0.12);
+	color: #dfefff;
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	white-space: nowrap;
+}
+
+.detailToggleChevron {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	border-radius: 999px;
+	background: rgba(6, 182, 212, 0.12);
+	border: 1px solid rgba(6, 182, 212, 0.25);
+	color: var(--cyan);
+	font-size: 16px;
+	font-weight: 800;
+	line-height: 1;
+}
+
 .detailSectionTitle {
 	margin: 0;
 	font-size: 12px;
@@ -3100,8 +3156,8 @@
 	flex-direction: column;
 	gap: 4px;
 	padding: 10px 12px;
-	background: linear-gradient(135deg, #000204 0%, #010406 100%);
-	border-color: rgba(59, 130, 246, 0.5);
+	background: linear-gradient(135deg, #100201 0%, #100502 100%);
+	border-color: rgba(109, 13, 45, 0.707);
 	border-radius: 0px;
 	text-decoration: none;
 	transition: all 0.2s;
@@ -3112,8 +3168,8 @@
 }
 .currentEmploymentRow:hover,
 .currentEmploymentRow:focus-visible {
-	background: rgba(37, 99, 235, 0.16);
-	border-color: rgba(96, 165, 250, 0.9);
+	background: linear-gradient(135deg, #080301 0%, #100201 100%);
+	border-color: rgba(246, 59, 59, 0.5);
 	cursor: pointer;
 }
 
@@ -3125,13 +3181,6 @@
 	background-size: 12px 12px;
 	opacity: 0.5;
 	pointer-events: none;
-}
-
-.currentEmploymentRow:hover,
-.currentEmploymentRow:focus-visible {
-	background: linear-gradient(135deg, #020d20 0%, #06062f 100%);
-	border-color: rgba(96, 165, 250, 0.9);
-	outline: none;
 }
 
 .previousEmploymentRow {

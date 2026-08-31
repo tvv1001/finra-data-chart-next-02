@@ -169,12 +169,19 @@ export function hasFirmSourceCoverage(detail: unknown, source: SourceDomain): bo
 		return false;
 	}
 
+	const orgFlags = isPlainObject(detail.orgScopeStatusFlags) ? detail.orgScopeStatusFlags : (isPlainObject(basic.orgScopeStatusFlags) ? basic.orgScopeStatusFlags : {});
+	const secRegistrationFlag = String(orgFlags.isSECRegistered ?? orgFlags.isSecRegistered ?? '').trim().toLowerCase();
+	if (['n', 'no', 'false', '0'].includes(secRegistrationFlag)) {
+		return false;
+	}
 	if (Boolean(String(detail.iaSECNumber || detail.iaSecNumber || basic.iaSECNumber || basic.iaSecNumber || '').trim())) return true;
+	if (Boolean(String(detail.secNumber || detail.sec_number || basic.secNumber || basic.sec_number || '').trim())) return true;
 	if (Array.isArray(detail.noticeFilings) && detail.noticeFilings.length > 0) return true;
 	if (Array.isArray(basic.noticeFilings) && basic.noticeFilings.length > 0) return true;
 	if (Array.isArray(detail.brochures) && detail.brochures.length > 0) return true;
 	if (Array.isArray(basic.brochures) && basic.brochures.length > 0) return true;
 	if (isPlainObject(detail.crs) || isPlainObject(basic.crs)) return true;
+	if (Array.isArray(detail.secDocumentLinks) && detail.secDocumentLinks.some((link: any) => typeof link?.href === 'string' && /adviserinfo\.sec\.gov\//.test(link.href))) return true;
 	return false;
 }
 

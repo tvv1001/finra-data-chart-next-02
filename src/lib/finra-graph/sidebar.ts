@@ -1238,9 +1238,9 @@ export function renderFirmDetail(d: any) {
 		if (/^\d+$/.test(raw)) return `8-${raw}`;
 		return raw;
 	};
-	const secFirmId = normalizeSecFirmId(d.iaSecNumber || d.bdSecNumber || d.bdSECNumber || d.basicInformation?.iaSECNumber || d.basicInformation?.bdSECNumber || firmId);
+	const secFirmId = normalizeSecFirmId(d.iaSecNumber || d.iaSECNumber || d.bdSecNumber || d.bdSECNumber || d.basicInformation?.iaSecNumber || d.basicInformation?.iaSECNumber || d.basicInformation?.bdSecNumber || d.basicInformation?.bdSECNumber);
 	const crdSec = [firmId ? `CRD#: ${firmId}` : null, secFirmId ? `SEC#: ${secFirmId}` : null].filter(Boolean).join(' / ');
-	const secSummaryUrl = firmId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(firmId)}` : null;
+	const secSummaryUrl = secFirmId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(secFirmId)}` : null;
 
 	const hasFinraPage = hasFirmFinraPresence(d);
 	const hasSecPage = hasFirmSecPresence(d);
@@ -1249,12 +1249,12 @@ export function renderFirmDetail(d: any) {
 		hasSecPage ?
 			(() => {
 				const defaultLinks =
-					firmId ?
+					secFirmId ?
 						[
 							{ label: 'SEC AdvisorInfo Summary', href: secSummaryUrl },
-							{ label: 'Latest Form ADV filed', href: `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(firmId)}/PDF/${encodeURIComponent(firmId)}.pdf` },
-							{ label: 'SEC firm brochure', href: `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(firmId)}` },
-							{ label: 'SEC Form CRS', href: `https://reports.adviserinfo.sec.gov/crs/crs_${encodeURIComponent(firmId)}.pdf` },
+							{ label: 'Latest Form ADV filed', href: `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(secFirmId)}/PDF/${encodeURIComponent(secFirmId)}.pdf` },
+							{ label: 'SEC firm brochure', href: `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(secFirmId)}` },
+							{ label: 'SEC Form CRS', href: `https://reports.adviserinfo.sec.gov/crs/crs_${encodeURIComponent(secFirmId)}.pdf` },
 						]
 					:	[];
 
@@ -1267,14 +1267,14 @@ export function renderFirmDetail(d: any) {
 					if (/^Latest Form ADV filed$/i.test(label)) {
 						return {
 							...link,
-							href: `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(firmId)}/PDF/${encodeURIComponent(firmId)}.pdf`,
+							href: secFirmId ? `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(secFirmId)}/PDF/${encodeURIComponent(secFirmId)}.pdf` : null,
 						};
 					}
 					if (/^SEC firm brochure$/i.test(label)) {
-						return { ...link, href: `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(firmId)}` };
+						return { ...link, href: secFirmId ? `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(secFirmId)}` : null };
 					}
 					if (/^SEC Form CRS$/i.test(label)) {
-						return { ...link, href: `https://reports.adviserinfo.sec.gov/crs/crs_${encodeURIComponent(firmId)}.pdf` };
+						return { ...link, href: secFirmId ? `https://reports.adviserinfo.sec.gov/crs/crs_${encodeURIComponent(secFirmId)}.pdf` : null };
 					}
 					return link;
 				});
