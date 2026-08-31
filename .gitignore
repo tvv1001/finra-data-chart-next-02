@@ -76,3 +76,4 @@ patch_**
 data/logs/*.log
 data/logs/*.jsonl
 \n# Local test scripts\ntest-scripts/
+test-scripts/
