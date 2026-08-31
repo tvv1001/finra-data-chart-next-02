@@ -1011,6 +1011,8 @@ function shouldHideDetailLabel(label: string) {
 }
 
 const LOCAL_HISTORY_KEY = 'finra_dashboard_history';
+const NEW_CRD_CLIENT_CACHE_KEY = 'finra_dashboard_new_crds_cache';
+const NEW_CRD_CLIENT_CACHE_TTL_MS = 5 * 60 * 1000;
 // Keep the local history indefinitely. Using a very large numeric sentinel so
 // existing slice(0, LOCAL_HISTORY_MAX) calls keep all entries.
 const LOCAL_HISTORY_MAX = Number.POSITIVE_INFINITY;
@@ -1050,6 +1052,36 @@ function extractDisplayNameFromNewCrd(entry: NewCrdEntry, entity: 'individual' |
 	const rawName = pickFirstNonEmpty(entry.name, entry.fullName, entry.firmName, entry.legalName, combinedPersonName);
 	if (rawName) return rawName;
 	return entity === 'firm' ? `Firm ${entry.id}` : `Individual ${entry.id}`;
+}
+
+function readCachedNewCrds(): NewCrdEntry[] {
+	if (typeof window === 'undefined') return [];
+	try {
+		const raw = window.localStorage.getItem(NEW_CRD_CLIENT_CACHE_KEY);
+		if (!raw) return [];
+		const parsed = JSON.parse(raw) as { fetchedAt?: number; newCrds?: NewCrdEntry[] } | NewCrdEntry[];
+		const entryList = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.newCrds) ? parsed.newCrds : [];
+		const fetchedAt = Array.isArray(parsed) ? 0 : Number(parsed?.fetchedAt || 0);
+		if (fetchedAt && Date.now() - fetchedAt > NEW_CRD_CLIENT_CACHE_TTL_MS) return [];
+		return Array.isArray(entryList) ? entryList : [];
+	} catch {
+		return [];
+	}
+}
+
+function writeCachedNewCrds(entries: NewCrdEntry[]) {
+	if (typeof window === 'undefined') return;
+	try {
+		window.localStorage.setItem(
+			NEW_CRD_CLIENT_CACHE_KEY,
+			JSON.stringify({
+				fetchedAt: Date.now(),
+				newCrds: entries,
+			}),
+		);
+	} catch {
+		// ignore storage failures
+	}
 }
 
 function getQueueCardSources(card: QueueCard): {
@@ -2014,6 +2046,13 @@ function DashboardPageInner() {
 	);
 
 	async function loadNewCrdsFromRedis(force = false) {
+		if (!force) {
+			const cached = readCachedNewCrds();
+			if (cached.length > 0) {
+				setNewCrds(cached);
+				return;
+			}
+		}
 		try {
 			const res = await fetch('/api/dashboard/refresh', {
 				method: 'POST',
@@ -2022,17 +2061,19 @@ function DashboardPageInner() {
 			});
 			const data = await res.json().catch(() => null);
 			if (data?.ok) {
+				const nextNewCrds = Array.isArray(data.newCrds) ? data.newCrds : [];
 				// Debug: surface what the API returned in the client console and on window for inspection
 				try {
-					console.debug('[dashboard] loadNewCrdsFromRedis: fetched', data.newCrds);
+					console.debug('[dashboard] loadNewCrdsFromRedis: fetched', nextNewCrds);
 					// expose temporarily for quick inspection in the browser console
 					// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 					// @ts-ignore
-					window.__NEW_CRDS_PAYLOAD = data.newCrds;
+					window.__NEW_CRDS_PAYLOAD = nextNewCrds;
 				} catch (e) {
 					// ignore
 				}
-				setNewCrds(Array.isArray(data.newCrds) ? data.newCrds : []);
+				setNewCrds(nextNewCrds);
+				writeCachedNewCrds(nextNewCrds);
 			}
 		} catch (err) {
 			console.error('Failed to load new CRDs:', err);
@@ -2136,7 +2177,11 @@ function DashboardPageInner() {
 			console.error('Failed to load saved templates:', err);
 		}
 
-		void loadNewCrdsFromRedis(true);
+		const cached = readCachedNewCrds();
+		if (cached.length > 0) {
+			setNewCrds(cached);
+		}
+		void loadNewCrdsFromRedis(false);
 	}, []);
 
 	// Collapse the New CRDs panel by default on mobile viewports (desktop stays open); runs once
@@ -2147,9 +2192,15 @@ function DashboardPageInner() {
 	}, []);
 
 	useEffect(() => {
+		if (typeof window === 'undefined') return;
 		const intervalId = window.setInterval(() => {
-			void loadNewCrdsFromRedis();
-		}, 15000);
+			const cached = readCachedNewCrds();
+			if (cached.length > 0) {
+				setNewCrds(cached);
+				return;
+			}
+			void loadNewCrdsFromRedis(false);
+		}, NEW_CRD_CLIENT_CACHE_TTL_MS);
 
 		return () => window.clearInterval(intervalId);
 	}, []);

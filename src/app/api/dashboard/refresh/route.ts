@@ -34,12 +34,16 @@ const DASHBOARD_429_COOLDOWN_MAX_MS = 9 * 60 * 1000;
 const DASHBOARD_SEARCH_FETCH_TIMEOUT_MS = Math.max(2_000, Number(process.env.DASHBOARD_SEARCH_FETCH_TIMEOUT_MS || 8_000) || 8_000);
 const DASHBOARD_DETAIL_FETCH_TIMEOUT_MS = Math.max(2_000, Number(process.env.DASHBOARD_DETAIL_FETCH_TIMEOUT_MS || 12_000) || 12_000);
 const DASHBOARD_NATIVE_REDIS_KEY_CACHE_MS = Math.max(0, Number(process.env.DASHBOARD_NATIVE_REDIS_KEY_CACHE_MS || 15_000) || 15_000);
+const DASHBOARD_CARD_LIST_CACHE_TTL_MS = Math.max(10_000, Number(process.env.DASHBOARD_CARD_LIST_CACHE_TTL_MS || 30_000) || 30_000);
+const DASHBOARD_NEW_CRDS_CACHE_TTL_MS = Math.max(30_000, Number(process.env.DASHBOARD_NEW_CRDS_CACHE_TTL_MS || 60_000) || 60_000);
 const BUILD_MANIFEST_PATH = path.join(process.cwd(), 'data', 'build_manifest.json');
 const CRD_LOG_PATH = path.join(process.cwd(), 'data', 'crd-log.json');
 
 let manifestTotalsCache: { totalCards: number; totalCacheKeys: number } | null = null;
 let primedBundleTotalsCache: { totalCards: number; totalCacheKeys: number } | null = null;
 let nativeRedisKeyCache: { keys: string[]; fetchedAt: number } | null = null;
+let dashboardCardListCache: { expiresAt: number; payload: any } | null = null;
+let dashboardNewCrdsCache: { expiresAt: number; payload: any } | null = null;
 
 export function resetDashboardInventoryCaches() {
 	manifestTotalsCache = null;
@@ -1706,88 +1710,75 @@ async function collectNativeRedisRecordKeys(redis: Redis, forceRefresh = false) 
 		return nativeRedisKeyCache.keys;
 	}
 
-	if (process.env.USE_LOCAL_REDIS === '1') {
+	const keySet = new Set<string>();
+
+	try {
+		const raw = await redis.get('dashboard:new-crds-cache');
+		if (raw) {
+			let parsed = null;
+			if (typeof raw === 'string') {
+				try {
+					parsed = JSON.parse(raw);
+				} catch {}
+			} else {
+				parsed = raw;
+			}
+			const list = Array.isArray(parsed?.newCrds) ? parsed.newCrds : [];
+			for (const entry of list) {
+				const id = String(entry?.id || '').trim();
+				const type = String(entry?.type || entry?.entity || '').toLowerCase();
+				if (!isValidCrd(id)) continue;
+				if (type === 'individual' || type === 'ind' || String(entry?.type) === 'INDIVIDUAL') {
+					keySet.add(makeRedisKey('finra', 'individual', id));
+					keySet.add(makeRedisKey('sec', 'individual', id));
+				} else {
+					keySet.add(makeRedisKey('finra', 'firm', id));
+					keySet.add(makeRedisKey('sec', 'firm', id));
+				}
+			}
+		}
+	} catch {
+		// ignore parsing errors
+	}
+
+	try {
+		const topInd = (await redis.zrange('dashboard:highest-crds:individual', 0, 499, { rev: true })) as string[];
+		const topFirm = (await redis.zrange('dashboard:highest-crds:firm', 0, 499, { rev: true })) as string[];
+		for (const id of Array.isArray(topInd) ? topInd : []) {
+			const s = String(id || '').trim();
+			if (!isValidCrd(s)) continue;
+			keySet.add(makeRedisKey('finra', 'individual', s));
+			keySet.add(makeRedisKey('sec', 'individual', s));
+		}
+		for (const id of Array.isArray(topFirm) ? topFirm : []) {
+			const s = String(id || '').trim();
+			if (!isValidCrd(s)) continue;
+			keySet.add(makeRedisKey('finra', 'firm', s));
+			keySet.add(makeRedisKey('sec', 'firm', s));
+		}
+	} catch {
+		// ignore missing zsets
+	}
+
+	if (keySet.size === 0) {
+		for (const k of buildKeySetFromCrdLog()) keySet.add(k);
+	}
+
+	if (process.env.USE_LOCAL_REDIS === '1' && keySet.size === 0) {
 		try {
 			const finraKeys = await redis.keys('finra:*');
 			const secKeys = await redis.keys('sec:*');
-			const allKeys = Array.from(new Set([...finraKeys, ...secKeys]));
-			nativeRedisKeyCache = { keys: allKeys, fetchedAt: now };
-			return allKeys;
+			for (const key of [...finraKeys, ...secKeys]) {
+				if (String(key || '').trim()) keySet.add(String(key));
+			}
 		} catch (e) {
 			console.error('Failed to run keys command on local redis:', e);
 		}
 	}
-	// When running against Upstash (or other remote redis without KEYS), prefer small
-	// Redis-maintained indexes if present to avoid heavy scan/keys usage.
-	try {
-		const keySet = new Set<string>();
 
-		// 1) Prefer explicit new-crds cache maintained by the app
-		try {
-			const raw = await redis.get('dashboard:new-crds-cache');
-			if (raw) {
-				let parsed = null;
-				if (typeof raw === 'string') {
-					try {
-						parsed = JSON.parse(raw);
-					} catch {}
-				} else {
-					parsed = raw;
-				}
-				const list = Array.isArray(parsed?.newCrds) ? parsed.newCrds : [];
-				for (const entry of list) {
-					const id = String(entry?.id || '').trim();
-					const type = String(entry?.type || entry?.entity || '').toLowerCase();
-					if (!isValidCrd(id)) continue;
-					if (type === 'individual' || type === 'ind' || String(entry?.type) === 'INDIVIDUAL') {
-						keySet.add(makeRedisKey('finra', 'individual', id));
-						keySet.add(makeRedisKey('sec', 'individual', id));
-					} else {
-						keySet.add(makeRedisKey('finra', 'firm', id));
-						keySet.add(makeRedisKey('sec', 'firm', id));
-					}
-				}
-			}
-		} catch (e) {
-			// ignore parsing errors
-		}
-
-		// 2) Include highest-crds zsets if present
-		try {
-			const topInd = (await redis.zrange('dashboard:highest-crds:individual', 0, 499, { rev: true })) as string[];
-			const topFirm = (await redis.zrange('dashboard:highest-crds:firm', 0, 499, { rev: true })) as string[];
-			for (const id of Array.isArray(topInd) ? topInd : []) {
-				const s = String(id || '').trim();
-				if (!isValidCrd(s)) continue;
-				keySet.add(makeRedisKey('finra', 'individual', s));
-				keySet.add(makeRedisKey('sec', 'individual', s));
-			}
-			for (const id of Array.isArray(topFirm) ? topFirm : []) {
-				const s = String(id || '').trim();
-				if (!isValidCrd(s)) continue;
-				keySet.add(makeRedisKey('finra', 'firm', s));
-				keySet.add(makeRedisKey('sec', 'firm', s));
-			}
-		} catch (e) {
-			// ignore missing zsets
-		}
-
-		// 3) Fallback to CRD log if set remains empty
-		if (keySet.size === 0) {
-			const dedupedKeys = buildKeySetFromCrdLog();
-			for (const k of dedupedKeys) keySet.add(k);
-		}
-
-		const keys = Array.from(keySet.values());
-		nativeRedisKeyCache = { keys, fetchedAt: now };
-		return keys;
-	} catch (e) {
-		// as last resort, fall back to the CRD log
-		const dedupedKeys = buildKeySetFromCrdLog();
-		const keys = Array.from(dedupedKeys.values());
-		nativeRedisKeyCache = { keys, fetchedAt: now };
-		return keys;
-	}
+	const keys = Array.from(keySet.values());
+	nativeRedisKeyCache = { keys, fetchedAt: now };
+	return keys;
 }
 
 function parseCacheKey(key: string): { source: 'finra' | 'sec'; entity: 'individual' | 'firm'; id: string } | null {
@@ -2038,6 +2029,11 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 		return listLocalNewestCards(maxCards, crdFilter);
 	}
 
+	const now = Date.now();
+	if (!crdFilter && dashboardCardListCache && dashboardCardListCache.expiresAt > now) {
+		return dashboardCardListCache.payload;
+	}
+
 	const filterTokens = parseFilterTokens(crdFilter);
 	const nameMap = getCrdLogNameMap();
 	const nativeKeys = await collectNativeRedisRecordKeys(redis);
@@ -2135,7 +2131,7 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 	
 	batchPayloadsMap = null;
 
-	return {
+	const response = {
 		ok: true,
 		cards: shownCards,
 		totalCards: fallbackManifestTotals?.totalCards ?? cards.length,
@@ -2145,12 +2141,21 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 		sourceMode: 'redis',
 		persistenceNotice: null,
 	};
+	if (!crdFilter) {
+		dashboardCardListCache = { expiresAt: Date.now() + DASHBOARD_CARD_LIST_CACHE_TTL_MS, payload: response };
+	}
+	return response;
 }
 
 async function listNewCrds(force = false) {
 	const redis = ensureRedisClient();
 	if (!redis) {
 		return { ok: true, newCrds: [], isToday: false, lastChecked: null };
+	}
+
+	const now = Date.now();
+	if (!force && dashboardNewCrdsCache && dashboardNewCrdsCache.expiresAt > now) {
+		return dashboardNewCrdsCache.payload;
 	}
 
 	const cacheKey = 'dashboard:new-crds-cache';
@@ -2183,16 +2188,15 @@ async function listNewCrds(force = false) {
 	// Final fallback for local development where recent lists are completely uninitialized
 	if (topIndividualIds.length === 0 && topFirmIds.length === 0) {
 		try {
-			const indKeys = await redis.keys('finra:individual:*');
-			const firmKeys = await redis.keys('finra:firm:*');
-
-			const indKeysArr = Array.isArray(indKeys) ? indKeys : [];
-			const firmKeysArr = Array.isArray(firmKeys) ? firmKeys : [];
-
-			topIndividualIds = indKeysArr.slice(0, 50).map((k) => String(k).split(':').pop() || '');
-			topFirmIds = firmKeysArr.slice(0, 50).map((k) => String(k).split(':').pop() || '');
+			const nativeKeys = await collectNativeRedisRecordKeys(redis, true);
+			const parsed = nativeKeys
+				.map((key) => parseCacheKey(key))
+				.filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+				.filter((entry) => entry.entity === 'individual' || entry.entity === 'firm');
+			topIndividualIds = parsed.filter((entry) => entry.entity === 'individual').map((entry) => entry.id).slice(0, 50);
+			topFirmIds = parsed.filter((entry) => entry.entity === 'firm').map((entry) => entry.id).slice(0, 50);
 		} catch (e) {
-			// ignore keys errors
+			// ignore fallback errors
 		}
 	}
 
@@ -2272,15 +2276,19 @@ async function listNewCrds(force = false) {
 		shownCount: formatted.length,
 	};
 
-	try {
-		await redis.set(cacheKey, JSON.stringify(result), { ex: 86400 });
-	} catch (err) {}
-
-	return {
+	const response = {
 		ok: true,
 		...result,
 		isToday: true,
 	};
+
+	dashboardNewCrdsCache = { expiresAt: Date.now() + DASHBOARD_NEW_CRDS_CACHE_TTL_MS, payload: response };
+
+	try {
+		await redis.set(cacheKey, JSON.stringify(result), { ex: 86400 });
+	} catch (err) {}
+
+	return response;
 }
 
 async function uploadBundle(redis: Redis, bundleName: string, payloadBase64: string, recordCount = 0) {
