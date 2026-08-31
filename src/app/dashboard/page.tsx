@@ -1961,6 +1961,9 @@ function DashboardPageInner() {
 	const [currentRecordEntity, setCurrentRecordEntity] = useState<'individual' | 'firm' | null>(null);
 	const [currentRecordId, setCurrentRecordId] = useState<string | null>(null);
 	const [detailCollectionsOpen, setDetailCollectionsOpen] = useState(false);
+	const [detailDisclosuresOpen, setDetailDisclosuresOpen] = useState(false);
+	const [detailBrochuresOpen, setDetailBrochuresOpen] = useState(false);
+	const [detailNoticeFilingsOpen, setDetailNoticeFilingsOpen] = useState(false);
 	// Scroll container ref used together with the module-level scroll-position map above so
 	// revisiting a firm/individual detail page (via a connection-card click, the browser
 	// back/forward buttons, or re-opening the same card) restores the exact scroll position
@@ -2085,7 +2088,10 @@ function DashboardPageInner() {
 		setSelectedConnectionKeys(new Set());
 		setConnectionsFilterFocused(false);
 		setConnectionsFilterJustCommitted(false);
-		setDetailCollectionsOpen(true);
+		setDetailCollectionsOpen(false);
+		setDetailDisclosuresOpen(false);
+		setDetailBrochuresOpen(false);
+		setDetailNoticeFilingsOpen(false);
 	}, [currentRecordId, currentRecordEntity]);
 	// The URL-driven auto-load effect below must only react to *external* navigation (initial
 	// deep link / hard refresh, or a real browser back-forward). If it also reacted every time
@@ -5527,7 +5533,19 @@ function DashboardPageInner() {
 												<section
 													className={styles.detailSection}
 													style={{ marginTop: '12px' }}>
-													<h4 className={styles.detailSectionTitle}>Disclosures</h4>
+													<button
+														type='button'
+														className={styles.detailToggleBar}
+														onClick={() => setDetailDisclosuresOpen((open) => !open)}
+														aria-expanded={detailDisclosuresOpen}>
+														<h4 className={styles.detailSectionTitle}>Disclosures</h4>
+														<div className={styles.detailToggleStats}>
+															<span className={styles.detailToggleStat}>Count: {detailedMainRecord.disclosureSummary.reduce((acc: number, d: any) => acc + (parseInt(d.disclosureCount) || 0), 0)}</span>
+														</div>
+														<span className={styles.detailToggleChevron} aria-hidden='true'>{detailDisclosuresOpen ? '−' : '+'}</span>
+													</button>
+													{detailDisclosuresOpen && (
+														<>
 													<div className={styles.detailGrid}>
 														{detailedMainRecord.disclosureSummary.map((d: any) => (
 															<div
@@ -5684,6 +5702,8 @@ function DashboardPageInner() {
 																	})}
 															</div>
 														)}
+														</>
+													)}
 												</section>
 											)}
 
@@ -5845,7 +5865,19 @@ function DashboardPageInner() {
 
 											{detailedMainRecord.brochureCards.length > 0 && (
 												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Brochures ({detailedMainRecord.brochureCards.length})</h4>
+													<button
+														type='button'
+														className={styles.detailToggleBar}
+														onClick={() => setDetailBrochuresOpen((open) => !open)}
+														aria-expanded={detailBrochuresOpen}>
+														<h4 className={styles.detailSectionTitle}>Brochures</h4>
+														<div className={styles.detailToggleStats}>
+															<span className={styles.detailToggleStat}>Count: {detailedMainRecord.brochureCards.length}</span>
+														</div>
+														<span className={styles.detailToggleChevron} aria-hidden='true'>{detailBrochuresOpen ? '−' : '+'}</span>
+													</button>
+													{detailBrochuresOpen && (
+														<>
 													{detailedMainRecord.brochuresPart2Exempt && (
 														<div
 															className={styles.detailTextRow}
@@ -5866,12 +5898,26 @@ function DashboardPageInner() {
 															</div>
 														))}
 													</div>
+														</>
+													)}
 												</section>
 											)}
 
 											{detailedMainRecord.noticeFilingCards.length > 0 && (
 												<section className={styles.detailSection}>
-													<h4 className={styles.detailSectionTitle}>Notice Filings ({detailedMainRecord.noticeFilingCards.length})</h4>
+													<button
+														type='button'
+														className={styles.detailToggleBar}
+														onClick={() => setDetailNoticeFilingsOpen((open) => !open)}
+														aria-expanded={detailNoticeFilingsOpen}>
+														<h4 className={styles.detailSectionTitle}>Notice Filings</h4>
+														<div className={styles.detailToggleStats}>
+															<span className={styles.detailToggleStat}>Count: {detailedMainRecord.noticeFilingCards.length}</span>
+														</div>
+														<span className={styles.detailToggleChevron} aria-hidden='true'>{detailNoticeFilingsOpen ? '−' : '+'}</span>
+													</button>
+													{detailNoticeFilingsOpen && (
+														<>
 													<div className={styles.detailGrid}>
 														{detailedMainRecord.noticeFilingCards.map((item, idx) => (
 															<div
@@ -5885,6 +5931,8 @@ function DashboardPageInner() {
 															</div>
 														))}
 													</div>
+														</>
+													)}
 												</section>
 											)}
 
