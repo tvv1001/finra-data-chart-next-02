@@ -1966,27 +1966,27 @@ async function fetchNodesByIds(nodeIds: string[] = []) {
 	return response.json();
 }
 
+// Resolve a node that is already known to the graph (rendered layout node first, then the
+// wider graphData set, tolerating person:/firm: prefix variants). Shared by the route-node
+// resolver and the batched dashboard-import hydrate so both agree on "already available".
+function findGraphNodeByRouteId(normalizedNodeId: string) {
+	if (!normalizedNodeId) return null;
+	const liveNode = getNodeById(normalizedNodeId);
+	if (liveNode) return liveNode;
+	if (!Array.isArray(graphData?.nodes)) return null;
+	const stripPrefix = (value: string) =>
+		String(value)
+			.replace(/^person[:_]/, '')
+			.replace(/^firm[:_]/, '');
+	const target = stripPrefix(normalizedNodeId);
+	return graphData.nodes.find((entry) => entry?.id && stripPrefix(String(entry.id)) === target) || null;
+}
+
 async function ensureRouteNodeAvailable(nodeId: string) {
 	const normalizedNodeId = normalizeNodeRouteId(nodeId) || String(nodeId || '').trim();
 	if (!normalizedNodeId) return null;
 
-	let liveNode = getNodeById(normalizedNodeId);
-	if (!liveNode) {
-		const candidateNode =
-			Array.isArray(graphData?.nodes) ?
-				graphData.nodes.find(
-					(entry) =>
-						entry?.id &&
-						String(entry.id)
-							.replace(/^person[:_]/, '')
-							.replace(/^firm[:_]/, '') ===
-							String(normalizedNodeId)
-								.replace(/^person[:_]/, '')
-								.replace(/^firm[:_]/, ''),
-				)
-			:	null;
-		if (candidateNode) liveNode = candidateNode;
-	}
+	let liveNode = findGraphNodeByRouteId(normalizedNodeId);
 	if (liveNode && !layoutNodes?.some((node) => node.id === normalizedNodeId)) {
 		injectNodesById([normalizedNodeId]);
 		liveNode = getNodeById(normalizedNodeId) || liveNode;
@@ -8487,31 +8487,86 @@ async function hydratePendingNodeIds(ids: string[], addToLog: boolean) {
 	if (!ids.length) return;
 
 	const CONCURRENCY = 8;
-	const resolvedEntries: SelectionLogEntry[] = [];
-	let cursor = 0;
+	const normalizedIds: string[] = [];
+	const seenIds = new Set<string>();
+	for (const rawId of ids) {
+		const normalizedId = normalizeNodeRouteId(rawId) || String(rawId || '').trim();
+		if (!normalizedId || seenIds.has(normalizedId)) continue;
+		seenIds.add(normalizedId);
+		normalizedIds.push(normalizedId);
+	}
+	if (!normalizedIds.length) return;
 
-	async function worker() {
-		while (cursor < ids.length) {
-			const rawId = ids[cursor++];
-			const normalizedId = normalizeNodeRouteId(rawId) || String(rawId || '').trim();
-			if (!normalizedId) continue;
-			try {
-				const liveNode = await ensureRouteNodeAvailable(normalizedId);
-				if (liveNode) {
-					resolvedEntries.push({
-						id: liveNode.id,
-						label: liveNode.label,
-						secondaryId: getSecondaryId(liveNode),
-						group: liveNode.group,
-					});
+	// Split ids into "already in the graph" (cheap local inject) and "needs a detail fetch".
+	// Detail fetches are accumulated and appended to the canvas in ONE pass: appending per node
+	// re-ran the full-graph work (D3 data join, neighbor-map rebuild, link dedupe, session save
+	// and a simulation reheat) once per imported CRD, so a dashboard import of N people cost
+	// O(N²) work and left the graph reheating N times — which is why imports felt far more
+	// sluggish than a normal click expansion (a single append).
+	const idsToInject: string[] = [];
+	const idsToFetch: Array<{ id: string; prefix: string; rawId: string }> = [];
+	for (const normalizedId of normalizedIds) {
+		if (findGraphNodeByRouteId(normalizedId)) {
+			idsToInject.push(normalizedId);
+			continue;
+		}
+		const [prefix, rawId] = normalizedId.split(':');
+		if (rawId && /^[0-9]+$/.test(rawId) && (prefix === 'person' || prefix === 'firm')) {
+			idsToFetch.push({ id: normalizedId, prefix, rawId });
+		}
+	}
+
+	if (idsToInject.length) {
+		const missingFromCanvas = idsToInject.filter((id) => !layoutNodes?.some((node) => node.id === id));
+		if (missingFromCanvas.length) injectNodesById(missingFromCanvas);
+	}
+
+	if (idsToFetch.length) {
+		const fetchedNodes: any[] = [];
+		const fetchedLinks: any[] = [];
+		let cursor = 0;
+
+		async function fetchWorker() {
+			while (cursor < idsToFetch.length) {
+				const entry = idsToFetch[cursor++];
+				try {
+					const batch = entry.prefix === 'person' ? await fetchIndividualBatch(entry.rawId) : await fetchFirmBatch(entry.rawId);
+					if (batch?.nodes?.length) fetchedNodes.push(...batch.nodes);
+					if (batch?.links?.length) fetchedLinks.push(...batch.links);
+				} catch (error) {
+					console.warn(`Failed to hydrate shared selection for ${entry.id}:`, error);
 				}
+			}
+		}
+
+		await Promise.all(Array.from({ length: Math.min(CONCURRENCY, idsToFetch.length) }, () => fetchWorker()));
+
+		if (fetchedNodes.length || fetchedLinks.length) {
+			mergeIntoGraphData(fetchedNodes, fetchedLinks);
+			appendFetched?.(fetchedNodes, fetchedLinks);
+		}
+	}
+
+	const resolvedEntries: SelectionLogEntry[] = [];
+	for (const normalizedId of normalizedIds) {
+		let liveNode = findGraphNodeByRouteId(normalizedId);
+		if (!liveNode) {
+			try {
+				// Rare stragglers (e.g. an id whose detail fetch failed or whose node id was
+				// rewritten during merge) still get the original per-node resolution path.
+				liveNode = await ensureRouteNodeAvailable(normalizedId);
 			} catch (error) {
 				console.warn(`Failed to hydrate shared selection for ${normalizedId}:`, error);
 			}
 		}
+		if (!liveNode) continue;
+		resolvedEntries.push({
+			id: liveNode.id,
+			label: liveNode.label,
+			secondaryId: getSecondaryId(liveNode),
+			group: liveNode.group,
+		});
 	}
-
-	await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ids.length) }, () => worker()));
 
 	if (!resolvedEntries.length) return;
 		if (addToLog) {
@@ -10771,6 +10826,8 @@ async function fetchAndInjectOrphanNodes(links, knownIds) {
 	}
 }
 
+const sidecarFirmLabelHydrationAttempted = new Set<string>();
+
 function scheduleSidecarFirmLabelHydration(nodes) {
 	const placeholders = (Array.isArray(nodes) ? nodes : []).filter((node) => node?.group === 'firm' && isGenericOrPlaceholderLabel(node.label, 'firm'));
 	if (!placeholders.length) return;
@@ -10784,12 +10841,19 @@ function scheduleSidecarFirmLabelHydration(nodes) {
 				)
 				.filter(Boolean),
 		),
-	);
+	// Every append passes the full merged node list, so without this filter a multi-node
+	// import re-issued the same firm-label search once per appended node.
+	).filter((id) => !sidecarFirmLabelHydrationAttempted.has(id));
 	if (!ids.length) return;
+	ids.forEach((id) => sidecarFirmLabelHydrationAttempted.add(id));
 	void (async () => {
 		try {
 			const res = await fetch(`${BASE}/api/finra/search?type=firm&query=${encodeURIComponent(ids.join(' '))}&nrows=${Math.min(Math.max(ids.length, 12), 200)}`);
-			if (!res.ok) return;
+			if (!res.ok) {
+				// Re-arm so a later append can retry a transient search failure.
+				ids.forEach((id) => sidecarFirmLabelHydrationAttempted.delete(id));
+				return;
+			}
 			const payload = await res.json();
 			const docs = Array.isArray(payload?.results) ? payload.results : Array.isArray(payload?.response?.docs) ? payload.response.docs : [];
 			const names = new Map();
@@ -10828,6 +10892,7 @@ function scheduleSidecarFirmLabelHydration(nodes) {
 				/* ignore */
 			}
 		} catch {
+			ids.forEach((id) => sidecarFirmLabelHydrationAttempted.delete(id));
 			/* ignore sidecar label hydration failures */
 		}
 	})();
