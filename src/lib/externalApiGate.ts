@@ -31,11 +31,7 @@ function getExternalApiContext() {
 }
 
 export function canCallExternalApis() {
-	if (isExplicitlyDisabled()) return false;
-	if (process.env.VERCEL === '1') {
-		return true;
-	}
-	return getExternalApiContext() === 'cronjob' || isExplicitlyEnabled();
+	return false;
 }
 
 export function setExternalApiContext(context: string | null | undefined) {
