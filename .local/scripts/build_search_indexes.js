@@ -53,6 +53,25 @@ function canFallbackToRedis() {
 	return Boolean(REDIS_TOKEN) && isValidUpstashUrl(REDIS_URL);
 }
 
+// `next build` loads .env.local, but this script runs as a plain node process before it, so
+// flags like USE_LOCAL_REDIS (which selects the local Redis detail cache as a sidecar source)
+// were never visible here. Read them directly, without overriding real env vars.
+function loadLocalEnvFlags() {
+	const FLAGS = ['USE_LOCAL_REDIS', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
+	try {
+		const raw = require('node:fs').readFileSync(path.join(ROOT, '.env.local'), 'utf8');
+		for (const line of raw.split(/\r?\n/)) {
+			const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+			if (!match) continue;
+			const [, key, rawValue] = match;
+			if (!FLAGS.includes(key) || process.env[key] != null) continue;
+			process.env[key] = rawValue.replace(/^["']|["']$/g, '');
+		}
+	} catch {
+		/* no .env.local (CI/Vercel) — rely on the real environment */
+	}
+}
+
 function toText(value) {
 	return String(value ?? '')
 		.replace(/\s+/g, ' ')
@@ -256,10 +275,183 @@ function buildFirmDoc(source, detail) {
 	};
 }
 
+// Detail payloads arrive wrapped in a few different envelopes depending on which upstream
+// endpoint/cache wrote them. Unwrap them all so every cached CRD produces a sidecar doc
+// instead of being silently dropped (e.g. SEC firm records nested under
+// `secInvestmentAdvisor` accounted for ~950 missing firms).
+const DETAIL_WRAPPER_KEYS = ['finraBrokerCheck', 'secInvestmentAdvisor', 'secInvestmentAdviser'];
+
+// Some cached payloads store the real detail as a JSON-serialized Node Buffer
+// (`{ type: 'Buffer', data: [...] }`) whose bytes are themselves an encoded detail string.
+function reviveBufferJson(value) {
+	if (!value || typeof value !== 'object' || value.type !== 'Buffer' || !Array.isArray(value.data)) return null;
+	try {
+		return JSON.parse(decodeRedisValue(Buffer.from(value.data).toString('utf-8')));
+	} catch {
+		return null;
+	}
+}
+
+function unwrapDetail(detail) {
+	let current = detail;
+	for (let depth = 0; depth < 6; depth += 1) {
+		if (!current || typeof current !== 'object') return current;
+		const revived = reviveBufferJson(current);
+		if (revived) {
+			current = revived;
+			continue;
+		}
+		const wrapperKey = DETAIL_WRAPPER_KEYS.find((key) => current[key] && typeof current[key] === 'object');
+		if (!wrapperKey) return current;
+		const wrapped = reviveBufferJson(current[wrapperKey]) ?? current[wrapperKey];
+		current = { ...current, ...wrapped };
+		delete current[wrapperKey];
+	}
+	return current;
+}
+
+// A negative cache entry ("we asked upstream and there is no such record") must not be
+// turned into an empty sidecar doc.
+function isNegativeCacheDetail(detail) {
+	return Boolean(detail && typeof detail === 'object' && detail.hits && typeof detail.hits === 'object' && Number(detail.hits.total) === 0);
+}
+
+// Some cached records only exist as "orphan" stubs discovered via a parent firm/person
+// (no full BrokerCheck/AdviserInfo detail payload). They still carry a real CRD and often a
+// real name, so they belong in the sidecar — that name/CRD pair is exactly what graph and
+// dashboard label hydration look up.
+function buildOrphanDoc(bucket, detail, fallbackId) {
+	const orphan = detail && typeof detail === 'object' ? detail.orphan : null;
+	if (!orphan || typeof orphan !== 'object') return null;
+	const id = toText(orphan.crd ?? orphan.individualId ?? orphan.firmId ?? detail.crd ?? fallbackId);
+	if (!id) return null;
+
+	const address = orphan.officeAddress && typeof orphan.officeAddress === 'object' ? orphan.officeAddress : {};
+	const addressTexts = uniqueTexts([address.street1, address.street2, address.city, address.state, address.country, address.postalCode]);
+
+	if (bucket.type === 'individual') {
+		const nameTexts = uniqueTexts([orphan.name, orphan.fullName, orphan.legalName]);
+		const parts = toText(orphan.name).split(' ').filter(Boolean);
+		const hit = {
+			ind_source_id: id,
+			ind_crd: id,
+			ind_firstname: parts.length > 1 ? parts[0] : toText(orphan.name),
+			ind_middlename: parts.length > 2 ? parts.slice(1, -1).join(' ') : '',
+			ind_lastname: parts.length > 1 ? parts[parts.length - 1] : '',
+			ind_other_names: [],
+			otherNames: [],
+			ind_current_employments: [],
+			ind_ia_current_employments: [],
+			ind_previous_employments: [],
+			ind_ia_previous_employments: [],
+			_orphanStub: true,
+		};
+		return {
+			id: `${bucket.source}:individual:${id}`,
+			type: 'individual',
+			source: bucket.source,
+			nameSearchText: nameTexts.join(' ').toLowerCase(),
+			addressSearchText: addressTexts.join(' ').toLowerCase(),
+			strictSearchText: uniqueTexts(collectScalarTexts(detail)).join(' ').toLowerCase(),
+			searchText: uniqueTexts([id, ...nameTexts]).join(' ').toLowerCase(),
+			hit,
+		};
+	}
+
+	const firmName = toText(orphan.firmName ?? orphan.name);
+	const nameTexts = uniqueTexts([firmName]);
+	const hit = {
+		firm_id: id,
+		firmId: id,
+		firm_source_id: id,
+		firm_name: firmName,
+		firmName,
+		firm_other_names: [],
+		otherNames: [],
+		_orphanStub: true,
+	};
+	return {
+		id: `${bucket.source}:firm:${id}`,
+		type: 'firm',
+		source: bucket.source,
+		nameSearchText: nameTexts.join(' ').toLowerCase(),
+		addressSearchText: addressTexts.join(' ').toLowerCase(),
+		strictSearchText: uniqueTexts(collectScalarTexts(detail)).join(' ').toLowerCase(),
+		searchText: uniqueTexts([id, ...nameTexts]).join(' ').toLowerCase(),
+		hit,
+	};
+}
+
+/** Build a sidecar doc from any supported cached payload shape. */
+function buildDocFromDetail(bucket, rawDetail, fallbackId) {
+	let detail = unwrapDetail(rawDetail);
+	if (!detail || typeof detail !== 'object') return null;
+	if (isNegativeCacheDetail(detail)) return null;
+	// Unwrapping can expose a nested search envelope (e.g. a Buffer-encoded payload whose bytes
+	// are a full `hits.hits[0]._source.content` response), so re-extract the detail root.
+	if (detail.hits && !detail.basicInformation) {
+		const nested = unwrapDetail(getDetailRoot(bucket, detail));
+		if (nested && typeof nested === 'object') detail = nested;
+	}
+	const doc = bucket.type === 'individual' ? buildIndividualDoc(bucket.source, detail) : buildFirmDoc(bucket.source, detail);
+	return doc || buildOrphanDoc(bucket, detail, fallbackId);
+}
+
+/** True when a doc carries a usable display name (not just a CRD). */
+function docHasName(doc) {
+	return Boolean(toText(doc?.nameSearchText));
+}
+
+// Merge doc lists into one per-id set. Sidecar consumers index by CRD first-wins
+// (`getHitByIdMap` in src/lib/localSearch.ts), so a richer/named doc must always beat a
+// bare stub for the same CRD.
+function mergeDocLists(...docLists) {
+	const byId = new Map();
+	for (const docs of docLists) {
+		for (const doc of docs || []) {
+			if (!doc?.id) continue;
+			const existing = byId.get(doc.id);
+			if (!existing) {
+				byId.set(doc.id, doc);
+				continue;
+			}
+			if (!docHasName(existing) && docHasName(doc)) {
+				byId.set(doc.id, doc);
+				continue;
+			}
+			if (docHasName(existing) === docHasName(doc) && toText(doc.strictSearchText).length > toText(existing.strictSearchText).length) {
+				byId.set(doc.id, doc);
+			}
+		}
+	}
+	return [...byId.values()];
+}
+
+function parseMaybeJson(value) {
+	if (value && typeof value === 'object') return value;
+	if (typeof value !== 'string' || !value.trim()) return null;
+	try {
+		const parsed = JSON.parse(value);
+		return parsed && typeof parsed === 'object' ? parsed : null;
+	} catch {
+		return null;
+	}
+}
+
+// Cached source files nest the real payload under `hits.hits[0]._source.content` (FINRA) /
+// `.iacontent` (SEC), and that field is a JSON *string*, not an object. The previous
+// object-only, top-level lookup therefore never matched a single on-disk file, so the
+// file-based build silently produced zero docs and every build fell through to "preserve
+// the existing sidecar".
 function getDetailRoot(bucket, payload) {
 	if (!payload || typeof payload !== 'object') return null;
-	if (bucket.source === 'finra') return payload.content && typeof payload.content === 'object' ? payload.content : null;
-	if (bucket.source === 'sec') return payload.iacontent && typeof payload.iacontent === 'object' ? payload.iacontent : null;
+	const field = bucket.source === 'finra' ? 'content' : 'iacontent';
+	const roots = [payload, payload?.hits?.hits?.[0]?._source];
+	for (const root of roots) {
+		if (!root || typeof root !== 'object') continue;
+		const detail = parseMaybeJson(root[field]);
+		if (detail) return detail;
+	}
 	return null;
 }
 
@@ -272,16 +464,44 @@ async function fileExists(filePath) {
 	}
 }
 
-function decodeRedisValue(raw) {
-	if (typeof raw !== 'string') return raw;
-	if (raw.startsWith('br:')) {
+// Cached values come in three flavours: plain JSON, the app's `br:` + base64 brotli envelope
+// (src/lib/redisCache.ts), and bare base64 brotli/gzip written by older importers. The
+// bare-base64 variant used to fail JSON.parse and get skipped, dropping real CRD+name records
+// from the sidecar, so try to decompress those too.
+function decompressBase64(raw) {
+	if (typeof raw !== 'string' || raw.length < 8 || /[^A-Za-z0-9+/=\r\n]/.test(raw)) return null;
+	let buffer;
+	try {
+		buffer = Buffer.from(raw, 'base64');
+	} catch {
+		return null;
+	}
+	if (!buffer.length) return null;
+	for (const decompress of [zlib.brotliDecompressSync, zlib.gunzipSync, zlib.inflateSync]) {
 		try {
-			return zlib.brotliDecompressSync(Buffer.from(raw.slice(3), 'base64')).toString('utf-8');
+			return decompress(buffer).toString('utf-8');
 		} catch {
-			return raw;
+			/* try the next codec */
 		}
 	}
-	return raw;
+	return null;
+}
+
+function decodeRedisValue(raw) {
+	if (typeof raw !== 'string') return raw;
+	// Some records were compressed twice (`br:` + base64-brotli of base64-brotli JSON) by an
+	// older importer, so decode repeatedly until real JSON falls out instead of skipping the
+	// entry — these carry real CRD + name records.
+	let current = raw;
+	for (let pass = 0; pass < 4; pass += 1) {
+		const trimmed = current.trim();
+		if (trimmed.startsWith('{') || trimmed.startsWith('[')) return current;
+		const candidate = trimmed.startsWith('br:') ? trimmed.slice(3) : trimmed;
+		const decoded = decompressBase64(candidate);
+		if (decoded == null) return current;
+		current = decoded;
+	}
+	return current;
 }
 
 // Rebuild the search-index sidecar from the same detail records the local Redis cache holds
@@ -305,7 +525,11 @@ async function readBucketDocsFromLocalRedis(bucket) {
 	}
 
 	try {
-		const keys = await redis.keys(`${bucket.redisPrefix}*`);
+		// `KEYS finra:firm:*` also matches sidecar/companion keys such as
+		// `sec:firm:summaryHtml:<id>`; restrict to true detail keys so those aren't parsed
+		// as detail payloads.
+		const detailKeyPattern = new RegExp(`^${bucket.redisPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\d+$`);
+		const keys = (await redis.keys(`${bucket.redisPrefix}*`)).filter((key) => detailKeyPattern.test(key));
 		if (!keys.length) return { docs: null, generatedAt: null, reason: `no keys found for ${bucket.redisPrefix}*` };
 
 		const docs = [];
@@ -313,8 +537,10 @@ async function readBucketDocsFromLocalRedis(bucket) {
 		for (let i = 0; i < keys.length; i += BATCH_SIZE) {
 			const batchKeys = keys.slice(i, i + BATCH_SIZE);
 			const values = await redis.mget(batchKeys);
-			for (const rawValue of values) {
+			for (let j = 0; j < values.length; j += 1) {
+				const rawValue = values[j];
 				if (!rawValue) continue;
+				const fallbackId = batchKeys[j].slice(bucket.redisPrefix.length);
 				try {
 					const decoded = decodeRedisValue(rawValue);
 					const payload = JSON.parse(decoded);
@@ -334,11 +560,7 @@ async function readBucketDocsFromLocalRedis(bucket) {
 						detail = source;
 					}
 
-					// If the resulting detail wraps the actual data in finraBrokerCheck (or similar), unwrap it
-					if (detail && detail.finraBrokerCheck && typeof detail.finraBrokerCheck === 'object') {
-						detail = { ...detail, ...detail.finraBrokerCheck };
-					}
-					const doc = bucket.type === 'individual' ? buildIndividualDoc(bucket.source, detail) : buildFirmDoc(bucket.source, detail);
+					const doc = buildDocFromDetail(bucket, detail, fallbackId);
 					if (doc) docs.push(doc);
 				} catch {
 					// skip malformed cache entries
@@ -370,9 +592,9 @@ async function readBucketDocs(bucket) {
 	for (const fileName of fileNames) {
 		try {
 			const payload = JSON.parse(await fs.readFile(path.join(bucket.dir, fileName), 'utf8'));
-			const detail = getDetailRoot(bucket, payload);
-			if (!detail) continue;
-			const doc = bucket.type === 'individual' ? buildIndividualDoc(bucket.source, detail) : buildFirmDoc(bucket.source, detail);
+			const detail = getDetailRoot(bucket, payload) || payload;
+			const fallbackId = (fileName.match(/(\d+)\.json$/) || [])[1] || '';
+			const doc = buildDocFromDetail(bucket, detail, fallbackId);
 			if (!doc) continue;
 			docs.push(doc);
 
@@ -419,6 +641,7 @@ async function gzipExistingBucket(outputPath) {
 }
 
 async function main() {
+	loadLocalEnvFlags();
 	let skippedBuckets = 0;
 	const useLocalRedis = process.env.USE_LOCAL_REDIS === '1';
 
@@ -427,25 +650,31 @@ async function main() {
 		const gzPath = `${outputPath}.gz`;
 		let { docs, generatedAt, reason } = await readBucketDocs(bucket);
 
-		// Prefer local Redis detail records over file-based/stub docs when running against
-		// the local dev cache — local Redis holds full detail payloads (address/employment
-		// data) mirroring what the same search sidecar gets in production, whereas the
-		// file-based source directories may only contain minimal label-only stubs.
+		// Union local Redis detail records with the file-based source instead of picking only
+		// whichever produced more docs — each side holds CRDs the other lacks (the file cache
+		// alone carried ~1,250 CRDs that the Redis-only build discarded). `mergeDocLists`
+		// keeps the richer/named doc whenever both sides have the same CRD.
 		if (useLocalRedis) {
 			const redisResult = await readBucketDocsFromLocalRedis(bucket);
-			if (Array.isArray(redisResult.docs) && redisResult.docs.length > (docs?.length || 0)) {
-				docs = redisResult.docs;
-				generatedAt = redisResult.generatedAt;
+			if (Array.isArray(redisResult.docs) && redisResult.docs.length) {
+				const fileDocs = Array.isArray(docs) ? docs : [];
+				const merged = mergeDocLists(redisResult.docs, fileDocs);
+				console.log(
+					`Merged ${bucket.name}: ${redisResult.docs.length} local Redis docs + ${fileDocs.length} file docs → ${merged.length} unique docs.`,
+				);
+				docs = merged;
+				generatedAt = redisResult.generatedAt || generatedAt;
 				reason = null;
-				console.log(`Using local Redis detail records for ${bucket.name} (${docs.length} docs) instead of file-based source.`);
 			} else if (redisResult.reason) {
 				console.log(`Local Redis fallback skipped for ${bucket.name}: ${redisResult.reason}`);
 			}
 		}
 
 		if (Array.isArray(docs) && docs.length) {
+			docs = mergeDocLists(docs);
+			const named = docs.filter(docHasName).length;
 			await writeBucket(bucket, docs, generatedAt);
-			console.log(`Built ${bucket.name} search index with ${docs.length} docs and gzipped sidecar.`);
+			console.log(`Built ${bucket.name} search index with ${docs.length} docs (${named} with labels) and gzipped sidecar.`);
 			continue;
 		}
 
@@ -482,4 +711,4 @@ if (require.main === module) {
 	});
 }
 
-module.exports = { buildIndividualDoc, buildFirmDoc, collectScalarTexts, uniqueTexts };
+module.exports = { buildIndividualDoc, buildFirmDoc, buildOrphanDoc, buildDocFromDetail, unwrapDetail, mergeDocLists, collectScalarTexts, uniqueTexts };
