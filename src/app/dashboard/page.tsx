@@ -1067,6 +1067,10 @@ function shouldHideDetailLabel(label: string) {
 const LOCAL_HISTORY_KEY = 'finra_dashboard_history';
 const NEW_CRD_CLIENT_CACHE_KEY = 'finra_dashboard_new_crds_cache';
 const NEW_CRD_CLIENT_CACHE_TTL_MS = 5 * 60 * 1000;
+// Matches the server-side dashboard card-list cache TTL (DASHBOARD_CARD_LIST_CACHE_TTL_MS in
+// src/app/api/dashboard/refresh/route.ts). Polling faster than this only re-fetches the same
+// cached payload, so keep client polling aligned with it to avoid redundant requests.
+const QUEUE_CARD_LIST_POLL_MS = 30_000;
 // Keep the local history indefinitely. Using a very large numeric sentinel so
 // existing slice(0, LOCAL_HISTORY_MAX) calls keep all entries.
 const LOCAL_HISTORY_MAX = Number.POSITIVE_INFINITY;
@@ -3449,7 +3453,7 @@ function DashboardPageInner() {
 
 		const intervalId = setInterval(() => {
 			void loadQueueCardsFromRedis(queueCrdFilter);
-		}, 15000);
+		}, QUEUE_CARD_LIST_POLL_MS);
 
 		return () => clearInterval(intervalId);
 		// eslint-disable-next-line react-hooks/exhaustive-deps

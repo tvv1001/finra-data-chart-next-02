@@ -1,20 +1,684 @@
 {
   "firms": [
     {
+      "id": 837,
+      "name": "TUCKER ANTHONY INCORPORATED"
+    },
+    {
+      "id": 31194,
+      "name": "RBC DAIN RAUSCHER INC."
+    },
+    {
+      "id": 45502,
+      "name": "INTER-DEALER BROKERS LLC"
+    },
+    {
+      "id": 170228,
+      "name": "CFWP SECURITIES, LLC"
+    },
+    {
+      "id": 151012,
+      "name": "SUNRISE BROKERS LLC"
+    },
+    {
+      "id": 19982,
+      "name": "GFI SECURITIES LLC"
+    },
+    {
+      "id": 154075,
+      "name": "FMX EXECUTION, LLC"
+    },
+    {
+      "id": 134,
+      "name": "CANTOR FITZGERALD & CO."
+    },
+    {
+      "id": 285841,
+      "name": "CF SECURED, LLC"
+    },
+    {
+      "id": 19801,
+      "name": "BGC FINANCIAL, L.P."
+    },
+    {
+      "id": 105796,
+      "name": "VERAVEST INVESTMENT ADVISORS, INC."
+    },
+    {
+      "id": 110518,
+      "name": "SECURITIES AMERICA ADVISORS, INC."
+    },
+    {
+      "id": 3960,
+      "name": "VERAVEST INVESTMENTS, INC."
+    },
+    {
+      "id": 10205,
+      "name": "SECURITIES AMERICA, INC."
+    },
+    {
+      "id": 283330,
+      "name": "KESTRA ADVISORY SERVICES, LLC"
+    },
+    {
+      "id": 42046,
+      "name": "KESTRA INVESTMENT SERVICES, LLC"
+    },
+    {
+      "id": 127589,
+      "name": "360 WEALTH MANAGEMENT, INC."
+    },
+    {
+      "id": 282580,
+      "name": "AE WEALTH MANAGEMENT, LLC"
+    },
+    {
+      "id": 958,
+      "name": "INVESTORS ASSOCIATES, INC."
+    },
+    {
+      "id": 5493,
+      "name": "NEUBERGER & BERMAN MANAGEMENT INCORPORATED"
+    },
+    {
+      "id": 8209,
+      "name": "MORGAN STANLEY & CO., INCORPORATED"
+    },
+    {
+      "id": 26091,
+      "name": "BANC OF AMERICA SECURITIES LLC"
+    },
+    {
+      "id": 38642,
+      "name": "BLACKROCK INVESTMENTS, INC."
+    },
+    {
+      "id": 281510,
+      "name": "HAMILTON LANE SECURITIES LLC"
+    },
+    {
+      "id": 42045,
+      "name": "LINCOLN INTERNATIONAL LLC"
+    },
+    {
+      "id": 17499,
+      "name": "SUNTRUST SECURITIES, INC."
+    },
+    {
+      "id": 1650,
+      "name": "SBC WARBURG DILLON READ INC."
+    },
+    {
+      "id": 7654,
+      "name": "WARBURG DILLON READ LLC"
+    },
+    {
+      "id": 6124,
+      "name": "FIRST UNION CAPITAL MARKETS CORP."
+    },
+    {
+      "id": 14007,
+      "name": "AMVESCAP SERVICES, INC."
+    },
+    {
+      "id": 3870,
+      "name": "LINCOLN FINANCIAL SECURITIES CORPORATION"
+    },
+    {
+      "id": 19616,
+      "name": "WELLS FARGO CLEARING SERVICES, LLC"
+    },
+    {
+      "id": 44430,
+      "name": "FIRST CITIZENS INVESTOR SERVICES, INC."
+    },
+    {
+      "id": 129052,
+      "name": "PNC INVESTMENTS"
+    },
+    {
+      "id": 5393,
+      "name": "CHARLES SCHWAB & CO., INC."
+    },
+    {
+      "id": 27904,
+      "name": "BUTLER & ASSOCIATES"
+    },
+    {
+      "id": 13439,
+      "name": "DISCOUNT CORPORATION OF NEW YORK FUTURES"
+    },
+    {
+      "id": 7556,
+      "name": "DEAN WITTER REYNOLDS INC."
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 2347,
+      "name": "JEFFERIES & COMPANY, INC."
+    },
+    {
+      "id": 4297,
+      "name": "NOMURA SECURITIES INTERNATIONAL, INC."
+    },
+    {
+      "id": 4095,
+      "name": "METROPOLITAN LIFE INSURANCE COMPANY"
+    },
+    {
+      "id": 14251,
+      "name": "METLIFE SECURITIES INC."
+    },
+    {
+      "id": 13941,
+      "name": "CUNA BROKERAGE SERVICES, INC."
+    },
+    {
+      "id": 6413,
+      "name": "LPL FINANCIAL LLC"
+    },
+    {
+      "id": 10111,
+      "name": "PFS INVESTMENTS INC."
+    },
+    {
+      "id": 15708,
+      "name": "PROEQUITIES, INC."
+    },
+    {
+      "id": 18272,
+      "name": "ALLSTATE FINANCIAL SERVICES, LLC"
+    },
+    {
+      "id": 11691,
+      "name": "THE STUART-JAMES COMPANY, INC."
+    },
+    {
+      "id": 2617,
+      "name": "MABON, NUGENT & CO."
+    },
+    {
+      "id": 19418,
+      "name": "BANCA IMI SECURITIES CORP."
+    },
+    {
+      "id": 103746,
+      "name": "COLLINS STEWART (SECURITIES) INC."
+    },
+    {
+      "id": 47414,
+      "name": "COLLINS STEWART INC."
+    },
+    {
+      "id": 20431,
+      "name": "PREBON SECURITIES (USA) INC."
+    },
+    {
+      "id": 19717,
+      "name": "TULLETT LIBERTY BROKERAGE INC."
+    },
+    {
+      "id": 29551,
+      "name": "PREBON FINANCIAL PRODUCTS INC."
+    },
+    {
+      "id": 28196,
+      "name": "TULLETT PREBON FINANCIAL SERVICES LLC"
+    },
+    {
+      "id": 13681,
+      "name": "MINT BROKERS"
+    },
+    {
+      "id": 7059,
+      "name": "SMITH BARNEY, HARRIS UPHAM & CO., INCORPORATED"
+    },
+    {
+      "id": 27924,
+      "name": "MCATEE INVESTMENT SERVICES, INC."
+    },
+    {
+      "id": 21442,
+      "name": "MOSES.COM SECURITIES, INC."
+    },
+    {
+      "id": 1432,
+      "name": "K. W. CHAMBERS & CO."
+    },
+    {
+      "id": 113412,
+      "name": "HUNTLEIGH ADVISORS, INC."
+    },
+    {
+      "id": 7456,
+      "name": "HUNTLEIGH SECURITIES CORPORATION"
+    },
+    {
+      "id": 4257,
+      "name": "INVESTORS BROKERAGE SERVICES, INC."
+    },
+    {
+      "id": 6403,
+      "name": "INTEGRATED RESOURCES EQUITY CORPORATION"
+    },
+    {
+      "id": 13302,
+      "name": "MIDAMERICA MANAGEMENT CORPORATION"
+    },
+    {
+      "id": 30343,
+      "name": "FIMCO SECURITIES GROUP, INC."
+    },
+    {
+      "id": 19685,
+      "name": "MITSUBISHI UFJ SECURITIES (USA), INC."
+    },
+    {
+      "id": 19647,
+      "name": "MIZUHO SECURITIES USA INC."
+    },
+    {
+      "id": 5685,
+      "name": "PRUCO SECURITIES, LLC."
+    },
+    {
+      "id": 8733,
+      "name": "LPL ENTERPRISE, LLC"
+    },
+    {
+      "id": 1703,
+      "name": "LOCUST STREET SECURITIES, INC."
+    },
+    {
+      "id": 2882,
+      "name": "VOYA FINANCIAL ADVISORS, INC."
+    },
+    {
+      "id": 13572,
+      "name": "CETERA WEALTH SERVICES, LLC"
+    },
+    {
+      "id": 105061,
+      "name": "CASIMIR CAPITAL L.P."
+    },
+    {
+      "id": 114008,
+      "name": "RG ASSET MANAGEMENT SERVICES LIMITED USA"
+    },
+    {
+      "id": 101860,
+      "name": "SONIC TRADING, LLC"
+    },
+    {
+      "id": 104249,
+      "name": "SONIC TECHNOLOGIES LLC"
+    },
+    {
+      "id": 104226,
+      "name": "WAHOO INSTITUTIONAL TRADING LLC"
+    },
+    {
+      "id": 28030,
+      "name": "PRESTWICK SECURITIES, INC."
+    },
+    {
+      "id": 114242,
+      "name": "BUTLER CAPITAL INVESTMENTS, LLC"
+    },
+    {
+      "id": 104178,
+      "name": "EXTRAYIELD.COM LLC"
+    },
+    {
+      "id": 43747,
+      "name": "GENEVA CAPITAL CORP."
+    },
+    {
+      "id": 113642,
+      "name": "LION'S GROUP TRADING LLC"
+    },
+    {
+      "id": 124360,
+      "name": "A B WONG CAPITAL LLC"
+    },
+    {
+      "id": 38454,
+      "name": "CRIMSON SECURITIES LLC"
+    },
+    {
+      "id": 42442,
+      "name": "PCF PROVIDENT CAPITAL MARKETS, INC."
+    },
+    {
+      "id": 117476,
+      "name": "MAKO FINANCIAL MARKETS, LLC"
+    },
+    {
+      "id": 103799,
+      "name": "MAKO GLOBAL DERIVATIVES LLC"
+    },
+    {
+      "id": 119340,
+      "name": "GRAVITAS, LLC"
+    },
+    {
+      "id": 121963,
+      "name": "UFG (US) INC."
+    },
+    {
+      "id": 108219,
+      "name": "BMA SECURITIES"
+    },
+    {
+      "id": 27861,
+      "name": "KIM ENG SECURITIES U.S.A. INC."
+    },
+    {
+      "id": 106813,
+      "name": "MUTUAL CAPITAL CORP."
+    },
+    {
+      "id": 120837,
+      "name": "UBM SECURITIES, INC."
+    },
+    {
+      "id": 113614,
+      "name": "ACA SECURITIES, L.L.C."
+    },
+    {
+      "id": 134162,
+      "name": "N.A. INVESTCORP LLC"
+    },
+    {
+      "id": 135126,
+      "name": "MAJESTIC SECURITIES LLC"
+    },
+    {
+      "id": 135112,
+      "name": "COLEMAN BROKERAGE GROUP, LLC"
+    },
+    {
+      "id": 133097,
+      "name": "VANTHEDGEPOINT SECURITIES, LLC"
+    },
+    {
+      "id": 28345,
+      "name": "A.K. CAPITAL, LLC"
+    },
+    {
+      "id": 40065,
+      "name": "EIM SECURITIES (USA) INC."
+    },
+    {
+      "id": 44665,
+      "name": "ARAPAHO PARTNERS, LLC"
+    },
+    {
+      "id": 43573,
+      "name": "RP&C INTERNATIONAL (SECURITIES), INC."
+    },
+    {
+      "id": 107217,
+      "name": "CROWN INVESTMENT BANKING, INC."
+    },
+    {
+      "id": 129821,
+      "name": "DCD SECURITIES, LLC"
+    },
+    {
+      "id": 130991,
+      "name": "WEISS INVESTMENT MANAGEMENT SERVICES, LLC"
+    },
+    {
+      "id": 104429,
+      "name": "KAUPTHING SECURITIES, INC."
+    },
+    {
+      "id": 133660,
+      "name": "PRAETORIAN SECURITIES, LLC"
+    },
+    {
+      "id": 26303,
+      "name": "VALORES FINAMEX INTERNATIONAL, INC."
+    },
+    {
+      "id": 134751,
+      "name": "IPOR CAPITAL, LLC"
+    },
+    {
+      "id": 47847,
+      "name": "CREDITEX GROUP, INC."
+    },
+    {
+      "id": 136321,
+      "name": "COMMONWEALTH AUSTRALIA SECURITIES LLC"
+    },
+    {
+      "id": 19609,
+      "name": "BROOKE SECURITIES, INC."
+    },
+    {
+      "id": 138829,
+      "name": "DAVIS SECURITIES LLC"
+    },
+    {
+      "id": 42485,
+      "name": "MS TRADE FINANCE, LLC"
+    },
+    {
+      "id": 124790,
+      "name": "LIBERTAS PARTNERS LLC"
+    },
+    {
+      "id": 103748,
+      "name": "AKROS SECURITIES, INC"
+    },
+    {
+      "id": 119992,
+      "name": "MUNICIPAL PARTNERS, LLC"
+    },
+    {
+      "id": 127824,
+      "name": "IFL CAPITAL LLC"
+    },
+    {
+      "id": 142790,
+      "name": "TRIPLE A PARTNERS LLC"
+    },
+    {
+      "id": 105797,
+      "name": "RAMIREZ TRADETREK SECURITIES LLC"
+    },
+    {
+      "id": 1315,
+      "name": "BRIMBERG & CO."
+    },
+    {
+      "id": 47771,
+      "name": "HFV INVESTMENTS, LLC"
+    },
+    {
+      "id": 13134,
+      "name": "BEDROK SECURITIES LLC"
+    },
+    {
+      "id": 103831,
+      "name": "HFG HEALTHCO SECURITIES"
+    },
+    {
+      "id": 141097,
+      "name": "GSF CAPITAL MARKETS, LLC"
+    },
+    {
+      "id": 133820,
+      "name": "CAPITAL PARTNERS SECURITIES LLC"
+    },
+    {
+      "id": 104445,
+      "name": "HRH SECURITIES, LLC"
+    },
+    {
+      "id": 138834,
+      "name": "BDR RESEARCH LLC"
+    },
+    {
+      "id": 138887,
+      "name": "CHARLES MORGAN SECURITIES, INC."
+    },
+    {
+      "id": 146999,
+      "name": "TANGENT CAPITAL PARTNERS, LLC"
+    },
+    {
+      "id": 135003,
+      "name": "HALLMARK INVESTMENTS, INC."
+    },
+    {
+      "id": 174297,
+      "name": "LIQUIDITYEDGE, LLC."
+    },
+    {
+      "id": 167704,
+      "name": "ROBERTSON STEPHENS SECURITIES"
+    },
+    {
+      "id": 120063,
+      "name": "THS LTD."
+    },
+    {
+      "id": 144823,
+      "name": "CROSS RESEARCH"
+    },
+    {
+      "id": 299321,
+      "name": "RUNTITLE PROPERTIES LLC"
+    },
+    {
+      "id": 44323,
+      "name": "BLUEPRINT CAPITAL MARKETS"
+    },
+    {
+      "id": 104087,
+      "name": "FOX CHASE CAPITAL PARTNERS, LLC"
+    },
+    {
+      "id": 100340,
+      "name": "COMMERCE ONE FINANCIAL INC."
+    },
+    {
+      "id": 104245,
+      "name": "CF GLOBAL TRADING, LLC"
+    },
+    {
+      "id": 147682,
+      "name": "MENTOR SECURITIES, LLC"
+    },
+    {
+      "id": 127373,
+      "name": "WHITEMARSH CAPITAL ADVISORS"
+    },
+    {
+      "id": 148232,
+      "name": "FOREST ROAD SECURITIES BD LLC"
+    },
+    {
+      "id": 306373,
+      "name": "FIRST OMEGA, LLC"
+    },
+    {
+      "id": 290230,
+      "name": "STRATOS WEALTH SECURITIES, LLC"
+    },
+    {
+      "id": 149298,
+      "name": "VENTOUX SECURITIES, LLC"
+    },
+    {
+      "id": 314893,
+      "name": "RPP SECURITIES"
+    },
+    {
+      "id": 315582,
+      "name": "LYNDHURST SECURITIES INC."
+    },
+    {
+      "id": 322460,
+      "name": "RUBINBROWN CORPORATE FINANCE, LLC"
+    },
+    {
+      "id": 324143,
+      "name": "ST GLOBAL MARKETS USA LLC"
+    },
+    {
+      "id": 318565,
+      "name": "BETHEL LANDING SECURITIES LLC"
+    },
+    {
+      "id": 20576,
+      "name": "HUNNICUTT & CO. LLC"
+    },
+    {
+      "id": 29686,
+      "name": "WINSLOW, EVANS & CROCKER, INC."
+    },
+    {
+      "id": 33542,
+      "name": "MACLAREN SECURITIES, INC."
+    },
+    {
+      "id": 10147,
+      "name": "ROBERT THOMAS SECURITIES, INC"
+    },
+    {
+      "id": 149018,
+      "name": "RAYMOND JAMES FINANCIAL SERVICES ADVISORS, INC"
+    },
+    {
+      "id": 6694,
+      "name": "RAYMOND JAMES FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 5167,
+      "name": "NYLIFE SECURITIES LLC"
+    },
+    {
+      "id": 8166,
+      "name": "BLYTH EASTMAN PAINE WEBBER INCORPORATED"
+    },
+    {
+      "id": 8174,
+      "name": "PAINEWEBBER INCORPORATED"
+    },
+    {
+      "id": 25702,
+      "name": "PEERS & CO."
+    },
+    {
+      "id": 235,
+      "name": "E. F. HUTTON & COMPANY INC"
+    },
+    {
+      "id": 7506,
+      "name": "LEHMAN BROTHERS INC."
+    },
+    {
+      "id": 101,
+      "name": "BOETTCHER & COMPANY, INC."
+    },
+    {
+      "id": 6363,
+      "name": "AMERIPRISE FINANCIAL SERVICES, LLC"
+    },
+    {
       "id": 15733,
       "name": "J.P. MORGAN SECURITIES INC."
     },
     {
-      "id": 7059,
-      "name": "CITIGROUP GLOBAL MARKETS INC."
-    },
-    {
       "id": 149777,
       "name": "MORGAN STANLEY SMITH BARNEY"
-    },
-    {
-      "id": 8174,
-      "name": "UBS FINANCIAL SERVICES INC."
     },
     {
       "id": 29604,
@@ -35,10 +699,6 @@
     {
       "id": 7323,
       "name": "DREXEL BURNHAM LAMBERT INCORPORATED"
-    },
-    {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
     },
     {
       "id": 25574,
@@ -71,10 +731,6 @@
     {
       "id": 27878,
       "name": "MUTUAL OF AMERICA SECURITIES LLC"
-    },
-    {
-      "id": 5393,
-      "name": "CHARLES SCHWAB & CO., INC."
     },
     {
       "id": 8543,
@@ -117,16 +773,8 @@
       "name": "EXCELSIOR EQUITIES"
     },
     {
-      "id": 6363,
-      "name": "AMERIPRISE FINANCIAL SERVICES, LLC"
-    },
-    {
       "id": 288590,
       "name": "FIDELITY PERSONAL AND WORKPLACE ADVISORS"
-    },
-    {
-      "id": 7506,
-      "name": "LEHMAN BROTHERS INC."
     },
     {
       "id": 7471,
@@ -177,10 +825,6 @@
       "name": "DMG SECURITIES, INC."
     },
     {
-      "id": 6413,
-      "name": "LPL FINANCIAL LLC"
-    },
-    {
       "id": 32444,
       "name": "FIRST ALLIED SECURITIES, INC."
     },
@@ -229,20 +873,8 @@
       "name": "VESTAX SECURITIES CORPORATION"
     },
     {
-      "id": 1703,
-      "name": "LOCUST STREET SECURITIES, INC."
-    },
-    {
       "id": 119220,
       "name": "ELITE SECURITIES, INC."
-    },
-    {
-      "id": 2882,
-      "name": "VOYA FINANCIAL ADVISORS, INC."
-    },
-    {
-      "id": 15708,
-      "name": "CONCOURSE FINANCIAL GROUP SECURITIES, INC."
     },
     {
       "id": 111052,
@@ -269,10 +901,6 @@
       "name": "STERNE, AGEE & LEACH, INC."
     },
     {
-      "id": 19616,
-      "name": "WELLS FARGO CLEARING SERVICES, LLC"
-    },
-    {
       "id": 283004,
       "name": "STEWARD PARTNERS INVESTMENT ADVISORY, LLC"
     },
@@ -289,24 +917,12 @@
       "name": "ALEX. BROWN & SONS, INC."
     },
     {
-      "id": 7654,
-      "name": "UBS SECURITIES INC."
-    },
-    {
       "id": 10793,
       "name": "CHASE SECURITIES, INC."
     },
     {
       "id": 18718,
       "name": "CHASE SECURITIES INC."
-    },
-    {
-      "id": 7556,
-      "name": "MORGAN STANLEY DW INC."
-    },
-    {
-      "id": 8209,
-      "name": "MORGAN STANLEY & CO., INCORPORATED"
     },
     {
       "id": 44542,
@@ -355,14 +971,6 @@
     {
       "id": 680,
       "name": "THE PRUDENTIAL INSURANCE COMPANY OF AMERICA"
-    },
-    {
-      "id": 5685,
-      "name": "PRUCO SECURITIES, LLC."
-    },
-    {
-      "id": 8733,
-      "name": "LPL ENTERPRISE, LLC"
     },
     {
       "id": 39944,
@@ -605,10 +1213,6 @@
       "name": "CRAIGIE INCORPORATED"
     },
     {
-      "id": 6124,
-      "name": "WHEAT, FIRST SECURITIES, INC."
-    },
-    {
       "id": 386,
       "name": "OPPENHEIMER ASSET MANAGEMENT CORPORATION"
     },
@@ -673,10 +1277,6 @@
       "name": "HOPPER SOLIDAY & CO., INC."
     },
     {
-      "id": 837,
-      "name": "TUCKER ANTHONY INCORPORATED"
-    },
-    {
       "id": 25899,
       "name": "CRESAP, INC."
     },
@@ -719,10 +1319,6 @@
     {
       "id": 5249,
       "name": "MANEQUITY, INC."
-    },
-    {
-      "id": 18272,
-      "name": "ALLSTATE FINANCIAL SERVICES, LLC"
     },
     {
       "id": 45915,
@@ -805,10 +1401,6 @@
       "name": "NEW ENGLAND SECURITIES"
     },
     {
-      "id": 14251,
-      "name": "MSI FINANCIAL SERVICES, INC."
-    },
-    {
       "id": 297287,
       "name": "IFP SECURITIES, LLC"
     },
@@ -817,20 +1409,8 @@
       "name": "G. A. REPPLE & COMPANY"
     },
     {
-      "id": 110518,
-      "name": "SECURITIES AMERICA ADVISORS, INC."
-    },
-    {
       "id": 30349,
       "name": "1ST GLOBAL CAPITAL CORP."
-    },
-    {
-      "id": 10205,
-      "name": "SECURITIES AMERICA, INC."
-    },
-    {
-      "id": 3870,
-      "name": "LINCOLN FINANCIAL SECURITIES CORPORATION"
     },
     {
       "id": 134086,
@@ -913,10 +1493,6 @@
       "name": "AMERICAN VARIABLE ANNUITY LIFE ASSURANCE COMPANY"
     },
     {
-      "id": 3960,
-      "name": "SMA EQUITIES, INC."
-    },
-    {
       "id": 3963,
       "name": "GENERAL AMERICAN LIFE INSURANCE COMPANY"
     },
@@ -927,10 +1503,6 @@
     {
       "id": 4806,
       "name": "MUTUAL SERVICE CORPORATION"
-    },
-    {
-      "id": 4095,
-      "name": "METROPOLITAN LIFE INSURANCE COMPANY"
     },
     {
       "id": 30613,
@@ -1001,20 +1573,8 @@
       "name": "GWFS EQUITIES, INC."
     },
     {
-      "id": 149018,
-      "name": "RAYMOND JAMES FINANCIAL SERVICES ADVISORS, INC"
-    },
-    {
-      "id": 6694,
-      "name": "RAYMOND JAMES FINANCIAL SERVICES, INC."
-    },
-    {
       "id": 7769,
       "name": "G. W. COURTNEY, INC."
-    },
-    {
-      "id": 4257,
-      "name": "INVESTORS BROKERAGE SERVICES, INC."
     },
     {
       "id": 123605,
@@ -1023,10 +1583,6 @@
     {
       "id": 42150,
       "name": "FORTUNE FINANCIAL SERVICES, INC."
-    },
-    {
-      "id": 42046,
-      "name": "KESTRA INVESTMENT SERVICES, LLC"
     },
     {
       "id": 19585,
@@ -1109,10 +1665,6 @@
       "name": "NATIONWIDE INVESTMENT SERVICES CORPORATION"
     },
     {
-      "id": 5167,
-      "name": "NYLIFE SECURITIES LLC"
-    },
-    {
       "id": 10409,
       "name": "MML INVESTORS SERVICES, LLC"
     },
@@ -1151,10 +1703,6 @@
     {
       "id": 16337,
       "name": "FFP SECURITIES, INC."
-    },
-    {
-      "id": 13572,
-      "name": "FINANCIAL NETWORK INVESTMENT CORPORATION"
     },
     {
       "id": 152517,
@@ -1203,10 +1751,6 @@
     {
       "id": 13158,
       "name": "AIG CAPITAL SERVICES, INC."
-    },
-    {
-      "id": 13941,
-      "name": "CUNA BROKERAGE SERVICES, INC."
     },
     {
       "id": 739,
@@ -1331,10 +1875,6 @@
     {
       "id": 16783,
       "name": "QUEST CAPITAL STRATEGIES, INC."
-    },
-    {
-      "id": 10111,
-      "name": "PFS INVESTMENTS INC."
     },
     {
       "id": 20472,
@@ -1537,10 +2077,6 @@
       "name": "OLYMPUS PEAKS FINANCIAL, LLC"
     },
     {
-      "id": 101,
-      "name": "BOETTCHER & COMPANY, INC."
-    },
-    {
       "id": 168267,
       "name": "INDEPENDENT ADVISOR ALLIANCE, LLC"
     },
@@ -1563,10 +2099,6 @@
     {
       "id": 17490,
       "name": "NATCITY INVESTMENTS, INC."
-    },
-    {
-      "id": 129052,
-      "name": "PNC INVESTMENTS"
     },
     {
       "id": 33856,
@@ -1821,10 +2353,6 @@
       "name": "BB&T SECURITIES, LLC"
     },
     {
-      "id": 17499,
-      "name": "TRUIST INVESTMENT SERVICES, INC."
-    },
-    {
       "id": 16361,
       "name": "BANC OF AMERICA INVESTMENT SERVICES, INC."
     },
@@ -2023,64 +2551,928 @@
     {
       "id": 2881,
       "name": "NORTHWESTERN MUTUAL INVESTMENT SERVICES, LLC"
+    },
+    {
+      "id": 133370,
+      "name": "1919 INVESTMENT COUNSEL, LLC"
     }
   ],
   "individuals": [
     {
-      "id": 2876260,
-      "name": "JOHN BATISTA BOCCHINO"
+      "id": 8322604,
+      "name": "ISABELLE DARLING HADEL"
+    },
+    {
+      "id": 8162008,
+      "name": "Joseph Adams"
+    },
+    {
+      "id": 7920923,
+      "name": "Amalia Milena Blood"
+    },
+    {
+      "id": 7789980,
+      "name": "Zachary Michael Tartaglia"
+    },
+    {
+      "id": 7729617,
+      "name": "Jalen Robert Mason"
+    },
+    {
+      "id": 7711309,
+      "name": "Kunal Kataria"
+    },
+    {
+      "id": 7623439,
+      "name": "Sona Tatarian"
+    },
+    {
+      "id": 7535308,
+      "name": "Tara Blood Newton"
+    },
+    {
+      "id": 7511383,
+      "name": "Ella Dean Parker"
+    },
+    {
+      "id": 7472084,
+      "name": "Peri H Bloodworth"
+    },
+    {
+      "id": 7443605,
+      "name": "Blake Bloodsaw"
+    },
+    {
+      "id": 7410678,
+      "name": "Arin Vartanian"
+    },
+    {
+      "id": 7394795,
+      "name": "Jose De Cortez"
+    },
+    {
+      "id": 7375286,
+      "name": "Bryan E Bloodworth"
+    },
+    {
+      "id": 7361739,
+      "name": "Eric Tarkanian"
+    },
+    {
+      "id": 7307498,
+      "name": "Dylan Neal"
+    },
+    {
+      "id": 7290218,
+      "name": "Steven Mourad Terterian"
+    },
+    {
+      "id": 7270741,
+      "name": "Madison Hyland Blood"
+    },
+    {
+      "id": 7266198,
+      "name": "Katelyn (Marie) Bloodworth Land"
+    },
+    {
+      "id": 7261197,
+      "name": "Olivia Marie Tatarian"
+    },
+    {
+      "id": 7248335,
+      "name": "Aneri Jambusaria"
+    },
+    {
+      "id": 7178931,
+      "name": "Kevin Bloodgood"
+    },
+    {
+      "id": 7166309,
+      "name": "Christopher Tartarone"
+    },
+    {
+      "id": 7151108,
+      "name": "Krishan Tarsadia"
+    },
+    {
+      "id": 7127181,
+      "name": "Richard Eric Owen"
+    },
+    {
+      "id": 7094095,
+      "name": "Angela Diane Xavier"
+    },
+    {
+      "id": 7081887,
+      "name": "Spencer Bloodworth"
+    },
+    {
+      "id": 7078002,
+      "name": "Israel Rascon"
+    },
+    {
+      "id": 7043156,
+      "name": "Janice W Adams"
+    },
+    {
+      "id": 7035688,
+      "name": "JOANA Patricia WRIGHT"
+    },
+    {
+      "id": 7028647,
+      "name": "CEDRICK EUGENE BENNETT"
+    },
+    {
+      "id": 7010499,
+      "name": "Charles Bryan Burguieres"
+    },
+    {
+      "id": 6998198,
+      "name": "Peter Richard Markarian"
+    },
+    {
+      "id": 6976426,
+      "name": "Valeria Bahena"
+    },
+    {
+      "id": 6949983,
+      "name": "Antony Markarians"
+    },
+    {
+      "id": 6935879,
+      "name": "Sarah Markarian"
+    },
+    {
+      "id": 6868467,
+      "name": "Matthew Tatarian"
+    },
+    {
+      "id": 6859081,
+      "name": "SHELBY THIEL ADAMS"
+    },
+    {
+      "id": 6844920,
+      "name": "Joshua R Tantari"
+    },
+    {
+      "id": 6673896,
+      "name": "Jonathon B Bloodgood"
+    },
+    {
+      "id": 6641808,
+      "name": "Zachary Israel"
+    },
+    {
+      "id": 6600114,
+      "name": "William Andrew Mason"
+    },
+    {
+      "id": 6561208,
+      "name": "Hilton Lee Bloodworth"
+    },
+    {
+      "id": 6527797,
+      "name": "Regina Alexandra Tarara"
+    },
+    {
+      "id": 6494734,
+      "name": "ARTHUREAN MCGEE"
+    },
+    {
+      "id": 6492656,
+      "name": "Mirna Vartanian"
     },
     {
       "id": 6342072,
       "name": "Brian Joseph Bocchino"
     },
     {
-      "id": 1803193,
-      "name": "Peter Vincent Flood"
+      "id": 6243172,
+      "name": "ALISA EDMONDSON"
     },
     {
-      "id": 1161629,
-      "name": "JOHN LAWRENCE FLOOD"
+      "id": 6236764,
+      "name": "ELIZABETH LISA TUREK"
     },
     {
-      "id": 2732400,
-      "name": "TIMOTHY COOPER BONAR"
+      "id": 6211077,
+      "name": "SAMUEL A ADAMS"
     },
     {
-      "id": 1602991,
-      "name": "ERIC LEE DIAMOND"
+      "id": 6094196,
+      "name": "Lynne Alter"
     },
     {
-      "id": 1281172,
-      "name": "LAURA LEE FISH-KELLY"
+      "id": 6052977,
+      "name": "JAMES MCHALE"
     },
     {
-      "id": 1028056,
-      "name": "TIMOTHY STUART MICKEY"
-    },
-    {
-      "id": 1009266,
-      "name": "JEFFREY WILLIS DURKEE"
-    },
-    {
-      "id": 1002946,
-      "name": "Thomas James Archer"
-    },
-    {
-      "id": 1986878,
-      "name": "JEFFRY JAY PHILLIPS"
-    },
-    {
-      "id": 1103883,
-      "name": "CHARLES BACON BAILEY"
+      "id": 5927901,
+      "name": "BRIAN ADAM SANGUINET"
     },
     {
       "id": 5688874,
       "name": "JERRY FLOYD ELLETT"
     },
     {
+      "id": 5611245,
+      "name": "JOSEPHINE ANN AIOSA"
+    },
+    {
+      "id": 5607064,
+      "name": "Justin Arthur Vartanian"
+    },
+    {
+      "id": 5548365,
+      "name": "Glen Melvin Bloodsaw"
+    },
+    {
+      "id": 5546204,
+      "name": "Gilbert Gil"
+    },
+    {
+      "id": 5527387,
+      "name": "Joseph Daniel Bloodgood"
+    },
+    {
+      "id": 5486065,
+      "name": "Mary C Bloodworth"
+    },
+    {
+      "id": 5451844,
+      "name": "Joshua William Traxler"
+    },
+    {
+      "id": 5387684,
+      "name": "REUBEN SCOTT MASON"
+    },
+    {
+      "id": 5326994,
+      "name": "ERNIE G LEWIS"
+    },
+    {
+      "id": 5234278,
+      "name": "DORINA GUADALUPE"
+    },
+    {
+      "id": 5223808,
+      "name": "Amanda LaSalle"
+    },
+    {
+      "id": 5174552,
+      "name": "GREGORY SCOTT MASON"
+    },
+    {
+      "id": 5149972,
+      "name": "Michael Anthony Tartaglia"
+    },
+    {
+      "id": 5109512,
+      "name": "Richard C Steinmeier"
+    },
+    {
+      "id": 5097259,
+      "name": "KIRBY LEPAK HORAN-ADAMS"
+    },
+    {
+      "id": 5088806,
+      "name": "Dominick Tartaro"
+    },
+    {
+      "id": 5059232,
+      "name": "Matthew Eugene Blood"
+    },
+    {
+      "id": 5056496,
+      "name": "Jessica Meghan Blood"
+    },
+    {
+      "id": 4993639,
+      "name": "WILLIAM BRICE MASON"
+    },
+    {
+      "id": 4838621,
+      "name": "Christopher Ara Markarian"
+    },
+    {
+      "id": 4831730,
+      "name": "Abigail Hall"
+    },
+    {
+      "id": 4827223,
+      "name": "Michael Thomas Blood"
+    },
+    {
+      "id": 4815850,
+      "name": "RYAN MICHAEL ADAMS"
+    },
+    {
+      "id": 4797565,
+      "name": "MICHAEL WAYNE STALKA"
+    },
+    {
+      "id": 4777233,
+      "name": "Tonia Nicole James Gilchrist"
+    },
+    {
+      "id": 4629738,
+      "name": "Raymond Keith Bloodworth"
+    },
+    {
+      "id": 4627795,
+      "name": "BRIAN J LASALLE"
+    },
+    {
+      "id": 4626729,
+      "name": "ERIC ADAM BEITCHMAN"
+    },
+    {
+      "id": 4622526,
+      "name": "Gerald K Bloodsaw"
+    },
+    {
+      "id": 4614795,
+      "name": "Peter Jonathan Tartaro"
+    },
+    {
+      "id": 4607631,
+      "name": "Vartges Mark Markarian"
+    },
+    {
+      "id": 4603481,
+      "name": "SCOTT PARKER INABNET"
+    },
+    {
+      "id": 4596247,
+      "name": "Beverly Carver Granberry"
+    },
+    {
+      "id": 4559896,
+      "name": "JEAN ELLEN ALBANESE"
+    },
+    {
+      "id": 4529345,
+      "name": "STEVEN PHILIP MORRISON"
+    },
+    {
+      "id": 4486061,
+      "name": "STEPHANIE DAVIS LOVELACE"
+    },
+    {
+      "id": 4475525,
+      "name": "John Richard Bloodworth"
+    },
+    {
+      "id": 4471100,
+      "name": "Hrayr Der Vartanian"
+    },
+    {
+      "id": 4458496,
+      "name": "Frederic Earle Bloodgood"
+    },
+    {
+      "id": 4389508,
+      "name": "Igor Tarnarider"
+    },
+    {
+      "id": 4362074,
+      "name": "TIMOTHY D JANSEN"
+    },
+    {
+      "id": 4344845,
+      "name": "Lee Christopher"
+    },
+    {
+      "id": 4291346,
+      "name": "Mark Stephen Zartarian"
+    },
+    {
+      "id": 4270742,
+      "name": "John Thomas Blood"
+    },
+    {
+      "id": 4230695,
+      "name": "Samuel Boswell Bloodworth"
+    },
+    {
+      "id": 4207139,
+      "name": "Ara Markarian"
+    },
+    {
+      "id": 4197747,
+      "name": "JAMES HUGH DOHERTY"
+    },
+    {
+      "id": 4171272,
+      "name": "H DANIEL LOVELACE"
+    },
+    {
+      "id": 4006140,
+      "name": "MICHAEL TIMOTHY CHONG"
+    },
+    {
+      "id": 4000903,
+      "name": "James Clyde Aycock"
+    },
+    {
+      "id": 4000062,
+      "name": "CLIFFORD GERARD ADAMS"
+    },
+    {
+      "id": 3274211,
+      "name": "Gina Tartaglia"
+    },
+    {
+      "id": 3271066,
+      "name": "James Lee Joiner"
+    },
+    {
+      "id": 3254859,
+      "name": "BRENT BLAIN SIMONICH"
+    },
+    {
+      "id": 3201847,
+      "name": "Michael Patrick McGee"
+    },
+    {
+      "id": 3194846,
+      "name": "DANIEL WAYNE OVERBEY"
+    },
+    {
+      "id": 3181660,
+      "name": "EDMON JACOB TOMES"
+    },
+    {
+      "id": 3178848,
+      "name": "STEVEN THOMAS MALFITANO"
+    },
+    {
+      "id": 3122132,
+      "name": "Arthur Tatara"
+    },
+    {
+      "id": 3038218,
+      "name": "JESSICA SUSAN"
+    },
+    {
+      "id": 3021970,
+      "name": "Victor Glenn Tartaglia"
+    },
+    {
+      "id": 3008152,
+      "name": "JAMES CHRISTOPHER MASON"
+    },
+    {
+      "id": 2986573,
+      "name": "DALE LAWRENCE CEBERT"
+    },
+    {
+      "id": 2974727,
+      "name": "DAVID ALLEN DODGEN"
+    },
+    {
+      "id": 2889822,
+      "name": "ISABELLA ANGELA BASILE"
+    },
+    {
+      "id": 2876260,
+      "name": "JOHN BATISTA BOCCHINO"
+    },
+    {
+      "id": 2836842,
+      "name": "KYLE WALKER DEATHERAGE"
+    },
+    {
+      "id": 2832806,
+      "name": "WILLIAM RAYMOND MCGEE"
+    },
+    {
+      "id": 2769548,
+      "name": "Daniel Barrientos"
+    },
+    {
+      "id": 2758924,
+      "name": "JUDITH KOHOSKIE RICKETTS"
+    },
+    {
+      "id": 2756129,
+      "name": "Sharon Alison Bloodworth"
+    },
+    {
+      "id": 2755456,
+      "name": "SAMUEL ARTHUR MASON"
+    },
+    {
+      "id": 2754561,
+      "name": "JAMES PALMER HOPPER"
+    },
+    {
+      "id": 2736569,
+      "name": "SEAN RICHARD MASON"
+    },
+    {
+      "id": 2732400,
+      "name": "TIMOTHY COOPER BONAR"
+    },
+    {
+      "id": 2683514,
+      "name": "ROBERT DONG SHIN"
+    },
+    {
+      "id": 2672402,
+      "name": "LAWRENCE JOHN DONNA"
+    },
+    {
+      "id": 2651885,
+      "name": "Jacqueline A Adams"
+    },
+    {
+      "id": 2625517,
+      "name": "WILLIAM WOODWARD MASON"
+    },
+    {
+      "id": 2583831,
+      "name": "Craig Alan Bloodworth"
+    },
+    {
+      "id": 2569293,
+      "name": "Michael Tartarini"
+    },
+    {
+      "id": 2555859,
+      "name": "Timothy Glenn Moyer"
+    },
+    {
+      "id": 2524978,
+      "name": "Michael Emmett Flood"
+    },
+    {
+      "id": 2499555,
+      "name": "ERIC DENNIS MALCHOW"
+    },
+    {
+      "id": 2496177,
+      "name": "Kiriakos Andreas Evangeliou"
+    },
+    {
+      "id": 2458231,
+      "name": "GILBERT ROLAND TOTH"
+    },
+    {
+      "id": 2445361,
+      "name": "TIMOTHY F GRABLE"
+    },
+    {
+      "id": 2423900,
+      "name": "RENEE SCIMONE WILKINSON"
+    },
+    {
+      "id": 2420144,
+      "name": "CHRISTOPHER MILLS MITCHELL"
+    },
+    {
+      "id": 2403199,
+      "name": "MICHELLE OROSCHAKOFF"
+    },
+    {
+      "id": 2393766,
+      "name": "AL STEPHEN LOVELACE"
+    },
+    {
+      "id": 2381854,
+      "name": "James Bloodworth"
+    },
+    {
+      "id": 2380166,
+      "name": "WILLIAM MICHAEL SHIELDS"
+    },
+    {
+      "id": 2360335,
+      "name": "James McDaniel"
+    },
+    {
+      "id": 2350788,
+      "name": "Timothy D Hutto"
+    },
+    {
+      "id": 2339201,
+      "name": "Candace Ann Bloodsworth"
+    },
+    {
+      "id": 2320473,
+      "name": "EUGENE ARTHUR MASON"
+    },
+    {
+      "id": 2320191,
+      "name": "Daniel Blood"
+    },
+    {
+      "id": 2306034,
+      "name": "Lawrence V Zartarian"
+    },
+    {
+      "id": 2258742,
+      "name": "DAVID EUGENE EATON"
+    },
+    {
+      "id": 2246231,
+      "name": "Timothy D Squire"
+    },
+    {
+      "id": 2239251,
+      "name": "Gregory Dean Blood"
+    },
+    {
+      "id": 2220910,
+      "name": "TIMOTHY ROBERT HODGE"
+    },
+    {
+      "id": 2206463,
+      "name": "JAMES WALLACE MCGEE"
+    },
+    {
+      "id": 2206257,
+      "name": "CHARLES TUTTLE MASON"
+    },
+    {
+      "id": 2203398,
+      "name": "ATMARAM D VARAVADEKAR"
+    },
+    {
+      "id": 2193158,
+      "name": "Richard Joseph Tartarini"
+    },
+    {
+      "id": 2172748,
+      "name": "MATTHEW CHARLES MARION"
+    },
+    {
+      "id": 2171373,
+      "name": "AMY NOELLE CONLEY"
+    },
+    {
+      "id": 2144859,
+      "name": "Thomas Lewis Tartaglia"
+    },
+    {
+      "id": 2142119,
+      "name": "RICHARD LESLIE TERRILL"
+    },
+    {
+      "id": 2129844,
+      "name": "MITCHELL DAVID DOREN"
+    },
+    {
+      "id": 2116018,
+      "name": "T DEWITT BUCHANAN"
+    },
+    {
+      "id": 2082656,
+      "name": "Tarrianne Marie Sublet"
+    },
+    {
+      "id": 2074700,
+      "name": "JAMES PORTER MASON"
+    },
+    {
+      "id": 2063391,
+      "name": "SEAN MICHAEL FARRELL"
+    },
+    {
+      "id": 2021303,
+      "name": "Michele Marie Blood"
+    },
+    {
+      "id": 2001256,
+      "name": "Keith Owen Flood"
+    },
+    {
+      "id": 1987106,
+      "name": "ROBERT BRYAN RAPHAEL"
+    },
+    {
+      "id": 1986878,
+      "name": "JEFFRY JAY PHILLIPS"
+    },
+    {
+      "id": 1952919,
+      "name": "HARRY RANDALL ARROWOOD"
+    },
+    {
+      "id": 1910946,
+      "name": "DORTHY JEAN JONES"
+    },
+    {
+      "id": 1861277,
+      "name": "Archie Abel Blood"
+    },
+    {
+      "id": 1803193,
+      "name": "Peter Vincent Flood"
+    },
+    {
+      "id": 1782899,
+      "name": "HUGH EDWARD MCGEE"
+    },
+    {
+      "id": 1781507,
+      "name": "ROBERT NEAL FRYE"
+    },
+    {
+      "id": 1778365,
+      "name": "Heidi Jane Waltman-Kane"
+    },
+    {
+      "id": 1704555,
+      "name": "ISAAC CLEOPHUS EPHRAIM"
+    },
+    {
+      "id": 1693972,
+      "name": "JAMES MITCHELL PRYOR"
+    },
+    {
+      "id": 1680627,
+      "name": "MARIETTA MARVIN MASON"
+    },
+    {
+      "id": 1642683,
+      "name": "ROBERT WILLIAM STEPHENS"
+    },
+    {
+      "id": 1602991,
+      "name": "ERIC LEE DIAMOND"
+    },
+    {
+      "id": 1600226,
+      "name": "KENNETH HOWARD EATON"
+    },
+    {
+      "id": 1582542,
+      "name": "BETSY L BYRNE"
+    },
+    {
+      "id": 1562650,
+      "name": "TED HURLEY CASHION"
+    },
+    {
+      "id": 1502437,
+      "name": "JOSEPH CHARLES MCGEE"
+    },
+    {
+      "id": 1492554,
+      "name": "JAMES MARSHALL MARS"
+    },
+    {
+      "id": 1483052,
+      "name": "LOUIS JAMES SCOTTO"
+    },
+    {
+      "id": 1445205,
+      "name": "CATHERINE TERRY MARSHALL"
+    },
+    {
+      "id": 1429664,
+      "name": "FREDERICK ALLEN HENRY"
+    },
+    {
+      "id": 1414325,
+      "name": "WILLIAM EDWIN HOPPE"
+    },
+    {
+      "id": 1412192,
+      "name": "SCOTT OWEN PEPER"
+    },
+    {
+      "id": 1377978,
+      "name": "JAMES EDWARD EASTON"
+    },
+    {
+      "id": 1374549,
+      "name": "DALE ROBERT WEIGAND"
+    },
+    {
+      "id": 1355408,
+      "name": "Steven Holden Sprague"
+    },
+    {
+      "id": 1334020,
+      "name": "ROBERT MATTHEW MCGEE"
+    },
+    {
+      "id": 1319850,
+      "name": "YOSHIKAZU YASUOKA"
+    },
+    {
+      "id": 1281172,
+      "name": "LAURA LEE FISH-KELLY"
+    },
+    {
+      "id": 1280076,
+      "name": "MARK ROBERT FARWELL"
+    },
+    {
+      "id": 1276843,
+      "name": "STEPHEN JOHN ADAMS"
+    },
+    {
+      "id": 1256790,
+      "name": "GERALD O O'MALLEY"
+    },
+    {
+      "id": 1253775,
+      "name": "DWIGHT BARTZER DUDAS"
+    },
+    {
+      "id": 1249963,
+      "name": "SHERRI DELOIS MASON"
+    },
+    {
+      "id": 1242955,
+      "name": "TERRANCE ALLEN TENDLER"
+    },
+    {
+      "id": 1233621,
+      "name": "Steven Howard Johnston"
+    },
+    {
+      "id": 1229739,
+      "name": "MARK THOMAS MANZO"
+    },
+    {
+      "id": 1225605,
+      "name": "WILLIAM ANTHONY EATON"
+    },
+    {
+      "id": 1204496,
+      "name": "DANIEL ADAMS FULLER"
+    },
+    {
+      "id": 1191713,
+      "name": "GROVER DALE RANZ"
+    },
+    {
+      "id": 1189019,
+      "name": "ROBERT ALBERT LITTLEFIELD"
+    },
+    {
+      "id": 1180821,
+      "name": "ROBERT LOHRING SMEE"
+    },
+    {
+      "id": 1173797,
+      "name": "CLARENCE EDWIN SMART"
+    },
+    {
+      "id": 1161629,
+      "name": "JOHN LAWRENCE FLOOD"
+    },
+    {
+      "id": 1134403,
+      "name": "JOHN BRYANT ELSEY"
+    },
+    {
+      "id": 1106698,
+      "name": "Andrea Maria Del Galdo"
+    },
+    {
+      "id": 1103883,
+      "name": "CHARLES BACON BAILEY"
+    },
+    {
+      "id": 1085996,
+      "name": "Timothy Dale Register"
+    },
+    {
+      "id": 1081222,
+      "name": "LAWRENCE JAMES LAWSON"
+    },
+    {
+      "id": 1075238,
+      "name": "JOHN HENRY BOWEN"
+    },
+    {
+      "id": 1038589,
+      "name": "KENNETH RICHARD JOHNSTON"
+    },
+    {
+      "id": 1028056,
+      "name": "TIMOTHY STUART MICKEY"
+    },
+    {
+      "id": 1020841,
+      "name": "ROBERT ONEIL FLOYD"
+    },
+    {
+      "id": 1017897,
+      "name": "KEVIN SCOTT ROOKER"
+    },
+    {
       "id": 1010582,
       "name": "JOSEPH ARTHUR COLLERAN"
+    },
+    {
+      "id": 1009266,
+      "name": "JEFFREY WILLIS DURKEE"
     },
     {
       "id": 1009199,
@@ -2095,556 +3487,92 @@
       "name": "RICHARD PAUL GIORDANO"
     },
     {
+      "id": 1004326,
+      "name": "BRUCE WEBB WOODS"
+    },
+    {
+      "id": 1002946,
+      "name": "Thomas James Archer"
+    },
+    {
       "id": 1000733,
       "name": "NATALIE L C NUNNALLY"
     },
     {
-      "id": 1020841,
-      "name": "ROBERT ONEIL FLOYD"
-    },
-    {
-      "id": 4197747,
-      "name": "JAMES HUGH DOHERTY"
-    },
-    {
-      "id": 8322604,
-      "name": "ISABELLE DARLING HADEL"
-    },
-    {
-      "id": 6494734,
-      "name": "ARTHUREAN MCGEE"
-    },
-    {
-      "id": 3201847,
-      "name": "Michael Patrick McGee"
-    },
-    {
-      "id": 2832806,
-      "name": "WILLIAM RAYMOND MCGEE"
-    },
-    {
-      "id": 2206463,
-      "name": "JAMES WALLACE MCGEE"
-    },
-    {
-      "id": 1782899,
-      "name": "HUGH EDWARD MCGEE"
-    },
-    {
-      "id": 1502437,
-      "name": "JOSEPH CHARLES MCGEE"
-    },
-    {
-      "id": 1334020,
-      "name": "ROBERT MATTHEW MCGEE"
-    },
-    {
-      "id": 411633,
-      "name": "GUY EDWARD SAVINO"
-    },
-    {
-      "id": 1414325,
-      "name": "WILLIAM EDWIN HOPPE"
-    },
-    {
-      "id": 3001,
-      "name": "CONSTANTIN GALIEN ALIO"
-    },
-    {
-      "id": 1180821,
-      "name": "ROBERT LOHRING SMEE"
-    },
-    {
-      "id": 2754561,
-      "name": "JAMES PALMER HOPPER"
-    },
-    {
-      "id": 1085996,
-      "name": "Timothy Dale Register"
-    },
-    {
-      "id": 1355408,
-      "name": "Steven Holden Sprague"
-    },
-    {
-      "id": 2403199,
-      "name": "MICHELLE OROSCHAKOFF"
-    },
-    {
-      "id": 2555859,
-      "name": "Timothy Glenn Moyer"
-    },
-    {
-      "id": 3181660,
-      "name": "EDMON JACOB TOMES"
-    },
-    {
-      "id": 2220910,
-      "name": "TIMOTHY ROBERT HODGE"
-    },
-    {
-      "id": 1492554,
-      "name": "JAMES MARSHALL MARS"
-    },
-    {
-      "id": 3194846,
-      "name": "DANIEL WAYNE OVERBEY"
-    },
-    {
-      "id": 11151,
-      "name": "ROBERT MACKEY BABCOCK"
-    },
-    {
-      "id": 1600226,
-      "name": "KENNETH HOWARD EATON"
-    },
-    {
-      "id": 2142119,
-      "name": "RICHARD LESLIE TERRILL"
-    },
-    {
-      "id": 4006140,
-      "name": "MICHAEL TIMOTHY CHONG"
-    },
-    {
-      "id": 7394795,
-      "name": "Jose De Cortez"
-    },
-    {
-      "id": 3038218,
-      "name": "JESSICA SUSAN"
-    },
-    {
-      "id": 2258742,
-      "name": "DAVID EUGENE EATON"
-    },
-    {
-      "id": 372909,
-      "name": "TIMOTHY DAVID REEVES"
-    },
-    {
-      "id": 7094095,
-      "name": "Angela Diane Xavier"
-    },
-    {
-      "id": 5234278,
-      "name": "DORINA GUADALUPE"
-    },
-    {
-      "id": 2769548,
-      "name": "Daniel Barrientos"
-    },
-    {
-      "id": 1377978,
-      "name": "JAMES EDWARD EASTON"
-    },
-    {
-      "id": 1374549,
-      "name": "DALE ROBERT WEIGAND"
-    },
-    {
-      "id": 2974727,
-      "name": "DAVID ALLEN DODGEN"
-    },
-    {
-      "id": 418154,
-      "name": "OWEN RAY SEIDENBERGER"
-    },
-    {
-      "id": 6243172,
-      "name": "ALISA EDMONDSON"
-    },
-    {
-      "id": 3271066,
-      "name": "James Lee Joiner"
-    },
-    {
-      "id": 18810,
-      "name": "LEONARD THOMAS BERARD"
-    },
-    {
-      "id": 2393766,
-      "name": "AL STEPHEN LOVELACE"
-    },
-    {
-      "id": 5223808,
-      "name": "Amanda LaSalle"
-    },
-    {
-      "id": 2129844,
-      "name": "MITCHELL DAVID DOREN"
-    },
-    {
-      "id": 4797565,
-      "name": "MICHAEL WAYNE STALKA"
-    },
-    {
-      "id": 2458231,
-      "name": "GILBERT ROLAND TOTH"
-    },
-    {
-      "id": 2736569,
-      "name": "SEAN RICHARD MASON"
-    },
-    {
-      "id": 4626729,
-      "name": "ERIC ADAM BEITCHMAN"
-    },
-    {
-      "id": 722425,
-      "name": "DAVID BRYAN HUNTER"
-    },
-    {
-      "id": 2116018,
-      "name": "T DEWITT BUCHANAN"
-    },
-    {
-      "id": 301248,
-      "name": "AMY S LAMPERT"
-    },
-    {
-      "id": 1280076,
-      "name": "MARK ROBERT FARWELL"
-    },
-    {
-      "id": 2889822,
-      "name": "ISABELLA ANGELA BASILE"
-    },
-    {
-      "id": 1562650,
-      "name": "TED HURLEY CASHION"
-    },
-    {
-      "id": 4362074,
-      "name": "TIMOTHY D JANSEN"
-    },
-    {
-      "id": 1256790,
-      "name": "GERALD O O'MALLEY"
-    },
-    {
-      "id": 405128,
-      "name": "LEONARD VAUGHN ROSS"
-    },
-    {
-      "id": 706704,
-      "name": "DALE KEITH HALL"
-    },
-    {
-      "id": 4627795,
-      "name": "BRIAN J LASALLE"
-    },
-    {
-      "id": 2171373,
-      "name": "AMY NOELLE CONLEY"
-    },
-    {
-      "id": 6236764,
-      "name": "ELIZABETH LISA TUREK"
-    },
-    {
-      "id": 1191713,
-      "name": "GROVER DALE RANZ"
-    },
-    {
-      "id": 1680627,
-      "name": "MARIETTA MARVIN MASON"
-    },
-    {
-      "id": 2246231,
-      "name": "Timothy D Squire"
-    },
-    {
-      "id": 2350788,
-      "name": "Timothy D Hutto"
-    },
-    {
-      "id": 1987106,
-      "name": "ROBERT BRYAN RAPHAEL"
-    },
-    {
-      "id": 4603481,
-      "name": "SCOTT PARKER INABNET"
-    },
-    {
-      "id": 1017897,
-      "name": "KEVIN SCOTT ROOKER"
-    },
-    {
-      "id": 7511383,
-      "name": "Ella Dean Parker"
+      "id": 855260,
+      "name": "Clinton Harry Blood"
     },
     {
       "id": 732267,
       "name": "JAMES LLOYD DALLAS"
     },
     {
-      "id": 7035688,
-      "name": "JOANA Patricia WRIGHT"
-    },
-    {
-      "id": 6976426,
-      "name": "Valeria Bahena"
-    },
-    {
-      "id": 4993639,
-      "name": "WILLIAM BRICE MASON"
-    },
-    {
-      "id": 1225605,
-      "name": "WILLIAM ANTHONY EATON"
-    },
-    {
-      "id": 5326994,
-      "name": "ERNIE G LEWIS"
-    },
-    {
-      "id": 1642683,
-      "name": "ROBERT WILLIAM STEPHENS"
-    },
-    {
-      "id": 7127181,
-      "name": "Richard Eric Owen"
-    },
-    {
-      "id": 2445361,
-      "name": "TIMOTHY F GRABLE"
-    },
-    {
-      "id": 5174552,
-      "name": "GREGORY SCOTT MASON"
-    },
-    {
-      "id": 2672402,
-      "name": "LAWRENCE JOHN DONNA"
-    },
-    {
-      "id": 5546204,
-      "name": "Gilbert Gil"
-    },
-    {
-      "id": 1233621,
-      "name": "Steven Howard Johnston"
-    },
-    {
-      "id": 4559896,
-      "name": "JEAN ELLEN ALBANESE"
-    },
-    {
-      "id": 1952919,
-      "name": "HARRY RANDALL ARROWOOD"
-    },
-    {
-      "id": 2986573,
-      "name": "DALE LAWRENCE CEBERT"
-    },
-    {
-      "id": 7729617,
-      "name": "Jalen Robert Mason"
-    },
-    {
-      "id": 4171272,
-      "name": "H DANIEL LOVELACE"
-    },
-    {
-      "id": 4486061,
-      "name": "STEPHANIE DAVIS LOVELACE"
-    },
-    {
-      "id": 1412192,
-      "name": "SCOTT OWEN PEPER"
-    },
-    {
-      "id": 1134403,
-      "name": "JOHN BRYANT ELSEY"
-    },
-    {
-      "id": 1075238,
-      "name": "JOHN HENRY BOWEN"
-    },
-    {
-      "id": 2420144,
-      "name": "CHRISTOPHER MILLS MITCHELL"
-    },
-    {
-      "id": 7010499,
-      "name": "Charles Bryan Burguieres"
-    },
-    {
-      "id": 5097259,
-      "name": "KIRBY LEPAK HORAN-ADAMS"
-    },
-    {
-      "id": 3254859,
-      "name": "BRENT BLAIN SIMONICH"
-    },
-    {
-      "id": 2758924,
-      "name": "JUDITH KOHOSKIE RICKETTS"
-    },
-    {
-      "id": 3178848,
-      "name": "STEVEN THOMAS MALFITANO"
-    },
-    {
-      "id": 5109512,
-      "name": "Richard C Steinmeier"
-    },
-    {
-      "id": 7248335,
-      "name": "Aneri Jambusaria"
-    },
-    {
-      "id": 7028647,
-      "name": "CEDRICK EUGENE BENNETT"
-    },
-    {
-      "id": 4831730,
-      "name": "Abigail Hall"
-    },
-    {
-      "id": 2496177,
-      "name": "Kiriakos Andreas Evangeliou"
-    },
-    {
-      "id": 1004326,
-      "name": "BRUCE WEBB WOODS"
-    },
-    {
-      "id": 7307498,
-      "name": "Dylan Neal"
-    },
-    {
-      "id": 1582542,
-      "name": "BETSY L BYRNE"
-    },
-    {
-      "id": 6052977,
-      "name": "JAMES MCHALE"
-    },
-    {
-      "id": 5611245,
-      "name": "JOSEPHINE ANN AIOSA"
-    },
-    {
-      "id": 5451844,
-      "name": "Joshua William Traxler"
-    },
-    {
-      "id": 1106698,
-      "name": "Andrea Maria Del Galdo"
-    },
-    {
-      "id": 4596247,
-      "name": "Beverly Carver Granberry"
-    },
-    {
-      "id": 4529345,
-      "name": "STEVEN PHILIP MORRISON"
-    },
-    {
-      "id": 4344845,
-      "name": "Lee Christopher"
-    },
-    {
-      "id": 4000903,
-      "name": "James Clyde Aycock"
-    },
-    {
-      "id": 2203398,
-      "name": "ATMARAM D VARAVADEKAR"
-    },
-    {
-      "id": 1778365,
-      "name": "Heidi Jane Waltman-Kane"
-    },
-    {
-      "id": 1253775,
-      "name": "DWIGHT BARTZER DUDAS"
+      "id": 722425,
+      "name": "DAVID BRYAN HUNTER"
     },
     {
       "id": 719987,
       "name": "DORIS JO ADAMS SOWELL"
     },
     {
-      "id": 1204496,
-      "name": "DANIEL ADAMS FULLER"
+      "id": 716038,
+      "name": "Varouj Mark Markarian"
     },
     {
-      "id": 4000062,
-      "name": "CLIFFORD GERARD ADAMS"
+      "id": 706704,
+      "name": "DALE KEITH HALL"
+    },
+    {
+      "id": 453642,
+      "name": "Andrew Vartanian"
+    },
+    {
+      "id": 442634,
+      "name": "Charles Tarkanian"
+    },
+    {
+      "id": 418154,
+      "name": "OWEN RAY SEIDENBERGER"
+    },
+    {
+      "id": 411633,
+      "name": "GUY EDWARD SAVINO"
+    },
+    {
+      "id": 405128,
+      "name": "LEONARD VAUGHN ROSS"
+    },
+    {
+      "id": 372909,
+      "name": "TIMOTHY DAVID REEVES"
+    },
+    {
+      "id": 301248,
+      "name": "AMY S LAMPERT"
+    },
+    {
+      "id": 265050,
+      "name": "Lawrence Gilbert Katz"
+    },
+    {
+      "id": 23870,
+      "name": "James Lee Blood"
+    },
+    {
+      "id": 18810,
+      "name": "LEONARD THOMAS BERARD"
+    },
+    {
+      "id": 11151,
+      "name": "ROBERT MACKEY BABCOCK"
+    },
+    {
+      "id": 3001,
+      "name": "CONSTANTIN GALIEN ALIO"
     },
     {
       "id": 1075,
       "name": "JAMES WILLIAM ADAMS"
-    },
-    {
-      "id": 8162008,
-      "name": "Joseph Adams"
-    },
-    {
-      "id": 7043156,
-      "name": "Janice W Adams"
-    },
-    {
-      "id": 6859081,
-      "name": "SHELBY THIEL ADAMS"
-    },
-    {
-      "id": 6211077,
-      "name": "SAMUEL A ADAMS"
-    },
-    {
-      "id": 4815850,
-      "name": "RYAN MICHAEL ADAMS"
-    },
-    {
-      "id": 2651885,
-      "name": "Jacqueline A Adams"
-    },
-    {
-      "id": 1276843,
-      "name": "STEPHEN JOHN ADAMS"
-    },
-    {
-      "id": 5927901,
-      "name": "BRIAN ADAM SANGUINET"
-    },
-    {
-      "id": 3008152,
-      "name": "JAMES CHRISTOPHER MASON"
-    },
-    {
-      "id": 2755456,
-      "name": "SAMUEL ARTHUR MASON"
-    },
-    {
-      "id": 2625517,
-      "name": "WILLIAM WOODWARD MASON"
-    },
-    {
-      "id": 2320473,
-      "name": "EUGENE ARTHUR MASON"
-    },
-    {
-      "id": 2206257,
-      "name": "CHARLES TUTTLE MASON"
-    },
-    {
-      "id": 2074700,
-      "name": "JAMES PORTER MASON"
-    },
-    {
-      "id": 1249963,
-      "name": "SHERRI DELOIS MASON"
-    },
-    {
-      "id": 5387684,
-      "name": "REUBEN SCOTT MASON"
-    },
-    {
-      "id": 6600114,
-      "name": "William Andrew Mason"
     }
   ]
 }

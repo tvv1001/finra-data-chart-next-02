@@ -24,6 +24,16 @@ const DEFAULT_EXTERNAL_RAW_DIR = '/home/lenny/Dev/webDev/Data-finra-sec/data/raw
 const PRIMED_REDIS_CHUNK_CHARS = Number(process.env.PRIMED_REDIS_CHUNK_CHARS || 700_000);
 const DASHBOARD_REDIS_SCAN_CARD_LIMIT_PER_PATTERN = Number(process.env.DASHBOARD_REDIS_SCAN_CARD_LIMIT_PER_PATTERN || 100_000);
 const DASHBOARD_RECENCY_MTIME_SAMPLE_LIMIT = Number(process.env.DASHBOARD_RECENCY_MTIME_SAMPLE_LIMIT || 2_000);
+
+/**
+ * Bounds how many candidate cards get their per-card disk mtime recency looked up. This must be
+ * derived from (and never exceed a small multiple of) the requested maxCards so that a caller
+ * asking for very few cards (e.g. maxCards=1 for an inventory-totals-only poll) never pays for
+ * stat'ing a large, mostly-discarded candidate pool before the result is limited.
+ */
+export function resolveRecencySampleLimit(maxCards: number): number {
+	return Math.min(DASHBOARD_RECENCY_MTIME_SAMPLE_LIMIT, Math.max(Math.floor(Number(maxCards) || 1), 1));
+}
 const DASHBOARD_REDIS_MIN_CARD_COUNT = Math.max(1_000, Number(process.env.DASHBOARD_REDIS_MIN_CARD_COUNT || 1_000) || 1_000);
 const DASHBOARD_QUERY_RESOLVE_CONCURRENCY = 1;
 const DASHBOARD_DETAIL_FETCH_CONCURRENCY = 1;
@@ -36,19 +46,30 @@ const DASHBOARD_DETAIL_FETCH_TIMEOUT_MS = Math.max(2_000, Number(process.env.DAS
 const DASHBOARD_NATIVE_REDIS_KEY_CACHE_MS = Math.max(0, Number(process.env.DASHBOARD_NATIVE_REDIS_KEY_CACHE_MS || 15_000) || 15_000);
 const DASHBOARD_CARD_LIST_CACHE_TTL_MS = Math.max(10_000, Number(process.env.DASHBOARD_CARD_LIST_CACHE_TTL_MS || 30_000) || 30_000);
 const DASHBOARD_NEW_CRDS_CACHE_TTL_MS = Math.max(30_000, Number(process.env.DASHBOARD_NEW_CRDS_CACHE_TTL_MS || 60_000) || 60_000);
+// Primed-bundle totals rarely change; reuse the last read within this window instead of
+// forcing a fresh sequential set of Redis reads on every list-cache-cards call (e.g. while
+// a user is typing into the CRD filter box, which bypasses the outer card-list cache below).
+const DASHBOARD_PRIMED_TOTALS_CACHE_TTL_MS = Math.max(10_000, Number(process.env.DASHBOARD_PRIMED_TOTALS_CACHE_TTL_MS || 30_000) || 30_000);
 const BUILD_MANIFEST_PATH = path.join(process.cwd(), 'data', 'build_manifest.json');
 const CRD_LOG_PATH = path.join(process.cwd(), 'data', 'crd-log.json');
 
 let manifestTotalsCache: { totalCards: number; totalCacheKeys: number } | null = null;
 let primedBundleTotalsCache: { totalCards: number; totalCacheKeys: number } | null = null;
+let primedBundleTotalsFetchedAt = 0;
 let nativeRedisKeyCache: { keys: string[]; fetchedAt: number } | null = null;
 let dashboardCardListCache: { expiresAt: number; payload: any } | null = null;
 let dashboardNewCrdsCache: { expiresAt: number; payload: any } | null = null;
+// Cached once per process: whether the optional local data/national disk cache exists at all.
+// In serverless deployments this directory is typically absent (no bundled raw JSON files),
+// so per-card fs.stat recency lookups would otherwise fail on every single card, every request.
+let nationalDataAvailableCache: boolean | null = null;
 
 export function resetDashboardInventoryCaches() {
 	manifestTotalsCache = null;
 	primedBundleTotalsCache = null;
+	primedBundleTotalsFetchedAt = 0;
 	nativeRedisKeyCache = null;
+	nationalDataAvailableCache = null;
 }
 
 type CrdLogEntry = { id: number; name: string };
@@ -1796,6 +1817,23 @@ function buildLocalCacheFilePath(source: 'finra' | 'sec', entity: 'individual' |
 	return path.join(process.cwd(), 'data', 'national', cacheDir, fileName);
 }
 
+/**
+ * Whether the optional local `data/national` disk cache exists at all in this environment.
+ * Serverless deployments typically ship without it, so per-card mtime recency lookups would
+ * otherwise issue a failing fs.stat for every card on every request. Cached once per process
+ * since the presence of this directory cannot change during a running instance's lifetime.
+ */
+export async function isNationalDataAvailable(): Promise<boolean> {
+	if (nationalDataAvailableCache !== null) return nationalDataAvailableCache;
+	try {
+		await fs.access(path.join(process.cwd(), 'data', 'national'));
+		nationalDataAvailableCache = true;
+	} catch {
+		nationalDataAvailableCache = false;
+	}
+	return nationalDataAvailableCache;
+}
+
 async function getCardUpdatedAt(card: CacheCard): Promise<number> {
 	let newest = 0;
 	for (const sourceEntry of card.sources) {
@@ -1992,7 +2030,10 @@ async function readBuildManifestTotals() {
 }
 
 async function readPrimedBundleTotals(redis: Redis, forceRefresh = false) {
-	if (primedBundleTotalsCache && !forceRefresh) return primedBundleTotalsCache;
+	const now = Date.now();
+	if (primedBundleTotalsCache && !forceRefresh && now - primedBundleTotalsFetchedAt < DASHBOARD_PRIMED_TOTALS_CACHE_TTL_MS) {
+		return primedBundleTotalsCache;
+	}
 
 	const bundleNames = ['finra-individual', 'sec-individual', 'finra-firm', 'sec-firm'] as const;
 	const cardIndex = new Map<string, CacheCard>();
@@ -2000,10 +2041,12 @@ async function readPrimedBundleTotals(redis: Redis, forceRefresh = false) {
 	let totalCards = 0;
 	let totalCacheKeys = 0;
 
-	for (const bundleName of bundleNames) {
-		const bundleKey = `primed:bundle:${bundleName}`;
-		const metaRaw = await redis.get(`${bundleKey}:meta`).catch(() => null);
-		if (!metaRaw) continue;
+	// Read all bundle meta keys concurrently instead of one sequential await per bundle.
+	const metaEntries = await Promise.all(bundleNames.map((bundleName) => redis.get(`primed:bundle:${bundleName}:meta`).catch(() => null)));
+
+	bundleNames.forEach((bundleName, index) => {
+		const metaRaw = metaEntries[index];
+		if (!metaRaw) return;
 		const meta = typeof metaRaw === 'string' ? JSON.parse(metaRaw) : metaRaw;
 		const recordCount = Number(meta?.recordCount || 0);
 		if (recordCount > 0) {
@@ -2013,7 +2056,9 @@ async function readPrimedBundleTotals(redis: Redis, forceRefresh = false) {
 			const [source, entity] = bundleName.split('-') as ['finra' | 'sec', 'individual' | 'firm'];
 			upsertCardIndexEntry(cardIndex, { source, entity, id: `__${bundleName}__` });
 		}
-	}
+	});
+
+	primedBundleTotalsFetchedAt = now;
 
 	if (totalCards === 0) return null;
 
@@ -2039,7 +2084,7 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 	const nativeKeys = await collectNativeRedisRecordKeys(redis);
 	const cards = buildCacheCardsFromRedisKeys(nativeKeys, nameMap);
 	const inventoryTotals = collectInventoryTotalsFromCacheKeys(nativeKeys, 'redis');
-	const cachedDedupedTotals = await readPrimedBundleTotals(redis, true).catch(() => null);
+	const cachedDedupedTotals = await readPrimedBundleTotals(redis).catch(() => null);
 	const rawFallbackTotals = countInventoryTotalsFromCrdLog();
 	const effectiveInventoryTotals = resolveDashboardInventoryTotals(
 		inventoryTotals,
@@ -2088,17 +2133,28 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 		filteredCards = filteredCards;
 	}
 
+	// Bound the recency/mtime sample by what will actually be shown (maxCards) rather than a
+	// fixed large constant: a caller asking for maxCards=1 (e.g. an inventory-totals-only poll)
+	// must not pay for stat'ing thousands of candidate cards before the result gets limited.
+	const recencySampleLimit = resolveRecencySampleLimit(maxCards);
 	const recencyBase =
-		filteredCards.length <= DASHBOARD_RECENCY_MTIME_SAMPLE_LIMIT ?
+		filteredCards.length <= recencySampleLimit ?
 			filteredCards
-		:	[...filteredCards].sort((left, right) => Number(right.id) - Number(left.id)).slice(0, DASHBOARD_RECENCY_MTIME_SAMPLE_LIMIT);
+		:	[...filteredCards].sort((left, right) => Number(right.id) - Number(left.id)).slice(0, recencySampleLimit);
 
-	const recencyCards: CacheCardWithMeta[] = await Promise.all(
-		recencyBase.map(async (card) => ({
-			...card,
-			updatedAt: await getCardUpdatedAt(card),
-		})),
-	);
+	// data/national is an optional local disk cache that is typically absent in serverless
+	// deployments; skip per-card fs.stat recency lookups entirely when it isn't present so we
+	// don't issue a guaranteed-to-fail stat call for every candidate card on every request.
+	const nationalAvailable = await isNationalDataAvailable();
+	const recencyCards: CacheCardWithMeta[] =
+		nationalAvailable ?
+			await Promise.all(
+				recencyBase.map(async (card) => ({
+					...card,
+					updatedAt: await getCardUpdatedAt(card),
+				})),
+			)
+		:	recencyBase.map((card) => ({ ...card, updatedAt: 0 }));
 
 	const sortedForDisplay = recencyCards.sort((left, right) => right.updatedAt - left.updatedAt || Number(right.id) - Number(left.id));
 

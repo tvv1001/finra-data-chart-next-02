@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'node:path';
 import fs from 'fs/promises';
+import { isRedisCacheOnly, getRedisUnusableReason } from '@/lib/redisAvailability';
 
 const GRAPH_PATH = path.join(process.cwd(), 'data', 'national', 'finra-graph.json');
 const OUT_DIR = path.join(process.cwd(), 'data', 'national');
@@ -24,9 +25,31 @@ async function checkUpstashKey(key: string) {
 }
 
 export async function GET() {
+	// This endpoint inspects the optional local data/national/finra-graph.json snapshot using a
+	// legacy `cache:<type>::<id>` key scheme. That snapshot is not required for the app's primary
+	// finra:/sec: Redis keyspace (used by the dashboard and graph), so its absence in a serverless
+	// deployment (where data/national is typically not bundled) must not fail this endpoint.
+	const redisConfigured = Boolean(UPSTASH_URL && UPSTASH_TOKEN);
+	const cacheOnly = isRedisCacheOnly();
+	const architecture = {
+		mode: cacheOnly ? ('cache-only' as const) : redisConfigured ? ('redis' as const) : ('disk-fallback' as const),
+		redisConfigured,
+		cacheOnly,
+		cacheOnlyReason: cacheOnly ? getRedisUnusableReason() || null : null,
+		note: "Reads the optional data/national graph snapshot's legacy cache:<type>::<id> keys; independent of the app's primary finra:/sec: Redis keyspace.",
+	};
+
+	let graph: any = null;
 	try {
 		const graphRaw = await fs.readFile(GRAPH_PATH, 'utf8');
-		const graph = JSON.parse(graphRaw);
+		graph = JSON.parse(graphRaw);
+	} catch (e) {
+		// Optional local graph snapshot is absent (expected in serverless/cache-only environments)
+		// or unreadable/corrupt — report an empty, healthy result instead of a 500.
+		return NextResponse.json({ ok: true, count: 0, items: [], graphAvailable: false, architecture });
+	}
+
+	try {
 		const nodes = Array.isArray(graph.nodes) ? graph.nodes : [];
 		const items = [];
 		for (const n of nodes) {
@@ -125,7 +148,7 @@ export async function GET() {
 			});
 		}
 
-		return NextResponse.json({ ok: true, count: results.length, items: results });
+		return NextResponse.json({ ok: true, count: results.length, items: results, graphAvailable: true, architecture });
 	} catch (e: any) {
 		return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
 	}

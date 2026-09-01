@@ -6,7 +6,9 @@ import {
 	chooseDisplayInventoryTotals,
 	collectInventoryTotalsFromCacheKeys,
 	filterRecentCardsForDisplay,
+	isNationalDataAvailable,
 	resolveDashboardInventoryTotals,
+	resolveRecencySampleLimit,
 	shouldUseLocalFallback,
 	sortLatestCardsForDisplay,
 	parseQueries,
@@ -182,5 +184,28 @@ John Smith`;
 	it('extracts CRDs embedded in mixed text such as a name plus CRD reference', () => {
 		const rawInput = 'Megan Vogt Omoruyi :: CRD# 7803022';
 		expect(parseQueries(rawInput)).toEqual(['7803022']);
+	});
+});
+
+describe('resolveRecencySampleLimit', () => {
+	it('bounds the disk-recency sample size to the requested maxCards for small requests', () => {
+		expect(resolveRecencySampleLimit(1)).toBe(1);
+		expect(resolveRecencySampleLimit(20)).toBe(20);
+	});
+
+	it('never exceeds the fixed upper sample bound even for very large maxCards requests', () => {
+		expect(resolveRecencySampleLimit(1_000_000)).toBeLessThanOrEqual(2_000);
+	});
+
+	it('treats non-positive or invalid maxCards as at least 1', () => {
+		expect(resolveRecencySampleLimit(0)).toBe(1);
+		expect(resolveRecencySampleLimit(-5)).toBe(1);
+		expect(resolveRecencySampleLimit(NaN)).toBe(1);
+	});
+});
+
+describe('isNationalDataAvailable', () => {
+	it('returns a boolean without throwing regardless of whether data/national exists on disk', async () => {
+		await expect(isNationalDataAvailable()).resolves.toEqual(expect.any(Boolean));
 	});
 });

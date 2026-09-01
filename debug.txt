@@ -2,3 +2,4 @@
 [getUpstashClient] url=https://awake-dodo-113930.upstash.io
 [searchDirectRedisFallback] key=finra:individual:1803193 raw=NULL
 [searchDirectRedisFallback] key=finra:individual:1803193 raw=FOUND
+[searchDirectRedisFallback] key=finra:firm:7151108 raw=NULL

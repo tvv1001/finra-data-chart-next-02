@@ -1,22 +1,23 @@
 #!/usr/bin/env node
-const fs = require('node:fs');
-const path = require('node:path');
+const fs = require("node:fs");
+const path = require("node:path");
+const zlib = require("node:zlib");
 
 const root = process.cwd();
-const dataDir = path.join(root, 'data', 'national');
-const publicDestDir = path.join(root, 'public', 'search-indexes');
+const dataDir = path.join(root, "data", "national");
+const publicDestDir = path.join(root, "public", "search-indexes");
 
-const files = ['search-index.finra.individual.json.gz', 'search-index.finra.firm.json.gz', 'search-index.sec.individual.json.gz', 'search-index.sec.firm.json.gz'];
+const files = ["search-index.finra.individual.json.gz", "search-index.finra.firm.json.gz", "search-index.sec.individual.json.gz", "search-index.sec.firm.json.gz"];
 const maxChunkSize = 90 * 1024 * 1024; // 90 MB
 
 function findSidecarCandidates(fileName) {
-	const prefix = path.basename(fileName, '.json');
+	const prefix = fileName.replace(/\.json(?:\.gz)?$/, "");
 	const exact = [fileName];
 	const extras = [];
 	try {
 		for (const entry of fs.readdirSync(dataDir)) {
 			if (entry === fileName) continue;
-			if (entry.startsWith(prefix) && (entry.endsWith('.json') || entry.endsWith('.json.gz') || entry.includes('.part'))) {
+			if (entry.startsWith(prefix) && (entry.endsWith(".json") || entry.endsWith(".json.gz") || entry.includes(".part"))) {
 				extras.push(entry);
 			}
 		}
@@ -34,7 +35,7 @@ function writeJsonFile(dest, json) {
 try {
 	fs.mkdirSync(publicDestDir, { recursive: true });
 } catch (err) {
-	console.error('Failed to create destination directories:', err.message);
+	console.error("Failed to create destination directories:", err.message);
 	process.exit(1);
 }
 
@@ -42,7 +43,7 @@ let count = 0;
 for (const file of files) {
 	const candidates = findSidecarCandidates(file);
 	const src = candidates.find((candidate) => fs.existsSync(path.join(dataDir, candidate))) ? path.join(dataDir, candidates.find((candidate) => fs.existsSync(path.join(dataDir, candidate)))) : path.join(dataDir, file);
-	const prefix = path.basename(file, '.json');
+	const prefix = file.replace(/\.json(?:\.gz)?$/, "");
 	const actualFile = path.basename(src);
 
 	try {
@@ -63,7 +64,12 @@ for (const file of files) {
 		}
 
 		console.log(`⚡ Splitting ${actualFile} into chunks for deployment (size ${Math.round(stats.size / 1024 / 1024)} MB)`);
-		const raw = fs.readFileSync(src, 'utf-8');
+		let raw;
+		if (src.endsWith(".gz")) {
+			raw = zlib.gunzipSync(fs.readFileSync(src)).toString("utf-8");
+		} else {
+			raw = fs.readFileSync(src, "utf-8");
+		}
 		const json = JSON.parse(raw);
 		const docs = Array.isArray(json.docs) ? json.docs : [];
 		const chunkCount = Math.max(1, Math.ceil(stats.size / maxChunkSize));
