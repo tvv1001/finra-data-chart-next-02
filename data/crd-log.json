@@ -1,6 +1,10 @@
 {
   "firms": [
     {
+      "id": 10111,
+      "name": "PFS INVESTMENTS INC."
+    },
+    {
       "id": 837,
       "name": "TUCKER ANTHONY INCORPORATED"
     },
@@ -179,10 +183,6 @@
     {
       "id": 6413,
       "name": "LPL FINANCIAL LLC"
-    },
-    {
-      "id": 10111,
-      "name": "PFS INVESTMENTS INC."
     },
     {
       "id": 15708,
@@ -2558,6 +2558,10 @@
     }
   ],
   "individuals": [
+    {
+      "id": 1132009,
+      "name": "ALLAN (GORDY) GORDON BOHANNON"
+    },
     {
       "id": 8322604,
       "name": "ISABELLE DARLING HADEL"
