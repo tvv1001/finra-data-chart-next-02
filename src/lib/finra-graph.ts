@@ -10433,6 +10433,8 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 	const rootNode = rootGroup?.node?.();
 	if (!rootNode || !rootNode.isConnected || !rootNode.parentNode) return;
 
+	if ((layoutNodes?.length || 0) > 100) return;
+
 	if (linkSel && typeof linkSel.sort === 'function') {
 		linkSel.sort((a, b) => comparePriorityWithTieBreak(getLinkRenderPriority(a, highlightState), getLinkRenderPriority(b, highlightState), getLinkKey(a), getLinkKey(b)));
 	}

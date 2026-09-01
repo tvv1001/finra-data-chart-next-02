@@ -295,6 +295,11 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
 	try {
 		const result = await lookupFinraFdaDocket(docket);
+		
+		if (!result) {
+			throw new Error(`FDA lookup returned undefined for docket ${docket}`);
+		}
+
 		return NextResponse.json(
 			{
 				docket: result.docket,
