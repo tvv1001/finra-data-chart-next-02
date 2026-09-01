@@ -70,11 +70,7 @@ data/orphan_validation_report.json
 data/**
 patch_**
 
-# Unignore .local/scripts for Vercel
-!.local/scripts/
-!.local/scripts/**
-/.local/*
-!/.local/scripts/
+/.local/
 
 # Next.js regenerates this on every dev/build and flips the routes import path
 # between .next/types and .next/dev/types, so it churns constantly. Vercel

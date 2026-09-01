@@ -35,11 +35,6 @@ function nonLiveReferenceKey(kind: 'individual' | 'firm', crd: string): string {
 	return `non-live-crds:${kind}:${String(crd).trim()}`;
 }
 
-// Legacy local namespace retained only as a migration fallback.
-function legacyOwnerReferenceKey(kind: 'individual' | 'firm', crd: string): string {
-	return `owner-ref:${kind}:${String(crd).trim()}`;
-}
-
 function isPlainObject(value: unknown): value is Record<string, unknown> {
 	return value != null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -202,18 +197,7 @@ async function clearStoredOwnerReference(kind: 'individual' | 'firm', crd: strin
 	const redis = getRedisClient();
 	if (redis) {
 		try {
-			await redis.del(nonLiveReferenceKey(kind, crd), legacyOwnerReferenceKey(kind, crd));
-		} catch {
-			// ignore cleanup failures
-		}
-	}
-}
-
-async function clearLegacyOwnerReference(kind: 'individual' | 'firm', crd: string): Promise<void> {
-	const redis = getRedisClient();
-	if (redis) {
-		try {
-			await redis.del(legacyOwnerReferenceKey(kind, crd));
+			await redis.del(nonLiveReferenceKey(kind, crd));
 		} catch {
 			// ignore cleanup failures
 		}
@@ -234,7 +218,6 @@ export async function recordOwnerReference(reference: OwnerReference): Promise<v
 		if (redis && canWriteToRedis()) {
 			const payload = createOrphanPayload(reference);
 			await redis.set(nonLiveReferenceKey('individual', crd), compressPayload(JSON.stringify(payload)), { ex: OWNER_REF_TTL_SECONDS });
-			await clearLegacyOwnerReference('individual', crd);
 		}
 	} catch {
 		// swallow: this is a best-effort index, never allow it to break the firm fetch response
@@ -295,22 +278,14 @@ export async function lookupOwnerReference(crd: string): Promise<OwnerReference 
 		if (!redis) return null;
 
 		const primaryKey = nonLiveReferenceKey('individual', normalizedCrd);
-		const fallbackKey = legacyOwnerReferenceKey('individual', normalizedCrd);
-		for (const key of [primaryKey, fallbackKey]) {
-			try {
-				const raw = await redis.get(key);
-				const parsed = parseRedisReference(raw);
-				if (parsed) {
-					if (key === fallbackKey && canWriteToRedis()) {
-						await redis.set(primaryKey, compressPayload(JSON.stringify(createOrphanPayload(parsed))), { ex: OWNER_REF_TTL_SECONDS });
-						await redis.del(fallbackKey);
-					}
-					return parsed;
-				}
-			} catch {
-				// continue to the next key
-			}
+		try {
+			const raw = await redis.get(primaryKey);
+			const parsed = parseRedisReference(raw);
+			if (parsed) return parsed;
+		} catch {
+			// ignore lookup failure
 		}
+
 		return null;
 	} catch {
 		return null;
@@ -389,13 +364,13 @@ export async function recordFirmReference(reference: OwnerReference): Promise<vo
 
 	try {
 		if (await hasLiveCrdDetail('firm', crd)) {
-			await clearLegacyOwnerReference('firm', crd);
+			await clearStoredOwnerReference('firm', crd);
 			return;
 		}
 		const redis = getRedisClient();
 		if (redis && canWriteToRedis()) {
 			const payload = createOrphanPayload(reference);
-			await redis.set(legacyOwnerReferenceKey('firm', crd), compressPayload(JSON.stringify(payload)), { ex: OWNER_REF_TTL_SECONDS });
+			await redis.set(nonLiveReferenceKey('firm', crd), compressPayload(JSON.stringify(payload)), { ex: OWNER_REF_TTL_SECONDS });
 		}
 	} catch {
 		// swallow: this is a best-effort index, never allow it to break the individual fetch response
@@ -456,12 +431,12 @@ export async function lookupFirmReference(crd: string): Promise<OwnerReference |
 
 	try {
 		if (await hasLiveCrdDetail('firm', normalizedCrd)) {
-			await clearLegacyOwnerReference('firm', normalizedCrd);
+			await clearStoredOwnerReference('firm', normalizedCrd);
 			return null;
 		}
 		const redis = getRedisClient();
 		if (!redis) return null;
-		const raw = await redis.get(legacyOwnerReferenceKey('firm', normalizedCrd));
+		const raw = await redis.get(nonLiveReferenceKey('firm', normalizedCrd));
 		const parsed = parseRedisReference(raw);
 		if (parsed) return parsed;
 		return null;

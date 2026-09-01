@@ -8,6 +8,7 @@ function getUpstashClient() {
 	if (cachedRedisClient) return cachedRedisClient;
 	const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN;
+	require('fs').appendFileSync('debug.txt', `[getUpstashClient] url=${url}\n`);
 	if (!url || !token) return null;
 	cachedRedisClient = getRedisClientInstance({ url, token });
 	return cachedRedisClient;
@@ -29,16 +30,41 @@ export async function searchDirectRedisFallback(
 	try {
 		const key = `${source}:${type}:${normalizedQuery}`;
 		const raw = await redis.get(key);
+		require('fs').appendFileSync('debug.txt', `[searchDirectRedisFallback] key=${key} raw=${raw ? 'FOUND' : 'NULL'}\n`);
 		if (!raw) return null;
 
 		// Support brotli `br:` binary cache payloads without scanning other keys.
-		const doc =
+		const rawDoc =
 			typeof raw === 'string' ?
 				(() => {
 					const text = decompressPayload(raw);
 					return typeof text === 'string' ? JSON.parse(text) : text;
 				})()
 			:	raw;
+
+		// If it's wrapped in a finra/sec search response format, extract the actual _source
+		let doc = rawDoc;
+		if (doc?.hits?.hits?.[0]?._source) {
+			doc = doc.hits.hits[0]._source;
+		} else if (doc?._source) {
+			doc = doc._source;
+		}
+
+		if (doc?.content && typeof doc.content === 'string') {
+			try {
+				doc = JSON.parse(doc.content);
+			} catch {
+				// ignore
+			}
+		}
+
+		// Ensure it has an identifier so mergeLocalSearchResponses doesn't drop it
+		if (type === 'individual' && !doc.id && !doc.ind_source_id) {
+			doc.ind_source_id = normalizedQuery;
+		} else if (type === 'firm' && !doc.id && !doc.firm_source_id) {
+			doc.firm_source_id = normalizedQuery;
+		}
+
 		const id = type === 'individual' ? `person:${normalizedQuery}` : `firm:${normalizedQuery}`;
 
 		const limit = options.limit ?? 12;

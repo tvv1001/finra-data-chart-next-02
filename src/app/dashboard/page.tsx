@@ -4391,10 +4391,10 @@ function DashboardPageInner() {
 			const includePeople = searchType === 'all' || searchType === 'people';
 			const includeFirms = searchType === 'all' || searchType === 'firms';
 			const [finraIndividualRes, finraFirmRes, secIndividualRes, secFirmRes] = await Promise.all([
-				includePeople ? fetch(`/api/finra/search?type=individual&query=${encodeURIComponent(query)}&rows=8`) : Promise.resolve(null),
-				includeFirms ? fetch(`/api/finra/search?type=firm&query=${encodeURIComponent(query)}&rows=8`) : Promise.resolve(null),
-				includePeople ? fetch(`/api/finra/sec-search?query=${encodeURIComponent(query)}&rows=8`) : Promise.resolve(null),
-				includeFirms ? fetch(`/api/finra/sec-search-firm?query=${encodeURIComponent(query)}&rows=8`) : Promise.resolve(null),
+				includePeople ? fetch(`/api/finra/search?type=individual&query=${encodeURIComponent(query)}&rows=24`) : Promise.resolve(null),
+				includeFirms ? fetch(`/api/finra/search?type=firm&query=${encodeURIComponent(query)}&rows=24`) : Promise.resolve(null),
+				includePeople ? fetch(`/api/finra/sec-search?query=${encodeURIComponent(query)}&rows=24`) : Promise.resolve(null),
+				includeFirms ? fetch(`/api/finra/sec-search-firm?query=${encodeURIComponent(query)}&rows=24`) : Promise.resolve(null),
 			]);
 
 			const [finraIndividualJson, finraFirmJson, secIndividualJson, secFirmJson] = await Promise.all([

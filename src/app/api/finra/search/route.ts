@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
 			},
 			(value) => Boolean(value && value.total > 0),
 		);
-		if (graphResponses.length > 0) {
+		logger.warn('graphResponses: ' + JSON.stringify(graphResponses)); if (graphResponses.length > 0) {
 			const merged = mergeLocalSearchResponses(graphResponses as any[], { bucket: `finra:${entity}`, limit, offset });
 			return jsonNoStore(merged);
 		}
@@ -170,6 +170,7 @@ export async function GET(request: NextRequest) {
 			},
 			(value) => Boolean(value),
 		);
+		logger.warn('directResponses: ' + JSON.stringify(directResponses));
 		if (directResponses.length > 0) {
 			return jsonNoStore(mergeLocalSearchResponses(directResponses as any[], { bucket: `finra:${entity}`, limit, offset }));
 		}
