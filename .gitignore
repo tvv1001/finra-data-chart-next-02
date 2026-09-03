@@ -72,7 +72,8 @@ data/**
 !data/crd-inventory.json.gz
 patch_**
 
-/.local/
+/.local/*
+!/.local/scripts/
 
 # Next.js regenerates this on every dev/build and flips the routes import path
 # between .next/types and .next/dev/types, so it churns constantly. Vercel
