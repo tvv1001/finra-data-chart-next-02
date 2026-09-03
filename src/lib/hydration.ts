@@ -1,9 +1,24 @@
 import type { Redis } from '@upstash/redis';
-import { setStringIfValid } from '@/lib/redisCache';
+import { setStringIfValid, decompressPayload } from '@/lib/redisCache';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { getRedisClientInstance } from '@/lib/redisClient';
 import { canCallExternalApis } from '@/lib/externalApiGate';
+
+/** True when Redis already has a usable payload — skip external rehydration. */
+function isUsableLocalPayload(raw: unknown): boolean {
+	if (raw == null) return false;
+	try {
+		const text =
+			typeof raw === 'string' ? decompressPayload(raw)
+			: typeof raw === 'object' ? JSON.stringify(raw)
+			: String(raw);
+		if (!text || text.includes('"hits":{"total":0')) return false;
+		return text.includes('"hits"') || text.includes('_source');
+	} catch {
+		return false;
+	}
+}
 
 interface QueueItem {
 	type: 'individual' | 'firm';
@@ -43,12 +58,12 @@ async function fetchAndSave(source: 'finra' | 'sec', type: 'individual' | 'firm'
 	const redisKey = `${source}:${type}:${id}`;
 	const redis = getRedisClient();
 
-	// Local API First Approach: Do not hit the external API if the record already exists in Redis.
-	// The cron job handles regular background updates, so the UI hydration queue should only fetch missing records.
+	// Local-first: only hit the external API when Redis has no usable payload.
+	// Cron handles periodic refreshes; UI hydration should not re-download good local data.
 	if (redis) {
 		try {
-			const exists = await redis.exists(redisKey);
-			if (exists) {
+			const existing = await redis.get(redisKey).catch(() => null);
+			if (isUsableLocalPayload(existing)) {
 				console.log(`[Validation Check Skipped] Time: ${new Date().toISOString()} | Found in Redis | Domain: ${domain} | CRDs: [${id}]`);
 				return;
 			}

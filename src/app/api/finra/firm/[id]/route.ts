@@ -89,24 +89,31 @@ function parseDetailPayload(data: any, contentKey = "content") {
   return extractFromSource(data);
 }
 
-function buildSecDocumentLinks(id: string) {
-  if (!id) return [];
+function buildSecDocumentLinks(opts: {
+  /** AdvisorInfo path id — prefer real SEC# when known, otherwise firm CRD. */
+  summaryId: string;
+  /** File/report id — prefer normalized SEC# (8-####) when available. */
+  reportId?: string | null;
+}) {
+  const summaryId = String(opts.summaryId || "").trim();
+  if (!summaryId) return [];
+  const reportId = String(opts.reportId || summaryId).trim();
   return [
     {
       label: "SEC AdvisorInfo Summary",
-      href: `https://adviserinfo.sec.gov/firm/summary/${id}`,
+      href: `https://adviserinfo.sec.gov/firm/summary/${summaryId}`,
     },
     {
       label: "Latest Form ADV filed",
-      href: `https://reports.adviserinfo.sec.gov/reports/ADV/${id}/PDF/${id}.pdf`,
+      href: `https://reports.adviserinfo.sec.gov/reports/ADV/${reportId}/PDF/${reportId}.pdf`,
     },
     {
       label: "SEC firm brochure",
-      href: `https://adviserinfo.sec.gov/firm/brochure/${id}`,
+      href: `https://adviserinfo.sec.gov/firm/brochure/${summaryId}`,
     },
     {
       label: "SEC Form CRS",
-      href: `https://reports.adviserinfo.sec.gov/crs/crs_${id}.pdf`,
+      href: `https://reports.adviserinfo.sec.gov/crs/crs_${reportId}.pdf`,
     },
   ];
 }
@@ -875,13 +882,19 @@ export async function GET(
         detail.brochures = secDetail.brochures;
     }
 
-    const secFirmId = normalizeSecFirmId(
+    const secNumberRaw =
+      detail?.basicInformation?.iaSECNumber ||
+      detail?.basicInformation?.iaSecNumber ||
       detail?.basicInformation?.bdSECNumber ||
-        detail?.basicInformation?.bdSecNumber ||
-        detail?.bdSECNumber ||
-        detail?.bdSecNumber ||
-        id,
-    );
+      detail?.basicInformation?.bdSecNumber ||
+      detail?.iaSECNumber ||
+      detail?.iaSecNumber ||
+      detail?.bdSECNumber ||
+      detail?.bdSecNumber ||
+      "";
+    const secFirmId = normalizeSecFirmId(secNumberRaw || id);
+    // AdvisorInfo firm/summary and brochure routes resolve by CRD when no real SEC# exists.
+    const secSummaryId = String(secNumberRaw || id).trim();
     detail.hasFinraData = hasPublicFinraFirmDetail(
       bcDetail,
       bcDetail?.basicInformation || {},
@@ -898,7 +911,7 @@ export async function GET(
       hasFirmSourceCoverage(bcDetail, "sec");
     detail.hasSecData =
       !suppressSecLinks &&
-      Boolean(secFirmId) &&
+      Boolean(secSummaryId) &&
       Boolean(secHasCoverage || detail?.hasSecData);
 
     if (
@@ -911,7 +924,7 @@ export async function GET(
 
     if (
       !suppressSecLinks &&
-      Boolean(secFirmId) &&
+      Boolean(secSummaryId) &&
       (!Array.isArray(detail.secDocumentLinks) ||
         !detail.secDocumentLinks.length)
     ) {
@@ -919,7 +932,10 @@ export async function GET(
       // have confirmed SEC/IA coverage for this firm (e.g. embedded in the FINRA payload even
       // when the separate SEC summary-page fetch was gated off/unavailable locally).
       if (secPageValid || secHasCoverage) {
-        detail.secDocumentLinks = buildSecDocumentLinks(secFirmId);
+        detail.secDocumentLinks = buildSecDocumentLinks({
+          summaryId: secSummaryId,
+          reportId: secFirmId || secSummaryId,
+        });
       } else {
         detail.secDocumentLinks = [];
       }

@@ -1999,7 +1999,7 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 	const [nodePrefix, rawNodeId] = normalizedNodeId.split(':');
 	if (rawNodeId && /^[0-9]+$/.test(rawNodeId) && (nodePrefix === 'person' || nodePrefix === 'firm')) {
 		try {
-			const fetchedBatch = nodePrefix === 'person' ? await fetchIndividualBatch(rawNodeId) : await fetchFirmBatch(rawNodeId);
+			const fetchedBatch = nodePrefix === 'person' ? await fetchIndividualBatch(rawNodeId, null, { includePreviousEmployments: true }) : await fetchFirmBatch(rawNodeId);
 			if (fetchedBatch.nodes.length || fetchedBatch.links.length) {
 				mergeIntoGraphData(fetchedBatch.nodes, fetchedBatch.links);
 				appendFetched?.(fetchedBatch.nodes, fetchedBatch.links);
@@ -5296,6 +5296,45 @@ function clearGraphData() {
 	showEmpty(true);
 }
 
+/** Warm visit-cache with merged detail for visible nodes so clicks hit memory first. */
+function floodVisibleNodeDetails(limit = 40) {
+	if (typeof window === 'undefined' || isBrowserOffline()) return;
+	const nodes = Array.isArray(layoutNodes) && layoutNodes.length ? layoutNodes : graphData?.nodes || [];
+	const targets = nodes
+		.filter((n) => n && (n.group === 'individual' || n.group === 'firm') && n.id)
+		.slice(0, Math.max(1, Math.min(80, limit)));
+	if (!targets.length) return;
+
+	const run = async () => {
+		for (const node of targets) {
+			try {
+				if (node.group === 'individual') {
+					await ensureIndividualDetail(node, {
+						allowOwnerEvidenceFirmFetch: false,
+						injectEmploymentGraph: false,
+					});
+				} else if (node.group === 'firm') {
+					await ensureFirmDetail(node);
+				}
+			} catch {
+				// best-effort flood
+			}
+			await new Promise((r) => setTimeout(r, 40));
+		}
+	};
+
+	const ric = (window as any).requestIdleCallback;
+	if (typeof ric === 'function') {
+		ric(() => {
+			void run();
+		}, { timeout: 2500 });
+	} else {
+		window.setTimeout(() => {
+			void run();
+		}, 600);
+	}
+}
+
 function renderBaselineGraphData() {
 	if (!graphData) return null;
 	const hasGraphContent = Boolean((graphData?.nodes?.length || 0) > 0 || (graphData?.links?.length || 0) > 0);
@@ -5320,6 +5359,7 @@ function renderBaselineGraphData() {
 		showSidebarHint();
 	}
 	showEmpty(!hasGraphContent);
+	if (hasGraphContent) floodVisibleNodeDetails(48);
 	return graphData;
 }
 
@@ -7159,7 +7199,8 @@ export function init(
 	// Poll lightweight meta/cache endpoints so externally updated Redis totals
 	// appear in the UI without a hard refresh.
 	let _metaPollId = null;
-	const META_POLL_MS = 15000;
+	// Keep meta polling infrequent — click path must not compete with this.
+	const META_POLL_MS = 60000;
 
 	async function fetchMetaOnce() {
 		if (isBrowserOffline()) {
@@ -7168,21 +7209,9 @@ export function init(
 		}
 		clearOfflineFetchStatus();
 		try {
-			const hasProfileParam = new URLSearchParams(window.location.search).has('profile');
-			const profileName = hasProfileParam ? new URLSearchParams(window.location.search).get('profile') : 'custom';
-			const url = makeApiUrl('/api/finra/graph');
-			url.searchParams.set('limit', '1');
-			if (profileName) url.searchParams.set('profile', profileName);
-			const r = await fetch(url.toString());
-			if (!r.ok) return;
-			const j = await r.json();
-			if (j && j.meta) {
-				// Update visible meta label
-				updateMeta(j.meta);
-				// Keep in-memory graphData.meta up-to-date so other UI pieces read the latest
-				if (!graphData) graphData = { nodes: [], links: [], meta: j.meta };
-				else graphData.meta = { ...(graphData.meta || {}), ...j.meta };
-			}
+			// Prefer lightweight cache-stats over fetching /api/finra/graph?limit=1
+			// (that path still builds adjacency / seed sampling on the server).
+			await fetchCacheStats();
 		} catch (e) {
 			// non-fatal; ignore network errors
 		}
@@ -7191,10 +7220,8 @@ export function init(
 	function startMetaPolling() {
 		if (_metaPollId) return;
 		void fetchMetaOnce();
-		void fetchCacheStats();
 		_metaPollId = setInterval(() => {
 			void fetchMetaOnce();
-			void fetchCacheStats();
 		}, META_POLL_MS);
 	}
 
@@ -8530,7 +8557,7 @@ async function hydratePendingNodeIds(ids: string[], addToLog: boolean) {
 			while (cursor < idsToFetch.length) {
 				const entry = idsToFetch[cursor++];
 				try {
-					const batch = entry.prefix === 'person' ? await fetchIndividualBatch(entry.rawId) : await fetchFirmBatch(entry.rawId);
+					const batch = entry.prefix === 'person' ? await fetchIndividualBatch(entry.rawId, null, { includePreviousEmployments: true }) : await fetchFirmBatch(entry.rawId);
 					if (batch?.nodes?.length) fetchedNodes.push(...batch.nodes);
 					if (batch?.links?.length) fetchedLinks.push(...batch.links);
 				} catch (error) {
@@ -8917,17 +8944,26 @@ async function filterGraph(rawQuery) {
 
 // Cache stats are polled and reused for the header and bottom status bar.
 let _cacheStats = null;
-function fetchCacheStats() {
+let _cacheStatsInFlight: Promise<void> | null = null;
+let _cacheStatsFetchedAt = 0;
+const CACHE_STATS_MIN_INTERVAL_MS = 20000;
+function fetchCacheStats(options: { force?: boolean } = {}) {
 	if (isBrowserOffline()) {
 		showOfflineFetchStatus();
 		return Promise.resolve();
 	}
 	clearOfflineFetchStatus();
-	return fetch('/api/finra/cache-stats', { cache: 'no-store' })
+	const now = Date.now();
+	if (!options.force && _cacheStatsInFlight) return _cacheStatsInFlight;
+	if (!options.force && _cacheStats && now - _cacheStatsFetchedAt < CACHE_STATS_MIN_INTERVAL_MS) {
+		return Promise.resolve();
+	}
+	_cacheStatsInFlight = fetch('/api/finra/cache-stats', { cache: 'no-store' })
 		.then((r) => r.json())
 		.then((data) => {
 			if (data?.counts) {
 				_cacheStats = data.counts;
+				_cacheStatsFetchedAt = Date.now();
 				updateMeta();
 				try {
 					// Ensure subset info updates to reflect Redis totals as soon as we
@@ -8941,7 +8977,11 @@ function fetchCacheStats() {
 				}
 			}
 		})
-		.catch(() => {});
+		.catch(() => {})
+		.finally(() => {
+			_cacheStatsInFlight = null;
+		});
+	return _cacheStatsInFlight;
 }
 
 function updateMeta(meta: { totalIndividuals?: number; totalFirms?: number; totalLinks?: number } = {}) {
@@ -8999,11 +9039,11 @@ const LINK_COLOR = {
 };
 const LINK_OPACITY = {
 	employed_by: 0.9,
-	previous_employed_by: 0.7,
+	previous_employed_by: 0.85,
 	controls: 0.6,
 };
 const DEFAULT_LINK_WIDTH = 1.2;
-const INACTIVE_LINK_OPACITY = 0.6;
+const INACTIVE_LINK_OPACITY = 0.85;
 const defaultLinkOpacity = (d) => {
 	if (hasInactiveEndpoint(d)) return INACTIVE_LINK_OPACITY;
 	if (usesCurrentEmploymentStyling(d)) return LINK_OPACITY.employed_by;
@@ -10205,7 +10245,7 @@ function getLinkDash(d) {
 
 function getLinkWidth(d) {
 	if (usesCurrentEmploymentStyling(d)) return '1px';
-	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d) || isPreviousEmploymentLink(d)) return '0.6px';
+	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d) || isPreviousEmploymentLink(d)) return '1.2px';
 	return `${DEFAULT_LINK_WIDTH}px`;
 }
 
@@ -14156,40 +14196,12 @@ function selectNode(
 
 	// Intentionally do not pan/zoom the viewport on selection. The selected node
 	// is located via a persistent blue ring plus a short pulse instead.
-	// Always show blue location ring after selection. Use any requested pulse duration
-	// provided by route requests (e.g. sidebar links), otherwise default to 4000ms.
-	const defaultPulseMs = 4000;
+	// Short locator pulse — long pulses keep rAF work running after the click feels done.
+	const defaultPulseMs = 900;
 	const finalPulseMs = typeof pendingRoutePulseDuration === 'number' && Number.isFinite(pendingRoutePulseDuration) ? pendingRoutePulseDuration : defaultPulseMs;
 	// Clear consumed pending pulse value so it doesn't affect subsequent selections
 	pendingRoutePulseDuration = null;
 	pulseNodeHighlightById(d.id, { duration: finalPulseMs });
-
-	// For individual nodes, fetch detail data from API and re-render if it's still selected
-	if (d.group === 'individual') {
-		ensureIndividualDetail(d)
-			.then(() => {
-				// Re-render sidebar if this node is still selected
-				if (selectedId === d.id) {
-					renderSidebar(d);
-				}
-			})
-			.catch((err) => {
-				console.error('Failed to load individual detail:', err);
-			});
-	}
-
-	// For firm nodes, fetch Form BD detail (local first, then FINRA API) and re-render
-	if (d.group === 'firm') {
-		ensureFirmDetail(d)
-			.then(() => {
-				if (selectedId === d.id) {
-					renderSidebar(d);
-				}
-			})
-			.catch((err) => {
-				console.error('Failed to load firm detail:', err);
-			});
-	}
 
 	let expansionPromise = Promise.resolve();
 	if (!skipAutoExpand) {
@@ -14197,17 +14209,25 @@ function selectNode(
 		markUserInitiatedGraphExpansion();
 		anchorNode(d);
 		lastExpandOriginNode = d;
+		// Expand path already awaits ensureIndividualDetail / ensureFirmDetail — do not
+		// kick a duplicate detail fetch here (that doubled Redis/API work on every click).
 		expansionPromise = (
 			shouldAutoRevealNodeConnections(d) ?
 				expandNodeThroughNonGrayHops(d, clickExpansionHops)
-			:	ensureExpansionDataForNode(d.id, clickExpansionHops).then((fetched) => {
+			:	(async () => {
+					if (d.group === 'individual') {
+						await ensureIndividualDetail(d, { injectEmploymentGraph: true });
+					} else if (d.group === 'firm') {
+						await ensureFirmDetail(d);
+					}
+					const fetched = await ensureExpansionDataForNode(d.id, clickExpansionHops);
 					if (fetched && (fetched.nodes?.length || fetched.links?.length)) {
 						revealNeighbors(d, clickExpansionHops, {
 							linkFilter: isAutoExpansionLink,
 							markSelected: true,
 						});
 					}
-				}))
+				})())
 			.then(() => {
 				// Always re-render firm/person sidebar after neighbors arrive — previously only the
 				// non-auto-reveal path did this, so Current/Previous Connections stayed empty until hard refresh.
@@ -14223,7 +14243,22 @@ function selectNode(
 					/* ignore */
 				}
 			});
-		void fetchCacheStats();
+	} else if (d.group === 'individual') {
+		expansionPromise = ensureIndividualDetail(d, { injectEmploymentGraph: false })
+			.then(() => {
+				if (selectedId === d.id) renderSidebar(d);
+			})
+			.catch((err) => {
+				console.error('Failed to load individual detail:', err);
+			});
+	} else if (d.group === 'firm') {
+		expansionPromise = ensureFirmDetail(d)
+			.then(() => {
+				if (selectedId === d.id) renderSidebar(d);
+			})
+			.catch((err) => {
+				console.error('Failed to load firm detail:', err);
+			});
 	}
 
 	return expansionPromise;
@@ -14950,9 +14985,9 @@ function highlightLinks(highlightState = null) {
 					.style('--fg-link-width', `${getScaledLinkStrokeWidth(highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale)}px`);
 			} else {
 				sel.classed('fg-link--depth-recessed', true);
-				const recessedLinkOpacity = isGrayLine ? 0.58 : 0.56;
-				const recessedStrokeOpacity = isGrayLine ? 0.64 : 0.46;
-				const recessedStrokeWidth = isGrayLine ? 0.65 : 0.82;
+				const recessedLinkOpacity = isGrayLine ? 0.85 : 0.56;
+				const recessedStrokeOpacity = isGrayLine ? 0.85 : 0.46;
+				const recessedStrokeWidth = isGrayLine ? 0.95 : 0.82;
 				sel
 					.style('filter', null)
 					.style('opacity', recessedLinkOpacity)
@@ -16382,7 +16417,7 @@ function renderPersonDetail(d: any) {
 		${row('ID source check', esc(formatNodeSourceTruthSummary(d)))}
       ${d.orphanPosition ? row('Position', esc(String(d.orphanPosition))) : ''}
       ${d.orphanFirmName ? row('Affiliated Firm', esc(String(d.orphanFirmName))) : ''}
-      ${d.orphanParentCrd ? row('Parent Firm CRD', `<button type="button" class="fg-crd-link" data-crd="${esc(String(d.orphanParentCrd))}" data-crd-type="${d.orphanParentType === 'individual' ? 'individual' : 'firm'}">Firm #${esc(String(d.orphanParentCrd))}</button>`) : ''}
+      ${d.orphanParentCrd ? `<div class='fg-detail-section' style='margin-bottom: 12px;'><h4 class='fg-detail-section-title' style='margin-bottom: 6px; font-size: 11px; text-transform: uppercase; color: var(--fg-text-muted);'>Scraped From</h4><button type='button' class='fg-tl-entry fg-card-clickable fg-crd-link active-pos' data-crd='${esc(String(d.orphanParentCrd))}' data-crd-type='${d.orphanParentType === 'individual' ? 'individual' : 'firm'}' style='width: 100%; text-align: left;'><span class='fg-tl-firm'>${esc(d.orphanFirmName || (d.orphanParentType === 'individual' ? 'Source Individual' : 'Parent Firm'))}</span><span class='fg-tl-crd'>CRD #${esc(String(d.orphanParentCrd))}</span></button></div>` : ''}
       ${aliases.length ? row('Also known as', esc(aliases.join('; '))) : ''}
       ${
 				d.yearsExperience != null ? row('Years of Experience', esc(String(d.yearsExperience)))
@@ -16951,7 +16986,7 @@ function renderFirmDetail(d: any) {
       </div>
     </div>
     <div class='fg-sb-body fg-sb-body--firm'>
-      ${parentUrl ? `<div class='fg-ext-links'><a class='fg-ext-link bc' href='${parentUrl}' target='_blank' rel='noopener noreferrer'>&#x2197; ${parentType === 'firm' ? 'Parent Firm' : 'Source Individual'} Summary</a></div>` : ''}
+      ${parentCrd ? `<div class='fg-detail-section' style='margin-bottom: 12px;'><h4 class='fg-detail-section-title' style='margin-bottom: 6px; font-size: 11px; text-transform: uppercase; color: var(--fg-text-muted);'>Scraped From</h4><button type='button' class='fg-tl-entry fg-card-clickable fg-crd-link active-pos' data-crd='${esc(parentCrd)}' data-crd-type='${esc(parentType)}' style='width: 100%; text-align: left;'><span class='fg-tl-firm'>${esc(d.parentName || orphan.name || (parentType === 'firm' ? 'Parent Firm' : 'Source Individual'))}</span><span class='fg-tl-crd'>CRD #${esc(parentCrd)}</span></button></div>` : ''}
       ${orphanRow('Firm', orphan.firmName)}
       ${orphanRow('Office Address', orphan.officeAddress)}
       ${orphanRow('Mailing Address', orphan.mailingAddress)}
@@ -17202,44 +17237,80 @@ function renderFirmDetail(d: any) {
 		if (/^\d+$/.test(raw)) return `8-${raw}`;
 		return raw;
 	};
-	const secFirmId = normalizeSecFirmId(d.iaSecNumber || d.iaSECNumber || d.bdSecNumber || d.bdSECNumber || d.basicInformation?.iaSecNumber || d.basicInformation?.iaSECNumber || d.basicInformation?.bdSecNumber || d.basicInformation?.bdSECNumber);
+	// Prefer an explicit SEC# when present; otherwise fall back to CRD (same as /api/finra/firm)
+	// so IA-only firms without iaSecNumber/bdSecNumber still get AdvisorInfo links.
+	const secNumberRaw =
+		d.iaSecNumber ||
+		d.iaSECNumber ||
+		d.bdSecNumber ||
+		d.bdSECNumber ||
+		d.basicInformation?.iaSecNumber ||
+		d.basicInformation?.iaSECNumber ||
+		d.basicInformation?.bdSecNumber ||
+		d.basicInformation?.bdSECNumber ||
+		'';
+	const secFirmId = normalizeSecFirmId(secNumberRaw || firmId);
 	const crdSecCrdHtml = firmId ? `CRD#: ${esc(String(firmId))}` : null;
-	const crdSecSecHtml = secFirmId ? `SEC#: ${esc(secFirmId)}` : null;
+	const crdSecSecHtml = secNumberRaw ? `SEC#: ${esc(normalizeSecFirmId(secNumberRaw))}` : null;
 	const crdSec = [crdSecCrdHtml, crdSecSecHtml].filter(Boolean).join(' / ');
-	const secSummaryUrl = secFirmId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(secFirmId)}` : null;
+	// AdvisorInfo firm summary pages resolve by CRD; keep 8-#### only when that is the real SEC#.
+	const secSummaryId = secNumberRaw ? normalizeSecFirmId(secNumberRaw) : String(firmId || '').trim();
+	const secSummaryUrl = secSummaryId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(secSummaryId)}` : null;
 	const secDocumentLinks =
 		hasSecPage ?
 			(() => {
 				const defaultLinks =
-					secFirmId ?
+					secFirmId || firmId ?
 						[
 							{ label: 'SEC AdvisorInfo Summary', href: secSummaryUrl },
-							{ label: 'Latest Form ADV filed', href: `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(secFirmId)}/PDF/${encodeURIComponent(secFirmId)}.pdf` },
-							{ label: 'SEC firm brochure', href: `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(secFirmId)}` },
-							{ label: 'SEC Form CRS', href: `https://reports.adviserinfo.sec.gov/crs/crs_${encodeURIComponent(secFirmId)}.pdf` },
-						]
+							{
+								label: 'Latest Form ADV filed',
+								href: secFirmId ? `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(secFirmId)}/PDF/${encodeURIComponent(secFirmId)}.pdf` : null,
+							},
+							{
+								label: 'SEC firm brochure',
+								href: secSummaryId ? `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(secSummaryId)}` : null,
+							},
+							{
+								label: 'SEC Form CRS',
+								href: secFirmId ? `https://reports.adviserinfo.sec.gov/crs/crs_${encodeURIComponent(secFirmId)}.pdf` : null,
+							},
+						].filter((link) => link.href)
 					:	[];
 
 				if (!Array.isArray(d.secDocumentLinks) || !d.secDocumentLinks.length) return defaultLinks;
 
-				return d.secDocumentLinks.map((link: any) => {
-					const label = String(link?.label || '').trim();
-					if (!label) return link;
-					if (/^SEC AdvisorInfo Summary$/i.test(label)) return { ...link, href: secSummaryUrl };
-					if (/^Latest Form ADV filed$/i.test(label)) {
-						return {
-							...link,
-							href: secFirmId ? `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(secFirmId)}/PDF/${encodeURIComponent(secFirmId)}.pdf` : null,
-						};
-					}
-					if (/^SEC firm brochure$/i.test(label)) {
-						return { ...link, href: secFirmId ? `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(secFirmId)}` : null };
-					}
-					if (/^SEC Form CRS$/i.test(label)) {
-						return { ...link, href: secFirmId ? `https://reports.adviserinfo.sec.gov/crs/crs_${encodeURIComponent(secFirmId)}.pdf` : null };
-					}
-					return link;
-				});
+				return d.secDocumentLinks
+					.map((link: any) => {
+						const label = String(link?.label || '').trim();
+						const existingHref = String(link?.href || '').trim() || null;
+						if (!label) return link;
+						if (/^SEC AdvisorInfo Summary$/i.test(label)) {
+							return { ...link, href: secSummaryUrl || existingHref };
+						}
+						if (/^Latest Form ADV filed$/i.test(label)) {
+							return {
+								...link,
+								href: secFirmId
+									? `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(secFirmId)}/PDF/${encodeURIComponent(secFirmId)}.pdf`
+									: existingHref,
+							};
+						}
+						if (/^SEC firm brochure$/i.test(label)) {
+							return {
+								...link,
+								href: secSummaryId ? `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(secSummaryId)}` : existingHref,
+							};
+						}
+						if (/^SEC Form CRS$/i.test(label)) {
+							return {
+								...link,
+								href: secFirmId ? `https://reports.adviserinfo.sec.gov/crs/crs_${encodeURIComponent(secFirmId)}.pdf` : existingHref,
+							};
+						}
+						return link;
+					})
+					.filter((link: any) => link?.href);
 			})()
 		:	[];
 	const secSummaryDescription = hasSecPage && d.secSummaryDescription ? String(d.secSummaryDescription).trim() : '';
