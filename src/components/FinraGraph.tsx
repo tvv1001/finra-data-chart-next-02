@@ -251,6 +251,45 @@ function formatFindCounter(total: number, activeOrdinal = 0) {
 	return `${total} match${total === 1 ? '' : 'es'}`;
 }
 
+/** Detect GPU drivers that intermittently SIGILL on SVG filter/backdrop-filter paths. */
+function shouldEnableSafeGpuMode() {
+	if (typeof window === 'undefined') return false;
+	try {
+		const params = new URLSearchParams(window.location.search);
+		const forced = params.get('safe_gpu') || params.get('safeGpu');
+		if (forced === '1' || forced === 'true') return true;
+		if (forced === '0' || forced === 'false') return false;
+		const stored = window.localStorage.getItem('finra_safe_gpu');
+		if (stored === '1' || stored === 'true') return true;
+		if (stored === '0' || stored === 'false') return false;
+	} catch {}
+	try {
+		const canvas = document.createElement('canvas');
+		const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+		if (!gl || typeof (gl as WebGLRenderingContext).getExtension !== 'function') return false;
+		const webgl = gl as WebGLRenderingContext;
+		const dbg = webgl.getExtension('WEBGL_debug_renderer_info');
+		const renderer = dbg ? String(webgl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '') : '';
+		const vendor = dbg ? String(webgl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) || '') : '';
+		const blob = `${renderer} ${vendor}`.toLowerCase();
+		// Chrome crash dumps for this app consistently show ANGLE + AMD Radeon + Mesa.
+		return /radeon|amd |amdgpu|mesa|phoenix|radeonsi/.test(blob);
+	} catch {
+		return false;
+	}
+}
+
+function applySafeGpuMode() {
+	if (typeof document === 'undefined') return false;
+	const enabled = shouldEnableSafeGpuMode();
+	document.documentElement.classList.toggle('fg-safe-gpu', enabled);
+	document.body?.classList.toggle('fg-safe-gpu', enabled);
+	if (enabled && typeof console !== 'undefined' && console.info) {
+		console.info('[finra-graph] Safe GPU mode enabled (reduced SVG filters). Override with ?safe_gpu=0 or localStorage finra_safe_gpu=0');
+	}
+	return enabled;
+}
+
 export default function FinraGraph() {
 	const mountedRef = useRef(false);
 	const appRef = useRef<HTMLDivElement | null>(null);
@@ -270,6 +309,8 @@ export default function FinraGraph() {
 	const [isSidebarToolsOpen, setIsSidebarToolsOpen] = useState(true);
 
 	useEffect(() => {
+		applySafeGpuMode();
+
 		const stored = localStorage.getItem('finra_sidebar_tools_open');
 		if (stored !== null) {
 			setIsSidebarToolsOpen(stored === 'true');

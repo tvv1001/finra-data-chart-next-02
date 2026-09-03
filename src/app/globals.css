@@ -45,7 +45,7 @@
 
 	/* Inactive nodes */
 	--color-node-inactive: #869ab944;
-	--color-node-inactive-stroke: #879bb77b;
+	--color-node-inactive-stroke: #94a3b899;
 	--color-node-inactive-label: #334155;
 	--color-node-inactive-highlighted-stroke: rgba(192, 201, 213, 0.95);
 	--opacity-node-inactive: 0.82;
@@ -6509,4 +6509,28 @@ button[type='submit'],
 .fg-route-unavailable-toast.is-visible {
 	opacity: 1;
 	transform: translate(-50%, 0);
+}
+
+/* ── Safe GPU mode (AMD/Mesa ANGLE SIGILL mitigation) ───────────────────── */
+/* Disables expensive SVG filter / backdrop-filter paths that promote GPU layers
+   through ANGLE on Radeon 780M and can crash the tab with SIGILL. */
+html.fg-safe-gpu #fg-svg .fg-node circle,
+html.fg-safe-gpu #fg-svg .fg-node rect,
+html.fg-safe-gpu #fg-svg .fg-node polygon,
+html.fg-safe-gpu #fg-svg .fg-node text,
+html.fg-safe-gpu #fg-svg .fg-link,
+html.fg-safe-gpu #fg-svg path,
+html.fg-safe-gpu #fg-svg line {
+	filter: none !important;
+}
+html.fg-safe-gpu .fg-header,
+html.fg-safe-gpu .fg-sidebar,
+html.fg-safe-gpu .fg-empty-card,
+html.fg-safe-gpu .fg-selection-log,
+html.fg-safe-gpu .fg-log-panel,
+html.fg-safe-gpu .fg-find-header,
+html.fg-safe-gpu .fg-ext-links,
+html.fg-safe-gpu [class*="backdrop"] {
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
 }

@@ -581,13 +581,52 @@ async function createCanvasRenderer(pixi: any) {
 	}
 
 	pixiApp = new Application();
-	await pixiApp.init({
+	// AMD Radeon 780M + Mesa ANGLE has intermittent SIGILL/tab crashes when Chrome
+	// takes the high-performance WebGL path (and WebGPU/Dawn is worse). Prefer a
+	// conservative WebGL context and never fall through to WebGPU.
+	const baseInit = {
 		view: canvas,
 		resizeTo: parentElement,
 		backgroundAlpha: 0,
 		antialias: false,
-		powerPreference: 'high-performance',
-	});
+		// Array form replaces the default priority list (does not append webgpu).
+		preference: ['webgl', 'canvas'] as string[],
+		failIfMajorPerformanceCaveat: false,
+	};
+	const initAttempts = [
+		{ ...baseInit, powerPreference: 'default' as const },
+		{ ...baseInit, powerPreference: 'low-power' as const },
+		{ ...baseInit, preference: ['canvas'] as string[], powerPreference: 'default' as const },
+	];
+	let initError: unknown = null;
+	for (const opts of initAttempts) {
+		try {
+			await pixiApp.init(opts);
+			initError = null;
+			break;
+		} catch (err) {
+			initError = err;
+			try {
+				pixiApp.destroy(true, { children: true, texture: true, baseTexture: true });
+			} catch {}
+			pixiApp = new Application();
+		}
+	}
+	if (initError) {
+		throw initError instanceof Error ? initError : new Error(String(initError));
+	}
+	try {
+		const rendererType = String(
+			pixiApp?.renderer?.rendererLogId ||
+				pixiApp?.renderer?.name ||
+				pixiApp?.renderer?.type ||
+				'unknown',
+		);
+		(window as any).__FINRA_PIXI_RENDERER = rendererType;
+		if (typeof console !== 'undefined' && console.info) {
+			console.info('[finra-graph] Pixi renderer:', rendererType);
+		}
+	} catch {}
 
 	linkLayer = new Graphics();
 	nodeLayer = new Container();
