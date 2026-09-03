@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+	canReadFromRedis,
 	canWriteToRedis,
 	getRedisUnusableReason,
 	isRedisCacheOnly,
@@ -21,6 +22,7 @@ describe('redisAvailability', () => {
 		expect(isRedisCacheOnly()).toBe(true);
 		expect(getRedisUnusableReason()).toBe('REDIS_CACHE_ONLY');
 		expect(canWriteToRedis()).toBe(false);
+		expect(canReadFromRedis()).toBe(false);
 	});
 
 	it('does not auto-mark local Redis unusable', () => {

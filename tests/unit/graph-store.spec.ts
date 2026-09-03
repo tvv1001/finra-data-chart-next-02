@@ -117,6 +117,10 @@ describe('graphStore recent seed ordering', () => {
 			label: 'John Doe',
 			group: 'individual',
 			crd: '123',
+			bcScope: 'Active',
+			iaScope: 'NotInScope',
+			hasFinraData: true,
+			hasSecData: false,
 			x: 100,
 			y: 200,
 			vx: 0.1,
@@ -125,6 +129,16 @@ describe('graphStore recent seed ordering', () => {
 			fy: null,
 			index: 5,
 			_detailLoaded: true,
+			basicInformation: {
+				firstName: 'John',
+				lastName: 'Doe',
+				bcScope: 'Active',
+				extraNoise: 'drop-me',
+			},
+			currentEmployments: [{ firmId: '1', firmName: 'Huge Firm Payload' }],
+			currentIAEmployments: [{ firmId: '2' }],
+			previousEmployments: [{ firmId: '3' }],
+			previousIAEmployments: [{ firmId: '4' }],
 			disclosures: [{ text: 'allegation' }],
 			iaDisclosures: [{ text: 'ia allegation' }],
 			brokerDetails: { exams: [] },
@@ -134,6 +148,7 @@ describe('graphStore recent seed ordering', () => {
 			registeredSROs: [{ name: 'FINRA' }],
 			directOwners: [{ crd: '999' }],
 			indirectOwners: [],
+			registrationCount: { approvedFinraRegistrationCount: 1 },
 		};
 
 		const compact = toCompactNode(heavyNode);
@@ -143,9 +158,23 @@ describe('graphStore recent seed ordering', () => {
 			label: 'John Doe',
 			group: 'individual',
 			crd: '123',
+			bcScope: 'Active',
+			iaScope: 'NotInScope',
+			hasFinraData: true,
+			hasSecData: false,
+			registrationCount: { approvedFinraRegistrationCount: 1 },
+			basicInformation: {
+				firstName: 'John',
+				lastName: 'Doe',
+				bcScope: 'Active',
+			},
 		});
 		expect(compact.x).toBeUndefined();
 		expect(compact.disclosures).toBeUndefined();
 		expect(compact.directOwners).toBeUndefined();
+		expect(compact.currentEmployments).toBeUndefined();
+		expect(compact.previousEmployments).toBeUndefined();
+		expect(compact.currentIAEmployments).toBeUndefined();
+		expect(compact.previousIAEmployments).toBeUndefined();
 	});
 });

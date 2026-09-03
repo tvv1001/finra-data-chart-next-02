@@ -74,3 +74,8 @@ export function canWriteToRedis(): boolean {
 	if (isRedisCacheOnly()) return false;
 	return String(process.env.UPSTASH_ALLOW_WRITES || '0') === '1';
 }
+
+/** True when Redis reads should be attempted (false in cache-only / R+W disabled mode). */
+export function canReadFromRedis(): boolean {
+	return !isRedisCacheOnly();
+}

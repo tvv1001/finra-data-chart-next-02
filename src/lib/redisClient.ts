@@ -191,11 +191,9 @@ export function getRedisClientInstance(config: { url: string; token: string }) {
 			else db2Maxxed = true;
 			console.warn(`[Redis LB] DB${dbIndex} marked offline (${authDead ? 'auth' : 'quota'})!`);
 			// Only flip global cache-only when BOTH DBs are unusable — a single bad
-			// credential must not disable the healthy mirror.
+			// credential / quota must not disable the healthy mirror.
 			if (db1Maxxed && db2Maxxed) {
 				markRedisUnusable(authDead ? 'both Upstash DBs auth-failed' : 'both Upstash DBs maxxed');
-			} else if (quotaDead) {
-				noteRedisError(err, `DB${dbIndex}`);
 			}
 		};
 

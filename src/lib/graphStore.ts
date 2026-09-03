@@ -9,6 +9,7 @@ import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { getRedisClientInstance } from '@/lib/redisClient';
+import { canWriteToRedis, isRedisCacheOnly } from '@/lib/redisAvailability';
 import { setStringIfValid, decompressPayload } from '@/lib/redisCache';
 import { gzipOffload, gunzipOffload } from './gzipWorker';
 import { GRAPH_FILE, RECENT_SEEDS_FILE, SEED_BANK_FILE, SEED_PROFILES_FILE, SEEDS_FILE } from './graphDataPaths';
@@ -51,6 +52,8 @@ export type SeedLookupKind = 'individual' | 'firm';
 
 let _redis: Redis | null = null;
 function getRedis(): Redis | null {
+	// Cache-only: skip Redis entirely and serve mem/disk/sidecars.
+	if (isRedisCacheOnly()) return null;
 	if (_redis !== null) return _redis;
 	// prefer MIRROR env var but fall back to legacy _2 names
 	const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
@@ -63,6 +66,11 @@ export let _graphCache: any = null;
 let _graphCacheAt = 0;
 let _graphAdjacency: Map<string, Set<string>> | null = null;
 const GRAPH_CACHE_TTL_MS = 1 * 60 * 1000; // 1 min (reduced from 5 min)
+const GRAPH_CACHE_TTL_CACHE_ONLY_MS = 15 * 60 * 1000; // keep warm longer when Redis R/W are off
+
+function graphCacheTtlMs() {
+	return isRedisCacheOnly() ? GRAPH_CACHE_TTL_CACHE_ONLY_MS : GRAPH_CACHE_TTL_MS;
+}
 let _graphBootstrapPromise: Promise<boolean> | null = null;
 const execFileAsync = promisify(execFile);
 
@@ -709,8 +717,9 @@ export async function getFullGraph() {
 		}
 	}
 
-	if (_graphCache && now - _graphCacheAt < GRAPH_CACHE_TTL_MS) return _graphCache;
-	if (_graphCache && now - _graphCacheAt >= GRAPH_CACHE_TTL_MS) _graphCache = null;
+	const cacheTtl = graphCacheTtlMs();
+	if (_graphCache && now - _graphCacheAt < cacheTtl) return _graphCache;
+	if (_graphCache && now - _graphCacheAt >= cacheTtl) _graphCache = null;
 
 	if (redis) {
 		try {
@@ -810,28 +819,36 @@ export async function getFullGraph() {
 }
 
 export async function saveGraph(data: any) {
+	try {
+		normalizeGraphLabelsInPlace(data);
+	} catch (e) {}
+
+	const compact = {
+		nodes: Array.isArray(data.nodes) ? data.nodes.map((n: any) => toCompactNode(n)) : [],
+		links:
+			Array.isArray(data.links) ?
+				data.links.map((l: any) => ({
+					source: typeof l.source === 'object' ? (l.source.id ?? l.source) : l.source,
+					target: typeof l.target === 'object' ? (l.target.id ?? l.target) : l.target,
+					relationship: l.relationship,
+					firmId: l.firmId || l.firm_id || null,
+					startDate: l.startDate || l.start || null,
+					endDate: l.endDate || l.end || null,
+				}))
+			:	[],
+		meta: data.meta || {},
+	};
+
+	// Always keep process memory warm so cache-only / write-disabled modes can keep serving.
+	_graphCache = compact;
+	_graphCacheAt = Date.now();
+	_graphAdjacency = null;
+
 	const redis = getRedis();
-	if (redis) {
-		try {
-			normalizeGraphLabelsInPlace(data);
-		} catch (e) {}
+	const allowRedisWrite = Boolean(redis) && canWriteToRedis() && !isRedisCacheOnly();
+	if (allowRedisWrite && redis) {
 		// Before storing in Redis, strip simulation state, heavy nested details, and compress payload
 		try {
-			const compact = {
-				nodes: Array.isArray(data.nodes) ? data.nodes.map((n: any) => toCompactNode(n)) : [],
-				links:
-					Array.isArray(data.links) ?
-						data.links.map((l: any) => ({
-							source: typeof l.source === 'object' ? (l.source.id ?? l.source) : l.source,
-							target: typeof l.target === 'object' ? (l.target.id ?? l.target) : l.target,
-							relationship: l.relationship,
-							firmId: l.firmId || l.firm_id || null,
-							startDate: l.startDate || l.start || null,
-							endDate: l.endDate || l.end || null,
-						}))
-					:	[],
-				meta: data.meta || {},
-			};
 			const json = JSON.stringify(compact);
 			// Offload gzip to background worker to avoid blocking the event loop.
 			// Store the gzip+base64 payload directly (not through setStringIfValid/compressPayload)
@@ -843,14 +860,20 @@ export async function saveGraph(data: any) {
 		} catch (e) {
 			// On any failure, fall back to storing plain JSON (may still be brotli-wrapped by setStringIfValid;
 			// decodeRedisGraphRaw handles both shapes).
-			await setStringIfValid(REDIS_GRAPH_KEY, JSON.stringify(data));
-			await redis.set(REDIS_GRAPH_UPDATED_AT_KEY, Date.now());
+			await setStringIfValid(REDIS_GRAPH_KEY, JSON.stringify(compact));
+			try {
+				await redis.set(REDIS_GRAPH_UPDATED_AT_KEY, Date.now());
+			} catch {}
 		}
 	} else {
-		await writeJsonFileAtomic(GRAPH_FILE, data);
+		// Disk is the durable fallback when Redis R/W are off (local/dev and cache-only drills).
+		try {
+			await writeJsonFileAtomic(GRAPH_FILE, compact);
+		} catch (error) {
+			console.warn('saveGraph: disk write failed while Redis writes are disabled', error);
+		}
 	}
-	await syncSeedBankFromGraph(data);
-	invalidateGraphCache();
+	await syncSeedBankFromGraph(compact);
 }
 
 export async function clearGraphStore({ clearRecentSeeds = true }: { clearRecentSeeds?: boolean } = {}) {
@@ -890,6 +913,49 @@ export async function graphFileExists() {
 }
 
 const D3_SIM_KEYS = ['x', 'y', 'vx', 'vy', 'fx', 'fy', 'index', '_detailLoaded'];
+
+/** Graph wire/layout fields only — employment histories belong on detail/expand APIs. */
+const GRAPH_NODE_KEEP_KEYS = new Set([
+	'id',
+	'label',
+	'group',
+	'crd',
+	'bcScope',
+	'iaScope',
+	'firmStatus',
+	'hasFinraData',
+	'hasSecData',
+	'disclosureFlag',
+	'iaDisclosureFlag',
+	'otherNames',
+	'registrationCount',
+	'firmCount',
+	'firmName',
+	'activeStates',
+	'primaryOffice',
+	'orphan',
+	'orphanParentCrd',
+	'orphanFirmName',
+	'orphanPosition',
+	'orphanParentType',
+	'parentCrd',
+	'parentType',
+	'parentName',
+]);
+
+const BASIC_INFO_KEEP_KEYS = new Set([
+	'firmName',
+	'firmId',
+	'individualId',
+	'firstName',
+	'middleName',
+	'lastName',
+	'bcScope',
+	'iaScope',
+	'firmStatus',
+	'otherNames',
+]);
+
 export function stripSimState(obj: Record<string, any>) {
 	const out: Record<string, any> = {};
 	for (const [k, v] of Object.entries(obj)) if (!D3_SIM_KEYS.includes(k)) out[k] = v;
@@ -899,23 +965,18 @@ export function stripSimState(obj: Record<string, any>) {
 export function toCompactNode(node: any): any {
 	if (!node || typeof node !== 'object') return node;
 	const out: Record<string, any> = {};
-	for (const [k, v] of Object.entries(node)) {
-		if (D3_SIM_KEYS.includes(k)) continue;
-		// Skip heavy nested structures that belong only in sidebar detail APIs
-		if (
-			k === 'disclosures' ||
-			k === 'iaDisclosures' ||
-			k === 'brokerDetails' ||
-			k === 'stateExamCategory' ||
-			k === 'principalExamCategory' ||
-			k === 'productExamCategory' ||
-			k === 'registeredSROs' ||
-			k === 'directOwners' ||
-			k === 'indirectOwners'
-		) {
-			continue;
+	for (const key of GRAPH_NODE_KEEP_KEYS) {
+		if (node[key] === undefined) continue;
+		out[key] = node[key];
+	}
+	// Keep a tiny identity/status slice of basicInformation when present.
+	const basic = node.basicInformation;
+	if (basic && typeof basic === 'object' && !Array.isArray(basic)) {
+		const slimBasic: Record<string, any> = {};
+		for (const key of BASIC_INFO_KEEP_KEYS) {
+			if (basic[key] !== undefined) slimBasic[key] = basic[key];
 		}
-		out[k] = v;
+		if (Object.keys(slimBasic).length) out.basicInformation = slimBasic;
 	}
 	return out;
 }

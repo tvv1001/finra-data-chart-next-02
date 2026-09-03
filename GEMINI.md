@@ -97,5 +97,13 @@ Node-click reveal/spread may move the clicked node and newly revealed neighbors 
 - **Don’t** deploy to Vercel from an agent session. Don’t treat a prod URL as a deploy request.
 - **Don’t** invent alternate ingestion paths; dashboard + approved cron/scripts own CRD intake.
 - **Don’t** put search indexes in Redis. Graph and dashboard search/name hydration use gzip sidecars only.
+- **Don’t** write query-search hits (`?query=`) into `finra:*` / `sec:*` detail keys. Query search only collects CRDs.
+- **Don’t** store a by-id `/search/{firm\|individual}/<CRD>` response under that host’s Redis prefix just because `hits.total > 0`. Gate with `hasFirmSourceCoverage` / `hasIndividualSourceCoverage` (`src/lib/sourceTruth.ts`). IA-only firm shells (e.g. CRD `155640`) belong on `sec:firm:*` only — not `finra:firm:*`. See `.github/instructions/finra-sec-api-patterns.instructions.md`.
+- **Do** keep the app runnable in Redis **cache-only** when Redis reads/writes are disabled (`REDIS_CACHE_ONLY=1` or both Upstash DBs unusable): serve process mem, disk graph, `data/firm-connections/`, primed/search sidecars. `/api/finra/graph` returns compact layout nodes (no employment histories); detail stays on firm/individual routes.
+- **Do** verify detail with both hosts using:
+  - `https://api.brokercheck.finra.org/search/firm/<CRD>?hl=true&wt=json`
+  - `https://api.adviserinfo.sec.gov/search/firm/<CRD>?hl=true&wt=json`
+  - `https://api.brokercheck.finra.org/search/individual/<CRD>?hl=true&includePrevious=true&wt=json`
+  - `https://api.adviserinfo.sec.gov/search/individual/<CRD>?hl=true&includePrevious=true&wt=json`
 - **Do** treat Redis `firm-connections:firm:{id}` as the preferred dashboard/graph people roster. Firm detail stays small; `/connections` reads that key (with disk fallback when Redis is down).
 - **Do** hard-cache fetched firm rosters in the client visit cache (memory + IndexedDB via `visitConnectionsKey`) for instant revisits; hydrate thin display fields from gzip search sidecars (`hydrateFirmConnectionsFromSearchSidecar`), not Redis detail GETs, on the light path.
