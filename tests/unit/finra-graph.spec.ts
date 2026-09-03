@@ -422,6 +422,40 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(html).toContain('8/30/2013');
 	});
 
+	it('renderFirmDetail shows parent FINRA profile link for scraped/orphan firms', () => {
+		const html = renderFirmDetail({
+			id: 'firm:291387',
+			firmId: '291387',
+			label: 'OPENDEAL BROKER LLC',
+			group: 'firm',
+			stub: true,
+			hasFinraData: false,
+			hasSecData: false,
+			orphan: {
+				firmId: '291387',
+				firmName: 'OPENDEAL BROKER LLC',
+				name: 'Carlson Davis Mummert',
+				parentCrd: '8105966',
+				parentType: 'individual',
+				firmStatus: 'Legacy / non-live',
+				officeAddress: {
+					street1: '149 5TH AVENUE',
+					city: 'NEW YORK',
+					state: 'NY',
+					postalCode: '10010',
+				},
+			},
+		} as any);
+
+		expect(html).toContain('Opendeal Broker LLC');
+		expect(html).toContain('Scraped firm reference');
+		expect(html).toContain('FINRA profile');
+		expect(html).toContain('https://brokercheck.finra.org/individual/summary/8105966');
+		expect(html).toContain("data-crd='8105966'");
+		expect(html).toContain('Carlson Davis Mummert');
+		expect(html).not.toContain('brokercheck.finra.org/firm/summary/291387');
+	});
+
 	it('uses SEC registration status to mark terminated firms inactive and show a SEC terminated badge', () => {
 		const node = {
 			group: 'firm',

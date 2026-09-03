@@ -15,6 +15,11 @@ import { addRecordToSearchIndex, lookupNameFromSearchIndex } from '@/lib/localSe
 import { getRecordDisplayName } from '@/lib/recordDisplay';
 import { hasFirmSourceCoverage, hasIndividualSourceCoverage } from '@/lib/sourceTruth';
 import { writePerformanceMetric } from '@/lib/performanceLogger';
+import {
+	getCrdInventoryCounts,
+	hasCrdInventorySidecar,
+	rememberInventoryEntities,
+} from '@/lib/crdInventorySidecar';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -271,18 +276,17 @@ type InventoryTotals = {
 export function buildInventoryTotalsFromCards(cards: Array<Pick<CacheCard, 'id' | 'entity'> & Partial<CacheCard>>, source: InventoryTotals['source'] = 'redis'): InventoryTotals {
 	const people = new Set<string>();
 	const firms = new Set<string>();
-	const allUnique = new Set<string>();
 
 	for (const card of cards) {
 		if (card.entity === 'individual') people.add(card.id);
 		else firms.add(card.id);
-		allUnique.add(card.id);
 	}
 
+	// FINRA+SEC for the same firm/ind CRD are one entity; firm vs individual stay separate.
 	return {
 		people: people.size,
 		firms: firms.size,
-		unique: allUnique.size,
+		unique: people.size + firms.size,
 		source,
 	};
 }
@@ -290,20 +294,19 @@ export function buildInventoryTotalsFromCards(cards: Array<Pick<CacheCard, 'id' 
 export function collectInventoryTotalsFromCacheKeys(keys: string[], source: InventoryTotals['source'] = 'redis'): InventoryTotals {
 	const people = new Set<string>();
 	const firms = new Set<string>();
-	const allUnique = new Set<string>();
 
 	for (const key of keys) {
 		const parsed = parseCacheKey(key);
 		if (!parsed) continue;
+		// Dual-source keys (finra:* + sec:*) collapse to one id per entity type.
 		if (parsed.entity === 'individual') people.add(parsed.id);
 		else firms.add(parsed.id);
-		allUnique.add(parsed.id);
 	}
 
 	return {
 		people: people.size,
 		firms: firms.size,
-		unique: allUnique.size,
+		unique: people.size + firms.size,
 		source,
 	};
 }
@@ -360,6 +363,22 @@ export function resolveDashboardInventoryTotals(
 
 export function chooseDisplayInventoryTotals(redisTotals: InventoryTotals, primedTotals: InventoryTotals | null): InventoryTotals {
 	return resolveDashboardInventoryTotals(redisTotals, primedTotals, null);
+}
+
+/** Prefer the local gzip inventory census over drifted Redis counters / truncated crd-log. */
+export function applySidecarInventoryPreference(
+	totals: InventoryTotals,
+	sidecar: { people: number; firms: number; unique: number } | null | undefined,
+): InventoryTotals {
+	const unique = Number(sidecar?.unique || 0);
+	if (!Number.isFinite(unique) || unique <= 0) return totals;
+	return {
+		...totals,
+		people: Number(sidecar?.people || 0),
+		firms: Number(sidecar?.firms || 0),
+		unique,
+		cachedCrdCount: String(unique),
+	};
 }
 
 function hasAnyItems(list: unknown) {
@@ -1423,17 +1442,35 @@ function ensureRedisClient() {
 const DASHBOARD_INVENTORY_COUNTER_KEY = 'dashboard:cached-crd-count';
 
 async function getInventoryCounterFromRedis() {
+	// Gzip inventory sidecar is the cheap source of truth for dashboard totals.
+	const sidecarUnique = hasCrdInventorySidecar() ? getCrdInventoryCounts().unique : 0;
+	if (sidecarUnique > 0) return sidecarUnique;
+
 	const redis = ensureRedisClient();
-	if (!redis) return countInventoryTotalsFromCrdLog().unique;
+	if (!redis) return 0;
 	const value = await redis.get(DASHBOARD_INVENTORY_COUNTER_KEY).catch(() => null);
 	let numericValue = Number(value ?? 0);
 	if (!Number.isFinite(numericValue) || numericValue === 0) {
-		numericValue = countInventoryTotalsFromCrdLog().unique;
-		if (numericValue > 0) {
-			await redis.set(DASHBOARD_INVENTORY_COUNTER_KEY, numericValue).catch(() => null);
-		}
+		return 0;
 	}
 	return numericValue;
+}
+
+function readSidecarInventoryTotals(): InventoryTotals | null {
+	if (!hasCrdInventorySidecar()) return null;
+	const counts = getCrdInventoryCounts();
+	if (!counts.unique) return null;
+	return {
+		people: counts.people,
+		firms: counts.firms,
+		unique: counts.unique,
+		source: 'local-raw',
+		cachedCrdCount: String(counts.unique),
+	};
+}
+
+function withSidecarInventoryTotals(totals: InventoryTotals): InventoryTotals {
+	return applySidecarInventoryPreference(totals, readSidecarInventoryTotals());
 }
 
 async function incrementInventoryCounterInRedis(amount = 1) {
@@ -1990,7 +2027,7 @@ async function listLocalNewestCards(maxCards = 10, crdFilter = '') {
 		totalCards: allCards.length,
 		totalCacheKeys: allCards.reduce((sum, card) => sum + card.files, 0),
 		filteredTotalCards: filteredCards.length,
-		inventoryTotals: countInventoryTotalsFromCrdLog(),
+		inventoryTotals: withSidecarInventoryTotals(countInventoryTotalsFromCrdLog()),
 		sourceMode: 'local-fallback' as const,
 		persistenceNotice: 'Durable Redis cache is unavailable in this environment. Showing local fallback files only; newly fetched cards may not persist between instances.',
 	};
@@ -2076,7 +2113,11 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 
 	const now = Date.now();
 	if (!crdFilter && dashboardCardListCache && dashboardCardListCache.expiresAt > now) {
-		return dashboardCardListCache.payload;
+		const cachedPayload = dashboardCardListCache.payload;
+		if (cachedPayload?.inventoryTotals) {
+			cachedPayload.inventoryTotals = withSidecarInventoryTotals(cachedPayload.inventoryTotals);
+		}
+		return cachedPayload;
 	}
 
 	const filterTokens = parseFilterTokens(crdFilter);
@@ -2086,31 +2127,37 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 	const inventoryTotals = collectInventoryTotalsFromCacheKeys(nativeKeys, 'redis');
 	const cachedDedupedTotals = await readPrimedBundleTotals(redis).catch(() => null);
 	const rawFallbackTotals = countInventoryTotalsFromCrdLog();
-	const effectiveInventoryTotals = resolveDashboardInventoryTotals(
-		inventoryTotals,
-		cachedDedupedTotals ?
-			{
-				people: cachedDedupedTotals.people,
-				firms: cachedDedupedTotals.firms,
-				unique: cachedDedupedTotals.unique,
-				source: 'primed-bundle' as const,
-			}
-		:	null,
-		rawFallbackTotals,
+	const effectiveInventoryTotals = withSidecarInventoryTotals(
+		resolveDashboardInventoryTotals(
+			inventoryTotals,
+			cachedDedupedTotals ?
+				{
+					people: cachedDedupedTotals.people,
+					firms: cachedDedupedTotals.firms,
+					unique: cachedDedupedTotals.unique,
+					source: 'primed-bundle' as const,
+				}
+			:	null,
+			rawFallbackTotals,
+		),
 	);
 
 	try {
-		const cachedCrdCountRaw = await redis.get('dashboard:cached-crd-count');
-		const cachedCrdCount = Number(cachedCrdCountRaw);
+		if (effectiveInventoryTotals.cachedCrdCount == null) {
+			const cachedCrdCountRaw = await redis.get('dashboard:cached-crd-count');
+			const cachedCrdCount = Number(cachedCrdCountRaw);
 
-		if (cachedCrdCountRaw != null && !isNaN(cachedCrdCount)) {
-			effectiveInventoryTotals.unique = cachedCrdCount;
-			effectiveInventoryTotals.cachedCrdCount = String(cachedCrdCount);
-		} else {
-			effectiveInventoryTotals.cachedCrdCount = 'Not Found';
+			if (cachedCrdCountRaw != null && !isNaN(cachedCrdCount)) {
+				effectiveInventoryTotals.unique = cachedCrdCount;
+				effectiveInventoryTotals.cachedCrdCount = String(cachedCrdCount);
+			} else {
+				effectiveInventoryTotals.cachedCrdCount = 'Not Found';
+			}
 		}
 	} catch (e) {
-		effectiveInventoryTotals.cachedCrdCount = 'Error';
+		if (effectiveInventoryTotals.cachedCrdCount == null) {
+			effectiveInventoryTotals.cachedCrdCount = 'Error';
+		}
 	}
 
 	const fallbackManifestTotals = null;
@@ -2607,10 +2654,25 @@ async function fetchCrdsToCacheAndRedis(initialTargets: FetchTarget[], options: 
 		`[External API Access Sync Complete] Time: ${new Date().toISOString()} | Domain: ${targetDomain} | Graph CRD Nodes added count: ${mainAppSync.nodesAdded} | CRD list: [${successfulCrds.join(', ')}]`,
 	);
 
-	const newRecordsSavedCount = allResults.filter((r) => r.newRecordSaved).length;
-	if (newRecordsSavedCount > 0) {
-		await incrementInventoryCounterInRedis(newRecordsSavedCount).catch((err) => {
+	// Count unique firm|individual CRDs newly saved — never +1 per FINRA/SEC source key.
+	const newEntityKeys = new Set(
+		allResults
+			.filter((r) => r.newRecordSaved)
+			.map((r) => String(r.cardKey || `${r.type}:${r.crd}`)),
+	);
+	if (newEntityKeys.size > 0) {
+		await incrementInventoryCounterInRedis(newEntityKeys.size).catch((err) => {
 			console.warn('[fetch-crds] Failed to increment inventory counter:', err);
+		});
+		const inventoryEntries = [...newEntityKeys]
+			.map((cardKey) => {
+				const [kind, id] = String(cardKey).split(':');
+				if (kind !== 'firm' && kind !== 'individual') return null;
+				return { kind: kind as 'firm' | 'individual', id };
+			})
+			.filter(Boolean) as Array<{ kind: 'firm' | 'individual'; id: string }>;
+		void rememberInventoryEntities(inventoryEntries).catch((err) => {
+			console.warn('[fetch-crds] Failed to update inventory sidecar:', err);
 		});
 	}
 

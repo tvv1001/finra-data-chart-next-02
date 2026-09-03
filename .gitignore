@@ -68,6 +68,8 @@ notes.md
 data/orphan_validation_report.json
 
 data/**
+!data/crd-log.json
+!data/crd-inventory.json.gz
 patch_**
 
 /.local/

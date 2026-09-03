@@ -15,9 +15,9 @@
 			"**/dist": true,
 		},
 		"workbench.colorCustomizations": {
-			"activityBar.background": "#1E1E1E",
-			"titleBar.activeBackground": "#3C3C3C",
-			"titleBar.activeForeground": "#FFFFFF",
+			"titleBar.activeBackground": "#043769",
+			"titleBar.inactiveBackground": "#022241",
+			// "titleBar.activeForeground": "#FFFFFF",
 		},
 	},
 	"extensions": {

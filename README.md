@@ -316,14 +316,18 @@ If Redis is **not** configured, the app falls back to:
 
 ## Data sources
 
-The application uses detail-first upstream endpoints for canonical person and firm records:
+Canonical person and firm **detail** comes from by-id endpoints (not query search):
 
-| Source                                                          | Purpose                 |
-| --------------------------------------------------------------- | ----------------------- |
-| `https://api.brokercheck.finra.org/search/individual/<CRD>?...` | FINRA individual detail |
-| `https://api.brokercheck.finra.org/search/firm/<CRD>?...`       | FINRA firm detail       |
-| `https://api.adviserinfo.sec.gov/search/individual/<CRD>?...`   | SEC individual detail   |
-| `https://api.adviserinfo.sec.gov/search/firm/<CRD>?wt=json`     | SEC firm detail         |
+| Source | Purpose |
+| --- | --- |
+| `https://api.brokercheck.finra.org/search/firm/<CRD>?hl=true&wt=json` | FINRA firm detail |
+| `https://api.adviserinfo.sec.gov/search/firm/<CRD>?hl=true&wt=json` | SEC firm detail |
+| `https://api.brokercheck.finra.org/search/individual/<CRD>?hl=true&includePrevious=true&wt=json` | FINRA individual detail |
+| `https://api.adviserinfo.sec.gov/search/individual/<CRD>?hl=true&includePrevious=true&wt=json` | SEC individual detail |
+
+**Query search** (`/search/{firm\|individual}?query=...`) is only for discovering CRDs. Do not store query hits as Redis detail.
+
+**Coverage gate:** a host can return `hits.total > 0` for a CRD that is still out-of-scope on that source (for example an IA-only firm shell on BrokerCheck). Only write `finra:*` / `sec:*` keys when `hasFirmSourceCoverage` / `hasIndividualSourceCoverage` in `src/lib/sourceTruth.ts` says that host actually covers the record. Details: `.github/instructions/finra-sec-api-patterns.instructions.md`.
 
 The app also proxies FINRA / SEC search-style endpoints for user-driven lookup flows.
 

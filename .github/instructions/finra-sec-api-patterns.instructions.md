@@ -4,11 +4,15 @@ description: "Use when editing FINRA BrokerCheck or SEC AdviserInfo API routes, 
 applyTo:
   - 'src/app/api/finra/**'
   - 'scripts/**'
+  - '.local/scripts/**'
   - 'src/lib/finra-graph.ts'
   - 'src/lib/finra-graph/**/*.ts'
+  - 'src/lib/sourceTruth.ts'
+  - 'src/lib/hydration.ts'
   - '.github/copilot-instructions.md'
   - '.github/SKILL.md'
   - 'README.md'
+  - 'GEMINI.md'
 ---
 
 When working from `data/raw/` or the external imported raw set:
@@ -29,30 +33,59 @@ Graph node display names are hydrated from the gzip search-index sidecars (`data
 
 This instruction supplements `.github/copilot-instructions.md` for work that touches upstream FINRA BrokerCheck and SEC AdviserInfo integrations.
 
-## Prefer app-validated endpoint shapes
+## Critical mistake to avoid (false / cross-source data)
 
-Use the patterns already validated by this application and its live upstream tests.
+**Do not treat “API returned `hits.total > 0`” as proof that a CRD belongs on that host.**
 
-### Detail fetches by CRD/source ID
+Both BrokerCheck and AdviserInfo expose by-id URLs under `/search/.../<CRD>`. A host can still return a thin or mirrored shell that is **not** real coverage for that source. Storing those shells under the wrong Redis prefix floods local Redis with false nodes (example: IA-only firm `155640` OBEL FINANCIAL ADVISORS stored as `finra:firm:155640` even though it has no BrokerCheck BD coverage — keep `sec:firm:155640` only).
 
-search will use all endpoints below and gather all of the total items:
+### Two-step pipeline (required)
 
-- To search only:
-  - `https://api.brokercheck.finra.org/search/firm?query=<QUERY>`
-  - `https://api.brokercheck.finra.org/search/individual?query=<QUERY>`
-  - `https://api.adviserinfo.sec.gov/search/firm?query=<QUERY>`
-  - `https://api.adviserinfo.sec.gov/search/individual?query=<QUERY>`
+1. **Collect CRDs only** with query search (list / discovery). Never write query-hit rows into `finra:*` / `sec:*` detail keys.
+2. **Verify + store detail** with the by-id URLs below, then **gate on source coverage** before writing Redis.
 
-- Individual detail:
-  - `https://api.brokercheck.finra.org/search/individual/<CRD>?includePrevious=true`
-  - `https://api.adviserinfo.sec.gov/search/individual/<CRD>?includePrevious=true`
-  - Broker-only SEC individual shells (`iaScope: "NotInScope"` with no IA employment history) are not actionable adviser detail records and should not be saved as SEC examples.
+### Query search (CRD collection only)
 
-- Firm detail:
-  - `https://api.brokercheck.finra.org/search/firm/<CRD>`
-  - `https://api.adviserinfo.sec.gov/search/firm/<CRD>?wt=json`
+- `https://api.brokercheck.finra.org/search/firm?query=<QUERY>`
+- `https://api.brokercheck.finra.org/search/individual?query=<QUERY>`
+- `https://api.adviserinfo.sec.gov/search/firm?query=<QUERY>`
+- `https://api.adviserinfo.sec.gov/search/individual?query=<QUERY>`
 
-For this app, live testing confirmed that the SEC direct firm detail form `search/firm/<CRD>?wt=json` returns structured detail content and should be preferred over a query-by-ID URL when the task is detail hydration.
+Query hits are flat list fields (`firm_source_id` / `firm_name`, `ind_*`, etc.). Use them only to build a CRD set. Do not cache the query response as firm/individual detail.
+
+### Detail fetches by CRD (canonical)
+
+Use these exact patterns (placeholders, not baked-in IDs):
+
+- Firm:
+  - `https://api.adviserinfo.sec.gov/search/firm/<CRD>?hl=true&wt=json`
+  - `https://api.brokercheck.finra.org/search/firm/<CRD>?hl=true&wt=json`
+- Individual:
+  - `https://api.adviserinfo.sec.gov/search/individual/<CRD>?hl=true&includePrevious=true&wt=json`
+  - `https://api.brokercheck.finra.org/search/individual/<CRD>?hl=true&includePrevious=true&wt=json`
+
+FINRA detail payloads typically embed JSON in `_source.content`. SEC detail payloads typically embed in `_source.iacontent` (object or string). Empty `hits`, orphans, parse failures, and query-flat `_source` shapes are junk — do not store them.
+
+### Source coverage gate (before Redis write)
+
+After a by-id fetch, decide the Redis key from **coverage**, not from which URL you called:
+
+| Redis key | Keep only when |
+| --- | --- |
+| `finra:firm:<CRD>` | Firm has BrokerCheck / BD coverage (`bcScope` in-scope, or legacy/BD signals such as `firmStatus`, registrations, `bdSECNumber`, etc.) |
+| `sec:firm:<CRD>` | Firm has AdviserInfo / IA coverage (`iaScope` in-scope or SEC IA signals such as notice filings / brochures / IA SEC number) |
+| `finra:individual:<CRD>` | Individual has FINRA coverage (`bcScope` not `NotInScope`, or FINRA registrations / BC employments / exams) |
+| `sec:individual:<CRD>` | Individual has SEC coverage (`iaScope` not `NotInScope`, or IA employments / IA disclosures / IA state regs) |
+
+Implementation source of truth: `hasFirmSourceCoverage` / `hasIndividualSourceCoverage` in `src/lib/sourceTruth.ts` (and related empty-shell helpers in `src/lib/dashboard-detail.ts`).
+
+Hard rules:
+
+- IA-only firm shells (`isIAFirm: "Y"`, active `iaScope`, **no** `bcScope` / BD fields) → **SEC only**, never `finra:firm:*`.
+- Broker-only individuals (`iaScope: "NotInScope"` with no IA history) → **FINRA only**, never `sec:individual:*`.
+- IA-only individuals (`bcScope: "NotInScope"` with IA activity) → **SEC only**, never `finra:individual:*`.
+- Check **both** hosts for every CRD; a CRD may exist on FINRA, SEC, both, or neither.
+- Compare stored content to the live by-id response (name + CRD id + scope) when auditing; delete mismatched or no-coverage keys rather than “fixing” them as present.
 
 ## Use placeholders, not baked-in examples
 

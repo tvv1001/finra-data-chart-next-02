@@ -52,7 +52,7 @@ export function buildParentFirmSummaryLinks(node: any, employmentEntries: any[] 
 		},
 		...(secFirmId ? [{
 			label: 'Parent firm SEC AdvisorInfo Summary',
-			href: `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(secFirmId)}`,
+			href: `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(firmId)}`,
 			firmId,
 			className: 'sec' as const,
 		}] : []),

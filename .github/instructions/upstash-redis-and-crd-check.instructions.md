@@ -58,6 +58,9 @@ These two databases can silently drift apart over time (e.g. a dual-write path f
      - Attempt to find the highest CRD numbers first (descending order). This reduces scan work for newly minted high-number CRDs and surfaces recent additions/updates faster.
      - When scanning ranges or batches, prefer fetching ranges like `MAX..MIN` (descending) or explicitly sort results by CRD number descending.
      - When deciding whether a CRD is new vs updated, compare the remote Upstash-cached record metadata (e.g., updated_at, version) and prioritize newer CRD numbers first for efficiency.
+   - Discovery vs detail are separate steps:
+     - Query search (`?query=`) only builds a CRD candidate list.
+     - Detail must be fetched with by-id URLs (`/search/firm/<CRD>?hl=true&wt=json` and `/search/individual/<CRD>?hl=true&includePrevious=true&wt=json` on both hosts) and stored under `finra:*` / `sec:*` only after source-coverage validation. See `.github/instructions/finra-sec-api-patterns.instructions.md` — do not reintroduce false cross-source shells (e.g. IA-only firms under `finra:firm:*`).
 
 3. Scan strategy guidance
    - For large spaces of numeric CRDs, implement an exponential/backoff probing approach: probe high-number checkpoints first (e.g., current_max, current_max - step, ...), then narrow range if necessary.

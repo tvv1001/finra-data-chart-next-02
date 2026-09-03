@@ -14,6 +14,7 @@ import { addRecordToSearchIndex } from '@/lib/localSearch';
 import { lookupOwnerReference, recordFirmReferencesForIndividual } from '@/lib/ownerReferenceIndex';
 import { extractIndividualEmployerLinksFromDetail, upsertIndividualIntoEmployerFirmConnections } from '@/lib/graphConnections';
 import { rememberCrdLogEntries } from '@/lib/crdLog';
+import { rememberInventoryEntities } from '@/lib/crdInventorySidecar';
 import { canWriteToRedis } from '@/lib/redisAvailability';
 
 function parseDetailPayload(data: any, contentKey = 'content') {
@@ -438,6 +439,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		detail.hasFinraData = !!finraDetail && !!finraNumeric && hasIndividualSourceCoverage(finraDetail, 'finra');
 		detail.hasSecData = !!secDetail && !!secNumeric && hasIndividualSourceCoverage(secDetail, 'sec');
+		if (detail.hasFinraData || detail.hasSecData) {
+			void rememberInventoryEntities([{ kind: 'individual', id: crd }]).catch((err: any) => {
+				logger.warn('failed to update inventory sidecar for individual', { crd, error: err?.message || String(err) });
+			});
+		}
 
 		// Queue background hydration of the external API to ensure cache stays hydrated
 		queueHydration('individual', crd);

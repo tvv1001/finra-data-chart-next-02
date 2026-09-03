@@ -5122,10 +5122,17 @@ function DashboardPageInner() {
 																	href={parentDashboardHref}
 																	className={`${styles.detailRow} ${styles.detailRowInteractive}`}>
 																	<div className={styles.detailRowMain}>
-																		<span className={styles.detailRowName}>{formatPersonName(orphanRecord.name)}</span>
-																		<span className={styles.detailInlineTag}>CRD#{parentCrd}</span>
+																		<div className={styles.employmentRowNameWrap}>
+																			<span className={styles.detailRowName}>{parentIsIndividual ? formatPersonName(orphanRecord.name) : formatFirmName(orphanRecord.name)}</span>
+																		</div>
+																		<span className={styles.currentConnectionStatusTag}>Source {parentIsIndividual ? 'Individual' : 'Firm'}</span>
 																	</div>
-																	<div className={styles.detailRowMeta}>{personPosition}</div>
+																	<div className={styles.detailRowMeta}>
+																		{[personPosition, `CRD#${parentCrd}`].filter(Boolean).join(' • ')}
+																	</div>
+																	<div className={styles.detailRowSourceTags}>
+																		<span className={styles.currentConnectionSourceTag}>Parent Record</span>
+																	</div>
 																</Link>
 															</div>
 														</section>

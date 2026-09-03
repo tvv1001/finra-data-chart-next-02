@@ -128,7 +128,7 @@ Notes on firm->individual connections
   - save the firm-level response to disk using the existing naming convention (e.g. `api.adviserinfo.sec.gov_search_firm_<CRD>.json`),
   - iterate the returned person CRDs and request each person's individual payload via the individual search endpoints, writing each person's cache file and pushing to Redis via the established `setStringIfValid` flow,
   - record or update `data/firm-connections/<FIRM_CRD>.json` (or the project's existing firm-connections store) to reflect all person CRDs discovered for that firm, and
-  - run the malformed-check script (`scripts/check_malformed_crds.js --redis`) to validate both disk and local Redis payloads after the import.
+  - run the malformed-check script (`.local/scripts/check_malformed_crds.js --redis`) to validate both disk and local Redis payloads after the import.
 
 - Some firm connections may have already been downloaded; do not assume completeness. Always verify each person CRD discovered in the firm listing is present on disk/Redis and re-fetch any missing or malformed person records.
 

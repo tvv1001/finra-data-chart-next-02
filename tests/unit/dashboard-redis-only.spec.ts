@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+	applySidecarInventoryPreference,
 	buildCacheCardsFromRedisKeys,
 	buildInventoryTotalsFromCards,
 	chooseDisplayInventoryTotals,
@@ -14,6 +15,7 @@ import {
 	parseQueries,
 	parseCrds,
 } from '../../src/app/api/dashboard/refresh/route';
+// collectInventoryTotalsFromCacheKeys already imported above
 
 describe('filterRecentCardsForDisplay', () => {
 	it('keeps only CRDs from the last 7 days when a recency window is requested', () => {
@@ -53,6 +55,48 @@ describe('sortLatestCardsForDisplay', () => {
 			entity: 'firm',
 			updatedAt: 1_000_000 + 5 * 60_000,
 		});
+	});
+});
+
+describe('collectInventoryTotalsFromCacheKeys', () => {
+	it('merges finra+sec for the same firm/ind CRD and keeps firm vs individual separate', () => {
+		const totals = collectInventoryTotalsFromCacheKeys(
+			[
+				'finra:individual:100',
+				'sec:individual:100',
+				'finra:firm:100',
+				'sec:firm:200',
+				'finra:firm:summaryHtml:999',
+			],
+			'redis',
+		);
+		expect(totals).toEqual({
+			people: 1,
+			firms: 2,
+			unique: 3,
+			source: 'redis',
+		});
+	});
+});
+
+describe('applySidecarInventoryPreference', () => {
+	it('overrides totals with gzip sidecar census when unique > 0', () => {
+		const redisTotals = { people: 1, firms: 1, unique: 2, source: 'redis' as const, cachedCrdCount: '2' };
+		expect(
+			applySidecarInventoryPreference(redisTotals, { people: 61138, firms: 14498, unique: 75636 }),
+		).toEqual({
+			people: 61138,
+			firms: 14498,
+			unique: 75636,
+			source: 'redis',
+			cachedCrdCount: '75636',
+		});
+	});
+
+	it('leaves totals unchanged when sidecar is missing or empty', () => {
+		const redisTotals = { people: 1, firms: 1, unique: 2, source: 'redis' as const };
+		expect(applySidecarInventoryPreference(redisTotals, null)).toEqual(redisTotals);
+		expect(applySidecarInventoryPreference(redisTotals, { people: 0, firms: 0, unique: 0 })).toEqual(redisTotals);
 	});
 });
 

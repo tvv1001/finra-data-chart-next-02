@@ -12,6 +12,7 @@ import {
   lookupFirmReference,
 } from "@/lib/ownerReferenceIndex";
 import { hasFirmSourceCoverage } from "@/lib/sourceTruth";
+import { rememberInventoryEntities } from "@/lib/crdInventorySidecar";
 
 // Allow ISR for firm API responses to reduce SSR load and repeated upstream
 // external fetches. Cache for 1 hour by default; individual callers can use
@@ -90,32 +91,46 @@ function parseDetailPayload(data: any, contentKey = "content") {
 }
 
 function buildSecDocumentLinks(opts: {
-  /** AdvisorInfo path id — prefer real SEC# when known, otherwise firm CRD. */
   summaryId: string;
-  /** File/report id — prefer normalized SEC# (8-####) when available. */
   reportId?: string | null;
+  isIaFirm?: boolean;
+  crsFileId?: string | null;
 }) {
   const summaryId = String(opts.summaryId || "").trim();
   if (!summaryId) return [];
   const reportId = String(opts.reportId || summaryId).trim();
-  return [
+  
+  const links = [
     {
       label: "SEC AdvisorInfo Summary",
       href: `https://adviserinfo.sec.gov/firm/summary/${summaryId}`,
-    },
-    {
+    }
+  ];
+
+  if (opts.isIaFirm) {
+    links.push({
       label: "Latest Form ADV filed",
       href: `https://reports.adviserinfo.sec.gov/reports/ADV/${reportId}/PDF/${reportId}.pdf`,
-    },
-    {
+    });
+    links.push({
       label: "SEC firm brochure",
       href: `https://adviserinfo.sec.gov/firm/brochure/${summaryId}`,
-    },
-    {
+    });
+  }
+
+  if (opts.crsFileId) {
+    links.push({
+      label: "SEC Form CRS",
+      href: `https://files.brokercheck.finra.org/crs_${opts.crsFileId}`,
+    });
+  } else if (opts.isIaFirm) {
+    links.push({
       label: "SEC Form CRS",
       href: `https://reports.adviserinfo.sec.gov/crs/crs_${reportId}.pdf`,
-    },
-  ];
+    });
+  }
+
+  return links;
 }
 
 function buildFinraDocumentLinks(id: string) {
@@ -894,7 +909,7 @@ export async function GET(
       "";
     const secFirmId = normalizeSecFirmId(secNumberRaw || id);
     // AdvisorInfo firm/summary and brochure routes resolve by CRD when no real SEC# exists.
-    const secSummaryId = String(secNumberRaw || id).trim();
+    const secSummaryId = String(id).trim();
     detail.hasFinraData = hasPublicFinraFirmDetail(
       bcDetail,
       bcDetail?.basicInformation || {},
@@ -913,6 +928,15 @@ export async function GET(
       !suppressSecLinks &&
       Boolean(secSummaryId) &&
       Boolean(secHasCoverage || detail?.hasSecData);
+
+    if (detail.hasFinraData || detail.hasSecData) {
+      void rememberInventoryEntities([{ kind: "firm", id }]).catch((err: any) => {
+        logger.warn("failed to update inventory sidecar for firm", {
+          id,
+          error: err?.message || String(err),
+        });
+      });
+    }
 
     if (
       !suppressSecLinks &&
@@ -935,6 +959,8 @@ export async function GET(
         detail.secDocumentLinks = buildSecDocumentLinks({
           summaryId: secSummaryId,
           reportId: secFirmId || secSummaryId,
+          isIaFirm: detail.iaDisclosureFlag === 'Y' || !!(detail.basicInformation?.iaSECNumber || detail.basicInformation?.iaSecNumber),
+          crsFileId: detail.basicInformation?.crs?.fileId || null
         });
       } else {
         detail.secDocumentLinks = [];

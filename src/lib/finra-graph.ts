@@ -16945,12 +16945,32 @@ function renderFirmDetail(d: any) {
 		const parentType = String(orphan.parentType || 'individual')
 			.trim()
 			.toLowerCase();
-		const parentUrl = parentCrd ? `https://brokercheck.finra.org/${parentType === 'firm' ? 'firm' : 'individual'}/summary/${encodeURIComponent(parentCrd)}` : null;
+		const parentIsIndividual = parentType !== 'firm';
+		// No live firm BrokerCheck page — open the parent entity's FINRA detail page instead.
+		const parentFinraUrl =
+			parentCrd ?
+				`https://brokercheck.finra.org/${parentIsIndividual ? 'individual' : 'firm'}/summary/${encodeURIComponent(parentCrd)}`
+			:	null;
+		const parentSecUrl = parentCrd && !parentIsIndividual ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(parentCrd)}` : null;
+		const formatOrphanAddress = (value: unknown) => {
+			if (!value) return '';
+			if (typeof value === 'string') return formatLocationText(value);
+			if (typeof value === 'object') {
+				const addr = value as Record<string, any>;
+				return formatLocationText(
+					[addr.street1 || addr.street, addr.street2, addr.city, addr.state, addr.postalCode || addr.zipCode || addr.zip, addr.country]
+						.filter(Boolean)
+						.join(', '),
+				);
+			}
+			return '';
+		};
 		function orphanRow(label: string, value: unknown) {
-			const text = String(value || '').trim();
+			const text = typeof value === 'object' && value !== null ? formatOrphanAddress(value) : String(value || '').trim();
 			if (!text) return '';
 			return `<div class='fg-detail-row'><span class='fg-detail-label'>${esc(label)}</span><span class='fg-detail-value'>${esc(text)}</span></div>`;
 		}
+		const parentLabel = d.parentName || orphan.name || (parentIsIndividual ? 'Source Individual' : 'Parent Firm');
 		return `
     <div class='fg-sb-header firm'>
       <div class='fg-sb-title'>${esc(String(d.label || orphan.firmName || ''))}</div>
@@ -16959,11 +16979,16 @@ function renderFirmDetail(d: any) {
       </div>
     </div>
     <div class='fg-sb-body fg-sb-body--firm'>
-      ${parentCrd ? `<div class='fg-detail-section' style='margin-bottom: 12px;'><h4 class='fg-detail-section-title' style='margin-bottom: 6px; font-size: 11px; text-transform: uppercase; color: var(--fg-text-muted);'>Scraped From</h4><button type='button' class='fg-tl-entry fg-card-clickable fg-crd-link active-pos' data-crd='${esc(parentCrd)}' data-crd-type='${esc(parentType)}' style='width: 100%; text-align: left;'><span class='fg-tl-firm'>${esc(d.parentName || orphan.name || (parentType === 'firm' ? 'Parent Firm' : 'Source Individual'))}</span><span class='fg-tl-crd'>CRD #${esc(parentCrd)}</span></button></div>` : ''}
+      <div class='fg-ext-links'>
+        ${parentFinraUrl ? `<a class='fg-ext-link bc' href='${parentFinraUrl}' target='_blank' rel='noopener noreferrer'>&#x2197; FINRA profile</a>` : ''}
+        ${parentSecUrl ? `<a class='fg-ext-link sec' href='${parentSecUrl}' target='_blank' rel='noopener noreferrer'>&#x2197; SEC profile</a>` : ''}
+      </div>
+      ${parentCrd ? `<div class='fg-detail-section' style='margin-bottom: 12px;'><h4 class='fg-detail-section-title' style='margin-bottom: 6px; font-size: 11px; text-transform: uppercase; color: var(--fg-text-muted);'>Scraped From</h4><button type='button' class='fg-tl-entry fg-card-clickable fg-crd-link active-pos' data-crd='${esc(parentCrd)}' data-crd-type='${esc(parentType)}' style='width: 100%; text-align: left;'><span class='fg-tl-firm'>${esc(parentLabel)}</span><span class='fg-tl-crd'>CRD #${esc(parentCrd)}</span></button></div>` : ''}
       ${orphanRow('Firm', orphan.firmName)}
       ${orphanRow('Office Address', orphan.officeAddress)}
       ${orphanRow('Mailing Address', orphan.mailingAddress)}
       ${orphanRow('Phone', orphan.phone)}
+      <p class='fg-sb-note'>No independent live firm detail page. The FINRA profile link opens the parent ${parentIsIndividual ? 'individual' : 'firm'} BrokerCheck page that referenced this firm.</p>
     </div>`;
 	}
 
@@ -17237,9 +17262,9 @@ function renderFirmDetail(d: any) {
 	const crdSecCrdHtml = firmId ? `CRD#: ${esc(String(firmId))}` : null;
 	const crdSecSecHtml = secNumberRaw ? `SEC#: ${esc(normalizeSecFirmId(secNumberRaw))}` : null;
 	const crdSec = [crdSecCrdHtml, crdSecSecHtml].filter(Boolean).join(' / ');
-	// AdvisorInfo firm summary pages resolve by CRD; keep 8-#### only when that is the real SEC#.
-	const secSummaryId = secNumberRaw ? normalizeSecFirmId(secNumberRaw) : String(firmId || '').trim();
-	const secSummaryUrl = secSummaryId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(secSummaryId)}` : null;
+	const secSummaryUrl = firmId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(firmId)}` : null;
+	const secBrochureUrl = firmId ? `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(firmId)}` : null;
+	const secDocumentUrl = secFirmId ? `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(secFirmId)}/PDF/${encodeURIComponent(secFirmId)}.pdf` : null;
 	const secDocumentLinks =
 		hasSecPage ?
 			(() => {
@@ -17249,11 +17274,11 @@ function renderFirmDetail(d: any) {
 							{ label: 'SEC AdvisorInfo Summary', href: secSummaryUrl },
 							{
 								label: 'Latest Form ADV filed',
-								href: secFirmId ? `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(secFirmId)}/PDF/${encodeURIComponent(secFirmId)}.pdf` : null,
+								href: secDocumentUrl,
 							},
 							{
 								label: 'SEC firm brochure',
-								href: secSummaryId ? `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(secSummaryId)}` : null,
+								href: secBrochureUrl,
 							},
 							{
 								label: 'SEC Form CRS',
@@ -17272,26 +17297,9 @@ function renderFirmDetail(d: any) {
 						if (/^SEC AdvisorInfo Summary$/i.test(label)) {
 							return { ...link, href: secSummaryUrl || existingHref };
 						}
-						if (/^Latest Form ADV filed$/i.test(label)) {
-							return {
-								...link,
-								href: secFirmId
-									? `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(secFirmId)}/PDF/${encodeURIComponent(secFirmId)}.pdf`
-									: existingHref,
-							};
-						}
-						if (/^SEC firm brochure$/i.test(label)) {
-							return {
-								...link,
-								href: secSummaryId ? `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(secSummaryId)}` : existingHref,
-							};
-						}
-						if (/^SEC Form CRS$/i.test(label)) {
-							return {
-								...link,
-								href: secFirmId ? `https://reports.adviserinfo.sec.gov/crs/crs_${encodeURIComponent(secFirmId)}.pdf` : existingHref,
-							};
-						}
+						if (/^Latest Form ADV filed$/i.test(label)) return link;
+						if (/^SEC firm brochure$/i.test(label)) return link;
+						if (/^SEC Form CRS$/i.test(label)) return link;
 						return link;
 					})
 					.filter((link: any) => link?.href);
@@ -17341,6 +17349,7 @@ function renderFirmDetail(d: any) {
 	const businessPhone = String(d.businessPhone || '').trim();
 	const districtLabel = String(d.districtName || '').trim();
 	const finraSummaryLabel = `Brokerage Firm${districtLabel ? ` Regulated by FINRA (${districtLabel})` : ' Regulated by FINRA'}`;
+	const isIa = d.iaDisclosureFlag === 'Y' || !!d.iaSecNumber || !!d.iaSECNumber || !!d.basicInformation?.iaSecNumber || !!d.basicInformation?.iaSECNumber;
 	const secSummaryLabel = 'Investment Adviser Firm';
 	const topSummaryRoleHtml = `
 		<div class="fg-firm-summary__roles">
@@ -17356,7 +17365,7 @@ function renderFirmDetail(d: any) {
 				:	''
 			}
 			${
-				showSec && hasSecPage ?
+				showSec && isIa ?
 					`
 			<div class="fg-firm-summary__role">
 				<span class="fg-firm-summary__role-icon fg-firm-summary__role-icon--ia" aria-hidden="true">IA</span>

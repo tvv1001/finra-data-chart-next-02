@@ -1245,6 +1245,99 @@ export function renderPersonDetail(d: any, context: RenderContext = {}) {
 }
 
 export function renderFirmDetail(d: any) {
+	// Scraped-only / non-live firm reference (e.g. employer pulled from an individual's
+	// Form BD page with no independent BrokerCheck/IAPD firm detail). Link out to the
+	// parent FINRA detail page instead of hiding external links.
+	if (d.orphan && typeof d.orphan === 'object') {
+		const orphan = d.orphan;
+		const firmId = String(d.firmId || orphan.firmId || String(d.id || '').replace(/^firm[:_]/, '') || '').trim();
+		const firmName = formatFirmName(orphan.firmName || d.label || d.firmName || '');
+		const parentCrd = String(orphan.parentCrd || d.orphanParentCrd || '').trim();
+		const parentType = String(orphan.parentType || d.orphanParentType || 'individual')
+			.trim()
+			.toLowerCase();
+		const parentIsIndividual = parentType === 'individual';
+		const parentName = formatEntityName(
+			parentIsIndividual ? orphan.name || d.orphanName || `CRD ${parentCrd}` : orphan.firmName || firmName || `Firm ${parentCrd}`,
+			parentIsIndividual ? 'individual' : 'firm',
+		);
+		const firmStatusRaw = String(orphan.firmStatus || orphan.status || d.firmStatus || 'Legacy / non-live').trim();
+		const firmIsInactive = /inactive|terminated|revoked|suspended|notinscope|legacy|non-?live/i.test(firmStatusRaw.replace(/\s+/g, ''));
+		const officeObj = orphan.officeAddress && typeof orphan.officeAddress === 'object' ? (orphan.officeAddress as Record<string, any>) : null;
+		const mailingObj = orphan.mailingAddress && typeof orphan.mailingAddress === 'object' ? (orphan.mailingAddress as Record<string, any>) : null;
+		const officeAddress = formatLocationText(
+			officeObj
+				? [officeObj.street1 || officeObj.street, officeObj.street2, officeObj.city, officeObj.state, officeObj.postalCode || officeObj.zipCode || officeObj.zip, officeObj.country]
+						.filter(Boolean)
+						.join(', ')
+				: typeof orphan.officeAddress === 'string'
+					? orphan.officeAddress
+					: '',
+		);
+		const mailingAddress = formatLocationText(
+			mailingObj
+				? [
+						mailingObj.street1 || mailingObj.street,
+						mailingObj.street2,
+						mailingObj.city,
+						mailingObj.state,
+						mailingObj.postalCode || mailingObj.zipCode || mailingObj.zip,
+						mailingObj.country,
+					]
+						.filter(Boolean)
+						.join(', ')
+				: typeof orphan.mailingAddress === 'string'
+					? orphan.mailingAddress
+					: '',
+		);
+		const parentFinraUrl =
+			parentCrd ?
+				`https://brokercheck.finra.org/${parentIsIndividual ? 'individual' : 'firm'}/summary/${encodeURIComponent(parentCrd)}`
+			:	null;
+		const parentSecUrl = parentCrd && !parentIsIndividual ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(parentCrd)}` : null;
+		const dashboardHref = buildDashboardDetailsHref({ ...d, firmId, group: 'firm' });
+		const parentButton =
+			parentCrd ?
+				`<button class='fg-crd-link' data-crd='${esc(parentCrd)}' data-crd-type='${parentIsIndividual ? 'individual' : 'firm'}' title='View this CRD'>${esc(parentName || `CRD ${parentCrd}`)}</button>`
+			:	esc(parentName || '');
+		const parentCard =
+			parentCrd ?
+				`<div class='fg-section-title fg-section-title--sticky'>Referenced from</div>
+            <div class='fg-timeline'>
+              <div class='fg-tl-entry'>
+                <span class='fg-tl-firm'>${parentButton} <small>CRD#${esc(parentCrd)}</small></span>
+                ${orphan.position ? `<span class='fg-tl-dates'>${esc(formatUiText(orphan.position))}</span>` : ''}
+                <span class='fg-tl-loc' style='color:var(--text-m)'>Scraped reference · no live firm detail page</span>
+              </div>
+            </div>`
+			:	'';
+
+		return `
+    <div class='fg-sb-header firm'>
+      <div class='fg-sb-title'>${esc(firmName || `Firm ${firmId}`)}</div>
+      ${firmId ? `<div class='fg-sb-crd'>CRD#: ${esc(firmId)}</div>` : ''}
+      <div class='fg-sb-badges'>
+        <span class='fg-badge ${firmIsInactive ? 'inactive' : 'active'}' title='Scraped firm registration status'>${esc(firmStatusRaw || (firmIsInactive ? 'Legacy / non-live' : 'Active'))}</span>
+        <span class='fg-badge stub' title='Firm known only via scraped employment / Form BD reference'>Scraped firm reference</span>
+      </div>
+    </div>
+    <div class='fg-sb-body'>
+      <div class='fg-ext-links'>
+        ${
+					// No live firm BrokerCheck/IAPD detail — link FINRA/SEC to the parent entity instead.
+					parentFinraUrl ? `<a class='fg-ext-link bc' href='${parentFinraUrl}' target='_blank' rel='noopener noreferrer'>&#x2197; FINRA profile</a>` : ''
+				}
+        ${parentSecUrl ? `<a class='fg-ext-link sec' href='${parentSecUrl}' target='_blank' rel='noopener noreferrer'>&#x2197; SEC profile</a>` : ''}
+        ${dashboardHref ? `<a class='fg-ext-link dashboard' href='${esc(dashboardHref)}' onclick='event.stopPropagation()'>Dashboard details</a>` : ''}
+      </div>
+      ${officeAddress ? row('Main Address', esc(officeAddress), 'fg-detail-row--stacked') : ''}
+      ${mailingAddress && mailingAddress !== officeAddress ? row('Mailing', esc(mailingAddress), 'fg-detail-row--stacked') : ''}
+      ${orphan.phone ? row('Phone', esc(String(orphan.phone))) : ''}
+      ${parentCard}
+      <p class='fg-sb-note'>This firm has no independent live FINRA/SEC detail page in cache. The FINRA profile link opens the parent ${parentIsIndividual ? 'individual' : 'firm'} BrokerCheck page that referenced it.</p>
+    </div>`;
+	}
+
 	const registrationStatusEntries = Array.isArray(d.registrationStatus) ? d.registrationStatus.filter((entry: any) => entry && typeof entry === 'object') : [];
 	const primaryRegistrationStatusEntry =
 		registrationStatusEntries.find((entry: any) => /sec/i.test(String(entry?.secJurisdiction || entry?.jurisdiction || entry?.state || entry?.name || ''))) ||
@@ -1295,7 +1388,10 @@ export function renderFirmDetail(d: any) {
 	};
 	const secFirmId = normalizeSecFirmId(d.iaSecNumber || d.iaSECNumber || d.bdSecNumber || d.bdSECNumber || d.basicInformation?.iaSecNumber || d.basicInformation?.iaSECNumber || d.basicInformation?.bdSecNumber || d.basicInformation?.bdSECNumber);
 	const crdSec = [firmId ? `CRD#: ${firmId}` : null, secFirmId ? `SEC#: ${secFirmId}` : null].filter(Boolean).join(' / ');
-	const secSummaryUrl = secFirmId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(secFirmId)}` : null;
+	
+	const secSummaryUrl = firmId ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(firmId)}` : null;
+	const secDocumentUrl = secFirmId ? `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(secFirmId)}/PDF/${encodeURIComponent(secFirmId)}.pdf` : null;
+	const secBrochureUrl = firmId ? `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(firmId)}` : null;
 
 	const hasFinraPage = hasFirmFinraPresence(d);
 	const hasSecPage = hasFirmSecPresence(d);
@@ -1317,20 +1413,12 @@ export function renderFirmDetail(d: any) {
 
 				return d.secDocumentLinks.map((link: any) => {
 					const label = String(link?.label || '').trim();
+					const existingHref = String(link?.href || '').trim() || null;
 					if (!label) return link;
-					if (/^SEC AdvisorInfo Summary$/i.test(label)) return { ...link, href: secSummaryUrl };
-					if (/^Latest Form ADV filed$/i.test(label)) {
-						return {
-							...link,
-							href: secFirmId ? `https://reports.adviserinfo.sec.gov/reports/ADV/${encodeURIComponent(secFirmId)}/PDF/${encodeURIComponent(secFirmId)}.pdf` : null,
-						};
-					}
-					if (/^SEC firm brochure$/i.test(label)) {
-						return { ...link, href: secFirmId ? `https://adviserinfo.sec.gov/firm/brochure/${encodeURIComponent(secFirmId)}` : null };
-					}
-					if (/^SEC Form CRS$/i.test(label)) {
-						return { ...link, href: secFirmId ? `https://reports.adviserinfo.sec.gov/crs/crs_${encodeURIComponent(secFirmId)}.pdf` : null };
-					}
+					if (/^SEC AdvisorInfo Summary$/i.test(label)) return { ...link, href: secSummaryUrl || existingHref };
+					if (/^Latest Form ADV filed$/i.test(label)) return link;
+					if (/^SEC firm brochure$/i.test(label)) return link;
+					if (/^SEC Form CRS$/i.test(label)) return link;
 					return link;
 				});
 			})()

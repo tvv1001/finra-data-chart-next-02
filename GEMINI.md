@@ -16,6 +16,7 @@ This app is a **PWA**. Prefer Redis when healthy (`USE_REDIS_ONLY=1`); when Redi
 2. **Local Redis** (`redis://127.0.0.1:6379`, Commander UI `http://127.0.0.1:8081/`) — **main Redis DB on localhost** when `USE_LOCAL_REDIS=1`. Graph + dashboard share this store.
 3. **Upstash cloud Redis** — production. Prefer **single DB** (`UPSTASH_REDIS_DISABLE_MIRROR=1`) unless dual-DB load-balancing is required (mirror doubles write commands). Never mutate cloud casually; sync/deploy only when the user asks.
 4. **Search sidecars** (`data/national/search-index.*.json.gz` → `public/search-indexes/`) — gzip flatfiles for dashboard + graph search and CRD name hydration. Prefer sidecar `firm_name` over `Firm <CRD>` stubs. **Never store or query search indexes in Redis** (`search:indexes:*` is retired). See `docs/search-sidecar.md`.
+5. **CRD inventory sidecar** (`data/crd-inventory.json.gz`) — coverage-valid unique firm|individual CRD census for cheap totals (no Redis SCAN). See `docs/crd-inventory-sidecar.md`.
 
 **Production is reference-only** for agent work: read/audit OK; writes/deploys go `develop` → normal release. A shared production URL is **an example of the issue** — never deploy to Vercel from the agent, and never push local Redis to prod Redis unless the user explicitly instructs that sync. Details: `.github/instructions/prod-reference-workflow.instructions.md` and `.github/instructions/upstash-redis-and-crd-check.instructions.md`. Grok workflow: `/local-first-fix` (`.grok/workflows/local-first-fix.rhai`).
 
@@ -71,7 +72,7 @@ Node-click reveal/spread may move the clicked node and newly revealed neighbors 
 - `pnpm run dev` / `dev:clean` — local Redis + Next on `:4444`
 - `pnpm run build` / `start` / `lint`
 - `pnpm run test:unit` / `test:e2e` / `test:smoke`
-- Ops/crawl/deploy one-offs: `archive/legacy-scripts/scripts/` (not wired in `package.json`)
+- Ops/crawl/deploy one-offs: `.local/scripts/` (not wired in `package.json`). If you need to write a new script for building, aggregating, or managing data, put it in `.local/scripts/`.
 
 ## Where to look
 
@@ -83,6 +84,7 @@ Node-click reveal/spread may move the clicked node and newly revealed neighbors 
 | Redis client / dual DB | `src/lib/redisClient.ts` |
 | Graph persistence | `src/lib/graphStore.ts` |
 | Search / labels | `src/lib/localSearch.ts`, `docs/search-sidecar.md` |
+| Inventory totals | `src/lib/crdInventorySidecar.ts`, `docs/crd-inventory-sidecar.md` |
 | Copilot / scoped rules | `.github/copilot-instructions.md`, `.github/instructions/*` |
 
 ## Do / don’t
@@ -100,6 +102,7 @@ Node-click reveal/spread may move the clicked node and newly revealed neighbors 
 - **Don’t** write query-search hits (`?query=`) into `finra:*` / `sec:*` detail keys. Query search only collects CRDs.
 - **Don’t** store a by-id `/search/{firm\|individual}/<CRD>` response under that host’s Redis prefix just because `hits.total > 0`. Gate with `hasFirmSourceCoverage` / `hasIndividualSourceCoverage` (`src/lib/sourceTruth.ts`). IA-only firm shells (e.g. CRD `155640`) belong on `sec:firm:*` only — not `finra:firm:*`. See `.github/instructions/finra-sec-api-patterns.instructions.md`.
 - **Do** keep the app runnable in Redis **cache-only** when Redis reads/writes are disabled (`REDIS_CACHE_ONLY=1` or both Upstash DBs unusable): serve process mem, disk graph, `data/firm-connections/`, primed/search sidecars. `/api/finra/graph` returns compact layout nodes (no employment histories); detail stays on firm/individual routes.
+- **Do** treat FINRA + SEC for the same firm/individual CRD as **one merged entity** on read (`finra:*` and `sec:*` keys stay separate in Redis; APIs/UI merge). Count unique `firm:{crd}` / `individual:{crd}`, not Redis key count.
 - **Do** verify detail with both hosts using:
   - `https://api.brokercheck.finra.org/search/firm/<CRD>?hl=true&wt=json`
   - `https://api.adviserinfo.sec.gov/search/firm/<CRD>?hl=true&wt=json`
