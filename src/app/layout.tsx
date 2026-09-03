@@ -4,6 +4,7 @@ import AnalyticsRouteBridge from '@/components/AnalyticsRouteBridge';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
 import AnalyticsClient from '@/components/AnalyticsClient';
 import SpeedInsightsClient from '@/components/SpeedInsightsClient';
+import { SAFE_GPU_BOOT_SCRIPT } from '@/lib/gpu-capability';
 import './globals.css';
 
 // `preload: false` is deliberate. On Vercel, `experimental.runtimeServerDeploymentId` is
@@ -114,6 +115,8 @@ const themeLoaderScript = `
 })();
 `;
 
+const safeGpuBootScript = SAFE_GPU_BOOT_SCRIPT;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
 	return (
 		<html
@@ -122,6 +125,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 			suppressHydrationWarning>
 			<body>
 				<script dangerouslySetInnerHTML={{ __html: themeLoaderScript }} />
+				<script dangerouslySetInnerHTML={{ __html: safeGpuBootScript }} />
 				<ServiceWorkerRegistration />
 				{children}
 				<AnalyticsRouteBridge />

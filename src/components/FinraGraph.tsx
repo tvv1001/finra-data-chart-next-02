@@ -7,6 +7,13 @@ import ThemeToggle from './ThemeToggle';
 import { buildNodeRouteHref, buildNodeRoutePath, parseNodeIdFromPathname } from '@/lib/node-route';
 import { RUNTIME_CLICK_EXPANSION_HOPS, RUNTIME_EXPANSION_HOPS, RUNTIME_SELECTION_HOPS } from '@/lib/finra-graph-defaults';
 import { consumeQueueGraphBridgePayload } from '@/lib/queueGraphBridge';
+import {
+	GPU_TIER_STORAGE_KEY,
+	SAFE_GPU_STORAGE_KEY,
+	applySafeGpuDomState,
+	probeWebGlGpuInfo,
+	resolveSafeGpuEnabled,
+} from '@/lib/gpu-capability';
 
 const MOBILE_TOUCH_SLOP_PX = 12;
 const MOBILE_TOUCH_CLICK_SUPPRESSION_MS = 250;
@@ -251,43 +258,38 @@ function formatFindCounter(total: number, activeOrdinal = 0) {
 	return `${total} match${total === 1 ? '' : 'es'}`;
 }
 
-/** Detect GPU drivers that intermittently SIGILL on SVG filter/backdrop-filter paths. */
-function shouldEnableSafeGpuMode() {
-	if (typeof window === 'undefined') return false;
-	try {
-		const params = new URLSearchParams(window.location.search);
-		const forced = params.get('safe_gpu') || params.get('safeGpu');
-		if (forced === '1' || forced === 'true') return true;
-		if (forced === '0' || forced === 'false') return false;
-		const stored = window.localStorage.getItem('finra_safe_gpu');
-		if (stored === '1' || stored === 'true') return true;
-		if (stored === '0' || stored === 'false') return false;
-	} catch {}
-	try {
-		const canvas = document.createElement('canvas');
-		const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-		if (!gl || typeof (gl as WebGLRenderingContext).getExtension !== 'function') return false;
-		const webgl = gl as WebGLRenderingContext;
-		const dbg = webgl.getExtension('WEBGL_debug_renderer_info');
-		const renderer = dbg ? String(webgl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '') : '';
-		const vendor = dbg ? String(webgl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) || '') : '';
-		const blob = `${renderer} ${vendor}`.toLowerCase();
-		// Chrome crash dumps for this app consistently show ANGLE + AMD Radeon + Mesa.
-		return /radeon|amd |amdgpu|mesa|phoenix|radeonsi/.test(blob);
-	} catch {
-		return false;
-	}
-}
-
+/** Capability-aware safe GPU mode: full effects on dedicated GPUs; reduced filters on iGPU/software. */
 function applySafeGpuMode() {
-	if (typeof document === 'undefined') return false;
-	const enabled = shouldEnableSafeGpuMode();
-	document.documentElement.classList.toggle('fg-safe-gpu', enabled);
-	document.body?.classList.toggle('fg-safe-gpu', enabled);
-	if (enabled && typeof console !== 'undefined' && console.info) {
-		console.info('[finra-graph] Safe GPU mode enabled (reduced SVG filters). Override with ?safe_gpu=0 or localStorage finra_safe_gpu=0');
+	if (typeof document === 'undefined' || typeof window === 'undefined') return false;
+	const info = probeWebGlGpuInfo();
+	const resolved = resolveSafeGpuEnabled({
+		renderer: info.renderer,
+		vendor: info.vendor,
+		search: window.location.search,
+		storageGet: (key) => {
+			try {
+				return window.localStorage.getItem(key);
+			} catch {
+				return null;
+			}
+		},
+	});
+
+	applySafeGpuDomState(resolved.enabled, resolved.tier);
+
+	try {
+		// Persist tier so the pre-paint boot script can restore the right mode next load.
+		window.localStorage.setItem(GPU_TIER_STORAGE_KEY, resolved.tier);
+	} catch {
+		/* ignore quota / private mode */
 	}
-	return enabled;
+
+	if (typeof console !== 'undefined' && console.info) {
+		console.info(
+			`[finra-graph] GPU tier=${resolved.tier}; safeGpu=${resolved.enabled ? 'on' : 'off'} (full effects on dedicated NVIDIA/AMD). Override with ?safe_gpu=0|1 or localStorage ${SAFE_GPU_STORAGE_KEY}`,
+		);
+	}
+	return resolved.enabled;
 }
 
 export default function FinraGraph() {

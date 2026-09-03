@@ -1,0 +1,22 @@
+- generic [active] [ref=f13e1]:
+  - button "Open Next.js Dev Tools" [ref=f13e7] [cursor=pointer]
+  - alert [ref=f13e11]
+  - generic [ref=f13e12]:
+    - banner [ref=f13e13]:
+      - generic [ref=f13e14]:
+        - heading "FINRA/SEC" [level=1] [ref=f13e16]
+        - generic [ref=f13e19]:
+          - searchbox "firm, person, CRD/SEC#" [ref=f13e21]
+          - button [ref=f13e22] [cursor=pointer]:
+            - generic [ref=f13e23]:
+              - text: Search
+              - combobox "Search type" [ref=f13e24]:
+                - option "All"
+                - option "People" [selected]
+                - option "Firms"
+        - generic [ref=f13e25]:
+          - link "Open dashboard" [ref=f13e26] [cursor=pointer]:
+            - /url: /dashboard
+            - text: Dashboard
+          - button "Toggle menu" [ref=f13e27] [cursor=pointer]
+    - main [ref=f13e33]

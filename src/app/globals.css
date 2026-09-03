@@ -6511,16 +6511,19 @@ button[type='submit'],
 	transform: translate(-50%, 0);
 }
 
-/* ── Safe GPU mode (AMD/Mesa ANGLE SIGILL mitigation) ───────────────────── */
-/* Disables expensive SVG filter / backdrop-filter paths that promote GPU layers
-   through ANGLE on Radeon 780M and can crash the tab with SIGILL. */
+/* ── Safe GPU mode (iGPU / software / unknown — not dedicated dGPU) ──────── */
+/* Dedicated NVIDIA/AMD discrete GPUs keep full SVG filter effects. On integrated
+   GPUs and software renderers, disable filter/backdrop paths that promote heavy
+   ANGLE layers and can SIGILL or stall Chromium on Linux. */
 html.fg-safe-gpu #fg-svg .fg-node circle,
 html.fg-safe-gpu #fg-svg .fg-node rect,
 html.fg-safe-gpu #fg-svg .fg-node polygon,
 html.fg-safe-gpu #fg-svg .fg-node text,
+html.fg-safe-gpu #fg-svg .fg-node .fg-restore-ring,
 html.fg-safe-gpu #fg-svg .fg-link,
 html.fg-safe-gpu #fg-svg path,
-html.fg-safe-gpu #fg-svg line {
+html.fg-safe-gpu #fg-svg line,
+html.fg-safe-gpu #fg-main svg * {
 	filter: none !important;
 }
 html.fg-safe-gpu .fg-header,
@@ -6530,7 +6533,9 @@ html.fg-safe-gpu .fg-selection-log,
 html.fg-safe-gpu .fg-log-panel,
 html.fg-safe-gpu .fg-find-header,
 html.fg-safe-gpu .fg-ext-links,
-html.fg-safe-gpu [class*="backdrop"] {
+html.fg-safe-gpu .fg-toolbar-status,
+html.fg-safe-gpu [class*='backdrop'],
+html.fg-safe-gpu #finra-app {
 	backdrop-filter: none !important;
 	-webkit-backdrop-filter: none !important;
 }
