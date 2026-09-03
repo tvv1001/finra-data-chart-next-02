@@ -68,7 +68,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					const cluster = await tryLoadPersonCluster(crd);
 					if (cluster) {
 						await hydrateFirmNodeLabelsFromSearchSidecar(cluster.nodes || [], { baseUrl });
-						return NextResponse.json({ nodes: cluster.nodes || [], links: cluster.links || [] }, { headers: sharedCacheHeaders(300) });
+						return NextResponse.json(
+							{
+								nodes: Array.isArray(cluster.nodes) ? cluster.nodes.map(toCompactNode) : [],
+								links: cluster.links || [],
+							},
+							{ headers: sharedCacheHeaders(300) },
+						);
 					}
 				} else {
 					// invalid person CRD, skip cluster fast path

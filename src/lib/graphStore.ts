@@ -933,6 +933,8 @@ const GRAPH_NODE_KEEP_KEYS = new Set([
 	'firmName',
 	'activeStates',
 	'primaryOffice',
+	'isLegacy',
+	'stub',
 	'orphan',
 	'orphanParentCrd',
 	'orphanFirmName',

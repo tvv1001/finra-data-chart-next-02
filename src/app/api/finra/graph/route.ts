@@ -204,7 +204,7 @@ export async function GET(request: NextRequest) {
 				if (cluster) {
 					return NextResponse.json(
 						{
-							nodes: cluster.nodes || [],
+							nodes: Array.isArray(cluster.nodes) ? cluster.nodes.map(toCompactNode) : [],
 							links: cluster.links || [],
 							meta: {
 								...(graph.meta || {}),
