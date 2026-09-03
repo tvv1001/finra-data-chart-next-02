@@ -939,12 +939,15 @@ export default function FinraGraph() {
 
 	useEffect(() => {
 		if (!isMounted || !graphReady) return;
+		// autoExpand when the routed node is not already selected. Do not forceAutoExpand:
+		// click → selectNode already expands, then emits a route change; forcing here ran a
+		// second full expand/selection pass and dominated main-thread time on large graphs.
 		window.dispatchEvent(
 			new CustomEvent(ROUTE_NODE_REQUEST_EVENT, {
 				detail: {
 					nodeId: routeNodeId,
 					autoExpand: true,
-					forceAutoExpand: true,
+					forceAutoExpand: false,
 				},
 			}),
 		);

@@ -1,0 +1,21 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e2]:
+    - banner [ref=f2e3]:
+      - generic [ref=f2e4]:
+        - heading "FINRA/SEC" [level=1] [ref=f2e6]
+        - generic [ref=f2e9]:
+          - searchbox "firm, person, CRD/SEC#" [ref=f2e11]
+          - button [ref=f2e12] [cursor=pointer]:
+            - generic [ref=f2e13]:
+              - text: Search
+              - combobox "Search type" [ref=f2e14]:
+                - option "All"
+                - option "People" [selected]
+                - option "Firms"
+        - generic [ref=f2e15]:
+          - link "Open dashboard" [ref=f2e16] [cursor=pointer]:
+            - /url: /dashboard/individual/4728010
+            - text: Dashboard
+          - button "Toggle menu" [ref=f2e17] [cursor=pointer]
+    - main [ref=f2e23]
+  - alert [ref=f2e25]

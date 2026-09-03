@@ -1,0 +1,7 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - heading "FINRA" [level=1] [ref=e6]
+    - main [ref=e7]:
+      - paragraph [ref=e9]: Loading graph…
+  - alert [ref=e10]

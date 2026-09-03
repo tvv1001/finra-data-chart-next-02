@@ -45,6 +45,10 @@ import {
 	shouldAutoExpandRouteSelection,
 	shouldAutoRevealNodeConnections,
 	shouldRenderNodeSelected,
+	selectHopHighlightRoots,
+	MAX_HOP_HIGHLIGHT_ROOTS,
+	rebuildLayoutLinkIndexes,
+	layoutHasLinkIdentity,
 	upsertSelectionLogEntry,
 	pruneGraphToSelectionLogEntries,
 	isForcedGrayConnectionLink,
@@ -1190,6 +1194,37 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(shouldAutoExpandRouteSelection('person:4240769', 'person:4240769')).toBe(false);
 		expect(shouldAutoExpandRouteSelection('person:4240769', 'person:1111111')).toBe(true);
 		expect(shouldAutoExpandRouteSelection('person:4240769', null)).toBe(true);
+	});
+
+	it('selectHopHighlightRoots keeps only the most recent selection roots within the hop BFS cap', () => {
+		const selectionRoots = Array.from({ length: MAX_HOP_HIGHLIGHT_ROOTS + 20 }, (_, index) => ({
+			id: `person:${1000 + index}`,
+			hops: 1,
+		}));
+		const roots = selectHopHighlightRoots(selectionRoots, {
+			hoveredNodeId: 'person:hover',
+			logBoldNodeIds: Array.from({ length: 30 }, (_, index) => `person:log${index}`),
+			maxSelectionRoots: MAX_HOP_HIGHLIGHT_ROOTS,
+			maxLogBoldRoots: 8,
+		});
+		const selectionRootIds = roots.filter((entry) => entry.isSelection).map((entry) => entry.id);
+		expect(selectionRootIds).toHaveLength(MAX_HOP_HIGHLIGHT_ROOTS);
+		// Most recent selections win (end of the input array).
+		expect(selectionRootIds[0]).toBe(`person:${1000 + MAX_HOP_HIGHLIGHT_ROOTS + 19}`);
+		expect(roots.some((entry) => entry.id === 'person:hover')).toBe(true);
+		expect(roots.filter((entry) => String(entry.id).startsWith('person:log')).length).toBeLessThanOrEqual(8);
+	});
+
+	it('layoutHasLinkIdentity uses rebuilt layout link indexes for O(1) membership checks', () => {
+		const links = [
+			{ source: 'person:1', target: 'firm:2', relationship: 'employed_by', isCurrent: true, startDate: '2020-01-01', endDate: '' },
+			{ source: 'person:3', target: 'firm:2', relationship: 'controls', isCurrent: true, startDate: '', endDate: '' },
+		];
+		rebuildLayoutLinkIndexes(links);
+		expect(layoutHasLinkIdentity(links[0])).toBe(true);
+		expect(layoutHasLinkIdentity(links[1])).toBe(true);
+		expect(layoutHasLinkIdentity({ source: 'person:9', target: 'firm:9', relationship: 'employed_by', isCurrent: true })).toBe(false);
+		expect(getLinkIdentityKey(links[0])).toContain('person:1|firm:2');
 	});
 
 	it('getAutoExpansionHopsForNode uses exactly the requested hop count (default click is 1 hop)', () => {

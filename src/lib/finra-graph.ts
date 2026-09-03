@@ -352,6 +352,14 @@ let arrowSel = null; // current top-line marker selection
 let layoutNodes: GraphSimulationNode[] | null = null; // node objects with x/y positions
 let layoutLinks: GraphSimulationLink[] | null = null; // link objects (source/target resolved to objects)
 let fullAdjacencyMap = null; // Map<nodeId, Array<{ nodeId, link }>> — cached full graph adjacency
+let layoutLinkIdentityKeys = new Set<string>(); // O(1) identity membership for rendered links
+let layoutLinksByNodeId = new Map<string, any[]>(); // nodeId → incident layout links
+let layoutLinkIndexLinkCount = 0; // layoutLinks.length last indexed (detects stale indexes)
+let selectionPredicateCacheGen = 0; // bumped when layout link topology changes
+/** Cap hop/line BFS roots. Selected chrome still uses persistentSelectedIds for all prior picks. */
+export const MAX_HOP_HIGHLIGHT_ROOTS = 12;
+/** Cap selection-log-bold entries that also act as hop highlight roots. */
+export const MAX_LOG_BOLD_HIGHLIGHT_ROOTS = 8;
 let spreadAnimId = null; // rAF handle for neighbor spread animation
 let spreadReleaseTimer = null; // timeout released when reheat freeze animation expires
 let activeSpreadFrozenNodes = []; // nodes frozen during click spread/reveal reheat
@@ -826,8 +834,7 @@ function getKnownCurrentFirmConnectionIds(node) {
 	if (!firmNodeId) return currentConnectionIds;
 
 	const seenLinkKeys = new Set<string>();
-	const allLinks = [...(Array.isArray(layoutLinks) ? layoutLinks : []), ...(Array.isArray(graphData?.links) ? graphData.links : [])];
-	allLinks.forEach((link) => {
+	const considerLink = (link) => {
 		if (!link) return;
 		const linkKey = getLinkKey(link);
 		if (seenLinkKeys.has(linkKey)) return;
@@ -847,37 +854,62 @@ function getKnownCurrentFirmConnectionIds(node) {
 
 		const otherId = sourceId === firmNodeId ? targetId : sourceId;
 		if (otherId) currentConnectionIds.add(otherId);
-	});
+	};
+
+	// Prefer O(degree) indexed layout links + cached full-graph adjacency over scanning every link.
+	ensureLayoutLinkIndexes();
+	for (const link of layoutLinksByNodeId.get(firmNodeId) || []) {
+		considerLink(link);
+	}
+	const adjacency = graphData ? getFullAdjacencyMap() : null;
+	if (adjacency) {
+		for (const entry of adjacency.get(firmNodeId) || []) {
+			considerLink(entry?.link);
+		}
+	}
 
 	return currentConnectionIds;
 }
 
 function isFetchedLeafNode(node) {
 	if (!node?.id) return false;
-	if (initialServerNodeIds instanceof Set && initialServerNodeIds.has(node.id)) return false;
-	if (!hasTrustedCurrentRelationshipData(node)) return false;
-	if (!hasKnownRevealableChildCount(node)) return false;
-	if (getExpectedRevealableNeighborIds(node).size > 0) return false;
-	const neighborCount = neighborMap?.get(node.id)?.size;
-	if (typeof neighborCount === 'number') return neighborCount === 0;
-	if (!Array.isArray(layoutLinks) || layoutLinks.length === 0) return true;
-	return !layoutLinks.some((link) => {
-		const sourceId = link.source?.id ?? link.source;
-		const targetId = link.target?.id ?? link.target;
-		return sourceId === node.id || targetId === node.id;
-	});
+	if (node._leafPredGen === selectionPredicateCacheGen && typeof node._leafPredCached === 'boolean') {
+		return node._leafPredCached;
+	}
+	let result = false;
+	if (initialServerNodeIds instanceof Set && initialServerNodeIds.has(node.id)) {
+		result = false;
+	} else if (!hasTrustedCurrentRelationshipData(node)) {
+		result = false;
+	} else if (!hasKnownRevealableChildCount(node)) {
+		result = false;
+	} else if (getExpectedRevealableNeighborIds(node).size > 0) {
+		result = false;
+	} else {
+		const neighborCount = neighborMap?.get(node.id)?.size;
+		if (typeof neighborCount === 'number') {
+			result = neighborCount === 0;
+		} else {
+			ensureLayoutLinkIndexes();
+			result = (layoutLinksByNodeId.get(String(node.id)) || []).length === 0;
+		}
+	}
+	node._leafPredGen = selectionPredicateCacheGen;
+	node._leafPredCached = result;
+	return result;
 }
 
 function getVisibleRevealableNeighborIds(nodeId) {
 	const visibleNeighborIds = new Set<string>();
-	if (!nodeId || !Array.isArray(layoutLinks) || !layoutLinks.length) return visibleNeighborIds;
-	layoutLinks.forEach((link) => {
-		if (!isNonGrayExpansionLink(link)) return;
+	if (!nodeId) return visibleNeighborIds;
+	ensureLayoutLinkIndexes();
+	for (const link of layoutLinksByNodeId.get(String(nodeId)) || []) {
+		if (!isNonGrayExpansionLink(link)) continue;
 		const sourceId = link.source?.id ?? link.source;
 		const targetId = link.target?.id ?? link.target;
 		if (sourceId === nodeId && targetId) visibleNeighborIds.add(targetId);
 		if (targetId === nodeId && sourceId) visibleNeighborIds.add(sourceId);
-	});
+	}
 	return visibleNeighborIds;
 }
 
@@ -957,26 +989,44 @@ export function isRevealableChainExhausted(
 
 function isFetchedExhaustedConnectedNode(node) {
 	if (!node?.id) return false;
-	if (initialServerNodeIds instanceof Set && initialServerNodeIds.has(node.id)) return false;
-	if (!hasTrustedCurrentRelationshipData(node)) return false;
-	if (!hasKnownRevealableChildCount(node)) return false;
-
-	const neighborCount = neighborMap?.get(node.id)?.size;
-	if (!(typeof neighborCount === 'number' ? neighborCount > 0 : getNeighborIds(node.id).size > 0)) return false;
-
-	const expectedNeighborIds = getExpectedRevealableNeighborIds(node);
-	if (!expectedNeighborIds.size) return false;
-
-	const visibleNeighborIds = getVisibleRevealableNeighborIds(node.id);
-	if (!visibleNeighborIds.size) return false;
-
-	return isRevealableChainExhausted(
-		node.id,
-		(nodeId) => layoutNodes?.find((entry) => entry.id === nodeId) || graphData?.nodes?.find((entry) => entry.id === nodeId) || null,
-		getExpectedRevealableNeighborIds,
-		getVisibleRevealableNeighborIds,
-		(candidateNode) => hasTrustedCurrentRelationshipData(candidateNode) && hasKnownRevealableChildCount(candidateNode),
-	);
+	if (node._exhaustedPredGen === selectionPredicateCacheGen && typeof node._exhaustedPredCached === 'boolean') {
+		return node._exhaustedPredCached;
+	}
+	let result = false;
+	if (initialServerNodeIds instanceof Set && initialServerNodeIds.has(node.id)) {
+		result = false;
+	} else if (!hasTrustedCurrentRelationshipData(node)) {
+		result = false;
+	} else if (!hasKnownRevealableChildCount(node)) {
+		result = false;
+	} else {
+		const neighborCount = neighborMap?.get(node.id)?.size;
+		const hasNeighbors = typeof neighborCount === 'number' ? neighborCount > 0 : getNeighborIds(node.id).size > 0;
+		if (!hasNeighbors) {
+			result = false;
+		} else {
+			const expectedNeighborIds = getExpectedRevealableNeighborIds(node);
+			if (!expectedNeighborIds.size) {
+				result = false;
+			} else {
+				const visibleNeighborIds = getVisibleRevealableNeighborIds(node.id);
+				if (!visibleNeighborIds.size) {
+					result = false;
+				} else {
+					result = isRevealableChainExhausted(
+						node.id,
+						(nodeId) => layoutNodes?.find((entry) => entry.id === nodeId) || graphData?.nodes?.find((entry) => entry.id === nodeId) || null,
+						getExpectedRevealableNeighborIds,
+						getVisibleRevealableNeighborIds,
+						(candidateNode) => hasTrustedCurrentRelationshipData(candidateNode) && hasKnownRevealableChildCount(candidateNode),
+					);
+				}
+			}
+		}
+	}
+	node._exhaustedPredGen = selectionPredicateCacheGen;
+	node._exhaustedPredCached = result;
+	return result;
 }
 
 function markUserInitiatedGraphExpansion() {
@@ -3377,12 +3427,14 @@ export function exportConnectedRenderedGraphSnapshot(options: { print?: boolean 
 
 function isSelectionLogChildNode(nodeId: string) {
 	const normalizedNodeId = String(nodeId || '').trim();
-	if (!normalizedNodeId || !Array.isArray(layoutLinks) || !layoutLinks.length) return false;
-	return layoutLinks.some((link) => {
+	if (!normalizedNodeId) return false;
+	ensureLayoutLinkIndexes();
+	for (const link of layoutLinksByNodeId.get(normalizedNodeId) || []) {
 		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
 		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
-		return Boolean(sourceId && targetId && targetId === normalizedNodeId && sourceId !== normalizedNodeId);
-	});
+		if (sourceId && targetId && targetId === normalizedNodeId && sourceId !== normalizedNodeId) return true;
+	}
+	return false;
 }
 
 function clearChildNodeSelectionVisualState(nodeId: string) {
@@ -4628,6 +4680,12 @@ function upsertHighlightedSelection(id, hops = getDefaultSelectionHops(), option
 	}
 	highlightedSelections = highlightedSelections.filter((entry) => entry.id !== id);
 	highlightedSelections.push({ id, hops: normalizedHops });
+	// Keep hop-root list bounded. persistentSelectedIds retains selected chrome for older picks;
+	// computeHighlightState also caps BFS roots, but trimming here avoids unbounded array growth.
+	const maxStoredRoots = Math.max(MAX_HOP_HIGHLIGHT_ROOTS * 3, 36);
+	if (highlightedSelections.length > maxStoredRoots) {
+		highlightedSelections = highlightedSelections.slice(highlightedSelections.length - maxStoredRoots);
+	}
 }
 
 function setHoveredNode(id) {
@@ -4758,6 +4816,57 @@ function buildLinkAdjacency(links, linkFilter: ((link: any) => boolean) | null =
 	return adjacency;
 }
 
+export function selectHopHighlightRoots(
+	selectionRoots: Array<{ id?: string; hops?: any; isSelection?: boolean }> = [],
+	options: {
+		hoveredNodeId?: string | null;
+		focusedNodeId?: string | null;
+		activeFindId?: string | null;
+		logBoldNodeIds?: string[];
+		maxSelectionRoots?: number;
+		maxLogBoldRoots?: number;
+	} = {},
+) {
+	const {
+		hoveredNodeId: hoverId = null,
+		focusedNodeId: focusId = null,
+		activeFindId = null,
+		logBoldNodeIds = [],
+		maxSelectionRoots = MAX_HOP_HIGHLIGHT_ROOTS,
+		maxLogBoldRoots = MAX_LOG_BOLD_HIGHLIGHT_ROOTS,
+	} = options;
+
+	const tempRoots: Array<{ id: string; hops: any; isSelection: boolean }> = [];
+	const seen = new Set<string>();
+	const pushRoot = (id, hops, isSelection) => {
+		const normalizedId = String(id || '').trim();
+		if (!normalizedId || seen.has(normalizedId)) return false;
+		seen.add(normalizedId);
+		tempRoots.push({ id: normalizedId, hops, isSelection: Boolean(isSelection) });
+		return true;
+	};
+
+	// Most recent selections first so hop/line emphasis follows what the user just clicked.
+	const recentSelections = [...selectionRoots].reverse();
+	let selectionRootCount = 0;
+	for (const entry of recentSelections) {
+		if (selectionRootCount >= maxSelectionRoots) break;
+		if (pushRoot(entry?.id, entry?.hops ?? 1, true)) selectionRootCount += 1;
+	}
+
+	pushRoot(hoverId, 1, false);
+	pushRoot(focusId, 1, false);
+	pushRoot(activeFindId, 1, false);
+
+	let logBoldCount = 0;
+	for (const id of logBoldNodeIds) {
+		if (logBoldCount >= maxLogBoldRoots) break;
+		if (pushRoot(id, 1, false)) logBoldCount += 1;
+	}
+
+	return tempRoots;
+}
+
 function computeHighlightState() {
 	const rootIds = new Set();
 	const nodeIds = new Set();
@@ -4768,27 +4877,22 @@ function computeHighlightState() {
 
 	const nodeById = new Map<string, any>((layoutNodes || []).map((node) => [String(node.id), node]));
 
-	const tempRoots = highlightedSelections.map((r) => ({ ...r, isSelection: true }));
-	if (hoveredNodeId && !tempRoots.some((r) => r.id === hoveredNodeId)) {
-		tempRoots.push({ id: hoveredNodeId, hops: 1, isSelection: false });
-	}
-	if (focusedNodeId && !tempRoots.some((r) => r.id === focusedNodeId)) {
-		tempRoots.push({ id: focusedNodeId, hops: 1, isSelection: false });
-	}
-	if (activeFindId && !tempRoots.some((r) => r.id === activeFindId)) {
-		tempRoots.push({ id: activeFindId, hops: 1, isSelection: false });
-	}
+	const logBoldNodeIds =
+		isSelectionLogBold && !logBoldHighlightRootsSuppressed && Array.isArray(selectedNodesLog) ?
+			selectedNodesLog
+				.filter((entry) => nodeById.get(entry.id)?.group === 'individual')
+				.map((entry) => String(entry.id || '').trim())
+				.filter(Boolean)
+				// Prefer more recently logged people when capping hop roots.
+				.reverse()
+		:	[];
 
-	if (isSelectionLogBold && !logBoldHighlightRootsSuppressed && Array.isArray(selectedNodesLog)) {
-		selectedNodesLog.forEach((entry) => {
-			const node = nodeById.get(entry.id);
-			if (node?.group === 'individual') {
-				if (!tempRoots.some((r) => String(r.id) === String(entry.id))) {
-					tempRoots.push({ id: entry.id, hops: 1, isSelection: false });
-				}
-			}
-		});
-	}
+	const tempRoots = selectHopHighlightRoots(highlightedSelections, {
+		hoveredNodeId,
+		focusedNodeId,
+		activeFindId,
+		logBoldNodeIds,
+	});
 
 	if (!tempRoots.length) {
 		return { rootIds, nodeIds, hopNodeIds, linkKeys };
@@ -10561,21 +10665,36 @@ function reapplySelectionState() {
 		activeConnectedIds.add(tId);
 	});
 
+	ensureLayoutLinkIndexes();
+
 	const activeParentConnectedIds = new Set<string>();
 	const hasHighlights = highlightState.rootIds.size > 0;
 	if (hasHighlights) {
-		(layoutLinks || []).forEach((link) => {
-			if (!isCurrentActiveConnection(link)) return;
-			const sId = String(link.source?.id ?? link.source);
-			const tId = String(link.target?.id ?? link.target);
-			const sRoot = highlightState.rootIds.has(sId);
-			const tRoot = highlightState.rootIds.has(tId);
-			if (sRoot && !tRoot) {
-				activeParentConnectedIds.add(tId);
-			} else if (tRoot && !sRoot) {
-				activeParentConnectedIds.add(sId);
+		for (const rootId of highlightState.rootIds) {
+			for (const link of layoutLinksByNodeId.get(String(rootId)) || []) {
+				if (!isCurrentActiveConnection(link)) continue;
+				const sId = String(link.source?.id ?? link.source);
+				const tId = String(link.target?.id ?? link.target);
+				const sRoot = highlightState.rootIds.has(sId);
+				const tRoot = highlightState.rootIds.has(tId);
+				if (sRoot && !tRoot) activeParentConnectedIds.add(tId);
+				else if (tRoot && !sRoot) activeParentConnectedIds.add(sId);
 			}
-		});
+		}
+	}
+
+	// Precompute expensive leaf/exhausted flags once per pass for nodes that are not
+	// already selected via cheap id-set membership. Skip nodes without trusted detail —
+	// those predicates always return false and dominated click cost on large graphs.
+	const fetchedLeafOrExhaustedIds = new Set<string>();
+	for (const node of layoutNodes || []) {
+		const id = String(node?.id || '');
+		if (!id) continue;
+		if (id === String(selectedId || '') || highlightState.rootIds.has(node.id) || persistentSelectedIds.has(id)) continue;
+		if (!hasTrustedCurrentRelationshipData(node)) continue;
+		if (isFetchedLeafNode(node) || isFetchedExhaustedConnectedNode(node)) {
+			fetchedLeafOrExhaustedIds.add(id);
+		}
 	}
 
 	nodeSel
@@ -10585,8 +10704,8 @@ function reapplySelectionState() {
 				highlightRootIds: highlightState.rootIds,
 				persistentSelectedIds,
 				visitedNodeIds,
-				isFetchedLeafNode: (candidateNode) => isFetchedLeafNode(candidateNode),
-				isFetchedExhaustedConnectedNode: (candidateNode) => isFetchedExhaustedConnectedNode(candidateNode),
+				isFetchedLeafNode: (candidateNode) => fetchedLeafOrExhaustedIds.has(String(candidateNode?.id || '')),
+				isFetchedExhaustedConnectedNode: () => false,
 			}),
 		)
 		// Hop emphasis (neighbor glow) is line-highlight companion state — cleared with Clear Highlight.
@@ -10704,6 +10823,9 @@ function updateNodeVisuals(
 	const activeParentConnectedIds = options.activeParentConnectedIds ?? new Set<string>();
 	const selectionLogLabelNodeIds = options.selectionLogLabelNodeIds ?? new Set(getSelectionLogLabelNodeIds());
 
+	const loggedNodeIds =
+		isSelectionLogBold && Array.isArray(selectedNodesLog) ? new Set(selectedNodesLog.map((entry) => String(entry?.id || '')).filter(Boolean)) : null;
+
 	selection.each(function (d) {
 		const g = d3.select(this);
 		const inactive = isNodeInactive(d);
@@ -10715,7 +10837,7 @@ function updateNodeVisuals(
 		const isHighlightRootNode = highlightState.rootIds.has(d.id);
 		const isHighlightHopNode = highlightState.hopNodeIds.has(d.id);
 		const isActiveParentConnectedNode = activeParentConnectedIds.has(String(d.id));
-		const isLogged = isSelectionLogBold && selectedNodesLog.some((entry) => entry.id === d.id);
+		const isLogged = Boolean(loggedNodeIds?.has(String(d.id)));
 		const isEmphasized = isSelectedNode || isHoveredNode || isLogged || isFindMatchNode || isHighlightRootNode || isHighlightHopNode || isActiveParentConnectedNode;
 
 		g.classed('fg-node--inactive', inactive)
@@ -10945,22 +11067,20 @@ function appendFetchedImpl(newNodes, newLinks) {
 	// keeps them attached after a fetch updates the node list.
 	resolveLinkEndpoints(layoutLinks, layoutNodes);
 	const resolvedNewLinks = resolveLinkEndpoints(rewrittenLinks, layoutNodes);
-		const currentLayoutNodeIds = new Set(layoutNodes.map((n) => n.id));
-		layoutLinks.push(
-			...resolvedNewLinks.filter((l) => {
+	const currentLayoutNodeIds = new Set(layoutNodes.map((n) => n.id));
+	ensureLayoutLinkIndexes();
+	layoutLinks.push(
+		...resolvedNewLinks.filter((l) => {
 			const s = l.source?.id ?? l.source;
 			const t = l.target?.id ?? l.target;
 			// only include link if both nodes are currently rendered
 			if (!currentLayoutNodeIds.has(s) || !currentLayoutNodeIds.has(t)) return false;
-			// avoid duplicate link
-			return !layoutLinks.some(
-				(el) =>
-					getLinkIdentityKey(el) === getLinkIdentityKey({ source: s, target: t, relationship: l.relationship, isCurrent: l.isCurrent, startDate: l.startDate, endDate: l.endDate }),
-			);
+			return !layoutHasLinkIdentity(l);
 		}),
 	);
 	layoutLinks = deduplicateLayoutLinks(layoutLinks);
-		applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
+	rebuildLayoutLinkIndexes(layoutLinks);
+	applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
 	setGraphLabelRenderMode(layoutNodes.length);
 
 	// Rebuild neighbor cache and update info
@@ -11073,7 +11193,8 @@ function renderGraph(_data) {
 	});
 	layoutNodes = nodes;
 	const resolvedLinks = resolveLinkEndpoints(links, nodes);
-		layoutLinks = deduplicateLayoutLinks(resolvedLinks);
+	layoutLinks = deduplicateLayoutLinks(resolvedLinks);
+	rebuildLayoutLinkIndexes(layoutLinks);
 	// Async-resolve any orphaned link endpoints so they appear once fetched
 	if (orphanLinks.length) fetchAndInjectOrphanNodes(orphanLinks, nodeIdSet);
 
@@ -11592,6 +11713,48 @@ function invalidateFullAdjacencyMap() {
 	fullAdjacencyMap = null;
 }
 
+export function rebuildLayoutLinkIndexes(links = layoutLinks) {
+	layoutLinkIdentityKeys = new Set<string>();
+	layoutLinksByNodeId = new Map<string, any[]>();
+	const list = Array.isArray(links) ? links : [];
+	for (const link of list) {
+		if (!link) continue;
+		const key = getLinkIdentityKey(link);
+		if (key) layoutLinkIdentityKeys.add(key);
+		const sourceId = String(link.source?.id ?? link.source ?? '').trim();
+		const targetId = String(link.target?.id ?? link.target ?? '').trim();
+		if (sourceId) {
+			if (!layoutLinksByNodeId.has(sourceId)) layoutLinksByNodeId.set(sourceId, []);
+			layoutLinksByNodeId.get(sourceId)!.push(link);
+		}
+		if (targetId) {
+			if (!layoutLinksByNodeId.has(targetId)) layoutLinksByNodeId.set(targetId, []);
+			layoutLinksByNodeId.get(targetId)!.push(link);
+		}
+	}
+	layoutLinkIndexLinkCount = list.length;
+	selectionPredicateCacheGen += 1;
+}
+
+function ensureLayoutLinkIndexes() {
+	const linkCount = Array.isArray(layoutLinks) ? layoutLinks.length : 0;
+	if (linkCount === 0) {
+		// Do not auto-clear here: unit tests and interim callers may rebuild indexes from an
+		// explicit link list. Clearing empty layoutLinks goes through rebuildLayoutLinkIndexes([]).
+		return;
+	}
+	if (layoutLinkIndexLinkCount !== linkCount) {
+		rebuildLayoutLinkIndexes(layoutLinks);
+	}
+}
+
+export function layoutHasLinkIdentity(link) {
+	if (Array.isArray(layoutLinks) && layoutLinks.length > 0) {
+		ensureLayoutLinkIndexes();
+	}
+	return layoutLinkIdentityKeys.has(getLinkIdentityKey(link));
+}
+
 function getFullAdjacencyMap() {
 	if (fullAdjacencyMap && graphData) return fullAdjacencyMap;
 	if (!graphData) return new Map();
@@ -11645,25 +11808,19 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 
 	// find links that connect now-rendered nodes
 	const nowIds = new Set([...layoutNodes.map((n) => n.id), ...toAdd.map((n) => n.id)]);
+	ensureLayoutLinkIndexes();
 	const newLinks = graphData.links
 		.filter((l) => {
 			const s = l.source?.id ?? l.source;
 			const t = l.target?.id ?? l.target;
-			return (
-				nowIds.has(s) &&
-				nowIds.has(t) &&
-				!layoutLinks.some(
-					(el) =>
-						getLinkIdentityKey(el) ===
-						getLinkIdentityKey({ source: s, target: t, relationship: l.relationship, isCurrent: l.isCurrent, startDate: l.startDate, endDate: l.endDate }),
-				)
-			);
+			return nowIds.has(s) && nowIds.has(t) && !layoutHasLinkIdentity(l);
 		})
 		.map((l) => ({ ...l }));
 
 	layoutNodes.push(...toAdd);
 	layoutLinks.push(...newLinks);
 	resolveLinkEndpoints(layoutLinks, layoutNodes);
+	rebuildLayoutLinkIndexes(layoutLinks);
 	applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
 	setGraphLabelRenderMode(layoutNodes.length);
 
@@ -12233,8 +12390,7 @@ function syncIndividualConnectionsFromDetail(personNode, detail, options: { incl
 				relationship: isControlPositionText(orphan.position) || parentType === 'firm' ? 'controls' : 'employed_by',
 				position: orphan.position || null,
 			};
-			const hasLayoutLink = layoutLinks.some((link) => getLinkIdentityKey(link) === getLinkIdentityKey(candidateLink));
-			if (!hasLayoutLink) newLinks.push(candidateLink);
+			if (!layoutHasLinkIdentity(candidateLink)) newLinks.push(candidateLink);
 		}
 		if (!newNodes.length && !newLinks.length) return;
 		appendFetched(newNodes, newLinks);
@@ -12280,9 +12436,8 @@ function syncIndividualConnectionsFromDetail(personNode, detail, options: { incl
 			startDate: employment?.registrationBeginDate || employment?.startDate || employment?.fromDate || null,
 			endDate: employment._isCurrent ? null : employment?.registrationEndDate || employment?.endDate || employment?.toDate || null,
 		};
-		const hasLayoutLink = layoutLinks.some((link) => getLinkIdentityKey(link) === getLinkIdentityKey(candidateLink));
 		const hasPendingLink = newLinks.some((link) => getLinkIdentityKey(link) === getLinkIdentityKey(candidateLink));
-		if (!hasLayoutLink && !hasPendingLink) {
+		if (!layoutHasLinkIdentity(candidateLink) && !hasPendingLink) {
 			newLinks.push({
 				source: personId,
 				target: firmNodeId,
@@ -12508,8 +12663,7 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 				relationship: isControlPositionText(orphan.position) || !isParentIndividual ? 'controls' : 'employed_by',
 				position: orphan.position || null,
 			};
-			const hasLayoutLink = layoutLinks.some((link) => getLinkIdentityKey(link) === getLinkIdentityKey(candidateLink));
-			if (!hasLayoutLink) newLinks.push(candidateLink);
+			if (!layoutHasLinkIdentity(candidateLink)) newLinks.push(candidateLink);
 		}
 		if (!newNodes.length && !newLinks.length) return;
 		appendFetched(newNodes, newLinks);
@@ -12550,7 +12704,8 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 			});
 		}
 
-		const hasLayoutLink = layoutLinks.some((link) => {
+		ensureLayoutLinkIndexes();
+		const hasLayoutLink = (layoutLinksByNodeId.get(String(personNodeId)) || []).some((link) => {
 			const sourceId = link.source?.id ?? link.source;
 			const targetId = link.target?.id ?? link.target;
 			return sourceId === personNodeId && targetId === firmNodeId && link.relationship === 'controls';
@@ -13179,23 +13334,31 @@ function revealIncidentRenderedLinks(clickedNode, linkFilter: ((link: any) => bo
 	const renderedIds = new Set(layoutNodes.map((node) => node.id));
 	const clickedId = clickedNode.id;
 	const nextLinks = [];
-	for (const link of graphData.links || []) {
+	ensureLayoutLinkIndexes();
+	const incidentCandidates = (() => {
+		const adjacency = getFullAdjacencyMap();
+		const fromAdj = adjacency.get(clickedId) || [];
+		if (fromAdj.length) return fromAdj.map((entry) => entry.link).filter(Boolean);
+		return graphData.links || [];
+	})();
+	for (const link of incidentCandidates) {
 		if (typeof linkFilter === 'function' && !linkFilter(link)) continue;
 		const sourceId = link.source?.id ?? link.source;
 		const targetId = link.target?.id ?? link.target;
 		if (sourceId !== clickedId && targetId !== clickedId) continue;
 		if (!renderedIds.has(sourceId) || !renderedIds.has(targetId)) continue;
-		const alreadyHas = layoutLinks.some((existing) => {
+		if (layoutHasLinkIdentity(link)) continue;
+		const endpointAlreadyConnected = (layoutLinksByNodeId.get(String(sourceId)) || []).some((existing) => {
 			const existingSourceId = existing.source?.id ?? existing.source;
 			const existingTargetId = existing.target?.id ?? existing.target;
-			if (getLinkIdentityKey(existing) === getLinkIdentityKey(link)) return true;
 			return (existingSourceId === sourceId && existingTargetId === targetId) || (existingSourceId === targetId && existingTargetId === sourceId);
 		});
-		if (alreadyHas) continue;
+		if (endpointAlreadyConnected) continue;
 		nextLinks.push({ ...link });
 	}
 	if (!nextLinks.length) return 0;
 	layoutLinks.push(...resolveLinkEndpoints(nextLinks, layoutNodes));
+	rebuildLayoutLinkIndexes(layoutLinks);
 	neighborMap = buildNeighborMap(layoutNodes, layoutLinks);
 	refreshLayeredLinkSelections({ enterDuration: 220 });
 	linkSel = selectRenderedLinkLines();
@@ -13245,6 +13408,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 	// Firms only reveal Form BD "controls" connections on click — employment/registration
 	// history and other relationship types stay hidden (dashboard-only, see ensureFirmConnections).
 	const expansionLinkFilter = clickedNode.group === 'firm' ? isFirmControlOnlyExpansionLink : isAutoExpansionLink;
+	let didRevealOrMerge = false;
 
 	if (clickedNode.group === 'individual') {
 		await ensureIndividualDetail(clickedNode, {
@@ -13252,12 +13416,14 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 			injectEmploymentGraph: true,
 		});
 		if (runId !== nonGrayExpandRunId) return;
+		const beforeCount = layoutNodes?.length || 0;
 		revealPersonEmploymentNeighbors(clickedNode);
+		didRevealOrMerge = didRevealOrMerge || (layoutNodes?.length || 0) > beforeCount;
 	} else if (clickedNode.group === 'firm') {
 		// Owners/officers come from Form BD detail, not the employment expand API.
 		await ensureFirmDetail(clickedNode);
 		if (runId !== nonGrayExpandRunId) return;
-		revealIncidentRenderedLinks(clickedNode, expansionLinkFilter);
+		didRevealOrMerge = revealIncidentRenderedLinks(clickedNode, expansionLinkFilter) > 0 || didRevealOrMerge;
 	}
 
 	const visitedIds = new Set([clickedNode.id]);
@@ -13296,10 +13462,11 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 				restrictToIds: new Set(hiddenIds),
 				markSelected: true,
 			});
+			didRevealOrMerge = true;
 			if (runId !== nonGrayExpandRunId) return;
 			spreadNeighbors(clickedNode, new Set(hiddenIds), { duration: revealTiming.animationMs });
 		} else if (wave === 1) {
-			revealIncidentRenderedLinks(clickedNode, expansionLinkFilter);
+			didRevealOrMerge = revealIncidentRenderedLinks(clickedNode, expansionLinkFilter) > 0 || didRevealOrMerge;
 		}
 
 		// Pass 2: Fetch 1-hop neighbors for this wave only. Detail hydration must not inject
@@ -13321,6 +13488,7 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 				const filteredExpansion = filterRevealableGraphPayload(expansion, expansionLinkFilter);
 				if (filteredExpansion.nodes.length || filteredExpansion.links.length) {
 					mergeIntoGraphData(filteredExpansion.nodes, filteredExpansion.links);
+					didRevealOrMerge = true;
 				}
 			}),
 		]);
@@ -13355,10 +13523,11 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 				restrictToIds: new Set(hiddenAfterFetchIds),
 				markSelected: true,
 			});
+			didRevealOrMerge = true;
 			if (runId !== nonGrayExpandRunId) return;
 			spreadNeighbors(clickedNode, new Set(hiddenAfterFetchIds), { duration: revealTiming.animationMs });
 		} else if (wave === 1) {
-			revealIncidentRenderedLinks(clickedNode, expansionLinkFilter);
+			didRevealOrMerge = revealIncidentRenderedLinks(clickedNode, expansionLinkFilter) > 0 || didRevealOrMerge;
 		}
 
 		const nextWaveIds = Array.from(new Set([...uniqueWaveFoundIds, ...uniqueNewlyFoundIds]));
@@ -13374,15 +13543,19 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 
 	// Final hydration: labels/scopes only — never inject employment graphs on leaf nodes
 	// (that was revealing "past direct connections" when a firm was clicked).
-	if (currentWaveIds.length && runId === nonGrayExpandRunId) {
+	if (didRevealOrMerge && currentWaveIds.length && runId === nonGrayExpandRunId) {
 		await hydrateExpansionFrontierNodes(currentWaveIds, { includeFirmDetails: false, injectEmploymentGraph: false });
 	}
 
-	refreshTraceState({ deferMs: 120 });
-	try {
-		saveSession();
-	} catch (e) {
-		/* ignore */
+	// Selection already refreshed in selectNode. Skip another full-graph restyle when the
+	// expand frontier was empty (common on re-clicks / already-expanded firms).
+	if (didRevealOrMerge) {
+		refreshTraceState({ deferMs: 120 });
+		try {
+			saveSession();
+		} catch (e) {
+			/* ignore */
+		}
 	}
 }
 
@@ -14523,7 +14696,7 @@ function revealNeighbors(
 
 	// Use cached adjacency from the full graph data
 	const fullAdj = getFullAdjacencyMap();
-	const candidateLinks = (graphData.links || []).filter((link) => (typeof linkFilter === 'function' ? linkFilter(link) : true));
+	ensureLayoutLinkIndexes();
 
 	// BFS to collect ids up to `hops` away; hops === 'all' means unlimited
 	const dist = new Map<string, number>();
@@ -14549,6 +14722,17 @@ function revealNeighbors(
 
 	// Filter to only nodes not yet rendered
 	const hiddenIds = Array.from(dist.keys()).filter((id) => !renderedIds.has(id) && (!restrictToIds || restrictToIds.has(id)));
+	// Nothing new to paint: selection chrome already ran in selectNode. Skip the empty
+	// reveal batch path (metrics rebuild, layered rejoin, sim reheat, full restyle).
+	if (!hiddenIds.length) {
+		if (markSelected && clickedNode?.id) {
+			visitedNodeIds.add(clickedNode.id);
+			rememberPersistentSelection(clickedNode.id);
+		}
+		return;
+	}
+
+	const candidateLinks = (graphData.links || []).filter((link) => (typeof linkFilter === 'function' ? linkFilter(link) : true));
 	const revealBatches = (() => {
 		const plan = getLargeNodeRevealBatchPlan(hiddenIds.length, layoutNodes.length);
 		if (!plan.shouldBatch || !hiddenIds.length) return [hiddenIds];
@@ -14588,7 +14772,8 @@ function revealNeighbors(
 						const tgtRendered = activeRenderedIds.has(tgtId);
 						if (!srcRendered && !batchNodeIds.has(srcId)) return false;
 						if (!tgtRendered && !batchNodeIds.has(tgtId)) return false;
-						const alreadyHas = layoutLinks.some((el) => {
+						if (layoutHasLinkIdentity(link)) return false;
+						const alreadyHas = (layoutLinksByNodeId.get(String(srcId)) || []).some((el) => {
 							const es = el.source?.id ?? el.source;
 							const et = el.target?.id ?? el.target;
 							return es === srcId && et === tgtId;
@@ -14642,6 +14827,7 @@ function revealNeighbors(
 
 			layoutLinks.push(...batchLinks);
 			resolveLinkEndpoints(layoutLinks, layoutNodes);
+			rebuildLayoutLinkIndexes(layoutLinks);
 			applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
 
 			newRenderNodes.forEach((node) => {
