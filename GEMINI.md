@@ -89,7 +89,7 @@ Node-click reveal/spread may move the clicked node and newly revealed neighbors 
 
 ## Do / don’t
 
-- **Do** keep local Redis, DB1, and DB2 reconciled when syncing; merge drift, don’t blind-overwrite unique live keys.
+- **Do** keep local Redis, DB1, and DB2 reconciled when syncing; merge drift, don’t blind-overwrite unique live keys. When pushing bulk keys to Upstash, always use chunked `MSET` batching (e.g., via `.local/scripts/push_all_to_prod.mjs`) to minimize API requests.
 - **Do** prefer Redis + sidecars + in-memory reuse over live upstream on interactive paths.
 - **Do** keep crawl/validation sequential when you run it locally.
 - **Do** update firm rosters from person pages only when writes are allowed (`UPSTASH_ALLOW_WRITES=1`) and Redis is usable: loading `/dashboard/individual/{crd}` upserts into each employer’s `firm-connections:firm:{id}` (skip-unchanged). No batch reverse-index job.

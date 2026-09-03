@@ -18,7 +18,7 @@ Treat production as a **read-only reference source** for verification.
 
 - A production URL (for example `https://finra-data-chart-next-02.vercel.app/...`) is **an example of the issue**, not a request to change production.
 - **Never deploy to Vercel** from an agent session (`vercel deploy`, `pnpm run vercel:deploy`, GitHub deploy buttons, or equivalent).
-- **Never push local Redis to prod Redis** (Upstash DB1/DB2) unless the user explicitly says to sync/push/deploy Redis. A bug report, a prod URL, or “it works locally” is not that instruction.
+- **Never push local Redis to prod Redis** (Upstash DB1/DB2) unless the user explicitly says to sync/push/deploy Redis. A bug report, a prod URL, or “it works locally” is not that instruction. When an explicit push is requested, use batched `MSET` logic (like `.local/scripts/push_all_to_prod.mjs`) rather than individual sets to reduce API commands.
 - Local app writes (`USE_LOCAL_REDIS=1`) stay on `127.0.0.1:6379` only. Do not add dual-write / replica hooks that silently update Upstash.
 
 ## Required behavior
