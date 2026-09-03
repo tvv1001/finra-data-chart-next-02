@@ -730,9 +730,11 @@ const NON_GRAY_HOP_ANIMATION_MS = 1200;
 const NON_GRAY_HOP_DELAY_MS = 850;
 
 const NON_GRAY_DETAIL_BATCH_SIZE = 6;
-const AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT = 16;
+const AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT = 12;
 /** Hard cap: never dump mega-firm neighborhoods (e.g. Merrill ~2500) onto the canvas in one expand. */
-const MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND = 48;
+const MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND = 12;
+/** Sidebar connection lists stay short; full roster lives on the dashboard. */
+const SIDEBAR_CONNECTIONS_PREVIEW_LIMIT = 24;
 const PROFILE_SEED_FETCH_CONCURRENCY = 4;
 const SEED_QUERY_FETCH_CONCURRENCY = 4;
 const TEXT_SEARCH_DETAIL_HYDRATION_LIMIT = 24;
@@ -5296,45 +5298,6 @@ function clearGraphData() {
 	showEmpty(true);
 }
 
-/** Warm visit-cache with merged detail for visible nodes so clicks hit memory first. */
-function floodVisibleNodeDetails(limit = 40) {
-	if (typeof window === 'undefined' || isBrowserOffline()) return;
-	const nodes = Array.isArray(layoutNodes) && layoutNodes.length ? layoutNodes : graphData?.nodes || [];
-	const targets = nodes
-		.filter((n) => n && (n.group === 'individual' || n.group === 'firm') && n.id)
-		.slice(0, Math.max(1, Math.min(80, limit)));
-	if (!targets.length) return;
-
-	const run = async () => {
-		for (const node of targets) {
-			try {
-				if (node.group === 'individual') {
-					await ensureIndividualDetail(node, {
-						allowOwnerEvidenceFirmFetch: false,
-						injectEmploymentGraph: false,
-					});
-				} else if (node.group === 'firm') {
-					await ensureFirmDetail(node);
-				}
-			} catch {
-				// best-effort flood
-			}
-			await new Promise((r) => setTimeout(r, 40));
-		}
-	};
-
-	const ric = (window as any).requestIdleCallback;
-	if (typeof ric === 'function') {
-		ric(() => {
-			void run();
-		}, { timeout: 2500 });
-	} else {
-		window.setTimeout(() => {
-			void run();
-		}, 600);
-	}
-}
-
 function renderBaselineGraphData() {
 	if (!graphData) return null;
 	const hasGraphContent = Boolean((graphData?.nodes?.length || 0) > 0 || (graphData?.links?.length || 0) > 0);
@@ -5359,7 +5322,6 @@ function renderBaselineGraphData() {
 		showSidebarHint();
 	}
 	showEmpty(!hasGraphContent);
-	if (hasGraphContent) floodVisibleNodeDetails(48);
 	return graphData;
 }
 
@@ -12630,6 +12592,22 @@ const firmConnectionsRequestCache = new Map<string, Promise<void>>();
  * Current/Previous Connections cards still show them and remain clickable (they route
  * to/inject the target node on demand via the existing fg-node-link click handler).
  */
+function scheduleFirmConnectionsLoad(firmNode: any) {
+	if (!firmNode || firmNode.group !== 'firm' || firmNode._connectionsLoaded || firmNode._connectionsLoadScheduled) return;
+	firmNode._connectionsLoadScheduled = true;
+	const run = () => {
+		scheduleFirmConnectionsLoad(firmNode);
+	};
+	const ric = typeof window !== 'undefined' ? (window as any).requestIdleCallback : null;
+	if (typeof ric === 'function') {
+		ric(run, { timeout: 1800 });
+	} else if (typeof window !== 'undefined') {
+		window.setTimeout(run, 400);
+	} else {
+		run();
+	}
+}
+
 async function ensureFirmConnections(firmNode: any) {
 	if (!firmNode || firmNode.group !== 'firm') return;
 	const match = String(firmNode.id || '').match(/^(?:firm[:_])?(\d+)$/);
@@ -12655,7 +12633,7 @@ async function ensureFirmConnections(firmNode: any) {
 			if (res.ok) {
 				const payload = await res.json();
 				if (payload?.found !== false) {
-					// Sidebar-display only: Redis firm-connections:firm:{id} via /connections.
+					// Keep full roster on the node for filters/dashboard; sidebar renders a preview only.
 					firmNode.currentConnections = Array.isArray(payload.currentConnections) ? payload.currentConnections : [];
 					firmNode.previousConnections = Array.isArray(payload.previousConnections) ? payload.previousConnections : [];
 					firmNode._connectionsLoaded = true;
@@ -12665,6 +12643,8 @@ async function ensureFirmConnections(firmNode: any) {
 		} catch (error) {
 			// timeout / offline — leave _connectionsLoaded unset so a future call can retry.
 			console.warn(`ensureFirmConnections failed for ${firmId}:`, error);
+		} finally {
+			firmNode._connectionsLoadScheduled = false;
 		}
 	})();
 
@@ -12804,9 +12784,7 @@ async function ensureFirmDetail(firmNode) {
 					firmNode._detailMissing = false;
 					firmNode._detailValidated = true;
 					if (selectedId === firmNode.id) renderSidebar(firmNode);
-					void ensureFirmConnections(firmNode).then(() => {
-						if (selectedId === firmNode.id) renderSidebar(firmNode);
-					});
+					scheduleFirmConnectionsLoad(firmNode);
 					return;
 				}
 				firmNode._detailMissing = true;
@@ -12936,12 +12914,8 @@ async function ensureFirmDetail(firmNode) {
 			logDetailLoadDebug(`Firm detail loaded for ID ${firmId}: ${firmNode.disclosures?.length || 0} disclosures, ${firmNode.directOwners?.length || 0} owners`);
 			if (selectedId === firmNode.id) renderSidebar(firmNode);
 
-			// Employment connections load async and re-paint the sidebar when they arrive.
-			void ensureFirmConnections(firmNode).then(() => {
-				if (selectedId === firmNode.id) {
-					renderSidebar(firmNode);
-				}
-			});
+			// Defer roster fetch so identity/sidebar paints first; preview-capped on render.
+			scheduleFirmConnectionsLoad(firmNode);
 		} catch (err) {
 			console.error(`Error fetching firm detail for ${firmId}:`, err);
 		}
@@ -13246,7 +13220,10 @@ function revealPersonEmploymentNeighbors(personNode) {
 		if (targetId === personNode.id && sourceId) employmentFirmIds.add(sourceId);
 	}
 	const renderedIds = new Set(layoutNodes.map((node) => node.id));
-	const hiddenIds = Array.from(employmentFirmIds).filter((id) => id && !renderedIds.has(id));
+	// Cap how many employer firms land on the canvas from one person click.
+	const hiddenIds = Array.from(employmentFirmIds)
+		.filter((id) => id && !renderedIds.has(id))
+		.slice(0, MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND);
 	if (hiddenIds.length) {
 		revealNeighbors(personNode, 'all', {
 			linkFilter: (link) => isAutoExpansionLink(link) || isPreviousEmploymentLink(link),
@@ -13878,11 +13855,7 @@ async function materializeRouteSelectionNeighborhood(node, hops: number = getDef
 
 	// Re-paint sidebar after neighborhood + owner links land (avoids empty connections until hard refresh).
 	if (node.group === 'firm') {
-		try {
-			await ensureFirmConnections(node);
-		} catch {
-			/* ignore */
-		}
+		scheduleFirmConnectionsLoad(node);
 	}
 	if (selectedId === node.id) {
 		renderSidebar(node);
@@ -17140,6 +17113,17 @@ function renderFirmDetail(d: any) {
 			return !previousConnections.includes(conn);
 		})
 		.sort(compareConnectionEntries);
+	const currentConnectionsTotal = currentConnections.length;
+	const previousConnectionsTotal = previousConnections.length;
+	const controlConnectionsTotal = controlConnections.length;
+	const connectionsPreviewTruncated =
+		currentConnectionsTotal > SIDEBAR_CONNECTIONS_PREVIEW_LIMIT ||
+		previousConnectionsTotal > SIDEBAR_CONNECTIONS_PREVIEW_LIMIT ||
+		controlConnectionsTotal > SIDEBAR_CONNECTIONS_PREVIEW_LIMIT;
+	const currentConnectionsView = currentConnections.slice(0, SIDEBAR_CONNECTIONS_PREVIEW_LIMIT);
+	const previousConnectionsView = previousConnections.slice(0, SIDEBAR_CONNECTIONS_PREVIEW_LIMIT);
+	const controlConnectionsView = controlConnections.slice(0, SIDEBAR_CONNECTIONS_PREVIEW_LIMIT);
+
 
 	const renderedCrdSet = new Set(controlConnections.map((c) => String(c.crd || '').trim()).filter(Boolean));
 	const renderedNameSet = new Set(
@@ -17467,11 +17451,11 @@ function renderFirmDetail(d: any) {
 			}
       ${row('Regulator', esc(d.regulator || '–'))}
       ${
-				controlConnections.length || (showFinra && staticOwnersToRender.length) ?
+				controlConnectionsTotal || (showFinra && staticOwnersToRender.length) ?
 					`
-        <div class="fg-section-title fg-section-title--sticky">Form BD — Direct Owners &amp; Executive Officers (${controlConnections.length + (showFinra ? staticOwnersToRender.length : 0)})</div>
+        <div class="fg-section-title fg-section-title--sticky">Form BD — Direct Owners &amp; Executive Officers (${controlConnectionsTotal + (showFinra ? staticOwnersToRender.length : 0)})</div>
 		<div class="fg-timeline">
-			${controlConnections
+			${controlConnectionsView
 				.map((connection) => {
 					const displaySecondary = connection.crd ? ` <small>CRD#${esc(connection.crd)}</small>` : '';
 					const relHtml =
@@ -17491,6 +17475,7 @@ function renderFirmDetail(d: any) {
 			${
 				showFinra ?
 					staticOwnersToRender
+						.slice(0, SIDEBAR_CONNECTIONS_PREVIEW_LIMIT)
 						.map((o) => {
 							const nameHtml = `<span class="fg-owner-name">${esc(o.legalName || '')}</span>`;
 							const posHtml = `<span class="fg-owner-pos">${esc(o.position || '')}</span>`;
@@ -17583,11 +17568,11 @@ function renderFirmDetail(d: any) {
 
 			${
 				(() => {
-					const totalConn = connections.length + currentConnections.length + previousConnections.length;
-					if (totalConn > 0 && firmId) {
+					const totalConn = connections.length + currentConnectionsTotal + previousConnectionsTotal;
+					if ((totalConn > 0 || connectionsPreviewTruncated) && firmId) {
 						return `
 							<a href="/dashboard/firm/${encodeURIComponent(firmId)}" class="fg-tl-entry fg-card-clickable" style="display: block; text-decoration: none; text-align: center; margin-top: 16px; padding: 12px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--bg-secondary);">
-								<strong>Full connection list (${totalConn}) view on Dashboard</strong>
+								<strong>${connectionsPreviewTruncated ? `Preview capped — full connection list (${totalConn}) on Dashboard` : `Full connection list (${totalConn}) view on Dashboard`}</strong>
 							</a>
 						`;
 					}

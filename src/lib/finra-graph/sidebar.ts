@@ -1473,8 +1473,11 @@ export function renderFirmDetail(d: any) {
 	const officeAddress = /^(?:-|n\/?a|na|none|null|undefined)$/i.test(officeAddressRaw) ? '' : officeAddressRaw;
 	const hasOfficeAddress = Boolean(officeAddress);
 	const businessPhone = String(d.businessPhone || '').trim();
-	let currentConns = Array.isArray(d.currentConnections) ? [...d.currentConnections] : [];
-	let prevConns = Array.isArray(d.previousConnections) ? [...d.previousConnections] : [];
+	const SIDEBAR_CONNECTIONS_PREVIEW_LIMIT = 24;
+	const allCurrentConns = Array.isArray(d.currentConnections) ? [...d.currentConnections] : [];
+	const allPrevConns = Array.isArray(d.previousConnections) ? [...d.previousConnections] : [];
+	let currentConns = allCurrentConns;
+	let prevConns = allPrevConns;
 	let primaryConns: any[] = [];
 	let secondaryConns: any[] = [];
 
@@ -1503,6 +1506,16 @@ export function renderFirmDetail(d: any) {
 			}
 		}
 	}
+
+	const totalConnCount = primaryConns.length + secondaryConns.length + prevConns.length;
+	const primaryTotal = primaryConns.length;
+	const secondaryTotal = secondaryConns.length;
+	const prevTotal = prevConns.length;
+	primaryConns = primaryConns.slice(0, SIDEBAR_CONNECTIONS_PREVIEW_LIMIT);
+	secondaryConns = secondaryConns.slice(0, SIDEBAR_CONNECTIONS_PREVIEW_LIMIT);
+	prevConns = prevConns.slice(0, SIDEBAR_CONNECTIONS_PREVIEW_LIMIT);
+	const connectionsTruncated =
+		primaryTotal > primaryConns.length || secondaryTotal > secondaryConns.length || prevTotal > prevConns.length;
 
 	function renderConnectionEntry(conn: any, isActive: boolean) {
 		const rawName = conn.label || conn.name || conn.title || conn.firmName || conn.legalName || `CRD#${conn.crd || ''}`;
@@ -1580,6 +1593,7 @@ export function renderFirmDetail(d: any) {
       <div class='fg-section-title'>Direct Owners &amp; Executive Officers (${d.directOwners.length})</div>
       <div class='fg-timeline'>
         ${d.directOwners
+					.slice(0, SIDEBAR_CONNECTIONS_PREVIEW_LIMIT)
 					.map((owner: any) => {
 						const name = owner.legalName || owner.name || `Person ${owner.crdNumber || owner.crd || ''}`;
 						const position = owner.position || '';
@@ -1604,7 +1618,7 @@ export function renderFirmDetail(d: any) {
       ${
 				primaryConns.length ?
 					`
-      <div class='fg-section-title fg-section-title--sticky'>Current Connections - Core Employees & Control (${primaryConns.length})</div>
+      <div class='fg-section-title fg-section-title--sticky'>Current Connections - Core Employees & Control (${primaryTotal})</div>
       <div class='fg-timeline'>
         ${primaryConns.map((conn: any) => renderConnectionEntry(conn, true)).join('')}
       </div>
@@ -1614,7 +1628,7 @@ export function renderFirmDetail(d: any) {
       ${
 				secondaryConns.length ?
 					`
-      <div class='fg-section-title fg-section-title--sticky'>Current Connections - Other (${secondaryConns.length})</div>
+      <div class='fg-section-title fg-section-title--sticky'>Current Connections - Other (${secondaryTotal})</div>
       <div class='fg-timeline'>
         ${secondaryConns.map((conn: any) => renderConnectionEntry(conn, true)).join('')}
       </div>
@@ -1624,11 +1638,20 @@ export function renderFirmDetail(d: any) {
       ${
 				prevConns.length ?
 					`
-      <div class='fg-section-title fg-section-title--sticky'>Previous Connections (${prevConns.length})</div>
+      <div class='fg-section-title fg-section-title--sticky'>Previous Connections (${prevTotal})</div>
       <div class='fg-timeline fg-timeline--previous'>
         ${prevConns.map((conn: any) => renderConnectionEntry(conn, false)).join('')}
       </div>
       `
+				:	''
+			}
+      ${
+				connectionsTruncated && firmId ?
+					`<a href="/dashboard/firm/${encodeURIComponent(String(firmId))}" class="fg-tl-entry fg-card-clickable" style="display:block;text-decoration:none;text-align:center;margin-top:12px;padding:10px;border:1px solid var(--border-subtle);border-radius:8px;">
+						<strong>Showing ${SIDEBAR_CONNECTIONS_PREVIEW_LIMIT} per section — full list (${totalConnCount}) on Dashboard</strong>
+					</a>`
+				: !d._connectionsLoaded && !totalConnCount ?
+					`<p class='fg-sb-note' style='margin-top:12px;'>Connections load after identity — open Dashboard for the full roster.</p>`
 				:	''
 			}
     </div>
