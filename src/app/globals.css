@@ -4260,6 +4260,7 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 	.fg-toolbar-status--top {
 		justify-content: flex-end;
 	}
+
 	.fg-search-input,
 	.fg-fetch-input {
 		font: 16px var(--sans);
