@@ -14301,7 +14301,7 @@ function selectNode(
 ) {
 	lastArrowNavCoord = null;
 	stopSearchPulseLoop();
-	updateFocusReadout(null);
+	updateFocusReadout(d);
 	const {
 		persist = true,
 		skipProfileSync = false,

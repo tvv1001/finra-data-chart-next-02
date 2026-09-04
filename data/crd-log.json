@@ -1,6 +1,122 @@
 {
   "firms": [
     {
+      "id": 5309,
+      "name": "FBL MARKETING SERVICES, LLC"
+    },
+    {
+      "id": 8099,
+      "name": "W&S BROKERAGE SERVICES, INC."
+    },
+    {
+      "id": 6363,
+      "name": "AMERIPRISE FINANCIAL SERVICES, LLC"
+    },
+    {
+      "id": 42803,
+      "name": "VALIC FINANCIAL ADVISORS, INC."
+    },
+    {
+      "id": 3487,
+      "name": "STATE FARM INVESTMENT MANAGEMENT CORP."
+    },
+    {
+      "id": 43036,
+      "name": "STATE FARM VP MANAGEMENT CORP."
+    },
+    {
+      "id": 1137,
+      "name": "PRINCIPAL SECURITIES, INC."
+    },
+    {
+      "id": 15340,
+      "name": "CETERA INVESTMENT SERVICES LLC"
+    },
+    {
+      "id": 7784,
+      "name": "FIDELITY BROKERAGE SERVICES LLC"
+    },
+    {
+      "id": 19616,
+      "name": "WELLS FARGO CLEARING SERVICES, LLC"
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 5393,
+      "name": "CHARLES SCHWAB & CO., INC."
+    },
+    {
+      "id": 297324,
+      "name": "PRINCIPAL ADVISED SERVICES"
+    },
+    {
+      "id": 43261,
+      "name": "PRINCIPAL FUNDS DISTRIBUTOR, INC."
+    },
+    {
+      "id": 18272,
+      "name": "ALLSTATE FINANCIAL SERVICES, LLC"
+    },
+    {
+      "id": 250,
+      "name": "EDWARD JONES"
+    },
+    {
+      "id": 7870,
+      "name": "TD AMERITRADE, INC."
+    },
+    {
+      "id": 25658,
+      "name": "CAPITAL ONE INVESTMENT SERVICES LLC"
+    },
+    {
+      "id": 45744,
+      "name": "CAPITAL ONE INVESTING, LLC"
+    },
+    {
+      "id": 1042,
+      "name": "ALLEN & COMPANY LLC"
+    },
+    {
+      "id": 615,
+      "name": "NEW ENGLAND SECURITIES"
+    },
+    {
+      "id": 14251,
+      "name": "MSI FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 10409,
+      "name": "MML INVESTORS SERVICES, LLC"
+    },
+    {
+      "id": 21675,
+      "name": "DIRECTED SERVICES LLC"
+    },
+    {
+      "id": 3870,
+      "name": "LINCOLN FINANCIAL SECURITIES CORPORATION"
+    },
+    {
+      "id": 6604,
+      "name": "HARTFORD EQUITY SALES COMPANY INC."
+    },
+    {
+      "id": 37819,
+      "name": "HARTFORD SECURITIES DISTRIBUTION COMPANY, INC."
+    },
+    {
+      "id": 38030,
+      "name": "MML DISTRIBUTORS, LLC"
+    },
+    {
+      "id": 13109,
+      "name": "EMPOWER FINANCIAL SERVICES, INC."
+    },
+    {
       "id": 164466,
       "name": "NESTWISE LLC"
     },
@@ -33,16 +149,8 @@
       "name": "CITICORP INVESTMENT SERVICES"
     },
     {
-      "id": 615,
-      "name": "NEW ENGLAND SECURITIES"
-    },
-    {
       "id": 39011,
       "name": "LEERINK SWANN & COMPANY"
-    },
-    {
-      "id": 7784,
-      "name": "FIDELITY BROKERAGE SERVICES LLC"
     },
     {
       "id": 17507,
@@ -51,10 +159,6 @@
     {
       "id": 146430,
       "name": "PYRAMIS DISTRIBUTORS CORPORATION LLC"
-    },
-    {
-      "id": 7870,
-      "name": "TD AMERITRADE, INC."
     },
     {
       "id": 292163,
@@ -75,10 +179,6 @@
     {
       "id": 29106,
       "name": "E*TRADE SECURITIES LLC"
-    },
-    {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
     },
     {
       "id": 8174,
@@ -107,14 +207,6 @@
     {
       "id": 5979,
       "name": "H&R BLOCK FINANCIAL ADVISORS, INC."
-    },
-    {
-      "id": 5393,
-      "name": "CHARLES SCHWAB & CO., INC."
-    },
-    {
-      "id": 6363,
-      "name": "AMERIPRISE FINANCIAL SERVICES, INC."
     },
     {
       "id": 133763,
@@ -175,10 +267,6 @@
     {
       "id": 12984,
       "name": "INVEST FINANCIAL CORPORATION"
-    },
-    {
-      "id": 250,
-      "name": "EDWARD JONES"
     },
     {
       "id": 4039,
@@ -397,10 +485,6 @@
       "name": "IDS LIFE INSURANCE COMPANY"
     },
     {
-      "id": 19616,
-      "name": "WACHOVIA SECURITIES, LLC"
-    },
-    {
       "id": 17499,
       "name": "SUNTRUST INVESTMENT SERVICES, INC."
     },
@@ -415,10 +499,6 @@
     {
       "id": 4095,
       "name": "METROPOLITAN LIFE INSURANCE COMPANY"
-    },
-    {
-      "id": 14251,
-      "name": "METLIFE SECURITIES INC."
     },
     {
       "id": 10465,
@@ -557,10 +637,6 @@
       "name": "VALMARK SECURITIES, INC."
     },
     {
-      "id": 15340,
-      "name": "PRIMEVEST FINANCIAL SERVICES, INC."
-    },
-    {
       "id": 7452,
       "name": "VANGUARD MARKETING CORPORATION"
     },
@@ -599,18 +675,6 @@
     {
       "id": 1703,
       "name": "LOCUST STREET SECURITIES, INC."
-    },
-    {
-      "id": 10409,
-      "name": "MML INVESTORS SERVICES, INC."
-    },
-    {
-      "id": 3870,
-      "name": "JEFFERSON PILOT SECURITIES CORPORATION"
-    },
-    {
-      "id": 18272,
-      "name": "ALLSTATE FINANCIAL SERVICES, LLC"
     },
     {
       "id": 29604,
@@ -683,14 +747,6 @@
     {
       "id": 13787,
       "name": "UVEST FINANCIAL SERVICES GROUP, INC."
-    },
-    {
-      "id": 1137,
-      "name": "PRINCIPAL SECURITIES, INC."
-    },
-    {
-      "id": 43261,
-      "name": "PRINCIPAL FUNDS DISTRIBUTOR, INC."
     },
     {
       "id": 109904,
@@ -871,10 +927,6 @@
     {
       "id": 109002,
       "name": "PRINCIPAL ASSET MANAGEMENT"
-    },
-    {
-      "id": 1042,
-      "name": "ALLEN & COMPANY LLC"
     },
     {
       "id": 11643,
@@ -1385,10 +1437,6 @@
       "name": "MUTUAL SECURITIES, INC."
     },
     {
-      "id": 5309,
-      "name": "FBL MARKETING SERVICES, LLC"
-    },
-    {
       "id": 110023,
       "name": "SPIRIT OF AMERICA MANAGEMENT CORP"
     },
@@ -1875,14 +1923,6 @@
     {
       "id": 173962,
       "name": "BANKERS LIFE SECURITIES, INC."
-    },
-    {
-      "id": 3487,
-      "name": "STATE FARM INVESTMENT MANAGEMENT CORP."
-    },
-    {
-      "id": 43036,
-      "name": "STATE FARM VP MANAGEMENT CORP."
     },
     {
       "id": 6695,
@@ -2993,10 +3033,6 @@
       "name": "ALLIANCEBERNSTEIN INVESTMENTS, INC."
     },
     {
-      "id": 38030,
-      "name": "MML DISTRIBUTORS, LLC"
-    },
-    {
       "id": 739,
       "name": "SYMETRA SECURITIES, INC."
     },
@@ -3007,10 +3043,6 @@
     {
       "id": 13686,
       "name": "H.D. VEST INVESTMENT SERVICES"
-    },
-    {
-      "id": 6604,
-      "name": "HARTFORD EQUITY SALES COMPANY INC."
     },
     {
       "id": 283942,
@@ -3617,10 +3649,6 @@
       "name": "NATIONWIDE SECURITIES, INC."
     },
     {
-      "id": 42803,
-      "name": "VALIC FINANCIAL ADVISORS, INC."
-    },
-    {
       "id": 47076,
       "name": "STUART SECURITIES CORP."
     },
@@ -3729,10 +3757,6 @@
       "name": "AQUA SECURITIES L.P."
     },
     {
-      "id": 13109,
-      "name": "EMPOWER FINANCIAL SERVICES, INC."
-    },
-    {
       "id": 142998,
       "name": "HASTINGS CAPITAL GROUP, LLC"
     },
@@ -3790,6 +3814,114 @@
     }
   ],
   "individuals": [
+    {
+      "id": 8196052,
+      "name": "Grant Gregg Harris"
+    },
+    {
+      "id": 8173845,
+      "name": "Tylan Shelby"
+    },
+    {
+      "id": 8103453,
+      "name": "JAMES T VANCE"
+    },
+    {
+      "id": 7961757,
+      "name": "Layne Paul Denlinger Stoops"
+    },
+    {
+      "id": 7861580,
+      "name": "Amy Justus"
+    },
+    {
+      "id": 7735453,
+      "name": "ANTHONY JOHN KOWALSKI"
+    },
+    {
+      "id": 7702988,
+      "name": "FRANCISCO JAVIER JUAREZ"
+    },
+    {
+      "id": 7592166,
+      "name": "Nahla Imad Atroon"
+    },
+    {
+      "id": 7580443,
+      "name": "Jonathan M Morado"
+    },
+    {
+      "id": 7425975,
+      "name": "RYAN ANN HAEFS"
+    },
+    {
+      "id": 7347732,
+      "name": "Shelby Leigh Adams"
+    },
+    {
+      "id": 7249209,
+      "name": "JAMES BERNARD HUNT"
+    },
+    {
+      "id": 7186001,
+      "name": "Sarah Van Alst"
+    },
+    {
+      "id": 7148529,
+      "name": "DOUGLAS JOHN RANTS"
+    },
+    {
+      "id": 7058549,
+      "name": "Zachary Joseph Rusak"
+    },
+    {
+      "id": 6864083,
+      "name": "BRANDON K STARK"
+    },
+    {
+      "id": 6687816,
+      "name": "JODY KENT"
+    },
+    {
+      "id": 6626745,
+      "name": "JAMES A MAGEE"
+    },
+    {
+      "id": 6496410,
+      "name": "Ronald Leon Barteau"
+    },
+    {
+      "id": 6209619,
+      "name": "Joel Deaton McCray"
+    },
+    {
+      "id": 6046204,
+      "name": "Thomas Michael Moore"
+    },
+    {
+      "id": 5877599,
+      "name": "Bridgette Marie Justis"
+    },
+    {
+      "id": 5774781,
+      "name": "MELISSA LYNN FISHER"
+    },
+    {
+      "id": 5601143,
+      "name": "NATHAN JAY SERVEN"
+    },
+    {
+      "id": 5438198,
+      "name": "JOSEPH EDGAR PRICE"
+    },
+    {
+      "id": 5129911,
+      "name": "COLBY A STOLTZ"
+    },
+    {
+      "id": 5124251,
+      "name": "RICHARD J CUSTER"
+    },
     {
       "id": 5097259,
       "name": "KIRBY LEPAK HORAN-ADAMS"
@@ -5080,6 +5212,21 @@
     },
     {
       "id": 3224676,
+      "name": "MICHAEL AQUILIZAN CHAI"
+    },
+    {
+      "id": 7042725,
+      "name": "MICHAEL HONG-SOK CHOI"
+    },
+    {
+      "id": 5906597,
+      "name": "SUNGSOO MICHAEL CHOI"
+    }
+  ]
+}OI"
+    }
+  ]
+}    "id": 3224676,
       "name": "MICHAEL AQUILIZAN CHAI"
     },
     {
