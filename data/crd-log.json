@@ -1,6 +1,86 @@
 {
   "firms": [
     {
+      "id": 105644,
+      "name": "CETERA INVESTMENT ADVISERS LLC"
+    },
+    {
+      "id": 7446,
+      "name": "G. T. MURRAY & CO."
+    },
+    {
+      "id": 19924,
+      "name": "INDEPENDENT FINANCIAL SECURITIES, INC."
+    },
+    {
+      "id": 13572,
+      "name": "CETERA ADVISOR NETWORKS LLC"
+    },
+    {
+      "id": 6413,
+      "name": "LPL FINANCIAL LLC"
+    },
+    {
+      "id": 250,
+      "name": "EDWARD JONES"
+    },
+    {
+      "id": 149018,
+      "name": "RAYMOND JAMES FINANCIAL SERVICES ADVISORS, INC"
+    },
+    {
+      "id": 6694,
+      "name": "RAYMOND JAMES FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 7556,
+      "name": "MORGAN STANLEY DW INC."
+    },
+    {
+      "id": 6321,
+      "name": "IDS LIFE INSURANCE COMPANY"
+    },
+    {
+      "id": 6363,
+      "name": "AMERICAN EXPRESS FINANCIAL ADVISORS INC."
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 283390,
+      "name": "TRUIST ADVISORY SERVICES, INC."
+    },
+    {
+      "id": 17499,
+      "name": "TRUIST INVESTMENT SERVICES, INC."
+    },
+    {
+      "id": 16999,
+      "name": "BANC ONE SECURITIES CORPORATION"
+    },
+    {
+      "id": 25574,
+      "name": "CHASE INVESTMENT SERVICES CORP."
+    },
+    {
+      "id": 79,
+      "name": "J.P. MORGAN SECURITIES LLC"
+    },
+    {
+      "id": 19616,
+      "name": "WELLS FARGO CLEARING SERVICES, LLC"
+    },
+    {
+      "id": 149777,
+      "name": "MORGAN STANLEY"
+    },
+    {
+      "id": 249,
+      "name": "OPPENHEIMER & CO. INC."
+    },
+    {
       "id": 1252,
       "name": "WILLIAM BLAIR"
     },
@@ -33,20 +113,8 @@
       "name": "CIBC WORLD MARKETS CORP."
     },
     {
-      "id": 249,
-      "name": "OPPENHEIMER & CO. INC."
-    },
-    {
-      "id": 6413,
-      "name": "LPL FINANCIAL LLC"
-    },
-    {
       "id": 29106,
       "name": "E*TRADE SECURITIES LLC"
-    },
-    {
-      "id": 19616,
-      "name": "WELLS FARGO CLEARING SERVICES, LLC"
     },
     {
       "id": 11025,
@@ -81,10 +149,6 @@
       "name": "PRUCO SECURITIES, LLC."
     },
     {
-      "id": 149777,
-      "name": "MORGAN STANLEY SMITH BARNEY"
-    },
-    {
       "id": 260,
       "name": "PRINCIPAL FINANCIAL SECURITIES,INC."
     },
@@ -117,10 +181,6 @@
       "name": "W&S BROKERAGE SERVICES, INC."
     },
     {
-      "id": 6363,
-      "name": "AMERIPRISE FINANCIAL SERVICES, LLC"
-    },
-    {
       "id": 42803,
       "name": "VALIC FINANCIAL ADVISORS, INC."
     },
@@ -141,10 +201,6 @@
       "name": "CETERA INVESTMENT SERVICES LLC"
     },
     {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
-    },
-    {
       "id": 5393,
       "name": "CHARLES SCHWAB & CO., INC."
     },
@@ -159,10 +215,6 @@
     {
       "id": 18272,
       "name": "ALLSTATE FINANCIAL SERVICES, LLC"
-    },
-    {
-      "id": 250,
-      "name": "EDWARD JONES"
     },
     {
       "id": 7870,
@@ -253,10 +305,6 @@
       "name": "ALL OF US SECURITIES LLC"
     },
     {
-      "id": 79,
-      "name": "J.P. MORGAN SECURITIES LLC"
-    },
-    {
       "id": 145562,
       "name": "OPTIONSHOUSE"
     },
@@ -267,10 +315,6 @@
     {
       "id": 5087,
       "name": "KLEINWORT, BENSON INCORPORATED"
-    },
-    {
-      "id": 7556,
-      "name": "DEAN WITTER REYNOLDS INC."
     },
     {
       "id": 37886,
@@ -413,10 +457,6 @@
       "name": "IMS HEALTH CAPITAL, INC."
     },
     {
-      "id": 13572,
-      "name": "FINANCIAL NETWORK INVESTMENT CORPORATION"
-    },
-    {
       "id": 10410,
       "name": "WS GRIFFITH SECURITIES, INC."
     },
@@ -537,20 +577,8 @@
       "name": "PRIVATE ADVISOR GROUP, LLC"
     },
     {
-      "id": 283390,
-      "name": "SUNTRUST ADVISORY SERVICES, INC."
-    },
-    {
       "id": 6320,
       "name": "IDS FINANCIAL SERVICES INC."
-    },
-    {
-      "id": 6321,
-      "name": "IDS LIFE INSURANCE COMPANY"
-    },
-    {
-      "id": 17499,
-      "name": "SUNTRUST INVESTMENT SERVICES, INC."
     },
     {
       "id": 453,
@@ -603,10 +631,6 @@
     {
       "id": 137888,
       "name": "FIRST ALLIED ADVISORY SERVICES, INC."
-    },
-    {
-      "id": 105644,
-      "name": "CETERA INVESTMENT ADVISERS LLC"
     },
     {
       "id": 15480,
@@ -785,10 +809,6 @@
       "name": "FWS RETIREMENT SERVICES, LLC"
     },
     {
-      "id": 16999,
-      "name": "BANC ONE SECURITIES CORPORATION"
-    },
-    {
       "id": 18718,
       "name": "J.P. MORGAN SECURITIES INC."
     },
@@ -825,20 +845,12 @@
       "name": "FABIAN WEALTH STRATEGIES, INC."
     },
     {
-      "id": 149018,
-      "name": "RAYMOND JAMES FINANCIAL SERVICES ADVISORS, INC"
-    },
-    {
       "id": 840,
       "name": "RIVERSOURCE FUND DISTRIBUTORS, INC."
     },
     {
       "id": 139135,
       "name": "RIVERSOURCE DISTRIBUTORS, INC."
-    },
-    {
-      "id": 6694,
-      "name": "RAYMOND JAMES FINANCIAL SERVICES, INC."
     },
     {
       "id": 15794,
@@ -863,10 +875,6 @@
     {
       "id": 35419,
       "name": "WELLS FARGO INSURANCE SERVICES INVESTMENT ADVISORS, INC."
-    },
-    {
-      "id": 25574,
-      "name": "CHASE INVESTMENT SERVICES CORP."
     },
     {
       "id": 107726,
@@ -3834,6 +3842,22 @@
     }
   ],
   "individuals": [
+    {
+      "id": 1131711,
+      "name": "JOCK WILLIAMS BOVINGTON"
+    },
+    {
+      "id": 3251390,
+      "name": "ANDREW JACOB SHERMAN"
+    },
+    {
+      "id": 4086961,
+      "name": "KATHY ANN CLAY"
+    },
+    {
+      "id": 4393628,
+      "name": "CARLOS A GUERRA"
+    },
     {
       "id": 7754901,
       "name": "CHARLES JOSEPH HOPPER"

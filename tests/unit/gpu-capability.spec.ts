@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
 	classifyGpuCapability,
+	detectHybridGpu,
+	pickPreferredGpuProbe,
 	resolveSafeGpuEnabled,
 	shouldEnableSafeGpuForTier,
 } from '../../src/lib/gpu-capability';
@@ -25,6 +27,15 @@ describe('gpu-capability', () => {
 		expect(shouldEnableSafeGpuForTier('integrated')).toBe(true);
 	});
 
+	it('classifies HawkPoint / RTX 5060 Max-Q strings correctly in isolation', () => {
+		expect(classifyGpuCapability('ANGLE (NVIDIA, NVIDIA GeForce RTX 5060 Max-Q / Mobile, OpenGL ES 3.2)', 'Google Inc. (NVIDIA)')).toBe(
+			'dedicated',
+		);
+		expect(classifyGpuCapability('ANGLE (AMD, AMD Radeon Graphics (radeonsi hawkpoint ACO), OpenGL ES 3.2)', 'Google Inc. (AMD)')).toBe(
+			'integrated',
+		);
+	});
+
 	it('classifies Intel UHD / Iris as integrated', () => {
 		expect(classifyGpuCapability('ANGLE (Intel, Mesa Intel(R) UHD Graphics 620, OpenGL ES 3.2)', 'Google Inc. (Intel)')).toBe(
 			'integrated',
@@ -35,6 +46,49 @@ describe('gpu-capability', () => {
 		expect(classifyGpuCapability('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device), ...)', 'Google Inc.')).toBe('software');
 		expect(classifyGpuCapability('llvmpipe (LLVM 15.0.7, 256 bits)', 'Mesa')).toBe('software');
 		expect(shouldEnableSafeGpuForTier('software')).toBe(true);
+	});
+
+	it('prefers the high-performance NVIDIA probe on hybrid laptops', () => {
+		const preferred = pickPreferredGpuProbe([
+			{
+				powerPreference: 'default',
+				renderer: 'ANGLE (AMD, AMD Radeon Graphics (radeonsi hawkpoint ACO), OpenGL ES 3.2)',
+				vendor: 'Google Inc. (AMD)',
+			},
+			{
+				powerPreference: 'high-performance',
+				renderer: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 5060 Max-Q / Mobile, OpenGL ES 3.2)',
+				vendor: 'Google Inc. (NVIDIA)',
+			},
+			{
+				powerPreference: 'low-power',
+				renderer: 'ANGLE (AMD, AMD Radeon Graphics (radeonsi hawkpoint ACO), OpenGL ES 3.2)',
+				vendor: 'Google Inc. (AMD)',
+			},
+		]);
+		expect(preferred.renderer).toMatch(/RTX 5060/i);
+		expect(preferred.powerPreference).toBe('high-performance');
+	});
+
+	it('detects hybrid dGPU+iGPU and keeps filter-safe mode while still preferring the dGPU', () => {
+		const probes = [
+			{
+				powerPreference: 'high-performance',
+				renderer: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 5060 Max-Q / Mobile, OpenGL ES 3.2)',
+				vendor: 'Google Inc. (NVIDIA)',
+			},
+			{
+				powerPreference: 'low-power',
+				renderer: 'ANGLE (AMD, AMD Radeon Graphics (radeonsi hawkpoint ACO), OpenGL ES 3.2)',
+				vendor: 'Google Inc. (AMD)',
+			},
+		];
+		expect(detectHybridGpu(probes)).toBe(true);
+		const resolved = resolveSafeGpuEnabled({ probes, search: '' });
+		expect(resolved.tier).toBe('hybrid');
+		expect(resolved.enabled).toBe(true);
+		expect(resolved.preferredRenderer).toMatch(/RTX 5060/i);
+		expect(resolved.hybrid).toBe(true);
 	});
 
 	it('honors URL and storage overrides over tier', () => {
@@ -61,5 +115,16 @@ describe('gpu-capability', () => {
 		expect(classifyGpuCapability('', '')).toBe('unknown');
 		expect(shouldEnableSafeGpuForTier('unknown')).toBe(true);
 		expect(resolveSafeGpuEnabled({ renderer: '', vendor: '' }).enabled).toBe(true);
+	});
+
+	it('honors ?dgpu=1 hybrid opt-in when WebGL only exposes the iGPU', () => {
+		const resolved = resolveSafeGpuEnabled({
+			renderer: 'ANGLE (AMD, AMD Radeon Graphics (radeonsi hawkpoint ACO), OpenGL ES 3.2)',
+			vendor: 'Google Inc. (AMD)',
+			search: '?dgpu=1',
+		});
+		expect(resolved.tier).toBe('hybrid');
+		expect(resolved.hybrid).toBe(true);
+		expect(resolved.enabled).toBe(true);
 	});
 });

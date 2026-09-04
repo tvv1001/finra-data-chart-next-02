@@ -7,7 +7,7 @@ import ThemeToggle from './ThemeToggle';
 import { applyStickyParamsToUrl, buildNodeRouteHref, buildNodeRoutePath, parseNodeIdFromPathname } from '@/lib/node-route';
 import { RUNTIME_CLICK_EXPANSION_HOPS, RUNTIME_EXPANSION_HOPS, RUNTIME_SELECTION_HOPS } from '@/lib/finra-graph-defaults';
 import { consumeQueueGraphBridgePayload } from '@/lib/queueGraphBridge';
-import { GPU_TIER_STORAGE_KEY, SAFE_GPU_STORAGE_KEY, applySafeGpuDomState, probeWebGlGpuInfo, resolveSafeGpuEnabled } from '@/lib/gpu-capability';
+import { GPU_RENDERER_STORAGE_KEY, GPU_TIER_STORAGE_KEY, HYBRID_GPU_STORAGE_KEY, SAFE_GPU_STORAGE_KEY, applySafeGpuDomState, probeWebGlGpuInfo, resolveSafeGpuEnabled } from '@/lib/gpu-capability';
 
 const MOBILE_TOUCH_SLOP_PX = 12;
 const MOBILE_TOUCH_CLICK_SUPPRESSION_MS = 250;
@@ -258,13 +258,15 @@ function formatFindCounter(total: number, activeOrdinal = 0) {
 	return `${total} match${total === 1 ? '' : 'es'}`;
 }
 
-/** Capability-aware safe GPU mode: full effects on dedicated GPUs; reduced filters on iGPU/software. */
+/** Capability-aware GPU mode: lone dGPU gets full SVG filters; hybrid keeps GPU but strips crashy filters. */
 function applySafeGpuMode() {
 	if (typeof document === 'undefined' || typeof window === 'undefined') return false;
 	const info = probeWebGlGpuInfo();
 	const resolved = resolveSafeGpuEnabled({
 		renderer: info.renderer,
 		vendor: info.vendor,
+		probes: info.probes,
+		hybrid: info.hybrid,
 		search: window.location.search,
 		storageGet: (key) => {
 			try {
@@ -280,14 +282,37 @@ function applySafeGpuMode() {
 	try {
 		// Persist tier so the pre-paint boot script can restore the right mode next load.
 		window.localStorage.setItem(GPU_TIER_STORAGE_KEY, resolved.tier);
+		if (resolved.preferredRenderer) {
+			window.localStorage.setItem(GPU_RENDERER_STORAGE_KEY, resolved.preferredRenderer);
+		}
+		if (resolved.hybrid) {
+			window.localStorage.setItem(HYBRID_GPU_STORAGE_KEY, '1');
+		}
 	} catch {
 		/* ignore quota / private mode */
 	}
 
 	if (typeof console !== 'undefined' && console.info) {
-		console.info(
-			`[finra-graph] GPU tier=${resolved.tier}; safeGpu=${resolved.enabled ? 'on' : 'off'} (full effects on dedicated NVIDIA/AMD). Override with ?safe_gpu=0|1 or localStorage ${SAFE_GPU_STORAGE_KEY}`,
-		);
+		const probeSummary = (info.probes || [])
+			.map((probe) => `${probe.powerPreference}:${probe.renderer || 'n/a'}`)
+			.join(' | ');
+		const onlyIgpu =
+			!resolved.hybrid &&
+			resolved.tier === 'integrated' &&
+			/hawk.?point|phoenix|rembrandt|radeon\s*780m|radeonsi/i.test(resolved.preferredRenderer || '');
+		if (resolved.tier === 'hybrid') {
+			console.info(
+				`[finra-graph] Hybrid GPU mode. Preferred WebGL: ${resolved.preferredRenderer || 'n/a'}. SVG/backdrop filters stay OFF to avoid Mesa SIGILL — GPU compositing still runs. ?safe_gpu=0 re-enables filters (crash risk). Probes: ${probeSummary || 'none'}`,
+			);
+		} else if (onlyIgpu) {
+			console.info(
+				`[finra-graph] WebGL is on the AMD iGPU (${resolved.preferredRenderer}). Filters stay off (SIGILL workaround). To use NVIDIA: launch Chrome with __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia, then reload. Or set localStorage ${HYBRID_GPU_STORAGE_KEY}=1 / ?dgpu=1. Probes: ${probeSummary || 'none'}`,
+			);
+		} else {
+			console.info(
+				`[finra-graph] GPU tier=${resolved.tier}; safeEffects=${resolved.enabled ? 'on' : 'off'} (filters off ≠ GPU off). Preferred: ${resolved.preferredRenderer || 'n/a'}. Override with ?safe_gpu=0|1`,
+			);
+		}
 	}
 	return resolved.enabled;
 }

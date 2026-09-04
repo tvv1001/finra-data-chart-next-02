@@ -593,7 +593,9 @@ async function createCanvasRenderer(pixi: any) {
 		preference: ['webgl', 'canvas'] as string[],
 		failIfMajorPerformanceCaveat: false,
 	};
+	// Prefer the discrete GPU on hybrid laptops (RTX Max-Q + AMD iGPU) before falling back.
 	const initAttempts = [
+		{ ...baseInit, powerPreference: 'high-performance' as const },
 		{ ...baseInit, powerPreference: 'default' as const },
 		{ ...baseInit, powerPreference: 'low-power' as const },
 		{ ...baseInit, preference: ['canvas'] as string[], powerPreference: 'default' as const },
