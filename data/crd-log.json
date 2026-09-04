@@ -1,6 +1,114 @@
 {
   "firms": [
     {
+      "id": 1252,
+      "name": "WILLIAM BLAIR"
+    },
+    {
+      "id": 7059,
+      "name": "CITIGROUP GLOBAL MARKETS INC."
+    },
+    {
+      "id": 21206,
+      "name": "BAILARD FUND SERVICES, INC."
+    },
+    {
+      "id": 110550,
+      "name": "BAILARD, INC."
+    },
+    {
+      "id": 4039,
+      "name": "THE EQUITABLE LIFE ASSURANCE SOCIETY OF THE UNITED STATES"
+    },
+    {
+      "id": 6627,
+      "name": "EQUICO SECURITIES, INC."
+    },
+    {
+      "id": 145,
+      "name": "CIGNA FINANCIAL ADVISORS,INC."
+    },
+    {
+      "id": 630,
+      "name": "CIBC WORLD MARKETS CORP."
+    },
+    {
+      "id": 249,
+      "name": "OPPENHEIMER & CO. INC."
+    },
+    {
+      "id": 6413,
+      "name": "LPL FINANCIAL LLC"
+    },
+    {
+      "id": 29106,
+      "name": "E*TRADE SECURITIES LLC"
+    },
+    {
+      "id": 19616,
+      "name": "WELLS FARGO CLEARING SERVICES, LLC"
+    },
+    {
+      "id": 11025,
+      "name": "WELLS FARGO ADVISORS FINANCIAL NETWORK, LLC"
+    },
+    {
+      "id": 138164,
+      "name": "FORTIGENT, LLC"
+    },
+    {
+      "id": 8174,
+      "name": "UBS FINANCIAL SERVICES INC."
+    },
+    {
+      "id": 7784,
+      "name": "FIDELITY BROKERAGE SERVICES LLC"
+    },
+    {
+      "id": 111528,
+      "name": "G1 EXECUTION SERVICES, LLC"
+    },
+    {
+      "id": 25025,
+      "name": "E*TRADE CLEARING LLC"
+    },
+    {
+      "id": 8733,
+      "name": "LPL ENTERPRISE, LLC"
+    },
+    {
+      "id": 5685,
+      "name": "PRUCO SECURITIES, LLC."
+    },
+    {
+      "id": 149777,
+      "name": "MORGAN STANLEY SMITH BARNEY"
+    },
+    {
+      "id": 260,
+      "name": "PRINCIPAL FINANCIAL SECURITIES,INC."
+    },
+    {
+      "id": 13686,
+      "name": "H.D. VEST INVESTMENT SECURITIES, INC."
+    },
+    {
+      "id": 5475,
+      "name": "USAA INVESTMENT MANAGEMENT COMPANY"
+    },
+    {
+      "id": 17344,
+      "name": "FIRST CLEARING, LLC"
+    },
+    {
+      "id": 705,
+      "name": "RAYMOND JAMES & ASSOCIATES, INC."
+    },
+    {
+      "id": 109492,
+      "name": "FLORIDA INVESTMENT ADVISORS"
+    },
+    {
       "id": 5309,
       "name": "FBL MARKETING SERVICES, LLC"
     },
@@ -31,14 +139,6 @@
     {
       "id": 15340,
       "name": "CETERA INVESTMENT SERVICES LLC"
-    },
-    {
-      "id": 7784,
-      "name": "FIDELITY BROKERAGE SERVICES LLC"
-    },
-    {
-      "id": 19616,
-      "name": "WELLS FARGO CLEARING SERVICES, LLC"
     },
     {
       "id": 7691,
@@ -121,20 +221,8 @@
       "name": "NESTWISE LLC"
     },
     {
-      "id": 138164,
-      "name": "FORTIGENT, LLC"
-    },
-    {
       "id": 866,
       "name": "WADDELL & REED"
-    },
-    {
-      "id": 6413,
-      "name": "LPL FINANCIAL LLC"
-    },
-    {
-      "id": 8733,
-      "name": "LPL ENTERPRISE, LLC"
     },
     {
       "id": 7325,
@@ -169,20 +257,8 @@
       "name": "J.P. MORGAN SECURITIES LLC"
     },
     {
-      "id": 25025,
-      "name": "E*TRADE CLEARING LLC"
-    },
-    {
       "id": 145562,
       "name": "OPTIONSHOUSE"
-    },
-    {
-      "id": 29106,
-      "name": "E*TRADE SECURITIES LLC"
-    },
-    {
-      "id": 8174,
-      "name": "UBS FINANCIAL SERVICES INC."
     },
     {
       "id": 10264,
@@ -267,14 +343,6 @@
     {
       "id": 12984,
       "name": "INVEST FINANCIAL CORPORATION"
-    },
-    {
-      "id": 4039,
-      "name": "THE EQUITABLE LIFE ASSURANCE SOCIETY OF THE UNITED STATES"
-    },
-    {
-      "id": 6627,
-      "name": "EQUICO SECURITIES, INC."
     },
     {
       "id": 5496,
@@ -375,10 +443,6 @@
     {
       "id": 6390,
       "name": "PACIFIC WEST SECURITIES, INC."
-    },
-    {
-      "id": 5685,
-      "name": "PRUCO SECURITIES CORPORATION"
     },
     {
       "id": 2882,
@@ -709,10 +773,6 @@
       "name": "CIGNA CAPITAL BROKERAGE, INC."
     },
     {
-      "id": 145,
-      "name": "CIGNA FINANCIAL ADVISORS,INC."
-    },
-    {
       "id": 105074,
       "name": "WOODRUFF-SAWYER RETIREMENT PLAN SERVICES, INC."
     },
@@ -811,18 +871,6 @@
     {
       "id": 107726,
       "name": "UBS INTERNATIONAL INC."
-    },
-    {
-      "id": 7059,
-      "name": "CITIGROUP GLOBAL MARKETS INC."
-    },
-    {
-      "id": 149777,
-      "name": "MORGAN STANLEY"
-    },
-    {
-      "id": 249,
-      "name": "OPPENHEIMER & CO. INC."
     },
     {
       "id": 110692,
@@ -1245,10 +1293,6 @@
       "name": "PRUDENTIAL-BACHE SECURITIES INC."
     },
     {
-      "id": 630,
-      "name": "OPPENHEIMER & CO., INC."
-    },
-    {
       "id": 372,
       "name": "GRUNTAL & CO., L.L.C."
     },
@@ -1399,10 +1443,6 @@
     {
       "id": 115333,
       "name": "BAKER TILLY CAPITAL, LLC"
-    },
-    {
-      "id": 11025,
-      "name": "WELLS FARGO ADVISORS FINANCIAL NETWORK, LLC"
     },
     {
       "id": 33496,
@@ -2785,10 +2825,6 @@
       "name": "GIGATRADE BROKERAGE, LLC"
     },
     {
-      "id": 1252,
-      "name": "WILLIAM BLAIR & COMPANY L.L.C."
-    },
-    {
       "id": 114002,
       "name": "CROWE FINANCIAL ADVISORS, LLC"
     },
@@ -2855,10 +2891,6 @@
     {
       "id": 288894,
       "name": "MADISON GLOBAL ADVISORS LLC"
-    },
-    {
-      "id": 705,
-      "name": "RAYMOND JAMES & ASSOCIATES, INC."
     },
     {
       "id": 816,
@@ -2993,14 +3025,6 @@
       "name": "BELMONT FINANCIAL, LLC"
     },
     {
-      "id": 21206,
-      "name": "BAILARD FUND SERVICES, INC."
-    },
-    {
-      "id": 110550,
-      "name": "BAILARD, INC."
-    },
-    {
       "id": 31538,
       "name": "GREAT PINE INVESTMENTS LLC"
     },
@@ -3039,10 +3063,6 @@
     {
       "id": 44351,
       "name": "AM CAPITAL LLC"
-    },
-    {
-      "id": 13686,
-      "name": "H.D. VEST INVESTMENT SERVICES"
     },
     {
       "id": 283942,
@@ -3815,6 +3835,46 @@
   ],
   "individuals": [
     {
+      "id": 7754901,
+      "name": "CHARLES JOSEPH HOPPER"
+    },
+    {
+      "id": 6028243,
+      "name": "Annalise Mae Durante"
+    },
+    {
+      "id": 1458828,
+      "name": "MICHAEL DANIEL MARGARITES"
+    },
+    {
+      "id": 7248335,
+      "name": "Aneri Jambusaria"
+    },
+    {
+      "id": 6052977,
+      "name": "JAMES MCHALE"
+    },
+    {
+      "id": 4194266,
+      "name": "MATTHEW KLAUS ENYEDI"
+    },
+    {
+      "id": 3178848,
+      "name": "STEVEN THOMAS MALFITANO"
+    },
+    {
+      "id": 1638147,
+      "name": "LISA ANNE CAPRIOTTI - ANGILERI"
+    },
+    {
+      "id": 1283236,
+      "name": "JANET HAYES"
+    },
+    {
+      "id": 1100183,
+      "name": "JOAQUIN EDUARDO CANTO"
+    },
+    {
       "id": 8196052,
       "name": "Grant Gregg Harris"
     },
@@ -4145,10 +4205,6 @@
     {
       "id": 1738412,
       "name": "ROBERT CRAIG GILMAN"
-    },
-    {
-      "id": 1638147,
-      "name": "LISA ANNE CAPRIOTTI - ANGILERI"
     },
     {
       "id": 1357509,
@@ -4615,10 +4671,6 @@
       "name": "MICHAEL GEORGE DURANT"
     },
     {
-      "id": 6028243,
-      "name": "Annalise Mae Durante"
-    },
-    {
       "id": 7143291,
       "name": "NICHOLAS DURANTE"
     },
@@ -5067,10 +5119,6 @@
       "name": "MICHAEL CARL SULFARO"
     },
     {
-      "id": 7754901,
-      "name": "CHARLES JOSEPH HOPPER"
-    },
-    {
       "id": 250020,
       "name": "JOHN THOMAS HOPPER"
     },
@@ -5212,21 +5260,6 @@
     },
     {
       "id": 3224676,
-      "name": "MICHAEL AQUILIZAN CHAI"
-    },
-    {
-      "id": 7042725,
-      "name": "MICHAEL HONG-SOK CHOI"
-    },
-    {
-      "id": 5906597,
-      "name": "SUNGSOO MICHAEL CHOI"
-    }
-  ]
-}OI"
-    }
-  ]
-}    "id": 3224676,
       "name": "MICHAEL AQUILIZAN CHAI"
     },
     {

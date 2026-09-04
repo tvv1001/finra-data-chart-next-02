@@ -356,10 +356,10 @@ let layoutLinkIdentityKeys = new Set<string>(); // O(1) identity membership for 
 let layoutLinksByNodeId = new Map<string, any[]>(); // nodeId → incident layout links
 let layoutLinkIndexLinkCount = 0; // layoutLinks.length last indexed (detects stale indexes)
 let selectionPredicateCacheGen = 0; // bumped when layout link topology changes
-/** Cap hop/line BFS roots. Selected chrome still uses persistentSelectedIds for all prior picks. */
-export const MAX_HOP_HIGHLIGHT_ROOTS = 12;
+/** Cap hop/line BFS roots. Keep this high so multi-select keeps earlier highlighted lines lit. */
+export const MAX_HOP_HIGHLIGHT_ROOTS = 64;
 /** Cap selection-log-bold entries that also act as hop highlight roots. */
-export const MAX_LOG_BOLD_HIGHLIGHT_ROOTS = 8;
+export const MAX_LOG_BOLD_HIGHLIGHT_ROOTS = 16;
 let spreadAnimId = null; // rAF handle for neighbor spread animation
 let spreadReleaseTimer = null; // timeout released when reheat freeze animation expires
 let activeSpreadFrozenNodes = []; // nodes frozen during click spread/reveal reheat
@@ -4698,9 +4698,8 @@ function upsertHighlightedSelection(id, hops = getDefaultSelectionHops(), option
 	}
 	highlightedSelections = highlightedSelections.filter((entry) => entry.id !== id);
 	highlightedSelections.push({ id, hops: normalizedHops });
-	// Keep hop-root list bounded. persistentSelectedIds retains selected chrome for older picks;
-	// computeHighlightState also caps BFS roots, but trimming here avoids unbounded array growth.
-	const maxStoredRoots = Math.max(MAX_HOP_HIGHLIGHT_ROOTS * 3, 36);
+	// Bound storage above the live BFS cap so briefly-deselected roots can still return.
+	const maxStoredRoots = Math.max(MAX_HOP_HIGHLIGHT_ROOTS * 2, 96);
 	if (highlightedSelections.length > maxStoredRoots) {
 		highlightedSelections = highlightedSelections.slice(highlightedSelections.length - maxStoredRoots);
 	}
@@ -10428,28 +10427,13 @@ function getNodeRenderPriority(node, highlightState) {
 function getLinkRenderPriority(link, highlightState) {
 	if (!link) return 1;
 	const linkKey = getLinkKey(link);
-	// If either endpoint is inactive, demote the link to the lowest layer
+	// Inactive / disabled endpoints → bottom layer (still under nodes).
 	if (hasInactiveEndpoint(link)) return 0;
-
-	// If the link connects to any node that is on an explicit trace, keep it very high
-	if (isLinkOnAnyTrace(linkKey)) return 3;
-
-	// If the link is part of the current highlight set, place above normal links
+	// Previous / gray history lines may render above nodes so dashed edges stay visible.
+	if (isPreviousEmploymentLink(link) || isForcedGrayConnectionLink(link)) return 4;
+	// Current / controls / highlighted / trace lines stay mid — always beneath nodes + labels.
+	if (isLinkOnAnyTrace(linkKey)) return 2;
 	if (highlightState?.linkKeys?.has(linkKey)) return 2;
-
-	// Promote links that touch very-high-priority nodes (largest/selected/highlighted)
-	try {
-		const src = typeof link.source === 'object' ? link.source : layoutNodes?.find((n) => n.id === link.source);
-		const tgt = typeof link.target === 'object' ? link.target : layoutNodes?.find((n) => n.id === link.target);
-		const srcPriority = getNodeRenderPriority(src, highlightState);
-		const tgtPriority = getNodeRenderPriority(tgt, highlightState);
-		const maxNodePriority = Math.max(srcPriority || 0, tgtPriority || 0);
-		// Any link connected to nodes with priority >= 3000 (highlight/root) should be on top of ordinary links
-		if (maxNodePriority >= 3000) return 4;
-	} catch (e) {
-		// ignore and fall back to default
-	}
-
 	return 1;
 }
 
@@ -10555,24 +10539,26 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 	const rootNode = rootGroup?.node?.();
 	if (!rootNode || !rootNode.isConnected || !rootNode.parentNode) return;
 
-	if ((layoutNodes?.length || 0) > 100) return;
+	const nodeCount = layoutNodes?.length || 0;
+	// Per-element sort is expensive on large graphs; group stacking still runs below.
+	if (nodeCount <= 100) {
+		if (linkSel && typeof linkSel.sort === 'function') {
+			linkSel.sort((a, b) => comparePriorityWithTieBreak(getLinkRenderPriority(a, highlightState), getLinkRenderPriority(b, highlightState), getLinkKey(a), getLinkKey(b)));
+		}
 
-	if (linkSel && typeof linkSel.sort === 'function') {
-		linkSel.sort((a, b) => comparePriorityWithTieBreak(getLinkRenderPriority(a, highlightState), getLinkRenderPriority(b, highlightState), getLinkKey(a), getLinkKey(b)));
-	}
+		if (arrowSel && typeof arrowSel.sort === 'function') {
+			arrowSel.sort((a, b) => comparePriorityWithTieBreak(getLinkRenderPriority(a, highlightState), getLinkRenderPriority(b, highlightState), getLinkKey(a), getLinkKey(b)));
+		}
 
-	if (arrowSel && typeof arrowSel.sort === 'function') {
-		arrowSel.sort((a, b) => comparePriorityWithTieBreak(getLinkRenderPriority(a, highlightState), getLinkRenderPriority(b, highlightState), getLinkKey(a), getLinkKey(b)));
-	}
-
-	if (nodeSel && typeof nodeSel.sort === 'function') {
-		nodeSel.sort((a, b) => comparePriorityWithTieBreak(getNodeRenderPriority(a, highlightState), getNodeRenderPriority(b, highlightState), a?.id, b?.id));
+		if (nodeSel && typeof nodeSel.sort === 'function') {
+			nodeSel.sort((a, b) => comparePriorityWithTieBreak(getNodeRenderPriority(a, highlightState), getNodeRenderPriority(b, highlightState), a?.id, b?.id));
+		}
 	}
 
 	// Move individual link/arrow DOM nodes between link sub-groups so some links
 	// can render above or below the main node group (provides 2.5D depth).
 	try {
-		if (linkGroup && linkBottomGroup && linkMidGroup && linkTopGroup && linkSel) {
+		if (linkBottomGroup && linkMidGroup && linkTopGroup && linkSel) {
 			const bottomNode = linkBottomGroup.node();
 			const midNode = linkMidGroup.node();
 			const topNode = linkTopGroup.node();
@@ -10588,7 +10574,7 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 				}
 			});
 		}
-		if (arrowGroup && arrowBottomGroup && arrowMidGroup && arrowTopGroup && arrowSel) {
+		if (arrowBottomGroup && arrowMidGroup && arrowTopGroup && arrowSel) {
 			const bottomNode = arrowBottomGroup.node();
 			const midNode = arrowMidGroup.node();
 			const topNode = arrowTopGroup.node();
@@ -10608,19 +10594,21 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 		// Non-fatal — DOM move failures should not break rendering
 	}
 
-	// Ensure linkTopGroup and arrowTopGroup are always placed below nodeGroup
-	// so that lines are always beneath the nodes.
+	// Stacking: bottom + mid links under nodes/labels; previous/disabled (top) may sit above.
 	try {
 		if (nodeGroup && nodeGroup.node()) {
 			const nodesEl = nodeGroup.node();
 			const parent = nodesEl.parentNode;
 			if (parent) {
-				const topGroups = [];
-				if (linkTopGroup && linkTopGroup.node()) topGroups.push(linkTopGroup.node());
-				if (arrowTopGroup && arrowTopGroup.node()) topGroups.push(arrowTopGroup.node());
-				for (const tg of topGroups) {
-					if (tg.parentNode === parent && tg === nodesEl.previousSibling) continue;
-					parent.insertBefore(tg, nodesEl);
+				const underNodes = [linkBottomGroup?.node(), arrowBottomGroup?.node(), linkMidGroup?.node(), arrowMidGroup?.node()].filter(Boolean);
+				for (const el of underNodes) {
+					if (el.parentNode === parent) parent.insertBefore(el, nodesEl);
+				}
+				const overNodes = [linkTopGroup?.node(), arrowTopGroup?.node()].filter(Boolean);
+				for (const el of overNodes) {
+					if (el.parentNode !== parent) continue;
+					if (nodesEl.nextSibling) parent.insertBefore(el, nodesEl.nextSibling);
+					else parent.appendChild(el);
 				}
 			}
 		}
@@ -11519,7 +11507,8 @@ function renderGraph(_data) {
 		/* ignore */
 	}
 
-	// Create top link/arrow groups after nodes so their contents render above node labels
+	// Top link/arrow groups: previous/disabled lines only (may render above nodes).
+	// Current/highlighted lines stay in mid/bottom under nodes + labels.
 	try {
 		linkTopGroup = root.append('g').attr('class', 'fg-links-top');
 		joinLinkSelection(linkTopGroup, topLinks);

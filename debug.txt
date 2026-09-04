@@ -380,3 +380,5 @@
 [searchDirectRedisFallback] key=finra:individual:7451987 raw=NULL
 [searchDirectRedisFallback] key=finra:individual:6413 raw=NULL
 [searchDirectRedisFallback] key=finra:firm:1131711 raw=NULL
+[searchDirectRedisFallback] key=finra:firm:1131711 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:2510742 raw=NULL

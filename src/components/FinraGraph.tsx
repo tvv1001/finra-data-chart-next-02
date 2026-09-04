@@ -7,13 +7,7 @@ import ThemeToggle from './ThemeToggle';
 import { applyStickyParamsToUrl, buildNodeRouteHref, buildNodeRoutePath, parseNodeIdFromPathname } from '@/lib/node-route';
 import { RUNTIME_CLICK_EXPANSION_HOPS, RUNTIME_EXPANSION_HOPS, RUNTIME_SELECTION_HOPS } from '@/lib/finra-graph-defaults';
 import { consumeQueueGraphBridgePayload } from '@/lib/queueGraphBridge';
-import {
-	GPU_TIER_STORAGE_KEY,
-	SAFE_GPU_STORAGE_KEY,
-	applySafeGpuDomState,
-	probeWebGlGpuInfo,
-	resolveSafeGpuEnabled,
-} from '@/lib/gpu-capability';
+import { GPU_TIER_STORAGE_KEY, SAFE_GPU_STORAGE_KEY, applySafeGpuDomState, probeWebGlGpuInfo, resolveSafeGpuEnabled } from '@/lib/gpu-capability';
 
 const MOBILE_TOUCH_SLOP_PX = 12;
 const MOBILE_TOUCH_CLICK_SUPPRESSION_MS = 250;
@@ -394,7 +388,12 @@ export default function FinraGraph() {
 			writePref('finra_disable_analytics_pref', '1');
 		}
 		if (urlSafeGpu === '0' || urlSafeGpu === '1' || urlSafeGpu === 'true' || urlSafeGpu === 'false') {
-			writePref(SAFE_GPU_STORAGE_KEY, urlSafeGpu === 'true' ? '1' : urlSafeGpu === 'false' ? '0' : urlSafeGpu);
+			writePref(
+				SAFE_GPU_STORAGE_KEY,
+				urlSafeGpu === 'true' ? '1'
+				: urlSafeGpu === 'false' ? '0'
+				: urlSafeGpu,
+			);
 		}
 
 		const stickyActive = urlDisableAnalytics || prefDisableAnalytics || urlSafeGpu != null || prefSafeGpu === '0' || prefSafeGpu === '1';
@@ -628,7 +627,9 @@ export default function FinraGraph() {
 				e.preventDefault();
 				e.stopPropagation();
 				const crd = String(crdBtn.dataset.crd || '').trim();
-				const crdType = String(crdBtn.dataset.crdType || '').trim().toLowerCase();
+				const crdType = String(crdBtn.dataset.crdType || '')
+					.trim()
+					.toLowerCase();
 				const nodeId = crdType === 'person' || crdType === 'individual' ? `person:${crd}` : `firm:${crd}`;
 				routeSidebarNodeSelection({
 					nodeId,
@@ -997,18 +998,19 @@ export default function FinraGraph() {
 					.map((id) => id.trim())
 					.filter(Boolean);
 				const isolateToSelection = bridgedSelectedIds.length === 0 && searchParams.get('isolate') === '1';
-					init(combinedD3, {
-						initialRouteNodeId: routeNodeId,
-						initialSelectedNodeIds: querySelectedIds,
-						initialCanvasNodeIds: bridgedSelectedIds,
+				init(combinedD3, {
+					initialRouteNodeId: routeNodeId,
+					initialSelectedNodeIds: querySelectedIds,
+					initialCanvasNodeIds: bridgedSelectedIds,
 					isolateToSelection,
-					queueGraphSeed: bridgePayload
-						? {
+					queueGraphSeed:
+						bridgePayload ?
+							{
 								anchorFirmId: bridgePayload.anchorFirmId,
 								anchorFirmName: bridgePayload.anchorFirmName,
 								people: bridgePayload.people,
 							}
-						: null,
+						:	null,
 				});
 				setGraphReady(true);
 			});
@@ -1218,7 +1220,7 @@ export default function FinraGraph() {
 							className='fg-ghost-btn'
 							title='Open dashboard'
 							aria-label='Open dashboard'>
-							Dashboard
+							Dash
 						</Link>
 						<button
 							id='fg-mobile-menu-toggle'
@@ -1375,7 +1377,7 @@ export default function FinraGraph() {
 						style={{ display: 'block', position: 'relative', zIndex: 99, background: 'var(--fg-bg-secondary)', borderBottom: '1px solid var(--fg-border)' }}>
 						<div
 							className='fg-sidebar-toolbar-header'
-							style={{ padding: '8px 8px 0', display: 'flex', gap: '4px', alignItems: 'center', position: 'absolute', right: 0 }}>
+							style={{ padding: '8px 8px 0', display: 'flex', gap: '4px', alignItems: 'center', position: 'absolute', right: '1px' }}>
 							<button
 								type='button'
 								className={`fg-sb-toggle-btn ${isSidebarToolsOpen ? 'is-active' : ''}`}
@@ -1391,7 +1393,7 @@ export default function FinraGraph() {
 							</button>
 						</div>
 
-						<button
+						{/* <button
 							id='fg-sidebar-pin-toggle'
 							className='fg-sidebar-action-btn fg-sidebar-action-btn--pin fg-sidebar-action-btn--icon-only'
 							type='button'
@@ -1416,7 +1418,7 @@ export default function FinraGraph() {
 									/>
 								</svg>
 							</span>
-						</button>
+						</button> */}
 					</div>
 					<div className={`fg-sidebar-toolbar-content ${isSidebarToolsOpen ? '' : 'hidden'}`}>
 						<div className='fg-sidebar-actions'></div>
@@ -1575,22 +1577,46 @@ export default function FinraGraph() {
 					<div
 						id='fg-empty'
 						className='fg-empty hidden'>
-						<div id="fg-session-prompt" className="fg-empty-card hidden" style={{textAlign: 'center', maxWidth: '400px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px'}}>
-									<h3 style={{margin: 0, color: 'var(--text-primary)'}}>Resume Previous Session?</h3>
-									<p style={{margin: 0, color: 'var(--text-secondary)', fontSize: '13px'}}>You have a saved graph layout from a previous visit. Would you like to restore it?</p>
-									<div style={{display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '8px'}}>
-										<button id="fg-btn-resume-session" className="fg-sidebar-action-btn fg-sidebar-action-btn--primary" style={{flex: 1, padding: '8px 16px', height: 'auto'}}>Load Previous Session</button>
-										<button id="fg-btn-reset-session" className="fg-sidebar-action-btn fg-sidebar-action-btn--secondary" style={{flex: 1, padding: '8px 16px', height: 'auto', border: '1px solid var(--border)'}}>Reset Session</button>
-									</div>
-								</div>
-								<div id="fg-session-loader" className="fg-empty-card hidden" style={{textAlign: 'center', maxWidth: '300px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center'}}>
-									<div className="fg-skeleton" style={{width: '48px', height: '48px', borderRadius: '50%', marginBottom: '8px'}}></div>
-									<div className="fg-skeleton" style={{width: '80%', height: '20px', borderRadius: '4px'}}></div>
-									<div className="fg-skeleton" style={{width: '60%', height: '14px', borderRadius: '4px'}}></div>
-								</div>
-								<div id="fg-empty-default" className='fg-empty-card'>
-									<div
-										className='fg-empty-card__arrow'
+						<div
+							id='fg-session-prompt'
+							className='fg-empty-card hidden'
+							style={{ textAlign: 'center', maxWidth: '400px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+							<h3 style={{ margin: 0, color: 'var(--text-primary)' }}>Resume Previous Session?</h3>
+							<p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '13px' }}>You have a saved graph layout from a previous visit. Would you like to restore it?</p>
+							<div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '8px' }}>
+								<button
+									id='fg-btn-resume-session'
+									className='fg-sidebar-action-btn fg-sidebar-action-btn--primary'
+									style={{ flex: 1, padding: '8px 16px', height: 'auto' }}>
+									Load Previous Session
+								</button>
+								<button
+									id='fg-btn-reset-session'
+									className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary'
+									style={{ flex: 1, padding: '8px 16px', height: 'auto', border: '1px solid var(--border)' }}>
+									Reset Session
+								</button>
+							</div>
+						</div>
+						<div
+							id='fg-session-loader'
+							className='fg-empty-card hidden'
+							style={{ textAlign: 'center', maxWidth: '300px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
+							<div
+								className='fg-skeleton'
+								style={{ width: '48px', height: '48px', borderRadius: '50%', marginBottom: '8px' }}></div>
+							<div
+								className='fg-skeleton'
+								style={{ width: '80%', height: '20px', borderRadius: '4px' }}></div>
+							<div
+								className='fg-skeleton'
+								style={{ width: '60%', height: '14px', borderRadius: '4px' }}></div>
+						</div>
+						<div
+							id='fg-empty-default'
+							className='fg-empty-card'>
+							<div
+								className='fg-empty-card__arrow'
 								aria-hidden='true'>
 								<span className='fg-empty-card__arrow-line'></span>
 								<span className='fg-empty-card__arrow-head'></span>
@@ -1606,9 +1632,9 @@ export default function FinraGraph() {
 								target='_blank'
 								rel='noopener noreferrer'>
 								GitHub Repository -- https://github.com/tvv1001
-								</a>
-							</div>
+							</a>
 						</div>
+					</div>
 				</main>
 			</div>
 
