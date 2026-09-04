@@ -785,7 +785,7 @@ export default function FinraGraph() {
 
 		window.addEventListener(FIND_STATE_EVENT, handleFindState as EventListener);
 		const handleMobileFindCloseRequest = () => {
-			closeFindBar({ clearQuery: false, preserveMobileRestore: true });
+			closeFindBar({ clearQuery: false });
 		};
 		window.addEventListener(MOBILE_FIND_CLOSE_REQUEST_EVENT, handleMobileFindCloseRequest as EventListener);
 		return () => {
