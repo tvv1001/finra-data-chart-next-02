@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { resetBrowserGraphState, seedStoredSession } from './helpers/finra-e2e';
+import { openGraphSideMenu, resetBrowserGraphState, seedStoredSession } from './helpers/finra-e2e';
 
 test('Clear Highlight preserves dashboard route for selected node', async ({ page }) => {
 	await page.goto('/');
@@ -22,6 +22,7 @@ test('Clear Highlight preserves dashboard route for selected node', async ({ pag
 	await firmNode.click({ force: true });
 
 	// Wait for sidebar and pathname to update to dashboard/firm/12345
+	await openGraphSideMenu(page);
 	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/);
 	await expect.poll(async () => page.evaluate(() => window.location.pathname), { timeout: 5000 }).toBe('/firm/12345');
 

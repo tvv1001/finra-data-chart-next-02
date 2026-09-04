@@ -4,7 +4,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 
 import ThemeToggle from './ThemeToggle';
-import { buildNodeRouteHref, buildNodeRoutePath, parseNodeIdFromPathname } from '@/lib/node-route';
+import { applyStickyParamsToUrl, buildNodeRouteHref, buildNodeRoutePath, parseNodeIdFromPathname } from '@/lib/node-route';
 import { RUNTIME_CLICK_EXPANSION_HOPS, RUNTIME_EXPANSION_HOPS, RUNTIME_SELECTION_HOPS } from '@/lib/finra-graph-defaults';
 import { consumeQueueGraphBridgePayload } from '@/lib/queueGraphBridge';
 import {
@@ -25,7 +25,6 @@ const FIND_PREV_EVENT = 'finra:find-prev';
 const FIND_MOVE_EVENT = 'finra:find-move';
 const FIND_CLOSE_EVENT = 'finra:find-close';
 const FIND_STATE_EVENT = 'finra:find-state';
-const MOBILE_SIDEBAR_COLLAPSE_REQUEST_EVENT = 'finra:mobile-sidebar-collapse-request';
 const MOBILE_FIND_CLOSE_REQUEST_EVENT = 'finra:mobile-find-close-request';
 
 function buildDashboardHrefFromNodeId(nodeId: string | null | undefined) {
@@ -178,9 +177,16 @@ function toggleMobileMenu() {
 	}
 	sidebar.classList.remove('hidden');
 	backdrop?.classList.remove('hidden');
-	// Ensure the sidebar content is populated by requesting the lib renderer
+	// Default to collapsed Info chrome (name + Info|Log). Expanding Info loads rich detail.
+	const mode = sidebar.dataset.viewMode === 'info' || sidebar.dataset.viewMode === 'log' ? sidebar.dataset.viewMode : 'none';
+	sidebar.dataset.viewMode = mode;
+	sidebar.dataset.mobileExpanded = mode === 'none' ? 'false' : 'true';
 	try {
-		window.dispatchEvent(new CustomEvent('finra:ensure-sidebar-content'));
+		window.dispatchEvent(
+			new CustomEvent('finra:ensure-sidebar-content', {
+				detail: { loadDetails: mode === 'info', reveal: true, viewMode: mode },
+			}),
+		);
 	} catch (e) {
 		/* ignore */
 	}
@@ -298,7 +304,7 @@ export default function FinraGraph() {
 	const fetchInputRef = useRef<HTMLInputElement | null>(null);
 	const findInputRef = useRef<HTMLInputElement | null>(null);
 	const isFindBarOpenRef = useRef(false);
-	const shouldRestoreFindBarAfterSidebarDismissRef = useRef(false);
+
 	const wasGraphEmptyRef = useRef<boolean | null>(null);
 	const [isMounted, setIsMounted] = useState(false);
 	const [graphReady, setGraphReady] = useState(false);
@@ -343,8 +349,6 @@ export default function FinraGraph() {
 		setFetchQuery(event.target.value);
 	}, []);
 
-	const isMobileSearchViewport = useCallback(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches, []);
-
 	const isSearchTypeFirstRenderRef = useRef(true);
 	useEffect(() => {
 		// Skip the mount-time run: the load-from-storage effect above hasn't
@@ -360,86 +364,121 @@ export default function FinraGraph() {
 		} catch {}
 	}, [searchType]);
 
-	// Persist and enforce ?disable_analytics=1 in the URL on this machine only.
+	// Persist sticky query prefs (disable_analytics, safe_gpu) and keep them on the URL
+	// across client navigations / refresh — same machine only via localStorage.
 	useEffect(() => {
 		if (typeof window === 'undefined') return;
 
-		const urlHasParam = window.location.search.includes('disable_analytics=1');
-		const prefIsSet = (() => {
+		const readPref = (key: string) => {
 			try {
-				return localStorage.getItem('finra_disable_analytics_pref') === '1';
+				return localStorage.getItem(key);
 			} catch {
-				return false;
+				return null;
 			}
-		})();
-
-		if (!urlHasParam && !prefIsSet) return;
-
-		try {
-			// Record the preference locally so this only affects this machine
-			localStorage.setItem('finra_disable_analytics_pref', '1');
-		} catch (e) {
-			/* ignore */
-		}
-		const addParamToUrl = (raw: string | null | undefined) => {
+		};
+		const writePref = (key: string, value: string) => {
 			try {
-				const base = raw ? new URL(String(raw), window.location.origin) : new URL(window.location.href);
-				base.searchParams.set('disable_analytics', '1');
-				return base.pathname + base.search + base.hash;
-			} catch (e) {
+				localStorage.setItem(key, value);
+			} catch {
+				/* ignore */
+			}
+		};
+
+		const params = new URLSearchParams(window.location.search);
+		const urlDisableAnalytics = params.get('disable_analytics') === '1';
+		const urlSafeGpu = params.get('safe_gpu') ?? params.get('safeGpu');
+		const prefDisableAnalytics = readPref('finra_disable_analytics_pref') === '1';
+		const prefSafeGpu = readPref(SAFE_GPU_STORAGE_KEY);
+
+		if (urlDisableAnalytics || prefDisableAnalytics) {
+			writePref('finra_disable_analytics_pref', '1');
+		}
+		if (urlSafeGpu === '0' || urlSafeGpu === '1' || urlSafeGpu === 'true' || urlSafeGpu === 'false') {
+			writePref(SAFE_GPU_STORAGE_KEY, urlSafeGpu === 'true' ? '1' : urlSafeGpu === 'false' ? '0' : urlSafeGpu);
+		}
+
+		const stickyActive = urlDisableAnalytics || prefDisableAnalytics || urlSafeGpu != null || prefSafeGpu === '0' || prefSafeGpu === '1';
+		if (!stickyActive) return;
+
+		const buildStickySourceSearch = () => {
+			const sticky = new URLSearchParams(window.location.search);
+			if (urlDisableAnalytics || prefDisableAnalytics || readPref('finra_disable_analytics_pref') === '1') {
+				sticky.set('disable_analytics', '1');
+			}
+			const safeGpuValue = sticky.get('safe_gpu') ?? sticky.get('safeGpu') ?? readPref(SAFE_GPU_STORAGE_KEY);
+			if (safeGpuValue === '0' || safeGpuValue === '1') {
+				sticky.set('safe_gpu', safeGpuValue);
+				sticky.delete('safeGpu');
+			}
+			return `?${sticky.toString()}`;
+		};
+
+		const addStickyToUrl = (raw: string | null | undefined) => {
+			try {
+				return applyStickyParamsToUrl(String(raw || window.location.href), buildStickySourceSearch(), window.location.origin);
+			} catch {
 				return raw || window.location.pathname + window.location.search + window.location.hash;
 			}
 		};
 
-		// Patch history methods so all client navigations keep the param in the URL
+		const urlNeedsSticky = () => {
+			const current = new URLSearchParams(window.location.search);
+			if ((urlDisableAnalytics || prefDisableAnalytics || readPref('finra_disable_analytics_pref') === '1') && current.get('disable_analytics') !== '1') {
+				return true;
+			}
+			const desiredSafe = current.get('safe_gpu') ?? readPref(SAFE_GPU_STORAGE_KEY);
+			if ((desiredSafe === '0' || desiredSafe === '1') && current.get('safe_gpu') !== desiredSafe) {
+				return true;
+			}
+			return false;
+		};
+
 		const origPush = history.pushState;
 		const origReplace = history.replaceState;
 
 		history.pushState = function (state: any, title: string, url?: string | null) {
 			try {
-				const newUrl = url ? addParamToUrl(url) : url;
+				const newUrl = url ? addStickyToUrl(url) : url;
 				return origPush.apply(this, [state, title, newUrl]);
-			} catch (err) {
+			} catch {
 				return origPush.apply(this, [state, title, url]);
 			}
 		} as any;
 		history.replaceState = function (state: any, title: string, url?: string | null) {
 			try {
-				const newUrl = url ? addParamToUrl(url) : addParamToUrl(window.location.href);
+				const newUrl = url ? addStickyToUrl(url) : addStickyToUrl(window.location.href);
 				return origReplace.apply(this, [state, title, newUrl]);
-			} catch (err) {
+			} catch {
 				return origReplace.apply(this, [state, title, url]);
 			}
 		} as any;
 
 		const onPop = () => {
 			try {
-				if (!window.location.search.includes('disable_analytics=1')) {
-					history.replaceState(history.state, document.title, addParamToUrl(window.location.href));
+				if (urlNeedsSticky()) {
+					history.replaceState(history.state, document.title, addStickyToUrl(window.location.href));
 				}
-			} catch (e) {
+			} catch {
 				/* ignore */
 			}
 		};
 
 		window.addEventListener('popstate', onPop);
 
-		// Ensure initial load has the param
-		if (!window.location.search.includes('disable_analytics=1')) {
+		if (urlNeedsSticky()) {
 			try {
-				history.replaceState(history.state, document.title, addParamToUrl(window.location.href));
-			} catch (e) {
+				history.replaceState(history.state, document.title, addStickyToUrl(window.location.href));
+			} catch {
 				/* ignore */
 			}
 		}
 
 		return () => {
-			// restore originals
 			try {
 				history.pushState = origPush;
 				history.replaceState = origReplace;
 				window.removeEventListener('popstate', onPop);
-			} catch (e) {
+			} catch {
 				/* ignore */
 			}
 		};
@@ -455,27 +494,12 @@ export default function FinraGraph() {
 	}, []);
 
 	const openFindBar = useCallback(() => {
-		if (isMobileSearchViewport()) {
-			window.dispatchEvent(new CustomEvent(MOBILE_SIDEBAR_COLLAPSE_REQUEST_EVENT));
-		}
 		setIsFindBarOpen(true);
 		focusFindInput();
-	}, [focusFindInput, isMobileSearchViewport]);
-
-	const reopenFindBarAfterSidebarDismiss = useCallback(() => {
-		if (!shouldRestoreFindBarAfterSidebarDismissRef.current) return;
-		if (!isMobileSearchViewport()) {
-			shouldRestoreFindBarAfterSidebarDismissRef.current = false;
-			return;
-		}
-		shouldRestoreFindBarAfterSidebarDismissRef.current = false;
-		window.requestAnimationFrame(() => {
-			openFindBar();
-		});
-	}, [isMobileSearchViewport, openFindBar]);
+	}, [focusFindInput]);
 
 	const closeFindBar = useCallback(
-		({ clearQuery = false, preserveMobileRestore = false }: { clearQuery?: boolean; preserveMobileRestore?: boolean } = {}) => {
+		({ clearQuery = false }: { clearQuery?: boolean } = {}) => {
 			const input = findInputRef.current;
 			if (input && document.activeElement === input) {
 				input.blur();
@@ -492,14 +516,10 @@ export default function FinraGraph() {
 				setActiveFindNodeId(null);
 				setFocusedFindNodeId(null);
 				window.dispatchEvent(new CustomEvent(FIND_CLOSE_EVENT, { detail: { clearQuery: true } }));
-				shouldRestoreFindBarAfterSidebarDismissRef.current = false;
 				return;
 			}
 			setFocusedFindNodeId(activeFindNodeId);
 			window.dispatchEvent(new CustomEvent(FIND_CLOSE_EVENT, { detail: { clearQuery: false } }));
-			if (!preserveMobileRestore) {
-				shouldRestoreFindBarAfterSidebarDismissRef.current = false;
-			}
 		},
 		[activeFindNodeId],
 	);
@@ -509,13 +529,7 @@ export default function FinraGraph() {
 		if (!query) return;
 		const nodeId = focusedFindNodeId || activeFindNodeId;
 		if (nodeId) {
-			const isMobileSidebar = typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches;
-			if (isMobileSidebar) {
-				shouldRestoreFindBarAfterSidebarDismissRef.current = true;
-				closeFindBar({ clearQuery: false, preserveMobileRestore: true });
-			} else {
-				closeFindBar({ clearQuery: false });
-			}
+			closeFindBar({ clearQuery: false });
 			routeSidebarNodeSelection({
 				nodeId,
 				browserPathname,
@@ -863,24 +877,14 @@ export default function FinraGraph() {
 
 	useEffect(() => {
 		if (!isMounted) return;
+		// Menu stays open until the hamburger toggle closes it — no outside-click / Escape auto-hide.
 		const handleDocumentClickCapture = (event: MouseEvent) => {
-			const sidebar = document.getElementById('fg-sidebar');
 			const findBar = document.getElementById('fg-find-header');
 			const findToggle = document.getElementById('fg-find-toggle');
 			const target = event.target as Node | null;
-			const mobileMenuToggle = document.getElementById('fg-mobile-menu-toggle');
-			const graphNode = target instanceof Element ? target.closest('.fg-node') : null;
 
 			if (isFindBarOpenRef.current && findBar && target && !findBar.contains(target) && (!findToggle || !findToggle.contains(target))) {
 				closeFindBar({ clearQuery: false });
-			}
-
-			if (!sidebar || sidebar.classList.contains('hidden')) return;
-			if (target && sidebar.contains(target)) return;
-			if (graphNode) return;
-			if (target && (!mobileMenuToggle || !mobileMenuToggle.contains(target))) {
-				hideSidebar();
-				reopenFindBarAfterSidebarDismiss();
 			}
 		};
 
@@ -898,10 +902,7 @@ export default function FinraGraph() {
 			if (isFindBarOpenRef.current) {
 				event.preventDefault();
 				closeFindBar();
-				return;
 			}
-			hideSidebar();
-			reopenFindBarAfterSidebarDismiss();
 		};
 		document.addEventListener('click', handleDocumentClickCapture, true);
 		document.addEventListener('focusin', handleDocumentFocusIn, true);
@@ -912,7 +913,7 @@ export default function FinraGraph() {
 			document.removeEventListener('focusin', handleDocumentFocusIn, true);
 			document.removeEventListener('keydown', handleEscapeKey);
 		};
-	}, [closeFindBar, isMounted, reopenFindBarAfterSidebarDismiss]);
+	}, [closeFindBar, isMounted]);
 
 	useEffect(() => {
 		if (!isMounted) return;

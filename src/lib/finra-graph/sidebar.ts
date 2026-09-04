@@ -1562,68 +1562,7 @@ export function renderFirmDetail(d: any) {
 	const hasOfficeAddress = Boolean(officeAddress);
 	const businessPhone = String(d.businessPhone || '').trim();
 	const SIDEBAR_CONNECTIONS_PREVIEW_LIMIT = 24;
-	const allCurrentConns = Array.isArray(d.currentConnections) ? [...d.currentConnections] : [];
-	const allPrevConns = Array.isArray(d.previousConnections) ? [...d.previousConnections] : [];
-	let currentConns = allCurrentConns;
-	let prevConns = allPrevConns;
-	let primaryConns: any[] = [];
-	let secondaryConns: any[] = [];
-
-	if (statusIsTerminated || !statusIsActive) {
-		prevConns = [...currentConns, ...prevConns];
-		currentConns = [];
-	} else {
-		for (const conn of currentConns) {
-			const rels = (Array.isArray(conn.relationshipLabels) ? conn.relationshipLabels : []).join(' ').toLowerCase();
-			const relText = String(conn.relationship || conn.meta || '').toLowerCase() + ' ' + rels;
-			const posText = String(conn.position || (Array.isArray(conn.positions) ? conn.positions.join(' ') : '')).toLowerCase();
-			const fullStr = relText + ' ' + posText + ' ' + String(conn.group || conn.type || '').toLowerCase();
-
-			if (
-				fullStr.includes('employee') ||
-				fullStr.includes('bd') ||
-				fullStr.includes('broker') ||
-				fullStr.includes('dealer') ||
-				fullStr.includes('control') ||
-				conn.group === 'individual' ||
-				conn.type === 'individual'
-			) {
-				primaryConns.push(conn);
-			} else {
-				secondaryConns.push(conn);
-			}
-		}
-	}
-
-	const totalConnCount = primaryConns.length + secondaryConns.length + prevConns.length;
-	const primaryTotal = primaryConns.length;
-	const secondaryTotal = secondaryConns.length;
-	const prevTotal = prevConns.length;
-	primaryConns = primaryConns.slice(0, SIDEBAR_CONNECTIONS_PREVIEW_LIMIT);
-	secondaryConns = secondaryConns.slice(0, SIDEBAR_CONNECTIONS_PREVIEW_LIMIT);
-	prevConns = prevConns.slice(0, SIDEBAR_CONNECTIONS_PREVIEW_LIMIT);
-	const connectionsTruncated =
-		primaryTotal > primaryConns.length || secondaryTotal > secondaryConns.length || prevTotal > prevConns.length;
-
-	function renderConnectionEntry(conn: any, isActive: boolean) {
-		const rawName = conn.label || conn.name || conn.title || conn.firmName || conn.legalName || `CRD#${conn.crd || ''}`;
-		const name = conn.group === 'individual' || conn.type === 'individual' ? formatPersonName(rawName) : formatFirmName(rawName);
-		const crd = conn.crd || conn.crdNumber || conn.firmId || conn.individualId || '';
-		const rel = [
-			conn.relationship || conn.meta || (Array.isArray(conn.relationshipLabels) ? conn.relationshipLabels.join(', ') : ''),
-			conn.position || (Array.isArray(conn.positions) ? conn.positions.join(', ') : ''),
-		]
-			.filter(Boolean)
-			.join(' · ');
-		const dates = conn.dateText || conn.date || conn.subtitle || (Array.isArray(conn.dateTexts) ? conn.dateTexts.join(', ') : '');
-		const address = conn.address || '';
-		return `<div class='fg-tl-entry${isActive ? ' active-pos' : ''}'>
-	            <span class='fg-tl-firm'>${esc(name)}${crd ? ` <small class="fg-connection-crd">(CRD <span class=\"fg-connection-crd-number\">${esc(String(crd))}</span>)</small>` : ''}</span>
-	            ${rel ? `<span class='fg-tl-dates'>${esc(rel)}</span>` : ''}
-	            ${dates ? `<span class='fg-tl-loc'>${esc(dates)}</span>` : ''}
-	            ${address ? `<span class='fg-tl-loc'>${esc(address)}</span>` : ''}
-	          </div>`;
-	}
+	// Employment current/previous rosters are dashboard-only. Side panel keeps Form BD owners.
 
 	return `
 		<div class='fg-sb-header firm'>
@@ -1704,42 +1643,14 @@ export function renderFirmDetail(d: any) {
       ${row('Fiscal Year End', esc(d.fiscalYearEnd || '–'))}
       ${d.otherNames?.length ? row('Other names', esc(d.otherNames.join('; '))) : ''}
       ${
-				primaryConns.length ?
+				firmId ?
 					`
-      <div class='fg-section-title fg-section-title--sticky'>Current Connections - Core Employees & Control (${primaryTotal})</div>
-      <div class='fg-timeline'>
-        ${primaryConns.map((conn: any) => renderConnectionEntry(conn, true)).join('')}
-      </div>
+      <div class='fg-section-title fg-section-title--sticky'>Current &amp; Previous Connections</div>
+      <a href="/dashboard/firm/${encodeURIComponent(String(firmId))}" class="fg-tl-entry fg-card-clickable" style="display:block;text-decoration:none;text-align:center;margin-top:8px;padding:12px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-secondary);">
+        <strong>Open Dashboard to view &amp; select connections</strong>
+        <span style="display:block;margin-top:4px;font-size:11px;opacity:0.8;">Choose people on the firm page, then Graph to add them here</span>
+      </a>
       `
-				:	''
-			}
-      ${
-				secondaryConns.length ?
-					`
-      <div class='fg-section-title fg-section-title--sticky'>Current Connections - Other (${secondaryTotal})</div>
-      <div class='fg-timeline'>
-        ${secondaryConns.map((conn: any) => renderConnectionEntry(conn, true)).join('')}
-      </div>
-      `
-				:	''
-			}
-      ${
-				prevConns.length ?
-					`
-      <div class='fg-section-title fg-section-title--sticky'>Previous Connections (${prevTotal})</div>
-      <div class='fg-timeline fg-timeline--previous'>
-        ${prevConns.map((conn: any) => renderConnectionEntry(conn, false)).join('')}
-      </div>
-      `
-				:	''
-			}
-      ${
-				connectionsTruncated && firmId ?
-					`<a href="/dashboard/firm/${encodeURIComponent(String(firmId))}" class="fg-tl-entry fg-card-clickable" style="display:block;text-decoration:none;text-align:center;margin-top:12px;padding:10px;border:1px solid var(--border-subtle);border-radius:8px;">
-						<strong>Showing ${SIDEBAR_CONNECTIONS_PREVIEW_LIMIT} per section — full list (${totalConnCount}) on Dashboard</strong>
-					</a>`
-				: !d._connectionsLoaded && !totalConnCount ?
-					`<p class='fg-sb-note' style='margin-top:12px;'>Connections load after identity — open Dashboard for the full roster.</p>`
 				:	''
 			}
     </div>

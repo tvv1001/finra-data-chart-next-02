@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { fetchGraphQueryWithLinkedResults, resetBrowserGraphState } from './helpers/finra-e2e';
 
-test('Toggle menu opens the sidebar shell and Escape closes it again', async ({ page }) => {
+test('Toggle menu opens and closes the sidebar shell', async ({ page }) => {
 	await page.goto('/');
 
 	const app = page.locator('#finra-app');
@@ -21,7 +21,11 @@ test('Toggle menu opens the sidebar shell and Escape closes it again', async ({ 
 	await expect(app).toHaveAttribute('data-sidebar-open', 'true');
 	await expect(page.getByRole('button', { name: 'Reset Session' })).toBeVisible();
 
+	// Menu does not auto-hide on Escape — only the hamburger toggle closes it.
 	await page.keyboard.press('Escape');
+	await expect(sidebar).not.toHaveClass(/hidden/);
+
+	await toggleMenuButton.click();
 
 	await expect(sidebar).toHaveClass(/hidden/);
 	await expect(backdrop).toHaveClass(/hidden/);
@@ -46,6 +50,10 @@ test('Center keeps the selected mobile node below the collapsed menu chrome', as
 
 	const sourceNode = page.locator('.fg-node').nth(sourceIndex);
 	await sourceNode.click({ force: true });
+	// Node select keeps the hamburger menu closed; details load only when it opens.
+	await expect(page.locator('#fg-sidebar')).toHaveClass(/hidden/);
+
+	await page.getByRole('button', { name: 'Toggle menu' }).click();
 	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/);
 
 	const focusButton = page.getByRole('button', { name: 'Center on this node' });
@@ -96,6 +104,9 @@ test('Center keeps the normal viewport center when the mobile menu is fully expa
 
 	const sourceNode = page.locator('.fg-node').nth(sourceIndex);
 	await sourceNode.click({ force: true });
+	await expect(page.locator('#fg-sidebar')).toHaveClass(/hidden/);
+
+	await page.getByRole('button', { name: 'Toggle menu' }).click();
 	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/);
 
 	const infoToggle = page.getByRole('button', { name: 'Show info' });

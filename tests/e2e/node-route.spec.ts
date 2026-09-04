@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fetchGraphQueryWithLinkedResults, resetBrowserGraphState, seedStoredSession } from './helpers/finra-e2e';
+import { fetchGraphQueryWithLinkedResults, openGraphSideMenu, resetBrowserGraphState, seedStoredSession } from './helpers/finra-e2e';
 
 async function getRenderedNodeIndex(page: Page, matcher: RegExp) {
 	const index = await page.evaluate((patternSource) => {
@@ -25,6 +25,7 @@ test('Selecting a node pushes an analytics-friendly node route', async ({ page }
 	const sourceNode = page.locator('.fg-node').nth(sourceIndex);
 	await sourceNode.click({ force: true });
 
+	await openGraphSideMenu(page);
 	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/);
 	await expect
 		.poll(async () => page.evaluate(() => window.location.pathname), {
@@ -446,6 +447,7 @@ test('Direct route firm 314694 auto-selects when all graph-derived current conne
 		.toBe(2);
 	await expect(fetchedFirmNode).toHaveCount(1);
 	await expect(fetchedFirmNode).toHaveClass(/selected/);
+	await openGraphSideMenu(page);
 	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/);
 	await expect
 		.poll(
@@ -518,6 +520,7 @@ test('A direct node route restores that node selection on a clean session', asyn
 		})
 		.toBe('/individual/3102054');
 
+	await openGraphSideMenu(page);
 	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/, { timeout: 20_000 });
 	await expect
 		.poll(
@@ -581,6 +584,7 @@ test('Firm 298880 suppresses FINRA sidebar links', async ({ page }) => {
 		.toBe(1);
 	await firmNode.click({ force: true });
 
+	await openGraphSideMenu(page);
 	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/);
 	await expect(page.locator('#fg-sidebar .fg-ext-link.bc')).toHaveCount(0);
 	await expect(page.locator('#fg-sidebar .fg-ext-link.sec', { hasText: 'SEC AdvisorInfo Summary' })).toHaveCount(1);
@@ -637,6 +641,7 @@ test('Firm 314694 suppresses FINRA sidebar links', async ({ page }) => {
 		.toBe(1);
 	await firmNode.click({ force: true });
 
+	await openGraphSideMenu(page);
 	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/);
 	await expect(page.locator('#fg-sidebar .fg-ext-link.bc')).toHaveCount(0);
 	await expect(page.locator('#fg-sidebar .fg-ext-link.sec', { hasText: 'SEC AdvisorInfo Summary' })).toHaveCount(1);
@@ -673,6 +678,7 @@ test('Firm 167790 suppresses FINRA sidebar links after direct-route hydration', 
 		})
 		.toBe(2);
 	await expect(firmNode).toHaveCount(1);
+	await openGraphSideMenu(page);
 	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/);
 	await expect
 		.poll(
@@ -784,12 +790,14 @@ test('Firm sidebars show graph-derived current connections even without rich fir
 		.toBe(3);
 	await firmNode.click({ force: true });
 
+	await openGraphSideMenu(page);
 	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/);
-	await expect(page.locator('#fg-sidebar')).toContainText('Current Connections (2)');
+	// Employment roster is dashboard-only; side panel keeps Form BD / control positions.
+	await expect(page.locator('#fg-sidebar')).toContainText('Open Dashboard to view & select connections');
+	await expect(page.locator('#fg-sidebar')).toContainText('Form BD');
 	await expect(page.locator('#fg-sidebar')).toContainText('Owner Control Person');
-	await expect(page.locator('#fg-sidebar')).toContainText('Registered Rep Person');
-	await expect(page.locator('#fg-sidebar')).toContainText('Current registration');
-	await expect(page.locator('#fg-sidebar')).toContainText('Control');
+	await expect(page.locator('#fg-sidebar')).not.toContainText('Registered Rep Person');
+	await expect(page.locator('#fg-sidebar a[href="/dashboard/firm/2632784"]')).toBeVisible();
 });
 
 test('A legacy encoded node route still restores that node selection', async ({ page }) => {
@@ -797,6 +805,7 @@ test('A legacy encoded node route still restores that node selection', async ({ 
 	await resetBrowserGraphState(page);
 	await page.goto('/node/person%3A3102054');
 
+	await openGraphSideMenu(page);
 	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/, { timeout: 20_000 });
 	await expect
 		.poll(
@@ -892,6 +901,7 @@ test('A direct node route keeps a fetched inactive leaf node both selected and v
 	await resetBrowserGraphState(page);
 	await page.goto('/individual/999999');
 
+	await openGraphSideMenu(page);
 	await expect(page.locator('#fg-sidebar')).not.toHaveClass(/hidden/, { timeout: 20_000 });
 	await expect
 		.poll(

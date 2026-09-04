@@ -2333,17 +2333,28 @@ const MOBILE_FIND_CLOSE_REQUEST_EVENT = 'finra:mobile-find-close-request';
 const TRACE_LOG_GUARD_WARNING_PREFIX = '[finra-graph] Trace with Log guard:';
 let lastTraceLogGuardWarning = '';
 
-function normalizeSidebarViewMode(value: unknown, fallback: SidebarViewMode = 'info'): SidebarViewMode {
+function normalizeSidebarViewMode(value: unknown, fallback: SidebarViewMode = 'none'): SidebarViewMode {
 	return value === 'none' || value === 'info' || value === 'log' ? value : fallback;
 }
 
-function loadPersistedSidebarViewMode(fallback: SidebarViewMode = 'info'): SidebarViewMode {
+function loadPersistedSidebarViewMode(fallback: SidebarViewMode = 'none'): SidebarViewMode {
 	try {
 		if (typeof window === 'undefined' || !window.sessionStorage) return fallback;
 		return normalizeSidebarViewMode(sessionStorage.getItem(SIDEBAR_VIEW_MODE_STORAGE_KEY), fallback);
 	} catch {
 		return fallback;
 	}
+}
+
+function isSidebarMenuOpen() {
+	const sidebar = document.getElementById('fg-sidebar');
+	return Boolean(sidebar && !sidebar.classList.contains('hidden'));
+}
+
+function shouldRevealSidebarPanel(options: { reveal?: boolean } = {}) {
+	if (options.reveal) return true;
+	if (isSidebarPersistentlyPinned()) return true;
+	return isSidebarMenuOpen();
 }
 
 function normalizeSecComparable(value) {
@@ -3122,8 +3133,11 @@ if (typeof window !== 'undefined') {
 						markNodeSelected(node, { persist: true });
 						reapplySelectionState();
 						try {
-							// render sidebar detail for clicked node and emit route event
-							renderSidebar(node);
+							// Keep menu closed on canvas select; details load when hamburger opens.
+							sidebarSelectedNode = node;
+							if (shouldRevealSidebarPanel()) {
+								renderSidebar(node, { reveal: true });
+							}
 							emitSelectedNodeRoute(node.id, { replace: false });
 						} catch (e) {}
 					}
@@ -3194,8 +3208,8 @@ function setSidebarViewMode(mode: SidebarViewMode, options: { expandMobile?: boo
 	const sidebar = document.getElementById('fg-sidebar');
 	if (sidebar) {
 		sidebar.dataset.viewMode = mode;
-		if (options.expandMobile) {
-			sidebar.dataset.mobileExpanded = 'true';
+		sidebar.dataset.mobileExpanded = mode === 'none' ? 'false' : 'true';
+		if (options.expandMobile || shouldRevealSidebarPanel()) {
 			sidebar.classList.remove('hidden');
 			document.getElementById('fg-sidebar-backdrop')?.classList.remove('hidden');
 			if (isMobileSidebarViewport() && mode !== 'none') {
@@ -3204,9 +3218,13 @@ function setSidebarViewMode(mode: SidebarViewMode, options: { expandMobile?: boo
 		}
 	}
 
-	if (sidebarSelectedNode) renderSidebar(sidebarSelectedNode);
-	// Always re-render sidebar to ensure toggles are present even with no selection.
-	renderSidebar(sidebarSelectedNode);
+	// Keep the hamburger shell open while toggling Info/Log; only Info expand loads rich detail.
+	const reveal = shouldRevealSidebarPanel() || Boolean(options.expandMobile) || mode !== 'none';
+	if (mode === 'info') {
+		void hydrateSidebarDetailsForSelectedNode(sidebarSelectedNode);
+	} else {
+		renderSidebar(sidebarSelectedNode, { reveal: true });
+	}
 	updateSelectionLogChrome();
 }
 
@@ -5135,11 +5153,13 @@ function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: 
 			const selectedNode = Array.isArray(layoutNodes) ? layoutNodes.find((entry) => entry.id === selectedId) : null;
 			if (!selectedNode) return;
 			resetTransientDetailState(selectedNode);
-			renderSidebar(selectedNode);
+			sidebarSelectedNode = selectedNode;
 			if (session && session.sidebarViewMode != null) {
 				setSidebarViewMode(normalizeSidebarViewMode(session.sidebarViewMode, loadPersistedSidebarViewMode()), {
 					expandMobile: session.sidebarViewMode !== 'none',
 				});
+			} else if (shouldRevealSidebarPanel()) {
+				renderSidebar(selectedNode, { reveal: true });
 			}
 			return;
 		}
@@ -5194,32 +5214,19 @@ function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: 
 		const node = Array.isArray(layoutNodes) ? layoutNodes.find((entry) => entry.id === selectedId) : null;
 		if (!node) return;
 		resetTransientDetailState(node);
-		renderSidebar(node);
+		sidebarSelectedNode = node;
+		const restoredSidebarMode =
+			session && session.sidebarViewMode != null ? normalizeSidebarViewMode(session.sidebarViewMode, loadPersistedSidebarViewMode()) : loadPersistedSidebarViewMode();
 		if (session && session.sidebarViewMode != null) {
-			setSidebarViewMode(normalizeSidebarViewMode(session.sidebarViewMode, loadPersistedSidebarViewMode()), {
-				expandMobile: session.sidebarViewMode !== 'none',
+			setSidebarViewMode(restoredSidebarMode, {
+				expandMobile: restoredSidebarMode !== 'none',
 			});
+		} else if (shouldRevealSidebarPanel()) {
+			renderSidebar(node, { reveal: true });
 		}
-		if (node.group === 'individual') {
-			ensureIndividualDetail(node)
-				.then(() => {
-					if (selectedId === node.id) {
-						renderSidebar(node);
-					}
-				})
-				.catch((err) => {
-					console.error('Failed to restore individual detail after reload:', err);
-				});
-		} else if (node.group === 'firm') {
-			ensureFirmDetail(node)
-				.then(() => {
-					if (selectedId === node.id) {
-						renderSidebar(node);
-					}
-				})
-				.catch((err) => {
-					console.error('Failed to restore firm detail after reload:', err);
-				});
+		// Panel details hydrate only when the menu is open (hamburger / restored info|log mode).
+		if (restoredSidebarMode !== 'none' || shouldRevealSidebarPanel()) {
+			void hydrateSidebarDetailsForSelectedNode(node);
 		}
 		const restoreFocusDuration = 700;
 		focusNodeById(node.id, { duration: restoreFocusDuration, pulse: false });
@@ -6071,10 +6078,19 @@ export function init(
 			if (!isMobileSidebarViewport()) return;
 			showSidebarHint({ keepOpen: false });
 		}) as EventListener);
-		// Allow other code to request the sidebar re-render of no-selection content.
-		window.addEventListener('finra:ensure-sidebar-content', (() => {
+		// Hamburger open requests sidebar chrome; rich detail only when Info is expanded.
+		window.addEventListener('finra:ensure-sidebar-content', ((event: Event) => {
+			const detail = (event as CustomEvent<{ loadDetails?: boolean; reveal?: boolean; viewMode?: SidebarViewMode }>).detail || {};
 			try {
-				renderSidebar(sidebarSelectedNode || null);
+				if (detail.viewMode === 'none' || detail.viewMode === 'info' || detail.viewMode === 'log') {
+					sidebarViewMode = detail.viewMode;
+				}
+				const shouldLoadDetails = detail.loadDetails === true || (detail.loadDetails !== false && sidebarViewMode === 'info');
+				if (shouldLoadDetails && sidebarViewMode === 'info') {
+					void hydrateSidebarDetailsForSelectedNode();
+				} else {
+					renderSidebar(sidebarSelectedNode || null, { reveal: detail.reveal !== false });
+				}
 			} catch (e) {
 				/* ignore */
 			}
@@ -11122,11 +11138,11 @@ function appendFetchedImpl(newNodes, newLinks) {
 
 	// If the current selection was impacted by newly appended nodes/links,
 	// re-render the sidebar so any newly-merged detail (owners/children)
-	// appears without requiring a full page refresh.
+	// appears without requiring a full page refresh — only while the menu is open.
 	try {
-		if (selectedId && Array.isArray(impactedIds) && impactedIds.includes(selectedId)) {
+		if (selectedId && Array.isArray(impactedIds) && impactedIds.includes(selectedId) && shouldRevealSidebarPanel()) {
 			const selectedNode = layoutNodes?.find((node) => node.id === selectedId) || graphData?.nodes?.find((node) => node.id === selectedId);
-			if (selectedNode) renderSidebar(selectedNode);
+			if (selectedNode) renderSidebar(selectedNode, { reveal: true });
 		}
 	} catch (e) {
 		/* ignore sidebar refresh errors */
@@ -11571,11 +11587,7 @@ function renderGraph(_data) {
 			selectionRestoreTimer = null;
 		}
 		stopNodePulseLoop();
-		if (!isSidebarPersistentlyPinned()) {
-			document.getElementById('fg-sidebar')?.classList.add('hidden');
-			document.getElementById('fg-sidebar-backdrop')?.classList.add('hidden');
-		}
-		// Keep the existing selection when clicking whitespace; only close the sidebar.
+		// Keep selection + menu as-is on blank canvas clicks. The hamburger toggle closes the menu.
 	});
 
 	refreshGraphColors();
@@ -12741,25 +12753,43 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 const firmConnectionsRequestCache = new Map<string, Promise<void>>();
 
 /**
- * Lazy-load current/previous employment connections for a firm and expose them for the
- * sidebar detail panel only — clicking a firm node in the graph no longer auto-reveals
- * these as graph nodes/links (see isFirmControlOnlyExpansionLink), but the sidebar's
- * Current/Previous Connections cards still show them and remain clickable (they route
- * to/inject the target node on demand via the existing fg-node-link click handler).
+ * Firm employment rosters live on the dashboard (Select → Graph). The graph side panel
+ * only shows Form BD owners / control positions from firm detail — never the multi-MB
+ * /connections roster.
  */
-function scheduleFirmConnectionsLoad(firmNode: any) {
-	if (!firmNode || firmNode.group !== 'firm' || firmNode._connectionsLoaded || firmNode._connectionsLoadScheduled) return;
-	firmNode._connectionsLoadScheduled = true;
-	const run = () => {
-		scheduleFirmConnectionsLoad(firmNode);
-	};
-	const ric = typeof window !== 'undefined' ? (window as any).requestIdleCallback : null;
-	if (typeof ric === 'function') {
-		ric(run, { timeout: 1800 });
-	} else if (typeof window !== 'undefined') {
-		window.setTimeout(run, 400);
-	} else {
-		run();
+function scheduleFirmConnectionsLoad(_firmNode: any) {
+	return;
+}
+
+/** Load rich side-panel detail only when Info is expanded (not when collapsed to chrome). */
+async function hydrateSidebarDetailsForSelectedNode(node = sidebarSelectedNode) {
+	const target =
+		node ||
+		(selectedId ? layoutNodes?.find((entry) => entry.id === selectedId) || graphData?.nodes?.find((entry) => entry.id === selectedId) : null);
+	if (!target) {
+		renderSidebar(null, { reveal: true });
+		return;
+	}
+	sidebarSelectedNode = target;
+	// Caller must set info mode first. Collapsed (none) never fetches rich detail.
+	if (sidebarViewMode !== 'info') {
+		renderSidebar(target, { reveal: true });
+		return;
+	}
+	renderSidebar(target, { reveal: true });
+	try {
+		if (target.group === 'individual') {
+			await ensureIndividualDetail(target, { injectEmploymentGraph: false });
+		} else if (target.group === 'firm') {
+			// Form BD / control positions only — no employment roster fetch.
+			await ensureFirmDetail(target);
+		}
+	} catch (error) {
+		console.warn('Failed to hydrate sidebar details:', error);
+	}
+	if (sidebarViewMode !== 'info') return;
+	if (selectedId === target.id || sidebarSelectedNode?.id === target.id) {
+		renderSidebar(target, { reveal: true });
 	}
 }
 
@@ -12938,8 +12968,7 @@ async function ensureFirmDetail(firmNode) {
 					firmNode._detailLoaded = true;
 					firmNode._detailMissing = false;
 					firmNode._detailValidated = true;
-					if (selectedId === firmNode.id) renderSidebar(firmNode);
-					scheduleFirmConnectionsLoad(firmNode);
+					if (selectedId === firmNode.id && shouldRevealSidebarPanel()) renderSidebar(firmNode, { reveal: true });
 					return;
 				}
 				firmNode._detailMissing = true;
@@ -13067,10 +13096,8 @@ async function ensureFirmDetail(firmNode) {
 			firmNode._detailMissing = false;
 			firmNode._detailValidated = true;
 			logDetailLoadDebug(`Firm detail loaded for ID ${firmId}: ${firmNode.disclosures?.length || 0} disclosures, ${firmNode.directOwners?.length || 0} owners`);
-			if (selectedId === firmNode.id) renderSidebar(firmNode);
+			if (selectedId === firmNode.id && shouldRevealSidebarPanel()) renderSidebar(firmNode, { reveal: true });
 
-			// Defer roster fetch so identity/sidebar paints first; preview-capped on render.
-			scheduleFirmConnectionsLoad(firmNode);
 		} catch (err) {
 			console.error(`Error fetching firm detail for ${firmId}:`, err);
 		}
@@ -13318,10 +13345,10 @@ async function hydrateExpansionFrontierNodes(
 		rerenderGraphNodesByIds(impactedIds);
 		refreshGraphColors();
 		refreshTraceState();
-		if (selectedId && impactedIds.includes(selectedId)) {
+		if (selectedId && impactedIds.includes(selectedId) && shouldRevealSidebarPanel()) {
 			const selectedNode = layoutNodes?.find((node) => node.id === selectedId) || graphData?.nodes?.find((node) => node.id === selectedId);
 			if (selectedNode) {
-				renderSidebar(selectedNode);
+				renderSidebar(selectedNode, { reveal: true });
 			}
 		}
 	}
@@ -14026,12 +14053,8 @@ async function materializeRouteSelectionNeighborhood(node, hops: number = getDef
 		markSelected: true,
 	});
 
-	// Re-paint sidebar after neighborhood + owner links land (avoids empty connections until hard refresh).
-	if (node.group === 'firm') {
-		scheduleFirmConnectionsLoad(node);
-	}
-	if (selectedId === node.id) {
-		renderSidebar(node);
+	if (selectedId === node.id && shouldRevealSidebarPanel()) {
+		renderSidebar(node, { reveal: true });
 	}
 
 	refreshTraceState({ deferMs: 120 });
@@ -14251,8 +14274,8 @@ async function openNodeWithExpansionTask(
 					markSelected: true,
 				});
 			}
-			if (selectedId === d.id) {
-				renderSidebar(d);
+			if (selectedId === d.id && shouldRevealSidebarPanel()) {
+				renderSidebar(d, { reveal: true });
 			}
 		}
 	} catch (err) {
@@ -14320,7 +14343,11 @@ function selectNode(
 		addToSelectionLog(d);
 	}
 	refreshTraceState();
-	renderSidebar(d);
+	sidebarSelectedNode = d;
+	const sidebarOpen = shouldRevealSidebarPanel();
+	if (sidebarOpen) {
+		renderSidebar(d, { reveal: true });
+	}
 	if (focus) {
 		focusNodeById(d.id, { duration: focusDuration, pulse });
 	}
@@ -14375,10 +14402,9 @@ function selectNode(
 					}
 				})())
 			.then(() => {
-				// Always re-render firm/person sidebar after neighbors arrive — previously only the
-				// non-auto-reveal path did this, so Current/Previous Connections stayed empty until hard refresh.
-				if (selectedId === d.id) {
-					renderSidebar(d);
+				// Side-panel details only refresh when the hamburger menu is open.
+				if (selectedId === d.id && shouldRevealSidebarPanel()) {
+					renderSidebar(d, { reveal: true });
 				}
 			})
 			.finally(() => {
@@ -14389,22 +14415,11 @@ function selectNode(
 					/* ignore */
 				}
 			});
-	} else if (d.group === 'individual') {
-		expansionPromise = ensureIndividualDetail(d, { injectEmploymentGraph: false })
-			.then(() => {
-				if (selectedId === d.id) renderSidebar(d);
-			})
-			.catch((err) => {
-				console.error('Failed to load individual detail:', err);
-			});
-	} else if (d.group === 'firm') {
-		expansionPromise = ensureFirmDetail(d)
-			.then(() => {
-				if (selectedId === d.id) renderSidebar(d);
-			})
-			.catch((err) => {
-				console.error('Failed to load firm detail:', err);
-			});
+	} else if (sidebarOpen) {
+		// Menu already open: hydrate panel details for the newly selected node.
+		expansionPromise = hydrateSidebarDetailsForSelectedNode(d).catch((err) => {
+			console.error('Failed to load sidebar detail:', err);
+		});
 	}
 
 	return expansionPromise;
@@ -15698,18 +15713,16 @@ function renderConnectionsFilterTagsHtml() {
 	</div>`;
 }
 
-function renderSidebar(d) {
+function renderSidebar(d, options: { reveal?: boolean } = {}) {
 	const el = document.getElementById('fg-sidebar-inner');
 	const side = document.getElementById('fg-sidebar');
 	if (!el || !side) {
 		return;
 	}
+	const reveal = shouldRevealSidebarPanel(options);
 	// Support rendering a minimal default sidebar when no node is selected.
 	if (!d) {
 		sidebarSelectedNode = null;
-		if (sidebarViewMode === 'none') {
-			sidebarViewMode = loadPersistedSidebarViewMode();
-		}
 		const preserveExpandedState = sidebarViewMode !== 'none';
 		el.innerHTML = renderNoSelectionSidebar();
 		if (sidebarViewMode === 'log') {
@@ -15718,11 +15731,13 @@ function renderSidebar(d) {
 				body.outerHTML = renderSidebarSelectionLogBody();
 			}
 		}
-		if (side) side.classList.remove('hidden');
-		document.getElementById('fg-sidebar-backdrop')?.classList.remove('hidden');
-		if (side) side.dataset.displayedId = '';
-		if (side) side.dataset.viewMode = sidebarViewMode;
-		syncMobileSidebarExpandedState(!isMobileSidebarViewport() || preserveExpandedState);
+		if (reveal) {
+			side.classList.remove('hidden');
+			document.getElementById('fg-sidebar-backdrop')?.classList.remove('hidden');
+		}
+		side.dataset.displayedId = '';
+		side.dataset.viewMode = sidebarViewMode;
+		syncMobileSidebarExpandedState(preserveExpandedState);
 		const mobileToggle = el.querySelector('.fg-sidebar-mobile-summary-toggle') as HTMLButtonElement | null;
 		if (mobileToggle) {
 			bindSidebarToggleInteraction(mobileToggle, () => (sidebarViewMode === 'info' ? 'none' : 'info'));
@@ -15740,12 +15755,7 @@ function renderSidebar(d) {
 		const focusBtn = document.getElementById('fg-focus-btn') as HTMLButtonElement | null;
 		if (focusBtn) focusBtn.disabled = false;
 		try {
-			// no short detail to update when no selection
-		} catch (e) {
-			/* no-op */
-		}
-		try {
-			if (side) side.dataset.renderedByClient = '1';
+			side.dataset.renderedByClient = '1';
 			if (typeof window !== 'undefined') (window as any).__FG_SIDEBAR_RENDERED = true;
 		} catch (e) {
 			/* ignore */
@@ -15764,36 +15774,37 @@ function renderSidebar(d) {
 	if (previousDisplayedId !== (d?.id || '')) {
 		sidebarSourceToggle = 'finra';
 	}
-	if (sidebarViewMode === 'none') {
-		sidebarViewMode = loadPersistedSidebarViewMode();
-	}
 	const preserveExpandedState = sidebarViewMode !== 'none';
-	el.innerHTML =
-		d.group === 'firm' ? renderFirmDetail(d)
-		: d.group === 'entity' ? renderEntityDetail(d)
-		: renderPersonDetail(d);
-	// Re-apply the persisted connections filter (tags + live text), since the freshly rendered
-	// cards above start fully visible regardless of any earlier filtering.
-	if (sidebarConnectionsFilterQuery || sidebarConnectionsFilterTags.length > 0) {
-		el.querySelectorAll<HTMLElement>('.fg-connections-filter-scope').forEach((scope) => {
-			applyConnectionsFilterToScope(scope, sidebarConnectionsFilterTags, sidebarConnectionsFilterQuery);
-		});
-	}
-	if (sidebarViewMode === 'log') {
-		const body = el.querySelector('.fg-sb-body');
-		if (body) {
-			body.outerHTML = renderSidebarSelectionLogBody();
+	// Collapsed Info: thin header only — skip heavy firm/person detail HTML + fetches.
+	if (sidebarViewMode === 'none') {
+		el.innerHTML = renderCollapsedSidebarChrome(d);
+	} else {
+		el.innerHTML =
+			d.group === 'firm' ? renderFirmDetail(d)
+			: d.group === 'entity' ? renderEntityDetail(d)
+			: renderPersonDetail(d);
+		// Re-apply the persisted connections filter (tags + live text), since the freshly rendered
+		// cards above start fully visible regardless of any earlier filtering.
+		if (sidebarConnectionsFilterQuery || sidebarConnectionsFilterTags.length > 0) {
+			el.querySelectorAll<HTMLElement>('.fg-connections-filter-scope').forEach((scope) => {
+				applyConnectionsFilterToScope(scope, sidebarConnectionsFilterTags, sidebarConnectionsFilterQuery);
+			});
+		}
+		if (sidebarViewMode === 'log') {
+			const body = el.querySelector('.fg-sb-body');
+			if (body) {
+				body.outerHTML = renderSidebarSelectionLogBody();
+			}
 		}
 	}
-	if (sidebarViewMode === 'none') {
-		el.querySelector('.fg-sb-body')?.classList.add('hidden');
+	// Only reveal the panel when the hamburger is open (or pinned); node select stays canvas-only.
+	if (reveal) {
+		side.classList.remove('hidden');
+		document.getElementById('fg-sidebar-backdrop')?.classList.remove('hidden');
 	}
-	// show sidebar and update header short detail when rendering
-	if (side) side.classList.remove('hidden');
-	document.getElementById('fg-sidebar-backdrop')?.classList.remove('hidden');
-	if (side) side.dataset.displayedId = d?.id || '';
-	if (side) side.dataset.viewMode = sidebarViewMode;
-	syncMobileSidebarExpandedState(!isMobileSidebarViewport() || preserveExpandedState);
+	side.dataset.displayedId = d?.id || '';
+	side.dataset.viewMode = sidebarViewMode;
+	syncMobileSidebarExpandedState(preserveExpandedState);
 	const mobileToggle = el.querySelector('.fg-sidebar-mobile-summary-toggle') as HTMLButtonElement | null;
 	if (mobileToggle) {
 		bindSidebarToggleInteraction(mobileToggle, () => (sidebarViewMode === 'info' ? 'none' : 'info'));
@@ -15903,10 +15914,37 @@ function renderNoSelectionSidebar() {
 				<div class="fg-sb-title"></div>
 			</div>
 			<div class="fg-sb-title-actions fg-sb-title-actions--below-tags">
+				${renderMobileSidebarToggle()}
 				${renderSidebarSelectionLogToggle()}
 			</div>
 		</div>
-		<div class="fg-sb-body fg-sb-body--none"></div>
+		<div class="fg-sb-body fg-sb-body--none${sidebarViewMode === 'none' ? ' hidden' : ''}"></div>
+	`;
+}
+
+/** Thin chrome above Info|Log — no rich detail fetch / heavy body HTML. */
+function renderCollapsedSidebarChrome(d: any) {
+	if (!d) return renderNoSelectionSidebar();
+	const group = d.group === 'firm' ? 'firm' : d.group === 'entity' ? 'entity' : 'individual';
+	const title = esc(getPreferredNodeLabel(d) || d.label || d.name || d.id || '');
+	const rawId = String(d.crd || d.firmId || String(d.id || '').split(':').pop() || '').trim();
+	const idLine =
+		rawId ?
+			group === 'firm' ? `CRD#: ${esc(rawId)}`
+			:	`CRD#: ${esc(rawId)}`
+		:	'';
+	return `
+		<div class="fg-sb-header ${group} fg-sb-header--collapsed">
+			<div class="fg-sb-title-row">
+				<div class="fg-sb-title">${title}</div>
+			</div>
+			${idLine ? `<div class="fg-sb-crd">${idLine}</div>` : ''}
+			<div class="fg-sb-title-actions fg-sb-title-actions--below-tags">
+				${renderMobileSidebarToggle()}
+				${renderSidebarSelectionLogToggle()}
+			</div>
+		</div>
+		<div class="fg-sb-body fg-sb-body--collapsed hidden"></div>
 	`;
 }
 
@@ -17180,17 +17218,9 @@ function renderFirmDetail(d: any) {
 
 	const owners = d.directOwners || [];
 	const disclosures = d.disclosures || [];
-	const ownerCrdSet = new Set(owners.map((o: any) => String(o?.crdNumber || o?.crd || o?.personId || '').trim()).filter(Boolean));
-	const ownerNameSet = new Set(
-		owners
-			.map((o: any) =>
-				String(o?.legalName || o?.name || '')
-					.trim()
-					.toLowerCase(),
-			)
-			.filter(Boolean),
-	);
 
+	// Side panel keeps Form BD owners + control positions only. Employment current/previous
+	// rosters are dashboard-only (Select → Graph) — never fetched into this panel.
 	const graphDerivedConnections =
 		ENABLE_GRAPH_DERIVED_CONNECTIONS ?
 			collectFirmConnectionEntries({
@@ -17201,140 +17231,15 @@ function renderFirmDetail(d: any) {
 				graphLinks: graphData?.links || [],
 			})
 		:	[];
-	if (!ENABLE_GRAPH_DERIVED_CONNECTIONS) {
-		// keep a trace during development so operators can see why sidebar is empty
-		// of graph-derived connections for debugging
-		try {
-			console.debug('[finra-graph] graph-derived connections disabled by NEXT_PUBLIC_ENABLE_GRAPH_DERIVED_CONNECTIONS');
-		} catch (e) {
-			/* ignore */
-		}
-	}
 
-	// Merge server/search-hydrated employment connections (ensureFirmConnections) so the sidebar
-	// does not wait on a hard refresh when the canvas still has sparse links.
-	const serverConnectionEntries: any[] = [];
-	const pushServerEntry = (entry: any, isCurrent: boolean) => {
-		const firmId = String(entry?.firmId || '').trim();
-		const personId = String(entry?.individualId || entry?.crd || '').trim();
-		if (firmId && !personId) {
-			serverConnectionEntries.push({
-				id: `firm:${firmId}`,
-				label: String(entry?.name || `Firm ${firmId}`).trim(),
-				group: 'firm',
-				crd: firmId,
-				relationshipLabels: [entry?.relationship || (isCurrent ? 'Associated firm' : 'Previously associated firm')],
-				positions: [],
-				dateTexts: [],
-				sortOrder: isCurrent ? 1 : 3,
-				address: null,
-				maxStartDate: entry?.startDate || '',
-				maxEndDate: entry?.endDate || (isCurrent ? 'present' : ''),
-			});
-			return;
-		}
-		const crd = personId;
-		if (!crd) return;
-		serverConnectionEntries.push({
-			id: `person:${crd}`,
-			label: normalizePersonLabel(entry?.name || `Person ${crd}`),
-			group: 'individual',
-			crd,
-			relationshipLabels: [isCurrent ? 'Current registration' : 'Previous registration'],
-			positions: [],
-			dateTexts: [],
-			sortOrder: isCurrent ? 0 : 2,
-			address: null,
-			maxStartDate: entry?.startDate || '',
-			maxEndDate: entry?.endDate || (isCurrent ? 'present' : ''),
-		});
-	};
-	for (const entry of Array.isArray(d.currentConnections) ? d.currentConnections : []) pushServerEntry(entry, true);
-	for (const entry of Array.isArray(d.previousConnections) ? d.previousConnections : []) pushServerEntry(entry, false);
-
-	const rawConnectionsById = new Map<string, any>();
-	for (const conn of graphDerivedConnections) {
-		if (conn?.id) rawConnectionsById.set(String(conn.id), conn);
-	}
-	for (const conn of serverConnectionEntries) {
-		const existing = rawConnectionsById.get(String(conn.id));
-		if (!existing) {
-			rawConnectionsById.set(String(conn.id), conn);
-			continue;
-		}
-		for (const label of conn.relationshipLabels || []) existing.relationshipLabels.push(label);
-		existing.sortOrder = Math.min(existing.sortOrder ?? 4, conn.sortOrder ?? 4);
-		if (!existing.label && conn.label) existing.label = conn.label;
-	}
-	const rawConnections = Array.from(rawConnectionsById.values());
-
-	const connections = rawConnections
-		.filter((conn) => {
-			// Filter out individuals (employees and individual control positions)
-			if (conn.group === 'individual') return false;
-
-			const labels = (conn.relationshipLabels || []).map((r: string) => String(r).toLowerCase());
-			// Name-search associated firms belong in Current/Previous Connections.
-			if (labels.some((r) => r.includes('associated firm'))) return false;
-
-			// Filter out control relationships
-			const hasControl = conn.relationshipLabels.some((r) => r.toLowerCase().includes('control'));
-			if (hasControl) return false;
-
-			// Filter out registration/employment relationships
-			const hasEmployment = conn.relationshipLabels.some((r) => r.toLowerCase().includes('registration') || r.toLowerCase().includes('employed'));
-			if (hasEmployment) return false;
-
-			// Filter out by CRD or name match in Form BD owners list
-			const connCrd = String(conn.crd || conn.id || '')
-				.replace(/^(?:person|firm|entity)[:_]/, '')
-				.trim();
-			if (connCrd && ownerCrdSet.has(connCrd)) return false;
-
-			const connName = String(conn.label || '')
-				.trim()
-				.toLowerCase();
-			if (connName && ownerNameSet.has(connName)) return false;
-
-			return true;
-		})
-		.sort(compareConnectionEntries);
-
-	const controlConnections = rawConnections
+	const controlConnections = graphDerivedConnections
 		.filter((conn) => {
 			if (conn.group !== 'individual') return false;
-			return conn.relationshipLabels.some((r) => r.toLowerCase().includes('control'));
+			return (conn.relationshipLabels || []).some((r) => String(r).toLowerCase().includes('control'));
 		})
 		.sort(compareConnectionEntries);
-
-	const previousConnections = rawConnections
-		.filter((conn) => {
-			if (conn.group !== 'individual' && conn.group !== 'firm') return false;
-			const isControl = conn.relationshipLabels.some((r) => r.toLowerCase().includes('control'));
-			if (isControl) return false;
-			return conn.sortOrder === 2 || conn.sortOrder === 3 || conn.relationshipLabels.some((r) => r.includes('Previous') || r.includes('Former'));
-		})
-		.sort(compareConnectionEntries);
-
-	const currentConnections = rawConnections
-		.filter((conn) => {
-			if (conn.group !== 'individual' && conn.group !== 'firm') return false;
-			const isControl = conn.relationshipLabels.some((r) => r.toLowerCase().includes('control'));
-			if (isControl) return false;
-			return !previousConnections.includes(conn);
-		})
-		.sort(compareConnectionEntries);
-	const currentConnectionsTotal = currentConnections.length;
-	const previousConnectionsTotal = previousConnections.length;
 	const controlConnectionsTotal = controlConnections.length;
-	const connectionsPreviewTruncated =
-		currentConnectionsTotal > SIDEBAR_CONNECTIONS_PREVIEW_LIMIT ||
-		previousConnectionsTotal > SIDEBAR_CONNECTIONS_PREVIEW_LIMIT ||
-		controlConnectionsTotal > SIDEBAR_CONNECTIONS_PREVIEW_LIMIT;
-	const currentConnectionsView = currentConnections.slice(0, SIDEBAR_CONNECTIONS_PREVIEW_LIMIT);
-	const previousConnectionsView = previousConnections.slice(0, SIDEBAR_CONNECTIONS_PREVIEW_LIMIT);
 	const controlConnectionsView = controlConnections.slice(0, SIDEBAR_CONNECTIONS_PREVIEW_LIMIT);
-
 
 	const renderedCrdSet = new Set(controlConnections.map((c) => String(c.crd || '').trim()).filter(Boolean));
 	const renderedNameSet = new Set(
@@ -17646,9 +17551,9 @@ function renderFirmDetail(d: any) {
 			}
       ${row('Regulator', esc(d.regulator || '–'))}
       ${
-				controlConnectionsTotal || (showFinra && staticOwnersToRender.length) ?
+				controlConnectionsTotal || staticOwnersToRender.length ?
 					`
-        <div class="fg-section-title fg-section-title--sticky">Form BD — Direct Owners &amp; Executive Officers (${controlConnectionsTotal + (showFinra ? staticOwnersToRender.length : 0)})</div>
+        <div class="fg-section-title fg-section-title--sticky">Form BD — Direct Owners &amp; Executive Officers (${controlConnectionsTotal + staticOwnersToRender.length})</div>
 		<div class="fg-timeline">
 			${controlConnectionsView
 				.map((connection) => {
@@ -17667,31 +17572,27 @@ function renderFirmDetail(d: any) {
 					</button>`;
 				})
 				.join('')}
-			${
-				showFinra ?
-					staticOwnersToRender
-						.slice(0, SIDEBAR_CONNECTIONS_PREVIEW_LIMIT)
-						.map((o) => {
-							const nameHtml = `<span class="fg-owner-name">${esc(o.legalName || '')}</span>`;
-							const posHtml = `<span class="fg-owner-pos">${esc(o.position || '')}</span>`;
-							if (o.crdNumber) {
-								return `
+			${staticOwnersToRender
+				.slice(0, SIDEBAR_CONNECTIONS_PREVIEW_LIMIT)
+				.map((o) => {
+					const nameHtml = `<span class="fg-owner-name">${esc(o.legalName || '')}</span>`;
+					const posHtml = `<span class="fg-owner-pos">${esc(o.position || '')}</span>`;
+					if (o.crdNumber) {
+						return `
 						<button type="button" class="fg-owner-row fg-card-clickable fg-crd-link" data-crd="${esc(o.crdNumber)}" data-crd-type="person" title="View person ${esc(o.crdNumber)}">
 							${nameHtml}
 							${posHtml}
 						</button>
 						`;
-							}
-							return `
+					}
+					return `
 					<div class="fg-owner-row fg-owner-row--static">
 						${nameHtml}
 						${posHtml}
 					</div>
 					`;
-						})
-						.join('')
-				:	''
-			}
+				})
+				.join('')}
 		</div>
 		`
 				:	''
@@ -17762,17 +17663,15 @@ function renderFirmDetail(d: any) {
 			}
 
 			${
-				(() => {
-					const totalConn = connections.length + currentConnectionsTotal + previousConnectionsTotal;
-					if ((totalConn > 0 || connectionsPreviewTruncated) && firmId) {
-						return `
-							<a href="/dashboard/firm/${encodeURIComponent(firmId)}" class="fg-tl-entry fg-card-clickable" style="display: block; text-decoration: none; text-align: center; margin-top: 16px; padding: 12px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--bg-secondary);">
-								<strong>${connectionsPreviewTruncated ? `Preview capped — full connection list (${totalConn}) on Dashboard` : `Full connection list (${totalConn}) view on Dashboard`}</strong>
-							</a>
-						`;
-					}
-					return '';
-				})()
+				firmId ?
+					`
+			<div class="fg-section-title fg-section-title--sticky">Current &amp; Previous Connections</div>
+			<a href="/dashboard/firm/${encodeURIComponent(firmId)}" class="fg-tl-entry fg-card-clickable" style="display: block; text-decoration: none; text-align: center; margin-top: 8px; padding: 12px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--bg-secondary);">
+				<strong>Open Dashboard to view &amp; select connections</strong>
+				<span style="display:block;margin-top:4px;font-size:11px;opacity:0.8;">Choose people on the firm page, then Graph to add them here</span>
+			</a>
+			`
+				:	''
 			}
 			</div>
     </div>

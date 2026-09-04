@@ -48,6 +48,7 @@ export async function resetBrowserGraphState(page: Page) {
 	await page.evaluate(async () => {
 		localStorage.removeItem('finra_session');
 		sessionStorage.removeItem('finra_session');
+		sessionStorage.removeItem('finra_sidebar_view_mode');
 		localStorage.removeItem('finra_selection_log');
 		localStorage.removeItem('finra_sidebar_pinned');
 		localStorage.removeItem('finra_selection_log_pinned');
@@ -57,6 +58,25 @@ export async function resetBrowserGraphState(page: Page) {
 			cache: 'no-store',
 		});
 	});
+}
+
+/** Open the graph hamburger menu. Optionally expand Info so rich panel details hydrate. */
+export async function openGraphSideMenu(page: Page, options: { expandInfo?: boolean } = {}) {
+	const { expandInfo = true } = options;
+	const sidebar = page.locator('#fg-sidebar');
+	if (await sidebar.evaluate((el) => el.classList.contains('hidden'))) {
+		await page.getByRole('button', { name: 'Toggle menu' }).click();
+		await expect(sidebar).not.toHaveClass(/hidden/);
+	}
+	if (!expandInfo) return;
+	const infoToggle = page.getByRole('button', { name: 'Show info' });
+	if (await infoToggle.count()) {
+		const pressed = await infoToggle.getAttribute('aria-pressed');
+		if (pressed !== 'true') {
+			await infoToggle.click();
+			await expect(infoToggle).toHaveAttribute('aria-pressed', 'true');
+		}
+	}
 }
 
 export async function fetchGraphQueryWithLinkedResults(page: Page, query: string, options: { timeout?: number } = {}) {

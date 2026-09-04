@@ -124,10 +124,10 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(loadPersistedSidebarViewMode()).toBe('none');
 	});
 
-	it('loadPersistedSidebarViewMode defaults to info when no preference is saved', () => {
+	it('loadPersistedSidebarViewMode defaults to none (menu closed) when no preference is saved', () => {
 		window.sessionStorage.removeItem('finra_sidebar_view_mode');
 
-		expect(loadPersistedSidebarViewMode()).toBe('info');
+		expect(loadPersistedSidebarViewMode()).toBe('none');
 	});
 
 	it('bindSimulationTickHandler replaces previous tick listeners instead of stacking them', () => {
@@ -424,6 +424,29 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(html).toContain('7/14/2023');
 		expect(html).toContain('8/21/2013');
 		expect(html).toContain('8/30/2013');
+	});
+
+	it('renderFirmDetail keeps Form BD owners and links employment rosters to the dashboard', () => {
+		const html = renderFirmDetail({
+			id: 'firm:6413',
+			firmId: '6413',
+			label: 'LPL FINANCIAL LLC',
+			group: 'firm',
+			hasFinraData: true,
+			bcScope: 'Active',
+			directOwners: [{ crdNumber: '900001', legalName: 'Owner Control Person', position: 'CEO' }],
+			currentConnections: [{ individualId: '900002', name: 'Should Not Render In Panel' }],
+			previousConnections: [{ individualId: '900003', name: 'Also Should Not Render' }],
+			basicInformation: {},
+		} as any);
+
+		expect(html).toContain('Direct Owners');
+		expect(html).toContain('Owner Control Person');
+		expect(html).toContain('Open Dashboard to view &amp; select connections');
+		expect(html).toContain('/dashboard/firm/6413');
+		expect(html).not.toContain('Should Not Render In Panel');
+		expect(html).not.toContain('Also Should Not Render');
+		expect(html).not.toContain('Current Connections - Core');
 	});
 
 	it('renderFirmDetail shows parent FINRA profile link for scraped/orphan firms', () => {
