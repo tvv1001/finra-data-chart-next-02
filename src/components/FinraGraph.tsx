@@ -1368,13 +1368,13 @@ export default function FinraGraph() {
 									Edit
 								</button>
 							</div>
-							<div className='fg-log-drawer-actions-row'>
+							<div className='fg-log-drawer-actions-row' style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
 								<input
 									type='text'
 									className='fg-selection-log-filter'
 									placeholder='Filter log...'
 									style={{
-										width: '100%',
+										flex: '1',
 										padding: '4px 8px',
 										border: '1px solid var(--fg-border)',
 										borderRadius: '4px',
@@ -1382,6 +1382,9 @@ export default function FinraGraph() {
 										color: 'var(--fg-text)',
 									}}
 								/>
+								<label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', whiteSpace: 'nowrap', cursor: 'pointer' }}>
+									<input type='checkbox' className='fg-firms-bold-checkbox' /> Firms Bold
+								</label>
 							</div>
 						</div>
 					</div>

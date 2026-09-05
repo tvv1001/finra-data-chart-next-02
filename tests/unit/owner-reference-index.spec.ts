@@ -57,7 +57,10 @@ describe('recordFirmReference', () => {
 		});
 
 		expect(mockRedis.get).toHaveBeenCalledWith('finra:firm:9321');
-		expect(mockRedis.del).toHaveBeenCalledWith('owner-ref:firm:9321');
+		expect(mockRedis.del).toHaveBeenCalledWith(
+			'non-live-crds:firm:9321',
+			'owner-ref:firm:9321',
+		);
 		expect(mockRedis.set).not.toHaveBeenCalled();
 	});
 
@@ -73,7 +76,7 @@ describe('recordFirmReference', () => {
 		});
 
 		expect(mockRedis.set).toHaveBeenCalledWith(
-			'owner-ref:firm:999991',
+			'non-live-crds:firm:999991',
 			expect.any(String),
 			{ ex: expect.any(Number) },
 		);

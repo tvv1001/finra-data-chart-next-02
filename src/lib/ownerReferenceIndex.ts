@@ -197,7 +197,8 @@ async function clearStoredOwnerReference(kind: 'individual' | 'firm', crd: strin
 	const redis = getRedisClient();
 	if (redis) {
 		try {
-			await redis.del(nonLiveReferenceKey(kind, crd));
+			// Primary namespace plus legacy owner-ref:* (retired — do not write it again).
+			await redis.del(nonLiveReferenceKey(kind, crd), `owner-ref:${kind}:${crd}`);
 		} catch {
 			// ignore cleanup failures
 		}

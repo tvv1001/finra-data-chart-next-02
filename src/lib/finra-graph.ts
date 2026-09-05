@@ -488,11 +488,11 @@ function syncTraceLabelPresentation(zoomScale = getCurrentGraphZoomScale()) {
 	const dynamicScale = getFocusedLabelScale(normalizedScale);
 	const globalLabelScale = dynamicScale;
 	const traceLabelScale = traceActive ? dynamicScale : 1;
-	const selectionLogLabelScale = isSelectionLogBold ? dynamicScale : 1;
+	const selectionLogLabelScale = isSelectionLogBold || forceFirmsBold ? dynamicScale : 1;
 
 	rootGroup
 		.classed('fg-trace-labels', traceActive)
-		.classed('fg-selection-log-labels', isSelectionLogBold)
+		.classed('fg-selection-log-labels', isSelectionLogBold || forceFirmsBold)
 		.classed('fg-labels-hidden', normalizedScale < activeLabelZoomThreshold)
 		.style('--fg-node-label-font-size', DEFAULT_NODE_LABEL_FONT_SIZE)
 		.style('--fg-node-label-font-weight', DEFAULT_NODE_LABEL_FONT_WEIGHT)
@@ -592,7 +592,7 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 		if (pixiModeActive && pixiApi && typeof pixiApi.drawFrame === 'function') {
 			try {
 				const transform = getCurrentZoomTransform();
-				const labelScale = selectedId || isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
+				const labelScale = selectedId || isSelectionLogBold || forceFirmsBold ? getFocusedLabelScale(transform.k) : 1;
 				pixiApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale });
 				if (shouldRefreshOverlayLabels(layoutNodes?.length) && overlayApi && typeof overlayApi.update === 'function') {
 					try {
@@ -607,7 +607,7 @@ function scheduleGraphTickPositions(linkSelection, nodeSelection, arrowSelection
 		if (canvasModeActive && canvasApi) {
 			try {
 				const transform = getCurrentZoomTransform();
-				const labelScale = selectedId || isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
+				const labelScale = selectedId || isSelectionLogBold || forceFirmsBold ? getFocusedLabelScale(transform.k) : 1;
 				canvasApi.drawFrame(layoutNodes || [], layoutLinks || [], transform, { selectedId, labelScale });
 				if (shouldRefreshOverlayLabels(layoutNodes?.length) && overlayApi && typeof overlayApi.update === 'function') {
 					try {
@@ -2291,6 +2291,7 @@ let isSelectionLogEditMode = false;
 // only clears existing highlighting rather than disabling Log Bold itself.
 let logBoldHighlightRootsSuppressed = false;
 let selectionLogFilterText = '';
+let forceFirmsBold = false;
 // Node ids whose "large label" emphasis has been manually cleared via the
 // "Clear Labels" action while Log Bold is on. Re-selecting/re-clicking a node
 // removes it from this set so its label becomes enlarged again.
@@ -2319,6 +2320,7 @@ let activeFindMatchIndex = -1;
 
 const LS_LOG_KEY = 'finra_selection_log';
 const LS_LOG_BOLD_KEY = 'finra_selection_log_bold';
+const LS_FIRMS_BOLD_KEY = 'finra_firms_bold';
 const SIDEBAR_VIEW_MODE_STORAGE_KEY = 'finra_sidebar_view_mode';
 const ROUTE_NODE_REQUEST_EVENT = 'finra:route-node-request';
 const SELECTED_NODE_ROUTE_EVENT = 'finra:selected-node-route';
@@ -2917,7 +2919,23 @@ function saveSelectionLogBoldPreference() {
 	}
 }
 
+function saveFirmsBoldPreference() {
+	try {
+		localStorage.setItem(LS_FIRMS_BOLD_KEY, forceFirmsBold ? 'true' : 'false');
+	} catch {
+		/* ignore */
+	}
+}
+
+function loadFirmsBoldPreference() {
+	if (typeof localStorage !== 'undefined') {
+		return localStorage.getItem(LS_FIRMS_BOLD_KEY) === 'true';
+	}
+	return false;
+}
+
 isSelectionLogBold = loadSelectionLogBoldPreference();
+forceFirmsBold = loadFirmsBoldPreference();
 
 function isDevelopmentRuntime() {
 	if (typeof process !== 'undefined' && process.env.NODE_ENV) {
@@ -3008,7 +3026,7 @@ export function filterSelectionLogLabelNodeIdsByScope(
 
 function syncSelectionLogAuxiliaryRenderers() {
 	const transform = getCurrentZoomTransform();
-	const labelScale = selectedId || isSelectionLogBold ? getFocusedLabelScale(transform.k) : 1;
+	const labelScale = selectedId || isSelectionLogBold || forceFirmsBold ? getFocusedLabelScale(transform.k) : 1;
 	const logLabelNodeIds = getSelectionLogLabelNodeIds();
 	if (shouldRefreshOverlayLabels(layoutNodes?.length) && overlayApi && typeof overlayApi.update === 'function') {
 		try {
@@ -4201,6 +4219,23 @@ function updateSelectionLogUI() {
 					if (fi !== input) fi.value = selectionLogFilterText;
 				});
 				updateSelectionLogUI();
+			});
+		}
+	});
+
+	const firmBoldCheckboxes = Array.from(document.querySelectorAll<HTMLInputElement>('.fg-firms-bold-checkbox'));
+	firmBoldCheckboxes.forEach((checkbox) => {
+		if (checkbox.dataset.bound !== 'true') {
+			checkbox.dataset.bound = 'true';
+			checkbox.checked = forceFirmsBold;
+			checkbox.addEventListener('change', (e) => {
+				forceFirmsBold = (e.target as HTMLInputElement).checked;
+				firmBoldCheckboxes.forEach((cb) => {
+					if (cb !== checkbox) cb.checked = forceFirmsBold;
+				});
+				reapplySelectionState();
+				syncTraceLabelPresentation();
+				saveFirmsBoldPreference();
 			});
 		}
 	});
@@ -10252,11 +10287,15 @@ export function renderNodeContents(selection) {
 		const labelY = (d._vizHalf != null ? d._vizHalf : r) + DEFAULT_NODE_LABEL_GAP_PX;
 
 		// Check if this node is in the selection log (by id)
-		const isLogged = isSelectionLogBold && selectedNodesLog.some((e) => e.id === d.id);
+		const hasBeenClicked = Array.isArray(selectedNodesLog) && selectedNodesLog.some((e) => e.id === d.id);
+		const isLogged = isSelectionLogBold && hasBeenClicked;
+		const isFirmBold = forceFirmsBold && (d.group === 'firm' || d.type === 'firm' || (d.id && String(d.id).startsWith('firm:')));
+		const isBolded = isLogged || isFirmBold;
+
 		const labelFontSize = `${getNodeLabelFontSize({
 			isSelected: selectedId != null && String(selectedId) === String(d.id),
 			isHovered: hoveredNodeId != null && String(hoveredNodeId) === String(d.id),
-			isBolded: isLogged,
+			isBolded: isBolded,
 		})}px`;
 
 		const label = g
@@ -10267,7 +10306,7 @@ export function renderNodeContents(selection) {
 			.attr('dominant-baseline', 'hanging')
 			.attr('font-size', labelFontSize)
 			.attr('font-family', 'var(--sans)')
-			.attr('font-weight', isLogged ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT)
+			.attr('font-weight', isBolded ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT)
 			.attr('fill', nodeLabelColor)
 			.attr('stroke', nodeLabelHalo)
 			.attr('stroke-width', 4)
@@ -10732,7 +10771,7 @@ function reapplySelectionState() {
 	const selectionLogLabelNodeIds = new Set(getSelectionLogLabelNodeIds());
 
 	nodeSel
-		.classed('fg-node--selection-log-label', (d) => selectionLogLabelNodeIds.has(d.id))
+		.classed('fg-node--selection-log-label', (d) => selectionLogLabelNodeIds.has(d.id) || (forceFirmsBold && (d.group === 'firm' || d.type === 'firm' || (d.id && String(d.id).startsWith('firm:')))))
 		.classed('fg-node--label-cleared', (d) => clearedSelectionLogLabelNodeIds.has(d.id))
 		.classed('fg-node--find-match', (d) => activeFindMatchIds.has(d.id))
 		.classed('fg-node--find-match-active', (d) => activeFindMatchIndex >= 0 && d.id === activeFindMatchOrder[activeFindMatchIndex])
@@ -10827,8 +10866,9 @@ function updateNodeVisuals(
 	const activeParentConnectedIds = options.activeParentConnectedIds ?? new Set<string>();
 	const selectionLogLabelNodeIds = options.selectionLogLabelNodeIds ?? new Set(getSelectionLogLabelNodeIds());
 
-	const loggedNodeIds =
-		isSelectionLogBold && Array.isArray(selectedNodesLog) ? new Set(selectedNodesLog.map((entry) => String(entry?.id || '')).filter(Boolean)) : null;
+	const clickedNodeIds =
+		Array.isArray(selectedNodesLog) ? new Set(selectedNodesLog.map((entry) => String(entry?.id || '')).filter(Boolean)) : new Set<string>();
+	const loggedNodeIds = isSelectionLogBold ? clickedNodeIds : null;
 
 	selection.each(function (d) {
 		const g = d3.select(this);
@@ -10841,8 +10881,12 @@ function updateNodeVisuals(
 		const isHighlightRootNode = highlightState.rootIds.has(d.id);
 		const isHighlightHopNode = highlightState.hopNodeIds.has(d.id);
 		const isActiveParentConnectedNode = activeParentConnectedIds.has(String(d.id));
+		
+		const hasBeenClicked = clickedNodeIds.has(String(d.id));
 		const isLogged = Boolean(loggedNodeIds?.has(String(d.id)));
-		const isEmphasized = isSelectedNode || isHoveredNode || isLogged || isFindMatchNode || isHighlightRootNode || isHighlightHopNode || isActiveParentConnectedNode;
+		const isFirmBold = forceFirmsBold && (d.group === 'firm' || d.type === 'firm' || (d.id && String(d.id).startsWith('firm:')));
+		const isBolded = isLogged || isFirmBold;
+		const isEmphasized = isSelectedNode || isHoveredNode || isBolded || isFindMatchNode || isHighlightRootNode || isHighlightHopNode || isActiveParentConnectedNode;
 
 		g.classed('fg-node--inactive', inactive)
 			.classed('fg-node--individual', d.group === 'individual')
@@ -10905,7 +10949,7 @@ function updateNodeVisuals(
 			const labelFontSize = `${getNodeLabelFontSize({
 				isSelected: isSelectedNode,
 				isHovered: isHoveredNode,
-				isBolded: isLogged,
+				isBolded: isBolded,
 				isEmphasized,
 			})}px`;
 			label
@@ -15632,8 +15676,11 @@ function renderSidebarSelectionLogBody() {
 						Edit
 					</button>
 				</div>
-				<div class="fg-log-drawer-actions-row">
-					<input type="text" class="fg-selection-log-filter" placeholder="Filter log..." value="${selectionLogFilterText.replace(/"/g, '&quot;')}" style="width: 100%; padding: 4px 8px; border: 1px solid var(--fg-border); border-radius: 4px; background: var(--fg-bg-secondary); color: var(--fg-text);" />
+				<div class="fg-log-drawer-actions-row" style="display: flex; align-items: center; gap: 8px;">
+					<input type="text" class="fg-selection-log-filter" placeholder="Filter log..." value="${selectionLogFilterText.replace(/"/g, '&quot;')}" style="flex: 1; padding: 4px 8px; border: 1px solid var(--fg-border); border-radius: 4px; background: var(--fg-bg-secondary); color: var(--fg-text);" />
+					<label style="display: flex; align-items: center; gap: 4px; font-size: 12px; white-space: nowrap; cursor: pointer;">
+						<input type="checkbox" class="fg-firms-bold-checkbox" ${forceFirmsBold ? 'checked' : ''} /> Firms Bold
+					</label>
 				</div>
 			</div>
 			<div id="fg-sidebar-selection-log-list" class="fg-selection-log-list fg-selection-log-list--sidebar">

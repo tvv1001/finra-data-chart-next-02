@@ -14,7 +14,7 @@ This app is a **PWA**. Prefer Redis when healthy (`USE_REDIS_ONLY=1`); when Redi
 
 1. **`data/` (raw + derived)** — offline source of truth for imports/rebuilds, including `data/firm-connections/{id}.json` display fallback. Completeness is **not guaranteed**.
 2. **Local Redis** (`redis://127.0.0.1:6379`, Commander UI `http://127.0.0.1:8081/`) — **main Redis DB on localhost** when `USE_LOCAL_REDIS=1`. Graph + dashboard share this store.
-3. **Upstash cloud Redis** — production. Prefer **single DB** (`UPSTASH_REDIS_DISABLE_MIRROR=1`) unless dual-DB load-balancing is required (mirror doubles write commands). Never mutate cloud casually; sync/deploy only when the user asks.
+3. **Upstash cloud Redis** — production uses **dual DB** (DB1 + mirror) for load-balancing / failover. Leave `UPSTASH_REDIS_DISABLE_MIRROR` unset/`0` in Vercel. Never mutate cloud casually; sync/deploy only when the user asks.
 4. **Search sidecars** (`data/national/search-index.*.json.gz` → `public/search-indexes/`) — gzip flatfiles for dashboard + graph search and CRD name hydration. Prefer sidecar `firm_name` over `Firm <CRD>` stubs. **Never store or query search indexes in Redis** (`search:indexes:*` is retired). See `docs/search-sidecar.md`.
 5. **CRD inventory sidecar** (`data/crd-inventory.json.gz`) — coverage-valid unique firm|individual CRD census for cheap totals (no Redis SCAN). See `docs/crd-inventory-sidecar.md`.
 
@@ -28,19 +28,28 @@ This app is a **PWA**. Prefer Redis when healthy (`USE_REDIS_ONLY=1`); when Redi
 | `USE_REDIS_ONLY=1` | Prefer Redis when healthy; still degrade to disk/mem when Redis is unusable |
 | `UPSTASH_REDIS_REST_URL` / `_TOKEN` | Cloud DB1 |
 | `UPSTASH_REDIS_REST_URL_MIRROR` / `_TOKEN_MIRROR` | Cloud DB2 (optional; keep reconciled with DB1 + local) |
-| `UPSTASH_REDIS_DISABLE_2` / `_DISABLE_MIRROR` | Disable dual-DB proxy (recommended for low Upstash spend) |
-| `UPSTASH_ALLOW_WRITES` | Gate Redis writes (`1` to allow). Final-state prod is usually `0` (read-mostly) |
+| `UPSTASH_REDIS_DISABLE_2` / `_DISABLE_MIRROR` | Disable dual-DB proxy (`1` = single DB only). Prod keeps this unset/`0` |
+| `UPSTASH_ALLOW_WRITES` | Gate Redis writes (`1` to allow). Local usually `1`; prod is often `0` (read-mostly) |
 | `REDIS_CACHE_ONLY=1` | Force cache-only (mem/disk/sidecars); for drills / emergencies |
 | `EXTERNAL_API_DISABLED` | Block live FINRA/SEC fetches |
 | `WRITE_NATIONAL` / `SCRAPE_FIRMS` | Offline crawl/write controls |
 
-**Final-state Upstash profile (soft aim: stay comfortably under ~300k commands/month by design — no hard app-side monthly cutover):**
+**Local `.env.local` (always — never point the local app at Upstash):**
+
+```text
+USE_LOCAL_REDIS=1
+UPSTASH_ALLOW_WRITES=1
+USE_REDIS_ONLY=1
+```
+
+**Production (Vercel) — dual Upstash:**
 
 ```text
 USE_LOCAL_REDIS=0
 UPSTASH_ALLOW_WRITES=0
-UPSTASH_REDIS_DISABLE_MIRROR=1
+UPSTASH_REDIS_DISABLE_MIRROR=0
 USE_REDIS_ONLY=1
+# + UPSTASH_REDIS_REST_URL / _TOKEN and UPSTASH_REDIS_REST_URL_MIRROR / _TOKEN_MIRROR
 ```
 
 On **localhost**, HTTP/app/DB caching that would hide freshness issues should stay **off / short-lived** so dashboard and graph reflect Redis truth. Across graph + dashboard, **in-memory caching of shared payloads is encouraged** for UX (same dataset, fewer Redis round-trips).
