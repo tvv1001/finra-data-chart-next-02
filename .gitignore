@@ -79,3 +79,4 @@ patch_**
 # between .next/types and .next/dev/types, so it churns constantly. Vercel
 # recreates it during `next build` before typecheck, so it is safe to ignore.
 next-env.d.ts
+.local/scripts/generate_search**.js

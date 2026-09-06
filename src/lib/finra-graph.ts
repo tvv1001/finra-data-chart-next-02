@@ -10592,6 +10592,23 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 		if (nodeSel && typeof nodeSel.sort === 'function') {
 			nodeSel.sort((a, b) => comparePriorityWithTieBreak(getNodeRenderPriority(a, highlightState), getNodeRenderPriority(b, highlightState), a?.id, b?.id));
 		}
+	} else {
+		// For larger graphs, use fast raise() to enforce the requested layers
+		if (nodeSel && typeof nodeSel.filter === 'function') {
+			try {
+				nodeSel.filter((d) => {
+					const pr = getNodeRenderPriority(d, highlightState);
+					return pr > 1000 && pr < 10000;
+				}).raise();
+				
+				nodeSel.filter((d) => {
+					const pr = getNodeRenderPriority(d, highlightState);
+					return pr >= 10000;
+				}).raise();
+			} catch (e) {
+				// ignore
+			}
+		}
 	}
 
 	// Move individual link/arrow DOM nodes between link sub-groups so some links
@@ -10633,21 +10650,22 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 		// Non-fatal — DOM move failures should not break rendering
 	}
 
-	// Stacking: bottom + mid links under nodes/labels; previous/disabled (top) may sit above.
+	// Stacking: all links under nodes. Disabled/previous lowest, current mid.
 	try {
 		if (nodeGroup && nodeGroup.node()) {
 			const nodesEl = nodeGroup.node();
 			const parent = nodesEl.parentNode;
 			if (parent) {
-				const underNodes = [linkBottomGroup?.node(), arrowBottomGroup?.node(), linkMidGroup?.node(), arrowMidGroup?.node()].filter(Boolean);
+				// lowest: disabled endpoints (bottom) + previous history lines (top)
+				// next: current connections (mid)
+				const underNodes = [
+					linkBottomGroup?.node(), arrowBottomGroup?.node(),
+					linkTopGroup?.node(), arrowTopGroup?.node(),
+					linkMidGroup?.node(), arrowMidGroup?.node()
+				].filter(Boolean);
+				
 				for (const el of underNodes) {
-					if (el.parentNode === parent) parent.insertBefore(el, nodesEl);
-				}
-				const overNodes = [linkTopGroup?.node(), arrowTopGroup?.node()].filter(Boolean);
-				for (const el of overNodes) {
-					if (el.parentNode !== parent) continue;
-					if (nodesEl.nextSibling) parent.insertBefore(el, nodesEl.nextSibling);
-					else parent.appendChild(el);
+					if (el && el.parentNode === parent) parent.insertBefore(el, nodesEl);
 				}
 			}
 		}
