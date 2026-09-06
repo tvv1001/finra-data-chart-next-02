@@ -74,7 +74,19 @@ export async function GET(request: NextRequest) {
 			return jsonNoStore({ hits: { hits: [] }, response: { docs: [], numFound: 0, start: 0 }, results: [], total: 0, currentPage: [], pageNumber: 1, pageSize: 0 });
 		const limit = Math.min(Number.parseInt(params.get('nrows') || '12', 10) || 12, 200);
 		const offset = Number.parseInt(params.get('start') || '0', 10) || 0;
-		const data = await searchLocalIndexMany('sec', 'firm', rawQuery, { limit, offset, baseUrl });
+		let data = { total: 0 };
+		let skipLocalIndexSearch = false;
+		if (/^\d{1,10}$/.test(query)) {
+			const { isCrdInInventory } = await import('@/lib/crdInventorySidecar');
+			const inv = isCrdInInventory(query);
+			if (inv.isFirm || inv.isIndividual) {
+				skipLocalIndexSearch = true;
+			}
+		}
+
+		if (!skipLocalIndexSearch) {
+			data = await searchLocalIndexMany('sec', 'firm', rawQuery, { limit, offset, baseUrl });
+		}
 		if (data.total > 0) return jsonNoStore(data);
 
 		const fallbackQueries = searchQueries.slice(0, 5);

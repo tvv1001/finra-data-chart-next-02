@@ -146,6 +146,16 @@ export function getCrdInventoryCounts(): CrdInventoryCounts {
 	return { ...payload.counts };
 }
 
+export function isCrdInInventory(id: number | string): { isFirm: boolean; isIndividual: boolean } {
+	loadCrdInventorySync();
+	ensureSetsFromCache();
+	const numId = Number(id);
+	return {
+		isFirm: firmSet?.has(numId) ?? false,
+		isIndividual: individualSet?.has(numId) ?? false,
+	};
+}
+
 export function hasCrdInventorySidecar(): boolean {
 	try {
 		return fsSync.existsSync(getCrdInventoryPath());

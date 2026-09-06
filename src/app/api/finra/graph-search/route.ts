@@ -280,38 +280,54 @@ export async function GET(request: NextRequest) {
 		if (matchedIds.size === 0) {
 			// Not enough graph matches — search the local FINRA/SEC indexes and persist discovered nodes into the graph cache.
 			try {
-				let allHits = (
-					await Promise.all(
-						searchQueries.flatMap((sq) => [
-							searchLocalIndexMany('finra', 'individual', sq, { limit, offset, baseUrl }),
-							searchLocalIndexMany('finra', 'firm', sq, { limit, offset, baseUrl }),
-							searchLocalIndexMany('sec', 'individual', sq, { limit, offset, baseUrl }),
-							searchLocalIndexMany('sec', 'firm', sq, { limit, offset, baseUrl }),
-						])
-					)
-				)
-					.flatMap((result) => result?.hits?.hits || [])
-					.slice(0, limit);
+				let allHits: any[] = [];
+				let skipLocalIndexSearch = false;
 
-				// Fall back to external search if local indexes yield very few results (often true when sidecars are small subsets)
-				// similar to the threshold in api/finra/search/route.ts but higher since we merge 4 buckets here.
-				if (allHits.length < Math.min(limit, 50)) {
-					const externalResults = [];
-					for (const sq of searchQueries) {
-						const results = await Promise.all([
-							searchExternalFallback('finra', 'individual', sq, baseUrl),
-							searchExternalFallback('finra', 'firm', sq, baseUrl),
-							searchExternalFallback('sec', 'individual', sq, baseUrl),
-							searchExternalFallback('sec', 'firm', sq, baseUrl),
-						]);
-						externalResults.push(...results);
-						if (searchQueries.length > 1) {
-							await new Promise((resolve) => setTimeout(resolve, 500));
-						}
+				// Fast-path numeric CRDs using the combined inventory sidecar.
+				// This skips the slow full-text search across 4 sidecars and immediately
+				// resolves the node if it exists in the merged FINRA+SEC list.
+				if (/^\d{1,10}$/.test(q)) {
+					const { isCrdInInventory } = await import('@/lib/crdInventorySidecar');
+					const inv = isCrdInInventory(q);
+					if (inv.isFirm || inv.isIndividual) {
+						skipLocalIndexSearch = true;
 					}
-					const extHits = externalResults.flatMap((result) => result?.hits?.hits || []).slice(0, limit);
-					if (extHits.length) {
-						allHits = extHits;
+				}
+
+				if (!skipLocalIndexSearch) {
+					allHits = (
+						await Promise.all(
+							searchQueries.flatMap((sq) => [
+								searchLocalIndexMany('finra', 'individual', sq, { limit, offset, baseUrl }),
+								searchLocalIndexMany('finra', 'firm', sq, { limit, offset, baseUrl }),
+								searchLocalIndexMany('sec', 'individual', sq, { limit, offset, baseUrl }),
+								searchLocalIndexMany('sec', 'firm', sq, { limit, offset, baseUrl }),
+							])
+						)
+					)
+						.flatMap((result) => result?.hits?.hits || [])
+						.slice(0, limit);
+
+					// Fall back to external search if local indexes yield very few results (often true when sidecars are small subsets)
+					// similar to the threshold in api/finra/search/route.ts but higher since we merge 4 buckets here.
+					if (allHits.length < Math.min(limit, 50)) {
+						const externalResults = [];
+						for (const sq of searchQueries) {
+							const results = await Promise.all([
+								searchExternalFallback('finra', 'individual', sq, baseUrl),
+								searchExternalFallback('finra', 'firm', sq, baseUrl),
+								searchExternalFallback('sec', 'individual', sq, baseUrl),
+								searchExternalFallback('sec', 'firm', sq, baseUrl),
+							]);
+							externalResults.push(...results);
+							if (searchQueries.length > 1) {
+								await new Promise((resolve) => setTimeout(resolve, 500));
+							}
+						}
+						const extHits = externalResults.flatMap((result) => result?.hits?.hits || []).slice(0, limit);
+						if (extHits.length) {
+							allHits = extHits;
+						}
 					}
 				}
 

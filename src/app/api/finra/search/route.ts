@@ -88,28 +88,40 @@ export async function GET(request: NextRequest) {
 		};
 
 		let data: any = emptyResponse;
-		try {
-			if (rawQuery.includes(',')) {
-				// User explicitly provided multiple distinct queries; run them all and merge results
-				const responses = await Promise.all(
-					searchQueries.map((q) => searchLocalIndexMany('finra', entity, q, { limit, offset, baseUrl }))
-				);
-				data = mergeLocalSearchResponses(responses as any[], { bucket: `finra:${entity}`, limit, offset });
-			} else {
-				// Single query; use variations but stop when we find enough hits
-				const localResponses = await searchQueriesSequentially(
-					searchQueries,
-					(candidate) => searchLocalIndexMany('finra', entity, candidate, { limit, offset, baseUrl }),
-					(response) => {
-						const total = response?.hits?.total || 0;
-						return total >= 50;
-					},
-				);
-				data = localResponses.length > 0 ? mergeLocalSearchResponses(localResponses as any[], { bucket: `finra:${entity}`, limit, offset }) : emptyResponse;
+		let skipLocalIndexSearch = false;
+
+		if (/^\d{1,10}$/.test(query)) {
+			const { isCrdInInventory } = await import('@/lib/crdInventorySidecar');
+			const inv = isCrdInInventory(query);
+			if (inv.isFirm || inv.isIndividual) {
+				skipLocalIndexSearch = true;
 			}
-		} catch (err: any) {
-			logger.warn('local search index lookup failed for FINRA query', { query: rawQuery, error: err?.message || String(err) });
-			data = emptyResponse;
+		}
+
+		if (!skipLocalIndexSearch) {
+			try {
+				if (rawQuery.includes(',')) {
+					// User explicitly provided multiple distinct queries; run them all and merge results
+					const responses = await Promise.all(
+						searchQueries.map((q) => searchLocalIndexMany('finra', entity, q, { limit, offset, baseUrl }))
+					);
+					data = mergeLocalSearchResponses(responses as any[], { bucket: `finra:${entity}`, limit, offset });
+				} else {
+					// Single query; use variations but stop when we find enough hits
+					const localResponses = await searchQueriesSequentially(
+						searchQueries,
+						(candidate) => searchLocalIndexMany('finra', entity, candidate, { limit, offset, baseUrl }),
+						(response) => {
+							const total = response?.hits?.total || 0;
+							return total >= 50;
+						},
+					);
+					data = localResponses.length > 0 ? mergeLocalSearchResponses(localResponses as any[], { bucket: `finra:${entity}`, limit, offset }) : emptyResponse;
+				}
+			} catch (err: any) {
+				logger.warn('local search index lookup failed for FINRA query', { query: rawQuery, error: err?.message || String(err) });
+				data = emptyResponse;
+			}
 		}
 		const total = data?.total || 0;
 		// In a partial/sidecar environment, if we get fewer than expected results
