@@ -18,7 +18,7 @@ import { rememberInventoryEntities } from "@/lib/crdInventorySidecar";
 // external fetches. Cache for 1 hour by default; individual callers can use
 // `forceRefresh=1` to evict and refresh.
 export const dynamic = "auto";
-export const revalidate = 3600;
+export const revalidate = 1209600;
 
 const SUPPRESSED_SEC_FIRM_IDS = new Set(["4039", "25156", "36773"]);
 
@@ -259,7 +259,7 @@ export async function GET(
                 },
                 merged: parsed.merged,
               },
-              { headers: sharedCacheHeaders(3600) },
+              { headers: sharedCacheHeaders(1209600) },
             );
           }
         }
@@ -317,7 +317,7 @@ export async function GET(
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         Referer: "https://brokercheck.finra.org/",
       },
-      next: { revalidate: 3600 },
+      next: { revalidate: 1209600 },
     };
 
     const [bcData, secData, secPageData] = await Promise.allSettled([
@@ -838,7 +838,7 @@ export async function GET(
             hasFinraData: false,
             hasSecData: false,
           },
-          { headers: sharedCacheHeaders(3600) },
+          { headers: sharedCacheHeaders(1209600) },
         );
       }
       return NextResponse.json(
@@ -1083,11 +1083,11 @@ export async function GET(
           },
           merged: detail,
         },
-        { headers: sharedCacheHeaders(3600) },
+        { headers: sharedCacheHeaders(1209600) },
       );
     }
 
-    return NextResponse.json(detail, { headers: sharedCacheHeaders(3600) });
+    return NextResponse.json(detail, { headers: sharedCacheHeaders(1209600) });
   } catch (err: any) {
     logger.error("firm local detail route error", {
       id,

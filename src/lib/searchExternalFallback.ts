@@ -50,24 +50,9 @@ export async function searchExternalFallback(source: 'finra' | 'sec', entity: 'i
 
 		if (!hits.length) return null;
 
-		// Perform background caching loop (non-blocking)
-		(async () => {
-			for (const item of results) {
-				const id = getNumericId(item, entity === 'individual');
-				if (!id) continue;
-				try {
-					const detailUrl = `${baseUrl}/api/finra/${entity}/${encodeURIComponent(id)}`;
-					// Fetch the local API endpoint to trigger cachedFetch loading details into Redis
-					await fetch(detailUrl).catch(() => {});
-					// Delay between requests to respect paced sequence crawling conventions
-					await new Promise((resolve) => setTimeout(resolve, 500));
-				} catch (err: any) {
-					console.warn(`[searchExternalFallback] Background pre-fetch failed for ${entity} ${id}:`, err.message);
-				}
-			}
-		})().catch((err) => {
-			console.error('[searchExternalFallback] Background caching loop failed:', err);
-		});
+		// The background caching loop has been removed as per user request
+		// to prevent automatic fetching of external API details on search fallback.
+
 
 		const prefix = entity === 'individual' ? 'person:' : 'firm:';
 

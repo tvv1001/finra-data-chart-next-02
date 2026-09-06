@@ -32,7 +32,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				previousConnections: previous,
 				...(light ? { light: true } : {}),
 			},
-			{ headers: { 'Cache-Control': 'public, max-age=0, s-maxage=60, stale-while-revalidate=86400' } },
+			{ headers: { 'Cache-Control': 'public, max-age=1209600, s-maxage=1209600, stale-while-revalidate=1209600' } },
 		);
 	} catch (err: any) {
 		logger.warn('Failed to load firm connections from graph route', { id, error: err?.message || String(err) });

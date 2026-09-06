@@ -1,8 +1,72 @@
 {
   "firms": [
     {
+      "id": 101020,
+      "name": "CASCADIA CAPITAL, LLC"
+    },
+    {
+      "id": 816,
+      "name": "CREDIT SUISSE SECURITIES (USA) LLC"
+    },
+    {
+      "id": 2528,
+      "name": "LAZARD FRERES & CO. LLC"
+    },
+    {
+      "id": 137873,
+      "name": "RAINE SECURITIES LLC"
+    },
+    {
+      "id": 18272,
+      "name": "ALLSTATE FINANCIAL SERVICES, LLC"
+    },
+    {
+      "id": 149777,
+      "name": "MORGAN STANLEY"
+    },
+    {
+      "id": 112294,
+      "name": "J. W. COLE ADVISORS, INC."
+    },
+    {
+      "id": 431,
+      "name": "INTERSTATE/JOHNSON LANE CORPORATION"
+    },
+    {
+      "id": 39543,
+      "name": "CAMBRIDGE INVESTMENT RESEARCH, INC."
+    },
+    {
+      "id": 16986,
+      "name": "THE HUNTINGTON INVESTMENT COMPANY"
+    },
+    {
+      "id": 10409,
+      "name": "MML INVESTORS SERVICES, LLC"
+    },
+    {
+      "id": 39550,
+      "name": "CITIZENS SECURITIES, INC."
+    },
+    {
+      "id": 6413,
+      "name": "LPL FINANCIAL LLC"
+    },
+    {
+      "id": 129052,
+      "name": "PNC WEALTH MANAGEMENT LLC"
+    },
+    {
       "id": 288590,
       "name": "FIDELITY PERSONAL AND WORKPLACE ADVISORS"
+    },
+    {
+      "id": 155924,
+      "name": "CRAIG SCOTT CAPITAL, LLC"
+    },
+    {
+      "id": 79,
+      "name": "J.P. MORGAN SECURITIES LLC"
     },
     {
       "id": 104555,
@@ -13,12 +77,144 @@
       "name": "FIDELITY BROKERAGE SERVICES LLC"
     },
     {
-      "id": 2908,
-      "name": "NEUBERGER BERMAN BD LLC"
+      "id": 6627,
+      "name": "EQUITABLE ADVISORS, LLC"
     },
     {
       "id": 7691,
       "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 336837,
+      "name": "OPENARC CORPORATE ADVISORY, LLC"
+    },
+    {
+      "id": 361,
+      "name": "GOLDMAN, SACHS & CO."
+    },
+    {
+      "id": 26091,
+      "name": "BANC OF AMERICA SECURITIES LLC"
+    },
+    {
+      "id": 108424,
+      "name": "CORTVIEW CAPITAL SECURITIES LLC"
+    },
+    {
+      "id": 150696,
+      "name": "PIERPONT SECURITIES LLC"
+    },
+    {
+      "id": 126292,
+      "name": "WELLS FARGO SECURITIES, LLC"
+    },
+    {
+      "id": 125334,
+      "name": "CASTLEOAK SECURITIES, LP"
+    },
+    {
+      "id": 283942,
+      "name": "BOFA SECURITIES, INC."
+    },
+    {
+      "id": 285358,
+      "name": "PALOMAR ADVISORS INC."
+    },
+    {
+      "id": 14251,
+      "name": "METLIFE SECURITIES INC."
+    },
+    {
+      "id": 5685,
+      "name": "PRUCO SECURITIES, LLC."
+    },
+    {
+      "id": 13686,
+      "name": "HD VEST INVESTMENT SERVICES"
+    },
+    {
+      "id": 329628,
+      "name": "SHIFT 4 ADVISORS, INC."
+    },
+    {
+      "id": 151829,
+      "name": "PNC CAPITAL ADVISORS LLC"
+    },
+    {
+      "id": 19616,
+      "name": "WELLS FARGO ADVISORS, LLC"
+    },
+    {
+      "id": 43793,
+      "name": "USI SECURITIES, INC."
+    },
+    {
+      "id": 118787,
+      "name": "PNC FUNDS DISTRIBUTOR, LLC"
+    },
+    {
+      "id": 10111,
+      "name": "PFS INVESTMENTS INC."
+    },
+    {
+      "id": 13256,
+      "name": "AETNA LIFE INSURANCE AND ANNUITY COMPANY"
+    },
+    {
+      "id": 34815,
+      "name": "ING FINANCIAL ADVISERS, LLC"
+    },
+    {
+      "id": 2882,
+      "name": "VOYA FINANCIAL ADVISORS, INC."
+    },
+    {
+      "id": 8392,
+      "name": "RUSHMORE SECURITIES CORPORATION"
+    },
+    {
+      "id": 40700,
+      "name": "OXFORD FINANCIAL GROUP"
+    },
+    {
+      "id": 10740,
+      "name": "PROSPERA FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 149018,
+      "name": "RAYMOND JAMES FINANCIAL SERVICES ADVISORS, INC"
+    },
+    {
+      "id": 5167,
+      "name": "NEW YORK LIFE SECURITIES CORP."
+    },
+    {
+      "id": 680,
+      "name": "THE PRUDENTIAL INSURANCE COMPANY OF AMERICA"
+    },
+    {
+      "id": 27560,
+      "name": "DEPOSIT GUARANTY INVESTMENTS, INC."
+    },
+    {
+      "id": 10147,
+      "name": "ROBERT THOMAS SECURITIES, INC"
+    },
+    {
+      "id": 6694,
+      "name": "RAYMOND JAMES FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 105644,
+      "name": "CETERA INVESTMENT ADVISERS LLC"
+    },
+    {
+      "id": 15340,
+      "name": "CETERA INVESTMENT SERVICES LLC"
+    },
+    {
+      "id": 2908,
+      "name": "NEUBERGER BERMAN BD LLC"
     },
     {
       "id": 8174,
@@ -33,20 +229,8 @@
       "name": "J.P. MORGAN SECURITIES INC."
     },
     {
-      "id": 79,
-      "name": "J.P. MORGAN SECURITIES LLC"
-    },
-    {
       "id": 31194,
       "name": "RBC CAPITAL MARKETS, LLC"
-    },
-    {
-      "id": 101020,
-      "name": "CASCADIA CAPITAL, LLC"
-    },
-    {
-      "id": 10111,
-      "name": "PFS INVESTMENTS INC."
     },
     {
       "id": 2525,
@@ -58,6 +242,74 @@
     }
   ],
   "individuals": [
+    {
+      "id": 8310479,
+      "name": "Debarshi Roy"
+    },
+    {
+      "id": 5817064,
+      "name": "GARY ANDREW LITTLE"
+    },
+    {
+      "id": 5777268,
+      "name": "DENVER LAMAR LITTLE"
+    },
+    {
+      "id": 6188535,
+      "name": "MICHAEL BAILEY LITTLE"
+    },
+    {
+      "id": 2764923,
+      "name": "Pat Robert Little"
+    },
+    {
+      "id": 6106770,
+      "name": "Jeffrey Paul Little"
+    },
+    {
+      "id": 6086427,
+      "name": "SEAN MICHAEL LITTLE"
+    },
+    {
+      "id": 6014337,
+      "name": "Jamall Little"
+    },
+    {
+      "id": 5409487,
+      "name": "Robert Harold Little"
+    },
+    {
+      "id": 5566663,
+      "name": "KYLLE DUANE LITTLE"
+    },
+    {
+      "id": 5121484,
+      "name": "DWAIN NORVETTE LITTLE"
+    },
+    {
+      "id": 4397140,
+      "name": "Amanda Elizabeth Little"
+    },
+    {
+      "id": 2632450,
+      "name": "CHARLES LITTLE"
+    },
+    {
+      "id": 1151952,
+      "name": "STEPHEN ROWAN LITTLE"
+    },
+    {
+      "id": 1344819,
+      "name": "JOHN DANIEL LITTLE"
+    },
+    {
+      "id": 2296415,
+      "name": "SONYA ANNE LITTLE"
+    },
+    {
+      "id": 1260096,
+      "name": "RODNEY ALFORD LITTLE"
+    },
     {
       "id": 7028419,
       "name": "BENJAMIN DANIEL FALLS"
@@ -84,6 +336,13 @@
     },
     {
       "id": 5379399,
+      "name": "DANIEL WILLIAM HOPPER"
+    }
+  ]
+}    }
+  ]
+}}]
+}: 5379399,
       "name": "DANIEL WILLIAM HOPPER"
     }
   ]

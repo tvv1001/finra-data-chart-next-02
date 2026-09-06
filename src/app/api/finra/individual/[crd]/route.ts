@@ -202,7 +202,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 				'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
 				'Referer': 'https://brokercheck.finra.org/',
 			},
-			next: { revalidate: 3600 },
+			next: { revalidate: 1209600 },
 		};
 
 		// Track upstream fetch outcomes (esp. 429 rate-limiting) so callers can distinguish
@@ -274,7 +274,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			const orphanPayload = isOrphanIndividualPayload(finraData) ? finraData : secData;
 			return NextResponse.json(
 				{ found: true, crd, orphan: orphanPayload.orphan, sources: orphanPayload.sources, hasFinraData: false, hasSecData: false },
-				{ headers: sharedCacheHeaders(3600) },
+				{ headers: sharedCacheHeaders(1209600) },
 			);
 		}
 
@@ -409,7 +409,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 						hasFinraData: false,
 						hasSecData: false,
 					},
-					{ headers: sharedCacheHeaders(3600) },
+					{ headers: sharedCacheHeaders(1209600) },
 				);
 			}
 			if (anyRateLimited) {
@@ -515,7 +515,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 					},
 					merged: detail,
 				},
-				{ headers: sharedCacheHeaders(3600) },
+				{ headers: sharedCacheHeaders(1209600) },
 			);
 		}
 
@@ -530,7 +530,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 		if (finraDetail) responseData.bccontent = finraDetail;
 		if (secDetail) responseData.iacontent = secDetail;
 
-		return NextResponse.json(responseData, { headers: sharedCacheHeaders(3600) });
+		return NextResponse.json(responseData, { headers: sharedCacheHeaders(1209600) });
 	} catch (err: any) {
 		logger.error('individual local detail route error', {
 			crd,
