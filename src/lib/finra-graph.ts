@@ -12009,11 +12009,12 @@ function unwrapDetailPayload(detail) {
 	};
 
 	// 1. If it's a merged route response (contains .merged or .finraNode)
+	let parsedWrapped = null;
 	if (detail?.merged || detail?.finraNode) {
 		const wrapped = detail.merged || detail.finraNode;
-		const parsedWrapped = parseEmbeddedDetail(wrapped);
+		parsedWrapped = parseEmbeddedDetail(wrapped);
 		if (parsedWrapped) {
-			return {
+			detail = {
 				...parsedWrapped,
 				found: detail.found ?? parsedWrapped.found,
 				hasFinraData: detail.hasFinraData ?? parsedWrapped.hasFinraData,
