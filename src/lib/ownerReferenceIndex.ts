@@ -157,12 +157,12 @@ async function hasLiveCrdDetail(kind: 'individual' | 'firm', crd: string): Promi
 
 	const urls = kind === 'individual'
 		? [
-			`https://brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?includePrevious=true&hl=true&wt=json`,
+			`https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?includePrevious=true&hl=true&wt=json`,
 			`https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?includePrevious=true&wt=json`,
 		]
 		: [
-			`https://brokercheck.finra.org/firm/summary/${encodeURIComponent(crd)}`,
-			`https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(crd)}`,
+			`https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(crd)}?hl=true&wt=json`,
+			`https://api.adviserinfo.sec.gov/search/firm/${encodeURIComponent(crd)}?hl=true&wt=json`,
 		];
 
 	for (const url of urls) {
