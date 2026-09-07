@@ -15280,15 +15280,15 @@ function highlightLinks(highlightState = null) {
 			if (connected) {
 				sel.classed('fg-link--depth-active', true);
 				const highlightedStrokeWidth =
-					isGrayLine ? 1.05
+					isGrayLine ? 2.2
 					: isControlRelationship(d) ?
-						connectedToRoot ? 1.9
-						:	1.55
+						connectedToRoot ? 3.5
+						:	2.8
 					: usesCurrentEmploymentStyling(d) ?
-						connectedToRoot ? 1.85
-						:	1.5
-					: connectedToRoot ? 1.4
-					: 1.15;
+						connectedToRoot ? 3.2
+						:	2.5
+					: connectedToRoot ? 2.8
+					: 2.2;
 				const activeStrokeOpacity = getSelectionLinkOpacity(d, selectionLinkEmphasis, { connected: true });
 				sel
 					.style('filter', selectionLinkEmphasis.showActiveFilter ? null : 'none')

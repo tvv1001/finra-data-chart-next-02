@@ -1,6 +1,58 @@
 {
   "firms": [
     {
+      "id": 107346,
+      "name": "VIRTUS FUND ADVISERS, LLC"
+    },
+    {
+      "id": 106982,
+      "name": "VIRTUS INVESTMENT ADVISERS, LLC"
+    },
+    {
+      "id": 250,
+      "name": "EDWARD JONES"
+    },
+    {
+      "id": 42803,
+      "name": "VALIC FINANCIAL ADVISORS, INC."
+    },
+    {
+      "id": 13494,
+      "name": "RIDGEWORTH DISTRIBUTORS LLC"
+    },
+    {
+      "id": 3036,
+      "name": "VP DISTRIBUTORS LLC"
+    },
+    {
+      "id": 30149,
+      "name": "DSIL INVESTMENT SERVICES LLC"
+    },
+    {
+      "id": 150366,
+      "name": "BEACON ROCK INVESTMENT CONSULTING, LLC"
+    },
+    {
+      "id": 154331,
+      "name": "DESERT ROSE CAPITAL MANAGEMENT INC."
+    },
+    {
+      "id": 10409,
+      "name": "MML INVESTORS SERVICES, LLC"
+    },
+    {
+      "id": 310415,
+      "name": "DOCEO WEALTH, LLC"
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 79,
+      "name": "J.P. MORGAN SECURITIES LLC"
+    },
+    {
       "id": 629,
       "name": "PHILADELPHIA LIFE ASSET PLANNING COMPANY"
     },
@@ -31,10 +83,6 @@
     {
       "id": 129035,
       "name": "USAA FINANCIAL ADVISORS, INC."
-    },
-    {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
     },
     {
       "id": 282448,
@@ -249,10 +297,6 @@
       "name": "CETERA INVESTMENT ADVISERS LLC"
     },
     {
-      "id": 250,
-      "name": "EDWARD JONES"
-    },
-    {
       "id": 30184,
       "name": "INVESTMENT PROFESSIONALS, INC."
     },
@@ -414,6 +458,18 @@
     }
   ],
   "individuals": [
+    {
+      "id": 6172829,
+      "name": "Jacob Hill"
+    },
+    {
+      "id": 5387684,
+      "name": "REUBEN SCOTT MASON"
+    },
+    {
+      "id": 5274501,
+      "name": "Victor DeVon Mason"
+    },
     {
       "id": 246013,
       "name": "WALTER LOUIS HILL"
