@@ -515,3 +515,7 @@
 [getUpstashClient] url=https://dashing-gator-146036.upstash.io
 [searchDirectRedisFallback] key=finra:individual:6790959 raw=NULL
 [searchDirectRedisFallback] key=finra:individual:6790959 raw=NULL
+[getUpstashClient] url=https://dashing-gator-146036.upstash.io
+[searchDirectRedisFallback] key=finra:individual:108928 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:38642 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:326828 raw=NULL

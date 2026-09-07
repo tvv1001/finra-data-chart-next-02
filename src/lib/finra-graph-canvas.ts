@@ -418,7 +418,11 @@ function buildNodeGraphics(node: any) {
 			originalEvent.stopPropagation();
 			originalEvent.preventDefault?.();
 		}
-		selectNode(node.id);
+		if (onNodeClickCallback) {
+			onNodeClickCallback(originalEvent || event, node);
+		} else {
+			selectNode(node.id);
+		}
 		beginNodeDrag(graphic, node, event);
 	});
 	graphic.on('pointerover', () => {
@@ -951,4 +955,9 @@ export function destroy() {
 	graphLinks = [];
 	teardownRouteListener();
 	teardownStopAnimationListener();
+}
+
+export let onNodeClickCallback: ((event: any, node: any) => void) | null = null;
+export function setOnNodeClickCallback(cb: (event: any, node: any) => void) {
+	onNodeClickCallback = cb;
 }

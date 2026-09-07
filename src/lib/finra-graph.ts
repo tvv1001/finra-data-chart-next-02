@@ -47,7 +47,7 @@ import { isValidLocationStateFilter, isZipLikeLocationQuery, normalizeLocationSt
 import { buildParentFirmSummaryLinks } from './finra-graph/externalLinks';
 import { resolveIndividualSourceDetail, hasIndividualSourceCoverage } from './sourceTruth';
 import { normalizeNodeRouteId, buildNodeRoutePath } from './node-route';
-import { requestRender } from './finra-graph-canvas';
+import { requestRender, setOnNodeClickCallback } from './finra-graph-canvas';
 import {
 	getFilterEnabled,
 	getFilterTags,
@@ -4168,35 +4168,122 @@ function clearNonLogAction(button?: HTMLButtonElement) {
 	if (button) flashSelectionLogActionButton(button, 'Pruned!');
 }
 
-function clearNonConnectedAction(button?: HTMLButtonElement) {
-	const rootId = selectedId || (selectedNodesLog.length ? selectedNodesLog[selectedNodesLog.length - 1].id : null);
+let isSelectToKeepMode = false;
+let selectToKeepCircle: { x: number; y: number; r: number } | null = null;
+let selectToKeepDragBehavior: d3.DragBehavior<Element, unknown, unknown> | null = null;
 
-	if (!rootId) {
-		if (!graphData?.nodes || !graphData?.links) {
-			if (button) flashSelectionLogActionButton(button, 'No nodes');
-			return;
+function toggleSelectToKeepMode(button?: HTMLButtonElement) {
+	isSelectToKeepMode = !isSelectToKeepMode;
+
+	const interactionTarget = d3.select('#fg-main');
+
+	if (isSelectToKeepMode) {
+		if (button) {
+			button.classList.add('active');
+			button.textContent = 'Apply';
 		}
-		const keepIds = new Set<string>();
-		for (const link of graphData.links) {
-			const sid = String(link?.source?.id ?? link?.source ?? '').trim();
-			const tid = String(link?.target?.id ?? link?.target ?? '').trim();
-			if (sid) keepIds.add(sid);
-			if (tid) keepIds.add(tid);
+
+
+		if (!selectToKeepDragBehavior) {
+			selectToKeepDragBehavior = d3
+				.drag<Element, unknown>()
+				.on('start', (event) => {
+					if (!isSelectToKeepMode) return;
+					const transform = d3.zoomTransform(svgSel.node() as Element);
+					const [px, py] = transform.invert([event.x, event.y]);
+					selectToKeepCircle = { x: px, y: py, r: 0 };
+					if (rootGroup) rootGroup.selectAll('.fg-select-to-keep-ring').remove();
+					if (rootGroup) {
+						rootGroup
+							.append('circle')
+							.attr('class', 'fg-select-to-keep-ring')
+							.attr('cx', px)
+							.attr('cy', py)
+							.attr('r', 0)
+							.style('fill', 'rgba(0, 100, 255, 0.1)')
+							.style('stroke', '#0064ff')
+							.style('stroke-width', 2 / transform.k)
+							.style('pointer-events', 'none');
+					}
+				})
+				.on('drag', (event) => {
+					if (!isSelectToKeepMode || !selectToKeepCircle) return;
+					const transform = d3.zoomTransform(svgSel.node() as Element);
+					const [px, py] = transform.invert([event.x, event.y]);
+					const dx = px - selectToKeepCircle.x;
+					const dy = py - selectToKeepCircle.y;
+					selectToKeepCircle.r = Math.sqrt(dx * dx + dy * dy);
+					if (rootGroup) rootGroup.select('.fg-select-to-keep-ring').attr('r', selectToKeepCircle.r);
+				});
 		}
-		pruneGraphDataToKeepIds(keepIds);
-		if (button) flashSelectionLogActionButton(button, 'Pruned Isolated!');
+
+		// Disable zoom, enable drag on main
+		if (svgSel) svgSel.on('.zoom', null);
+		interactionTarget.on('.zoom', null); // just in case
+		interactionTarget.call(selectToKeepDragBehavior);
+	} else {
+		if (button) {
+			button.classList.remove('active');
+			button.textContent = 'Select to keep';
+		}
+
+
+		// Remove circle
+		selectToKeepCircle = null;
+		if (rootGroup) rootGroup.selectAll('.fg-select-to-keep-ring').remove();
+
+		// Restore zoom
+		interactionTarget.on('.drag', null);
+		if (zoomBehavior && svgSel) svgSel.call(zoomBehavior);
+	}
+}
+
+function applySelectToKeep(button?: HTMLButtonElement) {
+	if (!isSelectToKeepMode || !selectToKeepCircle || selectToKeepCircle.r === 0) {
+		const selectBtn = document.querySelector('.fg-select-to-keep-btn') as HTMLButtonElement | null;
+		toggleSelectToKeepMode(selectBtn || button);
+		if (button) flashSelectionLogActionButton(button, 'No circle drawn');
 		return;
 	}
 
-	if (!graphData?.links?.length) {
-		updateFetchStatus('No current selection to connect from');
-		if (button) flashSelectionLogActionButton(button, 'No selection');
+	const keepIds = new Set<string>();
+	const { x: cx, y: cy, r } = selectToKeepCircle;
+	const r2 = r * r;
+	const candidates = Array.isArray(layoutNodes) && layoutNodes.length ? layoutNodes : (Array.isArray(graphData?.nodes) ? graphData.nodes : []);
+
+	for (const node of candidates) {
+		if (!node || typeof node.id === 'undefined') continue;
+		const x = Number(node.x);
+		const y = Number(node.y);
+		if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+		const dx = x - cx;
+		const dy = y - cy;
+		if (dx * dx + dy * dy <= r2) {
+			keepIds.add(String(node.id).trim());
+		}
+	}
+
+	if (keepIds.size === 0) {
+		const selectBtn = document.querySelector('.fg-select-to-keep-btn') as HTMLButtonElement | null;
+		if (selectBtn) {
+			toggleSelectToKeepMode(selectBtn);
+		} else {
+			toggleSelectToKeepMode();
+		}
+		updateFetchStatus('No nodes are inside the selection circle');
+		if (button) flashSelectionLogActionButton(button, 'No nodes');
 		return;
 	}
-	const adj = buildUndirectedAdjacencyList(graphData.links);
-	const reachable = getBfsDistances(adj, String(rootId).trim());
-	const keepIds = new Set<string>(reachable.keys());
+
 	pruneGraphDataToKeepIds(keepIds);
+
+	// Exit mode
+	const selectBtn = document.querySelector('.fg-select-to-keep-btn') as HTMLButtonElement | null;
+	if (selectBtn) {
+		toggleSelectToKeepMode(selectBtn);
+	} else {
+		toggleSelectToKeepMode();
+	}
 	if (button) flashSelectionLogActionButton(button, 'Pruned!');
 }
 
@@ -6043,6 +6130,8 @@ function drawDisclosureIndicator(g, d, r) {
 }
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
+setOnNodeClickCallback(handleNodeOpen);
+
 export function init(
 	_d3,
 	options: {
@@ -6365,9 +6454,14 @@ export function init(
 				case 'clear-non-log':
 					clearNonLogAction(graphActionBtn);
 					break;
-				case 'clear-non-connected':
-					clearNonConnectedAction(graphActionBtn);
+				case 'select-to-keep':
+					if (isSelectToKeepMode) {
+						applySelectToKeep(graphActionBtn);
+					} else {
+						toggleSelectToKeepMode(graphActionBtn);
+					}
 					break;
+
 				default:
 					break;
 			}
@@ -11835,7 +11929,7 @@ function buildNeighborMap(nodes, links) {
 // Inject nodes (by id) from the full `graphData` into the live layout and DOM.
 // Safe to call when the graph is already rendered; will skip already-present ids.
 function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean } = {}) {
-	if (!graphData || !layoutNodes || !layoutLinks || !nodeGroup || !linkGroup) return;
+	if (!graphData || !layoutNodes || !layoutLinks) return;
 	const idSet = new Set(ids || []);
 	const toAdd = selectNodesToInjectById(Array.from(idSet), { renderedNodes: layoutNodes, graphNodes: graphData.nodes });
 	if (!toAdd.length) return;
@@ -11873,6 +11967,18 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 	if (graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
 
 	refreshLayeredLinkSelections({ enterDuration: 400 });
+
+	if (!nodeGroup || !linkGroup || !simulation) {
+		refreshGraphColors();
+		if (activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
+		refreshTraceState();
+		if (!skipPersist) {
+			try {
+				saveSession();
+			} catch (e) {}
+		}
+		return;
+	}
 
 	const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
 	const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen).call(bindHoverAndFocus);
@@ -14158,7 +14264,7 @@ function pinNodeAndReleaseOthers(pinnedNode) {
 }
 
 export async function handleNodeOpen(event, d) {
-	event.stopPropagation();
+	if (event && typeof event.stopPropagation === "function") event.stopPropagation();
 	pinNodeAndReleaseOthers(d);
 	openNodeWithExpansion(d);
 }
@@ -14738,7 +14844,7 @@ function revealNeighbors(
 		markSelected?: boolean;
 	} = {},
 ) {
-	if (!graphData || !layoutNodes || !layoutLinks || !nodeGroup || !linkGroup) return;
+	if (!graphData || !layoutNodes || !layoutLinks) return;
 	const { linkFilter = null, restrictToIds = null, markSelected = false } = options;
 
 	const renderedIds = new Set(layoutNodes.map((n) => n.id));
@@ -14901,18 +15007,20 @@ function revealNeighbors(
 
 			refreshLayeredLinkSelections({ enterDuration: batchIndex === 0 ? 220 : 90 });
 
-			const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
-			const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen).call(bindHoverAndFocus);
+			if (nodeGroup && linkGroup) {
+				const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
+				const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen).call(bindHoverAndFocus);
 
-			if (batchIndex === 0) {
-				enteredNodes.transition().duration(220).ease(d3.easeCubicOut).attr('opacity', 1);
-			} else {
-				enteredNodes.attr('opacity', 1);
+				if (batchIndex === 0) {
+					enteredNodes.transition().duration(220).ease(d3.easeCubicOut).attr('opacity', 1);
+				} else {
+					enteredNodes.attr('opacity', 1);
+				}
+				nodeSel = nodeGroup.selectAll('g.fg-node');
+				linkSel = selectRenderedLinkLines();
+				rerenderGraphNodesByIds(getImpactedNodeIds(batchNodes, batchLinks));
+				reapplySelectionState();
 			}
-			nodeSel = nodeGroup.selectAll('g.fg-node');
-			linkSel = selectRenderedLinkLines();
-			rerenderGraphNodesByIds(getImpactedNodeIds(batchNodes, batchLinks));
-			reapplySelectionState();
 
 			refreshGraphColors();
 			if (activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
@@ -15529,7 +15637,7 @@ function bindTouchDragClickSuppression(button: HTMLElement | null) {
 		(event) => {
 			if (Date.now() >= suppressClickUntil) return;
 			event.preventDefault();
-			event.stopPropagation();
+			if (event && typeof event.stopPropagation === "function") event.stopPropagation();
 		},
 		true,
 	);
@@ -15579,10 +15687,10 @@ function bindSidebarToggleInteraction(button: HTMLButtonElement | null, resolveN
 	button.addEventListener('click', (event) => {
 		if (Date.now() < suppressClickUntil) {
 			event.preventDefault();
-			event.stopPropagation();
+			if (event && typeof event.stopPropagation === "function") event.stopPropagation();
 			return;
 		}
-		event.stopPropagation();
+		if (event && typeof event.stopPropagation === "function") event.stopPropagation();
 		const nextMode = resolveNextMode();
 		setSidebarViewMode(nextMode, { expandMobile: nextMode !== 'none' });
 	});
