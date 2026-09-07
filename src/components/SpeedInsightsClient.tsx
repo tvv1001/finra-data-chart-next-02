@@ -39,8 +39,6 @@ export default function SpeedInsightsClient() {
 	// web-vitals can throw when PerformanceObserver entries are GC'd mid-callback
 	// (reportAllChanges → entry.startTime). That often fires after SPA/dashboard clicks.
 	useEffect(() => {
-		if (!enabled) return;
-
 		const onError = (event: ErrorEvent) => {
 			if (isWebVitalsStartTimeBug(String(event.message || event.error?.message || ''))) {
 				event.preventDefault();
@@ -60,7 +58,7 @@ export default function SpeedInsightsClient() {
 			window.removeEventListener('error', onError);
 			window.removeEventListener('unhandledrejection', onRejection);
 		};
-	}, [enabled]);
+	}, []);
 
 	if (!enabled) return null;
 

@@ -11600,7 +11600,8 @@ function renderGraph(_data) {
 			.attr('stroke', (d) => getLinkColor(d))
 			.attr('stroke-opacity', (d) => getScaledLinkStrokeOpacity(defaultLinkOpacity(d)))
 			.style('--fg-link-width', (d) => getLinkWidthPx(d))
-			.attr('stroke-dasharray', (d) => getLinkDash(d));
+			.attr('stroke-dasharray', (d) => getLinkDash(d))
+			.style('pointer-events', 'none');
 	}
 
 	joinLinkSelection(linkBottomGroup, bottomLinks);
@@ -11610,8 +11611,8 @@ function renderGraph(_data) {
 
 	// ── Arrowheads (also split to mirror link stacking)
 	// create bottom/mid arrow layers now; top arrow layer will be created after nodes
-	arrowBottomGroup = root.append('g').attr('class', 'fg-arrowheads-bottom');
-	arrowMidGroup = root.append('g').attr('class', 'fg-arrowheads-mid');
+	arrowBottomGroup = root.append('g').attr('class', 'fg-arrowheads-bottom').style('pointer-events', 'none');
+	arrowMidGroup = root.append('g').attr('class', 'fg-arrowheads-mid').style('pointer-events', 'none');
 
 	function joinArrowSelection(groupSel, data) {
 		return groupSel
@@ -11619,7 +11620,8 @@ function renderGraph(_data) {
 			.data(data, (d) => `${d.source?.id || d.source}-${d.target?.id || d.target}-${d.relationship}`)
 			.join('line')
 			.attr('stroke', 'none')
-			.attr('fill', 'none');
+			.attr('fill', 'none')
+			.style('pointer-events', 'none');
 	}
 
 	joinArrowSelection(arrowBottomGroup, bottomLinks);
@@ -11666,9 +11668,9 @@ function renderGraph(_data) {
 	// Top link/arrow groups: previous/disabled lines only (may render above nodes).
 	// Current/highlighted lines stay in mid/bottom under nodes + labels.
 	try {
-		linkTopGroup = root.append('g').attr('class', 'fg-links-top');
+		linkTopGroup = root.append('g').attr('class', 'fg-links-top').style('pointer-events', 'none');
 		joinLinkSelection(linkTopGroup, topLinks);
-		arrowTopGroup = root.append('g').attr('class', 'fg-arrowheads-top');
+		arrowTopGroup = root.append('g').attr('class', 'fg-arrowheads-top').style('pointer-events', 'none');
 		joinArrowSelection(arrowTopGroup, topLinks);
 		// refresh combined selections to include top groups
 		linkSel = root.selectAll('.fg-links-bottom line, .fg-links-mid line, .fg-links-top line');
