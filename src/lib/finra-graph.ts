@@ -4164,9 +4164,9 @@ function clearNonLogAction(button?: HTMLButtonElement) {
 		updateFetchStatus('Selection log is empty');
 		if (button) flashSelectionLogActionButton(button, 'Empty');
 		return;
-		pruneGraphDataToKeepIds(logIds);
-		if (button) flashSelectionLogActionButton(button, 'Pruned!');
 	}
+	pruneGraphDataToKeepIds(logIds);
+	if (button) flashSelectionLogActionButton(button, 'Pruned!');
 }
 
 let isSelectToKeepMode = false;
