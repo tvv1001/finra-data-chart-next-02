@@ -1490,10 +1490,10 @@ export default function FinraGraph() {
 							</div>
 							<button
 								type='button'
-								data-fg-graph-action='clear-non-connected'
-								className='fg-ghost-btn fg-clear-non-connected-btn'
-								title='Keep only nodes connected to the current selection'>
-								Clear non-connected
+								data-fg-graph-action='select-to-keep'
+								className='fg-ghost-btn fg-select-to-keep-btn'
+								title='Keep only nodes within the selection circle'>
+								Select to keep
 							</button>
 							<button
 								type='button'

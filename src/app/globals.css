@@ -2175,7 +2175,7 @@ a,
 	align-items: stretch;
 }
 
-.fg-sidebar-mobile-actions .fg-clear-non-connected-btn {
+.fg-sidebar-mobile-actions .fg-select-to-keep-btn {
 	flex: 1.2 1 calc(50% - 3px);
 	min-width: 0;
 	width: auto;

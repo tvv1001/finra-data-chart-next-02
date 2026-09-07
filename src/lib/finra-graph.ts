@@ -4105,6 +4105,7 @@ export function pruneGraphToSelectionLogEntries(
 
 function pruneGraphDataToKeepIds(keepIds: Set<string>) {
 	if (!graphData || !Array.isArray(graphData.nodes) || !Array.isArray(graphData.links)) return;
+	if (!keepIds || keepIds.size === 0) return;
 
 	graphData.nodes = graphData.nodes.filter((node) => keepIds.has(String(node?.id || '').trim()));
 	graphData.links = graphData.links.filter((link) => {
@@ -4163,40 +4164,126 @@ function clearNonLogAction(button?: HTMLButtonElement) {
 		updateFetchStatus('Selection log is empty');
 		if (button) flashSelectionLogActionButton(button, 'Empty');
 		return;
+		pruneGraphDataToKeepIds(logIds);
+		if (button) flashSelectionLogActionButton(button, 'Pruned!');
 	}
-	pruneGraphDataToKeepIds(logIds);
-	if (button) flashSelectionLogActionButton(button, 'Pruned!');
 }
 
-function clearNonConnectedAction(button?: HTMLButtonElement) {
-	const rootId = selectedId || (selectedNodesLog.length ? selectedNodesLog[selectedNodesLog.length - 1].id : null);
+let isSelectToKeepMode = false;
+let selectToKeepCircle: { x: number; y: number; r: number } | null = null;
+let selectToKeepDragBehavior: d3.DragBehavior<SVGSVGElement, unknown, unknown> | null = null;
 
-	if (!rootId) {
-		if (!graphData?.nodes || !graphData?.links) {
-			if (button) flashSelectionLogActionButton(button, 'No nodes');
-			return;
+function toggleSelectToKeepMode(button?: HTMLButtonElement) {
+	isSelectToKeepMode = !isSelectToKeepMode;
+	const applyBtn = document.querySelector('.fg-select-to-keep-apply-btn') as HTMLButtonElement | null;
+
+	if (isSelectToKeepMode) {
+		if (button) {
+			button.classList.add('active');
+			button.textContent = 'Apply';
 		}
-		const keepIds = new Set<string>();
-		for (const link of graphData.links) {
-			const sid = String(link?.source?.id ?? link?.source ?? '').trim();
-			const tid = String(link?.target?.id ?? link?.target ?? '').trim();
-			if (sid) keepIds.add(sid);
-			if (tid) keepIds.add(tid);
+		if (applyBtn) applyBtn.style.display = 'block';
+
+		if (!selectToKeepDragBehavior) {
+			selectToKeepDragBehavior = d3
+				.drag<SVGSVGElement, unknown>()
+				.on('start', (event) => {
+					if (!isSelectToKeepMode) return;
+					const transform = d3.zoomTransform(svgSel.node() as Element);
+					const [px, py] = transform.invert([event.x, event.y]);
+					selectToKeepCircle = { x: px, y: py, r: 0 };
+					rootGroup.selectAll('.fg-select-to-keep-ring').remove();
+					rootGroup
+						.append('circle')
+						.attr('class', 'fg-select-to-keep-ring')
+						.attr('cx', px)
+						.attr('cy', py)
+						.attr('r', 0)
+						.style('fill', 'rgba(0, 100, 255, 0.1)')
+						.style('stroke', '#0064ff')
+						.style('stroke-width', 2 / transform.k)
+						.style('pointer-events', 'none');
+				})
+				.on('drag', (event) => {
+					if (!isSelectToKeepMode || !selectToKeepCircle) return;
+					const transform = d3.zoomTransform(svgSel.node() as Element);
+					const [px, py] = transform.invert([event.x, event.y]);
+					const dx = px - selectToKeepCircle.x;
+					const dy = py - selectToKeepCircle.y;
+					selectToKeepCircle.r = Math.sqrt(dx * dx + dy * dy);
+					rootGroup.select('.fg-select-to-keep-ring').attr('r', selectToKeepCircle.r);
+				})
+				.on('end', () => {
+					// Drag ended, circle is drawn
+				});
 		}
-		pruneGraphDataToKeepIds(keepIds);
-		if (button) flashSelectionLogActionButton(button, 'Pruned Isolated!');
+
+		// Disable zoom, enable drag
+		svgSel.on('.zoom', null);
+		svgSel.call(selectToKeepDragBehavior);
+	} else {
+		if (button) {
+			button.classList.remove('active');
+			button.textContent = 'Select to keep';
+		}
+		if (applyBtn) applyBtn.style.display = 'none';
+
+		// Remove circle
+		selectToKeepCircle = null;
+		if (rootGroup) rootGroup.selectAll('.fg-select-to-keep-ring').remove();
+
+		// Restore zoom
+		svgSel.on('.drag', null);
+		if (zoomBehavior) svgSel.call(zoomBehavior);
+	}
+}
+
+function applySelectToKeep(button?: HTMLButtonElement) {
+	if (!isSelectToKeepMode || !selectToKeepCircle || selectToKeepCircle.r === 0) {
+		const selectBtn = document.querySelector('.fg-select-to-keep-btn') as HTMLButtonElement | null;
+		toggleSelectToKeepMode(selectBtn || button);
+		if (button) flashSelectionLogActionButton(button, 'No circle drawn');
 		return;
 	}
 
-	if (!graphData?.links?.length) {
-		updateFetchStatus('No current selection to connect from');
-		if (button) flashSelectionLogActionButton(button, 'No selection');
+	const keepIds = new Set<string>();
+	const { x: cx, y: cy, r } = selectToKeepCircle;
+	const r2 = r * r;
+	const candidates = Array.isArray(layoutNodes) && layoutNodes.length ? layoutNodes : (Array.isArray(graphData?.nodes) ? graphData.nodes : []);
+
+	for (const node of candidates) {
+		if (!node || typeof node.id === 'undefined') continue;
+		const x = Number(node.x);
+		const y = Number(node.y);
+		if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+		const dx = x - cx;
+		const dy = y - cy;
+		if (dx * dx + dy * dy <= r2) {
+			keepIds.add(String(node.id).trim());
+		}
+	}
+
+	if (keepIds.size === 0) {
+		const selectBtn = document.querySelector('.fg-select-to-keep-btn') as HTMLButtonElement | null;
+		if (selectBtn) {
+			toggleSelectToKeepMode(selectBtn);
+		} else {
+			toggleSelectToKeepMode();
+		}
+		updateFetchStatus('No nodes are inside the selection circle');
+		if (button) flashSelectionLogActionButton(button, 'No nodes');
 		return;
 	}
-	const adj = buildUndirectedAdjacencyList(graphData.links);
-	const reachable = getBfsDistances(adj, String(rootId).trim());
-	const keepIds = new Set<string>(reachable.keys());
+
 	pruneGraphDataToKeepIds(keepIds);
+
+	// Exit mode
+	const selectBtn = document.querySelector('.fg-select-to-keep-btn') as HTMLButtonElement | null;
+	if (selectBtn) {
+		toggleSelectToKeepMode(selectBtn);
+	} else {
+		toggleSelectToKeepMode();
+	}
 	if (button) flashSelectionLogActionButton(button, 'Pruned!');
 }
 
@@ -6365,8 +6452,15 @@ export function init(
 				case 'clear-non-log':
 					clearNonLogAction(graphActionBtn);
 					break;
-				case 'clear-non-connected':
-					clearNonConnectedAction(graphActionBtn);
+				case 'select-to-keep':
+					if (isSelectToKeepMode) {
+						applySelectToKeep(graphActionBtn);
+					} else {
+						toggleSelectToKeepMode(graphActionBtn);
+					}
+					break;
+				case 'select-to-keep-apply':
+					applySelectToKeep(graphActionBtn);
 					break;
 				default:
 					break;
