@@ -2175,16 +2175,12 @@ a,
 	align-items: stretch;
 }
 
-.fg-sidebar-mobile-actions .fg-select-to-keep-btn {
-	flex: 1.2 1 calc(50% - 3px);
-	min-width: 0;
-	width: auto;
-}
+
 
 .fg-sidebar-mobile-actions .fg-ghost-btn,
 .fg-sidebar-mobile-actions .fg-sidebar-action-btn,
 .fg-sidebar-mobile-actions .fg-danger-btn {
-	flex: 1 1 calc(50% - 3px);
+	flex: 1 1 calc(50% - 4px);
 	min-width: 0;
 	white-space: nowrap;
 	overflow: hidden;
@@ -3025,9 +3021,9 @@ a,
 
 .fg-clear-labels-control {
 	flex-direction: column-reverse;
-	flex: content;
+	flex: 1 1 calc(50% - 4px);
 	gap: 0;
-	min-width: 142px;
+	min-width: 0;
 	display: flex;
 	position: relative;
 	margin-right: auto;

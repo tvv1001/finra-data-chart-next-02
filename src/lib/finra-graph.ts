@@ -47,7 +47,7 @@ import { isValidLocationStateFilter, isZipLikeLocationQuery, normalizeLocationSt
 import { buildParentFirmSummaryLinks } from './finra-graph/externalLinks';
 import { resolveIndividualSourceDetail, hasIndividualSourceCoverage } from './sourceTruth';
 import { normalizeNodeRouteId, buildNodeRoutePath } from './node-route';
-import { requestRender } from './finra-graph-canvas';
+import { requestRender, setOnNodeClickCallback } from './finra-graph-canvas';
 import {
 	getFilterEnabled,
 	getFilterTags,
@@ -4171,38 +4171,41 @@ function clearNonLogAction(button?: HTMLButtonElement) {
 
 let isSelectToKeepMode = false;
 let selectToKeepCircle: { x: number; y: number; r: number } | null = null;
-let selectToKeepDragBehavior: d3.DragBehavior<SVGSVGElement, unknown, unknown> | null = null;
+let selectToKeepDragBehavior: d3.DragBehavior<Element, unknown, unknown> | null = null;
 
 function toggleSelectToKeepMode(button?: HTMLButtonElement) {
 	isSelectToKeepMode = !isSelectToKeepMode;
-	const applyBtn = document.querySelector('.fg-select-to-keep-apply-btn') as HTMLButtonElement | null;
+
+	const interactionTarget = d3.select('#fg-main');
 
 	if (isSelectToKeepMode) {
 		if (button) {
 			button.classList.add('active');
 			button.textContent = 'Apply';
 		}
-		if (applyBtn) applyBtn.style.display = 'block';
+
 
 		if (!selectToKeepDragBehavior) {
 			selectToKeepDragBehavior = d3
-				.drag<SVGSVGElement, unknown>()
+				.drag<Element, unknown>()
 				.on('start', (event) => {
 					if (!isSelectToKeepMode) return;
 					const transform = d3.zoomTransform(svgSel.node() as Element);
 					const [px, py] = transform.invert([event.x, event.y]);
 					selectToKeepCircle = { x: px, y: py, r: 0 };
-					rootGroup.selectAll('.fg-select-to-keep-ring').remove();
-					rootGroup
-						.append('circle')
-						.attr('class', 'fg-select-to-keep-ring')
-						.attr('cx', px)
-						.attr('cy', py)
-						.attr('r', 0)
-						.style('fill', 'rgba(0, 100, 255, 0.1)')
-						.style('stroke', '#0064ff')
-						.style('stroke-width', 2 / transform.k)
-						.style('pointer-events', 'none');
+					if (rootGroup) rootGroup.selectAll('.fg-select-to-keep-ring').remove();
+					if (rootGroup) {
+						rootGroup
+							.append('circle')
+							.attr('class', 'fg-select-to-keep-ring')
+							.attr('cx', px)
+							.attr('cy', py)
+							.attr('r', 0)
+							.style('fill', 'rgba(0, 100, 255, 0.1)')
+							.style('stroke', '#0064ff')
+							.style('stroke-width', 2 / transform.k)
+							.style('pointer-events', 'none');
+					}
 				})
 				.on('drag', (event) => {
 					if (!isSelectToKeepMode || !selectToKeepCircle) return;
@@ -4211,30 +4214,28 @@ function toggleSelectToKeepMode(button?: HTMLButtonElement) {
 					const dx = px - selectToKeepCircle.x;
 					const dy = py - selectToKeepCircle.y;
 					selectToKeepCircle.r = Math.sqrt(dx * dx + dy * dy);
-					rootGroup.select('.fg-select-to-keep-ring').attr('r', selectToKeepCircle.r);
-				})
-				.on('end', () => {
-					// Drag ended, circle is drawn
+					if (rootGroup) rootGroup.select('.fg-select-to-keep-ring').attr('r', selectToKeepCircle.r);
 				});
 		}
 
-		// Disable zoom, enable drag
-		svgSel.on('.zoom', null);
-		svgSel.call(selectToKeepDragBehavior);
+		// Disable zoom, enable drag on main
+		if (svgSel) svgSel.on('.zoom', null);
+		interactionTarget.on('.zoom', null); // just in case
+		interactionTarget.call(selectToKeepDragBehavior);
 	} else {
 		if (button) {
 			button.classList.remove('active');
 			button.textContent = 'Select to keep';
 		}
-		if (applyBtn) applyBtn.style.display = 'none';
+
 
 		// Remove circle
 		selectToKeepCircle = null;
 		if (rootGroup) rootGroup.selectAll('.fg-select-to-keep-ring').remove();
 
 		// Restore zoom
-		svgSel.on('.drag', null);
-		if (zoomBehavior) svgSel.call(zoomBehavior);
+		interactionTarget.on('.drag', null);
+		if (zoomBehavior && svgSel) svgSel.call(zoomBehavior);
 	}
 }
 
@@ -6130,6 +6131,8 @@ function drawDisclosureIndicator(g, d, r) {
 }
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
+setOnNodeClickCallback(handleNodeOpen);
+
 export function init(
 	_d3,
 	options: {
@@ -6459,9 +6462,7 @@ export function init(
 						toggleSelectToKeepMode(graphActionBtn);
 					}
 					break;
-				case 'select-to-keep-apply':
-					applySelectToKeep(graphActionBtn);
-					break;
+
 				default:
 					break;
 			}
@@ -11949,7 +11950,7 @@ function buildNeighborMap(nodes, links) {
 // Inject nodes (by id) from the full `graphData` into the live layout and DOM.
 // Safe to call when the graph is already rendered; will skip already-present ids.
 function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean } = {}) {
-	if (!graphData || !layoutNodes || !layoutLinks || !nodeGroup || !linkGroup) return;
+	if (!graphData || !layoutNodes || !layoutLinks) return;
 	const idSet = new Set(ids || []);
 	const toAdd = selectNodesToInjectById(Array.from(idSet), { renderedNodes: layoutNodes, graphNodes: graphData.nodes });
 	if (!toAdd.length) return;
@@ -11987,6 +11988,18 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 	if (graphData) updateSubsetInfo(layoutNodes.length, graphData.nodes.length);
 
 	refreshLayeredLinkSelections({ enterDuration: 400 });
+
+	if (!nodeGroup || !linkGroup || !simulation) {
+		refreshGraphColors();
+		if (activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
+		refreshTraceState();
+		if (!skipPersist) {
+			try {
+				saveSession();
+			} catch (e) {}
+		}
+		return;
+	}
 
 	const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
 	const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen).call(bindHoverAndFocus);
@@ -14272,7 +14285,7 @@ function pinNodeAndReleaseOthers(pinnedNode) {
 }
 
 export async function handleNodeOpen(event, d) {
-	event.stopPropagation();
+	if (event && typeof event.stopPropagation === "function") event.stopPropagation();
 	pinNodeAndReleaseOthers(d);
 	openNodeWithExpansion(d);
 }
@@ -14852,7 +14865,7 @@ function revealNeighbors(
 		markSelected?: boolean;
 	} = {},
 ) {
-	if (!graphData || !layoutNodes || !layoutLinks || !nodeGroup || !linkGroup) return;
+	if (!graphData || !layoutNodes || !layoutLinks) return;
 	const { linkFilter = null, restrictToIds = null, markSelected = false } = options;
 
 	const renderedIds = new Set(layoutNodes.map((n) => n.id));
@@ -15015,18 +15028,20 @@ function revealNeighbors(
 
 			refreshLayeredLinkSelections({ enterDuration: batchIndex === 0 ? 220 : 90 });
 
-			const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
-			const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen).call(bindHoverAndFocus);
+			if (nodeGroup && linkGroup) {
+				const allNodes = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d) => d.id);
+				const enteredNodes = allNodes.enter().append('g').attr('class', 'fg-node').attr('opacity', 0).call(fluidDrag()).on('click', handleNodeOpen).call(bindHoverAndFocus);
 
-			if (batchIndex === 0) {
-				enteredNodes.transition().duration(220).ease(d3.easeCubicOut).attr('opacity', 1);
-			} else {
-				enteredNodes.attr('opacity', 1);
+				if (batchIndex === 0) {
+					enteredNodes.transition().duration(220).ease(d3.easeCubicOut).attr('opacity', 1);
+				} else {
+					enteredNodes.attr('opacity', 1);
+				}
+				nodeSel = nodeGroup.selectAll('g.fg-node');
+				linkSel = selectRenderedLinkLines();
+				rerenderGraphNodesByIds(getImpactedNodeIds(batchNodes, batchLinks));
+				reapplySelectionState();
 			}
-			nodeSel = nodeGroup.selectAll('g.fg-node');
-			linkSel = selectRenderedLinkLines();
-			rerenderGraphNodesByIds(getImpactedNodeIds(batchNodes, batchLinks));
-			reapplySelectionState();
 
 			refreshGraphColors();
 			if (activeFindQuery) refreshFindMatches(activeFindQuery, { preserveActiveMatch: true });
@@ -15643,7 +15658,7 @@ function bindTouchDragClickSuppression(button: HTMLElement | null) {
 		(event) => {
 			if (Date.now() >= suppressClickUntil) return;
 			event.preventDefault();
-			event.stopPropagation();
+			if (event && typeof event.stopPropagation === "function") event.stopPropagation();
 		},
 		true,
 	);
@@ -15693,10 +15708,10 @@ function bindSidebarToggleInteraction(button: HTMLButtonElement | null, resolveN
 	button.addEventListener('click', (event) => {
 		if (Date.now() < suppressClickUntil) {
 			event.preventDefault();
-			event.stopPropagation();
+			if (event && typeof event.stopPropagation === "function") event.stopPropagation();
 			return;
 		}
-		event.stopPropagation();
+		if (event && typeof event.stopPropagation === "function") event.stopPropagation();
 		const nextMode = resolveNextMode();
 		setSidebarViewMode(nextMode, { expandMobile: nextMode !== 'none' });
 	});

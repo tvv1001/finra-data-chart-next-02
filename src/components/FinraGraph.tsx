@@ -1495,6 +1495,7 @@ export default function FinraGraph() {
 								title='Keep only nodes within the selection circle'>
 								Select to keep
 							</button>
+
 							<button
 								type='button'
 								data-fg-action='clear-highlights'
