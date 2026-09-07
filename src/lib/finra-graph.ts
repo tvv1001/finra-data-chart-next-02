@@ -10683,27 +10683,6 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 		if (arrowSel && typeof arrowSel.sort === 'function') {
 			arrowSel.sort((a, b) => comparePriorityWithTieBreak(getLinkRenderPriority(a, highlightState), getLinkRenderPriority(b, highlightState), getLinkKey(a), getLinkKey(b)));
 		}
-
-		if (nodeSel && typeof nodeSel.sort === 'function') {
-			nodeSel.sort((a, b) => comparePriorityWithTieBreak(getNodeRenderPriority(a, highlightState), getNodeRenderPriority(b, highlightState), a?.id, b?.id));
-		}
-	} else {
-		// For larger graphs, use fast raise() to enforce the requested layers
-		if (nodeSel && typeof nodeSel.filter === 'function') {
-			try {
-				nodeSel.filter((d) => {
-					const pr = getNodeRenderPriority(d, highlightState);
-					return pr > 1000 && pr < 10000;
-				}).raise();
-				
-				nodeSel.filter((d) => {
-					const pr = getNodeRenderPriority(d, highlightState);
-					return pr >= 10000;
-				}).raise();
-			} catch (e) {
-				// ignore
-			}
-		}
 	}
 
 	// Move individual link/arrow DOM nodes between link sub-groups so some links
