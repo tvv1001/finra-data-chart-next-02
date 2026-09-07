@@ -4894,7 +4894,7 @@ function isAutoExpansionLink(link) {
 	// Person clicks must still draw employment/registration lines — including previous
 	// jobs and links that touch inactive (gray) parent firms. Those render dashed.
 	if (rel.includes('employed') || rel.includes('registered') || isPreviousEmploymentLink(link)) {
-		if (isPreviousEmploymentLink(link) || rel.includes('previous')) return true;
+		if (isPreviousEmploymentLink(link) || rel.includes('previous')) return false;
 		if (rel === 'employed_by' || rel === 'registered_by') return isCurrentRegistration(link) || (typeof link.isCurrent === 'boolean' ? link.isCurrent : true);
 		return link.isCurrent !== false;
 	}
@@ -7101,11 +7101,22 @@ export function init(
 						);
 					}
 					// Build graph-visible firm connections from embedded employment data.
-					// Historical/previous employers stay in the sidebar detail stack; they should
-					// not be injected as graph neighbors during a search fetch.
+					// Historical/previous employers stay in the sidebar detail stack, unless
+					// the previous employer firm is already on the screen, in which case we connect them.
+					const onScreenFirmIds = new Set((layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId)));
+					const prevEmps = [
+						...(parsed?.previousEmployments || []).map((e) => ({ ...e, _isCurrent: false })),
+						...(parsed?.previousIAEmployments || []).map((e) => ({ ...e, _isCurrent: false })),
+					].filter((e) => {
+						const fid = String(e?.firmId || e?.firm_id || e?.firmIdNumber || e?.organizationId || e?.orgId || '').trim();
+						const sid = String(e?.bdSECNumber || e?.bdSecNumber || e?.iaSECNumber || e?.iaSecNumber || e?.firm_bd_sec_number || '').trim();
+						return onScreenFirmIds.has(fid) || onScreenFirmIds.has(sid);
+					});
+
 					const emps = [
 						...(parsed?.currentEmployments || []).map((e) => ({ ...e, _isCurrent: true })),
 						...(parsed?.currentIAEmployments || []).map((e) => ({ ...e, _isCurrent: true })),
+						...prevEmps,
 					];
 					for (const e of emps) {
 						const fid = String(e?.firmId || e?.firm_id || e?.firmIdNumber || e?.firmId || '').trim();
@@ -7308,7 +7319,8 @@ export function init(
 							if (!targetId) return null;
 							const rawId = targetId.split(':').pop() || '';
 							if (!rawId) return null;
-							const batch = target.group === 'firm' ? await fetchFirmBatch(rawId) : await fetchIndividualBatch(rawId);
+							const onScreenFirmIds = Array.from(new Set((layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId))));
+							const batch = target.group === 'firm' ? await fetchFirmBatch(rawId) : await fetchIndividualBatch(rawId, null, { includePreviousEmployerIds: onScreenFirmIds });
 							return { targetId, batch };
 						});
 
@@ -8161,13 +8173,13 @@ function persistToServer(nodes, links) {
 	})();
 }
 
-async function fetchIndividualBatch(crd, queryLabel = null, options: { includePreviousEmployments?: boolean } = {}) {
+async function fetchIndividualBatch(crd, queryLabel = null, options: { includePreviousEmployments?: boolean; includePreviousEmployerIds?: string[] } = {}) {
 	if (!/^[0-9]+$/.test(String(crd))) {
 		throw new Error(`invalid individual id ${crd}`);
 	}
 	// Graph fetches should stay limited to active links; historical employment remains
 	// sidebar-only until the user explicitly expands a firm/person path.
-	const { includePreviousEmployments = false } = options;
+	const { includePreviousEmployments = false, includePreviousEmployerIds = [] } = options;
 
 	const nodes = [];
 	const links = [];
@@ -8197,7 +8209,16 @@ async function fetchIndividualBatch(crd, queryLabel = null, options: { includePr
 		),
 	);
 
-	const emps = flattenEmploymentRecords(detail, { includeGeneric: true }).filter((employment) => includePreviousEmployments || employment?._isCurrent !== false);
+	const emps = flattenEmploymentRecords(detail, { includeGeneric: true }).filter((employment) => {
+		if (includePreviousEmployments) return true;
+		if (employment?._isCurrent !== false) return true;
+		if (includePreviousEmployerIds.length > 0) {
+			const rawFirmId = String(employment?.firmId || employment?.firm_id || employment?.firmIdNumber || employment?.organizationId || employment?.orgId || '').trim();
+			const secFirmId = String(employment?.bdSECNumber || employment?.bdSecNumber || employment?.iaSECNumber || employment?.iaSecNumber || employment?.firm_bd_sec_number || '').trim();
+			return includePreviousEmployerIds.includes(rawFirmId) || includePreviousEmployerIds.includes(secFirmId);
+		}
+		return false;
+	});
 
 	for (const e of emps) {
 		const rawFirmId = String(e?.firmId || e?.firm_id || e?.firmIdNumber || e?.organizationId || e?.orgId || '').trim();
@@ -8762,13 +8783,17 @@ async function hydratePendingNodeIds(ids: string[], addToLog: boolean) {
 	if (idsToFetch.length) {
 		const fetchedNodes: any[] = [];
 		const fetchedLinks: any[] = [];
+		const onScreenFirmIds = Array.from(new Set([
+			...normalizedIds.filter((id) => id.startsWith('firm:')).map((id) => id.split(':')[1]),
+			...(layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId))
+		]));
 		let cursor = 0;
 
 		async function fetchWorker() {
 			while (cursor < idsToFetch.length) {
 				const entry = idsToFetch[cursor++];
 				try {
-					const batch = entry.prefix === 'person' ? await fetchIndividualBatch(entry.rawId, null, { includePreviousEmployments: true }) : await fetchFirmBatch(entry.rawId);
+					const batch = entry.prefix === 'person' ? await fetchIndividualBatch(entry.rawId, null, { includePreviousEmployerIds: onScreenFirmIds }) : await fetchFirmBatch(entry.rawId);
 					if (batch?.nodes?.length) fetchedNodes.push(...batch.nodes);
 					if (batch?.links?.length) fetchedLinks.push(...batch.links);
 				} catch (error) {
@@ -11180,8 +11205,8 @@ function appendFetchedImpl(newNodes, newLinks) {
 	const mergedNodes = mergeResult.nodes;
 	const uniqNodes = mergedNodes.filter((node) => !layoutNodes.some((entry) => entry?.id === node?.id));
 	const incomingNodeIdRewrites = mergeResult.idRewriteMap;
-	const revealableIncomingLinks = Array.isArray(newLinks) ? newLinks.filter((link) => isAutoExpansionLink(link) || isPreviousEmploymentLink(link)) : [];
-	const rewrittenLinks = rewriteLinksForNodeIdMap(revealableIncomingLinks, incomingNodeIdRewrites);
+	const allIncomingLinks = Array.isArray(newLinks) ? newLinks : [];
+	const rewrittenLinks = rewriteLinksForNodeIdMap(allIncomingLinks, incomingNodeIdRewrites);
 
 	// Place newly-added nodes near the expand origin (parent node) if known,
 	// otherwise fall back to the viewport center so they're visible immediately.
@@ -11206,11 +11231,15 @@ function appendFetchedImpl(newNodes, newLinks) {
 	// Rebind any pre-existing links to the merged node objects so the visualization
 	// keeps them attached after a fetch updates the node list.
 	resolveLinkEndpoints(layoutLinks, layoutNodes);
-	const resolvedNewLinks = resolveLinkEndpoints(rewrittenLinks, layoutNodes);
+	const potentialLinks = [
+		...rewrittenLinks,
+		...(graphData && Array.isArray(graphData.links) ? graphData.links : [])
+	];
+	const resolvedPotentialLinks = resolveLinkEndpoints(potentialLinks, layoutNodes);
 	const currentLayoutNodeIds = new Set(layoutNodes.map((n) => n.id));
 	ensureLayoutLinkIndexes();
 	layoutLinks.push(
-		...resolvedNewLinks.filter((l) => {
+		...resolvedPotentialLinks.filter((l) => {
 			const s = l.source?.id ?? l.source;
 			const t = l.target?.id ?? l.target;
 			// only include link if both nodes are currently rendered
@@ -13539,11 +13568,12 @@ function revealPersonEmploymentNeighbors(personNode) {
 	if (!personNode?.id || personNode.group !== 'individual' || !graphData || !layoutNodes) return;
 	const employmentFirmIds = new Set<string>();
 	for (const employment of flattenEmploymentRecords(personNode)) {
+		if (employment._isCurrent === false) continue;
 		const firmNodeId = resolveEmploymentConnectionFirmNodeId(employment);
 		if (firmNodeId) employmentFirmIds.add(firmNodeId);
 	}
 	for (const link of graphData.links || []) {
-		if (!isAutoExpansionLink(link) && !isPreviousEmploymentLink(link)) continue;
+		if (!isAutoExpansionLink(link)) continue;
 		const sourceId = String(link.source?.id ?? link.source ?? '').trim();
 		const targetId = String(link.target?.id ?? link.target ?? '').trim();
 		if (sourceId === personNode.id && targetId) employmentFirmIds.add(targetId);
@@ -13556,12 +13586,12 @@ function revealPersonEmploymentNeighbors(personNode) {
 		.slice(0, MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND);
 	if (hiddenIds.length) {
 		revealNeighbors(personNode, 'all', {
-			linkFilter: (link) => isAutoExpansionLink(link) || isPreviousEmploymentLink(link),
+			linkFilter: (link) => isAutoExpansionLink(link),
 			restrictToIds: new Set(hiddenIds),
 			markSelected: true,
 		});
 	}
-	revealIncidentRenderedLinks(personNode, (link) => isAutoExpansionLink(link) || isPreviousEmploymentLink(link));
+	revealIncidentRenderedLinks(personNode, (link) => isAutoExpansionLink(link));
 }
 
 async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = getDefaultExpansionHops()) {

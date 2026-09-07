@@ -519,3 +519,47 @@
 [searchDirectRedisFallback] key=finra:individual:108928 raw=NULL
 [searchDirectRedisFallback] key=finra:individual:38642 raw=NULL
 [searchDirectRedisFallback] key=finra:individual:326828 raw=NULL
+[getUpstashClient] url=https://dashing-gator-146036.upstash.io
+[searchDirectRedisFallback] key=finra:individual:31170 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:15217 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:13387 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:104859 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:32459 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:37731 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:8039 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:11424 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:793 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:319448 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:103747 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:171898 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:104024 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:104487 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:113229 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:11469 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:120 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:128030 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:129469 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:132972 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:135167 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:136392 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:140084 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:141413 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:7691 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:7691 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:7691 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:7691 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:7691 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:7691 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:7691 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:7691 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:5972432 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:841269 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:730139 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:2597167 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:6300829 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:7691 raw=NULL
+[getUpstashClient] url=https://dashing-gator-146036.upstash.io
+[searchDirectRedisFallback] key=finra:individual:6413 raw=NULL
+[searchDirectRedisFallback] key=finra:firm:6413 raw=FOUND
+[getUpstashClient] url=https://dashing-gator-146036.upstash.io
+[searchDirectRedisFallback] key=finra:individual:7691 raw=NULL
