@@ -10850,7 +10850,7 @@ function reapplySelectionState() {
 	for (const node of layoutNodes || []) {
 		const id = String(node?.id || '');
 		if (!id) continue;
-		if (id === String(selectedId || '') || highlightState.rootIds.has(node.id) || persistentSelectedIds.has(id)) continue;
+		if (id === String(selectedId || '') || highlightState.rootIds.has(node.id)) continue;
 		if (!hasTrustedCurrentRelationshipData(node)) continue;
 		if (isFetchedLeafNode(node) || isFetchedExhaustedConnectedNode(node)) {
 			fetchedLeafOrExhaustedIds.add(id);
@@ -10871,7 +10871,7 @@ function reapplySelectionState() {
 		// Hop emphasis (neighbor glow) is line-highlight companion state — cleared with Clear Highlight.
 		.classed(
 			'highlighted-hop',
-			(node) => node.id !== selectedId && !highlightState.rootIds.has(node.id) && !persistentSelectedIds.has(node.id) && highlightState.hopNodeIds.has(node.id),
+			(node) => node.id !== selectedId && !highlightState.rootIds.has(node.id) && !fetchedLeafOrExhaustedIds.has(node.id) && highlightState.hopNodeIds.has(node.id),
 		);
 
 	if (svgSel) {
@@ -10943,7 +10943,7 @@ export function shouldRenderNodeSelected(
 	// Active selection + every node the user has already selected/expanded stays selected.
 	// Clear Highlight does not remove durableSelectedIds — only hop/line emphasis.
 	// Hop neighbors use `highlighted-hop`; exhausted leaves keep the fetched-leaf markers.
-	return node.id === candidateSelectedId || highlightRootIds.has(node.id) || durableSet.has(node.id) || isFetchedLeafNodeFn(node) || isFetchedExhaustedConnectedNodeFn(node);
+	return node.id === candidateSelectedId || highlightRootIds.has(node.id) || isFetchedLeafNodeFn(node) || isFetchedExhaustedConnectedNodeFn(node);
 }
 
 function markNodeSelected(node, options: { persist?: boolean } = {}) {

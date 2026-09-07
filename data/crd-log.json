@@ -1,6 +1,10 @@
 {
   "firms": [
     {
+      "id": 6413,
+      "name": "LPL FINANCIAL LLC"
+    },
+    {
       "id": 7691,
       "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
     },
@@ -83,10 +87,6 @@
     {
       "id": 2881,
       "name": "NORTHWESTERN MUTUAL INVESTMENT SERVICES, LLC"
-    },
-    {
-      "id": 6413,
-      "name": "LPL FINANCIAL LLC"
     },
     {
       "id": 318366,
@@ -1319,6 +1319,10 @@
   ],
   "individuals": [
     {
+      "id": 8326517,
+      "name": "BRADLEY STEPHEN GAINES"
+    },
+    {
       "id": 1008141,
       "name": "William Louis Gordon"
     },
@@ -1349,10 +1353,6 @@
     {
       "id": 1335937,
       "name": "MARK ELLIOT AXELROD"
-    },
-    {
-      "id": 8326517,
-      "name": "BRADLEY STEPHEN GAINES"
     },
     {
       "id": 7589116,
