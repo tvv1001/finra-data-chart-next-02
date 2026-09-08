@@ -1,6 +1,170 @@
 {
   "firms": [
     {
+      "id": 149777,
+      "name": "MORGAN STANLEY"
+    },
+    {
+      "id": 816,
+      "name": "CREDIT SUISSE SECURITIES (USA) LLC"
+    },
+    {
+      "id": 2528,
+      "name": "LAZARD FRERES & CO. LLC"
+    },
+    {
+      "id": 137873,
+      "name": "RAINE SECURITIES LLC"
+    },
+    {
+      "id": 18272,
+      "name": "ALLSTATE FINANCIAL SERVICES, LLC"
+    },
+    {
+      "id": 112294,
+      "name": "J. W. COLE ADVISORS, INC."
+    },
+    {
+      "id": 431,
+      "name": "INTERSTATE/JOHNSON LANE CORPORATION"
+    },
+    {
+      "id": 151829,
+      "name": "PNC CAPITAL ADVISORS LLC"
+    },
+    {
+      "id": 19616,
+      "name": "WELLS FARGO ADVISORS, LLC"
+    },
+    {
+      "id": 43793,
+      "name": "USI SECURITIES, INC."
+    },
+    {
+      "id": 118787,
+      "name": "PNC FUNDS DISTRIBUTOR, LLC"
+    },
+    {
+      "id": 14007,
+      "name": "GPC SECURITIES, INC."
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 34815,
+      "name": "VOYA FINANCIAL PARTNERS, LLC"
+    },
+    {
+      "id": 32205,
+      "name": "TRANSAMERICA INVESTORS SECURITIES, LLC"
+    },
+    {
+      "id": 13256,
+      "name": "AETNA LIFE INSURANCE AND ANNUITY COMPANY"
+    },
+    {
+      "id": 2882,
+      "name": "VOYA FINANCIAL ADVISORS, INC."
+    },
+    {
+      "id": 372,
+      "name": "GRUNTAL & CO., L.L.C."
+    },
+    {
+      "id": 44351,
+      "name": "AM CAPITAL LLC"
+    },
+    {
+      "id": 266,
+      "name": "INVESTEC ERNST & COMPANY"
+    },
+    {
+      "id": 146251,
+      "name": "SPARTAN CAPITAL SECURITIES, LLC"
+    },
+    {
+      "id": 6627,
+      "name": "EQUITABLE ADVISORS, LLC"
+    },
+    {
+      "id": 79,
+      "name": "J.P. MORGAN SECURITIES LLC"
+    },
+    {
+      "id": 5393,
+      "name": "CHARLES SCHWAB & CO., INC."
+    },
+    {
+      "id": 21675,
+      "name": "DIRECTED SERVICES LLC"
+    },
+    {
+      "id": 106715,
+      "name": "VANGUARD ADVISERS, INC."
+    },
+    {
+      "id": 7452,
+      "name": "VANGUARD MARKETING CORPORATION"
+    },
+    {
+      "id": 105662,
+      "name": "ON INVESTMENT MANAGEMENT CO"
+    },
+    {
+      "id": 2936,
+      "name": "THE O.N. EQUITY SALES COMPANY"
+    },
+    {
+      "id": 1137,
+      "name": "PRINCIPAL SECURITIES, INC."
+    },
+    {
+      "id": 106638,
+      "name": "STRONG CAPITAL MANAGEMENT INC"
+    },
+    {
+      "id": 15658,
+      "name": "STRONG INVESTMENTS, INC."
+    },
+    {
+      "id": 2881,
+      "name": "NORTHWESTERN MUTUAL INVESTMENT SERVICES, LLC"
+    },
+    {
+      "id": 28195,
+      "name": "INTERNATIONAL STRATEGY & INVESTMENT GROUP LLC"
+    },
+    {
+      "id": 42405,
+      "name": "EVERCORE GROUP L.L.C."
+    },
+    {
+      "id": 4095,
+      "name": "METROPOLITAN LIFE INSURANCE COMPANY"
+    },
+    {
+      "id": 173,
+      "name": "CONNECTICUT MUTUAL FINANCIAL SERVICES, INC."
+    },
+    {
+      "id": 10293,
+      "name": "LINCOLN NATIONAL PENSION INSURANCE COMPANY"
+    },
+    {
+      "id": 3978,
+      "name": "LINCOLN FINANCIAL ADVISORS CORPORATION"
+    },
+    {
+      "id": 6403,
+      "name": "INTEGRATED RESOURCES EQUITY CORPORATION"
+    },
+    {
+      "id": 2580,
+      "name": "THE LINCOLN NATIONAL LIFE INSURANCE COMPANY"
+    },
+    {
       "id": 122825,
       "name": "AWH INVESTMENT MANAGEMENT, LLC"
     },
@@ -19,22 +183,6 @@
     {
       "id": 4,
       "name": "A. G. EDWARDS & SONS, INC."
-    },
-    {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
-    },
-    {
-      "id": 106638,
-      "name": "STRONG CAPITAL MANAGEMENT INC"
-    },
-    {
-      "id": 15658,
-      "name": "STRONG INVESTMENTS, INC."
-    },
-    {
-      "id": 2881,
-      "name": "NORTHWESTERN MUTUAL INVESTMENT SERVICES, LLC"
     },
     {
       "id": 7059,
@@ -105,10 +253,6 @@
       "name": "SOUTHTRUST SECURITIES, LLC"
     },
     {
-      "id": 19616,
-      "name": "WELLS FARGO ADVISORS, LLC"
-    },
-    {
       "id": 17117,
       "name": "FTB ADVISORS, INC."
     },
@@ -121,56 +265,12 @@
       "name": "OPPENHEIMER & CO. INC."
     },
     {
-      "id": 105662,
-      "name": "ON INVESTMENT MANAGEMENT CO"
-    },
-    {
-      "id": 4095,
-      "name": "METROPOLITAN LIFE INSURANCE COMPANY"
-    },
-    {
-      "id": 173,
-      "name": "CONNECTICUT MUTUAL FINANCIAL SERVICES, INC."
-    },
-    {
-      "id": 10293,
-      "name": "LINCOLN NATIONAL PENSION INSURANCE COMPANY"
-    },
-    {
-      "id": 3978,
-      "name": "LINCOLN FINANCIAL ADVISORS CORPORATION"
-    },
-    {
-      "id": 6403,
-      "name": "INTEGRATED RESOURCES EQUITY CORPORATION"
-    },
-    {
-      "id": 2580,
-      "name": "THE LINCOLN NATIONAL LIFE INSURANCE COMPANY"
-    },
-    {
-      "id": 2882,
-      "name": "WASHINGTON SQUARE SECURITIES, INC."
-    },
-    {
-      "id": 2936,
-      "name": "THE O.N. EQUITY SALES COMPANY"
-    },
-    {
-      "id": 1137,
-      "name": "PRINCIPAL SECURITIES, INC."
-    },
-    {
       "id": 13051,
       "name": "F.N. WOLF & CO., INC."
     },
     {
       "id": 15480,
       "name": "DMG SECURITIES, INC."
-    },
-    {
-      "id": 149777,
-      "name": "MORGAN STANLEY"
     },
     {
       "id": 7030,
@@ -227,10 +327,6 @@
     {
       "id": 26100,
       "name": "GOLDSMITH, AGIO, HELMS SECURITIES, INC."
-    },
-    {
-      "id": 2528,
-      "name": "LAZARD FRERES & CO. LLC"
     },
     {
       "id": 146092,
@@ -317,14 +413,6 @@
       "name": "IFG ADVISORY, LLC"
     },
     {
-      "id": 5393,
-      "name": "CHARLES SCHWAB & CO., INC."
-    },
-    {
-      "id": 79,
-      "name": "J.P.MORGAN SECURITIES INC."
-    },
-    {
       "id": 283942,
       "name": "BOFA SECURITIES, INC."
     },
@@ -409,18 +497,6 @@
       "name": "QUASAR DISTRIBUTORS, LLC"
     },
     {
-      "id": 21675,
-      "name": "DIRECTED SERVICES LLC"
-    },
-    {
-      "id": 106715,
-      "name": "VANGUARD ADVISERS, INC."
-    },
-    {
-      "id": 7452,
-      "name": "VANGUARD MARKETING CORPORATION"
-    },
-    {
       "id": 13174,
       "name": "BENTLEY-LAWRENCE SECURITIES, INC."
     },
@@ -461,10 +537,6 @@
       "name": "METLIFE SECURITIES INC."
     },
     {
-      "id": 34815,
-      "name": "ING FINANCIAL ADVISERS, LLC"
-    },
-    {
       "id": 42132,
       "name": "CUSO FINANCIAL SERVICES, L.P."
     },
@@ -477,20 +549,12 @@
       "name": "STATE FARM VP MANAGEMENT CORP."
     },
     {
-      "id": 18272,
-      "name": "ALLSTATE FINANCIAL SERVICES, LLC"
-    },
-    {
       "id": 250,
       "name": "EDWARD JONES"
     },
     {
       "id": 107319,
       "name": "TRANSAMERICA RETIREMENT ADVISORS, LLC"
-    },
-    {
-      "id": 32205,
-      "name": "TRANSAMERICA INVESTORS SECURITIES, LLC"
     },
     {
       "id": 5397,
@@ -575,10 +639,6 @@
     {
       "id": 4039,
       "name": "THE EQUITABLE LIFE ASSURANCE SOCIETY OF THE UNITED STATES"
-    },
-    {
-      "id": 6627,
-      "name": "AXA ADVISORS, LLC"
     },
     {
       "id": 29604,
@@ -777,10 +837,6 @@
       "name": "MASON & ASSOCIATES, LLC"
     },
     {
-      "id": 13256,
-      "name": "AETNA LIFE INSURANCE AND ANNUITY COMPANY"
-    },
-    {
       "id": 24928,
       "name": "AETNA CAPITAL MANAGEMENT, INC."
     },
@@ -847,10 +903,6 @@
     {
       "id": 6124,
       "name": "FIRST UNION CAPITAL MARKETS CORP."
-    },
-    {
-      "id": 372,
-      "name": "GRUNTAL & CO., L.L.C."
     },
     {
       "id": 3248,
@@ -1027,10 +1079,6 @@
     {
       "id": 17708,
       "name": "HOULIHAN LOKEY CAPITAL, INC."
-    },
-    {
-      "id": 816,
-      "name": "CS FIRST BOSTON CORPORATION"
     },
     {
       "id": 22068,
@@ -1411,6 +1459,66 @@
   ],
   "individuals": [
     {
+      "id": 6188535,
+      "name": "MICHAEL BAILEY LITTLE"
+    },
+    {
+      "id": 5817064,
+      "name": "GARY ANDREW LITTLE"
+    },
+    {
+      "id": 5777268,
+      "name": "DENVER LAMAR LITTLE"
+    },
+    {
+      "id": 2764923,
+      "name": "Pat Robert Little"
+    },
+    {
+      "id": 5121484,
+      "name": "DWAIN NORVETTE LITTLE"
+    },
+    {
+      "id": 4245018,
+      "name": "Jeffery Ray Little"
+    },
+    {
+      "id": 2749876,
+      "name": "ROBERT GERARD LITTLE"
+    },
+    {
+      "id": 1151952,
+      "name": "STEPHEN ROWAN LITTLE"
+    },
+    {
+      "id": 2212301,
+      "name": "Peter Hopper"
+    },
+    {
+      "id": 3078397,
+      "name": "SHANE ANTHONY HOPPER"
+    },
+    {
+      "id": 2738599,
+      "name": "LEE EDWARD HOPPER"
+    },
+    {
+      "id": 6530826,
+      "name": "MARK MICHAEL HOPPER"
+    },
+    {
+      "id": 3065841,
+      "name": "ELLEN LOUISE HOPPER"
+    },
+    {
+      "id": 2754561,
+      "name": "JAMES PALMER HOPPER"
+    },
+    {
+      "id": 250020,
+      "name": "JOHN THOMAS HOPPER"
+    },
+    {
       "id": 2578267,
       "name": "AUSTIN WIGGINS HOPPER"
     },
@@ -1421,10 +1529,6 @@
     {
       "id": 4051994,
       "name": "SANDRA JOAN HOPPER"
-    },
-    {
-      "id": 3065841,
-      "name": "ELLEN LOUISE HOPPER"
     },
     {
       "id": 3005710,
@@ -1441,10 +1545,6 @@
     {
       "id": 2552575,
       "name": "JOHN MARION HOPPER"
-    },
-    {
-      "id": 250020,
-      "name": "JOHN THOMAS HOPPER"
     },
     {
       "id": 2200873,
@@ -1557,10 +1657,6 @@
     {
       "id": 4539602,
       "name": "GRAHAM CHRISTOPHER HOPPER"
-    },
-    {
-      "id": 3078397,
-      "name": "SHANE ANTHONY HOPPER"
     },
     {
       "id": 1211650,
