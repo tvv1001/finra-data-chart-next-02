@@ -80,3 +80,4 @@ patch_**
 # recreates it during `next build` before typecheck, so it is safe to ignore.
 next-env.d.ts
 .local/scripts/generate_search**.js
+rust-force-layout/target/
