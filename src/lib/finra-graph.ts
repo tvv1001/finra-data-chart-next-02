@@ -10602,11 +10602,11 @@ function getLinkRenderPriority(link, highlightState) {
 	const linkKey = getLinkKey(link);
 	// Inactive / disabled endpoints → bottom layer (still under nodes).
 	if (hasInactiveEndpoint(link)) return 0;
-	// Previous / gray history lines may render above nodes so dashed edges stay visible.
+	// Gray history lines remain below active selections, but still sit above the node base layer.
 	if (isPreviousEmploymentLink(link) || isForcedGrayConnectionLink(link)) return 4;
-	// Current / controls / highlighted / trace lines stay mid — always beneath nodes + labels.
-	if (isLinkOnAnyTrace(linkKey)) return 2;
-	if (highlightState?.linkKeys?.has(linkKey)) return 2;
+	// Selected / highlighted / trace links must rise above gray links and the node layer.
+	if (isLinkOnAnyTrace(linkKey)) return 5;
+	if (highlightState?.linkKeys?.has(linkKey)) return 5;
 	return 1;
 }
 
@@ -10763,20 +10763,19 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 		// Non-fatal — DOM move failures should not break rendering
 	}
 
-	// Stacking: all links under nodes. Disabled/previous lowest, current mid.
+	// Stacking: gray links stay under nodes; active/selected links rise above both the node layer and gray links.
 	try {
 		if (nodeGroup && nodeGroup.node()) {
 			const nodesEl = nodeGroup.node();
 			const parent = nodesEl.parentNode;
 			if (parent) {
-				// lowest: disabled endpoints (bottom) + previous history lines (top)
-				// next: current connections (mid)
-				const underNodes = [linkBottomGroup?.node(), arrowBottomGroup?.node(), linkTopGroup?.node(), arrowTopGroup?.node(), linkMidGroup?.node(), arrowMidGroup?.node()].filter(
-					Boolean,
-				);
-
-				for (const el of underNodes) {
+				const beforeNodes = [linkBottomGroup?.node(), arrowBottomGroup?.node(), linkMidGroup?.node(), arrowMidGroup?.node()].filter(Boolean);
+				for (const el of beforeNodes) {
 					if (el && el.parentNode === parent) parent.insertBefore(el, nodesEl);
+				}
+				const afterNodes = [linkTopGroup?.node(), arrowTopGroup?.node()].filter(Boolean);
+				for (const el of afterNodes) {
+					if (el && el.parentNode === parent) parent.appendChild(el);
 				}
 			}
 		}
