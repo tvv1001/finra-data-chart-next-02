@@ -357,9 +357,9 @@ let layoutLinksByNodeId = new Map<string, any[]>(); // nodeId → incident layou
 let layoutLinkIndexLinkCount = 0; // layoutLinks.length last indexed (detects stale indexes)
 let selectionPredicateCacheGen = 0; // bumped when layout link topology changes
 /** Cap hop/line BFS roots. Keep this high so multi-select keeps earlier highlighted lines lit. */
-export const MAX_HOP_HIGHLIGHT_ROOTS = 64;
+export const MAX_HOP_HIGHLIGHT_ROOTS = 128;
 /** Cap selection-log-bold entries that also act as hop highlight roots. */
-export const MAX_LOG_BOLD_HIGHLIGHT_ROOTS = 16;
+export const MAX_LOG_BOLD_HIGHLIGHT_ROOTS = 128;
 let spreadAnimId = null; // rAF handle for neighbor spread animation
 let spreadReleaseTimer = null; // timeout released when reheat freeze animation expires
 let activeSpreadFrozenNodes = []; // nodes frozen during click spread/reveal reheat
@@ -2045,26 +2045,6 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 	}
 	if (liveNode) return liveNode;
 
-	const evictDeadNode = (nodeId) => {
-		const id = String(nodeId).trim();
-		if (!graphData?.nodes) return;
-		graphData.nodes = graphData.nodes.filter((n) => String(n.id).trim() !== id);
-		graphData.links = (graphData.links || []).filter((l) => {
-			const s = String(l.source?.id ?? l.source).trim();
-			const t = String(l.target?.id ?? l.target).trim();
-			return s !== id && t !== id;
-		});
-		if (layoutNodes) layoutNodes = layoutNodes.filter((n) => String(n.id).trim() !== id);
-		if (selectedId === id) {
-			selectedId = null;
-			sidebarSelectedNode = null;
-			sidebarViewMode = 'none';
-			showSidebarHint();
-			emitSelectedNodeRoute(null, { replace: true });
-		}
-		renderGraph(graphData);
-	};
-
 	// Prefer firm/person detail hydration first. Deep links like /firm/107342 start from an empty
 	// custom profile; expand/nodes-by-ids load the shared Redis graph and can time out or miss
 	// nodes that still have detail records in Redis. Detail keys are cheap single-key GETs.
@@ -2079,9 +2059,6 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 			}
 		} catch (error) {
 			console.warn('Failed to hydrate route-selected node directly from detail APIs:', error);
-			if (error?.message?.includes('not found')) {
-				evictDeadNode(normalizedNodeId);
-			}
 		}
 	}
 
@@ -4207,7 +4184,6 @@ function toggleSelectToKeepMode(button?: HTMLButtonElement) {
 			button.textContent = 'Apply';
 		}
 
-
 		if (!selectToKeepDragBehavior) {
 			selectToKeepDragBehavior = d3
 				.drag<Element, unknown>()
@@ -4251,7 +4227,6 @@ function toggleSelectToKeepMode(button?: HTMLButtonElement) {
 			button.textContent = 'Select to keep';
 		}
 
-
 		// Remove circle
 		selectToKeepCircle = null;
 		if (rootGroup) rootGroup.selectAll('.fg-select-to-keep-ring').remove();
@@ -4273,7 +4248,10 @@ function applySelectToKeep(button?: HTMLButtonElement) {
 	const keepIds = new Set<string>();
 	const { x: cx, y: cy, r } = selectToKeepCircle;
 	const r2 = r * r;
-	const candidates = Array.isArray(layoutNodes) && layoutNodes.length ? layoutNodes : (Array.isArray(graphData?.nodes) ? graphData.nodes : []);
+	const candidates =
+		Array.isArray(layoutNodes) && layoutNodes.length ? layoutNodes
+		: Array.isArray(graphData?.nodes) ? graphData.nodes
+		: [];
 
 	for (const node of candidates) {
 		if (!node || typeof node.id === 'undefined') continue;
@@ -6171,8 +6149,7 @@ export function init(
 	pendingRouteNodeId = initialRouteNodeId || pendingRouteNodeId;
 	pendingSelectedNodeIds =
 		Array.isArray(options?.initialSelectedNodeIds) ? options.initialSelectedNodeIds.map((id) => String(id || '').trim()).filter(Boolean) : pendingSelectedNodeIds;
-	pendingCanvasNodeIds =
-		Array.isArray(options?.initialCanvasNodeIds) ? options.initialCanvasNodeIds.map((id) => String(id || '').trim()).filter(Boolean) : pendingCanvasNodeIds;
+	pendingCanvasNodeIds = Array.isArray(options?.initialCanvasNodeIds) ? options.initialCanvasNodeIds.map((id) => String(id || '').trim()).filter(Boolean) : pendingCanvasNodeIds;
 	isolateToSharedSelection = Boolean(options?.isolateToSelection) && (pendingSelectedNodeIds.length > 0 || pendingCanvasNodeIds.length > 0);
 	if (initialRouteNodeId) {
 		// In isolate mode, don't auto-expand the routed node's neighbors — only the explicitly
@@ -6556,11 +6533,9 @@ export function init(
 	if (sidebarInner) {
 		const findFilterScope = (input: HTMLElement): HTMLElement | null => {
 			const row = input.closest('.fg-connections-filter-row') as HTMLElement | null;
-			return (
-				row?.nextElementSibling?.classList.contains('fg-connections-filter-scope') ?
+			return row?.nextElementSibling?.classList.contains('fg-connections-filter-scope') ?
 					(row.nextElementSibling as HTMLElement)
-				:	(input.closest('.fg-connections-filter-scope') as HTMLElement | null)
-			);
+				:	(input.closest('.fg-connections-filter-scope') as HTMLElement | null);
 		};
 		// Updates just the tag-chips/input row and re-applies the filter to the connections
 		// list in place, instead of calling the full renderSidebar() (which does
@@ -6629,7 +6604,10 @@ export function init(
 				const pasted = pasteEv.clipboardData?.getData('text') || '';
 				if (pasted.includes(',')) {
 					pasteEv.preventDefault();
-					const newTags = pasted.split(',').map(t => t.trim()).filter(Boolean);
+					const newTags = pasted
+						.split(',')
+						.map((t) => t.trim())
+						.filter(Boolean);
 					if (newTags.length) {
 						sidebarConnectionsFilterTags = setFilterTags([...sidebarConnectionsFilterTags, ...newTags]);
 						sidebarConnectionsFilterQuery = '';
@@ -6649,7 +6627,10 @@ export function init(
 					keyEv.preventDefault();
 					const trimmed = input.value.trim();
 					if (!trimmed) return;
-					const newTags = trimmed.split(',').map(t => t.trim()).filter(Boolean);
+					const newTags = trimmed
+						.split(',')
+						.map((t) => t.trim())
+						.filter(Boolean);
 					if (newTags.length) {
 						sidebarConnectionsFilterTags = setFilterTags([...sidebarConnectionsFilterTags, ...newTags]);
 						sidebarConnectionsFilterQuery = '';
@@ -6672,8 +6653,7 @@ export function init(
 				const anyInput = row?.querySelector('.fg-connections-filter') as HTMLInputElement | null;
 				if (anyInput) refreshFilterRowInPlace(anyInput, { refocus: false });
 				else {
-					const scope =
-						row?.nextElementSibling?.classList.contains('fg-connections-filter-scope') ? (row.nextElementSibling as HTMLElement) : null;
+					const scope = row?.nextElementSibling?.classList.contains('fg-connections-filter-scope') ? (row.nextElementSibling as HTMLElement) : null;
 					if (scope) applyConnectionsFilterToScope(scope, sidebarConnectionsFilterTags, sidebarConnectionsFilterQuery);
 				}
 			});
@@ -6688,8 +6668,7 @@ export function init(
 				const anyInput = row?.querySelector('.fg-connections-filter') as HTMLInputElement | null;
 				if (anyInput) refreshFilterRowInPlace(anyInput, { refocus: false });
 				else {
-					const scope =
-						row?.nextElementSibling?.classList.contains('fg-connections-filter-scope') ? (row.nextElementSibling as HTMLElement) : null;
+					const scope = row?.nextElementSibling?.classList.contains('fg-connections-filter-scope') ? (row.nextElementSibling as HTMLElement) : null;
 					if (scope) applyConnectionsFilterToScope(scope, sidebarConnectionsFilterTags, sidebarConnectionsFilterQuery);
 				}
 			});
@@ -7970,8 +7949,7 @@ function mergeGraphNodePayload(targetNode, incomingNode) {
 	const incomingLabel = String(incomingNode.label || '').trim();
 	const currentLabelIsPlaceholder = isGenericOrPlaceholderLabel(currentLabel, targetNode.group);
 	const incomingLabelIsPlaceholder = isGenericOrPlaceholderLabel(incomingLabel, targetNode.group);
-	const shouldAdoptIncomingLabel =
-		Boolean(incomingLabel) && !incomingLabelIsPlaceholder && (currentLabelIsPlaceholder || incomingLabel.length > currentLabel.length);
+	const shouldAdoptIncomingLabel = Boolean(incomingLabel) && !incomingLabelIsPlaceholder && (currentLabelIsPlaceholder || incomingLabel.length > currentLabel.length);
 	if (shouldAdoptIncomingLabel) {
 		targetNode.label = targetNode.group === 'individual' ? normalizePersonLabel(incomingLabel) || incomingLabel : incomingLabel;
 		if (targetNode.group === 'firm') {
@@ -8237,7 +8215,9 @@ async function fetchIndividualBatch(crd, queryLabel = null, options: { includePr
 		if (employment?._isCurrent !== false) return true;
 		if (includePreviousEmployerIds.length > 0) {
 			const rawFirmId = String(employment?.firmId || employment?.firm_id || employment?.firmIdNumber || employment?.organizationId || employment?.orgId || '').trim();
-			const secFirmId = String(employment?.bdSECNumber || employment?.bdSecNumber || employment?.iaSECNumber || employment?.iaSecNumber || employment?.firm_bd_sec_number || '').trim();
+			const secFirmId = String(
+				employment?.bdSECNumber || employment?.bdSecNumber || employment?.iaSECNumber || employment?.iaSecNumber || employment?.firm_bd_sec_number || '',
+			).trim();
 			return includePreviousEmployerIds.includes(rawFirmId) || includePreviousEmployerIds.includes(secFirmId);
 		}
 		return false;
@@ -8539,13 +8519,13 @@ async function loadGraph() {
 				await applyPendingRouteNodeSelection();
 			}
 			if (pendingSelectedNodeIds.length || pendingCanvasNodeIds.length) {
-					const toLog = pendingSelectedNodeIds.slice();
-					const toCanvas = pendingCanvasNodeIds.slice();
-					pendingSelectedNodeIds = [];
-					pendingCanvasNodeIds = [];
-					await hydratePendingNodeIds(toLog, true);
-					await hydratePendingNodeIds(toCanvas, false);
-				}
+				const toLog = pendingSelectedNodeIds.slice();
+				const toCanvas = pendingCanvasNodeIds.slice();
+				pendingSelectedNodeIds = [];
+				pendingCanvasNodeIds = [];
+				await hydratePendingNodeIds(toLog, true);
+				await hydratePendingNodeIds(toCanvas, false);
+			}
 			pruneGraphDataToKeepIds(keepIds);
 			return;
 		}
@@ -8558,7 +8538,7 @@ async function loadGraph() {
 		const [profileData, session] = await Promise.all([loadProfile(profileName), loadSessionAsync()]);
 
 		currentProfileEnabled = isProfileEnabled(profileData);
-		
+
 		let clearedSession = Boolean(session?.cleared);
 		isSessionCleared = clearedSession;
 		const hasSavedSessionData = Boolean(
@@ -8578,11 +8558,11 @@ async function loadGraph() {
 				document.getElementById('fg-session-prompt')?.classList.remove('hidden');
 				document.getElementById('fg-empty')?.classList.remove('hidden');
 				document.getElementById('finra-app')?.setAttribute('data-graph-empty', 'true');
-				
+
 				await new Promise((resolve) => {
 					const btnResume = document.getElementById('fg-btn-resume-session');
 					const btnReset = document.getElementById('fg-btn-reset-session');
-					
+
 					const resumeHandler = () => {
 						btnResume?.removeEventListener('click', resumeHandler);
 						btnReset?.removeEventListener('click', resetHandler);
@@ -8590,7 +8570,7 @@ async function loadGraph() {
 						document.getElementById('fg-session-loader')?.classList.remove('hidden');
 						resolve(true);
 					};
-					
+
 					const resetHandler = () => {
 						btnResume?.removeEventListener('click', resumeHandler);
 						btnReset?.removeEventListener('click', resetHandler);
@@ -8599,10 +8579,12 @@ async function loadGraph() {
 						isSessionCleared = true;
 						session.cleared = true;
 						clearedSession = true;
-						try { localStorage.removeItem('finra_session'); } catch {}
+						try {
+							localStorage.removeItem('finra_session');
+						} catch {}
 						resolve(false);
 					};
-					
+
 					btnResume?.addEventListener('click', resumeHandler);
 					btnReset?.addEventListener('click', resetHandler);
 				});
@@ -8614,8 +8596,6 @@ async function loadGraph() {
 				document.getElementById('finra-app')?.setAttribute('data-graph-empty', 'true');
 			}
 		}
-
-
 
 		if (!currentProfileEnabled) {
 			if (session && !clearedSession) {
@@ -8749,12 +8729,12 @@ async function loadGraph() {
 			void applyPendingRouteNodeSelection();
 		}
 		if (pendingSelectedNodeIds.length || pendingCanvasNodeIds.length) {
-				const toLog = pendingSelectedNodeIds.slice();
-				const toCanvas = pendingCanvasNodeIds.slice();
-				pendingSelectedNodeIds = [];
-				pendingCanvasNodeIds = [];
-				void hydratePendingNodeIds(toLog, true).then(() => hydratePendingNodeIds(toCanvas, false));
-			}
+			const toLog = pendingSelectedNodeIds.slice();
+			const toCanvas = pendingCanvasNodeIds.slice();
+			pendingSelectedNodeIds = [];
+			pendingCanvasNodeIds = [];
+			void hydratePendingNodeIds(toLog, true).then(() => hydratePendingNodeIds(toCanvas, false));
+		}
 	}
 }
 
@@ -8806,17 +8786,20 @@ async function hydratePendingNodeIds(ids: string[], addToLog: boolean) {
 	if (idsToFetch.length) {
 		const fetchedNodes: any[] = [];
 		const fetchedLinks: any[] = [];
-		const onScreenFirmIds = Array.from(new Set([
-			...normalizedIds.filter((id) => id.startsWith('firm:')).map((id) => id.split(':')[1]),
-			...(layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId))
-		]));
+		const onScreenFirmIds = Array.from(
+			new Set([
+				...normalizedIds.filter((id) => id.startsWith('firm:')).map((id) => id.split(':')[1]),
+				...(layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId)),
+			]),
+		);
 		let cursor = 0;
 
 		async function fetchWorker() {
 			while (cursor < idsToFetch.length) {
 				const entry = idsToFetch[cursor++];
 				try {
-					const batch = entry.prefix === 'person' ? await fetchIndividualBatch(entry.rawId, null, { includePreviousEmployerIds: onScreenFirmIds }) : await fetchFirmBatch(entry.rawId);
+					const batch =
+						entry.prefix === 'person' ? await fetchIndividualBatch(entry.rawId, null, { includePreviousEmployerIds: onScreenFirmIds }) : await fetchFirmBatch(entry.rawId);
 					if (batch?.nodes?.length) fetchedNodes.push(...batch.nodes);
 					if (batch?.links?.length) fetchedLinks.push(...batch.links);
 				} catch (error) {
@@ -8855,17 +8838,17 @@ async function hydratePendingNodeIds(ids: string[], addToLog: boolean) {
 	}
 
 	if (!resolvedEntries.length) return;
-		if (addToLog) {
-			let nextLog = selectedNodesLog;
-			for (const entry of resolvedEntries) {
-				nextLog = upsertSelectionLogEntry(nextLog, entry);
-				clearedSelectionLogLabelNodeIds.delete(String(entry.id || '').trim());
-			}
-			selectedNodesLog = nextLog;
-			saveSelectionLog();
-			updateSelectionLogUI();
-			syncSelectionLogAuxiliaryRenderers();
+	if (addToLog) {
+		let nextLog = selectedNodesLog;
+		for (const entry of resolvedEntries) {
+			nextLog = upsertSelectionLogEntry(nextLog, entry);
+			clearedSelectionLogLabelNodeIds.delete(String(entry.id || '').trim());
 		}
+		selectedNodesLog = nextLog;
+		saveSelectionLog();
+		updateSelectionLogUI();
+		syncSelectionLogAuxiliaryRenderers();
+	}
 }
 
 // Build a subgraph from `seedCount` random nodes plus all their N-hop neighbors.
@@ -10172,7 +10155,9 @@ function isPreviousEmploymentLink(link) {
 	if (!link) return false;
 	if (isCurrentRegistration(link)) return false;
 	if (isForcedGrayConnectionLink(link)) return true;
-	const rel = String(link.relationship || '').trim().toLowerCase();
+	const rel = String(link.relationship || '')
+		.trim()
+		.toLowerCase();
 	if (!rel) {
 		if (link.isCurrent === false) return true;
 		if (link.endDate && String(link.endDate).trim() !== '') return true;
@@ -10184,7 +10169,9 @@ function isPreviousEmploymentLink(link) {
 	if (rel === 'employed_by' || rel === 'registered_by') {
 		const sourceNode = resolveLinkEndpointNode(link.source);
 		if (sourceNode?.group === 'individual') {
-			const targetId = String(typeof link.target === 'object' ? link.target?.id : link.target || '').replace(/^firm:/, '').trim();
+			const targetId = String(typeof link.target === 'object' ? link.target?.id : link.target || '')
+				.replace(/^firm:/, '')
+				.trim();
 			if (!targetId) return false;
 			const previous = [...(sourceNode.previousEmployments || []), ...(sourceNode.previousIAEmployments || [])];
 			const matchesPrevious = previous.some((employment) => String(employment?.firmId || employment?.firm_id || '').trim() === targetId);
@@ -10465,7 +10452,9 @@ export function renderNodeContents(selection) {
 
 function isCurrentRegistration(d) {
 	if (!d) return false;
-	const rel = String(d.relationship || '').trim().toLowerCase();
+	const rel = String(d.relationship || '')
+		.trim()
+		.toLowerCase();
 	if (rel && rel !== 'employed_by' && rel !== 'registered_by') return false;
 	if (d.isCurrent !== undefined) return Boolean(d.isCurrent);
 	if (d.endDate !== undefined && d.endDate !== null && String(d.endDate).trim() !== '') return false;
@@ -10473,7 +10462,9 @@ function isCurrentRegistration(d) {
 	const src = typeof d.source === 'object' ? d.source : layoutNodes?.find((n) => n.id === d.source);
 	if (!src || src.group !== 'individual') return false;
 
-	const tgtId = String(typeof d.target === 'object' ? d.target.id : d.target).replace(/^firm:/, '').trim();
+	const tgtId = String(typeof d.target === 'object' ? d.target.id : d.target)
+		.replace(/^firm:/, '')
+		.trim();
 	if (!tgtId) return false;
 
 	const currents = [...(src.currentEmployments || []), ...(src.currentIAEmployments || [])];
@@ -10780,12 +10771,10 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 			if (parent) {
 				// lowest: disabled endpoints (bottom) + previous history lines (top)
 				// next: current connections (mid)
-				const underNodes = [
-					linkBottomGroup?.node(), arrowBottomGroup?.node(),
-					linkTopGroup?.node(), arrowTopGroup?.node(),
-					linkMidGroup?.node(), arrowMidGroup?.node()
-				].filter(Boolean);
-				
+				const underNodes = [linkBottomGroup?.node(), arrowBottomGroup?.node(), linkTopGroup?.node(), arrowTopGroup?.node(), linkMidGroup?.node(), arrowMidGroup?.node()].filter(
+					Boolean,
+				);
+
 				for (const el of underNodes) {
 					if (el && el.parentNode === parent) parent.insertBefore(el, nodesEl);
 				}
@@ -10911,7 +10900,10 @@ function reapplySelectionState() {
 	const selectionLogLabelNodeIds = new Set(getSelectionLogLabelNodeIds());
 
 	nodeSel
-		.classed('fg-node--selection-log-label', (d) => selectionLogLabelNodeIds.has(d.id) || (forceFirmsBold && (d.group === 'firm' || d.type === 'firm' || (d.id && String(d.id).startsWith('firm:')))))
+		.classed(
+			'fg-node--selection-log-label',
+			(d) => selectionLogLabelNodeIds.has(d.id) || (forceFirmsBold && (d.group === 'firm' || d.type === 'firm' || (d.id && String(d.id).startsWith('firm:')))),
+		)
 		.classed('fg-node--label-cleared', (d) => clearedSelectionLogLabelNodeIds.has(d.id))
 		.classed('fg-node--find-match', (d) => activeFindMatchIds.has(d.id))
 		.classed('fg-node--find-match-active', (d) => activeFindMatchIndex >= 0 && d.id === activeFindMatchOrder[activeFindMatchIndex])
@@ -11006,8 +10998,7 @@ function updateNodeVisuals(
 	const activeParentConnectedIds = options.activeParentConnectedIds ?? new Set<string>();
 	const selectionLogLabelNodeIds = options.selectionLogLabelNodeIds ?? new Set(getSelectionLogLabelNodeIds());
 
-	const clickedNodeIds =
-		Array.isArray(selectedNodesLog) ? new Set(selectedNodesLog.map((entry) => String(entry?.id || '')).filter(Boolean)) : new Set<string>();
+	const clickedNodeIds = Array.isArray(selectedNodesLog) ? new Set(selectedNodesLog.map((entry) => String(entry?.id || '')).filter(Boolean)) : new Set<string>();
 	const loggedNodeIds = isSelectionLogBold ? clickedNodeIds : null;
 
 	selection.each(function (d) {
@@ -11021,7 +11012,7 @@ function updateNodeVisuals(
 		const isHighlightRootNode = highlightState.rootIds.has(d.id);
 		const isHighlightHopNode = highlightState.hopNodeIds.has(d.id);
 		const isActiveParentConnectedNode = activeParentConnectedIds.has(String(d.id));
-		
+
 		const hasBeenClicked = clickedNodeIds.has(String(d.id));
 		const isLogged = Boolean(loggedNodeIds?.has(String(d.id)));
 		const isFirmBold = forceFirmsBold && (d.group === 'firm' || d.type === 'firm' || (d.id && String(d.id).startsWith('firm:')));
@@ -11155,8 +11146,8 @@ function scheduleSidecarFirmLabelHydration(nodes) {
 				)
 				.filter(Boolean),
 		),
-	// Every append passes the full merged node list, so without this filter a multi-node
-	// import re-issued the same firm-label search once per appended node.
+		// Every append passes the full merged node list, so without this filter a multi-node
+		// import re-issued the same firm-label search once per appended node.
 	).filter((id) => !sidecarFirmLabelHydrationAttempted.has(id));
 	if (!ids.length) return;
 	ids.forEach((id) => sidecarFirmLabelHydrationAttempted.add(id));
@@ -11169,7 +11160,10 @@ function scheduleSidecarFirmLabelHydration(nodes) {
 				return;
 			}
 			const payload = await res.json();
-			const docs = Array.isArray(payload?.results) ? payload.results : Array.isArray(payload?.response?.docs) ? payload.response.docs : [];
+			const docs =
+				Array.isArray(payload?.results) ? payload.results
+				: Array.isArray(payload?.response?.docs) ? payload.response.docs
+				: [];
 			const names = new Map();
 			for (const doc of docs) {
 				const id = String(doc?.firm_id || doc?.firmId || doc?.firm_source_id || '').trim();
@@ -11254,10 +11248,7 @@ function appendFetchedImpl(newNodes, newLinks) {
 	// Rebind any pre-existing links to the merged node objects so the visualization
 	// keeps them attached after a fetch updates the node list.
 	resolveLinkEndpoints(layoutLinks, layoutNodes);
-	const potentialLinks = [
-		...rewrittenLinks,
-		...(graphData && Array.isArray(graphData.links) ? graphData.links : [])
-	];
+	const potentialLinks = [...rewrittenLinks, ...(graphData && Array.isArray(graphData.links) ? graphData.links : [])];
 	const resolvedPotentialLinks = resolveLinkEndpoints(potentialLinks, layoutNodes);
 	const currentLayoutNodeIds = new Set(layoutNodes.map((n) => n.id));
 	ensureLayoutLinkIndexes();
@@ -12888,8 +12879,7 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 			.replace(/\s+/g, '');
 		const isNonLiveOwner = !ownerBcScope || ownerBcScope === 'notinscope';
 		const parentFirmActive = !/inactive|terminated|revoked|suspended/i.test(
-			String(detail?.basicInformation?.bcScope || detail?.bcScope || firmNode?.bcScope || firmNode?.firmStatus || 'ACTIVE')
-				.replace(/\s+/g, ''),
+			String(detail?.basicInformation?.bcScope || detail?.bcScope || firmNode?.bcScope || firmNode?.firmStatus || 'ACTIVE').replace(/\s+/g, ''),
 		);
 		if (!layoutNodes.some((node) => node.id === personNodeId) && !newNodes.some((node) => node.id === personNodeId)) {
 			newNodes.push({
@@ -12899,7 +12889,11 @@ function syncFirmConnectionsFromDetail(firmNode, detail) {
 				crd: personId,
 				// Form BD NotInScope owners have no live individual CRD — inherit parent firm active/inactive
 				// so they style like coworkers instead of all rendering as gray inactive stubs.
-				bcScope: isNonLiveOwner ? (parentFirmActive ? 'Active' : 'Inactive') : owner?.bcScope || null,
+				bcScope:
+					isNonLiveOwner ?
+						parentFirmActive ? 'Active'
+						:	'Inactive'
+					:	owner?.bcScope || null,
 				stub: isNonLiveOwner,
 				orphanParentCrd: isNonLiveOwner ? String(firmNode?.firmId || firmNodeId.replace(/^firm[:_]/, '') || '').trim() || null : null,
 				orphanParentType: isNonLiveOwner ? 'firm' : null,
@@ -12955,9 +12949,7 @@ function scheduleFirmConnectionsLoad(_firmNode: any) {
 
 /** Load rich side-panel detail only when Info is expanded (not when collapsed to chrome). */
 async function hydrateSidebarDetailsForSelectedNode(node = sidebarSelectedNode) {
-	const target =
-		node ||
-		(selectedId ? layoutNodes?.find((entry) => entry.id === selectedId) || graphData?.nodes?.find((entry) => entry.id === selectedId) : null);
+	const target = node || (selectedId ? layoutNodes?.find((entry) => entry.id === selectedId) || graphData?.nodes?.find((entry) => entry.id === selectedId) : null);
 	if (!target) {
 		renderSidebar(null, { reveal: true });
 		return;
@@ -13084,13 +13076,13 @@ async function ensureFirmDetail(firmNode) {
 				if (!payload || typeof payload !== 'object' || payload.found === false) return false;
 				return Boolean(
 					payload.basicInformation ||
-						payload.firmName ||
-						payload.name ||
-						payload.firmStatus ||
-						payload.bcScope ||
-						payload.officeAddress ||
-						(Array.isArray(payload.directOwners) && payload.directOwners.length) ||
-						(Array.isArray(payload.disclosures) && payload.disclosures.length),
+					payload.firmName ||
+					payload.name ||
+					payload.firmStatus ||
+					payload.bcScope ||
+					payload.officeAddress ||
+					(Array.isArray(payload.directOwners) && payload.directOwners.length) ||
+					(Array.isArray(payload.disclosures) && payload.disclosures.length),
 				);
 			};
 
@@ -13289,7 +13281,6 @@ async function ensureFirmDetail(firmNode) {
 			firmNode._detailValidated = true;
 			logDetailLoadDebug(`Firm detail loaded for ID ${firmId}: ${firmNode.disclosures?.length || 0} disclosures, ${firmNode.directOwners?.length || 0} owners`);
 			if (selectedId === firmNode.id && shouldRevealSidebarPanel()) renderSidebar(firmNode, { reveal: true });
-
 		} catch (err) {
 			console.error(`Error fetching firm detail for ${firmId}:`, err);
 		}
@@ -14317,7 +14308,7 @@ function pinNodeAndReleaseOthers(pinnedNode) {
 }
 
 export async function handleNodeOpen(event, d) {
-	if (event && typeof event.stopPropagation === "function") event.stopPropagation();
+	if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
 	pinNodeAndReleaseOthers(d);
 	openNodeWithExpansion(d);
 }
@@ -15690,7 +15681,7 @@ function bindTouchDragClickSuppression(button: HTMLElement | null) {
 		(event) => {
 			if (Date.now() >= suppressClickUntil) return;
 			event.preventDefault();
-			if (event && typeof event.stopPropagation === "function") event.stopPropagation();
+			if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
 		},
 		true,
 	);
@@ -15740,10 +15731,10 @@ function bindSidebarToggleInteraction(button: HTMLButtonElement | null, resolveN
 	button.addEventListener('click', (event) => {
 		if (Date.now() < suppressClickUntil) {
 			event.preventDefault();
-			if (event && typeof event.stopPropagation === "function") event.stopPropagation();
+			if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
 			return;
 		}
-		if (event && typeof event.stopPropagation === "function") event.stopPropagation();
+		if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
 		const nextMode = resolveNextMode();
 		setSidebarViewMode(nextMode, { expandMobile: nextMode !== 'none' });
 	});
@@ -15863,11 +15854,7 @@ function applyConnectionsFilterToScope(scope: HTMLElement, tags: string[], liveT
 		liveText,
 		justCommitted: sidebarConnectionsFilterJustCommitted,
 	});
-	const active =
-		sidebarConnectionsFilterEnabled &&
-		!previewUnfiltered &&
-		!(sidebarConnectionsFilterFocused && String(liveText || '').trim()) &&
-		tags.length > 0;
+	const active = sidebarConnectionsFilterEnabled && !previewUnfiltered && !(sidebarConnectionsFilterFocused && String(liveText || '').trim()) && tags.length > 0;
 	const cards = scope.querySelectorAll<HTMLElement>('[data-fg-filter-text]');
 	cards.forEach((card) => {
 		const text = card.getAttribute('data-fg-filter-text') || '';
@@ -16123,12 +16110,23 @@ function renderNoSelectionSidebar() {
 /** Thin chrome above Info|Log — no rich detail fetch / heavy body HTML. */
 function renderCollapsedSidebarChrome(d: any) {
 	if (!d) return renderNoSelectionSidebar();
-	const group = d.group === 'firm' ? 'firm' : d.group === 'entity' ? 'entity' : 'individual';
+	const group =
+		d.group === 'firm' ? 'firm'
+		: d.group === 'entity' ? 'entity'
+		: 'individual';
 	const title = esc(getPreferredNodeLabel(d) || d.label || d.name || d.id || '');
-	const rawId = String(d.crd || d.firmId || String(d.id || '').split(':').pop() || '').trim();
+	const rawId = String(
+		d.crd ||
+			d.firmId ||
+			String(d.id || '')
+				.split(':')
+				.pop() ||
+			'',
+	).trim();
 	const idLine =
 		rawId ?
-			group === 'firm' ? `CRD#: ${esc(rawId)}`
+			group === 'firm' ?
+				`CRD#: ${esc(rawId)}`
 			:	`CRD#: ${esc(rawId)}`
 		:	'';
 	return `
@@ -16309,8 +16307,28 @@ function renderPersonDetail(d: any) {
 			: '';
 		const city = emp.city || bo?.city || officeAddress?.city || '';
 		const state = emp.state || bo?.state || officeAddress?.state || '';
-		const street1 = emp.street1 || emp.address1 || emp.addressLine1 || emp.line1 || bo?.street1 || officeAddress?.street1 || officeAddress?.address1 || officeAddress?.addressLine1 || officeAddress?.line1 || '';
-		const street2 = emp.street2 || emp.address2 || emp.addressLine2 || emp.line2 || bo?.street2 || officeAddress?.street2 || officeAddress?.address2 || officeAddress?.addressLine2 || officeAddress?.line2 || '';
+		const street1 =
+			emp.street1 ||
+			emp.address1 ||
+			emp.addressLine1 ||
+			emp.line1 ||
+			bo?.street1 ||
+			officeAddress?.street1 ||
+			officeAddress?.address1 ||
+			officeAddress?.addressLine1 ||
+			officeAddress?.line1 ||
+			'';
+		const street2 =
+			emp.street2 ||
+			emp.address2 ||
+			emp.addressLine2 ||
+			emp.line2 ||
+			bo?.street2 ||
+			officeAddress?.street2 ||
+			officeAddress?.address2 ||
+			officeAddress?.addressLine2 ||
+			officeAddress?.line2 ||
+			'';
 		const zip = emp.zipCode || emp.postalCode || emp.zip || bo?.zipCode || bo?.postalCode || officeAddress?.zipCode || officeAddress?.postalCode || officeAddress?.zip || '';
 		const loc = formatLocationText([city, state].filter(Boolean).join(', '));
 		const addr = formatLocationText([rawAddressText, street1, street2, city, state, zip].filter(Boolean).join(', '));
@@ -16370,8 +16388,24 @@ function renderPersonDetail(d: any) {
 			office ?
 				formatLocationText(
 					[
-						emp.street1 || emp.address1 || emp.addressLine1 || emp.line1 || office.street1 || officeObj?.street1 || officeObj?.address1 || officeObj?.addressLine1 || officeObj?.line1,
-						emp.street2 || emp.address2 || emp.addressLine2 || emp.line2 || office.street2 || officeObj?.street2 || officeObj?.address2 || officeObj?.addressLine2 || officeObj?.line2,
+						emp.street1 ||
+							emp.address1 ||
+							emp.addressLine1 ||
+							emp.line1 ||
+							office.street1 ||
+							officeObj?.street1 ||
+							officeObj?.address1 ||
+							officeObj?.addressLine1 ||
+							officeObj?.line1,
+						emp.street2 ||
+							emp.address2 ||
+							emp.addressLine2 ||
+							emp.line2 ||
+							office.street2 ||
+							officeObj?.street2 ||
+							officeObj?.address2 ||
+							officeObj?.addressLine2 ||
+							officeObj?.line2,
 						emp.city || office.city || officeObj?.city,
 						emp.state || office.state || officeObj?.state,
 						emp.zipCode || emp.postalCode || emp.zip || office.zipCode || office.postalCode || officeObj?.zipCode || officeObj?.postalCode || officeObj?.zip,
@@ -16770,20 +16804,33 @@ function renderPersonDetail(d: any) {
 		return true;
 	});
 	const personSummaryLine = crd ? `CRD#: ${esc(String(crd))}` : '';
-	const parentFirmSummaryHref = d.orphanParentType === 'firm' && d.orphanParentCrd ? `https://brokercheck.finra.org/firm/summary/${encodeURIComponent(String(d.orphanParentCrd))}` : null;
-	const parentSecSummaryHref = d.orphanParentType === 'firm' && d.orphanParentCrd ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(String(d.orphanParentCrd))}` : null;
+	const parentFirmSummaryHref =
+		d.orphanParentType === 'firm' && d.orphanParentCrd ? `https://brokercheck.finra.org/firm/summary/${encodeURIComponent(String(d.orphanParentCrd))}` : null;
+	const parentSecSummaryHref =
+		d.orphanParentType === 'firm' && d.orphanParentCrd ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(String(d.orphanParentCrd))}` : null;
 	const showParentFirmOnlyLinks = Boolean(d.orphanParentCrd && d.orphanParentType === 'firm');
 	// Non-live Form BD people have no individual BrokerCheck/IAPD page — point FINRA/SEC
 	// profile buttons at the parent firm with the same labels as a live coworker profile.
-	const primaryExternalLinks = showParentFirmOnlyLinks ? [
-		parentFirmSummaryHref ? `<a class="fg-ext-link bc" href="${esc(parentFirmSummaryHref)}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA profile</a>` : '',
-		parentSecSummaryHref ? `<a class="fg-ext-link sec" href="${esc(parentSecSummaryHref)}" target="_blank" rel="noopener noreferrer">&#x2197; SEC profile</a>` : '',
-	].filter(Boolean).join('') : [
-		showFinra && brokerCheckSummaryUrl ? `<a class="fg-ext-link bc" href="${brokerCheckSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : '',
-		showFinra && brokerCheckReportUrl ? `<a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>` : '',
-		showSec && secSummaryUrl ? `<a class="fg-ext-link sec" href="${secSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo Summary</a>` : '',
-		...parentFirmSummaryLinksFiltered.map((link) => `<a class="fg-ext-link ${link.className}" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer">&#x2197; ${esc(link.label)}</a>`),
-	].filter(Boolean).join('');
+	const primaryExternalLinks =
+		showParentFirmOnlyLinks ?
+			[
+				parentFirmSummaryHref ? `<a class="fg-ext-link bc" href="${esc(parentFirmSummaryHref)}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA profile</a>` : '',
+				parentSecSummaryHref ? `<a class="fg-ext-link sec" href="${esc(parentSecSummaryHref)}" target="_blank" rel="noopener noreferrer">&#x2197; SEC profile</a>` : '',
+			]
+				.filter(Boolean)
+				.join('')
+		:	[
+				showFinra && brokerCheckSummaryUrl ? `<a class="fg-ext-link bc" href="${brokerCheckSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Summary</a>` : '',
+				showFinra && brokerCheckReportUrl ?
+					`<a class="fg-ext-link bc" href="${brokerCheckReportUrl}" target="_blank" rel="noopener noreferrer">&#x2197; FINRA Detailed Report (PDF)</a>`
+				:	'',
+				showSec && secSummaryUrl ? `<a class="fg-ext-link sec" href="${secSummaryUrl}" target="_blank" rel="noopener noreferrer">&#x2197; SEC AdvisorInfo Summary</a>` : '',
+				...parentFirmSummaryLinksFiltered.map(
+					(link) => `<a class="fg-ext-link ${link.className}" href="${esc(link.href)}" target="_blank" rel="noopener noreferrer">&#x2197; ${esc(link.label)}</a>`,
+				),
+			]
+				.filter(Boolean)
+				.join('');
 
 	return `
     <div class="fg-sb-header individual">
@@ -17016,7 +17063,10 @@ function renderPersonDetail(d: any) {
 									}
 								}
 
-								const dateRange = startDate ? `${esc(startDate)} → ${esc(endDate || 'present')}` : endDate ? `Until ${esc(endDate)}` : 'Present';
+								const dateRange =
+									startDate ? `${esc(startDate)} → ${esc(endDate || 'present')}`
+									: endDate ? `Until ${esc(endDate)}`
+									: 'Present';
 								const location =
 									l.location ||
 									employmentMatch?.loc ||
@@ -17369,10 +17419,7 @@ function renderFirmDetail(d: any) {
 			.toLowerCase();
 		const parentIsIndividual = parentType !== 'firm';
 		// No live firm BrokerCheck page — open the parent entity's FINRA detail page instead.
-		const parentFinraUrl =
-			parentCrd ?
-				`https://brokercheck.finra.org/${parentIsIndividual ? 'individual' : 'firm'}/summary/${encodeURIComponent(parentCrd)}`
-			:	null;
+		const parentFinraUrl = parentCrd ? `https://brokercheck.finra.org/${parentIsIndividual ? 'individual' : 'firm'}/summary/${encodeURIComponent(parentCrd)}` : null;
 		const parentSecUrl = parentCrd && !parentIsIndividual ? `https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(parentCrd)}` : null;
 		const formatOrphanAddress = (value: unknown) => {
 			if (!value) return '';
@@ -17380,9 +17427,7 @@ function renderFirmDetail(d: any) {
 			if (typeof value === 'object') {
 				const addr = value as Record<string, any>;
 				return formatLocationText(
-					[addr.street1 || addr.street, addr.street2, addr.city, addr.state, addr.postalCode || addr.zipCode || addr.zip, addr.country]
-						.filter(Boolean)
-						.join(', '),
+					[addr.street1 || addr.street, addr.street2, addr.city, addr.state, addr.postalCode || addr.zipCode || addr.zip, addr.country].filter(Boolean).join(', '),
 				);
 			}
 			return '';
@@ -18037,8 +18082,16 @@ function deduplicateLayoutLinks(linksArray) {
 			linkMap.set(key, l);
 		} else {
 			const existing = linkMap.get(key);
-			const p1 = isControlRelationship(l) ? 3 : (usesCurrentEmploymentStyling(l) ? 2 : (isPreviousEmploymentLink(l) ? 1 : 0));
-			const p2 = isControlRelationship(existing) ? 3 : (usesCurrentEmploymentStyling(existing) ? 2 : (isPreviousEmploymentLink(existing) ? 1 : 0));
+			const p1 =
+				isControlRelationship(l) ? 3
+				: usesCurrentEmploymentStyling(l) ? 2
+				: isPreviousEmploymentLink(l) ? 1
+				: 0;
+			const p2 =
+				isControlRelationship(existing) ? 3
+				: usesCurrentEmploymentStyling(existing) ? 2
+				: isPreviousEmploymentLink(existing) ? 1
+				: 0;
 			if (p1 > p2) {
 				linkMap.set(key, l);
 			}
