@@ -1,6 +1,38 @@
 {
   "firms": [
     {
+      "id": 18718,
+      "name": "J.P. MORGAN SECURITIES INC."
+    },
+    {
+      "id": 79,
+      "name": "J.P. MORGAN SECURITIES LLC"
+    },
+    {
+      "id": 29106,
+      "name": "E*TRADE SECURITIES LLC"
+    },
+    {
+      "id": 8209,
+      "name": "MORGAN STANLEY & CO. LLC"
+    },
+    {
+      "id": 30344,
+      "name": "MORGAN STANLEY DISTRIBUTION, INC."
+    },
+    {
+      "id": 149777,
+      "name": "MORGAN STANLEY"
+    },
+    {
+      "id": 36142,
+      "name": "PRIME DEALER SERVICES CORP."
+    },
+    {
+      "id": 37731,
+      "name": "EATON VANCE DISTRIBUTORS, INC."
+    },
+    {
       "id": 21033,
       "name": "CUE ADVISORY SERVICES, INC."
     },
@@ -11,14 +43,6 @@
     {
       "id": 7556,
       "name": "MORGAN STANLEY DW INC."
-    },
-    {
-      "id": 8209,
-      "name": "MORGAN STANLEY & CO. INCORPORATED"
-    },
-    {
-      "id": 149777,
-      "name": "MORGAN STANLEY SMITH BARNEY"
     },
     {
       "id": 1027,
@@ -54,10 +78,6 @@
     },
     {
       "id": 15733,
-      "name": "J.P. MORGAN SECURITIES INC."
-    },
-    {
-      "id": 18718,
       "name": "J.P. MORGAN SECURITIES INC."
     },
     {
@@ -215,10 +235,6 @@
     {
       "id": 6627,
       "name": "EQUITABLE ADVISORS, LLC"
-    },
-    {
-      "id": 79,
-      "name": "J.P. MORGAN SECURITIES LLC"
     },
     {
       "id": 5393,
@@ -1502,6 +1518,14 @@
     }
   ],
   "individuals": [
+    {
+      "id": 5475007,
+      "name": "JOHN WILLIAM CROWE"
+    },
+    {
+      "id": 6009808,
+      "name": "CHAD EDWARD TURNER"
+    },
     {
       "id": 2046113,
       "name": "BRUCE CLARK HOPPER"

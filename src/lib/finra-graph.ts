@@ -15203,8 +15203,13 @@ function updateShortDetail(d) {
 }
 
 function clearHighlights() {
-	// Clear line/hop emphasis only. Keep selectedId + persistentSelectedIds so every
-	// node the user has already selected/expanded retains selected chrome.
+	// Clear line/hop emphasis only. The durable node selection survives this action.
+	// Keep selectedId + persistentSelectedIds intact so previously selected nodes keep
+	// their selected chrome when the highlight overlay resets.
+	if (selectedId) {
+		rememberPersistentSelection(selectedId);
+		persistentSelectedIds.add(String(selectedId));
+	}
 	disableAllTraceModes();
 	if (!nodeSel) return;
 	clearFetchStatus();
@@ -15224,8 +15229,6 @@ function clearHighlights() {
 	// focus so newly selected nodes highlight only themselves; it only lifts when the
 	// user explicitly re-enables Log Bold via the toggle action.
 	logBoldHighlightRootsSuppressed = true;
-	// Ensure active selection remains in the durable selected set.
-	if (selectedId) rememberPersistentSelection(selectedId);
 	reapplySelectionState();
 	try {
 		saveSession();
