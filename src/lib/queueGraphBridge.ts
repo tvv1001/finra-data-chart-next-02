@@ -96,6 +96,32 @@ export function writeQueueGraphBridge(nodeIds: string[], options: WriteQueueGrap
 	}
 }
 
+/** Read the current bridge payload without consuming it. */
+export function readQueueGraphBridgePayload(): QueueGraphBridgePayload | null {
+	if (typeof window === 'undefined') return null;
+	try {
+		const raw = window.sessionStorage.getItem(QUEUE_GRAPH_BRIDGE_KEY);
+		if (!raw) return null;
+		const parsed = JSON.parse(raw) as QueueGraphBridgePayload | string[];
+		if (Array.isArray(parsed)) {
+			const nodeIds = normalizeBridgeNodeIds(parsed);
+			return nodeIds.length ? { nodeIds, writtenAt: Date.now() } : null;
+		}
+		const nodeIds = normalizeBridgeNodeIds(parsed?.nodeIds);
+		if (!nodeIds.length) return null;
+		const anchorFirmId = String(parsed?.anchorFirmId || '').trim();
+		return {
+			nodeIds,
+			writtenAt: Number(parsed?.writtenAt) || Date.now(),
+			...( /^\d{1,10}$/.test(anchorFirmId) ? { anchorFirmId } : {}),
+			...(parsed?.anchorFirmName ? { anchorFirmName: String(parsed.anchorFirmName) } : {}),
+			people: normalizePeople(parsed?.people),
+		};
+	} catch {
+		return null;
+	}
+}
+
 /** Read and clear the bridge payload (one-shot). Returns full payload for seeded hydrate. */
 export function consumeQueueGraphBridgePayload(): QueueGraphBridgePayload | null {
 	if (typeof window === 'undefined') return null;

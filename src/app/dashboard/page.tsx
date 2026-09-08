@@ -32,7 +32,7 @@ import {
 	subscribeFilterText,
 } from '@/lib/filterTags';
 import VectorLoader from '@/components/VectorLoader';
-import { writeQueueGraphBridge, type QueueGraphBridgePerson } from '@/lib/queueGraphBridge';
+import { readQueueGraphBridgePayload, writeQueueGraphBridge, type QueueGraphBridgePerson } from '@/lib/queueGraphBridge';
 import {
 	readVisited,
 	readVisitedSync,
@@ -2142,15 +2142,22 @@ function DashboardPageInner() {
 			// Bridge Queue graph CRDs via sessionStorage. Prefer the sync seed written when
 			// connection Select→Done finishes (avoids React setState race that dropped most of
 			// a 100+ multi-select), then fall back to Queue graph history.
+			const bridgePayload = readQueueGraphBridgePayload();
 			const historyIds = collectSelectedNodeIdsForGraphHref(localHistory);
 			const seed = pendingQueueGraphSeed;
 			pendingQueueGraphSeed = null;
-			const nodeIds = Array.from(new Set([...(seed?.nodeIds || []), ...historyIds]));
-			const firmId = seed?.anchorFirmId || (currentRecordEntity === 'firm' && currentRecordId ? String(currentRecordId) : undefined);
+			const mergedPeople = Array.from(
+				new Map(
+					[...(bridgePayload?.people || []), ...(seed?.people || [])].map((person) => [String(person.crd), person]),
+				).values(),
+			);
+			const nodeIds = Array.from(new Set([...(seed?.nodeIds || []), ...(bridgePayload?.nodeIds || []), ...historyIds]));
+			const firmId = seed?.anchorFirmId || bridgePayload?.anchorFirmId || (currentRecordEntity === 'firm' && currentRecordId ? String(currentRecordId) : undefined);
+			const firmName = seed?.anchorFirmName || bridgePayload?.anchorFirmName;
 			writeQueueGraphBridge(nodeIds, {
 				anchorFirmId: firmId,
-				anchorFirmName: seed?.anchorFirmName,
-				people: seed?.people,
+				anchorFirmName: firmName,
+				people: mergedPeople,
 			});
 			// Sending the queue to the graph ends this Queue graph session. Returning to the
 			// dashboard starts a fresh empty selection history.
@@ -6034,12 +6041,18 @@ function DashboardPageInner() {
 															const firmId = currentRecordEntity === 'firm' && currentRecordId ? String(currentRecordId) : undefined;
 															const firmName = firmId ? formatFirmName(pickFirstNonEmpty(mainJsonLabel, `Firm ${firmId}`) || `Firm ${firmId}`) : undefined;
 															if (firmId) nodeIds.unshift(`firm:${firmId}`);
-															pendingQueueGraphSeed = {
+															const bridgeSeed = {
 																nodeIds: Array.from(new Set(nodeIds)),
 																people,
 																anchorFirmId: firmId,
 																anchorFirmName: firmName,
 															};
+															pendingQueueGraphSeed = bridgeSeed;
+															writeQueueGraphBridge(bridgeSeed.nodeIds, {
+																anchorFirmId: bridgeSeed.anchorFirmId,
+																anchorFirmName: bridgeSeed.anchorFirmName,
+																people: bridgeSeed.people,
+															});
 															recordHistoryEntries(
 																selected.map((item) => ({
 																	id: String(item.crd),
