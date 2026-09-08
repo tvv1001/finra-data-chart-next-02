@@ -5081,7 +5081,7 @@ function computeHighlightState() {
 				// If a firm is selected, do not highlight its connecting lines to person nodes.
 				// Person nodes will highlight the lines to the firm when they are selected,
 				// keeping the firm's large roster from lighting up the entire graph.
-				if (entryNode?.group === 'firm' && entry.isSelection && entryNode.id !== hoveredNodeId && neighborNode?.group === 'individual') {
+				if (entryNode?.group === 'firm' && entry.isSelection && neighborNode?.group === 'individual') {
 					return;
 				}
 
