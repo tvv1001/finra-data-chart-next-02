@@ -357,7 +357,7 @@ let layoutLinksByNodeId = new Map<string, any[]>(); // nodeId → incident layou
 let layoutLinkIndexLinkCount = 0; // layoutLinks.length last indexed (detects stale indexes)
 let selectionPredicateCacheGen = 0; // bumped when layout link topology changes
 /** Cap hop/line BFS roots. Keep this high so multi-select keeps earlier highlighted lines lit. */
-export const MAX_HOP_HIGHLIGHT_ROOTS = 128;
+export const MAX_HOP_HIGHLIGHT_ROOTS = 500;
 /** Cap selection-log-bold entries that also act as hop highlight roots. */
 export const MAX_LOG_BOLD_HIGHLIGHT_ROOTS = 128;
 let spreadAnimId = null; // rAF handle for neighbor spread animation
