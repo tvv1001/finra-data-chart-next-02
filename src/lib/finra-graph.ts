@@ -2045,6 +2045,27 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 	}
 	if (liveNode) return liveNode;
 
+	const evictDeadNode = (nodeId) => {
+		const id = String(nodeId).trim();
+		if (!graphData?.nodes) return;
+		graphData.nodes = graphData.nodes.filter((n) => String(n.id).trim() !== id);
+		graphData.links = (graphData.links || []).filter((l) => {
+			const s = String(l.source?.id ?? l.source).trim();
+			const t = String(l.target?.id ?? l.target).trim();
+			return s !== id && t !== id;
+		});
+		if (layoutNodes) layoutNodes = layoutNodes.filter((n) => String(n.id).trim() !== id);
+		if (selectedId === id) {
+			selectedId = null;
+			sidebarSelectedNode = null;
+			sidebarViewMode = 'none';
+			showSidebarHint();
+			emitSelectedNodeRoute(null, { replace: true });
+		}
+		syncToWasm?.();
+		updateGraph?.();
+	};
+
 	// Prefer firm/person detail hydration first. Deep links like /firm/107342 start from an empty
 	// custom profile; expand/nodes-by-ids load the shared Redis graph and can time out or miss
 	// nodes that still have detail records in Redis. Detail keys are cheap single-key GETs.
@@ -2059,6 +2080,9 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 			}
 		} catch (error) {
 			console.warn('Failed to hydrate route-selected node directly from detail APIs:', error);
+			if (error?.message?.includes('not found')) {
+				evictDeadNode(normalizedNodeId);
+			}
 		}
 	}
 
