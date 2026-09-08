@@ -1,6 +1,250 @@
 {
   "firms": [
     {
+      "id": 7059,
+      "name": "SMITH BARNEY INC."
+    },
+    {
+      "id": 7560,
+      "name": "DONALDSON, LUFKIN & JENRETTE SECURITIES CORPORATION"
+    },
+    {
+      "id": 8192,
+      "name": "AUTRANET, INC."
+    },
+    {
+      "id": 7691,
+      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
+    },
+    {
+      "id": 867,
+      "name": "JEFFERIES EXECUTION SERVICES, INC."
+    },
+    {
+      "id": 47363,
+      "name": "JEFFERIES HIGH YIELD TRADING, LLC"
+    },
+    {
+      "id": 2347,
+      "name": "JEFFERIES LLC"
+    },
+    {
+      "id": 149891,
+      "name": "ELM MONEY MANAGEMENT LLC"
+    },
+    {
+      "id": 7556,
+      "name": "MORGAN STANLEY DW INC."
+    },
+    {
+      "id": 41180,
+      "name": "MCL FINANCIAL GROUP, INC."
+    },
+    {
+      "id": 14667,
+      "name": "BROOKSTREET SECURITIES CORPORATION"
+    },
+    {
+      "id": 35747,
+      "name": "PURSHE KAPLAN STERLING INVESTMENTS"
+    },
+    {
+      "id": 16944,
+      "name": "NEWPORT COAST SECURITIES, INC."
+    },
+    {
+      "id": 30833,
+      "name": "CENTAURUS FINANCIAL, INC."
+    },
+    {
+      "id": 150272,
+      "name": "PACIFIC POINT SECURITIES, LLC"
+    },
+    {
+      "id": 18341,
+      "name": "S.N. PHELPS & CO."
+    },
+    {
+      "id": 25519,
+      "name": "LIBRA INVESTMENTS, INC."
+    },
+    {
+      "id": 17868,
+      "name": "U.S. BANCORP INVESTMENTS, INC."
+    },
+    {
+      "id": 35957,
+      "name": "AMROC SECURITIES LLC"
+    },
+    {
+      "id": 104007,
+      "name": "IPO.COM SECURITIES, INC."
+    },
+    {
+      "id": 116270,
+      "name": "SEAPORT GLOBAL SECURITIES LLC"
+    },
+    {
+      "id": 25668,
+      "name": "PRIME CHARTER LTD."
+    },
+    {
+      "id": 23710,
+      "name": "ENSKILDA SECURITIES INC"
+    },
+    {
+      "id": 266,
+      "name": "HAPOALIM SECURITIES USA, INC."
+    },
+    {
+      "id": 32243,
+      "name": "FAR HILLS GROUP, LLC."
+    },
+    {
+      "id": 34171,
+      "name": "MEYERS ASSOCIATES, L.P."
+    },
+    {
+      "id": 44351,
+      "name": "HFP CAPITAL MARKETS LLC"
+    },
+    {
+      "id": 2498,
+      "name": "R. F. LAFFERTY & CO., INC."
+    },
+    {
+      "id": 39914,
+      "name": "WESTPARK CAPITAL, INC."
+    },
+    {
+      "id": 26898,
+      "name": "CENTER STREET SECURITIES, INC."
+    },
+    {
+      "id": 315939,
+      "name": "COLLECTABLE SECURITIES"
+    },
+    {
+      "id": 311852,
+      "name": "VIENNA CAPITAL PARTNERS LLC"
+    },
+    {
+      "id": 144436,
+      "name": "XNERGY FINANCIAL LLC"
+    },
+    {
+      "id": 322170,
+      "name": "BALLAST ROCK CAPITAL LLC"
+    },
+    {
+      "id": 166446,
+      "name": "DECKER & CO, LLC"
+    },
+    {
+      "id": 27913,
+      "name": "L.M. KOHN & COMPANY"
+    },
+    {
+      "id": 331366,
+      "name": "KINDLING MBD LLC"
+    },
+    {
+      "id": 330235,
+      "name": "RAM FINANCIAL LLC"
+    },
+    {
+      "id": 13645,
+      "name": "WRIGHT INVESTORS' SERVICE DISTRIBUTORS, INC."
+    },
+    {
+      "id": 155643,
+      "name": "SGI SECURITIES LLC"
+    },
+    {
+      "id": 313779,
+      "name": "QUINBROOK CAPITAL PARTNERS LLC"
+    },
+    {
+      "id": 132398,
+      "name": "WEILD & CO."
+    },
+    {
+      "id": 310046,
+      "name": "HARLEY CAPITAL LLC"
+    },
+    {
+      "id": 325198,
+      "name": "ALTITUDE CAPITAL GROUP LLC"
+    },
+    {
+      "id": 45500,
+      "name": "TRITAURIAN CAPITAL, INCORPORATED"
+    },
+    {
+      "id": 307492,
+      "name": "NINTH ETERNITY SECURITIES LLC"
+    },
+    {
+      "id": 207515,
+      "name": "SIGMA AMERICAS SECURITIES LLC"
+    },
+    {
+      "id": 3001,
+      "name": "AMERICAN TRUST INVESTMENT SERVICES, INC."
+    },
+    {
+      "id": 146671,
+      "name": "EASTGATE SECURITIES, LLC"
+    },
+    {
+      "id": 332134,
+      "name": "CAPTIVEX SECURITIES LLC"
+    },
+    {
+      "id": 316044,
+      "name": "BARRAMUNDI CAPITAL LLC"
+    },
+    {
+      "id": 310433,
+      "name": "CAPCONNECT EMARKETS, LLC"
+    },
+    {
+      "id": 285387,
+      "name": "HONEY BADGER INVESTMENT SECURITIES, LLC"
+    },
+    {
+      "id": 121735,
+      "name": "BG WORLDWIDE SECURITIES, INC."
+    },
+    {
+      "id": 8246,
+      "name": "OPAL SECURITIES, INC."
+    },
+    {
+      "id": 29251,
+      "name": "GREAT PACIFIC SECURITIES"
+    },
+    {
+      "id": 322687,
+      "name": "E.F. HUTTON & CO. LLC"
+    },
+    {
+      "id": 336674,
+      "name": "GLADE POINT SECURITIES, LLC"
+    },
+    {
+      "id": 336257,
+      "name": "XORRO LLC"
+    },
+    {
+      "id": 316407,
+      "name": "CRUSH SECURITIES LLC"
+    },
+    {
+      "id": 337272,
+      "name": "GLOBAL81 US LLC"
+    },
+    {
       "id": 18718,
       "name": "J.P. MORGAN SECURITIES INC."
     },
@@ -41,10 +285,6 @@
       "name": "PFG ADVISORS"
     },
     {
-      "id": 7556,
-      "name": "MORGAN STANLEY DW INC."
-    },
-    {
       "id": 1027,
       "name": "FOOTHILL SECURITIES, INC."
     },
@@ -63,10 +303,6 @@
     {
       "id": 15480,
       "name": "DMG SECURITIES, INC."
-    },
-    {
-      "id": 7059,
-      "name": "CITIGROUP GLOBAL MARKETS INC."
     },
     {
       "id": 7474,
@@ -107,10 +343,6 @@
     {
       "id": 4,
       "name": "A. G. EDWARDS & SONS, INC."
-    },
-    {
-      "id": 7691,
-      "name": "MERRILL LYNCH, PIERCE, FENNER & SMITH INCORPORATED"
     },
     {
       "id": 7471,
@@ -219,14 +451,6 @@
     {
       "id": 372,
       "name": "GRUNTAL & CO., L.L.C."
-    },
-    {
-      "id": 44351,
-      "name": "AM CAPITAL LLC"
-    },
-    {
-      "id": 266,
-      "name": "INVESTEC ERNST & COMPANY"
     },
     {
       "id": 146251,
@@ -909,10 +1133,6 @@
       "name": "TRUIST INVESTMENT SERVICES, INC."
     },
     {
-      "id": 30833,
-      "name": "CENTAURUS FINANCIAL, INC."
-    },
-    {
       "id": 307206,
       "name": "MASON & ASSOCIATES, LLC"
     },
@@ -947,10 +1167,6 @@
     {
       "id": 46017,
       "name": "PRIMESOLUTIONS SECURITIES, INC."
-    },
-    {
-      "id": 27913,
-      "name": "L.M. KOHN & COMPANY"
     },
     {
       "id": 18040,
@@ -999,10 +1215,6 @@
     {
       "id": 133839,
       "name": "WILMINGTON CAPITAL SECURITIES, LLC"
-    },
-    {
-      "id": 39914,
-      "name": "WESTPARK CAPITAL, INC."
     },
     {
       "id": 13660,
@@ -1511,13 +1723,25 @@
     {
       "id": 19794,
       "name": "MORGAN STANLEY MARKET PRODUCTS INC."
-    },
-    {
-      "id": 2347,
-      "name": "JEFFERIES LLC"
     }
   ],
   "individuals": [
+    {
+      "id": 2060170,
+      "name": "LAURI A SCORAN"
+    },
+    {
+      "id": 3143283,
+      "name": "KEVIN LEE"
+    },
+    {
+      "id": 1248750,
+      "name": "STEPHEN CORCORAN SMITH"
+    },
+    {
+      "id": 2453096,
+      "name": "RICHARD ERNEST ONESTO"
+    },
     {
       "id": 5475007,
       "name": "JOHN WILLIAM CROWE"

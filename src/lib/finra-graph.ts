@@ -10954,10 +10954,14 @@ export function shouldRenderNodeSelected(
 			)
 		);
 
+	const nodeId = String(node.id || '').trim();
+	const isDurableSelection = Boolean(nodeId && durableSet.has(nodeId));
+	const normalizedSelectedId = candidateSelectedId != null ? String(candidateSelectedId).trim() : '';
+
 	// Active selection + every node the user has already selected/expanded stays selected.
 	// Clear Highlight does not remove durableSelectedIds — only hop/line emphasis.
 	// Hop neighbors use `highlighted-hop`; exhausted leaves keep the fetched-leaf markers.
-	return node.id === candidateSelectedId || highlightRootIds.has(node.id) || isFetchedLeafNodeFn(node) || isFetchedExhaustedConnectedNodeFn(node);
+	return nodeId === normalizedSelectedId || isDurableSelection || highlightRootIds.has(node.id) || isFetchedLeafNodeFn(node) || isFetchedExhaustedConnectedNodeFn(node);
 }
 
 function markNodeSelected(node, options: { persist?: boolean } = {}) {
