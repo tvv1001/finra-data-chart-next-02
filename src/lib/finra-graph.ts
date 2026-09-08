@@ -2062,8 +2062,7 @@ async function ensureRouteNodeAvailable(nodeId: string) {
 			showSidebarHint();
 			emitSelectedNodeRoute(null, { replace: true });
 		}
-		syncToWasm?.();
-		updateGraph?.();
+		renderGraph(graphData);
 	};
 
 	// Prefer firm/person detail hydration first. Deep links like /firm/107342 start from an empty
