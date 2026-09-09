@@ -51,6 +51,7 @@ import {
 	layoutHasLinkIdentity,
 	upsertSelectionLogEntry,
 	pruneGraphToSelectionLogEntries,
+	collectSelectionLogClearNonLogKeepIds,
 	isForcedGrayConnectionLink,
 	clearSelectionState,
 	buildSessionRenderGraphData,
@@ -240,7 +241,7 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(name.startsWith('Template · ')).toBe(true);
 	});
 
-	it('pruneGraphToSelectionLogEntries removes nodes and links outside the logged list', () => {
+	it('pruneGraphToSelectionLogEntries preserves a logged person\'s active direct neighbors', () => {
 		const graphData = {
 			nodes: [
 				{ id: 'person:1', group: 'individual' },
@@ -255,11 +256,34 @@ describe('FinraGraph DOM helpers (unit)', () => {
 
 		const pruned = pruneGraphToSelectionLogEntries(graphData, [{ id: 'person:1', label: 'Alpha', secondaryId: 'CRD# 1', group: 'individual' }]);
 
-		expect(pruned.nodes.map((node: any) => node.id)).toEqual(['person:1']);
-		expect(pruned.links).toEqual([]);
+		expect(pruned.nodes.map((node: any) => node.id).sort()).toEqual(['firm:3', 'person:1']);
+		expect(pruned.links).toHaveLength(1);
+		expect(pruned.links.map((link: any) => [link.source, link.target])).toEqual([['person:1', 'firm:3']]);
 	});
 
-	it('pruneGraphToSelectionLogEntries keeps intermediate nodes on shortest paths between logged nodes', () => {
+	it('collectSelectionLogClearNonLogKeepIds preserves direct person neighbors while pruning unrelated nodes', () => {
+		const graphData = {
+			nodes: [
+				{ id: 'person:1', group: 'individual' },
+				{ id: 'firm:3', group: 'firm' },
+				{ id: 'firm:9', group: 'firm' },
+				{ id: 'person:10', group: 'individual' },
+			],
+			links: [
+				{ source: 'person:1', target: 'firm:3', relationship: 'employed_by' },
+				{ source: 'firm:3', target: 'firm:9', relationship: 'branch' },
+				{ source: 'person:10', target: 'firm:9', relationship: 'employed_by' },
+			],
+		} as any;
+
+		const keepIds = collectSelectionLogClearNonLogKeepIds(graphData, [
+			{ id: 'person:1', label: 'Alpha', secondaryId: 'CRD# 1', group: 'individual' },
+		]);
+
+		expect(Array.from(keepIds).sort()).toEqual(['firm:3', 'person:1']);
+	});
+
+	it('pruneGraphToSelectionLogEntries keeps the active neighbor path for logged people', () => {
 		const graphData = {
 			nodes: [
 				{ id: 'person:1', group: 'individual' },
@@ -280,12 +304,13 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		]);
 
 		const keptIds = pruned.nodes.map((node: any) => node.id).sort();
-		expect(keptIds).toEqual(['firm:3', 'person:1', 'person:2']);
-		expect(pruned.links).toHaveLength(2);
+		expect(keptIds).toEqual(['firm:3', 'person:1', 'person:2', 'person:4']);
+		expect(pruned.links).toHaveLength(3);
 		expect(pruned.links.map((link: any) => [link.source, link.target])).toEqual(
 			expect.arrayContaining([
 				['person:1', 'firm:3'],
 				['person:2', 'firm:3'],
+				['person:4', 'person:2'],
 			]),
 		);
 	});
@@ -316,8 +341,8 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		]);
 
 		const keptIds = pruned.nodes.map((node: any) => node.id).sort();
-		expect(keptIds).toEqual(['firm:4', 'firm:5', 'person:1', 'person:2', 'person:3']);
-		expect(pruned.links).toHaveLength(3);
+		expect(keptIds).toEqual(['firm:4', 'firm:5', 'firm:6', 'person:1', 'person:2', 'person:3']);
+		expect(pruned.links).toHaveLength(5);
 	});
 
 	it('ensureSidebarHintContent adds placeholder when empty', () => {

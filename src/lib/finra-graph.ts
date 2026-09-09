@@ -4072,6 +4072,35 @@ function collectSteinerTreeConnectorIds(adj: Map<string, string[]>, terminalIds:
 	return keepIds;
 }
 
+export function collectSelectionLogClearNonLogKeepIds(
+	graphData: { nodes?: Array<any>; links?: Array<any> } | null,
+	entries: Array<SelectionLogEntry> = selectedNodesLog,
+	extraKeepIds: Set<string> = new Set(),
+) {
+	if (!graphData || !Array.isArray(graphData.nodes) || !Array.isArray(graphData.links)) return new Set<string>();
+
+	const logIds = new Set<string>((Array.isArray(entries) ? entries : []).map((entry) => String(entry?.id || '').trim()).filter(Boolean));
+	if (logIds.size === 0) return new Set<string>();
+
+	const adj = buildUndirectedAdjacencyList(graphData.links);
+	const keepIds = collectSteinerTreeConnectorIds(adj, logIds);
+
+	for (const entry of Array.isArray(entries) ? entries : []) {
+		const entryId = String(entry?.id || '').trim();
+		if (!entryId || !isSelectionLogPeopleEntry(entry)) continue;
+		for (const neighborId of adj.get(entryId) || []) {
+			keepIds.add(neighborId);
+		}
+	}
+
+	for (const extraId of extraKeepIds) {
+		const normalizedExtraId = String(extraId || '').trim();
+		if (normalizedExtraId) keepIds.add(normalizedExtraId);
+	}
+
+	return keepIds;
+}
+
 export function pruneGraphToSelectionLogEntries(
 	graphData: { nodes?: Array<any>; links?: Array<any> } | null,
 	entries: Array<SelectionLogEntry> = selectedNodesLog,
@@ -4079,18 +4108,7 @@ export function pruneGraphToSelectionLogEntries(
 ) {
 	if (!graphData || !Array.isArray(graphData.nodes) || !Array.isArray(graphData.links)) return graphData;
 
-	const logIds = new Set<string>((Array.isArray(entries) ? entries : []).map((entry) => String(entry?.id || '').trim()).filter(Boolean));
-
-	const adj = buildUndirectedAdjacencyList(graphData.links);
-	const keepIds = collectSteinerTreeConnectorIds(adj, logIds);
-	// Preserve any additional nodes the caller wants kept regardless of the
-	// log-entry Steiner tree — e.g. nodes connected by a line to a node the
-	// user currently has selected/highlighted in the graph.
-	for (const extraId of extraKeepIds) {
-		const normalizedExtraId = String(extraId || '').trim();
-		if (normalizedExtraId) keepIds.add(normalizedExtraId);
-	}
-
+	const keepIds = collectSelectionLogClearNonLogKeepIds(graphData, entries, extraKeepIds);
 	const keptNodes = graphData.nodes.filter((node) => keepIds.has(String(node?.id || '').trim()));
 	const keptLinks = graphData.links.filter((link) => {
 		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
@@ -4165,7 +4183,8 @@ function clearNonLogAction(button?: HTMLButtonElement) {
 		if (button) flashSelectionLogActionButton(button, 'Empty');
 		return;
 	}
-	pruneGraphDataToKeepIds(logIds);
+	const keepIds = collectSelectionLogClearNonLogKeepIds(graphData, selectedNodesLog);
+	pruneGraphDataToKeepIds(keepIds);
 	if (button) flashSelectionLogActionButton(button, 'Pruned!');
 }
 
