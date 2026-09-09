@@ -9727,8 +9727,15 @@ function getNodeCollisionRadius(node, nodeCount = layoutNodes?.length || 0) {
 		: nodeCount > 300 ? 16
 		: 14;
 	const scatterPadding = Math.min(nodeCount > 1000 ? 56 : 48, getNodeScatterBoost(node, nodeCount) * 0.35);
-	const labelLengthPadding = Math.min(15, Math.max(0, formatNodeLabel(node?.label || '').length - 10) * 0.4);
-	return (node?._vizHalf != null ? node._vizHalf : NODE_R[node?.group] || 10) + padding + labelPadding + scatterPadding + labelLengthPadding;
+	const labelLengthPadding = Math.min(26, Math.max(0, formatNodeLabel(node?.label || '').length - 10) * 0.5);
+	const emphasisPadding =
+		node?.group === 'firm' ? 10
+		: node?.group === 'individual' ? 6
+		: 0;
+	const focusPadding =
+		node && (node.isSelected || node.isHovered || node?._labelExpanded) ? 16
+		: 0;
+	return (node?._vizHalf != null ? node._vizHalf : NODE_R[node?.group] || 10) + padding + labelPadding + scatterPadding + labelLengthPadding + emphasisPadding + focusPadding;
 }
 
 function getIncrementalRestartAlpha(nodeCount = layoutNodes?.length || 0, changedNodeCount = 0) {
@@ -10724,6 +10731,15 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 		}
 	}
 
+	if (nodeSel && typeof nodeSel.sort === 'function') {
+		nodeSel.sort((a, b) => {
+			const aPriority = getNodeRenderPriority(a, highlightState);
+			const bPriority = getNodeRenderPriority(b, highlightState);
+			if (aPriority !== bPriority) return aPriority - bPriority;
+			return String(a?.id || '').localeCompare(String(b?.id || ''));
+		});
+	}
+
 	// Move individual link/arrow DOM nodes between link sub-groups so some links
 	// can render above or below the main node group (provides 2.5D depth).
 	try {
@@ -10763,19 +10779,23 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 		// Non-fatal — DOM move failures should not break rendering
 	}
 
-	// Stacking: gray links stay under nodes; active/selected links rise above both the node layer and gray links.
+	// Stacking: highlight/selection links remain above gray links, but must stay
+	// beneath the node layer so brighter hover stroke never covers the node itself.
 	try {
 		if (nodeGroup && nodeGroup.node()) {
 			const nodesEl = nodeGroup.node();
 			const parent = nodesEl.parentNode;
 			if (parent) {
-				const beforeNodes = [linkBottomGroup?.node(), arrowBottomGroup?.node(), linkMidGroup?.node(), arrowMidGroup?.node()].filter(Boolean);
+				const beforeNodes = [
+					linkBottomGroup?.node(),
+					arrowBottomGroup?.node(),
+					linkMidGroup?.node(),
+					arrowMidGroup?.node(),
+					linkTopGroup?.node(),
+					arrowTopGroup?.node(),
+				].filter(Boolean);
 				for (const el of beforeNodes) {
 					if (el && el.parentNode === parent) parent.insertBefore(el, nodesEl);
-				}
-				const afterNodes = [linkTopGroup?.node(), arrowTopGroup?.node()].filter(Boolean);
-				for (const el of afterNodes) {
-					if (el && el.parentNode === parent) parent.appendChild(el);
 				}
 			}
 		}
@@ -10807,8 +10827,7 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 				try {
 					const pr = getLinkRenderPriority(d, highlightState);
 					const layer =
-						pr >= 3 ? 'top'
-						: pr <= 0 ? 'bottom'
+						pr <= 0 ? 'bottom'
 						: 'mid';
 					const key = `${d.source?.id || d.source}-${d.target?.id || d.target}-${d.relationship}`;
 					linkRender.push({ key, priority: pr, layer });
@@ -11603,10 +11622,10 @@ function renderGraph(_data) {
 	neighborMap = buildNeighborMap(nodes, links);
 
 	// ── Links (split into three stacked layers so some links can render above nodes) ──
-	// create bottom/mid link layers now; the top layer is created after nodes
+	// create bottom/mid link layers first; the top layer is still kept under
+	// the node group so hover emphasis stays visible without covering nodes
 	linkBottomGroup = root.append('g').attr('class', 'fg-links-bottom');
 	linkMidGroup = root.append('g').attr('class', 'fg-links-mid');
-	// linkTopGroup will be appended after node group so top links can render above nodes
 
 	// partition links by initial render priority
 	const initialHighlight = computeHighlightState();
@@ -11691,8 +11710,9 @@ function renderGraph(_data) {
 		/* ignore */
 	}
 
-	// Top link/arrow groups: previous/disabled lines only (may render above nodes).
-	// Current/highlighted lines stay in mid/bottom under nodes + labels.
+	// Top link/arrow groups are reserved for the highest-priority connections,
+	// but they still sit beneath the node layer so the hovered line glow never
+	// covers the node itself. Gray and inactive connections remain below nodes.
 	try {
 		linkTopGroup = root.append('g').attr('class', 'fg-links-top').style('pointer-events', 'none');
 		joinLinkSelection(linkTopGroup, topLinks);

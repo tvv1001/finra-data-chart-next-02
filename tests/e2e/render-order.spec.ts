@@ -51,10 +51,12 @@ test.describe('render order (2.5D) checks', () => {
 		expect(nodeEntry, `expected render-order entry for node ${candidateId}`).toBeTruthy();
 		expect(nodeEntry.layer).toBe('top');
 
-		// At least one link connected to this node should be promoted to top
+		// The selected node stays on top, while connected links remain beneath it.
 		const linkKeysForNode = ro.links.filter((l: any) => String(l.key).includes(String(candidateId)));
 		expect(linkKeysForNode.length).toBeGreaterThan(0);
-		const hasTopLink = linkKeysForNode.some((l: any) => l.layer === 'top');
-		expect(hasTopLink).toBeTruthy();
+		const anyTopLink = linkKeysForNode.some((l: any) => l.layer === 'top');
+		expect(anyTopLink).toBeFalsy();
+		const hasActiveUnderNodeLink = linkKeysForNode.some((l: any) => l.layer === 'mid' || l.layer === 'bottom');
+		expect(hasActiveUnderNodeLink).toBeTruthy();
 	});
 });

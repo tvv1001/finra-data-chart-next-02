@@ -578,3 +578,6 @@
 [searchDirectRedisFallback] key=finra:individual:16944 raw=NULL
 [searchDirectRedisFallback] key=finra:individual:300279 raw=NULL
 [searchDirectRedisFallback] key=finra:individual:8127 raw=NULL
+[getUpstashClient] url=https://dashing-gator-146036.upstash.io
+[searchDirectRedisFallback] key=finra:individual:161724 raw=NULL
+[searchDirectRedisFallback] key=finra:firm:161724 raw=FOUND

@@ -1813,6 +1813,7 @@ html[data-theme='dark'] .fg-toolbar-status--top[data-dismissible='true'] {
 
 /* ── Buttons ────────────────────────────────────────────────────────────── */
 /* Suppress iOS gray/blue tap-highlight flash on all interactive elements */
+
 button,
 [role='button'],
 a,
@@ -2174,8 +2175,6 @@ a,
 	flex-wrap: wrap;
 	align-items: stretch;
 }
-
-
 
 .fg-sidebar-mobile-actions .fg-ghost-btn,
 .fg-sidebar-mobile-actions .fg-sidebar-action-btn,
