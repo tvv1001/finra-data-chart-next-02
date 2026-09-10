@@ -2898,7 +2898,7 @@ function DashboardPageInner() {
 	const currentConnectionPartition = useMemo(() => {
 		return partitionConnectionsByFilter(
 			deferredCurrentConnectionCards,
-			connectionHaystackOf,
+			(item) => connectionHaystackOf(item),
 			deferredCurrentFilterTags,
 			deferredCurrentFilterQuery.trim(),
 			deferredCurrentFilterEnabled,
@@ -2936,7 +2936,7 @@ function DashboardPageInner() {
 	const previousConnectionPartition = useMemo(() => {
 		return partitionConnectionsByFilter(
 			deferredPreviousConnectionCards,
-			connectionHaystackOf,
+			(item) => connectionHaystackOf(item),
 			deferredPreviousFilterTags,
 			deferredPreviousFilterQuery.trim(),
 			deferredPreviousFilterEnabled,
