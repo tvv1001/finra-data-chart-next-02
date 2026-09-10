@@ -34,6 +34,15 @@ coverage/
 .nyc_output/
 playwright-report/
 test-results/
+.playwright-mcp/
+
+# Ad-hoc root test scripts (keep the real suite in tests/)
+/test-*.js
+/test_*.js
+/test.json
+/*-verified.png
+/red-over-blue-links.png
+/clear-non-log*.png
 
 # Production
 out/

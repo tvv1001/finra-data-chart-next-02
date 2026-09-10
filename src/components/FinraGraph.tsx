@@ -1507,7 +1507,7 @@ export default function FinraGraph() {
 								type='button'
 								data-fg-graph-action='clear-non-log'
 								className='fg-ghost-btn fg-clear-non-log-btn'
-								title='Keep only nodes that appear in the selection log'>
+								title='Keep logged nodes and any intermediaries connecting them'>
 								Clear non-log
 							</button>
 							<button

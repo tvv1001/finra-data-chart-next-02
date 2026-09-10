@@ -24,7 +24,8 @@
 
 	/* Legend: relationships */
 	--color-highlight-controls: #ef4444;
-	--color-highlight-employed: #1e88ffe0;
+	/* Opaque blue — alpha on employment strokes blended purple wherever red crossed them */
+	--color-highlight-employed: #1e88ff;
 	--color-node-disclosure-stroke: #f97316;
 	--color-node-pulse: #18a0fb !important;
 	/* SVG drop-shadow filters are expensive (and SIGILL-prone on Mesa). Use stroke rings instead. */

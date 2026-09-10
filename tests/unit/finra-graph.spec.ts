@@ -241,7 +241,7 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(name.startsWith('Template · ')).toBe(true);
 	});
 
-	it('pruneGraphToSelectionLogEntries preserves a logged person\'s active direct neighbors', () => {
+	it('pruneGraphToSelectionLogEntries drops dangling neighbors when only one node is logged', () => {
 		const graphData = {
 			nodes: [
 				{ id: 'person:1', group: 'individual' },
@@ -256,12 +256,11 @@ describe('FinraGraph DOM helpers (unit)', () => {
 
 		const pruned = pruneGraphToSelectionLogEntries(graphData, [{ id: 'person:1', label: 'Alpha', secondaryId: 'CRD# 1', group: 'individual' }]);
 
-		expect(pruned.nodes.map((node: any) => node.id).sort()).toEqual(['firm:3', 'person:1']);
-		expect(pruned.links).toHaveLength(1);
-		expect(pruned.links.map((link: any) => [link.source, link.target])).toEqual([['person:1', 'firm:3']]);
+		expect(pruned.nodes.map((node: any) => node.id).sort()).toEqual(['person:1']);
+		expect(pruned.links).toHaveLength(0);
 	});
 
-	it('collectSelectionLogClearNonLogKeepIds preserves direct person neighbors while pruning unrelated nodes', () => {
+	it('collectSelectionLogClearNonLogKeepIds drops loose leaves while keeping only the logged terminal', () => {
 		const graphData = {
 			nodes: [
 				{ id: 'person:1', group: 'individual' },
@@ -280,10 +279,10 @@ describe('FinraGraph DOM helpers (unit)', () => {
 			{ id: 'person:1', label: 'Alpha', secondaryId: 'CRD# 1', group: 'individual' },
 		]);
 
-		expect(Array.from(keepIds).sort()).toEqual(['firm:3', 'person:1']);
+		expect(Array.from(keepIds).sort()).toEqual(['person:1']);
 	});
 
-	it('pruneGraphToSelectionLogEntries keeps the active neighbor path for logged people', () => {
+	it('pruneGraphToSelectionLogEntries keeps bridge firms between logged people and drops dangling leaves', () => {
 		const graphData = {
 			nodes: [
 				{ id: 'person:1', group: 'individual' },
@@ -304,13 +303,12 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		]);
 
 		const keptIds = pruned.nodes.map((node: any) => node.id).sort();
-		expect(keptIds).toEqual(['firm:3', 'person:1', 'person:2', 'person:4']);
-		expect(pruned.links).toHaveLength(3);
+		expect(keptIds).toEqual(['firm:3', 'person:1', 'person:2']);
+		expect(pruned.links).toHaveLength(2);
 		expect(pruned.links.map((link: any) => [link.source, link.target])).toEqual(
 			expect.arrayContaining([
 				['person:1', 'firm:3'],
 				['person:2', 'firm:3'],
-				['person:4', 'person:2'],
 			]),
 		);
 	});
@@ -343,6 +341,74 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		const keptIds = pruned.nodes.map((node: any) => node.id).sort();
 		expect(keptIds).toEqual(['firm:4', 'firm:5', 'firm:6', 'person:1', 'person:2', 'person:3']);
 		expect(pruned.links).toHaveLength(5);
+	});
+
+	it('collectSelectionLogClearNonLogKeepIds keeps multi-hop bridges that are not direct log neighbors', () => {
+		const graphData = {
+			nodes: [
+				{ id: 'person:1', group: 'individual' },
+				{ id: 'person:2', group: 'individual' },
+				{ id: 'firm:A', group: 'firm' },
+				{ id: 'firm:B', group: 'firm' },
+				{ id: 'person:leaf', group: 'individual' },
+			],
+			links: [
+				{ source: 'person:1', target: 'firm:A', relationship: 'employed_by' },
+				{ source: 'firm:A', target: 'firm:B', relationship: 'branch' },
+				{ source: 'firm:B', target: 'person:2', relationship: 'employed_by' },
+				{ source: 'firm:A', target: 'person:leaf', relationship: 'employed_by' },
+			],
+		} as any;
+
+		const keepIds = collectSelectionLogClearNonLogKeepIds(graphData, [
+			{ id: 'person:1', label: 'Alpha', secondaryId: 'CRD# 1', group: 'individual' },
+			{ id: 'person:2', label: 'Beta', secondaryId: 'CRD# 2', group: 'individual' },
+		]);
+
+		expect(Array.from(keepIds).sort()).toEqual(['firm:A', 'firm:B', 'person:1', 'person:2']);
+	});
+
+	it('collectSelectionLogClearNonLogKeepIds keeps alternate bridges like Merrill even when another log path exists', () => {
+		// John -- Merrill -- Douglas
+		// John -- JPMorgan -- Mirna -- Goldman -- Douglas
+		// Steiner would keep only one spine; clear-non-log must keep Merrill too.
+		const graphData = {
+			nodes: [
+				{ id: 'person:john', group: 'individual' },
+				{ id: 'person:douglas', group: 'individual' },
+				{ id: 'person:mirna', group: 'individual' },
+				{ id: 'firm:merrill', group: 'firm' },
+				{ id: 'firm:jpmorgan', group: 'firm' },
+				{ id: 'firm:goldman', group: 'firm' },
+				{ id: 'person:leaf', group: 'individual' },
+			],
+			links: [
+				{ source: 'person:john', target: 'firm:merrill', relationship: 'employed_by' },
+				{ source: 'person:douglas', target: 'firm:merrill', relationship: 'employed_by' },
+				{ source: 'person:john', target: 'firm:jpmorgan', relationship: 'employed_by' },
+				{ source: 'person:mirna', target: 'firm:jpmorgan', relationship: 'employed_by' },
+				{ source: 'person:mirna', target: 'firm:goldman', relationship: 'employed_by' },
+				{ source: 'person:douglas', target: 'firm:goldman', relationship: 'employed_by' },
+				{ source: 'firm:merrill', target: 'person:leaf', relationship: 'employed_by' },
+			],
+		} as any;
+
+		const keepIds = collectSelectionLogClearNonLogKeepIds(graphData, [
+			{ id: 'person:john', label: 'John', secondaryId: 'CRD# 1', group: 'individual' },
+			{ id: 'person:douglas', label: 'Douglas', secondaryId: 'CRD# 2', group: 'individual' },
+			{ id: 'person:mirna', label: 'Mirna', secondaryId: 'CRD# 3', group: 'individual' },
+			{ id: 'firm:jpmorgan', label: 'JPM', secondaryId: 'CRD# 79', group: 'firm' },
+		]);
+
+		expect(Array.from(keepIds).sort()).toEqual([
+			'firm:goldman',
+			'firm:jpmorgan',
+			'firm:merrill',
+			'person:douglas',
+			'person:john',
+			'person:mirna',
+		]);
+		expect(keepIds.has('person:leaf')).toBe(false);
 	});
 
 	it('ensureSidebarHintContent adds placeholder when empty', () => {
@@ -754,10 +820,14 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		const emphasis = { strokeOpacity: 0.66 } as any;
 		const grayLink = { relationship: 'previous_employed_by' } as any;
 		const regularLink = { relationship: 'employed_by', isCurrent: true } as any;
+		const controlLink = { relationship: 'controls' } as any;
 
 		expect(getSelectionLinkOpacity(grayLink, emphasis)).toBeGreaterThan(0.8);
 		expect(getSelectionLinkOpacity(grayLink, emphasis, { connected: true })).toBe(getSelectionLinkOpacity(grayLink, emphasis));
 		expect(getSelectionLinkOpacity(regularLink, emphasis, { connected: true })).toBe(0.66);
+		// Red controls stay fully opaque so they do not blend purple over blue employment lines.
+		expect(getSelectionLinkOpacity(controlLink, emphasis)).toBe(1);
+		expect(getSelectionLinkOpacity(controlLink, emphasis, { connected: true })).toBe(1);
 	});
 
 	it('shouldRenderBlueNodeHighlight enables blue outline for hovered or selected individuals', () => {

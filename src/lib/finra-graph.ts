@@ -111,7 +111,8 @@ const GRAPH_COLORS = {
 	nodeControls: 'var(--color-highlight-controls)',
 	lineEmployedBy: 'var(--color-highlight-employed)',
 	lineControls: 'var(--color-highlight-controls)',
-	lineControlsHighlight: 'rgba(200, 45, 2, 0.615)',
+	// Fully opaque — semi-transparent red blends purple where it crosses blue employment lines.
+	lineControlsHighlight: '#c82d02',
 	lineDisclosure: 'rgba(57, 243, 10, 0.818)',
 	lineInactive: 'var(--color-default-line)',
 	lineNeutral: 'var(--color-default-line)',
@@ -469,6 +470,10 @@ export function getSelectionLinkOpacity(d, selectionLinkEmphasis, options: { con
 	const isGrayLine = hasInactiveEndpoint(d) || isPreviousEmploymentLink(d) || isForcedGrayConnectionLink(d);
 	if (isGrayLine) {
 		return 0.84;
+	}
+	// Red control lines stay fully opaque so they never blend purple over blue employment lines.
+	if (isControlRelationship(d)) {
+		return 1;
 	}
 	if (options.connected) {
 		return selectionLinkEmphasis.strokeOpacity;
@@ -4007,7 +4012,15 @@ function getBfsDistances(adj: Map<string, string[]>, start: string): Map<string,
 	return distances;
 }
 
-function collectSteinerTreeConnectorIds(adj: Map<string, string[]>, terminalIds: Set<string>): Set<string> {
+/**
+ * Keep log terminals plus every node that bridges them:
+ * 1) any node on a shortest path between some pair of log terminals
+ * 2) any node adjacent to 2+ log terminals (direct shared firm/person bridge)
+ *
+ * Unlike a Steiner tree, this keeps alternate bridges (e.g. Merrill between two
+ * logged people) even when another route through Goldman / J.P. Morgan exists.
+ */
+function collectLogBridgeConnectorIds(adj: Map<string, string[]>, terminalIds: Set<string>): Set<string> {
 	const keepIds = new Set<string>(terminalIds);
 	if (terminalIds.size <= 1) return keepIds;
 
@@ -4017,55 +4030,38 @@ function collectSteinerTreeConnectorIds(adj: Map<string, string[]>, terminalIds:
 		distancesFrom.set(terminalId, getBfsDistances(adj, terminalId));
 	}
 
-	// Greedy minimum spanning tree in hypergraph space: repeatedly add the shortest
-	// path from any not-yet-connected terminal to the already-kept subgraph.
-	const connected = new Set<string>();
-	connected.add(terminalArray[0]);
+	for (let i = 0; i < terminalArray.length; i++) {
+		for (let j = i + 1; j < terminalArray.length; j++) {
+			const a = terminalArray[i];
+			const b = terminalArray[j];
+			const distA = distancesFrom.get(a)!;
+			const distB = distancesFrom.get(b)!;
+			const ab = distA.get(b);
+			if (ab === undefined) continue;
 
-	while (connected.size < terminalIds.size) {
-		let bestTerminal: string | null = null;
-		let bestPath: string[] | null = null;
-		let bestLength = Infinity;
-
-		for (const terminalId of terminalArray) {
-			if (connected.has(terminalId)) continue;
-			const distances = distancesFrom.get(terminalId)!;
-
-			for (const connectedId of connected) {
-				const totalDistance = distances.get(connectedId);
-				if (totalDistance === undefined || totalDistance >= bestLength) continue;
-
-				// Reconstruct one shortest path to this connected node.
-				const path: string[] = [];
-				let current: string | undefined = connectedId;
-				while (current !== undefined) {
-					path.push(current);
-					const currentDist = distances.get(current);
-					if (currentDist === undefined || currentDist === 0) break;
-
-					const neighbors = adj.get(current) || [];
-					let next: string | undefined;
-					for (const neighbor of neighbors) {
-						const neighborDist = distances.get(neighbor);
-						if (neighborDist !== undefined && neighborDist < currentDist) {
-							next = neighbor;
-							break;
-						}
-					}
-					current = next;
+			for (const [nodeId, da] of distA) {
+				const db = distB.get(nodeId);
+				if (db !== undefined && da + db === ab) {
+					keepIds.add(nodeId);
 				}
-
-				bestTerminal = terminalId;
-				bestPath = path;
-				bestLength = totalDistance;
 			}
 		}
+	}
 
-		if (!bestTerminal || !bestPath) break;
-		connected.add(bestTerminal);
-		for (const nodeId of bestPath) {
-			keepIds.add(nodeId);
-			connected.add(nodeId);
+	// Direct multi-homed bridges: a firm/person linked to 2+ log terminals stays
+	// even when those terminals also have a shorter direct edge between them.
+	for (const [nodeId, neighbors] of adj) {
+		if (keepIds.has(nodeId)) continue;
+		let logNeighborCount = 0;
+		const seen = new Set<string>();
+		for (const neighborId of neighbors) {
+			if (!terminalIds.has(neighborId) || seen.has(neighborId)) continue;
+			seen.add(neighborId);
+			logNeighborCount += 1;
+			if (logNeighborCount >= 2) {
+				keepIds.add(nodeId);
+				break;
+			}
 		}
 	}
 
@@ -4083,15 +4079,9 @@ export function collectSelectionLogClearNonLogKeepIds(
 	if (logIds.size === 0) return new Set<string>();
 
 	const adj = buildUndirectedAdjacencyList(graphData.links);
-	const keepIds = collectSteinerTreeConnectorIds(adj, logIds);
-
-	for (const entry of Array.isArray(entries) ? entries : []) {
-		const entryId = String(entry?.id || '').trim();
-		if (!entryId || !isSelectionLogPeopleEntry(entry)) continue;
-		for (const neighborId of adj.get(entryId) || []) {
-			keepIds.add(neighborId);
-		}
-	}
+	// Keep log terminals plus all bridges between them (not just one Steiner spine).
+	// Dangling one-hop leaves that do not bridge log nodes are cleared.
+	const keepIds = collectLogBridgeConnectorIds(adj, logIds);
 
 	for (const extraId of extraKeepIds) {
 		const normalizedExtraId = String(extraId || '').trim();
@@ -9301,12 +9291,14 @@ const LINK_COLOR = {
 const LINK_OPACITY = {
 	employed_by: 0.9,
 	previous_employed_by: 0.85,
-	controls: 0.6,
+	// Red must stay opaque so it wins visually wherever it crosses blue employment lines.
+	controls: 1,
 };
 const DEFAULT_LINK_WIDTH = 1.2;
 const INACTIVE_LINK_OPACITY = 0.85;
 const defaultLinkOpacity = (d) => {
 	if (hasInactiveEndpoint(d)) return INACTIVE_LINK_OPACITY;
+	if (isControlRelationship(d)) return LINK_OPACITY.controls;
 	if (usesCurrentEmploymentStyling(d)) return LINK_OPACITY.employed_by;
 	return LINK_OPACITY[d.relationship] ?? 1;
 };
@@ -10505,8 +10497,8 @@ function isCurrentRegistration(d) {
 }
 
 function getLinkColor(d) {
-	if (usesCurrentEmploymentStyling(d)) return GRAPH_COLORS.lineEmployedBy;
 	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d)) return GRAPH_COLORS.nodeInactiveStroke;
+	// Controls (red) before employment (blue) so red never loses the color decision.
 	if (isControlRelationship(d)) return GRAPH_COLORS.lineControls;
 	if (isPreviousEmploymentLink(d)) return GRAPH_COLORS.nodeInactiveStroke;
 	if (usesCurrentEmploymentStyling(d)) return GRAPH_COLORS.lineEmployedBy;
@@ -10626,14 +10618,17 @@ function getNodeRenderPriority(node, highlightState) {
 function getLinkRenderPriority(link, highlightState) {
 	if (!link) return 1;
 	const linkKey = getLinkKey(link);
+	const isRedControl = isControlRelationship(link);
 	// Inactive / disabled endpoints → bottom layer (still under nodes).
 	if (hasInactiveEndpoint(link)) return 0;
 	// Gray history lines remain below active selections, but still sit above the node base layer.
 	if (isPreviousEmploymentLink(link) || isForcedGrayConnectionLink(link)) return 4;
-	// Selected / highlighted / trace links must rise above gray links and the node layer.
-	if (isLinkOnAnyTrace(linkKey)) return 5;
-	if (highlightState?.linkKeys?.has(linkKey)) return 5;
-	return 1;
+	// Selected / highlighted / trace links must rise above gray links.
+	// Within that tier, red controls always paint above blue employment (no purple blend).
+	if (isLinkOnAnyTrace(linkKey)) return isRedControl ? 7 : 5;
+	if (highlightState?.linkKeys?.has(linkKey)) return isRedControl ? 7 : 5;
+	// Default: blue employment under red controls in the mid stack.
+	return isRedControl ? 2 : 1;
 }
 
 function comparePriorityWithTieBreak(aPriority, bPriority, aTieBreak, bTieBreak) {
@@ -10722,6 +10717,12 @@ function refreshLayeredLinkSelections({ enterDuration = 0, highlightState = comp
 		else midLinks.push(link);
 	}
 
+	const byPaintOrder = (a, b) =>
+		comparePriorityWithTieBreak(getLinkRenderPriority(a, highlightState), getLinkRenderPriority(b, highlightState), getLinkKey(a), getLinkKey(b));
+	bottomLinks.sort(byPaintOrder);
+	midLinks.sort(byPaintOrder);
+	topLinks.sort(byPaintOrder);
+
 	joinLayeredLinkGroup(linkBottomGroup, bottomLinks, enterDuration);
 	joinLayeredLinkGroup(linkMidGroup, midLinks, enterDuration);
 	joinLayeredLinkGroup(linkTopGroup, topLinks, enterDuration);
@@ -10738,18 +10739,6 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 	const rootNode = rootGroup?.node?.();
 	if (!rootNode || !rootNode.isConnected || !rootNode.parentNode) return;
 
-	const nodeCount = layoutNodes?.length || 0;
-	// Per-element sort is expensive on large graphs; group stacking still runs below.
-	if (nodeCount <= 100) {
-		if (linkSel && typeof linkSel.sort === 'function') {
-			linkSel.sort((a, b) => comparePriorityWithTieBreak(getLinkRenderPriority(a, highlightState), getLinkRenderPriority(b, highlightState), getLinkKey(a), getLinkKey(b)));
-		}
-
-		if (arrowSel && typeof arrowSel.sort === 'function') {
-			arrowSel.sort((a, b) => comparePriorityWithTieBreak(getLinkRenderPriority(a, highlightState), getLinkRenderPriority(b, highlightState), getLinkKey(a), getLinkKey(b)));
-		}
-	}
-
 	if (nodeSel && typeof nodeSel.sort === 'function') {
 		nodeSel.sort((a, b) => {
 			const aPriority = getNodeRenderPriority(a, highlightState);
@@ -10761,38 +10750,33 @@ function orderGraphVisualLayers(highlightState = computeHighlightState()) {
 
 	// Move individual link/arrow DOM nodes between link sub-groups so some links
 	// can render above or below the main node group (provides 2.5D depth).
+	// Append in ascending priority so higher-priority (red controls) paint last / on top.
+	const restackSelectionIntoLayers = (selection, bottomNode, midNode, topNode) => {
+		if (!selection || !bottomNode || !midNode || !topNode) return;
+		const items: Array<{ el: Element; pr: number; key: string }> = [];
+		selection.each(function (d) {
+			items.push({
+				el: this as any,
+				pr: getLinkRenderPriority(d, highlightState),
+				key: getLinkKey(d),
+			});
+		});
+		items.sort((a, b) => comparePriorityWithTieBreak(a.pr, b.pr, a.key, b.key));
+		for (const item of items) {
+			const parent =
+				item.pr <= 0 ? bottomNode
+				: item.pr >= 3 ? topNode
+				: midNode;
+			parent.appendChild(item.el);
+		}
+	};
+
 	try {
 		if (linkBottomGroup && linkMidGroup && linkTopGroup && linkSel) {
-			const bottomNode = linkBottomGroup.node();
-			const midNode = linkMidGroup.node();
-			const topNode = linkTopGroup.node();
-			linkSel.each(function (d) {
-				const pr = getLinkRenderPriority(d, highlightState);
-				const el = this as any;
-				if (pr <= 0) {
-					if (el.parentNode !== bottomNode) bottomNode.appendChild(el);
-				} else if (pr >= 3) {
-					if (el.parentNode !== topNode) topNode.appendChild(el);
-				} else {
-					if (el.parentNode !== midNode) midNode.appendChild(el);
-				}
-			});
+			restackSelectionIntoLayers(linkSel, linkBottomGroup.node(), linkMidGroup.node(), linkTopGroup.node());
 		}
 		if (arrowBottomGroup && arrowMidGroup && arrowTopGroup && arrowSel) {
-			const bottomNode = arrowBottomGroup.node();
-			const midNode = arrowMidGroup.node();
-			const topNode = arrowTopGroup.node();
-			arrowSel.each(function (d) {
-				const pr = getLinkRenderPriority(d, highlightState);
-				const el = this as any;
-				if (pr <= 0) {
-					if (el.parentNode !== bottomNode) bottomNode.appendChild(el);
-				} else if (pr >= 3) {
-					if (el.parentNode !== topNode) topNode.appendChild(el);
-				} else {
-					if (el.parentNode !== midNode) midNode.appendChild(el);
-				}
-			});
+			restackSelectionIntoLayers(arrowSel, arrowBottomGroup.node(), arrowMidGroup.node(), arrowTopGroup.node());
 		}
 	} catch (e) {
 		// Non-fatal — DOM move failures should not break rendering
