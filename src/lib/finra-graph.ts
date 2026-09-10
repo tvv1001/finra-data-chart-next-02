@@ -458,10 +458,11 @@ function getFocusedLabelScale(zoomScale: number | string | null | undefined): nu
 export function getSelectionLinkEmphasis(zoomScale = getCurrentGraphZoomScale()) {
 	const normalizedScale = Math.max(0.18, Math.min(1, Number(zoomScale) || 1));
 	const zoomWeight = Math.max(0, Math.min(1, (normalizedScale - 0.18) / 0.82));
-
+	// Keep selected-line base width modest; zoomed-out visibility comes from
+	// getLinkZoomOutScale / opacity boost, not from thickening the base stroke.
 	return {
-		strokeWidthScale: 0.52 + zoomWeight * 0.42,
-		strokeOpacity: 0.8 + zoomWeight * 0.16,
+		strokeWidthScale: 0.72 + zoomWeight * 0.18,
+		strokeOpacity: 0.78 + zoomWeight * 0.18,
 		showActiveFilter: normalizedScale >= 0.45,
 	};
 }
@@ -10530,9 +10531,9 @@ function getLinkBaseWidth(d) {
 
 function getLinkZoomOutScale() {
 	const zoom = Math.max(0.02, Number(getCurrentGraphZoomScale()) || 1);
-	// Only thicken once zoomed out past the point where small labels hide, capped at 35% thicker.
+	// Thicken when zoomed out so thin selected/default lines stay readable at distance.
 	if (zoom >= activeLabelZoomThreshold) return 1;
-	return Math.min(1.35, Math.max(1, activeLabelZoomThreshold / zoom));
+	return Math.min(2.15, Math.max(1, activeLabelZoomThreshold / zoom));
 }
 
 function getScaledLinkStrokeWidth(baseWidth: number) {
@@ -10547,13 +10548,13 @@ function getLinkWidthPx(d) {
 // become nearly invisible against the dark background. Boost stroke-opacity toward 1 as
 // the zoom scale drops below the point where nodes start getting visually tiny, so lines
 // stay legible at a distance without changing their appearance at normal/close zoom.
-const LINK_ZOOM_OUT_OPACITY_BOOST_THRESHOLD = 0.6;
+const LINK_ZOOM_OUT_OPACITY_BOOST_THRESHOLD = 0.7;
 function getLinkZoomOutOpacityScale() {
 	const zoom = Math.max(0.02, Number(getCurrentGraphZoomScale()) || 1);
 	if (zoom >= LINK_ZOOM_OUT_OPACITY_BOOST_THRESHOLD) return 1;
-	// Linearly ramp the boost from 1x (at the threshold) up to ~2.2x at the minimum zoom.
+	// Linearly ramp the boost from 1x (at the threshold) up to ~2.5x at the minimum zoom.
 	const t = 1 - zoom / LINK_ZOOM_OUT_OPACITY_BOOST_THRESHOLD;
-	return 1 + t * 1.2;
+	return 1 + t * 1.5;
 }
 
 function getScaledLinkStrokeOpacity(baseOpacity: number) {
@@ -15274,43 +15275,19 @@ function highlightLinks(highlightState = null) {
 	const hasNormalHighlights = state.linkKeys.size > 0;
 
 	if (!hasNormalHighlights && !isTraceMode && !isTraceLogMode) {
-		const selectionLinkEmphasis = getSelectionLinkEmphasis();
-		// restore default appearance (both attributes and inline styles)
+		// Restore true default appearance — do NOT leave selection/highlight stroke widths
+		// behind, or the next interaction/zoom refresh will reapply them and every line
+		// looks boldly thick after Clear Highlight.
 		linkSel
 			.style('filter', null)
 			.style('stroke-opacity', null)
 			.style('opacity', null)
 			.attr('stroke', (d) => getLinkColor(d))
-			.attr('stroke-opacity', (d) => getSelectionLinkOpacity(d, selectionLinkEmphasis))
-			.attr('data-fg-base-stroke-width', (d) => {
-				const isGrayLine = hasInactiveEndpoint(d) || isPreviousEmploymentLink(d) || isForcedGrayConnectionLink(d);
-				const highlightedStrokeWidth =
-					isGrayLine ? 1.05
-					: isControlRelationship(d) ? 1.9
-					: usesCurrentEmploymentStyling(d) ? 1.85
-					: 1.4;
-				return String(highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale);
-			})
-			.attr('stroke-width', (d) => {
-				const isGrayLine = hasInactiveEndpoint(d) || isPreviousEmploymentLink(d) || isForcedGrayConnectionLink(d);
-				const highlightedStrokeWidth =
-					isGrayLine ? 1.05
-					: isControlRelationship(d) ? 1.9
-					: usesCurrentEmploymentStyling(d) ? 1.85
-					: 1.4;
-				const baseWidth = highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale;
-				return getScaledLinkStrokeWidth(baseWidth);
-			})
-			.style('--fg-link-width', (d) => {
-				const isGrayLine = hasInactiveEndpoint(d) || isPreviousEmploymentLink(d) || isForcedGrayConnectionLink(d);
-				const highlightedStrokeWidth =
-					isGrayLine ? 1.05
-					: isControlRelationship(d) ? 1.9
-					: usesCurrentEmploymentStyling(d) ? 1.85
-					: 1.4;
-				const baseWidth = highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale;
-				return `${getScaledLinkStrokeWidth(baseWidth)}px`;
-			})
+			.attr('data-fg-base-stroke-opacity', (d) => String(defaultLinkOpacity(d)))
+			.attr('stroke-opacity', (d) => getScaledLinkStrokeOpacity(defaultLinkOpacity(d)))
+			.attr('data-fg-base-stroke-width', (d) => String(getLinkBaseWidth(d)))
+			.attr('stroke-width', (d) => getScaledLinkStrokeWidth(getLinkBaseWidth(d)))
+			.style('--fg-link-width', (d) => getLinkWidthPx(d))
 			.classed('fg-link--depth-active', false)
 			.classed('fg-link--depth-recessed', false)
 			.classed('trace-shortest', false)
@@ -15352,26 +15329,29 @@ function highlightLinks(highlightState = null) {
 		if (hasNormalHighlights) {
 			if (connected) {
 				sel.classed('fg-link--depth-active', true);
+				// Slimmer selected strokes; zoom-out scale/opacity keep them readable far out.
 				const highlightedStrokeWidth =
-					isGrayLine ? 2.2
+					isGrayLine ? 1.35
 					: isControlRelationship(d) ?
-						connectedToRoot ? 3.5
-						:	2.8
+						connectedToRoot ? 2.05
+						:	1.7
 					: usesCurrentEmploymentStyling(d) ?
-						connectedToRoot ? 3.2
-						:	2.5
-					: connectedToRoot ? 2.8
-					: 2.2;
+						connectedToRoot ? 1.9
+						:	1.55
+					: connectedToRoot ? 1.7
+					: 1.4;
 				const activeStrokeOpacity = getSelectionLinkOpacity(d, selectionLinkEmphasis, { connected: true });
+				const baseWidth = highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale;
 				sel
 					.style('filter', selectionLinkEmphasis.showActiveFilter ? null : 'none')
 					.style('opacity', null)
 					.style('stroke-opacity', null)
 					.attr('stroke', getLinkHighlightColor(d))
-					.attr('stroke-opacity', activeStrokeOpacity)
-					.attr('data-fg-base-stroke-width', `${highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale}`)
-					.attr('stroke-width', getScaledLinkStrokeWidth(highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale))
-					.style('--fg-link-width', `${getScaledLinkStrokeWidth(highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale)}px`);
+					.attr('data-fg-base-stroke-opacity', String(activeStrokeOpacity))
+					.attr('stroke-opacity', getScaledLinkStrokeOpacity(activeStrokeOpacity))
+					.attr('data-fg-base-stroke-width', `${baseWidth}`)
+					.attr('stroke-width', getScaledLinkStrokeWidth(baseWidth))
+					.style('--fg-link-width', `${getScaledLinkStrokeWidth(baseWidth)}px`);
 			} else {
 				sel.classed('fg-link--depth-recessed', true);
 				const recessedLinkOpacity = isGrayLine ? 0.85 : 0.56;
@@ -15382,7 +15362,8 @@ function highlightLinks(highlightState = null) {
 					.style('opacity', recessedLinkOpacity)
 					.style('stroke-opacity', null)
 					.attr('stroke', getLinkColor(d))
-					.attr('stroke-opacity', recessedStrokeOpacity)
+					.attr('data-fg-base-stroke-opacity', String(recessedStrokeOpacity))
+					.attr('stroke-opacity', getScaledLinkStrokeOpacity(recessedStrokeOpacity))
 					.attr('data-fg-base-stroke-width', `${recessedStrokeWidth}`)
 					.attr('stroke-width', getScaledLinkStrokeWidth(recessedStrokeWidth))
 					.style('--fg-link-width', `${getScaledLinkStrokeWidth(recessedStrokeWidth)}px`);
