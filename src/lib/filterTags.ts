@@ -186,8 +186,7 @@ function normalizeFilterPhrase(value: string): string {
 		.trim();
 }
 
-function haystackMatchesExactTag(haystack: string, tag: string): boolean {
-	const normalizedHaystack = normalizeFilterPhrase(haystack);
+function haystackMatchesExactTag(normalizedHaystack: string, tag: string): boolean {
 	const normalizedTag = normalizeFilterPhrase(tag);
 	if (!normalizedTag) return true;
 	return normalizedHaystack.includes(normalizedTag);
@@ -208,7 +207,8 @@ export function matchesFilterTags(haystack: string, tags: string[], liveText?: s
 		return haystackMatchesAllTokens(lower, liveTokens);
 	}
 	if (tags.length > 0) {
-		return tags.some((tag) => haystackMatchesExactTag(haystack, tag));
+		const normalizedHaystack = normalizeFilterPhrase(haystack);
+		return tags.some((tag) => haystackMatchesExactTag(normalizedHaystack, tag));
 	}
 	return true;
 }
@@ -216,23 +216,30 @@ export function matchesFilterTags(haystack: string, tags: string[], liveText?: s
 /** Higher score = better match for sorting filtered connection cards. */
 export function scoreConnectionFilterMatch(haystack: string, tags: string[], liveText?: string): number {
 	const lower = haystack.toLowerCase();
-	const normalizedHaystack = normalizeFilterPhrase(haystack);
-	let score = 0;
 	const live = String(liveText || '').trim().toLowerCase();
+	const liveTokens = tokenizeFilterPhrase(live);
+	let score = 0;
 	if (live && lower.includes(live)) score += 50;
-	for (const token of tokenizeFilterPhrase(live)) {
+	for (const token of liveTokens) {
 		if (lower.includes(token)) score += 10;
 	}
+	// Prefer CRD / exact id hits
+	if (/^\d{1,10}$/.test(live) && lower.includes(live)) score += 100;
+
+	if (!tags.length) return score;
+
+	// Tags-only ranking: avoid re-normalizing the haystack per tag token loop.
+	const normalizedHaystack = normalizeFilterPhrase(haystack);
 	for (const tag of tags) {
 		const normalizedTag = normalizeFilterPhrase(tag);
 		if (!normalizedTag) continue;
 		if (normalizedHaystack.includes(normalizedTag)) score += 40;
-		for (const token of tokenizeFilterPhrase(tag)) {
-			if (lower.includes(token)) score += 8;
+		else {
+			for (const token of tokenizeFilterPhrase(tag)) {
+				if (lower.includes(token)) score += 8;
+			}
 		}
 	}
-	// Prefer CRD / exact id hits
-	if (/^\d{1,10}$/.test(live) && lower.includes(live)) score += 100;
 	return score;
 }
 
@@ -277,10 +284,13 @@ export function partitionConnectionsByFilter<T>(
 	liveText?: string,
 	enabled = true,
 	previewUnfiltered = false,
-): { matched: T[]; unmatched: T[]; ordered: T[] } {
+): { matched: T[]; unmatched: T[]; ordered: T[]; matchedSet: Set<T> } {
 	const matchedEntries: Array<{ item: T; haystack: string; score: number }> = [];
 	const unmatched: T[] = [];
-	const hasActiveFilter = enabled && !previewUnfiltered && (tags.length > 0 || String(liveText || '').trim());
+	const live = String(liveText || '').trim();
+	const hasActiveFilter = enabled && !previewUnfiltered && (tags.length > 0 || Boolean(live));
+	// Scoring is only needed to rank when live text can differentiate matches.
+	const needsScore = hasActiveFilter && Boolean(live);
 
 	for (const item of Array.isArray(items) ? items : []) {
 		const haystack = getHaystack(item);
@@ -288,17 +298,17 @@ export function partitionConnectionsByFilter<T>(
 			matchedEntries.push({
 				item,
 				haystack,
-				score: hasActiveFilter ? scoreConnectionFilterMatch(haystack, tags, liveText) : 0,
+				score: needsScore ? scoreConnectionFilterMatch(haystack, tags, liveText) : 0,
 			});
 		} else {
 			unmatched.push(item);
 		}
 	}
 
-	if (hasActiveFilter) {
+	if (needsScore) {
 		matchedEntries.sort((a, b) => b.score - a.score);
 	}
 
 	const matched = matchedEntries.map(({ item }) => item);
-	return { matched, unmatched, ordered: [...matched, ...unmatched] };
+	return { matched, unmatched, ordered: [...matched, ...unmatched], matchedSet: new Set(matched) };
 }

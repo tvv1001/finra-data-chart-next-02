@@ -21,7 +21,6 @@ import {
 	getFilterEnabled,
 	getFilterTags,
 	getFilterText,
-	matchesConnectionsFilter,
 	partitionConnectionsByFilter,
 	setFilterEnabled,
 	setFilterTags,
@@ -1415,7 +1414,9 @@ export function extractConnectionCards(body: Record<string, any>, key: 'currentC
 				result.crd = crd;
 				result.entity = entityType;
 			}
-			result.haystack = [title, subtitle, meta, crd, addressText, statusTag, currentFirmName, currentFirmId, ...(sourceTags || []), ...otherNamesArr]
+			// Omit address/city from the filter haystack — short tags like "ia" / "bd"
+			// were matching place names (e.g. "Williamsburg", "Alexandria").
+			result.haystack = [title, dateText, meta, crd, statusTag, currentFirmName, currentFirmId, ...(sourceTags || []), ...otherNamesArr]
 				.filter(Boolean)
 				.join(' ')
 				.toLowerCase();
@@ -2881,25 +2882,50 @@ function DashboardPageInner() {
 	const loadMorePreviousConnections = useCallback(() => {
 		setPreviousRenderCount((count) => count + CONNECTION_FILTER_PAGE_SIZE);
 	}, []);
+
+	// Defer live typing so keystrokes stay responsive on large firm connection lists.
+	const deferredCurrentConnectionCards = useDeferredValue(detailedMainRecord?.currentConnectionCards || []);
+	const deferredCurrentFilterTags = useDeferredValue(connectionsFilterTags);
+	const deferredCurrentFilterQuery = useDeferredValue(connectionsFilterQuery);
+	const deferredCurrentFilterEnabled = useDeferredValue(connectionsFilterEnabled);
+	const deferredCurrentPreviewUnfiltered = useDeferredValue(connectionFilterPreviewUnfiltered);
+	const connectionHaystackOf = useCallback(
+		(item: { haystack?: string; title?: string; meta?: string; crd?: string; statusTag?: string; sourceTags?: string[]; otherNames?: string[] }) =>
+			item.haystack ||
+			[item.title, item.meta, item.crd, item.statusTag, ...(item.sourceTags || []), ...(item.otherNames || [])].filter(Boolean).join(' '),
+		[],
+	);
 	const currentConnectionPartition = useMemo(() => {
-		const cards = detailedMainRecord?.currentConnectionCards || [];
 		return partitionConnectionsByFilter(
-			cards,
-			(item) =>
-				item.haystack ||
-				[item.title, item.subtitle, item.meta, item.crd, item.address, item.statusTag, ...(item.sourceTags || []), ...(item.otherNames || [])].filter(Boolean).join(' '),
-			connectionsFilterTags,
-			connectionsFilterQuery.trim(),
-			connectionsFilterEnabled,
-			connectionFilterPreviewUnfiltered,
+			deferredCurrentConnectionCards,
+			connectionHaystackOf,
+			deferredCurrentFilterTags,
+			deferredCurrentFilterQuery.trim(),
+			deferredCurrentFilterEnabled,
+			deferredCurrentPreviewUnfiltered,
 		);
-	}, [detailedMainRecord?.currentConnectionCards, connectionsFilterTags, connectionsFilterQuery, connectionsFilterEnabled, connectionFilterPreviewUnfiltered]);
+	}, [
+		deferredCurrentConnectionCards,
+		connectionHaystackOf,
+		deferredCurrentFilterTags,
+		deferredCurrentFilterQuery,
+		deferredCurrentFilterEnabled,
+		deferredCurrentPreviewUnfiltered,
+	]);
 	const filteredCurrentConnectionCardsAll = useMemo(() => {
-		const filterActive = !connectionFilterPreviewUnfiltered && (Boolean(connectionsFilterQuery.trim()) || (connectionsFilterEnabled && connectionsFilterTags.length > 0));
+		const filterActive =
+			!deferredCurrentPreviewUnfiltered &&
+			(Boolean(deferredCurrentFilterQuery.trim()) || (deferredCurrentFilterEnabled && deferredCurrentFilterTags.length > 0));
 		// Keep relevance order from partitionConnectionsByFilter when filtering; otherwise newest first.
 		if (filterActive) return currentConnectionPartition.ordered;
 		return [...sortByMostRecentStartDate(currentConnectionPartition.matched), ...sortByMostRecentStartDate(currentConnectionPartition.unmatched)];
-	}, [currentConnectionPartition, connectionsFilterEnabled, connectionFilterPreviewUnfiltered, connectionsFilterTags, connectionsFilterQuery]);
+	}, [
+		currentConnectionPartition,
+		deferredCurrentFilterEnabled,
+		deferredCurrentPreviewUnfiltered,
+		deferredCurrentFilterTags,
+		deferredCurrentFilterQuery,
+	]);
 	const filteredCurrentConnectionCards = useMemo(() => filteredCurrentConnectionCardsAll.slice(0, currentRenderCount), [filteredCurrentConnectionCardsAll, currentRenderCount]);
 
 	const deferredPreviousConnectionCards = useDeferredValue(detailedMainRecord?.previousConnectionCards || []);
@@ -2910,15 +2936,20 @@ function DashboardPageInner() {
 	const previousConnectionPartition = useMemo(() => {
 		return partitionConnectionsByFilter(
 			deferredPreviousConnectionCards,
-			(item) =>
-				item.haystack ||
-				[item.title, item.subtitle, item.meta, item.crd, item.address, item.statusTag, ...(item.sourceTags || []), ...(item.otherNames || [])].filter(Boolean).join(' '),
+			connectionHaystackOf,
 			deferredPreviousFilterTags,
 			deferredPreviousFilterQuery.trim(),
 			deferredPreviousFilterEnabled,
 			deferredPreviousPreviewUnfiltered,
 		);
-	}, [deferredPreviousConnectionCards, deferredPreviousFilterTags, deferredPreviousFilterQuery, deferredPreviousFilterEnabled, deferredPreviousPreviewUnfiltered]);
+	}, [
+		deferredPreviousConnectionCards,
+		connectionHaystackOf,
+		deferredPreviousFilterTags,
+		deferredPreviousFilterQuery,
+		deferredPreviousFilterEnabled,
+		deferredPreviousPreviewUnfiltered,
+	]);
 	const filteredPreviousConnectionCardsAll = previousConnectionPartition.ordered;
 	useEffect(() => {
 		setCurrentRenderCount(connectionPageSize);
@@ -5992,24 +6023,16 @@ function DashboardPageInner() {
 												</section>
 											:	(() => {
 													type ConnectionCard = (typeof detailedMainRecord.currentConnectionCards)[number];
-													const connectionHaystack = (item: ConnectionCard) =>
-														item.haystack ||
-														[item.title, item.subtitle, item.meta, item.crd, item.address, item.statusTag, ...(item.sourceTags || []), ...(item.otherNames || [])]
-															.filter(Boolean)
-															.join(' ');
-													const matchesConnectionsFilterFn = (item: ConnectionCard) =>
-														matchesConnectionsFilter(
-															connectionHaystack(item),
-															connectionsFilterTags,
-															connectionsFilterQuery.trim(),
-															connectionsFilterEnabled,
-															connectionFilterPreviewUnfiltered,
-														);
 													const connectionKey = (item: { crd?: string; entity?: string }) => (item.crd ? `${item.entity || 'individual'}:${item.crd}` : '');
 													const matchedSelectableCurrent = currentConnectionPartition.matched.filter((item) => item.crd);
 													const matchedSelectablePrevious = previousConnectionPartition.matched.filter((item) => item.crd);
 													const matchedSelectableConnections = [...matchedSelectableCurrent, ...matchedSelectablePrevious];
 													const selectableConnections = [...filteredCurrentConnectionCardsAll, ...filteredPreviousConnectionCardsAll].filter((item) => item.crd);
+													const currentMatchedSet = currentConnectionPartition.matchedSet as Set<ConnectionCard>;
+													const previousMatchedSet = previousConnectionPartition.matchedSet as Set<ConnectionCard>;
+													const filterHighlightActive =
+														!connectionFilterPreviewUnfiltered &&
+														(Boolean(connectionsFilterQuery.trim()) || (connectionsFilterEnabled && connectionsFilterTags.length > 0));
 													const toggleConnectionKey = (key: string) => {
 														if (!key) return;
 														setSelectedConnectionKeys((prev) => {
@@ -6069,13 +6092,14 @@ function DashboardPageInner() {
 													const renderConnectionRow = (item: (typeof filteredCurrentConnectionCards)[number], idx: number, kind: 'current' | 'previous') => {
 														const key = connectionKey(item);
 														const isSelected = connectionsSelectMode && Boolean(key) && selectedConnectionKeys.has(key);
-														const isUnmatched = !matchesConnectionsFilterFn(item);
+														const isUnmatched = !(kind === 'current' ? currentMatchedSet.has(item) : previousMatchedSet.has(item));
 														const nameClass = kind === 'current' ? styles.currentConnectionName : styles.previousConnectionName;
 														const otherNamesClass = kind === 'current' ? styles.currentConnectionOtherNames : styles.previousConnectionOtherNames;
 														const metaClass = kind === 'current' ? styles.currentConnectionMeta : styles.previousConnectionMeta;
 														const rowKindClass = kind === 'current' ? styles.currentConnectionRow : styles.previousConnectionRow;
 														const unmatchedClass = isUnmatched ? styles.connectionFilterUnmatched : '';
-														const liveHighlight = isUnmatched ? '' : [connectionsFilterQuery.trim(), ...connectionsFilterTags].filter(Boolean).join(' ');
+														const liveHighlight =
+															isUnmatched || !filterHighlightActive ? '' : [connectionsFilterQuery.trim(), ...connectionsFilterTags].filter(Boolean).join(' ');
 														const dateStr =
 															kind === 'current' ?
 																item.startDate ?
@@ -6199,77 +6223,81 @@ function DashboardPageInner() {
 															{(detailedMainRecord.currentConnectionCards.length > 0 || detailedMainRecord.previousConnectionCards.length > 0) && (
 																<div
 																	id={FIRM_CONNECTIONS_ANCHOR_ID}
-																	className={styles.filterLine}>
-																	<label className={styles.filterEnabledLabel}>
-																		<input
-																			type='checkbox'
-																			checked={connectionsFilterEnabled}
-																			onChange={(event) => setConnectionsFilterEnabled(event.target.checked)}
-																			aria-label='Apply committed filter tags'
+																	className={`${styles.filterLine} ${styles.filterLineSticky}`}>
+																	<div className={styles.filterTagsRow}>
+																		<label className={styles.filterEnabledLabel}>
+																			<input
+																				type='checkbox'
+																				checked={connectionsFilterEnabled}
+																				onChange={(event) => setConnectionsFilterEnabled(event.target.checked)}
+																				aria-label='Apply committed filter tags'
+																			/>
+																			Tags
+																		</label>
+																		<FilterTagsInput
+																			tags={connectionsFilterEnabled ? connectionsFilterTags : []}
+																			liveText={connectionsFilterQuery}
+																			onTagsChange={setConnectionsFilterTags}
+																			onLiveTextChange={(text) => {
+																				if (text.trim()) setConnectionsFilterJustCommitted(false);
+																				setConnectionsFilterQuery(text);
+																			}}
+																			onFocusChange={(focused) => {
+																				setConnectionsFilterFocused(focused);
+																				if (!focused) setConnectionsFilterJustCommitted(false);
+																			}}
+																			onCommitTag={() => setConnectionsFilterJustCommitted(true)}
+																			placeholder='Filter connections… name or CRD'
 																		/>
-																		Tags
-																	</label>
-																	<FilterTagsInput
-																		tags={connectionsFilterEnabled ? connectionsFilterTags : []}
-																		liveText={connectionsFilterQuery}
-																		onTagsChange={setConnectionsFilterTags}
-																		onLiveTextChange={(text) => {
-																			if (text.trim()) setConnectionsFilterJustCommitted(false);
-																			setConnectionsFilterQuery(text);
-																		}}
-																		onFocusChange={(focused) => {
-																			setConnectionsFilterFocused(focused);
-																			if (!focused) setConnectionsFilterJustCommitted(false);
-																		}}
-																		onCommitTag={() => setConnectionsFilterJustCommitted(true)}
-																		placeholder='Filter connections… name or CRD'
-																	/>
-																	{connectionsFilterTags.length > 0 && (
-																		<button
-																			type='button'
-																			className={styles.filterLineBtn}
-																			onClick={() => setConnectionsFilterTags([])}
-																			title='Clear committed filter tags'>
-																			Clear tags
-																		</button>
-																	)}
-																	{connectionsSelectMode ?
-																		<>
+																	</div>
+																	<div className={styles.filterActionsRow}>
+																		{connectionsFilterTags.length > 0 && (
 																			<button
 																				type='button'
 																				className={styles.filterLineBtn}
-																				onClick={() => selectConnectionGroup('all')}>
-																				Select all
+																				onClick={() => setConnectionsFilterTags([])}
+																				title='Clear committed filter tags'>
+																				Clear tags
 																			</button>
-																			<button
+																		)}
+																		{connectionsSelectMode ?
+																			<>
+																				<button
+																					type='button'
+																					className={styles.filterLineBtn}
+																					onClick={() => selectConnectionGroup('all')}>
+																					Select all
+																				</button>
+																				<button
+																					type='button'
+																					className={styles.filterLineBtn}
+																					onClick={() => selectConnectionGroup('current')}>
+																					Current
+																				</button>
+																				<button
+																					type='button'
+																					className={styles.filterLineBtn}
+																					onClick={() => selectConnectionGroup('previous')}>
+																					Previous
+																				</button>
+																				<button
+																					type='button'
+																					className={`${styles.filterLineBtn} ${styles.filterLineBtnActive}`}
+																					onClick={finishConnectionSelectMode}>
+																					Done{selectedConnectionKeys.size ? ` (${selectedConnectionKeys.size})` : ''}
+																				</button>
+																			</>
+																		:	<button
 																				type='button'
 																				className={styles.filterLineBtn}
-																				onClick={() => selectConnectionGroup('current')}>
-																				Current
+																				onClick={() => {
+																					setConnectionsSelectMode(true);
+																					setSelectedConnectionKeys(new Set());
+																				}}>
+																				Select mode
 																			</button>
-																			<button
-																				type='button'
-																				className={styles.filterLineBtn}
-																				onClick={() => selectConnectionGroup('previous')}>
-																				Previous
-																			</button>
-																			<button
-																				type='button'
-																				className={`${styles.filterLineBtn} ${styles.filterLineBtnActive}`}
-																				onClick={finishConnectionSelectMode}>
-																				Done{selectedConnectionKeys.size ? ` (${selectedConnectionKeys.size})` : ''}
-																			</button>
-																		</>
-																	:	<button
-																			type='button'
-																			className={styles.filterLineBtn}
-																			onClick={() => {
-																				setConnectionsSelectMode(true);
-																				setSelectedConnectionKeys(new Set());
-																			}}>
-																			Select mode
-																		</button>
-																	}
+																		}
+																	</div>
 																</div>
 															)}
 

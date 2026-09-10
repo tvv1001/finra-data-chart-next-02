@@ -135,7 +135,7 @@ describe('extractConnectionCards', () => {
 
 		expect(cards).toEqual([
 			{
-				title: 'Northstar Advisory', haystack: 'northstar advisory 2020-01-01 • 123 market st, denver, co former owner 123 market st, denver, co active', statusTag: 'Active',
+				title: 'Northstar Advisory', haystack: 'northstar advisory 2020-01-01 former owner active', statusTag: 'Active',
 				meta: 'Former owner',
 				subtitle: '2020-01-01 • 123 Market St, Denver, CO',
 				startDate: '2020-01-01',

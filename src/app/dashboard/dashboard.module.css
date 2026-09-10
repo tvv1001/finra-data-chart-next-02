@@ -3557,6 +3557,17 @@
 	margin-bottom: 8px;
 }
 
+.filterLineSticky {
+	position: sticky;
+	top: 0;
+	z-index: 6;
+	padding: 8px 0 10px;
+	margin-top: -2px;
+	/* Solid fill — avoid backdrop-filter (GPU SIGILL on some machines). */
+	background: #0b1221;
+	border-bottom: 1px solid rgba(59, 130, 246, 0.28);
+}
+
 .filterTagsRow,
 .filterActionsRow {
 	display: flex;
@@ -3568,10 +3579,12 @@
 
 .filterTagsRow {
 	flex: 1 1 100%;
+	max-width: 100%;
 }
 
 .filterActionsRow {
 	flex: 1 1 100%;
+	max-width: 100%;
 	flex-wrap: wrap;
 }
 
@@ -3612,29 +3625,11 @@
 	white-space: nowrap;
 }
 
-@media (min-width: 768px) {
-	.filterTagsRow {
-		flex-basis: 50%;
-		max-width: 50%;
-	}
-
-	.filterActionsRow {
-		flex-basis: 50%;
-		max-width: 50%;
-	}
-}
-
 @media (max-width: 767px) {
 	.filterLine {
 		display: grid;
 		grid-template-columns: 1fr;
 		gap: 8px;
-	}
-
-	.filterTagsRow,
-	.filterActionsRow {
-		width: 100%;
-		max-width: 100%;
 	}
 
 	.filterTagsRow {
@@ -3667,9 +3662,9 @@
 	flex-wrap: wrap;
 	align-items: center;
 	gap: 6px;
-	flex: 1 1 180px;
+	flex: 1 1 auto;
 	min-width: 0;
-	width: auto;
+	width: 100%;
 	max-width: 100%;
 	margin-bottom: 0;
 	padding: 4px 6px;
@@ -3759,9 +3754,21 @@
 	font-style: normal;
 }
 
-.input,
-.filterTagsInput {
+.input {
 	width: 100%;
+	border-radius: 0px;
+	padding: 8px;
+	font-size: 16px;
+	background: linear-gradient(135deg, #000204 0%, #010406 100%);
+	border: 1px solid rgba(59, 130, 246, 0.5);
+	color: #e6edf7;
+	outline: none;
+}
+
+.filterTagsInput {
+	flex: 1 1 140px;
+	min-width: 140px;
+	width: auto;
 	border-radius: 0px;
 	padding: 8px;
 	font-size: 16px;
