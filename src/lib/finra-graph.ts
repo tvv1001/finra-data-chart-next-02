@@ -9827,6 +9827,63 @@ function getNodeScatterBoost(node, nodeCount = layoutNodes?.length || 0) {
 	return Math.min(cap, Math.sqrt(degree) * multiplier);
 }
 
+/**
+ * Spatial density → `_crowdFactor` (1 = sparse, up to ~2.6 = packed).
+ * Used to loosen collision/charge/link distance only in crowded neighborhoods.
+ */
+export function estimateLocalCrowdFactors(nodes, options: { cellSize?: number } = {}) {
+	const list = Array.isArray(nodes) ? nodes : [];
+	const cellSize = Math.max(72, Number(options.cellSize) || 140);
+	const grid = new Map<string, any[]>();
+
+	for (const node of list) {
+		const x = Number(node?.x);
+		const y = Number(node?.y);
+		if (!Number.isFinite(x) || !Number.isFinite(y)) {
+			if (node && typeof node === 'object') node._crowdFactor = 1;
+			continue;
+		}
+		const key = `${Math.floor(x / cellSize)},${Math.floor(y / cellSize)}`;
+		let bucket = grid.get(key);
+		if (!bucket) {
+			bucket = [];
+			grid.set(key, bucket);
+		}
+		bucket.push(node);
+	}
+
+	const radius = cellSize * 1.35;
+	for (const node of list) {
+		const x = Number(node?.x);
+		const y = Number(node?.y);
+		if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+		const cx = Math.floor(x / cellSize);
+		const cy = Math.floor(y / cellSize);
+		let nearby = 0;
+		for (let dx = -1; dx <= 1; dx += 1) {
+			for (let dy = -1; dy <= 1; dy += 1) {
+				const bucket = grid.get(`${cx + dx},${cy + dy}`);
+				if (!bucket) continue;
+				for (const other of bucket) {
+					if (other === node) continue;
+					const ox = Number(other?.x);
+					const oy = Number(other?.y);
+					if (!Number.isFinite(ox) || !Number.isFinite(oy)) continue;
+					if (Math.hypot(ox - x, oy - y) <= radius) nearby += 1;
+				}
+			}
+		}
+		// 0 nearby → 1.0; ~9 → ~2.1; packed neighborhoods cap near 2.6
+		node._crowdFactor = Math.min(2.6, 1 + Math.sqrt(Math.max(0, nearby)) * 0.38);
+	}
+	return list;
+}
+
+function getNodeCrowdFactor(node) {
+	const value = Number(node?._crowdFactor);
+	return Number.isFinite(value) && value > 0 ? value : 1;
+}
+
 function normalizeStateCode(value) {
 	const text = String(value || '')
 		.replace(/\./g, '')
@@ -9971,8 +10028,10 @@ function getForceLinkDistance(link, nodeCount = layoutNodes?.length || 0) {
 		link?.relationship === 'controls' ? 32
 		: link?.relationship === 'previous_employed_by' ? 16
 		: 0;
+	const crowd = Math.max(getNodeCrowdFactor(sourceNode), getNodeCrowdFactor(targetNode));
+	const crowdDistanceBoost = 1 + Math.max(0, crowd - 1) * 0.4;
 
-	return baseDistance * densityMultiplier + scatterBoost * 1.5 + relationshipBoost;
+	return baseDistance * densityMultiplier * crowdDistanceBoost + scatterBoost * 1.5 + relationshipBoost;
 }
 
 function getNodeCollisionRadius(node, nodeCount = layoutNodes?.length || 0) {
@@ -9997,7 +10056,18 @@ function getNodeCollisionRadius(node, nodeCount = layoutNodes?.length || 0) {
 	const focusPadding =
 		node && (node.isSelected || node.isHovered || node?._labelExpanded) ? 16
 		: 0;
-	return (node?._vizHalf != null ? node._vizHalf : NODE_R[node?.group] || 10) + padding + labelPadding + scatterPadding + labelLengthPadding + emphasisPadding + focusPadding;
+	const crowd = getNodeCrowdFactor(node);
+	const crowdPadding = Math.max(0, crowd - 1) * (nodeCount > 300 ? 30 : 38);
+	return (
+		(node?._vizHalf != null ? node._vizHalf : NODE_R[node?.group] || 10) +
+		padding +
+		labelPadding +
+		scatterPadding +
+		labelLengthPadding +
+		emphasisPadding +
+		focusPadding +
+		crowdPadding
+	);
 }
 
 function getIncrementalRestartAlpha(nodeCount = layoutNodes?.length || 0, changedNodeCount = 0) {
@@ -11662,12 +11732,16 @@ function appendFetchedImpl(newNodes, newLinks) {
 	}
 
 	// Replace tick handler so it covers the full updated selections.
+	let _appendTick = 0;
 	bindSimulationTickHandler(simulation, () => {
+		_appendTick += 1;
+		if (_appendTick === 1 || _appendTick % 20 === 0) estimateLocalCrowdFactors(layoutNodes);
 		scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
 	});
 
 	// Restart simulation with new nodes/links
 	refreshSoftLocationGroupingForces(layoutNodes);
+	estimateLocalCrowdFactors(layoutNodes);
 	simulation.nodes(layoutNodes);
 	simulation.force('link').links(layoutLinks);
 	simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
@@ -11908,8 +11982,11 @@ function renderGraph(_data) {
 						: isLarge ? -750
 						: -600;
 					const deg = d._deg?.total || 0;
-					// Boost repulsion for dense nodes to give them more breathing room
-					return deg > 20 ? base * 1.65 : base;
+					const crowd = getNodeCrowdFactor(d);
+					// Boost repulsion for high-degree nodes and locally crowded neighborhoods.
+					const degreeBoost = deg > 20 ? 1.65 : 1;
+					const crowdBoost = 1 + Math.max(0, crowd - 1) * 0.6;
+					return base * degreeBoost * crowdBoost;
 				})
 				.theta(
 					isHuge ? 1.5
@@ -12065,10 +12142,16 @@ function renderGraph(_data) {
 		/* ignore */
 	}
 
+	// Seed local crowd factors once positions exist; refresh while settling.
+	estimateLocalCrowdFactors(nodes);
+
 	// ── Tick ──────────────────────────────────────────────────────────────────
 	let _tickN = 0;
 	bindSimulationTickHandler(simulation, () => {
 		_tickN++;
+		if (_tickN === 1 || _tickN % 20 === 0) {
+			estimateLocalCrowdFactors(layoutNodes || nodes);
+		}
 		// During high-energy early layout, aggressively throttle SVG repaints
 		// to allow the main thread to handle user inputs and D3 physics calculations.
 		if (isHuge && simulation.alpha() > 0.05 && _tickN % 10 !== 0) return;
@@ -12417,8 +12500,10 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 	saveSession();
 
 	let _updTick = 0;
+	estimateLocalCrowdFactors(layoutNodes);
 	bindSimulationTickHandler(simulation, () => {
 		_updTick++;
+		if (_updTick === 1 || _updTick % 20 === 0) estimateLocalCrowdFactors(layoutNodes);
 		const count = layoutNodes?.length || 0;
 		if (count > 1000 && simulation.alpha() > 0.05 && _updTick % 10 !== 0) return;
 		if (count > 300 && simulation.alpha() > 0.1 && _updTick % 4 !== 0) return;
@@ -15424,6 +15509,7 @@ function revealNeighbors(
 			let _revealTick = 0;
 			bindSimulationTickHandler(simulation, () => {
 				_revealTick++;
+				if (_revealTick === 1 || _revealTick % 20 === 0) estimateLocalCrowdFactors(layoutNodes);
 				if (layoutNodes.length > 1000 && simulation.alpha() > 0.05 && _revealTick % 10 !== 0) return;
 				if (layoutNodes.length > 300 && simulation.alpha() > 0.1 && _revealTick % 4 !== 0) return;
 
@@ -15431,6 +15517,7 @@ function revealNeighbors(
 			});
 
 			refreshSoftLocationGroupingForces(layoutNodes);
+			estimateLocalCrowdFactors(layoutNodes);
 			simulation.nodes(layoutNodes);
 			simulation.force('link').links(layoutLinks);
 			simulation.force('collision').radius((d) => getNodeCollisionRadius(d, layoutNodes.length));

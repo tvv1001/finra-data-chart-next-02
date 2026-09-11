@@ -14,6 +14,7 @@ import {
 } from '../../src/components/FinraGraph';
 import {
 	applyGraphDerivedNodeMetrics,
+	estimateLocalCrowdFactors,
 	bindSimulationTickHandler,
 	getNodeLabelFontSize,
 	setGraphLabelRenderMode,
@@ -1548,6 +1549,22 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(person._vizHalf).toBeGreaterThanOrEqual(personHalfBefore);
 		expect(firm._vizHalf).toBeGreaterThanOrEqual(firmHalfBefore);
 		expect(hugeFirm._vizHalf).toBeLessThanOrEqual(36);
+	});
+
+	it('estimateLocalCrowdFactors raises crowd factor in packed neighborhoods', () => {
+		const sparse = { id: 'a', x: -800, y: -800 } as any;
+		const packed = Array.from({ length: 12 }, (_, index) => ({
+			id: `p${index}`,
+			x: 100 + (index % 4) * 20,
+			y: 100 + Math.floor(index / 4) * 20,
+		})) as any[];
+
+		estimateLocalCrowdFactors([sparse, ...packed], { cellSize: 140 });
+
+		expect(sparse._crowdFactor).toBe(1);
+		const crowded = packed.map((node) => Number(node._crowdFactor));
+		expect(Math.min(...crowded)).toBeGreaterThan(1.4);
+		expect(Math.max(...crowded)).toBeLessThanOrEqual(2.6);
 	});
 
 	it('applyGraphDerivedNodeMetrics caps large firm size from current connections', () => {
