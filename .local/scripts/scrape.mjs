@@ -9,6 +9,7 @@
  *   npx tsx --env-file=.env.local .local/scripts/scrape.mjs search --target=10
  *   npx tsx --env-file=.env.local .local/scripts/scrape.mjs search --terms=smith,jones --target=5
  *   npx tsx --env-file=.env.local .local/scripts/scrape.mjs backfill --crd=343853,8323038
+ *   npx tsx --env-file=.env.local .local/scripts/scrape.mjs firm-people --crd=124598
  *
  * Do NOT create new root-level scrape/test .js files — extend this script or add
  * helpers under `.local/scripts/` / ad-hoc probes under `.local/test-scripts/`.
@@ -85,14 +86,16 @@ function printHelp() {
 	console.log(`Master scrape — FINRA BrokerCheck + SEC AdviserInfo → local Redis + data/raw/
 
 Commands:
-  fetch      By-id detail for one or more CRDs
-  search     Query-search terms, then by-id save (high CRDs first)
-  backfill   Copy existing Redis detail envelopes out to data/raw/
-  help       Show this help
+  fetch        By-id detail for one or more CRDs
+  search       Query-search terms, then by-id save (high CRDs first)
+  firm-people  Discover SEC individuals via ?firm=<CRD>, fetch them, upsert firm-connections
+  backfill     Copy existing Redis detail envelopes out to data/raw/
+  help         Show this help
 
 Examples:
   npx tsx --env-file=.env.local .local/scripts/scrape.mjs fetch --kind=firm --crd=343853
   npx tsx --env-file=.env.local .local/scripts/scrape.mjs fetch --kind=individual --crd=8323038,8323032
+  npx tsx --env-file=.env.local .local/scripts/scrape.mjs firm-people --crd=124598
   npx tsx --env-file=.env.local .local/scripts/scrape.mjs search --target=10
   npx tsx --env-file=.env.local .local/scripts/scrape.mjs search --terms=smith --target=5
   npx tsx --env-file=.env.local .local/scripts/scrape.mjs backfill --crd=343853
@@ -400,6 +403,123 @@ async function runFetch() {
 	console.log(JSON.stringify({ ok: true, phase: 'fetch-done', results }, null, 2));
 }
 
+function hitEmploymentRefsFirm(source, firmCrd) {
+	const buckets = [
+		'ind_current_employments',
+		'ind_previous_employments',
+		'ind_ia_current_employments',
+		'ind_ia_previous_employments',
+	];
+	for (const b of buckets) {
+		const arr = source?.[b];
+		if (!Array.isArray(arr)) continue;
+		for (const emp of arr) {
+			if (String(emp?.firmId ?? emp?.firm_id ?? '').trim() === String(firmCrd)) return true;
+		}
+	}
+	return false;
+}
+
+/** SEC AdviserInfo supports individual search filtered by firm CRD — used to fill SEC-only firm rosters. */
+async function discoverSecIndividualsForFirm(firmCrd) {
+	const people = new Map();
+	let start = 0;
+	let total = Infinity;
+	let rawHits = 0;
+	let filteredOut = 0;
+	const nrows = 40;
+	while (start < total && start < 2000) {
+		const url = `https://api.adviserinfo.sec.gov/search/individual?firm=${encodeURIComponent(firmCrd)}&hl=true&nrows=${nrows}&start=${start}&wt=json`;
+		const data = await fetchJson(url);
+		await sleep(SLEEP_MS);
+		const rawTotal = data?.hits?.total;
+		total = Number(typeof rawTotal === 'number' ? rawTotal : rawTotal?.value || 0);
+		const hits = extractHits(data);
+		if (!hits.length) break;
+		for (const hit of hits) {
+			const source = hit?._source || {};
+			const id = indIdFromHit(source);
+			if (!/^\d{1,10}$/.test(id)) continue;
+			rawHits += 1;
+			// SEC ?firm= can return loose matches — keep only hits that list this firmId on an employment.
+			if (!hitEmploymentRefsFirm(source, firmCrd)) {
+				filteredOut += 1;
+				continue;
+			}
+			people.set(id, { crd: id, name: indNameFromHit(source) });
+		}
+		start += nrows;
+	}
+	return { total, rawHits, filteredOut, people: [...people.values()] };
+}
+
+async function upsertViaLocalIndividualApi(crd) {
+	const base = flag('base-url', process.env.NEXT_PUBLIC_BASE_URL || 'http://127.0.0.1:4444').replace(/\/$/, '');
+	const url = `${base}/api/finra/individual/${encodeURIComponent(crd)}?refresh=1&write=1`;
+	try {
+		const res = await fetch(url, { headers: { Accept: 'application/json', 'x-background-refresh': '1' } });
+		return { crd, status: res.status, ok: res.ok };
+	} catch (e) {
+		return { crd, status: 0, ok: false, error: e.message };
+	}
+}
+
+async function runFirmPeople() {
+	const firmCrds = flagList('crd');
+	if (!firmCrds.length) throw new Error('firm-people requires --crd=124598[,...]');
+	const skipUpsert = argv.includes('--skip-upsert');
+	const report = [];
+
+	for (const firmCrd of firmCrds) {
+		if (!/^\d{1,10}$/.test(firmCrd)) {
+			report.push({ firmCrd, status: 'invalid-crd' });
+			continue;
+		}
+		console.log(JSON.stringify({ phase: 'firm-people-start', firmCrd }));
+		const firmSave = await saveNewCrd('firm', firmCrd, { via: 'firm-people' });
+		console.log(JSON.stringify({ phase: 'firm-save', firmCrd, status: firmSave.status, name: firmSave.written?.[0]?.name }));
+
+		const discovered = await discoverSecIndividualsForFirm(firmCrd);
+		console.log(
+			JSON.stringify({
+				phase: 'discovered',
+				firmCrd,
+				secTotal: discovered.total,
+				rawHits: discovered.rawHits,
+				filteredOut: discovered.filteredOut,
+				linkedUnique: discovered.people.length,
+			}),
+		);
+
+		const peopleResults = [];
+		for (const person of discovered.people) {
+			const saved = await saveNewCrd('individual', person.crd, { via: 'firm-people', firmCrd, queryName: person.name });
+			let upsert = null;
+			if (!skipUpsert && (saved.status === 'saved' || saved.status === 'exists')) {
+				upsert = await upsertViaLocalIndividualApi(person.crd);
+				await sleep(SLEEP_MS);
+			}
+			peopleResults.push({
+				crd: person.crd,
+				name: saved.written?.[0]?.name || person.name,
+				save: saved.status,
+				upsert,
+			});
+			console.log(JSON.stringify({ phase: 'person', firmCrd, crd: person.crd, save: saved.status, upsertStatus: upsert?.status }));
+		}
+
+		report.push({
+			firmCrd,
+			firmSave: firmSave.status,
+			firmName: firmSave.written?.[0]?.name,
+			discoveredTotal: discovered.total,
+			people: peopleResults,
+		});
+	}
+
+	console.log(JSON.stringify({ ok: true, phase: 'firm-people-done', report }, null, 2));
+}
+
 async function runSearch() {
 	const TERMS = loadTerms();
 	const seen = new Set();
@@ -506,6 +626,7 @@ async function main() {
 	}
 	if (cmd === 'fetch') await runFetch();
 	else if (cmd === 'search') await runSearch();
+	else if (cmd === 'firm-people') await runFirmPeople();
 	else if (cmd === 'backfill') await runBackfill();
 	else {
 		printHelp();

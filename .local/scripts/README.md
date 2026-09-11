@@ -15,7 +15,8 @@ Nuclear keep-list: only what `pnpm dev` / `pnpm build` / tests need, plus approv
 Specialized (keep; do not duplicate):
 
 - `gap_scan_top_crds.mjs` — probe missing CRDs in the top window
-- `push_all_to_prod.mjs` — chunked MSET local → Upstash DB1+DB2
+- `push_delta_to_prod.mjs` — **preferred** quota-friendly batched MSET (e.g. `--match='firm-connections:firm:*' --batch=50 --sleep=150`)
+- `push_all_to_prod.mjs` — full DB dump via MSET (avoid unless necessary; burns Upstash read/write quota)
 
 ## Dev
 - `start-local-redis.sh` — used by `pnpm dev` / `pnpm dev:clean`

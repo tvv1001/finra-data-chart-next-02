@@ -6,6 +6,8 @@
  *
  *   npx tsx --env-file=.env.local .local/scripts/gap_scan_top_crds.mjs
  *   npx tsx --env-file=.env.local .local/scripts/gap_scan_top_crds.mjs --window=5000 --sleep=300
+ *   npx tsx --env-file=.env.local .local/scripts/gap_scan_top_crds.mjs --window=5000 --offset=5000
+ *     (offset shifts the window down: scan [max-offset-window+1 .. max-offset])
  */
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
@@ -19,10 +21,11 @@ import {
 
 const ROOT = process.cwd();
 const WINDOW = Number((process.argv.find((a) => a.startsWith('--window=')) || '--window=5000').slice('--window='.length)) || 5000;
+const OFFSET = Math.max(0, Number((process.argv.find((a) => a.startsWith('--offset=')) || '--offset=0').slice('--offset='.length)) || 0);
 const SLEEP_MS = Number((process.argv.find((a) => a.startsWith('--sleep=')) || '--sleep=300').slice('--sleep='.length)) || 300;
 const ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').slice('--only='.length); // individual|firm|''
-const REPORT_PATH = path.join(ROOT, '.local/tmp/gap_scan_top_crds_report.json');
-const LOG_PATH = path.join(ROOT, '.local/tmp/gap_scan_top_crds.log');
+const REPORT_PATH = path.join(ROOT, `.local/tmp/gap_scan_offset_${OFFSET}_report.json`);
+const LOG_PATH = path.join(ROOT, `.local/tmp/gap_scan_offset_${OFFSET}.log`);
 
 const redis = new IORedis('redis://127.0.0.1:6379', { maxRetriesPerRequest: 2 });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -288,22 +291,25 @@ async function main() {
 
 	const indTop = Number((await redis.zrevrange('dashboard:highest-crds:individual', 0, 0))[0] || 0);
 	const firmTop = Number((await redis.zrevrange('dashboard:highest-crds:firm', 0, 0))[0] || 0);
-	const maxInd = Math.max(indTop, 8323038);
-	const maxFirm = Math.max(firmTop, 343853);
+	const maxInd = Math.max(1, Math.max(indTop, 8323100) - OFFSET);
+	const maxFirm = Math.max(1, Math.max(firmTop, 343953) - OFFSET);
 
 	const report = {
 		startedAt: new Date().toISOString(),
 		window: WINDOW,
+		offset: OFFSET,
 		sleepMs: SLEEP_MS,
 		maxInd,
 		maxFirm,
+		rangeInd: { min: Math.max(1, maxInd - WINDOW + 1), max: maxInd },
+		rangeFirm: { min: Math.max(1, maxFirm - WINDOW + 1), max: maxFirm },
 		saved: [],
 		existsAlready: [],
 		externalEmpty: 0,
 		errors: [],
 	};
 
-	logLine({ phase: 'start', window: WINDOW, maxInd, maxFirm, only: ONLY || 'both' });
+	logLine({ phase: 'start', window: WINDOW, offset: OFFSET, maxInd, maxFirm, only: ONLY || 'both', rangeInd: report.rangeInd, rangeFirm: report.rangeFirm });
 
 	// Always try to ingest the known new firm first.
 	if (!ONLY || ONLY === 'firm') {
