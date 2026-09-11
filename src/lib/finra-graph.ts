@@ -4857,10 +4857,15 @@ function bindHoverAndFocus(selection) {
 	return selection
 		.attr('focusable', 'true')
 		.attr('tabindex', '0')
-		.on('mouseenter', function (event, d) {
+		// mouseover/out in addition to enter/leave: more reliable when the pointer is over
+		// nested hit-areas/labels inside the node group.
+		.on('mouseenter mouseover', function (event, d) {
 			setHoveredNode(d.id);
 		})
 		.on('mouseleave', function (event, d) {
+			// Only clear when truly leaving this node (not moving between its children).
+			const related = event?.relatedTarget;
+			if (related && typeof this.contains === 'function' && this.contains(related)) return;
 			setHoveredNode(null);
 		})
 		.on('focus', function (event, d) {
@@ -4967,6 +4972,24 @@ function buildLinkAdjacency(links, linkFilter: ((link: any) => boolean) | null =
 	return adjacency;
 }
 
+/** Firm selection suppresses roster fan-out unless the firm or that child is hovered. */
+export function shouldSuppressFirmSelectionPersonLink(options: {
+	entryGroup?: string | null;
+	isSelection?: boolean;
+	entryId?: string | null;
+	neighborGroup?: string | null;
+	neighborId?: string | null;
+	hoveredNodeId?: string | null;
+}) {
+	const { entryGroup, isSelection, entryId, neighborGroup, neighborId, hoveredNodeId } = options;
+	if (entryGroup !== 'firm' || !isSelection || neighborGroup !== 'individual') return false;
+	const hoverId = hoveredNodeId != null ? String(hoveredNodeId) : '';
+	if (!hoverId) return true;
+	if (hoverId === String(entryId || '')) return false; // hovering selected firm → show children
+	if (hoverId === String(neighborId || '')) return false; // hovering that child → show this line
+	return true;
+}
+
 export function selectHopHighlightRoots(
 	selectionRoots: Array<{ id?: string; hops?: any; isSelection?: boolean }> = [],
 	options: {
@@ -5059,7 +5082,7 @@ function computeHighlightState() {
 		adjacency.get(targetId).push({ nodeId: sourceId, link });
 	});
 
-	tempRoots.forEach((entry) => {
+	const walkHighlightRoot = (entry: { id: string; hops?: any; isSelection?: boolean }, options: { ignoreFirmSelectionSuppress?: boolean } = {}) => {
 		if (!entry?.id) return;
 		const entryNode = nodeById.get(entry.id) || null;
 		const entryInactive = isNodeInactive(entryNode);
@@ -5088,10 +5111,19 @@ function computeHighlightState() {
 				const neighborNode = nodeById.get(nodeId) || null;
 				if (!entryInactive && isNodeInactive(neighborNode)) return;
 
-				// If a firm is selected, do not highlight its connecting lines to person nodes.
-				// Person nodes will highlight the lines to the firm when they are selected,
-				// keeping the firm's large roster from lighting up the entire graph.
-				if (entryNode?.group === 'firm' && entry.isSelection && entry.id !== hoveredNodeId && neighborNode?.group === 'individual') {
+				// Firm selection suppresses roster fan-out unless hover opts a line back in.
+				// Dedicated hover walks pass ignoreFirmSelectionSuppress so child lines always light.
+				if (
+					!options.ignoreFirmSelectionSuppress &&
+					shouldSuppressFirmSelectionPersonLink({
+						entryGroup: entryNode?.group,
+						isSelection: entry.isSelection,
+						entryId: entry.id,
+						neighborGroup: neighborNode?.group,
+						neighborId: nodeId,
+						hoveredNodeId,
+					})
+				) {
 					return;
 				}
 
@@ -5104,7 +5136,16 @@ function computeHighlightState() {
 				}
 			});
 		}
-	});
+	};
+
+	tempRoots.forEach((entry) => walkHighlightRoot(entry));
+
+	// Hover must always highlight incident lines, even when the hovered node is already a
+	// firm selection root (selectHopHighlightRoots de-dupes that id as isSelection=true,
+	// which would otherwise keep person edges suppressed).
+	if (hoveredNodeId) {
+		walkHighlightRoot({ id: String(hoveredNodeId), hops: 1, isSelection: false }, { ignoreFirmSelectionSuppress: true });
+	}
 
 	return { rootIds, nodeIds, hopNodeIds, linkKeys };
 }
@@ -10994,6 +11035,9 @@ function markNodeSelected(node, options: { persist?: boolean } = {}) {
 	upsertHighlightedSelection(node.id, 1, { replace: false });
 	selectedId = node.id;
 	visitedNodeIds.add(node.id);
+	// Keep hover on the clicked node so firm→child line highlights still work while
+	// the cursor remains over a selected firm (mouseenter may not re-fire after click).
+	hoveredNodeId = String(node.id);
 	refreshTraceState();
 	if (!persist) return;
 	try {
@@ -11689,7 +11733,8 @@ function renderGraph(_data) {
 			.join('g')
 			.attr('class', 'fg-node')
 			.call(fluidDrag() as any)
-			.on('click', handleNodeOpen);
+			.on('click', handleNodeOpen)
+			.call(bindHoverAndFocus);
 		nodeSel = node;
 		nodeGroup = root.select('.fg-nodes');
 
@@ -14547,6 +14592,9 @@ function selectNode(
 	upsertHighlightedSelection(d.id, 1, { replace: false });
 	selectedId = d.id;
 	visitedNodeIds.add(d.id);
+	// Keep hover on the clicked node so firm→child lines light while the cursor stays put
+	// (mouseenter may not re-fire after click).
+	hoveredNodeId = String(d.id || '');
 	if (syncRoute) {
 		emitSelectedNodeRoute(d.id);
 	}

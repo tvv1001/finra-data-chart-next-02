@@ -46,6 +46,7 @@ import {
 	shouldAutoRevealNodeConnections,
 	shouldRenderNodeSelected,
 	selectHopHighlightRoots,
+	shouldSuppressFirmSelectionPersonLink,
 	MAX_HOP_HIGHLIGHT_ROOTS,
 	rebuildLayoutLinkIndexes,
 	layoutHasLinkIdentity,
@@ -1312,6 +1313,22 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(shouldAutoExpandRouteSelection('person:4240769', 'person:4240769')).toBe(false);
 		expect(shouldAutoExpandRouteSelection('person:4240769', 'person:1111111')).toBe(true);
 		expect(shouldAutoExpandRouteSelection('person:4240769', null)).toBe(true);
+	});
+
+	it('shouldSuppressFirmSelectionPersonLink keeps firm roster quiet unless firm or child is hovered', () => {
+		const base = {
+			entryGroup: 'firm',
+			isSelection: true,
+			entryId: 'firm:1',
+			neighborGroup: 'individual',
+			neighborId: 'person:2',
+		};
+		expect(shouldSuppressFirmSelectionPersonLink({ ...base, hoveredNodeId: null })).toBe(true);
+		expect(shouldSuppressFirmSelectionPersonLink({ ...base, hoveredNodeId: 'firm:9' })).toBe(true);
+		expect(shouldSuppressFirmSelectionPersonLink({ ...base, hoveredNodeId: 'firm:1' })).toBe(false);
+		expect(shouldSuppressFirmSelectionPersonLink({ ...base, hoveredNodeId: 'person:2' })).toBe(false);
+		expect(shouldSuppressFirmSelectionPersonLink({ ...base, isSelection: false, hoveredNodeId: null })).toBe(false);
+		expect(shouldSuppressFirmSelectionPersonLink({ ...base, entryGroup: 'individual', hoveredNodeId: null })).toBe(false);
 	});
 
 	it('selectHopHighlightRoots keeps only the most recent selection roots within the hop BFS cap', () => {
