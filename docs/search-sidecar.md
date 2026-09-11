@@ -15,7 +15,7 @@ Runtime copies:
 
 - `public/search-indexes/search-index.*.json.gz`
 
-Each firm hit includes `firm_id` / `firm_name`. Each individual hit includes `ind_crd`, `ind_firstname`, `ind_lastname`, employments, etc. Use those fields when a graph node would otherwise render as `Firm <CRD>` or `Node firm:<CRD>`.
+Each firm hit includes `firm_id` / `firm_name`, and (when available) `firm_connection_count` from `data/firm-connections/{id}.json` **currentConnections length only** (previous roster is ignored for sizing). Each individual hit includes `ind_crd`, `ind_firstname`, `ind_lastname`, employments, and `ind_connection_count` (unique firms across current/previous employment arrays). Graph expand/search hydrates these onto `node.knownConnectionCount`, which floors `_deg` / `_vizHalf` so node size does not depend only on currently rendered edges.
 
 ## Complete CRD Coverage & Hydration Path
 

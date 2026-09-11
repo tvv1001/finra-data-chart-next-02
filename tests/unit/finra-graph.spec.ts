@@ -1452,7 +1452,124 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		applyGraphDerivedNodeMetrics(nodes, []);
 
 		expect(nodes[0]?._deg).toMatchObject({ total: 4, controls: 2, employed: 0 });
-		expect(nodes[0]?._vizHalf).toBeGreaterThan(7);
+		expect(nodes[0]?._vizHalf).toBeGreaterThanOrEqual(18);
+		expect(nodes[0]?._vizHalf).toBeLessThanOrEqual(36);
+	});
+
+	it('applyGraphDerivedNodeMetrics uses sidecar knownConnectionCount as the sizing floor', () => {
+		const person = {
+			id: 'person:9',
+			group: 'individual',
+			label: 'Sidecar Person',
+			knownConnectionCount: 25,
+		} as any;
+		const firm = {
+			id: 'firm:9',
+			group: 'firm',
+			label: 'Sidecar Firm',
+			knownConnectionCount: 40,
+		} as any;
+
+		applyGraphDerivedNodeMetrics([person, firm], []);
+
+		expect(person._deg.total).toBeGreaterThanOrEqual(25);
+		expect(firm._deg.total).toBeGreaterThanOrEqual(40);
+		expect(person._vizHalf).toBeGreaterThanOrEqual(22.4);
+		expect(person._vizHalf).toBeLessThanOrEqual(44.8);
+		expect(firm._vizHalf).toBeGreaterThanOrEqual(18);
+		expect(firm._vizHalf).toBeLessThanOrEqual(36);
+	});
+
+	it('applyGraphDerivedNodeMetrics caps large person size from known connections', () => {
+		const person = {
+			id: 'person:4240769',
+			group: 'individual',
+			label: 'Daniel Stewart Beaton',
+			knownConnectionCount: 109,
+			_vizHalf: 116,
+		} as any;
+
+		applyGraphDerivedNodeMetrics([person], []);
+
+		expect(person._deg.total).toBeGreaterThanOrEqual(109);
+		expect(person._vizHalf).toBe(44.8);
+	});
+
+	it('applyGraphDerivedNodeMetrics scales people across clear size steps', () => {
+		const low = { id: 'person:low', group: 'individual', knownConnectionCount: 1 } as any;
+		const midLow = { id: 'person:midlow', group: 'individual', knownConnectionCount: 3 } as any;
+		const mid = { id: 'person:mid', group: 'individual', knownConnectionCount: 8 } as any;
+		const high = { id: 'person:high', group: 'individual', knownConnectionCount: 20 } as any;
+
+		applyGraphDerivedNodeMetrics([low, midLow, mid, high], []);
+
+		expect(low._vizHalf).toBeCloseTo(22.4, 5);
+		expect(midLow._vizHalf).toBeCloseTo(28.8, 5);
+		expect(mid._vizHalf).toBeCloseTo(35.2, 5);
+		expect(high._vizHalf).toBeCloseTo(44.8, 5);
+		expect(low._vizHalf).toBeLessThan(midLow._vizHalf);
+		expect(midLow._vizHalf).toBeLessThan(mid._vizHalf);
+		expect(mid._vizHalf).toBeLessThan(high._vizHalf);
+	});
+
+	it('applyGraphDerivedNodeMetrics never shrinks an existing node size when the graph grows', () => {
+		const person = {
+			id: 'person:1',
+			group: 'individual',
+			label: 'Alpha',
+			knownConnectionCount: 4,
+		} as any;
+		const firm = {
+			id: 'firm:1',
+			group: 'firm',
+			label: 'Alpha Firm',
+			knownConnectionCount: 4,
+		} as any;
+
+		applyGraphDerivedNodeMetrics([person, firm], []);
+		const personHalfBefore = person._vizHalf;
+		const firmHalfBefore = firm._vizHalf;
+
+		const hugeFirm = {
+			id: 'firm:huge',
+			group: 'firm',
+			label: 'Huge Firm',
+			knownConnectionCount: 500,
+		} as any;
+		const hugePerson = {
+			id: 'person:huge',
+			group: 'individual',
+			label: 'Huge Person',
+			knownConnectionCount: 500,
+		} as any;
+
+		applyGraphDerivedNodeMetrics([person, firm, hugeFirm, hugePerson], []);
+
+		expect(person._vizHalf).toBeGreaterThanOrEqual(personHalfBefore);
+		expect(firm._vizHalf).toBeGreaterThanOrEqual(firmHalfBefore);
+		expect(hugeFirm._vizHalf).toBeLessThanOrEqual(36);
+	});
+
+	it('applyGraphDerivedNodeMetrics caps large firm size from current connections', () => {
+		const smallFirm = {
+			id: 'firm:small',
+			group: 'firm',
+			label: 'Small Firm',
+			knownConnectionCount: 5,
+		} as any;
+		const largeFirm = {
+			id: 'firm:103863',
+			group: 'firm',
+			label: 'Large Firm',
+			knownConnectionCount: 2321,
+		} as any;
+
+		applyGraphDerivedNodeMetrics([smallFirm, largeFirm], []);
+
+		expect(smallFirm._vizHalf).toBeGreaterThanOrEqual(18);
+		expect(smallFirm._vizHalf).toBeLessThan(largeFirm._vizHalf);
+		expect(largeFirm._vizHalf).toBe(36);
+		expect(largeFirm._deg.total).toBeGreaterThanOrEqual(2321);
 	});
 
 	it('focusFetchInputWhenEmpty focuses when empty and not active', () => {

@@ -930,6 +930,7 @@ const GRAPH_NODE_KEEP_KEYS = new Set([
 	'otherNames',
 	'registrationCount',
 	'firmCount',
+	'knownConnectionCount',
 	'firmName',
 	'activeStates',
 	'primaryOffice',

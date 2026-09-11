@@ -8141,6 +8141,12 @@ function mergeGraphNodePayload(targetNode, incomingNode) {
 	}
 	if (incomingNode.crd && !targetNode.crd) targetNode.crd = incomingNode.crd;
 	if (incomingNode.individualId && !targetNode.individualId) targetNode.individualId = incomingNode.individualId;
+	const incomingKnown = Math.floor(Number(incomingNode.knownConnectionCount) || 0);
+	const currentKnown = Math.floor(Number(targetNode.knownConnectionCount) || 0);
+	if (incomingKnown > currentKnown) targetNode.knownConnectionCount = incomingKnown;
+	const incomingFirmCount = Math.floor(Number(incomingNode.firmCount) || 0);
+	const currentFirmCount = Math.floor(Number(targetNode.firmCount) || 0);
+	if (incomingFirmCount > currentFirmCount) targetNode.firmCount = incomingFirmCount;
 	const currentLabel = String(targetNode.label || '').trim();
 	const incomingLabel = String(incomingNode.label || '').trim();
 	const currentLabelIsPlaceholder = isGenericOrPlaceholderLabel(currentLabel, targetNode.group);
@@ -9538,9 +9544,22 @@ function resolveControlConnectionFirmNodeId(controlRecord) {
 	return existingFirmNode?.id || (firmId ? `firm:${firmId}` : syntheticFirmNodeId) || null;
 }
 
+function readSidecarKnownConnectionCount(node) {
+	if (!node || typeof node !== 'object') return 0;
+	const candidates = [node.knownConnectionCount, node.ind_connection_count, node.firm_connection_count, node.firmCount];
+	for (const value of candidates) {
+		const n = Number(value);
+		if (Number.isFinite(n) && n > 0) return Math.floor(n);
+	}
+	return 0;
+}
+
 function getKnownNodeConnectionFloor(node) {
 	const counts = { total: 0, controls: 0, employed: 0 };
 	if (!node || typeof node !== 'object') return counts;
+
+	// Authoritative floor from search/firm-connections sidecars (or compact graph payload).
+	const sidecarFloor = readSidecarKnownConnectionCount(node);
 
 	// Load persisted per-node connection cache from localStorage when available.
 	let connCache: Record<string, any> | null = null;
@@ -9592,6 +9611,8 @@ function getKnownNodeConnectionFloor(node) {
 			addConnection('controls', firmNodeId ? `controls|${firmNodeId}` : null);
 		}
 
+		counts.total = Math.max(counts.total, sidecarFloor, counts.controls + counts.employed);
+
 		// If we computed no connections but have a cached value, use it as a floor.
 		if (!counts.total && connCache && node.id) {
 			const cached = connCache[String(node.id)];
@@ -9623,6 +9644,12 @@ function getKnownNodeConnectionFloor(node) {
 			addConnection('controls', personId ? `controls|person:${personId}` : null);
 		}
 
+		// Prefer roster/sidecar totals over sparse owner lists when available.
+		counts.total = Math.max(counts.total, sidecarFloor, counts.controls + counts.employed);
+		if (sidecarFloor > counts.employed + counts.controls) {
+			counts.employed = Math.max(counts.employed, sidecarFloor - counts.controls);
+		}
+
 		if (!counts.total && connCache && node.id) {
 			const cached = connCache[String(node.id)];
 			if (cached && typeof cached === 'object') {
@@ -9649,6 +9676,7 @@ function getKnownNodeConnectionFloor(node) {
 
 	// If nothing matched but we have a cached entry, return that as a floor
 	try {
+		if (sidecarFloor > 0) return { total: sidecarFloor, controls: 0, employed: sidecarFloor };
 		if (connCache && node && node.id) {
 			const cached = connCache[String(node.id)];
 			if (cached && typeof cached === 'object') {
@@ -9692,20 +9720,36 @@ export function applyGraphDerivedNodeMetrics(nodes, links) {
 	const maxIndDeg = Math.max(1, ...indDegs);
 	const maxFirmDeg = Math.max(1, ...firmDegs);
 
-	const MIN_INDIV = 12;
-	const MIN_FIRM = 14;
+	const MIN_FIRM = 18;
+	const MAX_FIRM = 36;
+	const FIRM_SIZE_SOFT_CAP_CONNECTIONS = 800;
 
 	nodeList.forEach((node) => {
+		const previousHalf = Number(node._vizHalf);
+		const previousDegTotal = Math.floor(Number(node._deg?.total) || 0);
 		const deg = degMap.get(node.id) || { total: 0, controls: 0, employed: 0 };
 		const knownFloor = getKnownNodeConnectionFloor(node);
+		const sidecarFloor = readSidecarKnownConnectionCount(node);
 		deg.controls = Math.max(deg.controls, knownFloor.controls);
 		deg.employed = Math.max(deg.employed, knownFloor.employed);
 		// Base total should respect computed degree and known (cached) floor.
-		deg.total = Math.max(deg.total, knownFloor.total, deg.controls + deg.employed);
+		// Individuals keep prior degree so click/expand relative rescales don't shrink them.
+		// Firms with an authoritative current-connection sidecar count follow that count
+		// (previous roster can be 8000+ and must not inflate size).
+		if (node.group === 'firm' && sidecarFloor > 0) {
+			deg.total = Math.max(deg.total, knownFloor.total, deg.controls + deg.employed);
+		} else if (node.group === 'individual' && sidecarFloor > 0) {
+			// Prefer authoritative known/firmCount for people sizing — don't let a stale
+			// previousDegTotal flatten everyone toward the max.
+			deg.total = Math.max(deg.total, knownFloor.total, deg.controls + deg.employed);
+		} else {
+			deg.total = Math.max(deg.total, knownFloor.total, deg.controls + deg.employed, previousDegTotal);
+		}
 
-		// Visual boost: make nodes more prominent even when their active degree is low
-		// (for example when not yet expanded). This helps users see which nodes
-		// warrant clicking. Use slightly higher minima for firms.
+		const sizingTotal = deg.total;
+
+		// Visual boost for non-size consumers (layout bias, etc). Applied after sizingTotal
+		// so the people radius curve can still show low-connection nodes near the min.
 		if (node.group === 'individual') {
 			deg.total = Math.max(deg.total, 3);
 		} else if (node.group === 'firm') {
@@ -9714,33 +9758,53 @@ export function applyGraphDerivedNodeMetrics(nodes, links) {
 		node._deg = deg;
 
 		if (node.group === 'individual') {
-			// Square root scale for more natural growth.
-			// Nodes with "several" (3+) connections get significantly larger.
-			const scale = 1 + (Math.sqrt(deg.total) / Math.sqrt(maxIndDeg)) * 2.8;
-			let half = (NODE_R.individual * 1.7 * scale) / 2;
-			if (!deg.total || !isFinite(half) || half < MIN_INDIV) half = MIN_INDIV;
-
-			// Extra boost for nodes with high active degree relative to the cluster
-			if (deg.total >= 3) half *= 1.15;
-			if (deg.total >= 8) half *= 1.1;
-
-			node._vizHalf = half;
+			// Absolute stepped curve (not relative to maxIndDeg) so people sizes stay
+			// visibly distinct: ~14 / ~18 / ~22 / ~28. Hard cap prevents huge firmCounts
+			// from dominating. Do not preserve stale oversized halves — that flattened
+			// everyone to the max after the cap was introduced.
+			node._vizHalf = computeIndividualVizHalf(sizingTotal);
 			return;
 		}
 
 		if (node.group === 'firm') {
-			const scale = 1 + (Math.sqrt(deg.total) / Math.sqrt(maxFirmDeg)) * 2.2;
-			let half = (NODE_R.firm * 1.7 * scale) / 2;
-			if (!deg.total || !isFinite(half) || half < MIN_FIRM) half = MIN_FIRM;
+			// Gentler absolute log curve from current connections (not relative to maxFirmDeg).
+			const progress = Math.log1p(Math.max(deg.total, 0)) / Math.log1p(FIRM_SIZE_SOFT_CAP_CONNECTIONS);
+			let half = MIN_FIRM + (MAX_FIRM - MIN_FIRM) * Math.min(1, Math.max(0, progress));
+			if (!isFinite(half) || half < MIN_FIRM) half = MIN_FIRM;
 
-			if (deg.total >= 5) half *= 1.1;
-			if (deg.total >= 20) half *= 1.1;
-
+			// Keep size across relative rescales, but allow shrink when current-connection count drops.
+			if (Number.isFinite(previousHalf) && previousHalf > half && deg.total >= previousDegTotal) half = previousHalf;
+			half = Math.min(MAX_FIRM, Math.max(MIN_FIRM, half));
 			node._vizHalf = half;
 			return;
 		}
 		delete node._vizHalf;
 	});
+}
+
+/** People node radius half-size from connection count. Anchors: 1→22.4, 3→28.8, 8→35.2, 20→44.8 (~60% larger). */
+export function computeIndividualVizHalf(connectionCount: number) {
+	const MIN_INDIV = 22.4;
+	const MAX_INDIV = 44.8;
+	const n = Math.max(0, Number(connectionCount) || 0);
+	const anchors: Array<[number, number]> = [
+		[1, 22.4],
+		[3, 28.8],
+		[8, 35.2],
+		[20, 44.8],
+	];
+	if (n <= anchors[0][0]) return MIN_INDIV;
+	if (n >= anchors[anchors.length - 1][0]) return MAX_INDIV;
+	for (let i = 0; i < anchors.length - 1; i++) {
+		const [x0, y0] = anchors[i];
+		const [x1, y1] = anchors[i + 1];
+		if (n >= x0 && n <= x1) {
+			const t = (n - x0) / (x1 - x0);
+			const half = y0 + (y1 - y0) * t;
+			return Math.min(MAX_INDIV, Math.max(MIN_INDIV, half));
+		}
+	}
+	return MIN_INDIV;
 }
 
 function getNodeDegreeValue(node) {
@@ -11347,6 +11411,71 @@ async function fetchAndInjectOrphanNodes(links, knownIds) {
 }
 
 const sidecarFirmLabelHydrationAttempted = new Set<string>();
+const firmConnectionCountHydrationAttempted = new Set<string>();
+
+function scheduleFirmConnectionCountHydration(nodes) {
+	const firms = (Array.isArray(nodes) ? nodes : []).filter((node) => {
+		if (!node || node.group !== 'firm') return false;
+		if (Number(node.knownConnectionCount) > 0) return false;
+		const firmId = String(node.firmId || node.id || '')
+			.replace(/^firm:/i, '')
+			.trim();
+		return Boolean(firmId) && !firmConnectionCountHydrationAttempted.has(firmId);
+	});
+	const ids = Array.from(
+		new Set(
+			firms
+				.map((node) =>
+					String(node.firmId || node.id || '')
+						.replace(/^firm:/i, '')
+						.trim(),
+				)
+				.filter(Boolean),
+		),
+	);
+	if (!ids.length) return;
+	ids.forEach((id) => firmConnectionCountHydrationAttempted.add(id));
+
+	void (async () => {
+		try {
+			const url = makeApiUrl('/api/finra/connection-counts');
+			url.searchParams.set('ids', ids.join(','));
+			const response = await fetch(url.toString(), { cache: 'no-store' });
+			if (!response.ok) {
+				ids.forEach((id) => firmConnectionCountHydrationAttempted.delete(id));
+				return;
+			}
+			const payload = await response.json().catch(() => null);
+			const counts = payload?.counts && typeof payload.counts === 'object' ? payload.counts : {};
+			const targetNodes = (Array.isArray(layoutNodes) && layoutNodes.length ? layoutNodes : graphData?.nodes) || [];
+			const changedIds: string[] = [];
+			for (const node of targetNodes) {
+				if (!node || node.group !== 'firm') continue;
+				const firmId = String(node.firmId || node.id || '')
+					.replace(/^firm:/i, '')
+					.trim();
+				const next = Math.floor(Number(counts[firmId] ?? counts[`firm:${firmId}`]) || 0);
+				if (next <= 0) continue;
+				const prev = Math.floor(Number(node.knownConnectionCount) || 0);
+				if (next <= prev) continue;
+				node.knownConnectionCount = next;
+				changedIds.push(String(node.id));
+			}
+			if (!changedIds.length) return;
+			if (Array.isArray(layoutNodes) && Array.isArray(layoutLinks)) {
+				applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
+				rerenderGraphNodesByIds(changedIds);
+			}
+			try {
+				saveSession();
+			} catch {
+				/* ignore */
+			}
+		} catch {
+			ids.forEach((id) => firmConnectionCountHydrationAttempted.delete(id));
+		}
+	})();
+}
 
 function scheduleSidecarFirmLabelHydration(nodes) {
 	const placeholders = (Array.isArray(nodes) ? nodes : []).filter((node) => node?.group === 'firm' && isGenericOrPlaceholderLabel(node.label, 'firm'));
@@ -11428,6 +11557,7 @@ function appendFetchedImpl(newNodes, newLinks) {
 		if (graphData && Array.isArray(newNodes) && Array.isArray(newLinks)) {
 			mergeIntoGraphData(newNodes, newLinks);
 			scheduleSidecarFirmLabelHydration(graphData.nodes);
+			scheduleFirmConnectionCountHydration(graphData.nodes);
 		}
 		return;
 	}
@@ -11460,6 +11590,7 @@ function appendFetchedImpl(newNodes, newLinks) {
 
 	layoutNodes = mergedNodes;
 	scheduleSidecarFirmLabelHydration(mergedNodes);
+	scheduleFirmConnectionCountHydration(mergedNodes);
 	// Rebind any pre-existing links to the merged node objects so the visualization
 	// keeps them attached after a fetch updates the node list.
 	resolveLinkEndpoints(layoutLinks, layoutNodes);

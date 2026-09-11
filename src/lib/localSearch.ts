@@ -519,6 +519,166 @@ export async function hydrateFirmNodeLabelsFromSearchSidecar(nodes: any[] = [], 
 	return list;
 }
 
+function employmentFirmId(entry: any): string {
+	return String(entry?.firmId || entry?.firm_id || entry?.firmIdNumber || entry?.organizationId || entry?.orgId || entry?.bdSECNumber || entry?.iaSECNumber || '')
+		.trim()
+		.replace(/^firm:/i, '');
+}
+
+/** Unique firm connections across current/previous employment arrays on a search hit or detail payload. */
+export function countIndividualConnectionsFromSearchHit(hit: LocalSearchHit | null | undefined): number {
+	if (!hit || typeof hit !== 'object') return 0;
+	const scalar = Number((hit as any).ind_connection_count ?? (hit as any).knownConnectionCount);
+	if (Number.isFinite(scalar) && scalar > 0) return Math.floor(scalar);
+
+	const firmIds = new Set<string>();
+	const collections = [
+		(hit as any).ind_current_employments,
+		(hit as any).ind_ia_current_employments,
+		(hit as any).ind_previous_employments,
+		(hit as any).ind_ia_previous_employments,
+		(hit as any).currentEmployments,
+		(hit as any).currentIAEmployments,
+		(hit as any).previousEmployments,
+		(hit as any).previousIAEmployments,
+	];
+	for (const collection of collections) {
+		if (!Array.isArray(collection)) continue;
+		for (const entry of collection) {
+			const firmId = employmentFirmId(entry);
+			if (firmId) firmIds.add(firmId);
+		}
+	}
+	return firmIds.size;
+}
+
+const firmConnectionCountFlatfileCache = new Map<string, number>();
+
+export function readFirmConnectionCountFromFlatfile(firmId: string | number | null | undefined): number {
+	const normalized = String(firmId || '')
+		.replace(/^firm:/i, '')
+		.trim();
+	if (!normalized) return 0;
+	// Browser bundles must not touch node:fs — firm counts arrive via expand/search payloads.
+	// Vitest/jsdom still has `window`, so key off a real Node runtime instead.
+	if (typeof process === 'undefined' || !(process as any).versions?.node) return 0;
+	if (firmConnectionCountFlatfileCache.has(normalized)) return firmConnectionCountFlatfileCache.get(normalized) || 0;
+	try {
+		const fs = require('fs') as typeof import('fs');
+		const path = require('path') as typeof import('path');
+		const localPath = path.join(process.cwd(), 'data', 'firm-connections', `${normalized}.json`);
+		if (!fs.existsSync(localPath)) {
+			firmConnectionCountFlatfileCache.set(normalized, 0);
+			return 0;
+		}
+		const parsed = JSON.parse(fs.readFileSync(localPath, 'utf-8'));
+		// Firm node sizing uses current roster only — previous employment can be 8000+.
+		const count = Array.isArray(parsed?.currentConnections) ? parsed.currentConnections.length : 0;
+		firmConnectionCountFlatfileCache.set(normalized, count);
+		return count;
+	} catch {
+		firmConnectionCountFlatfileCache.set(normalized, 0);
+		return 0;
+	}
+}
+
+function applyKnownConnectionCount(node: any, count: number) {
+	const n = Math.floor(Number(count) || 0);
+	if (!node || n <= 0) return;
+	const existing = Math.floor(Number(node.knownConnectionCount) || 0);
+	if (n <= existing) return;
+	node.knownConnectionCount = n;
+	if (String(node.group || '').toLowerCase() === 'individual' || String(node.id || '').startsWith('person:')) {
+		const firmCount = Math.floor(Number(node.firmCount) || 0);
+		if (n > firmCount) node.firmCount = n;
+	}
+}
+
+/** Attach firm roster totals from data/firm-connections/{id}.json (server-side). */
+export function attachFirmConnectionCountsFromFlatfiles(nodes: any[] = []): any[] {
+	const list = Array.isArray(nodes) ? nodes : [];
+	for (const node of list) {
+		const group = String(node?.group || (String(node?.id || '').startsWith('firm:') ? 'firm' : '')).toLowerCase();
+		if (group !== 'firm') continue;
+		const firmId = String(node?.firmId || node?.id || '')
+			.replace(/^firm:/i, '')
+			.trim();
+		if (!firmId) continue;
+		const fromHit = Math.floor(Number(node?.firm_connection_count || node?.knownConnectionCount) || 0);
+		const fromFile = readFirmConnectionCountFromFlatfile(firmId);
+		applyKnownConnectionCount(node, Math.max(fromHit, fromFile));
+	}
+	return list;
+}
+
+/** Labels + known connection counts from search sidecars / firm-connections flatfiles. */
+export async function hydrateGraphNodesFromSearchSidecar(nodes: any[] = [], options: LocalSearchOptions = {}): Promise<any[]> {
+	const list = Array.isArray(nodes) ? nodes : [];
+	await hydrateFirmNodeLabelsFromSearchSidecar(list, options);
+	await hydrateNodeConnectionCountsFromSearchSidecar(list, options);
+	attachFirmConnectionCountsFromFlatfiles(list);
+	return list;
+}
+
+/**
+ * Hydrate knownConnectionCount onto graph nodes from search sidecars.
+ * Individuals: ind_connection_count or unique firms across employment arrays.
+ * Firms: firm_connection_count when present on the search hit.
+ */
+export async function hydrateNodeConnectionCountsFromSearchSidecar(nodes: any[] = [], options: LocalSearchOptions = {}): Promise<any[]> {
+	const list = Array.isArray(nodes) ? nodes : [];
+	const personIds: string[] = [];
+	const firmIds: string[] = [];
+	for (const node of list) {
+		const id = String(node?.id || '').trim();
+		const group = String(node?.group || '').toLowerCase();
+		if ((group === 'individual' || id.startsWith('person:')) && Number(node?.knownConnectionCount) > 0) continue;
+		if ((group === 'firm' || id.startsWith('firm:')) && Number(node?.knownConnectionCount) > 0) continue;
+		if (group === 'individual' || id.startsWith('person:')) {
+			const crd = String(node?.crd || id.replace(/^person:/i, '')).trim();
+			if (crd) personIds.push(crd);
+		} else if (group === 'firm' || id.startsWith('firm:')) {
+			const firmId = String(node?.firmId || id.replace(/^firm:/i, '')).trim();
+			if (firmId) firmIds.push(firmId);
+		}
+	}
+
+	const personHits = new Map<string, LocalSearchHit>();
+	const firmHits = new Map<string, LocalSearchHit>();
+	for (const source of ['finra', 'sec'] as LocalSearchSource[]) {
+		if (personIds.length) {
+			const hits = await lookupLocalSearchHitsByIds(source, 'individual', personIds, options);
+			for (const [id, hit] of hits) {
+				if (!personHits.has(id)) personHits.set(id, hit);
+			}
+		}
+		if (firmIds.length) {
+			const hits = await lookupLocalSearchHitsByIds(source, 'firm', firmIds, options);
+			for (const [id, hit] of hits) {
+				if (!firmHits.has(id)) firmHits.set(id, hit);
+			}
+		}
+	}
+
+	for (const node of list) {
+		const id = String(node?.id || '').trim();
+		const group = String(node?.group || '').toLowerCase();
+		if (group === 'individual' || id.startsWith('person:')) {
+			const crd = String(node?.crd || id.replace(/^person:/i, '')).trim();
+			const hit = personHits.get(crd);
+			const count = countIndividualConnectionsFromSearchHit(hit) || countIndividualConnectionsFromSearchHit(node);
+			applyKnownConnectionCount(node, count);
+		} else if (group === 'firm' || id.startsWith('firm:')) {
+			const firmId = String(node?.firmId || id.replace(/^firm:/i, '')).trim();
+			const hit = firmHits.get(firmId);
+			const fromHit = Math.floor(Number(hit?.firm_connection_count ?? hit?.knownConnectionCount) || 0);
+			applyKnownConnectionCount(node, fromHit);
+		}
+	}
+
+	return list;
+}
+
 function getIdentifierText(doc: PreparedLocalSearchDoc) {
 	const hit = doc.hit || {};
 	return normalizeText(hit.ind_source_id || hit.ind_crd || hit.firm_id || hit.firmId || hit.firm_source_id || hit.bdSecNumber || hit.iaSecNumber || doc.id);
@@ -1182,6 +1342,7 @@ export function buildIndividualDoc(source: string, detail: any): LocalSearchDoc 
 		...previousIAEmployments.map((e: any) => e.firmId),
 	]);
 	const registrationCount = getRegistrationCount(detail);
+	const indConnectionCount = firmIds.length;
 
 	const currentAddressTexts = uniqueTexts([
 		...currentEmployments.flatMap((e: any) => [e.city, e.zipCode, ...e.branchOfficeLocations.flatMap((l: any) => [l.city, l.zipCode])]),
@@ -1203,6 +1364,7 @@ export function buildIndividualDoc(source: string, detail: any): LocalSearchDoc 
 		ind_approved_sro_registration_count: registrationCount.approvedSRORegistrationCount,
 		ind_approved_state_registration_count: registrationCount.approvedStateRegistrationCount,
 		ind_approved_ia_state_registration_count: registrationCount.approvedIAStateRegistrationCount,
+		ind_connection_count: indConnectionCount,
 		ind_current_employments: currentEmployments,
 		ind_ia_current_employments: currentIAEmployments,
 		ind_previous_employments: previousEmployments,
@@ -1239,6 +1401,7 @@ export function buildFirmDoc(source: string, detail: any): LocalSearchDoc | null
 	const currentAddressTexts = uniqueTexts([office.city, office.zipCode, mailing.city, mailing.zipCode]);
 
 	const nameTexts = uniqueTexts([firmName, ...otherNames]);
+	const firmConnectionCount = readFirmConnectionCountFromFlatfile(firmId);
 	const hit = {
 		firm_id: firmId,
 		firmId,
@@ -1252,6 +1415,7 @@ export function buildFirmDoc(source: string, detail: any): LocalSearchDoc | null
 		iaSecNumber: toText(basicInformation.iaSECNumber || detail.iaSecNumber) || null,
 		disclosureFlag: detail.bdDisclosureFlag ?? detail.disclosureFlag ?? null,
 		iaDisclosureFlag: detail.iaDisclosureFlag ?? null,
+		...(firmConnectionCount > 0 ? { firm_connection_count: firmConnectionCount } : {}),
 	};
 
 	return {

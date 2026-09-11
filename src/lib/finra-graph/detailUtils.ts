@@ -228,6 +228,8 @@ export function applyIndividualDetail(targetNode, detail, fallbackCrd = null) {
 			else if (employment?.bdSECNumber) firms.add(employment.bdSECNumber);
 		}
 		targetNode.firmCount = firms.size;
+		const existingKnown = Math.floor(Number(targetNode.knownConnectionCount) || 0);
+		if (firms.size > existingKnown) targetNode.knownConnectionCount = firms.size;
 	} catch {
 		/* ignore */
 	}

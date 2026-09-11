@@ -76,6 +76,7 @@ describe("build_search_indexes script", () => {
 		expect(doc.id).toBe("finra:individual:12345");
 		expect(doc.hit.ind_firstname).toBe("John");
 		expect(doc.hit.ind_lastname).toBe("Doe");
+		expect(doc.hit.ind_connection_count).toBeGreaterThanOrEqual(1);
 		expect(doc.nameSearchText).toContain("john");
 		expect(doc.nameSearchText).toContain("johnny doe");
 		expect(doc.addressSearchText).toContain("new york");

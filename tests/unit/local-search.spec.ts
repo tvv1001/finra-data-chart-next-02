@@ -9,6 +9,9 @@ import {
 	extractSearchQueries,
 	searchQueriesSequentially,
 	hydrateFirmNodeLabelsFromSearchSidecar,
+	hydrateNodeConnectionCountsFromSearchSidecar,
+	countIndividualConnectionsFromSearchHit,
+	attachFirmConnectionCountsFromFlatfiles,
 	lookupFirmNamesFromSearchSidecar,
 	clearSearchIndexCache,
 } from '@/lib/localSearch';
@@ -114,6 +117,65 @@ describe('local search indexes', () => {
 			expect(nodes[0].label).toBe('RBC CAPITAL MARKETS, LLC');
 			expect(nodes[0].firmName).toBe('RBC CAPITAL MARKETS, LLC');
 		});
+	});
+
+	it('counts unique firm connections from individual search hits', () => {
+		expect(
+			countIndividualConnectionsFromSearchHit({
+				ind_connection_count: 12,
+				ind_current_employments: [{ firmId: '1' }],
+			}),
+		).toBe(12);
+		expect(
+			countIndividualConnectionsFromSearchHit({
+				ind_current_employments: [{ firmId: '10' }, { firm_id: '10' }],
+				ind_previous_employments: [{ firmId: '20' }],
+				ind_ia_previous_employments: [{ firmId: '30' }],
+			}),
+		).toBe(3);
+	});
+
+	it('hydrates knownConnectionCount onto person nodes from search sidecars', async () => {
+		const payload = JSON.stringify({
+			generatedAt: new Date().toISOString(),
+			bucket: 'finra:individual',
+			docs: [
+				{
+					id: 'finra:individual:4242',
+					type: 'individual',
+					source: 'finra',
+					nameSearchText: 'test person',
+					strictSearchText: 'test person',
+					searchText: '4242 test person',
+					hit: {
+						ind_source_id: '4242',
+						ind_crd: '4242',
+						ind_firstname: 'Test',
+						ind_lastname: 'Person',
+						ind_connection_count: 7,
+						ind_current_employments: [{ firmId: '1' }],
+						ind_previous_employments: [{ firmId: '2' }, { firmId: '3' }],
+					},
+				},
+			],
+		});
+
+		await withTempSearchIndex('search-index.finra.individual.json.gz', gzipSync(Buffer.from(payload)), async (root) => {
+			const nodes: Array<{ id: string; group: string; crd: string; knownConnectionCount?: number }> = [
+				{ id: 'person:4242', group: 'individual', crd: '4242' },
+			];
+			await hydrateNodeConnectionCountsFromSearchSidecar(nodes, { seedRoots: [root] });
+			expect(nodes[0].knownConnectionCount).toBe(7);
+		});
+	});
+
+	it('attaches firm knownConnectionCount from currentConnections only', () => {
+		const nodes: Array<{ id: string; group: string; knownConnectionCount?: number }> = [{ id: 'firm:705', group: 'firm' }];
+		attachFirmConnectionCountsFromFlatfiles(nodes);
+		const known = Number(nodes[0].knownConnectionCount || 0);
+		expect(known).toBeGreaterThan(0);
+		// Guard against accidentally using current+previous (705 has hundreds of previous).
+		expect(known).toBeLessThan(300);
 	});
 
 	it('returns FINRA individual results from the local index', async () => {

@@ -111,6 +111,12 @@ export function mergeGraphNodePayload(targetNode: any, incomingNode: any) {
 	if (!targetNode.label && incomingNode.label) targetNode.label = incomingNode.label;
 	if (incomingNode.crd && !targetNode.crd) targetNode.crd = incomingNode.crd;
 	if (incomingNode.individualId && !targetNode.individualId) targetNode.individualId = incomingNode.individualId;
+	const incomingKnown = Math.floor(Number(incomingNode.knownConnectionCount) || 0);
+	const currentKnown = Math.floor(Number(targetNode.knownConnectionCount) || 0);
+	if (incomingKnown > currentKnown) targetNode.knownConnectionCount = incomingKnown;
+	const incomingFirmCount = Math.floor(Number(incomingNode.firmCount) || 0);
+	const currentFirmCount = Math.floor(Number(targetNode.firmCount) || 0);
+	if (incomingFirmCount > currentFirmCount) targetNode.firmCount = incomingFirmCount;
 	return targetNode;
 }
 
