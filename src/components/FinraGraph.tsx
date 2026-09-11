@@ -1505,10 +1505,10 @@ export default function FinraGraph() {
 							</button>
 							<button
 								type='button'
-								data-fg-graph-action='clear-non-log'
-								className='fg-ghost-btn fg-clear-non-log-btn'
+								data-fg-graph-action='clear-non-connected'
+								className='fg-ghost-btn fg-clear-non-connected-btn'
 								title='Keep logged nodes and any intermediaries connecting them'>
-								Clear non-log
+								Clear non-connected
 							</button>
 							<button
 								type='button'
@@ -1519,52 +1519,11 @@ export default function FinraGraph() {
 							</button>
 
 							<button
-								id='fg-focus-btn'
-								className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary'
 								type='button'
-								title='Focus on this node'
-								aria-label='Center on this node'>
-								<span className='fg-sidebar-action-label'>Center</span>
-								<span
-									className='fg-sidebar-action-icon fg-sidebar-action-icon--trailing'
-									aria-hidden='true'>
-									<svg
-										viewBox='0 0 16 16'
-										fill='none'
-										focusable='false'>
-										<circle
-											cx='8'
-											cy='8'
-											r='2.75'
-											stroke='currentColor'
-											strokeWidth='1.4'
-										/>
-										<path
-											d='M8 1.75V4'
-											stroke='currentColor'
-											strokeWidth='1.4'
-											strokeLinecap='round'
-										/>
-										<path
-											d='M8 12V14.25'
-											stroke='currentColor'
-											strokeWidth='1.4'
-											strokeLinecap='round'
-										/>
-										<path
-											d='M1.75 8H4'
-											stroke='currentColor'
-											strokeWidth='1.4'
-											strokeLinecap='round'
-										/>
-										<path
-											d='M12 8H14.25'
-											stroke='currentColor'
-											strokeWidth='1.4'
-											strokeLinecap='round'
-										/>
-									</svg>
-								</span>
+								data-fg-graph-action='clear-non-log'
+								className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-clear-non-log-btn'
+								title='Keep logged nodes and connecting intermediaries, remove previous-employment lines, and clear connection highlights'>
+								<span className='fg-sidebar-action-label'>Clear non-log</span>
 							</button>
 							<button
 								type='button'
@@ -1586,7 +1545,56 @@ export default function FinraGraph() {
 								title='Clear saved session and reload fresh'>
 								Reset Session
 							</button>
-							<ThemeToggle />
+							<div className='fg-sidebar-theme-stack'>
+								<ThemeToggle />
+								<button
+									id='fg-focus-btn'
+									className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-sidebar-action-btn--icon-only fg-sidebar-focus-btn'
+									type='button'
+									title='Focus on this node'
+									aria-label='Center on this node'>
+									<span
+										className='fg-sidebar-action-icon'
+										aria-hidden='true'>
+										<svg
+											viewBox='0 0 16 16'
+											fill='none'
+											focusable='false'>
+											<circle
+												cx='8'
+												cy='8'
+												r='2.75'
+												stroke='currentColor'
+												strokeWidth='1.4'
+											/>
+											<path
+												d='M8 1.75V4'
+												stroke='currentColor'
+												strokeWidth='1.4'
+												strokeLinecap='round'
+											/>
+											<path
+												d='M8 12V14.25'
+												stroke='currentColor'
+												strokeWidth='1.4'
+												strokeLinecap='round'
+											/>
+											<path
+												d='M1.75 8H4'
+												stroke='currentColor'
+												strokeWidth='1.4'
+												strokeLinecap='round'
+											/>
+											<path
+												d='M12 8H14.25'
+												stroke='currentColor'
+												strokeWidth='1.4'
+												strokeLinecap='round'
+											/>
+										</svg>
+									</span>
+								</button>
+							</div>
 						</div>
 					</div>
 					<div

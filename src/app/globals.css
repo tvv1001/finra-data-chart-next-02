@@ -2164,8 +2164,49 @@ a,
 .fg-sidebar-action-btn--mobile-only {
 	display: inline-flex;
 }
+.fg-sidebar-theme-stack {
+	position: absolute;
+	right: 1px;
+	top: 52px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	z-index: 4;
+}
+
+.fg-sidebar-theme-stack .fg-sidebar-action-btn--icon-only {
+	position: static;
+	top: auto;
+	right: auto;
+	margin-top: 0;
+	min-width: 28px;
+	padding: 4px;
+}
+
+.fg-sidebar-theme-stack .fg-sidebar-action-icon {
+	width: 14px;
+	height: 14px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.fg-sidebar-theme-stack .fg-sidebar-action-icon svg {
+	width: 14px;
+	height: 14px;
+}
+
 .theme-toggle-btn {
-	margin-top: 17px;
+	margin-top: 0;
+}
+
+.fg-sidebar-focus-btn {
+	opacity: 0.9;
+}
+
+.fg-sidebar-focus-btn:hover:not(:disabled) {
+	opacity: 1;
 }
 .fg-sidebar-mobile-actions {
 	display: flex;

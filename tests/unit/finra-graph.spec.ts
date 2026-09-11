@@ -372,7 +372,7 @@ describe('FinraGraph DOM helpers (unit)', () => {
 	it('collectSelectionLogClearNonLogKeepIds keeps alternate bridges like Merrill even when another log path exists', () => {
 		// John -- Merrill -- Douglas
 		// John -- JPMorgan -- Mirna -- Goldman -- Douglas
-		// Steiner would keep only one spine; clear-non-log must keep Merrill too.
+		// Steiner would keep only one spine; clear-non-connected must keep Merrill too.
 		const graphData = {
 			nodes: [
 				{ id: 'person:john', group: 'individual' },

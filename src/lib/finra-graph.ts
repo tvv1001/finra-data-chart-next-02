@@ -4167,7 +4167,65 @@ function clearGraphAction(button?: HTMLButtonElement) {
 	if (button) flashSelectionLogActionButton(button, 'Cleared!');
 }
 
+/**
+ * After the shared log+bridge prune, remove previous-employment (gray) person links
+ * and drop any non-log nodes that are no longer reachable without those links.
+ */
+function stripPreviousEmploymentConnectionsAfterPrune(logIds: Set<string>) {
+	if (!graphData || !Array.isArray(graphData.links) || !Array.isArray(graphData.nodes)) return;
+
+	const remainingLinks = graphData.links.filter((link) => !isPreviousEmploymentLink(link));
+	if (remainingLinks.length === graphData.links.length) {
+		// No previous-employment links to strip; still re-render if callers expect it.
+		return;
+	}
+	graphData.links = remainingLinks;
+
+	const adj = buildUndirectedAdjacencyList(graphData.links);
+	const reachable = new Set<string>();
+	const queue: string[] = [];
+	const presentNodeIds = new Set<string>(graphData.nodes.map((node) => String(node?.id || '').trim()).filter(Boolean));
+
+	for (const logId of logIds) {
+		if (!presentNodeIds.has(logId)) continue;
+		reachable.add(logId);
+		queue.push(logId);
+	}
+	while (queue.length > 0) {
+		const current = queue.shift()!;
+		for (const neighborId of adj.get(current) || []) {
+			if (reachable.has(neighborId)) continue;
+			reachable.add(neighborId);
+			queue.push(neighborId);
+		}
+	}
+
+	// Isolated log terminals stay; everything else must remain connected via non-previous links.
+	for (const logId of logIds) {
+		if (presentNodeIds.has(logId)) reachable.add(logId);
+	}
+
+	pruneGraphDataToKeepIds(reachable);
+}
+
+/** Same prune as clear-non-connected, then strip previous-employment lines and clear highlights. */
 function clearNonLogAction(button?: HTMLButtonElement) {
+	const logIds = new Set<string>(selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter(Boolean));
+	if (logIds.size === 0) {
+		updateFetchStatus('Selection log is empty');
+		if (button) flashSelectionLogActionButton(button, 'Empty');
+		return;
+	}
+	const keepIds = collectSelectionLogClearNonLogKeepIds(graphData, selectedNodesLog);
+	pruneGraphDataToKeepIds(keepIds);
+	stripPreviousEmploymentConnectionsAfterPrune(logIds);
+	// Drop prior hop/line connection emphasis left over from earlier expansions.
+	clearHighlights();
+	if (button) flashSelectionLogActionButton(button, 'Pruned!');
+}
+
+/** Keep log nodes and bridges between them; drop dangling leaves. */
+function clearNonConnectedAction(button?: HTMLButtonElement) {
 	const logIds = new Set<string>(selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter(Boolean));
 	if (logIds.size === 0) {
 		updateFetchStatus('Selection log is empty');
@@ -6505,6 +6563,9 @@ export function init(
 					break;
 				case 'clear-non-log':
 					clearNonLogAction(graphActionBtn);
+					break;
+				case 'clear-non-connected':
+					clearNonConnectedAction(graphActionBtn);
 					break;
 				case 'select-to-keep':
 					if (isSelectToKeepMode) {
