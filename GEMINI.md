@@ -81,7 +81,7 @@ Node-click reveal/spread may move the clicked node and newly revealed neighbors 
 - `pnpm run dev` / `dev:clean` — local Redis + Next on `:4444`
 - `pnpm run build` / `start` / `lint`
 - `pnpm run test:unit` / `test:e2e` / `test:smoke`
-- Ops/crawl/deploy one-offs: `.local/scripts/` (not wired in `package.json`). If you need to write a new script for building, aggregating, or managing data, put it in `.local/scripts/`.
+- Ops/crawl/deploy one-offs: `.local/scripts/` (not wired in `package.json`). **Never create root-level `test-*.js` / `scrape-*.js`.** FINRA/SEC fetch+save → `.local/scripts/scrape.mjs`. Throwaway probes → `.local/test-scripts/` (gitignored). See `.github/instructions/local-scripts.instructions.md`.
 
 ## Where to look
 
@@ -106,7 +106,8 @@ Node-click reveal/spread may move the clicked node and newly revealed neighbors 
 - **Don’t** treat incomplete `data/` as a blocker for Redis-only / PWA paths.
 - **Don’t** write production Upstash unless the user explicitly requests deploy/sync.
 - **Don’t** deploy to Vercel from an agent session. Don’t treat a prod URL as a deploy request.
-- **Don’t** invent alternate ingestion paths; dashboard + approved cron/scripts own CRD intake.
+- **Don’t** invent alternate ingestion paths; dashboard + `.local/scripts/scrape.mjs` own CRD intake. Don’t add parallel scrape/crawl one-offs at the repo root.
+- **Don’t** create new root `test-*.js` / `scrape-*.js` / `crawl*.js`. Extend `.local/scripts/scrape.mjs` or place probes under `.local/test-scripts/`.
 - **Don’t** put search indexes in Redis. Graph and dashboard search/name hydration use gzip sidecars only.
 - **Don’t** write query-search hits (`?query=`) into `finra:*` / `sec:*` detail keys. Query search only collects CRDs.
 - **Don’t** store a by-id `/search/{firm\|individual}/<CRD>` response under that host’s Redis prefix just because `hits.total > 0`. Gate with `hasFirmSourceCoverage` / `hasIndividualSourceCoverage` (`src/lib/sourceTruth.ts`). IA-only firm shells (e.g. CRD `155640`) belong on `sec:firm:*` only — not `finra:firm:*`. See `.github/instructions/finra-sec-api-patterns.instructions.md`.

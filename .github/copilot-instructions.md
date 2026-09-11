@@ -28,6 +28,13 @@ For this repository, production must be treated as a **read-only reference sourc
 - implement changes in-repo and push to `develop` first
 - promote to production only via the normal `develop` → production release workflow
 
+## Local scrape / test scripts
+
+- **Canonical FINRA/SEC fetch:** `npx tsx --env-file=.env.local .local/scripts/scrape.mjs` (`fetch` | `search` | `backfill`).
+- Do **not** create root-level `test-*.js`, `scrape-*.js`, or `crawl*.js`.
+- Throwaway probes go in `.local/test-scripts/` (gitignored). Durable tests stay in `tests/`.
+- Details: `.github/instructions/local-scripts.instructions.md`.
+
 ## Repo-specific Playwright guidance
 
 When adding or editing browser tests in this repo:

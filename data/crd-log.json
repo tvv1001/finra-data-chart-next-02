@@ -1,6 +1,10 @@
 {
   "firms": [
     {
+      "id": 7784,
+      "name": "FIDELITY BROKERAGE SERVICES LLC"
+    },
+    {
       "id": 13572,
       "name": "FINANCIAL NETWORK INVESTMENT CORPORATION"
     },
@@ -87,10 +91,6 @@
     {
       "id": 106081,
       "name": "WASATCH ADVISORS INC"
-    },
-    {
-      "id": 7784,
-      "name": "FIDELITY BROKERAGE SERVICES, INC."
     },
     {
       "id": 16853,
@@ -1226,6 +1226,10 @@
     }
   ],
   "individuals": [
+    {
+      "id": 8090337,
+      "name": "KEVIN DIAZ BRYAN"
+    },
     {
       "id": 2380206,
       "name": "MICHAEL KIM BRYAN"

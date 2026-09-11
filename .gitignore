@@ -36,10 +36,13 @@ playwright-report/
 test-results/
 .playwright-mcp/
 
-# Ad-hoc root test scripts (keep the real suite in tests/)
+# Ad-hoc root test/scrape scripts — use .local/scripts/scrape.mjs + .local/test-scripts/
 /test-*.js
 /test_*.js
 /test.json
+/unwrap.js
+/scrape*.js
+/crawl*.js
 /*-verified.png
 /red-over-blue-links.png
 /clear-non-log*.png
@@ -83,6 +86,9 @@ patch_**
 
 /.local/*
 !/.local/scripts/
+!/.local/test-scripts/
+/.local/test-scripts/**
+!/.local/test-scripts/README.md
 
 # Next.js regenerates this on every dev/build and flips the routes import path
 # between .next/types and .next/dev/types, so it churns constantly. Vercel

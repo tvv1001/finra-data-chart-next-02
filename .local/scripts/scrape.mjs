@@ -1,12 +1,17 @@
 #!/usr/bin/env node
 /**
- * Query FINRA/SEC search for terms, then by-id detail + source-coverage gate
- * before writing local Redis AND data/raw/ (disk backup). Stops after N newly
- * saved CRDs.
+ * Master FINRA/SEC scrape entrypoint — fetch by-id detail, gate on source coverage,
+ * write local Redis + data/raw/. Prefer this over one-off scrape/crawl JS.
  *
- *   npx tsx --env-file=.env.local .local/scripts/query-save-new-crds.mjs --target=10
- *   npx tsx --env-file=.env.local .local/scripts/query-save-new-crds.mjs --terms-file=.local/tmp/terms.txt --target=0
- *   npx tsx --env-file=.env.local .local/scripts/query-save-new-crds.mjs --backfill-raw=6849383,340663
+ *   npx tsx --env-file=.env.local .local/scripts/scrape.mjs help
+ *   npx tsx --env-file=.env.local .local/scripts/scrape.mjs fetch --kind=firm --crd=343853
+ *   npx tsx --env-file=.env.local .local/scripts/scrape.mjs fetch --kind=individual --crd=8323038,8323032
+ *   npx tsx --env-file=.env.local .local/scripts/scrape.mjs search --target=10
+ *   npx tsx --env-file=.env.local .local/scripts/scrape.mjs search --terms=smith,jones --target=5
+ *   npx tsx --env-file=.env.local .local/scripts/scrape.mjs backfill --crd=343853,8323038
+ *
+ * Do NOT create new root-level scrape/test .js files — extend this script or add
+ * helpers under `.local/scripts/` / ad-hoc probes under `.local/test-scripts/`.
  */
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
@@ -18,24 +23,27 @@ import {
 	hasIndividualSourceCoverage,
 } from '../../src/lib/sourceTruth.ts';
 
-const TARGET_RAW = (process.argv.find((a) => a.startsWith('--target=')) || '--target=10').slice('--target='.length);
-const TARGET = TARGET_RAW === '0' || TARGET_RAW === 'unlimited' ? Number.POSITIVE_INFINITY : Number(TARGET_RAW);
-const BACKFILL_RAW = (process.argv.find((a) => a.startsWith('--backfill-raw=')) || '')
-	.slice('--backfill-raw='.length)
-	.split(',')
-	.map((s) => s.trim())
-	.filter(Boolean);
-const SKIP_TERMS = new Set(
-	(process.argv.find((a) => a.startsWith('--skip-terms=')) || '')
-		.slice('--skip-terms='.length)
-		.split(',')
-		.map((s) => s.trim().toLowerCase())
-		.filter(Boolean),
-);
-const TERMS_FILE = (process.argv.find((a) => a.startsWith('--terms-file=')) || '').slice('--terms-file='.length);
-const TERMS_CSV = (process.argv.find((a) => a.startsWith('--terms=')) || '').slice('--terms='.length);
-const SLEEP_MS = 250;
 const ROOT = process.cwd();
+const argv = process.argv.slice(2);
+
+function flag(name, fallback = '') {
+	const hit = argv.find((a) => a.startsWith(`--${name}=`));
+	return hit ? hit.slice(`--${name}=`.length) : fallback;
+}
+function flagList(name) {
+	return flag(name)
+		.split(',')
+		.map((s) => s.trim())
+		.filter(Boolean);
+}
+
+const TARGET_RAW = flag('target', '10');
+const TARGET = TARGET_RAW === '0' || TARGET_RAW === 'unlimited' ? Number.POSITIVE_INFINITY : Number(TARGET_RAW) || 10;
+const SKIP_TERMS = new Set(flagList('skip-terms').map((s) => s.toLowerCase()));
+const TERMS_FILE = flag('terms-file');
+const TERMS_CSV = flag('terms');
+const SLEEP_MS = Number(flag('sleep', '250')) || 250;
+const FORCE = argv.includes('--force');
 
 const DEFAULT_TERMS = [
 	'eye', 'elit', 'maso', 'indo', 'nord', 'pope', 'holy', 'vati', 'arch', 'pray', 'rite', 'cult',
@@ -71,9 +79,37 @@ function loadTerms() {
 	return out;
 }
 
-const TERMS = loadTerms();
-
 const redis = new IORedis('redis://127.0.0.1:6379', { maxRetriesPerRequest: 2 });
+
+function printHelp() {
+	console.log(`Master scrape — FINRA BrokerCheck + SEC AdviserInfo → local Redis + data/raw/
+
+Commands:
+  fetch      By-id detail for one or more CRDs
+  search     Query-search terms, then by-id save (high CRDs first)
+  backfill   Copy existing Redis detail envelopes out to data/raw/
+  help       Show this help
+
+Examples:
+  npx tsx --env-file=.env.local .local/scripts/scrape.mjs fetch --kind=firm --crd=343853
+  npx tsx --env-file=.env.local .local/scripts/scrape.mjs fetch --kind=individual --crd=8323038,8323032
+  npx tsx --env-file=.env.local .local/scripts/scrape.mjs search --target=10
+  npx tsx --env-file=.env.local .local/scripts/scrape.mjs search --terms=smith --target=5
+  npx tsx --env-file=.env.local .local/scripts/scrape.mjs backfill --crd=343853
+
+Flags:
+  --kind=firm|individual   Required for fetch (auto-tries both for backfill)
+  --crd=123,456            CRD list
+  --target=N               Max newly saved CRDs for search (0=unlimited)
+  --terms=a,b / --terms-file=path
+  --skip-terms=a,b
+  --sleep=250              Delay between upstream calls (ms)
+  --force                  Re-fetch even if Redis already has the CRD
+
+AI rule: do not create new root-level scrape/test .js files. Use this script or
+add helpers under .local/scripts/. Ad-hoc probes go in .local/test-scripts/ (gitignored).
+`);
+}
 
 function sleep(ms) {
 	return new Promise((r) => setTimeout(r, ms));
@@ -126,7 +162,7 @@ async function fetchJson(url) {
 	const res = await fetch(url, {
 		headers: {
 			Accept: 'application/json',
-			'User-Agent': 'finra-local-query-save/1.0',
+			'User-Agent': 'finra-local-scrape/1.0',
 		},
 		redirect: 'follow',
 	});
@@ -258,7 +294,7 @@ function summarizeDetail(kind, detail) {
 }
 
 async function saveNewCrd(kind, crd, meta = {}) {
-	if (await alreadyHave(kind, crd)) {
+	if (!FORCE && (await alreadyHave(kind, crd))) {
 		return { status: 'exists', kind, crd };
 	}
 
@@ -344,14 +380,28 @@ async function backfillRawFromRedis(crds) {
 	return results;
 }
 
-async function main() {
-	if (BACKFILL_RAW.length) {
-		const results = await backfillRawFromRedis(BACKFILL_RAW);
-		console.log(JSON.stringify({ ok: true, phase: 'backfill-done', count: results.length, results }, null, 2));
-		await redis.quit();
-		return;
+async function runFetch() {
+	const kind = flag('kind');
+	const crds = flagList('crd');
+	if (!kind || (kind !== 'firm' && kind !== 'individual')) {
+		throw new Error('fetch requires --kind=firm|individual');
 	}
+	if (!crds.length) throw new Error('fetch requires --crd=123[,456]');
+	const results = [];
+	for (const crd of crds) {
+		if (!/^\d{1,10}$/.test(crd)) {
+			results.push({ status: 'invalid-crd', kind, crd });
+			continue;
+		}
+		const result = await saveNewCrd(kind, crd, { via: 'fetch' });
+		results.push(result);
+		console.log(JSON.stringify({ phase: result.status, kind, crd, keys: result.written?.map((w) => w.key), name: result.written?.[0]?.name }));
+	}
+	console.log(JSON.stringify({ ok: true, phase: 'fetch-done', results }, null, 2));
+}
 
+async function runSearch() {
+	const TERMS = loadTerms();
 	const seen = new Set();
 	const saved = [];
 	const rejected = [];
@@ -360,6 +410,7 @@ async function main() {
 	console.log(
 		JSON.stringify({
 			phase: 'start',
+			command: 'search',
 			target: Number.isFinite(TARGET) ? TARGET : 'unlimited',
 			terms: TERMS.length,
 			skippedTerms: [...SKIP_TERMS],
@@ -382,7 +433,7 @@ async function main() {
 			if (seen.has(idKey)) continue;
 			seen.add(idKey);
 
-			if (await alreadyHave(hit.kind, hit.crd)) continue;
+			if (!FORCE && (await alreadyHave(hit.kind, hit.crd))) continue;
 
 			const result = await saveNewCrd(hit.kind, hit.crd, {
 				term: hit.term,
@@ -411,6 +462,7 @@ async function main() {
 
 	const report = {
 		ok: true,
+		command: 'search',
 		target: Number.isFinite(TARGET) ? TARGET : 'unlimited',
 		savedCount: saved.length,
 		queries,
@@ -428,6 +480,37 @@ async function main() {
 	};
 	console.log('=== REPORT ===');
 	console.log(JSON.stringify(report, null, 2));
+}
+
+async function runBackfill() {
+	const crds = [...flagList('crd'), ...flagList('backfill-raw')];
+	const unique = [...new Set(crds)];
+	if (!unique.length) throw new Error('backfill requires --crd=123[,456]');
+	const results = await backfillRawFromRedis(unique);
+	console.log(JSON.stringify({ ok: true, phase: 'backfill-done', count: results.length, results }, null, 2));
+}
+
+async function main() {
+	let cmd = (argv.find((a) => !a.startsWith('-')) || '').toLowerCase();
+	// Legacy: query-save-new-crds.mjs --backfill-raw=... / --target=... with no subcommand
+	if (!cmd) {
+		if (flag('backfill-raw')) cmd = 'backfill';
+		else if (flag('target') || flag('terms') || flag('terms-file')) cmd = 'search';
+		else cmd = 'help';
+	}
+
+	if (cmd === 'help' || cmd === '-h' || cmd === '--help') {
+		printHelp();
+		await redis.quit();
+		return;
+	}
+	if (cmd === 'fetch') await runFetch();
+	else if (cmd === 'search') await runSearch();
+	else if (cmd === 'backfill') await runBackfill();
+	else {
+		printHelp();
+		throw new Error(`Unknown command: ${cmd}`);
+	}
 	await redis.quit();
 	process.exit(0);
 }

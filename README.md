@@ -449,15 +449,13 @@ data/
   external/
 
 .local/scripts/
+  scrape.mjs                  # master FINRA/SEC fetch → Redis + data/raw
+  gap_scan_top_crds.mjs
+  push_all_to_prod.mjs
   build_graph_from_cache.js
   build_primed_cache_bundle.js
-  download_all_api_data.js
-  parallel_crawler.js
-  batch_crawl_and_build.js
-  continuous_crawl_and_rebuild.js
-  recompute_graph_meta.js
-  check_local_integrity.js
-  enrich_nodes.js
+  …
+.local/test-scripts/          # gitignored throwaway probes (README only tracked)
 src/
   app/
     page.tsx
@@ -477,6 +475,16 @@ src/
 ---
 
 ## Key scripts
+
+### Master scrape (FINRA / SEC → local Redis + data/raw)
+
+```bash
+npx tsx --env-file=.env.local .local/scripts/scrape.mjs help
+npx tsx --env-file=.env.local .local/scripts/scrape.mjs fetch --kind=firm --crd=343853
+npx tsx --env-file=.env.local .local/scripts/scrape.mjs search --target=10
+```
+
+Do **not** add root-level `test-*.js` / `scrape-*.js`. See `.github/instructions/local-scripts.instructions.md`.
 
 ### Build graph artifacts from cached JSON
 

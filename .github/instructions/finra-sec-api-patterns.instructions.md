@@ -33,6 +33,12 @@ Graph node display names are hydrated from the gzip search-index sidecars (`data
 
 This instruction supplements `.github/copilot-instructions.md` for work that touches upstream FINRA BrokerCheck and SEC AdviserInfo integrations.
 
+## Script entrypoint (required for agents)
+
+- **Canonical scrape:** `npx tsx --env-file=.env.local .local/scripts/scrape.mjs` (`fetch` | `search` | `backfill`).
+- Do **not** create new root-level scrape/test JS. See `.github/instructions/local-scripts.instructions.md`.
+- Gap scanning remains `.local/scripts/gap_scan_top_crds.mjs` (specialized).
+
 ## Critical mistake to avoid (false / cross-source data)
 
 **Do not treat “API returned `hits.total > 0`” as proof that a CRD belongs on that host.**
