@@ -1,6 +1,22 @@
 {
   "firms": [
     {
+      "id": 14455,
+      "name": "U.S. BANCORP ADVISORS, LLC"
+    },
+    {
+      "id": 3487,
+      "name": "STATE FARM INVESTMENT MANAGEMENT CORP."
+    },
+    {
+      "id": 43036,
+      "name": "STATE FARM VP MANAGEMENT CORP."
+    },
+    {
+      "id": 319484,
+      "name": "49 FINANCIAL"
+    },
+    {
       "id": 3641,
       "name": "FIRST COMMAND BROKERAGE SERVICES, INC."
     },
@@ -445,10 +461,6 @@
       "name": "FISHER INVESTMENTS"
     },
     {
-      "id": 43036,
-      "name": "STATE FARM VP MANAGEMENT CORP."
-    },
-    {
       "id": 42057,
       "name": "ARVEST WEALTH MANAGEMENT"
     },
@@ -831,10 +843,6 @@
     {
       "id": 17868,
       "name": "U.S. BANCORP INVESTMENTS, INC."
-    },
-    {
-      "id": 14455,
-      "name": "U.S. BANCORP ADVISORS, LLC"
     },
     {
       "id": 112188,
@@ -1837,15 +1845,23 @@
       "name": "PURSHE KAPLAN STERLING INVESTMENTS"
     },
     {
-      "id": 319484,
-      "name": "49 FINANCIAL"
-    },
-    {
       "id": 21000,
       "name": "OAKWOOD CAPITAL SECURITIES, INC."
     }
   ],
   "individuals": [
+    {
+      "id": 8318935,
+      "name": "Sara Nicole Szwed"
+    },
+    {
+      "id": 8322548,
+      "name": "Timothy Adam McGallian"
+    },
+    {
+      "id": 8322626,
+      "name": "WILLIAM JEFFREY COUCHMAN"
+    },
     {
       "id": 7683233,
       "name": "JOSE LUIS CASTILLO"
@@ -3529,10 +3545,6 @@
     {
       "id": 8303495,
       "name": "Whitney Grace Dodson"
-    },
-    {
-      "id": 8322626,
-      "name": "WILLIAM JEFFREY COUCHMAN"
     }
   ]
 }

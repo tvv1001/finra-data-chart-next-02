@@ -1,16 +1,14 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { logger } from '@/lib/logger';
-import { getRedisClient } from '@/lib/redisCache';
-import { canWriteToRedis } from '@/lib/redisAvailability';
 
-// Serverless deployments (Vercel) mount the bundle read-only and each
-// invocation gets a fresh/ephemeral filesystem, so data/logs/performance.jsonl
-// never persists or is even writable in production. Mirror recent entries
-// into a capped Redis list so "check performance in prod" has something
-// durable to read across invocations.
-const REDIS_PERF_KEY = 'finra:perf:log';
-const REDIS_PERF_MAX_ENTRIES = 500;
+/**
+ * Performance analytics — local file only (no Redis).
+ * Path: data/logs/perf.log (JSONL). Avoids Upstash read/write quota burn.
+ */
+const PERF_LOG_RELATIVE = path.join('data', 'logs', 'perf.log');
+/** Legacy filename — read as fallback so existing local history is not lost. */
+const PERF_LOG_LEGACY_RELATIVE = path.join('data', 'logs', 'performance.jsonl');
 
 export type PerformanceLogEntry = {
 	label: string;
@@ -37,37 +35,15 @@ function getMemorySnapshot() {
 
 function getPerformanceLogPath() {
 	if (typeof process === 'undefined' || !process.cwd) return null;
-	return path.join(process.cwd(), 'data', 'logs', 'performance.jsonl');
+	return path.join(process.cwd(), PERF_LOG_RELATIVE);
 }
 
-async function readPerformanceLogEntriesFromRedis(limit: number): Promise<PerformanceLogEntry[]> {
-	const client = getRedisClient();
-	if (!client) return [];
-	try {
-		// Most recent entries are pushed to the head (lpush), so 0..limit-1 is newest-first.
-		const raw: string[] = await client.lrange(REDIS_PERF_KEY, 0, limit - 1);
-		if (!Array.isArray(raw) || raw.length === 0) return [];
-		return raw
-			.map((line) => {
-				try {
-					return (typeof line === 'string' ? JSON.parse(line) : line) as PerformanceLogEntry;
-				} catch {
-					return null;
-				}
-			})
-			.filter((entry): entry is PerformanceLogEntry => Boolean(entry))
-			.reverse(); // oldest-first, matching the local-file reader's ordering
-	} catch (error) {
-		logger.warn('performance analytics: redis read failed', {
-			error: error instanceof Error ? error.message : String(error),
-		});
-		return [];
-	}
+function getLegacyPerformanceLogPath() {
+	if (typeof process === 'undefined' || !process.cwd) return null;
+	return path.join(process.cwd(), PERF_LOG_LEGACY_RELATIVE);
 }
 
-async function readPerformanceLogEntriesFromFile(limit: number): Promise<PerformanceLogEntry[]> {
-	const logPath = getPerformanceLogPath();
-	if (!logPath) return [];
+async function readJsonlFile(logPath: string, limit: number): Promise<PerformanceLogEntry[]> {
 	try {
 		const raw = await fs.readFile(logPath, 'utf8');
 		const lines = raw
@@ -89,11 +65,18 @@ async function readPerformanceLogEntriesFromFile(limit: number): Promise<Perform
 	}
 }
 
+async function readPerformanceLogEntriesFromFile(limit: number): Promise<PerformanceLogEntry[]> {
+	const primary = getPerformanceLogPath();
+	if (primary) {
+		const fromPrimary = await readJsonlFile(primary, limit);
+		if (fromPrimary.length > 0) return fromPrimary;
+	}
+	const legacy = getLegacyPerformanceLogPath();
+	if (legacy) return readJsonlFile(legacy, limit);
+	return [];
+}
+
 export async function readPerformanceLogEntries(limit = 250): Promise<PerformanceLogEntry[]> {
-	// Prefer Redis (works across serverless invocations); fall back to the
-	// local file for environments without Redis configured (plain local dev).
-	const fromRedis = await readPerformanceLogEntriesFromRedis(limit);
-	if (fromRedis.length > 0) return fromRedis;
 	return readPerformanceLogEntriesFromFile(limit);
 }
 
@@ -194,24 +177,8 @@ export async function writePerformanceMetric(entry: Omit<PerformanceLogEntry, 'a
 			await fs.mkdir(path.dirname(logPath), { recursive: true });
 			await fs.appendFile(logPath, `${JSON.stringify(payload)}\n`, 'utf8');
 		} catch (error) {
-			// Expected in serverless/read-only environments; Redis (below) is the
-			// durable path there, so don't spam logs at warn level for this case.
-			logger.debug('performance analytics local file write skipped', {
-				label: payload.label,
-				error: error instanceof Error ? error.message : String(error),
-			});
-		}
-	}
-
-	if (canWriteToRedis()) {
-		try {
-			const client = getRedisClient();
-			if (client) {
-				await client.lpush(REDIS_PERF_KEY, JSON.stringify(payload));
-				await client.ltrim(REDIS_PERF_KEY, 0, REDIS_PERF_MAX_ENTRIES - 1);
-			}
-		} catch (error) {
-			logger.warn('performance analytics redis write failed', {
+			// Expected on serverless/read-only filesystems — no Redis fallback (quota).
+			logger.debug('performance analytics file write skipped', {
 				label: payload.label,
 				error: error instanceof Error ? error.message : String(error),
 			});

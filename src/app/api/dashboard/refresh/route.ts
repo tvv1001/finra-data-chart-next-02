@@ -1175,6 +1175,27 @@ async function buildCardSummary(card: CacheCard) {
 		if (logName) summary.name = logName;
 	}
 	if (!summary.name) {
+		// Presence filtering can strip NotInScope FINRA/SEC sources from card.sources while a
+		// named detail payload still exists in Redis. Resolve the name from those payloads
+		// directly so the new-CRDs panel does not fall back to "Individual <crd>".
+		for (const source of ['finra', 'sec'] as const) {
+			try {
+				const detail =
+					card.entity === 'individual' ?
+						await loadCachedIndividualPayload(source, card.id)
+					:	await loadCachedFirmPayload(source, card.id);
+				if (!detail) continue;
+				const extracted = extractCardSummaryFields(detail as Record<string, any>, card.id, source);
+				if (extracted.name) {
+					summary.name = extracted.name;
+					break;
+				}
+			} catch {
+				// ignore and try the other source / later fallbacks
+			}
+		}
+	}
+	if (!summary.name) {
 		// Fall back to the search-index sidecar (gzip file / Redis extensions hash) instead of a
 		// dashboard-only cache, so the real name is always used when available.
 		try {
