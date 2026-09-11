@@ -4167,6 +4167,65 @@ function clearGraphAction(button?: HTMLButtonElement) {
 	if (button) flashSelectionLogActionButton(button, 'Cleared!');
 }
 
+function isPersonNodeId(nodeId: string) {
+	const normalized = String(nodeId || '').trim();
+	if (!normalized) return false;
+	if (normalized.startsWith('person:')) return true;
+	const node = (Array.isArray(graphData?.nodes) ? graphData.nodes : []).find((entry) => String(entry?.id || '').trim() === normalized);
+	return Boolean(node && (node.group === 'individual' || node.type === 'individual'));
+}
+
+function isPersonEmploymentHistoryLink(link: any, personId: string) {
+	const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+	const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+	if (!sourceId || !targetId) return false;
+	if (sourceId !== personId && targetId !== personId) return false;
+	const otherId = sourceId === personId ? targetId : sourceId;
+	if (!otherId.startsWith('firm:')) return false;
+	const rel = String(link?.relationship || '')
+		.trim()
+		.toLowerCase();
+	if (rel.includes('employ') || rel.includes('registered') || rel.includes('associated')) return true;
+	return isPreviousEmploymentLink(link) || usesCurrentEmploymentStyling(link);
+}
+
+/** Employment-history link identity keys for one person in the current graph. */
+function collectPersonEmploymentHistoryLinkKeys(personId: string, links: Array<any> = graphData?.links || []) {
+	const normalizedPersonId = String(personId || '').trim();
+	if (!normalizedPersonId || !Array.isArray(links)) return new Set<string>();
+	const keys = new Set<string>();
+	for (const link of links) {
+		if (!isPersonEmploymentHistoryLink(link, normalizedPersonId)) continue;
+		keys.add(getLinkIdentityKey(link));
+	}
+	return keys;
+}
+
+function collectSelectedPersonNodeIds() {
+	const ids = new Set<string>();
+	if (selectedId && isPersonNodeId(String(selectedId))) ids.add(String(selectedId).trim());
+	for (const id of persistentSelectedIds) {
+		const normalized = String(id || '').trim();
+		if (normalized && isPersonNodeId(normalized)) ids.add(normalized);
+	}
+	return ids;
+}
+
+function clearPersonSelectionVisualState(nodeId: string) {
+	const normalizedNodeId = String(nodeId || '').trim();
+	if (!normalizedNodeId) return;
+	clearChildNodeSelectionVisualState(normalizedNodeId);
+	if (sidebarSelectedNode && String(sidebarSelectedNode.id || '').trim() === normalizedNodeId) {
+		sidebarSelectedNode = null;
+		sidebarViewMode = 'none';
+		showSidebarHint();
+	}
+	if (!selectedId) {
+		emitSelectedNodeRoute(null, { replace: true });
+		updateFocusReadout(null);
+	}
+}
+
 /**
  * After the shared log+bridge prune, remove previous-employment (gray) person links
  * and drop any non-log nodes that are no longer reachable without those links.
@@ -4216,9 +4275,34 @@ function clearNonLogAction(button?: HTMLButtonElement) {
 		if (button) flashSelectionLogActionButton(button, 'Empty');
 		return;
 	}
+
+	const selectedPeople = collectSelectedPersonNodeIds();
+	const employmentKeysBefore = new Map<string, Set<string>>();
+	for (const personId of selectedPeople) {
+		employmentKeysBefore.set(personId, collectPersonEmploymentHistoryLinkKeys(personId, graphData?.links || []));
+	}
+
 	const keepIds = collectSelectionLogClearNonLogKeepIds(graphData, selectedNodesLog);
 	pruneGraphDataToKeepIds(keepIds);
 	stripPreviousEmploymentConnectionsAfterPrune(logIds);
+
+	// Selected people who lost any employment-history links should no longer look selected.
+	for (const personId of selectedPeople) {
+		const beforeKeys = employmentKeysBefore.get(personId) || new Set<string>();
+		if (beforeKeys.size === 0) continue;
+		const afterKeys = collectPersonEmploymentHistoryLinkKeys(personId, graphData?.links || []);
+		let removedAny = beforeKeys.size > afterKeys.size;
+		if (!removedAny) {
+			for (const key of beforeKeys) {
+				if (!afterKeys.has(key)) {
+					removedAny = true;
+					break;
+				}
+			}
+		}
+		if (removedAny) clearPersonSelectionVisualState(personId);
+	}
+
 	// Drop prior hop/line connection emphasis left over from earlier expansions.
 	clearHighlights();
 	if (button) flashSelectionLogActionButton(button, 'Pruned!');

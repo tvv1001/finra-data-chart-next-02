@@ -1,6 +1,58 @@
 {
   "firms": [
     {
+      "id": 118304,
+      "name": "WILBANKS SECURITIES ADVISORY"
+    },
+    {
+      "id": 134922,
+      "name": "CL WEALTH MANAGEMENT LLC"
+    },
+    {
+      "id": 104556,
+      "name": "AVANTAX ADVISORY SERVICES"
+    },
+    {
+      "id": 7506,
+      "name": "LEHMAN BROTHERS INC."
+    },
+    {
+      "id": 7059,
+      "name": "SALOMON SMITH BARNEY INC."
+    },
+    {
+      "id": 7556,
+      "name": "MORGAN STANLEY DW INC."
+    },
+    {
+      "id": 4161,
+      "name": "MORGAN KEEGAN & COMPANY, INC."
+    },
+    {
+      "id": 705,
+      "name": "RAYMOND JAMES & ASSOCIATES, INC."
+    },
+    {
+      "id": 40673,
+      "name": "WILBANKS SECURITIES, INC."
+    },
+    {
+      "id": 159712,
+      "name": "CABOT LODGE SECURITIES LLC"
+    },
+    {
+      "id": 13686,
+      "name": "AVANTAX INVESTMENT SERVICES, INC."
+    },
+    {
+      "id": 105644,
+      "name": "CETERA INVESTMENT ADVISERS LLC"
+    },
+    {
+      "id": 13572,
+      "name": "CETERA WEALTH SERVICES, LLC"
+    },
+    {
       "id": 7654,
       "name": "UBS SECURITIES LLC"
     },
@@ -45,10 +97,6 @@
       "name": "GILFORD SECURITIES INCORPORATED"
     },
     {
-      "id": 7556,
-      "name": "DEAN WITTER REYNOLDS INC."
-    },
-    {
       "id": 5685,
       "name": "PRUCO SECURITIES CORPORATION"
     },
@@ -77,10 +125,6 @@
       "name": "RAYMOND JAMES FINANCIAL SERVICES, INC."
     },
     {
-      "id": 705,
-      "name": "RAYMOND JAMES & ASSOCIATES, INC."
-    },
-    {
       "id": 16100,
       "name": "WELLS FARGO BROKERAGE SERVICES, L.L.C."
     },
@@ -95,10 +139,6 @@
     {
       "id": 3777,
       "name": "WILSON-DAVIS & CO., INC."
-    },
-    {
-      "id": 7059,
-      "name": "SMITH BARNEY, HARRIS UPHAM & CO., INCORPORATED"
     },
     {
       "id": 31194,
@@ -247,10 +287,6 @@
     {
       "id": 45091,
       "name": "RONEY & CO."
-    },
-    {
-      "id": 4161,
-      "name": "MORGAN KEEGAN & COMPANY, INC."
     },
     {
       "id": 149018,
@@ -441,10 +477,6 @@
       "name": "J. W. GANT & ASSOCIATES, INC."
     },
     {
-      "id": 7506,
-      "name": "LEHMAN BROTHERS INC."
-    },
-    {
       "id": 30999,
       "name": "LEGEND EQUITIES CORPORATION"
     },
@@ -499,10 +531,6 @@
     {
       "id": 4031,
       "name": "HORNOR, TOWNSEND & KENT, LLC"
-    },
-    {
-      "id": 13686,
-      "name": "AVANTAX INVESTMENT SERVICES, INC."
     },
     {
       "id": 38339,
@@ -1033,16 +1061,8 @@
       "name": "ASSOCIATED SECURITIES CORP."
     },
     {
-      "id": 105644,
-      "name": "CETERA INVESTMENT ADVISERS LLC"
-    },
-    {
       "id": 343749,
       "name": "LAFAYETTE SQUARE FINANCIAL ADVISORS, INC."
-    },
-    {
-      "id": 13572,
-      "name": "CETERA WEALTH SERVICES, LLC"
     },
     {
       "id": 13787,
@@ -2122,6 +2142,10 @@
     }
   ],
   "individuals": [
+    {
+      "id": 1729499,
+      "name": "John Samuel Karrant"
+    },
     {
       "id": 5616656,
       "name": "PAUL LACEY"
