@@ -5,6 +5,8 @@
 !/data/national/
 !/data/national/finra-seed-bank.json
 !/data/seed-profiles.json
+!/data/crd-inventory.json.gz
+!/data/crd-log.json
 
 # Explicit exclusions for large or local-only artifacts.
 /data/national/finra-graph.json

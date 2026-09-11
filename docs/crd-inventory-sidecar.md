@@ -25,6 +25,15 @@ FINRA+SEC for the same `type:crd` collapse to one ID. Names live in search-index
 - Rare full rebuild: `node .local/scripts/reconcile-cached-crd-count.mjs --apply` (or `--sidecar-only --apply`)
 - Also rebuilt at the end of `.local/scrape/sync_redis_details_to_raw.js --apply`
 
+## Deploy
+
+Vercel excludes `/data/**` by default. Keep these opted back in via `.vercelignore`:
+
+- `!/data/crd-inventory.json.gz`
+- `!/data/crd-log.json`
+
+Without the gzip on the deployment filesystem, the dashboard falls back to Redis `dashboard:cached-crd-count` (easy to leave stale after bulk imports).
+
 ## Read path
 
 Dashboard **Redis CRDs** total (and people/firms) always comes from sidecar `counts` when `data/crd-inventory.json.gz` exists:
