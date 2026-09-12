@@ -346,7 +346,7 @@ html[data-theme='dark'] .fg-node.fg-node--find-match-active text.fg-label,
 html[data-theme='dark'] .fg-node.fg-node-pulse-target text.fg-label,
 html[data-theme='dark'] .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
 	display: block !important;
-	font-size: clamp(10px, 3ch, 133px) !important;
+	font-size: clamp(10px, 4ch, 133px) !important;
 	font-weight: 300 !important;
 	opacity: 1 !important;
 	stroke-width: 5px !important;
@@ -394,7 +394,7 @@ html[data-theme='light'] .fg-node.fg-node--find-match-active text.fg-label,
 html[data-theme='light'] .fg-node.fg-node-pulse-target text.fg-label,
 html[data-theme='light'] .fg-root.fg-labels-hidden.fg-selection-log-labels .fg-node.fg-node--selection-log-label text.fg-label {
 	display: block !important;
-	font-size: clamp(10px, 3ch, 133px) !important;
+	font-size: clamp(10px, 4ch, 133px) !important;
 	font-weight: 300 !important;
 	opacity: 1 !important;
 	fill: var(--color-node-label) !important;
@@ -630,8 +630,7 @@ html[data-theme='dark'] .fg-dis-comment {
 
 html[data-theme='dark'] text.fg-label {
 	fill: #ffffff !important;
-	font-size: var(--fg-node-label-font-size, 5px);
-	font-weight: var(--fg-node-label-font-weight, 100);
+	font-weight: var(--fg-node-label-font-weight, 100) !important;
 	opacity: 1 !important;
 	stroke: var(--surface) !important;
 	stroke-width: 4px !important;
@@ -4620,7 +4619,7 @@ html[data-theme='dark'] .fg-clear-labels-control__menu {
 
 text.fg-label {
 	fill: var(--color-node-label) !important;
-	font-size: var(--fg-node-label-font-size, 5px);
+	font-size: clamp(10px, 2.4ch, 133px) !important;
 	font-weight: var(--fg-node-label-font-weight, 100) !important;
 	opacity: 1 !important;
 	stroke: var(--color-node-label-stroke) !important;
