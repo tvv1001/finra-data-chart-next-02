@@ -309,8 +309,11 @@ export async function GET(request: NextRequest) {
 							])
 						).flatMap((result) => result?.hits?.hits || []);
 						for (const hit of bucketHits) {
-							const hitId = String(hit?._id || hit?.id || hit?._source?.ind_source_id || hit?._source?.firm_id || hit?._source?.firmId || '').trim();
-							const dedupeKey = hitId || JSON.stringify(hit?._source || hit || {}).slice(0, 120);
+							const source = hit?._source || (hit as any);
+							const hitId = String(
+								hit?._id || source?.ind_source_id || source?.ind_crd || source?.firm_id || source?.firmId || source?.firm_source_id || '',
+							).trim();
+							const dedupeKey = hitId || JSON.stringify(source || {}).slice(0, 120);
 							if (seenHitIds.has(dedupeKey)) continue;
 							seenHitIds.add(dedupeKey);
 							mergedHits.push(hit);
