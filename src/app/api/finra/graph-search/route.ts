@@ -295,18 +295,30 @@ export async function GET(request: NextRequest) {
 				}
 
 				if (!skipLocalIndexSearch) {
-					allHits = (
-						await Promise.all(
-							searchQueries.flatMap((sq) => [
-								searchLocalIndexMany('finra', 'individual', sq, { limit, offset, baseUrl }),
-								searchLocalIndexMany('finra', 'firm', sq, { limit, offset, baseUrl }),
-								searchLocalIndexMany('sec', 'individual', sq, { limit, offset, baseUrl }),
-								searchLocalIndexMany('sec', 'firm', sq, { limit, offset, baseUrl }),
+					// Per-query limit so comma-separated name lists don't starve later terms.
+					const perQueryLimit = Math.max(12, Math.ceil(limit / Math.max(1, searchQueries.length)));
+					const mergedHits: any[] = [];
+					const seenHitIds = new Set<string>();
+					for (const sq of searchQueries) {
+						const bucketHits = (
+							await Promise.all([
+								searchLocalIndexMany('finra', 'individual', sq, { limit: perQueryLimit, offset, baseUrl }),
+								searchLocalIndexMany('finra', 'firm', sq, { limit: perQueryLimit, offset, baseUrl }),
+								searchLocalIndexMany('sec', 'individual', sq, { limit: perQueryLimit, offset, baseUrl }),
+								searchLocalIndexMany('sec', 'firm', sq, { limit: perQueryLimit, offset, baseUrl }),
 							])
-						)
-					)
-						.flatMap((result) => result?.hits?.hits || [])
-						.slice(0, limit);
+						).flatMap((result) => result?.hits?.hits || []);
+						for (const hit of bucketHits) {
+							const hitId = String(hit?._id || hit?.id || hit?._source?.ind_source_id || hit?._source?.firm_id || hit?._source?.firmId || '').trim();
+							const dedupeKey = hitId || JSON.stringify(hit?._source || hit || {}).slice(0, 120);
+							if (seenHitIds.has(dedupeKey)) continue;
+							seenHitIds.add(dedupeKey);
+							mergedHits.push(hit);
+							if (mergedHits.length >= limit * Math.max(1, searchQueries.length)) break;
+						}
+						if (mergedHits.length >= limit * Math.max(1, searchQueries.length)) break;
+					}
+					allHits = mergedHits.slice(0, Math.max(limit, limit * Math.min(searchQueries.length, 4)));
 
 					// Fall back to external search if local indexes yield very few results (often true when sidecars are small subsets)
 					// similar to the threshold in api/finra/search/route.ts but higher since we merge 4 buckets here.

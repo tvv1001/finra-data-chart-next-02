@@ -6988,6 +6988,16 @@ export function init(
 				.map((t) => t.trim())
 				.filter(Boolean);
 			let isCrdList = tokens.length > 1 && tokens.every((t) => /^\d{1,10}$/.test(t));
+			// Comma/semicolon-separated text terms → separate searches merged onto the graph.
+			// Keep multi-word parts intact ("jane doe,john smith"); do not split on spaces here.
+			const nameListTokens = q
+				.split(/[,;]+/)
+				.map((t) => t.trim())
+				.filter(Boolean);
+			const isNameList =
+				!isCrdList &&
+				nameListTokens.length > 1 &&
+				nameListTokens.every((term) => term.length > 0 && term.length <= 80 && !/^\d{1,10}$/.test(term));
 
 			if (!isCrdList) {
 				const crdMatches = Array.from(q.matchAll(/CRD#?\s*(\d{1,10})/gi));
@@ -7052,14 +7062,14 @@ export function init(
 					return hits;
 				};
 
-				const fetchFinraAll = async (useFirm) => {
+				const fetchFinraAll = async (useFirm, queryText = q) => {
 					const hits = [];
 					let start = 0;
 					let total = null;
 					try {
 						do {
 							const su = makeApiUrl('/api/finra/search');
-							su.searchParams.set('query', q);
+							su.searchParams.set('query', queryText);
 							su.searchParams.set('rows', String(PAGE_SIZE));
 							su.searchParams.set('start', String(start));
 							if (useFirm) su.searchParams.set('firm', '1');
@@ -7078,9 +7088,9 @@ export function init(
 					return hits;
 				};
 
-				const fetchSec = async () => {
+				const fetchSec = async (queryText = q) => {
 					const su = makeApiUrl('/api/finra/sec-search');
-					su.searchParams.set('query', q);
+					su.searchParams.set('query', queryText);
 					su.searchParams.set('pageSize', '50'); // SEC pagination
 					su.searchParams.set('pageNumber', '1');
 					try {
@@ -7094,6 +7104,19 @@ export function init(
 					}
 				};
 
+				const fetchTextQueryHits = async (queryText) => {
+					const hits = [];
+					const results = await Promise.allSettled([fetchFinraAll(false, queryText), fetchFinraAll(true, queryText), fetchSec(queryText)]);
+					results.forEach((result, index) => {
+						if (result.status === 'fulfilled') {
+							hits.push(...result.value);
+						} else {
+							console.warn(`Database search request ${index} failed`, result.reason);
+						}
+					});
+					return hits;
+				};
+
 				let allHits = [];
 				if (isCrdList) {
 					const batchSize = 5;
@@ -7104,15 +7127,19 @@ export function init(
 							allHits.push(...hits);
 						}
 					}
-				} else {
-					const results = await Promise.allSettled([fetchFinraAll(false), fetchFinraAll(true), fetchSec()]);
-					results.forEach((result, index) => {
-						if (result.status === 'fulfilled') {
-							allHits.push(...result.value);
-						} else {
-							console.warn(`Database search request ${index} failed`, result.reason);
+				} else if (isNameList) {
+					updateFetchStatus(`Searching ${nameListTokens.length} names…`);
+					const batchSize = 3;
+					for (let i = 0; i < nameListTokens.length; i += batchSize) {
+						const batch = nameListTokens.slice(i, i + batchSize);
+						updateFetchStatus(`Searching ${i + 1}–${Math.min(i + batch.length, nameListTokens.length)} of ${nameListTokens.length}…`);
+						const batchResults = await Promise.all(batch.map((term) => fetchTextQueryHits(term)));
+						for (const hits of batchResults) {
+							allHits.push(...hits);
 						}
-					});
+					}
+				} else {
+					allHits = await fetchTextQueryHits(q);
 				}
 
 				// Respect header search type selector (all | people | firms)
@@ -7201,7 +7228,9 @@ export function init(
 				}
 
 				if (!allHits.length) {
-					updateFetchStatus(`No database results for "${q}"`);
+					updateFetchStatus(
+						isNameList ? `No database results for ${nameListTokens.length} names` : `No database results for "${q}"`,
+					);
 					return;
 				}
 
@@ -7569,7 +7598,11 @@ export function init(
 				void fetchCacheStats();
 
 				const newCount = batchAllNodes.length;
-				updateFetchStatus(`Added ${newCount} node${newCount !== 1 ? 's' : ''} for "${q}"`);
+				updateFetchStatus(
+					isNameList ?
+						`Added ${newCount} node${newCount !== 1 ? 's' : ''} for ${nameListTokens.length} names`
+					:	`Added ${newCount} node${newCount !== 1 ? 's' : ''} for "${q}"`,
+				);
 				focusExistingNodeMatch(q, { statusPrefix: 'Opened' });
 			} catch (err) {
 				console.error('database search failed', err);

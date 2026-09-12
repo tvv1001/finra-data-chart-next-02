@@ -1115,7 +1115,7 @@ export default function FinraGraph() {
 										className='fg-fetch-input'
 										type='search'
 										onChange={handleFetchQueryChange}
-										placeholder='firm, person, CRD/SEC#'
+										placeholder='name / CRD, or list: mcgee,hopper,musgrove'
 										autoComplete='off'
 										autoCorrect='off'
 										autoCapitalize='off'

@@ -49,6 +49,11 @@ describe('local search indexes', () => {
 		expect(extractSearchQueries('4098470\n6805343\n6149705')).toEqual(['4098470', '6805343', '6149705']);
 	});
 
+	it('extracts comma-separated name queries as separate searches', () => {
+		expect(extractSearchQueries('mcgee,hopper,musgrove,mitchel')).toEqual(['mcgee', 'hopper', 'musgrove', 'mitchel']);
+		expect(extractSearchQueries('jane doe, john smith')).toEqual(['jane doe', 'john smith']);
+	});
+
 	it('extracts CRDs from mixed pasted content with names and punctuation', () => {
 		expect(extractSearchQueries('Brett Godwin :: CRD# 8100932\nAndrew Karp :: CRD# 7647370\nA note with SEC# 44319 and other text')).toEqual(['8100932', '7647370']);
 	});
