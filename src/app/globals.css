@@ -3059,6 +3059,21 @@ a,
 	width: 100%;
 }
 
+.fg-log-drawer-actions-row:has(.fg-selection-log-filter) {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.fg-log-drawer-actions-row:has(.fg-selection-log-filter) .fg-selection-log-filter {
+	flex: 1 1 auto;
+}
+
+.fg-log-drawer-actions-row:has(.fg-selection-log-filter) .fg-btn-sm {
+	flex: 0 0 96px;
+	width: 96px;
+}
+
 .fg-clear-labels-control {
 	flex-direction: column-reverse;
 	flex: 1 1 calc(50% - 4px);
