@@ -1352,20 +1352,20 @@ export default function FinraGraph() {
 							</div>
 							<div className='fg-log-drawer-actions-row fg-log-drawer-actions-row--tertiary'>
 								<button
-									id='btn-selection-log-clear'
-									data-fg-selection-log-action='clear'
+									id='btn-selection-log-clear-ind'
+									data-fg-selection-log-action='clear-people'
 									className='fg-ghost-btn fg-btn-sm'
 									type='button'
-									title='Clear log'>
-									Clear
+									title='Clear individual entries from the selection log'>
+									Clear Ind
 								</button>
 								<button
-									id='btn-selection-log-edit'
-									data-fg-selection-log-action='edit'
+									id='btn-selection-log-clear-firm'
+									data-fg-selection-log-action='clear-firms'
 									className='fg-ghost-btn fg-btn-sm'
 									type='button'
-									title='Edit selection log entries'>
-									Edit
+									title='Clear firm entries from the selection log'>
+									Clear Firm
 								</button>
 							</div>
 							<div className='fg-log-drawer-actions-row' style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1382,9 +1382,14 @@ export default function FinraGraph() {
 										color: 'var(--fg-text)',
 									}}
 								/>
-								<label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', whiteSpace: 'nowrap', cursor: 'pointer' }}>
-									<input type='checkbox' className='fg-firms-bold-checkbox' /> Firms Bold
-								</label>
+								<button
+									id='btn-selection-log-edit'
+									data-fg-selection-log-action='edit'
+									className='fg-ghost-btn fg-btn-sm'
+									type='button'
+									title='Edit selection log entries'>
+									Edit
+								</button>
 							</div>
 						</div>
 					</div>

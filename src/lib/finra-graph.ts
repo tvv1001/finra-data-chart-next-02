@@ -2297,6 +2297,8 @@ let isSelectionLogEditMode = false;
 // only clears existing highlighting rather than disabling Log Bold itself.
 let logBoldHighlightRootsSuppressed = false;
 let selectionLogFilterText = '';
+let logGroupFirmsExpanded = true;
+let logGroupIndividualsExpanded = false;
 let forceFirmsBold = false;
 // Node ids whose "large label" emphasis has been manually cleared via the
 // "Clear Labels" action while Log Bold is on. Re-selecting/re-clicking a node
@@ -2311,6 +2313,9 @@ let pendingRouteForceAutoExpand = false; // allow route requests to expand even 
 let pendingSelectedNodeIds: string[] = []; // node ids to hydrate into the selection log
 let pendingCanvasNodeIds: string[] = []; // node ids to fetch and add to canvas (but not log) from a shared `?selected=` link
 let isolateToSharedSelection = false; // when true, skip the baseline/profile graph load and render only the shared `?selected=` + routed nodes
+const SELECTION_LOG_IDB_DB_NAME = 'finra_selection_log_store';
+const SELECTION_LOG_IDB_STORE_NAME = 'selection_log_store';
+const SELECTION_LOG_IDB_ENTRY_KEY = 'active_selection_log';
 let routeNodeRequestListenerBound = false;
 let findRequestListenersBound = false;
 let traceShortestIds = new Set<string>(); // node and link IDs
@@ -2708,6 +2713,11 @@ function loadSelectionLogBoldPreference() {
 	}
 }
 
+function requestPersistentSelectionLogStorage() {
+	if (typeof navigator === 'undefined' || !('storage' in navigator) || typeof navigator.storage?.persist !== 'function') return;
+	navigator.storage.persist().catch(() => undefined);
+}
+
 let cachedPersistedSessionNodeMap: Map<string, any> | null = null;
 
 function getPersistedSessionNodeMap() {
@@ -2993,20 +3003,30 @@ function guardTraceLogSurface(reason = 'state-sync') {
 	}
 }
 
-function getSelectionLogActionButtons(action: 'trace' | 'copy-all' | 'copy-link' | 'clear' | 'clear-others' | 'clear-labels' | 'toggle-bold' | 'edit' | 'clear-labels-menu') {
+function getSelectionLogActionButtons(
+	action: 'trace' | 'copy-all' | 'copy-link' | 'clear' | 'clear-people' | 'clear-firms' | 'clear-others' | 'clear-labels' | 'toggle-bold' | 'edit' | 'clear-labels-menu',
+) {
 	return Array.from(document.querySelectorAll<HTMLButtonElement>(`[data-fg-selection-log-action="${action}"]`));
 }
 
 export function isSelectionLogPeopleEntry(entry: { id?: string; group?: string } | null | undefined) {
-	const group = String(entry?.group || '')
-		.trim()
-		.toLowerCase();
-	if (group === 'individual' || group === 'person') return true;
-	if (group === 'firm' || group === 'entity') return false;
+	const group = normalizeSelectionLogGroup(entry?.group);
+	if (group === 'individual') return true;
+	if (group === 'firm') return false;
 	const id = String(entry?.id || '')
 		.trim()
 		.toLowerCase();
 	return id.startsWith('person:') || id.startsWith('person_');
+}
+
+export function isSelectionLogFirmEntry(entry: { id?: string; group?: string } | null | undefined) {
+	const group = normalizeSelectionLogGroup(entry?.group);
+	if (group === 'firm') return true;
+	if (group === 'individual') return false;
+	const id = String(entry?.id || '')
+		.trim()
+		.toLowerCase();
+	return id.startsWith('firm:') || id.startsWith('firm_');
 }
 
 export function filterSelectionLogLabelNodeIdsByScope(
@@ -3118,6 +3138,20 @@ function syncSelectionLogActionButtonStates() {
 		button.setAttribute('aria-pressed', isSelectionLogEditMode ? 'true' : 'false');
 		button.title = isSelectionLogEditMode ? 'Done editing selection log entries' : 'Edit selection log entries';
 		button.textContent = 'Edit';
+	});
+
+	getSelectionLogActionButtons('clear-people').forEach((button) => {
+		const count = selectedNodesLog.filter((entry) => isSelectionLogPeopleEntry(entry)).length;
+		button.disabled = count === 0;
+		button.title = count ? 'Remove all individual entries from the log' : 'No individual entries to clear';
+		button.textContent = 'Clear Ind';
+	});
+
+	getSelectionLogActionButtons('clear-firms').forEach((button) => {
+		const count = selectedNodesLog.filter((entry) => isSelectionLogFirmEntry(entry)).length;
+		button.disabled = count === 0;
+		button.title = count ? 'Remove all firm entries from the log' : 'No firm entries to clear';
+		button.textContent = 'Clear Firm';
 	});
 
 	getSelectionLogActionButtons('clear-others').forEach((button) => {
@@ -3748,15 +3782,85 @@ function toggleTraceLogMode() {
 	updateSelectionLogChrome();
 }
 
+function normalizeSelectionLogGroup(value: unknown): 'individual' | 'firm' | 'unknown' {
+	const text = String(value || '')
+		.trim()
+		.toLowerCase();
+	if (text === 'individual' || text === 'person' || text === 'people') return 'individual';
+	if (text === 'firm' || text === 'entity') return 'firm';
+	return 'unknown';
+}
+
+function openSelectionLogDb(): Promise<IDBDatabase> {
+	return new Promise((resolve, reject) => {
+		if (typeof indexedDB === 'undefined') {
+			reject(new Error('IndexedDB unavailable'));
+			return;
+		}
+		const request = indexedDB.open(SELECTION_LOG_IDB_DB_NAME, 1);
+		request.onupgradeneeded = () => {
+			const db = request.result;
+			if (!db.objectStoreNames.contains(SELECTION_LOG_IDB_STORE_NAME)) {
+				db.createObjectStore(SELECTION_LOG_IDB_STORE_NAME);
+			}
+		};
+		request.onsuccess = () => resolve(request.result);
+		request.onerror = () => reject(request.error || new Error('Selection log IndexedDB open failed'));
+	});
+}
+
+async function saveSelectionLogToIndexedDB(entries: Array<SelectionLogEntry>) {
+	if (typeof indexedDB === 'undefined') return;
+	try {
+		const db = await openSelectionLogDb();
+		const tx = db.transaction(SELECTION_LOG_IDB_STORE_NAME, 'readwrite');
+		const store = tx.objectStore(SELECTION_LOG_IDB_STORE_NAME);
+		store.put(entries, SELECTION_LOG_IDB_ENTRY_KEY);
+		await new Promise<void>((resolve, reject) => {
+			tx.oncomplete = () => resolve();
+			tx.onerror = () => reject(tx.error || new Error('Selection log IndexedDB write failed'));
+			tx.onabort = () => reject(tx.error || new Error('Selection log IndexedDB write aborted'));
+		});
+	} catch {
+		// IndexedDB can be unavailable in private browsing or after site data resets.
+	}
+}
+
+async function loadSelectionLogFromIndexedDB(): Promise<Array<SelectionLogEntry>> {
+	if (typeof indexedDB === 'undefined') return [];
+	try {
+		const db = await openSelectionLogDb();
+		const tx = db.transaction(SELECTION_LOG_IDB_STORE_NAME, 'readonly');
+		const store = tx.objectStore(SELECTION_LOG_IDB_STORE_NAME);
+		const result = await new Promise<any>((resolve, reject) => {
+			const request = store.get(SELECTION_LOG_IDB_ENTRY_KEY);
+			request.onsuccess = () => resolve(request.result ?? []);
+			request.onerror = () => reject(request.error || new Error('Selection log IndexedDB read failed'));
+		});
+		return sanitizeSelectionLogEntries(result);
+	} catch {
+		return [];
+	}
+}
+
 function loadSelectionLog() {
 	try {
 		const raw = localStorage.getItem(LS_LOG_KEY);
 		if (raw) {
-			selectedNodesLog = JSON.parse(raw);
+			selectedNodesLog = sanitizeSelectionLogEntries(JSON.parse(raw));
+			return;
 		}
 	} catch (e) {
 		console.warn('Failed to load selection log from localStorage', e);
 	}
+
+	void loadSelectionLogFromIndexedDB().then((entries) => {
+		if (entries.length) {
+			selectedNodesLog = entries;
+			saveSelectionLog();
+			updateSelectionLogUI();
+		}
+	});
 }
 
 function saveSelectionLog() {
@@ -3764,6 +3868,9 @@ function saveSelectionLog() {
 		localStorage.setItem(LS_LOG_KEY, JSON.stringify(selectedNodesLog));
 	} catch (e) {
 		console.warn('Failed to save selection log to localStorage', e);
+	}
+	if (typeof window !== 'undefined' && 'indexedDB' in window) {
+		void saveSelectionLogToIndexedDB(selectedNodesLog);
 	}
 }
 
@@ -3932,6 +4039,23 @@ function removeSelectionLogEntry(entryId: string) {
 	refreshTraceState();
 	syncTraceLabelPresentation();
 	syncSelectionLogAuxiliaryRenderers();
+}
+
+function clearSelectionLogEntriesByScope(scope: 'all' | 'people' | 'firms') {
+	const nextLog =
+		scope === 'all' ? []
+		: scope === 'people' ? selectedNodesLog.filter((entry) => !isSelectionLogPeopleEntry(entry))
+		: selectedNodesLog.filter((entry) => !isSelectionLogFirmEntry(entry));
+	if (nextLog.length === selectedNodesLog.length) return 0;
+	selectedNodesLog = nextLog;
+	isSelectionLogEditMode = false;
+	saveSelectionLog();
+	updateSelectionLogUI();
+	syncSelectionLogActionButtonStates();
+	refreshTraceState();
+	syncTraceLabelPresentation();
+	syncSelectionLogAuxiliaryRenderers();
+	return nextLog.length;
 }
 
 async function ensureNodeFetchedAndOnScreen(entry: SelectionLogEntry) {
@@ -4489,8 +4613,7 @@ function updateSelectionLogUI() {
 	containers.forEach((container) => {
 		container.innerHTML = '';
 		const fragment = document.createDocumentFragment();
-
-		selectedNodesLog
+		const filteredEntries = selectedNodesLog
 			.slice()
 			.filter(
 				(entry) =>
@@ -4498,8 +4621,29 @@ function updateSelectionLogUI() {
 					(entry.label || '').toLowerCase().includes(selectionLogFilterText.toLowerCase()) ||
 					(entry.secondaryId || '').toLowerCase().includes(selectionLogFilterText.toLowerCase()),
 			)
-			.reverse()
-			.forEach((entry) => {
+			.reverse();
+		const groups = {
+			people: [] as Array<typeof filteredEntries[number]>,
+			firms: [] as Array<typeof filteredEntries[number]>,
+		};
+		filteredEntries.forEach((entry) => {
+			if (isSelectionLogPeopleEntry(entry)) {
+				groups.people.push(entry);
+			} else {
+				groups.firms.push(entry);
+			}
+		});
+
+		(['people', 'firms'] as const).forEach((groupKey) => {
+			const entries = groups[groupKey];
+			if (!entries.length) return;
+			const groupWrap = document.createElement('div');
+			groupWrap.className = 'fg-selection-log-group';
+			const header = document.createElement('div');
+			header.className = 'fg-selection-log-group__header';
+			header.textContent = groupKey === 'people' ? 'People' : 'Firms';
+			groupWrap.appendChild(header);
+			entries.forEach((entry) => {
 				const div = document.createElement('div');
 				div.className = `fg-log-entry ${entry.group}${isSelectionLogEditMode ? ' is-editing' : ''}`;
 				const text = `${entry.label} :: ${entry.secondaryId}`;
@@ -4509,7 +4653,7 @@ function updateSelectionLogUI() {
 				const actionButtonIcon =
 					isSelectionLogEditMode ?
 						'<svg viewBox="0 0 16 16" fill="none" width="18" height="18" aria-hidden="true"><path d="M4 4L12 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 4L4 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
-					:	'<svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18" aria-hidden="true"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path></svg>';
+					: '<svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18" aria-hidden="true"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path></svg>';
 				const childNode = isSelectionLogChildNode(entry.id);
 				const secondaryLineHidden = childNode && clearedSelectionLogLabelNodeIds.has(String(entry.id).trim());
 				const isLabelShown = isSelectionLogBold && !clearedSelectionLogLabelNodeIds.has(String(entry.id)) && (layoutNodes || []).some((n) => String(n?.id) === String(entry.id));
@@ -4519,7 +4663,7 @@ function updateSelectionLogUI() {
 				const labelToggleIcon =
 					isLabelShown ?
 						'<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M1 8h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
-					:	'<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+					: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
 
 				const textSpan = document.createElement('span');
 				textSpan.className = 'fg-log-text';
@@ -4569,7 +4713,6 @@ function updateSelectionLogUI() {
 					ensureNodeFetchedAndOnScreen(entry);
 				});
 
-				// label toggle handler (show/hide enlarged label without clicking node)
 				if (labelToggleBtn) {
 					div.classList.toggle('is-child-node', childNode);
 					div.classList.toggle('is-child-line-muted', childNode && !isLabelShown);
@@ -4583,11 +4726,9 @@ function updateSelectionLogUI() {
 						}
 						const wasCleared = clearedSelectionLogLabelNodeIds.has(id);
 						if (wasCleared) {
-							// remove from cleared set to show label
 							clearedSelectionLogLabelNodeIds.delete(id);
 							flashSelectionLogActionButton(labelToggleBtn, 'Shown');
 						} else {
-							// add to cleared set to hide label
 							clearedSelectionLogLabelNodeIds.add(id);
 							flashSelectionLogActionButton(labelToggleBtn, 'Hidden');
 						}
@@ -4597,8 +4738,10 @@ function updateSelectionLogUI() {
 						syncSelectionLogAuxiliaryRenderers();
 					});
 				}
-				fragment.appendChild(div);
+				groupWrap.appendChild(div);
 			});
+			fragment.appendChild(groupWrap);
+		});
 		container.appendChild(fragment);
 	});
 
@@ -4659,6 +4802,8 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 		| 'copy-all'
 		| 'copy-link'
 		| 'clear'
+		| 'clear-people'
+		| 'clear-firms'
 		| 'clear-others'
 		| 'clear-labels'
 		| 'clear-labels-menu'
@@ -4743,15 +4888,22 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 
 	if (action === 'clear') {
 		closeSelectionLogClearLabelsMenu();
-		selectedNodesLog = [];
-		isSelectionLogEditMode = false;
-		saveSelectionLog();
-		updateSelectionLogUI();
-		syncSelectionLogActionButtonStates();
-		refreshTraceState();
-		syncTraceLabelPresentation();
-		syncSelectionLogAuxiliaryRenderers();
-		flashSelectionLogActionButton(target, 'Cleared!');
+		const clearedCount = clearSelectionLogEntriesByScope('all');
+		flashSelectionLogActionButton(target, !clearedCount ? 'Empty' : 'Cleared!');
+		return;
+	}
+
+	if (action === 'clear-people') {
+		closeSelectionLogClearLabelsMenu();
+		const cleared = clearSelectionLogEntriesByScope('people');
+		flashSelectionLogActionButton(target, cleared ? 'People Cleared!' : 'No people');
+		return;
+	}
+
+	if (action === 'clear-firms') {
+		closeSelectionLogClearLabelsMenu();
+		const cleared = clearSelectionLogEntriesByScope('firms');
+		flashSelectionLogActionButton(target, cleared ? 'Firms Cleared!' : 'No firms');
 		return;
 	}
 
@@ -6476,6 +6628,7 @@ export function init(
 	if (isSidebarPersistentlyPinned()) {
 		showSidebarHint({ keepOpen: true });
 	}
+	requestPersistentSelectionLogStorage();
 	loadSelectionLog();
 	loadGraphTemplatesSync();
 	void loadGraphTemplatesAsync();
@@ -10036,11 +10189,11 @@ function refreshSoftLocationGroupingForces(nodeList = layoutNodes) {
 
 function getForceLinkDistance(link, nodeCount = layoutNodes?.length || 0) {
 	const baseDistance =
-		nodeCount > 1000 ? 320
-		: nodeCount > 300 ? 260
-		: nodeCount > 150 ? 220
-		: nodeCount > 80 ? 300
-		: 450;
+		nodeCount > 1000 ? 160
+		: nodeCount > 300 ? 130
+		: nodeCount > 150 ? 110
+		: nodeCount > 80 ? 150
+		: 225;
 
 	const sourceNode = typeof link?.source === 'object' ? link.source : layoutNodes?.find((node) => node.id === link?.source);
 	const targetNode = typeof link?.target === 'object' ? link.target : layoutNodes?.find((node) => node.id === link?.target);
@@ -10069,11 +10222,11 @@ function getForceLinkDistance(link, nodeCount = layoutNodes?.length || 0) {
 
 function getNodeCollisionRadius(node, nodeCount = layoutNodes?.length || 0) {
 	const padding =
-		nodeCount > 1000 ? 16
-		: nodeCount > 600 ? 20
-		: nodeCount > 300 ? 24
-		: nodeCount > 120 ? 30
-		: nodeCount > 60 ? 45
+		nodeCount > 1000 ? 24
+		: nodeCount > 600 ? 30
+		: nodeCount > 300 ? 36
+		: nodeCount > 120 ? 45
+		: nodeCount > 60 ? 55
 		: 65;
 	const labelPadding =
 		nodeCount > 1000 ? 24
@@ -16269,12 +16422,22 @@ function renderSidebarSelectionLogBody() {
 				</div>
 				<div class="fg-log-drawer-actions-row fg-log-drawer-actions-row--tertiary">
 					<button
-						data-fg-selection-log-action="clear"
+						data-fg-selection-log-action="clear-people"
 						class="fg-ghost-btn fg-btn-sm"
 						type="button"
-						title="Clear log">
-						Clear
+						title="Clear individual entries from the selection log">
+						Clear Ind
 					</button>
+					<button
+						data-fg-selection-log-action="clear-firms"
+						class="fg-ghost-btn fg-btn-sm"
+						type="button"
+						title="Clear firm entries from the selection log">
+						Clear Firm
+					</button>
+				</div>
+				<div class="fg-log-drawer-actions-row" style="display: flex; align-items: center; gap: 8px;">
+					<input type="text" class="fg-selection-log-filter" placeholder="Filter log..." value="${selectionLogFilterText.replace(/"/g, '&quot;')}" style="flex: 1; padding: 4px 8px; border: 1px solid var(--fg-border); border-radius: 4px; background: var(--fg-bg-secondary); color: var(--fg-text);" />
 					<button
 						data-fg-selection-log-action="edit"
 						class="fg-ghost-btn fg-btn-sm"
@@ -16282,12 +16445,6 @@ function renderSidebarSelectionLogBody() {
 						title="Edit selection log entries">
 						Edit
 					</button>
-				</div>
-				<div class="fg-log-drawer-actions-row" style="display: flex; align-items: center; gap: 8px;">
-					<input type="text" class="fg-selection-log-filter" placeholder="Filter log..." value="${selectionLogFilterText.replace(/"/g, '&quot;')}" style="flex: 1; padding: 4px 8px; border: 1px solid var(--fg-border); border-radius: 4px; background: var(--fg-bg-secondary); color: var(--fg-text);" />
-					<label style="display: flex; align-items: center; gap: 4px; font-size: 12px; white-space: nowrap; cursor: pointer;">
-						<input type="checkbox" class="fg-firms-bold-checkbox" ${forceFirmsBold ? 'checked' : ''} /> Firms Bold
-					</label>
 				</div>
 			</div>
 			<div id="fg-sidebar-selection-log-list" class="fg-selection-log-list fg-selection-log-list--sidebar">

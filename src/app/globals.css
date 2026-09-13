@@ -4791,6 +4791,29 @@ text.fg-label {
 	grid-template-columns: minmax(0, 1fr);
 }
 
+.fg-selection-log-filter {
+	flex: 1 1 auto;
+	min-width: 0;
+	padding: 6px 10px;
+	border: 1px solid var(--border-strong);
+	border-radius: 6px;
+	background: rgba(255, 255, 255, 0.96);
+	color: var(--text);
+	outline: 1px solid rgba(59, 130, 246, 0.18);
+	transition: border-color 150ms ease, box-shadow 150ms ease, outline-color 150ms ease;
+}
+
+.fg-selection-log-filter:focus,
+.fg-selection-log-filter:focus-visible {
+	border-color: rgba(59, 130, 246, 0.7);
+	outline: 2px solid rgba(59, 130, 246, 0.24);
+	box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18);
+}
+
+html[data-theme='dark'] .fg-selection-log-filter {
+	background: rgba(15, 23, 42, 0.78);
+}
+
 .fg-selection-log-list {
 	flex: 1;
 	overflow-y: auto;
@@ -5021,6 +5044,38 @@ html[data-theme='dark'] .fg-crd-paste-textarea {
 
 html[data-theme='dark'] .fg-crd-paste-import {
 	border-top-color: rgba(148, 163, 184, 0.16);
+}
+
+.fg-log-group-details {
+	margin-bottom: 8px;
+}
+.fg-log-group-summary {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 12px;
+	background: var(--fg-bg-tertiary);
+	border: 1px solid var(--fg-border);
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 13px;
+	user-select: none;
+	color: var(--fg-text);
+	transition: all 0.15s ease;
+}
+.fg-log-group-summary:hover {
+	background: var(--fg-bg-hover);
+}
+.fg-log-group-summary strong {
+	font-weight: 600;
+}
+.fg-log-group-summary span {
+	font-size: 12px;
+	color: var(--fg-text-muted);
+}
+.fg-log-group-details[open] .fg-log-group-summary {
+	margin-bottom: 8px;
+	border-bottom-color: var(--fg-border-strong);
 }
 
 .fg-log-entry {
