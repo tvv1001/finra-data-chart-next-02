@@ -4704,13 +4704,13 @@ function updateSelectionLogUI() {
 						ensureNodeFetchedAndOnScreen(entry);
 					});
 				}
-				actionBtn.addEventListener('click', () => {
+				actionBtn.addEventListener('click', (ev) => {
+					ev.stopPropagation();
 					if (isSelectionLogEditMode) {
 						removeSelectionLogEntry(entry.id);
 						return;
 					}
 					copyToClipboard(text, div);
-					ensureNodeFetchedAndOnScreen(entry);
 				});
 
 				if (labelToggleBtn) {

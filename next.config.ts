@@ -4,7 +4,7 @@ import type { NextConfig } from 'next';
 const allRoutes = '/**';
 
 const nextConfig: NextConfig = {
-	output: 'standalone',
+	// output: 'standalone',
 	// Allow Playwright / local tools that hit 127.0.0.1 while the app is on localhost.
 	allowedDevOrigins: ['127.0.0.1', 'localhost'],
 	// Compress API + page responses with gzip/brotli

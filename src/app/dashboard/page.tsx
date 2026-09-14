@@ -794,7 +794,6 @@ function buildReadableSummaryRows(payload: Record<string, any>) {
 	push('City', payload.city || payload.town || payload.mailingAddress?.city || payload.businessAddress?.city);
 	push('State', payload.state || payload.mailingAddress?.state || payload.businessAddress?.state);
 	push('Country', payload.country || payload.mailingAddress?.country || payload.businessAddress?.country);
-	push('SEC', payload.iaSecNumber || payload.secNumber || payload.basicInformation?.iaSecNumber);
 	push('BD', payload.bdSecNumber || payload.basicInformation?.bdSecNumber);
 	push('CRD', payload.crd || payload.firmId || payload.individualId);
 
@@ -1871,8 +1870,10 @@ function useFirmInfoByCrd(crds: string[]): Record<string, CachedFirmInfo> {
 		let cancelled = false;
 		(async () => {
 			const pending = list.filter((crd) => !firmInfoCache.has(crd));
-			await Promise.all(pending.map((crd) => fetchFirmInfo(crd)));
-			if (cancelled) return;
+			for (const crd of pending) {
+				await fetchFirmInfo(crd);
+				if (cancelled) return;
+			}
 			const next: Record<string, CachedFirmInfo> = {};
 			for (const crd of list) {
 				const info = firmInfoCache.get(crd);

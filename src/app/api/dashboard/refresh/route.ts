@@ -1843,17 +1843,7 @@ async function collectNativeRedisRecordKeys(redis: Redis, forceRefresh = false) 
 		for (const k of buildKeySetFromCrdLog()) keySet.add(k);
 	}
 
-	if (process.env.USE_LOCAL_REDIS === '1' && keySet.size === 0) {
-		try {
-			const finraKeys = await redis.keys('finra:*');
-			const secKeys = await redis.keys('sec:*');
-			for (const key of [...finraKeys, ...secKeys]) {
-				if (String(key || '').trim()) keySet.add(String(key));
-			}
-		} catch (e) {
-			console.error('Failed to run keys command on local redis:', e);
-		}
-	}
+	// Removed process.env.USE_LOCAL_REDIS keys scan fallback because it causes huge memory spikes and blocks the event loop.
 
 	const keys = Array.from(keySet.values());
 	nativeRedisKeyCache = { keys, fetchedAt: now };
@@ -2378,18 +2368,7 @@ async function listNewCrds(force = false) {
 	const formattedFirms = validEntries.filter(e => e.type === 'FIRM').slice(0, 16);
 	const formatted = [...formattedPeople, ...formattedFirms];
 	
-	// Do a background check on the external APIs for these verified top CRDs
-	if (formatted.length > 0) {
-		const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://127.0.0.1:4444';
-		Promise.all(
-			formatted.map((c) => 
-				fetch(`${baseUrl}/api/finra/${c.type === 'FIRM' ? 'firm' : 'individual'}/${c.id}?refresh=1`, { 
-					method: 'GET', 
-					headers: { 'x-background-refresh': '1' } 
-				}).catch(() => null)
-			)
-		).catch(() => null);
-	}
+	// Background check removed to prevent memory leaks and rate limit exhaustion.
 
 	batchPayloadsMap = null;
 
