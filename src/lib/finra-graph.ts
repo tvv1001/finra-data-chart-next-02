@@ -6367,12 +6367,7 @@ function refreshNodeLayout() {
 		isHuge ? 10
 		: isLarge ? 8
 		: 6;
-	const refreshDurationMs = Math.min(
-		getRefreshLayoutDurationMs(nodeCount),
-		isHuge ? 900
-		: isLarge ? 1200
-		: 1600,
-	);
+
 
 	layoutNodes.forEach((node, index) => {
 		node.fx = null;
@@ -6421,9 +6416,6 @@ function refreshNodeLayout() {
 		.restart();
 
 	simulation.on('end.refresh-layout', refreshFinalizeLayoutFn);
-	refreshLayoutStopTimer = setTimeout(() => {
-		if (refreshFinalizeLayoutFn) refreshFinalizeLayoutFn();
-	}, refreshDurationMs);
 }
 
 function hasAffirmativeDisclosureFlag(value) {
@@ -6668,55 +6660,7 @@ export function init(
 				button.setAttribute('aria-busy', 'true');
 			});
 			try {
-				// Attempt to run the Rust/WASM layout in a worker for a quick, non-blocking layout
-				let usedWasm = false;
-				try {
-					if (typeof window !== 'undefined' && Array.isArray(layoutNodes) && layoutNodes.length && Array.isArray(layoutLinks)) {
-						const width = document.getElementById('fg-main')?.clientWidth || 800;
-						const height = document.getElementById('fg-main')?.clientHeight || 600;
-						// build minimal node/link payloads
-						const nodesPayload = layoutNodes.map((n) => ({
-							id: n.id,
-							x: n.x,
-							y: n.y,
-							r: n._vizHalf,
-							locX: n._locationBiasX,
-							locY: n._locationBiasY,
-							locStrength: n._locationBiasStrength,
-						}));
-						const linksPayload = layoutLinks.map((l) => ({ source: l.source?.id || l.source, target: l.target?.id || l.target }));
-						// dynamic import to avoid bundling when not needed
-						const mod = await import('@/lib/graphLayoutWorker');
-						const createWorker = mod.default || mod.createGraphLayoutWorker;
-						if (typeof createWorker === 'function') {
-							const { compute } = createWorker();
-							const positions = await compute(nodesPayload, linksPayload, width, height);
-							if (Array.isArray(positions)) {
-								// apply positions to layoutNodes
-								const posMap = new Map(positions.map((p) => [String(p.id), p]));
-								for (const ln of layoutNodes) {
-									const p = posMap.get(String(ln.id));
-									if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
-										ln.x = p.x;
-										ln.y = p.y;
-									}
-								}
-								// force a render
-								try {
-									animateToWasmPositions(2500);
-								} catch {}
-								usedWasm = true;
-							}
-						}
-					}
-				} catch (wasmErr) {
-					// swallow and fall back to JS simulation
-					console.info('WASM layout failed, falling back to JS/D3 simulation:', wasmErr?.message || wasmErr);
-				}
-
-				if (!usedWasm) {
-					refreshNodeLayout();
-				}
+				refreshNodeLayout();
 
 				void fetchCacheStats();
 			} catch (err) {
@@ -10955,7 +10899,7 @@ export function renderNodeContents(selection) {
 
 		const label = g
 			.append('text')
-			.attr('class', `fg-label${inactive ? ' fg-label--inactive' : ''}${isLogged ? ' fg-label--logged' : ''}`)
+			.attr('class', `fg-label${inactive ? ' fg-label--inactive' : ''}${isBolded ? ' fg-label--logged' : ''}`)
 			.attr('y', labelY)
 			.attr('text-anchor', 'middle')
 			.attr('dominant-baseline', 'hanging')
@@ -11620,6 +11564,7 @@ function updateNodeVisuals(
 			})}px`;
 			label
 				.text(labelText)
+				.classed('fg-label--logged', isBolded)
 				.attr('fill', nodeLabelColor)
 				.attr('stroke', nodeLabelHalo)
 				.attr('opacity', inactive ? 0.86 : 1)
