@@ -17,7 +17,6 @@ function getNumericId(item: any, isIndividual: boolean): string {
 
 export async function searchExternalFallback(source: 'finra' | 'sec', entity: 'individual' | 'firm', query: string, baseUrl: string): Promise<LocalSearchResponse | null> {
 	if (!canCallExternalApis()) {
-		console.info(`[searchExternalFallback] External API disabled; skipping upstream search for ${source}:${entity}:${query}`);
 		return null;
 	}
 

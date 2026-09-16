@@ -376,7 +376,6 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 					return undefined as unknown as T;
 				}
 				if (!canCallExternalApis()) {
-					console.info(`External API disabled; skipping external fetch for service=${service} key=${key}`);
 					return undefined as unknown as T;
 				}
 				const last = lastExternalFetch.get(service) || 0;
@@ -434,7 +433,6 @@ export async function cachedFetch<T>(rawKey: string, ttlSeconds: number, fetcher
 			return undefined as unknown as T;
 		}
 		if (!canCallExternalApis()) {
-			console.info(`External API disabled; skipping external fetch for service=${service} key=${key}`);
 			return undefined as unknown as T;
 		}
 		const last = lastExternalFetch.get(service) || 0;

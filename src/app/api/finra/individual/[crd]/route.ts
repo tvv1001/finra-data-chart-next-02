@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { canCallExternalApis } from '@/lib/externalApiGate';
 import axios from 'axios';
 import { cachedFetch, evictCacheKey } from '@/lib/simpleCache';
 import { setStringIfValid } from '@/lib/redisCache';
@@ -288,7 +289,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			try {
 				logger.info('poor-data-detected-in-redis-key', { crd, key: makeRedisKey('finra', 'individual', crdNorm) });
 				await evictCacheKey(makeRedisKey('finra', 'individual', crdNorm));
-				try {
+				if (canCallExternalApis()) {
 					const finraUrl = `https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`;
 					const res = await fetch(finraUrl, fetchOptions);
 					if (res.ok) {
@@ -313,8 +314,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 							}
 						}
 					}
-				} catch (e) {
-					// ignore external fetch errors
 				}
 			} catch (e) {
 				// ignore
@@ -325,7 +324,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 			try {
 				logger.info('poor-data-detected-in-redis-key', { crd, key: makeRedisKey('sec', 'individual', crdNorm) });
 				await evictCacheKey(makeRedisKey('sec', 'individual', crdNorm));
-				try {
+				if (canCallExternalApis()) {
 					const secUrl = `https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`;
 					const res = await fetch(secUrl, fetchOptions);
 					if (res.ok) {
@@ -349,8 +348,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 							}
 						}
 					}
-				} catch (e) {
-					// ignore
 				}
 			} catch (e) {
 				// ignore
@@ -359,7 +356,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 		const shouldForceFinraRefetch = !finraDetail && secDetail && indicatesFinraCoverage(secDetail) && !hasEmploymentLinkData(secDetail);
 
-		if (shouldForceFinraRefetch) {
+		if (shouldForceFinraRefetch && canCallExternalApis()) {
 			try {
 				const finraUrl = `https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?${fetchQuery}`;
 				const directFinra = await fetch(finraUrl, fetchOptions);

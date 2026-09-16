@@ -149,8 +149,8 @@ async function processQueue() {
 		const task = hydrationQueue.shift();
 		if (!task) continue;
 		if (!canCallExternalApis()) {
-			console.info(`[Validation Check] External API disabled during processing; skipping hydration for ${task.type} ${task.id}`);
-			continue;
+			isProcessing = false;
+			return;
 		}
 
 		try {
@@ -170,7 +170,6 @@ async function processQueue() {
 
 export function queueHydration(type: 'individual' | 'firm', id: string) {
 	if (!canCallExternalApis()) {
-		console.info(`[Validation Check] External API disabled; skipping hydration queue for ${type} ${id}`);
 		return;
 	}
 

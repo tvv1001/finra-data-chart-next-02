@@ -9586,8 +9586,10 @@ function updateMeta(meta: { totalIndividuals?: number; totalFirms?: number; tota
 
 function showEmpty(show) {
 	document.getElementById('fg-empty')?.classList.toggle('hidden', !show);
-	document.getElementById('fg-svg').style.visibility = show ? 'hidden' : 'visible';
-	document.getElementById('fg-legend').style.display = show ? 'none' : 'flex';
+	const svg = document.getElementById('fg-svg');
+	if (svg) svg.style.visibility = show ? 'hidden' : 'visible';
+	const legend = document.getElementById('fg-legend');
+	if (legend) legend.style.display = show ? 'none' : 'flex';
 }
 
 function closeLog() {
@@ -11971,10 +11973,7 @@ function renderGraph(_data) {
 
 	// ── Zoom ──────────────────────────────────────────────────────────────────
 	// LOD threshold: hide labels when zoomed out (less DOM paint, higher props)
-	const labelZoomThreshold =
-		isHuge ? 0.9
-		: isLarge ? 0.7
-		: 0.5;
+	const labelZoomThreshold = isHuge ? 0.45 : isLarge ? 0.35 : 0.3;
 	activeLabelZoomThreshold = labelZoomThreshold;
 	inactiveLabelCompactZoomThreshold = labelZoomThreshold * 1.35;
 	inactiveLabelCompactMode = initialScaleForCompactState(nodeCount) < inactiveLabelCompactZoomThreshold;

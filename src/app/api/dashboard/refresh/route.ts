@@ -20,6 +20,7 @@ import {
 	hasCrdInventorySidecar,
 	rememberInventoryEntities,
 } from '@/lib/crdInventorySidecar';
+import { canCallExternalApis } from '@/lib/externalApiGate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -1520,6 +1521,9 @@ async function writeJsonFile(filePath: string, payload: unknown) {
 }
 
 async function fetchJson(url: string, options: { timeoutMs?: number } = {}) {
+	if (!canCallExternalApis()) {
+		throw new Error('External API fetches are disabled.');
+	}
 	const timeoutMs = Math.max(1_000, Number(options.timeoutMs || DASHBOARD_DETAIL_FETCH_TIMEOUT_MS));
 
 	let domain = 'unknown';

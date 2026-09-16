@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { canCallExternalApis } from "@/lib/externalApiGate";
 import { cachedFetch, evictCacheKey } from "@/lib/simpleCache";
 import { rememberRecentSeed } from "@/lib/seedStore";
 import { sharedCacheHeaders } from "@/lib/httpCache";
@@ -430,7 +431,7 @@ export async function GET(
         // Try an immediate external fetch to replace the bad value in-memory for
         // this request. Do not persist unless writeRequested is true (handled
         // later).
-        try {
+        if (canCallExternalApis()) {
           const url = `https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(id)}?hl=true&wt=json`;
           const res = await fetch(url, {
             headers: fetchOptions.headers,
@@ -484,8 +485,6 @@ export async function GET(
               }
             }
           }
-        } catch (e) {
-          // ignore external fetch errors — fall through
         }
       } catch (e) {
         // ignore
@@ -579,7 +578,7 @@ export async function GET(
           key: `sec:firm:${id}`,
         });
         await evictCacheKey(`sec:firm:${id}`);
-        try {
+        if (canCallExternalApis()) {
           const url = `https://api.adviserinfo.sec.gov/search/firm/${encodeURIComponent(id)}?wt=json`;
           const res = await fetch(url, {
             headers: {
@@ -638,8 +637,6 @@ export async function GET(
               }
             }
           }
-        } catch (e) {
-          // ignore
         }
       } catch (e) {
         // ignore

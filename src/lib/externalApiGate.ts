@@ -32,10 +32,13 @@ function getExternalApiContext() {
 
 export function canCallExternalApis() {
 	if (isExplicitlyDisabled()) return false;
-	if (isExplicitlyEnabled()) return true;
-	const cacheOnly = getFlagValue('REDIS_CACHE_ONLY');
-	if (cacheOnly !== '' && truthy.has(cacheOnly)) return false;
-	return true;
+	
+	const context = getExternalApiContext();
+	if (context === 'cronjob' || context === 'build') {
+		return true;
+	}
+	
+	return false;
 }
 
 export function setExternalApiContext(context: string | null | undefined) {
