@@ -2306,22 +2306,26 @@ async function listNewCrds(force = false) {
 	let topIndividualIds = (await redis.zrange('dashboard:highest-crds:individual', 0, 49, { rev: true })) as string[];
 	let topFirmIds = (await redis.zrange('dashboard:highest-crds:firm', 0, 49, { rev: true })) as string[];
 
-	// Merge latest CRDs from disk since raw files are the source of truth for imports
-	try {
-		const localNewest = await listLocalNewestCards(100, '');
-		const localInds = localNewest.cards.filter(c => c.entity === 'individual').map(c => c.id);
-		const localFirms = localNewest.cards.filter(c => c.entity === 'firm').map(c => c.id);
-		
-		topIndividualIds = Array.from(new Set([...localInds, ...topIndividualIds])).slice(0, 50);
-		topFirmIds = Array.from(new Set([...localFirms, ...topFirmIds])).slice(0, 50);
-	} catch (e) {
-		// ignore
-	}
-
 	if (topIndividualIds.length === 0 && topFirmIds.length === 0) {
 		const recentSeeds = await getRecentSeedsFromStore();
 		topIndividualIds = recentSeeds.individualIds.slice(0, 50);
 		topFirmIds = recentSeeds.firmIds.slice(0, 50);
+	}
+
+	// Fallback to CRD inventory sidecar if Redis ZSETs are empty or missing
+	if (topIndividualIds.length === 0 && topFirmIds.length === 0) {
+		try {
+			const { loadCrdInventorySync } = await import('@/lib/crdInventorySidecar');
+			const inventory = loadCrdInventorySync();
+			if (inventory.individuals.length > 0) {
+				topIndividualIds = [...inventory.individuals].sort((a, b) => b - a).slice(0, 50).map(String);
+			}
+			if (inventory.firms.length > 0) {
+				topFirmIds = [...inventory.firms].sort((a, b) => b - a).slice(0, 50).map(String);
+			}
+		} catch (e) {
+			// ignore
+		}
 	}
 
 	// Final fallback for local development where recent lists are completely uninitialized

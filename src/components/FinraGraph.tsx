@@ -1071,7 +1071,7 @@ export default function FinraGraph() {
 		} catch (e) {
 			// ignore
 		}
-	}, [isMounted, routeNodeId, searchParams]);
+	}, [isMounted]);
 
 	if (!isMounted) {
 		return (
