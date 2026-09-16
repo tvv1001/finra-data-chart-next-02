@@ -6471,6 +6471,36 @@ function drawDisclosureIndicator(g, d, r) {
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 setOnNodeClickCallback(handleNodeOpen);
 
+export function destroy() {
+	if (simulation) {
+		simulation.stop();
+		simulation.on('tick', null);
+		simulation = null;
+	}
+	try {
+		if (pixiApi && pixiApi.destroy) pixiApi.destroy();
+		if (canvasApi && canvasApi.destroy) canvasApi.destroy();
+		if (overlayApi && overlayApi.destroy) overlayApi.destroy();
+	} catch (e) {}
+	pixiApi = null;
+	canvasApi = null;
+	overlayApi = null;
+
+	if (svgSel) {
+		svgSel.selectAll('*').remove();
+		svgSel = null;
+	}
+	nodeGroup = null;
+	linkGroup = null;
+	layoutNodes = [];
+	layoutLinks = [];
+	graphData = null;
+	neighborMap = new Map();
+	
+	// We leave window event listeners bound (they are flagged by `routeNodeRequestListenerBound`)
+	// since they dispatch into the module state safely, but clearing the data stops the loop.
+}
+
 export function init(
 	_d3,
 	options: {
@@ -7812,7 +7842,18 @@ async function fetchAndInjectLocalQuery(q) {
 		const nodes = Array.isArray(data) ? data : data?.nodes || [];
 		const links = Array.isArray(data) ? [] : data?.links || [];
 		if (!nodes.length) throw new Error('No local results');
-		mergeIntoGraphData(nodes, links);
+		
+		const CHUNK_SIZE = 15;
+		for (let i = 0; i < nodes.length; i += CHUNK_SIZE) {
+			const nodeChunk = nodes.slice(i, i + CHUNK_SIZE);
+			const chunkIds = new Set(nodeChunk.map((n) => n.id));
+			const linkChunk = links.filter((l) => chunkIds.has(l.source) || chunkIds.has(l.target));
+			mergeIntoGraphData(nodeChunk, linkChunk);
+			if (i + CHUNK_SIZE < nodes.length) {
+				await new Promise((resolve) => setTimeout(resolve, 40));
+			}
+		}
+		
 		return true;
 	} catch (err) {
 		console.log(`Local data not found for "${q}". Searching database to update graph...`);
@@ -7962,7 +8003,18 @@ async function fetchAndInjectQuery(q) {
 	if (!newNodes.length) return;
 
 	if (typeof appendFetched === 'function') appendFetched(newNodes, newLinks);
-	mergeIntoGraphData(newNodes, newLinks);
+	
+	const CHUNK_SIZE = 15;
+	for (let i = 0; i < newNodes.length; i += CHUNK_SIZE) {
+		const nodeChunk = newNodes.slice(i, i + CHUNK_SIZE);
+		const chunkIds = new Set(nodeChunk.map((n) => n.id));
+		const linkChunk = newLinks.filter((l) => chunkIds.has(l.source) || chunkIds.has(l.target));
+		mergeIntoGraphData(nodeChunk, linkChunk);
+		if (i + CHUNK_SIZE < newNodes.length) {
+			await new Promise((resolve) => setTimeout(resolve, 40));
+		}
+	}
+
 	persistToServer(newNodes, newLinks);
 }
 
@@ -9116,35 +9168,40 @@ async function hydratePendingNodeIds(ids: string[], addToLog: boolean) {
 	}
 
 	if (idsToFetch.length) {
-		const fetchedNodes: any[] = [];
-		const fetchedLinks: any[] = [];
 		const onScreenFirmIds = Array.from(
 			new Set([
 				...normalizedIds.filter((id) => id.startsWith('firm:')).map((id) => id.split(':')[1]),
 				...(layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId)),
 			]),
 		);
-		let cursor = 0;
 
-		async function fetchWorker() {
-			while (cursor < idsToFetch.length) {
-				const entry = idsToFetch[cursor++];
-				try {
-					const batch =
-						entry.prefix === 'person' ? await fetchIndividualBatch(entry.rawId, null, { includePreviousEmployerIds: onScreenFirmIds }) : await fetchFirmBatch(entry.rawId);
-					if (batch?.nodes?.length) fetchedNodes.push(...batch.nodes);
-					if (batch?.links?.length) fetchedLinks.push(...batch.links);
-				} catch (error) {
-					console.warn(`Failed to hydrate shared selection for ${entry.id}:`, error);
-				}
+		const CHUNK_SIZE = 10;
+		for (let i = 0; i < idsToFetch.length; i += CHUNK_SIZE) {
+			const chunk = idsToFetch.slice(i, i + CHUNK_SIZE);
+			const chunkNodes: any[] = [];
+			const chunkLinks: any[] = [];
+			
+			await Promise.all(
+				chunk.map(async (entry) => {
+					try {
+						const batch =
+							entry.prefix === 'person' ? await fetchIndividualBatch(entry.rawId, null, { includePreviousEmployerIds: onScreenFirmIds }) : await fetchFirmBatch(entry.rawId);
+						if (batch?.nodes?.length) chunkNodes.push(...batch.nodes);
+						if (batch?.links?.length) chunkLinks.push(...batch.links);
+					} catch (error) {
+						console.warn(`Failed to hydrate shared selection for ${entry.id}:`, error);
+					}
+				})
+			);
+
+			if (chunkNodes.length || chunkLinks.length) {
+				mergeIntoGraphData(chunkNodes, chunkLinks);
+				appendFetched?.(chunkNodes, chunkLinks);
+				
+				// Small yield to the event loop so the browser doesn't freeze
+				// and progressive rendering can happen between chunks.
+				await new Promise((resolve) => setTimeout(resolve, 60));
 			}
-		}
-
-		await Promise.all(Array.from({ length: Math.min(CONCURRENCY, idsToFetch.length) }, () => fetchWorker()));
-
-		if (fetchedNodes.length || fetchedLinks.length) {
-			mergeIntoGraphData(fetchedNodes, fetchedLinks);
-			appendFetched?.(fetchedNodes, fetchedLinks);
 		}
 	}
 

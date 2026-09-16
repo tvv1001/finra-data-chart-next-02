@@ -2268,7 +2268,16 @@ async function listCacheCards(maxCards = 200, crdFilter = '') {
 async function listNewCrds(force = false) {
 	const redis = ensureRedisClient();
 	if (!redis) {
-		return { ok: true, newCrds: [], isToday: false, lastChecked: null };
+		const local = await listLocalNewestCards(32, '');
+		const formatted = local.cards.map((card) => ({
+			id: card.id,
+			type: card.entity === 'individual' ? 'INDIVIDUAL' : 'FIRM',
+			found: 'top-crd',
+			scopes: card.sources.map((s) => s.source.toUpperCase()).sort(),
+			date: new Date().toISOString().split('T')[0],
+			name: null,
+		}));
+		return { ok: true, newCrds: formatted, isToday: true, lastChecked: new Date().toISOString(), detectedCount: local.totalCards, shownCount: formatted.length };
 	}
 
 	const now = Date.now();
@@ -2296,6 +2305,18 @@ async function listNewCrds(force = false) {
 
 	let topIndividualIds = (await redis.zrange('dashboard:highest-crds:individual', 0, 49, { rev: true })) as string[];
 	let topFirmIds = (await redis.zrange('dashboard:highest-crds:firm', 0, 49, { rev: true })) as string[];
+
+	// Merge latest CRDs from disk since raw files are the source of truth for imports
+	try {
+		const localNewest = await listLocalNewestCards(100, '');
+		const localInds = localNewest.cards.filter(c => c.entity === 'individual').map(c => c.id);
+		const localFirms = localNewest.cards.filter(c => c.entity === 'firm').map(c => c.id);
+		
+		topIndividualIds = Array.from(new Set([...localInds, ...topIndividualIds])).slice(0, 50);
+		topFirmIds = Array.from(new Set([...localFirms, ...topFirmIds])).slice(0, 50);
+	} catch (e) {
+		// ignore
+	}
 
 	if (topIndividualIds.length === 0 && topFirmIds.length === 0) {
 		const recentSeeds = await getRecentSeedsFromStore();

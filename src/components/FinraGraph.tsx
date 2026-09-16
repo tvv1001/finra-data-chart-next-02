@@ -1048,6 +1048,12 @@ export default function FinraGraph() {
 			setTimeout(() => startInit(), 50);
 		}
 
+		return () => {
+			import('@/lib/finra-graph').then(({ destroy }) => {
+				if (typeof destroy === 'function') destroy();
+			});
+		};
+
 		// Patch localStorage.setItem once to emit a custom event when selection log changes within same window.
 		try {
 			if (typeof window !== 'undefined' && !(window as any).__finra_ls_patch_applied) {
