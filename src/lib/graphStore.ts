@@ -80,6 +80,13 @@ export function invalidateGraphCache() {
 	_graphAdjacency = null;
 }
 
+/** Keep the process-local graph warm without waiting on Redis/disk I/O. */
+export function setGraphCacheWarm(graph: any) {
+	_graphCache = graph;
+	_graphCacheAt = Date.now();
+	_graphAdjacency = null;
+}
+
 if (process.env.NODE_ENV !== 'test') {
 	import('chokidar')
 		.then(({ default: chokidar }) => {

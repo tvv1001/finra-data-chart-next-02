@@ -743,18 +743,21 @@ const GRAPH_TEMPLATES_SOFT_LIMIT_BYTES = 4 * 1024 * 1024;
 const NON_GRAY_HOP_ANIMATION_MS = 1200;
 const NON_GRAY_HOP_DELAY_MS = 850;
 
-const NON_GRAY_DETAIL_BATCH_SIZE = 6;
+/** Meter on-screen person/firm detail fetches so localhost stays responsive. */
+const NON_GRAY_DETAIL_BATCH_SIZE = 5;
 const AUTO_EXPANSION_DIRECT_NEIGHBOR_LIMIT = 12;
 /** Hard cap: never dump mega-firm neighborhoods (e.g. Merrill ~2500) onto the canvas in one expand. */
 const MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND = 12;
 /** Sidebar connection lists stay short; full roster lives on the dashboard. */
 const SIDEBAR_CONNECTIONS_PREVIEW_LIMIT = 24;
-const PROFILE_SEED_FETCH_CONCURRENCY = 4;
-const SEED_QUERY_FETCH_CONCURRENCY = 4;
+const PROFILE_SEED_FETCH_CONCURRENCY = 5;
+const SEED_QUERY_FETCH_CONCURRENCY = 5;
 // Sidecar hits usually already carry names + employments; keep optional id-detail
 // hydration small so a second search is not starved by Redis/disk GETs.
-const TEXT_SEARCH_DETAIL_HYDRATION_LIMIT = 4;
-const TEXT_SEARCH_DETAIL_HYDRATION_CONCURRENCY = 2;
+const TEXT_SEARCH_DETAIL_HYDRATION_LIMIT = 5;
+const TEXT_SEARCH_DETAIL_HYDRATION_CONCURRENCY = 5;
+/** Shared-selection / canvas import hydration chunk size. */
+const ON_SCREEN_DETAIL_FETCH_BATCH_SIZE = 5;
 
 const individualDetailRequestCache = new Map<string, Promise<void>>();
 const firmDetailRequestCache = new Map<string, Promise<void>>();
@@ -9227,7 +9230,6 @@ async function loadGraph() {
 async function hydratePendingNodeIds(ids: string[], addToLog: boolean) {
 	if (!ids.length) return;
 
-	const CONCURRENCY = 8;
 	const normalizedIds: string[] = [];
 	const seenIds = new Set<string>();
 	for (const rawId of ids) {
@@ -9270,12 +9272,11 @@ async function hydratePendingNodeIds(ids: string[], addToLog: boolean) {
 			]),
 		);
 
-		const CHUNK_SIZE = 10;
-		for (let i = 0; i < idsToFetch.length; i += CHUNK_SIZE) {
-			const chunk = idsToFetch.slice(i, i + CHUNK_SIZE);
+		for (let i = 0; i < idsToFetch.length; i += ON_SCREEN_DETAIL_FETCH_BATCH_SIZE) {
+			const chunk = idsToFetch.slice(i, i + ON_SCREEN_DETAIL_FETCH_BATCH_SIZE);
 			const chunkNodes: any[] = [];
 			const chunkLinks: any[] = [];
-			
+
 			await Promise.all(
 				chunk.map(async (entry) => {
 					try {
@@ -9286,15 +9287,14 @@ async function hydratePendingNodeIds(ids: string[], addToLog: boolean) {
 					} catch (error) {
 						console.warn(`Failed to hydrate shared selection for ${entry.id}:`, error);
 					}
-				})
+				}),
 			);
 
 			if (chunkNodes.length || chunkLinks.length) {
 				mergeIntoGraphData(chunkNodes, chunkLinks);
 				appendFetched?.(chunkNodes, chunkLinks);
-				
-				// Small yield to the event loop so the browser doesn't freeze
-				// and progressive rendering can happen between chunks.
+
+				// Yield between batches of 5 so the UI can paint and the server can breathe.
 				await new Promise((resolve) => setTimeout(resolve, 60));
 			}
 		}
