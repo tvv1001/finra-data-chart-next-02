@@ -1,6 +1,10 @@
 {
   "firms": [
     {
+      "id": 361,
+      "name": "GOLDMAN SACHS & CO. LLC"
+    },
+    {
       "id": 20068,
       "name": "SUNAMERICA SECURITIES, INC."
     },
@@ -686,6 +690,10 @@
     }
   ],
   "individuals": [
+    {
+      "id": 8323100,
+      "name": "Thuong Vinh An Amelie Ha"
+    },
     {
       "id": 4264220,
       "name": "Emil Musgrove"

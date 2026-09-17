@@ -115,14 +115,15 @@ async function main() {
 
 		let toPush = batchKeys;
 		if (SKIP_EXISTS && db1) {
+			// One MGET per batch instead of N EXISTS calls (quota-friendly).
+			const remote = await db1.mget(...batchKeys);
 			toPush = [];
-			for (const k of batchKeys) {
-				const exists = await db1.exists(k);
-				if (exists) skipped += 1;
-				else toPush.push(k);
+			for (let j = 0; j < batchKeys.length; j++) {
+				if (remote[j] === null || remote[j] === undefined) toPush.push(batchKeys[j]);
+				else skipped += 1;
 			}
 			if (!toPush.length) {
-				console.log(JSON.stringify({ phase: 'skip-batch', i, skipped }));
+				console.log(JSON.stringify({ phase: 'skip-batch', i, skipped, checked: batchKeys.length }));
 				await sleep(SLEEP_MS);
 				continue;
 			}
