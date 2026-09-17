@@ -4213,6 +4213,71 @@ function collectLogBridgeConnectorIds(adj: Map<string, string[]>, terminalIds: S
 	return keepIds;
 }
 
+function isFirmNodeIdForClear(nodeId: string, nodeGroupById: Map<string, string>) {
+	const normalized = String(nodeId || '').trim();
+	if (!normalized) return false;
+	if (normalized.startsWith('firm:')) return true;
+	return nodeGroupById.get(normalized) === 'firm';
+}
+
+function isPersonNodeIdForClear(nodeId: string, nodeGroupById: Map<string, string>) {
+	const normalized = String(nodeId || '').trim();
+	if (!normalized) return false;
+	if (normalized.startsWith('person:')) return true;
+	return nodeGroupById.get(normalized) === 'individual';
+}
+
+/**
+ * Clear-non-log should not keep unselected coworkers hanging off a firm.
+ * - Drop non-log people directly attached to a logged firm.
+ * - Drop non-log people who only touch the kept subgraph through a single neighbor
+ *   (typical 1-hop employee leaf on a bridge firm that was never selected).
+ */
+function dropUnselectedFirmNeighborPeople(
+	keepIds: Set<string>,
+	logIds: Set<string>,
+	adj: Map<string, string[]>,
+	nodes: Array<any>,
+) {
+	const nodeGroupById = new Map<string, string>();
+	for (const node of nodes) {
+		const id = String(node?.id || '').trim();
+		if (!id) continue;
+		nodeGroupById.set(id, String(node?.group || node?.type || '').trim());
+	}
+
+	const loggedFirms = new Set<string>();
+	for (const logId of logIds) {
+		if (isFirmNodeIdForClear(logId, nodeGroupById)) loggedFirms.add(logId);
+	}
+
+	// Pass 1: any non-log person linked to a logged firm is removed.
+	if (loggedFirms.size) {
+		for (const nodeId of Array.from(keepIds)) {
+			if (logIds.has(nodeId) || !isPersonNodeIdForClear(nodeId, nodeGroupById)) continue;
+			const touchesLoggedFirm = (adj.get(nodeId) || []).some((neighborId) => loggedFirms.has(neighborId));
+			if (touchesLoggedFirm) keepIds.delete(nodeId);
+		}
+	}
+
+	// Pass 2: peel dangling non-log people (one kept neighbor = leaf coworker on an
+	// unselected bridge firm between logged people).
+	let changed = true;
+	while (changed) {
+		changed = false;
+		for (const nodeId of Array.from(keepIds)) {
+			if (logIds.has(nodeId) || !isPersonNodeIdForClear(nodeId, nodeGroupById)) continue;
+			const keptNeighbors = (adj.get(nodeId) || []).filter((neighborId) => keepIds.has(neighborId));
+			if (keptNeighbors.length <= 1) {
+				keepIds.delete(nodeId);
+				changed = true;
+			}
+		}
+	}
+
+	return keepIds;
+}
+
 export function collectSelectionLogClearNonLogKeepIds(
 	graphData: { nodes?: Array<any>; links?: Array<any> } | null,
 	entries: Array<SelectionLogEntry> = selectedNodesLog,
@@ -4232,6 +4297,8 @@ export function collectSelectionLogClearNonLogKeepIds(
 		const normalizedExtraId = String(extraId || '').trim();
 		if (normalizedExtraId) keepIds.add(normalizedExtraId);
 	}
+
+	dropUnselectedFirmNeighborPeople(keepIds, logIds, adj, graphData.nodes);
 
 	return keepIds;
 }
@@ -4372,43 +4439,27 @@ function clearPersonSelectionVisualState(nodeId: string) {
 
 /**
  * After the shared log+bridge prune, remove previous-employment (gray) person links
- * and drop any non-log nodes that are no longer reachable without those links.
+ * and recompute keep-ids on the remaining graph.
+ *
+ * Important: do not BFS-expand from log terminals here. That re-kept every current
+ * coworker of a logged firm (unselected 1-hop people). Bridge-based keep is enough.
  */
 function stripPreviousEmploymentConnectionsAfterPrune(logIds: Set<string>) {
 	if (!graphData || !Array.isArray(graphData.links) || !Array.isArray(graphData.nodes)) return;
 
 	const remainingLinks = graphData.links.filter((link) => !isPreviousEmploymentLink(link));
 	if (remainingLinks.length === graphData.links.length) {
-		// No previous-employment links to strip; still re-render if callers expect it.
+		// No previous-employment links to strip.
 		return;
 	}
 	graphData.links = remainingLinks;
 
-	const adj = buildUndirectedAdjacencyList(graphData.links);
-	const reachable = new Set<string>();
-	const queue: string[] = [];
-	const presentNodeIds = new Set<string>(graphData.nodes.map((node) => String(node?.id || '').trim()).filter(Boolean));
-
+	const keepIds = collectSelectionLogClearNonLogKeepIds(graphData, selectedNodesLog);
 	for (const logId of logIds) {
-		if (!presentNodeIds.has(logId)) continue;
-		reachable.add(logId);
-		queue.push(logId);
+		const normalized = String(logId || '').trim();
+		if (normalized) keepIds.add(normalized);
 	}
-	while (queue.length > 0) {
-		const current = queue.shift()!;
-		for (const neighborId of adj.get(current) || []) {
-			if (reachable.has(neighborId)) continue;
-			reachable.add(neighborId);
-			queue.push(neighborId);
-		}
-	}
-
-	// Isolated log terminals stay; everything else must remain connected via non-previous links.
-	for (const logId of logIds) {
-		if (presentNodeIds.has(logId)) reachable.add(logId);
-	}
-
-	pruneGraphDataToKeepIds(reachable);
+	pruneGraphDataToKeepIds(keepIds);
 }
 
 /** Same prune as clear-non-connected, then strip previous-employment lines and clear highlights. */
