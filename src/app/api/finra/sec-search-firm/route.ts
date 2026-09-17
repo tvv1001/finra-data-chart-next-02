@@ -87,31 +87,35 @@ export async function GET(request: NextRequest) {
 		if (!skipLocalIndexSearch) {
 			data = await searchLocalIndexMany('sec', 'firm', rawQuery, { limit, offset, baseUrl });
 		}
+		// Prefer local index hits; nrows-capped totals below 50 are still valid results.
 		if (data.total > 0) return jsonNoStore(data);
 
 		const fallbackQueries = searchQueries.slice(0, 5);
+		const allResponses: any[] = [];
 
 		const graphResponses = await searchQueriesSequentially(
 			fallbackQueries,
 			async (candidate) => searchGraphFallback('sec', 'firm', candidate, { limit, offset }),
 			(value) => Boolean(value && value.total > 0),
 		);
-		if (graphResponses.length > 0) return jsonNoStore(mergeLocalSearchResponses(graphResponses, { bucket: 'sec:firm', limit, offset }));
+		if (graphResponses.length > 0) allResponses.push(...graphResponses);
 
 		const directResponses = await searchQueriesSequentially(
 			fallbackQueries,
 			async (candidate) => searchDirectRedisFallback('sec', 'firm', candidate, { limit, offset }),
 			(value) => Boolean(value),
 		);
-		if (directResponses.length > 0) return jsonNoStore(mergeLocalSearchResponses(directResponses as any[], { bucket: 'sec:firm', limit, offset }));
+		if (directResponses.length > 0) allResponses.push(...directResponses);
 
 		const externalResponses = await searchQueriesSequentially(
 			fallbackQueries,
 			async (candidate) => searchExternalFallback('sec', 'firm', candidate, baseUrl),
 			(value) => Boolean(value),
 		);
-		if (externalResponses.length > 0) {
-			const merged = mergeLocalSearchResponses(externalResponses as any[], { bucket: 'sec:firm', limit, offset });
+		if (externalResponses.length > 0) allResponses.push(...externalResponses);
+
+		if (allResponses.length > 0) {
+			const merged = mergeLocalSearchResponses(allResponses, { bucket: 'sec:firm', limit, offset });
 			return jsonNoStore(merged);
 		}
 

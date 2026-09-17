@@ -100,6 +100,9 @@ function decodeRedisResult(value: any): any {
 async function executeLocalRequest(req: any): Promise<any> {
 	if (!localIoRedis) {
 		localIoRedis = new IORedis('redis://127.0.0.1:6379');
+		// Enable LRU caching on local Redis so it behaves like a bounded cache instead of an unbound DB
+		localIoRedis.config('SET', 'maxmemory', '512mb').catch(() => {});
+		localIoRedis.config('SET', 'maxmemory-policy', 'allkeys-lru').catch(() => {});
 		console.log('Other local applications can now connect to your shared local cache at redis://127.0.0.1:6379!');
 	}
 

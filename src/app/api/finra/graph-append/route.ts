@@ -5,6 +5,7 @@ import { stripSimState } from '@/lib/graphStore';
 import { mergeGraphNodesForAppend, rewriteGraphLinksForNodeIdentity } from '@/lib/graphIdentity';
 
 export async function POST(request: NextRequest) {
+	const t0 = performance.now();
 	try {
 		const { nodes: newNodes = [], links: newLinks = [] } = await request.json();
 		if (!Array.isArray(newNodes) || !Array.isArray(newLinks)) {
@@ -12,6 +13,7 @@ export async function POST(request: NextRequest) {
 		}
 
 		let graph: any;
+		const t1 = performance.now(); console.log("[graph-append] parse JSON:", t1 - t0);
 		const exists = await graphFileExists();
 		if (exists) {
 			graph = await getFullGraph();
@@ -20,16 +22,19 @@ export async function POST(request: NextRequest) {
 		}
 
 		const existingNodes = Array.isArray(graph.nodes) ? graph.nodes : [];
+		const t2 = performance.now();
+		console.log('[graph-append] getFullGraph:', t2 - t1);
 		const mergeResult = mergeGraphNodesForAppend(
 			existingNodes,
 			newNodes.map((node) => stripSimState(node)),
 		);
 		const mergedNodes = mergeResult.nodes;
+		// O(n) membership — the previous nested .some() was O(merged*existing) and
+		// blocked the Next event loop after large text searches (~80k graph nodes).
+		const existingIdSet = new Set(existingNodes.map((node) => node?.id).filter(Boolean));
 		let added = 0;
 		for (const node of mergedNodes) {
-			if (!existingNodes.some((candidate) => candidate?.id === node?.id)) {
-				added++;
-			}
+			if (node?.id && !existingIdSet.has(node.id)) added += 1;
 		}
 		const canonicalNodeIds = new Set(mergedNodes.map((node) => node.id));
 		const linkKey = (l: any) => {
@@ -37,7 +42,9 @@ export async function POST(request: NextRequest) {
 			const t = l.target?.id ?? l.target;
 			return `${s}|${t}`;
 		};
-		const existingLinks = new Set(graph.links.map(linkKey));
+		const existingLinks = new Set((Array.isArray(graph.links) ? graph.links : []).map(linkKey));
+		const t3 = performance.now();
+		console.log('[graph-append] mergeGraphNodes:', t3 - t2);
 		const rewrittenIncomingLinks = rewriteGraphLinksForNodeIdentity(newLinks, mergeResult.idRewriteMap);
 		const addedLinks: any[] = [];
 		for (const l of rewrittenIncomingLinks) {
@@ -71,7 +78,9 @@ export async function POST(request: NextRequest) {
 			},
 		};
 
+		const t4 = performance.now(); console.log("[graph-append] build Merged:", t4 - t3);
 		await saveGraph(merged);
+		const t5 = performance.now(); console.log("[graph-append] saveGraph:", t5 - t4);
 
 		return NextResponse.json({ ok: true, addedNodes: added, addedLinks: addedLinks.length });
 	} catch (err: any) {

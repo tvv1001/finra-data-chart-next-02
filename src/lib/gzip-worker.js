@@ -3,7 +3,7 @@ const { parentPort } = require('worker_threads');
 const { brotliCompress, brotliDecompress } = require('zlib');
 
 function compressAsync(buf) {
-	return new Promise((resolve, reject) => brotliCompress(buf, (err, res) => (err ? reject(err) : resolve(res))));
+	return new Promise((resolve, reject) => brotliCompress(buf, { params: { [require('zlib').constants.BROTLI_PARAM_QUALITY]: 4 } }, (err, res) => (err ? reject(err) : resolve(res))));
 }
 
 function decompressAsync(buf) {

@@ -52,7 +52,7 @@ export function compressPayload(value: string): string {
 	}
 	try {
 		if (value.length > 512) {
-			return 'br:' + zlib.brotliCompressSync(Buffer.from(value)).toString('base64');
+			return 'br:' + zlib.brotliCompressSync(Buffer.from(value), { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 4 } }).toString('base64');
 		}
 	} catch {
 		// fallback

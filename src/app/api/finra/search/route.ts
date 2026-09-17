@@ -107,14 +107,12 @@ export async function GET(request: NextRequest) {
 					);
 					data = mergeLocalSearchResponses(responses as any[], { bucket: `finra:${entity}`, limit, offset });
 				} else {
-					// Single query; use variations but stop when we find enough hits
+					// Keep any local hits. Requiring total >= 50 discarded valid results whenever
+					// nrows capped the reported total below 50, then forced slow graph fallbacks.
 					const localResponses = await searchQueriesSequentially(
 						searchQueries,
 						(candidate) => searchLocalIndexMany('finra', entity, candidate, { limit, offset, baseUrl }),
-						(response) => {
-							const total = response?.hits?.total || 0;
-							return total >= 50;
-						},
+						(response) => Boolean(response && (response.hits?.total || response.total || 0) > 0),
 					);
 					data = localResponses.length > 0 ? mergeLocalSearchResponses(localResponses as any[], { bucket: `finra:${entity}`, limit, offset }) : emptyResponse;
 				}
@@ -124,12 +122,12 @@ export async function GET(request: NextRequest) {
 			}
 		}
 		const total = data?.total || 0;
-		// In a partial/sidecar environment, if we get fewer than expected results
-		// (e.g. searching for a common name and getting < 50 hits), treat it as a miss
-		// to allow fallback layers to fetch the full set.
-		if (total >= 50) return jsonNoStore(data);
+		// Prefer the local search index. Fallbacks only run when local found nothing
+		// (e.g. CRD inventory short-circuit, missing sidecar entry).
+		if (total > 0) return jsonNoStore(data);
 
 		const fallbackQueries = rawQuery.includes(',') ? searchQueries : searchQueries.slice(0, 5);
+		const allResponses: any[] = [];
 
 		const graphResponses = rawQuery.includes(',') ?
 			await Promise.all(
@@ -154,9 +152,8 @@ export async function GET(request: NextRequest) {
 			},
 			(value) => Boolean(value && value.total > 0),
 		);
-		logger.warn('graphResponses: ' + JSON.stringify(graphResponses)); if (graphResponses.length > 0) {
-			const merged = mergeLocalSearchResponses(graphResponses as any[], { bucket: `finra:${entity}`, limit, offset });
-			return jsonNoStore(merged);
+		if (graphResponses.length > 0) {
+			allResponses.push(...graphResponses);
 		}
 
 		const directResponses = rawQuery.includes(',') ?
@@ -182,18 +179,16 @@ export async function GET(request: NextRequest) {
 			},
 			(value) => Boolean(value),
 		);
-		logger.warn('directResponses: ' + JSON.stringify(directResponses));
 		if (directResponses.length > 0) {
-			return jsonNoStore(mergeLocalSearchResponses(directResponses as any[], { bucket: `finra:${entity}`, limit, offset }));
+			allResponses.push(...directResponses);
 		}
 
 		// Throttle external responses when using multiple comma separated values to avoid 429
-		const externalResponses: any[] = [];
 		if (rawQuery.includes(',')) {
 			for (const candidate of fallbackQueries) {
 				try {
 					const res = await searchExternalFallback('finra', entity, candidate, baseUrl);
-					if (res) externalResponses.push(res);
+					if (res) allResponses.push(res);
 					await new Promise((resolve) => setTimeout(resolve, 500));
 				} catch (err: any) {
 					logger.warn('external fallback search failed for FINRA query', { candidate, error: err?.message || String(err) });
@@ -212,12 +207,14 @@ export async function GET(request: NextRequest) {
 				},
 				(value) => Boolean(value),
 			);
-			externalResponses.push(...seqResp.filter(Boolean));
+			allResponses.push(...seqResp.filter(Boolean));
 		}
-		if (externalResponses.length > 0) {
-			const merged = mergeLocalSearchResponses(externalResponses as any[], { bucket: `finra:${entity}`, limit, offset });
+
+		if (allResponses.length > 0) {
+			const merged = mergeLocalSearchResponses(allResponses, { bucket: `finra:${entity}`, limit, offset });
 			return jsonNoStore(merged);
 		}
+
 		return jsonNoStore(emptyResponse);
 	} catch (err: any) {
 		logger.error('search error', { error: err?.message || String(err), query: request.nextUrl?.searchParams?.get('query') || '' });

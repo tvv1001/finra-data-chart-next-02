@@ -1562,3 +1562,65 @@
 [searchDirectRedisFallback] key=finra:individual:164445 raw=NULL
 [searchDirectRedisFallback] key=finra:individual:132353 raw=NULL
 [searchDirectRedisFallback] key=finra:individual:7059 raw=NULL
+[getUpstashClient] url=https://dashing-gator-146036.upstash.io
+[searchDirectRedisFallback] key=finra:individual:6852155 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:7649686 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:2821664 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:6166914 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:107105 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:7617600 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:8162482 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:4808341 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:5915862 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:67215 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:1604211 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:1301812 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:3190211 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:5109005 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:5109005 raw=NULL
+[getUpstashClient] url=https://dashing-gator-146036.upstash.io
+[searchDirectRedisFallback] key=finra:individual:4777233 raw=NULL
+[getUpstashClient] url=https://dashing-gator-146036.upstash.io
+[searchDirectRedisFallback] key=finra:individual:4808341 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:8162482 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:5109005 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:1301812 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:6027073 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:2978797 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:2487532 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:1540678 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:1540678 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:1604211 raw=NULL
+[getUpstashClient] url=https://dashing-gator-146036.upstash.io
+[searchDirectRedisFallback] key=finra:individual:316962 raw=FOUND
+[searchDirectRedisFallback] key=finra:individual:316962 raw=FOUND
+[searchDirectRedisFallback] key=finra:individual:316962 raw=FOUND
+[searchDirectRedisFallback] key=finra:individual:316962 raw=FOUND
+[searchDirectRedisFallback] key=finra:individual:8263627 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:316962 raw=FOUND
+[searchDirectRedisFallback] key=finra:individual:316962 raw=FOUND
+[searchDirectRedisFallback] key=finra:individual:316962 raw=FOUND
+[searchDirectRedisFallback] key=finra:individual:316962 raw=FOUND
+[searchDirectRedisFallback] key=finra:individual:1301812 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:316962 raw=FOUND
+[searchDirectRedisFallback] key=finra:individual:316962 raw=FOUND
+[searchDirectRedisFallback] key=finra:individual:107105 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:5109005 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:5509397 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:5017811 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:5509397 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:1597276 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:2892454 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:5509343 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:5778834 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:4367255 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:4304149 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:105404 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:141413 raw=NULL
+[getUpstashClient] url=https://dashing-gator-146036.upstash.io
+[searchDirectRedisFallback] key=finra:individual:1411811 raw=FOUND
+[searchDirectRedisFallback] key=finra:individual:8289094 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:1953425 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:1953425 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:2368099 raw=NULL
+[searchDirectRedisFallback] key=finra:individual:2552575 raw=FOUND

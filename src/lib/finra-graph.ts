@@ -307,7 +307,7 @@ function makeApiUrl(path) {
 
 function syncProfileSelection(payload) {
 	if (!ENABLE_SERVER_PROFILE_SYNC) return;
-	fetch(`${BASE}/api/finra/add-to-profile`, {
+	fetchWithTimeout(`${BASE}/api/finra/add-to-profile`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ profile: 'custom', ...payload }),
@@ -751,8 +751,10 @@ const MAX_AUTO_REVEAL_NEIGHBORS_PER_EXPAND = 12;
 const SIDEBAR_CONNECTIONS_PREVIEW_LIMIT = 24;
 const PROFILE_SEED_FETCH_CONCURRENCY = 4;
 const SEED_QUERY_FETCH_CONCURRENCY = 4;
-const TEXT_SEARCH_DETAIL_HYDRATION_LIMIT = 24;
-const TEXT_SEARCH_DETAIL_HYDRATION_CONCURRENCY = 4;
+// Sidecar hits usually already carry names + employments; keep optional id-detail
+// hydration small so a second search is not starved by Redis/disk GETs.
+const TEXT_SEARCH_DETAIL_HYDRATION_LIMIT = 4;
+const TEXT_SEARCH_DETAIL_HYDRATION_CONCURRENCY = 2;
 
 const individualDetailRequestCache = new Map<string, Promise<void>>();
 const firmDetailRequestCache = new Map<string, Promise<void>>();
@@ -2014,12 +2016,27 @@ function emitSelectedNodeRoute(nodeId: string | null, { replace = false }: { rep
 	);
 }
 
+async function fetchWithTimeout(url: string | URL | Request, options: RequestInit & { timeoutMs?: number } = {}) {
+	const { timeoutMs = 60000, ...fetchOptions } = options;
+	const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+	const timer = controller ? window.setTimeout(() => controller.abort(), timeoutMs) : 0;
+	if (controller) {
+		fetchOptions.signal = controller.signal;
+	}
+	try {
+		const res = await globalThis.fetch(url, fetchOptions);
+		return res;
+	} finally {
+		if (timer) window.clearTimeout(timer);
+	}
+}
+
 async function fetchNodesByIds(nodeIds: string[] = []) {
 	const uniqueIds = Array.from(new Set(nodeIds.map((nodeId) => String(nodeId || '').trim()).filter(Boolean)));
 	if (!uniqueIds.length) return [];
 	const url = makeApiUrl('/api/finra/nodes-by-ids');
 	url.searchParams.set('ids', uniqueIds.join(','));
-	const response = await fetch(url.toString());
+	const response = await fetchWithTimeout(url.toString());
 	if (!response.ok) throw new Error(`nodes-by-ids HTTP ${response.status}`);
 	return response.json();
 }
@@ -4821,6 +4838,12 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 	if (action === 'copy-all') {
 		closeSelectionLogClearLabelsMenu();
 		const text = selectedNodesLog
+			.filter(
+				(entry) =>
+					!selectionLogFilterText ||
+					(entry.label || '').toLowerCase().includes(selectionLogFilterText.toLowerCase()) ||
+					(entry.secondaryId || '').toLowerCase().includes(selectionLogFilterText.toLowerCase()),
+			)
 			.map((entry) => `${entry.label} :: ${entry.secondaryId}`)
 			.reverse()
 			.join('\n');
@@ -5713,7 +5736,7 @@ function restoreHighlightStateFromSession(session, { delayMs = 0 }: { delayMs?: 
 async function loadProfile(profileName) {
 	let prof = null;
 	try {
-		const res = await fetch(makeApiUrl(`/api/finra/profile/${encodeURIComponent(profileName)}`).toString(), { cache: 'no-store' });
+		const res = await fetchWithTimeout(makeApiUrl(`/api/finra/profile/${encodeURIComponent(profileName)}`).toString(), { cache: 'no-store' });
 		if (res.ok) prof = await res.json();
 	} catch {
 		/* ignore */
@@ -5721,7 +5744,7 @@ async function loadProfile(profileName) {
 
 	if (!prof || (typeof prof === 'object' && !Array.isArray(prof) && !prof.seeds && !Array.isArray(prof.individuals) && !Array.isArray(prof.firms))) {
 		try {
-			const seedsRes = await fetch(makeApiUrl('/api/finra/seeds').toString(), {
+			const seedsRes = await fetchWithTimeout(makeApiUrl('/api/finra/seeds').toString(), {
 				cache: 'no-store',
 			});
 			if (seedsRes.ok) {
@@ -5919,7 +5942,7 @@ async function loadBaselineGraph(profileName, { suppressRender = false }: { supp
 	if (profileName) {
 		url.searchParams.set('profile', profileName);
 	}
-	const res = await fetch(url.toString());
+	const res = await fetchWithTimeout(url.toString());
 	if (!res.ok) {
 		if (res.status === 404) {
 			sidebarSelectedNode = null;
@@ -5948,7 +5971,7 @@ async function loadBaselineGraph(profileName, { suppressRender = false }: { supp
 async function clearPersistedServerGraph() {
 	const url = makeApiUrl('/api/finra/graph-reset');
 	url.searchParams.set('_ts', String(Date.now()));
-	const response = await fetch(url.toString(), {
+	const response = await fetchWithTimeout(url.toString(), {
 		method: 'POST',
 		cache: 'no-store',
 	});
@@ -6822,7 +6845,7 @@ export function init(
 			try {
 				const url = makeApiUrl('/api/finra/graph');
 				if (limit > 0) url.searchParams.set('limit', String(limit));
-				const r = await fetch(url.toString());
+				const r = await fetchWithTimeout(url.toString());
 				if (!r.ok) throw new Error(`HTTP ${r.status}`);
 				graphData = await r.json();
 				// Reset baseline snapshot for this newly loaded server subset.
@@ -7020,7 +7043,7 @@ export function init(
 			parent.appendChild(holder);
 
 			try {
-				const r = await fetch(`${BASE}/api/finra/fda/${encodeURIComponent(docket)}`);
+				const r = await fetchWithTimeout(`${BASE}/api/finra/fda/${encodeURIComponent(docket)}`);
 				if (!r.ok) throw new Error(`HTTP ${r.status}`);
 				const j = await r.json();
 
@@ -7171,9 +7194,9 @@ export function init(
 
 					const headers = { Accept: 'application/json' };
 					const [r1, r2, r3] = await Promise.allSettled([
-						fetch(finraIndUrl.toString(), { headers }).then((r) => (r.ok ? r.json() : null)),
-						fetch(finraFirmUrl.toString(), { headers }).then((r) => (r.ok ? r.json() : null)),
-						fetch(secUrl.toString(), { headers }).then((r) => (r.ok ? r.json() : null)),
+						fetchWithTimeout(finraIndUrl.toString(), { headers }).then((r) => (r.ok ? r.json() : null)),
+						fetchWithTimeout(finraFirmUrl.toString(), { headers }).then((r) => (r.ok ? r.json() : null)),
+						fetchWithTimeout(secUrl.toString(), { headers }).then((r) => (r.ok ? r.json() : null)),
 					]);
 
 					const extractHits = (res) => {
@@ -7200,7 +7223,7 @@ export function init(
 							su.searchParams.set('rows', String(PAGE_SIZE));
 							su.searchParams.set('start', String(start));
 							if (useFirm) su.searchParams.set('firm', '1');
-							const sr = await fetch(su.toString());
+							const sr = await fetchWithTimeout(su.toString());
 							if (!sr.ok) break;
 							const sj = await sr.json();
 							const page = sj?.hits?.hits || sj?.response?.docs || sj?.results || [];
@@ -7221,7 +7244,7 @@ export function init(
 					su.searchParams.set('pageSize', '50'); // SEC pagination
 					su.searchParams.set('pageNumber', '1');
 					try {
-						const sr = await fetch(su.toString());
+						const sr = await fetchWithTimeout(su.toString());
 						if (!sr.ok) return [];
 						const sj = await sr.json();
 						return sj?.hits?.hits || sj?.response?.docs || sj?.currentPage || sj?.results || [];
@@ -7532,7 +7555,7 @@ export function init(
 							const crd = getSearchHitIndividualId(src);
 							if (crd && /^\d+$/.test(crd)) {
 								try {
-									const r = await fetch(`${BASE}/api/finra/individual/${encodeURIComponent(crd)}`);
+									const r = await fetchWithTimeout(`${BASE}/api/finra/individual/${encodeURIComponent(crd)}`);
 									if (!r.ok) throw new Error(`${r.status}`);
 									const detail = unwrapDetailPayload(await r.json());
 									if (detail?.found === false) return;
@@ -7545,7 +7568,7 @@ export function init(
 							const firmId = getSearchHitFirmId(src);
 							if (firmId && /^\d+$/.test(firmId)) {
 								try {
-									const r = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`);
+									const r = await fetchWithTimeout(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`);
 									if (!r.ok) throw new Error(`${r.status}`);
 									const detail = await r.json();
 									if (detail?.found === false) return;
@@ -7614,21 +7637,36 @@ export function init(
 						const crd = getSearchHitIndividualId(src);
 						if (crd) {
 							addIndividualFromSource(src);
+							// Gzip sidecar hits already include names + employments for graph edges.
+							// Treat that as embedded so we do not fan out Redis/disk detail GETs.
+							const sidecarGraphReady = Boolean(
+								(Array.isArray(src?.ind_current_employments) && src.ind_current_employments.length > 0) ||
+									(Array.isArray(src?.ind_ia_current_employments) && src.ind_ia_current_employments.length > 0) ||
+									(src?.ind_firstname && src?.ind_lastname) ||
+									src?.ind_crd ||
+									src?.ind_source_id,
+							);
 							textSearchHydrationCandidates.push({
 								nodeId: `person:${crd}`,
 								group: 'individual',
-								hasEmbeddedDetail: resolved.hasEmbeddedDetail,
+								hasEmbeddedDetail: resolved.hasEmbeddedDetail || sidecarGraphReady,
 							});
 							continue;
 						}
 						const firmId = getSearchHitFirmId(src);
 						if (firmId) {
 							addFirmFromSource(src);
+							const sidecarFirmReady = Boolean(src?.firm_name || src?.firmName || src?.firm_id || src?.firm_source_id);
 							textSearchHydrationCandidates.push({
 								nodeId: `firm:${firmId}`,
 								group: 'firm',
 								hasEmbeddedDetail:
-									Array.isArray(parsed?.directOwners) || Array.isArray(parsed?.owners) || Array.isArray(parsed?.disclosures) || Array.isArray(parsed?.activeStates),
+									resolved.hasEmbeddedDetail ||
+									sidecarFirmReady ||
+									Array.isArray(parsed?.directOwners) ||
+									Array.isArray(parsed?.owners) ||
+									Array.isArray(parsed?.disclosures) ||
+									Array.isArray(parsed?.activeStates),
 							});
 							continue;
 						}
@@ -7644,7 +7682,26 @@ export function init(
 				}
 
 				// ── 3. Append all nodes/links to the live view ─────────────────────
+				// Second search for the same/overlapping query often updates existing
+				// nodes only (batchAllNodes stays empty). That is success, not a miss.
 				if (batchAllNodes.length === 0) {
+					if (updatedExistingNodeIds.size > 0) {
+						rerenderGraphNodesByIds(Array.from(updatedExistingNodeIds));
+						refreshGraphColors();
+						refreshTraceState();
+						const existingCount = updatedExistingNodeIds.size;
+						updateFetchStatus(
+							isNameList ?
+								`${existingCount} already on canvas for ${nameListTokens.length} names`
+							:	`${existingCount} already on canvas for "${q}"`,
+						);
+						focusExistingNodeMatch(q, { statusPrefix: 'Opened' });
+						return;
+					}
+					if (allHits.length > 0) {
+						updateFetchStatus(`No new graph nodes for "${q}" (hits lacked structured ids)`);
+						return;
+					}
 					updateFetchStatus(`No structured data found for "${q}"`);
 					return;
 				}
@@ -7720,16 +7777,24 @@ export function init(
 					}
 				}
 
-				// ── 6. Persist to server so data survives page reload ──────────────
-				persistToServer(batchAllNodes, batchAllLinks);
+				// ── 6. Persist (deferred) ─────────────────────────────────────────
+				// Do not full-graph-append after every text search: on localhost that
+				// save blocks the Next event loop and the immediate second search
+				// returns empty ("No database results"). CRD paste/seeds still persist.
+				// Session graph already has the nodes; profile save / explicit persist
+				// remains available elsewhere.
+				if (isDirectId) {
+					persistToServer(batchAllNodes, batchAllLinks);
+				}
 				void fetchCacheStats();
 
 				const newCount = batchAllNodes.length;
-				updateFetchStatus(
+				const existingCount = updatedExistingNodeIds.size;
+				const addedLabel =
 					isNameList ?
 						`Added ${newCount} node${newCount !== 1 ? 's' : ''} for ${nameListTokens.length} names`
-					:	`Added ${newCount} node${newCount !== 1 ? 's' : ''} for "${q}"`,
-				);
+					:	`Added ${newCount} node${newCount !== 1 ? 's' : ''} for "${q}"`;
+				updateFetchStatus(existingCount > 0 ? `${addedLabel}, ${existingCount} already on canvas` : addedLabel);
 				focusExistingNodeMatch(q, { statusPrefix: 'Opened' });
 			} catch (err) {
 				console.error('database search failed', err);
@@ -7836,7 +7901,7 @@ export function init(
 async function fetchAndInjectLocalQuery(q) {
 	try {
 		const url = makeApiUrl(`/api/finra/graph-search?q=${encodeURIComponent(q)}&limit=50`).toString();
-		const res = await fetch(url, { headers: { Accept: 'application/json' } });
+		const res = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } });
 		if (!res.ok) throw new Error(`Local query failed: ${res.status}`);
 		const data = await res.json();
 		const nodes = Array.isArray(data) ? data : data?.nodes || [];
@@ -7877,13 +7942,13 @@ async function fetchAndInjectQuery(q) {
 	const headers = { Accept: 'application/json' };
 
 	const [finraIndResp, finraFirmResp, secResp] = await Promise.allSettled([
-		fetch(makeApiUrl(`/api/finra/search?query=${encodeURIComponent(q)}&rows=${ROWS}&_=${Date.now()}`).toString(), { headers, cache: 'no-store' }).then((r) =>
+		fetchWithTimeout(makeApiUrl(`/api/finra/search?query=${encodeURIComponent(q)}&rows=${ROWS}&_=${Date.now()}`).toString(), { headers, cache: 'no-store' }).then((r) =>
 			r.ok ? r.json() : null,
 		),
-		fetch(makeApiUrl(`/api/finra/search?query=${encodeURIComponent(q)}&firm=1&rows=${ROWS}&_=${Date.now()}`).toString(), { headers, cache: 'no-store' }).then((r) =>
+		fetchWithTimeout(makeApiUrl(`/api/finra/search?query=${encodeURIComponent(q)}&firm=1&rows=${ROWS}&_=${Date.now()}`).toString(), { headers, cache: 'no-store' }).then((r) =>
 			r.ok ? r.json() : null,
 		),
-		fetch(makeApiUrl(`/api/finra/sec-search?query=${encodeURIComponent(q)}`).toString(), { headers }).then((r) => (r.ok ? r.json() : null)),
+		fetchWithTimeout(makeApiUrl(`/api/finra/sec-search?query=${encodeURIComponent(q)}`).toString(), { headers }).then((r) => (r.ok ? r.json() : null)),
 	]);
 
 	const extractHits = (res) => {
@@ -8024,7 +8089,7 @@ async function fetchAndInjectQuery(q) {
 async function fetchLocalQueryBatch(q) {
 	try {
 		const url = makeApiUrl(`/api/finra/graph-search?q=${encodeURIComponent(q)}&limit=50`).toString();
-		const res = await fetch(url, { headers: { Accept: 'application/json' } });
+		const res = await fetchWithTimeout(url, { headers: { Accept: 'application/json' } });
 		if (!res.ok) return { nodes: [], links: [], matchedIds: [] };
 		const data = await res.json();
 		if (Array.isArray(data)) {
@@ -8043,13 +8108,13 @@ async function fetchQueryBatch(q) {
 	const headers = { Accept: 'application/json' };
 
 	const [finraIndResp, finraFirmResp, secResp] = await Promise.allSettled([
-		fetch(makeApiUrl(`/api/finra/search?query=${encodeURIComponent(q)}&rows=${ROWS}&_=${Date.now()}`).toString(), { headers, cache: 'no-store' }).then((r) =>
+		fetchWithTimeout(makeApiUrl(`/api/finra/search?query=${encodeURIComponent(q)}&rows=${ROWS}&_=${Date.now()}`).toString(), { headers, cache: 'no-store' }).then((r) =>
 			r.ok ? r.json() : null,
 		),
-		fetch(makeApiUrl(`/api/finra/search?query=${encodeURIComponent(q)}&firm=1&rows=${ROWS}&_=${Date.now()}`).toString(), { headers, cache: 'no-store' }).then((r) =>
+		fetchWithTimeout(makeApiUrl(`/api/finra/search?query=${encodeURIComponent(q)}&firm=1&rows=${ROWS}&_=${Date.now()}`).toString(), { headers, cache: 'no-store' }).then((r) =>
 			r.ok ? r.json() : null,
 		),
-		fetch(makeApiUrl(`/api/finra/sec-search?query=${encodeURIComponent(q)}`).toString(), { headers }).then((r) => (r.ok ? r.json() : null)),
+		fetchWithTimeout(makeApiUrl(`/api/finra/sec-search?query=${encodeURIComponent(q)}`).toString(), { headers }).then((r) => (r.ok ? r.json() : null)),
 	]);
 
 	const extractHits = (res) => {
@@ -8496,23 +8561,48 @@ function mergeIntoGraphData(newNodes, newLinks) {
 }
 
 // Fire-and-forget persist of newly fetched nodes/links to the server graph file.
-function persistToServer(nodes, links) {
-	const url = makeApiUrl('/api/finra/graph-append');
+let persistQueueNodes: any[] = [];
+let persistQueueLinks: any[] = [];
+let persistQueueTimer: number | null = null;
+let persistFlushInFlight: Promise<void> | null = null;
 
-	// Fire-and-forget but split payloads into chunks below the 10MB request limit.
-	void (async () => {
+function persistToServer(nodes, links) {
+	// Coalesce appends so a big text search does not immediately stampede
+	// /api/finra/graph-append (full-graph save) and starve the next search.
+	if (Array.isArray(nodes) && nodes.length) persistQueueNodes.push(...nodes);
+	if (Array.isArray(links) && links.length) persistQueueLinks.push(...links);
+	if (persistQueueTimer != null) window.clearTimeout(persistQueueTimer);
+	persistQueueTimer = window.setTimeout(() => {
+		persistQueueTimer = null;
+		void flushPersistQueue();
+	}, 1500);
+}
+
+async function flushPersistQueue() {
+	if (persistFlushInFlight) {
+		await persistFlushInFlight;
+		if (persistQueueNodes.length || persistQueueLinks.length) return flushPersistQueue();
+		return;
+	}
+	const nodes = persistQueueNodes;
+	const links = persistQueueLinks;
+	persistQueueNodes = [];
+	persistQueueLinks = [];
+	if (!nodes.length && !links.length) return;
+
+	persistFlushInFlight = (async () => {
+		const url = makeApiUrl('/api/finra/graph-append');
 		const maxBytes = 5 * 1024 * 1024; // 5MB per chunk to stay safely under limits
 		let nodeIdx = 0;
 		let linkIdx = 0;
-		const totalNodes = Array.isArray(nodes) ? nodes.length : 0;
-		const revealableLinks = Array.isArray(links) ? links.filter((link) => isAutoExpansionLink(link)) : [];
+		const totalNodes = nodes.length;
+		const revealableLinks = links.filter((link) => isAutoExpansionLink(link));
 		const totalLinks = revealableLinks.length;
 
 		while (nodeIdx < totalNodes || linkIdx < totalLinks) {
 			const batchNodes = [];
 			const batchLinks = [];
 
-			// Add nodes until size limit reached
 			while (nodeIdx < totalNodes) {
 				batchNodes.push(nodes[nodeIdx]);
 				const size = new TextEncoder().encode(JSON.stringify({ nodes: batchNodes, links: batchLinks })).length;
@@ -8523,7 +8613,6 @@ function persistToServer(nodes, links) {
 				nodeIdx++;
 			}
 
-			// Add links until size limit reached
 			while (linkIdx < totalLinks) {
 				batchLinks.push(revealableLinks[linkIdx]);
 				const size = new TextEncoder().encode(JSON.stringify({ nodes: batchNodes, links: batchLinks })).length;
@@ -8534,7 +8623,6 @@ function persistToServer(nodes, links) {
 				linkIdx++;
 			}
 
-			// Ensure at least one item is sent to avoid infinite loop on very large single elements
 			if (batchNodes.length === 0 && nodeIdx < totalNodes) {
 				batchNodes.push(nodes[nodeIdx]);
 				nodeIdx++;
@@ -8545,10 +8633,11 @@ function persistToServer(nodes, links) {
 			}
 
 			try {
-				await fetch(url.toString(), {
+				await fetchWithTimeout(url.toString(), {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ nodes: batchNodes, links: batchLinks }),
+					timeoutMs: 120000,
 				});
 			} catch (e) {
 				// Non-critical; stop further attempts if server rejects large bodies
@@ -8556,6 +8645,12 @@ function persistToServer(nodes, links) {
 			}
 		}
 	})();
+
+	try {
+		await persistFlushInFlight;
+	} finally {
+		persistFlushInFlight = null;
+	}
 }
 
 async function fetchIndividualBatch(crd, queryLabel = null, options: { includePreviousEmployments?: boolean; includePreviousEmployerIds?: string[] } = {}) {
@@ -8568,7 +8663,7 @@ async function fetchIndividualBatch(crd, queryLabel = null, options: { includePr
 
 	const nodes = [];
 	const links = [];
-	const r = await fetch(`${BASE}/api/finra/individual/${encodeURIComponent(crd)}`);
+	const r = await fetchWithTimeout(`${BASE}/api/finra/individual/${encodeURIComponent(crd)}`);
 	if (!r.ok) throw new Error(`individual HTTP ${r.status}`);
 	const detail = unwrapDetailPayload(await r.json());
 	if (detail?.found === false) throw new Error(`individual ${crd} not found`);
@@ -8765,7 +8860,7 @@ async function fetchFirmBatch(firmId, queryLabel = null) {
 
 	const nodes = [];
 	const links = [];
-	const r = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`);
+	const r = await fetchWithTimeout(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`);
 	if (!r.ok) throw new Error(`firm HTTP ${r.status}`);
 	const detail = unwrapDetailPayload(await r.json());
 	if (detail?.found === false) throw new Error(`firm ${firmId} not found`);
@@ -8807,7 +8902,7 @@ async function fetchFirmBatch(firmId, queryLabel = null) {
 	// and shared Redis is not held by a long search fallback chain during initial hydrate.
 	try {
 		const searchUrl = `${BASE}/api/finra/search?query=${encodeURIComponent(firmId)}&nrows=30`;
-		const searchRes = await Promise.race([fetch(searchUrl), new Promise<Response | null>((resolve) => setTimeout(() => resolve(null), 3500))]);
+		const searchRes = await Promise.race([fetchWithTimeout(searchUrl), new Promise<Response | null>((resolve) => setTimeout(() => resolve(null), 3500))]);
 		if (searchRes && searchRes.ok) {
 			const searchData = await searchRes.json();
 			const hits = searchData?.hits?.hits || searchData?.results || [];
@@ -9511,7 +9606,7 @@ async function filterGraph(rawQuery) {
 	// Still no match in local subset — query the server's full cached graph
 	if (matched.size === 0) {
 		try {
-			const resp = await fetch(`${BASE}/api/finra/graph-search?q=${encodeURIComponent(q)}&limit=10`);
+			const resp = await fetchWithTimeout(`${BASE}/api/finra/graph-search?q=${encodeURIComponent(q)}&limit=10`);
 			if (resp.ok) {
 				const data = await resp.json();
 				if (data.nodes?.length) {
@@ -9589,7 +9684,7 @@ function fetchCacheStats(options: { force?: boolean } = {}) {
 	if (!options.force && _cacheStats && now - _cacheStatsFetchedAt < CACHE_STATS_MIN_INTERVAL_MS) {
 		return Promise.resolve();
 	}
-	_cacheStatsInFlight = fetch('/api/finra/cache-stats', { cache: 'no-store' })
+	_cacheStatsInFlight = fetchWithTimeout('/api/finra/cache-stats', { cache: 'no-store' })
 		.then((r) => r.json())
 		.then((data) => {
 			if (data?.counts) {
@@ -11659,7 +11754,7 @@ async function fetchAndInjectOrphanNodes(links, knownIds) {
 	try {
 		const url = makeApiUrl('/api/finra/nodes-by-ids');
 		url.searchParams.set('ids', [...missing].join(','));
-		const res = await fetch(url.toString());
+		const res = await fetchWithTimeout(url.toString());
 		if (!res.ok) return;
 		const fetched = await res.json();
 		if (!fetched.length) return;
@@ -11700,7 +11795,7 @@ function scheduleFirmConnectionCountHydration(nodes) {
 		try {
 			const url = makeApiUrl('/api/finra/connection-counts');
 			url.searchParams.set('ids', ids.join(','));
-			const response = await fetch(url.toString(), { cache: 'no-store' });
+			const response = await fetchWithTimeout(url.toString(), { cache: 'no-store' });
 			if (!response.ok) {
 				ids.forEach((id) => firmConnectionCountHydrationAttempted.delete(id));
 				return;
@@ -11757,7 +11852,7 @@ function scheduleSidecarFirmLabelHydration(nodes) {
 	ids.forEach((id) => sidecarFirmLabelHydrationAttempted.add(id));
 	void (async () => {
 		try {
-			const res = await fetch(`${BASE}/api/finra/search?type=firm&query=${encodeURIComponent(ids.join(' '))}&nrows=${Math.min(Math.max(ids.length, 12), 200)}`);
+			const res = await fetchWithTimeout(`${BASE}/api/finra/search?type=firm&query=${encodeURIComponent(ids.join(' '))}&nrows=${Math.min(Math.max(ids.length, 12), 200)}`);
 			if (!res.ok) {
 				// Re-arm so a later append can retry a transient search failure.
 				ids.forEach((id) => sidecarFirmLabelHydrationAttempted.delete(id));
@@ -12956,7 +13051,7 @@ async function loadIndividualDetailFromLocalSearch(crd) {
 	const normalizedCrd = String(crd || '').trim();
 	if (!normalizedCrd) return null;
 	try {
-		const searchRes = await fetch(`${BASE}/api/finra/search?query=${encodeURIComponent(normalizedCrd)}`);
+		const searchRes = await fetchWithTimeout(`${BASE}/api/finra/search?query=${encodeURIComponent(normalizedCrd)}`);
 		if (!searchRes.ok) return null;
 		const searchJson = await searchRes.json();
 		const hits = searchJson?.hits?.hits || searchJson?.hits || searchJson?.results || [];
@@ -13040,7 +13135,7 @@ async function ensureIndividualDetail(
 					merged = null;
 				}
 				if (!merged) {
-					const localRes = await fetch(`${BASE}/api/finra/merged/individual/${encodeURIComponent(crd)}`);
+					const localRes = await fetchWithTimeout(`${BASE}/api/finra/merged/individual/${encodeURIComponent(crd)}`);
 					if (localRes.ok) {
 						merged = await localRes.json();
 						if (merged && merged.found !== false) rememberVisited(visitDetailKey('individual', crd), merged);
@@ -13081,7 +13176,7 @@ async function ensureIndividualDetail(
 			if (!detail) {
 				const url = `${BASE}/api/finra/individual/${encodeURIComponent(crd)}`;
 				try {
-					const response = await fetch(url);
+					const response = await fetchWithTimeout(url);
 					if (!response.ok) {
 						console.warn(`Failed to fetch individual detail for ${crd}:`, response.status);
 					} else {
@@ -13614,7 +13709,7 @@ async function ensureFirmConnections(firmNode: any) {
 		try {
 			const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
 			const timer = controller ? window.setTimeout(() => controller.abort(), 30000) : 0;
-			const res = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}/connections`, {
+			const res = await fetchWithTimeout(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}/connections`, {
 				signal: controller?.signal,
 				cache: 'no-store',
 			});
@@ -13712,7 +13807,7 @@ async function ensureFirmDetail(firmNode) {
 				const cachedMerged = readVisitedSync<any>(visitDetailKey('firm', firmId)) || (await readVisited<any>(visitDetailKey('firm', firmId)));
 				let merged = cachedMerged;
 				if (!merged) {
-					const localRes = await fetch(`${BASE}/api/finra/merged/firm/${encodeURIComponent(firmId)}`);
+					const localRes = await fetchWithTimeout(`${BASE}/api/finra/merged/firm/${encodeURIComponent(firmId)}`);
 					if (localRes.ok) {
 						merged = await localRes.json();
 						if (merged && merged.found !== false) rememberVisited(visitDetailKey('firm', firmId), merged);
@@ -13732,7 +13827,7 @@ async function ensureFirmDetail(firmNode) {
 
 			if (!hasUsableFirmDetail(detail)) {
 				try {
-					const res = await fetch(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`);
+					const res = await fetchWithTimeout(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`);
 					if (!res.ok) {
 						console.warn(`Failed to fetch firm detail for ${firmId}:`, res.status);
 					} else {
@@ -14045,7 +14140,7 @@ async function fetchExpansionDataForNodeIds(
 		try {
 			let requestPromise = expansionRequestCache.get(requestCacheKey);
 			if (!requestPromise) {
-				requestPromise = fetch(requestCacheKey).then(async (response) => {
+				requestPromise = fetchWithTimeout(requestCacheKey).then(async (response) => {
 					if (!response.ok) {
 						throw new Error(`HTTP ${response.status}`);
 					}
@@ -16410,8 +16505,8 @@ function renderSidebarSelectionLogBody() {
 						data-fg-selection-log-action="copy-all"
 						class="fg-ghost-btn fg-btn-sm"
 						type="button"
-						title="Copy all entries">
-						Copy All
+						title="Copy list entries">
+						Copy List
 					</button>
 					<button
 						data-fg-selection-log-action="copy-link"

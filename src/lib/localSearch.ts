@@ -707,25 +707,39 @@ function hasStrictMatch(doc: PreparedLocalSearchDoc, normalizedQuery: string, to
 	return tokens.every((token) => containsWholePhrase(strictText, token));
 }
 
+
+// Pre-allocate a shared buffer for edit distance to avoid GC thrashing on 100k+ searches
+const editDistanceBuffer = new Int32Array(256);
+
 function getBoundedEditDistance(left: string, right: string, maxDistance: number) {
 	if (left === right) return 0;
 	if (!left || !right) return maxDistance + 1;
-	if (Math.abs(left.length - right.length) > maxDistance) return maxDistance + 1;
+	const m = left.length;
+	const n = right.length;
+	if (Math.abs(m - n) > maxDistance) return maxDistance + 1;
+	if (n >= 256) return maxDistance + 1; // Safeguard
 
-	let previous = Array.from({ length: right.length + 1 }, (_, index) => index);
-	for (let row = 1; row <= left.length; row += 1) {
-		const current = [row];
-		let rowMin = current[0];
-		for (let col = 1; col <= right.length; col += 1) {
-			const cost = left[row - 1] === right[col - 1] ? 0 : 1;
-			const nextValue = Math.min(previous[col] + 1, current[col - 1] + 1, previous[col - 1] + cost);
-			current[col] = nextValue;
+	for (let i = 0; i <= n; i++) editDistanceBuffer[i] = i;
+
+	for (let i = 1; i <= m; i++) {
+		let previousDiagonal = editDistanceBuffer[0];
+		editDistanceBuffer[0] = i;
+		let rowMin = i;
+		for (let j = 1; j <= n; j++) {
+			const previous = editDistanceBuffer[j];
+			const cost = left[i - 1] === right[j - 1] ? 0 : 1;
+			const nextValue = Math.min(
+				editDistanceBuffer[j] + 1,
+				editDistanceBuffer[j - 1] + 1,
+				previousDiagonal + cost
+			);
+			editDistanceBuffer[j] = nextValue;
+			previousDiagonal = previous;
 			if (nextValue < rowMin) rowMin = nextValue;
 		}
 		if (rowMin > maxDistance) return maxDistance + 1;
-		previous = current;
 	}
-	return previous[right.length];
+	return editDistanceBuffer[n];
 }
 
 function locationTokensMatch(queryToken: string, candidateToken: string) {
@@ -1042,13 +1056,44 @@ function matchesQuery(doc: PreparedLocalSearchDoc, rawQuery: string, normalizedQ
 
 function buildQueryMatches(docs: PreparedLocalSearchDoc[], rawQuery: string, normalizedQuery: string, tokens: string[], limit: number) {
 	if (!normalizedQuery || !tokens.length) return [];
-	const matches = docs
-		.filter((doc) => matchesQuery(doc, rawQuery, normalizedQuery, tokens))
-		.sort((left, right) => {
-			const scoreDiff = getSortScore(right, rawQuery, normalizedQuery, tokens) - getSortScore(left, rawQuery, normalizedQuery, tokens);
-			if (scoreDiff !== 0) return scoreDiff;
-			return left.id.localeCompare(right.id);
-		});
+	// Score once per match. Sorting with getSortScore in the comparator recomputed
+	// expensive fuzzy scores O(n log n) times and blocked the Next.js event loop.
+	const scored: Array<{ doc: PreparedLocalSearchDoc; score: number }> = [];
+	for (const doc of docs) {
+		if (!matchesQuery(doc, rawQuery, normalizedQuery, tokens)) continue;
+		scored.push({ doc, score: getSortScore(doc, rawQuery, normalizedQuery, tokens) });
+	}
+	scored.sort((left, right) => {
+		if (right.score !== left.score) return right.score - left.score;
+		return left.doc.id.localeCompare(right.doc.id);
+	});
+	const matches = scored.map((entry) => entry.doc);
+	return limit > 0 ? matches.slice(0, limit) : matches;
+}
+
+async function buildQueryMatchesAsync(
+	docs: PreparedLocalSearchDoc[],
+	rawQuery: string,
+	normalizedQuery: string,
+	tokens: string[],
+	limit: number,
+) {
+	if (!normalizedQuery || !tokens.length) return [] as PreparedLocalSearchDoc[];
+	const scored: Array<{ doc: PreparedLocalSearchDoc; score: number }> = [];
+	for (let index = 0; index < docs.length; index += 1) {
+		// Yield so health/other requests stay responsive during large index scans.
+		if (index > 0 && index % 2500 === 0) {
+			await new Promise<void>((resolve) => setImmediate(resolve));
+		}
+		const doc = docs[index];
+		if (!matchesQuery(doc, rawQuery, normalizedQuery, tokens)) continue;
+		scored.push({ doc, score: getSortScore(doc, rawQuery, normalizedQuery, tokens) });
+	}
+	scored.sort((left, right) => {
+		if (right.score !== left.score) return right.score - left.score;
+		return left.doc.id.localeCompare(right.doc.id);
+	});
+	const matches = scored.map((entry) => entry.doc);
 	return limit > 0 ? matches.slice(0, limit) : matches;
 }
 
@@ -1077,7 +1122,8 @@ export async function searchLocalIndex(source: LocalSearchSource, type: LocalSea
 
 	const docs = Array.isArray(index?.docs) ? index.docs : [];
 	const hasMinimumQuery = hasMinimumSearchQuery(query);
-	const matches = !normalizedQuery || !hasMinimumQuery ? [] : buildQueryMatches(docs, query, normalizedQuery, tokens, 0);
+	const matches =
+		!normalizedQuery || !hasMinimumQuery ? [] : await buildQueryMatchesAsync(docs, query, normalizedQuery, tokens, limit > 0 ? limit + offset : 0);
 	const pageDocs = limit > 0 ? matches.slice(offset, offset + limit) : [];
 	const resultDocs = pageDocs.map((doc) => doc.hit || {});
 	return {
@@ -1182,7 +1228,7 @@ export async function searchLocalIndexMany(source: LocalSearchSource, type: Loca
 		const normalizedQuery = simplifyName(searchQuery);
 		const tokens = tokenizeQuery(searchQuery);
 		if (!normalizedQuery || !tokens.length || !hasMinimumSearchQuery(searchQuery)) continue;
-		const matches = buildQueryMatches(docs, searchQuery, normalizedQuery, tokens, limit > 0 ? limit : 0);
+		const matches = await buildQueryMatchesAsync(docs, searchQuery, normalizedQuery, tokens, limit > 0 ? limit + offset : 0);
 		if (!matches.length) continue;
 		for (const match of matches) {
 			const docId = String(match?.hit?.id || match?.id || match?.hit?.ind_source_id || match?.hit?.firm_source_id || '').trim();

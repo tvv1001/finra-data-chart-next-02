@@ -8,11 +8,11 @@ function getUpstashClient() {
 	if (cachedRedisClient) return cachedRedisClient;
 	const url = process.env.UPSTASH_REDIS_REST_URL_MIRROR || process.env.UPSTASH_REDIS_REST_URL_2 || process.env.UPSTASH_REDIS_REST_URL;
 	const token = process.env.UPSTASH_REDIS_REST_TOKEN_MIRROR || process.env.UPSTASH_REDIS_REST_TOKEN_2 || process.env.UPSTASH_REDIS_REST_TOKEN;
-	require('fs').appendFileSync('debug.txt', `[getUpstashClient] url=${url}\n`);
 	if (!url || !token) return null;
 	cachedRedisClient = getRedisClientInstance({ url, token });
 	return cachedRedisClient;
 }
+
 
 export async function searchDirectRedisFallback(
 	source: LocalSearchSource,
@@ -30,7 +30,6 @@ export async function searchDirectRedisFallback(
 	try {
 		const key = `${source}:${type}:${normalizedQuery}`;
 		const raw = await redis.get(key);
-		require('fs').appendFileSync('debug.txt', `[searchDirectRedisFallback] key=${key} raw=${raw ? 'FOUND' : 'NULL'}\n`);
 		if (!raw) return null;
 
 		// Support brotli `br:` binary cache payloads without scanning other keys.

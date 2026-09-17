@@ -1344,8 +1344,8 @@ export default function FinraGraph() {
 									data-fg-selection-log-action='copy-all'
 									className='fg-ghost-btn fg-btn-sm'
 									type='button'
-									title='Copy all entries'>
-									Copy All
+									title='Copy list entries'>
+									Copy List
 								</button>
 								<button
 									id='btn-selection-log-toggle-bold'

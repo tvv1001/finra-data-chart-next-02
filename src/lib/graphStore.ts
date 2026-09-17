@@ -823,19 +823,33 @@ export async function saveGraph(data: any) {
 		normalizeGraphLabelsInPlace(data);
 	} catch (e) {}
 
+	// Yield once so an in-flight search/health request can run before we spend
+	// a long sync stretch compacting tens of thousands of nodes/links.
+	await new Promise<void>((resolve) => setImmediate(resolve));
+
+	const rawNodes = Array.isArray(data.nodes) ? data.nodes : [];
+	const rawLinks = Array.isArray(data.links) ? data.links : [];
+	const compactNodes: any[] = [];
+	for (let i = 0; i < rawNodes.length; i += 1) {
+		if (i > 0 && i % 5000 === 0) await new Promise<void>((resolve) => setImmediate(resolve));
+		compactNodes.push(toCompactNode(rawNodes[i]));
+	}
+	const compactLinks: any[] = [];
+	for (let i = 0; i < rawLinks.length; i += 1) {
+		if (i > 0 && i % 8000 === 0) await new Promise<void>((resolve) => setImmediate(resolve));
+		const l = rawLinks[i];
+		compactLinks.push({
+			source: typeof l.source === 'object' ? (l.source.id ?? l.source) : l.source,
+			target: typeof l.target === 'object' ? (l.target.id ?? l.target) : l.target,
+			relationship: l.relationship,
+			firmId: l.firmId || l.firm_id || null,
+			startDate: l.startDate || l.start || null,
+			endDate: l.endDate || l.end || null,
+		});
+	}
 	const compact = {
-		nodes: Array.isArray(data.nodes) ? data.nodes.map((n: any) => toCompactNode(n)) : [],
-		links:
-			Array.isArray(data.links) ?
-				data.links.map((l: any) => ({
-					source: typeof l.source === 'object' ? (l.source.id ?? l.source) : l.source,
-					target: typeof l.target === 'object' ? (l.target.id ?? l.target) : l.target,
-					relationship: l.relationship,
-					firmId: l.firmId || l.firm_id || null,
-					startDate: l.startDate || l.start || null,
-					endDate: l.endDate || l.end || null,
-				}))
-			:	[],
+		nodes: compactNodes,
+		links: compactLinks,
 		meta: data.meta || {},
 	};
 
