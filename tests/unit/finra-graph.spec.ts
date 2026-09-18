@@ -413,55 +413,6 @@ describe('FinraGraph DOM helpers (unit)', () => {
 		expect(keepIds.has('person:leaf')).toBe(false);
 	});
 
-	it('collectSelectionLogClearNonLogKeepIds drops unselected coworkers of a logged firm', () => {
-		const graphData = {
-			nodes: [
-				{ id: 'firm:merrill', group: 'firm' },
-				{ id: 'person:logged', group: 'individual' },
-				{ id: 'person:coworkerA', group: 'individual' },
-				{ id: 'person:coworkerB', group: 'individual' },
-			],
-			links: [
-				{ source: 'person:logged', target: 'firm:merrill', relationship: 'employed_by' },
-				{ source: 'person:coworkerA', target: 'firm:merrill', relationship: 'employed_by' },
-				{ source: 'person:coworkerB', target: 'firm:merrill', relationship: 'employed_by' },
-			],
-		} as any;
-
-		const keepIds = collectSelectionLogClearNonLogKeepIds(graphData, [
-			{ id: 'firm:merrill', label: 'Merrill', secondaryId: 'CRD# 7691', group: 'firm' },
-			{ id: 'person:logged', label: 'Logged', secondaryId: 'CRD# 1', group: 'individual' },
-		]);
-
-		expect(Array.from(keepIds).sort()).toEqual(['firm:merrill', 'person:logged']);
-		expect(keepIds.has('person:coworkerA')).toBe(false);
-		expect(keepIds.has('person:coworkerB')).toBe(false);
-	});
-
-	it('collectSelectionLogClearNonLogKeepIds drops unselected 1-hop people on an unselected bridge firm', () => {
-		const graphData = {
-			nodes: [
-				{ id: 'person:alpha', group: 'individual' },
-				{ id: 'person:beta', group: 'individual' },
-				{ id: 'firm:bridge', group: 'firm' },
-				{ id: 'person:extra', group: 'individual' },
-			],
-			links: [
-				{ source: 'person:alpha', target: 'firm:bridge', relationship: 'employed_by' },
-				{ source: 'person:beta', target: 'firm:bridge', relationship: 'employed_by' },
-				{ source: 'person:extra', target: 'firm:bridge', relationship: 'employed_by' },
-			],
-		} as any;
-
-		const keepIds = collectSelectionLogClearNonLogKeepIds(graphData, [
-			{ id: 'person:alpha', label: 'Alpha', secondaryId: 'CRD# 1', group: 'individual' },
-			{ id: 'person:beta', label: 'Beta', secondaryId: 'CRD# 2', group: 'individual' },
-		]);
-
-		expect(Array.from(keepIds).sort()).toEqual(['firm:bridge', 'person:alpha', 'person:beta']);
-		expect(keepIds.has('person:extra')).toBe(false);
-	});
-
 	it('ensureSidebarHintContent adds placeholder when empty', () => {
 		const inner = document.getElementById('fg-sidebar-inner')!;
 		inner.innerHTML = '';

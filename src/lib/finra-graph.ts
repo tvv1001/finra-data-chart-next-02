@@ -3179,6 +3179,9 @@ function syncSelectionLogActionButtonStates() {
 		button.title = selectedNodesLog.length ? 'Keep logged nodes and any intermediaries connecting them' : 'No selection log entries to keep';
 		button.textContent = 'Clear Others';
 	});
+
+	if (selectedNodesLog.length === 0) clearNonLogClickStage = 1;
+	syncClearNonLogButtonState();
 }
 
 // Listen for overlay hover/click events dispatched from the HTML overlay so
@@ -4213,71 +4216,6 @@ function collectLogBridgeConnectorIds(adj: Map<string, string[]>, terminalIds: S
 	return keepIds;
 }
 
-function isFirmNodeIdForClear(nodeId: string, nodeGroupById: Map<string, string>) {
-	const normalized = String(nodeId || '').trim();
-	if (!normalized) return false;
-	if (normalized.startsWith('firm:')) return true;
-	return nodeGroupById.get(normalized) === 'firm';
-}
-
-function isPersonNodeIdForClear(nodeId: string, nodeGroupById: Map<string, string>) {
-	const normalized = String(nodeId || '').trim();
-	if (!normalized) return false;
-	if (normalized.startsWith('person:')) return true;
-	return nodeGroupById.get(normalized) === 'individual';
-}
-
-/**
- * Clear-non-log should not keep unselected coworkers hanging off a firm.
- * - Drop non-log people directly attached to a logged firm.
- * - Drop non-log people who only touch the kept subgraph through a single neighbor
- *   (typical 1-hop employee leaf on a bridge firm that was never selected).
- */
-function dropUnselectedFirmNeighborPeople(
-	keepIds: Set<string>,
-	logIds: Set<string>,
-	adj: Map<string, string[]>,
-	nodes: Array<any>,
-) {
-	const nodeGroupById = new Map<string, string>();
-	for (const node of nodes) {
-		const id = String(node?.id || '').trim();
-		if (!id) continue;
-		nodeGroupById.set(id, String(node?.group || node?.type || '').trim());
-	}
-
-	const loggedFirms = new Set<string>();
-	for (const logId of logIds) {
-		if (isFirmNodeIdForClear(logId, nodeGroupById)) loggedFirms.add(logId);
-	}
-
-	// Pass 1: any non-log person linked to a logged firm is removed.
-	if (loggedFirms.size) {
-		for (const nodeId of Array.from(keepIds)) {
-			if (logIds.has(nodeId) || !isPersonNodeIdForClear(nodeId, nodeGroupById)) continue;
-			const touchesLoggedFirm = (adj.get(nodeId) || []).some((neighborId) => loggedFirms.has(neighborId));
-			if (touchesLoggedFirm) keepIds.delete(nodeId);
-		}
-	}
-
-	// Pass 2: peel dangling non-log people (one kept neighbor = leaf coworker on an
-	// unselected bridge firm between logged people).
-	let changed = true;
-	while (changed) {
-		changed = false;
-		for (const nodeId of Array.from(keepIds)) {
-			if (logIds.has(nodeId) || !isPersonNodeIdForClear(nodeId, nodeGroupById)) continue;
-			const keptNeighbors = (adj.get(nodeId) || []).filter((neighborId) => keepIds.has(neighborId));
-			if (keptNeighbors.length <= 1) {
-				keepIds.delete(nodeId);
-				changed = true;
-			}
-		}
-	}
-
-	return keepIds;
-}
-
 export function collectSelectionLogClearNonLogKeepIds(
 	graphData: { nodes?: Array<any>; links?: Array<any> } | null,
 	entries: Array<SelectionLogEntry> = selectedNodesLog,
@@ -4297,8 +4235,6 @@ export function collectSelectionLogClearNonLogKeepIds(
 		const normalizedExtraId = String(extraId || '').trim();
 		if (normalizedExtraId) keepIds.add(normalizedExtraId);
 	}
-
-	dropUnselectedFirmNeighborPeople(keepIds, logIds, adj, graphData.nodes);
 
 	return keepIds;
 }
@@ -4439,27 +4375,84 @@ function clearPersonSelectionVisualState(nodeId: string) {
 
 /**
  * After the shared log+bridge prune, remove previous-employment (gray) person links
- * and recompute keep-ids on the remaining graph.
- *
- * Important: do not BFS-expand from log terminals here. That re-kept every current
- * coworker of a logged firm (unselected 1-hop people). Bridge-based keep is enough.
+ * and drop any non-log nodes that are no longer reachable without those links.
  */
 function stripPreviousEmploymentConnectionsAfterPrune(logIds: Set<string>) {
 	if (!graphData || !Array.isArray(graphData.links) || !Array.isArray(graphData.nodes)) return;
 
 	const remainingLinks = graphData.links.filter((link) => !isPreviousEmploymentLink(link));
 	if (remainingLinks.length === graphData.links.length) {
-		// No previous-employment links to strip.
+		// No previous-employment links to strip; still re-render if callers expect it.
 		return;
 	}
 	graphData.links = remainingLinks;
 
-	const keepIds = collectSelectionLogClearNonLogKeepIds(graphData, selectedNodesLog);
+	const adj = buildUndirectedAdjacencyList(graphData.links);
+	const reachable = new Set<string>();
+	const queue: string[] = [];
+	const presentNodeIds = new Set<string>(graphData.nodes.map((node) => String(node?.id || '').trim()).filter(Boolean));
+
 	for (const logId of logIds) {
-		const normalized = String(logId || '').trim();
-		if (normalized) keepIds.add(normalized);
+		if (!presentNodeIds.has(logId)) continue;
+		reachable.add(logId);
+		queue.push(logId);
 	}
+	while (queue.length > 0) {
+		const current = queue.shift()!;
+		for (const neighborId of adj.get(current) || []) {
+			if (reachable.has(neighborId)) continue;
+			reachable.add(neighborId);
+			queue.push(neighborId);
+		}
+	}
+
+	// Isolated log terminals stay; everything else must remain connected via non-previous links.
+	for (const logId of logIds) {
+		if (presentNodeIds.has(logId)) reachable.add(logId);
+	}
+
+	pruneGraphDataToKeepIds(reachable);
+}
+
+/** Stage for combined Clear non-log: 1 = clear-non-connected, 2 = full clear-non-log. */
+let clearNonLogClickStage: 1 | 2 = 1;
+
+function syncClearNonLogButtonState() {
+	const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-graph-action="clear-non-log"]'));
+	const hasLog = selectedNodesLog.length > 0;
+	for (const button of buttons) {
+		button.disabled = !hasLog;
+		const label = button.querySelector('.fg-sidebar-action-label');
+		if (label) label.textContent = 'Clear non-log';
+		else button.textContent = 'Clear non-log';
+		if (!hasLog) {
+			button.title = 'No selection log entries to keep';
+			button.dataset.clearNonLogStage = '1';
+			continue;
+		}
+		if (clearNonLogClickStage === 1) {
+			button.title = 'Click 1/2: keep logged nodes and connecting intermediaries (clear non-connected)';
+			button.dataset.clearNonLogStage = '1';
+		} else {
+			button.title = 'Click 2/2: also strip previous-employment lines and clear highlights';
+			button.dataset.clearNonLogStage = '2';
+		}
+	}
+}
+
+/** Keep log nodes and bridges between them; drop dangling leaves. */
+function clearNonConnectedAction(button?: HTMLButtonElement) {
+	const logIds = new Set<string>(selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter(Boolean));
+	if (logIds.size === 0) {
+		updateFetchStatus('Selection log is empty');
+		clearNonLogClickStage = 1;
+		syncClearNonLogButtonState();
+		if (button) flashSelectionLogActionButton(button, 'Empty');
+		return;
+	}
+	const keepIds = collectSelectionLogClearNonLogKeepIds(graphData, selectedNodesLog);
 	pruneGraphDataToKeepIds(keepIds);
+	if (button) flashSelectionLogActionButton(button, 'Step 1');
 }
 
 /** Same prune as clear-non-connected, then strip previous-employment lines and clear highlights. */
@@ -4467,6 +4460,8 @@ function clearNonLogAction(button?: HTMLButtonElement) {
 	const logIds = new Set<string>(selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter(Boolean));
 	if (logIds.size === 0) {
 		updateFetchStatus('Selection log is empty');
+		clearNonLogClickStage = 1;
+		syncClearNonLogButtonState();
 		if (button) flashSelectionLogActionButton(button, 'Empty');
 		return;
 	}
@@ -4500,20 +4495,32 @@ function clearNonLogAction(button?: HTMLButtonElement) {
 
 	// Drop prior hop/line connection emphasis left over from earlier expansions.
 	clearHighlights();
-	if (button) flashSelectionLogActionButton(button, 'Pruned!');
+	if (button) flashSelectionLogActionButton(button, 'Step 2');
 }
 
-/** Keep log nodes and bridges between them; drop dangling leaves. */
-function clearNonConnectedAction(button?: HTMLButtonElement) {
-	const logIds = new Set<string>(selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter(Boolean));
-	if (logIds.size === 0) {
+/**
+ * Combined Clear non-log:
+ * - first click = former clear-non-connected
+ * - second click = former clear-non-log
+ * then reset so the next click is stage 1 again.
+ */
+function clearNonLogCombinedAction(button?: HTMLButtonElement) {
+	if (selectedNodesLog.length === 0) {
 		updateFetchStatus('Selection log is empty');
+		clearNonLogClickStage = 1;
+		syncClearNonLogButtonState();
 		if (button) flashSelectionLogActionButton(button, 'Empty');
 		return;
 	}
-	const keepIds = collectSelectionLogClearNonLogKeepIds(graphData, selectedNodesLog);
-	pruneGraphDataToKeepIds(keepIds);
-	if (button) flashSelectionLogActionButton(button, 'Pruned!');
+
+	if (clearNonLogClickStage === 1) {
+		clearNonConnectedAction(button);
+		clearNonLogClickStage = 2;
+	} else {
+		clearNonLogAction(button);
+		clearNonLogClickStage = 1;
+	}
+	syncClearNonLogButtonState();
 }
 
 let isSelectToKeepMode = false;
@@ -6756,33 +6763,35 @@ export function init(
 	document.addEventListener('focusin', handleFetchStatusDismissal, true);
 	syncSelectionLogActionButtonStates();
 
-	const refreshLayoutButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-action="refresh-layout"]'));
-	refreshLayoutButtons.forEach((button) => bindTouchDragClickSuppression(button));
-	refreshLayoutButtons.forEach((refreshLayoutBtn) => {
-		refreshLayoutBtn.addEventListener('click', async () => {
-			const buttons = refreshLayoutButtons;
-			buttons.forEach((button) => {
-				button.disabled = true;
-				button.dataset.refreshing = 'true';
-				button.setAttribute('aria-busy', 'true');
-			});
-			try {
-				refreshNodeLayout();
+	// Delegate so the icon remains wired after React remounts the theme-stack buttons.
+	document.addEventListener('click', async (event) => {
+		const target = event.target as Element | null;
+		const refreshLayoutBtn = target?.closest?.('[data-fg-action="refresh-layout"]') as HTMLButtonElement | null;
+		if (!refreshLayoutBtn) return;
+		if (refreshLayoutBtn.dataset.refreshing === 'true' || refreshLayoutBtn.disabled) return;
 
-				void fetchCacheStats();
-			} catch (err) {
-				console.error('refreshNodeLayout failed:', err);
-			} finally {
-				setTimeout(() => {
-					buttons.forEach((button) => {
-						button.disabled = false;
-						delete button.dataset.refreshing;
-						button.removeAttribute('aria-busy');
-					});
-				}, 900);
-			}
+		const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-action="refresh-layout"]'));
+		buttons.forEach((button) => {
+			button.disabled = true;
+			button.dataset.refreshing = 'true';
+			button.setAttribute('aria-busy', 'true');
 		});
+		try {
+			refreshNodeLayout();
+			void fetchCacheStats();
+		} catch (err) {
+			console.error('refreshNodeLayout failed:', err);
+		} finally {
+			setTimeout(() => {
+				buttons.forEach((button) => {
+					button.disabled = false;
+					delete button.dataset.refreshing;
+					button.removeAttribute('aria-busy');
+				});
+			}, 900);
+		}
 	});
+	Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-action="refresh-layout"]')).forEach((button) => bindTouchDragClickSuppression(button));
 
 	const clearSessionButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-action="clear-session"]'));
 	clearSessionButtons.forEach((button) => bindTouchDragClickSuppression(button));
@@ -6850,10 +6859,9 @@ export function init(
 					clearGraphAction(graphActionBtn);
 					break;
 				case 'clear-non-log':
-					clearNonLogAction(graphActionBtn);
-					break;
 				case 'clear-non-connected':
-					clearNonConnectedAction(graphActionBtn);
+					// Combined control: click 1 = clear-non-connected, click 2 = clear-non-log.
+					clearNonLogCombinedAction(graphActionBtn);
 					break;
 				case 'select-to-keep':
 					if (isSelectToKeepMode) {

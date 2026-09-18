@@ -2166,21 +2166,25 @@ a,
 .fg-sidebar-theme-stack {
 	position: absolute;
 	right: 1px;
-	top: 52px;
+	/* Just under the tools toggle so all 3 icons fit above the toolbar rows. */
+	top: 40px;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	gap: 2px;
-	z-index: 4;
+	z-index: 40;
+	pointer-events: auto;
 }
 
 .fg-sidebar-theme-stack .fg-sidebar-action-btn--icon-only {
-	position: static;
+	position: relative;
 	top: auto;
 	right: auto;
 	margin-top: 0;
 	min-width: 28px;
 	padding: 4px;
+	z-index: 1;
+	pointer-events: auto;
 }
 
 .fg-sidebar-theme-stack .fg-sidebar-action-icon {
@@ -2200,11 +2204,13 @@ a,
 	margin-top: 0;
 }
 
-.fg-sidebar-focus-btn {
+.fg-sidebar-focus-btn,
+.fg-sidebar-refresh-btn {
 	opacity: 0.9;
 }
 
-.fg-sidebar-focus-btn:hover:not(:disabled) {
+.fg-sidebar-focus-btn:hover:not(:disabled),
+.fg-sidebar-refresh-btn:hover:not(:disabled) {
 	opacity: 1;
 }
 .fg-sidebar-mobile-actions {
