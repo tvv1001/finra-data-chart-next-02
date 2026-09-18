@@ -1516,18 +1516,18 @@ export default function FinraGraph() {
 							</button>
 							<button
 								type='button'
+								data-fg-graph-action='clear-non-log'
+								className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-clear-non-log-btn fg-clear-non-log-btn--stage-1'
+								data-clear-non-log-stage='1'
+								title='Click 1: keep logged nodes and connecting intermediaries. Click 2: also strip previous-employment lines and clear highlights.'>
+								<span className='fg-sidebar-action-label'>Clear non-log</span>
+							</button>
+							<button
+								type='button'
 								data-fg-selection-log-action='toggle-bold'
 								className='fg-ghost-btn'
 								title='Make log entries larger and bolder'>
 								Log Bold
-							</button>
-
-							<button
-								type='button'
-								data-fg-graph-action='clear-non-log'
-								className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary fg-clear-non-log-btn'
-								title='Click 1: keep logged nodes and connecting intermediaries. Click 2: also strip previous-employment lines and clear highlights.'>
-								<span className='fg-sidebar-action-label'>Clear non-log</span>
 							</button>
 							<button
 								type='button'

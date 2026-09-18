@@ -2275,6 +2275,59 @@ a,
 	border-color: rgba(37, 99, 235, 0.32);
 }
 
+/* Clear non-log: stage 1 = blue (clear non-connected), stage 2 = purple (full clear-non-log) */
+.fg-clear-non-log-btn.fg-clear-non-log-btn--stage-1 {
+	background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+	border-color: rgba(37, 99, 235, 0.45);
+	color: #1d4ed8;
+	box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);
+}
+
+.fg-clear-non-log-btn.fg-clear-non-log-btn--stage-1:hover:not(:disabled) {
+	background: linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%);
+	border-color: rgba(37, 99, 235, 0.6);
+	color: #1e40af;
+}
+
+.fg-clear-non-log-btn.fg-clear-non-log-btn--stage-2 {
+	background: linear-gradient(180deg, #f5f3ff 0%, #ede9fe 100%);
+	border-color: rgba(124, 58, 237, 0.5);
+	color: #6d28d9;
+	box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.14);
+}
+
+.fg-clear-non-log-btn.fg-clear-non-log-btn--stage-2:hover:not(:disabled) {
+	background: linear-gradient(180deg, #ede9fe 0%, #ddd6fe 100%);
+	border-color: rgba(109, 40, 217, 0.65);
+	color: #5b21b6;
+}
+
+html[data-theme='dark'] .fg-clear-non-log-btn.fg-clear-non-log-btn--stage-1 {
+	background: rgba(37, 99, 235, 0.22);
+	border-color: rgba(96, 165, 250, 0.45);
+	color: #93c5fd;
+	box-shadow: none;
+}
+
+html[data-theme='dark'] .fg-clear-non-log-btn.fg-clear-non-log-btn--stage-1:hover:not(:disabled) {
+	background: rgba(37, 99, 235, 0.32);
+	border-color: rgba(147, 197, 253, 0.6);
+	color: #bfdbfe;
+}
+
+html[data-theme='dark'] .fg-clear-non-log-btn.fg-clear-non-log-btn--stage-2 {
+	background: rgba(124, 58, 237, 0.26);
+	border-color: rgba(167, 139, 250, 0.5);
+	color: #c4b5fd;
+	box-shadow: none;
+}
+
+html[data-theme='dark'] .fg-clear-non-log-btn.fg-clear-non-log-btn--stage-2:hover:not(:disabled) {
+	background: rgba(124, 58, 237, 0.38);
+	border-color: rgba(196, 181, 253, 0.65);
+	color: #ddd6fe;
+}
+
 .fg-sidebar-action-btn--primary {
 	background: #ffffff;
 	border-color: rgba(15, 23, 42, 0.16);

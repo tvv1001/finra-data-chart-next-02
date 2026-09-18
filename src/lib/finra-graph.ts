@@ -2726,10 +2726,11 @@ let sidebarViewMode: SidebarViewMode = loadPersistedSidebarViewMode();
 function loadSelectionLogBoldPreference() {
 	try {
 		const savedPreference = localStorage.getItem(LS_LOG_BOLD_KEY);
-		if (savedPreference === null) return true;
+		// Default off when unset.
+		if (savedPreference === null) return false;
 		return savedPreference === 'true';
 	} catch {
-		return true;
+		return false;
 	}
 }
 
@@ -4417,6 +4418,13 @@ function stripPreviousEmploymentConnectionsAfterPrune(logIds: Set<string>) {
 /** Stage for combined Clear non-log: 1 = clear-non-connected, 2 = full clear-non-log. */
 let clearNonLogClickStage: 1 | 2 = 1;
 
+/** Any new nodes on the canvas cancel a pending purple (stage 2) Clear non-log. */
+function resetClearNonLogStageAfterNodesAdded() {
+	if (clearNonLogClickStage === 1) return;
+	clearNonLogClickStage = 1;
+	syncClearNonLogButtonState();
+}
+
 function syncClearNonLogButtonState() {
 	const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-fg-graph-action="clear-non-log"]'));
 	const hasLog = selectedNodesLog.length > 0;
@@ -4425,17 +4433,18 @@ function syncClearNonLogButtonState() {
 		const label = button.querySelector('.fg-sidebar-action-label');
 		if (label) label.textContent = 'Clear non-log';
 		else button.textContent = 'Clear non-log';
+		button.classList.remove('fg-clear-non-log-btn--stage-1', 'fg-clear-non-log-btn--stage-2');
+		const stage = !hasLog || clearNonLogClickStage === 1 ? 1 : 2;
+		button.dataset.clearNonLogStage = String(stage);
+		button.classList.add(stage === 1 ? 'fg-clear-non-log-btn--stage-1' : 'fg-clear-non-log-btn--stage-2');
 		if (!hasLog) {
 			button.title = 'No selection log entries to keep';
-			button.dataset.clearNonLogStage = '1';
 			continue;
 		}
-		if (clearNonLogClickStage === 1) {
+		if (stage === 1) {
 			button.title = 'Click 1/2: keep logged nodes and connecting intermediaries (clear non-connected)';
-			button.dataset.clearNonLogStage = '1';
 		} else {
 			button.title = 'Click 2/2: also strip previous-employment lines and clear highlights';
-			button.dataset.clearNonLogStage = '2';
 		}
 	}
 }
@@ -11984,6 +11993,10 @@ function appendFetchedImpl(newNodes, newLinks) {
 	const allIncomingLinks = Array.isArray(newLinks) ? newLinks : [];
 	const rewrittenLinks = rewriteLinksForNodeIdMap(allIncomingLinks, incomingNodeIdRewrites);
 
+	if (uniqNodes.length > 0) {
+		resetClearNonLogStageAfterNodesAdded();
+	}
+
 	// Place newly-added nodes near the expand origin (parent node) if known,
 	// otherwise fall back to the viewport center so they're visible immediately.
 	if (uniqNodes.length > 0) {
@@ -12748,6 +12761,8 @@ function injectNodesById(ids, { skipPersist = false }: { skipPersist?: boolean }
 	const idSet = new Set(ids || []);
 	const toAdd = selectNodesToInjectById(Array.from(idSet), { renderedNodes: layoutNodes, graphNodes: graphData.nodes });
 	if (!toAdd.length) return;
+
+	resetClearNonLogStageAfterNodesAdded();
 
 	// place new nodes near parent (if known) or near center with small random offset
 	const main = document.getElementById('fg-main');
