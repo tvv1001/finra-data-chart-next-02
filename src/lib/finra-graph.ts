@@ -655,9 +655,10 @@ function applyStatusPresentation(text: string, options: { transient?: boolean; d
 	if (pinBtn) {
 		pinBtn.classList.toggle('is-active', pinned);
 		pinBtn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
-		pinBtn.setAttribute('title', 'Dismiss status');
-		pinBtn.setAttribute('aria-label', 'Dismiss status');
-		pinBtn.classList.toggle('is-hidden', loading);
+		pinBtn.setAttribute('title', 'Close status');
+		pinBtn.setAttribute('aria-label', 'Close status');
+		// Always keep the close control available — status is only dismissed via this button.
+		pinBtn.classList.remove('is-hidden');
 	}
 }
 
@@ -674,8 +675,8 @@ function clearFetchStatus() {
 	const pinBtn = document.getElementById('fg-subset-info-pin') as HTMLButtonElement | null;
 	if (pinBtn) {
 		pinBtn.setAttribute('aria-pressed', 'false');
-		pinBtn.setAttribute('title', 'Dismiss status');
-		pinBtn.setAttribute('aria-label', 'Dismiss status');
+		pinBtn.setAttribute('title', 'Close status');
+		pinBtn.setAttribute('aria-label', 'Close status');
 		pinBtn.classList.remove('is-active');
 	}
 }
@@ -691,8 +692,8 @@ function setFetchStatusPinned(pinned: boolean) {
 	if (pinBtn) {
 		pinBtn.classList.toggle('is-active', pinned);
 		pinBtn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
-		pinBtn.setAttribute('title', 'Dismiss status');
-		pinBtn.setAttribute('aria-label', 'Dismiss status');
+		pinBtn.setAttribute('title', 'Close status');
+		pinBtn.setAttribute('aria-label', 'Close status');
 	}
 	try {
 		localStorage.setItem(FETCH_STATUS_PIN_STORAGE_KEY, pinned ? '1' : '0');
@@ -758,6 +759,10 @@ const TEXT_SEARCH_DETAIL_HYDRATION_LIMIT = 5;
 const TEXT_SEARCH_DETAIL_HYDRATION_CONCURRENCY = 5;
 /** Shared-selection / canvas import hydration chunk size. */
 const ON_SCREEN_DETAIL_FETCH_BATCH_SIZE = 5;
+/** Log-list / bulk restore: higher fan-out + larger chunks so hundreds of CRDs don't crawl. */
+const LOG_LIST_DETAIL_FETCH_BATCH_SIZE = 40;
+/** Cap ids per /nodes-by-ids request to keep query strings reasonable. */
+const NODES_BY_IDS_CHUNK_SIZE = 120;
 
 const individualDetailRequestCache = new Map<string, Promise<void>>();
 const firmDetailRequestCache = new Map<string, Promise<void>>();
@@ -1147,6 +1152,10 @@ function buildSessionPayload({ compact = false, extraNodeMode = 'full' }: { comp
 			}
 			return null;
 		})(),
+		// Label size prefs — also mirrored in dedicated localStorage keys so a refresh
+		// restores normal vs large even when the session payload is compacted/minimal.
+		selectionLogBold: Boolean(isSelectionLogBold),
+		clearedSelectionLogLabelIds: Array.from(clearedSelectionLogLabelNodeIds),
 	};
 }
 
@@ -2351,8 +2360,13 @@ let activeFindMatchIndex = -1;
 
 const LS_LOG_KEY = 'finra_selection_log';
 const LS_LOG_BOLD_KEY = 'finra_selection_log_bold';
+const LS_CLEARED_LABELS_KEY = 'finra_selection_log_cleared_labels';
 const LS_FIRMS_BOLD_KEY = 'finra_firms_bold';
 const SIDEBAR_VIEW_MODE_STORAGE_KEY = 'finra_sidebar_view_mode';
+const SESSION_RESTORE_SLOW_MS = 7000;
+const SESSION_RESTORE_MODE_KEY = 'fg_restore_mode';
+type SessionRecoveryChoice = 'continue' | 'reset' | 'log-list';
+type SessionRecoveryReason = 'fresh' | 'slow';
 const ROUTE_NODE_REQUEST_EVENT = 'finra:route-node-request';
 const SELECTED_NODE_ROUTE_EVENT = 'finra:selected-node-route';
 const FIND_QUERY_EVENT = 'finra:find-query';
@@ -2734,6 +2748,58 @@ function loadSelectionLogBoldPreference() {
 	}
 }
 
+function loadClearedSelectionLogLabelsPreference(): Set<string> {
+	try {
+		const raw = localStorage.getItem(LS_CLEARED_LABELS_KEY);
+		if (!raw) return new Set();
+		const parsed = JSON.parse(raw);
+		if (!Array.isArray(parsed)) return new Set();
+		return new Set(parsed.map((id) => String(id || '').trim()).filter(Boolean));
+	} catch {
+		return new Set();
+	}
+}
+
+function saveClearedSelectionLogLabelsPreference() {
+	try {
+		localStorage.setItem(LS_CLEARED_LABELS_KEY, JSON.stringify(Array.from(clearedSelectionLogLabelNodeIds)));
+	} catch {
+		/* ignore persistence errors */
+	}
+}
+
+function applySelectionLogLabelState({
+	selectionLogBold,
+	clearedSelectionLogLabelIds,
+}: {
+	selectionLogBold?: boolean | null;
+	clearedSelectionLogLabelIds?: Iterable<string> | null;
+} = {}) {
+	if (typeof selectionLogBold === 'boolean') {
+		isSelectionLogBold = selectionLogBold;
+		saveSelectionLogBoldPreference();
+	} else {
+		isSelectionLogBold = loadSelectionLogBoldPreference();
+	}
+
+	if (clearedSelectionLogLabelIds != null) {
+		clearedSelectionLogLabelNodeIds = new Set(
+			Array.from(clearedSelectionLogLabelIds)
+				.map((id) => String(id || '').trim())
+				.filter(Boolean),
+		);
+		saveClearedSelectionLogLabelsPreference();
+	} else if (!clearedSelectionLogLabelNodeIds.size) {
+		clearedSelectionLogLabelNodeIds = loadClearedSelectionLogLabelsPreference();
+	}
+
+	syncSelectionLogActionButtonStates();
+	updateSelectionLogUI();
+	reapplySelectionState();
+	syncTraceLabelPresentation();
+	syncSelectionLogAuxiliaryRenderers();
+}
+
 function requestPersistentSelectionLogStorage() {
 	if (typeof navigator === 'undefined' || !('storage' in navigator) || typeof navigator.storage?.persist !== 'function') return;
 	navigator.storage.persist().catch(() => undefined);
@@ -2972,6 +3038,7 @@ function loadFirmsBoldPreference() {
 }
 
 isSelectionLogBold = loadSelectionLogBoldPreference();
+clearedSelectionLogLabelNodeIds = loadClearedSelectionLogLabelsPreference();
 forceFirmsBold = loadFirmsBoldPreference();
 
 function isDevelopmentRuntime() {
@@ -3368,6 +3435,8 @@ function clearSelectionLogLabels(scope: SelectionLogClearLabelsScope = 'all') {
 	enlargedNodeIds.forEach((id) => {
 		clearedSelectionLogLabelNodeIds.add(id);
 	});
+	saveClearedSelectionLogLabelsPreference();
+	saveSession();
 	isSelectionLogClearLabelsMenuOpen = false;
 	updateSelectionLogUI();
 	syncSelectionLogActionButtonStates();
@@ -3941,6 +4010,7 @@ function addToSelectionLog(d) {
 	// A fresh click on this node means the user wants to see its label emphasized
 	// again, even if "Clear Labels" previously hid it.
 	clearedSelectionLogLabelNodeIds.delete(String(d.id || '').trim());
+	saveClearedSelectionLogLabelsPreference();
 	saveSelectionLog();
 	updateSelectionLogUI();
 	syncSelectionLogAuxiliaryRenderers();
@@ -4118,7 +4188,7 @@ async function ensureNodeFetchedAndOnScreen(entry: SelectionLogEntry) {
 				const liveNode = layoutNodes.find((n) => String(n.id).trim() === String(entryId).trim());
 				if (liveNode) {
 					selectNode(liveNode, { focus: true, pulse: true });
-					clearFetchStatus();
+					updateFetchStatus(`Loaded CRD ${crd}`);
 					return;
 				}
 			}
@@ -4819,6 +4889,8 @@ function updateSelectionLogUI() {
 							clearedSelectionLogLabelNodeIds.add(id);
 							flashSelectionLogActionButton(labelToggleBtn, 'Hidden');
 						}
+						saveClearedSelectionLogLabelsPreference();
+						saveSession();
 						updateSelectionLogUI();
 						reapplySelectionState();
 						syncTraceLabelPresentation();
@@ -4940,6 +5012,7 @@ function handleDelegatedButtonClicks(event: MouseEvent) {
 		// selection-log individual again, so lift the suppression here explicitly.
 		if (isSelectionLogBold) logBoldHighlightRootsSuppressed = false;
 		saveSelectionLogBoldPreference();
+		saveSession();
 		updateSelectionLogUI();
 		syncSelectionLogActionButtonStates();
 		reapplySelectionState();
@@ -5934,6 +6007,11 @@ async function restoreSavedSession(session) {
 	} catch {
 		// non-critical
 	}
+
+	applySelectionLogLabelState({
+		selectionLogBold: typeof session.selectionLogBold === 'boolean' ? session.selectionLogBold : null,
+		clearedSelectionLogLabelIds: Array.isArray(session.clearedSelectionLogLabelIds) ? session.clearedSelectionLogLabelIds : null,
+	});
 }
 
 export function clearSelectionState(_state: { selectedId?: string | null; highlightedSelections?: Array<any>; sidebarSelectedNode?: any } = {}) {
@@ -6061,6 +6139,209 @@ async function resetSessionView() {
 	});
 }
 
+function updateSessionRecoveryCopy(reason: SessionRecoveryReason) {
+	const title = document.getElementById('fg-session-prompt-title');
+	const body = document.getElementById('fg-session-prompt-body');
+	if (reason === 'slow') {
+		if (title) title.textContent = 'Still loading previous session…';
+		if (body) {
+			body.textContent = 'Restore is taking longer than usual. Keep waiting, load only your selection-log CRDs, or reset the canvas.';
+		}
+		return;
+	}
+	if (title) title.textContent = 'Resume previous session?';
+	if (body) {
+		body.textContent = 'You have a saved graph from a previous visit (or after a crash). Continue with the full canvas, load selection-log CRDs only, or reset.';
+	}
+}
+
+function showSessionRecoveryShell(reason: SessionRecoveryReason) {
+	updateSessionRecoveryCopy(reason);
+	const empty = document.getElementById('fg-empty');
+	document.getElementById('fg-empty-default')?.classList.add('hidden');
+	document.getElementById('fg-session-loader')?.classList.add('hidden');
+	document.getElementById('fg-session-prompt')?.classList.remove('hidden');
+	empty?.classList.add('fg-empty--session-restore');
+	empty?.classList.remove('hidden');
+	// Do not mark the app empty / hide the SVG — recovery is an overlay on a live restore.
+	const svg = document.getElementById('fg-svg');
+	if (svg) svg.style.visibility = 'visible';
+}
+
+function showSessionRestoreLoader() {
+	// Do not show #fg-session-loader — its .fg-skeleton placeholders have no styles, so the
+	// empty-card renders as a blank white/rounded box over the graph (especially in light theme).
+	// Keep the empty overlay hidden and report progress in the fetch/status bar instead.
+	const empty = document.getElementById('fg-empty');
+	document.getElementById('fg-empty-default')?.classList.add('hidden');
+	document.getElementById('fg-session-prompt')?.classList.add('hidden');
+	document.getElementById('fg-session-loader')?.classList.add('hidden');
+	empty?.classList.remove('fg-empty--session-restore');
+	empty?.classList.add('hidden');
+	const svg = document.getElementById('fg-svg');
+	if (svg) svg.style.visibility = 'visible';
+	document.getElementById('finra-app')?.setAttribute('data-graph-empty', 'false');
+	updateFetchStatus('Restoring previous session…', true);
+}
+
+function hideSessionRestoreChrome() {
+	const empty = document.getElementById('fg-empty');
+	document.getElementById('fg-session-prompt')?.classList.add('hidden');
+	document.getElementById('fg-session-loader')?.classList.add('hidden');
+	empty?.classList.remove('fg-empty--session-restore');
+	const hasNodes = Boolean((Array.isArray(layoutNodes) && layoutNodes.length) || (Array.isArray(graphData?.nodes) && graphData.nodes.length));
+	if (hasNodes) {
+		// Always clear the full-viewport empty overlay after restore. Hiding only the
+		// prompt/loader cards left a blank dimmed #fg-empty covering the graph, and
+		// showEmpty(true) during baseline render could leave the SVG visibility:hidden.
+		showEmpty(false);
+		document.getElementById('finra-app')?.setAttribute('data-graph-empty', 'false');
+		const svg = document.getElementById('fg-svg');
+		if (svg) svg.style.visibility = 'visible';
+		if (activeFetchStatusMessage === 'Restoring previous session…') {
+			updateFetchStatus('Session restored');
+		}
+		return;
+	}
+	document.getElementById('fg-empty-default')?.classList.remove('hidden');
+	empty?.classList.remove('hidden');
+	document.getElementById('finra-app')?.setAttribute('data-graph-empty', 'true');
+	showEmpty(true);
+}
+
+function promptSessionRecovery(reason: SessionRecoveryReason): Promise<SessionRecoveryChoice> {
+	showSessionRecoveryShell(reason);
+	return new Promise((resolve) => {
+		const btnContinue = document.getElementById('fg-btn-resume-session');
+		const btnLogList = document.getElementById('fg-btn-loglist-session');
+		const btnReset = document.getElementById('fg-btn-reset-session');
+
+		const finish = (choice: SessionRecoveryChoice) => {
+			btnContinue?.removeEventListener('click', onContinue);
+			btnLogList?.removeEventListener('click', onLogList);
+			btnReset?.removeEventListener('click', onReset);
+			document.getElementById('fg-session-prompt')?.classList.add('hidden');
+			resolve(choice);
+		};
+
+		const onContinue = () => finish('continue');
+		const onLogList = () => finish('log-list');
+		const onReset = () => finish('reset');
+
+		btnContinue?.addEventListener('click', onContinue);
+		btnLogList?.addEventListener('click', onLogList);
+		btnReset?.addEventListener('click', onReset);
+	});
+}
+
+function buildSelectionLogStubNodes(entries: Array<SelectionLogEntry> = selectedNodesLog) {
+	const stubs: any[] = [];
+	const seen = new Set<string>();
+	for (const entry of entries) {
+		const id = String(entry?.id || '').trim();
+		if (!id || seen.has(id)) continue;
+		seen.add(id);
+		const group =
+			entry?.group === 'firm' || id.startsWith('firm:') ? 'firm'
+			: 'individual';
+		const rawId = id.includes(':') ? id.split(':').pop() || '' : id;
+		const stub: Record<string, any> = {
+			id,
+			label: String(entry?.label || rawId || id),
+			group,
+			_logListStub: true,
+		};
+		if (group === 'individual' && /^\d+$/.test(rawId)) stub.crd = rawId;
+		if (group === 'firm' && /^\d+$/.test(rawId)) stub.firmId = rawId;
+		stubs.push(stub);
+	}
+	return stubs;
+}
+
+async function restoreSelectionLogOnlyGraph() {
+	hideSessionRestoreChrome();
+	clearSession();
+	clearGraphData();
+	emitSelectedNodeRoute(null, { replace: true });
+
+	const ids = selectedNodesLog.map((entry) => String(entry?.id || '').trim()).filter(Boolean);
+	if (!ids.length) {
+		document.getElementById('fg-empty-default')?.classList.remove('hidden');
+		document.getElementById('fg-empty')?.classList.remove('hidden');
+		document.getElementById('finra-app')?.setAttribute('data-graph-empty', 'true');
+		applySelectionLogLabelState();
+		return;
+	}
+
+	// Paint stubs immediately so the canvas is usable while detail hydration catches up.
+	const stubs = buildSelectionLogStubNodes(selectedNodesLog);
+	if (stubs.length) {
+		mergeIntoGraphData(stubs, []);
+		appendFetched?.(stubs, []);
+		showEmpty(false);
+		document.getElementById('fg-empty-default')?.classList.add('hidden');
+		document.getElementById('finra-app')?.setAttribute('data-graph-empty', 'false');
+	} else {
+		showSessionRestoreLoader();
+	}
+
+	sidebarViewMode = 'log';
+	try {
+		sessionStorage.setItem(SIDEBAR_VIEW_MODE_STORAGE_KEY, 'log');
+	} catch {
+		/* ignore */
+	}
+	applySelectionLogLabelState();
+	saveSession();
+	hideSessionRestoreChrome();
+	const hasNodes = Boolean(layoutNodes?.length);
+	showEmpty(!hasNodes);
+	if (!hasNodes) {
+		document.getElementById('fg-empty-default')?.classList.remove('hidden');
+		return;
+	}
+
+	// Enrich in the background — do not block interaction on hundreds of detail fetches.
+	updateFetchStatus(`Loading ${ids.length} log nodes…`, true);
+	void hydratePendingNodeIds(ids, false, {
+		mode: 'log-list',
+		onProgress: (done, total) => {
+			updateFetchStatus(`Loading log nodes ${done}/${total}…`, true);
+		},
+	})
+		.then(() => {
+			applySelectionLogLabelState();
+			saveSession();
+			void fetchCacheStats();
+			updateFetchStatus(`Loaded ${layoutNodes?.length || 0} log nodes`);
+		})
+		.catch((error) => {
+			console.warn('Background log-list hydrate failed:', error);
+			updateFetchStatus('Log-list enrichment unfinished');
+		});
+}
+
+function requestLogListRestoreReload() {
+	try {
+		sessionStorage.setItem(SESSION_RESTORE_MODE_KEY, 'log-list');
+		sessionStorage.setItem('fg_session_active', '1');
+	} catch {
+		/* ignore */
+	}
+	clearSession();
+	window.location.reload();
+}
+
+function requestResetContentReload() {
+	try {
+		sessionStorage.setItem('fg_session_active', '1');
+	} catch {
+		/* ignore */
+	}
+	clearSession();
+	window.location.reload();
+}
+
 // Normalize saved zoom transform from either object form or SVG transform string.
 function parseZoomTransformString(t) {
 	if (t && typeof t === 'object') {
@@ -6132,6 +6413,10 @@ export function buildSessionRenderGraphData(session, baseGraphData = graphData) 
 			...(Array.isArray(session?.renderedServerIds) ? session.renderedServerIds : []),
 			session?.selectedNodeId,
 			...(Array.isArray(session?.highlightedNodes) ? session.highlightedNodes.map((entry) => entry?.id) : []),
+			// Log-list / canvas-only sessions persist everything in extraNodes and leave
+			// renderedServerIds empty — still treat those ids as the restore target set.
+			...(Array.isArray(session?.extraNodes) ? session.extraNodes.map((node) => node?.id) : []),
+			...(Array.isArray(session?.extraNodeIds) ? session.extraNodeIds : []),
 		]
 			.map((value) => String(value || '').trim())
 			.filter(Boolean),
@@ -6758,18 +7043,8 @@ export function init(
 	(document.getElementById('btn-log-close') as HTMLButtonElement | null)?.addEventListener('click', closeLog);
 	document.addEventListener('click', handleDelegatedButtonClicks);
 	document.addEventListener('click', handleSelectionLogClearLabelsOutsideClick);
-	const handleFetchStatusDismissal = (event: Event) => {
-		if (!activeFetchStatusMessage || activeFetchStatusPinned) return;
-		if (hasLockedFetchStatus()) return;
-		const target = event.target as Node | null;
-		if (!target) return;
-		const fetchArea = document.querySelector<HTMLElement>('.fg-fetch');
-		const statusWrap = document.querySelector<HTMLElement>('.fg-toolbar-status--top');
-		if (fetchArea?.contains(target) || statusWrap?.contains(target)) return;
-		clearFetchStatus();
-	};
-	document.addEventListener('click', handleFetchStatusDismissal, true);
-	document.addEventListener('focusin', handleFetchStatusDismissal, true);
+	// Fetch/search status stays until the close button (#fg-subset-info-pin) is used.
+	// Do not dismiss on click-outside or focus changes.
 	syncSelectionLogActionButtonStates();
 
 	// Delegate so the icon remains wired after React remounts the theme-stack buttons.
@@ -9084,10 +9359,29 @@ async function loadGraph() {
 		const profileName = hasProfileParam ? new URLSearchParams(window.location.search).get('profile') : 'custom';
 		currentProfileName = profileName;
 
+		const forcedRestoreMode = (() => {
+			try {
+				return String(sessionStorage.getItem(SESSION_RESTORE_MODE_KEY) || '').trim();
+			} catch {
+				return '';
+			}
+		})();
+		try {
+			sessionStorage.removeItem(SESSION_RESTORE_MODE_KEY);
+		} catch {
+			/* ignore */
+		}
+
 		// Load profile and session in parallel for faster startup
 		const [profileData, session] = await Promise.all([loadProfile(profileName), loadSessionAsync()]);
 
 		currentProfileEnabled = isProfileEnabled(profileData);
+
+		if (forcedRestoreMode === 'log-list') {
+			loadSelectionLog();
+			await restoreSelectionLogOnlyGraph();
+			return;
+		}
 
 		let clearedSession = Boolean(session?.cleared);
 		isSessionCleared = clearedSession;
@@ -9101,51 +9395,74 @@ async function loadGraph() {
 		const isFreshBrowserSession = !sessionStorage.getItem('fg_session_active');
 		sessionStorage.setItem('fg_session_active', '1');
 
+		let sessionRestoreChoice: SessionRecoveryChoice = 'continue';
+		let sessionRestoreFinished = false;
+		let slowRecoveryPrompt: Promise<SessionRecoveryChoice> | null = null;
+		let slowRecoveryTimer: number | null = null;
+
+		const clearSlowRecoveryTimer = () => {
+			if (slowRecoveryTimer != null) {
+				window.clearTimeout(slowRecoveryTimer);
+				slowRecoveryTimer = null;
+			}
+		};
+
+		const armSlowSessionRecoveryPrompt = () => {
+			clearSlowRecoveryTimer();
+			slowRecoveryTimer = window.setTimeout(() => {
+				if (sessionRestoreFinished) return;
+				slowRecoveryPrompt = promptSessionRecovery('slow').then((choice) => {
+					// Restore may have finished while the prompt was open — never re-dim.
+					if (sessionRestoreFinished || choice === 'continue') {
+						if (!sessionRestoreFinished) showSessionRestoreLoader();
+						else hideSessionRestoreChrome();
+						return choice;
+					}
+					if (choice === 'log-list') {
+						requestLogListRestoreReload();
+						return choice;
+					}
+					requestResetContentReload();
+					return choice;
+				});
+			}, SESSION_RESTORE_SLOW_MS);
+		};
+
 		if (hasSavedSessionData && !pendingRouteNodeId && !pendingSelectedNodeIds.length && !pendingCanvasNodeIds.length) {
 			if (isFreshBrowserSession) {
-				document.getElementById('fg-empty-default')?.classList.add('hidden');
-				document.getElementById('fg-session-loader')?.classList.add('hidden');
-				document.getElementById('fg-session-prompt')?.classList.remove('hidden');
-				document.getElementById('fg-empty')?.classList.remove('hidden');
-				document.getElementById('finra-app')?.setAttribute('data-graph-empty', 'true');
-
-				await new Promise((resolve) => {
-					const btnResume = document.getElementById('fg-btn-resume-session');
-					const btnReset = document.getElementById('fg-btn-reset-session');
-
-					const resumeHandler = () => {
-						btnResume?.removeEventListener('click', resumeHandler);
-						btnReset?.removeEventListener('click', resetHandler);
-						document.getElementById('fg-session-prompt')?.classList.add('hidden');
-						document.getElementById('fg-session-loader')?.classList.remove('hidden');
-						resolve(true);
-					};
-
-					const resetHandler = () => {
-						btnResume?.removeEventListener('click', resumeHandler);
-						btnReset?.removeEventListener('click', resetHandler);
-						document.getElementById('fg-session-prompt')?.classList.add('hidden');
-						document.getElementById('fg-empty-default')?.classList.remove('hidden');
-						isSessionCleared = true;
-						session.cleared = true;
-						clearedSession = true;
-						try {
-							localStorage.removeItem('finra_session');
-						} catch {}
-						resolve(false);
-					};
-
-					btnResume?.addEventListener('click', resumeHandler);
-					btnReset?.addEventListener('click', resetHandler);
-				});
+				sessionRestoreChoice = await promptSessionRecovery('fresh');
 			} else {
-				document.getElementById('fg-empty-default')?.classList.add('hidden');
-				document.getElementById('fg-session-prompt')?.classList.add('hidden');
-				document.getElementById('fg-session-loader')?.classList.remove('hidden');
+				sessionRestoreChoice = 'continue';
+			}
+
+			if (sessionRestoreChoice === 'reset') {
+				isSessionCleared = true;
+				if (session) session.cleared = true;
+				clearedSession = true;
+				clearSession();
+				hideSessionRestoreChrome();
+				document.getElementById('fg-empty-default')?.classList.remove('hidden');
 				document.getElementById('fg-empty')?.classList.remove('hidden');
 				document.getElementById('finra-app')?.setAttribute('data-graph-empty', 'true');
+			} else if (sessionRestoreChoice === 'log-list') {
+				clearSlowRecoveryTimer();
+				await restoreSelectionLogOnlyGraph();
+				return;
+			} else {
+				showSessionRestoreLoader();
+				armSlowSessionRecoveryPrompt();
 			}
 		}
+
+		const markSessionRestoreFinished = async () => {
+			sessionRestoreFinished = true;
+			clearSlowRecoveryTimer();
+			// If the slow-load prompt appeared, do not keep the screen locked waiting for a
+			// click — restore already finished, so dismiss immediately and keep nodes usable.
+			slowRecoveryPrompt = null;
+			hideSessionRestoreChrome();
+			return 'continue' as const;
+		};
 
 		if (!currentProfileEnabled) {
 			if (session && !clearedSession) {
@@ -9157,9 +9474,11 @@ async function loadGraph() {
 				showEmpty(false);
 				updateMeta({ totalIndividuals: 0, totalFirms: 0, totalLinks: 0 });
 				await restoreSavedSession(session);
+				await markSessionRestoreFinished();
 				return;
 			}
 			clearGraphData();
+			await markSessionRestoreFinished();
 			return;
 		}
 
@@ -9168,22 +9487,46 @@ async function loadGraph() {
 			if (session && (session.extraNodes?.length || session.extraNodeIds?.length || session.renderedServerIds?.length)) {
 				await restoreSavedSession(session);
 			}
+			await markSessionRestoreFinished();
 			return;
 		} else if (shouldStartEmptyForCustomProfile) {
 			clearGraphData();
+			await markSessionRestoreFinished();
 			return;
 		} else {
 			await loadBaselineGraph(profileName, { suppressRender: Boolean(session) });
-			if (!graphData) return;
+			// Custom / cache-miss baselines can return null even when a local session still has
+			// extraNodes to restore. Seed an empty graph shell so renderSavedSessionGraph can run.
+			if (!graphData) {
+				graphData = { nodes: [], links: [], meta: {} };
+				initialServerNodeIds = new Set();
+				initialServerLinkKeys = new Set();
+				isSubsetMode = false;
+			}
 
 			if (session) {
 				const renderedSavedSession = renderSavedSessionGraph(session);
 				if (!renderedSavedSession) {
-					renderBaselineGraphData();
+					// Avoid showEmpty(true) here — that hides the SVG under the restore chrome
+					// and can leave the canvas grayed out / unclickable if restore is slow.
+					const hasBaselineContent = Boolean((graphData?.nodes?.length || 0) > 0 || (graphData?.links?.length || 0) > 0);
+					if (hasBaselineContent) {
+						renderBaselineGraphData();
+					} else if (!layoutNodes?.length) {
+						graphData = graphData || { nodes: [], links: [], meta: {} };
+						renderGraph(graphData);
+						showEmpty(false);
+					}
 				}
 				await restoreSavedSession(session);
+				if ((layoutNodes?.length || 0) > 0 || (graphData?.nodes?.length || 0) > 0) {
+					showEmpty(false);
+					document.getElementById('finra-app')?.setAttribute('data-graph-empty', 'false');
+				}
+				await markSessionRestoreFinished();
 				return;
 			}
+			await markSessionRestoreFinished();
 		}
 
 		// Auto-load the profile specified in ?profile=<name>, or 'custom' by default.
@@ -9295,8 +9638,22 @@ async function loadGraph() {
 // previously this looped `for...of` with a blocking `await` per id, meaning a 200-id link took
 // ~200 sequential network round-trips before the page felt fully loaded. Selection-log UI
 // updates are also batched into a single refresh at the end instead of once per node.
-async function hydratePendingNodeIds(ids: string[], addToLog: boolean) {
+//
+// mode:'log-list' is optimized for crash/recovery bulk restore: prefer /nodes-by-ids, skip
+// previous-employer expansion, use a larger fetch fan-out, and avoid sequential straggler
+// lookups that re-fetch every miss one-by-one.
+async function hydratePendingNodeIds(
+	ids: string[],
+	addToLog: boolean,
+	options: {
+		mode?: 'default' | 'log-list';
+		onProgress?: (done: number, total: number) => void;
+	} = {},
+) {
 	if (!ids.length) return;
+	const isLogList = options.mode === 'log-list';
+	const detailBatchSize = isLogList ? LOG_LIST_DETAIL_FETCH_BATCH_SIZE : ON_SCREEN_DETAIL_FETCH_BATCH_SIZE;
+	const yieldMs = isLogList ? 0 : 60;
 
 	const normalizedIds: string[] = [];
 	const seenIds = new Set<string>();
@@ -9308,6 +9665,10 @@ async function hydratePendingNodeIds(ids: string[], addToLog: boolean) {
 	}
 	if (!normalizedIds.length) return;
 
+	const reportProgress = (done: number) => {
+		options.onProgress?.(Math.min(done, normalizedIds.length), normalizedIds.length);
+	};
+
 	// Split ids into "already in the graph" (cheap local inject) and "needs a detail fetch".
 	// Detail fetches are accumulated and appended to the canvas in ONE pass: appending per node
 	// re-ran the full-graph work (D3 data join, neighbor-map rebuild, link dedupe, session save
@@ -9315,9 +9676,11 @@ async function hydratePendingNodeIds(ids: string[], addToLog: boolean) {
 	// O(N²) work and left the graph reheating N times — which is why imports felt far more
 	// sluggish than a normal click expansion (a single append).
 	const idsToInject: string[] = [];
-	const idsToFetch: Array<{ id: string; prefix: string; rawId: string }> = [];
+	let idsToFetch: Array<{ id: string; prefix: string; rawId: string }> = [];
 	for (const normalizedId of normalizedIds) {
-		if (findGraphNodeByRouteId(normalizedId)) {
+		const existing = findGraphNodeByRouteId(normalizedId);
+		// Log-list stubs are placeholders — still enrich them via bulk/detail fetch.
+		if (existing && !(isLogList && existing._logListStub)) {
 			idsToInject.push(normalizedId);
 			continue;
 		}
@@ -9331,17 +9694,59 @@ async function hydratePendingNodeIds(ids: string[], addToLog: boolean) {
 		const missingFromCanvas = idsToInject.filter((id) => !layoutNodes?.some((node) => node.id === id));
 		if (missingFromCanvas.length) injectNodesById(missingFromCanvas);
 	}
+	reportProgress(normalizedIds.length - idsToFetch.length);
+
+	// Fast path for normal shared-selection imports: pull anything already in the shared
+	// graph store in chunked bulk GETs. Skipped for log-list restore — loading the full
+	// graph snapshot first delays enrichment, and stubs already carry labels from the log.
+	if (idsToFetch.length && !isLogList) {
+		const stillMissing: Array<{ id: string; prefix: string; rawId: string }> = [];
+		for (let i = 0; i < idsToFetch.length; i += NODES_BY_IDS_CHUNK_SIZE) {
+			const chunk = idsToFetch.slice(i, i + NODES_BY_IDS_CHUNK_SIZE);
+			try {
+				const fetched = await fetchNodesByIds(chunk.map((entry) => entry.id));
+				const fetchedById = new Map<string, any>();
+				for (const node of Array.isArray(fetched) ? fetched : []) {
+					const nodeId = String(node?.id || '').trim();
+					if (nodeId) fetchedById.set(nodeId, node);
+				}
+				const chunkNodes: any[] = [];
+				for (const entry of chunk) {
+					const node = fetchedById.get(entry.id);
+					if (node) chunkNodes.push(node);
+					else stillMissing.push(entry);
+				}
+				if (chunkNodes.length) {
+					mergeIntoGraphData(chunkNodes, []);
+					appendFetched?.(chunkNodes, []);
+				}
+			} catch (error) {
+				console.warn('Bulk nodes-by-ids hydrate failed; falling back to detail fetches.', error);
+				stillMissing.push(...chunk);
+			}
+			reportProgress(normalizedIds.length - stillMissing.length - (idsToFetch.length - i - chunk.length));
+			if (yieldMs > 0) await new Promise((resolve) => setTimeout(resolve, yieldMs));
+			else if (i + NODES_BY_IDS_CHUNK_SIZE < idsToFetch.length) await new Promise((resolve) => setTimeout(resolve, 0));
+		}
+		idsToFetch = stillMissing;
+	}
 
 	if (idsToFetch.length) {
-		const onScreenFirmIds = Array.from(
-			new Set([
-				...normalizedIds.filter((id) => id.startsWith('firm:')).map((id) => id.split(':')[1]),
-				...(layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId)),
-			]),
-		);
+		// Log-list restore only needs the logged CRDs (+ current employers from detail).
+		// Wiring previous employers to every on-screen firm multiplies work and payload size.
+		const onScreenFirmIds =
+			isLogList ? [] : (
+				Array.from(
+					new Set([
+						...normalizedIds.filter((id) => id.startsWith('firm:')).map((id) => id.split(':')[1]),
+						...(layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId)),
+					]),
+				)
+			);
 
-		for (let i = 0; i < idsToFetch.length; i += ON_SCREEN_DETAIL_FETCH_BATCH_SIZE) {
-			const chunk = idsToFetch.slice(i, i + ON_SCREEN_DETAIL_FETCH_BATCH_SIZE);
+		let completedDetail = normalizedIds.length - idsToFetch.length;
+		for (let i = 0; i < idsToFetch.length; i += detailBatchSize) {
+			const chunk = idsToFetch.slice(i, i + detailBatchSize);
 			const chunkNodes: any[] = [];
 			const chunkLinks: any[] = [];
 
@@ -9349,7 +9754,9 @@ async function hydratePendingNodeIds(ids: string[], addToLog: boolean) {
 				chunk.map(async (entry) => {
 					try {
 						const batch =
-							entry.prefix === 'person' ? await fetchIndividualBatch(entry.rawId, null, { includePreviousEmployerIds: onScreenFirmIds }) : await fetchFirmBatch(entry.rawId);
+							entry.prefix === 'person' ?
+								await fetchIndividualBatch(entry.rawId, null, isLogList ? {} : { includePreviousEmployerIds: onScreenFirmIds })
+							:	await fetchFirmBatch(entry.rawId);
 						if (batch?.nodes?.length) chunkNodes.push(...batch.nodes);
 						if (batch?.links?.length) chunkLinks.push(...batch.links);
 					} catch (error) {
@@ -9361,20 +9768,22 @@ async function hydratePendingNodeIds(ids: string[], addToLog: boolean) {
 			if (chunkNodes.length || chunkLinks.length) {
 				mergeIntoGraphData(chunkNodes, chunkLinks);
 				appendFetched?.(chunkNodes, chunkLinks);
-
-				// Yield between batches of 5 so the UI can paint and the server can breathe.
-				await new Promise((resolve) => setTimeout(resolve, 60));
 			}
+			completedDetail += chunk.length;
+			reportProgress(completedDetail);
+			if (yieldMs > 0) await new Promise((resolve) => setTimeout(resolve, yieldMs));
+			else await new Promise((resolve) => setTimeout(resolve, 0));
 		}
 	}
 
 	const resolvedEntries: SelectionLogEntry[] = [];
 	for (const normalizedId of normalizedIds) {
 		let liveNode = findGraphNodeByRouteId(normalizedId);
-		if (!liveNode) {
+		if (!liveNode && !isLogList) {
 			try {
 				// Rare stragglers (e.g. an id whose detail fetch failed or whose node id was
 				// rewritten during merge) still get the original per-node resolution path.
+				// Skipped for log-list restore — sequential retries dominate wall time on large logs.
 				liveNode = await ensureRouteNodeAvailable(normalizedId);
 			} catch (error) {
 				console.warn(`Failed to hydrate shared selection for ${normalizedId}:`, error);
@@ -9388,6 +9797,8 @@ async function hydratePendingNodeIds(ids: string[], addToLog: boolean) {
 			group: liveNode.group,
 		});
 	}
+
+	reportProgress(normalizedIds.length);
 
 	if (!resolvedEntries.length) return;
 	if (addToLog) {
@@ -16007,7 +16418,6 @@ function clearHighlights() {
 	}
 	disableAllTraceModes();
 	if (!nodeSel) return;
-	clearFetchStatus();
 	if (selectionRestoreTimer) {
 		clearTimeout(selectionRestoreTimer);
 		selectionRestoreTimer = null;

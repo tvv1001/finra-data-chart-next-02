@@ -1137,8 +1137,8 @@ export default function FinraGraph() {
 											id='fg-subset-info-pin'
 											type='button'
 											className='fg-subset-info-pin'
-											title='Dismiss status'
-											aria-label='Dismiss status'
+											title='Close status'
+											aria-label='Close status'
 											aria-pressed='false'>
 											<span
 												className='fg-subset-info-pin__icon'
@@ -1620,38 +1620,45 @@ export default function FinraGraph() {
 						className='fg-empty hidden'>
 						<div
 							id='fg-session-prompt'
-							className='fg-empty-card hidden'
-							style={{ textAlign: 'center', maxWidth: '400px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-							<h3 style={{ margin: 0, color: 'var(--text-primary)' }}>Resume Previous Session?</h3>
-							<p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '13px' }}>You have a saved graph layout from a previous visit. Would you like to restore it?</p>
-							<div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '8px' }}>
+							className='fg-empty-card fg-session-restore-card hidden'
+							style={{ textAlign: 'center', maxWidth: '420px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+							<h3
+								id='fg-session-prompt-title'
+								style={{ margin: 0, color: 'var(--text-h, var(--text))' }}>
+								Resume previous session?
+							</h3>
+							<p
+								id='fg-session-prompt-body'
+								style={{ margin: 0, color: 'var(--text-muted, var(--text-m))', fontSize: '13px' }}>
+								You have a saved graph from a previous visit. Continue with the full canvas, load selection-log CRDs only, or reset.
+							</p>
+							<div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
 								<button
 									id='fg-btn-resume-session'
 									className='fg-sidebar-action-btn fg-sidebar-action-btn--primary'
-									style={{ flex: 1, padding: '8px 16px', height: 'auto' }}>
-									Load Previous Session
+									style={{ width: '100%', padding: '8px 16px', height: 'auto' }}>
+									Continue
+								</button>
+								<button
+									id='fg-btn-loglist-session'
+									className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary'
+									style={{ width: '100%', padding: '8px 16px', height: 'auto', border: '1px solid var(--border)' }}>
+									Load log-list only
 								</button>
 								<button
 									id='fg-btn-reset-session'
 									className='fg-sidebar-action-btn fg-sidebar-action-btn--secondary'
-									style={{ flex: 1, padding: '8px 16px', height: 'auto', border: '1px solid var(--border)' }}>
-									Reset Session
+									style={{ width: '100%', padding: '8px 16px', height: 'auto', border: '1px solid var(--border)' }}>
+									Reset content
 								</button>
 							</div>
 						</div>
 						<div
 							id='fg-session-loader'
-							className='fg-empty-card hidden'
-							style={{ textAlign: 'center', maxWidth: '300px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
-							<div
-								className='fg-skeleton'
-								style={{ width: '48px', height: '48px', borderRadius: '50%', marginBottom: '8px' }}></div>
-							<div
-								className='fg-skeleton'
-								style={{ width: '80%', height: '20px', borderRadius: '4px' }}></div>
-							<div
-								className='fg-skeleton'
-								style={{ width: '60%', height: '14px', borderRadius: '4px' }}></div>
+							className='fg-empty-card fg-session-restore-card hidden'
+							style={{ textAlign: 'center', maxWidth: '300px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
+							<h3 style={{ margin: 0, color: 'var(--text-h, var(--text))' }}>Restoring previous session…</h3>
+							<p style={{ margin: 0, color: 'var(--text-muted, var(--text-m))', fontSize: '13px' }}>Loading your saved graph. You can keep working once nodes appear.</p>
 						</div>
 						<div
 							id='fg-empty-default'
