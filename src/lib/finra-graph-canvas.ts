@@ -174,23 +174,23 @@ export function drawCanvasFrame(
 		if (shouldShowLabel && scale > 0.4) {
 			const p = worldToScreen(n.x, n.y, transform);
 
-			// highlight selected with halo
+			// Selection cue: thin stroke only — no soft glow fill (expensive over many nodes).
 			if (isSelected) {
 				ctx.beginPath();
-				ctx.arc(p.x, p.y, Math.max(8, size * 3), 0, Math.PI * 2);
-				ctx.fillStyle = 'rgba(255,200,60,0.08)';
-				ctx.fill();
-				ctx.strokeStyle = 'rgba(255,200,60,0.5)';
-				ctx.lineWidth = 2;
+				ctx.arc(p.x, p.y, Math.max(6, size * 1.8), 0, Math.PI * 2);
+				ctx.strokeStyle = 'rgba(255,200,60,0.85)';
+				ctx.lineWidth = 1.5;
 				ctx.stroke();
 			}
 
 			if (isForcedLabel || isSelected || scale >= selectedCanvasLabelZoomThreshold) {
-				// label
+				// label — solid fill only (no shadow / stroke halo)
 				ctx.font = `${DEFAULT_NODE_LABEL_FONT_WEIGHT} ${DEFAULT_NODE_LABEL_FONT_SIZE_PX * Math.min(2.6, Math.max(0.9, scale) * focusLabelScale)}px Inter, system-ui, sans-serif`;
 				ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-default-text') || '#0f172a';
 				ctx.textAlign = 'center';
 				ctx.textBaseline = 'top';
+				ctx.shadowColor = 'transparent';
+				ctx.shadowBlur = 0;
 				const labelText = getNodeLabel(n);
 				ctx.fillText(labelText || String(n.id), p.x, p.y + Math.max(1, size * transform.k) + DEFAULT_NODE_LABEL_GAP_PX);
 				ctx.textAlign = 'start';

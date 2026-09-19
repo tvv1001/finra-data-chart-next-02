@@ -11402,7 +11402,6 @@ export function renderNodeContents(selection) {
 		}
 		const nodeStroke = inactive ? GRAPH_COLORS.nodeInactiveStroke : GRAPH_COLORS.nodeBorder;
 		const nodeLabelColor = inactive ? GRAPH_COLORS.nodeInactiveLabel : GRAPH_COLORS.nodeLabel;
-		const nodeLabelHalo = inactive ? 'rgba(248,250,252,0.95)' : GRAPH_COLORS.nodeLabelHalo;
 
 		if (d.group === 'firm') {
 			const s = (d._vizHalf ?? r * 0.85) * 2;
@@ -11540,10 +11539,8 @@ export function renderNodeContents(selection) {
 			.attr('font-family', 'var(--sans)')
 			.attr('font-weight', isBolded ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT)
 			.attr('fill', nodeLabelColor)
-			.attr('stroke', nodeLabelHalo)
-			.attr('stroke-width', 4)
-			.attr('stroke-linejoin', 'round')
-			.attr('paint-order', 'stroke')
+			.attr('stroke', 'none')
+			.attr('stroke-width', 0)
 			.attr('pointer-events', 'all')
 			.style('cursor', 'pointer')
 			.text(labelText);
@@ -12146,7 +12143,6 @@ function updateNodeVisuals(
 		let nodeOpacity: number | string = inactive ? 0.82 : 1;
 		let nodeStroke = inactive ? GRAPH_COLORS.nodeInactiveStroke : GRAPH_COLORS.nodeBorder;
 		let nodeLabelColor = inactive ? GRAPH_COLORS.nodeInactiveLabel : GRAPH_COLORS.nodeLabel;
-		let nodeLabelHalo = inactive ? 'rgba(248,250,252,0.95)' : GRAPH_COLORS.nodeLabelHalo;
 
 		if (d.group === 'individual' && d.stub && !(isControlNode && !inactive)) {
 			color = inactive ? GRAPH_COLORS.nodeInactive : GRAPH_COLORS.nodeStub;
@@ -12199,7 +12195,8 @@ function updateNodeVisuals(
 				.text(labelText)
 				.classed('fg-label--logged', isBolded)
 				.attr('fill', nodeLabelColor)
-				.attr('stroke', nodeLabelHalo)
+				.attr('stroke', 'none')
+				.attr('stroke-width', 0)
 				.attr('opacity', inactive ? 0.86 : 1)
 				.attr('font-size', labelFontSize)
 				.attr('font-weight', isEmphasized ? '700' : DEFAULT_NODE_LABEL_FONT_WEIGHT);
@@ -16456,7 +16453,7 @@ function highlightLinks(highlightState = null) {
 		// behind, or the next interaction/zoom refresh will reapply them and every line
 		// looks boldly thick after Clear Highlight.
 		linkSel
-			.style('filter', null)
+			.style('filter', 'none')
 			.style('stroke-opacity', null)
 			.style('opacity', null)
 			.attr('stroke', (d) => getLinkColor(d))
@@ -16498,7 +16495,7 @@ function highlightLinks(highlightState = null) {
 		const isGrayLine = hasInactiveEndpoint(d) || isPreviousEmploymentLink(d) || isForcedGrayConnectionLink(d);
 
 		if (isTraceShortest || isTraceLongest || isTraceLog) {
-			sel.style('filter', null).style('opacity', null).style('stroke-opacity', null).attr('stroke-opacity', 1);
+			sel.style('filter', 'none').style('opacity', null).style('stroke-opacity', null).attr('stroke-opacity', 1);
 			// CSS classes handle the stroke and width
 			return;
 		}
@@ -16520,7 +16517,7 @@ function highlightLinks(highlightState = null) {
 				const activeStrokeOpacity = getSelectionLinkOpacity(d, selectionLinkEmphasis, { connected: true });
 				const baseWidth = highlightedStrokeWidth * selectionLinkEmphasis.strokeWidthScale;
 				sel
-					.style('filter', selectionLinkEmphasis.showActiveFilter ? null : 'none')
+					.style('filter', 'none')
 					.style('opacity', null)
 					.style('stroke-opacity', null)
 					.attr('stroke', getLinkHighlightColor(d))
@@ -16535,7 +16532,7 @@ function highlightLinks(highlightState = null) {
 				const recessedStrokeOpacity = isGrayLine ? 0.85 : 0.46;
 				const recessedStrokeWidth = isGrayLine ? 0.95 : 0.82;
 				sel
-					.style('filter', null)
+					.style('filter', 'none')
 					.style('opacity', recessedLinkOpacity)
 					.style('stroke-opacity', null)
 					.attr('stroke', getLinkColor(d))
@@ -16550,7 +16547,7 @@ function highlightLinks(highlightState = null) {
 			const baseStrokeOpacity = Number(defaultLinkOpacity) || 1;
 			sel.classed('fg-link--depth-recessed', true);
 			sel
-				.style('filter', null)
+				.style('filter', 'none')
 				.style('opacity', 0.8)
 				.style('stroke-opacity', null)
 				.attr('stroke', getLinkColor(d))
