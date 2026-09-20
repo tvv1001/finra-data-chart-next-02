@@ -25,7 +25,7 @@
 	/* Legend: relationships */
 	--color-highlight-controls: #ef4444;
 	/* Opaque blue — alpha on employment strokes blended purple wherever red crossed them */
-	--color-highlight-employed: #1e88ff;
+	--color-highlight-employed: #1a7af0;
 	--color-node-disclosure-stroke: #f97316;
 	--color-node-pulse: #18a0fb !important;
 	/* SVG drop-shadow filters are expensive (and SIGILL-prone on Mesa). Use stroke rings instead. */
@@ -37,7 +37,7 @@
 
 	/* Shared node/default styling */
 	--color-default-text: #2e3744;
-	--color-default-line: rgba(113, 117, 123, 0.38);
+	--color-default-line: rgba(100, 116, 139, 0.72);
 	--color-default-muted: #454a53;
 	--color-default-soft: #414b5a;
 	--color-node-border: #ffffff;

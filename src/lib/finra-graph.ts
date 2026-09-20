@@ -4214,76 +4214,48 @@ function buildUndirectedAdjacencyList(links: Array<any>): Map<string, string[]> 
 	return adj;
 }
 
-function getBfsDistances(adj: Map<string, string[]>, start: string): Map<string, number> {
-	const distances = new Map<string, number>();
-	distances.set(start, 0);
-	const queue: string[] = [start];
-	while (queue.length > 0) {
-		const current = queue.shift()!;
-		const currentDist = distances.get(current)!;
-		for (const neighbor of adj.get(current) || []) {
-			if (!distances.has(neighbor)) {
-				distances.set(neighbor, currentDist + 1);
-				queue.push(neighbor);
-			}
-		}
-	}
-	return distances;
-}
-
 /**
- * Keep log terminals plus every node that bridges them:
- * 1) any node on a shortest path between some pair of log terminals
- * 2) any node adjacent to 2+ log terminals (direct shared firm/person bridge)
+ * Keep log terminals plus bridging intermediaries; drop dangling non-log leaves.
  *
- * Unlike a Steiner tree, this keeps alternate bridges (e.g. Merrill between two
- * logged people) even when another route through Goldman / J.P. Morgan exists.
+ * Uses iterative leaf-peeling (O(V+E)) instead of all-pairs BFS. With hundreds of
+ * log terminals the old shortest-path enumeration blocked the UI for seconds.
+ * Peeling preserves alternate bridges (e.g. Merrill AND Goldman between two logged
+ * people) because those nodes keep degree >= 2 in the residual core.
  */
 function collectLogBridgeConnectorIds(adj: Map<string, string[]>, terminalIds: Set<string>): Set<string> {
 	const keepIds = new Set<string>(terminalIds);
-	if (terminalIds.size <= 1) return keepIds;
-
-	const terminalArray = Array.from(terminalIds);
-	const distancesFrom = new Map<string, Map<string, number>>();
-	for (const terminalId of terminalArray) {
-		distancesFrom.set(terminalId, getBfsDistances(adj, terminalId));
+	if (terminalIds.size === 0) return keepIds;
+	if (terminalIds.size === 1) {
+		// A single logged terminal: drop everything else (no bridge can exist).
+		return keepIds;
 	}
 
-	for (let i = 0; i < terminalArray.length; i++) {
-		for (let j = i + 1; j < terminalArray.length; j++) {
-			const a = terminalArray[i];
-			const b = terminalArray[j];
-			const distA = distancesFrom.get(a)!;
-			const distB = distancesFrom.get(b)!;
-			const ab = distA.get(b);
-			if (ab === undefined) continue;
+	const neighbors = new Map<string, Set<string>>();
+	for (const [id, list] of adj) {
+		neighbors.set(id, new Set(list));
+	}
 
-			for (const [nodeId, da] of distA) {
-				const db = distB.get(nodeId);
-				if (db !== undefined && da + db === ab) {
-					keepIds.add(nodeId);
-				}
+	const queue: string[] = [];
+	for (const [id, ns] of neighbors) {
+		if (!terminalIds.has(id) && ns.size <= 1) queue.push(id);
+	}
+
+	while (queue.length) {
+		const id = queue.pop()!;
+		if (terminalIds.has(id) || !neighbors.has(id)) continue;
+		const ns = neighbors.get(id)!;
+		neighbors.delete(id);
+		for (const neighborId of ns) {
+			const neighborSet = neighbors.get(neighborId);
+			if (!neighborSet) continue;
+			neighborSet.delete(id);
+			if (!terminalIds.has(neighborId) && neighborSet.size <= 1) {
+				queue.push(neighborId);
 			}
 		}
 	}
 
-	// Direct multi-homed bridges: a firm/person linked to 2+ log terminals stays
-	// even when those terminals also have a shorter direct edge between them.
-	for (const [nodeId, neighbors] of adj) {
-		if (keepIds.has(nodeId)) continue;
-		let logNeighborCount = 0;
-		const seen = new Set<string>();
-		for (const neighborId of neighbors) {
-			if (!terminalIds.has(neighborId) || seen.has(neighborId)) continue;
-			seen.add(neighborId);
-			logNeighborCount += 1;
-			if (logNeighborCount >= 2) {
-				keepIds.add(nodeId);
-				break;
-			}
-		}
-	}
-
+	for (const id of neighbors.keys()) keepIds.add(id);
 	return keepIds;
 }
 
@@ -4330,19 +4302,75 @@ export function pruneGraphToSelectionLogEntries(
 	return graphData;
 }
 
-function pruneGraphDataToKeepIds(keepIds: Set<string>) {
-	if (!graphData || !Array.isArray(graphData.nodes) || !Array.isArray(graphData.links)) return;
-	if (!keepIds || keepIds.size === 0) return;
+/** Copy live simulation x/y onto graphData nodes so a full renderGraph rebuild keeps layout. */
+function syncLayoutPositionsIntoGraphDataNodes() {
+	if (!graphData || !Array.isArray(graphData.nodes) || !Array.isArray(layoutNodes) || !layoutNodes.length) return;
+	const liveById = new Map<string, any>();
+	for (const live of layoutNodes) {
+		const id = String(live?.id || '').trim();
+		if (id) liveById.set(id, live);
+	}
+	for (const node of graphData.nodes) {
+		const id = String(node?.id || '').trim();
+		const live = id ? liveById.get(id) : null;
+		if (!live) continue;
+		if (Number.isFinite(live.x)) node.x = live.x;
+		if (Number.isFinite(live.y)) node.y = live.y;
+		if (Number.isFinite(live.vx)) node.vx = live.vx;
+		if (Number.isFinite(live.vy)) node.vy = live.vy;
+	}
+}
 
-	graphData.nodes = graphData.nodes.filter((node) => keepIds.has(String(node?.id || '').trim()));
-	graphData.links = graphData.links.filter((link) => {
-		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
-		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
-		return Boolean(sourceId && targetId && keepIds.has(sourceId) && keepIds.has(targetId));
-	});
+function captureCurrentZoomTransform(): { x: number; y: number; k: number } | null {
+	try {
+		if (!svgSel?.node || !d3?.zoomTransform) return null;
+		const t = d3.zoomTransform(svgSel.node());
+		if (!Number.isFinite(t.x) || !Number.isFinite(t.y) || !Number.isFinite(t.k) || t.k <= 0) return null;
+		return { x: t.x, y: t.y, k: t.k };
+	} catch {
+		return null;
+	}
+}
 
-	const keptNodeIds = new Set<string>(graphData.nodes.map((node) => String(node?.id || '').trim()).filter(Boolean));
+function restoreCapturedZoomTransform(saved: { x: number; y: number; k: number } | null) {
+	if (!saved || !zoomBehavior || !svgSel) return false;
+	try {
+		svgSel.call(zoomBehavior.transform, d3.zoomIdentity.translate(saved.x, saved.y).scale(saved.k));
+		return true;
+	} catch {
+		return false;
+	}
+}
 
+/** After a prune rebuild, freeze nodes at their restored coordinates so the force sim cannot collapse them to the origin. */
+function pinLayoutNodesAtCurrentPositions(releaseAfterMs = 0) {
+	if (!Array.isArray(layoutNodes) || !layoutNodes.length) return;
+	for (const node of layoutNodes) {
+		if (!Number.isFinite(node?.x) || !Number.isFinite(node?.y)) continue;
+		node.fx = node.x;
+		node.fy = node.y;
+		node.vx = 0;
+		node.vy = 0;
+	}
+	if (simulation) {
+		try {
+			simulation.alpha(0).alphaTarget(0).stop();
+		} catch {
+			/* ignore */
+		}
+	}
+	// releaseAfterMs <= 0 keeps pins until the user drags (fluidDrag clears fx/fy).
+	if (!(releaseAfterMs > 0) || typeof window === 'undefined' || typeof window.setTimeout !== 'function') return;
+	window.setTimeout(() => {
+		if (!Array.isArray(layoutNodes)) return;
+		for (const node of layoutNodes) {
+			node.fx = null;
+			node.fy = null;
+		}
+	}, releaseAfterMs);
+}
+
+function pruneSelectionStateToKeptIds(keptNodeIds: Set<string>) {
 	if (selectedId && !keptNodeIds.has(String(selectedId).trim())) {
 		selectedId = null;
 		sidebarSelectedNode = null;
@@ -4371,13 +4399,123 @@ function pruneGraphDataToKeepIds(keepIds: Set<string>) {
 			}
 		}
 	}
+}
 
-	renderGraph(graphData);
+/** Fast path: remove exited nodes/links from the live SVG without a full renderGraph wipe. */
+function pruneLiveGraphDomToKeepIds(keepIds: Set<string>) {
+	if (!nodeGroup || !simulation || !Array.isArray(layoutNodes) || !Array.isArray(layoutLinks)) return false;
+
+	const prevNodeCount = layoutNodes.length;
+	const prevLinkCount = layoutLinks.length;
+	layoutNodes = layoutNodes.filter((node) => keepIds.has(String(node?.id || '').trim()));
+	layoutLinks = layoutLinks.filter((link) => {
+		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+		return Boolean(sourceId && targetId && keepIds.has(sourceId) && keepIds.has(targetId));
+	});
+	const removedAnything = layoutNodes.length !== prevNodeCount || layoutLinks.length !== prevLinkCount;
+
+	resolveLinkEndpoints(layoutLinks, layoutNodes);
+	rebuildLayoutLinkIndexes(layoutLinks);
+	neighborMap = buildNeighborMap(layoutNodes, layoutLinks);
+	setGraphLabelRenderMode(layoutNodes.length);
+
+	try {
+		if (removedAnything) {
+			const nodeJoin = nodeGroup.selectAll('g.fg-node').data(layoutNodes, (d: any) => String(d?.id || ''));
+			nodeJoin.exit().remove();
+			nodeSel = nodeGroup.selectAll('g.fg-node');
+
+			// Cheap link/arrow DOM prune — avoid full layer restack/sort on large graphs.
+			const pruneLineSelection = (selection: any) => {
+				if (!selection) return;
+				selection.each(function (d: any) {
+					const sourceId = String(d?.source?.id ?? d?.source ?? '').trim();
+					const targetId = String(d?.target?.id ?? d?.target ?? '').trim();
+					if (!keepIds.has(sourceId) || !keepIds.has(targetId)) {
+						d3.select(this).remove();
+					}
+				});
+			};
+			pruneLineSelection(linkBottomGroup?.selectAll('line'));
+			pruneLineSelection(linkMidGroup?.selectAll('line'));
+			pruneLineSelection(linkTopGroup?.selectAll('line'));
+			pruneLineSelection(arrowBottomGroup?.selectAll('line'));
+			pruneLineSelection(arrowMidGroup?.selectAll('line'));
+			pruneLineSelection(arrowTopGroup?.selectAll('line'));
+			linkSel = selectRenderedLinkLines();
+			arrowSel = selectRenderedArrowLines();
+		}
+	} catch {
+		return false;
+	}
+
+	try {
+		simulation.nodes(layoutNodes);
+		simulation.force('link')?.links(layoutLinks);
+		simulation.force('collision')?.radius((d) => getNodeCollisionRadius(d, layoutNodes.length));
+		simulation.alpha(0).alphaTarget(0).stop();
+	} catch {
+		/* ignore */
+	}
+
+	pinLayoutNodesAtCurrentPositions(0);
+	if (removedAnything) {
+		scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
+	}
+	return true;
+}
+
+function pruneGraphDataToKeepIds(keepIds: Set<string>) {
+	if (!graphData || !Array.isArray(graphData.nodes) || !Array.isArray(graphData.links)) return;
+	if (!keepIds || keepIds.size === 0) return;
+
+	// layoutNodes hold the live coordinates; graphData often does not. Sync before we mutate.
+	syncLayoutPositionsIntoGraphDataNodes();
+
+	const prevNodeCount = graphData.nodes.length;
+	const prevLinkCount = graphData.links.length;
+	graphData.nodes = graphData.nodes.filter((node) => keepIds.has(String(node?.id || '').trim()));
+	graphData.links = graphData.links.filter((link) => {
+		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+		return Boolean(sourceId && targetId && keepIds.has(sourceId) && keepIds.has(targetId));
+	});
+	const removedAnything = graphData.nodes.length !== prevNodeCount || graphData.links.length !== prevLinkCount;
+
+	const keptNodeIds = new Set<string>(graphData.nodes.map((node) => String(node?.id || '').trim()).filter(Boolean));
+	pruneSelectionStateToKeptIds(keptNodeIds);
+
+	// Prefer incremental DOM pruning — a full renderGraph wipe on ~1k nodes blocks UI for seconds.
+	const didIncremental = pruneLiveGraphDomToKeepIds(keptNodeIds);
+	if (!didIncremental) {
+		const savedZoom = captureCurrentZoomTransform();
+		renderGraph(graphData, { freezeLayout: true, skipInitialZoom: Boolean(savedZoom) });
+		if (!restoreCapturedZoomTransform(savedZoom)) {
+			ensureGraphViewportVisible({ duration: 0 });
+		}
+		pinLayoutNodesAtCurrentPositions(0);
+	}
+
 	updateMeta();
-	saveSession();
-	refreshTraceState();
-	syncTraceLabelPresentation();
-	syncSelectionLogAuxiliaryRenderers();
+	// Defer persistence / trace chrome so zoom/drag can run on the next frame.
+	if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+		window.requestAnimationFrame(() => {
+			try {
+				if (removedAnything) saveSession();
+				refreshTraceState();
+				syncTraceLabelPresentation();
+				syncSelectionLogAuxiliaryRenderers();
+			} catch {
+				/* ignore */
+			}
+		});
+	} else {
+		if (removedAnything) saveSession();
+		refreshTraceState();
+		syncTraceLabelPresentation();
+		syncSelectionLogAuxiliaryRenderers();
+	}
 }
 
 function clearGraphAction(button?: HTMLButtonElement) {
@@ -4445,17 +4583,13 @@ function clearPersonSelectionVisualState(nodeId: string) {
 }
 
 /**
- * After the shared log+bridge prune, remove previous-employment (gray) person links
- * and drop any non-log nodes that are no longer reachable without those links.
+ * After keeping log nodes + bridges, remove previous-employment links and drop nodes
+ * that are no longer reachable. Mutates graphData only — caller should render once.
  */
-function stripPreviousEmploymentConnectionsAfterPrune(logIds: Set<string>) {
+function stripPreviousEmploymentLinksAndUnreachable(logIds: Set<string>) {
 	if (!graphData || !Array.isArray(graphData.links) || !Array.isArray(graphData.nodes)) return;
 
 	const remainingLinks = graphData.links.filter((link) => !isPreviousEmploymentLink(link));
-	if (remainingLinks.length === graphData.links.length) {
-		// No previous-employment links to strip; still re-render if callers expect it.
-		return;
-	}
 	graphData.links = remainingLinks;
 
 	const adj = buildUndirectedAdjacencyList(graphData.links);
@@ -4482,7 +4616,12 @@ function stripPreviousEmploymentConnectionsAfterPrune(logIds: Set<string>) {
 		if (presentNodeIds.has(logId)) reachable.add(logId);
 	}
 
-	pruneGraphDataToKeepIds(reachable);
+	graphData.nodes = graphData.nodes.filter((node) => reachable.has(String(node?.id || '').trim()));
+	graphData.links = graphData.links.filter((link) => {
+		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+		return Boolean(sourceId && targetId && reachable.has(sourceId) && reachable.has(targetId));
+	});
 }
 
 /** Stage for combined Clear non-log: 1 = clear-non-connected, 2 = full clear-non-log. */
@@ -4551,9 +4690,18 @@ function clearNonLogAction(button?: HTMLButtonElement) {
 		employmentKeysBefore.set(personId, collectPersonEmploymentHistoryLinkKeys(personId, graphData?.links || []));
 	}
 
+	// Single rebuild path: sync live positions, prune to log+bridges, strip previous-employment
+	// reachability, then render once. The old double-renderGraph wiped zoom and left nodes at 0,0.
+	syncLayoutPositionsIntoGraphDataNodes();
 	const keepIds = collectSelectionLogClearNonLogKeepIds(graphData, selectedNodesLog);
-	pruneGraphDataToKeepIds(keepIds);
-	stripPreviousEmploymentConnectionsAfterPrune(logIds);
+	graphData.nodes = (graphData.nodes || []).filter((node) => keepIds.has(String(node?.id || '').trim()));
+	graphData.links = (graphData.links || []).filter((link) => {
+		const sourceId = String(link?.source?.id ?? link?.source ?? '').trim();
+		const targetId = String(link?.target?.id ?? link?.target ?? '').trim();
+		return Boolean(sourceId && targetId && keepIds.has(sourceId) && keepIds.has(targetId));
+	});
+	stripPreviousEmploymentLinksAndUnreachable(logIds);
+	pruneGraphDataToKeepIds(new Set((graphData.nodes || []).map((node) => String(node?.id || '').trim()).filter(Boolean)));
 
 	// Selected people who lost any employment-history links should no longer look selected.
 	for (const personId of selectedPeople) {
@@ -4573,7 +4721,17 @@ function clearNonLogAction(button?: HTMLButtonElement) {
 	}
 
 	// Drop prior hop/line connection emphasis left over from earlier expansions.
-	clearHighlights();
+	// Avoid full clearHighlights() here — it re-walks every node/link and feels like another multi-second hitch.
+	highlightedSelections = [];
+	logBoldHighlightRootsSuppressed = true;
+	hoveredNodeId = null;
+	focusedNodeId = null;
+	try {
+		highlightLinks(computeHighlightState());
+		reapplySelectionState();
+	} catch {
+		/* ignore */
+	}
 	if (button) flashSelectionLogActionButton(button, 'Step 2');
 }
 
@@ -7558,7 +7716,7 @@ export function init(
 					return hits;
 				};
 
-				const fetchFinraAll = async (useFirm, queryText = q) => {
+				const fetchFinraAll = async (useFirm, queryText = q, onPage: ((pageHits: any[]) => void | Promise<void>) | null = null) => {
 					const hits = [];
 					let start = 0;
 					let total = null;
@@ -7575,6 +7733,7 @@ export function init(
 							const page = sj?.hits?.hits || sj?.response?.docs || sj?.results || [];
 							if (total === null) total = sj?.hits?.total ?? sj?.response?.numFound ?? page.length;
 							hits.push(...page);
+							if (page.length && onPage) await onPage(page);
 							start += page.length;
 							if (page.length < PAGE_SIZE) break;
 						} while (start < total);
@@ -7584,7 +7743,7 @@ export function init(
 					return hits;
 				};
 
-				const fetchSec = async (queryText = q) => {
+				const fetchSec = async (queryText = q, onPage: ((pageHits: any[]) => void | Promise<void>) | null = null) => {
 					const su = makeApiUrl('/api/finra/sec-search');
 					su.searchParams.set('query', queryText);
 					su.searchParams.set('pageSize', '50'); // SEC pagination
@@ -7593,16 +7752,22 @@ export function init(
 						const sr = await fetchWithTimeout(su.toString());
 						if (!sr.ok) return [];
 						const sj = await sr.json();
-						return sj?.hits?.hits || sj?.response?.docs || sj?.currentPage || sj?.results || [];
+						const page = sj?.hits?.hits || sj?.response?.docs || sj?.currentPage || sj?.results || [];
+						if (page.length && onPage) await onPage(page);
+						return page;
 					} catch (err) {
 						console.warn('SEC database search request failed', err);
 						return [];
 					}
 				};
 
-				const fetchTextQueryHits = async (queryText) => {
+				const fetchTextQueryHits = async (queryText, onPage: ((pageHits: any[]) => void | Promise<void>) | null = null) => {
 					const hits = [];
-					const results = await Promise.allSettled([fetchFinraAll(false, queryText), fetchFinraAll(true, queryText), fetchSec(queryText)]);
+					const results = await Promise.allSettled([
+						fetchFinraAll(false, queryText, onPage),
+						fetchFinraAll(true, queryText, onPage),
+						fetchSec(queryText, onPage),
+					]);
 					results.forEach((result, index) => {
 						if (result.status === 'fulfilled') {
 							hits.push(...result.value);
@@ -7613,31 +7778,6 @@ export function init(
 					return hits;
 				};
 
-				let allHits = [];
-				if (isCrdList) {
-					const batchSize = 5;
-					for (let i = 0; i < tokens.length; i += batchSize) {
-						const batch = tokens.slice(i, i + batchSize);
-						const batchResults = await Promise.all(batch.map((t) => fetchSingleCrd(t)));
-						for (const hits of batchResults) {
-							allHits.push(...hits);
-						}
-					}
-				} else if (isNameList) {
-					updateFetchStatus(`Searching ${nameListTokens.length} names…`);
-					const batchSize = 3;
-					for (let i = 0; i < nameListTokens.length; i += batchSize) {
-						const batch = nameListTokens.slice(i, i + batchSize);
-						updateFetchStatus(`Searching ${i + 1}–${Math.min(i + batch.length, nameListTokens.length)} of ${nameListTokens.length}…`);
-						const batchResults = await Promise.all(batch.map((term) => fetchTextQueryHits(term)));
-						for (const hits of batchResults) {
-							allHits.push(...hits);
-						}
-					}
-				} else {
-					allHits = await fetchTextQueryHits(q);
-				}
-
 				// Respect header search type selector (all | people | firms)
 				let headerSearchType = 'all';
 				try {
@@ -7647,8 +7787,6 @@ export function init(
 							.trim()
 							.toLowerCase();
 				} catch {}
-
-				// headerSearchType will be applied after we have the helper predicates
 
 				const getSearchHitIndividualId = (hit) => {
 					const src = hit?._source || hit || {};
@@ -7691,55 +7829,58 @@ export function init(
 				const hitHasIndividualId = (hit) => Boolean(getSearchHitIndividualId(hit));
 				const hitHasFirmId = (hit) => Boolean(getSearchHitFirmId(hit));
 
-				// Respect header search type selector (all | people | firms)
-				try {
-					const stEl = document.getElementById('fg-search-type') as HTMLSelectElement | null;
-					if (stEl && stEl.value)
-						headerSearchType = String(stEl.value || 'all')
-							.trim()
-							.toLowerCase();
-				} catch {}
+				const filterHitsBySearchType = (hits: any[]) => {
+					if (headerSearchType === 'people') return (hits || []).filter((hit) => hitHasIndividualId(hit));
+					if (headerSearchType === 'firms') return (hits || []).filter((hit) => hitHasFirmId(hit));
+					return hits || [];
+				};
 
-				if (headerSearchType === 'people') {
-					const before = allHits.length;
-					allHits = allHits.filter((hit) => hitHasIndividualId(hit));
-					// console.debug(`[search] filtered to people: ${before} -> ${allHits.length}`);
-				} else if (headerSearchType === 'firms') {
-					const before = allHits.length;
-					allHits = allHits.filter((hit) => hitHasFirmId(hit));
-					// console.debug(`[search] filtered to firms: ${before} -> ${allHits.length}`);
-				}
-
-				// When query is a pure number, always inject synthetic hits so the
-				// direct-by-ID lookup path runs when search could not already identify
-				// the query as an individual or firm. Avoid synthesizing the opposite
-				// kind when a real hit already exists, because that can stall the UI
-				// on an unnecessary detail request for the wrong record type.
-				if (/^\d+$/.test(q)) {
-					const hasIndividualHit = allHits.some((hit) => hitHasIndividualId(hit));
-					const hasFirmHit = allHits.some((hit) => hitHasFirmId(hit));
-					if (!hasIndividualHit && !hasFirmHit) {
-						allHits.push({ _source: { ind_source_id: q } }, { _source: { firm_id: q } });
-					}
-				}
-
-				if (!allHits.length) {
-					updateFetchStatus(
-						isNameList ? `No database results for ${nameListTokens.length} names` : `No database results for "${q}"`,
-					);
-					return;
-				}
-
-				// ── 2. Build nodes directly from search hit _source data ──────────
-				// The search results already contain ind_firstname/lastname + ind_current_employments
-				// (firm_id, firm_name) — no extra per-hit fetch needed.
-				// We only fetch full detail for pure-numeric queries (direct CRD/firm ID lookup).
+				// ── 2. Build nodes from search hits and flush onto canvas progressively ──
 				const batchAllNodes = [];
 				const batchAllLinks = [];
 				const updatedExistingNodeIds = new Set<string>();
 				const textSearchHydrationCandidates: Array<{ nodeId?: string | null; group?: string | null; hasEmbeddedDetail?: boolean | null }> = [];
+				let allHits = [];
+				let progressiveAddedTotal = 0;
+				let progressiveExistingTotal = 0;
+				let didScheduleFirstFocus = false;
+				const seenProgressiveHitKeys = new Set<string>();
 
 				const isDirectId = /^\d+$/.test(q) || isCrdList;
+
+				const flushSearchProgress = (statusLabel?: string) => {
+					const nodesToFlush = batchAllNodes.splice(0, batchAllNodes.length);
+					const linksToFlush = batchAllLinks.splice(0, batchAllLinks.length);
+					const existingIds = Array.from(updatedExistingNodeIds);
+					updatedExistingNodeIds.clear();
+					if (!nodesToFlush.length && !linksToFlush.length && !existingIds.length) return;
+
+					progressiveAddedTotal += nodesToFlush.length;
+					progressiveExistingTotal += existingIds.length;
+
+					if (nodesToFlush.length || linksToFlush.length) {
+						if (!didScheduleFirstFocus) {
+							scheduleFirstFetchFocusIfAvailable(
+								nodesToFlush.map((n) => n.id),
+								{ duration: 700, maxScale: 1.05 },
+							);
+							didScheduleFirstFocus = true;
+						}
+						appendFetched(nodesToFlush, linksToFlush);
+						mergeIntoGraphData(nodesToFlush, linksToFlush);
+					}
+					if (existingIds.length) {
+						rerenderGraphNodesByIds(existingIds);
+						refreshGraphColors();
+						refreshTraceState();
+					}
+					updateFetchStatus(
+						statusLabel ||
+							`Showing ${progressiveAddedTotal} node${progressiveAddedTotal !== 1 ? 's' : ''}` +
+								(progressiveExistingTotal ? `, ${progressiveExistingTotal} already on canvas` : '') +
+								'…',
+					);
+				};
 
 				function addIndividualFromSource(src) {
 					const resolved = resolveIndividualSourceDetail(src);
@@ -7893,98 +8034,27 @@ export function init(
 					}
 				}
 
-				if (isDirectId) {
-					// For direct numeric CRD/firm ID — fetch full detail to get rich sidebar data
-					await Promise.allSettled(
-						allHits.map(async (hit) => {
-							const src = hit._source || hit;
-							const crd = getSearchHitIndividualId(src);
-							if (crd && /^\d+$/.test(crd)) {
-								try {
-									const r = await fetchWithTimeout(`${BASE}/api/finra/individual/${encodeURIComponent(crd)}`);
-									if (!r.ok) throw new Error(`${r.status}`);
-									const detail = unwrapDetailPayload(await r.json());
-									if (detail?.found === false) return;
-									addIndividualFromSource(detail);
-								} catch {
-									// Ignore the synthetic direct-id fallback when the lookup fails.
-								}
-								return;
-							}
-							const firmId = getSearchHitFirmId(src);
-							if (firmId && /^\d+$/.test(firmId)) {
-								try {
-									const r = await fetchWithTimeout(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`);
-									if (!r.ok) throw new Error(`${r.status}`);
-									const detail = await r.json();
-									if (detail?.found === false) return;
-									const firmNodeId = `firm:${firmId}`;
-									const bi = detail?.basicInformation || {};
-									const firmLabel = bi.firmName || detail?.firmName || detail?.name || `Firm ${firmId}`;
-									if (!batchAllNodes.some((n) => n.id === firmNodeId)) {
-										batchAllNodes.push({
-											id: firmNodeId,
-											label: firmLabel,
-											group: 'firm',
-											firmId,
-											bcScope: bi.bcScope ?? detail?.bcScope ?? null,
-											firmStatus: bi.firmStatus ?? detail?.firmStatus,
-											firmStatusDate: bi.firmStatusDate ?? detail?.firmStatusDate,
-											firmType: bi.firmType ?? detail?.firmType,
-											formedState: bi.formedState ?? detail?.formedState,
-											formedDate: bi.formedDate ?? detail?.formedDate,
-											regulator: bi.regulator ?? detail?.regulator,
-											bdSecNumber: bi.bdSECNumber ?? bi.bdSecNumber ?? detail?.bdSECNumber ?? detail?.bdSecNumber,
-											iaSecNumber: bi.iaSecNumber ?? detail?.iaSecNumber,
-											isLegacy: bi.isLegacy ?? detail?.isLegacy,
-											fiscalYearEnd: bi.fiscalMonthEndCode ?? detail?.fiscalMonthEndCode,
-											otherNames: bi.otherNames ?? detail?.otherNames ?? [],
-											selfRegulatoryOrgs: detail?.selfRegulatoryOrgs ?? detail?.SROs ?? [],
-											activeStates: detail?.activeStates ?? detail?.registeredStates ?? [],
-											directOwners: detail?.directOwners ?? [],
-											disclosures: detail?.disclosures ?? [],
-										});
-									}
-									for (const o of detail?.directOwners || []) {
-										const pid = String(o?.crdNumber || o?.crd || o?.personId || '').trim();
-										if (!pid) continue;
-										const personNodeId = `person:${pid}`;
-										if (!batchAllNodes.some((n) => n.id === personNodeId)) {
-											batchAllNodes.push({
-												id: personNodeId,
-												label: normalizePersonLabel(o?.legalName || o?.name || `Person ${pid}`),
-												group: 'individual',
-												crd: pid,
-												bcScope: o?.bcScope || null,
-												stub: true,
-											});
-										}
-										if (!batchAllLinks.some((l) => (l.source?.id ?? l.source) === personNodeId && (l.target?.id ?? l.target) === firmNodeId)) {
-											batchAllLinks.push({
-												source: personNodeId,
-												target: firmNodeId,
-												relationship: 'controls',
-											});
-										}
-									}
-								} catch {
-									// Ignore the synthetic direct-id fallback when the lookup fails.
-								}
-								return;
-							}
-						}),
-					);
-				} else {
-					// Text search — build nodes directly from search _source (fast, no extra fetches)
-					for (const hit of allHits) {
-						const src = hit._source || hit;
+				const ingestTextHits = (hits: any[]) => {
+					const filtered = filterHitsBySearchType(hits || []);
+					for (const hit of filtered) {
+						const src = hit?._source || hit || {};
+						const personKey = getSearchHitIndividualId(src);
+						const firmKey = getSearchHitFirmId(src);
+						const dedupeKey =
+							personKey ? `person:${personKey}`
+							: firmKey ? `firm:${firmKey}`
+							: '';
+						if (dedupeKey) {
+							if (seenProgressiveHitKeys.has(dedupeKey)) continue;
+							seenProgressiveHitKeys.add(dedupeKey);
+						}
+						allHits.push(hit);
+
 						const resolved = resolveIndividualSourceDetail(src);
 						const parsed = resolved.detail || src;
-						const crd = getSearchHitIndividualId(src);
+						const crd = personKey;
 						if (crd) {
 							addIndividualFromSource(src);
-							// Gzip sidecar hits already include names + employments for graph edges.
-							// Treat that as embedded so we do not fan out Redis/disk detail GETs.
 							const sidecarGraphReady = Boolean(
 								(Array.isArray(src?.ind_current_employments) && src.ind_current_employments.length > 0) ||
 									(Array.isArray(src?.ind_ia_current_employments) && src.ind_ia_current_employments.length > 0) ||
@@ -7999,7 +8069,7 @@ export function init(
 							});
 							continue;
 						}
-						const firmId = getSearchHitFirmId(src);
+						const firmId = firmKey;
 						if (firmId) {
 							addFirmFromSource(src);
 							const sidecarFirmReady = Boolean(src?.firm_name || src?.firmName || src?.firm_id || src?.firm_source_id);
@@ -8016,131 +8086,207 @@ export function init(
 							});
 							continue;
 						}
-						// stub for hits with no ID
 						const label = normalizePersonLabel(src?.name || [src?.ind_firstname, src?.ind_middlename, src?.ind_lastname].filter(Boolean).join(' ') || '');
-						if (label)
+						if (label) {
 							batchAllNodes.push({
 								id: `database:${Date.now()}:${Math.random()}`,
 								label,
 								group: 'individual',
 							});
+						}
 					}
-				}
+					flushSearchProgress();
+				};
 
-				// ── 3. Append all nodes/links to the live view ─────────────────────
-				// Second search for the same/overlapping query often updates existing
-				// nodes only (batchAllNodes stays empty). That is success, not a miss.
-				if (batchAllNodes.length === 0) {
-					if (updatedExistingNodeIds.size > 0) {
-						rerenderGraphNodesByIds(Array.from(updatedExistingNodeIds));
-						refreshGraphColors();
-						refreshTraceState();
-						const existingCount = updatedExistingNodeIds.size;
-						updateFetchStatus(
-							isNameList ?
-								`${existingCount} already on canvas for ${nameListTokens.length} names`
-							:	`${existingCount} already on canvas for "${q}"`,
-						);
-						focusExistingNodeMatch(q, { statusPrefix: 'Opened' });
+				const hydrateDirectHit = async (hit: any) => {
+					const src = hit?._source || hit || {};
+					const crd = getSearchHitIndividualId(src);
+					if (crd && /^\d+$/.test(crd)) {
+						try {
+							const r = await fetchWithTimeout(`${BASE}/api/finra/individual/${encodeURIComponent(crd)}`);
+							if (!r.ok) throw new Error(`${r.status}`);
+							const detail = unwrapDetailPayload(await r.json());
+							if (detail?.found === false) return;
+							addIndividualFromSource(detail);
+							flushSearchProgress(`Loaded CRD ${crd}…`);
+						} catch {
+							/* ignore synthetic direct-id miss */
+						}
 						return;
 					}
+					const firmId = getSearchHitFirmId(src);
+					if (firmId && /^\d+$/.test(firmId)) {
+						try {
+							const r = await fetchWithTimeout(`${BASE}/api/finra/firm/${encodeURIComponent(firmId)}`);
+							if (!r.ok) throw new Error(`${r.status}`);
+							const detail = await r.json();
+							if (detail?.found === false) return;
+							const firmNodeId = `firm:${firmId}`;
+							const bi = detail?.basicInformation || {};
+							const firmLabel = bi.firmName || detail?.firmName || detail?.name || `Firm ${firmId}`;
+							if (!findExistingFirmNode(firmId) && !batchAllNodes.some((n) => n.id === firmNodeId) && !layoutNodes.some((n) => n.id === firmNodeId)) {
+								batchAllNodes.push({
+									id: firmNodeId,
+									label: firmLabel,
+									group: 'firm',
+									firmId,
+									bcScope: bi.bcScope ?? detail?.bcScope ?? null,
+									firmStatus: bi.firmStatus ?? detail?.firmStatus,
+									firmStatusDate: bi.firmStatusDate ?? detail?.firmStatusDate,
+									firmType: bi.firmType ?? detail?.firmType,
+									formedState: bi.formedState ?? detail?.formedState,
+									formedDate: bi.formedDate ?? detail?.formedDate,
+									regulator: bi.regulator ?? detail?.regulator,
+									bdSecNumber: bi.bdSECNumber ?? bi.bdSecNumber ?? detail?.bdSECNumber ?? detail?.bdSecNumber,
+									iaSecNumber: bi.iaSecNumber ?? detail?.iaSecNumber,
+									isLegacy: bi.isLegacy ?? detail?.isLegacy,
+									fiscalYearEnd: bi.fiscalMonthEndCode ?? detail?.fiscalMonthEndCode,
+									otherNames: bi.otherNames ?? detail?.otherNames ?? [],
+									selfRegulatoryOrgs: detail?.selfRegulatoryOrgs ?? detail?.SROs ?? [],
+									activeStates: detail?.activeStates ?? detail?.registeredStates ?? [],
+									directOwners: detail?.directOwners ?? [],
+									disclosures: detail?.disclosures ?? [],
+								});
+							}
+							for (const o of detail?.directOwners || []) {
+								const pid = String(o?.crdNumber || o?.crd || o?.personId || '').trim();
+								if (!pid) continue;
+								const personNodeId = `person:${pid}`;
+								if (!findExistingPersonNode(pid) && !batchAllNodes.some((n) => n.id === personNodeId) && !layoutNodes.some((n) => n.id === personNodeId)) {
+									batchAllNodes.push({
+										id: personNodeId,
+										label: normalizePersonLabel(o?.legalName || o?.name || `Person ${pid}`),
+										group: 'individual',
+										crd: pid,
+										bcScope: o?.bcScope || null,
+										stub: true,
+									});
+								}
+								if (
+									!batchAllLinks.some((l) => (l.source?.id ?? l.source) === personNodeId && (l.target?.id ?? l.target) === firmNodeId) &&
+									!layoutLinks.some((l) => (l.source?.id ?? l.source) === personNodeId && (l.target?.id ?? l.target) === firmNodeId)
+								) {
+									batchAllLinks.push({
+										source: personNodeId,
+										target: firmNodeId,
+										relationship: 'controls',
+									});
+								}
+							}
+							flushSearchProgress(`Loaded firm ${firmId}…`);
+						} catch {
+							/* ignore synthetic direct-id miss */
+						}
+					}
+				};
+
+				// ── 3. Run searches and paint each page/match as it arrives ────────
+				updateFetchStatus(isNameList ? `Searching ${nameListTokens.length} names…` : `Searching “${q}”…`);
+
+				if (isCrdList) {
+					await mapWithConcurrency(tokens, 5, async (token) => {
+						const hits = filterHitsBySearchType(await fetchSingleCrd(token));
+						if (isDirectId) {
+							await mapWithConcurrency(hits, 3, async (hit) => {
+								await hydrateDirectHit(hit);
+							});
+						} else {
+							ingestTextHits(hits);
+						}
+					});
+				} else if (isNameList) {
+					let nameSearchIndex = 0;
+					await mapWithConcurrency(nameListTokens, 3, async (term) => {
+						nameSearchIndex += 1;
+						updateFetchStatus(`Searching ${nameSearchIndex} of ${nameListTokens.length}: ${term}…`);
+						await fetchTextQueryHits(term, async (pageHits) => {
+							ingestTextHits(pageHits);
+						});
+					});
+				} else if (isDirectId) {
+					let seedHits = filterHitsBySearchType(await fetchTextQueryHits(q));
+					if (!seedHits.length) {
+						seedHits = [{ _source: { ind_source_id: q } }, { _source: { firm_id: q } }];
+					} else {
+						const hasIndividualHit = seedHits.some((hit) => hitHasIndividualId(hit));
+						const hasFirmHit = seedHits.some((hit) => hitHasFirmId(hit));
+						if (!hasIndividualHit && !hasFirmHit) {
+							seedHits.push({ _source: { ind_source_id: q } }, { _source: { firm_id: q } });
+						}
+					}
+					await mapWithConcurrency(seedHits, 4, async (hit) => {
+						await hydrateDirectHit(hit);
+					});
+				} else {
+					await fetchTextQueryHits(q, async (pageHits) => {
+						ingestTextHits(pageHits);
+					});
+				}
+
+				flushSearchProgress();
+
+				if (!progressiveAddedTotal && !progressiveExistingTotal) {
 					if (allHits.length > 0) {
 						updateFetchStatus(`No new graph nodes for "${q}" (hits lacked structured ids)`);
 						return;
 					}
-					updateFetchStatus(`No structured data found for "${q}"`);
+					updateFetchStatus(
+						isNameList ? `No database results for ${nameListTokens.length} names` : `No database results for "${q}"`,
+					);
 					return;
-				}
-				scheduleFirstFetchFocusIfAvailable(
-					batchAllNodes.map((n) => n.id),
-					{
-						duration: 700,
-						maxScale: 1.05,
-					},
-				);
-				appendFetched(batchAllNodes, batchAllLinks);
-
-				// ── 4. Update in-memory graphData so filter/subset sees new nodes ──
-				mergeIntoGraphData(batchAllNodes, batchAllLinks);
-				if (updatedExistingNodeIds.size) {
-					rerenderGraphNodesByIds(Array.from(updatedExistingNodeIds));
-					refreshGraphColors();
-					refreshTraceState();
 				}
 
 				if (!isDirectId) {
 					const textSearchHydrationTargets = selectTextSearchHydrationTargets(textSearchHydrationCandidates, TEXT_SEARCH_DETAIL_HYDRATION_LIMIT);
 					if (textSearchHydrationTargets.length) {
-						const hydratedResults = await mapWithConcurrency(textSearchHydrationTargets, TEXT_SEARCH_DETAIL_HYDRATION_CONCURRENCY, async (target) => {
+						await mapWithConcurrency(textSearchHydrationTargets, TEXT_SEARCH_DETAIL_HYDRATION_CONCURRENCY, async (target) => {
 							const targetId = String(target.nodeId || '').trim();
 							if (!targetId) return null;
 							const rawId = targetId.split(':').pop() || '';
 							if (!rawId) return null;
-							const onScreenFirmIds = Array.from(new Set((layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId))));
-							const batch = target.group === 'firm' ? await fetchFirmBatch(rawId) : await fetchIndividualBatch(rawId, null, { includePreviousEmployerIds: onScreenFirmIds });
-							return { targetId, batch };
+							try {
+								const onScreenFirmIds = Array.from(new Set((layoutNodes || []).filter((n) => n.group === 'firm' && n.firmId).map((n) => String(n.firmId))));
+								const batch =
+									target.group === 'firm' ? await fetchFirmBatch(rawId) : await fetchIndividualBatch(rawId, null, { includePreviousEmployerIds: onScreenFirmIds });
+								const liveTargetNode = layoutNodes?.find((node) => node.id === targetId) || null;
+								const primaryNode = Array.isArray(batch?.nodes) ? batch.nodes.find((node) => node?.id === targetId) || null : null;
+								if (liveTargetNode && primaryNode && typeof primaryNode === 'object') {
+									Object.assign(liveTargetNode, primaryNode);
+									normalizeNodeLabelInPlace(liveTargetNode);
+								}
+								if (batch?.nodes?.length || batch?.links?.length) {
+									appendFetched(batch.nodes || [], batch.links || []);
+									mergeIntoGraphData(batch.nodes || [], batch.links || []);
+								}
+								rerenderGraphNodesByIds([targetId]);
+								refreshGraphColors();
+								refreshTraceState();
+								updateFetchStatus(`Enriching ${targetId}…`);
+							} catch {
+								/* non-critical enrichment miss */
+							}
+							return null;
 						});
-
-						const hydratedNodes = [];
-						const hydratedLinks = [];
-						const hydratedNodeIds = new Set<string>();
-						const hydratedLinkKeys = new Set<string>();
-						const hydratedIds: string[] = [];
-
-						for (const result of hydratedResults) {
-							if (result.status !== 'fulfilled' || !result.value?.batch) continue;
-							const { targetId, batch } = result.value;
-							if (targetId) hydratedIds.push(targetId);
-							const liveTargetNode = layoutNodes?.find((node) => node.id === targetId) || null;
-							const primaryNode = Array.isArray(batch?.nodes) ? batch.nodes.find((node) => node?.id === targetId) || null : null;
-							if (liveTargetNode && primaryNode && typeof primaryNode === 'object') {
-								Object.assign(liveTargetNode, primaryNode);
-								normalizeNodeLabelInPlace(liveTargetNode);
-							}
-							for (const node of batch?.nodes || []) {
-								if (!node?.id || hydratedNodeIds.has(node.id)) continue;
-								hydratedNodeIds.add(node.id);
-								hydratedNodes.push(node);
-							}
-							for (const link of batch?.links || []) {
-								const linkKey = getLinkIdentityKey(link);
-								if (hydratedLinkKeys.has(linkKey)) continue;
-								hydratedLinkKeys.add(linkKey);
-								hydratedLinks.push(link);
-							}
-						}
-
-						if (hydratedNodes.length || hydratedLinks.length) {
-							appendFetched(hydratedNodes, hydratedLinks);
-							mergeIntoGraphData(hydratedNodes, hydratedLinks);
-						}
-
-						if (hydratedIds.length) {
-							rerenderGraphNodesByIds(hydratedIds);
-							refreshGraphColors();
-							refreshTraceState();
-						}
 					}
 				}
 
-				// ── 6. Persist (deferred) ─────────────────────────────────────────
-				// Do not full-graph-append after every text search: on localhost that
-				// save blocks the Next event loop and the immediate second search
-				// returns empty ("No database results"). CRD paste/seeds still persist.
-				// Session graph already has the nodes; profile save / explicit persist
-				// remains available elsewhere.
-				if (isDirectId) {
-					persistToServer(batchAllNodes, batchAllLinks);
+				// Persist only for direct CRD lookups (text search stays session-local).
+				if (isDirectId && progressiveAddedTotal > 0) {
+					// Nodes were already flushed into the live graph; persist whatever is now on-canvas
+					// for these CRDs via a lightweight session save rather than re-sending the whole batch.
+					try {
+						saveSession();
+					} catch {
+						/* ignore */
+					}
 				}
 				void fetchCacheStats();
 
-				const newCount = batchAllNodes.length;
-				const existingCount = updatedExistingNodeIds.size;
 				const addedLabel =
 					isNameList ?
-						`Added ${newCount} node${newCount !== 1 ? 's' : ''} for ${nameListTokens.length} names`
-					:	`Added ${newCount} node${newCount !== 1 ? 's' : ''} for "${q}"`;
-				updateFetchStatus(existingCount > 0 ? `${addedLabel}, ${existingCount} already on canvas` : addedLabel);
+						`Added ${progressiveAddedTotal} node${progressiveAddedTotal !== 1 ? 's' : ''} for ${nameListTokens.length} names`
+					:	`Added ${progressiveAddedTotal} node${progressiveAddedTotal !== 1 ? 's' : ''} for "${q}"`;
+				updateFetchStatus(progressiveExistingTotal > 0 ? `${addedLabel}, ${progressiveExistingTotal} already on canvas` : addedLabel);
 				focusExistingNodeMatch(q, { statusPrefix: 'Opened' });
 			} catch (err) {
 				console.error('database search failed', err);
@@ -9011,16 +9157,49 @@ async function fetchIndividualBatch(crd, queryLabel = null, options: { includePr
 	const links = [];
 	const r = await fetchWithTimeout(`${BASE}/api/finra/individual/${encodeURIComponent(crd)}`);
 	if (!r.ok) throw new Error(`individual HTTP ${r.status}`);
-	const detail = unwrapDetailPayload(await r.json());
-	if (detail?.found === false) throw new Error(`individual ${crd} not found`);
+	const raw = await r.json();
+	const detail = unwrapDetailPayload(raw);
+	if (detail?.found === false || raw?.found === false) throw new Error(`individual ${crd} not found`);
 
 	const personId = `person:${crd}`;
+	const orphan = raw?.orphan && typeof raw.orphan === 'object' ? raw.orphan : null;
+	const orphanName = orphan ? normalizePersonLabel(orphan.name || orphan.legalName || '') : '';
 	const personLabel = normalizePersonLabel(
 		(detail?.basicInformation && [detail.basicInformation.firstName, detail.basicInformation.middleName, detail.basicInformation.lastName].filter(Boolean).join(' ')) ||
 			detail?.basicInformation?.name ||
+			orphanName ||
 			queryLabel ||
 			`CRD ${crd}`,
 	);
+
+	// Orphan-only records (owner/control person without a BrokerCheck/IAPD individual hit)
+	// still deserve a canvas node + parent-firm link when we have that sidecar evidence.
+	if (orphan && !detail?.basicInformation && !raw?.bccontent && !raw?.iacontent) {
+		nodes.push({
+			id: personId,
+			label: personLabel,
+			group: 'individual',
+			crd: String(crd),
+			orphan: true,
+		});
+		const parentCrd = String(orphan.parentCrd || orphan.firmId || '').trim();
+		if (parentCrd) {
+			const firmNodeId = `firm:${parentCrd}`;
+			nodes.push({
+				id: firmNodeId,
+				label: String(orphan.firmName || `Firm ${parentCrd}`),
+				group: 'firm',
+				firmId: parentCrd,
+			});
+			links.push({
+				source: personId,
+				target: firmNodeId,
+				relationship: 'controls',
+				isCurrent: String(orphan.firmStatus || '').toUpperCase() === 'ACTIVE',
+			});
+		}
+		return { nodes, links };
+	}
 
 	nodes.push(
 		applyIndividualDetail(
@@ -9129,6 +9308,7 @@ async function importPastedCrdList(rawText: string) {
 	let added = 0;
 	let skipped = 0;
 	let failed = 0;
+	const failedEntries: Array<{ crd: string; name: string }> = [];
 	const allNodes = [];
 	const allLinks = [];
 	const addedNodeIds: Array<string> = [];
@@ -9156,21 +9336,23 @@ async function importPastedCrdList(rawText: string) {
 			}
 		});
 
-		for (const r of results) {
+		results.forEach((r, index) => {
 			if (r.status !== 'fulfilled') {
 				failed += 1;
-				continue;
+				const entry = parsed[index];
+				if (entry) failedEntries.push({ crd: entry.crd, name: entry.name || `CRD ${entry.crd}` });
+				return;
 			}
 			if (r.value.existed) {
 				skipped += 1;
 				addedNodeIds.push(r.value.nodeId);
-			} else {
-				added += 1;
-				addedNodeIds.push(r.value.nodeId);
-				allNodes.push(...(r.value.nodes || []));
-				allLinks.push(...(r.value.links || []));
+				return;
 			}
-		}
+			added += 1;
+			addedNodeIds.push(r.value.nodeId);
+			allNodes.push(...(r.value.nodes || []));
+			allLinks.push(...(r.value.links || []));
+		});
 
 		if (allNodes.length) {
 			appendFetched(allNodes, allLinks);
@@ -9185,7 +9367,14 @@ async function importPastedCrdList(rawText: string) {
 
 		if (added || skipped) openSelectionLog();
 
-		crdPasteImportStatus = `Added ${added}${skipped ? `, ${skipped} already on canvas` : ''}${failed ? `, ${failed} failed (not found)` : ''}`;
+		const failedSummary =
+			failedEntries.length ?
+				`, ${failed} failed: ${failedEntries
+					.slice(0, 5)
+					.map((entry) => `${entry.name} (${entry.crd})`)
+					.join('; ')}${failedEntries.length > 5 ? '…' : ''}`
+			:	'';
+		crdPasteImportStatus = `Added ${added}${skipped ? `, ${skipped} already on canvas` : ''}${failed ? failedSummary : ''}`;
 	} catch (err) {
 		console.warn('Bulk CRD paste import failed:', err);
 		crdPasteImportStatus = 'Import failed — see console for details';
@@ -9196,7 +9385,7 @@ async function importPastedCrdList(rawText: string) {
 		updateSelectionLogTemplatesUI();
 	}
 
-	return { added, skipped, failed };
+	return { added, skipped, failed, failedEntries };
 }
 
 async function fetchFirmBatch(firmId, queryLabel = null) {
@@ -10245,13 +10434,13 @@ const LINK_COLOR = {
 	controls: GRAPH_COLORS.lineControls,
 };
 const LINK_OPACITY = {
-	employed_by: 0.9,
-	previous_employed_by: 0.85,
+	employed_by: 0.98,
+	previous_employed_by: 0.92,
 	// Red must stay opaque so it wins visually wherever it crosses blue employment lines.
 	controls: 1,
 };
-const DEFAULT_LINK_WIDTH = 1.2;
-const INACTIVE_LINK_OPACITY = 0.85;
+const DEFAULT_LINK_WIDTH = 1.85;
+const INACTIVE_LINK_OPACITY = 0.92;
 const defaultLinkOpacity = (d) => {
 	if (hasInactiveEndpoint(d)) return INACTIVE_LINK_OPACITY;
 	if (isControlRelationship(d)) return LINK_OPACITY.controls;
@@ -11597,9 +11786,10 @@ function getLinkDash(d) {
 }
 
 function getLinkWidth(d) {
-	if (usesCurrentEmploymentStyling(d)) return '1px';
-	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d) || isPreviousEmploymentLink(d)) return '1.2px';
-	return `${DEFAULT_LINK_WIDTH}px`;
+	if (isControlRelationship(d)) return 2.35;
+	if (usesCurrentEmploymentStyling(d)) return 1.95;
+	if (hasInactiveEndpoint(d) || isForcedGrayConnectionLink(d) || isPreviousEmploymentLink(d)) return 1.65;
+	return DEFAULT_LINK_WIDTH;
 }
 
 function getLinkBaseWidth(d) {
@@ -12513,8 +12703,10 @@ function appendFetchedImpl(newNodes, newLinks) {
 	simulation.alpha(getIncrementalRestartAlpha(layoutNodes.length, uniqNodes.length)).restart();
 }
 
-function renderGraph(_data) {
+function renderGraph(_data, options: { freezeLayout?: boolean; skipInitialZoom?: boolean } = {}) {
 	let data = _data;
+	const preferFrozenLayout = Boolean(options.freezeLayout);
+	const skipInitialZoom = Boolean(options.skipInitialZoom);
 	invalidateFullAdjacencyMap();
 	if (simulation) simulation.stop();
 	cancelGraphTickPositions();
@@ -12569,6 +12761,18 @@ function renderGraph(_data) {
 	// ── Per-node degree stats for scaled / tinted nodes ──────────────────────
 	applyGraphDerivedNodeMetrics(nodes, links);
 	applySoftLocationGroupingTargets(nodes, W, H);
+
+	const positionedCount = nodes.reduce((count, node) => count + (Number.isFinite(node?.x) && Number.isFinite(node?.y) ? 1 : 0), 0);
+	const freezeLayout = preferFrozenLayout || (nodes.length > 0 && positionedCount >= Math.ceil(nodes.length * 0.85));
+	if (freezeLayout) {
+		for (const node of nodes) {
+			if (!Number.isFinite(node?.x) || !Number.isFinite(node?.y)) continue;
+			node.fx = node.x;
+			node.fy = node.y;
+			node.vx = 0;
+			node.vy = 0;
+		}
+	}
 
 	// ── Anchor the two seed nodes on the same horizontal line ─────────────────
 	// When this is the initial subset (one top individual + one top firm), pin
@@ -12650,27 +12854,29 @@ function renderGraph(_data) {
 	zoomBehavior = zoom;
 	svgSel = svg;
 
+	const root = svg.append('g').attr('class', 'fg-root');
+	svg.classed('fg-huge-graph', isHuge);
+	rootGroup = root;
+
 	svg.call(zoom);
 
 	// Set an initial zoom so larger graphs start more zoomed-out by default.
-	// Scale choices: small=1, medium≈0.8, large≈0.25, huge≈0.25
+	// Must run AFTER root exists — zoom handler writes transform onto root.
+	// Skip when caller will restore a saved viewport (e.g. clear-non-log prune).
 	const initialScale =
 		isHuge ? 0.75
 		: isLarge ? 0.55
 		: 0.25;
 	updateTraceStrokeScale(initialScale);
 	updateInactiveLinkScale(initialScale);
-	try {
-		// Use immediate transition to set scale centered on the viewport
-		const svgSelection = d3.select<SVGSVGElement, unknown>(svg.node() as SVGSVGElement | null);
-		svgSelection.call(zoom.scaleTo, initialScale);
-	} catch (e) {
-		/* ignore if zoom API not available */
+	if (!skipInitialZoom) {
+		try {
+			const svgSelection = d3.select<SVGSVGElement, unknown>(svg.node() as SVGSVGElement | null);
+			svgSelection.call(zoom.scaleTo, initialScale);
+		} catch (e) {
+			/* ignore if zoom API not available */
+		}
 	}
-
-	const root = svg.append('g').attr('class', 'fg-root');
-	svg.classed('fg-huge-graph', isHuge);
-	rootGroup = root;
 
 	// Use root as the logical parent for link selections (individual layered groups exist separately)
 	linkGroup = root;
@@ -12923,12 +13129,22 @@ function renderGraph(_data) {
 		scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
 	});
 
-	// Stop simulation after 5 seconds to prevent endless movement
-	const stopAfterMs =
-		isHuge ? 2500
-		: isLarge ? 3500
-		: 5000;
-	setTimeout(() => simulation.stop(), stopAfterMs);
+	if (freezeLayout) {
+		// Keep the existing layout; a hot re-settle blocks zoom/drag for seconds on large graphs.
+		try {
+			simulation.alpha(0).alphaTarget(0).stop();
+		} catch {
+			/* ignore */
+		}
+		scheduleGraphTickPositions(linkSel, nodeSel, arrowSel);
+	} else {
+		// Stop simulation after a short settle window to prevent endless movement
+		const stopAfterMs =
+			isHuge ? 2500
+			: isLarge ? 3500
+			: 5000;
+		setTimeout(() => simulation.stop(), stopAfterMs);
+	}
 
 	// Preserve the current selection on blank click; highlights must be cleared explicitly.
 	svg.on('click', (event) => {
@@ -14235,11 +14451,39 @@ async function ensureFirmDetail(firmNode) {
 	const firmId = match[1];
 
 	if (firmNode._detailMissing) return;
-	if (firmNode._detailLoaded && firmNode._detailValidated === true) return;
+	if (firmNode._detailLoaded && firmNode._detailValidated === true) {
+		// Detail may already be cached from sidebar/search without owners on the live canvas
+		// (e.g. after prune). Re-materialize Form BD control positions on demand.
+		if (Array.isArray(firmNode.directOwners) && firmNode.directOwners.length) {
+			syncFirmConnectionsFromDetail(firmNode, {
+				directOwners: firmNode.directOwners,
+				owners: firmNode.directOwners,
+				basicInformation: {
+					firmName: firmNode.label,
+					bcScope: firmNode.bcScope,
+					firmStatus: firmNode.firmStatus,
+				},
+				bcScope: firmNode.bcScope,
+			});
+		}
+		return;
+	}
 
 	const existingRequest = firmDetailRequestCache.get(firmId);
 	if (existingRequest) {
 		await existingRequest;
+		if (Array.isArray(firmNode.directOwners) && firmNode.directOwners.length) {
+			syncFirmConnectionsFromDetail(firmNode, {
+				directOwners: firmNode.directOwners,
+				owners: firmNode.directOwners,
+				basicInformation: {
+					firmName: firmNode.label,
+					bcScope: firmNode.bcScope,
+					firmStatus: firmNode.firmStatus,
+				},
+				bcScope: firmNode.bcScope,
+			});
+		}
 		return;
 	}
 
@@ -14831,7 +15075,30 @@ async function expandNodeThroughNonGrayHops(clickedNode, hops: number | 'all' = 
 		// Owners/officers come from Form BD detail, not the employment expand API.
 		await ensureFirmDetail(clickedNode);
 		if (runId !== nonGrayExpandRunId) return;
+		const beforeCount = layoutNodes?.length || 0;
+		// Always (re)inject BD Direct Owners & Executive Officers as red control nodes.
+		// ensureFirmDetail may no-op when detail is already cached without canvas links.
+		if (Array.isArray(clickedNode.directOwners) && clickedNode.directOwners.length) {
+			syncFirmConnectionsFromDetail(clickedNode, {
+				directOwners: clickedNode.directOwners,
+				owners: clickedNode.directOwners,
+				basicInformation: {
+					firmName: clickedNode.label,
+					bcScope: clickedNode.bcScope,
+					firmStatus: clickedNode.firmStatus,
+				},
+				bcScope: clickedNode.bcScope,
+			});
+		}
+		didRevealOrMerge = didRevealOrMerge || (layoutNodes?.length || 0) > beforeCount;
 		didRevealOrMerge = revealIncidentRenderedLinks(clickedNode, expansionLinkFilter) > 0 || didRevealOrMerge;
+		try {
+			applyGraphDerivedNodeMetrics(layoutNodes, layoutLinks);
+			refreshGraphColors();
+			reapplySelectionState();
+		} catch {
+			/* non-critical paint refresh */
+		}
 	}
 
 	const visitedIds = new Set([clickedNode.id]);
