@@ -6170,6 +6170,17 @@ async function restoreSavedSession(session) {
 		selectionLogBold: typeof session.selectionLogBold === 'boolean' ? session.selectionLogBold : null,
 		clearedSelectionLogLabelIds: Array.isArray(session.clearedSelectionLogLabelIds) ? session.clearedSelectionLogLabelIds : null,
 	});
+
+	// After crash/refresh restore, force a clean link paint pass so zoom + selection
+	// emphasis cannot leave the whole canvas looking washed out.
+	try {
+		refreshRenderedLinkStrokeWidthsForZoom();
+		if (linkSel) {
+			highlightLinks(computeHighlightState());
+		}
+	} catch {
+		/* non-critical */
+	}
 }
 
 export function clearSelectionState(_state: { selectedId?: string | null; highlightedSelections?: Array<any>; sidebarSelectedNode?: any } = {}) {
@@ -16795,12 +16806,14 @@ function highlightLinks(highlightState = null) {
 					.style('--fg-link-width', `${getScaledLinkStrokeWidth(baseWidth)}px`);
 			} else {
 				sel.classed('fg-link--depth-recessed', true);
-				const recessedLinkOpacity = isGrayLine ? 0.85 : 0.56;
-				const recessedStrokeOpacity = isGrayLine ? 0.85 : 0.46;
-				const recessedStrokeWidth = isGrayLine ? 0.95 : 0.82;
+				// Use stroke-opacity only — combining element opacity * stroke-opacity
+				// (previously ~0.56 * 0.46) made non-selected lines nearly invisible after
+				// session restore when a selection/highlight was restored.
+				const recessedStrokeOpacity = isGrayLine ? 0.88 : 0.78;
+				const recessedStrokeWidth = isGrayLine ? 1.35 : 1.55;
 				sel
 					.style('filter', 'none')
-					.style('opacity', recessedLinkOpacity)
+					.style('opacity', null)
 					.style('stroke-opacity', null)
 					.attr('stroke', getLinkColor(d))
 					.attr('data-fg-base-stroke-opacity', String(recessedStrokeOpacity))
@@ -16810,15 +16823,16 @@ function highlightLinks(highlightState = null) {
 					.style('--fg-link-width', `${getScaledLinkStrokeWidth(recessedStrokeWidth)}px`);
 			}
 		} else if (isTraceMode || isTraceLogMode) {
-			// Keep non-trace links visible during trace mode, just dimmed by ~20%
-			const baseStrokeOpacity = Number(defaultLinkOpacity) || 1;
+			// Keep non-trace links visible during trace mode, just lightly dimmed.
+			const baseStrokeOpacity = Number(defaultLinkOpacity(d)) || 1;
 			sel.classed('fg-link--depth-recessed', true);
 			sel
 				.style('filter', 'none')
-				.style('opacity', 0.8)
+				.style('opacity', null)
 				.style('stroke-opacity', null)
 				.attr('stroke', getLinkColor(d))
-				.attr('stroke-opacity', Math.max(0.18, baseStrokeOpacity * 0.8))
+				.attr('data-fg-base-stroke-opacity', String(Math.max(0.7, baseStrokeOpacity * 0.85)))
+				.attr('stroke-opacity', Math.max(0.7, baseStrokeOpacity * 0.85))
 				.attr('data-fg-base-stroke-width', String(getLinkBaseWidth(d)))
 				.attr('stroke-width', getScaledLinkStrokeWidth(getLinkBaseWidth(d)))
 				.style('--fg-link-width', getLinkWidthPx(d));

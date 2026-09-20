@@ -6646,7 +6646,8 @@ button[type='submit'],
 }
 .fg-huge-graph .fg-link {
 	pointer-events: none !important;
-	stroke-width: 0.5px !important;
+	/* Do not force 0.5px — that made restored/large graphs look nearly invisible.
+	   Keep data-driven widths (--fg-link-width / stroke-width attrs) and only skip hit-testing. */
 }
 
 .fg-route-unavailable-toast {
