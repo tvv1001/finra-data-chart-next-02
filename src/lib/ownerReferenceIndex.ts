@@ -10,11 +10,6 @@ import { canWriteToRedis, isRedisCacheOnly } from '@/lib/redisAvailability';
 // surface the scraped name/position/firm metadata instead of a bare "not found" response.
 
 const OWNER_REF_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
-const SHOULD_CHECK_LIVE_API = process.env.CHECK_LIVE_CRD_API === '1';
-
-function shouldCheckLiveApi(): boolean {
-	return SHOULD_CHECK_LIVE_API;
-}
 
 export type OwnerReference = {
 	crd: string;
@@ -153,43 +148,6 @@ async function hasLiveCrdDetail(kind: 'individual' | 'firm', crd: string): Promi
 		}
 	}
 
-	if (!shouldCheckLiveApi()) return false;
-
-	const urls = kind === 'individual'
-		? [
-			`https://api.brokercheck.finra.org/search/individual/${encodeURIComponent(crd)}?includePrevious=true&hl=true&wt=json`,
-			`https://api.adviserinfo.sec.gov/search/individual/${encodeURIComponent(crd)}?includePrevious=true&wt=json`,
-		]
-		: [
-			`https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(crd)}?hl=true&wt=json`,
-			`https://api.adviserinfo.sec.gov/search/firm/${encodeURIComponent(crd)}?hl=true&wt=json`,
-		];
-
-	for (const url of urls) {
-		try {
-			const response = await fetch(url, {
-				method: 'GET',
-				redirect: 'manual',
-				headers: {
-					'User-Agent': 'Mozilla/5.0 (compatible; finra-local-check/1.0)',
-					'Accept': 'application/json,text/html,application/xhtml+xml',
-				},
-			});
-			if (response.status < 200 || response.status >= 400) continue;
-			const text = await response.text();
-			if (!text || !text.trim()) continue;
-			if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) continue;
-			try {
-				const parsed = JSON.parse(text);
-				if (looksLikeLiveCrdPayload(kind, parsed)) return true;
-			} catch {
-				// Ignore non-JSON HTML/text responses; a valid live CRD needs a real payload.
-			}
-		} catch {
-			// Ignore network errors; this is a strict guard, but it must fail open only when the live endpoint is unavailable.
-		}
-	}
-
 	return false;
 }
 
@@ -301,39 +259,6 @@ export async function lookupOwnerReference(crd: string): Promise<OwnerReference 
 // CRDs and surface the scraped firm name/address metadata instead of a bare "not found" response.
 
 async function hasPublishedFirmDetailPage(crd: string): Promise<boolean> {
-	if (!shouldCheckLiveApi()) return false;
-
-	const urls = [
-		`https://api.brokercheck.finra.org/search/firm/${encodeURIComponent(crd)}?wt=json`,
-		`https://api.adviserinfo.sec.gov/search/firm/${encodeURIComponent(crd)}?wt=json`,
-		`https://brokercheck.finra.org/firm/summary/${encodeURIComponent(crd)}`,
-		`https://adviserinfo.sec.gov/firm/summary/${encodeURIComponent(crd)}`,
-	];
-
-	for (const url of urls) {
-		try {
-			const response = await fetch(url, {
-				method: 'GET',
-				redirect: 'manual',
-				headers: {
-					'User-Agent': 'Mozilla/5.0 (compatible; finra-local-check/1.0)',
-					'Accept': 'text/html,application/xhtml+xml,application/json',
-				},
-			});
-			if (response.status < 200 || response.status >= 400) continue;
-			const text = await response.text();
-			if (!text || !text.trim()) continue;
-			if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) continue;
-			try {
-				const parsed = JSON.parse(text);
-				if (looksLikeLiveCrdPayload('firm', parsed)) return true;
-			} catch {
-				// HTML summary pages are not enough to prove the CRD exists; a production live firm must have structured payload data.
-			}
-		} catch {
-			// best-effort external validation; ignore network failures and continue
-		}
-	}
 	return false;
 }
 
