@@ -4214,48 +4214,76 @@ function buildUndirectedAdjacencyList(links: Array<any>): Map<string, string[]> 
 	return adj;
 }
 
+function getBfsDistances(adj: Map<string, string[]>, start: string): Map<string, number> {
+	const distances = new Map<string, number>();
+	distances.set(start, 0);
+	const queue: string[] = [start];
+	while (queue.length > 0) {
+		const current = queue.shift()!;
+		const currentDist = distances.get(current)!;
+		for (const neighbor of adj.get(current) || []) {
+			if (!distances.has(neighbor)) {
+				distances.set(neighbor, currentDist + 1);
+				queue.push(neighbor);
+			}
+		}
+	}
+	return distances;
+}
+
 /**
- * Keep log terminals plus bridging intermediaries; drop dangling non-log leaves.
+ * Keep log terminals plus every node that bridges them:
+ * 1) any node on a shortest path between some pair of log terminals
+ * 2) any node adjacent to 2+ log terminals (direct shared firm/person bridge)
  *
- * Uses iterative leaf-peeling (O(V+E)) instead of all-pairs BFS. With hundreds of
- * log terminals the old shortest-path enumeration blocked the UI for seconds.
- * Peeling preserves alternate bridges (e.g. Merrill AND Goldman between two logged
- * people) because those nodes keep degree >= 2 in the residual core.
+ * Unlike a Steiner tree, this keeps alternate bridges (e.g. Merrill between two
+ * logged people) even when another route through Goldman / J.P. Morgan exists.
  */
 function collectLogBridgeConnectorIds(adj: Map<string, string[]>, terminalIds: Set<string>): Set<string> {
 	const keepIds = new Set<string>(terminalIds);
-	if (terminalIds.size === 0) return keepIds;
-	if (terminalIds.size === 1) {
-		// A single logged terminal: drop everything else (no bridge can exist).
-		return keepIds;
+	if (terminalIds.size <= 1) return keepIds;
+
+	const terminalArray = Array.from(terminalIds);
+	const distancesFrom = new Map<string, Map<string, number>>();
+	for (const terminalId of terminalArray) {
+		distancesFrom.set(terminalId, getBfsDistances(adj, terminalId));
 	}
 
-	const neighbors = new Map<string, Set<string>>();
-	for (const [id, list] of adj) {
-		neighbors.set(id, new Set(list));
-	}
+	for (let i = 0; i < terminalArray.length; i++) {
+		for (let j = i + 1; j < terminalArray.length; j++) {
+			const a = terminalArray[i];
+			const b = terminalArray[j];
+			const distA = distancesFrom.get(a)!;
+			const distB = distancesFrom.get(b)!;
+			const ab = distA.get(b);
+			if (ab === undefined) continue;
 
-	const queue: string[] = [];
-	for (const [id, ns] of neighbors) {
-		if (!terminalIds.has(id) && ns.size <= 1) queue.push(id);
-	}
-
-	while (queue.length) {
-		const id = queue.pop()!;
-		if (terminalIds.has(id) || !neighbors.has(id)) continue;
-		const ns = neighbors.get(id)!;
-		neighbors.delete(id);
-		for (const neighborId of ns) {
-			const neighborSet = neighbors.get(neighborId);
-			if (!neighborSet) continue;
-			neighborSet.delete(id);
-			if (!terminalIds.has(neighborId) && neighborSet.size <= 1) {
-				queue.push(neighborId);
+			for (const [nodeId, da] of distA) {
+				const db = distB.get(nodeId);
+				if (db !== undefined && da + db === ab) {
+					keepIds.add(nodeId);
+				}
 			}
 		}
 	}
 
-	for (const id of neighbors.keys()) keepIds.add(id);
+	// Direct multi-homed bridges: a firm/person linked to 2+ log terminals stays
+	// even when those terminals also have a shorter direct edge between them.
+	for (const [nodeId, neighbors] of adj) {
+		if (keepIds.has(nodeId)) continue;
+		let logNeighborCount = 0;
+		const seen = new Set<string>();
+		for (const neighborId of neighbors) {
+			if (!terminalIds.has(neighborId) || seen.has(neighborId)) continue;
+			seen.add(neighborId);
+			logNeighborCount += 1;
+			if (logNeighborCount >= 2) {
+				keepIds.add(nodeId);
+				break;
+			}
+		}
+	}
+
 	return keepIds;
 }
 
