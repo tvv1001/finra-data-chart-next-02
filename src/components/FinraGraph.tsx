@@ -1674,6 +1674,13 @@ export default function FinraGraph() {
 								<li>Manage visible nodes within the log panel.</li>
 								<li>Explore within the Dashboard to search for all of the possible connections.</li>
 							</ul>
+							<br>
+								<a
+								href='https://finra-sec-data-visualizer-canvas.vercel.app/'
+								target='_blank'
+								rel='noopener noreferrer'>
+								Canvas version of the Node Graph (improved performance)
+							</a>
 							<br />
 							<a
 								href='https://github.com/tvv1001'
